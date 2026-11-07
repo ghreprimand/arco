@@ -127,6 +127,7 @@ export const clusters: Section[] = [
   of the candidate list.
   </p>
   <h4 className="manual-sub">Saving and moving a cluster</h4>
+  <p>Disconnected broadcasts keep the draft, attachments and chosen recipients for retry.</p>
   <p>
     MEMBERS →{' '}
   <Code>SAVE STATE</Code> captures the cluster configuration, plan, and

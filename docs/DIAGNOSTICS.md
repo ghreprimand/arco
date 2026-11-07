@@ -169,6 +169,8 @@ service mode), suitable for an issue or another agent. Operator-triggered only
 | Shared types | `SupportBundle` / `SupportBundleRuntime` / `SupportBundleResponse` (`shared/src/protocol/opsDiagnostics.ts`) |
 | Client button + copy | `client/src/components/DiagnosticsTab.tsx` |
 
+Windows drive paths and UNC paths use the same basename placeholders as POSIX paths, including paths with spaces.
+
 ### Shape
 
 `buildSupportBundle()` returns `{ json: SupportBundle, text }`. The endpoint

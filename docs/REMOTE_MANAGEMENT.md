@@ -207,9 +207,13 @@ user id (`id -u` on that Mac); without it the hub runs nothing for that host. `n
 command runner. SSH commands are not signed by the agent; access depends on the
 configured private-network SSH identity and the fixed command allowlist.
 
+SSH lifecycle commands use the configured command deadline after connecting, terminate a timed-out local SSH process, and cap captured stdout and stderr at 8,000 characters each.
+
 ---
 
 ## 8. Mobile management console
+
+Console refresh preserves unsent broadcasts, recipient selections and question answers. A completed chat send clears only the submitted draft; text typed while it was pending stays in the composer.
 
 The console is mobile-first and provides quick controls from a phone without exposing the desktop workbench. One-handed layout, large tap targets, no hover-only interactions, no dense tab rows, fast over
 mobile networks, **current question/action always above secondary detail**, expandable sections for

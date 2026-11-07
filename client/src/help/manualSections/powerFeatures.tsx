@@ -397,6 +397,7 @@ export const powerFeatures: Section[] = [
   title: 'GitHub browser',
   body: (
   <>
+  <p>Failed or invalid detail reads show an error instead of opening a broken view. Return to the list and reopen the item to retry.</p>
   <p>
   The full-screen GitHub browser lets you browse repos, PRs, issues and Actions
   without leaving Arco.
@@ -664,6 +665,7 @@ export const powerFeatures: Section[] = [
   <li>A standalone workflow opts in with the <Code>◎ REMOTE: OFF</Code> / <Code>◉ REMOTE</Code> toggle on the composer.</li>
   <li>A cluster has one <Code>◉ REMOTE</Code> switch in its header. It shares the cluster and every member as one unit, whatever the member-level flags say.</li>
   </ul>
+  <p>Console refresh preserves unsent broadcast text, recipient selections and question answers. Text typed during a pending chat send stays unsent after the earlier message succeeds. SSH lifecycle commands have a completion deadline and bounded captured output.</p>
   <Sub>What the phone console can do</Sub>
   <ul>
   <li>Ongoing chat with a workflow.</li>

@@ -90,7 +90,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           stop / handoff / compact / fold / queue / parked-question controls.
           When off, it's invisible to the hub and silent: no remote control, no
           notifications.
-        </p>
+         Console refresh keeps unsent question answers. A completed chat send preserves newer text. SSH lifecycle commands have a completion deadline and bounded captured output.</p>
         <p>
           Only shown while this instance is connected to the hub (the header chip shows <C>HUB</C>). The header's <C>N monitored</C> count is the number of
           workflows currently opted in. Cluster members instead follow the

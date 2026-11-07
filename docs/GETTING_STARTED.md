@@ -35,7 +35,7 @@ Home greets the operator by the optional Welcome name and shows connected
 providers, running work, waiting questions, and the installed version. The three
 start tiles open chat, session, and cluster creators. **More ways to start**
 offers Genesis. A new user sees a **Getting started** card until a provider,
-project folder, and first conversation (any chat, session or cluster) are available; **HIDE** removes the card.
+project folder, and first conversation (any chat, session or cluster) are available; **HIDE** keeps the card hidden on this browser. Without browser storage, Home still works and HIDE applies until the Home view reloads.
 
 **Continue** lists open work, with questions waiting for an answer first and the
 current step for running work. Each Continue card shows a status word: Working, Needs you, New reply (a turn finished while you were elsewhere) or Idle. Tabs show a status dot; hover over a tab for its status. Idle has no dot. **Resume** returns to a tab. Two rows show at

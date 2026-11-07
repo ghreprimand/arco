@@ -980,8 +980,8 @@ export function useWebSocket() {
     attachments?: string[],
     clientMessageId?: string,
     recipientWorkflowIds?: string[],
-  ) => {
-    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+  ): boolean => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return false;
     // Only include recipientWorkflowIds when it's a non-empty subset; server
     // treats omitted as "all members" (preserves pre-existing wire shape).
     const includeRecipients = Array.isArray(recipientWorkflowIds) && recipientWorkflowIds.length > 0;
@@ -993,6 +993,7 @@ export function useWebSocket() {
       ...(clientMessageId ? { clientMessageId } : {}),
       ...(includeRecipients ? { recipientWorkflowIds } : {}),
     }));
+    return true;
   }, []);
 
   // Operator-driven peer_send. Fires from the per-member chat composer to

@@ -198,7 +198,7 @@ review_artifact_ready       (persisted; carries verdict + artifact name)
 - The Review tab reads the artifact body lazily via `GET /api/workflows/artifact?path=<cwd>&workflowId=<wfid>&name=<artifactName>`.
 - HISTORY tab: clicking a `REVIEW <verdict>` row opens the artifact in `FileViewerModal` directly (path = `<cwd>/.arco/workflows/<wfid>/artifacts/<artifactName>`, with `fallback={cwd, workflowId}` for the artifact-dir retry). `HistoryEventEntry.reviewArtifactName` carries the filename; rows produced from a failed review (no artifact written) are non-clickable.
 
-The Review tab renders one row per review with the reviewer config, verdict badge, and a `↳ SEND TO AGENT` button that pre-fills the composer with the review body.
+The Review tab renders one row per review with the reviewer config, verdict badge, and a `↳ SEND TO AGENT` button that appends the review body to the composer, preserving any unsent draft.
 
 ### Inline review findings
 

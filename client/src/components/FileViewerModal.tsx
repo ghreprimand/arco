@@ -84,6 +84,8 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
   // is the last-saved/loaded baseline so the dirty flag is a simple compare.
   const [editing, setEditing] = useState(false);
   const [buffer, setBuffer] = useState('');
+  const currentBuffer = useRef(buffer);
+  currentBuffer.current = buffer;
   const [loadedText, setLoadedText] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -184,10 +186,10 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
         setSaveError(body.error || `save failed (${r.status})`);
         return;
       }
-      // Success: new baseline, flip back to Locked, keep the buffer shown.
+      // The response acknowledges the submitted buffer, not later edits.
       setLoadedText(buffer);
       setPayload((p) => (p && p.type === 'text' ? { ...p, content: buffer, size: new Blob([buffer]).size } : p));
-      setEditing(false);
+      setEditing(currentBuffer.current !== buffer);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : String(e));
     } finally {

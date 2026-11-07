@@ -1,3 +1,4 @@
+import { checkedJson } from '../../utils/checkedJson';
 import { useEffect, useState } from 'react';
 import type { View, GhWorkflowRun, GhWorkflowJob, GhCheckRun } from './types';
 import {
@@ -54,16 +55,17 @@ function RunView({ view, onBack }: { view: Extract<View, { kind: 'run' }>; onBac
   const base = `/api/github/repos/${view.owner}/${view.name}/runs/${view.id}`;
 
   const reload = () => {
-    fetch(base).then((r) => r.json()).then(setRun).catch((e) => setError(String(e)));
-    fetch(`${base}/jobs`).then((r) => r.json()).then((d) => setJobs(d.jobs ?? [])).catch(() => setJobs([]));
+    setError(null);
+    fetch(base).then((r) => checkedJson<GhWorkflowRun>(r, d => !!d?.actor && typeof d.status === 'string')).then(setRun).catch((e) => setError(String(e)));
+    fetch(`${base}/jobs`).then((r) => checkedJson<{ jobs: GhWorkflowJob[] }>(r, d => Array.isArray(d?.jobs))).then((d) => setJobs(d.jobs ?? [])).catch((e) => { setJobs([]); setError(String(e)); });
   };
   useEffect(reload, [base]);
 
   // Active runs tick fast; completed runs are frozen so stop polling.
   const runActive = !!run && run.status !== 'completed';
   useVisiblePolling(runActive, 8_000, () => {
-    fetch(base).then((r) => r.ok ? r.json() : null).then((d) => { if (d) setRun(d); }).catch(() => {});
-    fetch(`${base}/jobs`).then((r) => r.json()).then((d) => setJobs(d.jobs ?? [])).catch(() => {});
+    fetch(base).then((r) => checkedJson<GhWorkflowRun>(r, d => !!d?.actor && typeof d.status === 'string')).then((d) => { if (d) setRun(d); }).catch(() => {});
+    fetch(`${base}/jobs`).then((r) => checkedJson<{ jobs: GhWorkflowJob[] }>(r, d => Array.isArray(d?.jobs))).then((d) => setJobs(d.jobs ?? [])).catch(() => {});
   });
 
   async function rerun() {

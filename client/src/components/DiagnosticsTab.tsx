@@ -1,3 +1,4 @@
+import { checkedJson } from '../utils/checkedJson';
 import { useCallback, useEffect, useState } from 'react';
 import type {
   DiagnosticCheck,
@@ -100,7 +101,7 @@ export function DiagnosticsTab() {
     setLoading(true);
     setError(null);
     fetch('/api/diagnostics')
-      .then((r) => r.json() as Promise<DiagnosticsReport>)
+      .then((r) => checkedJson<DiagnosticsReport>(r, d => Array.isArray(d?.groups) && d.groups.every(g => Array.isArray(g?.checks))))
       .then((data) => setReport(data))
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
@@ -110,7 +111,7 @@ export function DiagnosticsTab() {
     setBundleState('working');
     setFallback(null);
     fetch('/api/diagnostics/support-bundle')
-      .then((r) => r.json() as Promise<SupportBundleResponse>)
+      .then((r) => checkedJson<SupportBundleResponse>(r, d => typeof d?.text === 'string'))
       .then(async (data) => {
         const text = data.text;
         try {

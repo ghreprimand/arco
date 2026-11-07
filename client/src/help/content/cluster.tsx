@@ -17,7 +17,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Share cluster remotely',
     body: (
       <>
-        <p>Shares the <strong>whole cluster</strong> with the phone console while the management hub is connected. Every member becomes visible and controllable there, grouped under one cluster card with its mail, plan and board. <strong>Off by default.</strong></p>
+        <p>Shares the <strong>whole cluster</strong> with the phone console while the management hub is connected. Every member becomes visible and controllable there, grouped under one cluster card with its mail, plan and board. <strong>Off by default.</strong> Console refresh keeps unsent broadcasts, recipient choices and question answers. A completed chat send preserves newer text.</p>
         <p>While the cluster is shared, each member&apos;s own <C>REMOTE</C> chip is ignored: this switch is the only control. Changes reach the phone at once.</p>
       </>
     ),
@@ -172,7 +172,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         to choose one or several members (<C>EVERYONE</C> selects all). Idle
         members start a fresh turn; busy members receive it as a follow-up.
         The toast reads <em>X of N members</em> to confirm scope. After a
-        message to several members the chip returns to the member in view.
+        message to several members the chip returns to the member in view. If disconnected, the draft, attachments and recipient selection remain for retry.
       </p>
     ),
     manualSection: 'cluster-tab',
@@ -1287,7 +1287,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.right-panel.tab.usage': {
     title: 'USAGE',
-    body: <p>Token usage per provider and day for every conversation saved in the cluster&apos;s project folder, so all members are included. MEASURE STORAGE measures that folder&apos;s saved state and MEASURE ARCO FOLDER measures Arco&apos;s own folder; neither changes anything.</p>,
+    body: <p>Token usage per provider and day for every conversation saved in the cluster&apos;s project folder, so all members are included. MEASURE STORAGE measures that folder&apos;s saved state and MEASURE ARCO FOLDER measures Arco&apos;s own folder; neither changes anything. Failed or invalid usage reads show an error; reopen USAGE to retry.</p>,
     manualSection: 'cluster-tab',
   },
   'cluster.right-panel.member-in-view': {

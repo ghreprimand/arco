@@ -98,7 +98,7 @@ interface Props {
     attachments?: string[],
     clientMessageId?: string,
     recipientWorkflowIds?: string[],
-  ) => void;
+  ) => boolean;
   onSubscribe?: (clusterId: string) => void;
   // Slice 6a — operator renamed the cluster from the Members header.
   onRenameCluster?: (clusterId: string, name: string) => void;
@@ -634,7 +634,7 @@ export function ClusterTab({
     const targetSet = new Set(sub);
     const targetMembers = cluster.members.filter((m) => targetSet.has(m.workflowId));
     const queued = targetMembers.filter((m) => m.status !== 'idle').length;
-    onBroadcast(clusterId, content, attachments, clientMessageId, recipientList);
+    if (!onBroadcast(clusterId, content, attachments, clientMessageId, recipientList)) return false;
     const total = cluster.members.length;
     const scopeLabel = recipientList ? `${sub.length} of ${total}` : `all ${total}`;
     const toastText = queued === 0

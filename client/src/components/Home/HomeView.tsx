@@ -21,6 +21,14 @@ import { turnStep } from '../../utils/turnStep';
 import { anyPrimaryProviderConnected } from '../../utils/startupGate';
 import { useKeepInWindow } from '../../layout/keepInWindow';
 
+function readHomeMarker(key: string): boolean {
+  try { return localStorage.getItem(key) === '1'; } catch { return false; }
+}
+
+function writeHomeMarker(key: string): void {
+  try { localStorage.setItem(key, '1'); } catch { /* Applies in this view until reload. */ }
+}
+
 const availableProjects = (projects: HomeProject[]) => projects.filter(p => p.exists && !p.archived).length;
 
 // Open work shows at most this many rows of cards; every project group shows
@@ -45,17 +53,17 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
 
   const [locationOpen, setLocationOpen] = useState(false);
   const [location, setLocation] = useState('');
-  const [hasChatted, setHasChatted] = useState(() => localStorage.getItem('arco-home-started-chat') === '1');
+  const [hasChatted, setHasChatted] = useState(() => readHomeMarker('arco-home-started-chat'));
   const [savedChats, setSavedChats] = useState(0);
   const [savedClusters, setSavedClusters] = useState(0);
-  const [guideHidden, setGuideHidden] = useState(() => localStorage.getItem('arco-home-guide-hidden') === '1');
+  const [guideHidden, setGuideHidden] = useState(() => readHomeMarker('arco-home-guide-hidden'));
   useEffect(() => {
     let alive = true;
     void fetch('/api/chats').then(r => r.ok ? r.json() : null).then(body => {
       if (alive && Array.isArray(body?.chats)) {
         const n = body.chats.filter((chat: { config?: { voiceOperator?: boolean } }) => !chat.config?.voiceOperator).length;
         setSavedChats(n);
-        if (n > 0) { localStorage.setItem('arco-home-started-chat', '1'); setHasChatted(true); }
+        if (n > 0) { writeHomeMarker('arco-home-started-chat'); setHasChatted(true); }
       }
     }).catch(() => {});
     void fetch('/api/clusters').then(r => r.ok ? r.json() : null).then(body => {
@@ -137,7 +145,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
   const chatOpen = work.some(item => item.kind === 'chat');
   const savedSessions = Object.values(activity).filter(at => at > 0).length;
   const started = conversationStarted({ openWork: work.length, savedChats, savedClusters, savedSessions, remembered: hasChatted });
-  useEffect(() => { if (chatOpen && !hasChatted) { localStorage.setItem('arco-home-started-chat', '1'); setHasChatted(true); } }, [chatOpen, hasChatted]);
+  useEffect(() => { if (chatOpen && !hasChatted) { writeHomeMarker('arco-home-started-chat'); setHasChatted(true); } }, [chatOpen, hasChatted]);
   const gettingStarted = projects !== null && !guideHidden && (!providerReady || availableProjects(projects) === 0 || !started);
   const operatorName = settings?.operatorName?.trim();
   const hour = new Date().getHours();
@@ -223,7 +231,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
         <HomeStatus running={running} waiting={waiting} />
       </header>
       {startControls}
-      {gettingStarted && <section className="home-getting-started" aria-label="Getting started" data-help="home.getting-started"><button type="button" className="home-guide-hide" aria-label="Hide the getting started guide" data-help="home.getting-started-hide" onClick={() => { localStorage.setItem('arco-home-guide-hidden', '1'); setGuideHidden(true); }}>HIDE</button><h2>Getting started</h2><p>Three steps to your first conversation.</p><ol>
+      {gettingStarted && <section className="home-getting-started" aria-label="Getting started" data-help="home.getting-started"><button type="button" className="home-guide-hide" aria-label="Hide the getting started guide" data-help="home.getting-started-hide" onClick={() => { writeHomeMarker('arco-home-guide-hidden'); setGuideHidden(true); }}>HIDE</button><h2>Getting started</h2><p>Three steps to your first conversation.</p><ol>
         <li><span>{providerReady ? '✓' : '1'}</span><a href="#connections">Connect a provider</a></li>
         <li><span>{availableCount ? '✓' : '2'}</span><button type="button" onClick={() => setLocationOpen(true)}>Add a project folder</button></li>
         <li><span>{started ? '✓' : '3'}</span><button type="button" onClick={() => start({ mode: 'chat' })}>Start a conversation</button></li>

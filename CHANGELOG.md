@@ -51,6 +51,9 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Keep unsent cluster broadcasts, newer file edits, Genesis seed edits, review drafts and phone-console drafts through sends, saves and refreshes.
+- Keep Home usable when browser storage is unavailable, show failed detail reads as errors, and bound SSH lifecycle commands after connection.
+- Diagnostics support-bundle formatting handles Windows drive and UNC paths with spaces.
 - Server cluster creation and add-existing requests refuse existing Cursor sessions that started without cluster peer tools; use ADD FRESH for Cursor members.
 
 - Local HTTP generation bounds stalled response headers, and completed local streams settle at their done marker. WebSearch and model discovery keep cancellation active while reading JSON.

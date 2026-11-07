@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import type { WorkflowConfig } from '@arco/shared';
 import { useAppStore, type JobState, type ReviewEntry } from '../../stores/appStore';
+import { readDraft } from '../../stores/draftStore';
 import { SpawnDialog } from '../SpawnDialog';
 import { FileViewerModal } from '../FileViewerModal';
 import { EmptyState } from './FilesTab';
@@ -271,7 +272,8 @@ function SendReviewToAgent({
       '',
       'Please address the concerns above.',
     ].join('\n');
-    setDraft(workflowId, message);
+    const existing = readDraft(workflowId);
+    setDraft(workflowId, existing ? `${existing}\n\n${message}` : message);
     setSent(true);
     setTimeout(() => setSent(false), 1500);
   };

@@ -61,7 +61,8 @@ export interface HubOptions {
   sshExec?: SshExec;
 }
 
-export type SshExec = (spec: CommandSpec) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
+export interface SshExecResult { exitCode: number; stdout: string; stderr: string; timedOut?: boolean }
+export type SshExec = (spec: CommandSpec, timeoutMs?: number) => Promise<SshExecResult>;
 
 export interface LifecycleDispatch {
   ok: boolean;
@@ -73,15 +74,26 @@ export interface LifecycleDispatch {
 }
 
 // Default SSH runner: spawn the rendered `ssh …` argv, capture bounded output.
-function defaultSshExec(spec: CommandSpec): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+export function defaultSshExec(spec: CommandSpec, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<SshExecResult> {
   return new Promise((resolve) => {
     let stdout = '';
     let stderr = '';
+    let settled = false;
     const child = spawn(spec.cmd, spec.args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    child.stdout.on('data', (d) => { stdout += d.toString(); });
-    child.stderr.on('data', (d) => { stderr += d.toString(); });
-    child.on('error', (e) => resolve({ exitCode: -1, stdout, stderr: `${stderr}${String(e)}`.slice(0, 8000) }));
-    child.on('close', (code) => resolve({ exitCode: code ?? -1, stdout: stdout.slice(0, 8000), stderr: stderr.slice(0, 8000) }));
+    const finish = (exitCode: number, timedOut = false) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ exitCode, stdout, stderr, ...(timedOut ? { timedOut: true } : {}) });
+    };
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      finish(-1, true);
+    }, timeoutMs);
+    child.stdout.on('data', (d) => { stdout = (stdout + d.toString()).slice(0, 8000); });
+    child.stderr.on('data', (d) => { stderr = (stderr + d.toString()).slice(0, 8000); });
+    child.on('error', (e) => { stderr = (stderr + String(e)).slice(0, 8000); finish(-1); });
+    child.on('close', (code) => finish(code ?? -1));
   });
 }
 
@@ -279,7 +291,13 @@ export function createHub(opts: HubOptions): Hub {
       return { ok: false, error: 'instance-offline', via: 'ssh' }; // unsupported on the target platform
     }
     log(`⤳ ${instanceId}: ${cmd} via ssh ${target.host} (agent offline)`);
-    const r = await sshExec(spec);
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    const r = await Promise.race([
+      sshExec(spec, commandTimeoutMs),
+      new Promise<SshExecResult>((resolve) => {
+        deadline = setTimeout(() => resolve({ exitCode: -1, stdout: '', stderr: 'SSH command timed out', timedOut: true }), commandTimeoutMs);
+      }),
+    ]).finally(() => clearTimeout(deadline));
     const result: LifecycleResult = {
       cmd,
       instanceId,
@@ -290,7 +308,7 @@ export function createHub(opts: HubOptions): Hub {
       stdout: r.stdout,
       stderr: r.stderr,
     };
-    return { ok: result.ok, result, via: 'ssh', ...(result.ok ? {} : { error: 'ssh-failed' as const }) };
+    return { ok: result.ok, result, via: 'ssh', ...(result.ok ? {} : { error: r.timedOut ? 'timeout' as const : 'ssh-failed' as const }) };
   }
 
   async function sendLifecycleCommand(

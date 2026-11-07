@@ -1,3 +1,4 @@
+import { checkedJson } from '../../utils/checkedJson';
 import { useEffect, useMemo, useState } from 'react';
 import type { View, GhIssue, GhIssueShort, GhComment } from './types';
 import {
@@ -111,15 +112,16 @@ function IssueView({ view, onBack }: { view: Extract<View, { kind: 'issue' }>; o
   const base = `/api/github/repos/${view.owner}/${view.name}/issues/${view.number}`;
 
   const reload = () => {
-    fetch(base).then((r) => r.json()).then(setIssue).catch((e) => setError(String(e)));
-    fetch(`${base}/comments`).then((r) => r.json()).then(setComments).catch(() => setComments([]));
+    setError(null);
+    fetch(base).then((r) => checkedJson<GhIssue>(r, d => !!d?.user && typeof d.state === 'string' && Array.isArray(d.labels))).then(setIssue).catch((e) => setError(String(e)));
+    fetch(`${base}/comments`).then((r) => checkedJson<GhComment[]>(r, Array.isArray)).then(setComments).catch((e) => { setComments([]); setError(String(e)); });
   };
   useEffect(reload, [base]);
 
   // Live refresh for open issues (collaborator edits, new comments).
   useVisiblePolling(!!issue && issue.state === 'open', 30_000, () => {
-    fetch(base).then((r) => r.ok ? r.json() : null).then((i) => { if (i) setIssue(i); }).catch(() => {});
-    fetch(`${base}/comments`).then((r) => r.json()).then(setComments).catch(() => {});
+    fetch(base).then((r) => checkedJson<GhIssue>(r, d => !!d?.user && typeof d.state === 'string' && Array.isArray(d.labels))).then((i) => { if (i) setIssue(i); }).catch(() => {});
+    fetch(`${base}/comments`).then((r) => checkedJson<GhComment[]>(r, Array.isArray)).then(setComments).catch(() => {});
   });
 
   async function postComment() {

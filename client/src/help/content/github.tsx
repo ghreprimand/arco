@@ -9,11 +9,11 @@ export const githubHelp: Record<string, HelpEntry> = {
   },
   'github.tab.pulls': {
     title: 'Pull requests',
-    body: <p>Open PRs for this repo. Click any to inspect title, body, and diff.</p>,
+    body: <p>Open PRs for this repo. Click any to inspect title, body, and diff. Failed or invalid detail reads show an error. Return to the list and reopen the item to retry.</p>,
   },
   'github.tab.issues': {
     title: 'Issues',
-    body: <p>Open issues for this repo.</p>,
+    body: <p>Open issues for this repo. Failed or invalid detail reads show an error. Return to the list and reopen the item to retry.</p>,
   },
   'github.tab.runs': {
     title: 'Actions runs',
@@ -21,7 +21,7 @@ export const githubHelp: Record<string, HelpEntry> = {
       <p>
         Recent GitHub Actions workflow runs: status, jobs, logs. Useful for
         checking CI status without tabbing to GitHub.
-      </p>
+       Failed or invalid detail reads show an error. Return to the list and reopen the item to retry.</p>
     ),
   },
   'github.tab.branches': {

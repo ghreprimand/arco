@@ -91,7 +91,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'home.getting-started-hide': {
     title: 'Hide the getting started guide',
-    body: <p>Hides this card on this browser and keeps it hidden. Nothing else changes.</p>,
+    body: <p>Hides this card on this browser. If browser storage is unavailable, it stays hidden until this view reloads.</p>,
     manualSection: 'home',
   },
   'home.locations': {
@@ -1702,7 +1702,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         writable in a CodeMirror editor; a <strong>SAVE</strong> button appears
         and an <strong>● UNSAVED</strong> marker shows once you've typed. Save
         writes the file (path-escape guarded server-side) and flips back to
-        Locked; <strong>LOCK</strong> discards edits and returns to the viewer.
+        Locked if no newer edits were typed while saving. Newer edits stay visible and unsaved; <strong>LOCK</strong> discards edits and returns to the viewer.
         Closing with unsaved edits asks first. Only shown for text files opened
         from the FILES explorer.
       </p>
@@ -1828,7 +1828,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         deterministic, read-only check (a version flag, a directory round-trip, a
         daemon ping); nothing here mutates state. Probes run concurrently and are
         individually time-bounded, so one slow binary can't hang the panel.
-      </p>
+       Failed or invalid reads show an error. <C>↻ REFRESH</C> retries.</p>
     ),
     manualSection: 'diagnostics',
   },
@@ -1854,7 +1854,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         (the diagnostics report, Arco version, git rev, platform and runtime)
         to the clipboard, ready to drop in an issue or hand to another agent.
         Built from a safe-field <em>allowlist</em>: home paths collapse to{' '}
-        <C>~</C> and a secret-scrub strips any token-shaped string. It contains{' '}
+        <C>~</C>, other absolute paths (including Windows drive and UNC paths) use basename placeholders, and a secret-scrub strips any token-shaped string. It contains{' '}
         <strong>no</strong> tokens, env secrets, or private paths. If the
         clipboard is blocked, the text appears in a selectable box to copy by
         hand.
@@ -1885,7 +1885,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         probe + fit scoring). All read-only; one failing subsystem
         degrades to a <strong>WARN</strong> sub-report rather than blanking the
         panel.
-      </p>
+       Failed or invalid reads show an error. <C>↻ REFRESH</C> retries.</p>
     ),
     manualSection: 'diagnostics',
   },

@@ -1,3 +1,4 @@
+import { checkedJson } from '../../utils/checkedJson';
 import { useEffect, useState } from 'react';
 import type { View, GhPull, GhPullShort, GhPullFile, GhComment, GhCheckRun } from './types';
 import {
@@ -65,7 +66,7 @@ function PullView({ view, onBack }: { view: Extract<View, { kind: 'pull' }>; onB
     setPull(null);
     setError(null);
     fetch(base)
-      .then((r) => r.ok ? r.json() : r.json().then((j) => Promise.reject(j.error || r.statusText)))
+      .then((r) => checkedJson<GhPull>(r, d => !!d?.head && !!d.base && !!d.user))
       .then(setPull)
       .catch((e) => setError(String(e)));
   }, [base]);
@@ -82,15 +83,15 @@ function PullView({ view, onBack }: { view: Extract<View, { kind: 'pull' }>; onB
   }, [pull, base, checks]);
 
   useEffect(() => {
-    if (tab === 'files' && files === null) fetch(`${base}/files`).then((r) => r.json()).then(setFiles).catch(() => setFiles([]));
-    if (tab === 'comments' && comments === null) fetch(`${base}/comments`).then((r) => r.json()).then(setComments).catch(() => setComments([]));
+    if (tab === 'files' && files === null) fetch(`${base}/files`).then((r) => checkedJson<GhPullFile[]>(r, Array.isArray)).then(setFiles).catch((e) => { setFiles([]); setError(String(e)); });
+    if (tab === 'comments' && comments === null) fetch(`${base}/comments`).then((r) => checkedJson<GhComment[]>(r, Array.isArray)).then(setComments).catch((e) => { setComments([]); setError(String(e)); });
   }, [tab, base, files, comments]);
 
   // Live refresh open PRs: refetch pull + head-sha checks, plus comments if
   // currently viewed. Skip closed/merged PRs and pause on hidden tabs.
   const pollEnabled = !!pull && pull.state === 'open' && !pull.merged;
   useVisiblePolling(pollEnabled, 20_000, () => {
-    fetch(base).then((r) => r.ok ? r.json() : null).then((p) => { if (p) setPull(p); }).catch(() => {});
+    fetch(base).then((r) => checkedJson<GhPull>(r, d => !!d?.head && !!d.base && !!d.user)).then((p) => { if (p) setPull(p); }).catch(() => {});
     if (pull) {
       fetch(`${base}/checks?ref=${pull.head.sha}`)
         .then((r) => r.ok ? r.json() : { check_runs: [] })
@@ -98,7 +99,7 @@ function PullView({ view, onBack }: { view: Extract<View, { kind: 'pull' }>; onB
         .catch(() => {});
     }
     if (tab === 'comments') {
-      fetch(`${base}/comments`).then((r) => r.json()).then(setComments).catch(() => {});
+      fetch(`${base}/comments`).then((r) => checkedJson<GhComment[]>(r, Array.isArray)).then(setComments).catch(() => {});
     }
   });
 
@@ -115,7 +116,7 @@ function PullView({ view, onBack }: { view: Extract<View, { kind: 'pull' }>; onB
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || res.statusText);
       setActionStatus({ kind: 'ok', message: `Merged PR #${pull.number} (${method}${body.sha ? ` → ${String(body.sha).slice(0, 7)}` : ''}).` });
-      const p = await fetch(base).then((r) => r.json());
+      const p = await fetch(base).then((r) => checkedJson<GhPull>(r, d => !!d?.head && !!d.base && !!d.user));
       setPull(p);
     } catch (e) {
       setActionStatus({ kind: 'error', message: `Merge failed: ${e instanceof Error ? e.message : String(e)}` });

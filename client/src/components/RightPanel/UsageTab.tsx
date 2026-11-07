@@ -1,3 +1,4 @@
+import { checkedJson } from '../../utils/checkedJson';
 import { useEffect, useMemo, useState } from 'react';
 import type { JobState } from '../../stores/appStore';
 import { useAppStore } from '../../stores/appStore';
@@ -55,7 +56,7 @@ function UsageContent({ cwd }: { cwd: string | undefined }) {
     setError(null);
     const q = new URLSearchParams({ path: cwd });
     fetch(`/api/usage-stats?${q.toString()}`)
-      .then((r) => r.json())
+      .then((r) => checkedJson<UsageStatsResponse>(r, d => !!d?.perProvider && typeof d.perProvider === 'object' && Array.isArray(d.days) && !!d.grandTotals))
       .then((body: UsageStatsResponse) => {
         if (cancelled) return;
         setData(body);

@@ -72,7 +72,7 @@ home is `WorkflowConfig.genesisSeed` - it rides the client-persisted config and 
   narrative fields + stack/scope/GitHub), the advisory readiness + next-field prompt, the
   staged field assistant controls, and the **CREATE & SCAFFOLD** action. Shown only
   while the workflow is in its scratch dir; it disappears once a real cwd is bound. Field edits
-  debounce a `genesis_seed_update`.
+  debounce a `genesis_seed_update`. Pending edits are sent when leaving GENESIS and before scaffolding.
 
 **Field assist (`genesis_assist_request`):** the Genesis tab can ask the workflow's current
 primary agent to propose one field at a time. Narrative fields get **IMPROVE / WRITE / EXPAND**;
@@ -139,6 +139,8 @@ disk reads** (`server/src/genesis/creative.ts`):
 Arming seeds a `creative` seed (preserving prior creative-seed fields on re-arm; a working title
 defaults to the project name). Disarming clears `creative` + `projectContext` but keeps the idea
 fields, so the engine stops injecting the block.
+
+Seed controls are temporarily disabled while CREATE ALTERNATIVE saves the public-project choice, keeping the confirmed seed stable.
 
 **Creative scaffold (`handleCreativeScaffold`):** the `genesis_scaffold` handler branches on
 `seed.creative`. Instead of creating + rebinding a new project dir, it writes the seed docs into a

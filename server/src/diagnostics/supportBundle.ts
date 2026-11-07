@@ -65,19 +65,11 @@ export function redactPaths(input: string): string {
     out = out.replace(new RegExp(escaped, 'g'), '~');
   }
 
-  // 2. Any remaining absolute POSIX path (a `/` followed by at least one
-  //    non-space path segment) → `<path>/<basename>`. This catches private cwds
-  //    and other absolute paths that aren't under home. We keep the basename so
-  //    the message stays useful ("…/events.jsonl") without exposing the tree.
-  //    A bare "/" or a path with no further segment is left alone.
-  //
-  //    Crucially, a path immediately preceded by `~` (i.e. the home-collapsed
-  //    `~/.arco/…` from step 1) is left INTACT — its private prefix is already
-  //    gone, and reducing it would mangle `~/.arco` into `~<path>/…`. The
-  //    `(?<![~\w])` lookbehind also skips a `/` that's part of a word like
-  //    "and/or" — we only reduce a `/` that begins or follows whitespace/quotes.
-  out = out.replace(/(?<![~\w])\/[^\s'"`)]*[^\s'"`)/]/g, (match) => {
-    const base = match.slice(match.lastIndexOf('/') + 1);
+  // Handle Windows drive/UNC forms and POSIX paths in one pass so a
+  // generated placeholder is never interpreted as another input path.
+  out = out.replace(/(?<![~\w])(?:(?:[A-Za-z]:[\\/]|\\\\)[^\r\n"<>|]*|\/[^\s'"`)]*[^\s'"`)/])/g, (match) => {
+    const normalized = match.trimEnd().replace(/\\/g, '/');
+    const base = normalized.slice(normalized.lastIndexOf('/') + 1);
     return base ? `<path>/${base}` : '<path>';
   });
 

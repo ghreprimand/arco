@@ -88,7 +88,7 @@ async def main():
           receive({type:'cluster_state',clusterId:'cluster-a',state:{clusterId:'cluster-a',cwd:'/projects/fixture',createdAt:'',taskBoardMode:'none',taskBoardAttached:false,mailboxDepth:{'worker-a':2},members:window.members,idleNudgerEnabled:false,remoteEnabled:true}},{wsRef:{current:null},scheduleReconnect:()=>{}});
           const root=createRoot(document.getElementById('fixture'));
           window.root=root;
-          window.show=(clusterId='cluster-a')=>root.render(React.createElement('div',{style:{display:'flex',width:'100%',height:'850px'}},React.createElement(ClusterTab,{key:clusterId,clusterId,onSendToMember:(...a)=>{sent.push(a);return true},onBroadcast:(...a)=>{broadcasts.push(a)},onSetClusterPlan:(...a)=>planWrites.push(a),onAttachClusterPlan:()=>{},onAttachPlanToMember:()=>{},onRecalibrateMember:(id)=>recalibrated.push(id),onCancelMember:()=>{},onCancelQueuedForMember:()=>{},onUpload:async()=>null,onSetRemote:()=>{},onSetGates:()=>{},onUpdateMemberPrimary:()=>{}})));
+          window.show=(clusterId='cluster-a')=>root.render(React.createElement('div',{style:{display:'flex',width:'100%',height:'850px'}},React.createElement(ClusterTab,{key:clusterId,clusterId,onSendToMember:(...a)=>{sent.push(a);return true},onBroadcast:(...a)=>{if(window.broadcastConnected===false)return false;broadcasts.push(a);return true},onSetClusterPlan:(...a)=>planWrites.push(a),onAttachClusterPlan:()=>{},onAttachPlanToMember:()=>{},onRecalibrateMember:(id)=>recalibrated.push(id),onCancelMember:()=>{},onCancelQueuedForMember:()=>{},onUpload:async()=>null,onSetRemote:()=>{},onSetGates:()=>{},onUpdateMemberPrimary:()=>{}})));
           show();
         }""")
         # Context is in the focused member header and calibration stays available.
@@ -158,6 +158,13 @@ async def main():
         await expect(dialog).to_have_count(0)
         await expect(to).to_contain_text('TO: 2 MEMBERS')
         await expect(msg).to_have_attribute('placeholder', 'Message 2 members...')
+        # A closed sender must retain the composer and its explicit recipients.
+        await page.evaluate('window.broadcastConnected=false')
+        await msg.fill('unsent subset'); await msg.press('Enter')
+        await expect(msg).to_have_value('unsent subset')
+        await expect(to).to_contain_text('TO: 2 MEMBERS')
+        assert await page.evaluate('broadcasts.length') == 0
+        await page.evaluate('window.broadcastConnected=true')
         await msg.fill('hello subset'); await msg.press('Enter')
         b=await page.evaluate('broadcasts')
         assert len(b) == 1 and b[0][1] == 'hello subset' and sorted(b[0][4]) == ['worker-a', 'worker-c'], b

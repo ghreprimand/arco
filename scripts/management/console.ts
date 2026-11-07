@@ -594,8 +594,11 @@ function clusterCard(id, c, byId) {
   actRow.className = 'wf-acts';
   const bcPanel = document.createElement('div');
   bcPanel.className = 'bc-panel';
+  const broadcastKey = JSON.stringify([id, c.clusterId]);
+  bcPanel.dataset.broadcastKey = broadcastKey;
   const bc = document.createElement('button');
   bc.className = 'act'; bc.textContent = 'Broadcast';
+  bc.dataset.broadcastKey = broadcastKey;
   bc.onclick = () => {
     if (bcPanel.childNodes.length) { bcPanel.innerHTML = ''; return; }
     const boxes = [];
@@ -605,12 +608,14 @@ function clusterCard(id, c, byId) {
       label.className = 'bc-member';
       const cb = document.createElement('input');
       cb.type = 'checkbox'; cb.checked = true; cb.value = wfid;
+      cb.dataset.draftKey = JSON.stringify([id, c.clusterId, 'recipient', wfid]);
       boxes.push(cb);
       label.appendChild(cb);
       label.appendChild(document.createTextNode(' ' + (w ? w.title : wfid.slice(0, 8))));
       bcPanel.appendChild(label);
     }
     const ta = document.createElement('textarea');
+    ta.dataset.draftKey = JSON.stringify([id, c.clusterId, 'broadcast']);
     ta.className = 'bc-text'; ta.placeholder = 'message to the checked members…';
     bcPanel.appendChild(ta);
     const send = document.createElement('button');
@@ -873,6 +878,7 @@ function wfRow(id, w) {
     answerRow.className = 'wf-acts';
     const input = document.createElement('input');
     input.className = 'needs-input';
+    input.dataset.draftKey = JSON.stringify([id, w.workflowId, w.pendingQuestion.questionId]);
     input.placeholder = 'answer…';
     const send = document.createElement('button');
     send.className = 'act'; send.textContent = 'Answer';
@@ -1080,12 +1086,34 @@ async function refresh() {
     // A rebuild IS needed — preserve each message box's scroll position by wfid.
     const scrolls = {};
     list.querySelectorAll('.wf-msg-body[data-wfid]').forEach(el => { scrolls[el.getAttribute('data-wfid')] = el.scrollTop; });
+    const drafts = new Map();
+    list.querySelectorAll('[data-draft-key]').forEach(el => {
+      drafts.set(el.dataset.draftKey, { value: el.value, checked: el.checked,
+        focused: el === document.activeElement, start: el.selectionStart, end: el.selectionEnd });
+    });
+    const broadcasts = new Set();
+    list.querySelectorAll('.bc-panel[data-broadcast-key]').forEach(el => {
+      if (el.childNodes.length) broadcasts.add(el.dataset.broadcastKey);
+    });
     list.innerHTML = '';
     if (!data.instances || !data.instances.length) {
       list.innerHTML = '<div class="empty">No instances registered.<br>Start an Arco agent pointed at this hub.</div>';
     } else {
       for (const e of data.instances) list.appendChild(card(e));
     }
+    list.querySelectorAll('button[data-broadcast-key]').forEach(el => {
+      if (broadcasts.has(el.dataset.broadcastKey)) el.click();
+    });
+    list.querySelectorAll('[data-draft-key]').forEach(el => {
+      const saved = drafts.get(el.dataset.draftKey);
+      if (!saved) return;
+      el.value = saved.value;
+      if (el.type === 'checkbox') el.checked = saved.checked;
+      if (saved.focused) {
+        el.focus();
+        if (saved.start != null && saved.end != null) el.setSelectionRange(saved.start, saved.end);
+      }
+    });
     list.querySelectorAll('.wf-msg-body[data-wfid]').forEach(el => {
       const v = scrolls[el.getAttribute('data-wfid')];
       if (v != null) el.scrollTop = v;
@@ -1241,6 +1269,8 @@ const sendingEl = document.getElementById('sending');
 const errorEl = document.getElementById('error');
 const inputEl = document.getElementById('input');
 const sendEl = document.getElementById('send');
+let inputRevision = 0;
+inputEl.addEventListener('input', () => { inputRevision += 1; });
 let known = 0;
 let sawUserSince = false;
 const apiBase = '/api/instances/' + encodeURIComponent(CFG.instanceId) + '/workflows/' + encodeURIComponent(CFG.workflowId);
@@ -1292,7 +1322,9 @@ async function poll() {
   } finally { polling = false; }
 }
 async function sendMsg() {
-  const body = inputEl.value.trim();
+  const revision = inputRevision;
+  const submitted = inputEl.value;
+  const body = submitted.trim();
   if (!body) return;
   sendEl.disabled = true;
   try {
@@ -1303,7 +1335,7 @@ async function sendMsg() {
     const b = await res.json();
     if (!b.ok) { errorEl.textContent = '✗ ' + (b.error || 'send failed'); }
     else {
-      inputEl.value = '';
+      if (inputRevision === revision && inputEl.value === submitted) inputEl.value = '';
       sendingEl.textContent = '⇥ sent — waiting for it to appear: ' + (body.length > 80 ? body.slice(0, 80) + '…' : body);
       setTimeout(poll, 400);
     }

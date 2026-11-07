@@ -212,7 +212,7 @@ export const workspace: Section[] = [
         </p>
         <h4 className="manual-sub">Continue and projects</h4>
         <p>
-          Getting started tracks provider connection, a project folder and a first conversation (any chat, session or cluster), and HIDE removes it for good.
+          Getting started tracks provider connection, a project folder and a first conversation (any chat, session or cluster), and HIDE keeps it hidden on this browser. If browser storage is unavailable, HIDE applies until this view reloads.
           Continue lists open work with waiting questions first and current steps for
           running work. Resume returns to a tab; Show all expands the two-row list.
         </p>
@@ -490,7 +490,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="r">REVIEW</strong>,
-              <>Read-only artifacts produced by past Reviews. Each entry shows verdict (PASS / MINOR / BLOCKING) and reviewer model. <Code>↳ SEND TO AGENT</Code> pre-fills the composer with the review body.</>,
+              <>Read-only artifacts produced by past Reviews. Each entry shows verdict (PASS / MINOR / BLOCKING) and reviewer model. <Code>↳ SEND TO AGENT</Code> appends the review body to the composer, preserving any unsent draft.</>,
             ],
             [
               <strong key="rs">RESEARCH</strong>,
@@ -526,7 +526,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="us">USAGE</strong>,
-              <>MEMORY &gt; USAGE in a single-worker, chat or cluster tab (a cluster tab covers all members). Token usage trends for the project. MEASURE STORAGE measures the project's saved state without changing it and lists every byte under one heading, such as conversation logs, artifacts or worktrees. MEASURE ARCO FOLDER does the same for Arco's own folder. MEASURE AGAIN refreshes the cached result; large files and read errors are marked. From anywhere, ARTIFACTS &gt; STORAGE also offers MEASURE AGAIN.</>,
+              <>MEMORY &gt; USAGE in a single-worker, chat or cluster tab (a cluster tab covers all members). Token usage trends for the project. Failed or invalid usage reads show an error; reopen USAGE to retry. MEASURE STORAGE measures the project's saved state without changing it and lists every byte under one heading, such as conversation logs, artifacts or worktrees. MEASURE ARCO FOLDER does the same for Arco's own folder. MEASURE AGAIN refreshes the cached result; large files and read errors are marked. From anywhere, ARTIFACTS &gt; STORAGE also offers MEASURE AGAIN.</>,
             ],
             [
               <strong key="pv">PREVIEW</strong>,
@@ -737,7 +737,7 @@ export const workspace: Section[] = [
             appears once the buffer diverges from disk.
           </li>
           <li>
-            <strong>SAVE</strong> writes the file and flips back to Locked.{' '}
+            <strong>SAVE</strong> writes the submitted text. If more text was typed while saving, it stays visible and unsaved; otherwise the viewer returns to Locked.{' '}
             <strong>LOCK</strong> discards edits and returns to the formatted
             viewer. Closing the modal with unsaved edits prompts first.
           </li>

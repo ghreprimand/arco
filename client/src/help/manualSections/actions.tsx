@@ -101,7 +101,7 @@ export const actions: Section[] = [
         </p>
         <Note kind="tip">
           The <Code>↳ SEND TO AGENT</Code> button on each review artifact
-          pre-fills the composer with the review body. Edit before sending:
+          appends the review body to the composer, preserving any unsent draft. Edit before sending:
           usually the agent&apos;s response should be scoped to specific
           concerns, not the whole review.
         </Note>

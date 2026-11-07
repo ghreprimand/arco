@@ -68,6 +68,7 @@ export const troubleshooting: Section[] = [
   <li><strong>Models</strong> - Model Health, below.</li>
   <li><strong>Services</strong> - Local Services, below.</li>
   </ul>
+  <p>Diagnostics and Model Health show a read error for failed or invalid server responses. <strong>↻ REFRESH</strong> retries the request.</p>
   <Sub>Diagnostics checks</Sub>
   <p>
   Diagnostics is grouped, read-only status checks that answer "what's
@@ -140,7 +141,7 @@ export const troubleshooting: Section[] = [
   <Code>~</Code>.
   </li>
   <li>
-  Any other absolute path is reduced to a{' '}
+  Any other absolute path, including Windows drive and UNC paths with spaces, is reduced to a{' '}
   <Code>&lt;path&gt;/basename</Code> placeholder.
   </li>
   <li>

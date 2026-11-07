@@ -19,7 +19,7 @@ import { rememberPublicChoice } from '../../utils/publicProject';
 // authoritative; field edits debounce a `genesis_seed_update` to the server, which
 // echoes back readiness + the next prompt (rendered from the live job state).
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GenesisAssistField, GenesisAssistIntent, GenesisNameOption, GenesisSeed } from '@arco/shared';
 import type { JobState } from '../../stores/appStore';
 import { useAppStore } from '../../stores/appStore';
@@ -110,8 +110,17 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
   const [visibility, setVisibility] = useState<'private' | 'public'>('private');
   const [repoName, setRepoName] = useState('');
   const [refineInstruction, setRefineInstruction] = useState('');
+  const [scaffolding, setScaffolding] = useState(false);
   const clearGenesisAssist = useAppStore((s) => s.clearGenesisAssist);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSeedRef = useRef<(() => void) | null>(null);
+  const flushSeed = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = null;
+    const save = pendingSeedRef.current;
+    pendingSeedRef.current = null;
+    save?.();
+  }, []);
   const jobIdRef = useRef(job.id);
   const hadSeedRef = useRef(!!seed);
 
@@ -128,7 +137,7 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
     }
   }, [job.id, job.genesisSeed]);
 
-  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+  useEffect(() => () => flushSeed(), [job.id, flushSeed]);
 
   // M3 — the arm panel: a real-cwd workflow that has not yet opted into Creative mode.
   if (canArm) {
@@ -175,14 +184,13 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
 
   // Patch a field, then debounce the seed update to the server (300ms).
   const patch = (next: Partial<GenesisSeed>, immediate = false) => {
+    if (scaffolding) return;
     const merged = { ...draft, ...next };
     setDraft(merged);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (immediate) {
-      onSeedUpdate?.(job.id, merged);
-    } else {
-      debounceRef.current = setTimeout(() => onSeedUpdate?.(job.id, merged), 300);
-    }
+    pendingSeedRef.current = () => onSeedUpdate?.(job.id, merged);
+    if (immediate) flushSeed();
+    else debounceRef.current = setTimeout(flushSeed, 300);
   };
 
   const askAssist = (field: GenesisAssistField, intent: GenesisAssistIntent, instruction?: string) => {
@@ -247,16 +255,23 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
         `Scaffold an alternative direction into a new ALTERNATIVE/${draft.title.trim()} folder inside this project, plus a separate plan?\n\nThis creates files in a sibling folder only: your existing project is not touched.`,
       );
       if (!ok) return;
-      let selected: boolean;
-      try { selected = await rememberPublicChoice(cwd); }
-      catch { window.alert('Could not save the public-project choice. Try again.'); return; }
-      onScaffold?.(job.id, undefined, undefined, selected); // server branches on seed.creative
+      flushSeed();
+      setScaffolding(true);
+      try {
+        const selected = await rememberPublicChoice(cwd);
+        onScaffold?.(job.id, undefined, undefined, selected); // server branches on seed.creative
+      } catch {
+        window.alert('Could not save the public-project choice. Try again.');
+      } finally {
+        setScaffolding(false);
+      }
       return;
     }
     const ok = window.confirm(
       `Create the project folder under ${root || '~/Projects'} (named from "${draft.title.trim()}"), write the seed docs${createRepo ? ` and a ${visibility} GitHub repo` : ''}, and bind this workflow to it?\n\nThis creates files on disk.`,
     );
     if (!ok) return;
+    flushSeed();
     onScaffold?.(job.id, root.trim() || undefined, createRepo ? { create: true, visibility, ...(repoName.trim() ? { repoName: repoName.trim() } : {}) } : undefined, newPublicProject);
   };
 
@@ -294,7 +309,7 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
   );
 
   return (
-    <div style={{ padding: '12px 14px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+    <fieldset disabled={scaffolding} aria-busy={scaffolding} style={{ margin: 0, border: 0, minWidth: 0, padding: '12px 14px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '14px' }}>
       {/* Readiness + next-field guidance */}
       <div data-help="rightpanel.genesis.readiness" style={{ border: '1px solid var(--color-border-hairline)', borderRadius: '6px', padding: '10px 12px' }}>
         <div className="display-font glow-text-bright" style={{ fontSize: '13px', letterSpacing: '3px', color: 'var(--color-accent-primary)', marginBottom: '6px' }}>
@@ -526,6 +541,6 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
           </button>
         )}
       </div>
-    </div>
+    </fieldset>
   );
 }

@@ -114,7 +114,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       <p>
         The staged seed for this project. Edit the fields as the idea takes
         shape; each downstream field is anchored to the one above it. Edits save
-        automatically and shape the agent's next turn. Nothing is invented for
+        automatically and shape the agent's next turn. Pending edits are sent when leaving the tab and before scaffolding. Nothing is invented for
         you: empty fields stay unknown.
       </p>
     ),
@@ -124,7 +124,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Genesis: create & scaffold',
     body: (
       <p>
-        Operator-confirmed. Creates the project folder under the parent you pick
+        Operator-confirmed. Seed controls are temporarily disabled while the public-project choice is saved. Sends pending seed edits first, then creates the project folder under the parent you pick
         (default <C>~/Projects</C>), writes seed docs (<C>README</C>/<C>SPEC</C>/
         <C>TODO</C>/<C>CLAUDE.md</C>), optionally a GitHub repo, then binds this
         workflow to the new folder (carrying the transcript over) and seeds a
@@ -211,8 +211,8 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Read-only artifacts from past Reviews: verdict (PASS / MINOR /
-        BLOCKING), reviewer model, body. <C>↳ SEND TO AGENT</C> pre-fills the
-        composer with the review body.
+        BLOCKING), reviewer model, body. <C>↳ SEND TO AGENT</C> appends the review body to the
+        composer, preserving any unsent draft.
       </p>
     ),
     manualSection: 'review-action',
@@ -797,7 +797,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           deterministic aggregation of the <C>primary_turn_token_usage</C> events
           already in each workflow's <C>events.jsonl</C>: no new capture, nothing
           mutated.
-        </p>
+         Failed or invalid reads show an error; reopen USAGE to retry.</p>
         <p>
           Each provider block shows a hand-drawn SVG sparkline of daily prompt
           volume, a cache-hit-ratio bar, and a per-day breakdown. Cache-hit ratio

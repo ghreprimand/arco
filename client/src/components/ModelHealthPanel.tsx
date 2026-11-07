@@ -1,3 +1,4 @@
+import { checkedJson } from '../utils/checkedJson';
 import { useCallback, useEffect, useState } from 'react';
 import type {
   ModelFilesHealth,
@@ -322,7 +323,7 @@ export function ModelHealthPanel() {
     setLoading(true);
     setError(null);
     fetch('/api/diagnostics/model-health')
-      .then((r) => r.json() as Promise<ModelHealthReport>)
+      .then((r) => checkedJson<ModelHealthReport>(r, d => Array.isArray(d?.ollama?.models) && Array.isArray(d?.llamacpp?.models) && Array.isArray(d?.modelFiles?.downloadedModels) && Array.isArray(d?.modelFiles?.fitWarnings)))
       .then((data) => setReport(data))
       .catch((err) => setError(err instanceof Error ? err.message : String(err)))
       .finally(() => setLoading(false));
