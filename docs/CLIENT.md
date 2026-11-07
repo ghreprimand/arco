@@ -645,8 +645,7 @@ tools over the app store (select, panels, send/steer/follow-up via
 their dialog state, and `voice/screen.ts` is the generic layer (`readScreen`,
 `actOnScreen`, `readText`) over the live DOM. `buildCheck.ts` +
 `StaleBuildBanner` flag a tab left on an older bundle after a rebuild.
-Audio is memory-only; Computer offers saved or strict memory-only history (Strata is saved-only). See
-[VOICE.md](VOICE.md) Computer works today.
+Audio is memory-only; Computer offers saved or strict memory-only history (Strata is saved-only). See [VOICE.md](VOICE.md) for the Computer voice workflow.
 
 Capture acknowledgement uses the bundled quiet 230 ms Soft double pulse from
 `/api/voice/ready-sound`, with unity gain and no normalization. It plays only
@@ -822,11 +821,6 @@ Lifecycle and accessibility behavior is implemented by the theme components.
 
 **Classic shader rule (2026-04-27):** background shaders avoid soft-glow / radial-gradient / breathing-blob layers. 8-bit alpha compositing produces visible posterization rings on smooth low-amplitude gradients against near-black. Use structural elements only - particles, streaks, grids, dots, vein lines, scanlines, hard-edged cells. Vignettes / atmospheric noise washes / orb halos were stripped from every dark-mood shader in the 2026-04-27 pass.
 
-Notable shader-related commits:
-- `8a5af37` - switched to `highp` precision and bounded hash inputs to prevent long-uptime freezes (Mali GPU NaN cascade)
-- `0691c8e` - toned down background effects across four themes (operator feedback)
-- (this commit) - banding-prone radial gradients stripped across all dark-theme shaders; bloom canvas pixel ratio raised 0.4× -> 1.0×; matrix font swap; font-pack override system
-
 CSS animations are gated by data attributes set in apply: `data-anim-scan` / `data-anim-pulseHalo` / `data-anim-flicker`. Each theme opts in.
 
 ### Theme switching
@@ -844,9 +838,9 @@ provider-auto) from **Arco Phosphor** (68 namespaced Phosphor palettes).
 Phosphor shares one paint-only CRT treatment, with category/search selection,
 independent effects and glow-softness controls, and existing font/brightness/
 crisp/frost preferences. No workbench layout or content is rearranged. See
-The theme components and settings panel manage integration and deployment.
+Theme switching and display preferences are implemented by `client/src/themes/` and the Settings appearance controls.
 
-The 42 (alphabetical by id): abyssal · amber-crt · arch · arrakis · aurora · bloodmoon · blueprint · braun · cassette-futurism · cherenkov · cicada · concrete · copper · cute · dark-academia · dsky · everforest · forest · frutiger-aero · holographic · infrared · kintsugi · lavender · matrix · midnight-tokyo · nebula · night-city · noir · ocean · arco-default · arco-jungle · oscilloscope · red-planet · seismograph · sentinel · solar-paper · sonar · stealth · tarkovsky · ume · unfinished-works · voyager. (`registry.ts` is the live source; it also wires the dynamic `provider-auto` sentinel separately from these named themes.) Red Planet and Everforest provide optional exact xterm Core + ANSI palettes; other themes retain xterm's default ANSI colors while inheriting the app background, foreground, and cursor.
+The 42 named theme IDs are: abyssal, amber-crt, arch, arrakis, aurora, bloodmoon, blueprint, braun, cassette-futurism, cherenkov, cicada, concrete, copper, cute, dark-academia, dsky, everforest, forest, frutiger-aero, holographic, infrared, kintsugi, lavender, matrix, midnight-tokyo, nebula, night-city, noir, ocean, arco-default, arco-jungle, oscilloscope, red-planet, seismograph, sentinel, solar-paper, sonar, stealth, tarkovsky, ume, unfinished-works, voyager. (`registry.ts` is the live source; it also wires the dynamic `provider-auto` sentinel separately from these named themes.) Red Planet and Everforest provide optional exact xterm Core + ANSI palettes; other themes retain xterm's default ANSI colors while inheriting the app background, foreground, and cursor.
 
 ---
 
