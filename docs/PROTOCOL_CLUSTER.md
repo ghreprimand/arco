@@ -36,7 +36,7 @@ Persisted.
 
 #### `peer_message_received` <-
 
-Emitted on the recipient's workflow at injection time (pre-turn drain or mid-turn `peer_read`). Replay reproduces the system-block injection. A pre-turn drain precedes that turn's `user_message_echo`; a mid-turn read retains its position among that turn's streamed events.
+Emitted on the recipient's workflow when the recipient's `peer_read` call drains the message (messages are no longer injected before a turn; a pre-turn notice only reports the count). The event keeps its position among that turn's streamed events, so replay shows the content where the worker read it.
 
 ```ts
 {
@@ -100,7 +100,8 @@ Materialize one roster member's client-side job on demand. The roster (`cluster_
 WS analogue of `POST /api/clusters` - both delegate to `clusterStore.createCluster` and pass through `assertAllMembersClaudeOrCodex` (which validates `isClusterMemberProvider` - see the fence note at the top). Reply is `cluster_created` with the auto-subscribed payload (so the new cluster tab opens with state available, no round-trip).
 
 ```ts
-{ type: 'cluster_create', cwd: string, memberWorkflowIds: string[] }
+{ type: 'cluster_create', cwd: string, memberWorkflowIds: string[],
+  efficiencyLevel?, efficiencyAddendum?, messageGuard?, taskBoardMode?, progressTracking? }  // ClusterCreationSettings
 ```
 
 ### `cluster_delete` ->
@@ -458,7 +459,7 @@ Successful model send results include `guard` with `mode`, `count`, `cap`, `thre
 
 Omitted `addendum` keeps NOTE; empty clears it; non-empty replaces it, trimmed to 1000 characters. NOTE is an appended operator instruction, not a mode or budget. Omitted `messageGuard` preserves the effective guard. A legacy cluster with no guard retains a hard cap of 15/8/4 for its saved Thorough/Balanced/Lean style; that effective cap is pinned before a style or NOTE edit. Style changes therefore do not change the guard. Settings persist atomically and broadcast `cluster_state`. Style instructions apply next turn; guard changes apply on the next send, without resetting the existing counter.
 
-All new creation paths use explicit Balanced, Warn only at 15, a cluster-local board and Keep current Both. Explicit creation settings override those defaults. Stored omitted style fields still mean Thorough; old omitted board fields keep the existing interpretation. Snapshot restore uses saved settings and old-format fallbacks rather than creation defaults. No existing board is moved, merged or copied by the new default. Guard state rides in cluster state and snapshot metadata; automatic-execution arming remains off on restore.
+All new creation paths use explicit Balanced, Warn only at 15, a cluster-local board and progress tracking set to Both. Explicit creation settings override those defaults. Stored omitted style fields still mean Thorough; old omitted board fields keep the existing interpretation. Snapshot restore uses saved settings and old-format fallbacks rather than creation defaults. No existing board is moved, merged or copied by the new default. Guard state rides in cluster state and snapshot metadata; automatic-execution arming remains off on restore.
 
 ### `cluster_progress_set` ->
 
@@ -805,7 +806,7 @@ Operator chose an AUTO-PICKUP mode in the cluster dialog. Modes: `off` (default)
   type: 'cluster_auto_pickup_set',
   clusterId: string,
   mode: 'off' | 'rule' | 'smart-observe' | 'smart-auto',
-  evaluator?: { provider: 'claude' | 'codex' | 'cursor' | 'ollama', model: string }, // required for Smart modes
+  evaluator?: { provider: SmartPickupEvaluatorProvider, model: string }, // required for Smart modes; claude | codex | cursor | ollama | lmstudio | llamacpp | strata | deepseek
   limits?: Partial<SmartPickupLimits>,   // only changed limits; each bounded
   ruleLimits?: Partial<RulePickupLimits>,
   resumeRule?: boolean,
@@ -846,6 +847,7 @@ Evaluator adapters (`server/src/smartPickupAdapters.ts`), reported by `GET /api/
 | Claude | one Messages API request with Native credentials, `max_tokens` = `maxOutputTokens`, no tools; any non-text block is refused | available with Native sign-in |
 | Cursor | a fresh `cursor-agent acp` (no `--force`) in an empty temporary folder, `clientCapabilities: {}`, `mcpServers: []`, the exact model selected with `session/set_config_option` and confirmed (otherwise `startup_model_unavailable` or `startup_model_unconfirmed`), switched to Ask mode with `session/set_mode` before the prompt (no Ask mode refuses with `startup_no_ask_mode`); start-up (spawn, `initialize`, `session/new`, `session/set_mode`) has its own 30 s allowance and `timeoutSeconds` bounds only `session/prompt`; any permission request, file request or tool call ends the request with no decision; the agent is stopped once and the session is never loaded again | available |
 | Codex | a fresh `codex -c mcp_servers={} app-server` in an empty temporary folder; `thread/start` with `sandbox: read-only`, `approvalPolicy: never`, `config.web_search: disabled`, `ephemeral: true` and no resume; `turn/start` with a read-only `sandboxPolicy`; only the last final-answer agent message is kept; any item other than the prompt echo, reasoning and agent messages, and any server request (approval, question, dynamic tool), ends the request with no decision and kills the process | available when enabled and signed in |
+| LM Studio, llama.cpp, Strata, DeepSeek | one shared OpenAI-compatible chat request to the already loaded model, no tools declared, returned tool calls rejected; never loads, unloads or switches a model | available while the chosen model is loaded |
 
 `scripts/smart-pickup-eval.ts` runs the synthetic corpus (`scripts/smoke/fixtures/smart-auto-pickup-corpus-v2.json` by default; `--corpus <path>` selects another corpus, including v1) against one provider and model, or several with `--pairs provider:model,...`, mapping each case through `server/src/smartPickupCorpus.ts` onto the same snapshot input the app builds (open tasks, thread context); it prints each answer, a summary table with the acceptance check for Smart: Automatic (held-out actionable recall at least 0.9, unnecessary wakes at most 10 percent of non-actionable cases, no injection-driven wake, no-decision rate under 5 percent) and a confusion matrix per pair; `--max-calls N` caps the requests of the run; `--provider fake-oracle` makes no request. `--only <case id>` runs one case and `--verbose` prints timestamped phase timings (`initialize`, `session_new`, `set_mode`, `first_token`, `prompt`) and clipped protocol frames; like the app, the script retries a start-up failure once.
 
