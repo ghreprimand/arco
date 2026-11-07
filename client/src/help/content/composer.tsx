@@ -12,6 +12,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Composer',
     body: (
       <>
+        <p><C>/prompt name args</C> expands a saved template. Inserted arguments remain literal; <C>$$1</C> in a template produces literal <C>$1</C>.</p>
         <p>
           Type your prompt and click <strong>SEND</strong> or press <C>Enter</C> to send. <C>Shift+Enter</C> for
           a newline, <C>Ctrl+K</C> to kill to end of line. Drop or paste
@@ -249,7 +250,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           automatic continuation turn after each settled turn, for up to ten
           iterations. <C>/goal run</C> shows status, <C>/goal run stop</C> stops
           it, and while a run is armed a <C>RUN n/N</C> chip with the running
-          token spend appears on this strip: click it to stop.
+          token spend appears on this strip: click it to stop. Codex cached input counts once.
         </p>
         <p>
           A run also stops on its own if a turn errors, the provider is

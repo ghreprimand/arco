@@ -22,7 +22,8 @@
 //     existing path, never the source. Cancel/fail removes that whole dir.
 
 import { spawn } from 'child_process';
-import { promises as fs, constants as fsConstants } from 'fs';
+import { promises as fs, constants as fsConstants, statSync } from 'fs';
+import { findWindowsCommand } from '../windowsCommand.js';
 import path from 'path';
 import os from 'os';
 import {
@@ -56,8 +57,8 @@ export class DemucsError extends Error {
 //
 // A PATH scan, NOT a spawn: `demucs --help` imports torch (slow, seconds), so we
 // just check the executable is resolvable. A server restart re-probes (install
-// during a session is rare; restart is the documented recovery). POSIX X_OK
-// check — on Windows the windows-port worktree would append PATHEXT (flagged).
+// during a session is rare; restart is the documented recovery). POSIX uses
+// X_OK; Windows resolves executable suffixes using PATHEXT.
 let demucsAvailableCache: boolean | undefined;
 
 export async function demucsAvailable(): Promise<boolean> {
@@ -71,7 +72,13 @@ export function __resetDemucsCache(): void {
   demucsAvailableCache = undefined;
 }
 
-async function binaryOnPath(name: string): Promise<boolean> {
+export async function binaryOnPath(name: string, options: { platform?: NodeJS.Platform; env?: NodeJS.ProcessEnv; isFile?: (file: string) => boolean } = {}): Promise<boolean> {
+  if ((options.platform ?? process.platform) === 'win32') {
+    const isFile = options.isFile ?? ((file: string) => {
+      try { return statSync(file).isFile(); } catch { return false; }
+    });
+    return findWindowsCommand(name, options.env ?? process.env, isFile) !== null;
+  }
   const dirs = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
   // Common pip --user location isn't always on a non-interactive PATH; include it.
   dirs.push(path.join(os.homedir(), '.local', 'bin'));

@@ -434,7 +434,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   //: Stem separation (N4, Demucs):
   'media.op-stems': {
     title: 'Separate stems',
-    body: <p>Run <strong>Demucs</strong> to split the track into stems - vocals, drums, bass and other - written as new files in a fresh folder. A progress line and CANCEL appear while it works.</p>,
+    body: <p>Run <strong>Demucs</strong> to split the track into stems - vocals, drums, bass and other - written as new files in a fresh folder. A progress line and CANCEL appear while it works. Windows discovery recognizes the pip-installed executable through PATH and PATHEXT.</p>,
     manualSection: S,
   },
   'media.stems-model': {

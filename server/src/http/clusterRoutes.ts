@@ -1,3 +1,4 @@
+import { existingClusterMemberRefusal } from '../existingClusterMembers.js';
 import { recipientContext } from '../peerRecipientContext.js';
 import { spawn } from 'child_process';
 import { disabledClusterProvider, localCapacityRefusal, memberProvider } from '../localCapacity.js';
@@ -91,6 +92,12 @@ export async function tryHandleClusterRoutes(
       // operator may legitimately POST against workflows the server hasn't
       // hydrated yet — but at least one of them being unhydrated is also
       // suspect, so we still surface the code).
+      const existingRefusal = existingClusterMemberRefusal(memberIds);
+      if (existingRefusal) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: existingRefusal }));
+        return true;
+      }
       const fence = await deps.assertAllMembersClaudeOrCodex(memberIds);
       if (fence) {
         res.writeHead(400, { 'Content-Type': 'application/json' });

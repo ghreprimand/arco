@@ -365,6 +365,7 @@ export const workspace: Section[] = [
           </li>
         </ul>
         <h4 className="manual-sub">Slash commands &amp; references</h4>
+        <p><Code>/prompt name args</Code> expands a saved template. Inserted argument text remains literal; <Code>$$1</Code> in the template produces literal <Code>$1</Code>.</p>
         <p>
           <Code>/goal &lt;objective&gt;</Code> sets the tab&apos;s north star (
           <Code>/goal</Code> shows it, <Code>/goal clear</Code> removes it) and{' '}

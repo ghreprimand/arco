@@ -103,14 +103,17 @@ export function normalizeGoalRunArm(
 // provider's per-turn usage lands in a normalized shape. Cache reads are
 // deliberately included: a goal run's whole cost profile is a huge cached
 // prefix replayed every tick, and hiding that would make the chip lie about
-// what the run is spending. No-op when nothing is armed.
+// what the run is spending. Codex input already includes its cached subset.
+// No-op when nothing is armed.
 export function addGoalRunTokens(
   state: GoalRunState | undefined,
   tokens: { input: number; output: number; cacheRead?: number; cacheCreate?: number },
+  provider: string = 'claude',
 ): void {
   if (!state || !state.enabled) return;
   state.tokensUsed +=
-    (tokens.input || 0) + (tokens.output || 0) + (tokens.cacheRead || 0) + (tokens.cacheCreate || 0);
+    (tokens.input || 0) + (tokens.output || 0)
+    + (provider === 'codex' ? 0 : (tokens.cacheRead || 0) + (tokens.cacheCreate || 0));
 }
 
 export type GoalRunDecision =

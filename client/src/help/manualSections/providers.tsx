@@ -51,6 +51,7 @@ export const providers: Section[] = [
   title: 'Claude',
   body: (
   <>
+  <p>CLI snapshots retain every text block and the final answer without repeating streamed text. Local HTTP generation bounds waiting for response headers. Completed local streams finish at their done marker, even if the connection stays open. Model discovery and WebSearch deadlines remain active while reading JSON.</p>
   <p>
   CLI version and help checks stop after five seconds when a process stalls.
   Codex interrupt and compaction deadlines include the initial server reply.

@@ -113,7 +113,7 @@ export const media: Section[] = [
           stems go into a new folder.
         </p>
         <Note>
-          Demucs is <strong>optional</strong>. When it is not installed,
+          Demucs is <strong>optional</strong>. On Windows, discovery recognizes the pip-installed <Code>demucs.exe</Code> through PATH and PATHEXT. When it is not installed,
           SEPARATE shows how to install it instead of failing. WAV and FLAC
           output may need the <Code>torchcodec</Code> package; MP3 always
           works. See <DocRef>docs/OPERATIONS.md</DocRef>.

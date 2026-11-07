@@ -1,3 +1,4 @@
+import { existingClusterMemberRefusal } from '../existingClusterMembers.js';
 import { isClusterCreationSettings, isClusterMessageGuard, clusterDirectorProblem, isClusterDirector, normalizeClusterRoleText, presetForText } from '@arco/shared';
 import { disabledClusterProvider, localCapacityRefusal, memberProvider } from '../localCapacity.js';
 // server/src/ws/clusterHandlers.ts — cluster WS handler region extracted from
@@ -206,6 +207,11 @@ export async function handleClusterCreate(
 ): Promise<void> {
   if (!cwd || memberIds.length < 2) {
     send(ws, { type: 'error', message: 'cwd and memberWorkflowIds (≥2) are required' });
+    return;
+  }
+  const existingRefusal = existingClusterMemberRefusal(memberIds);
+  if (existingRefusal) {
+    send(ws, { type: 'error', message: `cluster_create rejected: ${existingRefusal}` });
     return;
   }
   const fence = await deps.assertAllMembersClaudeOrCodex(memberIds);
@@ -1370,6 +1376,11 @@ export async function handleClusterMemberAdd(ws: WebSocket, clusterId: string, w
   }
   if (wf.config.workingDirectory !== cluster.cwd) {
     send(ws, { type: 'error', message: `cluster_member_add rejected: cwd_mismatch` });
+    return;
+  }
+  const existingRefusal = !cluster.members.includes(workflowId) && existingClusterMemberRefusal([workflowId]);
+  if (existingRefusal) {
+    send(ws, { type: 'error', message: `cluster_member_add rejected: ${existingRefusal}` });
     return;
   }
   const fence = await deps.assertAllMembersClaudeOrCodex([workflowId]);

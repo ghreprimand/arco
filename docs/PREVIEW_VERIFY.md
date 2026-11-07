@@ -1,5 +1,7 @@
 # Preview verification
 
+Automatic port discovery bounds each candidate request to 500 ms, so a server that accepts a connection without headers cannot hold the discovery loop open.
+
 Arco's Live Preview (`docs/PROVIDERS.md` / `PreviewTab`) renders a workflow's
 dev server in an iframe. **Preview verification** turns that preview into
 *inspectable evidence*: an operator-triggered capture that screenshots the page

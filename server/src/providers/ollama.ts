@@ -1112,6 +1112,9 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
             const totalNs = typeof evt.total_duration === 'number' ? evt.total_duration : 0;
             if (totalNs > 0) durationMs = Math.round(totalNs / 1_000_000);
             genSpeed = genSpeedFromOllamaDone(evt);
+            streamEnded = true;
+            reader.cancel().catch(() => { /* response already ended */ });
+            break;
           }
         }
       }

@@ -630,7 +630,7 @@ export function runPrimaryTurn(
             output: ev.tokens.output,
             cacheRead: ev.tokens.cacheRead ?? 0,
             cacheCreate: ev.tokens.cacheCreate ?? 0,
-          });
+          }, primary.provider);
           const transport: 'native' | 'cli' | 'exec' | 'appserver' | undefined =
             primary.provider === 'claude' ? (claudeTransport ?? 'cli')
             : primary.provider === 'codex' ? (codexTransport ?? 'exec')

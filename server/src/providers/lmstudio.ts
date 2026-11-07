@@ -1,3 +1,4 @@
+import { requestWithDeadline } from './requestDeadline.js';
 import { parseComputerHistory } from '../voice/history.js';
 import { executeComputerTool } from '../voice/toolDefinitions.js';
 import { EventEmitter } from 'events';
@@ -363,12 +364,12 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
 
     let res: Response;
     try {
-      res = await fetch(`${baseUrl}/chat/completions`, {
+      res = await requestWithDeadline(this.abortController!.signal, STALL_TIMEOUT_MS, (signal) => fetch(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        signal: this.abortController!.signal,
-      });
+        signal,
+      }));
     } catch (err) {
       if (this.isAborted(err)) return null;
       this.fail(`${this.connection.label} request failed: ${err instanceof Error ? err.message : String(err)} (base ${baseUrl})`);
@@ -438,7 +439,11 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
           const trimmed = line.trim();
           if (!trimmed.startsWith('data:')) continue;
           const payload = trimmed.slice(5).trim();
-          if (payload === '[DONE]') continue;
+          if (payload === '[DONE]') {
+            streamEnded = true;
+            reader.cancel().catch(() => { /* response already ended */ });
+            break;
+          }
           let evt: {
             choices?: Array<{
               delta?: { content?: unknown; reasoning_content?: unknown; tool_calls?: unknown };
@@ -782,26 +787,25 @@ export async function probeLmstudio(): Promise<{
   error?: string;
 }> {
   const baseUrl = await getLmstudioBase();
-  let res: Response;
+  let res!: Response;
+  let json: { data?: Array<{ id?: unknown }> } = {};
+  let readingJson = false;
   try {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 3000);
-    try {
-      res = await fetch(`${baseUrl}/models`, { signal: ctl.signal });
-    } finally {
-      clearTimeout(timer);
-    }
+    await requestWithDeadline(undefined, 3000, async (signal) => {
+      res = await fetch(`${baseUrl}/models`, { signal });
+      if (res.ok) {
+        readingJson = true;
+        json = await res.json();
+      }
+    });
   } catch (err) {
-    return { up: false, models: [], error: `LM Studio not reachable at ${baseUrl}: ${err instanceof Error ? err.message : String(err)}` };
+    const detail = err instanceof Error ? err.message : String(err);
+    return { up: false, models: [], error: readingJson
+      ? `LM Studio /models returned non-JSON: ${detail}`
+      : `LM Studio not reachable at ${baseUrl}: ${detail}` };
   }
   if (!res.ok) {
     return { up: false, models: [], error: `LM Studio /models HTTP ${res.status}` };
-  }
-  let json: { data?: Array<{ id?: unknown }> };
-  try {
-    json = await res.json();
-  } catch (err) {
-    return { up: false, models: [], error: `LM Studio /models returned non-JSON: ${err instanceof Error ? err.message : String(err)}` };
   }
   const models = Array.isArray(json.data)
     ? json.data.map((m) => (typeof m.id === 'string' ? m.id : '')).filter((s) => s.length > 0)

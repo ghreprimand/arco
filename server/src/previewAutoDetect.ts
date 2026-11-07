@@ -1,3 +1,4 @@
+import { requestWithDeadline } from './providers/requestDeadline.js';
 // Auto-bind the Preview tab's port when the agent starts a dev server.
 //
 // Signal source: every Bash(run_in_background) tool call gets sniffed for a
@@ -103,27 +104,33 @@ function buildCandidates(cmd: string): number[] {
 // network error or timeout means nothing is bound yet.
 export async function probeOnce(port: number, signal: AbortSignal): Promise<boolean> {
   try {
-    const r = await fetch(`http://127.0.0.1:${port}/`, {
-      method: 'HEAD',
-      signal,
-      redirect: 'manual',
+    return await requestWithDeadline(signal, PROBE_TIMEOUT_MS, async (boundedSignal) => {
+      try {
+        const r = await fetch(`http://127.0.0.1:${port}/`, {
+          method: 'HEAD',
+          signal: boundedSignal,
+          redirect: 'manual',
+        });
+        return r.status > 0;
+      } catch {
+        // Some HTTP servers (Vite included) don't honor HEAD — try GET as a
+        // fallback before declaring the port dead.
+        try {
+          const r = await fetch(`http://127.0.0.1:${port}/`, {
+            method: 'GET',
+            signal: boundedSignal,
+            redirect: 'manual',
+          });
+          // Drain so the connection releases promptly.
+          try { await r.body?.cancel(); } catch { /* ignore */ }
+          return r.status > 0;
+        } catch {
+          return false;
+        }
+      }
     });
-    return r.status > 0;
   } catch {
-    // Some HTTP servers (Vite included) don't honor HEAD — try GET as a
-    // fallback before declaring the port dead.
-    try {
-      const r = await fetch(`http://127.0.0.1:${port}/`, {
-        method: 'GET',
-        signal,
-        redirect: 'manual',
-      });
-      // Drain so the connection releases promptly.
-      try { await r.body?.cancel(); } catch { /* ignore */ }
-      return r.status > 0;
-    } catch {
-      return false;
-    }
+    return false;
   }
 }
 

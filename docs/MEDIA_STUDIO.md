@@ -291,6 +291,8 @@ Eight new **render ops** fold into the existing typed-spec -> argv path (`buildA
 
 ## N4, Demucs stem separation
 
+Windows discovery honors `Path` and `PATHEXT`, including the `demucs.exe` installed by pip.
+
 True AI source separation (vocals / drums / bass / other, or a two-stems karaoke split) via the local **Demucs** CLI. It is **not** a `MediaOpSpec`, it's a separate runner (`server/src/media/demucs.ts`) behind `POST /api/media/stems`, because it's long-running, GPU-accelerated, and emits **multiple** output files. It reuses the **same N2 access fence** (`resolveMediaInput` / `resolveMediaOutputDir`) for the input + output-parent dir.
 
 **Flow:** validate the whitelisted enums (`STEM_MODELS` / `STEM_NAMES` / `STEM_FORMATS`) -> gate the input -> presence-check demucs -> gate the output parent (must exist) -> create a **fresh uniquified `<track>.stems[-N]/`** dir -> `spawn('demucs', argv)` -> flatten demucs's forced `<model>/` subdir up into the stems dir -> collect the stem files (with `relPath`s for reveal). `buildDemucsArgs` is PURE (`-o <dir> -n <model> --filename {stem}.{ext} [--mp3|--flac] [--two-stems <name>] <track>`); the **track is positional and last**; no operator string reaches the argv.

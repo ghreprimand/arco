@@ -787,7 +787,7 @@ export const configuration: Section[] = [
   NORTH STAR without retyping &quot;continue&quot;. Set an iteration count (and
   optionally a token cap in millions) and press <Code>ARM</Code>. One
   automatic continuation turn fires after each settled turn until the budget
-  is spent.
+  is spent. Codex cached input counts once toward the token cap.
   </p>
   <ul>
   <li>

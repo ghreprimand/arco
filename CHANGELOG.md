@@ -51,6 +51,14 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Server cluster creation and add-existing requests refuse existing Cursor sessions that started without cluster peer tools; use ADD FRESH for Cursor members.
+
+- Local HTTP generation bounds stalled response headers, and completed local streams settle at their done marker. WebSearch and model discovery keep cancellation active while reading JSON.
+- CLI snapshots retain later text blocks and shorter final answers without repeating streamed content.
+- Prompt template arguments remain literal during expansion, and escaped dollar placeholders stay escaped.
+- Automatic preview discovery cannot be held open by one server that never sends response headers.
+- Windows stem separation recognizes the pip-installed Demucs executable on PATH. Codex goal runs count cached input once toward the token ceiling.
+
 - CLI capability probes stop stalled processes, and Codex cancellation and compaction deadlines include the initial RPC reply. Unanswered Codex RPC requests now expire.
 
 - Claude Native file edits preserve unmatched lines when replace-all finds overlapping whitespace-normalized matches.

@@ -288,6 +288,7 @@ export const powerFeatures: Section[] = [
   visible without leaving the window. It also works over SSH with no extra
   forwarded ports.
   </p>
+  <p>Automatic discovery gives each candidate request 500 ms to respond, so a stalled server does not hold up the discovery loop.</p>
   <Sub>Header controls</Sub>
   <ul>
   <li><strong>PORT</strong> - type the dev-server port, for example <Code>5173</Code> for Vite or <Code>3000</Code> for Next.</li>

@@ -1,3 +1,4 @@
+import { requestWithDeadline } from './requestDeadline.js';
 
 import { promises as fs } from 'node:fs';
 import { resolve, relative, isAbsolute, join } from 'node:path';
@@ -449,27 +450,19 @@ const WebSearchTool: OllamaToolEntry = {
       ? Math.max(1, Math.min(10, Math.round(rawMax)))
       : 5;
     const url = `${SEARXNG_URL}/search?q=${encodeURIComponent(query)}&format=json`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), WEBSEARCH_TIMEOUT_MS);
-    const onAbort = (): void => controller.abort();
-    ctx.abortSignal?.addEventListener('abort', onAbort, { once: true });
-    let res: Response;
+    let data: { results?: SearxngResult[] };
     try {
-      res = await fetch(url, { signal: controller.signal });
+      data = await requestWithDeadline(ctx.abortSignal, WEBSEARCH_TIMEOUT_MS, async (signal) => {
+        const res = await fetch(url, { signal });
+        if (!res.ok) {
+          const detail = await res.text().catch(() => '');
+          throw new Error(`WebSearch HTTP ${res.status}: ${detail.slice(0, 200)}`);
+        }
+        return await res.json() as { results?: SearxngResult[] };
+      });
     } catch (err) {
-      if (controller.signal.aborted && !ctx.abortSignal?.aborted) {
-        return `[error] WebSearch timed out after ${WEBSEARCH_TIMEOUT_MS}ms — is SearXNG running on ${SEARXNG_URL}?`;
-      }
       return `[error] WebSearch request failed: ${err instanceof Error ? err.message : String(err)}`;
-    } finally {
-      clearTimeout(timer);
-      ctx.abortSignal?.removeEventListener('abort', onAbort);
     }
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      return `[error] WebSearch HTTP ${res.status}: ${detail.slice(0, 200)}`;
-    }
-    const data = await res.json() as { results?: SearxngResult[] };
     const results = (data.results ?? []).slice(0, maxResults);
     if (results.length === 0) {
       return `(no results for "${query}")`;

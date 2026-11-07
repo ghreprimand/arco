@@ -490,7 +490,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           composer while a run is armed: click it to stop.
         </p>
         <p>
-          The optional token cap is in millions and stops the run when crossed;
+          Codex cached input counts once toward the token cap. The optional token cap is in millions and stops the run when crossed;
           blank means iterations are the only limit. A run also stops on a turn
           error, a rate-limited provider, context past 92%, or a cleared north
           star: each announced with its reason. Your own messages do{' '}
@@ -831,7 +831,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'PREVIEW',
     body: (
       <>
-        <p>A live view of this tab&apos;s local app. Bind its port by hand, or let Arco pick it up when the agent starts a dev server; Arco then shows the app through its own address, so live reload keeps working without forwarding the port.</p>
+        <p>A live view of this tab&apos;s local app. Bind its port by hand, or let Arco pick it up when the agent starts a dev server; Arco then shows the app through its own address, so live reload keeps working without forwarding the port. Each automatic candidate request has a 500 ms deadline.</p>
         <p>The view is drawn at a fixed desktop width and scaled to fit the panel without cropping, in the aspect ratio you pick. The ratio is remembered in this browser for every tab.</p>
       </>
     ),

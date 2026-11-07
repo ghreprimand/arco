@@ -1,3 +1,4 @@
+import { requestWithDeadline } from './requestDeadline.js';
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
 import { readFileSync, statSync } from 'fs';
@@ -434,12 +435,12 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
 
     let res: Response;
     try {
-      res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      res = await requestWithDeadline(this.abortController!.signal, recovery.enabled ? Math.min(recovery.stallTimeoutMs, recovery.turnBudgetMs) : 120_000, (signal) => fetch(`${baseUrl}/v1/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        signal: this.abortController!.signal,
-      });
+        signal,
+      }));
     } catch (err) {
       this.currentBaseUrl = null;
       if (this.isAborted(err)) return null;
@@ -561,7 +562,11 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
           const trimmed = line.trim();
           if (!trimmed.startsWith('data:')) continue;
           const payload = trimmed.slice(5).trim();
-          if (payload === '[DONE]') continue;
+          if (payload === '[DONE]') {
+            streamEnded = true;
+            reader.cancel().catch(() => { /* response already ended */ });
+            break;
+          }
           let evt: {
             choices?: Array<{
               delta?: { content?: unknown; reasoning_content?: unknown; tool_calls?: unknown };

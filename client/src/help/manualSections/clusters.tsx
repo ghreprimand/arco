@@ -104,6 +104,7 @@ export const clusters: Section[] = [
   in the cluster panel. Other providers cannot receive the peer tools, and the
   menu says so. The context menu offers three modes:
   </p>
+  <p>The server also refuses existing Cursor sessions in cluster creation and add-existing requests. Fresh Cursor members remain supported.</p>
   <ul>
   <li>
   <strong>CREATE WITH EXISTING</strong> - multi-pick other same-cwd

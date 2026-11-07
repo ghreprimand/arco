@@ -145,14 +145,11 @@ export async function listPromptCommands(
 
 // Pure bash-positional substitution. Exported for the unit test.
 export function substituteArgs(template: string, args: string[]): string {
-  return template
-    // ${N} and $N → the Nth arg (1-based), empty if unbound.
-    .replace(/\$\{(\d+)\}/g, (_f, n: string) => args[Number(n) - 1] ?? '')
-    .replace(/\$([1-9][0-9]*)/g, (_f, n: string) => args[Number(n) - 1] ?? '')
-    // $@ / $* → all args, space-joined.
-    .replace(/\$[@*]/g, () => args.join(' '))
-    // $$ → literal $ (run last so it doesn't eat the markers above).
-    .replace(/\$\$/g, '$');
+  return template.replace(/\$\$|\$\{(\d+)\}|\$([1-9][0-9]*)|\$[@*]/g, (token, braced: string | undefined, positional: string | undefined) => {
+    if (token === '$$') return '$';
+    if (token === '$@' || token === '$*') return args.join(' ');
+    return args[Number(braced ?? positional) - 1] ?? '';
+  });
 }
 
 export interface ExpandedPrompt {

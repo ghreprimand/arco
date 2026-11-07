@@ -90,6 +90,9 @@ interface PendingToolUse {
 export class StreamParser extends EventEmitter {
   private rl: Interface | null = null;
   private accumulatedText = '';
+  private activeMessageId = 'anonymous';
+  private anonymousMessageIndex = 0;
+  private messageText = new Map<string, Map<number, string>>();
   private startTime = Date.now();
   // Keyed by `content_block_start.index`. Cleared on `content_block_stop`.
   private pendingToolUses = new Map<number, PendingToolUse>();
@@ -197,7 +200,10 @@ export class StreamParser extends EventEmitter {
 
     const eventType = inner.type as string;
 
-    if (eventType === 'content_block_delta') {
+    if (eventType === 'message_start') {
+      const message = inner.message as Record<string, unknown> | undefined;
+      this.activeMessageId = typeof message?.id === 'string' ? message.id : `anonymous-${++this.anonymousMessageIndex}`;
+    } else if (eventType === 'content_block_delta') {
       const delta = inner.delta as Record<string, unknown> | undefined;
       if (!delta) return;
 
@@ -224,6 +230,10 @@ export class StreamParser extends EventEmitter {
               this.emit('stream_error', maybeCliAuth);
             }
           } else {
+            const index = typeof inner.index === 'number' ? inner.index : 0;
+            const blocks = this.messageText.get(this.activeMessageId) ?? new Map<number, string>();
+            blocks.set(index, (blocks.get(index) ?? '') + text);
+            this.messageText.set(this.activeMessageId, blocks);
             this.accumulatedText += text;
             this.emit('text', text);
           }
@@ -286,10 +296,16 @@ export class StreamParser extends EventEmitter {
     const content = message.content as Array<Record<string, unknown>> | undefined;
     if (!Array.isArray(content)) return;
 
-    for (const block of content) {
+    const messageId = typeof message.id === 'string' ? message.id
+      : typeof event.uuid === 'string' ? event.uuid : this.activeMessageId;
+    this.activeMessageId = messageId;
+    const blocks = this.messageText.get(messageId) ?? new Map<number, string>();
+    this.messageText.set(messageId, blocks);
+    for (const [index, block] of content.entries()) {
       if (block.type === 'text') {
         const fullText = block.text as string;
-        if (fullText && fullText.length > this.accumulatedText.length) {
+        const previous = blocks.get(index) ?? '';
+        if (fullText && fullText.length > previous.length && fullText.startsWith(previous)) {
           const maybeCliAuth = tryParseCliAuthError(fullText);
           if (maybeCliAuth) {
             // Don't let the snapshot fallback smuggle a CLI-formatted auth
@@ -300,8 +316,9 @@ export class StreamParser extends EventEmitter {
             }
             continue;
           }
-          const delta = fullText.slice(this.accumulatedText.length);
-          this.accumulatedText = fullText;
+          const delta = fullText.slice(previous.length);
+          blocks.set(index, fullText);
+          this.accumulatedText += delta;
           this.emit('text', delta);
         }
       } else if (block.type === 'tool_use') {
@@ -348,11 +365,16 @@ export class StreamParser extends EventEmitter {
       return;
     }
 
-    // Catch any text that wasn't emitted via stream_events
-    if (result && result.length > this.accumulatedText.length) {
-      const delta = result.slice(this.accumulatedText.length);
-      this.accumulatedText = result;
-      this.emit('text', delta);
+    // A result describes the final assistant message, which can be shorter
+    // than intermediate messages already emitted during this turn.
+    const currentBlocks = [...(this.messageText.get(this.activeMessageId)?.entries() ?? [])]
+      .sort(([a], [b]) => a - b).map(([, text]) => text);
+    const currentText = currentBlocks.join('');
+    if (result && result !== currentText && result !== currentBlocks.at(-1)) {
+      const previous = result.startsWith(this.accumulatedText) ? this.accumulatedText : currentText;
+      const delta = result.startsWith(previous) ? result.slice(previous.length) : result;
+      this.accumulatedText += delta;
+      if (delta) this.emit('text', delta);
     }
 
     // The CLI auto-denies tool calls that would normally prompt when
@@ -369,7 +391,7 @@ export class StreamParser extends EventEmitter {
     });
 
     this.emit('result', {
-      text: this.accumulatedText || result || '',
+      text: result || this.accumulatedText || '',
       costUsd,
       durationMs,
       usage,
