@@ -271,6 +271,9 @@ test('writes stay inside the project: absolute escape, symlink escape and unknow
   assert.equal(write.status, 200, await write.text());
   assert.equal(await fs.readFile(path.join(main.project, 'new.txt'), 'utf8'), 'fine\n');
   assert.equal((await main.post('/api/mkdir', { parent: main.outside, name: 'nd' })).status, 200);
+  assert.equal((await main.post('/api/mkdir', { parent: main.project, name: 'new folder', exclusive: true })).status, 200);
+  assert.equal((await main.post('/api/mkdir', { parent: main.project, name: 'new folder', exclusive: true })).status, 409);
+  assert.equal((await main.post('/api/mkdir', { parent: main.project, name: 'CON', exclusive: true })).status, 400);
 });
 
 // ── legitimate reads that confinement must keep allowing ──────────────────

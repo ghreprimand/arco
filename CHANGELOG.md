@@ -12,6 +12,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Added
 
+- Create and select a new project folder from the workflow or cluster creator.
+
 - Choose, preview, and attach plans from one project in the PLAN tabs and cluster creator. ALL PLANS can attach to the tab or cluster that opened it.
 - Cluster creation offers an existing plan, a director draft, or a Genesis draft while keeping the creator form on return.
 

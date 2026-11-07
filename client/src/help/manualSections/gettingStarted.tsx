@@ -248,6 +248,8 @@ export const gettingStarted: Section[] = [
   <li>
   <strong>Project folder</strong> - the root the agent will operate against.
   Choose <strong>Browse another folder</strong> or paste an absolute path.
+  <strong>+ NEW FOLDER</strong> creates and selects a folder in a project
+  location. Choose a location and a new name; an existing name is refused.
   Starting from a Home project card pre-fills its folder.
   </li>
   <li>

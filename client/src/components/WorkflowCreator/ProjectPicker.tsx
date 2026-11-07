@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { parsePickerProjects, rootsOf, type HomeProject, type HomeRoot } from '../../utils/homeModel';
 
 export type ProjectEntry = HomeProject;
-export function ProjectPicker({ workDir, onPick, onBrowseRoot, onProjectsLoaded }: {
+export function ProjectPicker({ workDir, onPick, onBrowseRoot, onProjectsLoaded, onLocationsLoaded, onLocationChange, refreshKey }: {
   workDir: string; onPick: (path: string) => void; onBrowseRoot?: (path: string) => void; onProjectsLoaded?: (projects: ProjectEntry[]) => void;
+  onLocationsLoaded?: (roots: HomeRoot[]) => void; onLocationChange?: (path: string) => void; refreshKey?: number;
 }) {
   const [projects, setProjects] = useState<ProjectEntry[]>([]);
   const [recent, setRecent] = useState<ProjectEntry[]>([]);
@@ -17,10 +18,10 @@ export function ProjectPicker({ workDir, onPick, onBrowseRoot, onProjectsLoaded 
     void fetch('/api/projects').then(async res => {
       if (!res.ok) throw new Error();
       const body = await res.json();
-      if (active) { const parsed = parsePickerProjects(body) ?? []; setProjects(parsed); setRecent(parsePickerProjects(body, true) ?? []); onProjectsLoaded?.(parsed); setRoots(rootsOf(body) ?? []); }
+      if (active) { const parsed = parsePickerProjects(body) ?? []; const locations = rootsOf(body) ?? []; setProjects(parsed); setRecent(parsePickerProjects(body, true) ?? []); onProjectsLoaded?.(parsed); setRoots(locations); onLocationsLoaded?.(locations); }
     }).catch(() => { if (active) setError('Project choices could not be loaded. Type or browse a folder.'); });
     return () => { active = false; };
-  }, []);
+  }, [refreshKey]);
   // Loading/filtering never chooses a working directory or overwrites typing.
   const current = workDir.trim();
   const registered = projects.some(p => p.path === current && p.source === 'registered');
@@ -39,7 +40,7 @@ export function ProjectPicker({ workDir, onPick, onBrowseRoot, onProjectsLoaded 
   }
   return <div className="project-folders-ui" data-help="creator.projects" style={{ gridColumn: '1 / -1', border: '1px solid var(--color-border-hairline)', borderRadius: 4, padding: 10, color: 'var(--color-fg)' }}>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      <label>Project location <select className="arco-field" aria-label="Project location" value={filter} onChange={e => setFilter(e.target.value)}><option value="all">All folders</option><option value="recent">Recently used</option><option value="pinned">Pinned</option>{roots.map(root => <option key={root.path} value={root.path}>{root.name}{root.exists ? '' : ' (not reachable)'}</option>)}</select></label>
+      <label>Project location <select className="arco-field" aria-label="Project location" value={filter} onChange={e => { const value = e.target.value; setFilter(value); onLocationChange?.(roots.some(root => root.path === value) ? value : ''); }}><option value="all">All folders</option><option value="recent">Recently used</option><option value="pinned">Pinned</option>{roots.map(root => <option key={root.path} value={root.path}>{root.name}{root.exists ? '' : ' (not reachable)'}</option>)}</select></label>
       <label style={{ flex: 1 }}>Search folders <input className="arco-field" type="search" aria-label="Search folder choices" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name or folder" style={{ width: '100%' }} /></label>
       {current && !registered && <button type="button" onClick={() => void keep()} disabled={busy}>Bookmark folder</button>}
     </div>

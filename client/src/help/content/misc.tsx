@@ -147,10 +147,16 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Projects',
     body: (
       <p>
-        Filter All folders, Recently used, Pinned, or a project location, then search by folder name or path. All folders combines location folders and bookmarks in alphabetical order; Recently used lists existing folders by activity and excludes temporary folders. Choosing a group never selects a folder. Browse this location opens navigation without changing the session folder. Browse another folder offers editable paths, Up, location shortcuts and new-folder creation at the displayed parent. Use for this session selects a working folder without bookmarking it; Bookmark folder keeps it listed independently of locations. Settings / Projects manages project locations and bookmarked folders.
+        Filter All folders, Recently used, Pinned, or a project location, then search by folder name or path. All folders combines location folders and bookmarks in alphabetical order; Recently used lists existing folders by activity and excludes temporary folders. Choosing a group never selects a folder. Browse this location opens navigation without changing the session folder. Browse another folder offers editable paths, Up and location shortcuts. + NEW FOLDER creates and selects a new folder in a location. Use for this session selects a working folder without bookmarking it; Bookmark folder keeps it listed independently of locations. Settings / Projects manages project locations and bookmarked folders.
       </p>
     ),
   },
+  'creator.new-folder': { title: 'New folder', body: <p>Create a folder in a project location and select it for this session. Existing folders are not reused.</p>, manualSection: 'creating-workflow' },
+  'creator.new-folder-form': { title: 'Create a project folder', body: <p>Choose a reachable project location and enter a new folder name. Creating the folder does not bookmark it.</p>, manualSection: 'creating-workflow' },
+  'creator.new-folder-location': { title: 'Project location', body: <p>Choose the project location that will contain the new folder.</p>, manualSection: 'creating-workflow' },
+  'creator.new-folder-name': { title: 'Folder name', body: <p>Enter one non-hidden folder name without path separators or reserved characters.</p>, manualSection: 'creating-workflow' },
+  'creator.new-folder-create': { title: 'Create folder', body: <p>Create the folder and select it. A name that already exists is refused.</p>, manualSection: 'creating-workflow' },
+  'creator.new-folder-cancel': { title: 'Cancel folder creation', body: <p>Close the form without creating a folder.</p>, manualSection: 'creating-workflow' },
 
   'auth.connections': {
     title: 'Connections', manualSection: 'settings-providers',

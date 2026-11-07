@@ -1,7 +1,7 @@
 import { readSavedSettings } from '../../utils/settingsRequests';
 import { TerminalSessions } from '../TerminalSessions';
 import { MessageGuardControl } from '../ClusterRightPanel/MessageGuardControl';
-import { TERMINAL_CODEX_ACCOUNT, DEFAULT_OUTPUT_STYLE, OUTPUT_STYLES, resolveOutputStyle, CLUSTER_EFFICIENCY_CREATE_DEFAULT, CLUSTER_MESSAGE_GUARD_CREATE_DEFAULT, type ClusterMessageGuard, type ClusterTaskBoardMode, type ClusterProgressMode } from '@arco/shared';
+import { TERMINAL_CODEX_ACCOUNT, DEFAULT_OUTPUT_STYLE, OUTPUT_STYLES, resolveOutputStyle, CLUSTER_EFFICIENCY_CREATE_DEFAULT, CLUSTER_MESSAGE_GUARD_CREATE_DEFAULT, newFolderNameError, type ClusterMessageGuard, type ClusterTaskBoardMode, type ClusterProgressMode } from '@arco/shared';
 import { useState, useEffect, useRef } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
@@ -24,6 +24,7 @@ import { ExistingClustersList } from '../ExistingClustersList';
 import { TemplatePickerRow } from './TemplatePickerRow';
 import { PastChatsList } from './PastChatsList';
 import { ProjectPicker, type ProjectEntry } from './ProjectPicker';
+import type { HomeRoot } from '../../utils/homeModel';
 import { projectNameForDirectory } from './projectName';
 import { DirectoryBrowser } from '../media/DirectoryPicker';
 import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingTemplateApply';
@@ -135,6 +136,15 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const [name, setName] = useState('');
   const nameEdited = useRef(false);
   const [projectChoices, setProjectChoices] = useState<ProjectEntry[]>([]);
+  const [projectLocations, setProjectLocations] = useState<HomeRoot[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState('');
+  const [folderRefresh, setFolderRefresh] = useState(0);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderParent, setNewFolderParent] = useState('');
+  const [newFolderError, setNewFolderError] = useState('');
+  const [newFolderBusy, setNewFolderBusy] = useState(false);
+  const newFolderPending = useRef(false);
   const [primaryProvider, setPrimaryProvider] = useState<ProviderName>(initialProvider ?? wd?.primaryProvider ?? 'claude');
   // True once the provider comes from an explicit request, a saved default,
   // a template, a resumed session or the operator's own pick. Until then the
@@ -399,6 +409,29 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const lastPlanFolder = useRef(workDir);
   const currentPlanFolder = useRef(workDir);
   currentPlanFolder.current = workDir;
+
+  const createProjectFolder = async () => {
+    if (newFolderPending.current) return;
+    const invalid = newFolderNameError(newFolderName);
+    if (invalid) { setNewFolderError(invalid); return; }
+    if (!newFolderParent || !projectLocations.some(root => root.path === newFolderParent && root.exists)) {
+      setNewFolderError('Choose a reachable project location.'); return;
+    }
+    const previousFolder = workDir;
+    newFolderPending.current = true; setNewFolderBusy(true); setNewFolderError('');
+    try {
+      const response = await fetch('/api/mkdir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ parent: newFolderParent, name: newFolderName, exclusive: true }) });
+      const data = await response.json() as { path?: unknown; error?: string };
+      if (!response.ok || typeof data.path !== 'string') throw new Error(data.error || 'Could not create the folder.');
+      setFolderRefresh(value => value + 1);
+      if (currentPlanFolder.current === previousFolder) {
+        setWorkDir(data.path); setNewFolderOpen(false); setNewFolderName('');
+      } else {
+        setNewFolderError('The folder was created, but the project selection changed. Select the new folder to use it.');
+      }
+    } catch (err) { setNewFolderError(err instanceof Error ? err.message : 'Could not create the folder.'); }
+    finally { newFolderPending.current = false; setNewFolderBusy(false); }
+  };
   useEffect(() => {
     if (lastPlanFolder.current !== workDir) {
       lastPlanFolder.current = workDir;
@@ -1134,9 +1167,12 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         <div data-help="creator.cwd">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <label className="display-font" style={{ ...labelStyle, marginBottom: 0 }}>{mode === 'cluster' ? 'SHARED PROJECT FOLDER' : 'PROJECT FOLDER'}</label>
-            <button onClick={() => setShowBrowser((v) => !v)} className="display-font" style={{ background: 'none', border: 'none', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px' }}>
-              {showBrowser ? 'Close folder browser' : 'Browse another folder'}
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" data-help="creator.new-folder" disabled={newFolderBusy} onClick={() => { setNewFolderParent(projectLocations.some(root => root.path === selectedLocation) ? selectedLocation : projectLocations[0]?.path ?? ''); setNewFolderError(''); setNewFolderOpen(true); }} className="display-font" style={{ background: 'none', border: 'none', color: 'var(--color-accent-secondary-dim)', cursor: newFolderBusy ? 'not-allowed' : 'pointer', opacity: newFolderBusy ? 0.5 : 1, fontSize: '10px', letterSpacing: '1px' }}>+ NEW FOLDER</button>
+              <button onClick={() => setShowBrowser((v) => !v)} className="display-font" style={{ background: 'none', border: 'none', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px' }}>
+                {showBrowser ? 'Close folder browser' : 'Browse another folder'}
+              </button>
+            </div>
           </div>
           <input
             type="text"
@@ -1145,6 +1181,16 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             placeholder="Pick a project below, or type a folder path"
             style={inputStyle}
           />
+          {newFolderOpen && <form data-help="creator.new-folder-form" onSubmit={event => { event.preventDefault(); void createProjectFolder(); }} style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8, color: 'var(--color-fg)' }}>
+            {projectLocations.length === 0 && <div>Add a project location in Settings &gt; Projects before creating a folder.</div>}
+            <label data-help="creator.new-folder-location">Project location <select className="arco-field" aria-label="New folder location" value={newFolderParent} onChange={event => setNewFolderParent(event.target.value)} disabled={newFolderBusy}>
+              {projectLocations.length === 0 && <option value="">No project locations</option>}
+              {projectLocations.map(root => <option key={root.path} value={root.path} disabled={!root.exists}>{root.name}{root.exists ? '' : ' (not reachable)'}</option>)}
+            </select></label>
+            <label data-help="creator.new-folder-name">Folder name <input className="arco-field" aria-label="New folder name" value={newFolderName} onChange={event => setNewFolderName(event.target.value)} disabled={newFolderBusy} /></label>
+            {newFolderError && <div role="alert">{newFolderError}</div>}
+            <div style={{ display: 'flex', gap: 6 }}><button type="submit" data-help="creator.new-folder-create" disabled={newFolderBusy}>{newFolderBusy ? 'CREATING...' : 'CREATE FOLDER'}</button><button type="button" data-help="creator.new-folder-cancel" disabled={newFolderBusy} onClick={() => { setNewFolderOpen(false); setNewFolderName(''); setNewFolderError(''); }}>CANCEL</button></div>
+          </form>}
         </div>
         )}
 
@@ -1208,7 +1254,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
 
           {/* Flat project list, then the folder tree; both span both columns. */}
           {mode !== 'genesis' && mode !== 'chat' && (
-            <ProjectPicker workDir={workDir} onPick={setWorkDir} onProjectsLoaded={setProjectChoices} onBrowseRoot={path => { setBrowserPath(path); setShowBrowser(true); }} />
+            <ProjectPicker workDir={workDir} onPick={setWorkDir} onProjectsLoaded={setProjectChoices} onLocationsLoaded={setProjectLocations} onLocationChange={setSelectedLocation} refreshKey={folderRefresh} onBrowseRoot={path => { setBrowserPath(path); setShowBrowser(true); }} />
           )}
           {mode !== 'genesis' && mode !== 'chat' && showBrowser && <div style={spanBoth}>
             <DirectoryBrowser inline withFilename={false} initialPath={browserPath || workDir || settings?.defaultWorkingDirectory || ''} roots={settings?.projectRoots} title="Browse another folder" confirmLabel="Use for this session" onDone={result => { if (result) { setWorkDir(result.dir); setBrowserPath(result.dir); setShowBrowser(false); } }} />

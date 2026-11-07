@@ -98,6 +98,8 @@ navigation there. **Browse another folder** can reach other directories. The
 browser offers an editable path, UP, shortcuts, and new-folder creation at the
 displayed parent. **Use for this session** selects a folder without bookmarking
 it. **Bookmark folder** explicitly keeps it listed independently of locations.
+**+ NEW FOLDER** creates and selects a folder in a project location. It refuses
+invalid names and names that already exist. Creating the folder does not bookmark it.
 The workflow name defaults to the selected folder name and remains
 editable.
 In Docker, folders must be mounted before they can be selected.
@@ -256,7 +258,8 @@ Use **HOME** to find or add work.
 - In **Settings > Projects**, use **Relocate** for a missing bookmark or folder reference.
 - When opening the creator directly, the folder control is **PROJECT FOLDER** or
   **SHARED PROJECT FOLDER**. **Browse another folder** opens the folder picker,
-  and **Project location** filters the list.
+  **+ NEW FOLDER** creates and selects a folder in a location, and **Project
+  location** filters the list.
 
 For registration, scanned and recent folders, the default browsing location, or
 project trust, open **Settings > Projects**. Home is the place to find and resume

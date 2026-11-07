@@ -1,7 +1,7 @@
 import { tryHandleStorageRoutes } from './storageRoutes.js';
 import { tryHandleArchitectureReviewRoutes } from './architectureReviewRoutes.js';
 import { tryHandleSkillManagementRoutes } from './skillManagementRoutes.js';
-import { removedProviderReason } from '@arco/shared';
+import { newFolderNameError, removedProviderReason } from '@arco/shared';
 import { tryHandleAppVersionRoutes } from './appVersionRoutes.js';
 import { tryHandleSmartPickupRoutes } from './smartPickupRoutes.js';
 import { tryHandleTidyRoutes } from './tidyRoutes.js';
@@ -382,19 +382,30 @@ export async function handleHttpRequest(
   }
 
   if (req.url === '/api/mkdir' && req.method === 'POST') {
+    let exclusive = false;
     try {
       const chunks: Buffer[] = [];
       for await (const chunk of req) chunks.push(chunk as Buffer);
       const body = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}') as {
         parent?: string;
         name?: string;
+        exclusive?: boolean;
       };
       const parent = typeof body.parent === 'string' ? body.parent : '';
+      exclusive = body.exclusive === true;
       const name = typeof body.name === 'string' ? body.name.trim() : '';
       if (!parent || !name) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'parent and name are required' }));
         return;
+      }
+      if (exclusive) {
+        const invalid = newFolderNameError(typeof body.name === 'string' ? body.name : '');
+        if (invalid) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: invalid }));
+          return;
+        }
       }
       if (name.includes('/') || name.includes('\\') || name === '.' || name === '..' || name.startsWith('.')) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -403,11 +414,16 @@ export async function handleHttpRequest(
       }
       const resolvedParent = safeDirectory(resolve(parent));
       const target = join(resolvedParent, name);
-      await mkdir(target, { recursive: true });
+      await mkdir(target, { recursive: !exclusive });
       console.log(`[arco] Created directory: ${target}`);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ path: target }));
     } catch (err) {
+      if (exclusive && (err as NodeJS.ErrnoException).code === 'EEXIST') {
+        res.writeHead(409, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'A file or folder with that name already exists.' }));
+        return;
+      }
       const message = err instanceof Error ? err.message : String(err);
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: message }));

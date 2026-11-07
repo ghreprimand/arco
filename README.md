@@ -92,6 +92,7 @@ Provider command-line tools, accounts, and local model endpoints are configured
 separately through Connections. An unused Arco home opens **Welcome to Arco**
 even when provider CLIs are already signed in. Add named project locations or
 individual folders, connect a provider, then choose Home or the normal creator.
+The creator's **+ NEW FOLDER** makes and selects a folder in a project location.
 Every earlier step can be skipped. Settings > Projects > **Run setup again**
 shows existing choices without discarding saved work. **CONNECT A PROVIDER**
 opens Connections later.
