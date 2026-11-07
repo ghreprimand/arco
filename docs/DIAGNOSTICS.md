@@ -68,6 +68,8 @@ Each check returns `{ id, group, label, status, detail, hint? }`:
 | `core.settings-cascade` | `readSettings()` parses the defaults -> global cascade without throwing. |
 | `core.recovery-registry` | `~/.arco/known-cwds.json` is readable / valid JSON. Absent = ok (no workflows yet). |
 | `core.readiness` | Read-only snapshot of the `/readyz` gate. not-ready -> `warn` (transient boot state, not a fault). |
+| `core.code-skew` | Compares the Git HEAD the running build started from with the on-disk HEAD; a stale build -> `warn`, the `tsx watch` dev runtime -> `skipped`. |
+| `core.systemd-shutdown-window` | Compares the systemd unit's stop timeout with Arco's graceful shutdown window. |
 | `core.logs` | Structured file logging: `getLogFilePath()` non-null (set by `ARCO_LOG_FILE=1`) -> `ok` with path + size; off -> `skipped`. |
 
 ### Providers

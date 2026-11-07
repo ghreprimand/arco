@@ -1144,7 +1144,7 @@ Cluster BOARD sub-tab (`client/src/components/ClusterTaskBoardTab.tsx`). Renders
 - Run concurrency pill showing `RUNS N/cap` - visual throttle indicator.
 - CREATE SWARM / DRAFT ASSIST - the orchestration-assist panel below.
 
-**Orchestration assist panel** (`orchestrationAssistStore`). An operator-armed ASSIST panel inside the AUTOMATION disclosure. Gated: only appears when the cluster is armed (via the panel's own arm toggle). Five assist modes (radio/select): `TASK GRAPH / ASSIGNMENTS / RECOVERY / SYNTHESIS / SWARM`. On dispatch:
+**Orchestration assist panel** (`orchestrationAssistStore`). An operator-armed DRAFT ASSIST panel inside the AUTOMATION disclosure. Gated: only appears when the cluster is armed (via the panel's own arm toggle). Five assist modes (radio/select): `TASK GRAPH / ASSIGNMENTS / RECOVERY / SYNTHESIS / SWARM`. On dispatch:
 1. Client fires `cluster_orchestration_assist_request` with the chosen mode + a freeform prompt + requester workflowId.
 2. Server generates (or stubs) a proposal and stores it via `orchestrationProposals.ts`; broadcasts `cluster_orchestration_proposal` back.
 3. Client upserts the proposal into `orchestrationAssistStore.byCluster[clusterId]` and auto-selects it.

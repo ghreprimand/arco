@@ -360,7 +360,7 @@ A user message. It may arrive while another turn is in flight; the server queues
   type: 'user_message',
   workflowId: string,
   content: string,
-  attachments?: string[],           // file paths from /api/upload
+  attachments?: string[],           // file paths from POST /upload
   clientMessageId?: string,         // optimistic adds correlate by this
   interjection?: boolean,           // set when sending while busy
   kind?: 'steer' | 'follow-up' | 'interrupt', // server busy state decides delivery
@@ -1385,14 +1385,14 @@ observer dismisses any pending prompt for the cwd. Takes effect next turn.
 
 ### `upload_complete` ->
 
-Client signals it just uploaded a file via `/api/upload` HTTP endpoint.
+Client signals it just uploaded a file via the `/upload` HTTP endpoint.
 
 ```ts
 {
   type: 'upload_complete',
   fileId: string,
   filename: string,
-  path: string,                     // absolute path on server filesystem (already minted by /api/upload)
+  path: string,                     // absolute path on server filesystem (already minted by /upload)
 }
 ```
 
@@ -3025,6 +3025,20 @@ owner/context-epoch guarded. Shared activity kinds/policies/delivery states live
 in `protocol/voiceOperator.ts`. `arco_activity` status/configure/cancel-queued
 uses the existing voice relay; mailbox-rule tools additionally accept
 pause/resume. Proof: `npm run smoke:computer-activity`.
+
+## Smaller messages
+
+Messages in the `ClientMessage` / `ServerMessage` unions that the sections above do not cover.
+
+| Message | Direction | Fields | Purpose |
+| --- | --- | --- | --- |
+| `turn_changes` | <- (persisted) | `workflowId`, `checkpointSeq`, `fromRef`, `toRef`, `fileCount`, `added`, `removed`, `binaryFiles`, `otherWriters`, `paths`, `pathsTruncated`, `skippedLargeFiles?`, `timestamp` | Sent after a turn that changed files and has a complete checkpoint pair (`server/src/ws/turnEngine.ts`). Drives the captured file changes under the turn, with VIEW DIFF and UNDO THIS TURN; `otherWriters` means overlapping managed work, so undo is withheld. |
+| `turn_messages_delivered` | <- (transient) | `workflowId`, `clientMessageIds` | The listed mid-turn messages reached the provider; the composer shows them as Delivered. |
+| `claude_native_question_settled` | <- | `workflowId`, `questionId` | A Claude Native question was answered or withdrawn; the question toast and tab mark clear. |
+| `cluster_auto_compaction_set` | -> | `clusterId`, `policy` (`AutoCompactionPolicy` or `null` for Provider) | Sets the cluster default auto-compaction policy from the cluster panel. |
+| `workflow_rename_result` | <- (to the requesting socket) | `workflowId`, `requestId`, `error?` | Reply to a `rename_workflow` that carried a `requestId`; `error` names a refused rename. |
+| `output_saved` | <- (persisted) | `workflowId`, `path`, `sourcePath?`, `ts` | An editor or image save wrote a file; OUTPUTS records it as an editor export of `sourcePath`. |
+| `app_update_available` | <- (all clients) | `current`, `latest`, `url`, `publishedAt` | Sent once per newer release found by the release check, unless that version was dismissed (`server/src/updateCheck.ts`); the client shows the release toast. |
 
 ## Related links
 

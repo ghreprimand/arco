@@ -161,10 +161,10 @@ lifecycle logging is the guarantee; exact command capture is best-effort.
 - **cwd never escapes the workflow root**, `resolveWithinCwd` on every spawn.
 - **Raw stream off the `/ws` seq protocol and out of `events.jsonl`.**
 - **`/terminal` upgrade respects the same access gate as `/ws`.** Both ride the
- same loopback-bound HTTP server (`HOST=127.0.0.1` by default). That loopback
- bind **is** the gate, there is no per-connection token/origin check on `/ws`
- (see `server/src/server/constants.ts`), and `/terminal` inherits exactly that
- posture.
+ same loopback-bound HTTP server (`HOST=127.0.0.1` by default), and both
+ upgrades pass the Host and Origin check (`server/src/http/originGuard.ts`) and
+ the browser session cookie check (`server/src/http/wsAuth.ts`) in
+ `server/src/index.ts` before they are accepted.
 
 ## Remote-shell caveat
 
@@ -178,7 +178,7 @@ does not sandbox the operator, same as any terminal.
 Both converge on the same floating window via `useTerminalStore.openTerminal`;
 they differ only in cwd:
 
-1. **Header launcher** (`SystemHeader.tsx`, `>_ TERMINAL`) -> session in the
+1. **Header launcher** (`SystemHeader.tsx`, TERMINAL in the TOOLS menu) -> session in the
  **active workflow root**. Disabled when no workflow is active.
 2. **Files-tab "open terminal here"** (`FileExplorer.tsx`), a `>_` icon in the
  Files header (root cwd) and a **right-click on any directory** (that dir's

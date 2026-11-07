@@ -46,6 +46,8 @@ For terminology see [`GLOSSARY.md`](GLOSSARY.md). For where these are called fro
 | [WebSocket](#websocket) |
 | [Cross-references](#cross-references) |
 | [Hands-free voice (`/api/voice/*`)](#hands-free-voice-apivoice) |
+| [Storage](#storage) |
+| [Other routes](#other-routes) |
 
 ## Conventions
 
@@ -2325,11 +2327,7 @@ sentence of one reply, including prefetch; a new preference applies to the
 next reply. An aborted request may demote only its own failed worker, never
 a replacement selected by a later request. Tests: `npm run test:voice`.
 
-## Related links
-
-- [WebSocket protocol](PROTOCOL.md)
-- [Architecture](ARCHITECTURE.md)
-- [Documentation style](STYLE.md)
+## Storage
 
 ### Storage report
 
@@ -2348,3 +2346,27 @@ a replacement selected by a later request. Tests: `npm run test:voice`.
 ### Artifact KEEP and copy review
 
 `POST /api/storage/keep` accepts `path`, `workflowId`, `itemPath`, `reason` and `confirm: true`; it adds a validated protection to the conversation's KEEP file. `POST /api/storage/unkeep` accepts `path`, `workflowId`, `confirm: true` and either `itemPath` (remove exactly that mark) or `all: true` (remove every mark); it answers `{ ok, items }` with the marks left and 400 with a message for an invalid path, an unreadable KEEP list or a linked KEEP file. `GET /api/outputs` adds `keptBy` to an artifact that a KEEP mark covers. `copy-review` accepts the same project and workflow identifiers, `itemPath`, `destinationFolder`, `publicProject` and `confirm: true`. It returns ignore and public status, sizes, line-numbered rule findings, per-file `unscanned` state and a review token. `copy-ignore` adds a rule for the reviewed destination. `copy-confirm` rechecks the token and copies without overwriting or deleting the original. For unscanned files going into a public repository outside Git ignore, it also requires `confirmUnscanned: true`. The request never stages or commits.
+
+## Other routes
+
+Routes not covered above. Each is served by the module named in the last column.
+
+| Route | Purpose | Module |
+| --- | --- | --- |
+| `GET /api/app/version` | Running Arco version and build identity (`/healthz` adds liveness fields). | `http/appVersionRoutes.ts` |
+| `GET`, `POST /api/update-check` | Release-check status; `POST` runs a check now (CHECK NOW). | `http/router.ts`, `updateCheck.ts` |
+| `GET /api/installation-history` | Whether this Arco home has completed setup or holds saved work, for the Welcome flow. | `http/router.ts` |
+| `GET /api/connections`, `POST /api/connections/check?provider=` | The Connections catalog, and one provider's connection check (a successful check enables that provider). | `http/connectionsRoutes.ts` |
+| `GET /api/auth-login/session?provider=`, `POST /api/auth-login/code`, `POST /api/auth-login/cancel` | The current sign-in session for a provider, the pasted browser code (Claude) and cancel. | `http/authLoginRoutes.ts` |
+| `GET`, `POST`, `PATCH`, `DELETE /api/projects`; `POST /api/projects/relocate`; `POST /api/projects/create` | The registered project list: register, organize (name, pin, archive), forget (files untouched), relocate a missing folder, create a new folder. | `http/projectRoutes.ts` |
+| `GET /api/terminal-sessions?path=` | Claude Code and Codex terminal sessions for a folder that are not open in Arco (Continue a session from the terminal). | `http/workflowDataRoutes.ts` |
+| `GET /api/outputs`; `GET /api/outputs/file`, `/api/outputs/content`; `POST /api/outputs/open`, `/api/outputs/transfer`, `/api/outputs/text` | Workspace Outputs: list (`workflowId` or `clusterId`, `cwd`), raw file or download and preview content (`id`), OPEN in the default app, copy or move (Save a copy, Move), and save inline text. See [Outputs](OUTPUTS.md). | `http/outputRoutes.ts` |
+| `GET /api/utility-agent/providers`; `POST /api/utility-agent/test`, `/brief`, `/catch-up`, `/tidy`, `/cancel` | Utility agent: which providers can serve, TEST, BRIEF, CATCH ME UP, TIDY and cancel of a running job (`jobId`). | `http/utilityAgentRoutes.ts`, `http/tidyRoutes.ts` |
+| `GET /api/smart-pickup/evaluators` | Which providers can serve as the Smart AUTO-PICKUP evaluator, with the reason when not. | `http/smartPickupRoutes.ts` |
+| `GET /api/voice/setup`; `POST /api/voice/setup/install`, `/cancel`, `/transcribe`; `GET /api/voice/setup/notices` | Voice setup status, install and cancel, the setup transcription test, and the installed `NOTICES.md`. | `http/voiceRoutes.ts` |
+
+## Related links
+
+- [WebSocket protocol](PROTOCOL.md)
+- [Architecture](ARCHITECTURE.md)
+- [Documentation style](STYLE.md)

@@ -50,8 +50,8 @@ interface is the contract; see the Part E storage rationale).
 
 ### Machine-global storage
 
-The DB lives at **`~/.arco/recall/recall.db`**, tied to the user, never per-cwd. Path is built from
-`os.homedir()` + `node:path`; the directory is created on first `load()`. (A constructor `dbPath` override
+The DB lives at **`~/.arco/recall/recall.db`** (under `ARCO_HOME` when set), tied to the user, never per-cwd.
+The path comes from `recallHomeDir()` (`arcoHome()` + `recall`); the directory is created on first `load()`. (A constructor `dbPath` override
 exists so smokes point the index at a temp dir, the real `~/.arco` is never touched by a test.)
 
 ### Title fallback chain (never blank)
@@ -154,7 +154,7 @@ judging the summary.
 ### Storage (machine-global, differs from Handoff)
 
 Summaries live at **`~/.arco/recall/<wfid>/summary.md`**, the machine-global recall home (computed via
-`recallHomeDir()` / `os.homedir()`, never hardcoded), **not** the per-cwd workflow artifacts dir Handoff uses.
+`recallHomeDir()` from the Arco home, never hardcoded), **not** the per-cwd workflow artifacts dir Handoff uses.
 `summaryRef` stored in the index is the stable relative ref **`<wfid>/summary.md`**. Because the recall home is
 outside any cwd the `/api/workflows/artifact` endpoint serves, F2 adds a dedicated route:
 **`GET /api/recall/summary?wfid=`** -> `{ wfid, summary }`. The route validates `wfid` against

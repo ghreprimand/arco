@@ -291,10 +291,10 @@ exactly the same `persistLedgerMutation` path the peer-tools use.
 
 **Proposal lifecycle:**
 
-1. **Requested**, operator arms the ASSIST panel in the cluster BOARD tab,
-   picks a kind (`task_graph` / `assignments` / `swarm` / `recovery` /
-   `synthesis`), optionally supplies input refs and a prompt, and clicks REQUEST
-   PROPOSAL. The server validates cluster membership, creates an
+1. **Requested**, operator opens **DRAFT ASSIST** in the cluster BOARD tab
+   (it reads **PROPOSALS N** while proposals wait), picks a kind (`task_graph` /
+   `assignments` / `swarm` / `recovery` / `synthesis`), optionally supplies input
+   refs and a prompt, and clicks **REQUEST DRAFT**. The server validates cluster membership, creates an
    `OrchestrationProposal` record, and persists it to
    `<cwd>/.arco/project/orchestration-proposals.json`.
 2. **Proposed**, the proposal broadcasts to all cluster members as

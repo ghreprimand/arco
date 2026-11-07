@@ -285,7 +285,7 @@ A few concepts repeat throughout the system; nailing them down up front saves ti
    - `GET /api/transcript?provider=...&sessionId=...` - JSONL -> ChatMessage[] for resume hydration
    - `GET /api/workflows?path=<cwd>` - Arco workflows on disk (tooling)
    - `GET /api/workflows/artifact|handoff?path&workflowId&name` - review artifacts + handoff documents (separate endpoints so the path-traversal guard stays tight)
-   - `POST /api/upload` - file uploads
+   - `POST /upload` - file uploads
    - `POST /api/auth-login?provider=<name>` - per-provider auth trigger
    - `GET /api/auth-status` - combined auth snapshot
    - `GET /api/capabilities` - CLI versions + supported efforts/models
@@ -823,7 +823,7 @@ Built on top of the cluster and task-ledger substrate. The shipped control plane
 
 **Swarm helper.** `cluster_swarm_create` -> root blackboard task + N worker tasks + verifier (depends on all workers) + synthesizer (depends on verifier). Convenience scaffold only; operator can edit the resulting task graph freely.
 
-**Orchestration assist (Stage K).** Operator-armed panel on the cluster BOARD tab. Dispatch sends a `cluster_orchestration_assist_request`; the server (or, in the current stub, the requester's `draft`) stores a proposal in `server/src/project/orchestrationProposals.ts` at `<cwd>/.arco/project/`. Proposal kinds: `task_graph / assignments / recovery / synthesis / swarm`. Client previews the proposal in the ASSIST panel inside `ClusterTaskBoardTab.tsx`; accept-selected applies through the normal task-kernel APIs emitting ordinary `task_ledger_event`s; reject mutates nothing. Suggested provider/model/effort stay inert unless explicitly accepted. Hard fence: no model-set `done`, no silent dispatch - everything operator-armed / logged / reversible.
+**Orchestration assist (Stage K).** Operator-armed panel on the cluster BOARD tab. Dispatch sends a `cluster_orchestration_assist_request`; the server (or, in the current stub, the requester's `draft`) stores a proposal in `server/src/project/orchestrationProposals.ts` at `<cwd>/.arco/project/`. Proposal kinds: `task_graph / assignments / recovery / synthesis / swarm`. Client previews the proposal in the DRAFT ASSIST panel inside `ClusterTaskBoardTab.tsx`; accept-selected applies through the normal task-kernel APIs emitting ordinary `task_ledger_event`s; reject mutates nothing. Suggested provider/model/effort stay inert unless explicitly accepted. Hard fence: no model-set `done`, no silent dispatch - everything operator-armed / logged / reversible.
 
 ---
 
@@ -938,7 +938,7 @@ Routes are registered from `server/src/http/router.ts` and the per-domain `serve
 | `GET /api/workflows/artifact?path&workflowId&name` | Review artifacts + generic worker outputs |
 | `GET /api/workflows/handoff?path&workflowId&name` | Handoff documents (separate route so the path-traversal guard stays tight) |
 | `POST /api/workflows/handoff?path&workflowId` | Manual handoff doc upload |
-| `POST /api/upload` | File uploads (attachments, drag-drop) |
+| `POST /upload` | File uploads (attachments, drag-drop) |
 | `GET /api/auth-status` | Combined auth snapshot |
 | `POST /api/auth-login?provider=<name>` | Per-provider login trigger |
 | `GET /api/capabilities` | CLI versions + supported efforts/models |
@@ -953,7 +953,7 @@ Routes are registered from `server/src/http/router.ts` and the per-domain `serve
 | `GET /api/git/status?path=<cwd>` | Live git status for the GitDialog (current branch, ahead/behind, dirty, branches, remotes, defaultBranch) |
 | `POST /api/git/checkout` | Branch switch / create from GitDialog. Refuses on dirty trees, validates branch names. |
 | `GET /api/llamacpp-live` / `POST /api/llamacpp-load` / `POST /api/llamacpp-unload` | llama.cpp lifecycle (singleton model server) |
-| `GET/PATCH /api/llamacpp-catalog` | Operator-managed GGUF catalog at `~/.arco/llamacpp.json` |
+| `GET/POST /api/llamacpp/catalog` | Operator-managed GGUF catalog at `~/.arco/llamacpp.json` |
 | `GET /api/auth/claude-native` | Native OAuth token status |
 | `POST /api/auth/claude-native/{login,callback,logout,probe}` | Native OAuth bootstrap + empirical model probe |
 | `GET /api/claude-native/catalog[?force=1]` | Distilled Anthropic /v1/models with capability flags; hourly cache |

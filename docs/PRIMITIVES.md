@@ -1124,10 +1124,10 @@ direct kernel mutation (`task_kernel`, the default) and comment-as-update
   `replaceClusterProposals` / `upsertProposal` / `markRejected` / `markApplied`
   maintain the local cache; `selectedProposalId` tracks the active proposal in
   the proposal drawer.
-- **UI** (`client/src/components/ClusterTaskBoardTab.tsx`): an `ASSIST` toggle
-  button (`data-help="cluster.orchestration-assist"`) in the BOARD tab header.
+- **UI** (`client/src/components/ClusterTaskBoardTab.tsx`): a `DRAFT ASSIST` toggle
+  button (`PROPOSALS N` while proposals wait; `data-help="cluster.orchestration-assist"`) in the BOARD tab header.
   Opening the panel exposes mode picker (five kinds), member/model selector,
-  and a free-text prompt. `REQUEST PROPOSAL` fires the dispatch. A
+  and a free-text prompt. `REQUEST DRAFT` fires the dispatch. A
   `ProposalSummaryCard` list (latest four) lets the operator switch the active
   proposal. `ProposalDetailDrawer` renders the full item list with ACCEPT
   SELECTED / REJECT / item-level checkboxes and edit affordances.
