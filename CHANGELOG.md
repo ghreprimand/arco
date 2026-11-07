@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Deterministic Fold preserves the newest complete question and answer even when they exceed its tail token target.
+
 - FOLD and S-FOLD restore saved Claude Native conversations after restart without requiring a new turn first.
 
 - Claude Native reconnects failed or closed MCP sessions and applies changed server launch settings at the next turn.

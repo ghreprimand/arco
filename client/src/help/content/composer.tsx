@@ -564,7 +564,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           worker's in-memory prompt shrinks. Claude-native only. Runs between
           turns: disabled while a turn is in flight. An auto-fold toggle (default
           OFF) lives in CONFIG. A <C>PreCompact</C> hook that exits with code 2
-          skips the fold. Saved history is restored after a server restart; a new turn is not required.
+          skips the fold. The newest complete question and answer stay together even above the tail target. Saved history is restored after a server restart; a new turn is not required.
         </p>
       </>
     ),

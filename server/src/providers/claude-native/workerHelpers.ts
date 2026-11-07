@@ -216,9 +216,10 @@ export function projectKeptTailByTokens(messages: MessageParam[], tailTokenBudge
     if (!text) continue; // tool_use-only / tool_result / image-only — skip, like replay
     if (msg.role === lastRole) continue; // collapse consecutive same-role → most recent
     const cost = Math.ceil(text.length / 4);
-    // Always admit the first (most-recent) message even if it alone exceeds the
-    // budget; stop admitting older ones once the budget is exhausted.
-    if (collected.length > 0 && tokens + cost > budget) break;
+    // The newest answer and its preceding question are one retention unit.
+    // Admitting only the answer would let the boundary cleanup discard both.
+    const completesNewestExchange = collected.length === 1 && lastRole === 'assistant' && msg.role === 'user';
+    if (collected.length > 0 && tokens + cost > budget && !completesNewestExchange) break;
     collected.unshift(
       msg.role === 'user'
         ? { role: 'user', content: text }

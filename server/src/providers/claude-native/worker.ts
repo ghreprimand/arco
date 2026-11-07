@@ -962,7 +962,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     const rawPrefix = keptTail.length > 0 && keptTail.length < this.messages.length
       ? this.messages.slice(0, this.messages.length - keptTail.length)
       : this.messages;
-    const tailForSeed = rawPrefix.length === this.messages.length ? [] : keptTail;
+    const tailForSeed = keptTail;
 
     const digest = buildFoldDigest(
       rawPrefix as Array<{ role: string; content: unknown }>,
