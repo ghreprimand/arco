@@ -138,7 +138,7 @@ export const clusters: Section[] = [
     If a browser tab
   disappears while its server-side cluster still exists, open{' '}
   <Code>+NEW → CLUSTER</Code> and use{' '}
-  <Code>LIVE CLUSTERS ON THIS COMPUTER → REOPEN</Code>. This reconnects
+  <Code>CLOSED CLUSTERS → REOPEN</Code>. This reconnects
   the original cluster and member IDs; it does not fork from a snapshot.
   </p>
   <ul>

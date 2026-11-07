@@ -26,6 +26,12 @@ export const workspace: Section[] = [
             <strong>hub-link chip</strong> sits beside it.
           </li>
           <li>
+            <strong>Layout switch</strong> - beside the wordmark. It shows the
+            current layout (for example <Code>AUTO: COMPACT</Code>) and each click
+            moves to the next choice: Automatic, Standard, Compact, Narrow. See
+            Window size and layout.
+          </li>
+          <li>
             <strong>Provider throttling</strong> - appears only when a provider
             is throttled. Open it for affected providers and known reset times.
             The warning stays visible in focus mode. Context usage stays in

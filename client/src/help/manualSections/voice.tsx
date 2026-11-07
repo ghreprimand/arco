@@ -15,8 +15,8 @@ export const voice: Section[] = [{
   <Sub>Set up and turn on</Sub>
   <p>
   Install local CPU speech once with <Code>arco voice setup</Code> (package
-  install) or <Code>npm run voice:setup</Code> (source checkout). Then open{' '}
-  <Code>VOICE OFF</Code> in the header and enable hands-free, or press{' '}
+  install) or <Code>npm run voice:setup</Code> (source checkout). Then click{' '}
+  <Code>VOICE</Code> in the header to turn hands-free on, or press{' '}
   <Kbd>Ctrl/Cmd+Shift+Space</Kbd>. Microphone access needs localhost or HTTPS.
   </p>
   <p>

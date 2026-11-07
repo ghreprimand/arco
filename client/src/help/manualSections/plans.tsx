@@ -119,7 +119,7 @@ export const plans: Section[] = [
         </p>
         <ul>
           <li>
-            <strong>Draft - I'll review.</strong> The agent's next reply is its
+            <strong>DRAFT → I'LL REVIEW.</strong> The agent's next reply is its
             draft of the plan. A banner offers <Code>SAVE &amp; ATTACH</Code> and
             <Code>REFINE</Code> on that reply, so you can read it first, ask for
             changes and commit only if happy. The drafting
@@ -127,7 +127,7 @@ export const plans: Section[] = [
             although administrator-managed hooks can still run.
           </li>
           <li>
-            <strong>Draft &amp; auto-save.</strong> Saves the agent's reply as the
+            <strong>DRAFT &amp; AUTO-SAVE.</strong> Saves the agent's reply as the
             plan automatically. It is faster but less inspection-friendly.
           </li>
         </ul>
@@ -423,7 +423,7 @@ export const plans: Section[] = [
           The plans library lists every plan across projects, so you can review one
           without attaching it to a workflow. It is the <strong>PLANS</strong> lens
           in the ARTIFACTS window, which lists every plan in every project Arco
-          knows about. Open it from the header <Code>☰ PLANS</Code> button or the{' '}
+          knows about. Open it from <Code>PLANS</Code> in the header KNOWLEDGE menu or the{' '}
           <Code>⌸ ALL PLANS</Code> button on an empty PLAN tab.
         </p>
         <p>
