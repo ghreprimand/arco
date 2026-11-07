@@ -32,29 +32,61 @@ export async function listSegments(dir) {
     .filter(Boolean).sort((a, b) => a.firstSeq - b.firstSeq || a.lastSeq - b.lastSeq);
 }
 
+// The live file can start with copies of sealed records: the newest sealed
+// record that every seal leaves, or every record of a seal that stopped
+// before it replaced the live file. Only those are left out, matched by
+// content, each sealed copy once, up to the first live record that is not a
+// copy. A record with an old number written by a release before 0.1.5 is kept
+// in its place. Same rule as SealedCopies in server/src/eventLog.ts.
+function liveWithoutCopies(liveLines, sealed) {
+  const firstSeq = liveLines.map(lineSeq).find((s) => s !== null);
+  if (firstSeq === undefined) return liveLines;
+  const counts = new Map();
+  for (const { lastSeq, lines: segLines } of sealed) {
+    if (lastSeq < firstSeq) continue;
+    for (const line of segLines()) counts.set(line, (counts.get(line) ?? 0) + 1);
+  }
+  const out = [];
+  let leading = true;
+  for (const line of liveLines) {
+    if (leading && lineSeq(line) !== null) {
+      const n = counts.get(line);
+      if (n) { if (n === 1) counts.delete(line); else counts.set(line, n - 1); continue; }
+      leading = false;
+    }
+    out.push(line);
+  }
+  return out;
+}
+
 // One conversation folder. Returns null when nothing is sealed.
 export async function unsealLog(dir) {
   const segments = await listSegments(dir);
   if (!segments.length) return null;
   const parts = [];
-  let last = 0;
+  const sealed = [];
   for (const seg of segments) {
     const input = createReadStream(seg.file);
     const decompressed = createBrotliDecompress();
     // A segment that cannot be opened or read stops this conversation's export
     // (its segments are kept) instead of ending the process.
     input.on('error', (error) => decompressed.destroy(error));
+    const start = parts.length;
     try {
-      for await (const line of lines(input.pipe(decompressed))) { parts.push(line); const s = lineSeq(line); if (s !== null) last = Math.max(last, s); }
+      for await (const line of lines(input.pipe(decompressed))) parts.push(line);
     } finally { input.destroy(); }
+    const end = parts.length;
+    sealed.push({ lastSeq: seg.lastSeq, lines: () => parts.slice(start, end) });
   }
   const live = join(dir, 'events.jsonl');
+  const liveLines = [];
   try {
     const input = createReadStream(live);
     try {
-      for await (const line of lines(input)) { const s = lineSeq(line); if (s !== null && s <= last) continue; parts.push(line); if (s !== null) last = Math.max(last, s); }
+      for await (const line of lines(input)) liveLines.push(line);
     } finally { input.destroy(); }
   } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  parts.push(...liveWithoutCopies(liveLines, sealed));
   const text = parts.join('\n') + '\n';
   const tmp = join(dir, `events.jsonl.${randomUUID()}.tmp`);
   const fh = await fs.open(tmp, 'wx', 0o600);

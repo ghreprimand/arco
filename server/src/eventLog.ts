@@ -153,6 +153,83 @@ function lastSeqIn(text: string): number {
   return top;
 }
 
+// The live file can start with records that are already in segments: the copy
+// of the newest sealed record that every seal leaves, or, after a seal that
+// stopped before it replaced the live file, every record it sealed. Those live
+// lines are identical to the sealed ones and are not shown twice. A live
+// record with an old number that a release before 0.1.5 wrote after a seal (a
+// REVERT TO HERE, or a restart right after a checkpoint) is a different line;
+// it is in no segment and always stays. Lines are matched by content, each
+// sealed copy once, against the segments whose names reach the live file's
+// first record. Matching stops at the first live record that is not a copy.
+//
+// A live record whose number lies in a segment that could not be read or
+// failed its check stays the only copy: the seal seals it again, and readers
+// keep it unless they read a higher number from a later segment (as before
+// sealed copies were matched by content). Records below `skippedThrough` are
+// in segments a reader skipped on purpose (`fromSeq`); their callers drop
+// them either way.
+export class SealedCopies {
+  private counts = new Map<string, number>();
+  private gaps: Array<{ firstSeq: number; lastSeq: number }> = [];
+  private leading = true;
+  readThrough = 0;
+  skippedThrough = 0;
+  // The first record's number in the live file; segments ending below it
+  // cannot hold a copy of a live record.
+  constructor(readonly liveFirstSeq: number | null) {}
+  reaches(seg: Pick<Segment, 'lastSeq'>): boolean { return this.liveFirstSeq !== null && seg.lastSeq >= this.liveFirstSeq; }
+  addLine(line: string): void { if (line) this.counts.set(line, (this.counts.get(line) ?? 0) + 1); }
+  addText(text: string): void { for (const line of text.split('\n')) this.addLine(line); }
+  addGap(seg: Pick<Segment, 'firstSeq' | 'lastSeq'>): void { this.gaps.push({ firstSeq: seg.firstSeq, lastSeq: seg.lastSeq }); }
+  noteRead(seq: number | null): void { if (seq !== null && seq > this.readThrough) this.readThrough = seq; }
+  // A sealed copy of this line, consumed when found.
+  take(line: string): boolean {
+    const n = this.counts.get(line);
+    if (!n) return false;
+    if (n === 1) this.counts.delete(line); else this.counts.set(line, n - 1);
+    return true;
+  }
+  inGap(seq: number): boolean { return this.gaps.some((g) => g.firstSeq <= seq && seq <= g.lastSeq); }
+  // True when a reader should not show this live line (it is already shown
+  // from a segment).
+  drop(line: string): boolean {
+    if (!this.leading) return false;
+    const seq = lineSeq(line);
+    if (seq === null) return false;
+    if (this.take(line)) return true;
+    if (seq <= this.skippedThrough) return true;
+    if (this.inGap(seq)) return seq <= this.readThrough;
+    this.leading = false;
+    return false;
+  }
+  // The live text without the lines readers do not show.
+  filterText(text: string): string {
+    const kept: string[] = [];
+    for (const line of text.split('\n')) if (line && !this.drop(line)) kept.push(line);
+    return kept.length ? kept.join('\n') + (text.endsWith('\n') ? '\n' : '') : '';
+  }
+}
+export function firstSeqOfText(text: string): number | null {
+  let start = 0;
+  while (start < text.length) {
+    let end = text.indexOf('\n', start);
+    if (end < 0) end = text.length;
+    const seq = end > start ? lineSeq(text.slice(start, end)) : null;
+    if (seq !== null) return seq;
+    start = end + 1;
+  }
+  return null;
+}
+async function firstLiveSeq(file: string): Promise<number | null> {
+  const fh = await openLive(file);
+  if (!fh) return null;
+  try {
+    for await (const line of handleLines(fh)) { const seq = lineSeq(line); if (seq !== null) return seq; }
+    return null;
+  } finally { await fh.close(); }
+}
+
 export class SegmentReadError extends Error {
   constructor(readonly file: string, cause: unknown) {
     super(`Sealed log segment ${path.basename(file)} could not be read`);
@@ -204,16 +281,16 @@ async function* liveLines(file: string): AsyncGenerator<string> {
 //
 // A seal can finish while this runs. The live file is opened (and so pinned)
 // before the segment list is read a second time: whichever live file is
-// pinned, every record not in a listed segment is in it, and records already
-// read from a segment are skipped by sequence number. Only sequence numbers
-// actually read count, so a damaged segment never hides live records. Only the
-// leading live records are skipped (the copied newest sealed record, or all
-// of them after an interrupted seal): a later live record with an old number,
-// written by a release before 0.1.5, is never in a segment and stays.
+// pinned, every record not in a listed segment is in it, and the live records
+// that are copies of sealed ones are not shown again (see SealedCopies). A
+// later live record with an old number, written by a release before 0.1.5, is
+// never in a segment and stays.
 export async function* readLogLines(dir: string, opts: { fromSeq?: number } = {}): AsyncGenerator<string> {
   const fromSeq = opts.fromSeq ?? 0;
   const done = new Set<string>();
-  let sealedThrough = 0;
+  // Peeked before the segments are listed: a seal that finishes meanwhile only
+  // raises the live file's first number, so no needed segment is left out.
+  const copies = new SealedCopies(await firstLiveSeq(path.join(dir, LIVE_LOG)));
   async function* drainSegments(): AsyncGenerator<string> {
     for (const seg of await listSegments(dir)) {
       if (done.has(seg.name)) continue;
@@ -221,15 +298,20 @@ export async function* readLogLines(dir: string, opts: { fromSeq?: number } = {}
       // Records below fromSeq are dropped by the callers either way. A segment
       // ending at fromSeq is still read: an older log can repeat its last
       // number, and that record counts as the next one.
-      if (seg.lastSeq < fromSeq) { sealedThrough = Math.max(sealedThrough, seg.lastSeq); continue; }
+      if (seg.lastSeq < fromSeq) { copies.skippedThrough = Math.max(copies.skippedThrough, seg.lastSeq); continue; }
+      const reaches = copies.reaches(seg);
       try {
         for await (const line of segmentLines(seg)) {
-          const seq = lineSeq(line);
-          if (seq !== null && seq > sealedThrough) sealedThrough = seq;
+          copies.noteRead(lineSeq(line));
+          if (reaches) copies.addLine(line);
           yield line;
         }
       }
-      catch (err) { if (err instanceof SegmentReadError) reportUnreadable(err); else throw err; }
+      catch (err) {
+        if (!(err instanceof SegmentReadError)) throw err;
+        reportUnreadable(err);
+        if (reaches) copies.addGap(seg);
+      }
     }
   }
   yield* drainSegments();
@@ -237,15 +319,7 @@ export async function* readLogLines(dir: string, opts: { fromSeq?: number } = {}
   try {
     yield* drainSegments();
     if (!fh) return;
-    let leading = sealedThrough > 0;
-    for await (const line of handleLines(fh)) {
-      if (leading) {
-        const seq = lineSeq(line);
-        if (seq !== null && seq <= sealedThrough) continue;
-        if (seq !== null) leading = false;
-      }
-      yield line;
-    }
+    for await (const line of handleLines(fh)) if (!copies.drop(line)) yield line;
   } finally { await fh?.close(); }
 }
 
@@ -267,30 +341,21 @@ function liveTextSync(file: string): { text: string; size: number } {
   catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { text: '', size: 0 }; throw err; }
 }
 
-function dropSealed(text: string, sealedThrough: number): string {
-  if (!sealedThrough || !text) return text;
-  const lines = text.split('\n');
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i];
-    if (!line) { i++; continue; }
-    const seq = lineSeq(line);
-    if (seq !== null && seq <= sealedThrough) { i++; continue; }
-    break;
-  }
-  return lines.slice(i).join('\n');
-}
-
 export function readLogTextSync(dir: string): string {
-  const segments = listSegmentsSync(dir);
-  let out = '', sealedThrough = 0;
-  for (const seg of segments) {
+  // The live file is read first: a seal finishing meanwhile then only adds
+  // segments holding copies of live records, which are matched below.
+  const live = liveTextSync(path.join(dir, LIVE_LOG)).text;
+  const copies = new SealedCopies(firstSeqOfText(live));
+  let out = '';
+  for (const seg of listSegmentsSync(dir)) {
     let text = '';
-    try { text = decompressSegmentSync(seg); } catch (err) { reportUnreadable(err); }
+    try { text = decompressSegmentSync(seg); }
+    catch (err) { reportUnreadable(err); if (copies.reaches(seg)) copies.addGap(seg); }
     out += text;
-    sealedThrough = Math.max(sealedThrough, lastSeqIn(text));
+    copies.noteRead(lastSeqIn(text));
+    if (copies.reaches(seg)) copies.addText(text);
   }
-  return out + dropSealed(liveTextSync(path.join(dir, LIVE_LOG)).text, sealedThrough);
+  return out + copies.filterText(live);
 }
 
 // The last `maxBytes` of the history, possibly starting mid-record (callers
@@ -315,13 +380,25 @@ export async function readLogTail(dir: string, maxBytes: number): Promise<{ text
     }
   } finally { await fh?.close(); }
   const segments = await listSegments(dir);
-  let text = dropSealed(live, await trustedThrough(segments));
+  // Sound segments only, as below; a damaged one is a gap (see SealedCopies).
+  const copies = new SealedCopies(firstSeqOfText(live));
+  copies.readThrough = await trustedThrough(segments);
+  const texts = new Map<string, string>();
+  for (const seg of segments) {
+    if (!copies.reaches(seg)) continue;
+    let text: string | null = null;
+    if (await segmentIsSound(seg)) {
+      try { text = await segmentText(seg); } catch (err) { if (!(err instanceof SegmentReadError)) throw err; }
+    }
+    if (text === null) copies.addGap(seg); else { copies.addText(text); texts.set(seg.name, text); }
+  }
+  let text = copies.filterText(live);
   let i = segments.length - 1;
   // A damaged segment is reported and skipped; older sound ones still count,
   // as in the full reader.
   while (i >= 0 && Buffer.byteLength(text) < maxBytes) {
     if (!(await segmentIsSound(segments[i]))) { reportUnreadable(new SegmentReadError(segments[i].file, 'content does not match its name')); i--; continue; }
-    try { text = (await segmentText(segments[i])) + text; }
+    try { text = (texts.get(segments[i].name) ?? await segmentText(segments[i])) + text; }
     catch (err) { if (!(err instanceof SegmentReadError)) throw err; reportUnreadable(err); }
     i--;
   }
@@ -357,11 +434,20 @@ export function readLogTailSync(dir: string, maxBytes: number): { text: string; 
     } finally { closeSync(fd); }
   }
   const segments = listSegmentsSync(dir);
-  let text = dropSealed(live, trustedThroughSync(segments));
+  const copies = new SealedCopies(firstSeqOfText(live));
+  copies.readThrough = trustedThroughSync(segments);
+  const texts = new Map<string, string>();
+  for (const seg of segments) {
+    if (!copies.reaches(seg)) continue;
+    let text: string | null = null;
+    if (segmentIsSoundSync(seg)) { try { text = decompressSegmentSync(seg); } catch { /* reported below */ } }
+    if (text === null) copies.addGap(seg); else { copies.addText(text); texts.set(seg.name, text); }
+  }
+  let text = copies.filterText(live);
   let i = segments.length - 1;
   while (i >= 0 && Buffer.byteLength(text) < maxBytes) {
     if (!segmentIsSoundSync(segments[i])) { reportUnreadable(new SegmentReadError(segments[i].file, 'content does not match its name')); i--; continue; }
-    try { text = decompressSegmentSync(segments[i]) + text; } catch (err) { reportUnreadable(err); }
+    try { text = (texts.get(segments[i].name) ?? decompressSegmentSync(segments[i])) + text; } catch (err) { reportUnreadable(err); }
     i--;
   }
   return clipTail(text, maxBytes, i >= 0);
@@ -371,12 +457,13 @@ export function readLogTailSync(dir: string, maxBytes: number): { text: string; 
 // session titles). Decompresses at most the oldest segments needed.
 export function readLogHeadSync(dir: string, maxBytes: number): string {
   const segments = listSegmentsSync(dir);
-  let text = '', sealedThrough = 0;
+  let text = '';
+  const parts: Array<{ seg: Segment; part: string | null }> = [];
   for (const seg of segments) {
-    let part = '';
+    let part: string | null = null;
     try { part = decompressSegmentSync(seg); } catch (err) { reportUnreadable(err); }
-    text += part;
-    sealedThrough = Math.max(sealedThrough, lastSeqIn(part));
+    parts.push({ seg, part });
+    text += part ?? '';
     if (Buffer.byteLength(text) >= maxBytes) return Buffer.from(text).subarray(0, maxBytes).toString('utf8');
   }
   const file = path.join(dir, LIVE_LOG);
@@ -391,7 +478,13 @@ export function readLogHeadSync(dir: string, maxBytes: number): string {
       live = buf.subarray(0, n).toString('utf8');
     } finally { closeSync(fd); }
   }
-  text += dropSealed(live, sealedThrough);
+  const copies = new SealedCopies(firstSeqOfText(live));
+  for (const { seg, part } of parts) {
+    if (part !== null) copies.noteRead(lastSeqIn(part));
+    if (!copies.reaches(seg)) continue;
+    if (part === null) copies.addGap(seg); else copies.addText(part);
+  }
+  text += copies.filterText(live);
   return Buffer.from(text).subarray(0, maxBytes).toString('utf8');
 }
 
@@ -400,7 +493,9 @@ export function readLogHeadSync(dir: string, maxBytes: number): string {
 // even one named by a damaged segment. Readers do not use it to drop records.
 export async function sealedThroughSeq(dir: string): Promise<number> {
   const segments = await listSegments(dir);
-  return segments.length ? segments[segments.length - 1].lastSeq : 0;
+  // Segments are listed by their first number; a log written before 0.1.5
+  // can have one with lower numbers after another.
+  return segments.reduce((n, seg) => Math.max(n, seg.lastSeq), 0);
 }
 // Highest sequence number any segment name has ever claimed, including
 // segments moved aside as damaged (`*.damaged-<time>`), so sequence recovery
@@ -478,26 +573,35 @@ async function moveAside(seg: Segment): Promise<string> {
 // the conversation's flush chain). Records go into segments of at most
 // `segmentBytes` of text each.
 //
-// A live record is dropped only when a segment whose name covers it passes the
-// content check. Live records not covered by a sound segment are sealed into
-// new segments, which never overlap an existing one. The live file is replaced
+// A live record is dropped only when it is a copy of a record in a segment
+// that passes the content check. Every other live record is sealed into new
+// segments, which never overlap an existing one. The live file is replaced
 // only after every new segment is in place.
 export async function sealLiveLog(dir: string, segmentBytes = sealThresholdBytes()): Promise<SealResult | null> {
   const file = path.join(dir, LIVE_LOG);
   try { await fs.lstat(file); } catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null; throw err; }
   if (await readLogFormat(dir) > LOG_FORMAT) throw new Error('This conversation log uses a newer storage format; update Arco to write to it.');
   await removeLeftovers(dir);
-  const segments = await listSegments(dir);
+  let segments = await listSegments(dir);
   const written: string[] = [], movedAside: string[] = [];
-  let records = 0, ptr = 0, coveredAny = false, liveRecords = 0;
+  let records = 0, coveredAny = false, liveRecords = 0;
   let chunk: string[] = [], chunkBytes = 0, chunkFirst = 0, chunkLast = 0, chunkTopLine = '';
-  // Logs written before 0.1.5 can repeat a number or go back to an older one.
-  // Only the leading live records (the copied newest sealed record, or all of
-  // them after an interrupted seal) can already be in a segment; a later
-  // record is always sealed again. A new segment starts only at a record with
-  // a higher number than every one before it, so segment names keep file order.
-  const sealedTop = segments.reduce((n, seg) => Math.max(n, seg.lastSeq), 0);
-  let leading = sealedTop > 0, maxSeen = 0;
+  // The leading live records that are copies of records in sound segments
+  // (the copied newest record, or all of them after an interrupted seal) are
+  // dropped; every other record is sealed (see SealedCopies). Logs written
+  // before 0.1.5 can repeat a number or go back to an older one; such a record
+  // is never in a segment and is sealed like any new one. A new segment starts
+  // only at a record with a higher number than every one before it, so
+  // segment names keep file order.
+  const copies = new SealedCopies(await firstLiveSeq(file));
+  const damaged: Segment[] = [], moved = new Set<Segment>();
+  for (const seg of segments) {
+    if (!copies.reaches(seg)) continue;
+    let text: string | null = null;
+    if (await segmentIsSound(seg)) { try { text = await segmentText(seg); } catch (err) { if (!(err instanceof SegmentReadError)) throw err; } }
+    if (text === null) damaged.push(seg); else copies.addText(text);
+  }
+  let leading = true, maxSeen = 0;
   // The newest record that is sealed (in a sound segment or a new one); it is
   // copied into the new live file.
   let topSeq = 0, topLine = '';
@@ -519,6 +623,7 @@ export async function sealLiveLog(dir: string, segmentBytes = sealThresholdBytes
     });
     try { remember(checkKey(path.join(dir, name), await fs.stat(path.join(dir, name))), true); } catch { /* checked again on use */ }
     written.push(name);
+    segments.push({ name, file: path.join(dir, name), firstSeq: chunkFirst, lastSeq: chunkLast });
     records += chunk.length;
     noteTop(chunkLast, chunkTopLine);
     chunk = []; chunkBytes = 0; chunkFirst = 0; chunkLast = 0; chunkTopLine = '';
@@ -529,11 +634,8 @@ export async function sealLiveLog(dir: string, segmentBytes = sealThresholdBytes
     liveRecords++;
     const forward = seq > maxSeen;
     maxSeen = Math.max(maxSeen, seq);
-    if (leading && seq > sealedTop) leading = false;
-    while (leading && ptr < segments.length && segments[ptr].lastSeq < seq) ptr++;
-    const seg = leading ? segments[ptr] : undefined;
-    if (seg && seg.firstSeq <= seq) {
-      if (await segmentIsSound(seg)) {
+    if (leading) {
+      if (copies.take(line)) {
         // Already sealed (the copied record, or an interrupted seal).
         await flush();
         pendingNoSeq = [];
@@ -541,15 +643,28 @@ export async function sealLiveLog(dir: string, segmentBytes = sealThresholdBytes
         noteTop(seq, line);
         continue;
       }
-      movedAside.push(await moveAside(seg));
-      segments.splice(ptr, 1);
+      const bad = damaged.find((seg) => seg.firstSeq <= seq && seq <= seg.lastSeq);
+      if (bad) {
+        // Its records are sealed again from the live file.
+        if (!moved.has(bad)) {
+          movedAside.push(await moveAside(bad));
+          moved.add(bad);
+          segments = segments.filter((seg) => seg !== bad);
+        }
+      } else {
+        leading = false;
+        // A record from before 0.1.5 with an old number would start a segment
+        // whose name sorts before existing ones. Nothing is sealed then; the
+        // live file stays complete and every reader shows it in order.
+        if (!chunk.length && segments.some((seg) => seg.firstSeq >= seq)) {
+          throw new Error(`the live log starts with older records numbered ${seq} that cannot be sealed after the existing segments; it stays a plain file`);
+        }
+      }
     }
     const add = [...pendingNoSeq, line];
     pendingNoSeq = [];
     const addBytes = add.reduce((n, l) => n + Buffer.byteLength(l) + 1, 0);
-    // A new segment must not span an existing one.
-    const between = leading && ptr > 0 && chunk.length > 0 && segments[ptr - 1].firstSeq > chunkLast;
-    if (chunk.length && (between || (forward && chunkBytes + addBytes > segmentBytes))) await flush();
+    if (chunk.length && forward && chunkBytes + addBytes > segmentBytes) await flush();
     if (!chunk.length) chunkFirst = seq;
     chunk.push(...add); chunkBytes += addBytes;
     if (seq > chunkLast || !chunkTopLine) { chunkLast = Math.max(chunkLast, seq); chunkTopLine = line; }
@@ -581,14 +696,17 @@ export async function unsealLog(dir: string): Promise<{ records: number; segment
   const segments = await listSegments(dir);
   if (!segments.length) return null;
   const parts: string[] = [];
-  let last = 0, records = 0;
+  let records = 0;
+  // Only the live records that are copies of sealed ones are left out; a
+  // record with an old number written before 0.1.5 is kept in its place.
+  const copies = new SealedCopies(await firstLiveSeq(path.join(dir, LIVE_LOG)));
   for (const seg of segments) {
-    for await (const line of segmentLines(seg)) { parts.push(line); records++; const s = lineSeq(line); if (s !== null) last = Math.max(last, s); }
+    const reaches = copies.reaches(seg);
+    for await (const line of segmentLines(seg)) { parts.push(line); records++; if (reaches) copies.addLine(line); }
   }
   for await (const line of liveLines(path.join(dir, LIVE_LOG))) {
-    const s = lineSeq(line);
-    if (s !== null && s <= last) continue;
-    parts.push(line); records++; if (s !== null) last = Math.max(last, s);
+    if (copies.drop(line)) continue;
+    parts.push(line); records++;
   }
   const text = parts.join('\n') + '\n';
   await writeDurable(dir, LIVE_LOG, text, `${LIVE_LOG}.${randomUUID()}.tmp`);

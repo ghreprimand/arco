@@ -52,6 +52,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - BELL and matching desktop and phone alerts name the tab, or the member and cluster. Hover over a shortened BELL notice to read it in full.
 
 - Cluster creation leaves the director plan draft option off by default. Public-project choices are available in plan review and editing, Genesis and the plans library, and are saved per project for agent-created plans.
+- Conversation logs written before 0.1.5 keep every record when they are compressed, read or written back with `arco storage unseal`. Before, records that reused older numbers after a REVERT TO HERE or a restart could be hidden from the history, dropped from the live log by the next compression, or left out of the exported plain log.
 - A sealed log segment that disappears while a conversation's history is being read (for example during ARCHIVE or DELETE) is skipped and reported instead of stopping the server. `arco storage unseal` stops for that conversation, keeps its segments and continues with the others.
 - Creating a cluster, ADD WORKERS and REPLACE no longer show the new members as their own tabs first. Before, each member appeared as a top-level tab and took focus until the cluster tab opened and folded them in; now the cluster tab appears once with its members.
 - The composer stays steady as a running step changes. Long step names are shortened in the toolbar; hover to see the full name.
