@@ -8,6 +8,8 @@ const value = z.union([z.boolean(),z.number().min(0).max(10000000)]);
 const ids = z.array(conditionId).min(1).max(32).refine((ids)=>new Set(ids).size===ids.length,'Duplicate worker ids.');
 const counter = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
 const optionalLimit = z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable().default(null);
+// 8 clauses, 4 actions per clause, up to 32 distinct worker targets.
+export const MAX_CONDITION_EXECUTION_KEYS = 8 * 4 * 32;
 export const savedConditionRule=z.object({
   id:conditionId,ownerId:conditionId,definition:z.unknown(),revision:z.number().int().nonnegative().optional(),
   members:z.array(z.object({id:conditionId,clusterId:conditionId,name:z.string().max(100)}).strict()).min(1).max(32),
@@ -15,7 +17,7 @@ export const savedConditionRule=z.object({
   createdAt:z.number().int().nonnegative(),expiresAt:z.number().int().nonnegative().nullable(),paused:z.boolean().optional(),private:z.boolean().optional(),
   actions:counter,workerTurns:z.record(conditionId,z.object({count:counter,at:z.number().int().nonnegative()}).strict()),
   fired:z.array(z.string().max(32)).max(8),activated:z.array(z.string().max(32)).max(8).optional(),
-  executions:z.record(z.string().max(160),z.array(z.string().max(64))),mailSeen:z.record(conditionId,z.array(z.string().max(256)).max(4096)),
+  executions:z.record(z.string().max(160),z.array(z.string().max(64))).refine((v)=>Object.keys(v).length<=MAX_CONDITION_EXECUTION_KEYS),mailSeen:z.record(conditionId,z.array(z.string().max(256)).max(4096)),
   announcements:z.array(z.object({id:z.string().max(100),text:z.string().max(1024),at:z.number().int().nonnegative(),claimed:z.boolean().optional()}).strict()),
 }).strict();
 // A finite schema tree makes the complexity budget visible and avoids recursive

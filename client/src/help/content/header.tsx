@@ -34,7 +34,7 @@ export const headerHelp: Record<string, HelpEntry> = {
       numeric limits stay until changed. The panel shows no-limit settings
       and actual counts. Compaction and continuation each count as a worker
       action. Cooldown defaults to 30 seconds and can be changed, including
-      zero. Restart interrupts without replay. Private scripts stay in
+      zero. Supported 32-worker scripts remain readable after more than 128 action/target combinations. Restart interrupts without replay. Private scripts stay in
       memory and disappear with that private context.</p></>,
   },
   'header.computer': {
@@ -478,7 +478,7 @@ export const headerHelp: Record<string, HelpEntry> = {
           actions that each ask first) and <C>TREE</C> (the raw file tree).
           Only PLANS (plan edits, MARK DONE) and STORAGE change anything;
           each STORAGE action asks first.
-         Windows paths show filenames in RECENTS; files inside the Arco state folder have no OPEN IN TREE action.</p>
+         RECENTLY MODIFIED retains the newest 500 matches across all allowed folders through depth eight. AGENT WRITES keeps new records during retention cleanup. Windows paths show filenames in RECENTS; files inside the Arco state folder have no OPEN IN TREE action.</p>
         <p>
           Opens as a same-browser popup so it inherits the correct per-monitor
           DPI; if the popup is refused it falls back to a server-spawned

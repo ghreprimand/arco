@@ -415,13 +415,13 @@ export const powerFeatures: Section[] = [
   <li>Browsing your repos and orgs.</li>
   <li>Walking file trees and reading source files.</li>
   <li>Opening and reading PRs (with diffs) and issues.</li>
-  <li>Inspecting Actions runs (jobs, logs, status).</li>
+  <li>Inspecting Actions runs (jobs, logs, status). RERUN requests another run and shows Rerun requested after GitHub accepts it, including an empty response.</li>
   <li>Cloning a repo to a chosen local path.</li>
   </ul>
   <Note>
   The browser is read-mostly. Its only writes are clone, <Code>+ NEW PR</Code>{' '}
   (create a pull request), MERGE on a pull request and POST COMMENT on an
-  issue, each started by your click. Closing pull requests and other changes
+  issue, plus RERUN on an Actions run, each started by your click. Closing pull requests and other changes
   need <Code>gh</Code> or the website.
   </Note>
   </>
@@ -853,7 +853,7 @@ export const powerFeatures: Section[] = [
   </p>
   <ul>
   <li><strong>Titles, summaries and tags</strong> are always searched, with relevance ranking and highlighted snippets.</li>
-  <li><strong>Transcript full-text</strong> is a toggle, off by default because it is a bigger scan. When on, the query also searches each conversation's transcript, which surfaces keywords that appear only in the body. It needs <Code>rg</Code> and is disabled without it. Keeping transcripts out of the index keeps it small.</li>
+  <li><strong>Transcript full-text</strong> is a toggle, off by default because it is a bigger scan. When on, the query also streams each conversation&apos;s live and compressed sealed transcript, which surfaces keywords that appear only in the body. It needs <Code>rg</Code> and is disabled without it. Keeping transcripts out of the index keeps it small.</li>
   </ul>
   <p>
   Filter by project, provider and last-active date range. Each result shows the

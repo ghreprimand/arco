@@ -2095,7 +2095,7 @@ Returns the count of currently connected WS sessions. Used by the launcher to de
 | `/api/github/repos/:owner/:repo/runs` | GET | Workflow runs |
 | `/api/github/repos/:owner/:repo/runs/:id` | GET | Run detail |
 | `/api/github/repos/:owner/:repo/runs/:id/jobs` | GET | Run jobs |
-| `/api/github/repos/:owner/:repo/runs/:id/rerun` | POST | Rerun |
+| `/api/github/repos/:owner/:repo/runs/:id/rerun` | POST | Rerun; accepted empty upstream success returns `{ ok: true }` |
 
 If `gh auth status` reports unauthenticated, every route returns 401 with `{ error: "GitHub CLI not authenticated" }`. Run `gh auth login` (or use the in-UI flow at `POST /api/auth-login?provider=github`).
 

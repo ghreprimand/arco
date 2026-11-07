@@ -1,9 +1,10 @@
-import type { LedgerTask, ServerMessage } from '@arco/shared';
+import type { LedgerTask } from '@arco/shared';
 import * as clusterStore from './clusterStore.js';
 import * as mailbox from './clusterMailbox.js';
 import * as ledger from './project/taskLedger.js';
 import { workflows, workflowCwds } from './server/state.js';
-import { readEventsPageBefore } from './workflowStore.js';
+import { readLogLines } from './eventLog.js';
+import { join } from 'node:path';
 
 export interface RecipientContext {
   state: 'busy' | 'idle' | 'unknown';
@@ -31,10 +32,20 @@ export async function recipientContext(clusterId: string, sender: string, recipi
   const facts: MessageFact[] = pending.filter((m) => m.fromWorkflowId === recipient).map((m) => ({ content: m.content, timestamp: Date.parse(m.createdAt) }));
   const cwd = workflowCwds.get(sender) ?? cluster?.cwd;
   if (cwd) {
-    const page = await readEventsPageBefore(cwd, sender, Infinity, Number.MAX_SAFE_INTEGER).catch(() => ({ events: [] as ServerMessage[] }));
-    for (const event of page.events) {
-      if (event.type === 'peer_message_received' && event.from === recipient && typeof event.ts === 'number') facts.push({ content: event.content, timestamp: event.ts });
+    let last: MessageFact | undefined;
+    if (/^[a-zA-Z0-9-]{1,64}$/.test(sender)) {
+      try {
+        for await (const line of readLogLines(join(cwd, '.arco', 'workflows', sender))) {
+          let event;
+          try { event = JSON.parse(line); } catch { continue; }
+          if (event.type === 'peer_message_received' && event.from === recipient && typeof event.content === 'string'
+            && typeof event.ts === 'number' && Number.isFinite(event.ts) && (!last || event.ts >= last.timestamp)) {
+            last = { content: event.content.split(/\r?\n/, 1)[0].slice(0, 2000), timestamp: event.ts };
+          }
+        }
+      } catch { /* advisory context; a failed lookup must not hide pending mail */ }
     }
+    if (last) facts.push(last);
   }
   return buildRecipientContext(workflows.get(recipient)?.busy, tasks, recipient, facts, Date.now());
 }

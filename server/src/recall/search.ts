@@ -1,31 +1,11 @@
-// Workbench Expansion §F3 — Recall: global search engine.
-//
-// Keyword search over the F1 recall index: titles + summaries + tags via SQLite
-// FTS5 (the must-have), plus an OPTIONAL full-text pass over each workflow's
-// transcript (events.jsonl) via A5's ripgrep engine (operator toggle, default
-// OFF — heavier scan, no extra DB bytes). Filtered by project / provider / date.
-//
-// FENCE-CLEARANCE (docs/RECALL.md, Part F preamble): operator-driven
-// retrospective search — DETERMINISTIC (FTS5 bm25 + ripgrep), NO LLM in the
-// loop, no AI ranking/summarization. This is the backward-looking archive
-// search the operator asked for.
-//
-// Two backends, ONE shared with A5:
-//   - title/summary/tags → FTS5 (RecallIndex.searchFtsRaw). bm25() ranks,
-//     snippet() excerpts. Always on.
-//   - transcript text → contentSearch.searchContent (the SAME ripgrep engine
-//     A5's /api/search/content uses — NOT a second engine). Run once per
-//     candidate workflow's events.jsonl, gated behind includeTranscripts.
-//     Degrades gracefully when `rg` is absent (transcriptsAvailable:false).
-//
-// Why ripgrep over stuffing transcripts into FTS5: full transcripts across all
-// time would bloat the machine-global recall.db and force a re-index on every
-// turn. ripgrep over events.jsonl on demand keeps recall.db small and reuses an
-// engine that already exists, already validated, already degrades gracefully.
+// Recall keyword search: SQLite FTS for titles, summaries and tags, with an
+// optional ripgrep pass over canonical sealed-plus-live transcript lines.
+// Operator driven, deterministic, with no model call or extra transcript index.
 
 import path from 'path';
+import { searchTranscript } from './transcriptSearch.js';
 import { getRecallIndex, RecallIndex, type RecallFtsRow } from './index.js';
-import { searchContent, RIPGREP_BIN } from '../contentSearch.js';
+import { RIPGREP_BIN } from '../contentSearch.js';
 import type { ProviderName, RecallEntry, RecallSearchHit, RecallSearchResponse } from '@arco/shared';
 
 const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
@@ -137,9 +117,7 @@ export async function search(opts: RecallSearchOpts, index: RecallIndex = getRec
     seen.add(row.entry.wfid);
   }
 
-  // Transcript side — operator toggle, default OFF. Reuse A5's ripgrep engine
-  // over each candidate workflow's events.jsonl. Scoped to the filtered index
-  // entries so we never rg-walk workflows the filters exclude.
+  // Transcript search is off by default and scoped to filtered conversations.
   let transcriptsAvailable = rgAvailable(opts);
   if (opts.includeTranscripts) {
     const bin = opts.rgBin === undefined ? RIPGREP_BIN : opts.rgBin;
@@ -152,12 +130,11 @@ export async function search(opts: RecallSearchOpts, index: RecallIndex = getRec
         if (seen.has(entry.wfid)) continue; // already an FTS hit — title beats transcript
         if (!WFID_PATTERN.test(entry.wfid)) continue;
         const dir = path.join(entry.cwd, '.arco', 'workflows', entry.wfid);
-        const res = await searchContent({ cwd: dir, query: q, maxHits: 1, bin });
+        const res = await searchTranscript(dir, q, bin);
         if (!res.available) { transcriptsAvailable = false; continue; }
-        const firstHit = res.hits[0];
-        if (!firstHit) continue;
+        if (res.text === undefined) continue;
         seen.add(entry.wfid);
-        hits.push(toHit(entry, clip(firstHit.text), 'transcript'));
+        hits.push(toHit(entry, clip(res.text), 'transcript'));
       }
     }
   }

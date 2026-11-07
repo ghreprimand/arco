@@ -681,7 +681,12 @@ export async function tryHandleClusterRoutes(
         if (segs.length === 6 && req.method === 'GET') {
           const pending = await clusterMailbox.peek(wfid);
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          const enriched = await Promise.all(pending.map(async (m) => ({ ...m, recipientContext: await recipientContext(clusterId, m.fromWorkflowId, wfid).catch(() => undefined) })));
+          const contexts = new Map<string, Awaited<ReturnType<typeof recipientContext>> | undefined>();
+          // One streaming lookup per sender, sequentially, bounds active readers.
+          for (const sender of new Set(pending.map((m) => m.fromWorkflowId))) {
+            contexts.set(sender, await recipientContext(clusterId, sender, wfid).catch(() => undefined));
+          }
+          const enriched = pending.map((m) => ({ ...m, recipientContext: contexts.get(m.fromWorkflowId) }));
           res.end(JSON.stringify(enriched));
           return true;
         }

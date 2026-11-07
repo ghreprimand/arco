@@ -63,7 +63,7 @@ export function underArcoAllowed(segs: string[], isDir: boolean): boolean {
 async function walk(root: string, cutoff: number, out: ChangedEntry[], fixedProject?: string): Promise<void> {
   const rootName = basename(root);
   const stack: Array<{ dir: string; segs: string[]; depth: number }> = [{ dir: root, segs: [], depth: 0 }];
-  while (stack.length > 0 && out.length < MAX_ENTRIES) {
+  while (stack.length > 0) {
     const { dir, segs, depth } = stack.pop()!;
     let entries;
     try {
@@ -86,7 +86,11 @@ async function walk(root: string, cutoff: number, out: ChangedEntry[], fixedProj
         try { st = await stat(abs); } catch { continue; }
         if (st.mtimeMs < cutoff) continue;
         const project = fixedProject ?? (childSegs.length >= 2 ? childSegs[0] : rootName);
-        out.push({ path: abs, name: e.name, size: st.size, mtime: st.mtimeMs, project });
+        const entry = { path: abs, name: e.name, size: st.size, mtime: st.mtimeMs, project };
+        // Retain only the globally newest results while visiting every allowed subtree.
+        const at = out.findIndex((v) => v.mtime < entry.mtime || (v.mtime === entry.mtime && v.path > entry.path));
+        out.splice(at < 0 ? out.length : at, 0, entry);
+        if (out.length > MAX_ENTRIES) out.pop();
       }
     }
   }
@@ -117,7 +121,6 @@ export async function scanChanged(opts: { within?: string; project?: string } = 
   const roots = await resolveRoots(opts.project);
   const out: ChangedEntry[] = [];
   for (const root of roots) {
-    if (out.length >= MAX_ENTRIES) break;
     // Explicit project → attribute every file to it; global base → derive per file.
     await walk(root, cutoff, out, opts.project ? basename(root) : undefined).catch(() => { /* best-effort */ });
   }

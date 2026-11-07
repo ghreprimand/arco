@@ -33,6 +33,7 @@ export const workflows: Section[] = [
   title: 'Native sessions & resume',
   body: (
   <>
+  <p>Summaries and automatic titles update the current provider session. Older session titles stay intact. Live native-session history waits for complete records, including text written in several chunks.</p>
   <p>The Resume index follows the selected project. A slower reply from a previously selected project cannot replace its titles, pins or archive metadata.</p>
   <p>
   Where the provider supports it, Arco's session is a real CLI session. It can
@@ -273,6 +274,7 @@ codex exec resume <thread-id> "next prompt"
   a <em>Spark</em> (the raw idea), and launch. No working directory is required.
   </p>
   <p>Seed controls are temporarily disabled while SAVE PLAN or CREATE ALTERNATIVE saves the public-project choice. Seed edits save automatically. Pending edits are sent when leaving GENESIS and before SAVE PLAN, CREATE &amp; SCAFFOLD or CREATE ALTERNATIVE.</p>
+  <p>Build-direction readiness checks every required stage, even when that stage was selected early. An empty Spark, working name, Concept or Case still appears as missing. The readout is advisory.</p>
   <Sub>The four stages</Sub>
   <p>
   The workflow runs in a hidden scratch space while the idea is shaped through four

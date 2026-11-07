@@ -599,6 +599,7 @@ export const voice: Section[] = [{
   that context.
   </p>
 
+  <p>Saved scripts retain all supported action/target combinations. Using more than 128 distinct combinations in a 32-worker script does not make its saved state unreadable after restart. Restart still interrupts the script; re-arm it explicitly.</p>
   <Sub>Changing a script</Sub>
   <p>
   Conditions can be added or changed by voice: "Update that script to also

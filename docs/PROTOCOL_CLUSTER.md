@@ -1080,3 +1080,12 @@ A TO selection containing one member uses the per-member sender, preserving pick
 - [Task ledger](TASK_LEDGER.md)
 - [Gotchas](GOTCHAS.md)
 - [Documentation style](STYLE.md)
+
+
+### Mailbox context reads
+
+Opening a member mailbox coalesces context by sender and reads each sender
+history once, sequentially. The canonical event reader includes sealed logs.
+Only the latest delivered-reply fact is retained from history, with its first
+line capped at 2,000 characters. Pending messages keep their existing content
+and preview limits.

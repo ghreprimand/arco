@@ -217,19 +217,18 @@ and can filter by project, provider, and date.
 **Fence-clearance:** operator-driven retrospective search, **deterministic**, FTS5 bm25 + ripgrep, **no LLM**
 in the loop, no AI ranking or summarization.
 
-### Two backends, one shared with A5
+### Two backends
 
 | Dimension | Backend | When |
 |---|---|---|
 | title + summary + tags | SQLite **FTS5** (`entries_fts`) | always on (the must-have) |
-| transcript full-text | **ripgrep** over each workflow's `events.jsonl` (A5's `contentSearch.searchContent`) | operator toggle, **default OFF** |
+| transcript full-text | **ripgrep** over canonical sealed-plus-live lines (`recall/transcriptSearch.ts`) | operator toggle, **default OFF** |
 
-The transcript pass deliberately reuses A5's ripgrep engine (`server/src/contentSearch.ts`) rather than
-forking a second search engine or stuffing full transcripts into FTS5. **Why ripgrep over FTS for
-transcripts:** full transcripts across all time would bloat the machine-global `recall.db` and force a
-re-index on every turn. Scanning `events.jsonl` on demand keeps the DB small (title/summary/tags only) and
-reuses an engine that already exists, is validated, and **degrades gracefully when `rg` is absent**
-(`transcriptsAvailable: false` in the response; the UI disables the toggle).
+Transcript search streams the canonical event reader into ripgrep, including
+compressed sealed segments and the live log. Case-insensitive regular-expression
+matching stays the same after rotation. Only the first bounded matching line
+is retained for each conversation; no full transcript array or extra index is
+created. Missing ripgrep disables the toggle (`transcriptsAvailable: false`).
 
 ### The FTS5 table
 

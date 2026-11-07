@@ -35,6 +35,10 @@ Two server modules, both pure (no I/O, no model) and covered by `npm run smoke:g
     readyToScaffold }`. Advisory only: the operator drives transitions; Genesis never blocks a
     turn on readiness. The Spark threshold is 40 chars.
 
+At Build-direction, the readiness list includes all required stages. Selecting
+Build-direction early does not hide an empty Spark, working name, Concept or
+Case. Readiness remains advisory.
+
 - **`server/src/genesis/prompts.ts`** - prompt assembly, same labeled-block shape as
   `buildLocalClusterSystemPrompt` (`server/src/server/prompts.ts`).
   - `buildGenesisSystemBlock(seed, { base? })` - composes the genesis role, the **grounding /

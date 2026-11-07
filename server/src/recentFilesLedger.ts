@@ -20,7 +20,7 @@ import { appendFile, mkdir, readFile } from 'fs/promises';
 import { dirname, join, resolve } from 'path';
 import { homedir } from 'os';
 import type { ServerMessage } from '@arco/shared';
-import { atomicWriteFile } from './atomicFile.js';
+import { atomicWriteFile, withFileLock } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
 
 // Path is env-overridable purely as a test seam (recentFilesLedger.test.ts
@@ -117,9 +117,11 @@ export function resolveMatchPath(
 // (tmp + rename — the persistence discipline).
 export async function appendRecord(rec: LedgerRecord): Promise<void> {
   try {
-    await mkdir(dirname(LEDGER_PATH), { recursive: true });
-    await appendFile(LEDGER_PATH, JSON.stringify(rec) + '\n', 'utf8');
-    await compactIfNeeded();
+    await withFileLock(LEDGER_PATH, async () => {
+      await mkdir(dirname(LEDGER_PATH), { recursive: true });
+      await appendFile(LEDGER_PATH, JSON.stringify(rec) + '\n', 'utf8');
+      await compactIfNeeded();
+    });
   } catch {
     /* ledger is advisory — a write failure must never break the broadcast */
   }

@@ -1399,3 +1399,17 @@ codebase-memory-mcp --version
 - [Service mode](SERVICE_MODE.md)
 - [Docker](DOCKER.md)
 - [Documentation style](STYLE.md)
+
+
+## Import rename collisions
+
+Run `node scripts/rename-upstream.mjs` only on the import copy. The helper
+checks the complete selected path mapping before rewriting contents. Existing
+destinations, including tracked files and dangling links, cause an error with
+all source contents unchanged. Resolve the collision in the import copy and
+retry. `--dry-run` also checks collisions.
+
+The helper reserves all destination files with exclusive hard links before
+rewriting any contents. If the filesystem cannot create the reservations, the
+operation stops before those rewrites. Tracked paths retain the indexed blob
+and unstaged edits when their names move. A second run makes no further changes.

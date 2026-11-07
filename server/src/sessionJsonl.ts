@@ -50,14 +50,15 @@ export async function loadSessionJsonl(
     return { entries: [], byteLength: 0 };
   }
   const entries: SessionJsonlEntry[] = [];
-  for (const line of buf.toString('utf-8').split('\n')) {
+  const complete = buf.lastIndexOf(10) + 1;
+  for (const line of buf.subarray(0, complete).toString('utf-8').split('\n')) {
     if (!line.trim()) continue;
     try {
       const e = JSON.parse(line) as SessionJsonlEntry;
       if (e && typeof e.type === 'string') entries.push(e);
     } catch { /* skip malformed lines */ }
   }
-  return { entries, byteLength: buf.length };
+  return { entries, byteLength: complete };
 }
 
 // Tail the session JSONL for new entries, emitting each one via `onEntry`.
@@ -73,22 +74,34 @@ export function watchSessionJsonl(
   let watcher: ReturnType<typeof watch> | null = null;
   let restartTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const readNew = () => {
+  let reading = false;
+  let requested = false;
+  const readNew = async () => {
     if (!active) return;
-    readFile(path)
-      .then((buf) => {
-        if (buf.length <= lastOffset) return;
-        const slice = buf.slice(lastOffset).toString('utf-8');
-        lastOffset = buf.length;
-        for (const line of slice.split('\n')) {
-          if (!line.trim()) continue;
-          try {
-            const e = JSON.parse(line) as SessionJsonlEntry;
+    requested = true;
+    if (reading) return;
+    reading = true;
+    try {
+      while (active && requested) {
+        requested = false;
+        try {
+          const buf = await readFile(path);
+          if (!active) return;
+          if (buf.length < lastOffset) lastOffset = 0;
+          const end = buf.lastIndexOf(10) + 1;
+          if (end <= lastOffset) continue;
+          const slice = buf.subarray(lastOffset, end).toString('utf-8');
+          lastOffset = end;
+          for (const line of slice.split('\n')) {
+            if (!active) return;
+            if (!line.trim()) continue;
+            let e: SessionJsonlEntry;
+            try { e = JSON.parse(line); } catch { continue; }
             if (e && typeof e.type === 'string') onEntry(e);
-          } catch { /* skip */ }
-        }
-      })
-      .catch(() => { /* file gone — no-op */ });
+          }
+        } catch { /* file unavailable; retry at the next notification */ }
+      }
+    } finally { reading = false; }
   };
 
   const scheduleRestart = () => {
@@ -106,7 +119,8 @@ export function watchSessionJsonl(
   const startWatcher = () => {
     if (!active || watcher) return;
     try {
-      watcher = watch(path, { persistent: false }, () => readNew());
+      watcher = watch(path, { persistent: false }, () => { void readNew(); });
+      void readNew();
       watcher.on('error', () => {
         watcher = null;
         scheduleRestart();

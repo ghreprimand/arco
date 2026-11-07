@@ -33,6 +33,11 @@ writes ignores everything in `.arco` (`*`; `DEFAULT_PROJECT_IGNORE` in
 `SessionIndex = { version, updatedAt, entries: SessionIndexEntry[] }`. One entry
 per **(provider, sessionId)**, that pair is the key. An entry carries:
 
+Summary subtitles and automatic titles target the current provider/session pair in
+workflow metadata. An older session title does not suppress a new session title.
+A title generated before a session change is discarded rather than applied to
+the later session.
+
 | field | source / meaning |
 |---|---|
 | `provider`, `sessionId` | the resumable session's key. For Arco-internal continuity (Claude Native replay / Ollama, no native resume token) `sessionId` is the Arco **workflow id**, mirroring `arcoInternalSessionInfoForMeta`. |

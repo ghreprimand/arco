@@ -19,7 +19,7 @@ export const maintenance: Section[] = [
   </li>
   <li>
   <strong>RECENTS</strong> separates attributed agent writes from the
-  broader recently-modified scan.
+  broader recently-modified scan. Concurrent agent writes survive retention cleanup. The scan visits every allowed subtree through depth eight and retains the newest 500 matches across them.
   </li>
   <li>
   <strong>PLANS</strong> is the plans library - every plan across projects,

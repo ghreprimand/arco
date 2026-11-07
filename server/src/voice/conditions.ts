@@ -56,7 +56,7 @@ async function ready(){
       if(!Array.isArray(raw)||raw.length>100)throw Error();
       saved=raw.map((value)=>{
         const r=savedConditionRule.parse(value);
-        if(r.private||Object.keys(r.executions).length>128||Object.keys(r.workerTurns).length>32||Object.keys(r.mailSeen).length>32)throw Error();
+        if(r.private||Object.keys(r.workerTurns).length>32||Object.keys(r.mailSeen).length>32)throw Error();
         return {...r,definition:parseConditionDefinition(r.definition)};
       });
     }catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw Error('Cannot read Computer scripts; existing file kept.');}

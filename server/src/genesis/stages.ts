@@ -96,7 +96,7 @@ export function nextField(seed: GenesisSeed): GenesisField | null {
 // above the current one (or 'build' at the top — there is nothing higher).
 export function assessGenesisReadiness(seed: GenesisSeed): GenesisReadiness {
   const stage = currentStage(seed);
-  const checks = STAGE_CHECKS[stage];
+  const checks = stage === 'build' ? GENESIS_STAGE_ORDER.flatMap((rung) => STAGE_CHECKS[rung]) : STAGE_CHECKS[stage];
   const met: string[] = [];
   const missing: string[] = [];
   for (const check of checks) {
@@ -114,8 +114,8 @@ export function assessGenesisReadiness(seed: GenesisSeed): GenesisReadiness {
     missing,
     nextStage,
     isFinalStage,
-    // Ready to scaffold only when the seed sits at the top rung AND that rung's
-    // checks pass — i.e. all of spark/concept/title/case/build are satisfied.
-    readyToScaffold: isFinalStage && ready,
+    // Overall readiness includes every required stage, even when a later
+    // stage was selected explicitly.
+    readyToScaffold: isFinalStage && GENESIS_STAGE_ORDER.every((rung) => stageSatisfied(seed, rung)),
   };
 }

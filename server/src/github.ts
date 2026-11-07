@@ -31,6 +31,7 @@ type FetchInit = {
   query?: Record<string, string | number | undefined>;
   body?: unknown;
   accept?: string;
+  response?: 'empty';
 };
 
 async function gh<T>(path: string, init: FetchInit = {}): Promise<T> {
@@ -59,6 +60,7 @@ async function gh<T>(path: string, init: FetchInit = {}): Promise<T> {
     const text = await res.text().catch(() => '');
     throw new Error(`GitHub ${res.status} ${res.statusText}: ${text.slice(0, 300)}`);
   }
+  if (init.response === 'empty') { await res.body?.cancel(); return undefined as T; }
   // Diff endpoints return text/plain; others return JSON. Sniff the accept.
   if (init.accept && init.accept.includes('diff')) {
     return (await res.text()) as unknown as T;
@@ -467,7 +469,7 @@ export const github = {
   },
 
   async rerunRun(owner: string, name: string, runId: number): Promise<{ ok: true }> {
-    await gh<unknown>(`/repos/${owner}/${name}/actions/runs/${runId}/rerun`, { method: 'POST' });
+    await gh<unknown>(`/repos/${owner}/${name}/actions/runs/${runId}/rerun`, { method: 'POST', response: 'empty' });
     return { ok: true };
   },
 

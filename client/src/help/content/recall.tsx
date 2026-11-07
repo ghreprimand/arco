@@ -66,7 +66,7 @@ export const recallHelp: Record<string, HelpEntry> = {
       <>
         <p>
           Operator toggle (default OFF). When on, the query also runs as a
-          ripgrep full-text scan over each conversation's <C>events.jsonl</C>:
+          ripgrep full-text scan over each conversation&apos;s live and compressed sealed history:
           finds keywords that appear only in the body, not the title/summary/tags.
          Only the latest search request can change results, loading or errors.</p>
         <p>

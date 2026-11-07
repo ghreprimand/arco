@@ -93,6 +93,27 @@ function sameSession(a: SessionIndexEntry, provider: ProviderName, sessionId: st
   return a.provider === provider && a.sessionId === sessionId;
 }
 
+export function sessionSelectorFromMeta(meta: WorkflowMeta): SessionSelector {
+  const newest = newestCliSession(meta);
+  return { provider: newest?.provider ?? meta.primaryProvider, sessionId: newest?.sessionId ?? meta.workflowId };
+}
+
+async function currentSessionEntryIndex(cwd: string, workflowId: string, index: SessionIndex, expected?: SessionSelector): Promise<number> {
+  const { readMeta } = await import('../workflowMeta.js');
+  const meta = await readMeta(cwd, workflowId);
+  if (meta) {
+    const current = sessionSelectorFromMeta(meta);
+    if (expected && (expected.provider !== current.provider || expected.sessionId !== current.sessionId)) return -1;
+    return index.entries.findIndex((e) => e.workflowId === workflowId && sameSession(e, current.provider, current.sessionId));
+  }
+  if (expected) return index.entries.findIndex((e) => e.workflowId === workflowId && sameSession(e, expected.provider, expected.sessionId));
+  // Legacy projections can predate meta.json; prefer the newest row, never
+  // the oldest insertion. Equal timestamps use the later indexed session.
+  let latest = -1;
+  index.entries.forEach((e, i) => { if (e.workflowId === workflowId && (latest < 0 || e.lastActiveAt >= index.entries[latest].lastActiveAt)) latest = i; });
+  return latest;
+}
+
 // Read the project's index. Missing file → empty (it's a projection). A
 // corrupt/legacy file degrades to empty rather than throwing — the next upsert
 // rebuilds it from meta.json.
@@ -315,7 +336,7 @@ export async function recordSessionSummary(cwd: string, workflowId: string, summ
   if (!subtitle) return;
   await withIndexLock(cwd, async () => {
     const index = await readSessionIndex(cwd);
-    const idx = index.entries.findIndex((e) => e.workflowId === workflowId);
+    const idx = await currentSessionEntryIndex(cwd, workflowId, index);
     if (idx < 0) return;
     // subtitleSource='summary' makes this sticky — a later opportunistic upsert
     // won't overwrite it with the dynamic last-message subtitle (mergeEntry).
@@ -388,13 +409,13 @@ export async function applyModelTitle(
   cwd: string,
   workflowId: string,
   modelTitle: string,
-  opts: { sourceHash?: string; now?: number } = {},
+  opts: { sourceHash?: string; now?: number; session?: SessionSelector } = {},
 ): Promise<ApplyModelTitleResult> {
   const title = trimTitle(modelTitle);
   if (!cwd || !workflowId || !title) return { status: 'missing' };
   return withIndexLock(cwd, async () => {
     const index = await readSessionIndex(cwd);
-    const idx = index.entries.findIndex((e) => e.workflowId === workflowId);
+    const idx = await currentSessionEntryIndex(cwd, workflowId, index, opts.session);
     if (idx < 0) return { status: 'missing' };
     const entry = index.entries[idx];
 

@@ -10,7 +10,8 @@
 // Used by future imports ("archive, extract, run the rename, run the scrub")
 // and by branches that predate the rename (rebase, run this script, amend).
 // Safe on a dirty worktree: it rewrites file contents in place and renames
-// paths (with `git mv` for tracked files, a plain rename otherwise). Running
+// paths without overwriting an existing destination, preserving tracked index
+// entries and unstaged edits. Running
 // it twice changes nothing the second time.
 //
 // Forms are applied in the order listed in FORMS, longer and more specific
@@ -21,7 +22,7 @@
 // The upstream name is assembled from parts so this file itself never
 // contains it and the tree-wide name audit stays clean.
 import { execFileSync } from 'node:child_process';
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, linkSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -133,6 +134,46 @@ function main() {
   const tracked = new Set(gitFiles(root, false) ?? []);
   const files = listFiles(root, args.paths);
   const counts = new Map(FORMS.map(([label]) => [label, 0]));
+  const moves = files.map((source) => ({ source, target: renamePath(source) })).filter((m) => m.source !== m.target);
+  const targets = new Set();
+  // Validate the entire mapping before changing any content, including paths
+  // outside --paths and dangling links that existsSync does not report.
+  for (const { source, target } of moves) {
+    if (targets.has(target)) throw new Error(`rename collision: ${target}`);
+    targets.add(target);
+    try { lstatSync(join(root, target)); throw new Error(`rename collision: ${target}`); }
+    catch (err) { if (err.code !== 'ENOENT') throw err; }
+    let parent = dirname(target);
+    while (parent !== '.') {
+      try { if (!lstatSync(join(root, parent)).isDirectory()) throw new Error(`rename collision: ${parent}`); }
+      catch (err) { if (err.code !== 'ENOENT') throw err; }
+      parent = dirname(parent);
+    }
+  }
+  const staged = new Map();
+  if (moves.some((m) => tracked.has(m.source))) {
+    for (const row of git(root, ['ls-files', '--stage', '-z']).split('\0').filter(Boolean)) {
+      const tab = row.indexOf('\t');
+      const [mode, object, stage] = row.slice(0, tab).split(' ');
+      if (stage !== '0') throw new Error('Resolve index conflicts before renaming an import.');
+      staged.set(row.slice(tab + 1), { mode, object });
+    }
+  }
+  // Reserve every destination without overwriting anything. Hard links keep
+  // the original bytes accessible at both names until the rename commits.
+  const reserved = [];
+  if (!args.dryRun) {
+    try {
+      for (const move of moves) {
+        mkdirSync(dirname(join(root, move.target)), { recursive: true });
+        linkSync(join(root, move.source), join(root, move.target));
+        reserved.push(move);
+      }
+    } catch (err) {
+      for (const move of reserved) unlinkSync(join(root, move.target));
+      throw err;
+    }
+  }
   let changedFiles = 0;
   let nonText = 0;
 
@@ -150,16 +191,18 @@ function main() {
     if (next !== text) { changedFiles++; if (!args.dryRun) writeFileSync(abs, next); }
   }
 
-  let renamed = 0;
-  for (const rel of files) {
-    const target = renamePath(rel);
-    if (target === rel) continue;
-    renamed++;
-    console.log(`rename ${rel} -> ${target}`);
+  const renamed = moves.length;
+  for (const { source, target } of moves) {
+    console.log(`rename ${source} -> ${target}`);
     if (args.dryRun) continue;
-    mkdirSync(dirname(join(root, target)), { recursive: true });
-    if (tracked.has(rel)) git(root, ['mv', '--', rel, target]);
-    else renameSync(join(root, rel), join(root, target));
+    // Preserve the indexed blob (including staged/unstaged differences), as
+    // git mv does, while retaining the exclusive destination reservation.
+    const entry = staged.get(source);
+    if (entry) {
+      git(root, ['update-index', '--add', '--cacheinfo', entry.mode, entry.object, target]);
+      git(root, ['update-index', '--force-remove', '--', source]);
+    }
+    unlinkSync(join(root, source));
   }
 
   for (const [label, n] of counts) if (n) console.log(`${String(n).padStart(6)}  ${label}`);

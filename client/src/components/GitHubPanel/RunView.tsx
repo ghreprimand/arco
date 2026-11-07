@@ -92,7 +92,7 @@ function RunView({ view, onBack }: { view: Extract<View, { kind: 'run' }>; onBac
           <span style={runStateChip(run)}>{(run.conclusion || run.status).toUpperCase()}</span>
           <span style={{ color: 'var(--color-accent-primary)', fontSize: '16px', fontFamily: 'var(--font-display)' }}>#{run.run_number} {run.name || run.display_title}</span>
           <div style={{ flex: 1 }} />
-          <button onClick={rerun} disabled={busy} style={mergeBtnStyle}>{busy ? '...' : 'RERUN'}</button>
+          <button data-help="github.run-rerun" onClick={rerun} disabled={busy} style={mergeBtnStyle}>{busy ? '...' : 'RERUN'}</button>
           <a href={run.html_url} target="_blank" rel="noreferrer" style={{ color: 'var(--color-accent-secondary)', fontSize: '10px', fontFamily: 'var(--font-display)', letterSpacing: '1px', textDecoration: 'none', padding: '6px 10px', border: '1px solid var(--color-accent-secondary)', borderRadius: '3px' }}>OPEN ON GH ↗</a>
         </div>
         <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-display)' }}>

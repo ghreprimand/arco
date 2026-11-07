@@ -103,7 +103,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         Genesis moves a vague idea through four stages: <C>Spark → Concept →
         Case → Build-direction</C>. This panel shows the current stage, what's
         still missing to advance, and the next question to answer. Readiness is
-        advisory: you decide when to move on, save an existing-folder plan, or scaffold a new project.
+        advisory: you decide when to move on, save an existing-folder plan, or scaffold a new project. At Build-direction, every required stage must pass for the seed to be ready; selecting that stage early does not hide earlier missing fields.
       </p>
     ),
     manualSection: 'genesis-workflow',
@@ -696,6 +696,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'HISTORY',
     body: (
       <>
+        <p>Native session rows appear after their complete newline-delimited record arrives, including writes split across chunks.</p>
         <p>
           Read-only timeline of seq-stamped narrative events for this workflow.
           Four operator actions: <C>LABEL THIS</C> pins a free-text label

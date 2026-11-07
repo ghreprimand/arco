@@ -16,7 +16,7 @@
 // Never throws, never blocks the turn (writeMeta fires-and-logs it).
 
 import type { WorkflowMeta } from '../workflowMeta.js';
-import { applyModelTitle, buildTitleFraming, readSessionIndex, scanOperatorMessages } from './sessionIndex.js';
+import { applyModelTitle, buildTitleFraming, readSessionIndex, sessionSelectorFromMeta, scanOperatorMessages } from './sessionIndex.js';
 
 // Operator messages fed to the model: the opening asks carry the session's
 // goal; later turns are mostly "continue" / follow-ups.
@@ -77,7 +77,8 @@ export async function maybeGenerateModelTitle(
     if (!utility?.titles || utility.enabled === false || !utility.model?.trim()) return 'skipped';
 
     const index = await readSessionIndex(meta.cwd);
-    const entry = index.entries.find((e) => e.workflowId === wfid);
+    const session = sessionSelectorFromMeta(meta);
+    const entry = index.entries.find((e) => e.workflowId === wfid && e.provider === session.provider && e.sessionId === session.sessionId);
     if (!entry || entry.titleSource === 'model' || entry.titleSource === 'operator') return 'skipped';
 
     const messages = (await scanOperatorMessages(meta.cwd, wfid))
@@ -94,7 +95,7 @@ export async function maybeGenerateModelTitle(
     if (!result.ok) return 'failed';
     const title = cleanModelTitle(result.text);
     if (!title) return 'failed';
-    const applied = await applyModelTitle(meta.cwd, wfid, title, { sourceHash: entry.sourceHash });
+    const applied = await applyModelTitle(meta.cwd, wfid, title, { sourceHash: entry.sourceHash, session });
     return applied.status === 'applied' ? 'applied' : 'skipped';
   } catch (err) {
     console.error('[arco] model title generation failed:', err);

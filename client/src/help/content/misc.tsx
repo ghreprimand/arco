@@ -812,7 +812,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Single workflow only. Lists CLI sessions already on disk for this cwd (
         <C>~/.claude/projects</C>, <C>~/.codex/sessions</C>). Pick one to continue inside Arco: the session
         remains a real native CLI session you can also resume from a terminal.
-       The index follows the selected project; replies from earlier selections are ignored.</p>
+       The index follows the selected project; replies from earlier selections are ignored. Summaries and automatic titles belong to the current provider session, leaving older session titles intact.</p>
     ),
     manualSection: 'sessions-and-resume',
   },

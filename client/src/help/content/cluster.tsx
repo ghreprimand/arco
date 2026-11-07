@@ -293,7 +293,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Pending mail',
     body: (
       <>
-        <p>Lists the messages waiting for one member, with sender, time and text. Each row also shows whether that member is mid-turn, its current board task, and its latest reply to the sender. <C>CANCEL</C> on a row discards that message before delivery; the member never sees it.</p>
+        <p>Lists the messages waiting for one member, with sender, time and text. Messages from the same sender share one streamed history lookup, including sealed history; delivered-reply history is read as one bounded preview. Each row also shows whether that member is mid-turn, its current board task, and its latest reply to the sender. <C>CANCEL</C> on a row discards that message before delivery; the member never sees it.</p>
         <p>Only undelivered mail appears here. Once the member reads its mail, the messages leave this list and stay in both members&apos; history. When a board is attached, the <C>TASK</C> button on a row turns that message into a new to-do task.</p>
         <p>Unreadable mail or failed attachment writes leave the pending batch available for retry. Attachments with matching names remain separate, and existing delivered files are preserved. Malformed records or attachment metadata are preserved aside and logged once, allowing valid mail to continue.</p>
       </>

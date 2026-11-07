@@ -2,6 +2,11 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const githubHelp: Record<string, HelpEntry> = {
+  'github.run-rerun': {
+    title: 'Rerun workflow',
+    body: <p>Requests a rerun of this Actions run. A successful empty GitHub response shows Rerun requested. One request is sent per click.</p>,
+    manualSection: 'github',
+  },
   // -------------------------------------------------------- GITHUB BROWSER
   'github.tab.code': {
     title: 'Code tab',

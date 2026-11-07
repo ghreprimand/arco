@@ -1890,7 +1890,7 @@ export const clusters: Section[] = [
   body: (
   <>
   <p>
-  The MAILBOX sub-tab shows one row per member with a pending count.
+  The MAILBOX sub-tab shows one row per member with a pending count. Context is read once per sender through live and sealed history, retaining only a bounded latest delivered-reply fact from history.
   Click a row to open the <strong>mailbox modal</strong> and inspect or
   cancel undrained peer messages.
   </p>

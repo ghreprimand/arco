@@ -1,5 +1,10 @@
 # Persistence
 
+The agent-writes ledger serializes append and compaction under one file lock.
+A write arriving during retention cleanup remains in the newest retained rows.
+Native session tailing consumes complete newline-delimited records only, keeps
+a partial byte tail for the next read and suppresses callbacks after disposal.
+
 Where every byte goes. This doc tracks what's on disk, why, and how it's read back. Source files: `server/src/workflowStore.ts` (events.jsonl), `server/src/workflowMeta.ts` (meta.json), `server/src/planStore.ts` (plans), `server/src/crashRecovery.ts` (boot recovery).
 
 For the higher-level lifecycle context, see [`ARCHITECTURE.md`](ARCHITECTURE.md). For replay and snapshot semantics, see [`PROTOCOL.md`](PROTOCOL.md).
@@ -1006,6 +1011,11 @@ notice, stay owner-scoped, and clear with a private context/removal. A requested
 standard reminder still enters its normal destination worker's transcript.
 
 ### Computer conditional scripts
+
+Execution-key capacity follows the declaration: eight clauses, four actions per
+clause and 32 worker targets allow up to 1,024 distinct keys. A valid script
+with more than 128 keys remains readable after restart. This structural bound
+does not impose an action-count or recurrence limit.
 
 General scripts use a separate `~/.arco/computer-conditions.json` (locked
 durable atomic writes, mode 0600, ≤100 retained/16 active). Records include

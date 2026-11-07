@@ -997,7 +997,7 @@ These are full-screen gates that block UI when something critical is happening:
 - **`DuplicateTabOverlay`** - fires when another Arco tab is already alive.
 - **`DragOverlay`** - fires during file drag-over (composer attachment hint).
 
-**Command palette (`CommandPalette.tsx`, Workbench Expansion A5).** A `Cmd/Ctrl+P` fuzzy palette mounted in `App.tsx` (the hotkey `preventDefault`s so it doesn't trigger the browser Print dialog; Esc closes, arrows/Enter navigate). Four live sources: (a) active-workflow transcript rows - activating one switches tab + calls the existing `flashChatMessage` which drives `ChatPanel`'s virtualizer `scrollToIndex`; (b) top-level files under cwd (`GET /api/files`); (c) open workflows/tabs; (d) commands (new tab / Settings / Manual / GitHub). Fuzzy matching is a hand-rolled subsequence scorer (no `fuse.js` dep). **Content search** is a separate server path: the palette can query `GET /api/search/content?wfid&q` -> `server/src/contentSearch.ts` `searchContent` (a reusable `rg --json` engine, decoupled from HTTP so F3/Recall reuses it; respects `SKIP_DIRS`, degrades to `{available:false}` when `rg` isn't on PATH); content hits open in `FileViewerModal`. (Deferred niceties: recursive file walk, line-anchored viewer scroll.)
+**Command palette (`CommandPalette.tsx`, Workbench Expansion A5).** A `Cmd/Ctrl+P` fuzzy palette mounted in `App.tsx` (the hotkey `preventDefault`s so it doesn't trigger the browser Print dialog; Esc closes, arrows/Enter navigate). Four live sources: (a) active-workflow transcript rows - activating one switches tab + calls the existing `flashChatMessage` which drives `ChatPanel`'s virtualizer `scrollToIndex`; (b) top-level files under cwd (`GET /api/files`); (c) open workflows/tabs; (d) commands (new tab / Settings / Manual / GitHub). Fuzzy matching is a hand-rolled subsequence scorer (no `fuse.js` dep). **Content search** is a separate server path: the palette can query `GET /api/search/content?wfid&q` -> `server/src/contentSearch.ts` `searchContent` (a reusable `rg --json` engine, decoupled from HTTP; Recall uses the same ripgrep matcher through a canonical-history stream; respects `SKIP_DIRS`, degrades to `{available:false}` when `rg` isn't on PATH); content hits open in `FileViewerModal`. (Deferred niceties: recursive file walk, line-anchored viewer scroll.)
 
 **Compare primitive (`components/compare/`,).** A bounded fan-out-and-vote surface: now **SECOND OPINION**: the operator types a question (or selects chat messages) and picks N models (each a `{provider, model, effort}` via the shared `RunAsPicker`); each drafts, independently and read-only, the reply the operator could send to the worker, with recent turns by default when no messages are selected, optional read-only file access off by default, and a summary of the context. The operator votes, optionally SYNTHESIZEs, and **USE THIS REPLY** puts the draft in the worker's composer (nothing is sent). Per-model picks are tallied locally. State lives in the standalone **`stores/compareStore.ts`** (kept out of `appStore`, like `docEditStore`/`recallStore`), driving two globally-mounted App.tsx surfaces: **`CompareDialogHost`** (wraps `CompareDialog` - the prompt + per-leg `RunAsPicker` rows + a `blind` flag that hides leg identities until the vote) and **`CompareOverlay`** (the live run - **`CompareGrid`** of side-by-side answer panes cloned from `MemberPane`'s structure, plus **`CompareVote`** which reveals the winner and offers a synthesize step). Launched from the **SECOND OPINION** button in `TerminalInput` (wiring in `components/terminalInput/compare.ts`); `COMPARE_MIN_LEGS`/`COMPARE_MAX_LEGS` from `@arco/shared` bound the leg count. See `docs/PRIMITIVES.md` / `docs/PROTOCOL_PRIMITIVES.md`.
 ---
@@ -1315,3 +1315,14 @@ OUTPUTS > MOVE TO PROJECT reviews Git ignore status, public visibility, size and
 The composer status line groups the north star, pending messages, compaction continuation, selected skills and active transport notices. PENDING opens the message list and cancellation controls. Project trust and plan decisions stay prominent.
 
 Rough-theme panels attach the generated SVG border and replace it on size or active-state changes. The active border follows the theme accent.
+
+
+### Recent-file scan and accepted reruns
+
+RECENTLY MODIFIED scans every allowed subtree through depth eight while keeping
+the newest 500 matches. Earlier folders cannot fill the result cap before a
+later folder is visited. AGENT WRITES append and retention cleanup share one
+lock so accepted recent records survive concurrent notifications.
+
+RERUN in the GitHub Actions run view accepts a successful response with no JSON
+body and shows `Rerun requested.` It sends one request per click.
