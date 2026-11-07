@@ -59,10 +59,10 @@ export const actions: Section[] = [
             The whole point is the second opinion.
           </li>
           <li>
-            <strong>Context scope</strong> - <Code>last-turn</Code> (default) /{' '}
-            <Code>last-N</Code> / <Code>current-session</Code> (everything since
-            the last handoff seed) / <Code>full</Code> /{' '}
-            <Code>git-diff-only</Code>.
+            <strong>Context scope</strong> - <Code>LAST TURN</Code> (default) /{' '}
+            <Code>LAST N TURNS</Code> / <Code>CURRENT SESSION</Code> (everything since
+            the last handoff seed) / <Code>FULL TRANSCRIPT</Code> /{' '}
+            <Code>GIT DIFF ONLY</Code>.
           </li>
           <li>
             <strong>Include git diff</strong> - appends{' '}

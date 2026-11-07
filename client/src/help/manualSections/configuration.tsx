@@ -753,7 +753,7 @@ export const configuration: Section[] = [
   rows={[
   [<Code key="o">omitted</Code>, 'Default, Claude Code parity. No thinking streamed; quieter transcript.'],
   [<Code key="s">summarized</Code>, "Streams the model's summarized thinking into Activity during long reasoning stretches, so a multi-minute Fable/Opus think isn't total silence."],
-  [<Code key="u">updates</Code>, 'Fable 5 / 5.1 and Opus 5.5 only. Requests short progress notes with hidden reasoning. Not guaranteed: the September 1 Fable 5.1 acceptance run emitted no notes. Other models treat it as omitted.'],
+  [<Code key="u">updates</Code>, 'Fable 5 / 5.1 and Opus 5.5 only. Requests short progress notes with hidden reasoning. Not guaranteed: a Fable 5.1 acceptance run emitted no notes. Other models treat it as omitted.'],
   ]}
   />
   <p>

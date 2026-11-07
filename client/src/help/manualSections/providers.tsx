@@ -115,12 +115,13 @@ export const providers: Section[] = [
   headers={['Control', 'Action']}
   rows={[
   ['LOGIN', 'Starts the Native sign-in flow.'],
+  ['OPEN SIGN-IN', 'Link to the provider sign-in page while a sign-in is in progress.'],
   ['SUBMIT', 'Sends a pasted code.'],
   ['CANCEL SIGN-IN', 'Abandons the flow.'],
   ['LOGOUT', 'Removes the stored tokens.'],
   ]}
   />
-  <p>Native status reads one of three messages:</p>
+  <p>Native status reads one of these messages:</p>
   <ul>
   <li>
   <em>Credentials present; execution unverified</em> - tokens are stored.
@@ -128,8 +129,17 @@ export const providers: Section[] = [
   </li>
   <li><em>No Native credentials stored</em> - none exist.</li>
   <li>
-  <em>refresh needed on next use</em> - the access token has expired and
-  will be renewed by the next turn.
+  <em>Credentials present; refresh needed on next use; execution
+  unverified</em> - the access token has expired and will be renewed by the
+  next turn.
+  </li>
+  <li>
+  <em>Authentication problem reported; review Native sign-in</em> - a request
+  reported a sign-in problem; sign in again.
+  </li>
+  <li>
+  <em>Status unknown</em> or <em>Status stale; refresh to check credentials</em>
+  - the check failed or is older than six minutes.
   </li>
   </ul>
   <Sub>Ultracode (sticky, CLI-only)</Sub>
@@ -784,8 +794,8 @@ export const providers: Section[] = [
   <Sub>Auto-recovery</Sub>
   <p>
   Local thinking models fail in specific ways the lifecycle alone can&apos;t
-  handle. The provider runs four detection paths in-place (without spawning
-  Handoff):
+  handle. The provider runs three recovery paths in place (without spawning
+  Handoff) and one warning:
   </p>
   <ul>
   <li><strong>Reasoning runaway</strong> - model emits{' '}
@@ -802,13 +812,13 @@ export const providers: Section[] = [
   </li>
   <li><strong>Context fill</strong> - at clean turn boundaries, when the
   input/ctxSize ratio crosses{' '}
-  <Code>ARCO_LLAMACPP_COMPACT_THRESHOLD</Code> (default 0.85), asks the
-  model to write a compaction summary and replaces the in-memory message
-  stack with that summary. Conversation continues; tool history is dropped.
+  <Code>ARCO_LLAMACPP_COMPACT_THRESHOLD</Code> (default 0.85), a notice
+  warns that the next turn may overflow and suggests Handoff. Nothing is
+  compacted.
   </li>
   </ul>
   <p>
-  All four paths share a budget (default 2 per operator turn). Each emits a{' '}
+  The three recovery paths share a budget (default 2 per operator turn). Each emits a{' '}
   <Code>system_notice</Code> so the cause is visible without digging through
   logs.
   </p>
