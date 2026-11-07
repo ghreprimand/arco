@@ -401,7 +401,7 @@ export const powerFeatures: Section[] = [
   </p>
   <ol>
   <li>Log in with <Code>gh auth login</Code> in a terminal first. The browser uses your local <Code>gh</Code> login.</li>
-  <li>Click <Code>◆ GITHUB</Code> in the header to open it.</li>
+  <li>Choose <Code>GITHUB</Code> in the header TOOLS menu to open it.</li>
   </ol>
   <p>The browser supports:</p>
   <ul>
@@ -775,7 +775,7 @@ export const powerFeatures: Section[] = [
   </p>
   <Sub>Opening a terminal</Sub>
   <ul>
-  <li>The <Code>&gt;_ TERMINAL</Code> button in the header opens a shell in the active workflow's root.</li>
+  <li><Code>TERMINAL</Code> in the header TOOLS menu opens a shell in the active workflow's root.</li>
   <li>In the FILES tab, the <Code>&gt;_</Code> header icon opens one at the Files root, and <strong>right-clicking any directory</strong> opens one rooted there.</li>
   </ul>
   <p>
@@ -826,7 +826,7 @@ export const powerFeatures: Section[] = [
   conversation from two weeks ago about X."
   </p>
   <p>
-  Open it from the header <Code>⌕ RECALL</Code> button or the command palette's
+  Open it from <Code>RECALL</Code> in the header KNOWLEDGE menu or the command palette's
   "Recall: search conversations" entry.
   </p>
   <Sub>How it searches</Sub>

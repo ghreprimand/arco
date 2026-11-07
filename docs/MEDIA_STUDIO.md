@@ -11,7 +11,7 @@ The shared shell. Operator-facing behavior lives in the in-app manual (`media-st
 
 - **Host:** `client/src/components/media/MediaModalHost.tsx`, routes a media file to image/audio/video mode by extension, or opens empty with an Import affordance. Mounted in `App.tsx` on `appStore.mediaStudio.open`.
 - **Launchers:** `client/src/components/media/launchers.ts`, `openMediaStudio(mode?)` (empty), `openMediaFile(path)` (contextual), `classifyMediaExt(filename)`.
-- **Entry points:** header **⌗ MEDIA** button, command-palette `Open Media studio[...]`, and FileExplorer right-click on a media file.
+- **Entry points:** **MEDIA** item in the header TOOLS menu, command-palette `Open Media studio[...]`, and FileExplorer right-click on a media file.
 
 **Functional now:** the image viewer (zoom/pan/fit/1:1 + dimensions; on-disk via the guarded `GET /api/file-content`, imported via browser object URL); the audio editor + FFmpeg ops (H5/H6) and the video editor + FFmpeg ops for both imported AND on-disk files (on-disk via the guarded `GET /api/media/raw` Range-able serve route).
 

@@ -261,7 +261,7 @@ inclusive epoch-ms bounds on `lastActiveAt`. Route: `server/src/http/recallRoute
 Top-level overlay `client/src/components/Recall/` (`RecallView` + `RecallResultRow`), mounted in `App.tsx`
 behind `appStore.showRecall` (like `UserManual`, a portal modal, Escape / backdrop to dismiss). Entry
 points: the command palette command **"Recall: search conversations"** (`CommandPalette.tsx`) and the header
-**⌕ RECALL** button (`SystemHeader.tsx`). Search is debounced (180ms) on any filter change via
+**RECALL** item in the header KNOWLEDGE menu (`SystemHeader.tsx`). Search is debounced (180ms) on any filter change via
 `recallStore.runSearch`. See `docs/CLIENT.md`.
 
 **Result actions** (and their build state):
