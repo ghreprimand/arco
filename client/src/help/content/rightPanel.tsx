@@ -571,8 +571,11 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         or a deterministic digest when none is set. This is a{' '}
         <strong>global</strong> setting (applies to every Ollama tab); the
         composer <C>⊟ COMPACT</C> button forces a round on the next turn
-        regardless. The summary framing prompt is editable in Settings →
-        Handoff prompts.
+        regardless. The summary uses the OLLAMA COMPACTION UTILITY MODEL from
+        Settings &gt; Providers and models &gt; Sign-in, accounts and local
+        endpoints when one is set; otherwise Arco writes a deterministic
+        digest. The summary framing prompt is editable in Settings &gt; Agents
+        and clusters &gt; Handoff prompts.
       </p>
     ),
     manualSection: 'config-tab',

@@ -50,6 +50,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- The CONFIG tab's Ollama auto-compaction note and fit warning name the real place of the utility model: Settings > Providers and models > Sign-in, accounts and local endpoints, field OLLAMA COMPACTION UTILITY MODEL.
 - Remote start, stop and restart of a macOS package install address its `arco-workbench` LaunchAgent and the signed-in user, and a remote stop no longer prevents the next start. A macOS SSH target needs `uid`.
 - Armed Creative mode in the GENESIS tab always shows DISARM, also on small projects and after a reload.
 - Cursor tabs can make or join a cluster from the tab right-click menu, and the refusal for other providers names the providers clusters accept.

@@ -1304,7 +1304,7 @@ Turns "why did my model unload / why is VRAM full" into visible operator state. 
 
 `server/src/providers/ollamaUtility.ts` is a **separate, non-streaming, JSON-only, capped** call shape for discrete BACKGROUND jobs - distinct from the interactive `streamOneTurn`. A configurable cheap/small model (e.g. a 3B) runs the context compaction summary (its most important consumer) and, when their operator-armed triggers ship, model-titles + recall summaries - keeping the expensive primary free.
 
-**Config (`settings.ollama.utility`, settings-file-only):**
+**Config (`settings.ollama.utility`; set in Settings > Providers and models > Sign-in, accounts and local endpoints, field OLLAMA COMPACTION UTILITY MODEL, or in the settings file):**
 
 ```jsonc
 "ollama": {
@@ -1320,7 +1320,7 @@ Turns "why did my model unload / why is VRAM full" into visible operator state. 
 
 **utility-model summary seam:** `runUtilitySummaryJob({ messages, maxTokens?, framing?, onNotice? }) → Promise<string | null>`. Context compaction passes the **pre-sliced older-half messages** + a cap; this returns the summary text, or `null` when the utility model is unconfigured/failed. **Context compaction supplies the deterministic fallback** (a structural digest) for the `null` case - this seam never invents one, so the "never fails closed" guarantee lives in context compaction.
 
-**Pause switch (2026-09-29):** `settings.ollama.utility.enabled: false` (Settings → OLLAMA COMPACTION UTILITY MODEL → ENABLED) makes `resolveUtilityConfig` return null - every job behaves as unconfigured (compaction → deterministic digest, titles skip, the fit calculator reserves nothing) while model/host/titles stay saved. Absent ⇒ enabled. The Settings save path carries `enabled`/`titles` through its whole-object replace (it used to drop them).
+**Pause switch (2026-09-29):** `settings.ollama.utility.enabled: false` (Settings > Providers and models > OLLAMA COMPACTION UTILITY MODEL > ENABLED) makes `resolveUtilityConfig` return null - every job behaves as unconfigured (compaction → deterministic digest, titles skip, the fit calculator reserves nothing) while model/host/titles stay saved. Absent ⇒ enabled. The Settings save path carries `enabled`/`titles` through its whole-object replace (it used to drop them).
 
 **Session titles (opt-in, 2026-09-29):** `settings.ollama.utility.titles: true` (default OFF - arming the utility model for compaction does NOT arm titles) makes `workflows/modelTitles.ts` generate a 5-8-word RESUME-picker title after a workflow's turns: one-shot per session, first ≤4 operator messages, 32-token cap, job `session-title` (visible `system_notice`), applied through `applyModelTitle` (logged to `title-events.jsonl`; an operator rename always outranks). Fire-and-forget after the session-index upsert in `writeMeta`; failure leaves the derived title. Tab labels (`config.name`) are operator-owned and never touched. `npm run test:model-titles`.
 

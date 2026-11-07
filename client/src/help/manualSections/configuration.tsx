@@ -845,6 +845,11 @@ export const configuration: Section[] = [
   <li>Choose Off or On with a threshold to override the default.</li>
   <li>A worker can inherit its cluster.</li>
   <li>Fold is deterministic and Handoff starts a fresh session.</li>
+  <li>
+  Ollama summaries use the OLLAMA COMPACTION UTILITY MODEL in Settings &gt;
+  Providers and models &gt; Sign-in, accounts and local endpoints; with none
+  set, Arco writes a deterministic digest.
+  </li>
   </ul>
   <p>
   <strong>ADVANCED: Claude API compaction (beta)</strong> - optional per-tab

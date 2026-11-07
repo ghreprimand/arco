@@ -2556,7 +2556,7 @@ function OllamaCompactionSection() {
         </label>
       </div>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginTop: '8px' }}>
-        Summaries use the utility model{utilityModel ? <> (<code>{utilityModel}</code>)</> : ' (none set: falls back to a deterministic digest)'} for higher fidelity. Set one under Settings → Ollama. WARN only flags context near the threshold; THRESHOLD triggers the cut; KEEP LAST messages stay verbatim.
+        Summaries use the utility model{utilityModel ? <> (<code>{utilityModel}</code>)</> : ' (none set: falls back to a deterministic digest)'} for higher fidelity. Set one in Settings &gt; Providers and models &gt; Sign-in, accounts and local endpoints, field OLLAMA COMPACTION UTILITY MODEL. WARN only flags context near the threshold; THRESHOLD triggers the cut; KEEP LAST messages stay verbatim.
       </div>
     </div>
   );
@@ -2869,7 +2869,7 @@ function OllamaVramSection({
               )}
               {fit?.utility && !fit.utility.remote && fit.utility.found && !fit.coexist && (
                 <div style={{ marginBottom: '8px', padding: '6px 8px', borderRadius: '3px', border: '1px solid var(--color-warning)', color: 'var(--color-warning)', lineHeight: 1.5 }}>
-                  ⚠ Primary + local utility <code style={{ fontFamily: 'var(--font-code)' }}>{fit.utility.model}</code> (~{gib(fit.utility.footprintBytes ?? 0)} GB) won't both fit at the current context: Ollama will evict/reload between turns (slow). Lower num_ctx, use a smaller utility, or point the utility at a remote host (Settings → Ollama).
+                  ⚠ Primary + local utility <code style={{ fontFamily: 'var(--font-code)' }}>{fit.utility.model}</code> (~{gib(fit.utility.footprintBytes ?? 0)} GB) won't both fit at the current context: Ollama will evict/reload between turns (slow). Lower num_ctx, use a smaller utility, or point the utility at a remote host (OLLAMA COMPACTION UTILITY MODEL in Settings &gt; Providers and models).
                 </div>
               )}
 

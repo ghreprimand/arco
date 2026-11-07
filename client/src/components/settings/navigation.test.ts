@@ -66,3 +66,14 @@ test('search needs every word and reads labels, scope, keywords and help', () =>
   assert.equal(settingsMatches(media, '   '), false);
   assert.equal(settingsMatches(settingsSection('authentication')!, 'lm studio'), true);
 });
+
+test('in-app text that points at a Settings location names a page and section that exist', () => {
+  const page = SETTINGS_PAGES.find((p) => p.id === settingsSection('ollama')?.page)?.label;
+  const section = settingsSection('ollama')?.label;
+  assert.equal(page, 'Providers and models');
+  assert.equal(section, 'Sign-in, accounts and local endpoints');
+  assert.match(panel, /OLLAMA COMPACTION UTILITY MODEL/);
+  const config = read('../RightPanel/ConfigTab.tsx');
+  assert.doesNotMatch(config, /Settings → Ollama/, 'there is no Settings section called Ollama');
+  assert.ok(config.includes(`Settings &gt; ${page} &gt; ${section}, field OLLAMA COMPACTION UTILITY MODEL`));
+});
