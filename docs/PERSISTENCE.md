@@ -548,6 +548,7 @@ Constraints:
 - `readPlanSummary(cwd, planId)` - same shape minus `body`. Used by attach handlers that don't need the body.
 - `createPlan(cwd, { title, body })` - mint a new planId, write `index.json` + `<id>.md`. Initializes `attachments: []` and `completedAt: null`.
 - `updatePlan(cwd, planId, { title?, body?, completedAt? })` - partial update; bumps `updatedAt`. Body writes hit disk via atomic tmp+rename.
+- `movePlan(sourceCwd, planId, targetCwd)` - write the plan and its reference documents to the target, then remove the source under its index lock only while the source still matches the copy (text, title, done state, reference documents). `updatePlan`, `writePlanRef` and `deletePlanRef` take the same lock, so an edit saved during a move is copied to the target and checked again rather than deleted with the source. After three changing rounds the move stops, the source keeps everything and the target copy is removed. Reference files an agent writes with plain file tools bypass the lock.
 - `deletePlan(cwd, planId)` - remove the entry from index and unlink the body file. Caller is responsible for detaching workflows beforehand and setting the watcher skip-flag.
 - `recordAttachment(cwd, planId, workflowId, workflowName)` - append an open attachment span (idempotent: no-op if an open span for the pair already exists, so rehydrate-replay doesn't double-add).
 - `recordDetachment(cwd, planId, workflowId)` - flip the open span's `detachedAt` to now.

@@ -1246,7 +1246,7 @@ Attach an existing plan to an active workflow in the same cwd. This mirrors the 
 
 ### `POST /api/plans/move?path=<sourceCwd>&planId=<id>`
 
-Move a plan from `path` (source cwd) to another cwd. Body: `{ targetCwd }` (required, else `400`). Backed by `movePlan`; suppresses the source-cwd reconcile broadcast (the move owns it). Returns `{ plan }` on success, or `{ error }` (`400`).
+Move a plan from `path` (source cwd) to another cwd. Body: `{ targetCwd }` (required, else `400`). Backed by `movePlan`; suppresses the source-cwd reconcile broadcast (the move owns it). Returns `{ plan }` on success, or `{ error }` (`400`). An edit to the source plan or its reference documents saved during the move ends up in the moved plan; if the plan keeps changing, the move stops with an error and the plan stays in the source project.
 
 ### `PATCH /api/plans?path=<cwd>&planId=<id>`
 

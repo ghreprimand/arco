@@ -170,6 +170,33 @@ export async function updatePlan(
   });
 }
 
+// Reference documents of a plan as one comparable value (names and contents).
+async function refsSnapshot(cwd: string, planId: string): Promise<string> {
+  const dir = planRefsDir(cwd, planId);
+  let names: string[];
+  try { names = (await fs.readdir(dir)).sort(); }
+  catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return '[]'; throw err; }
+  const out: Array<[string, string | null]> = [];
+  for (const name of names) {
+    let content: string | null = null;
+    try { content = await fs.readFile(path.join(dir, name), 'utf8'); } catch { /* not a readable file */ }
+    out.push([name, content]);
+  }
+  return JSON.stringify(out);
+}
+
+// The target's reference documents become a copy of the source's.
+async function copyRefs(sourceCwd: string, targetCwd: string, planId: string): Promise<void> {
+  await fs.rm(planRefsDir(targetCwd, planId), { recursive: true, force: true });
+  try {
+    await fs.cp(planRefsDir(sourceCwd, planId), planRefsDir(targetCwd, planId), { recursive: true, force: true });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  }
+}
+
+const MOVE_ATTEMPTS = 3;
+
 // Move a plan from one cwd to another. Writes the target first (atomic
 // safety — if the second step fails we still have the source intact),
 // then drops the source. The plan id stays the same; UUIDs make collision
@@ -179,6 +206,13 @@ export async function updatePlan(
 // which won't apply at the destination. Caller is responsible for detaching
 // workflows in the source cwd beforehand (broadcasts plan_detached) and for
 // setting watcher skip-flags on both cwds.
+//
+// The source is removed only while it still matches what the target holds
+// (text, title, done state and reference documents), checked under the
+// source's index lock, which plan and reference-document writes also take.
+// An edit saved in between is copied to the target and checked again; after
+// MOVE_ATTEMPTS changing rounds the move stops, the source keeps everything
+// and the target copy is removed.
 export async function movePlan(
   sourceCwd: string,
   planId: string,
@@ -187,7 +221,7 @@ export async function movePlan(
   if (!sourceCwd || !targetCwd) return { ok: false, error: 'sourceCwd and targetCwd required' };
   if (!isValidPlanId(planId)) return { ok: false, error: 'invalid plan id' };
   if (sourceCwd === targetCwd) return { ok: false, error: 'source and target must differ' };
-  const source = await readPlan(sourceCwd, planId);
+  let source = await readPlan(sourceCwd, planId);
   if (!source) return { ok: false, error: 'source plan not found' };
   const movedSummary: PlanSummary = {
     id: source.id,
@@ -197,39 +231,65 @@ export async function movePlan(
     attachments: [],
     completedAt: source.completedAt ?? null,
   };
-  // Two separate critical sections (target, then source) — never both locks at
+  // Separate critical sections (target, then source) — never both locks at
   // once, so an A→B move racing a B→A move can't deadlock.
   const collided = await withIndexLock(targetCwd, async () => {
     const targetIdx = await readIndex(targetCwd);
     if (targetIdx.plans.some((p) => p.id === planId)) return true;
     // Write target body + index first; if either fails the source is untouched.
-    await atomicWriteFile(bodyPath(targetCwd, planId), source.body);
+    await atomicWriteFile(bodyPath(targetCwd, planId), source!.body);
     targetIdx.plans.push(movedSummary);
     await writeIndex(targetCwd, targetIdx);
     return false;
   });
   if (collided) return { ok: false, error: 'target already has a plan with this id' };
-  // Refs travel with the plan. Copied before the source is dropped so a
-  // failure leaves the source complete; cp is a no-op-ish error on a plan
-  // that never had refs.
-  try {
-    await fs.cp(planRefsDir(sourceCwd, planId), planRefsDir(targetCwd, planId), { recursive: true, force: true });
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  for (let attempt = 1; ; attempt++) {
+    // Refs travel with the plan. Copied before the source is dropped so a
+    // failure leaves the source complete.
+    await copyRefs(sourceCwd, targetCwd, planId);
+    const targetRefs = await refsSnapshot(targetCwd, planId);
+    const copied: PlanFull = source;
+    // Source removal. If this errors we've duplicated the plan (target now
+    // has it, source still has it). Caller can retry the delete by reissuing
+    // the move; the target-already-has-this-id guard above will refuse, so
+    // the operator gets a clear error and can deletePlan() the source manually.
+    const changed = await withIndexLock(sourceCwd, async () => {
+      const now = await readPlan(sourceCwd, planId);
+      if (now && (now.body !== copied.body || now.title !== copied.title || (now.completedAt ?? null) !== (copied.completedAt ?? null)
+        || await refsSnapshot(sourceCwd, planId) !== targetRefs)) return now;
+      const sourceIdx = await readIndex(sourceCwd);
+      sourceIdx.plans = sourceIdx.plans.filter((p) => p.id !== planId);
+      await writeIndex(sourceCwd, sourceIdx);
+      try { await fs.unlink(bodyPath(sourceCwd, planId)); } catch { /* ENOENT */ }
+      await fs.rm(planRefsDir(sourceCwd, planId), { recursive: true, force: true }).catch(() => { /* best-effort */ });
+      return null;
+    });
+    if (!changed) return { ok: true, plan: { ...movedSummary, title: copied.title, completedAt: copied.completedAt ?? null, body: copied.body } };
+    if (attempt >= MOVE_ATTEMPTS) {
+      // Undo the copy only while it is still exactly what MOVE wrote.
+      await withIndexLock(targetCwd, async () => {
+        const mine = await readPlan(targetCwd, planId);
+        if (!mine || mine.body !== copied.body || await refsSnapshot(targetCwd, planId) !== targetRefs) return;
+        const targetIdx = await readIndex(targetCwd);
+        targetIdx.plans = targetIdx.plans.filter((p) => p.id !== planId);
+        await writeIndex(targetCwd, targetIdx);
+        try { await fs.unlink(bodyPath(targetCwd, planId)); } catch { /* ENOENT */ }
+        await fs.rm(planRefsDir(targetCwd, planId), { recursive: true, force: true }).catch(() => { /* best-effort */ });
+      });
+      return { ok: false, error: 'the plan kept changing during the move; it stays in the source project, try MOVE again' };
+    }
+    // An edit landed after the copy: bring the target up to date and check again.
+    source = changed;
+    const latest = changed;
+    await withIndexLock(targetCwd, async () => {
+      const targetIdx = await readIndex(targetCwd);
+      const i = targetIdx.plans.findIndex((p) => p.id === planId);
+      if (i === -1) return;
+      await atomicWriteFile(bodyPath(targetCwd, planId), latest.body);
+      targetIdx.plans[i] = { ...targetIdx.plans[i], title: latest.title, completedAt: latest.completedAt ?? null, updatedAt: Date.now() };
+      await writeIndex(targetCwd, targetIdx);
+    });
   }
-  // Source removal — best-effort. If this errors we've duplicated the plan
-  // (target now has it, source still has it). Caller can retry the delete
-  // by reissuing the move; the target-already-has-this-id guard above will
-  // refuse, so the operator gets a clear error and can deletePlan() the
-  // source manually.
-  await withIndexLock(sourceCwd, async () => {
-    const sourceIdx = await readIndex(sourceCwd);
-    sourceIdx.plans = sourceIdx.plans.filter((p) => p.id !== planId);
-    await writeIndex(sourceCwd, sourceIdx);
-    try { await fs.unlink(bodyPath(sourceCwd, planId)); } catch { /* ENOENT */ }
-    await fs.rm(planRefsDir(sourceCwd, planId), { recursive: true, force: true }).catch(() => { /* best-effort */ });
-  });
-  return { ok: true, plan: { ...movedSummary, body: source.body } };
 }
 
 // Hard-delete: drop the plan from the index and remove its body file.
@@ -446,25 +506,30 @@ export async function writePlanRef(cwd: string, planId: string, slug: string, bo
   if (!cwd || !isValidPlanId(planId)) return { ok: false, error: 'invalid plan id' };
   if (!isValidRefSlug(slug)) return { ok: false, error: 'invalid slug — use lowercase letters, digits, and dashes (max 64)' };
   if (Buffer.byteLength(body, 'utf8') > REF_BODY_MAX) return { ok: false, error: `ref body exceeds ${REF_BODY_MAX} bytes — split it into several refs` };
-  if (!(await readPlanSummary(cwd, planId))) return { ok: false, error: 'plan not found' };
-  const existing = await listPlanRefs(cwd, planId);
-  const created = !existing.some((r) => r.slug === slug);
-  if (created && existing.length >= REF_COUNT_MAX) return { ok: false, error: `plan already has ${REF_COUNT_MAX} refs` };
-  ensureProjectStateIgnore(cwd);
-  await atomicWriteFile(refPath(cwd, planId, slug), body);
-  const st = await fs.stat(refPath(cwd, planId, slug));
-  return { ok: true, created, ref: { slug, title: extractTitleFromBody(body.slice(0, 4096)) || slug, bytes: st.size, updatedAt: Math.round(st.mtimeMs) } };
+  // Under the plan index lock, so MOVE never removes a source whose reference
+  // documents changed after it copied them.
+  return withIndexLock(cwd, async (): Promise<WritePlanRefResult> => {
+    if (!(await readPlanSummary(cwd, planId))) return { ok: false, error: 'plan not found' };
+    const existing = await listPlanRefs(cwd, planId);
+    const created = !existing.some((r) => r.slug === slug);
+    if (created && existing.length >= REF_COUNT_MAX) return { ok: false, error: `plan already has ${REF_COUNT_MAX} refs` };
+    await atomicWriteFile(refPath(cwd, planId, slug), body);
+    const st = await fs.stat(refPath(cwd, planId, slug));
+    return { ok: true, created, ref: { slug, title: extractTitleFromBody(body.slice(0, 4096)) || slug, bytes: st.size, updatedAt: Math.round(st.mtimeMs) } };
+  });
 }
 
 export async function deletePlanRef(cwd: string, planId: string, slug: string): Promise<boolean> {
   if (!cwd || !isValidPlanId(planId) || !isValidRefSlug(slug)) return false;
-  try {
-    await fs.unlink(refPath(cwd, planId, slug));
-    return true;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false;
-    throw err;
-  }
+  return withIndexLock(cwd, async () => {
+    try {
+      await fs.unlink(refPath(cwd, planId, slug));
+      return true;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw err;
+    }
+  });
 }
 
 // Bump the plan's updatedAt without touching its body — a ref change is a
