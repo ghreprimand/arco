@@ -158,7 +158,8 @@ ARCO_PORT=3002 npm run arco:service -- install --enable
 
 ## The systemd `--user` unit
 
-`install` renders this to `~/.config/systemd/user/arco.service`:
+`install` renders this to `~/.config/systemd/user/arco.service`, with `<repo>`
+replaced by the absolute path of the checkout:
 
 ```ini
 [Unit]
@@ -171,8 +172,8 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-WorkingDirectory=%h/Projects/Arco
-ExecStart=node %h/Projects/Arco/server/dist/index.js
+WorkingDirectory=<repo>
+ExecStart=node <repo>/server/dist/index.js
 Environment=ARCO_SERVE_CLIENT=1
 Environment=NODE_ENV=production
 Environment=ARCO_LOG_FILE=1
@@ -390,11 +391,13 @@ proxy's static root at `client/dist`, proxying `/ws` and `/api/*` to the server.
 Service mode just bundles the common case (server serves its own client) into
 one durable unit.
 
-> **Warning:** The HTTP/WS surface has no auth and exposes a shell, git/GitHub
-> ops, filesystem read+write, and provider credentials. Service mode does not
-> change that. Keep the bind loopback (`ARCO_HOST=127.0.0.1`, the default) and
-> reach it via SSH/Vite tunnel, or put it behind your own auth-enforcing reverse
-> proxy. See [Operations: Exposure posture](OPERATIONS.md).
+> **Warning:** The HTTP/WS surface has no user login. It exposes a shell,
+> git/GitHub ops, filesystem read+write, and provider credentials, guarded only
+> by the browser session cookie and the Host and Origin check. Service mode does
+> not change that. Keep the bind loopback (`ARCO_HOST=127.0.0.1`, the default)
+> and reach it via SSH/Vite tunnel, or put it behind your own auth-enforcing
+> reverse proxy (add its host name to `ARCO_ALLOWED_HOSTS`). See
+> [Operations: Exposure posture](OPERATIONS.md#exposure-posture).
 
 ## Source checkout on macOS
 
@@ -452,7 +455,7 @@ launchctl kickstart -k gui/$(id -u)/com.arco.app
 Use the actual job label if the local launchd configuration differs. Updating
 rebuilds the compiled server and client; restarting interrupts running turns.
 
-> The launchd service and the `Arco - Dev.app` launcher (which runs
+> The launchd service and the development launcher (`scripts/arco`, which runs
 > `npm run dev`) both bind `:3001`. They are mutually exclusive. Stop the
 > service before using the development launcher.
 

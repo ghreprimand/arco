@@ -71,7 +71,7 @@ Arco/
 │   ├── memoryMonitor.ts             # RSS/heap trend logging (gated)
 │   ├── clusterEfficiency.ts         # per-cluster efficiency-level bundle
 │   ├── ultracodeFleetWatcher.ts     # ultracode background-subagent fleet telemetry
-│   ├── recentFilesLedger.ts         # agent-writes ledger (ARCHIVE RECENTS)
+│   ├── recentFilesLedger.ts         # agent-writes ledger (ARTIFACTS RECENTS)
 │   ├── workers/                     # WorkerManager, RSS guard, /proc activity probe
 │   ├── workflowStore.ts             # events.jsonl persistence
 │   ├── workflowMeta.ts              # meta.json
@@ -387,9 +387,15 @@ git tag -n99 vX.Y.Z
 git push origin main vX.Y.Z
 ```
 
-Replace `vX.Y.Z` with the reviewed tag. The tag workflow checks its package
-version, runs the Ubuntu verification gate, and publishes the changelog section
-as a GitHub Release using the built-in token. Automatic source archives are the
-only assets. Failed publishing is recovered through the workflow; the release
-script does not overwrite an existing local tag. The release notes can be
+Replace `vX.Y.Z` with the reviewed tag. The tag workflow
+(`.github/workflows/release.yml`) checks that the tag matches the package
+version, runs the Ubuntu verification gate, builds the native modules for each
+platform, assembles and audits the package, and publishes the changelog section
+as a GitHub Release with `arco-release.tgz` attached, using the built-in token.
+When `arco-workbench` already exists on npm, it then stages the package with
+`npm stage publish` through npm trusted publishing in the GitHub environment
+`npm`, and the maintainer approves the staged package on npmjs.com. Failed
+publishing is recovered through the workflow; the release script does not
+overwrite an existing local tag. See [Updating Arco](docs/OPERATIONS.md#updating-arco)
+for installs and updates. The release notes can be
 inspected independently with `node scripts/release/notes.mjs vX.Y.Z`.

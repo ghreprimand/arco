@@ -4,7 +4,7 @@ Six recipes document how to add providers, primitives, skills, themes, shaders, 
 
 ## Adding a new provider
 
-Supported providers include Claude (`cli` and `native` transports), Codex (`exec` and `appserver` transports), Ollama, llama.cpp, LM Studio (OpenAI-compatible `/v1`), Strata (standalone `/v1`, shared HTTP worker), and Cursor (`cursor-agent` via the Agent Client Protocol; a long-lived `acp` worker plus a stateless `print` one-shot for read-only primitives; reasoning effort is part of the model id, with a catalog of about 150 models). To add a new one (let's call it `foo`):
+Supported providers include Claude (`cli` and `native` transports), Codex (`exec` and `appserver` transports), Ollama, llama.cpp, LM Studio (OpenAI-compatible `/v1`), Strata (standalone `/v1`, shared HTTP worker), DeepSeek through Xolotl (provider key `deepseek`, the same shared HTTP worker), and Cursor (`cursor-agent` via the Agent Client Protocol; a long-lived `acp` worker plus a stateless `print` one-shot for read-only primitives; reasoning effort is part of the model id, with a catalog of about 150 models). To add a new one (let's call it `foo`):
 
 > **Several providers use a subdirectory layout** rather than a single file (claude-native/, codex-appserver/, cursor/):
 > - `server/src/providers/claude-native/`: in-process Anthropic SDK worker. Read `docs/PROVIDERS.md` under `Claude Native` and `docs/GOTCHAS.md` under `Claude Native transport` before touching it; the forced-first-system-block, replay-on-restart pair-flush, and depth-1 Task cap are load-bearing.
@@ -18,39 +18,40 @@ Supported providers include Claude (`cli` and `native` transports), Codex (`exec
 In `shared/src/protocol/providers.ts` (the `ProviderName` union lives in the split protocol directory, re-exported via the `shared/src/protocol.ts` barrel):
 
 ```ts
-export type ProviderName = 'claude' | 'ollama' | 'codex' | 'llamacpp' | 'lmstudio' | 'cursor' | 'foo';
+export type ProviderName = 'claude' | 'ollama' | 'codex' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek' | 'cursor' | 'foo';
 ```
 
 Add to `PRIMARY_PROVIDERS` if foo can be a primary.
 
 ### 2. Provider implementation
 
-Create `server/src/providers/foo.ts`. It must implement the `ProviderProcess` interface from `types.ts`:
+Create `server/src/providers/foo.ts`. It exports a `Provider` (`{ create(id, config) }`) whose `create` returns a `ProviderProcess` from `types.ts`. A `ProviderProcess` is an `EventEmitter`:
 
 ```ts
-export class FooProcess implements ProviderProcess {
-  id: string;
-  status: 'spawning' | 'running' | 'completed' | 'failed';
-  output: string;
-  pid?: number;
+class FooProcess extends EventEmitter implements ProviderProcess {
+  readonly id: string;
+  status: 'spawning' | 'running' | 'completed' | 'failed' = 'spawning';
+  output = '';
+  pid?: number; // only for a child process
 
-  constructor(id: string, config: WorkerConfig) { ... }
+  constructor(id: string, private config: WorkerConfig) { super(); this.id = id; }
 
-  async spawn(prompt: string): Promise<void> { ... }
-  async kill(): Promise<void> { ... }
-
-  on<E extends keyof ProviderEvents>(event: E, handler: ProviderEvents[E]): void { ... }
+  spawn(prompt: string): void { ... }
+  kill(): void { ... }
+  // optional: interrupt(): Promise<boolean | void>
 }
+
+export const FooProvider: Provider = { create: (id, config) => new FooProcess(id, config) };
 ```
 
-The unified event stream you must emit:
-- `init`: `{ model, sessionId? }` on first response
-- `text`: `{ text }` deltas
-- `thinking`: `{ text }` reasoning blocks (skip if not supported)
-- `tool_use`: `{ tool, input, toolUseId? }` (skip if not supported)
-- `result`: `{ costUsd, durationMs, tokens? }` on settle
-- `error`: `{ error, detail? }` on failure
-- `system_notice`: `{ text }` for transient out-of-band issues
+The unified event stream you must emit (`ProviderEvents` in `types.ts`):
+- `init`: `{ model?, sessionId? }` on first response
+- `text`: the text delta as a string
+- `thinking`: the reasoning text as a string (skip if not supported)
+- `tool_use`: `{ id?, name, input, status?, output?, ... }` (skip if not supported)
+- `result`: `{ text, costUsd, durationMs, usage?, lastPromptTokens?, ... }` on settle
+- `error`: the error message as a string
+- `system_notice`: a notice string for transient out-of-band issues
 
 Reference implementations: `claude.ts` is the most full-featured subprocess provider; `lmstudio.ts` is the smallest HTTP provider (it reuses the Ollama tool runtime rather than owning one).
 
@@ -58,16 +59,16 @@ Reference implementations: `claude.ts` is the most full-featured subprocess prov
 
 In `server/src/providers/index.ts`:
 
-```ts
-import { FooProcess } from './foo';
+Add the provider to the `PROVIDERS` record, which `createProviderProcess` uses after its transport special cases (Codex app-server, Claude Native, Cursor print, the local serial queue):
 
-export function createProviderProcess(id: string, config: WorkerConfig): ProviderProcess {
-  switch (config.provider) {
-    case 'claude': return new ClaudeWorkerProcess(id, config);
-    // ...
-    case 'foo': return new FooProcess(id, config);
-  }
-}
+```ts
+import { FooProvider } from './foo.js';
+
+const PROVIDERS: Record<ProviderName, Provider> = {
+  claude: ClaudeProvider,
+  // ...
+  foo: FooProvider,
+};
 ```
 
 ### 4. Capability detection
@@ -103,7 +104,7 @@ Decide explicitly: nothing opts a provider in by default.
 
 - **Chat**: add it to `CHAT_PROVIDERS` in `server/src/chatMode.ts` only if the transport can honor `WorkerConfig.interactionMode:'chat'` (no project tools, isolated cwd). Web support means adding it to `CHAT_WEB_PROVIDERS` *and* making the transport state armed/disarmed explicitly (mirror the client's `WEB_CAPABLE` set in `ChatModeView.tsx`).
 - **Incognito**: add it to `INCOGNITO_CHAT_PROVIDERS` only if nothing the provider runs writes to disk (no session files, no daemon log). When in doubt, leave it out; Cursor and llama.cpp are excluded for exactly this.
-- **Clusters**: `isClusterMemberProvider` + a peer-tool wiring path (in-process, stdio MCP, or loopback HTTP MCP). See [`docs/PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md).
+- **Clusters**: add it to `CLUSTER_MEMBER_PROVIDERS` (`shared/src/protocol/clusters.ts`, read by `isClusterMemberProvider`) + a peer-tool wiring path (in-process, stdio MCP, or loopback HTTP MCP). See [`docs/PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md).
 
 ### 8. Docs
 
@@ -126,7 +127,7 @@ The three operator primitives (Review / Handoff / Spawn) live under `server/src/
 > **Cluster substrate is not a primitive**, but if your primitive interacts with clusters (peer messaging, plan, mailbox) you must go through the cluster substrate layer rather than directly reading the cluster files:
 > - `server/src/clusterStore.ts`: cluster record persistence (create/read/delete)
 > - `server/src/clusterMailbox.ts`: file-per-message mailbox (`enqueue`, `peek`, `drain`, `discard`)
-> - `server/src/clusterPeerOps.ts`: peer tool implementations (`peerList`, `peerSend`, `peerRead`, `peerPlanTick`, `peerPlanWrite`)
+> - `server/src/clusterPeerOps.ts`: peer tool implementations (`peerList`, `peerSend`, `peerRead`, `peerPlanRead`, `peerPlanTick`, `peerPlanWrite` and the `peerTask*` board tools)
 > - `server/src/clusterRehydrate.ts`: rehydrate-on-subscribe (re-emits undelivered `peer_message_sent` to reconnecting subscribers)
 > - `server/src/clusterIdleNudger.ts`: idle detection + operator-armed toast (never sends prompts)
 >
@@ -229,7 +230,7 @@ operator-only: <true to withhold from the model manifest; available through the 
 
 Frontmatter is required (YAML, single-line values, optional surrounding quotes). Skills missing a `name:` are silently skipped during the scan. `operator-only` is optional (parsed case-insensitively; any value but `true` leaves it model-visible).
 
-Per primary turn, the server scans both roots, builds an XML `<arco-skills>` manifest of name + description + absolute path, and prepends it to the system prompt. Only the manifest goes into the prompt; the agent reads the full body via its `Read` tool when it picks a skill (Pi's progressive-disclosure model). This bounds prompt cost while leaving the skill body unbounded.
+Per primary turn, the server scans both roots, builds an XML `<arco-skills>` manifest of name + description + absolute path, and prepends it to the system prompt. Only the manifest goes into the prompt; the agent reads the full body via its `Read` tool when it picks a skill. This bounds prompt cost while leaving the skill body unbounded.
 
 Skills with `operator-only: true` are excluded from the `<arco-skills>` manifest the model sees; the user includes the body on demand via the `SKILLS` composer picker. Two related new surfaces: the SKILLS editor's AUDIT button (`POST /api/skills/audit`, diagnostic only) and the project-trust gate (skills from an untrusted repository are suppressed until a user approves the repository, `server/src/projectTrust.ts`).
 
@@ -349,7 +350,7 @@ Shaders live under `client/src/themes/shaders/<name>.frag.glsl`. `client/src/com
 ### Constraints
 
 - Use `precision highp float;` (Mali GPU NaN cascades on `mediump`)
-- Bound any `hash` inputs to a sane range: long-uptime drift can produce NaN that propagates through the whole pixel grid (see commit `8a5af37`)
+- Bound any `hash` inputs to a sane range: long-uptime drift can produce NaN that propagates through the whole pixel grid
 - Keep instruction count low: these run per-pixel at 60fps
 - **No smooth radial gradients (vignettes / atmospheric noise washes / breathing blobs / orbs) on dark themes.** They posterize visibly under 8-bit alpha compositing against near-black. Use structural elements only: particles, streaks, grids, dots, vein lines, scanlines, hard-edged cells. See `docs/GOTCHAS.md` under `Themes / shaders` for the current palette and shader constraints.
 
