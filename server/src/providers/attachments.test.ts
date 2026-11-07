@@ -37,17 +37,23 @@ test('loadImages: base64 + mime; empty, oversized and missing files skipped with
 
 // ── Model-side downscaling. Needs ImageMagick (the Linux path); skipped
 // cleanly on a box without it. The sips (macOS) branch is not covered here.
+// An ImageMagick that answers -version can still be unable to write images
+// (an install without its coder modules says "no decode delegate"), so the
+// probe draws a tiny PNG; a binary that cannot is treated as absent.
+function canDraw(bin: string): boolean {
+  try { execFileSync(bin, ['-size', '2x2', 'xc:white', 'png:-'], { stdio: ['ignore', 'ignore', 'ignore'] }); return true; } catch { return false; }
+}
 function findMagick(): { bin: string; identify: string[] } | null {
   for (const bin of ['magick', join(homedir(), '.local/bin/magick'), '/opt/homebrew/bin/magick', '/usr/local/bin/magick']) {
-    try { execFileSync(bin, ['-version'], { stdio: 'ignore' }); return { bin, identify: [bin, 'identify'] }; } catch { /* next */ }
+    if (canDraw(bin)) return { bin, identify: [bin, 'identify'] };
   }
   for (const bin of ['convert', '/usr/bin/convert']) {
-    try { execFileSync(bin, ['-version'], { stdio: 'ignore' }); return { bin, identify: ['identify'] }; } catch { /* next */ }
+    if (canDraw(bin)) return { bin, identify: ['identify'] };
   }
   return null;
 }
 const MAGICK = findMagick();
-const skipNoMagick = MAGICK ? false : 'no ImageMagick on this box';
+const skipNoMagick = MAGICK ? false : 'no ImageMagick on this box that can write images';
 
 function gen(out: string, args: string[]): void {
   execFileSync(MAGICK!.bin, [...args, out], { stdio: 'ignore' });
