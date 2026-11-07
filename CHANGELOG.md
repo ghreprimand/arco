@@ -50,6 +50,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Concurrent preset saves and knowledge article changes retain accepted updates. Unreadable pending peer messages remain on disk and report an error instead of being discarded. Failed member replacements keep pending mail reachable. Concurrent image saves refuse unconfirmed collisions, and a failed media export cannot delete another export.
+
 - The CONFIG tab's Ollama auto-compaction note and fit warning name the real place of the utility model: Settings > Providers and models > Sign-in, accounts and local endpoints, field OLLAMA COMPACTION UTILITY MODEL.
 - Remote start, stop and restart of a macOS package install address its `arco-workbench` LaunchAgent and the signed-in user, and a remote stop no longer prevents the next start. A macOS SSH target needs `uid`.
 - Armed Creative mode in the GENESIS tab always shows DISARM, also on small projects and after a reload.

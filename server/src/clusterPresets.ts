@@ -14,7 +14,7 @@ import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import type { ClusterMemberProvider, ClusterPreset, ClusterPresetMember, MemberTier } from '@arco/shared';
 import { MEMBER_TIERS, MEMBER_FOCUS_MAX, normalizeOutputStyle, isClusterMemberAccessMode, clusterDirectorProblem } from '@arco/shared';
-import { atomicWriteFile } from './atomicFile.js';
+import { atomicWriteFile, withFileLock } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
 
 const NAME_MAX = 64;
@@ -185,37 +185,41 @@ export async function savePreset(input: PresetSaveInput): Promise<ClusterPreset>
   const directorProblem = clusterDirectorProblem(normalized.map((m) => m.role));
   if (directorProblem) throw new PresetValidationError(400, `cluster_preset_save rejected: multiple_directors: ${directorProblem}`);
 
-  const file = await readFileSafe();
+  return withFileLock(presetsPath(), async () => {
+    const file = await readFileSafe();
 
-  // Case-insensitive duplicate-name fence. Lowercase compare on trimmed name.
-  const lower = name.toLowerCase();
-  if (file.presets.some((p) => p.name.trim().toLowerCase() === lower)) {
-    throw new PresetValidationError(409, `preset named "${name}" already exists`);
-  }
+    // Case-insensitive duplicate-name fence. Lowercase compare on trimmed name.
+    const lower = name.toLowerCase();
+    if (file.presets.some((p) => p.name.trim().toLowerCase() === lower)) {
+      throw new PresetValidationError(409, `preset named "${name}" already exists`);
+    }
 
-  if (file.presets.length >= MAX_PRESETS) {
-    throw new PresetValidationError(400, `preset count exceeds cap of ${MAX_PRESETS}`);
-  }
+    if (file.presets.length >= MAX_PRESETS) {
+      throw new PresetValidationError(400, `preset count exceeds cap of ${MAX_PRESETS}`);
+    }
 
-  const preset: ClusterPreset = {
-    id: randomUUID(),
-    name,
-    createdAt: new Date().toISOString(),
-    ...(tmpl ? { clusterNameTemplate: tmpl } : {}),
-    members: normalized,
-  };
-  file.presets.push(preset);
-  await writeFileAtomic(file);
-  return preset;
+    const preset: ClusterPreset = {
+      id: randomUUID(),
+      name,
+      createdAt: new Date().toISOString(),
+      ...(tmpl ? { clusterNameTemplate: tmpl } : {}),
+      members: normalized,
+    };
+    file.presets.push(preset);
+    await writeFileAtomic(file);
+    return preset;
+  });
 }
 
 // Returns true if a preset was found and removed; false when no match.
 export async function deletePreset(id: string): Promise<boolean> {
   if (!id || typeof id !== 'string') return false;
-  const file = await readFileSafe();
-  const before = file.presets.length;
-  file.presets = file.presets.filter((p) => p.id !== id);
-  if (file.presets.length === before) return false;
-  await writeFileAtomic(file);
-  return true;
+  return withFileLock(presetsPath(), async () => {
+    const file = await readFileSafe();
+    const before = file.presets.length;
+    file.presets = file.presets.filter((p) => p.id !== id);
+    if (file.presets.length === before) return false;
+    await writeFileAtomic(file);
+    return true;
+  });
 }

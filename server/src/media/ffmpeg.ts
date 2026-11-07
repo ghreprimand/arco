@@ -37,7 +37,7 @@
 //     returned as success.
 
 import { execFile } from 'child_process';
-import { promises as fs } from 'fs';
+import { promises as fs, constants } from 'fs';
 import path from 'path';
 import { confinedPath, isPathWithin, safeDirectory } from '../fileAccessPolicy.js';
 import { UPLOADS_DIR } from '../server/constants.js';
@@ -765,7 +765,7 @@ export async function runMediaOp(
   const safe = sanitizeOutputBasename(wanted);
   if (!safe) throw new MediaOpError('bad-path', `unsafe derived output name from "${inputBasename}"`);
   const uniqueName = await uniqueBasename(outDir, safe);
-  const outputAbs = path.join(outDir, uniqueName);
+  let outputAbs = path.join(outDir, uniqueName);
 
   // Never the source — uniqueBasename guarantees it, but assert the invariant.
   if (outputAbs === inputAbs) {
@@ -790,17 +790,32 @@ export async function runMediaOp(
 
   // 7. Build args from the typed spec (pure) + run ffmpeg via execFile (argv
   //    array, no shell), wired to the cancel signal.
-  const args = buildArgs(spec, inputAbs, outputAbs, extraInputs);
+  // FFmpeg owns only its private staging directory. Publish with exclusive
+  // creation so another export's completed file is never cleanup collateral.
+  const stagingDir = await fs.mkdtemp(path.join(outDir, '.arco-media-'));
+  const stagedOutput = path.join(stagingDir, safe);
+  const args = buildArgs(spec, inputAbs, stagedOutput, extraInputs);
   try {
     await runFfmpeg(args, opts.signal);
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await fs.copyFile(stagedOutput, outputAbs, constants.COPYFILE_EXCL);
+        break;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'EEXIST' || attempt >= 100) throw err;
+        outputAbs = path.join(outDir, await uniqueBasename(outDir, safe));
+      }
+    }
   } catch (err) {
-    // Cancel or ffmpeg failure: delete the (possibly partial) output. No
-    // half-written file is ever returned as success.
-    await safeUnlink(outputAbs);
+    // Only this run's private staging directory needs cleanup on failure.
     if (opts.signal?.aborted || err instanceof AbortError) {
       throw new MediaOpError('cancelled', 'media op cancelled');
     }
     throw new MediaOpError('ffmpeg-failed', err instanceof Error ? err.message : String(err));
+  } finally {
+    await fs.rm(stagingDir, { recursive: true, force: true }).catch((err) => {
+      console.error('[arco] media: failed to remove staging directory:', err instanceof Error ? err.message : err);
+    });
   }
 
   // relPath drives "Reveal in Files", which only makes sense for an output
@@ -845,16 +860,6 @@ function runFfmpeg(args: string[], signal?: AbortSignal): Promise<void> {
 
 class AbortError extends Error {
   constructor() { super('aborted'); this.name = 'AbortError'; }
-}
-
-async function safeUnlink(p: string): Promise<void> {
-  try {
-    await fs.unlink(p);
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.error(`[arco] media: failed to delete partial ${p}:`, err instanceof Error ? err.message : err);
-    }
-  }
 }
 
 // ── ffprobe duration helper (validation / smoke assertions) ─────────────────

@@ -31,7 +31,7 @@ import {
   type KnowledgeArticle,
   type KnowledgeArticleSummary,
 } from '@arco/shared';
-import { atomicWriteFile } from '../atomicFile.js';
+import { atomicWriteFile, withFileLock } from '../atomicFile.js';
 
 const ID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 const TITLE_MAX = 200;
@@ -183,7 +183,11 @@ const jsonStore: KnowledgeStore = {
 
 // The active store. A future SQLite+FTS5 backend swaps this binding (and adds a
 // one-shot JSON→rows migration) without touching any caller.
-export const store: KnowledgeStore = jsonStore;
+export const store: KnowledgeStore = {
+  ...jsonStore,
+  save: (cwd, article) => withFileLock(indexPath(path.resolve(cwd)), () => jsonStore.save(cwd, article)),
+  remove: (cwd, id) => withFileLock(indexPath(path.resolve(cwd)), () => jsonStore.remove(cwd, id)),
+};
 
 // ── CRUD layer (operator-driven; the only write paths) ──
 
@@ -220,18 +224,20 @@ export async function updateArticle(
   id: string,
   patch: { title?: string; body?: string; tags?: string[]; alwaysInclude?: boolean },
 ): Promise<KnowledgeArticle | null> {
-  const existing = await store.load(cwd, id);
-  if (!existing) return null;
-  const next: KnowledgeArticle = {
-    ...existing,
-    title: typeof patch.title === 'string' ? patch.title : existing.title,
-    body: typeof patch.body === 'string' ? patch.body : existing.body,
-    tags: patch.tags !== undefined ? sanitizeTags(patch.tags) : existing.tags,
-    alwaysInclude: patch.alwaysInclude !== undefined ? patch.alwaysInclude === true : existing.alwaysInclude,
-    updatedAt: Date.now(),
-  };
-  await store.save(cwd, next);
-  return store.load(cwd, id);
+  return withFileLock(indexPath(path.resolve(cwd)), async () => {
+    const existing = await store.load(cwd, id);
+    if (!existing) return null;
+    const next: KnowledgeArticle = {
+      ...existing,
+      title: typeof patch.title === 'string' ? patch.title : existing.title,
+      body: typeof patch.body === 'string' ? patch.body : existing.body,
+      tags: patch.tags !== undefined ? sanitizeTags(patch.tags) : existing.tags,
+      alwaysInclude: patch.alwaysInclude !== undefined ? patch.alwaysInclude === true : existing.alwaysInclude,
+      updatedAt: Date.now(),
+    };
+    await jsonStore.save(cwd, next);
+    return store.load(cwd, id);
+  });
 }
 
 export async function deleteArticle(cwd: string, id: string): Promise<boolean> {

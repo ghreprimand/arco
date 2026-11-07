@@ -510,13 +510,11 @@ async function reassignPendingMailbox(
       message.toWorkflowId = newWorkflowId;
       body = JSON.stringify(message, null, 2);
     } catch {
-      // Preserve even a malformed pending file. The normal mailbox reader will
-      // ignore it, but replacement must never turn cleanup into silent loss.
+      // Preserve even a malformed pending file for the strict mailbox reader
+      // to report. Replacement must never turn cleanup into silent loss.
     }
     await atomicWriteFile(newPath, body);
-    await fs.unlink(oldPath);
   }
-  await fs.rm(oldDir, { recursive: true, force: true });
 }
 
 // Atomic cluster-slot replacement. The caller creates the fresh workflow and
@@ -563,10 +561,13 @@ export async function replaceMember(
     // lands before the move and follows the slot, or revalidates after the move
     // and cannot recreate the departed recipient directory.
     await withFileLock(clusterMailboxRoot(clusterId), async () => {
+      // Keep all originals reachable until every copy and the membership write
+      // succeed. A failed copy can then be retried without losing a recipient.
+      await reassignPendingMailbox(clusterId, oldWorkflowId, newWorkflowId);
       await writeMetaAtomic(next);
       if (memberIndex.get(oldWorkflowId) === clusterId) memberIndex.delete(oldWorkflowId);
       rebuildIndexFor(next);
-      await reassignPendingMailbox(clusterId, oldWorkflowId, newWorkflowId);
+      await fs.rm(join(clusterMailboxRoot(clusterId), oldWorkflowId), { recursive: true, force: true });
     });
     return next;
   });

@@ -149,8 +149,11 @@ export async function tryHandleImageWriteRoutes(
     // resolveWithinCwd gate), so the mkdir can't escape.
     const parent = dirname(abs);
     if (parent && parent !== cwd) await mkdir(parent, { recursive: true });
-    await writeFile(abs, parsed.buf);
+    await writeFile(abs, parsed.buf, { flag: body.overwrite === true ? 'w' : 'wx' });
   } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST' && body.overwrite !== true) {
+      return send(res, 200, { ok: false, code: 'exists', error: 'file exists; pass overwrite:true to replace' } satisfies ImageWriteResult);
+    }
     // A write failure on an already-confined path is operator-visible (e.g. the
     // target is a directory, or a permissions issue) — structured, not a 500.
     return send(res, 200, { ok: false, code: 'write-failed', error: err instanceof Error ? err.message : String(err) } satisfies ImageWriteResult);

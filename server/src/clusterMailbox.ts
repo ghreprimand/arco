@@ -169,11 +169,16 @@ async function readDirSafe(dir: string): Promise<string[]> {
 async function readMessageFile(path: string): Promise<PeerMessage | null> {
   try {
     const raw = await fs.readFile(path, 'utf8');
-    return JSON.parse(raw) as PeerMessage;
+    const msg = JSON.parse(raw) as PeerMessage;
+    if (!msg || typeof msg.msgId !== 'string' || typeof msg.toWorkflowId !== 'string'
+      || typeof msg.content !== 'string' || typeof msg.delivered !== 'boolean') {
+      throw new Error('Invalid mailbox record.');
+    }
+    return msg;
   } catch (err) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code === 'ENOENT') return null;
-    return null;
+    throw err;
   }
 }
 
@@ -216,10 +221,15 @@ export async function drain(wfId: string): Promise<PeerMessage[]> {
     if (getClusterIdForWorkflow(wfId) !== clusterId) return [];
     const dir = recipientDir(clusterId, wfId);
     const names = (await readDirSafe(dir)).filter((n) => n.endsWith('.json')).sort();
-    const out: PeerMessage[] = [];
+    // Read the whole batch before consuming any files: a later read error
+    // must not discard earlier messages before the caller receives them.
+    const pending: Array<{ path: string; msg: PeerMessage | null }> = [];
     for (const name of names) {
       const path = join(dir, name);
-      const msg = await readMessageFile(path);
+      pending.push({ path, msg: await readMessageFile(path) });
+    }
+    const out: PeerMessage[] = [];
+    for (const { path, msg } of pending) {
       if (!msg || msg.delivered) {
         // Stale or already-delivered file — clean up and skip.
         await fs.unlink(path).catch(() => undefined);
