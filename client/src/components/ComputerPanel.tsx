@@ -80,7 +80,7 @@ export function ComputerPanel({ onLoadEarlier, onCancel, onSend }: {
       style={{ ...contentSurfaceSize, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0, background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)' }}>
       <div data-help="header.computer" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '14px 18px', borderBottom: '1px solid var(--color-border-hairline)' }}>
         <div style={{ flex: 1 }}>
-          <h2 id="computer-title" className="display-font" style={{ margin: 0, fontSize: 16, letterSpacing: 2 }}>COMPUTER</h2>
+          <h2 id="computer-title" className="display-font" style={{ margin: 0, fontSize: 16, letterSpacing: 2, color: 'var(--color-accent-primary)' }}>COMPUTER</h2>
           <p style={{ margin: '5px 0 0', color: 'var(--color-fg-muted)', fontSize: 12 }}>Computer operates the workbench: panels, settings, worker messages, scripts and watches. It does not browse the web or run shell commands; use a worker chat for web questions.</p>
         </div>
         <span style={{ color: 'var(--color-fg-muted)', fontSize: 11 }}>{busy ? 'WORKING' : enabled ? 'HANDS-FREE ON' : 'MIC OFF'}</span>

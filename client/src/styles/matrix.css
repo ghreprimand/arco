@@ -5,10 +5,12 @@
 
 /* ── Glow effects ── */
 .glow-text {
+  color: var(--color-accent-primary);
   text-shadow: 0 0 6px var(--color-accent-primary-glow);
 }
 
 .glow-text-bright {
+  color: var(--color-accent-primary);
   text-shadow:
     0 0 8px var(--color-accent-primary-glow),
     0 0 16px var(--color-accent-primary-a08);
@@ -227,6 +229,11 @@
   font-size: 13px;
   line-height: 1.6;
 }
+.arco-markdown :is(.hljs-keyword, .hljs-title, .hljs-built_in, .hljs-type, .hljs-selector-tag) { color: var(--color-accent-secondary); }
+.arco-markdown :is(.hljs-string, .hljs-regexp, .hljs-addition) { color: var(--color-success); }
+.arco-markdown :is(.hljs-number, .hljs-literal, .hljs-symbol, .hljs-attr, .hljs-variable, .hljs-template-variable, .hljs-selector-class, .hljs-selector-attr, .hljs-selector-pseudo) { color: var(--color-warning); }
+.arco-markdown :is(.hljs-comment, .hljs-quote) { color: var(--color-fg-muted); }
+.arco-markdown :is(.hljs-deletion, .hljs-tag) { color: var(--color-danger); }
 .arco-markdown h1,
 .arco-markdown h2,
 .arco-markdown h3,

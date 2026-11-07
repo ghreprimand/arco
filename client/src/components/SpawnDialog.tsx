@@ -410,7 +410,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
                 placeholder="or custom role"
                 aria-label="Spawn custom role"
                 onChange={(e) => setRole(e.target.value)}
-                style={{ width: '100%', marginTop: '6px', padding: '6px 10px', background: 'var(--color-bg-sunken)', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-fg)', fontSize: '12px', outline: 'none' }}
+                style={{ width: '100%', marginTop: '6px', padding: '6px 10px', background: 'var(--color-bg-sunken)', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-accent-primary)', fontSize: '12px', outline: 'none' }}
               />
               {roleProblem && <div style={{ color: 'var(--color-warning)', fontSize: '10px', marginTop: '4px' }}>{roleProblem}</div>}
             </Field>
@@ -429,7 +429,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
                 placeholder="optional: this member's sub-specialty"
                 aria-label="Spawn focus"
                 onChange={(e) => { setFocus(e.target.value); setFocusTouched(true); }}
-                style={{ width: '100%', padding: '6px 10px', background: 'var(--color-bg-sunken)', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-fg)', fontSize: '12px', outline: 'none' }}
+                style={{ width: '100%', padding: '6px 10px', background: 'var(--color-bg-sunken)', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-accent-primary)', fontSize: '12px', outline: 'none' }}
               />
               <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px', marginTop: '4px' }}>Starts as the first line of NEW DIRECTION until you edit it.</div>
             </Field>

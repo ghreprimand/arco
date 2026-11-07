@@ -48,6 +48,63 @@
   font-family: inherit;
 }
 
+:where(a[href]) { color: var(--color-accent-secondary); }
+
+:where(code, pre, kbd, samp) {
+  font-family: var(--font-code);
+}
+
+/* Keep native interaction and keyboard behavior while using the active palette. */
+:where(input[type='checkbox'], input[type='radio']) {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 13px;
+  height: 13px;
+  vertical-align: middle;
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-accent-primary-dim);
+  color: var(--color-accent-primary);
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+:where(input[type='checkbox']) { border-radius: 2px; }
+:where(input[type='radio']) { border-radius: 50%; }
+:where(input[type='checkbox'], input[type='radio'])::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  transform: scale(0);
+  background: currentColor;
+}
+:where(input[type='checkbox'])::before { clip-path: polygon(14% 44%, 0 65%, 40% 100%, 100% 15%, 80% 0, 36% 68%); }
+:where(input[type='radio'])::before { border-radius: 50%; }
+:where(input[type='checkbox'], input[type='radio']):checked::before { transform: scale(1); }
+:where(input[type='checkbox'], input[type='radio']):focus-visible {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: 2px;
+}
+:where(input[type='checkbox'], input[type='radio']):disabled { opacity: 0.5; cursor: default; }
+:where(input[type='range']) {
+  appearance: none;
+  height: 18px;
+  padding: 0;
+  background: var(--color-bg-sunken);
+  border: 1px solid var(--color-border-hairline);
+  color: var(--color-accent-primary);
+  font-family: var(--font-body);
+  accent-color: var(--color-accent-primary);
+}
+:where(input[type='range'])::-webkit-slider-runnable-track { height: 4px; background: var(--color-border-bright); border-radius: 2px; }
+:where(input[type='range'])::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; margin-top: -4px; border-radius: 50%; background: var(--color-accent-primary); }
+:where(input[type='range'])::-moz-range-track { height: 4px; background: var(--color-border-bright); border-radius: 2px; }
+:where(input[type='range'])::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 50%; background: var(--color-accent-primary); }
+:where(input[type='range']):focus-visible { outline: 2px solid var(--color-accent-primary); outline-offset: 2px; }
+@media (forced-colors: active) {
+  :where(input[type='checkbox'], input[type='radio'], input[type='range']) { appearance: auto; }
+  :where(input[type='checkbox'], input[type='radio'])::before { content: none; }
+}
+
 /* Shared form-control look for selects and text/number inputs that do not
    carry their own styling. Matches the inline control style used by the
    configuration panels; components with explicit styles are unaffected. */
@@ -133,12 +190,18 @@ select.arco-field {
 :root {
   /* Role-based color tokens (matrix values as defaults) */
   --color-bg: #0c0e10;
+  --color-bg-base: var(--color-bg);
+  --color-bg-inset: var(--color-bg-sunken);
   --color-bg-panel: rgba(8, 14, 10, 0.92);
   --color-bg-dialog: #080e0a;
   --color-bg-input: rgba(10, 16, 12, 0.95);
   --color-bg-elevated: rgba(14, 20, 16, 0.97);
 
   --color-fg: #4af066;
+  --color-fg-primary: var(--color-fg);
+  --color-fg-secondary: var(--color-fg-muted);
+  --color-fg-default: var(--color-fg);
+  --color-text-primary: var(--color-accent-primary);
   --color-fg-muted: rgba(74, 240, 102, 0.4);
 
   --color-accent-primary: #4af066;
@@ -152,9 +215,11 @@ select.arco-field {
   --color-accent-secondary-glow: rgba(92, 224, 214, 0.15);
 
   --color-border-hairline: rgba(74, 240, 102, 0.12);
+  --color-border: var(--color-border-hairline);
   --color-border-bright: rgba(74, 240, 102, 0.3);
 
   --color-danger: #ff0040;
+  --color-error: var(--color-danger);
   --color-warning: #ffbf00;
   --color-warning-dim: #c89900;
   --color-success: #4af066;
@@ -196,6 +261,7 @@ select.arco-field {
      glyph becomes tofu. 'JetBrainsMono Nerd Font' is metric-compatible with
      'JetBrains Mono', so cell widths are unchanged. */
   --font-code: 'JetBrainsMono Nerd Font', 'JetBrains Mono', monospace;
+  --font-mono: var(--font-code);
 
   /* Density */
   --spacing-unit: 4px;

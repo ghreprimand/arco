@@ -240,4 +240,4 @@ function fmtBytes(n: number): string {
 
 const btnStyle: React.CSSProperties = { background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg-muted)', cursor: 'pointer', fontSize: '9px', letterSpacing: '1px', padding: '2px 8px', fontFamily: 'var(--font-display)' };
 const linkBtnStyle: React.CSSProperties = { background: 'transparent', border: 'none', color: 'var(--color-fg-muted)', cursor: 'pointer', padding: 0, fontSize: '10px', fontFamily: 'var(--font-body)', textAlign: 'left' };
-const searchStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', background: 'var(--color-bg-input, var(--color-bg))', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg)', fontSize: '11px', padding: '4px 7px', borderRadius: '3px', fontFamily: 'var(--font-body)' };
+const searchStyle: React.CSSProperties = { width: '100%', boxSizing: 'border-box', background: 'var(--color-bg-input, var(--color-bg))', border: '1px solid var(--color-border-hairline)', color: 'var(--color-accent-primary)', fontSize: '11px', padding: '4px 7px', borderRadius: '3px', fontFamily: 'var(--font-body)' };

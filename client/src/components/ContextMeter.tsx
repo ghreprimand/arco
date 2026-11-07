@@ -218,7 +218,7 @@ export function ContextMeter({ job, onRecalibrate }: { job: JobState; onRecalibr
     <span style={{ whiteSpace: 'nowrap', display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
       <span
         title={`Last turn ctx (${provider === 'codex' ? 'input' : 'input + cacheCreate'}): ${ctx.toLocaleString()} · cumulative output across this tab: ${outCumulative.toLocaleString()}\n${HANDOFF_GUIDE}`}
-        style={{ opacity: 0.7, whiteSpace: 'nowrap' }}
+        style={{ opacity: 0.7, whiteSpace: 'nowrap', color: 'var(--color-fg)' }}
       >
         ↓ {ctx > 0 ? compact(ctx) : '-'} CTX · ↑ {outCumulative > 0 ? compact(outCumulative) : '-'} OUT
       </span>

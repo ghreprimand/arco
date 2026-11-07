@@ -53,13 +53,14 @@ export function AppWindowBrowserSection() {
     <div data-help="settings.app-window-browser" style={{ marginBottom: '16px' }}>
       <div className="display-font" style={label}>APP WINDOW BROWSER</div>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <select aria-label="App window browser" value={selected} disabled={busy || !report} onChange={(e) => choose(e.target.value)} style={{ minWidth: '16rem', maxWidth: '100%' }}>
+        <select className="arco-field" aria-label="App window browser" value={selected} disabled={busy || !report} onChange={(e) => choose(e.target.value)} style={{ minWidth: '16rem', maxWidth: '100%' }}>
           <option value="">Automatic</option>
           {report?.browsers.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           <option value={OTHER}>Another program</option>
         </select>
         {selected === OTHER && <>
           <input
+            className="arco-field"
             type="text"
             aria-label="Browser program name or path"
             value={other}
@@ -74,7 +75,7 @@ export function AppWindowBrowserSection() {
       </div>
       <div style={{ ...note, marginTop: '8px' }} role="status">
         {report && (report.using
-          ? <>Opens in: <strong>{report.using.name}</strong> <span style={{ wordBreak: 'break-all' }}>({report.using.path})</span></>
+          ? <>Opens in: <strong style={{ color: 'var(--color-fg-muted)' }}>{report.using.name}</strong> <span style={{ wordBreak: 'break-all' }}>({report.using.path})</span></>
           : <>No Chromium browser found. <code>arco open</code> opens a normal browser tab.</>)}
         {report?.missing && <div role="alert">The chosen browser &quot;{report.choice}&quot; {report.unsupported ? 'has no app window (not a Chromium-family browser)' : 'was not found'}, so Automatic is used.</div>}
       </div>

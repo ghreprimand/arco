@@ -86,10 +86,10 @@ function statusColor(status: LedgerTaskStatus): string {
   switch (status) {
     case 'in_progress': return 'var(--color-accent-primary)';
     case 'done':        return 'var(--color-accent-secondary)';
-    case 'ready':       return '#58a66c';
-    case 'review':      return '#8a7cf0';
-    case 'blocked':     return '#e0a030';
-    case 'archived':    return '#777';
+    case 'ready':       return 'var(--color-success)';
+    case 'review':      return 'var(--color-accent-secondary)';
+    case 'blocked':     return 'var(--color-warning)';
+    case 'archived':    return 'var(--color-fg-muted)';
     default:            return 'var(--color-fg-muted)';
   }
 }
@@ -924,7 +924,7 @@ export function ClusterTaskBoardTab({
               background: 'var(--color-bg-inset)',
               border: '1px solid var(--color-border-hairline)',
               borderRadius: '3px',
-              color: 'var(--color-fg)',
+              color: 'var(--color-accent-primary)',
               outline: 'none',
             }}
           />

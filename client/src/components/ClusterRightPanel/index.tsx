@@ -240,6 +240,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
         flexDirection: 'column',
         borderLeft: '1px solid var(--color-border-hairline)',
         background: 'var(--color-bg-panel)',
+        color: 'var(--color-fg)',
       }}
     >
       {/* Phase 5 — idle-nudger chip lives above the sub-tab bar so the
@@ -1113,7 +1114,7 @@ function MemberInViewHeader({ cluster, memberId, what }: { cluster: ClusterState
     <label data-help="cluster.right-panel.member-in-view" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px', fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }} className="display-font">
       {what} OF
       <select aria-label={`${what} of member`} value={memberId} onChange={(e) => setFocused(cluster.clusterId, e.target.value)}
-        style={{ background: 'var(--color-bg)', color: 'var(--color-fg)', border: '1px solid var(--color-border-hairline)', fontSize: '11px', padding: '1px 4px' }}>
+        style={{ background: 'var(--color-bg-sunken)', color: 'var(--color-accent-primary)', border: '1px solid var(--color-border-hairline)', fontSize: '11px', padding: '1px 4px' }}>
         {cluster.members.map((m) => (
           <option key={m.workflowId} value={m.workflowId}>{m.displayName || m.workflowId.slice(0, 8)}{m.role ? ` (${m.role})` : ''}</option>
         ))}

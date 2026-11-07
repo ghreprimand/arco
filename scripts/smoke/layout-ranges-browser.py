@@ -240,6 +240,10 @@ async def run(base):
             # The strip opens the right panel at BOARD; Esc closes it.
             await page.get_by_test_id('layout-panel-strip').get_by_role('button', name='BOARD').click()
             right = page.get_by_test_id('right-panel-slide-out')
+            await expect(right.get_by_text('Verify the project list').first).to_be_visible()
+            older = right.get_by_text('1 older', exact=False).first
+            if await older.is_visible():
+                await older.click()
             await expect(right.get_by_text('Review the release checklist').first).to_be_visible()
             await page.keyboard.press('Escape')
             await expect(right).to_have_count(0)

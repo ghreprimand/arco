@@ -570,7 +570,7 @@ function AutoCompactionSection({ job, onUpdatePrimary }: {
   const supported = (provider === 'claude' && (job.config.claudeTransport ?? settings?.claude?.transport) === 'native')
     || (provider === 'codex' && (job.config.codexTransport ?? settings?.codex?.transport) === 'appserver')
     || (provider === 'ollama' && job.config.kind !== 'chat');
-  return <section data-help="rightpanel.config.auto-compaction" style={{ marginTop: 18, fontSize: 11 }}>
+  return <section data-help="rightpanel.config.auto-compaction" style={{ marginTop: 18, fontSize: 11, color: 'var(--color-fg)' }}>
     <div className="display-font">AUTO-COMPACTION</div>
     <p>Compaction summarizes older context in place. Fold creates a deterministic digest; handoff starts a fresh session. Codex needs an existing app-server thread. Ollama compacts before the next turn using its configured context window; completed executions are summarized durably. Legacy or partial history without a safe boundary defers compaction. Auto-handoff below counts these compactions and hands off after the number set there; manual handoff remains available. Unknown usage does not trigger this policy.</p>
     {!supported && <p>Automatic compaction is unavailable for this provider or transport. Handoff remains available.</p>}

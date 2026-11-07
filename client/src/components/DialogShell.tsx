@@ -12,7 +12,7 @@ import { confirmationSurfaceSize, contentSurfaceSize, formSurfaceSize, pickerSur
 export const dialogTitleStyle: CSSProperties = {
   fontSize: '12px', letterSpacing: '3px', color: 'var(--color-accent-primary)', margin: 0, fontWeight: 'normal',
 };
-export const dialogBodyStyle: CSSProperties = { fontSize: '12px', lineHeight: 1.5 };
+export const dialogBodyStyle: CSSProperties = { fontSize: '12px', lineHeight: 1.5, color: 'var(--color-fg)' };
 
 // Portals composer dialogs out of the composer. Static server rendering (unit
 // tests) has no document, so children render in place there.

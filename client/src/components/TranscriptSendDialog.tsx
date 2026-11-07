@@ -147,7 +147,7 @@ export function TranscriptSendDialog({ cluster, fromWorkflowId, messages, onConf
                   style={{
                     width: '60px',
                     background: 'var(--color-bg)',
-                    color: 'var(--color-fg)',
+                    color: 'var(--color-accent-primary)',
                     border: '1px solid var(--color-border-hairline)',
                     padding: '2px 4px',
                     fontSize: '11px',

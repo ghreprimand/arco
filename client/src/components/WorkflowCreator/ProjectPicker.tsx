@@ -37,10 +37,10 @@ export function ProjectPicker({ workDir, onPick, onBrowseRoot, onProjectsLoaded 
     } catch (err) { setError(err instanceof Error ? err.message : 'Could not bookmark folder'); }
     finally { setBusy(false); }
   }
-  return <div className="project-folders-ui" data-help="creator.projects" style={{ gridColumn: '1 / -1', border: '1px solid var(--color-border-hairline)', borderRadius: 4, padding: 10 }}>
+  return <div className="project-folders-ui" data-help="creator.projects" style={{ gridColumn: '1 / -1', border: '1px solid var(--color-border-hairline)', borderRadius: 4, padding: 10, color: 'var(--color-fg)' }}>
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      <label>Project location <select aria-label="Project location" value={filter} onChange={e => setFilter(e.target.value)}><option value="all">All folders</option><option value="shortcuts">Pinned and recent</option>{roots.map(root => <option key={root.path} value={root.path}>{root.name}{root.exists ? '' : ' (not reachable)'}</option>)}</select></label>
-      <label style={{ flex: 1 }}>Search folders <input type="search" aria-label="Search folder choices" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name or folder" style={{ width: '100%' }} /></label>
+      <label>Project location <select className="arco-field" aria-label="Project location" value={filter} onChange={e => setFilter(e.target.value)}><option value="all">All folders</option><option value="shortcuts">Pinned and recent</option>{roots.map(root => <option key={root.path} value={root.path}>{root.name}{root.exists ? '' : ' (not reachable)'}</option>)}</select></label>
+      <label style={{ flex: 1 }}>Search folders <input className="arco-field" type="search" aria-label="Search folder choices" value={query} onChange={e => setQuery(e.target.value)} placeholder="Name or folder" style={{ width: '100%' }} /></label>
       {current && !registered && <button type="button" onClick={() => void keep()} disabled={busy}>Bookmark folder</button>}
     </div>
     {filter !== 'all' && filter !== 'shortcuts' && <button type="button" onClick={() => onBrowseRoot?.(filter)}>Browse this location</button>}

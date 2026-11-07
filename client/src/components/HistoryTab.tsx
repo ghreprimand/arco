@@ -389,7 +389,7 @@ export function HistoryTab({ job }: Props) {
               background: 'transparent',
               border: '1px solid var(--color-border-hairline)',
               borderRadius: '3px',
-              color: 'var(--color-fg)',
+              color: 'var(--color-accent-primary)',
               fontFamily: 'var(--font-body)',
               fontSize: '12px',
               opacity: selected ? 1 : 0.5,

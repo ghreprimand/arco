@@ -94,6 +94,7 @@ const SUITES = [
   { name: 'upload-attach', script: 'upload-attach-browser.py', port: 5227 },
   { name: 'unstyled-buttons', script: 'unstyled-buttons-browser.py', port: 5228 },
   { name: 'settings-text-color', script: 'settings-text-color-browser.py', port: 5255 },
+  { name: 'theme-controls', script: 'theme-controls-browser.py', port: 5256 },
 ];
 // Suites known to fail are listed here with the board task that tracks them.
 const KNOWN_FAILING = [];

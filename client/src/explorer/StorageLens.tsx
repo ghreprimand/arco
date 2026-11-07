@@ -250,14 +250,14 @@ function PolicyControls() {
         <label data-help="storage.auto-archive" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <input type="checkbox" checked={on} onChange={(e) => void save({ autoArchiveClosedDays: e.target.checked ? Math.max(1, Number(days) || 30) : null })} />
           Archive conversations closed for more than
-          <input type="number" min={1} max={3650} value={days} aria-label="Days closed before archiving" style={{ width: '64px' }}
+          <input className="arco-field" type="number" min={1} max={3650} value={days} aria-label="Days closed before archiving" style={{ width: '64px' }}
             onChange={(e) => setDays(e.target.value)} onBlur={() => { if (on) void save({ autoArchiveClosedDays: Math.max(1, Number(days) || 30) }); }} />
           days (off by default; never deletes)
         </label>
         <label data-help="storage.budget" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <input type="checkbox" checked={policy.budgetNotice} onChange={(e) => void save({ budgetNotice: e.target.checked })} />
           Show a notice when Arco's storage passes
-          <input type="number" min={1} value={budget} aria-label="Disk budget in GiB" style={{ width: '72px' }}
+          <input className="arco-field" type="number" min={1} value={budget} aria-label="Disk budget in GiB" style={{ width: '72px' }}
             onChange={(e) => setBudget(e.target.value)} onBlur={() => void save({ budgetGiB: Number(budget) })} />
           GiB
         </label>

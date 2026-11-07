@@ -443,7 +443,7 @@ function StorageReportPanel({ cwd }: { cwd: string }) {
   const home = useStorageReport({ scope: 'home' });
   if (!cwd) return null;
   const { report, loading, error, scan } = project;
-  return <section data-help="rightpanel.storage.scan" style={{ overflowWrap: 'anywhere', padding: '10px 14px', borderBottom: '1px solid var(--color-border)' }}>
+  return <section data-help="rightpanel.storage.scan" style={{ overflowWrap: 'anywhere', padding: '10px 14px', borderBottom: '1px solid var(--color-border)', color: 'var(--color-fg)' }}>
     <strong>STORAGE</strong>{' '}
     <button type="button" data-help="rightpanel.storage.scan" disabled={loading} onClick={() => void scan(!!report)}>{loading ? 'MEASURING...' : report ? 'MEASURE AGAIN' : 'MEASURE STORAGE'}</button>{' '}
     <button type="button" data-help="rightpanel.storage.home" disabled={home.loading} onClick={() => void home.scan(!!home.report)}>{home.loading ? 'MEASURING...' : 'MEASURE ARCO FOLDER'}</button>

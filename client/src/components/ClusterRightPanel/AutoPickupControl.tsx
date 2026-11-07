@@ -173,7 +173,7 @@ function AutoPickupDialog({ state, onClose, onApply }: {
         data-help="cluster.auto-pickup-dialog"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
-        style={{ ...formSurfaceSize(), overflowY: 'auto', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-accent-primary-dim)', borderRadius: '6px', padding: '18px 20px', fontSize: '12px', lineHeight: 1.5 }}
+        style={{ ...formSurfaceSize(), overflowY: 'auto', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-accent-primary-dim)', borderRadius: '6px', padding: '18px 20px', fontSize: '12px', lineHeight: 1.5, color: 'var(--color-fg)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><h2 id="auto-pickup-title" className="display-font glow-text-bright" style={{ margin: '0 0 10px', fontSize: '14px', letterSpacing: '2px' }}>AUTO-PICKUP</h2><WorkSurfaceControls surface={surface} storageKey="auto-pickup" /></div>
         <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>

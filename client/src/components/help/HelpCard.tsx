@@ -100,7 +100,8 @@ export function HelpCard() {
         borderRadius: '6px',
         boxShadow: '0 12px 40px rgba(0, 0, 0, 0.55)',
         zIndex: CARD_Z,
-        fontFamily: 'var(--font-content)',
+        fontFamily: 'var(--font-body)',
+        color: 'var(--color-fg)',
       }}
     >
       {/* Drag handle / header */}
@@ -155,7 +156,7 @@ export function HelpCard() {
             background: 'var(--color-bg-sunken)',
             border: '1px solid var(--color-border-hairline)',
             borderRadius: '3px',
-            color: 'var(--color-fg-default)',
+            color: 'var(--color-accent-primary)',
             fontSize: '11px',
             letterSpacing: '0.5px',
             padding: '5px 8px',

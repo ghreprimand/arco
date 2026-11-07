@@ -2190,7 +2190,7 @@ function ChipPopover({
               textAlign: 'left',
               background: e === effort ? 'var(--color-accent-primary-a10, transparent)' : 'transparent',
               border: '1px solid ' + (e === effort ? 'var(--color-accent-primary)' : 'transparent'),
-              color: e === effort ? 'var(--color-accent-primary)' : 'var(--color-fg-default, #ccc)',
+              color: e === effort ? 'var(--color-accent-primary)' : 'var(--color-accent-primary-dim)',
               borderRadius: '2px',
               cursor: 'pointer',
             }}
@@ -2288,7 +2288,7 @@ function ChipPopover({
             textAlign: 'left',
             background: m.value === model ? 'var(--color-accent-primary-a10, transparent)' : 'transparent',
             border: '1px solid ' + (m.value === model ? 'var(--color-accent-primary)' : 'transparent'),
-            color: m.value === model ? 'var(--color-accent-primary)' : 'var(--color-fg-default, #ccc)',
+            color: m.value === model ? 'var(--color-accent-primary)' : 'var(--color-accent-primary-dim)',
             borderRadius: '2px',
             cursor: 'pointer',
             display: 'flex',

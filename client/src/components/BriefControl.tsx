@@ -9,7 +9,7 @@ import { DialogShell } from './DialogShell';
 import { useKeepInWindow } from '../layout/keepInWindow';
 
 const STILL_WORKING_MS = 4000;
-const menuItemStyle: CSSProperties = { padding: '7px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--color-border-hairline)', color: 'var(--color-fg)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px', textAlign: 'left', whiteSpace: 'nowrap' };
+const menuItemStyle: CSSProperties = { padding: '7px 12px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--color-border-hairline)', color: 'var(--color-accent-primary)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px', textAlign: 'left', whiteSpace: 'nowrap' };
 
 type Phase = 'closed' | 'running' | 'slow' | 'done';
 

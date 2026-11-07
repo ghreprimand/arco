@@ -1696,7 +1696,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             review restraint, peer chattiness). Changeable later from the
             cluster header chip. */}
         {mode === 'cluster' && (
-          <div data-help="cluster.efficiency" style={spanBoth}>
+          <div data-help="cluster.efficiency" style={{ ...spanBoth, color: 'var(--color-fg)' }}>
             <label className="display-font" style={labelStyle}>EFFICIENCY</label>
             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
               {CLUSTER_EFFICIENCY_LEVELS.map((lvl) => {

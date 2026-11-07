@@ -3,7 +3,7 @@ import { EditorState, type Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
-  syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching,
+  HighlightStyle, syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching,
 } from '@codemirror/language';
 import { javascript } from '@codemirror/lang-javascript';
 import { json } from '@codemirror/lang-json';
@@ -13,6 +13,21 @@ import { css } from '@codemirror/lang-css';
 import { html } from '@codemirror/lang-html';
 import { yaml } from '@codemirror/lang-yaml';
 import { rust } from '@codemirror/lang-rust';
+
+// Keep CodeMirror's language tags and text decoration while mapping its
+// light-theme default colors onto the active Arco palette.
+const syntaxColors: Record<string, string> = {
+  '#404740': 'var(--color-fg-muted)', '#708': 'var(--color-accent-secondary)',
+  '#219': 'var(--color-accent-secondary)', '#164': 'var(--color-success)',
+  '#a11': 'var(--color-accent-primary)', '#e40': 'var(--color-warning)',
+  '#00f': 'var(--color-accent-secondary)', '#30a': 'var(--color-accent-secondary-dim)',
+  '#085': 'var(--color-accent-secondary)', '#167': 'var(--color-accent-secondary)',
+  '#256': 'var(--color-accent-primary-dim)', '#00c': 'var(--color-accent-secondary)',
+  '#940': 'var(--color-fg-muted)', '#f00': 'var(--color-danger)',
+};
+const themeHighlightStyle = HighlightStyle.define(defaultHighlightStyle.specs.map((spec) => (
+  spec.color ? { ...spec, color: syntaxColors[spec.color] ?? 'var(--color-fg)' } : spec
+)));
 
 // Workbench Expansion A6 — reusable CodeMirror 6 wrapper.
 //
@@ -163,7 +178,7 @@ export const CodeEditor = forwardRef<CodeEditorHandle, Props>(function CodeEdito
         indentOnInput(),
         bracketMatching(),
         highlightActiveLine(),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        syntaxHighlighting(themeHighlightStyle, { fallback: true }),
         keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
         ...langExtension(language),
         arcoTheme,

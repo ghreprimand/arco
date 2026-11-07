@@ -30,7 +30,7 @@ export function AppVersionSection() {
     <button type="button" disabled={busy || !status?.enabled} onClick={() => void check()}>CHECK NOW</button>
     <label style={{ display: 'block' }}><input type="checkbox" checked={settings?.updateCheck !== false} disabled={busy || !settings} onChange={(e) => void toggle(e.target.checked)} /> Check for new releases</label>
     {status?.enabled === false && settings?.updateCheck !== false && <div style={{ color: 'var(--color-fg-muted)' }}>Release checks are disabled by ARCO_UPDATE_CHECK=0.</div>}
-    <a href="https://github.com/ghreprimand/arco/blob/main/docs/OPERATIONS.md#updating-arco" target="_blank" rel="noopener noreferrer">Updating Arco</a>
+    <a href="https://github.com/ghreprimand/arco/blob/main/docs/OPERATIONS.md#updating-arco" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-accent-secondary)' }}>Updating Arco</a>
     {error && <div role="alert" style={{ color: 'var(--color-warning)' }}>{error}</div>}
   </div>;
 }

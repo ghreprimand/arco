@@ -141,6 +141,10 @@ async def capture(base):
                 else:
                     await page.get_by_text('Release readiness', exact=False).first.wait_for(timeout=30000)
                     await page.get_by_text('The release plan is ready.', exact=False).first.wait_for(timeout=30000)
+                    await page.get_by_text('Update setup guidance', exact=False).first.wait_for(timeout=30000)
+                    older = page.get_by_text('1 older', exact=False).first
+                    if await older.is_visible():
+                        await older.click()
                     await page.get_by_text('Review the release checklist', exact=False).first.wait_for(timeout=30000)
                 try:
                     # Healthy connection is a light with aria-label Online (no ONLINE text label).

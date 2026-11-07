@@ -19,7 +19,7 @@ export function ComputerAgentPicker() {
   const efforts = effortsForModel(draft.provider, draft.model as ModelName, catalogs.claude, catalogs.codex);
   const control = { background: 'var(--color-bg-input)', color: 'var(--color-fg)', border: '1px solid var(--color-border-hairline)', padding: '5px 8px', maxWidth: '100%' };
   const privacyUnavailable = draft.provider === 'strata' && draft.history === 'none';
-  return <div data-help="computer.agent" style={{ padding: '10px 18px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: 12, lineHeight: 1.7 }}>
+  return <div data-help="computer.agent" style={{ padding: '10px 18px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: 12, lineHeight: 1.7, color: 'var(--color-fg)' }}>
     <div>Active: {selection.provider} · {selection.model} · {selection.effort} · <strong>{selection.history === 'none' ? 'NO HISTORY' : 'SAVED HISTORY'}</strong></div>
     <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
       <label>Provider <select aria-label="Computer provider" style={control} value={draft.provider} onChange={(e) => {

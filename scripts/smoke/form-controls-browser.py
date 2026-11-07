@@ -171,6 +171,22 @@ async def main():
                 print(f'{theme} at {int(scale * 100)}%: {len(controls)} controls, {len(gaps)} labels, no default fonts or overflow', flush=True)
         await page.keyboard.press('Escape')
 
+        # Shared checkbox styling keeps the native keyboard toggle and focus.
+        checkbox = page.locator('#creator input[type="checkbox"]').first
+        await expect(checkbox).to_be_visible()
+        was_checked = await checkbox.is_checked()
+        await checkbox.focus()
+        await page.keyboard.press('Space')
+        assert await checkbox.is_checked() != was_checked
+        mark = await checkbox.evaluate("e => getComputedStyle(e, '::before').transform")
+        assert mark == ('matrix(0, 0, 0, 0, 0, 0)' if was_checked else 'matrix(1, 0, 0, 1, 0, 0)'), mark
+        await page.keyboard.press('Space')
+        assert await checkbox.is_checked() == was_checked
+        await expect(checkbox).to_be_focused()
+        await page.emulate_media(forced_colors='active')
+        assert await checkbox.evaluate("e => getComputedStyle(e).appearance") == 'auto'
+        await page.emulate_media(forced_colors='none')
+
         # Values still save through the existing handlers.
         await page.evaluate("chooseTheme('phosphor:arco:electric',1.1)")
         creator = page.locator('#creator')
@@ -187,6 +203,13 @@ async def main():
         assert got == {'guard': {'mode': 'hard', 'threshold': 9}, 'board': 'project', 'progress': 'plan', 'note': 'Fixture note'}, got
 
         cluster = page.locator('#cluster')
+        slider = cluster.get_by_label('Cluster auto-compaction threshold percent', exact=True)
+        await expect(slider).to_be_visible()
+        before = int(await slider.input_value())
+        await slider.focus()
+        await page.keyboard.press('ArrowRight')
+        assert int(await slider.input_value()) == before + 1
+        await page.keyboard.press('ArrowLeft')
         await cluster.get_by_label('Cluster auto-compaction', exact=True).select_option('off')
         assert await page.evaluate('clusterPolicies.at(-1)') == {'enabled': False, 'thresholdPercent': 70}
         await expect(cluster.get_by_label('Cluster auto-compaction', exact=True)).to_have_value('off')

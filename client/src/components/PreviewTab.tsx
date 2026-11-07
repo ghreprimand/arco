@@ -236,6 +236,7 @@ export function PreviewTab({ job, onSetPort, onClear, onCapture, onReviewCapture
         style={{
           display: 'flex',
           alignItems: 'center',
+          flexWrap: 'wrap',
           gap: '6px',
           padding: '8px 10px',
           borderBottom: '1px solid var(--color-border-hairline)',
@@ -328,7 +329,7 @@ export function PreviewTab({ job, onSetPort, onClear, onCapture, onReviewCapture
             </button>
           ))}
         </span>
-        <span style={{ opacity: 0.7, marginLeft: '8px' }}>
+        <span style={{ opacity: 0.7, marginLeft: '8px', minWidth: 0, overflowWrap: 'anywhere' }}>
           {preview ? `:${preview.port}` : 'unbound'}
         </span>
       </div>

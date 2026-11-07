@@ -53,7 +53,7 @@ export function ProjectsSettings() {
   );
 
   return (
-    <div data-help="settings.projects">
+    <div data-help="settings.projects" style={{ color: 'var(--color-fg)' }}>
       <ProjectRootsSettings onChanged={() => void load()} />
       <details className="saved-project-management"><summary>Bookmarked folders ({registered.length})</summary>
       <p>Bookmarks are optional. Folders inside project locations already appear automatically; bookmarks keep individual folders listed independently of locations.</p>

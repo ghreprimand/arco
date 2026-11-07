@@ -11,7 +11,7 @@ export function MessageGuardControl({ value, onChange }: { value: ClusterMessage
     else setDraft(String(value.threshold));
     cancelled.current = false;
   };
-  return <div data-help="cluster.message-guard" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', alignItems: 'center', minWidth: 0, marginTop: 6 }}>
+  return <div data-help="cluster.message-guard" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 12px', alignItems: 'center', minWidth: 0, marginTop: 6, color: 'var(--color-fg)' }}>
     <label className="arco-field-label">Message guard <select className="arco-field" aria-label="Message guard" value={value.mode} onChange={e => onChange({ ...value, mode: e.target.value as ClusterMessageGuard['mode'] })}>
       <option value="warn">Warn only</option><option value="hard">Hard limit</option><option value="none">No limit</option>
     </select></label>

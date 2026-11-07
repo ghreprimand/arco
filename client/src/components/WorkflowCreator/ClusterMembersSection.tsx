@@ -127,7 +127,7 @@ export function ClusterMembersSection({
                   flexWrap: 'wrap',
                   rowGap: '4px',
                   padding: '8px 12px',
-                  fontFamily: 'var(--font-mono, monospace)',
+                  fontFamily: 'var(--font-code)',
                   fontSize: '11px',
                 }}
               >

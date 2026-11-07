@@ -221,7 +221,7 @@ export function UserManual({ onClose }: Props) {
                 background: 'var(--color-bg-panel)',
                 border: '1px solid var(--color-border-hairline)',
                 borderRadius: '3px',
-                color: 'var(--color-fg)',
+                color: 'var(--color-accent-primary)',
                 fontSize: '11px',
                 letterSpacing: '1px',
                 padding: '6px 8px',

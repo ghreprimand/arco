@@ -168,7 +168,7 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
           <h1
             data-help="header.arco-mark"
             className="display-font glow-text-bright arco-wordmark"
-            style={{ fontSize: '16px', letterSpacing: '4px', fontWeight: 400 }}
+            style={{ fontSize: '16px', letterSpacing: '4px', fontWeight: 400, color: 'var(--color-accent-primary)' }}
           >
             ARCO
           </h1>

@@ -94,12 +94,20 @@ async def main():
         status = page.get_by_role('status').filter(has_text='Opens in')
         await expect(status).to_contain_text('Chromium (/usr/bin/chromium)')
         select = page.get_by_label('App window browser', exact=True)
+        # Distinct theme values make this check independent of the host palette.
+        await page.add_style_tag(content=':root { --color-bg-sunken: rgb(10, 20, 30); --color-border-hairline: rgb(40, 50, 60); --color-accent-primary: rgb(70, 80, 90); --color-fg-muted: rgb(100, 110, 120); --font-body: monospace; --font-display: monospace; }')
+        themed = await select.evaluate("e => { const s = getComputedStyle(e); return [s.backgroundColor, s.borderTopColor, s.color, s.fontFamily]; }")
+        assert themed == ['rgb(10, 20, 30)', 'rgb(40, 50, 60)', 'rgb(70, 80, 90)', 'monospace'], themed
+        assert await status.locator('strong').evaluate("e => getComputedStyle(e).color") == 'rgb(100, 110, 120)'
         await expect(select).to_have_value('')
         await select.select_option('vivaldi-flatpak')
         await expect(status).to_contain_text('Vivaldi (Flatpak)')
         assert state['posts'][-1] == {'appWindowBrowser': 'vivaldi-flatpak'}, state['posts']
         await select.select_option('__other__')
         path = page.get_by_label('Browser program name or path')
+        await page.evaluate("() => { const s=document.documentElement.style; s.setProperty('--color-bg-sunken','rgb(10, 20, 30)'); s.setProperty('--color-border-hairline','rgb(40, 50, 60)'); s.setProperty('--color-accent-primary','rgb(70, 80, 90)'); s.setProperty('--font-body','monospace'); }")
+        path_style = await path.evaluate("e => { const s = getComputedStyle(e); return [s.backgroundColor, s.borderTopColor, s.color, s.fontFamily]; }")
+        assert path_style == ['rgb(10, 20, 30)', 'rgb(40, 50, 60)', 'rgb(70, 80, 90)', 'monospace'], path_style
         save = page.get_by_role('button', name='SAVE')
         await expect(save).to_be_disabled()
         await path.fill('/opt/thorium/chrome')

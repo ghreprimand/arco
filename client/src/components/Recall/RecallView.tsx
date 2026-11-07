@@ -266,7 +266,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
           style={{
             border: 'none', borderTop: '1px solid var(--color-border-hairline)',
             borderBottom: '1px solid var(--color-border-hairline)',
-            background: 'transparent', color: 'var(--color-fg)', fontSize: 15,
+            background: 'transparent', color: 'var(--color-accent-primary)', fontSize: 15,
             padding: '12px 16px', outline: 'none', fontFamily: 'var(--font-body)',
           }}
         />

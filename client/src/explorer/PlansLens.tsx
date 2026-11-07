@@ -308,5 +308,5 @@ const btn: React.CSSProperties = {
 const dangerBtn: React.CSSProperties = { ...btn, border: '1px solid var(--color-warning, #f04a4a)', color: 'var(--color-warning, #f04a4a)' };
 const searchStyle: React.CSSProperties = {
   background: 'var(--color-bg-panel)', border: '1px solid var(--color-border-hairline)', borderRadius: '4px',
-  color: 'var(--color-fg)', fontFamily: 'var(--font-body)', fontSize: '13px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box', width: '100%',
+  color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)', fontSize: '13px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box', width: '100%',
 };
