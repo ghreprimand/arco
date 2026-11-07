@@ -344,7 +344,7 @@ Use `docs/INDEX.md` to locate maintained documentation.
 
 ## Adding a shader
 
-Shaders live under `client/src/themes/shaders/<name>.frag.glsl` and are imported as raw strings in `client/src/themes/shaders/index.ts`.
+Shaders live under `client/src/themes/shaders/<name>.frag.glsl`. `client/src/components/ThemedBackgroundShaderImpl.tsx` imports each one as a raw string (`?raw`) and maps it to its preset in `FRAGMENT_FOR_PRESET`; add the preset id to `ShaderPreset` in `client/src/themes/types.ts`.
 
 ### Constraints
 
@@ -356,24 +356,23 @@ Shaders live under `client/src/themes/shaders/<name>.frag.glsl` and are imported
 ### Pattern
 
 ```glsl
-#version 300 es
 precision highp float;
-
-uniform float uTime;
+varying vec2 vUv;
 uniform vec2 uResolution;
-uniform vec3 uAccentPrimary;
-uniform vec3 uAccentSecondary;
-
-out vec4 fragColor;
+uniform float uTime;
+uniform vec3 uPrimaryColor;
+uniform vec3 uSecondaryColor;
+uniform vec3 uBgColor;
+uniform float uTension;
 
 void main() {
-  vec2 uv = gl_FragCoord.xy / uResolution.xy;
+  vec2 uv = vUv;
   // ...your shader logic
-  fragColor = vec4(color, 1.0);
+  gl_FragColor = vec4(color, alpha);
 }
 ```
 
-`ThemedBackgroundShader.tsx` provides the standard uniforms (`uTime`, `uResolution`, `uAccentPrimary`, `uAccentSecondary`).
+`ThemedBackgroundShaderImpl.tsx` provides the standard uniforms: `uResolution`, `uTime`, `uTension` (0 calm to 1 tense, set by the `arco:tension` event), and `uPrimaryColor`, `uSecondaryColor` and `uBgColor` from the theme's accent and background colors. The vertex shader passes `vUv`.
 
 ---
 
