@@ -35,7 +35,7 @@ If you're new to the codebase, read in this order:
 2. [`GLOSSARY.md`](GLOSSARY.md) - terminology
 3. [`PROTOCOL.md`](PROTOCOL.md) - every WebSocket message, what it does (with siblings [`PROTOCOL_PRIMITIVES.md`](PROTOCOL_PRIMITIVES.md) - operator-primitive messages, and [`PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md) - cluster-mode messages)
 4. [`HTTP_API.md`](HTTP_API.md) - every HTTP endpoint with request/response shapes
-5. [`PROVIDERS.md`](PROVIDERS.md) - per-provider deep dive (Claude CLI + Native, Codex exec + app-server + appserver, Ollama, llama.cpp, LM Studio, Strata, Cursor acp + print)
+5. [`PROVIDERS.md`](PROVIDERS.md) - per-provider deep dive (Claude CLI + Native, Codex exec + app-server, Ollama, llama.cpp, LM Studio, Strata, Cursor acp + print)
 6. [`PRIMITIVES.md`](PRIMITIVES.md) - Review, Handoff, Spawn deep dives
 7. [`PERSISTENCE.md`](PERSISTENCE.md) - `events.jsonl`, `meta.json`, `.arco/` layout
 8. [`CLIENT.md`](CLIENT.md) - Zustand store, component tree, render pipeline
@@ -58,7 +58,7 @@ Beyond the core reading order, each operator-facing subsystem has its own refere
 - [`RECALL.md`](RECALL.md) - cross-workflow transcript search / recall
 - [`KNOWLEDGE.md`](KNOWLEDGE.md) - operator knowledge base
 - [`MEDIA_STUDIO.md`](MEDIA_STUDIO.md) - image / audio / video viewer + editor (FFmpeg, optional Demucs)
-- New-project scaffolding behavior is described by the shipped implementation.
+- [`GENESIS.md`](GENESIS.md) - idea-to-project scaffolding and Creative mode
 - [`LSP.md`](LSP.md) - language-server integration
 - [`MCP_REGISTRY.md`](MCP_REGISTRY.md) - MCP server registry
 - [`DIAGNOSTICS.md`](DIAGNOSTICS.md) - diagnostics surface
@@ -277,8 +277,8 @@ A few concepts repeat throughout the system; nailing them down up front saves ti
 `server/src/index.ts` from process start to listening:
 
 1. Probe provider CLIs for installed versions and capabilities (`probeCapabilities` - a pre-`listen` top-level await, so it's always resolved before the server accepts connections); log results. Schedule a re-probe every 4 hours.
-3. Reap orphan worker PIDs (`reapOrphanWorkers`) and orphan terminal PTYs (`reapOrphanTerminals`) from any prior crash - both synchronous, before `listen`, so no orphan survives a boot.
-4. Register HTTP routes. Highlights:
+2. Reap orphan worker PIDs (`reapOrphanWorkers`) and orphan terminal PTYs (`reapOrphanTerminals`) from any prior crash - both synchronous, before `listen`, so no orphan survives a boot.
+3. Register HTTP routes. Highlights:
    - `GET /healthz` (alias `/health`) - liveness; `GET /readyz` - readiness (503 until boot recovery settles)
    - `GET /api/chats` - saved Chat summaries for PAST CHATS
    - `GET /api/sessions?path=<cwd>` - unified Claude + Codex native sessions for the Resume picker
@@ -291,14 +291,14 @@ A few concepts repeat throughout the system; nailing them down up front saves ti
    - `GET /api/capabilities` - CLI versions + supported efforts/models
    - `GET /api/usage` - Claude 5-hour / weekly usage probe
    - `GET /api/toolbox?provider&transport&cwd` - provider-native skill catalog
-   - `GET /api/settings` + `PATCH` - operator settings
+   - `GET /api/settings` + `POST` - operator settings
    - `GET /api/plans/*` - plan store CRUD
    - `POST /api/shutdown` - graceful exit
    - `POST /api/restart` - graceful exit + respawn dev tree
-5. Open WebSocket endpoint at `/ws`. Heartbeat ping every 15s. The `httpServer.on('upgrade')` fan-out also routes two non-`/ws` WS paths: the per-workflow **preview proxy** (`/api/preview/<wfid>/*`, Vite/Next HMR) and the operator **`/terminal`** channel (Workbench - the raw PTY byte stream for the integrated terminal, deliberately off the seq'd `/ws` protocol and out of `events.jsonl`; see [`TERMINAL.md`](TERMINAL.md)). Both inherit `/ws`'s loopback-bind access posture.
-6. Listen on `ARCO_PORT` (default 3001), bound to `ARCO_HOST` (default `127.0.0.1` - see [`OPERATIONS.md`](OPERATIONS.md#remote-access) for why and when to override).
-7. Inside the `listen` callback (post-listen, async): recover workflows from disk (`recoverWorkflowsFromDisk` walks each known cwd's `.arco/workflows/`), ensure the model + llama.cpp catalogs, and install the global settings watcher. Recovery is deliberately post-listen - the seq buffer for each recovered workflow is primed at boot by `crashRecovery.ts` so seq continuity holds even before recovery completes.
-8. Install `SIGTERM` / `SIGINT` handlers: SIGKILL all live worker PIDs, flush `events.jsonl`, exit.
+4. Open WebSocket endpoint at `/ws`. Heartbeat ping every 15s. The `httpServer.on('upgrade')` fan-out also routes two non-`/ws` WS paths: the per-workflow **preview proxy** (`/api/preview/<wfid>/*`, Vite/Next HMR) and the operator **`/terminal`** channel (Workbench - the raw PTY byte stream for the integrated terminal, deliberately off the seq'd `/ws` protocol and out of `events.jsonl`; see [`TERMINAL.md`](TERMINAL.md)). Both inherit `/ws`'s loopback-bind access posture.
+5. Listen on `ARCO_PORT` (default 3001), bound to `ARCO_HOST` (default `127.0.0.1` - see [`OPERATIONS.md`](OPERATIONS.md#remote-access) for why and when to override).
+6. Inside the `listen` callback (post-listen, async): recover workflows from disk (`recoverWorkflowsFromDisk` walks each known cwd's `.arco/workflows/`), ensure the model + llama.cpp catalogs, and install the global settings watcher. Recovery is deliberately post-listen - the seq buffer for each recovered workflow is primed at boot by `crashRecovery.ts` so seq continuity holds even before recovery completes.
+7. Install `SIGTERM` / `SIGINT` handlers: SIGKILL all live worker PIDs, flush `events.jsonl`, exit.
 
 ### WebSocket connection lifecycle
 
@@ -338,7 +338,7 @@ A `WorkflowState` lives in an in-memory `Map<workflowId, WorkflowState>` keyed b
 
 **Persistence**: `meta.json` (atomic writes via `server/src/atomicFile.ts` - the single write-temp/fsync/rename primitive every store shares) records identity, session ledger (`cliSessions[]`), archived sessions (`history[]`), calibration state, attached plan, auto-handoff settings. `events.jsonl` (append-only) records every workflow-scoped server message stamped with `{seq, ts,...message}`. See [PERSISTENCE.md](PERSISTENCE.md).
 
-**Eviction**: workflows are **not** auto-evicted from memory. They live until the operator explicitly calls `remove_workflow`, which deletes both the in-memory state and the disk directory. Disconnected clients leave the workflow alive for their next reconnect.
+**Eviction**: workflows are **not** auto-evicted from memory. They live until the operator closes the tab (`remove_workflow`), which stops its workers and removes the in-memory state but leaves the workflow folder on disk, so it can be reopened from RESUME or PAST CHATS. Deleting the data is a separate, confirmed PURGE (`purgeWorkflow`). Disconnected clients leave the workflow alive for their next reconnect.
 
 ### Primary turn lifecycle
 
@@ -402,7 +402,7 @@ Three core operator-triggered flows plus two structured one-off composer surface
 | Primitive | File | Trigger | Output | Persisted in |
 |---|---|---|---|---|
 | Primary turn (implicit) | `seedWorker.ts` (`runPrimaryTurn`) | `user_message` | `primary_*` events | `events.jsonl` + native CLI session |
-| Review (transcript or plan-scoped) | `runReviewer.ts` + `reviewContent.ts` | `review_request` (with `contextRef.kind = last-turn / last-n / current-session / full / git-diff / since-event / plan-whole / plan-phase / plan-items`) | `review-<ts>.md` artifact | `events.jsonl` (events only; artifact on disk) |
+| Review (transcript or plan-scoped) | `runReviewer.ts` + `reviewContent.ts` | `review_request` (with `contextRef.kind = last-turn / last-n / current-session / full / git-diff / since-event / plan-whole / plan-phase / plan-items / cluster-plan-whole / cluster-plan-phase / preview-capture`) | `review-<ts>.md` artifact | `events.jsonl` (events only; artifact on disk) |
 | Handoff | `exportContext.ts` (`runExportContext` mode=quick / original-worker / fresh-summarizer; Native parents take the `runOriginalWorkerNative` branch) | `handoff_request` | `handoff-<ts>.md` artifact + new CLI session | `events.jsonl`, `meta.history[]`, `meta.primarySessionId` |
 | Spawn | `exportContext.ts` (same primitive, parent reflects; honors `cutoffEventSeq` from HISTORY-tab spawn-from-event) | `spawn_from_here_request` | new workflow + handoff doc seeded into it | new workflow's `events.jsonl` |
 | DOCS / GIT (composer one-off) | `git.ts` + `DocsUpdateDialog` / `GitDialog` (client) | regular `user_message` after the dialog builds the structured prompt | (no artifact - runs through the primary turn) | `events.jsonl` (as part of the next primary turn) |
@@ -422,7 +422,7 @@ All three primitives accept a `broadcast` callback so events can be stamped to a
 - `localToolDispatch.ts` - the one decision for a local model's tool call (Ollama, llama.cpp, LM Studio, Strata, DeepSeek): bad arguments, Computer, the Chat boundary, SAFE mode, a missing folder, an unknown tool, the loop coach, then the tool. Each provider passes its rules (wording, Computer order, whether the loop ends the turn) and keeps its own events and result storage.
 - `llamacpp.ts` + `llamacppManager.ts` + `llamacppRecovery.ts` - singleton manager owns the `llama-server` daemon, OpenAI-compatible chat-completions endpoint, in-place auto-recovery for reasoning runaway / stall / tool-cap / context fill
 - `lmstudio.ts` - LM Studio provider via its OpenAI-compatible `/v1` endpoint
-- `cursor/` - Cursor via `cursor-agent` over the Agent Client Protocol (ACP). Default `acp` transport is a long-lived per-workflow JSON-RPC 2.0 worker (`worker.ts` / `acpJsonRpc.ts`); `print.ts` is the stateless `cursor-agent -p --mode ask` read-only one-shot used for reviewer / fresh-summarizer / DOCS / research / compare primitives (routed when `config.sandbox === 'read-only'` so a primitive never hijacks the live ACP session). `catalog.ts` enumerates the family×effort model roster via a short-lived `cursor-agent models` spawn - Cursor bakes reasoning effort into the model id (`-low` / `-high` / `-xhigh` / `-max`), so there is no separate effort surface. Cluster peer tools ride an in-process loopback StreamableHTTP MCP (`mcp/clusterMcpLoopback.ts`), since Cursor ACP honors MCP only over http/sse, not stdio.
+- `cursor/` - Cursor via `cursor-agent` over the Agent Client Protocol (ACP). Default `acp` transport is a long-lived per-workflow JSON-RPC 2.0 worker (`worker.ts` / `acpJsonRpc.ts`); `print.ts` is the stateless `cursor-agent -p --mode ask` read-only one-shot used for reviewer / fresh-summarizer / DOCS / research / SECOND OPINION primitives (routed when `config.sandbox === 'read-only'` so a primitive never hijacks the live ACP session). `catalog.ts` enumerates the family×effort model roster via a short-lived `cursor-agent models` spawn - Cursor bakes reasoning effort into the model id (`-low` / `-high` / `-xhigh` / `-max`), so there is no separate effort surface. Cluster peer tools ride an in-process loopback StreamableHTTP MCP (`mcp/clusterMcpLoopback.ts`), since Cursor ACP honors MCP only over http/sse, not stdio.
 - `codex-stream.ts` - streaming JSONL parsers
 
 Every provider implements `spawn(prompt) -> events` and emits a uniform event stream: `init`, `text`, `thinking`, `tool_use`, `result`, `error`, `system_notice`. The `seedWorker` (and `runReviewer`, `runExportContext`) wrap these into the protocol's `worker_*` and `primary_*` messages.
@@ -476,7 +476,7 @@ The auth overlay blocks the UI only when no primary-capable provider is authed; 
 
 ### Project trust
 
-Opening a repo Arco hasn't seen before suppresses its project-local `AGENTS.md`, project skills, and `.arco/settings.json` from the Native system prompt until the operator vouches for it. The gate emits `project_trust_prompt`; the operator decides via `set_project_trust`; the result (`project_trust_set`) is a deterministic entry in a flat `trust.json` (nearest-ancestor wins). The gate never auto-trusts. Code: `server/src/projectTrust.ts`, `ws/projectTrustHandlers.ts`. `claudeMdDiscovery.ts`'s output is gated behind this.
+Opening a repo Arco hasn't seen before suppresses its project-local `CLAUDE.md`, project skills, and `.arco/settings.json` from the system prompt until the operator vouches for it. The gate emits `project_trust_prompt`; the operator decides via `set_project_trust`; the result (`project_trust_set`) is a deterministic entry in a flat `trust.json` (nearest-ancestor wins). The gate never auto-trusts. Code: `server/src/projectTrust.ts`, `ws/projectTrustHandlers.ts`. `claudeMdDiscovery.ts`'s output is gated behind this.
 
 ### Quotas
 
@@ -590,7 +590,7 @@ isBusy = (job.busy === true) || hasActiveWorkers || hasStreaming
 ```
 
 - **Idle** - fresh prompt, Enter sends a `user_message`
-- **Busy / queue mode** - placeholder reads "Type to queue as interjection"; queued messages hide from chat until the server's `user_message_echo` arrives
+- **Busy / queue mode** - placeholder reads `↵ steer · ⌥↵ follow-up · Ctrl/⌘↵ interrupt & send` (or `⎋ cancel turn` where interrupt is not offered); queued messages show in PENDING until the server's `user_message_echo` arrives
 
 A diagnostic chip (`b·w·s`) shows next to the CANCEL button when `isBusy` is true so you can see at a glance which of the three flags is keeping the composer in queue mode.
 
@@ -739,7 +739,7 @@ A chromeless browser window (`?app=explorer`, launched from the ⌸ ARTIFACTS he
 
 Role-based CSS vars (`--color-accent-primary`, `--color-bg`, `--color-fg-muted`, `--color-warning`, etc.) resolved at runtime from classic `client/src/themes/definitions/<id>.ts` palettes (42 named themes plus the `provider-auto` sentinel) and the Phosphor palette ids. **Never hard-code hex literals.** The shipped default theme is `phosphor:arco:electric`; new homes also default `fontPackOverride` to Victor Mono (`victor-mono-uniform`) and `uiScale` to 1 (100%). Theme apply happens in `client/src/themes/apply.ts` - idempotent: mutates CSS vars on `:root`, sets `data-theme` attribute on `<html>`, lazy-loads Google Fonts (once per session), fires `arco:theme-changed` custom event. Font selection is decoupled from the palette: `client/src/themes/fontPacks.ts` defines ~29 operator-selectable font packs (incl. a legibility-focused set). Global **theme-brightness** shifts (`settings.bgBrightness` / `settings.textBrightness` - independent signed background + text lightness) and a **crisp text** toggle (`settings.crispText`, kills phosphor text-glow except the ARCO wordmark) are operator display tweaks layered on top - see `CLIENT.md`. Theme manifests may optionally carry a complete xterm Core + ANSI palette; Red Planet and Everforest use it to preserve their supplied terminal color schemes.
 
-Shaders live under `client/src/themes/shaders/` (~29 fragment shaders). `ThemedBackgroundShader` renders one per theme; CSS gates animations via `data-anim-scan` / `data-anim-pulseHalo` / `data-anim-flicker` attributes set by apply. The shader system uses `highp` precision and bounded hash inputs to prevent long-uptime freezes (see commit `8a5af37`).
+Shaders live under `client/src/themes/shaders/` (~29 fragment shaders). `ThemedBackgroundShader` renders one per theme; CSS gates animations via `data-anim-scan` / `data-anim-pulseHalo` / `data-anim-flicker` attributes set by apply. The shader system uses `highp` precision and bounded hash inputs to prevent long-uptime freezes.
 
 See [CLIENT.md](CLIENT.md) for the full theme + shader system.
 
@@ -766,7 +766,7 @@ bundle carries Arco config/plan/history, not project files, credentials,
 provider session stores, mailboxes, or task-board contents. Restore always
 forks fresh IDs and leaves all runtime arming off.
 
-**Peer tools.** `peer_list / peer_send / peer_read`. Members address each other by 8-char `workflowId` prefix. Independent per-sender message guard: Warn only, Hard limit or No limit; new clusters warn after 15 (counts reset on `primary_turn_started`). Three rejection classes: `unknown_peer`, `content_too_large`, `budget_exhausted` - all emit `peer_send_rejected` events. `clusterPeerOps.ts` is the single implementation, used by every transport.
+**Peer tools.** `peer_list / peer_send / peer_read`. Members address each other by workflow id or prefix, unique display name, or unique role text. Independent per-sender message guard: Warn only, Hard limit or No limit; new clusters warn after 15 (counts reset on `primary_turn_started`). Three rejection classes: `unknown_peer`, `content_too_large`, `budget_exhausted` - all emit `peer_send_rejected` events. `clusterPeerOps.ts` is the single implementation, used by every transport.
 
 **Member access postures.** STANDARD gets the normal project + cluster
 surface. BLIND keeps the project cwd but receives no plan/board/roster/role/
@@ -786,7 +786,7 @@ copies them into the recipient's `.arco/peer-artifacts/<msgId>/`.
 
 **Plan + role propagation.** Native injects via forced system blocks (`FORCED_FIRST_BLOCK -> cluster plan -> cluster role -> appendSystemPrompt -> systemPrompt -> output style`). CLI Claude and Codex `exec` fold the same blocks into `WorkerConfig.appendSystemPrompt` under a 16 KB soft cap; Codex app-server uses a bounded 48 KB fold so its JSON-RPC path can carry the full 32 KB maximum plan plus small cluster blocks. App-server also sends stable role, Director contract, and code-mode tool mapping as `developerInstructions`, so Codex's built-in `/root` framing cannot outrank the assigned Arco role.
 
-**UI.** `ClusterTab` (left: N-pane horizontal flex of `MemberPane`; right: grouped `ClusterRightPanel`). Groups mirror the standalone right panel: WORKSPACE (`MEMBERS`, `FILES`), AGENT (`ACTIVITY`, `REVIEWS`, `HANDOFFS`, `PLAN`, `BOARD`, `MAILBOX`), MEMORY (`HISTORY`), RUNTIME (`PREVIEW`, member-scoped `CONFIG`, `GITHUB`). Operator surfaces:
+**UI.** `ClusterTab` (left: N-pane horizontal flex of `MemberPane`; right: grouped `ClusterRightPanel`). Groups mirror the standalone right panel: WORKSPACE (`MEMBERS`, `FILES`), AGENT (`ACTIVITY`, `REVIEWS`, `HANDOFFS`, `PLAN`, `BOARD`, `MAILBOX`), MEMORY (`HISTORY` of the member in view, `USAGE`), RUNTIME (`PREVIEW`, member-scoped `CONFIG`, `GITHUB`). Operator surfaces:
 - `+ ADD WORKER` (spawn N fresh inheriting the cluster's template, or pick a same-cwd standalone tab).
 - `REPLACE` per member (new workflow/provider session in the same roster
   position; cloned config; optional provider/model/effort/account override;
@@ -799,7 +799,7 @@ copies them into the recipient's `.arco/peer-artifacts/<msgId>/`.
 
 **Board overhaul (client-only).** New clusters default-attach a **cluster-local board** (cluster meta `taskBoardMode: 'cluster'`; modes `none` / `project` / `cluster`; `cluster_task_board_attach_set` / `cluster_task_board_mode_set` WS msgs; `cluster_state` carries `taskBoardMode` / `taskBoardKey` / `taskBoardAttached`). The BOARD tab (`ClusterTaskBoardTab.tsx`) renders the cwd task ledger as horizontal kanban columns by status, with dnd-kit drag-to-restatus (4 px activation; touch-drag via TouchSensor; `done` / `archived` moves confirm), a create-task composer (always `todo`), and an editable card drawer (title / notes / priority / deps / delete). A plan->task bridge (`PlanBodyRenderer` onPromoteTask "-> TASK") and a peer->task bridge (`MailboxModal` onMakeTask, board-attached clusters only) seed tasks; a delivered peer message in the transcript can be promoted to a board task. The dispatcher, swarm, and orchestration-assist controls collapse under a closed AUTOMATION header. See [task ledger](TASK_LEDGER.md) for task behavior and [cluster protocol](PROTOCOL_CLUSTER.md) for the message flow.
 
-** polish.** History rehydrate re-emits undelivered `peer_message_sent` on first `cluster_subscribe` per server lifetime. Detach button on each `MemberRow`. Unified `ClusterActivityTab` between PLAN and REVIEWS shows peer messages + member adds/removes + role changes + plan changes + nudges. Operator-armed idle nudger fires `cluster_member_nudged` when `idle ≥ IDLE_FLOOR_SECONDS AND pending ≥ 1`, capped at 3 per operator turn, suppressed during any cluster member's busy state - toast-only; **never sends prompts to workers**.
+**Polish.** History rehydrate re-emits undelivered `peer_message_sent` on first `cluster_subscribe` per server lifetime. Detach button on each `MemberRow`. Unified `ClusterActivityTab` between PLAN and REVIEWS shows peer messages + member adds/removes + role changes + plan changes + nudges. Operator-armed idle nudger fires `cluster_member_nudged` when `idle ≥ IDLE_FLOOR_SECONDS AND pending ≥ 1`, capped at 3 per operator turn, suppressed during any cluster member's busy state - toast-only; **never sends prompts to workers**.
 
 **Progress-tracking mode.** A per-cluster `progressTracking` knob (`'plan' | 'board' | 'both'`, default `'both'`) selects which surface members are told to keep current. `clusterProgress.ts::buildProgressDoctrine(mode, hasPlan, hasBoard)` composes a deterministic system-prompt clause bundle (plan / board / reconcile clauses), gated on surface existence, injected as a forced block per transport via `WorkerConfig.clusterProgressDoctrine`. Operator sets it via the `cluster_progress_set { clusterId, mode }` WS message; persisted in cluster `meta.json` only when non-default, echoed in `ClusterStatePayload.progressTracking` only when non-default. Unlike efficiency's no-op `'thorough'`, the default `'both'` is intentionally non-empty.
 
@@ -817,7 +817,7 @@ Built on top of the cluster and task-ledger substrate. The shipped control plane
 
 **Task kernel.** Durable, cwd-scoped task store at `<cwd>/.arco/project/tasks.json` (projection over `events.jsonl`). Statuses: `triage / todo / ready / in_progress / blocked / review / done / archived`. Tasks carry durable comments, dependency links (a child stays `todo` until all parents are `done`), and run/attempt history. `done` and `archived` are operator-only; workers may move tasks to `review` but never `done`. Storage: `server/src/project/taskLedger.ts`. Protocol: `shared/src/protocol/tasks.ts`.
 
-**Worker lifecycle peer-tools.** `cluster_task_show / create / link / unlink / comment / heartbeat / block / complete` (plus existing `cluster_task_list / claim / update` aliases) wired across Native + MCP/REST. Heartbeat staleness detection: a run whose heartbeat age exceeds the stale threshold is eligible for recovery. Consecutive-failure breaker (`server/src/ws/taskLedgerHandlers.ts`).
+**Worker lifecycle peer-tools.** `cluster_task_show / create / link / unlink / comment / heartbeat / block / complete` (plus existing `cluster_task_list / claim / update` aliases) wired across Native + MCP/REST. Heartbeat staleness detection: a run whose heartbeat age exceeds the stale threshold is eligible for recovery. The operator's `fail` recovery blocks a task after three consecutive failed, timed-out or terminated runs (`server/src/ws/taskLedgerHandlers.ts`).
 
 **Operator-armed dispatcher.** `cluster_dispatch_once` (one-shot explicit sweep) + an armed daemon (`cluster_dispatch_toggle` / `cluster_dispatch_settings_update`) with deterministic eligibility, per-cluster/per-member concurrency caps, `dispatch_fired` / `dispatch_skipped` events, and claim + run creation before a synthetic worker turn. Default OFF; persisted in cluster meta; no double-dispatch on restart. Optional `autoWorktree` (default OFF) creates managed git worktrees under `~/.arco/worktrees/` for tasks with `worktreeRequired: true`, injecting path + branch into the worker prompt. Recovery via `task_run_recover` (modes: reclaim / terminate / reassign / fail), protected by a per-cwd advisory lock.
 
@@ -834,7 +834,7 @@ Built on top of the cluster and task-ledger substrate. The shipped control plane
 - `index.json` - fast list of `{id, title, createdAt, updatedAt}` summaries
 - `<planId>.md` - markdown body (max 256 KB)
 
-Plans survive across workflows (they live in the cwd, not the workflow). The operator can attach a plan to a workflow via the Plan tab in the right pane. On each primary turn, if `wf.planId` is set, the plan body is prepended to the prompt invisibly (operator's transcript stays clean). Plan edits since the last turn trigger re-injection so the agent picks up changes.
+Plans survive across workflows (they live in the cwd, not the workflow). The operator can attach a plan to a workflow via the Plan tab in the right pane. On each primary turn, if `wf.planId` is set, a one-line plan header (title, file path, refs, edited or newly attached) is prepended to the prompt invisibly and the agent reads the body from the file (operator's transcript stays clean). Plan edits since the last turn trigger re-injection so the agent picks up changes.
 
 Plans are explicitly attached, not auto-bound - the same plan can be attached to multiple workflows.
 
@@ -871,8 +871,8 @@ Plans are explicitly attached, not auto-bound - the same plan can be attached to
 | `terminal/terminalChannel.ts` | The dedicated `/terminal` WS path (raw PTY byte stream). Wired into `index.ts`'s upgrade fan-out; off the seq'd `/ws` protocol + out of `events.jsonl`. Envelope: attach/input/resize/kill ↔ data/exit/error. |
 | `previewAutoDetect.ts` | Watches `worker_tool_use` (Bash-command sniff via `DEV_SERVER_RE`) and `worker_text` (URL extraction via `URL_PORT_RE`). Races a Layer-1 HTTP probe of common dev ports against a Layer-2 `/proc`-based PID-tree listening-port discovery (`workers/procListening.ts`). First port to commit wins; cross-workflow port-conflict filter prevents one tab from stealing another's bound port; `manual: true` binds are never overridden. |
 | `workers/procListening.ts` | Linux-only. Walks the descendants of a root PID, reads each `/proc/<pid>/fd/*` socket inode, cross-refs `/proc/net/tcp{,6}` LISTEN entries. Used by Layer 2 of preview auto-detect to attribute listening ports to the agent's Bash subprocess tree. |
-| `claudeMdDiscovery.ts` | Walks `<cwd>` upward looking for `AGENTS.md` and merges with `~/.claude/AGENTS.md`. Output is folded into the Native worker's `appendSystemPrompt` so Claude Native sees the same project guidance the CLI does - gated behind `projectTrust.ts` (project-local guidance is suppressed for untrusted repos until the operator vouches). |
-| `projectTrust.ts` | DD7 project-trust gate - `decideTrust` over a flat `trust.json` (nearest-ancestor wins). Suppresses an untrusted repo's `AGENTS.md` / skills / `.arco/settings.json` from the Native prompt until the operator vouches (`project_trust_prompt` -> `set_project_trust` -> `project_trust_set`, in `ws/projectTrustHandlers.ts`). Never auto-trusts. |
+| `claudeMdDiscovery.ts` | Walks `<cwd>` upward looking for `CLAUDE.md` and merges with `~/.claude/CLAUDE.md`. Output is folded into the Native worker's `appendSystemPrompt` so Claude Native sees the same project guidance the CLI does - gated behind `projectTrust.ts` (project-local guidance is suppressed for untrusted repos until the operator vouches). |
+| `projectTrust.ts` | DD7 project-trust gate - `decideTrust` over a flat `trust.json` (nearest-ancestor wins). Suppresses an untrusted repo's `CLAUDE.md` / skills / `.arco/settings.json` from the prompt until the operator vouches (`project_trust_prompt` -> `set_project_trust` -> `project_trust_set`, in `ws/projectTrustHandlers.ts`). Never auto-trusts. |
 | `skillAudit.ts` | H35 operator-triggered skill security audit (invisible-unicode + threat scan). `POST /api/skills/audit` + the editor AUDIT button. Diagnostic only - flags, never blocks. |
 | `skillUsage.ts` | skill-usage telemetry sidecar (`use_count` / `last_used`) at `skill-usage.json`. |
 | `primitiveDrift.ts` | primitive drift guard - re-resolves the Review / Handoff / Spawn model against the live catalog at dispatch; emits a `system_notice` on drift. |
@@ -896,7 +896,7 @@ Plans are explicitly attached, not auto-bound - the same plan can be attached to
 | `codex-appserver/` (subdir) | `worker.ts` (long-lived `codex app-server` per tab), `jsonRpc.ts` (NDJSON over stdio, no envelope), workspace-lifecycle handlers (`thread/resume`, `turn/start`, `turn/interrupt`, `turn/steer` with `expectedTurnId`). |
 | `clusterStore.ts` | Cluster `ClusterState` (cwd, members, name, memberRoles, idleNudgerEnabled), `createCluster` / `readCluster` / `deleteCluster` / `addMember` / `removeMember` / `renameCluster` / `setMemberRole` / `setIdleNudgerEnabled`. Persists to `~/.arco/clusters/<id>/meta.json` with proper-lockfile atomic writes. Hard fences: no nested clusters, no cross-cluster membership, ≥2 members. |
 | `clusterMailbox.ts` | Cluster file-per-message mailbox at `~/.arco/clusters/<id>/mailbox/<recipientWfid>/<msgId>.json`. `enqueue` / `peek` / `drain` / `markDelivered` / `depthFor` / `mintMsgId`. 16 KB content cap (32 KB for operator transcript-sends), 50-message per-recipient pending cap (oldest dropped). Drain destroys the file - durable record lives in `events.jsonl`. |
-| `clusterBudget.ts` | Cluster per-sender per-operator-turn send count cap (15). `recordSend(wfid)` returns `{allowed, count, cap}`. Reset on `primary_turn_started` (per sender). |
+| `clusterBudget.ts` | Per-sender, per-turn peer-send counter for the message guard (warn, hard limit or none; 15 when no guard is given). `recordSend(sender, guard)` returns the decision; `refund` returns a failed send. Reset on `primary_turn_started` (per sender). |
 | `clusterPlanBridge.ts` | Unified cluster-plan accessor. Clusters attach one active plan by `planId` in `meta.json`; the body is canonical in the per-cwd plan store (`<cwd>/.arco/plans/<planId>.md`). Wired into `index.ts`, `ws/clusterHandlers.ts`, `ws/turnEngine.ts`, `clusterPeerOps.ts`. 32 KB cap (`PLAN_MAX_BYTES`), 28 KB soft warn. |
 | `clusterPlanStore.ts` | **Legacy / migration-only** - the old shared cluster plan body at `~/.arco/clusters/<id>/plan.md`. Read-only via `clusterPlanBridge.ts`, which lazily migrates it into the per-cwd plan store. |
 | `clusterEfficiency.ts` | Shared deterministic, role-aware coordination policy from `shared/src/clusterCoordination.ts`, also used by manual nudges, mailbox notices and auto-pickup. New clusters use Balanced; legacy omitted styles retain Thorough. Independent message guards warn, hard-cap or remove peer quota; legacy caps pin before style changes. |
@@ -918,7 +918,7 @@ Plans are explicitly attached, not auto-bound - the same plan can be attached to
 | `project/taskWorktree.ts` | Director/workers - managed git worktrees under `~/.arco/worktrees/` for `worktreeRequired` tasks when `autoWorktree` is armed. Creates, reuses, and cleans up `git worktree add` branches; injects path + branch into the worker prompt. |
 | `project/orchestrationProposals.ts` | Director/workers Stage K - stores operator-armed orchestration proposals in `<cwd>/.arco/project/`. Kinds: `task_graph / assignments / recovery / synthesis / swarm`. Accept-selected applies through normal task-kernel APIs; reject mutates nothing. Live model-call hook deferred; current stub accepts the requester's `draft` as the proposal. |
 
-The factory glue and dispatcher live in `server/src/index.ts` (~2300 lines - large by design; consolidating WS routing in one file keeps message-flow grep-able). Per-domain handler modules under `server/src/ws/` (cluster, handoff, ...) and route modules under `server/src/http/` are wired in via injected back-edges. Boot-readiness helpers live under `server/src/server/` (`readiness.ts`, `broadcast.ts`, `state.ts`, ...).
+The factory glue and dispatcher live in `server/src/index.ts` (~2400 lines - large by design; consolidating WS routing in one file keeps message-flow grep-able). Per-domain handler modules under `server/src/ws/` (cluster, handoff, ...) and route modules under `server/src/http/` are wired in via injected back-edges. Boot-readiness helpers live under `server/src/server/` (`readiness.ts`, `broadcast.ts`, `state.ts`, ...).
 
 For full HTTP API request/response shapes, see [`HTTP_API.md`](HTTP_API.md).
 
@@ -944,8 +944,8 @@ Routes are registered from `server/src/http/router.ts` and the per-domain `serve
 | `GET /api/capabilities` | CLI versions + supported efforts/models |
 | `GET /api/usage` | Claude 5-hour / weekly usage probe |
 | `GET /api/toolbox?provider&transport&cwd[&account]` | Provider-native skill catalog for the composer |
-| `GET /api/settings` / `PATCH /api/settings` | Operator settings |
-| `GET /api/plans` / `POST /api/plans` / `PATCH /api/plans/:id` / `DELETE /api/plans/:id` | Plan CRUD |
+| `GET /api/settings` / `POST /api/settings` | Operator settings |
+| `GET /api/plans?path` / `POST /api/plans?path` / `PATCH /api/plans?path&planId` / `DELETE /api/plans?path&planId` | Plan CRUD (plus `attach`, `move` and `refs`) |
 | `GET /api/plans/body?path=<cwd>&planId=<id>` | Plan body fetch (lazy-loaded) |
 | `POST /api/shutdown` | Graceful exit |
 | `POST /api/restart` | Graceful exit + respawn dev tree |
