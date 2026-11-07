@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Rough-theme panels show their SVG borders and redraw them when the active state changes.
+
 - Closing or changing a Media Studio source cancels its active conversion and stem-separation jobs.
 
 - Source services retain the Arco home selected during installation instead of reopening the default state directory.

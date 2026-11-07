@@ -109,7 +109,7 @@ export const configuration: Section[] = [
   </li>
   <li>
   <strong>Rough.js excalidraw</strong> - wobbly hand-drawn-style borders
-  using lazy-loaded roughjs. Bundle only grows when a rough theme is picked.
+  using lazy-loaded roughjs. The border redraws on resize and follows the active-state accent. Bundle only grows when a rough theme is picked.
   </li>
   </ul>
   <Sub>Families and defaults</Sub>

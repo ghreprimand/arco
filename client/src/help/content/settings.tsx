@@ -50,7 +50,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   'settings.themes': {
     title: 'Theme picker',
     body: (
-      <p>
+      <p>Rough themes draw panel borders in SVG and update their active-state accent.
         Choose a family first: Arco Classic retains all 43 existing selections,
         including <C>provider-auto</C>; Arco Phosphor offers 68 Phosphor palettes
         sharing one CRT treatment. Search by name/ID or filter Phosphor categories.

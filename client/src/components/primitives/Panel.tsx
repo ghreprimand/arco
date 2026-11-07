@@ -225,6 +225,7 @@ const RoughPanel = forwardRef<HTMLElement, RoughPanelProps & NativeProps>(functi
       if (drawnRef.current && drawnRef.current.parentNode === svg) {
         svg.removeChild(drawnRef.current);
       }
+      svg.appendChild(nextNode);
       drawnRef.current = nextNode;
     });
     return () => {
