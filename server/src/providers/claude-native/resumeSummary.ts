@@ -1,12 +1,13 @@
+import { revokedHandoffIds } from '../../handoffReplay.js';
 import { ensureProjectStateIgnore } from '../../projectStateIgnore.js';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { atomicWriteFile } from '../../atomicFile.js';
-import { listSegments, readLogText } from '../../eventLog.js';
+import { listSegments, readLogText, readLogLines } from '../../eventLog.js';
 import { serverFoldSeed, type ServerCompactionBlock } from './serverFold.js';
 import { isShellToolName } from '@arco/shared';
 
-const SUMMARY_CACHE_VERSION = 1;
+const SUMMARY_CACHE_VERSION = 2;
 const SUMMARY_CACHE_KIND = 'claude-native-resume-summary';
 const DEFAULT_REPLAY_BYTES = 1 * 1024 * 1024;
 const TAIL_LINE_BACKTRACK_BYTES = 1 * 1024 * 1024;
@@ -37,6 +38,8 @@ type ReplayEvent = {
   content?: string;
   text?: string;
   error?: string;
+  cancelled?: boolean;
+  handoffId?: string;
   seq?: number;
   // docs/PERSISTENCE.md - lineage link stamped by persistAndStampSeq on the
   // on-disk envelope (workflowStore.ts). The branch-filter pre-pass walks this
@@ -336,6 +339,7 @@ export function buildMessagesFromReplayEvents(
 ): ClaudeResumeMessage[] {
   const messages = cloneMessages(initialMessages);
   const scoped = typeof leafSeq === 'number' ? filterEventsToBranch(events, leafSeq) : events;
+  const revoked = revokedHandoffIds(scoped, maxSeq);
   let userBuf = '';
   let assistantBuf = '';
   const flushPair = (): void => {
@@ -350,7 +354,7 @@ export function buildMessagesFromReplayEvents(
   for (const entry of scoped) {
     if (typeof maxSeq === 'number' && typeof entry.seq === 'number' && entry.seq > maxSeq) break;
     const t = entry.type ?? '';
-    if (t === 'handoff_artifact_ready' && !entry.error) {
+    if (t === 'handoff_artifact_ready' && !entry.error && !entry.cancelled && !revoked.has(entry.handoffId ?? '')) {
       messages.length = 0;
       userBuf = '';
       assistantBuf = '';
@@ -401,7 +405,8 @@ export function buildMessagesFromReplayEvents(
   return messages;
 }
 
-export function summarizeClaudeNativePriorTurns(events: ReplayEvent[]): SummaryBuild {
+export function summarizeClaudeNativePriorTurns(events: ReplayEvent[], laterEvents: ReplayEvent[] = []): SummaryBuild {
+  const revoked = revokedHandoffIds([...events, ...laterEvents]);
   interface Turn {
     userText: string;
     toolCounts: Map<string, number>;
@@ -426,7 +431,7 @@ export function summarizeClaudeNativePriorTurns(events: ReplayEvent[]): SummaryB
 
   for (const ev of events) {
     if (typeof ev.seq === 'number') throughSeq = ev.seq;
-    if (ev.type === 'handoff_artifact_ready' && !ev.error) {
+    if (ev.type === 'handoff_artifact_ready' && !ev.error && !ev.cancelled && !revoked.has(ev.handoffId ?? '')) {
       turns.length = 0;
       lastHandoffSeq = typeof ev.seq === 'number' ? ev.seq : throughSeq;
       compactSummary = null;
@@ -614,12 +619,16 @@ export async function replayMessagesWithResumePolicy(
     };
   }
 
-  // HISTORY cutoffs are not normal resume. Keep their existing exact-tail
-  // behavior so Spawn-from-here callers do not inherit a summary past maxSeq.
+  // A history cutoff must include the selected prefix, even when it is older
+  // than the resume tail. Stop streaming as soon as the cutoff is passed.
   if (typeof maxSeq === 'number') {
-    const start = Math.max(0, stat.size - recentTailBytes);
-    const raw = await source.read(start, stat.size - start);
-    const events = parseJsonl(raw, { dropFirstPartial: start > 0 });
+    const events: ReplayEvent[] = [];
+    for await (const line of readLogLines(workflowDir(cwd, workflowId))) {
+      const event = parseJsonl(line)[0];
+      if (!event) continue;
+      if (typeof event.seq === 'number' && event.seq > maxSeq) break;
+      events.push(event);
+    }
     return {
       messages: buildMessagesFromReplayEvents(events, [], maxSeq),
       mode: 'exact',
@@ -639,7 +648,7 @@ export async function replayMessagesWithResumePolicy(
   if (!cache) {
     const olderRaw = tailStartByte > 0 ? await source.read(0, tailStartByte) : '';
     const olderEvents = parseJsonl(olderRaw, { dropLastPartial: !tailStart.completeLine });
-    const built = summarizeClaudeNativePriorTurns(olderEvents);
+    const built = summarizeClaudeNativePriorTurns(olderEvents, tailEvents);
     cache = {
       version: SUMMARY_CACHE_VERSION,
       kind: SUMMARY_CACHE_KIND,

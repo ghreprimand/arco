@@ -122,6 +122,8 @@ CLIs plus real Native loop over mocked Anthropic streaming; zero model spend).
 
 ## Claude
 
+Spawn from a HISTORY point reads the selected earlier prefix even when it is outside the recent replay tail. Cancelled handoffs leave prior Native context intact, including the older-history summary. A cancellation or failure during pre-warm revokes an earlier prepared artifact for replay; a successful fallback after a failed reflection remains valid. Derived summary caches from the earlier replay rule are rebuilt automatically; original events remain unchanged.
+
 Native Read keeps the partial-read warning when its output is capped, until a later complete read covers the file. Native Grep reports invalid patterns and search failures as errors; a successful search with no matches remains empty. Native Bash keeps its newest output tail even if saving the full output fails, and reports that full output is unavailable. Native and local-model Write create nested parent directories on Windows.
 
 Registry MCP schemas keep their definitions and validation metadata, including local references. Unsupported top-level `oneOf`, `allOf` and `anyOf` are still removed before Native requests.
@@ -725,6 +727,8 @@ Default `unicode61` tokenizer (no stopwords - 'added' / 'fix' / 'the' all retain
 
 ## Codex
 
+App-server ignores a late turn/start acknowledgement after that turn has ended. Generated images finish saving and emit their artifact and terminal tool status before the turn settles. Enabled registry servers are passed to app-server as well as exec; changing a launch definition recycles the app-server child before its next turn.
+
 Context-window and code-mode metadata use the selected account home first, then `CODEX_HOME`, then the CLI default home. MAX therefore reads the same account metadata as the spawned CLI. Concurrent Native, Codex and Cursor catalog refreshes share the complete fallback result: unavailable catalogs return their last snapshot or an empty result for the normal picker fallback.
 
 Two transports ship side-by-side, selected per-tab via `codex.transport`. New Arco homes use `appserver`; the home and project settings cascade can select either transport, and a per-tab choice takes precedence. Existing cascade and per-tab choices remain unchanged. Per-tab override lives on `WorkflowConfig.codexTransport` and is editable from the CONFIG tab without a server restart.
@@ -1015,6 +1019,8 @@ against isolated Vite with all API/WebSocket traffic stubbed.
 
 ## Cursor
 
+ACP and print output decode UTF-8 across pipe chunks, preserving multibyte text and filenames. Cancelling native compression finishes its cancellation wait when compression settles; its fallback timer cannot kill a later turn.
+
 `server/src/providers/cursor/` - a long-lived per-workflow ACP worker (`worker.ts`) driving
 `cursor-agent acp` over JSON-RPC (`acpJsonRpc.ts`), a per-turn wrapper + worker cache (`index.ts`),
 a `cursor-agent models` catalog (`catalog.ts`), and a stateless `cursor-agent -p --mode ask` one-shot
@@ -1196,6 +1202,8 @@ listener down).
 ---
 
 ## Ollama
+
+Stateless local replay keeps the brief and later exchanges after a completed handoff, without reintroducing the archived prefix. Failed or cancelled handoffs preserve earlier context. Messages containing literal USER or AGENT role labels use a tagged JSON-string representation internally so those lines, their whitespace and their backslashes stay inside the original message. Existing plain rendered transcripts remain readable.
 
 `server/src/providers/ollama.ts` + `server/src/providers/ollamaTools.ts`. Pure HTTP, no subprocess.
 

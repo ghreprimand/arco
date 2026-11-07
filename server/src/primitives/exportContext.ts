@@ -1,3 +1,4 @@
+import { revokedHandoffIds } from '../handoffReplay.js';
 import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // Phase 6 Lite — the Handoff primitive's context-export core.
 //
@@ -23,6 +24,7 @@ import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // source provider, so the operator can still choose the original worker's
 // context without implying that a native session is being resumed.
 
+import { TRANSCRIPT_JSON_HEADER } from '../providers/renderedTranscript.js';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { WorkerManager } from '../workers/WorkerManager.js';
@@ -507,7 +509,8 @@ function runFreshSummarizer(
   return Promise.all([
     loadEffectivePrompt('fresh-summarizer', ctx.cwd),
     detectVerifyCommand(ctx.cwd),
-  ]).then(([eff, verifyCommand]) => {
+  ]).then(async ([eff, verifyCommand]) => {
+    if (ab.killed) return { error: 'cancelled' };
     const framing = renderPrompt(eff.template, {
       cwd: ctx.cwd,
       wfid: ctx.workflowId,
@@ -516,7 +519,6 @@ function runFreshSummarizer(
     });
     const summarizerInput = buildFreshSummarizerInput(framing, rendered, actionsDigest);
     ab.workerId = handoffId;
-    if (ab.killed) ctx.manager.kill(handoffId);
     return ctx.manager.spawn(
       {
         id: handoffId,
@@ -558,6 +560,7 @@ function runFreshSummarizer(
       },
     );
   }).then(async (r) => {
+    if (ab.killed) return { error: 'cancelled' };
     const completedAt = Date.now();
     if (r.error) {
       ctx.broadcast({
@@ -570,7 +573,7 @@ function runFreshSummarizer(
       });
       return { error: r.error };
     }
-    const body = (collected.trim() || r.text || '').trim();
+    const body = (collected.trim() || ('text' in r ? r.text : '') || '').trim();
     if (!body) {
       const err = 'Summarizer returned empty handoff body';
       ctx.broadcast({
@@ -586,8 +589,14 @@ function runFreshSummarizer(
     try {
       ensureProjectStateIgnore(ctx.cwd);
       await fs.mkdir(path.dirname(artifactPath), { recursive: true });
-      await fs.writeFile(artifactPath, body + '\n', 'utf8');
+      if (ab.killed) return { error: 'cancelled' };
+      await fs.writeFile(artifactPath, body + '\n', { encoding: 'utf8', flag: 'wx' });
+      if (ab.killed) {
+        await fs.unlink(artifactPath);
+        return { error: 'cancelled' };
+      }
     } catch (err) {
+      if (ab.killed) return { error: 'cancelled' };
       const msg = err instanceof Error ? err.message : String(err);
       ctx.broadcast({
         type: 'handoff_artifact_ready',
@@ -610,6 +619,21 @@ function runFreshSummarizer(
   });
 }
 
+function currentHandoffEvents(events: ServerMessage[]): ServerMessage[] {
+  const revoked = revokedHandoffIds(events);
+  for (let end = events.length - 1; end >= 0; end--) {
+    const complete = events[end];
+    if (complete.type !== 'handoff_complete' || revoked.has(complete.handoffId)) continue;
+    for (let start = end - 1; start >= 0; start--) {
+      const ready = events[start];
+      if (ready.type === 'handoff_artifact_ready' && ready.handoffId === complete.handoffId
+        && !ready.error && !ready.cancelled) return events.slice(start + 1);
+    }
+    return events.slice(end + 1);
+  }
+  return events;
+}
+
 // preserveThinking (plan §8.4): when true, accumulated `primary_thinking`
 // events are wrapped in `<think>...</think>` and prefixed onto the AGENT
 // block. Qwen3.6's Thinking Preservation only works if prior assistant
@@ -621,7 +645,8 @@ export function renderTranscript(
   events: ServerMessage[],
   opts?: { preserveThinking?: boolean },
 ): string {
-  const parts: string[] = [];
+  events = currentHandoffEvents(events);
+  const parts: Array<{ role: 'USER' | 'AGENT'; content: string }> = [];
   let thinkBuf: string[] = [];
   let replyBuf: string[] = [];
   const flushReply = (): void => {
@@ -631,15 +656,15 @@ export function renderTranscript(
       const reasoning = thinkBuf.join('').trim();
       if (reasoning) body = `<think>${reasoning}</think>\n\n`;
     }
-    body += replyBuf.join('').trim();
-    parts.push('AGENT: ' + body);
+    body += replyBuf.join('');
+    parts.push({ role: 'AGENT', content: body });
     thinkBuf = [];
     replyBuf = [];
   };
   for (const ev of events) {
     if (ev.type === 'user_message_echo') {
       flushReply();
-      parts.push('USER: ' + ev.content.trim());
+      parts.push({ role: 'USER', content: ev.content });
     } else if (ev.type === 'primary_text' && ev.phase === 'passthrough') {
       replyBuf.push(ev.text);
     } else if (ev.type === 'primary_thinking') {
@@ -649,7 +674,9 @@ export function renderTranscript(
     }
   }
   flushReply();
-  return parts.join('\n\n');
+  const encoded = parts.some(({ content }) => content.split('\n').some((line) => /^(?:USER: |AGENT: )/.test(line) || line === TRANSCRIPT_JSON_HEADER));
+  if (encoded) return TRANSCRIPT_JSON_HEADER + '\n' + parts.map(({ role, content }) => `${role}: ${JSON.stringify(content)}`).join('\n');
+  return parts.map(({ role, content }) => `${role}: ${content.trim()}`).join('\n\n');
 }
 
 // Per-turn structured summary of prior workflow activity. Walks the
@@ -664,6 +691,7 @@ export function renderTranscript(
 // Deterministic: no LLM call, just walks events and extracts file paths /
 // commands / counts. Cheap enough to run on every spawn.
 export function summarizePriorTurns(events: ServerMessage[]): string {
+  events = currentHandoffEvents(events);
   interface Turn {
     userText: string;
     toolCounts: Map<string, number>;
@@ -811,8 +839,8 @@ export function runExportContext(
 
   // fresh-summarizer spawns the worker with id === handoffId; original-worker
   // mints its own id and records it on `ab` once runPrimaryTurn spawns. abort()
-  // covers both, plus the pre-spawn race (records intent; spawn site kills).
-  const ab: AbortState = { workerId: handoffId, killed: false };
+  // covers running workers and records cancellation before preparation finishes.
+  const ab: AbortState = { workerId: undefined, killed: false };
   const abort = (): void => {
     ab.killed = true;
     if (ab.workerId) ctx.manager.kill(ab.workerId);

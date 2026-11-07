@@ -245,7 +245,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.tab.handoffs': {
     title: 'HANDOFFS',
-    body: <p>Handoff notes written when this tab moved to a fresh session. Claude CLI ignores delayed loads from the earlier session after a handoff or reconnect. They are kept with the tab&apos;s saved work. A handoff still running shows a cancel mark on its row; cancelling stops it and frees the tab.</p>,
+    body: <p>Handoff notes written when this tab moved to a fresh session. Claude CLI ignores delayed loads from the earlier session after a handoff or reconnect. They are kept with the tab&apos;s saved work. A handoff still running shows a cancel mark on its row; cancelling stops it and frees the tab. Stopping preparation starts no summarizer worker; a cancelled handoff keeps earlier replay context even if its document was already prepared.</p>,
     manualSection: 'handoff-action',
   },
   'rightpanel.tab.plan': {
@@ -544,7 +544,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         <C>--disallowedTools</C> (composes with skip-permissions). Codex has no
         per-tool gate: an enabled server exposes <strong>all</strong> its
         tools. No hidden, model-selected expansion: only servers you enable.
-      </p>
+       Codex app-server receives enabled servers too; a changed launch definition recycles its child before the next turn.</p>
     ),
     manualSection: 'config-tab',
   },
@@ -709,7 +709,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           <C>TOOL CALLS</C>, <C>LABELS</C>, <C>HANDOFFS</C>, <C>REVIEWS</C>,{' '}
           <C>CHECKPOINTS</C>, <C>REWINDS</C>) persists per workflow. Selecting an
           event shows the label field and the action buttons for that point.
-         Replay keeps the original saved event time.</p>
+         Replay keeps the original saved event time. Spawn from an older point keeps that selected prefix even when it is outside the recent replay tail.</p>
         <p>
           Click an event row to scroll-and-flash the corresponding chat row
           (when the event has a chat message id: user sends + assistant

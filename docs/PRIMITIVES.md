@@ -1212,3 +1212,7 @@ The BAKE-OFF right-panel tab sends one `bakeoff_start` with 2-5 `RunAsPicker` le
 - [Primitive protocol](PROTOCOL_PRIMITIVES.md)
 - [Feature reference](FEATURES.md)
 - [Documentation style](STYLE.md)
+
+### Fresh summarizer cancellation
+
+Stopping a fresh summarizer during preparation starts no worker. Cancellation is checked again before saving and publishing its handoff. A cancelled attempt creates no successful handoff result, so the earlier context remains available for replay.

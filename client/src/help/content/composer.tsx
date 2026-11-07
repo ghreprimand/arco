@@ -161,6 +161,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           Shown only on Codex-app-server, Cursor, Claude-native, and Ollama
           tabs. Runs between turns: disabled while a turn is in flight.
         </p>
+      <p>For Cursor, STOP during compression finishes its cancellation wait when compression settles. A later turn is not affected by the old cancellation timer.</p>
       </>
     ),
   },

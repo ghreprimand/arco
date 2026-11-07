@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Replay preserves older HISTORY cutoffs, cancelled handoffs and literal USER/AGENT labels. Stateless local turns keep the new handoff brief without reintroducing archived context. Cancelling fresh-summarizer preparation starts no worker and publishes no success.
+- Codex app-server ignores late turn replies, saves generated images before completion and receives enabled registry servers. Cursor preserves multibyte streamed text and settles compression cancellation before a later turn.
 - Output Move retains both files when the source changes; ARCHIVE cancels removal when a conversation reopens or receives new writes.
 - Settings preserve Strata and DeepSeek endpoints, keep cleared summarizer pins unset and follow the selected cluster's project folder.
 - Git status retains complete filenames with spaces; failed or truncated comparisons show errors. Refused plan moves retain source attachments.

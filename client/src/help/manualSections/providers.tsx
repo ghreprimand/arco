@@ -51,6 +51,7 @@ export const providers: Section[] = [
   title: 'Claude',
   body: (
   <>
+  <p>Spawn from HISTORY keeps the selected earlier conversation even when it falls outside the recent replay tail. Cancelled handoffs preserve prior context. Older derived summary caches are rebuilt automatically.</p>
   <p>Native Read keeps the partial-read warning when output is capped. A complete later read clears it. Grep reports invalid patterns and search failures as errors. If Bash cannot save full output, its newest tail remains available and the result explains the storage failure. Registry MCP schemas retain their referenced definitions.</p>
   <p>CLI snapshots retain every text block and the final answer without repeating streamed text. Local HTTP generation bounds waiting for response headers. Completed local streams finish at their done marker, even if the connection stays open. Model discovery and WebSearch deadlines remain active while reading JSON.</p>
   <p>
@@ -352,6 +353,7 @@ export const providers: Section[] = [
   title: 'Codex',
   body: (
   <>
+  <p>Late turn acknowledgements cannot restart a completed turn. Generated images are saved and announced before completion. App-server receives enabled registry servers and restarts its child before the next turn when a launch definition changes.</p>
   <p>Context and code-mode metadata follow the selected account home, then <Code>CODEX_HOME</Code>, then the CLI default. Concurrent catalog refresh failures use the same saved snapshot or normal picker fallback for every caller.</p>
   <p>
   Codex is OpenAI&apos;s Codex CLI, with frontier-tier reasoning and native
@@ -468,6 +470,7 @@ export const providers: Section[] = [
   title: 'Cursor (ACP · ~153 models incl. Grok)',
   body: (
   <>
+  <p>ACP and print preserve multibyte text across streamed chunks. Cancelling compression finishes when the compression stops, without leaving a timer that can kill a later turn.</p>
   <p>
   Cursor&apos;s metered subscription fronts ~153 models (Grok 4.5, GPT-5.x,
   Claude, GLM, Kimi) under one login. Use it to reach many frontier families
@@ -656,6 +659,7 @@ export const providers: Section[] = [
   title: 'Ollama (local models)',
   body: (
   <>
+  <p>After a completed handoff, local replay keeps the new brief and subsequent exchanges. Cancelled handoffs keep earlier context. Literal USER and AGENT labels in quoted text or code remain part of their original message.</p>
   <p>Fenced tool mode keeps plan checkbox changes callable. Ordinary code and JSON examples remain answers; explicit malformed tool blocks still report argument errors. Native and local Write create nested parent directories on Windows. HTTP throttling can advance a configured fallback chain for a bounded job; context overflow stays on context recovery.</p>
   <p>
   Ollama runs models locally: no subscription, no rate limits, no remote

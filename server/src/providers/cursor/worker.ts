@@ -122,6 +122,7 @@ export class CursorAcpWorker extends EventEmitter {
 
   // Single in-flight turn (WorkerManager serializes; beginTurn guards too).
   private turnActive = false;
+  private turnGeneration = 0;
   // Set by cancelCurrentTurn when it lands before session/prompt was sent
   // (beginTurn is still awaiting the MCP refresh / set_model); a session/cancel
   // for a prompt that doesn't exist yet is a no-op, so beginTurn checks this.
@@ -329,6 +330,7 @@ export class CursorAcpWorker extends EventEmitter {
     if (this.turnActive) throw new Error('cursor turn already in flight');
 
     this.turnActive = true;
+    this.turnGeneration++;
     this.turnCancelRequested = false;
     this.turnText = '';
     this.segments.reset();
@@ -444,6 +446,8 @@ export class CursorAcpWorker extends EventEmitter {
     }
 
     this.turnActive = true;
+    const generation = ++this.turnGeneration;
+    this.turnCancelRequested = false;
     this.turnText = '';
     this.segments.reset();
     this.turnStartedAt = Date.now();
@@ -452,6 +456,7 @@ export class CursorAcpWorker extends EventEmitter {
       // govern the summarizer command. session/set_model is cheap and no-ops
       // when the session already has the requested model.
       await this.applyModelIfChanged();
+      if (!this.turnActive || generation !== this.turnGeneration || this.turnCancelRequested) return { ok: false, error: 'Cursor compression was cancelled' };
       const res = await this.rpc.request<AcpPromptResult>('session/prompt', {
         sessionId: this.sessionId,
         prompt: [{ type: 'text', text: command }],
@@ -463,8 +468,10 @@ export class CursorAcpWorker extends EventEmitter {
     } finally {
       // Child-death/cancel paths may already have cleared this through
       // settleTurn(); assigning false again is harmless and releases the guard.
-      this.turnActive = false;
-      this.turnText = '';
+      if (generation === this.turnGeneration) {
+        this.turnText = '';
+        this.settleTurn({});
+      }
     }
   }
 
@@ -474,13 +481,16 @@ export class CursorAcpWorker extends EventEmitter {
   async cancelCurrentTurn(): Promise<void> {
     if (!this.turnActive) return;
     this.turnCancelRequested = true;
+    const generation = this.turnGeneration;
     if (this.rpc && this.sessionId) this.rpc.notify('session/cancel', { sessionId: this.sessionId });
     await new Promise<void>((resolve) => {
       if (!this.turnActive) return resolve();
       const timer = setTimeout(() => {
         this.off('turn_settled', onDone);
-        this.hardKill();
-        this.settleTurn({ error: 'Worker killed (cancel timed out)' });
+        if (this.turnActive && generation === this.turnGeneration) {
+          this.hardKill();
+          this.settleTurn({ error: 'Worker killed (cancel timed out)' });
+        }
         resolve();
       }, INTERRUPT_ACK_TIMEOUT_MS);
       const onDone = (): void => {

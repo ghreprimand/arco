@@ -17,6 +17,7 @@
 //
 // docs/PROVIDERS.md
 
+import { StringDecoder } from 'node:string_decoder';
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
 import type { WorkerConfig, WorkerStatus } from '@arco/shared';
@@ -36,6 +37,8 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
   private _status: WorkerStatus = 'spawning';
   private _output = '';
   private stderrBuf = '';
+  private stdoutDecoder = new StringDecoder('utf8');
+  private stderrDecoder = new StringDecoder('utf8');
   private settled = false;
   private startedAt = 0;
 
@@ -90,19 +93,19 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     });
 
     this.proc.on('error', (err) => this.fail(`cursor-agent spawn error: ${err.message}`));
-    this.proc.on('exit', (code, signal) => this.onExit(code, signal));
+    this.proc.on('close', (code, signal) => this.onExit(code, signal));
 
     if (this.proc.stdout) {
       this.proc.stdout.on('data', (chunk: Buffer) => {
         if (this.settled) return;
-        const t = chunk.toString();
+        const t = this.stdoutDecoder.write(chunk);
         this._output += t;
         this.emit('text', t);
       });
     }
     if (this.proc.stderr) {
       this.proc.stderr.on('data', (chunk: Buffer) => {
-        this.stderrBuf = (this.stderrBuf + chunk.toString()).slice(-STDERR_CAP);
+        this.stderrBuf = (this.stderrBuf + this.stderrDecoder.write(chunk)).slice(-STDERR_CAP);
       });
     }
 
@@ -127,6 +130,9 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
 
   private onExit(code: number | null, signal: NodeJS.Signals | null): void {
     if (this.settled) return;
+    const tail = this.stdoutDecoder.end();
+    if (tail) { this._output += tail; this.emit('text', tail); }
+    this.stderrBuf = (this.stderrBuf + this.stderrDecoder.end()).slice(-STDERR_CAP);
     if (code === 0) {
       this.settled = true;
       this._status = 'completed';
@@ -143,8 +149,8 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
       return;
     }
     const reason = code !== null ? `exited ${code}` : `killed by ${signal ?? 'signal'}`;
-    const tail = this.stderrBuf.trim().slice(-400);
-    this.fail(`cursor-agent -p ${reason}${tail ? `: ${tail}` : ''}`);
+    const errorTail = this.stderrBuf.trim().slice(-400);
+    this.fail(`cursor-agent -p ${reason}${errorTail ? `: ${errorTail}` : ''}`);
   }
 
   private fail(reason: string): void {

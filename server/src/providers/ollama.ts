@@ -1,3 +1,4 @@
+import { TRANSCRIPT_JSON_HEADER } from './renderedTranscript.js';
 import { compactDurableOllama } from './ollamaDurableCompaction.js';
 import { parseComputerHistory } from '../voice/history.js';
 import { computerToolDefinitions, executeComputerTool } from '../voice/toolDefinitions.js';
@@ -535,23 +536,34 @@ async function fetchBackendModels(base: string): Promise<string[] | null> {
 export function parseRenderedTranscript(text: string): OllamaChatMessage[] {
   const out: OllamaChatMessage[] = [];
   let role: 'user' | 'assistant' | null = null;
+  let jsonEncoded = false;
   let buf: string[] = [];
   const flush = (): void => {
     if (role && buf.length > 0) {
-      const content = buf.join('\n').trim();
+      const content = jsonEncoded ? buf.join('\n') : buf.join('\n').trim();
       if (content) out.push({ role, content });
     }
     buf = [];
   };
+  const decode = (body: string): string => {
+    if (!jsonEncoded) return body;
+    try { const value: unknown = JSON.parse(body); return typeof value === 'string' ? value : body; } catch { return body; }
+  };
   for (const line of text.split('\n')) {
+    if (line === TRANSCRIPT_JSON_HEADER) {
+      flush();
+      role = null;
+      jsonEncoded = true;
+      continue;
+    }
     if (line.startsWith('USER: ')) {
       flush();
       role = 'user';
-      buf.push(line.slice('USER: '.length));
+      buf.push(decode(line.slice('USER: '.length)));
     } else if (line.startsWith('AGENT: ')) {
       flush();
       role = 'assistant';
-      buf.push(line.slice('AGENT: '.length));
+      buf.push(decode(line.slice('AGENT: '.length)));
     } else {
       buf.push(line);
     }

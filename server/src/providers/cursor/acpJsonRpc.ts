@@ -13,6 +13,7 @@
 //
 // Wire framing is identical: newline-delimited JSON, one message per line.
 
+import { StringDecoder } from 'node:string_decoder';
 import { EventEmitter } from 'events';
 import type { Readable, Writable } from 'stream';
 
@@ -66,6 +67,7 @@ export class AcpJsonRpcClient extends EventEmitter {
   private nextId = 1;
   private pending = new Map<number, PendingRequest>();
   private buf = '';
+  private decoder = new StringDecoder('utf8');
   private closed = false;
 
   // Server→client request handler. Return a result (or a Promise of one) to
@@ -113,7 +115,7 @@ export class AcpJsonRpcClient extends EventEmitter {
   }
 
   private onStdoutData(chunk: Buffer): void {
-    this.buf += chunk.toString('utf8');
+    this.buf += this.decoder.write(chunk);
     let nl = this.buf.indexOf('\n');
     while (nl !== -1) {
       const line = this.buf.slice(0, nl).trim();

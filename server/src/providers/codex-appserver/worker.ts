@@ -18,7 +18,7 @@ import {
   type ImageGenerationItem,
 } from './imageGen.js';
 import { resolveWithinCwd } from '../ollamaTools.js';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { JsonRpcClient, JsonRpcRequestError, type JsonRpcNotification, type JsonRpcServerRequest } from './jsonRpc.js';
 import { killProcessTree } from '../../workers/processKill.js';
 import { markThrottled, markAvailable } from '../../quota.js';
@@ -129,7 +129,10 @@ export function computeMcpSignature(
 // can't change them. Without this in the signature, turning a Chat tab's WEB
 // chip off left web search live on the running Codex app-server child.
 export function bootstrapSurfaceKey(config: WorkerConfig): string {
-  return `${config.interactionMode === 'chat' ? 'chat' : 'agent'}:web-${webSearchMode(config)}${config.voiceOperator === true ? ':voice' : ''}${config.incognito ? ':private' : ''}`;
+  const registry = config.interactionMode !== 'chat' && config.mcpRegistryServers?.length
+    ? ':registry-' + createHash('sha256').update(JSON.stringify(config.mcpRegistryServers)).digest('hex')
+    : '';
+  return `${config.interactionMode === 'chat' ? 'chat' : 'agent'}:web-${webSearchMode(config)}${config.voiceOperator === true ? ':voice' : ''}${config.incognito ? ':private' : ''}${registry}`;
 }
 
 function splitAttachments(paths: string[] | undefined): { images: string[]; nonImages: string[]; error?: string } {
@@ -380,6 +383,8 @@ interface CurrentTurnState {
   // wall of text ("…release process.Kernel.org confirms…"). We insert a
   // paragraph break when the item id changes. Null until the first delta.
   lastAgentMsgItemId: string | null;
+  artifacts: Set<Promise<void>>;
+  settling: boolean;
 }
 
 function emptyTurnState(): CurrentTurnState {
@@ -395,6 +400,8 @@ function emptyTurnState(): CurrentTurnState {
     transientNoticeKey: null,
     transientNoticeCount: 0,
     lastAgentMsgItemId: null,
+    artifacts: new Set(),
+    settling: false,
   };
 }
 
@@ -513,6 +520,7 @@ export class CodexAppServerWorker extends EventEmitter {
     // spawn them per-turn). Operator's `~/.codex/config.toml` mcp_servers
     // entries are unaffected because TOML overrides only set the specific
     // dotted keys.
+    const registryServers = this.config.mcpRegistryServers ?? [];
     const spawnArgs: string[] = this.config.interactionMode === 'chat'
       ? ['-c', 'mcp_servers={}']
       : [];
@@ -527,7 +535,7 @@ export class CodexAppServerWorker extends EventEmitter {
       : undefined;
     // The workflow-scoped `arco` plan entry applies to every workflow with a
     // cwd, so this is no longer gated on cluster / codebase-memory.
-    if (this.config.interactionMode !== 'chat' && (this.config.cwd || this.config.clusterId || codebaseMemoryIndexPath)) {
+    if (this.config.interactionMode !== 'chat' && (this.config.cwd || this.config.clusterId || codebaseMemoryIndexPath || registryServers.length > 0)) {
       const port = parseInt(process.env.ARCO_PORT || '3001', 10);
       spawnArgs.push(
         ...buildCodexMcpOverrides(this.workflowId, {
@@ -537,6 +545,7 @@ export class CodexAppServerWorker extends EventEmitter {
           accessMode: this.config.clusterAccessMode,
           port,
           codebaseMemoryIndexPath,
+          registryServers,
         }),
       );
       this.bootstrappedSignature = computeMcpSignature(this.config.clusterId, this.config.clusterTaskBoardAttached === true, codebaseMemoryIndexPath, this.config.providerAccountRef, this.config.codexHome, this.config.clusterAccessMode, this.config.clusterRole, this.config.model, this.config.codexContextPolicy, codexContextWindowOverride(this.config), bootstrapSurfaceKey(this.config));
@@ -741,12 +750,13 @@ export class CodexAppServerWorker extends EventEmitter {
       collaborationMode: null,
     };
 
+    const turn = this.current;
     try {
       const res = await this.rpc.request<TurnStartResponse>('turn/start', params);
-      this.current.turnId = res.turn.id;
+      if (this.current === turn && turn.startedAt) turn.turnId = res.turn.id;
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
-      this.settleTurn({ error: `turn/start failed: ${error}` });
+      if (this.current === turn) this.settleTurn({ error: `turn/start failed: ${error}` });
       throw err;
     }
   }
@@ -1152,7 +1162,11 @@ export class CodexAppServerWorker extends EventEmitter {
         // fires in the same tick exactly as before. `handleImageGeneration` never
         // rejects (it catches + surfaces a structured failure).
         if (p.item.type === 'imageGeneration') {
-          void this.handleImageGeneration(p.item as ImageGenerationItem);
+          const turn = this.current;
+          const pending = this.handleImageGeneration(p.item as ImageGenerationItem);
+          turn.artifacts.add(pending);
+          const done = () => { turn.artifacts.delete(pending); };
+          void pending.then(done, done);
         }
         if (p.item.type === 'contextCompaction') this.countCompaction(p.threadId, p.turnId);
         // Phase 6b — drain hook. Fire after every item completes; the
@@ -1483,12 +1497,23 @@ export class CodexAppServerWorker extends EventEmitter {
   private onTurnCompleted(p: TurnCompletedNotification): void {
     if (!this.current.turnId) return;
     if (p.turn.id !== this.current.turnId) return;
+    const turn = this.current;
+    if (turn.settling) return;
     // Resolve any pending interrupt waiter — kill() awaits this notification.
     if (this.current.interruptResolve) {
       const r = this.current.interruptResolve;
       this.current.interruptResolve = null;
       this.current.interruptDeadline = null;
       r();
+    }
+    if (turn.artifacts.size > 0) {
+      turn.settling = true;
+      void Promise.allSettled([...turn.artifacts]).then(() => {
+        if (this.current !== turn) return;
+        turn.settling = false;
+        this.onTurnCompleted(p);
+      });
+      return;
     }
     if (p.turn.status === 'interrupted') {
       this.settleTurn({ error: 'Worker killed' });
