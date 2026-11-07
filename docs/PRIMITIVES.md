@@ -1213,6 +1213,10 @@ The BAKE-OFF right-panel tab sends one `bakeoff_start` with 2-5 `RunAsPicker` le
 - [Feature reference](FEATURES.md)
 - [Documentation style](STYLE.md)
 
+### Member review scopes
+
+Review via member supports LAST TURN and LAST N TURNS from the retained conversation. Plan, full-history, current-session, checkpoint and Git-diff scopes require SUB-WORKER so the selected material is resolved on the server; member choices are disabled with that reason.
+
 ### Fresh summarizer cancellation
 
 Stopping a fresh summarizer during preparation starts no worker. Cancellation is checked again before saving and publishing its handoff. A cancelled attempt creates no successful handoff result, so the earlier context remains available for replay.

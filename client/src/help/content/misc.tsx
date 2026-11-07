@@ -892,7 +892,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Review scope',
     body: (
       <>
-        <p>What slice of the conversation to review:</p>
+        <p>Plan, full-history, current-session, checkpoint and Git-diff scopes require SUB-WORKER; member routing is disabled because it cannot resolve those selections accurately. What slice of the conversation to review:</p>
         <ul style={{ margin: '4px 0', paddingLeft: '18px' }}>
           <li><strong>LAST TURN</strong>: just the most recent agent reply.</li>
           <li><strong>LAST N TURNS</strong>: last N turns (you set N).</li>
@@ -917,7 +917,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Who does the review?',
     body: (
       <>
-        <p>
+        <p>Member routing supports recent-turn scopes only. Plan, full-history, current-session, checkpoint and Git-diff scopes require SUB-WORKER.
           In a cluster, choose <C>SUB-WORKER</C> for a disposable reviewer that
           writes a markdown artifact, or choose a cluster member to send the
           review task as a real turn in that member&apos;s chat.

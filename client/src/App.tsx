@@ -1,3 +1,4 @@
+import { memberReviewScopeSupported, MEMBER_REVIEW_SCOPE_REASON } from './utils/memberReviewScope';
 import { requestVoicePanel } from './voice/panels';
 import { CatchMeUp } from './components/CatchMeUp';
 import './components/Home/home.css';
@@ -508,6 +509,7 @@ function AppBody() {
     contextRef: import('@arco/shared').ReviewContextRef,
     includeGitDiff: boolean,
   ): string | null => {
+    if (!memberReviewScopeSupported(contextRef)) return null;
     const store = useAppStore.getState();
     const targetJob = store.jobs[targetWfid];
     if (!targetJob) return null;
@@ -787,7 +789,7 @@ ${scopeBody}
                 const cid = activeClusterIdForWorkflow(targetWfid);
                 if (!cid) return;
                 const content = buildClusterReviewTask(targetWfid, contextRef, includeGitDiff);
-                if (!content) return;
+                if (!content) { pushNotification('error', MEMBER_REVIEW_SCOPE_REASON); return; }
                 // Dispatch as a real user message so the reviewer starts a
                 // turn immediately. peer_send was wrong here — it stuffs the
                 // mailbox without waking the worker; with auto-pickup off the

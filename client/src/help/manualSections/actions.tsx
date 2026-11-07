@@ -45,7 +45,7 @@ export const actions: Section[] = [
     body: (
       <>
         <p>An expanded review waits for completion before reading its report. The completed report appears without closing and reopening the row; a successful read clears an earlier read error.</p>
-<p>
+        <p>Review via member supports recent-turn scopes only. Plan, full-history, current-session, checkpoint and Git-diff scopes require SUB-WORKER.
           Review spawns an ephemeral second-opinion worker over a turn slice or
           plan content and writes a read-only artifact. Click the{' '}
           <Code>✎ REVIEW</Code> button in the composer action bar to open the

@@ -2041,24 +2041,21 @@ export const clusters: Section[] = [
   </p>
   <ul>
   <li>
-  <strong>Cluster-plan reviews</strong> - the picker{' '}
-  <strong>includes the current tab</strong> as a routing anchor.
-  The cluster plan body is shared across the cluster; any member
-  can review it.
+  <strong>Plan and saved-history scopes</strong> - cluster plans, worker
+  plans, full history, current session, checkpoint slices and Git diff require{' '}
+  <Code>SUB-WORKER</Code>. Member choices are disabled with the reason.
   </li>
   <li>
-  <strong>Transcript-scoped reviews</strong> (Last turn / Last N /
-  Full / git diff) - the picker <strong>excludes the current
-  tab</strong>; the current tab IS the target being reviewed.
+  <strong>Last turn and Last N</strong> - another member can review the selected
+  recent content from the retained conversation. The current target is excluded.
   </li>
   <li>
-  <Code>GIT DIFF ONLY</Code> scope auto-falls-back to{' '}
-  <Code>SUB-WORKER</Code> - the diff lives on the server, not in
-  chat, so a peer-routed dispatch would send an empty payload.
+  Choosing an unsupported scope after selecting a member returns the dialog to{' '}
+  <Code>SUB-WORKER</Code> before dispatch.
   </li>
   </ul>
   <p>
-  Two mode-specific prompts under the hood:
+  Plan modes remain available through SUB-WORKER:
   </p>
   <ul>
   <li>
@@ -2075,8 +2072,7 @@ export const clusters: Section[] = [
   </li>
   </ul>
   <p>
-  The review task includes the operator-anchored content (plan
-  body for plan scopes; transcript slice for transcript scopes)
+  A member review task includes the selected recent transcript
   and an explicit instruction:{' '}
   <em>"Produce your full review inline in your reply. Do NOT
   send it to any peer - the operator will decide who needs the
@@ -2085,7 +2081,7 @@ export const clusters: Section[] = [
   member routing decisions.
   </p>
   <Note kind="warn">
-  Cluster-routed reviews <strong>do NOT</strong> write a{' '}
+  Member-routed reviews <strong>do NOT</strong> write a{' '}
   <Code>.md</Code> artifact or land in the cluster REVIEWS tab:
   findings live in the reviewer&apos;s chat. Use{' '}
   <Code>→ TRANSCRIPT</Code> to forward them to a director or
@@ -2095,9 +2091,7 @@ export const clusters: Section[] = [
   Under the hood the dispatch uses <Code>sendMessage</Code>, not{' '}
   <Code>operator_peer_send</Code> - the reviewer needs to start a
   turn immediately. A peer-mailbox queue with AUTO-PICKUP off
-  would leave the task in limbo. The MODE row in the dialog is
-  locked (no toggle pill mid-dialog) - the mode is determined by
-  which PLAN-tab button was clicked.
+  would leave the task in limbo. Plan reviews use SUB-WORKER and keep their VERIFY or CRITIQUE mode choice.
   </Note>
   </>
   ),

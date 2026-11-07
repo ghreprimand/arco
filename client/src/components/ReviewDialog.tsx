@@ -1,3 +1,4 @@
+import { memberReviewScopeSupported, MEMBER_REVIEW_SCOPE_REASON } from '../utils/memberReviewScope';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { DEFAULT_CODEX_MODEL } from '@arco/shared';
 import type { ProviderName, ModelName, EffortLevel, ReviewContextRef, PlanReviewMode } from '@arco/shared';
@@ -139,10 +140,10 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
   // member, so the dispatch doesn't silently send an empty payload.
   const usingMember = reviewerKind !== 'sub-worker';
   useEffect(() => {
-    if (!isScopeLocked && scopeKind === 'git-diff' && usingMember) {
+    if (usingMember && !memberReviewScopeSupported(buildContextRef())) {
       setReviewerKind('sub-worker');
     }
-  }, [scopeKind, isScopeLocked, usingMember]);
+  }, [scopeKind, isScopeLocked, usingMember, prefilledPlanRef, prefilledSinceEventRef]);
 
   const buildContextRef = (): ReviewContextRef => {
     if (prefilledPlanRef) {
@@ -223,6 +224,7 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
           <span data-help="review.run" style={{ display: 'inline-flex' }}>
             <Btn
               primary
+              disabled={usingMember && !memberReviewScopeSupported(buildContextRef())}
               onClick={() => {
                 const ref = buildContextRef();
                 const diff = !isScopeLocked && scopeKind === 'git-diff' ? false : includeGitDiff;
@@ -251,14 +253,15 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
                 SUB-WORKER
               </Pill>
               {clusterPeers.map((m) => {
-                const disabled = !isScopeLocked && scopeKind === 'git-diff';
+                const disabled = !memberReviewScopeSupported(buildContextRef());
                 return (
                   <Pill
                     key={m.workflowId}
                     active={reviewerKind === m.workflowId}
                     onClick={() => { if (!disabled) setReviewerKind(m.workflowId); }}
                     small
-                    title={disabled ? 'git-diff scope only works with sub-worker (server-side diff)' : `Send the review task to ${m.displayName} as a peer message`}
+                    disabled={disabled}
+                    title={disabled ? MEMBER_REVIEW_SCOPE_REASON : `Send the review task to ${m.displayName} as a peer message`}
                   >
                     {m.displayName.toUpperCase()}
                   </Pill>
@@ -269,6 +272,7 @@ export function ReviewDialog({ primary, onConfirm, onCancel, prefilledPlanRef, p
               className="display-font"
               style={{ marginTop: '4px', fontSize: '9px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px', lineHeight: 1.5 }}
             >
+              {!memberReviewScopeSupported(buildContextRef()) && <span>{MEMBER_REVIEW_SCOPE_REASON} </span>}
               {usingMember
                 ? 'Cluster member does the review as a normal visible turn: output streams to their chat + activity. No artifact file; findings live in the member\'s chat.'
                 : 'One-shot disposable sub-worker (the default). Writes a `.md` artifact; surfaces in the REVIEWS tab.'}
@@ -582,10 +586,12 @@ function Btn({
   onClick,
   children,
   primary,
-}: { onClick: () => void; children: React.ReactNode; primary?: boolean }) {
+  disabled,
+}: { onClick: () => void; children: React.ReactNode; primary?: boolean; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className="display-font"
       style={{
         padding: '6px 14px',
