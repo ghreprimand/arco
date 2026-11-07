@@ -9,7 +9,7 @@ import type { WorkerConfig } from '@arco/shared';
 
 process.env.ARCO_STRATA_PROFILES = join(tmpdir(), `arco-no-strata-profiles-${process.pid}.json`);
 
-const model = 'qwen3.8-flash-next-iq3_xxs-262k';
+const model = 'fixture-model';
 const discovery = (vision = true) => new Response(JSON.stringify({ data: [{ id: model,
   meta: { n_ctx: 262144 }, architecture: { input_modalities: vision ? ['text', 'image'] : ['text'] },
 }] }));

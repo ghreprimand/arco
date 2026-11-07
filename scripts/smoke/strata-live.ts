@@ -1,4 +1,5 @@
 // Opt-in live acceptance: a running Strata + SearXNG and a throwaway Arco.
+// STRATA_SMOKE_MODEL must name the model.
 // ARCO_SMOKE_WS_URL=ws://localhost:3099/ws npm run smoke:strata-live
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,10 +7,11 @@ import { join } from 'node:path';
 import { connect, assert } from './lib.js';
 
 async function main() {
+const model = process.env.STRATA_SMOKE_MODEL ?? '';
+assert(model.length > 0, 'STRATA_SMOKE_MODEL names the model');
 const c = await connect();
 const ids: string[] = [];
 const artifactDir = process.env.STRATA_SMOKE_ARTIFACTS || mkdtempSync(join(tmpdir(), 'arco-strata-live-'));
-const model = process.env.STRATA_SMOKE_MODEL || 'qwen3.8-flash-next-iq3_xxs-262k';
 const events: unknown[] = [];
 async function create(kind: 'chat' | 'workflow') {
   c.send({ type: 'create_workflow', config: { kind, name: `Strata ${kind} acceptance`, primaryProvider: 'strata', primaryModel: model, primaryEffort: 'none', workingDirectory: kind === 'chat' ? '' : artifactDir, skipPermissions: kind !== 'chat', chatWebAccess: true } });
