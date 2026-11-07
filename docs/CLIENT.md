@@ -419,7 +419,7 @@ App
     ├── WorkerDetailModal
     ├── ArtifactModal
     ├── ConversationMenu
-    ├── TabContextMenu      (right-click on a Native Claude tab; "Add to cluster with...")
+    ├── TabContextMenu      (right-click on a cluster-capable tab: Claude, Codex, Cursor, Ollama, llama.cpp)
     ├── ProviderReleasesModal (in-app Ollama/Strata releases and Xolotl source history)
     ├── FloatingTerminalWindow (Workbench/; renders N operator-PTY windows, each a draggable/resizable overlay)
     ├── SyncingOverlay
@@ -1066,7 +1066,7 @@ ClusterTab (App.tsx routes here when activeClusterId set)
 
 **AUTO-PICKUP control.** Operator-armed per-cluster chip in `ClusterRightPanel`'s header, next to the MAIL ALERTS chip. Default Off. The dialog sets a mode through `cluster_auto_pickup_set`: Off, Rule-based (recommended), Smart: Observe-only, or Smart: Automatic. Rule-based uses the detector in `server/src/clusterAutoTurn.ts` with acknowledgement filtering and adjustable wake-budget guards. Smart modes ask an operator-chosen evaluator (Claude Native, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata, or DeepSeek through Xolotl) through `server/src/smartPickup*.ts`. Older clients and the remote console still send `cluster_auto_turn_toggle`; `enabled: true` maps to Rule-based and `false` to Off. Distinct from the idle nudger: the nudger is toast-only and never sends prompts to workers; AUTO-PICKUP can dispatch turns when Rule-based or Smart Automatic is armed. See [PROTOCOL_CLUSTER.md](PROTOCOL_CLUSTER.md) and [SETTINGS.md](SETTINGS.md#auto-pickup).
 
-**Tab strip.** `TabBar.tsx` renders cluster tabs after all workflow tabs with a `[N]` member-count badge. Right-click on any Native Claude tab opens `TabContextMenu` (a new component scoped to this single use) with "Add to cluster with..." + a multi-select checkbox list of other Native Claude tabs in the same cwd. Confirm dispatches `cluster_create`. × on a cluster tab confirms tear-down via `cluster_delete`.
+**Tab strip.** `TabBar.tsx` renders cluster tabs after all workflow tabs with a `[N]` member-count badge. Right-click on a cluster-capable tab (`isClusterMemberProvider`: Claude, Codex, Cursor, Ollama, llama.cpp) opens `TabContextMenu` with CREATE WITH EXISTING (a multi-select list of other cluster-capable tabs in the same cwd), ADD TO EXISTING and CREATE WITH FRESH; other providers get a refusal naming the accepted ones. Confirm dispatches `cluster_create`. × on a cluster tab confirms tear-down via `cluster_delete`.
 
 ### Tab bar layout (slice 6a)
 

@@ -49,6 +49,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Remote start, stop and restart of a macOS package install address its `arco-workbench` LaunchAgent and the signed-in user, and a remote stop no longer prevents the next start. A macOS SSH target needs `uid`.
+- Armed Creative mode in the GENESIS tab always shows DISARM, also on small projects and after a reload.
+- Cursor tabs can make or join a cluster from the tab right-click menu, and the refusal for other providers names the providers clusters accept.
+- The backup script's usage text shows how it is run (`npx tsx scripts/arco-backup.ts` in a source checkout); there is no `arco backup` command.
 - BELL and matching desktop and phone alerts name the tab, or the member and cluster. Hover over a shortened BELL notice to read it in full.
 
 - Cluster creation leaves the director plan draft option off by default. Public-project choices are available in plan review and editing, Genesis and the plans library, and are saved per project for agent-created plans.

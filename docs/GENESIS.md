@@ -150,8 +150,9 @@ store move, no cwd rebind, no `git init`, no `gh`. Broadcasts `genesis_scaffolde
 diverging direction forks into a fresh tab rather than continuing in the populated workflow.
 
 **Surface (client):** the `GENESIS` tab is shown for any real-cwd workflow. Unarmed it shows the
-**ARM CREATIVE MODE** panel; armed it shows the established-codebase warning + a **DISARM** button
-+ the seed editor + **CREATE ALTERNATIVE** (writes into `ALTERNATIVE/`, no parent-folder / GitHub
+**ARM CREATIVE MODE** panel; armed it shows a **DISARM** button (with the established-codebase
+warning above it when the arming assessment produced one; the assessment is not stored, so after a
+reload the box shows only CREATIVE MODE ARMED and DISARM), the seed editor and **CREATE ALTERNATIVE** (writes into `ALTERNATIVE/`, no parent-folder / GitHub
 inputs). Covered by `npm run smoke:genesis-scaffold` (codebase assessment, context snapshot,
 sibling-dir write leaves the project untouched) and `npm run smoke:genesis-engine` (projectContext
 folds in only when `creative`).

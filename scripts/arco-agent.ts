@@ -46,6 +46,8 @@ import { arcoHome } from '../server/src/arcoHome.js';
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_NAME = 'arco-agent.service';
 const isMac = process.platform === 'darwin';
+// launchctl addresses this user's GUI domain (gui/<uid>/<label>).
+const localRenderOptions = () => (typeof process.getuid === 'function' ? { uid: process.getuid() } : {});
 
 function unitDir(): string {
   const xdg =
@@ -231,7 +233,7 @@ function doSelftest(): number {
       fail(`${cmd}: valid signed command failed verification (${v.failure})`);
       continue;
     }
-    const spec = renderLifecycleCommand(cmd, platform);
+    const spec = renderLifecycleCommand(cmd, platform, localRenderOptions());
     if (platform === 'linux' && !spec) fail(`${cmd}: no allowlist template on linux`);
     else ok(`${cmd}: signed→verified${spec ? `→ ${spec.cmd} ${spec.args.join(' ')}` : ' (no template on this platform)'}`);
   }
@@ -289,6 +291,7 @@ async function doRun(args: AgentArgs): Promise<number> {
     instance,
     publicKeyPem,
     runner: systemctlRunner(),
+    render: localRenderOptions(),
     nonceStore: new NonceStore(),
     log: (m) => console.log(`[arco-agent] ${m}`),
   });

@@ -1,4 +1,4 @@
-// docs/ARCHITECTURE.md - pure archive (de)serializer for `arco backup`.
+// docs/ARCHITECTURE.md - pure archive (de)serializer for `scripts/arco-backup.ts`.
 //
 // Dependency-free, pure-node, REGULAR-FILES-ONLY container. NO tar, NO new npm
 // dep. Rationale (plan §F1): the format must "manifest-based, not 'tar a dir'",

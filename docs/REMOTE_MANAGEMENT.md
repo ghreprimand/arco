@@ -168,8 +168,12 @@ Platform templates (versioned with Arco, platform-specific):
 
 - **Linux** -> `systemctl --user {status,start,stop,restart} arco`, `journalctl --user -u arco -n 200
   --no-pager`. (These commands reuse the existing `arco service` controls.)
-- **macOS** -> `launchctl print|kickstart -k|bootout gui/$UID/com.arco.app`, `tail -n 200
-  ~/Library/Logs/Arco/arco.log`. (launchd unit is a later add; manual wrapper documented meanwhile.)
+- **macOS** -> status `launchctl print`, start `launchctl kickstart`, stop `launchctl kill SIGTERM`
+  and restart `launchctl kickstart -k`, each on `gui/<uid>/arco-workbench`, the LaunchAgent that
+  `arco service install` writes. These are the commands `arco service` itself uses, so a stopped job
+  stays loaded and can be started again. The agent fills in its own user id. A hand-maintained
+  source-checkout job with another label needs `macLabel` in the hub's SSH target. Log tail and agent
+  self-restart are not available on macOS.
 
 The agent and its signed-command verifier can be tested without a live hub. Generate the hub signing key with `npm run arco:management -- keygen`, provision
 the public key to each agent, and configure `ARCO_HUB_URL` for both the service
@@ -198,7 +202,8 @@ allowlisted command as an argv array. It never builds a shell command string.
 When the agent is offline, `sendLifecycleCommand` uses an explicitly configured
 SSH target. SSH targets are stored in `~/.arco/hub/ssh-targets.json` and are not
 committed. The target includes the host, platform, optional user, and service
-unit overrides. `npm run smoke:ssh-lifecycle` checks the renderer with a fake
+unit overrides. A macOS target also needs `uid`, the remote account's numeric
+user id (`id -u` on that Mac); without it the hub runs nothing for that host. `npm run smoke:ssh-lifecycle` checks the renderer with a fake
 command runner. SSH commands are not signed by the agent; access depends on the
 configured private-network SSH identity and the fixed command allowlist.
 

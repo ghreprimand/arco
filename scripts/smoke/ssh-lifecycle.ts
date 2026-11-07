@@ -60,10 +60,12 @@ async function main() {
   });
 
   await step('renderSshLifecycle honors user@host + returns null off-platform', () => {
-    const withUser = renderSshLifecycle({ host: 'mac', user: 'operator', platform: 'macos' }, 'arco.restart');
+    const withUser = renderSshLifecycle({ host: 'mac', user: 'operator', platform: 'macos', uid: 501 }, 'arco.restart');
     assert(withUser !== null, 'macos restart renders');
     assert(withUser!.args.includes('operator@mac'), 'user@host destination');
-    assertEq(withUser!.args.slice(withUser!.args.indexOf('--') + 1).join(' '), 'launchctl kickstart -k gui/0/com.arco.app', 'mac restart template');
+    assertEq(withUser!.args.slice(withUser!.args.indexOf('--') + 1).join(' '), 'launchctl kickstart -k gui/501/arco-workbench', 'mac restart template');
+    // macOS needs the remote user id to address its launchd domain, so null without it
+    assertEq(renderSshLifecycle({ host: 'mac', platform: 'macos' }, 'arco.restart'), null, 'mac target without uid gives null');
     // agent self-restart is unsupported on macOS in v1 → null
     assertEq(renderSshLifecycle({ host: 'mac', platform: 'macos' }, 'arco-agent.restart'), null, 'off-platform → null');
   });

@@ -6,8 +6,11 @@ captured, what was intentionally skipped, and what was redacted. The manifest is
 the contract: every regular file in the archive is described by it, and nothing
 is silently included or dropped.
 
-Backup and restore use three operations: **`snapshot`, `verify`, and `restore`**,
-all shipped. See [Restore](#restore).
+Backup and restore use three operations: **`snapshot`, `verify`, and `restore`**.
+See [Restore](#restore). They run from a source checkout after `npm install`.
+The npm package does not include the script, and the `arco` command has no
+`backup` subcommand. For a package install, set `ARCO_HOME` to that install's
+home (default `~/.arco`) and run the commands from a source checkout.
 
 ```sh
 npx tsx scripts/arco-backup.ts snapshot [--out FILE]

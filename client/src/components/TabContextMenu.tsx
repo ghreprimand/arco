@@ -20,12 +20,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { clusterDisplayName } from './TabBar';
-import { DEFAULT_CODEX_MODEL } from '@arco/shared';
+import { DEFAULT_CODEX_MODEL, isClusterMemberProvider } from '@arco/shared';
 import type { ClusterMemberProvider } from '@arco/shared';
 import { effortsForModel } from '../utils/format';
 import { modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
 
 type Mode = 'create-existing' | 'add-existing' | 'create-fresh';
+
+export const CLUSTER_PROVIDER_REFUSAL = 'Clusters accept Claude, Codex, Cursor, Ollama and llama.cpp tabs. This tab uses another provider, which cannot receive the cluster peer tools.';
 
 interface Props {
   // The tab the operator right-clicked.
@@ -73,8 +75,9 @@ export function TabContextMenu({
     [settings],
   );
 
-  const isClusterProvider = (provider: string): provider is ClusterMemberProvider =>
-    provider === 'claude' || provider === 'codex' || provider === 'ollama' || provider === 'llamacpp';
+  // The server's own list (CLUSTER_MEMBER_PROVIDERS), so the menu never
+  // refuses a tab the server would accept.
+  const isClusterProvider = isClusterMemberProvider;
 
   // Candidate same-cwd tabs whose providers can receive cluster peer tools.
   const existingCandidates = useMemo(() => {
@@ -286,12 +289,12 @@ export function TabContextMenu({
 
         {!anchorIsNative ? (
           <div style={{ color: 'var(--color-warning)', padding: '12px 0' }}>
-            Clusters accept only Claude or Codex tabs today. Ollama / llama.cpp have no MCP wiring path.
+            {CLUSTER_PROVIDER_REFUSAL}
           </div>
         ) : mode === 'create-existing' ? (
           existingCandidates.length === 0 ? (
             <div style={{ color: 'var(--color-fg-muted)', padding: '12px 0' }}>
-              No other Claude/Codex tabs in this cwd. Open a second compatible tab in <span style={{ color: 'var(--color-fg)' }}>{anchor.config.workingDirectory}</span> first, or switch to CREATE WITH FRESH.
+              No other Claude, Codex, Cursor, Ollama or llama.cpp tabs in this cwd. Open a second compatible tab in <span style={{ color: 'var(--color-fg)' }}>{anchor.config.workingDirectory}</span> first, or switch to CREATE WITH FRESH.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '320px', overflowY: 'auto' }}>

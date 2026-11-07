@@ -300,6 +300,15 @@ codex exec resume <thread-id> "next prompt"
   resume across sessions. Scaffolding creates files on disk and needs your
   confirmation.
   </Note>
+  <Sub>Creative mode in an existing project</Sub>
+  <p>
+  On any tab with a real project folder, the <Code>GENESIS</Code> tab offers{' '}
+  <Code>ARM CREATIVE MODE</Code> to explore an alternative direction. Creative mode
+  never edits the project: <Code>CREATE ALTERNATIVE</Code> writes into a sibling{' '}
+  <Code>ALTERNATIVE/</Code> folder with its own plan. An established codebase shows a
+  warning when you arm. <Code>DISARM</Code> is shown whenever Creative mode is armed;
+  it returns the tab to normal turns and keeps the idea fields.
+  </p>
   </>
   ),
   },

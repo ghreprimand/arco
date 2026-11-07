@@ -141,8 +141,9 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         alternative direction. Arming snapshots the current project as grounding
         context (it's never invented). Creative mode never edits your project: a
         scaffold lands in a sibling <C>ALTERNATIVE/</C> folder with its own plan,
-        and an established codebase shows a warning. If the idea diverges, use
-        <C>SPAWN</C> to fork it into a fresh tab.
+        and an established codebase shows a warning. <C>DISARM</C> is shown
+        whenever Creative mode is armed and keeps the idea fields. If the idea
+        diverges, use <C>SPAWN</C> to fork it into a fresh tab.
       </p>
     ),
     manualSection: 'genesis-workflow',

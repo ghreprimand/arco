@@ -340,7 +340,8 @@ function sanitizeDefaultProjectTrust(raw: unknown): 'ask' | 'always' | 'never' |
 }
 
 // Part N2 — Media Studio access fence. Boolean-only; anything else reads as
-// undefined (the consumer treats undefined as open: `mediaUnconfined !== false`).
+// undefined, and the consumers treat undefined as confined: only
+// `mediaUnconfined === true` opens access outside the project folder.
 function sanitizeMediaUnconfined(raw: unknown): boolean | undefined {
   return typeof raw === 'boolean' ? raw : undefined;
 }

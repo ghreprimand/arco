@@ -368,7 +368,7 @@ export function SpawnDialog({ parentConfig, parentPlanTitle, initialDirection, i
                 cursor: canJoinCluster ? 'pointer' : 'not-allowed',
                 opacity: canJoinCluster ? 1 : 0.55,
               }}
-              title={canJoinCluster ? undefined : 'Cluster membership is Claude or Codex only today (Ollama / llama.cpp have no MCP wiring path).'}
+              title={canJoinCluster ? undefined : 'Spawning into a cluster is available for Claude and Codex only. Cursor, Ollama and llama.cpp tabs join a cluster from the tab right-click menu.'}
             >
               <input
                 type="checkbox"

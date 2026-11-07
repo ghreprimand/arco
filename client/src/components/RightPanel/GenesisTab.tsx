@@ -316,11 +316,13 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
         )}
       </div>
 
-      {/* M3 — established-codebase warning (the operator's stated late-stage guardrail) */}
-      {creative && codebase?.warning && (
-        <div data-help="rightpanel.genesis.creative" style={{ border: '1px solid var(--color-warning)', borderRadius: '6px', padding: '10px 12px', background: 'var(--color-warning-a08, transparent)' }}>
-          <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-warning)', marginBottom: '5px' }}>ESTABLISHED CODEBASE</div>
-          <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>{codebase.warning}</div>
+      {/* M3 - Creative mode box: DISARM whenever armed; the established-codebase
+          warning only when the arming assessment produced one (it is not stored,
+          so it is gone after a reload). */}
+      {creative && (
+        <div data-help="rightpanel.genesis.creative" data-testid="genesis-creative-armed" style={{ border: `1px solid ${codebase?.warning ? 'var(--color-warning)' : 'var(--color-border-hairline)'}`, borderRadius: '6px', padding: '10px 12px', background: codebase?.warning ? 'var(--color-warning-a08, transparent)' : 'transparent' }}>
+          <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: codebase?.warning ? 'var(--color-warning)' : 'var(--color-accent-secondary)', marginBottom: '5px' }}>{codebase?.warning ? 'ESTABLISHED CODEBASE' : 'CREATIVE MODE ARMED'}</div>
+          <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>{codebase?.warning ?? 'Ideas land in an ALTERNATIVE folder; this project is not edited. DISARM returns the tab to normal turns and keeps the idea fields.'}</div>
           <button
             onClick={() => onCreativeArm?.(job.id, true)}
             style={{ marginTop: '8px', padding: '4px 10px', background: 'transparent', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', color: 'var(--color-fg-muted)', cursor: 'pointer', fontFamily: 'var(--font-display)', fontSize: '10px', letterSpacing: '2px' }}

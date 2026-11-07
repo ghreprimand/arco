@@ -1138,7 +1138,8 @@ export const miscHelp: Record<string, HelpEntry> = {
         TIER, FOCUS and ACCESS, the same as ADD WORKER. They start empty; the source's
         role is not copied. DIRECTOR is unavailable when the cluster already has one.
         FOCUS starts as the first line of NEW DIRECTION until you edit it, and the name
-        defaults to the role plus the next free number.
+        defaults to the role plus the next free number. Spawning into a cluster is
+        available when the new tab uses Claude or Codex.
       </p>
     ),
     manualSection: 'cluster-plan',

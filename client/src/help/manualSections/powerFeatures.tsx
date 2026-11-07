@@ -149,7 +149,8 @@ export const powerFeatures: Section[] = [
   parent session. The dialog tells you to choose fresh-summarizer if the cutoff
   matters. Inside a cluster, ticking "Spawn into cluster" adds the ROLE, TIER,
   FOCUS and ACCESS fields from ADD WORKER so the new tab joins as a described
-  member.
+  member. Spawning into a cluster is available when the new tab uses Claude or
+  Codex; Cursor, Ollama and llama.cpp tabs join from the tab right-click menu.
   </li>
   <li>
   <strong>REWIND CONVERSATION</strong> (Claude Native only) moves the live

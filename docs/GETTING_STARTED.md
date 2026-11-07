@@ -367,8 +367,11 @@ Do not add runtime state folders to source control. See
 
 ## Back up Arco state
 
-From the repository root, create and verify an archive before storing it in a
-separate location:
+From the root of a source checkout, create and verify an archive before
+storing it in a separate location. The npm package does not include the backup
+script and the `arco` command has no `backup` subcommand; for a package install,
+run these commands from a source checkout (default home `~/.arco`, or set
+`ARCO_HOME`).
 
 ```bash
 npx tsx scripts/arco-backup.ts snapshot --out "$HOME/arco-backup.arcobk"

@@ -98,13 +98,14 @@ export const clusters: Section[] = [
   <h4 className="manual-sub">Creating a cluster</h4>
   <p>
     Right-click any compatible tab
-  (Claude or Codex pinned to a cwd that is not already part of a
-  cluster). The context menu offers three modes:
+  (Claude, Codex, Cursor, Ollama or llama.cpp pinned to a cwd that is not
+  already part of a cluster). Other providers cannot receive the cluster peer
+  tools, and the menu says so. The context menu offers three modes:
   </p>
   <ul>
   <li>
   <strong>CREATE WITH EXISTING</strong> - multi-pick other same-cwd
-  Claude/Codex tabs to gather into a new cluster around the anchor.
+  tabs of those providers to gather into a new cluster around the anchor.
   </li>
   <li>
   <strong>CREATE WITH FRESH</strong> - spawn N (1-4) new workflows

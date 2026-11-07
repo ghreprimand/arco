@@ -14,7 +14,7 @@ function testsIn(directory) {
     return entry.isFile() && /\.test\.(?:[cm]?js|tsx?)$/.test(entry.name) ? [path] : [];
   });
 }
-const files = ['shared/src', 'server/src', 'client/src', 'scripts/release', 'scripts/updater', 'scripts/packaging'].flatMap(path => testsIn(join(root, path))).concat(join(root, 'scripts/public-audit.test.mjs'), join(root, 'scripts/smoke/onboarding-ui.test.tsx')).sort();
+const files = ['shared/src', 'server/src', 'client/src', 'scripts/release', 'scripts/updater', 'scripts/packaging', 'scripts/agent', 'scripts/backup'].flatMap(path => testsIn(join(root, path))).concat(join(root, 'scripts/public-audit.test.mjs'), join(root, 'scripts/smoke/onboarding-ui.test.tsx')).sort();
 if (!files.length) throw new Error('No unit tests discovered.');
 const sandbox = mkdtempSync(join(tmpdir(), 'arco-unit-'));
 try {

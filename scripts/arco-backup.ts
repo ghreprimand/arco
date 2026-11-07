@@ -1,5 +1,5 @@
 #!/usr/bin/env -S npx tsx
-// docs/ARCHITECTURE.md F3 - `arco backup snapshot` + `verify` + `restore`.
+// docs/ARCHITECTURE.md F3 - `npx tsx scripts/arco-backup.ts snapshot|verify|restore` (source checkouts only; the arco command has no backup subcommand).
 //
 // Produces a single-file, dependency-free archive of Arco's VALUABLE state
 // under ~/.arco plus a truthful manifest stating exactly what it captured and
@@ -86,7 +86,7 @@ function parseSnapshotArgs(argv: string[]): SnapshotArgs {
 function snapshotUsage(): void {
   console.log(
     [
-      'Usage: arco backup snapshot [--out FILE]',
+      'Usage: npx tsx scripts/arco-backup.ts snapshot [--out FILE]',
       '',
       'Write a dependency-free, regular-files-only snapshot of Arco state',
       `under ${redactHome(arcoHome())} plus a truthful manifest.`,
@@ -112,7 +112,7 @@ async function doSnapshot(argv: string[]): Promise<number> {
     return 0;
   }
   if (args.unknown.length > 0) {
-    console.error(`[arco backup] unrecognized argument(s): ${args.unknown.join(' ')}`);
+    console.error(`[arco-backup] unrecognized argument(s): ${args.unknown.join(' ')}`);
     snapshotUsage();
     return 2;
   }
@@ -139,9 +139,9 @@ async function doSnapshot(argv: string[]): Promise<number> {
   await mkdir(dirname(outPath), { recursive: true });
   await writeFile(outPath, buf);
 
-  console.log(`[arco backup] wrote ${redactHome(outPath)}`);
+  console.log(`[arco-backup] wrote ${redactHome(outPath)}`);
   console.log(
-    `[arco backup] ${manifest.fileCount} file(s), ${manifest.totalBytes} bytes captured; ` +
+    `[arco-backup] ${manifest.fileCount} file(s), ${manifest.totalBytes} bytes captured; ` +
       `${manifest.skipped.length} entr(y/ies) skipped; ${manifest.redactions.length} redaction(s).`,
   );
   return 0;
@@ -168,7 +168,7 @@ function parseVerifyArgs(argv: string[]): VerifyArgs {
 function verifyUsage(): void {
   console.log(
     [
-      'Usage: arco backup verify <FILE>',
+      'Usage: npx tsx scripts/arco-backup.ts verify <FILE>',
       '',
       'Validate a backup archive against its OWN manifest BEFORE any restore.',
       'This is the mandatory gate before `restore` (F3): a tampered, truncated, or',
@@ -195,12 +195,12 @@ async function doVerify(argv: string[]): Promise<number> {
     return 0;
   }
   if (args.unknown.length > 0) {
-    console.error(`[arco backup] unrecognized argument(s): ${args.unknown.join(' ')}`);
+    console.error(`[arco-backup] unrecognized argument(s): ${args.unknown.join(' ')}`);
     verifyUsage();
     return 2;
   }
   if (!args.file) {
-    console.error('[arco backup] verify requires an archive file path');
+    console.error('[arco-backup] verify requires an archive file path');
     verifyUsage();
     return 2;
   }
@@ -210,7 +210,7 @@ async function doVerify(argv: string[]): Promise<number> {
   try {
     buf = await readFile(filePath);
   } catch (err) {
-    console.error(`[arco backup] cannot read ${redactHome(filePath)}: ${(err as Error).message}`);
+    console.error(`[arco-backup] cannot read ${redactHome(filePath)}: ${(err as Error).message}`);
     return 2;
   }
 
@@ -220,7 +220,7 @@ async function doVerify(argv: string[]): Promise<number> {
     const { manifest } = readArchive(buf);
     console.log(`OK  ${redactHome(filePath)}`);
     console.log(
-      `[arco backup] verified: ${manifest.fileCount} file(s), ` +
+      `[arco-backup] verified: ${manifest.fileCount} file(s), ` +
         `arcoVersion ${manifest.arcoVersion}, created ${manifest.createdAt}.`,
     );
     return 0;
@@ -257,7 +257,7 @@ function parseRestoreArgs(argv: string[]): RestoreArgs {
 function restoreUsage(): void {
   console.log(
     [
-      'Usage: arco backup restore <FILE> --into <DIR> [--force-into-live]',
+      'Usage: npx tsx scripts/arco-backup.ts restore <FILE> --into <DIR> [--force-into-live]',
       '',
       'Verify-first, then manually extract the archive\'s REGULAR FILES into DIR.',
       'NON-DESTRUCTIVE BY DESIGN — restore never touches the live Arco home by',
@@ -304,17 +304,17 @@ async function doRestore(argv: string[]): Promise<number> {
     return 0;
   }
   if (args.unknown.length > 0) {
-    console.error(`[arco backup] unrecognized argument(s): ${args.unknown.join(' ')}`);
+    console.error(`[arco-backup] unrecognized argument(s): ${args.unknown.join(' ')}`);
     restoreUsage();
     return 2;
   }
   if (!args.file) {
-    console.error('[arco backup] restore requires an archive file path');
+    console.error('[arco-backup] restore requires an archive file path');
     restoreUsage();
     return 2;
   }
   if (!args.into) {
-    console.error('[arco backup] restore requires --into <DIR> (non-destructive: never the live home by default)');
+    console.error('[arco-backup] restore requires --into <DIR> (non-destructive: never the live home by default)');
     restoreUsage();
     return 2;
   }
@@ -324,12 +324,12 @@ async function doRestore(argv: string[]): Promise<number> {
   // Non-destructive default: refuse the live Arco home unless explicitly forced.
   if (isInsideLiveHome(targetRoot) && !args.forceIntoLive) {
     console.error(
-      `[arco backup] refusing to restore into the live Arco home (${redactHome(targetRoot)}).`,
+      `[arco-backup] refusing to restore into the live Arco home (${redactHome(targetRoot)}).`,
     );
     console.error(
-      '[arco backup] restore is non-destructive by design — choose a fresh --into DIR and move files',
+      '[arco-backup] restore is non-destructive by design — choose a fresh --into DIR and move files',
     );
-    console.error('[arco backup] yourself, or pass --force-into-live to override (discouraged).');
+    console.error('[arco-backup] yourself, or pass --force-into-live to override (discouraged).');
     return 1;
   }
 
@@ -337,8 +337,8 @@ async function doRestore(argv: string[]): Promise<number> {
   // merge into (or partially overwrite) a live tree. applyRestore also never
   // overwrites (wx), but refusing a pre-existing root is the louder, earlier gate.
   if (existsSync(targetRoot)) {
-    console.error(`[arco backup] --into target already exists: ${redactHome(targetRoot)}`);
-    console.error('[arco backup] choose a fresh directory so restore cannot merge into existing files.');
+    console.error(`[arco-backup] --into target already exists: ${redactHome(targetRoot)}`);
+    console.error('[arco-backup] choose a fresh directory so restore cannot merge into existing files.');
     return 1;
   }
 
@@ -347,14 +347,14 @@ async function doRestore(argv: string[]): Promise<number> {
   try {
     buf = await readFile(filePath);
   } catch (err) {
-    console.error(`[arco backup] cannot read ${redactHome(filePath)}: ${(err as Error).message}`);
+    console.error(`[arco-backup] cannot read ${redactHome(filePath)}: ${(err as Error).message}`);
     return 2;
   }
 
   // PURE plan: verify-first + path-safety + caps. Nothing has touched the fs yet.
   const plan = planRestore(buf, targetRoot);
   if (plan.aborted) {
-    console.error(`[arco backup] restore ABORTED: ${plan.aborted}`);
+    console.error(`[arco-backup] restore ABORTED: ${plan.aborted}`);
     for (const p of plan.problems) console.error(`  - ${p}`);
     return 1;
   }
@@ -363,9 +363,9 @@ async function doRestore(argv: string[]): Promise<number> {
   await mkdir(targetRoot, { recursive: true });
   const result = applyRestore(plan, targetRoot);
 
-  console.log(`[arco backup] restored into ${redactHome(targetRoot)}`);
+  console.log(`[arco-backup] restored into ${redactHome(targetRoot)}`);
   console.log(
-    `[arco backup] ${result.written.length} written, ` +
+    `[arco-backup] ${result.written.length} written, ` +
       `${result.skippedExisting.length} skipped (already existed), ` +
       `${result.rejected.length} rejected.`,
   );
@@ -380,7 +380,7 @@ async function doRestore(argv: string[]): Promise<number> {
 function topUsage(): void {
   console.error(
     [
-      'Usage: arco backup <command> [options]',
+      'Usage: npx tsx scripts/arco-backup.ts <command> [options]',
       '',
       'Commands:',
       '  snapshot                       write a state snapshot archive + manifest',
@@ -410,7 +410,7 @@ async function main(): Promise<void> {
       code = command === undefined ? 2 : 0;
       break;
     default:
-      console.error(`[arco backup] unknown command: ${command}`);
+      console.error(`[arco-backup] unknown command: ${command}`);
       topUsage();
       code = 2;
   }

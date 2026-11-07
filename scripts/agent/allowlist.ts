@@ -19,16 +19,23 @@ export interface CommandSpec {
 
 export interface RenderOptions {
   // macOS launchctl targets are gui/<uid>/<label>; the uid is injected so this
-  // stays pure (no process.getuid() call inside). Ignored on Linux.
+  // stays pure (no process.getuid() call inside). Required on macOS: without it
+  // there is no user domain to address and every macOS command renders null.
+  // Ignored on Linux.
   uid?: number;
   // Unit/label overrides (defaults match the installed units). Kept for tests.
   arcoUnit?: string; // default 'arco.service'
   agentUnit?: string; // default 'arco-agent.service'
-  macLabel?: string; // default 'com.arco.app'
+  macLabel?: string; // default MAC_SERVICE_LABEL, the packaged LaunchAgent
   logLines?: number; // default 200 for logs.tail
 }
 
 const LINUX_LOG_DEFAULT = 200;
+
+// The label of the LaunchAgent that `arco service install` writes for package
+// installs (scripts/packaging/services.mjs). A hand-maintained source-checkout
+// job with another label is reached through the macLabel override.
+export const MAC_SERVICE_LABEL = 'arco-workbench';
 
 export function renderLifecycleCommand(
   command: LifecycleCommand,
@@ -61,25 +68,24 @@ export function renderLifecycleCommand(
   }
 
   if (platform === 'macos') {
-    const uid = opts.uid ?? 0;
-    const label = opts.macLabel ?? 'com.arco.app';
-    const target = `gui/${uid}/${label}`;
-    // macOS has no autostart in v1 (§13.3) — these still let a RUNNING agent
-    // drive a manually/launchd-launched Arco. Log path mirrors the documented
-    // ~/Library/Logs/Arco/arco.log (HOME-relative via tail's own expansion
-    // is unsafe in argv; the handler passes an absolute path — see agent.ts).
+    if (typeof opts.uid !== 'number' || !Number.isSafeInteger(opts.uid) || opts.uid < 0) return null;
+    const label = opts.macLabel ?? MAC_SERVICE_LABEL;
+    const target = `gui/${opts.uid}/${label}`;
+    // Same verbs as `arco service start|stop|status` on macOS: stop sends
+    // SIGTERM and leaves the job loaded, so a later start or restart can
+    // kickstart it again (bootout would unload it and kickstart would fail).
     switch (command) {
       case 'arco.status':
         return { cmd: 'launchctl', args: ['print', target] };
       case 'arco.start':
         return { cmd: 'launchctl', args: ['kickstart', target] };
       case 'arco.stop':
-        return { cmd: 'launchctl', args: ['bootout', target] };
+        return { cmd: 'launchctl', args: ['kill', 'SIGTERM', target] };
       case 'arco.restart':
         return { cmd: 'launchctl', args: ['kickstart', '-k', target] };
       case 'arco.logs.tail':
-        // Absolute log path is resolved by the caller and passed via macLogPath;
-        // when absent we cannot safely build a tilde path in argv, so skip.
+        // The package job logs under the Arco home and a hand-maintained job
+        // may log anywhere; no fixed path is safe to put in argv, so skip.
         return null;
       case 'arco-agent.status':
       case 'arco-agent.restart':
