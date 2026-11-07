@@ -1,5 +1,5 @@
 import type { Section } from '../../components/UserManual/manualTypes';
-import { Table, Note, Sub} from '../../components/UserManual/components';
+import { Code, Table, Note, Sub } from '../../components/UserManual/components';
 import { DocRef } from '../../components/help/DocRef';
 
 export const deepseekGuide: Section[] = [{
@@ -26,7 +26,7 @@ export const deepseekGuide: Section[] = [{
   ['Light', 'Routing biases 0.25 / 0.15 favor cached experts. Faster in local short tests, but changes expert selection and can change answers.'],
   ]} />
   <p>
-  The primary-agent selector reads XOLOTL - DeepSeek · Exact / Light. Both
+  The primary-agent selector reads <Code>XOLOTL: DeepSeek · Exact / Light</Code>. Both
   choices stay visible while their services are stopped.
   </p>
   <ol>
@@ -108,7 +108,8 @@ export const deepseekGuide: Section[] = [{
   <p>
   Runtime background:{' '}
   <a href="https://github.com/Indras-Mirror/Xolotl" target="_blank" rel="noopener noreferrer">Xolotl upstream</a>.
-  The setup script pins the revision that Arco installs.
+  Xolotl is installed separately; Arco does not distribute it, and the linked
+  documentation is pinned to one upstream revision.
   </p>
   <p>
   Upstream performance claims describe its own test setups; run your own

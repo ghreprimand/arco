@@ -553,7 +553,7 @@ export const powerFeatures: Section[] = [
   </p>
   <ul>
   <li>
-  <strong>5 MB output cap per turn.</strong> Beyond that, a truncation notice
+  <strong>50 MB output cap per turn</strong> (<Code>ARCO_MAX_WORKER_OUTPUT_BYTES</Code>). Beyond that, a truncation notice
   appears and the worker is forced to settle, so a runaway loop cannot fill
   memory with text.
   </li>

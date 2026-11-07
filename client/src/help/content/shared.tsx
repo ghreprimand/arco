@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
 // Hyphens are fine; prefer dotted-segments to keep the keyspace organized.
 //
 // Body content is JSX (typesafe; no dangerouslySetInnerHTML). Keep entries
-// short: 1–3 sentences plus optional bullet list. The Manual modal is the
+// short: 1-3 sentences plus optional bullet list. The Manual modal is the
 // long-form reference; this is the at-a-glance hint surface.
 
 export interface HelpEntry {

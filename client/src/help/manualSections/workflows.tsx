@@ -219,9 +219,8 @@ codex exec resume <thread-id> "next prompt"
   Fold runs manually with the <Code>⊞ FOLD</Code> button in the composer (between
   turns only). It can also run automatically: arm <strong>AUTO-FOLD (NATIVE)</strong>{' '}
   in the CONFIG pane and set a <Code>FOLD AT</Code> threshold. Auto-fold fires when
-  context pressure crosses that threshold, which is kept below the handoff{' '}
-  <Code>WARN</Code> threshold so the cheap trim happens before a handoff is
-  recommended.
+  context pressure crosses that threshold. A Fold is not counted as a
+  compaction for auto-handoff.
   </p>
   <Note kind="info">
   Fold and auto-fold are Claude Native only, and auto-fold is off by default

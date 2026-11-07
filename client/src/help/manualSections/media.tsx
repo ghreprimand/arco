@@ -33,7 +33,7 @@ export const media: Section[] = [
             the matching mode.
           </li>
           <li>
-            <strong>Empty</strong> - click <strong>MEDIA</strong> in the header
+            <strong>Empty</strong> - choose <strong>MEDIA</strong> in the header TOOLS menu
             or run <Code>Open Media studio</Code> from the command palette.
             Then <strong>Import</strong> a file by drag-drop or the file
             picker.
@@ -156,8 +156,8 @@ export const media: Section[] = [
         </p>
         <Note kind="warn">
           Saving <strong>outside the workflow folder</strong> needs
-          outside-folder access and an allowed folder in Settings, under MEDIA
-          ACCESS. By default, access is limited to the workflow folder,
+          outside-folder access and an allowed folder in Settings &gt; Files and
+          media &gt; Media folder access. By default, access is limited to the workflow folder,
           uploads and import scratch. Removing a folder or turning access off
           takes effect on the next request.
         </Note>

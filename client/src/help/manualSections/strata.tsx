@@ -112,8 +112,8 @@ export const strataGuide: Section[] = [
   </p>
   <Sub>FREE VRAM</Sub>
   <p>
-  <strong>FREE VRAM</strong> unloads loopback Ollama, Strata, managed
-  llama.cpp and LM Studio LLMs, including hidden providers. It skips remote
+  <strong>FREE VRAM</strong> unloads loopback Ollama, Strata, DeepSeek through
+  Xolotl, managed llama.cpp and LM Studio LLMs, including hidden providers. It skips remote
   endpoints and embeddings.
   </p>
   <ol>

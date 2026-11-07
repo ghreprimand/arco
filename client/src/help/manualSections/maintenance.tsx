@@ -255,7 +255,7 @@ export const maintenance: Section[] = [
   thinking is retained. Fable/Mythos 5.1 and Opus 5.5 keep thinking and an
   append-only request prefix.</p>
   <p><Code>updates</Code> is a request for short progress notes, not a
-  guarantee: the September 1 Fable 5.1 acceptance run emitted none. Check
+  guarantee: a Fable 5.1 acceptance run emitted none. Check
   Activity and worker status before treating silence alone as a failure. On
   Opus 5.5 prefer <Code>summarized</Code>: <Code>omitted</Code> also hides
   its short between-tool notes.</p>

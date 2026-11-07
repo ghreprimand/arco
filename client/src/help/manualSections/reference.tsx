@@ -21,6 +21,7 @@ export const reference: Section[] = [
   [<Kbd key="k">Ctrl/Cmd+K</Kbd>, 'Open the workflow creator in a new tab, when focus is outside a text field. Inside a composer, Ctrl+K deletes to end of line instead.'],
   [<Kbd key="p">Ctrl/Cmd+P</Kbd>, 'Open the command palette to search tabs, files, transcript and commands. Start with > to search file contents. Works from the composer; press again to close.'],
   [<Kbd key="q">Ctrl/Cmd+?</Kbd>, 'Open the keyboard-shortcut cheat sheet. Press again to close.'],
+  [<Kbd key="v">Ctrl/Cmd+Shift+Space</Kbd>, 'Turn hands-free voice on or off (local voice must be set up).'],
   [<Kbd key="t">t</Kbd>, 'In a GitHub repo CODE view, open Go-to-file (focus outside a text field).'],
   [<Kbd key="esc">Escape</Kbd>, 'Close the active modal (Settings, Manual, cheat sheet, Review dialog and so on). Also exits help mode.'],
   ]}
@@ -75,6 +76,7 @@ export const reference: Section[] = [
   rows={[
   [<Code key="ap">ARCO_PORT</Code>, '3001', 'Server HTTP/WS port.'],
   [<Code key="ah">ARCO_HOST</Code>, '127.0.0.1', 'Address the server binds to; keep loopback unless remote access is deliberate.'],
+  [<Code key="aah">ARCO_ALLOWED_HOSTS</Code>, '(unset)', 'Extra host names, comma-separated (*.example.com allowed), that the Host and Origin check accepts, for a reverse proxy or tunnel name.'],
   [<Code key="ahome">ARCO_HOME</Code>, '~/.arco', 'Arco home (settings, saved work, service files). The package service saves it at first install.'],
   [<Code key="uc">ARCO_UPDATE_CHECK</Code>, '(on)', 'Set to 0 to turn release checks off.'],
   [<Code key="lb">ARCO_LLAMACPP_BIN</Code>, '(PATH lookup)', 'Path to the llama-server executable (llama-server.exe on Windows).'],
@@ -131,8 +133,9 @@ arco version`}</Pre>
   the raw output files.
   </li>
   <li>
-  <Code>arco service refresh</Code> updates an older Arco Windows task
-  definition to the current one.
+  <Code>arco service refresh</Code> rewrites an older Linux service unit or
+  Windows task definition to the current one; other systems have nothing to
+  refresh.
   </li>
   </ul>
 
@@ -264,9 +267,10 @@ scripts/arco logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
   <Code>client/</Code>.
   </li>
   <li>
-  <strong>Server</strong> runs providers as CLI subprocesses (Claude, Codex),
-  in-process workers (Claude Native), HTTP clients (Ollama, llama.cpp,
-  LM Studio) or desktop RPC clients.
+  <strong>Server</strong> runs providers as CLI subprocesses (Claude CLI, Codex
+  exec), long-lived JSON-RPC subprocesses (Codex app-server, Cursor),
+  in-process workers (Claude Native) or HTTP clients (Ollama, llama.cpp,
+  LM Studio, Strata, DeepSeek through Xolotl).
   </li>
   <li>
   <strong>History</strong> - every workflow message gets a <Code>seq</Code>{' '}
