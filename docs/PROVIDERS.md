@@ -2035,3 +2035,5 @@ OpenAI-compatible streams finish at `[DONE]`; Ollama streams finish at `done: tr
 Claude Native token-count telemetry has a five-second deadline and is cancelled by STOP. A cancelled or failed count falls back to response usage so turn completion does not wait on telemetry.
 
 Claude Native checks MCP session health and launch settings at each turn boundary. Failed or closed sessions reconnect, and a changed command, arguments or environment replaces the previous session. Healthy unchanged sessions stay open.
+
+FOLD and S-FOLD can restore a saved Claude Native conversation after a server restart, before its next turn. Deterministic Fold replays the saved log without needing provider credentials; Server Fold retains its normal request and fallback behavior.

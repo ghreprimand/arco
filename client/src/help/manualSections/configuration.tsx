@@ -862,7 +862,7 @@ export const configuration: Section[] = [
   <ul>
   <li>Choose Off or On with a threshold to override the default.</li>
   <li>A worker can inherit its cluster.</li>
-  <li>Fold is deterministic and Handoff starts a fresh session.</li>
+  <li>Fold is deterministic and Handoff starts a fresh session. FOLD and S-FOLD can restore saved Native history after a restart, before the next turn.</li>
   <li>
   Ollama summaries use the OLLAMA COMPACTION UTILITY MODEL in Settings &gt;
   Providers and models &gt; Sign-in, accounts and local endpoints; with none

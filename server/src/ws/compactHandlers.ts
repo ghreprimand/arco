@@ -352,11 +352,36 @@ export async function handleFoldWorkflow(ws: WebSocket, _session: Session, msg: 
     });
   }
 
+  const nativeConfig = {
+    provider: 'claude' as const,
+    model: wf.primary.model,
+    effort: wf.primary.effort,
+    tools: wf.primary.tools,
+    cwd,
+    workflowId,
+    skipPermissions: wf.primary.skipPermissions,
+    additionalDirectories: wf.primary.additionalDirectories,
+    fallbackModel: wf.primary.fallbackModel,
+    claudeTransport: 'native' as const,
+    claudeNativeCompact: wf.config.claudeNativeCompact === true,
+    claudeNativeForceInterleavedThinkingBeta: wf.config.claudeNativeForceInterleavedThinkingBeta === true,
+    claudeNativeThinkingDisplay: wf.config.claudeNativeThinkingDisplay,
+    efficiencyToolFilter: wf.config.efficiencyToolFilter,
+    efficiencyFactForce: wf.config.efficiencyFactForce,
+    efficiencyConfigProtection: wf.config.efficiencyConfigProtection,
+    efficiencySandbox: wf.config.efficiencySandbox,
+    // The same level the tab's turns run with, so the system blocks match.
+    outputStyle: resolveOutputStyle(wf.config.outputStyle),
+    codebaseMemoryAttached: wf.config.codebaseMemory?.attached === true,
+    codebaseMemoryIndexPath: wf.config.codebaseMemory?.attached === true
+      ? (wf.config.codebaseMemory.indexPath || cwd)
+      : undefined,
+  };
   let result: Awaited<ReturnType<typeof serverFoldClaudeNativeWorker>>;
   try {
     result = serverEngine
-      ? await serverFoldClaudeNativeWorker(workflowId)
-      : await foldClaudeNativeWorker(workflowId, undefined, { trigger: 'operator' });
+      ? await serverFoldClaudeNativeWorker(workflowId, nativeConfig)
+      : await foldClaudeNativeWorker(workflowId, nativeConfig, { trigger: 'operator' });
   } catch (err) {
     result = { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

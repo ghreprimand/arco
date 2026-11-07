@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- FOLD and S-FOLD restore saved Claude Native conversations after restart without requiring a new turn first.
+
 - Claude Native reconnects failed or closed MCP sessions and applies changed server launch settings at the next turn.
 
 - STOP cancels stalled Claude Native token counts; telemetry also has a five-second deadline and falls back to response usage.

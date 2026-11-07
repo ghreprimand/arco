@@ -929,6 +929,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     if (this.inFlight && !this.inFlight.signal.aborted) {
       return { ok: false, error: 'a turn is in flight — wait for it to finish' };
     }
+    await this.restoreSavedHistory();
     if (this.messages.length === 0) {
       return { ok: false, error: 'nothing to fold yet' };
     }
@@ -1346,51 +1347,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   cancelCompaction(): void { this.compactAbort?.abort(); }
 
-  async ensureStarted(): Promise<void> {
-    // ARCO_TEST compact-probe: history is pre-seeded and the summary is
-    // canned, so skip the OAuth / client-rebuild path entirely.
-    if (this.compactProbeMode) return;
-    // Always probe live tokens — if the operator re-logged in since this
-    // worker built its client, ensureLiveTokens() returns the fresh set
-    // and the obtainedAt mismatch below forces a client rebuild. Cheap:
-    // ensureLiveTokens is a single disk read on the happy path.
-    const tokens = await ensureLiveTokens();
-    this.authRecovery = { transport: 'native', binding: nativeCredentialBinding(tokens) };
-    // An alias tab can't be dispatched until the alias resolves to a concrete
-    // id. Warm the catalog once per worker so the resolution is catalog-backed
-    // (newest family member) rather than the static CLAUDE_ALIAS_FALLBACK.
-    // Failure is non-fatal — the fallback still yields a real, dispatchable id.
-    if (!this.catalogWarmAttempted && isClaudeModelAlias(this.config.model) && !hasCatalogCache()) {
-      this.catalogWarmAttempted = true;
-      await getCatalog(false).catch((err) => {
-        console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] catalog warm for alias '${this.config.model}' failed; using static fallback:`, err instanceof Error ? err.message : err);
-      });
-    }
-    if (this.client && this.clientTokenObtainedAt === tokens.obtainedAt) return;
-    const isRebuild = this.client !== null;
-    if (isRebuild) {
-      console.log(`[claude-native:${this.workflowId.slice(0, 8)}] tokens rotated — rebuilding Anthropic client`);
-    }
-    this.client = new Anthropic({
-      authToken: tokens.accessToken,
-      defaultHeaders: this.buildDefaultHeaders(),
-      // H10 — our handleApiError ladder is the SINGLE retry path. The SDK's
-      // default maxRetries:2 would retry 429/529/500 INTERNALLY before throwing,
-      // then our 3-attempt ladder ran on top — compounding to ~6 attempts and
-      // minutes of stacked backoff per turn. 0 lets our header-aware ladder own
-      // the timing.
-      maxRetries: 0,
-    } as ConstructorParameters<typeof Anthropic>[0]);
-    this.clientTokenObtainedAt = tokens.obtainedAt;
-    // Token-rotation rebuilds reuse the existing hooks + replayed state
-    // and skip the worker-init emit. Hooks come from CLAUDE.md files,
-    // unrelated to auth; replay only ever runs once per worker; 'init'
-    // is for first-time wiring on the consumer side.
-    if (isRebuild) return;
-    if (!this.hooksLoaded) {
-      this.hooks = await this.discoverTrustedHooks();
-      this.hooksLoaded = true;
-    }
+  private async restoreSavedHistory(): Promise<void> {
     if (!this.replayed) {
       const cwd = this.config.persistenceCwd ?? this.config.cwd;
       if (cwd) {
@@ -1436,6 +1393,54 @@ export class ClaudeNativeWorker extends EventEmitter {
       }
       this.replayed = true;
     }
+  }
+
+  async ensureStarted(): Promise<void> {
+    // ARCO_TEST compact-probe: history is pre-seeded and the summary is
+    // canned, so skip the OAuth / client-rebuild path entirely.
+    if (this.compactProbeMode) return;
+    // Always probe live tokens — if the operator re-logged in since this
+    // worker built its client, ensureLiveTokens() returns the fresh set
+    // and the obtainedAt mismatch below forces a client rebuild. Cheap:
+    // ensureLiveTokens is a single disk read on the happy path.
+    const tokens = await ensureLiveTokens();
+    this.authRecovery = { transport: 'native', binding: nativeCredentialBinding(tokens) };
+    // An alias tab can't be dispatched until the alias resolves to a concrete
+    // id. Warm the catalog once per worker so the resolution is catalog-backed
+    // (newest family member) rather than the static CLAUDE_ALIAS_FALLBACK.
+    // Failure is non-fatal — the fallback still yields a real, dispatchable id.
+    if (!this.catalogWarmAttempted && isClaudeModelAlias(this.config.model) && !hasCatalogCache()) {
+      this.catalogWarmAttempted = true;
+      await getCatalog(false).catch((err) => {
+        console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] catalog warm for alias '${this.config.model}' failed; using static fallback:`, err instanceof Error ? err.message : err);
+      });
+    }
+    if (this.client && this.clientTokenObtainedAt === tokens.obtainedAt) return;
+    const isRebuild = this.client !== null;
+    if (isRebuild) {
+      console.log(`[claude-native:${this.workflowId.slice(0, 8)}] tokens rotated — rebuilding Anthropic client`);
+    }
+    this.client = new Anthropic({
+      authToken: tokens.accessToken,
+      defaultHeaders: this.buildDefaultHeaders(),
+      // H10 — our handleApiError ladder is the SINGLE retry path. The SDK's
+      // default maxRetries:2 would retry 429/529/500 INTERNALLY before throwing,
+      // then our 3-attempt ladder ran on top — compounding to ~6 attempts and
+      // minutes of stacked backoff per turn. 0 lets our header-aware ladder own
+      // the timing.
+      maxRetries: 0,
+    } as ConstructorParameters<typeof Anthropic>[0]);
+    this.clientTokenObtainedAt = tokens.obtainedAt;
+    // Token-rotation rebuilds reuse the existing hooks + replayed state
+    // and skip the worker-init emit. Hooks come from CLAUDE.md files,
+    // unrelated to auth; replay only ever runs once per worker; 'init'
+    // is for first-time wiring on the consumer side.
+    if (isRebuild) return;
+    if (!this.hooksLoaded) {
+      this.hooks = await this.discoverTrustedHooks();
+      this.hooksLoaded = true;
+    }
+    await this.restoreSavedHistory();
     // H54 — probe workspace facts once per cwd (cache-stable). Best-effort: a
     // failure just means no facts block, never a broken turn.
     const factsCwd = this.config.cwd ?? process.cwd();

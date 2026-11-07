@@ -564,7 +564,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           worker's in-memory prompt shrinks. Claude-native only. Runs between
           turns: disabled while a turn is in flight. An auto-fold toggle (default
           OFF) lives in CONFIG. A <C>PreCompact</C> hook that exits with code 2
-          skips the fold.
+          skips the fold. Saved history is restored after a server restart; a new turn is not required.
         </p>
       </>
     ),
@@ -587,7 +587,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           beta (account/model) or no summary comes back, it falls back to the
           deterministic Fold automatically. A <C>PreCompact</C> hook that exits
           with code 2 skips it. Claude Native Agent tabs only, between turns. Undo: HISTORY → rewind to before the fold; the full
-          transcript stays in <C>events.jsonl</C>.
+          transcript stays in <C>events.jsonl</C>. Saved history is restored after a restart, before the next turn.
         </p>
       </>
     ),
