@@ -5,15 +5,9 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
-- DRAFT ASSIST is hidden in this version.
-
-- Moving an artifact into a project works when the project path uses a folder alias.
-- Project folder choices now list existing location folders and bookmarks alphabetically, with recently used folders separate and temporary folders excluded. Project trust decisions have search and a bounded scrolling list.
-
 ### Added
 
 - Genesis can save a plan and reference documents for an existing folder, creating SPEC.md and TODO.md only when missing and preserving existing files.
-
 - Claude Native compacts inside a long turn. When one request reaches the auto-compaction threshold (the tab's or cluster's, 70% under Provider), Arco summarizes the earlier history before the next request, keeps the tool call in progress with its result, and the same turn continues. Chat shows "Compacting automatically (context N%)" and "Compacted, continuing"; CTX updates at once. Off, and Claude API compaction (beta), turn it off.
 - Built-in skills: grill-me, grill-with-docs, wait-what and retro (operator-run slash commands); grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype and writing-for-agents (model-invoked). Settings can turn each on or off, and an editable copy takes precedence. Architecture review stays its own built-in (slash alias /improve-codebase-architecture).
 
@@ -35,6 +29,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Changed
 
+- DRAFT ASSIST is hidden in this version.
+- Project folder choices list existing location folders and bookmarks alphabetically, with recently used folders separate and temporary folders excluded. Project trust decisions have search and a bounded scrolling list.
 - OUTPUT STYLE has three levels: NORMAL, PLAIN and TERSE. Lite became Plain: a tab, member, preset, template or New-tab default saved as Lite now uses Plain. Plain is the default; tabs without a saved choice use it, and a saved Normal stays Normal. Plain asks for clear sentences with articles and the answer first, with no word limit, and ends every turn with a complete reply: what was done, what was checked and how, what was found with exact numbers, assumptions, risks, what is left with the next step, and anything that needs the operator. Terse asks for short sentences of about 20 words, no recap, and one short line per tool phase. Both keep every "not", "never", "no", "only" and "except", every number and unit, and code, commands, paths and error text exactly, and neither shortens code, comments, commits, docs, plans, board tasks or messages to other agents. Every provider now applies the style (Claude CLI, Codex exec, Cursor, Ollama, llama.cpp, LM Studio, Strata and DeepSeek as well as Claude Native and Codex app-server), so the picker is on every tab, in the creator and in the cluster member settings. Review, Handoff, DOCS, GIT and the other one-off tasks still use Normal. The picker no longer quotes an output saving.
 - Claude Native hooks now follow Claude Code's hooks reference exactly, which changes how existing hooks behave. Only exit code 2 blocks (a prompt, a tool call, or the end of the model's turn); exit 1 and other non-zero exits no longer block, they show a hook error notice in the tab and the action goes ahead. A timed-out hook no longer blocks either. A Stop hook that exits 2 (or returns `decision: "block"`) now keeps the model working with its reason. PostToolUse runs only after a tool that succeeded (PostToolUseFailure after one that failed), its exit-2 stderr and `decision: "block"` reason are added next to the result instead of replacing it, and stderr from a hook that exits 0 is no longer shown to the model. `updatedInput` replaces the whole tool input instead of being merged into it. Matchers follow Claude Code's rules (exact names, `|` or `,` lists, otherwise an unanchored regular expression), identical hooks from two settings files run once, and the default timeout is 600 seconds (30 on UserPromptSubmit). SubagentStop fires in the Task child when it finishes, not in the parent.
 - A server whose Arco home is inside the system temporary folder (symbolic links resolved) no longer joins the management hub when `ARCO_HUB_URL` is set: no link, no registration, no heartbeat and no cloud vault requests, and the header hub chip stays hidden. One log line says so; `ARCO_ALLOW_TEMP_HOME=1` joins anyway (`ARCO_HUB_ALLOW_TEMP_HOME=1` also works). Homes outside the temporary folder are unchanged.
@@ -58,6 +54,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Moving an artifact into a project works when the project path uses a folder alias.
 - Keep Resume and Recall results tied to the latest request, preserve editor proposal keys, and settle disconnected editing and distillation requests as errors.
 - Retry missing cluster members after reconnect, keep other workflows' terminal windows attached, preserve application JSON and artifact fences, and recognize saved HISTORY times and Windows file references.
 - Native tools preserve MCP schema definitions, warn after capped reads, report Grep failures, and keep the newest shell output when saving full output fails. Native and local Write create nested directories correctly on Windows.
