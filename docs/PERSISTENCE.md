@@ -197,7 +197,7 @@ Per-workflow flushes are serialized - at most one `appendFile` in flight at a ti
 
 ### Crash semantics
 
-Worst case: SIGKILL during the 100ms debounce window loses up to 100ms of events. A torn final line is possible on a crash mid-append; readers skip unparseable lines. On next `initWorkflowStore`, the tail read (`INIT_TAIL_READ_BYTES` = last 1 MB, ~2500 events) scans backward for the highest valid seq, seeds the buffer's `seq` counter, and operations resume.
+Worst case: SIGKILL during the 100ms debounce window loses up to 100ms of events. A torn final line is possible on a crash mid-append; readers skip unparseable lines. Before the first append after a restart, `initWorkflowStore` checks that the live file ends with a newline (`repairLiveTail`). A complete last record only gets its newline. An incomplete one is copied to `events.jsonl.partial-<time>` beside the log (flushed, never deleted) and cut from the live file, so the next event starts on its own line instead of being glued to the torn record and skipped with it. A log written by a newer release is left alone. Then the tail read (`INIT_TAIL_READ_BYTES` = last 1 MB, ~2500 events) scans backward for the highest valid seq, seeds the buffer's `seq` counter, and operations resume.
 
 The client notices the gap on next reconnect: it sent `lastSeq = X`, the server's head is `Y`, but events between were lost. The client gets a `workflow_state_snapshot` with `snapshotOnly: true` and `snapshotReason: 'events-rotated'` (technically misnamed in this case - it's "lost on disk" rather than "rotated off") and force-sets its `lastSeq` to the server's head.
 

@@ -212,8 +212,55 @@ export async function initWorkflowStore(cwd: string, wfid: string): Promise<void
   try { await buf.initPromise; } catch (error) { buf.initPromise = null; throw error; }
 }
 
+// A crash or a failed append can leave the live log ending without a newline.
+// Appending then would glue the next event to that record and both would be
+// skipped on replay. A complete record only gets its newline. An incomplete one
+// is copied (and flushed) to `events.jsonl.partial-<time>` beside the log,
+// then cut from the live file, so every line of the log parses again.
+async function repairLiveTail(filePath: string, wfid: string): Promise<void> {
+  let fh;
+  try { fh = await fs.open(filePath, 'r+'); } catch { return; }
+  try {
+    const size = (await fh.stat()).size;
+    if (size === 0) return;
+    const last = Buffer.alloc(1);
+    await fh.read(last, 0, 1, size - 1);
+    if (last[0] === 0x0a) return;
+    // Find the start of the last line, reading backwards.
+    let start = 0;
+    const CHUNK = 64 * 1024;
+    for (let end = size; end > 0 && start === 0; end -= CHUNK) {
+      const from = Math.max(0, end - CHUNK);
+      const buf = Buffer.alloc(end - from);
+      await fh.read(buf, 0, buf.length, from);
+      const nl = buf.lastIndexOf(0x0a);
+      if (nl >= 0) start = from + nl + 1;
+      if (from === 0) break;
+    }
+    const tail = Buffer.alloc(size - start);
+    await fh.read(tail, 0, tail.length, start);
+    let complete = false;
+    try { const v = JSON.parse(tail.toString('utf8')); complete = !!v && typeof v === 'object'; } catch { /* incomplete */ }
+    if (complete) {
+      await fh.write('\n', size);
+      await fh.sync();
+      return;
+    }
+    const aside = `${filePath}.partial-${Date.now()}`;
+    const out = await fs.open(aside, 'wx', 0o600);
+    try { await out.writeFile(tail); await out.sync(); } finally { await out.close(); }
+    await fh.truncate(start);
+    await fh.sync();
+    console.error(`[arco] workflow ${wfid.slice(0, 8)}: the log ended in an incomplete record (${tail.length} bytes); it was moved to ${path.basename(aside)} and new events start on a new line`);
+  } finally { await fh.close(); }
+}
+
 async function primeBuffer(buf: WorkflowBuffer): Promise<void> {
   const { cwd, wfid } = buf;
+  // Not for a log a newer release wrote: this release does not write to it.
+  if (await readLogFormat(workflowDir(cwd, wfid)) <= LOG_FORMAT) {
+    await repairLiveTail(eventsPath(cwd, wfid), wfid).catch((err) => console.error(`[arco] workflow ${wfid.slice(0, 8)}: checking the end of its log failed:`, err));
+  }
   try {
     // A live file that holds no record (all of it sealed) falls back to the
     // highest sequence number any segment name has claimed, damaged ones moved
