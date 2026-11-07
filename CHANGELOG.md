@@ -51,6 +51,9 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Malformed peer messages are preserved aside so valid mail can still arrive. Temporary read errors keep every pending message intact for retry.
+- Concurrent skill creation keeps distinct skills, and concurrent template and MCP server changes retain accepted updates. Windows checkpoint restores preserve excluded descendants and refuse to overwrite capped parent files.
+
 - Keep unsent cluster broadcasts, newer file edits, Genesis seed edits, review drafts and phone-console drafts through sends, saves and refreshes.
 - Keep Home usable when browser storage is unavailable, show failed detail reads as errors, and bound SSH lifecycle commands after connection.
 - Diagnostics support-bundle formatting handles Windows drive and UNC paths with spaces.

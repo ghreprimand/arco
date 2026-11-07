@@ -2,6 +2,7 @@
 import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { promises as fsPromises } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { Readable } from 'node:stream';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, readFileSync, writeFileSync } from 'node:fs';
@@ -17,28 +18,33 @@ function sandbox(name: string): { root: string; project: string } {
   return { root, project };
 }
 
-test('B12: a mailbox drain keeps a message whose read fails', async () => {
-  const { root, project } = sandbox('b12');
-  try {
-    const store = await import('./clusterStore.js');
-    const mailbox = await import('./clusterMailbox.js');
-    const recipient = randomUUID();
-    const created = await store.createCluster({ cwd: project, memberWorkflowIds: [randomUUID(), recipient] });
-    await mailbox.enqueue(recipient, {
-      msgId: mailbox.mintMsgId(), fromWorkflowId: randomUUID(), fromDisplayName: 'Sender',
-      toWorkflowId: recipient, content: 'accepted assignment', createdAt: new Date().toISOString(), delivered: false,
-    });
-    const dir = path.join(store.clusterDir(created.clusterId), 'mailbox', recipient);
-    const abs = path.join(dir, readdirSync(dir)[0]);
-    chmodSync(abs, 0o000);
-    let drained: unknown[] = [];
-    let failed = false;
-    try { drained = await mailbox.drain(recipient); } catch { failed = true; }
-    if (existsSync(abs)) chmodSync(abs, 0o600);
-    assert.equal(existsSync(abs), true, 'unreadable pending mail must stay on disk');
-    assert.ok(failed || drained.length === 0, 'drain must not report the unreadable message as delivered');
-  } finally { rmSync(root, { recursive: true, force: true }); }
-});
+for (const code of ['EIO', 'EMFILE', 'EACCES', 'EBUSY']) {
+  test(`B12: ${code} preserves every pending message until a successful retry`, async (t) => {
+    const { root, project } = sandbox(`b12-${code.toLowerCase()}`);
+    try {
+      const store = await import('./clusterStore.js');
+      const mailbox = await import('./clusterMailbox.js');
+      const recipient = randomUUID();
+      const created = await store.createCluster({ cwd: project, memberWorkflowIds: [randomUUID(), recipient] });
+      for (const content of ['first', 'second']) await mailbox.enqueue(recipient, {
+        msgId: mailbox.mintMsgId(), fromWorkflowId: randomUUID(), fromDisplayName: 'Sender',
+        toWorkflowId: recipient, content, createdAt: new Date().toISOString(), delivered: false,
+      });
+      const dir = path.join(store.clusterDir(created.clusterId), 'mailbox', recipient);
+      const blocked = path.join(dir, readdirSync(dir).filter((n) => n.endsWith('.json')).sort()[1]);
+      const originalRead = fsPromises.readFile;
+      let failing = true;
+      t.mock.method(fsPromises, 'readFile', async (...args: any[]) => {
+        if (args[0] === blocked && failing) throw Object.assign(new Error('fixture read failure'), { code });
+        return Reflect.apply(originalRead, fsPromises, args);
+      });
+      await assert.rejects(mailbox.drain(recipient), { code });
+      assert.equal(readdirSync(dir).filter((n) => n.endsWith('.json')).length, 2);
+      failing = false;
+      assert.deepEqual((await mailbox.drain(recipient)).map((m) => m.content).sort(), ['first', 'second']);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+}
 
 test('B14: concurrent preset saves both remain', async () => {
   const { root } = sandbox('b14');
@@ -100,24 +106,35 @@ test('B30: concurrent patches preserve disjoint article fields', async () => {
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('B12: malformed mailbox records stay pending and report failure', async () => {
-  const { root, project } = sandbox('b12-malformed');
-  try {
-    const store = await import('./clusterStore.js');
-    const mailbox = await import('./clusterMailbox.js');
-    const recipient = randomUUID();
-    const created = await store.createCluster({ cwd: project, memberWorkflowIds: [randomUUID(), recipient] });
-    const dir = path.join(store.clusterDir(created.clusterId), 'mailbox', recipient);
-    mkdirSync(dir, { recursive: true });
-    const valid = path.join(dir, 'a-valid.json');
-    writeFileSync(valid, JSON.stringify({ msgId: 'valid', toWorkflowId: recipient, content: 'keep', delivered: false }));
-    const file = path.join(dir, 'z-invalid.json');
-    writeFileSync(file, 'null');
-    await assert.rejects(mailbox.drain(recipient), /Invalid mailbox record/);
-    assert.equal(existsSync(file), true);
-    assert.equal(existsSync(valid), true, 'a later error must preserve the earlier pending message');
-  } finally { rmSync(root, { recursive: true, force: true }); }
-});
+for (const reader of ['drain', 'peek', 'markDelivered'] as const) {
+  test(`B12: ${reader} quarantines malformed bytes once without blocking valid mail`, async (t) => {
+    const { root, project } = sandbox(`b12-malformed-${reader}`);
+    try {
+      const store = await import('./clusterStore.js');
+      const mailbox = await import('./clusterMailbox.js');
+      const recipient = randomUUID();
+      const created = await store.createCluster({ cwd: project, memberWorkflowIds: [randomUUID(), recipient] });
+      for (const content of ['first', 'second']) await mailbox.enqueue(recipient, {
+        msgId: mailbox.mintMsgId(), fromWorkflowId: randomUUID(), fromDisplayName: 'Sender',
+        toWorkflowId: recipient, content, createdAt: new Date().toISOString(), delivered: false,
+      });
+      const dir = path.join(store.clusterDir(created.clusterId), 'mailbox', recipient);
+      const file = path.join(dir, 'bad.json');
+      const bytes = reader === 'drain' ? '{"msgId":' : 'null';
+      writeFileSync(file, bytes);
+      const logged = t.mock.method(console, 'warn', () => {});
+      if (reader === 'markDelivered') assert.equal(await mailbox.markDelivered(recipient, 'bad'), false);
+      else assert.deepEqual((await mailbox[reader](recipient)).map((m) => m.content).sort(), ['first', 'second']);
+      const quarantined = readdirSync(dir).filter((n) => n.startsWith('bad.json.bad-'));
+      assert.equal(quarantined.length, 1);
+      assert.equal(readFileSync(path.join(dir, quarantined[0]), 'utf8'), bytes);
+      assert.equal(existsSync(file), false);
+      if (reader !== 'drain') assert.deepEqual((await mailbox.drain(recipient)).map((m) => m.content).sort(), ['first', 'second']);
+      assert.deepEqual(await mailbox.drain(recipient), []);
+      assert.equal(logged.mock.callCount(), 1);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+}
 
 test('B16: a failed mailbox copy leaves every pending message on an indexed member', async () => {
   const { root, project } = sandbox('b16');
@@ -212,4 +229,27 @@ printf 'made\\n' > "$out" || exit 1
     process.env.PATH = saved;
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('B12: quarantined bytes follow a replaced member without being discarded', async (t) => {
+  const { root, project } = sandbox('b12-replacement');
+  try {
+    const store = await import('./clusterStore.js');
+    const mailbox = await import('./clusterMailbox.js');
+    const recipient = randomUUID();
+    const replacement = randomUUID();
+    const created = await store.createCluster({ cwd: project, memberWorkflowIds: [randomUUID(), recipient] });
+    const dir = path.join(store.clusterDir(created.clusterId), 'mailbox', recipient);
+    mkdirSync(dir, { recursive: true });
+    const bytes = Buffer.from([0xff, 0x00, 0x7b, 0x22]);
+    writeFileSync(path.join(dir, 'bad.json'), bytes);
+    t.mock.method(console, 'warn', () => {});
+    assert.deepEqual(await mailbox.peek(recipient), []);
+    const quarantined = readdirSync(dir).find((name) => name.startsWith('bad.json.bad-'));
+    assert.ok(quarantined);
+    await store.replaceMember(created.clusterId, recipient, replacement);
+    const moved = path.join(store.clusterDir(created.clusterId), 'mailbox', replacement, quarantined);
+    assert.deepEqual(readFileSync(moved), bytes);
+    assert.deepEqual(await mailbox.drain(replacement), []);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });

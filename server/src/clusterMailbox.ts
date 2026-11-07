@@ -116,14 +116,9 @@ export async function enqueue(toWfId: string, msg: PeerMessage, opts?: { maxCont
       if (!dropped) break;
       await fs.unlink(join(dir, dropped)).catch(() => undefined);
     }
-    // ATOMIC, and load-bearing: `drain` runs concurrently with `peer_send` (two
-    // members, same process, independent async tool calls). A plain writeFile
-    // lets drain read a half-written file; `readMessageFile` collapses the parse
-    // error to null, and drain treats null as "stale" and UNLINKS it — silently
-    // destroying an undelivered peer message with no `peer_message_received`
-    // ever written. Same silent-cross-member-loss class as DD3, different
-    // substrate. Every reader filters `.endsWith('.json')`, so the `.tmp` is
-    // invisible during the write window.
+    // Atomic replacement keeps readers from mistaking an in-progress write
+    // for a permanently malformed record. Every reader filters .json, so the
+    // temporary file stays invisible until the complete message is renamed.
     await atomicWriteFile(messagePath(clusterId, toWfId, msg.msgId), JSON.stringify(msg, null, 2));
     publishActivity({ kind: 'mail_arrived', clusterId, workflowId: toWfId });
   });
@@ -167,18 +162,32 @@ async function readDirSafe(dir: string): Promise<string[]> {
 }
 
 async function readMessageFile(path: string): Promise<PeerMessage | null> {
+  let raw: string;
   try {
-    const raw = await fs.readFile(path, 'utf8');
+    raw = await fs.readFile(path, 'utf8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw err;
+  }
+  try {
     const msg = JSON.parse(raw) as PeerMessage;
     if (!msg || typeof msg.msgId !== 'string' || typeof msg.toWorkflowId !== 'string'
       || typeof msg.content !== 'string' || typeof msg.delivered !== 'boolean') {
       throw new Error('Invalid mailbox record.');
     }
     return msg;
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code === 'ENOENT') return null;
-    throw err;
+  } catch {
+    // Preserve permanent corruption without blocking every later delivery.
+    // Read and rename errors remain retryable failures, never an empty slot.
+    const badPath = `${path}.bad-${Date.now()}-${randomUUID()}`;
+    try {
+      await fs.rename(path, badPath);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw err;
+    }
+    console.warn('[arco] Quarantined malformed mailbox record:', basename(path), '->', basename(badPath));
+    return null;
   }
 }
 

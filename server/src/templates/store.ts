@@ -27,7 +27,7 @@ import type {
   WorkflowTemplateConfig,
 } from '@arco/shared';
 import { normalizeOutputStyle } from '@arco/shared';
-import { atomicWriteFile } from '../atomicFile.js';
+import { atomicWriteFile, withFileLock } from '../atomicFile.js';
 import { arcoHome } from '../arcoHome.js';
 
 const NAME_MAX = 64;
@@ -175,66 +175,70 @@ function normalizeConfig(raw: unknown): WorkflowTemplateConfig {
 }
 
 export async function saveTemplate(input: TemplateSaveInput): Promise<WorkflowTemplate> {
-  const name = typeof input.name === 'string' ? input.name.trim() : '';
-  if (!name) throw new TemplateValidationError(400, 'name must be non-empty after trim');
-  if (name.length > NAME_MAX) throw new TemplateValidationError(400, `name exceeds ${NAME_MAX} chars`);
+  return withFileLock(templatesPath(), async () => {
+    const name = typeof input.name === 'string' ? input.name.trim() : '';
+    if (!name) throw new TemplateValidationError(400, 'name must be non-empty after trim');
+    if (name.length > NAME_MAX) throw new TemplateValidationError(400, `name exceeds ${NAME_MAX} chars`);
 
-  const config = normalizeConfig(input.config);
+    const config = normalizeConfig(input.config);
 
-  let seedPrompt: string | undefined;
-  if (input.seedPrompt !== undefined) {
-    if (typeof input.seedPrompt !== 'string') {
-      throw new TemplateValidationError(400, 'seedPrompt must be a string');
+    let seedPrompt: string | undefined;
+    if (input.seedPrompt !== undefined) {
+      if (typeof input.seedPrompt !== 'string') {
+        throw new TemplateValidationError(400, 'seedPrompt must be a string');
+      }
+      const trimmed = input.seedPrompt.trim();
+      if (trimmed.length > SEED_PROMPT_MAX) {
+        throw new TemplateValidationError(400, `seedPrompt exceeds ${SEED_PROMPT_MAX} chars`);
+      }
+      if (trimmed.length > 0) seedPrompt = trimmed;
     }
-    const trimmed = input.seedPrompt.trim();
-    if (trimmed.length > SEED_PROMPT_MAX) {
-      throw new TemplateValidationError(400, `seedPrompt exceeds ${SEED_PROMPT_MAX} chars`);
+
+    let plan: string | undefined;
+    if (input.plan !== undefined) {
+      if (typeof input.plan !== 'string') {
+        throw new TemplateValidationError(400, 'plan must be a string');
+      }
+      if (input.plan.length > PLAN_MAX) {
+        throw new TemplateValidationError(400, `plan exceeds ${PLAN_MAX} chars`);
+      }
+      if (input.plan.trim().length > 0) plan = input.plan;
     }
-    if (trimmed.length > 0) seedPrompt = trimmed;
-  }
 
-  let plan: string | undefined;
-  if (input.plan !== undefined) {
-    if (typeof input.plan !== 'string') {
-      throw new TemplateValidationError(400, 'plan must be a string');
+    const file = await readFileSafe();
+
+    // Case-insensitive duplicate-name fence (mirrors clusterPresets).
+    const lower = name.toLowerCase();
+    if (file.templates.some((t) => t.name.trim().toLowerCase() === lower)) {
+      throw new TemplateValidationError(409, `template named "${name}" already exists`);
     }
-    if (input.plan.length > PLAN_MAX) {
-      throw new TemplateValidationError(400, `plan exceeds ${PLAN_MAX} chars`);
+    if (file.templates.length >= MAX_TEMPLATES) {
+      throw new TemplateValidationError(400, `template count exceeds cap of ${MAX_TEMPLATES}`);
     }
-    if (input.plan.trim().length > 0) plan = input.plan;
-  }
 
-  const file = await readFileSafe();
-
-  // Case-insensitive duplicate-name fence (mirrors clusterPresets).
-  const lower = name.toLowerCase();
-  if (file.templates.some((t) => t.name.trim().toLowerCase() === lower)) {
-    throw new TemplateValidationError(409, `template named "${name}" already exists`);
-  }
-  if (file.templates.length >= MAX_TEMPLATES) {
-    throw new TemplateValidationError(400, `template count exceeds cap of ${MAX_TEMPLATES}`);
-  }
-
-  const template: WorkflowTemplate = {
-    id: randomUUID(),
-    name,
-    createdAt: new Date().toISOString(),
-    config,
-    ...(seedPrompt ? { seedPrompt } : {}),
-    ...(plan ? { plan } : {}),
-  };
-  file.templates.push(template);
-  await writeFileAtomic(file);
-  return template;
+    const template: WorkflowTemplate = {
+      id: randomUUID(),
+      name,
+      createdAt: new Date().toISOString(),
+      config,
+      ...(seedPrompt ? { seedPrompt } : {}),
+      ...(plan ? { plan } : {}),
+    };
+    file.templates.push(template);
+    await writeFileAtomic(file);
+    return template;
+  });
 }
 
 // Returns true if a template was found and removed; false when no match.
 export async function deleteTemplate(id: string): Promise<boolean> {
-  if (!id || typeof id !== 'string') return false;
-  const file = await readFileSafe();
-  const before = file.templates.length;
-  file.templates = file.templates.filter((t) => t.id !== id);
-  if (file.templates.length === before) return false;
-  await writeFileAtomic(file);
-  return true;
+  return withFileLock(templatesPath(), async () => {
+    if (!id || typeof id !== 'string') return false;
+    const file = await readFileSafe();
+    const before = file.templates.length;
+    file.templates = file.templates.filter((t) => t.id !== id);
+    if (file.templates.length === before) return false;
+    await writeFileAtomic(file);
+    return true;
+  });
 }

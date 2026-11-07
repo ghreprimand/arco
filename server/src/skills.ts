@@ -425,14 +425,16 @@ export async function writeSkill(
     let candidate = base;
     let n = 2;
     const root = rootForScope(input.scope, cwd);
-    // Loop until we find a free directory name. Bounded — slug pool is
-    // effectively unlimited and disk lookups are cheap.
+    await mkdir(root, { recursive: true });
+    // Reserve the directory before writing so concurrent creates cannot both
+    // accept the same slug. Only a collision advances the suffix.
     while (true) {
       try {
-        await stat(path.join(root, candidate));
-        candidate = `${base}-${n++}`;
-      } catch {
+        await mkdir(path.join(root, candidate));
         break;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+        candidate = `${base}-${n++}`;
       }
     }
     slug = candidate;

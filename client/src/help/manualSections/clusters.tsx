@@ -884,6 +884,11 @@ export const clusters: Section[] = [
   </li>
   </ul>
   <p>
+  Temporary mailbox read failures leave pending messages untouched for retry.
+  Malformed messages are preserved aside with a <Code>.bad-</Code> suffix,
+  so valid messages can still arrive. A warning records the preserved filename.
+  </p>
+  <p>
   When a message is sent, the recipient sees an inbox counter on the
   MAILBOX sub-tab and can read it on the next turn.
   You can read the full mailbox contents in the MAILBOX sub-tab of the
@@ -1918,6 +1923,11 @@ export const clusters: Section[] = [
   with sender + timestamp + full content. Each row has a{' '}
   <Code>CANCEL</Code> button that discards the message before the
   recipient drains it.
+  </p>
+  <p>
+  Malformed messages are preserved aside and logged once rather than listed
+  here. Other pending messages remain readable. Temporary read errors keep
+  pending mail in place for retry.
   </p>
   <p>
   Cancelling removes the message from the recipient&apos;s mailbox and

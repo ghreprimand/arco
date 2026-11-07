@@ -494,7 +494,7 @@ async function reassignPendingMailbox(
   const newDir = join(root, newWorkflowId);
   let names: string[];
   try {
-    names = (await fs.readdir(oldDir)).filter((name) => name.endsWith('.json')).sort();
+    names = (await fs.readdir(oldDir)).filter((name) => name.endsWith('.json') || name.includes('.json.bad-')).sort();
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return;
     throw err;
@@ -503,15 +503,17 @@ async function reassignPendingMailbox(
   for (const name of names) {
     const oldPath = join(oldDir, name);
     const newPath = join(newDir, name);
-    const raw = await fs.readFile(oldPath, 'utf8');
-    let body = raw;
-    try {
-      const message = JSON.parse(raw) as Record<string, unknown>;
-      message.toWorkflowId = newWorkflowId;
-      body = JSON.stringify(message, null, 2);
-    } catch {
-      // Preserve even a malformed pending file for the strict mailbox reader
-      // to report. Replacement must never turn cleanup into silent loss.
+    const raw = await fs.readFile(oldPath);
+    let body: string | Buffer = raw;
+    if (name.endsWith('.json')) {
+      try {
+        const message = JSON.parse(raw.toString('utf8')) as Record<string, unknown>;
+        message.toWorkflowId = newWorkflowId;
+        body = JSON.stringify(message, null, 2);
+      } catch {
+        // Preserve even a malformed pending file for the strict mailbox reader
+        // to report. Replacement must never turn cleanup into silent loss.
+      }
     }
     await atomicWriteFile(newPath, body);
   }

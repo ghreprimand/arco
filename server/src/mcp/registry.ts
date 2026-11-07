@@ -15,7 +15,7 @@ import path from 'node:path';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import type { McpServerDef } from '@arco/shared';
-import { atomicWriteFile } from '../atomicFile.js';
+import { atomicWriteFile, withFileLock } from '../atomicFile.js';
 import { arcoHome } from '../arcoHome.js';
 
 const ID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
@@ -95,20 +95,22 @@ export interface CreateInput {
 }
 
 export async function create(input: CreateInput): Promise<McpServerDef> {
-  const def: McpServerDef = {
-    id: randomUUID(),
-    name: (input.name || 'unnamed').slice(0, NAME_MAX),
-    command: input.command,
-    args: input.args ?? [],
-    env: input.env ?? {},
-    enabled: input.enabled ?? false,
-    createdAt: Date.now(),
-  };
-  if (!def.command) throw new Error('mcp registry: command is required');
-  const servers = await load();
-  servers.push(def);
-  await save(servers);
-  return def;
+  return withFileLock(registryPath(), async () => {
+    const def: McpServerDef = {
+      id: randomUUID(),
+      name: (input.name || 'unnamed').slice(0, NAME_MAX),
+      command: input.command,
+      args: input.args ?? [],
+      env: input.env ?? {},
+      enabled: input.enabled ?? false,
+      createdAt: Date.now(),
+    };
+    if (!def.command) throw new Error('mcp registry: command is required');
+    const servers = await load();
+    servers.push(def);
+    await save(servers);
+    return def;
+  });
 }
 
 export interface UpdateInput {
@@ -121,27 +123,31 @@ export interface UpdateInput {
 
 // Patch in place. Returns the updated def, or undefined if id not found.
 export async function upsert(id: string, patch: UpdateInput): Promise<McpServerDef | undefined> {
-  const servers = await load();
-  const idx = servers.findIndex((s) => s.id === id);
-  if (idx === -1) return undefined;
-  const cur = servers[idx];
-  const next: McpServerDef = {
-    ...cur,
-    ...(patch.name !== undefined ? { name: patch.name.slice(0, NAME_MAX) } : {}),
-    ...(patch.command !== undefined ? { command: patch.command } : {}),
-    ...(patch.args !== undefined ? { args: patch.args } : {}),
-    ...(patch.env !== undefined ? { env: patch.env } : {}),
-    ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
-  };
-  servers[idx] = next;
-  await save(servers);
-  return next;
+  return withFileLock(registryPath(), async () => {
+    const servers = await load();
+    const idx = servers.findIndex((s) => s.id === id);
+    if (idx === -1) return undefined;
+    const cur = servers[idx];
+    const next: McpServerDef = {
+      ...cur,
+      ...(patch.name !== undefined ? { name: patch.name.slice(0, NAME_MAX) } : {}),
+      ...(patch.command !== undefined ? { command: patch.command } : {}),
+      ...(patch.args !== undefined ? { args: patch.args } : {}),
+      ...(patch.env !== undefined ? { env: patch.env } : {}),
+      ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+    };
+    servers[idx] = next;
+    await save(servers);
+    return next;
+  });
 }
 
 export async function remove(id: string): Promise<boolean> {
-  const servers = await load();
-  const next = servers.filter((s) => s.id !== id);
-  if (next.length === servers.length) return false;
-  await save(next);
-  return true;
+  return withFileLock(registryPath(), async () => {
+    const servers = await load();
+    const next = servers.filter((s) => s.id !== id);
+    if (next.length === servers.length) return false;
+    await save(next);
+    return true;
+  });
 }
