@@ -3,6 +3,8 @@
 This guide takes a new Arco install from provider setup to a project chat, then
 covers a first cluster, optional voice, and backups.
 
+Changing the folder in the workflow creator clears the selected resume session. RESUME requires a session from the current folder after its list finishes loading. It cannot silently create a new conversation when that selection is missing.
+
 ## Welcome flow
 
 A new Arco home opens **Welcome to Arco** when there is no completed setup, no

@@ -4,6 +4,8 @@ Recall provides a session index, automatic labels, conversation summaries, and
 full-text search. Tags, pins, links, and knowledge-base actions are described
 below where implemented.
 
+When OPEN SUMMARY cannot read a saved summary, that result offers REGENERATE SUMMARY. Choose it to request a replacement. A failed read never starts generation automatically.
+
 ## What Recall is (and what it is *not*)
 
 Recall is **operator-driven retrospective recall over your own conversations**, "find the conversation from

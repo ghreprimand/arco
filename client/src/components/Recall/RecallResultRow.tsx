@@ -22,6 +22,7 @@ interface Props {
   isOpenTab: boolean;
   // §F2 — true while a summary request is in flight for this conversation.
   summarizing: boolean;
+  summaryMissing?: boolean;
   onHover: () => void;
   onOpen: () => void;
   // §F2 — open the saved summary, or generate it when none exists yet.
@@ -58,7 +59,7 @@ function renderSnippet(snippet: string) {
 }
 
 export function RecallResultRow({
-  hit, selected, isOpenTab, summarizing, onHover, onOpen, onOpenSummary,
+  hit, selected, isOpenTab, summarizing, summaryMissing, onHover, onOpen, onOpenSummary,
   onTogglePin, onSetTags, onRemoveLink, onDistillToKb,
 }: Props) {
   const date = new Date(hit.lastActiveAt || 0).toISOString().slice(0, 10);
@@ -197,13 +198,14 @@ export function RecallResultRow({
           title={
             summarizing
               ? 'Generating a summary…'
+              : summaryMissing ? 'Generate a replacement for the missing saved summary'
               : hit.summaryRef
                 ? 'Open the saved summary'
                 : 'Generate a recall summary of this conversation'
           }
           style={btnStyle(!summarizing)}
         >
-          {summarizing ? 'SUMMARIZING…' : hit.summaryRef ? 'OPEN SUMMARY' : 'SUMMARIZE'}
+          {summarizing ? 'SUMMARIZING…' : summaryMissing ? 'REGENERATE SUMMARY' : hit.summaryRef ? 'OPEN SUMMARY' : 'SUMMARIZE'}
         </button>
         <button
           type="button"

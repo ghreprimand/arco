@@ -712,7 +712,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           <C>TOOL CALLS</C>, <C>LABELS</C>, <C>HANDOFFS</C>, <C>REVIEWS</C>,{' '}
           <C>CHECKPOINTS</C>, <C>REWINDS</C>) persists per workflow. Selecting an
           event shows the label field and the action buttons for that point.
-         Replay keeps the original saved event time. Spawn from an older point keeps that selected prefix even when it is outside the recent replay tail.</p>
+         Replay keeps the original saved event time. Spawn from an older point keeps that selected prefix even when it is outside the recent replay tail. LOAD EARLIER HISTORY also advances through pages with no narrative rows. A selected message in PRIOR SESSIONS is expanded before chat scrolls to it.</p>
         <p>
           Click an event row to scroll-and-flash the corresponding chat row
           (when the event has a chat message id: user sends + assistant

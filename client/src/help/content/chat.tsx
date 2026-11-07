@@ -50,7 +50,7 @@ export const chatHelp: Record<string, HelpEntry> = {
     title: 'Attach to chat', manualSection: 'chat-mode',
     body: <p>Attach images or files to the next message; you can also paste them straight
       into the composer or drop them anywhere on the window. Uploads are saved on disk (the <C>uploads</C> folder in the Arco home for a package install, in the checkout for a source run), so Incognito chats
-      have no attach button.</p>,
+      have no attach button. SEND stays blocked until every overlapping upload batch finishes.</p>,
   },
   'chat.input': {
     title: 'Chat composer', manualSection: 'chat-mode',
@@ -58,12 +58,12 @@ export const chatHelp: Record<string, HelpEntry> = {
       to end of line; the box grows with your
       message and then scrolls. Accepts text plus attachments (not in Incognito); skills and
       project actions stay Agent-only. Send is disabled while a response is running; use
-      Stop response to cancel it.</p>,
+      Stop response to cancel it. SEND also waits for all pending attachment uploads.</p>,
   },
   'chat.send': {
     title: 'Send message', manualSection: 'chat-mode',
     body: <p>Send a message to the selected Chat provider. Requires text or an attachment.
-      Incognito responses remain memory-only in Arco.</p>,
+      Incognito responses remain memory-only in Arco. All attachment uploads must finish first.</p>,
   },
   'chat.stop': {
     title: 'Stop response', manualSection: 'chat-mode',

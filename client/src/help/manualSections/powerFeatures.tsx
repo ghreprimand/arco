@@ -58,6 +58,7 @@ export const powerFeatures: Section[] = [
   title: 'The HISTORY tab - read-only timeline',
   body: (
   <>
+  <p>LOAD EARLIER HISTORY advances through saved event pages even when a page contains no narrative rows. Selecting a message inside PRIOR SESSIONS reveals it in chat.</p>
   <p>Saved conversations restore their recent messages together, with their active plan and current terminal list. REWIND CONVERSATION reserves the tab while validating the target. A failed branch-metadata write leaves the conversation head unchanged; cancelled work cannot dispose a newer turn.</p>
   <p>Replayed events retain their saved event time. Reopening HISTORY does not make older events appear newly received.</p>
   <p>
@@ -285,6 +286,7 @@ export const powerFeatures: Section[] = [
   title: 'The PREVIEW tab - live dev-server iframe',
   body: (
   <>
+  <p>The fitted view stays inside the panel when interface text size changes. Cluster capture controls target the member in view and use the selected capture viewport. Capture controls are disabled when no sender is available.</p>
   <p>
   The <strong>PREVIEW</strong> tab shows the workflow's dev server (Vite, Next,
   Astro, Nuxt, plain Node and so on) inside Arco, so the agent's output is
@@ -741,6 +743,7 @@ export const powerFeatures: Section[] = [
   title: 'The command palette - Ctrl/Cmd+P',
   body: (
   <>
+  <p>Opening a file or content result replaces the palette with the file viewer. Closing the viewer returns to the same palette query and selection.</p>
   <p>
   The command palette is a fuzzy finder over commands, open tabs, the active
   transcript and project files. Use it to jump anywhere without the mouse.
@@ -834,6 +837,7 @@ export const powerFeatures: Section[] = [
   title: 'Recall - cross-session conversation search',
   body: (
   <>
+  <p>If OPEN SUMMARY cannot read the saved file, that result offers REGENERATE SUMMARY. Choose it to request a replacement; the failed read does not start a summary by itself.</p>
   <p>When searches overlap, only the newest request changes the visible results, loading state or error.</p>
   <p>Save to KB saves the submitted draft. Edits made while that save is pending remain open and unsaved. Completing an earlier save does not close a newer draft.</p>
   <p>

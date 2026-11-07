@@ -5,6 +5,11 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep SEND guarded until every overlapping attachment upload finishes, and require resume sessions to belong to the selected creator folder.
+- Reveal HISTORY messages in PRIOR SESSIONS, advance past event pages without narrative rows, and refresh open task drawers from live snapshots.
+- Show file results above the command palette, fit PREVIEW at every interface text size, and send cluster captures to the member in view.
+- Show agent-skill discovery progress and errors, and offer explicit regeneration for missing Recall summaries.
+
 ### Added
 
 - Choose, preview, and attach plans from one project in the PLAN tabs and cluster creator. ALL PLANS can attach to the tab or cluster that opened it.

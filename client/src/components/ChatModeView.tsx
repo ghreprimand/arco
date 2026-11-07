@@ -45,7 +45,8 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
   const clearAttachments = useAppStore((s) => s.clearAttachments);
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const [pendingUploads, setPendingUploads] = useState(0);
+  const uploading = pendingUploads > 0;
   const [uploadError, setUploadError] = useState<string | null>(null);
   const streaming = job.messages.some((m) => m.isStreaming);
   const busy = job.busy === true || streaming;
@@ -90,24 +91,29 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
       setUploadError('Attachments are off in incognito: nothing was attached.');
       return;
     }
-    setUploading(true);
+    setPendingUploads((count) => count + 1);
     setUploadError(null);
     const failed: string[] = [];
-    for (const file of files) {
-      const result = await onUpload(file);
-      if (!result.ok) {
-        failed.push(result.error);
-        continue;
+    try {
+      for (const file of files) {
+        const result = await onUpload(file);
+        if (!result.ok) {
+          failed.push(result.error);
+          continue;
+        }
+        const isImage = file.type.startsWith('image/');
+        addAttachment(job.id, {
+          filename: result.filename,
+          path: result.path,
+          isImage,
+          ...(isImage && { previewUrl: URL.createObjectURL(file) }),
+        });
       }
-      const isImage = file.type.startsWith('image/');
-      addAttachment(job.id, {
-        filename: result.filename,
-        path: result.path,
-        isImage,
-        ...(isImage && { previewUrl: URL.createObjectURL(file) }),
-      });
+    } catch (error) {
+      failed.push(error instanceof Error ? error.message : String(error));
+    } finally {
+      setPendingUploads((count) => count - 1);
     }
-    setUploading(false);
     if (failed.length > 0) setUploadError(failed.join(' · '));
   }, [onUpload, addAttachment, job.id, canAttach]);
 

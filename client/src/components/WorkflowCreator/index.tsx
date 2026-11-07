@@ -429,14 +429,20 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const [browserPath, setBrowserPath] = useState('');
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [sessionsPath, setSessionsPath] = useState('');
+  const sessionScope = useRef(workDir);
+  sessionScope.current = workDir;
+  const sessionRequest = useRef(0);
   const [selectedSessionId, setSelectedSessionId] = useState<string | undefined>(undefined);
   const [conversationMode, setConversationMode] = useState<'new' | 'resume'>('new');
 
   // Load sessions when workDir changes
   useEffect(() => {
-    if (workDir) {
-      fetchSessions(workDir);
-    }
+    setSessions([]);
+    setSessionsPath('');
+    setSelectedSessionId(undefined);
+    if (workDir) void fetchSessions(workDir);
+    else { sessionRequest.current++; setSessionsLoading(false); }
   }, [workDir]);
 
   useEffect(() => {
@@ -444,22 +450,23 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   }, [workDir, projectChoices]);
 
   async function fetchSessions(path: string): Promise<SessionInfo[]> {
+    const request = ++sessionRequest.current;
     setSessionsLoading(true);
     try {
       const res = await fetch(`/api/sessions?path=${encodeURIComponent(path)}`);
+      if (!res.ok) throw new Error(`Session list failed (${res.status})`);
       const data = await res.json();
+      if (sessionScope.current !== path || sessionRequest.current !== request) return [];
       const list: SessionInfo[] = Array.isArray(data.sessions) ? data.sessions : [];
       setSessions(list);
-      if (list.length === 0) {
-        setConversationMode('new');
-        setSelectedSessionId(undefined);
-      }
+      setSessionsPath(path);
+      setSelectedSessionId((id) => list.some((s) => s.sessionId === id) ? id : undefined);
       return list;
     } catch {
-      setSessions([]);
+      if (sessionScope.current === path && sessionRequest.current === request) { setSessions([]); setSessionsPath(''); }
       return [];
     } finally {
-      setSessionsLoading(false);
+      if (sessionScope.current === path && sessionRequest.current === request) setSessionsLoading(false);
     }
   }
 
@@ -500,6 +507,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     if (dir && prefill.resumeSessionId) {
       setConversationMode('resume');
       void fetchSessions(dir).then((list) => {
+        if (sessionScope.current !== dir) return;
         const found = list.find((x) => x.sessionId === prefill.resumeSessionId);
         if (found) selectSession(found);
         else setConversationMode('new');
@@ -625,7 +633,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     ? primaryProviderProblem(primaryProvider, authStatus, isProviderEnabled, PRIMARY_PROVIDER_LABELS[primaryProvider] ?? primaryProvider)
     : null;
   const providerReady = providerProblem === null;
-  const canLaunch = supportedProvider && providerReady && connected && workDir && (conversationMode !== 'resume' || Boolean(selectedSessionId));
+  const canLaunch = supportedProvider && providerReady && connected && workDir && (conversationMode !== 'resume' || (!sessionsLoading && sessionsPath === workDir && sessions.some((s) => s.sessionId === selectedSessionId)));
   const canLaunchChat = supportedProvider && providerReady && connected && Boolean(model && String(model).trim()) && (!incognito || (primaryProvider !== 'cursor' && primaryProvider !== 'llamacpp' && primaryProvider !== 'strata' && primaryProvider !== 'deepseek'));
   const unavailableMembers = mode === 'cluster' ? members.flatMap((m, i) =>
     memberProviderAvailable(m.provider, authStatus, isProviderEnabled) ? [] : [`Member #${i + 1}${m.displayName.trim() ? ` (${m.displayName.trim()})` : ''}: ${MEMBER_PROVIDER_NAMES[m.provider]} ${!authStatus ? 'connection is being checked' : !isProviderEnabled(m.provider) ? 'is turned off in Settings' : 'is not connected'}.`]

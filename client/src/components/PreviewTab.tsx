@@ -121,9 +121,8 @@ export function PreviewTab({ job, onSetPort, onClear, onCapture, onReviewCapture
     const node = fitWrapRef.current;
     if (!node) return;
     const recompute = () => {
-      const rect = node.getBoundingClientRect();
-      const availW = rect.width;
-      const availH = rect.height;
+      const availW = node.clientWidth;
+      const availH = node.clientHeight;
       if (availW <= 0 || availH <= 0) return;
       // Largest box-of-this-ratio that fits: limited by whichever axis runs out.
       const widthFromHeight = availH * (LOGICAL_W / logicalH);
@@ -355,13 +354,13 @@ export function PreviewTab({ job, onSetPort, onClear, onCapture, onReviewCapture
           }}
         >
           <span style={{ opacity: 0.7 }}>VERIFY</span>
-          <button onClick={() => onCapture?.(['screenshot'], captureViewport)} disabled={job.previewCapturing} style={tabBtnStyle(false)} title="Capture a screenshot of the running preview">
+          <button onClick={() => onCapture?.(['screenshot'], captureViewport)} disabled={job.previewCapturing || !onCapture} style={tabBtnStyle(false)} title="Capture a screenshot of the running preview">
             CAPTURE SCREENSHOT
           </button>
-          <button onClick={() => onCapture?.(['console'], captureViewport)} disabled={job.previewCapturing} style={tabBtnStyle(false)} title="Collect console errors + warnings from the running preview">
+          <button onClick={() => onCapture?.(['console'], captureViewport)} disabled={job.previewCapturing || !onCapture} style={tabBtnStyle(false)} title="Collect console errors + warnings from the running preview">
             CHECK CONSOLE
           </button>
-          <button onClick={() => onCapture?.(['network'], captureViewport)} disabled={job.previewCapturing} style={tabBtnStyle(false)} title="Collect failed + error-status network requests from the running preview">
+          <button onClick={() => onCapture?.(['network'], captureViewport)} disabled={job.previewCapturing || !onCapture} style={tabBtnStyle(false)} title="Collect failed + error-status network requests from the running preview">
             CHECK NETWORK
           </button>
           {/* G2 — capture viewport preset. Renders the page at desktop/tablet/
@@ -376,7 +375,7 @@ export function PreviewTab({ job, onSetPort, onClear, onCapture, onReviewCapture
               <button
                 key={v}
                 onClick={() => pickCaptureViewport(v)}
-                disabled={job.previewCapturing}
+                disabled={job.previewCapturing || !onCapture}
                 style={{
                   ...tabBtnStyle(captureViewport === v),
                   border: 'none',

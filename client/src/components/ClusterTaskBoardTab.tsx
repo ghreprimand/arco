@@ -250,9 +250,10 @@ export function ClusterTaskBoardTab({
   const [automationOpen, setAutomationOpen] = useState(false);
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   const selectedTask = selectedTaskId
-    ? (details?.task.id === selectedTaskId ? details.task : tasks.find((t) => t.id === selectedTaskId) ?? null)
+    ? (tasks.find((t) => t.id === selectedTaskId) ?? null)
     : null;
-  const graph = useMemo(() => taskGraphSummary(details), [details]);
+  const selectedDetails = details?.task.id === selectedTaskId ? details : null;
+  const graph = useMemo(() => taskGraphSummary(selectedDetails), [selectedDetails]);
   const dispatcherControlReady = Boolean(taskShowReader && onToggleDispatcher && onUpdateDispatcherSettings);
 
   useEffect(() => {
@@ -432,6 +433,7 @@ export function ClusterTaskBoardTab({
     }
 
     const ac = new AbortController();
+    setDetails(null);
     setLoadingDetails(true);
     setDetailsError(null);
     const q = new URLSearchParams({ workflowId: taskShowReader, id: selectedTaskId });
@@ -443,7 +445,7 @@ export function ClusterTaskBoardTab({
         }
         return (await r.json()) as TaskDetails;
       })
-      .then((d) => setDetails(d))
+      .then((d) => { if (!ac.signal.aborted) setDetails(d); })
       .catch((err) => {
         if (ac.signal.aborted) return;
         setDetails(null);
@@ -453,7 +455,7 @@ export function ClusterTaskBoardTab({
         if (!ac.signal.aborted) setLoadingDetails(false);
       });
     return () => ac.abort();
-  }, [cluster.clusterId, taskShowReader, selectedTaskId]);
+  }, [cluster.clusterId, taskShowReader, selectedTaskId, tasks]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
@@ -807,7 +809,7 @@ export function ClusterTaskBoardTab({
       {selectedTask && (
         <TaskDetailDrawer
           task={selectedTask}
-          details={details}
+          details={selectedDetails}
           cwd={cwd}
           graph={graph}
           loading={loadingDetails}

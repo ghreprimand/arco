@@ -33,6 +33,7 @@ export const workflows: Section[] = [
   title: 'Native sessions & resume',
   body: (
   <>
+  <p>Changing the creator folder clears the selected session. RESUME requires a session from the current folder after its list finishes loading. A missing selection never launches a new conversation silently.</p>
   <p>Summaries and automatic titles update the current provider session. Older session titles stay intact. Live native-session history waits for complete records, including text written in several chunks.</p>
   <p>The Resume index follows the selected project. A slower reply from a previously selected project cannot replace its titles, pins or archive metadata.</p>
   <p>

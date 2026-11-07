@@ -94,6 +94,7 @@ export function HistoryTab({ job }: Props) {
   const [viewerArtifact, setViewerArtifact] = useState<string | null>(null);
   const [pagedEvents, setPagedEvents] = useState<HistoryEventEntry[]>([]);
   const [historyHasEarlier, setHistoryHasEarlier] = useState(true);
+  const [earlierCursor, setEarlierCursor] = useState<number | undefined>();
   const [loadingEarlierHistory, setLoadingEarlierHistory] = useState(false);
   // Reviews live under .arco/workflows/<id>/artifacts/, handoffs under
   // .arco/workflows/<id>/handoffs/ — same modal, different subdir.
@@ -125,7 +126,7 @@ export function HistoryTab({ job }: Props) {
     if (loadingEarlierHistory || events.length === 0) return;
     setLoadingEarlierHistory(true);
     try {
-      const beforeSeq = Math.min(...events.map((e) => e.seq));
+      const beforeSeq = earlierCursor ?? Math.min(...events.map((e) => e.seq));
       const q = new URLSearchParams({
         path: job.config.workingDirectory,
         workflowId: job.id,
@@ -134,11 +135,12 @@ export function HistoryTab({ job }: Props) {
       });
       const r = await fetch(`/api/workflows/events?${q.toString()}`);
       if (!r.ok) return;
-      const d: { events?: ServerMessage[]; hasEarlier?: boolean } = await r.json();
+      const d: { events?: ServerMessage[]; hasEarlier?: boolean; earlierCursor?: number } = await r.json();
       const rows = (d.events ?? [])
         .map(narrativeEventFromMessage)
         .filter((e): e is HistoryEventEntry => e !== null);
       setHistoryHasEarlier(!!d.hasEarlier);
+      setEarlierCursor(d.earlierCursor);
       if (rows.length > 0) {
         setPagedEvents((prev) => {
           const bySeq = new Map<number, HistoryEventEntry>();

@@ -511,6 +511,7 @@ export const configuration: Section[] = [
   title: 'Skills - import, update, on/off, move and share',
   body: (
   <>
+  <p>The composer agent-skill section shows discovery progress and failures for supported providers. Reopen the menu to try discovery again after a failure.</p>
   <p>
   A skill is a folder with a <Code>SKILL.md</Code> (name and description at the
   top, then the instructions) and any files it refers to. Settings &gt; SKILLS

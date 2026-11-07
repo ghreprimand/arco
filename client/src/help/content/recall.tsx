@@ -108,7 +108,7 @@ export const recallHelp: Record<string, HelpEntry> = {
         using the open tab's agent or the saved conversation's provider. If the
         summarizer cannot answer, Arco attempts a deterministic structural digest.
         A storage failure can still prevent the save.
-      </p>
+       If the saved file cannot be read, choose REGENERATE SUMMARY on that result to request a replacement. Reading a missing file never starts generation by itself.</p>
     ),
     manualSection: 'recall-search',
   },

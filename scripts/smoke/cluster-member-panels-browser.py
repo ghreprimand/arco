@@ -33,6 +33,10 @@ async def main():
             if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and route.request.method == 'GET':
                 if url.path == '/fixture':
                     await route.fulfill(status=200, content_type='text/html', body=HTML); return
+                if url.path == '/api/files':
+                    await route.fulfill(json={'files': [{'name': 'notes.txt', 'path': '/projects/fixture/notes.txt', 'isDirectory': False}]}); return
+                if url.path == '/api/file-content':
+                    await route.fulfill(json={'type': 'text', 'content': 'Palette fixture contents', 'size': 24}); return
                 if url.path == '/api/usage-stats':
                     usage_requests.append(url.query)
                     await route.fulfill(json=USAGE); return
@@ -67,7 +71,8 @@ async def main():
           ];
           const cluster = {clusterId: 'c1', cwd: '/projects/fixture', createdAt: '', taskBoardMode: 'none', taskBoardAttached: false, mailboxDepth: {}, members};
           s.getState().setClusterState('c1', cluster);
-          createRoot(document.getElementById('fixture')).render(React.createElement(ClusterRightPanel, {cluster}));
+          window.fixtureRoot = createRoot(document.getElementById('fixture'));
+          window.fixtureRoot.render(React.createElement(ClusterRightPanel, {cluster}));
         }'''
         await page.evaluate(MOUNT)
         picker = page.get_by_label('HISTORY of member')
@@ -93,6 +98,18 @@ async def main():
         await page.locator('[data-help="cluster.right-panel.group.runtime"]').click()
         await page.locator('[data-help="cluster.right-panel.preview"]').click()
         await expect(page.get_by_label('PREVIEW of member')).to_have_value('builder-cli')
+        # B160/B161: real layout under zoom and captures use the member in view.
+        await page.evaluate("""() => {
+          window.captureCalls = [];
+          s.setState(st => ({wsSendRaw: m => {captureCalls.push(m); return true}, jobs: {...st.jobs, 'builder-cli': {...st.jobs['builder-cli'], preview: {port: 5173}}}}));
+        }""")
+        await page.get_by_role('button', name='MOBILE', exact=True).click()
+        for label in ['CAPTURE SCREENSHOT', 'CHECK CONSOLE', 'CHECK NETWORK']:
+            await page.get_by_role('button', name=label, exact=True).click()
+        assert await page.evaluate('window.captureCalls') == [
+            {'type': 'preview_capture_request', 'workflowId': 'builder-cli', 'captures': [kind], 'viewport': 'mobile'}
+            for kind in ['screenshot', 'console', 'network']
+        ]
         # MEMORY > USAGE covers the cluster's project folder.
         await page.locator('[data-help="cluster.right-panel.group.memory"]').click()
         await page.locator('[data-help="cluster.right-panel.tab.usage"]').click()
@@ -102,9 +119,50 @@ async def main():
             if usage_requests: break
             await page.wait_for_timeout(100)
         assert 'path=%2Fprojects%2Ffixture' in usage_requests[0], usage_requests
+        # Measure the standalone fitted surface in a bounded flex host.
+        await page.evaluate("""async () => {
+          const React = (await import('/node_modules/.vite/deps/react.js')).default;
+          const {PreviewTab} = await import('/src/components/PreviewTab.tsx');
+          fixtureRoot.render(React.createElement(PreviewTab, {job: s.getState().jobs['builder-cli']}));
+        }""")
+        frame = page.locator('iframe')
+        await expect(frame).to_be_visible()
+        for zoom in [1, 1.5]:
+            for width in [600, 440]:
+                await page.evaluate("""([zoom, width]) => {
+                  document.documentElement.style.zoom = String(zoom);
+                  document.getElementById('fixture').style.width = width + 'px';
+                  document.getElementById('fixture').style.height = '700px';
+                }""", [zoom, width])
+                await page.wait_for_timeout(100)
+                fits = await frame.evaluate("""el => {
+                  const box = el.parentElement.getBoundingClientRect();
+                  const wrap = el.parentElement.parentElement.getBoundingClientRect();
+                  return box.width > 0 && box.height > 0 && box.width <= wrap.width + 1 && box.height <= wrap.height + 1;
+                }""")
+                assert fits, [zoom, width]
+        await page.evaluate("document.documentElement.style.zoom = '1'")
+        # B151: viewer owns the top hit-tested surface; Escape restores the palette.
+        await page.evaluate("""async () => {
+          const React = (await import('/node_modules/.vite/deps/react.js')).default;
+          const {CommandPalette} = await import('/src/components/CommandPalette.tsx');
+          s.setState({activeJobId: 'builder-cli', activeClusterId: null});
+          window.paletteCloses = 0;
+          fixtureRoot.render(React.createElement(CommandPalette, {onClose: () => paletteCloses++}));
+        }""")
+        search = page.get_by_placeholder('Search tabs, files, transcript, commands', exact=False)
+        await search.fill('notes')
+        await page.get_by_text('notes.txt', exact=True).click()
+        await expect(search).to_have_count(0)
+        await expect(page.get_by_text('Palette fixture contents', exact=False)).to_be_visible()
+        close = page.get_by_role('button', name='×', exact=True)
+        assert await close.evaluate("""el => { const r=el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); }""")
+        await page.keyboard.press('Escape')
+        await expect(search).to_have_value('notes')
+        assert await page.evaluate('window.paletteCloses') == 0
         assert not errors, errors
         assert not blocked, blocked
         await browser.close()
-        print('PASS: cluster HISTORY and PREVIEW follow the member in view, rewind availability per provider, USAGE in MEMORY')
+        print('PASS: member HISTORY/PREVIEW, zoomed fit, scoped captures, palette viewer, rewind availability and USAGE')
 
 asyncio.run(main())

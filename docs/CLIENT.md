@@ -8,6 +8,21 @@ This doc covers the store, components, render pipeline, theme + shader system, a
 
 ---
 
+## Pending work and navigation
+
+SEND waits for every pending attachment upload in Agent and Chat composers. Overlapping paste or drop batches cannot release the guard early. Completed files remain staged for the message.
+
+HISTORY advances its saved-event cursor even when a page contains no narrative rows. Selecting an older message expands PRIOR SESSIONS when needed before scrolling and highlighting it.
+
+Open task drawers use the live ledger row. Snapshot changes refresh comments, runs and dependencies; a new selection clears the previous details while loading.
+
+Opening a FILES or CONTENT command-palette result hides the palette while the file viewer is open. Closing the viewer restores the query and selection.
+
+PREVIEW fits within its panel at the current interface text size. Cluster CAPTURE SCREENSHOT, CHECK CONSOLE and CHECK NETWORK target the member in view with the selected capture viewport. Capture controls are disabled without a sender.
+
+The composer agent-skill section shows discovery progress and errors for supported runtimes. Reopen the menu to retry after a failure.
+
+
 ## Topics
 
 | Topic |

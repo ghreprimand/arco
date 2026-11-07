@@ -1389,6 +1389,7 @@ export const clusters: Section[] = [
   title: 'Task board + task peer-tools (cluster_task_*)',
   body: (
   <>
+  <p>An open task drawer follows the live ledger. Snapshot changes refresh comments, runs and dependencies. Selecting another task clears the previous details while the new read is pending.</p>
   <p>RESET in the task editor also restores RELEASE. A release-only edit no longer remains pending after RESET.</p>
   <p>
   The cluster right panel&apos;s <strong>BOARD</strong> sub-tab is a

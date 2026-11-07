@@ -2,6 +2,12 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const miscHelp: Record<string, HelpEntry> = {
+  'palette.results': {
+    title: 'Command palette results',
+    body: <p>Choose a file or content result to open the file viewer. The palette is hidden while viewing the file. Closing the viewer returns to the same query and selection.</p>,
+    manualSection: 'command-palette',
+  },
+
   'layout.member-rail': {
     title: 'Member rail',
     body: <p>In the Narrow layout the member list folds into this rail of initials. The dot shows waiting mail (warning color) or a busy member. Click an initial to put that member in view; the hover text gives its name, role and state.</p>,
@@ -167,7 +173,7 @@ export const miscHelp: Record<string, HelpEntry> = {
           The conversation with this tab's primary agent. Renders tail-first
           (last 200 entries): use the <C>↑ LOAD EARLIER MESSAGES</C> pill at the top to
           page back further. Scroll position is preserved.
-        </p>
+         Selecting a HISTORY message inside PRIOR SESSIONS expands that group and highlights the target.</p>
         <p>
           Streams tokens during a turn. Tool calls the provider reports render
           as inline pills between assistant bubbles. Computer selecting this worker,
@@ -338,7 +344,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         artifact under the workflow's <C>artifacts/</C> dir: inspectable evidence,
         not autonomous browsing. Needs a system browser installed (or{' '}
         <C>ARCO_CHROME_BINARY</C> set); none bundled.
-      </p>
+       In a cluster, captures target the member in view. Controls are disabled when no sender is available.</p>
     ),
     manualSection: 'preview-tab',
   },
@@ -368,7 +374,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'preview.aspect': {
     title: 'PREVIEW · aspect ratio',
-    body: <p>The shape of the live view: <C>4:3</C>, <C>16:10</C> or <C>16:9</C>, always drawn at a desktop width of 1920 and scaled down to fit the panel. The choice is remembered in this browser and applies to every tab&apos;s PREVIEW.</p>,
+    body: <p>The shape of the live view: <C>4:3</C>, <C>16:10</C> or <C>16:9</C>, always drawn at a desktop width of 1920 and scaled down to fit the panel. The choice is remembered in this browser and applies to every tab&apos;s PREVIEW. Fitting uses the available panel space at the current interface text size.</p>,
     manualSection: 'preview-tab',
   },
   // ----------------------------------------- WORKFLOW CREATOR / RESUME
@@ -812,7 +818,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Single workflow only. Lists CLI sessions already on disk for this cwd (
         <C>~/.claude/projects</C>, <C>~/.codex/sessions</C>). Pick one to continue inside Arco: the session
         remains a real native CLI session you can also resume from a terminal.
-       The index follows the selected project; replies from earlier selections are ignored. Summaries and automatic titles belong to the current provider session, leaving older session titles intact.</p>
+       The index follows the selected project; replies from earlier selections are ignored. Summaries and automatic titles belong to the current provider session, leaving older session titles intact. Changing the folder clears the session choice. RESUME stays blocked until a session from that folder is selected and its list has finished loading.</p>
     ),
     manualSection: 'sessions-and-resume',
   },

@@ -79,6 +79,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
   const summarizeOnClose = useRecallStore((s) => s.summarizeOnClose);
   const setSummarizeOnClose = useRecallStore((s) => s.setSummarizeOnClose);
   // The currently-open summary (rendered inline over the result list).
+  const [missingSummaries, setMissingSummaries] = useState<Record<string, boolean>>({});
   const [openSummaryView, setOpenSummaryView] = useState<{ wfid: string; title: string; body: string } | null>(null);
 
   const jobs = useAppStore((s) => s.jobs);
@@ -143,13 +144,14 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
   // fire a summary request over WS and let recall_summary_ready flip the row
   // (the operator clicks Open again, or it pre-fetched the body on ready).
   const onSummaryAction = async (hit: typeof hits[number]) => {
-    if (hit.summaryRef) {
+    if (hit.summaryRef && (!missingSummaries[hit.wfid] || summaryBodies[hit.wfid] != null)) {
       const cached = summaryBodies[hit.wfid];
       const body = cached ?? (await fetchSummary(hit.wfid));
       if (body != null) {
         setOpenSummaryView({ wfid: hit.wfid, title: hit.title, body });
       } else {
-        pushNotification('info', 'Summary not found on disk: regenerate it with Summarize.');
+        setMissingSummaries((prev) => ({ ...prev, [hit.wfid]: true }));
+        pushNotification('info', 'Summary not found on disk: choose REGENERATE SUMMARY to replace it.');
       }
       return;
     }
@@ -321,6 +323,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
                 summarizing={!!summarizing[hit.wfid]}
                 onHover={() => setSelected(i)}
                 onOpen={() => openHit(hit.wfid)}
+                summaryMissing={!!missingSummaries[hit.wfid] && summaryBodies[hit.wfid] == null}
                 onOpenSummary={() => { void onSummaryAction(hit); }}
                 onTogglePin={() => { void setPinned(hit.wfid, !hit.pinned); }}
                 onSetTags={(tags) => { void setTags(hit.wfid, tags); }}

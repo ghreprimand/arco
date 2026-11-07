@@ -1,3 +1,4 @@
+import type { PreviewCaptureKind, PreviewViewport } from '@arco/shared';
 import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
 import { useOutputNavigation } from '../../utils/outputNavigation';
 import { useWorktreeNavigation } from '../../utils/worktreeNavigation';
@@ -1169,7 +1170,10 @@ function ClusterAnchoredPreview({ cluster }: { cluster: ClusterStatePayload }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <MemberInViewHeader cluster={cluster} memberId={anchorWfid} what="PREVIEW" />
-      <PreviewTab key={anchorWfid} job={job} onSetPort={onSetPort} onClear={onClear} />
+      <PreviewTab key={anchorWfid} job={job} onSetPort={onSetPort} onClear={onClear}
+        onCapture={wsSendRaw ? (captures?: PreviewCaptureKind[], viewport?: PreviewViewport) => {
+          wsSendRaw({ type: 'preview_capture_request', workflowId: anchorWfid, captures, viewport });
+        } : undefined} />
     </div>
   );
 }

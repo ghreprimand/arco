@@ -848,7 +848,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         <C>cluster_task_show</C> so comments, runs, and dependency edges are
         current. A short drag (past a 4px threshold, or a brief press on touch)
         instead picks the card up to move it between columns.
-      </p>
+       The open drawer follows live ledger fields and refreshes comments, runs and dependencies after snapshot changes. A new selection clears the previous details while loading.</p>
     ),
     manualSection: 'cluster-board',
   },

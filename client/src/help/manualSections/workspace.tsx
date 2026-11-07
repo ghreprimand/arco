@@ -259,6 +259,7 @@ export const workspace: Section[] = [
     title: 'The chat panel',
     body: (
       <>
+  <p>Selecting a HISTORY message expands PRIOR SESSIONS when needed, then scrolls to and highlights the requested message.</p>
   <p>Claude Native questions offer complete answer options, including literal pipes and backslashes. Choose an option or type an answer to resume the waiting agent.</p>
 <p>Application JSON remains visible even when it uses workers, stateMutations or qualityVerdicts keys. Valid legacy internal envelopes and arco-artifact fences use compact summaries. Windows drive and UNC filenames work as file references.</p>
         <p>
@@ -334,6 +335,7 @@ export const workspace: Section[] = [
     title: 'The composer (terminal input)',
     body: (
       <>
+  <p>SEND waits until all attachment upload batches finish. A second paste or drop does not release that guard early.</p>
   <p>Follow-ups are associated with the turn that actually receives them. Inputs dispatched together stay together in restored context and reviews. Steering retains its delivery position; a late acknowledgement does not move it into a newer turn.</p>
         <p>
           The composer is the prompt box at the bottom of the chat panel. It has

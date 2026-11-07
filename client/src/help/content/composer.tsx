@@ -2,6 +2,12 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const composerHelp: Record<string, HelpEntry> = {
+  'composer.agent-skills': {
+    title: 'Agent skill discovery',
+    body: <p>Lists skills available to the current Claude or Codex runtime. Discovery progress and failures appear here. Reopen the menu to retry after a failure.</p>,
+    manualSection: 'skills',
+  },
+
   'composer.tidy': {
     title: 'Tidy draft',
     body: <p>Ask the chosen utility agent to propose a clearer draft. The original stays in the composer until ACCEPT; KEEP ORIGINAL, the close button in the dialog header or Escape closes the dialog without changing it. REFINE adds instructions, BACK revisits earlier proposals, and the proposal can be edited. UNDO TIDY restores the original until the draft changes. The draft and directives are sent to the chosen provider; nothing is sent to the worker automatically.</p>,
@@ -76,7 +82,7 @@ export const composerHelp: Record<string, HelpEntry> = {
         Claude, Codex, Cursor and local models with vision; other files are
         appended as <C>[attached file: &lt;path&gt;]</C> references in the
         prompt text.
-      </p>
+       SEND waits for every pending upload batch, including another paste or drop started while uploading.</p>
     ),
   },
   'composer.remote': {

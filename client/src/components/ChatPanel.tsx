@@ -264,19 +264,29 @@ export function ChatPanel({ job, onCancelQueued, onLoadEarlier, clusterContext, 
   // the same row re-fires the flash.
   const flashTarget = useAppStore((s) => s.flashTarget);
   const [flashedKey, setFlashedKey] = useState<string | null>(null);
+  const handledFlash = useRef<typeof flashTarget>(null);
   useEffect(() => {
-    if (!flashTarget || flashTarget.jobId !== job.id) return;
+    if (!flashTarget || flashTarget.jobId !== job.id || handledFlash.current === flashTarget) return;
     const idx = visibleRows.findIndex(
       (r) => r.kind === 'message' && r.message.id === flashTarget.messageId,
     );
-    if (idx < 0) return;
+    if (idx < 0) {
+      if (!priorSessionsExpanded && displayMessages.some((m) => m.id === flashTarget.messageId)) setPriorSessionsExpanded(true);
+      return;
+    }
+    handledFlash.current = flashTarget;
     virtualizer.scrollToIndex(idx, { align: 'center' });
     pinnedToBottom.current = false;
     setFlashedKey(visibleRows[idx].key);
-    const t = window.setTimeout(() => setFlashedKey(null), 2000);
-    return () => window.clearTimeout(t);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flashTarget, job.id]);
+  }, [flashTarget, job.id, priorSessionsExpanded]);
+
+  useEffect(() => {
+    if (!flashedKey) return;
+    const timer = window.setTimeout(() => setFlashedKey(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [flashedKey, flashTarget]);
 
   // Track scroll-position mode (pinned vs. detached). 40px slack so small
   // jitter doesn't flip us out of pinned-mode. The jump-to-bottom button

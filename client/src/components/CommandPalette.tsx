@@ -305,7 +305,7 @@ export function CommandPalette({ onClose }: Props) {
 
   return createPortal(
     <>
-      <div
+      {!viewerPath && <div
         onClick={onClose}
         style={{
           position: 'fixed', inset: 0, zIndex: 9000,
@@ -314,6 +314,7 @@ export function CommandPalette({ onClose }: Props) {
         }}
       >
         <div
+          data-help="palette.results"
           ref={surface}
           onClick={(e) => e.stopPropagation()}
           style={{
@@ -401,11 +402,11 @@ export function CommandPalette({ onClose }: Props) {
             <span style={{ marginLeft: 'auto' }}>{results.length} results</span>
           </div>
         </div>
-      </div>
+      </div>}
       {viewerPath && activeJobId && activeCwd && (
         <FileViewerModal
           path={viewerPath}
-          onClose={() => setViewerPath(null)}
+          onClose={() => { setViewerPath(null); window.requestAnimationFrame(() => inputRef.current?.focus()); }}
           fallback={{ cwd: activeCwd, workflowId: activeJobId }}
         />
       )}
