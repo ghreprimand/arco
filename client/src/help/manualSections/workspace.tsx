@@ -302,7 +302,7 @@ export const workspace: Section[] = [
             <strong>Tool-call pills</strong> - inline rows between assistant
             bubbles for Bash / Read / Grep / WebFetch / etc. Click to expand the
             JSON input. Click a file path inside to open the viewer modal.
-            (Claude-only for now - uses the Claude session JSONL.)
+            (Claude CLI only - they come from the Claude session file; on other transports tool calls show in ACTIVITY.)
           </li>
           <li>
             <strong>Inline artifacts</strong> - fenced{' '}
@@ -384,8 +384,9 @@ export const workspace: Section[] = [
           <strong>Attachments:</strong> drop files anywhere on the window, paste
           an image or file from the clipboard, or click <Code>+ FILE</Code>.
           Images are sent as native attachments where the provider supports them
-          (Claude); other files are appended as{' '}
-          <Code>[file: &lt;path&gt;]</Code> references in the prompt.
+          (Claude, Codex, Cursor, and local models with vision); other files are
+          appended as <Code>[attached file: &lt;path&gt;]</Code> references in
+          the prompt.
         </p>
         <p>
           <strong>The worker header</strong> shows the context fill estimate and cumulative output. The footer below the composer shows other live state:
@@ -706,9 +707,9 @@ export const workspace: Section[] = [
           </li>
         </ul>
         <Note>
-          REMOTE is read-only except for the explicit FETCH button. The mutating
-          push / pull / merge operations arrive in a later workbench phase; this
-          tab is for <em>seeing</em> the state first.
+          REMOTE is read-only except for the explicit FETCH button. Push and pull
+          are separate, explicit buttons in the git actions bar of the SOURCE
+          sub-tab; this tab is for <em>seeing</em> the state first.
         </Note>
 
       </>
@@ -786,8 +787,8 @@ export const workspace: Section[] = [
           The doc-edit agent has <strong>no Write tool</strong> and never
           touches disk: its whole output is the proposed text. Accept changes
           the in-memory buffer only; the existing <strong>SAVE</strong> button
-          is the one and only path that writes to disk, through the same{' '}
-          same protected save path as a manual edit. Reject discards the
+          is the one and only path that writes to disk, through the same
+          protected save path as a manual edit. Reject discards the
           proposal; nothing is written until SAVE.
         </Note>
       </>

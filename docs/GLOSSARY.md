@@ -260,7 +260,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Tool-result eviction** - section2.2 per-turn aggregate tool-result spill for Claude Native (`server/src/providers/claude-native/toolResultEviction.ts`). Operator-armed (off by default; `ARCO_TOOL_EVICT`). When a batch's summed tool-result tokens exceed the turn budget (`ARCO_TURN_TOOL_TOKEN_BUDGET`) it spills the largest results first, replacing each with a 1-line note; the raw output is gzipped under `.arco/workflows/<wfid>/artifacts/raw-tools/` and a `tool_evicted` event carries the byte counts + `rawArtifactPath` (fully reversible). Distinct from `tool_filtered`, which trims a single result in place via a configured filter pack.
 
-**Tool use** - A primary or worker invoking a tool (Bash, Read, Grep, etc.). Surfaces in chat as inline `ToolCallPill` rows; full input visible on click. Every provider with tools emits `tool_use` events; Cursor's are mapped from ACP tool-call updates.
+**Tool use** - A primary or worker invoking a tool (Bash, Read, Grep, etc.). Every provider with tools emits `primary_tool_use` events (Cursor's are mapped from ACP tool-call updates), listed in the ACTIVITY tab. Claude CLI tabs also show them in chat as inline `ToolCallPill` rows, read from the session file (`session_entry`); full input visible on click.
 
 **Transient broadcast** - `broadcastTransient(workflowId, message)`. Fans to observers WITHOUT persisting to `events.jsonl`. Used for derived state like `session_entry` (already on disk in the JSONL) and ephemeral state like `context_usage`.
 

@@ -412,8 +412,10 @@ export const powerFeatures: Section[] = [
   <li>Cloning a repo to a chosen local path.</li>
   </ul>
   <Note>
-  The browser is read-mostly, plus clone. It deliberately does not create, merge
-  or close PRs; do those with <Code>gh</Code> or the website.
+  The browser is read-mostly. Its only writes are clone, <Code>+ NEW PR</Code>{' '}
+  (create a pull request), MERGE on a pull request and POST COMMENT on an
+  issue, each started by your click. Closing pull requests and other changes
+  need <Code>gh</Code> or the website.
   </Note>
   </>
   ),
@@ -441,8 +443,8 @@ export const powerFeatures: Section[] = [
   </p>
   <Note>
   Help mode intercepts clicks on annotated controls while it is active. Press{' '}
-  <Kbd>Esc</Kbd> or click <Code>?</Code> again to leave it before using a control
-  normally.
+  <Kbd>Esc</Kbd> or choose <Code>EXIT POINT AT THINGS</Code> in the HELP menu to
+  leave it before using a control normally.
   </Note>
   <p>
   File references opened from chat, help or rendered markdown use a stacked file
@@ -475,7 +477,8 @@ export const powerFeatures: Section[] = [
   <li>✗: failed, with the error shown inline.</li>
   </ul>
   <Note>
-  Inline pills are Claude-only for now. Codex and other providers show their tool
+  Inline pills come from the Claude CLI session file, so they appear only on
+  Claude CLI tabs. Claude Native, Codex and other providers show their tool
   calls in the ACTIVITY tab on the right instead of between chat messages.
   </Note>
   </>
@@ -697,9 +700,9 @@ export const powerFeatures: Section[] = [
   <Sub>The notice center</Sub>
   <p>Notices fall into these categories:</p>
   <ul>
-  <li><Code>turn-finished</Code>, <Code>quota-recovered</Code>, <Code>auth-expired</Code></li>
-  <li><Code>terminal-exited</Code>, <Code>preview-failed</Code>, <Code>pr-status</Code></li>
-  <li><Code>cluster-nudge</Code>, <Code>backup</Code></li>
+  <li><Code>turn-finished</Code>, <Code>attention</Code> (failed or waiting on you), <Code>quota-recovered</Code>, <Code>auth-expired</Code></li>
+  <li><Code>terminal-exited</Code>, <Code>preview-failed</Code>, <Code>pr-status</Code>, <Code>port-change</Code></li>
+  <li><Code>cluster-nudge</Code>, <Code>computer-watch</Code>, <Code>backup</Code></li>
   </ul>
   <p>
   Use <strong>SHOW IN BELL</strong> to choose categories; a checked box shows that category. The choices are saved on the server. Opening

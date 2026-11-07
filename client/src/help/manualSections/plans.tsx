@@ -120,15 +120,18 @@ export const plans: Section[] = [
         <ul>
           <li>
             <strong>DRAFT → I'LL REVIEW.</strong> The agent's next reply is its
-            draft of the plan. A banner offers <Code>SAVE &amp; ATTACH</Code> and
-            <Code>REFINE</Code> on that reply, so you can read it first, ask for
-            changes and commit only if happy. The drafting
+            draft of the plan. A banner offers <Code>SAVE &amp; ATTACH</Code>{' '}
+            (<Code>ATTACH TO CLUSTER</Code> in a cluster), <Code>REFINE</Code>{' '}
+            and <Code>DISCARD</Code> on that reply, so you can read it first, ask
+            for changes and commit only if happy. The drafting
             turn has no project tools. Ordinary Claude CLI hooks are disabled,
             although administrator-managed hooks can still run.
           </li>
           <li>
             <strong>DRAFT &amp; AUTO-SAVE.</strong> Saves the agent's reply as the
-            plan automatically. It is faster but less inspection-friendly.
+            plan automatically. It is faster but less inspection-friendly. For a
+            cluster member it works like DRAFT → I'LL REVIEW, so nothing attaches
+            to the cluster without a click.
           </li>
         </ul>
         <p>Both paths ask the agent to synthesize the conversation into this shape:</p>
@@ -150,7 +153,7 @@ export const plans: Section[] = [
           turn with no plan attached carries a short note telling the agent how.
         </p>
         <ul>
-          <li>On Codex, CLI Claude and Cursor cluster members, a real tool does it: <Code>plan_create</Code> takes a title and body, creates the plan and attaches it in one call. It rejects a body with no sections or checkboxes and says why, so a malformed plan is caught as it is written.</li>
+          <li>On Codex and CLI Claude tabs, and on Cursor cluster members, a real tool does it: <Code>plan_create</Code> takes a title and body, creates the plan and attaches it in one call. It rejects a body with no sections or checkboxes and says why, so a malformed plan is caught as it is written.</li>
           <li>Elsewhere, the note gives the equivalent API call and the body shape Arco actually parses.</li>
           <li>Claude Native tabs use their <Code>EnterPlanMode</Code> tool, which attaches for real.</li>
         </ul>
