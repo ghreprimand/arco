@@ -252,11 +252,9 @@ export async function handleHttpRequest(
   // is kept as a back-compat alias returning the same body. Always 200 — this
   // branch only runs when the server is up. NOT gated on ARCO_SERVE_CLIENT, and
   // routed ahead of everything so a supervisor probe can never be shadowed.
+  // `/api/app/version` stays public too: a page whose session ended with a
+  // restart uses it to notice the new server.
   if (tryHandleAppVersionRoutes(req, res)) return;
-  if (await tryHandleSmartPickupRoutes(req, res)) return;
-  if (await tryHandleTidyRoutes(req, res)) return;
-  if (await tryHandleUtilityAgentRoutes(req, res)) return;
-  if (await tryHandleNotificationChannelsRoutes(req, res)) return;
 
   // Readiness (docs/ARCHITECTURE.md). 200 only once capabilities + stores are
   // up; 503 with the pending components during the boot window. Lets a load
@@ -293,6 +291,13 @@ export async function handleHttpRequest(
     res.end(JSON.stringify({ error: 'Session required' }));
     return;
   }
+
+  // Operator routes in their own modules: behind the session gate like every
+  // other /api route (they read or change settings and can call providers).
+  if (await tryHandleSmartPickupRoutes(req, res)) return;
+  if (await tryHandleTidyRoutes(req, res)) return;
+  if (await tryHandleUtilityAgentRoutes(req, res)) return;
+  if (await tryHandleNotificationChannelsRoutes(req, res)) return;
 
   // Preview port liveness probe. Used by the PREVIEW tab when the operator
   // clicks a history pill — if the upstream is dead the client surfaces a

@@ -60,7 +60,7 @@ workflow and event every 3 seconds, and does three things:
   `turn-finished` notice transport skips that category so it is not sent twice.
 
 Preferences live in `~/.arco/notification-channels.json` (mode 0600; the ntfy
-token is stored there and never returned to the browser). `GET`/`PUT
+token is stored there and never returned to the browser). The saved token belongs to the server it was saved with: a save or a TEST with a server on another scheme, host or port does not use it, and saving such a server without entering a token clears it. `GET`/`PUT
 /api/notification-channels` and `POST /api/notification-channels/test` serve
 Settings > Notifications, where REQUEST PERMISSION and TEST DESKTOP check the browser permission and notification path. TEST DESKTOP asks for permission itself when the browser has not been asked, then shows its result beside the button: Sent (the system took the notification; if nothing appears, check the system notification service and do-not-disturb), Blocked (allow notifications in the site settings, in the browser profile the Arco window uses, then reload), Not allowed (the request was closed), Not supported or Failed. Normal desktop alerts require an unfocused window; finished turns must last at least 15 seconds. The window title shows `(N) ` before the page title
 while N tabs hold an unanswered question or approval (`client/src/alerts/waiting.ts`,

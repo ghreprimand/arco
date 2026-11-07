@@ -468,7 +468,8 @@ export const settingsHelp: Record<string, HelpEntry> = {
         </p>
         <p>
           <strong>Phone</strong> sends a message through an ntfy server and needs no hub. Enter the server, a topic
-          (GENERATE makes a private-looking random one) and, for a protected topic, an access token, then press TEST. Anyone
+          (GENERATE makes a private-looking random one) and, for a protected topic, an access token, then press TEST. The
+          token is only sent to the server it was saved with; after changing to another server, enter it again. Anyone
           who knows the topic can read its messages. Message text is left out unless you turn it on. An address from
           <C>ARCO_NTFY_URL</C> is used while none is saved here, except when Arco&apos;s home folder is inside the system
           temporary folder (a test server, for example); an address saved here always works. In a cluster,

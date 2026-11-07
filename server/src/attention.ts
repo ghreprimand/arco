@@ -53,7 +53,7 @@ export function getChannels(): NotificationChannels { return channels; }
 
 export async function saveChannels(value: unknown): Promise<NotificationChannels> {
   if (!loaded) await loadChannels();
-  channels = sanitizeNotificationChannels(value, channels.ntfy.token);
+  channels = sanitizeNotificationChannels(value, channels.ntfy.token, channels.ntfy.server);
   await atomicWriteFile(channelsPath, JSON.stringify(channels), { mode: 0o600 });
   return channels;
 }
@@ -111,7 +111,7 @@ export async function sendPhone(target: { url: string; token?: string }, title: 
 }
 
 export async function sendTest(draft: unknown): Promise<{ ok: boolean; error?: string }> {
-  const cfg = sanitizeNotificationChannels(draft, channels.ntfy.token);
+  const cfg = sanitizeNotificationChannels(draft, channels.ntfy.token, channels.ntfy.server);
   const target = resolvePhoneTarget(cfg);
   if (!target) return { ok: false, error: 'Enter a server address and a topic first.' };
   return sendPhone(target, 'Arco test', 'This is a test message from Arco. If you can read it, phone notifications work.', 'test');

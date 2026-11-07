@@ -994,7 +994,7 @@ export const configuration: Section[] = [
   <ol>
   <li>Enter the server (https://ntfy.sh or your own).</li>
   <li>Enter a topic; GENERATE makes a random one.</li>
-  <li>For a protected topic, enter an access token. It is kept on the Arco computer and never shown again.</li>
+  <li>For a protected topic, enter an access token. It is kept on the Arco computer and never shown again. It is only sent to the server it was saved with; after changing to another server, enter the token again.</li>
   <li>Press TEST.</li>
   </ol>
   <ul>

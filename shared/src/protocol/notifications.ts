@@ -148,13 +148,21 @@ function switches(value: unknown): AttentionSwitches {
 }
 
 // Tolerant: anything missing or malformed falls back to the off-by-default value.
-export function sanitizeNotificationChannels(value: unknown, previousToken?: string): NotificationChannels {
+// Scheme, host and port of a server address ('' when it does not parse).
+function serverOrigin(server: string): string {
+  try { return new URL(server).origin; } catch { return ''; }
+}
+
+export function sanitizeNotificationChannels(value: unknown, previousToken?: string, previousServer?: string): NotificationChannels {
   const v = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
   const n = (v.ntfy && typeof v.ntfy === 'object' ? v.ntfy : {}) as Record<string, unknown>;
   const server = normalizeNtfyServer(n.server) ?? DEFAULT_NOTIFICATION_CHANNELS.ntfy.server;
   const topic = typeof n.topic === 'string' && isValidNtfyTopic(n.topic.trim()) ? n.topic.trim() : '';
-  // token: a string sets it, '' or null clears it, absent keeps the previous one.
-  let token: string | undefined = previousToken;
+  // token: a string sets it, '' or null clears it, absent keeps the previous
+  // one, but only for the server it was saved with: a token is never sent to
+  // another server unless it is entered again.
+  const sameServer = previousServer === undefined || serverOrigin(server) === serverOrigin(previousServer);
+  let token: string | undefined = sameServer ? previousToken : undefined;
   if (typeof n.token === 'string') token = n.token.trim().slice(0, 256) || undefined;
   else if (n.token === null) token = undefined;
   return {
