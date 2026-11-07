@@ -49,6 +49,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- The composer stays steady as a running step changes. Long step names are shortened in the toolbar; hover to see the full name.
+
 - Theme colors and fonts now apply to browser choices, form controls, help, and workspace panels across the app. The Preview status wraps within narrow panels.
 
 - Settings text follows the theme everywhere: the built-in skill rows now look like your own skill rows (with an OPERATOR or MODEL badge), and the Notifications, DeepSeek, project location and Arco version text no longer falls back to the page's plain text color.

@@ -791,7 +791,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         style={{ display: 'none' }}
       />
 
-      <div data-testid="composer-status-line" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '6px', minWidth: 0 }}>
+      <div data-testid="composer-status-line" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '6px', minWidth: 0, minHeight: isBusy ? '24px' : undefined }}>
         <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />
         {job.compactedResume && !isCompacting && (
           <span data-help="composer.compact-continue" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -1595,7 +1595,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         </button>
 
         {toolbarOneLine && <ToolbarMore row={toolbarRef} hidden={toolbarHidden} />}
-        <div style={{ flex: 1 }} />
+        {!isBusy && <div style={{ flex: 1 }} />}
 
         {isBusy && <PrimaryStatus job={job} />}
         <PendingQuestionsButton workflowId={job.id} />

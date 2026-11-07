@@ -39,7 +39,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.turn-step': {
     title: 'Current step',
-    body: <p>The running tool and elapsed step time appear while the agent works. Shell commands show their first line. A step over 60 seconds is marked long-running.</p>,
+    body: <p>The running tool and elapsed step time appear while the agent works. Shell commands show their first line. A step over 60 seconds is marked long-running. Hover over a shortened step to see its full name.</p>,
     manualSection: 'composer',
   },
   'composer.send': {

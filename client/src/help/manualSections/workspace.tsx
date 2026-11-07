@@ -355,7 +355,7 @@ export const workspace: Section[] = [
             <Code>INTERRUPT &amp; SEND</Code> interrupts the turn and sends the
             draft next in the same conversation, preserving queued messages and
             completed changes. <Kbd>Esc</Kbd> cancels the in-flight turn (drops
-            the queue too; <Kbd>Shift+Esc</Kbd> skips the confirm). The PENDING list shows each message as Queued until delivery is confirmed, then Delivered until the next agent text or turn end. A provider without a delivery signal stays Queued until turn end. The working indicator and cluster member cards show the current tool, the first line of a shell command, and elapsed step time. Steps over 60 seconds are marked long-running.
+            the queue too; <Kbd>Shift+Esc</Kbd> skips the confirm). The PENDING list shows each message as Queued until delivery is confirmed, then Delivered until the next agent text or turn end. A provider without a delivery signal stays Queued until turn end. The working indicator and cluster member cards show the current tool, the first line of a shell command, and elapsed step time. Steps over 60 seconds are marked long-running. Hover over a shortened composer step to see its full name.
           </li>
         </ul>
         <h4 className="manual-sub">Slash commands &amp; references</h4>

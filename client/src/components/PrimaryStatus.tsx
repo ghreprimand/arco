@@ -13,8 +13,7 @@ function cursorEffortDisplay(modelId: string): string | null {
   return CURSOR_EFFORT_LABELS[cursorEffortKey(parsed.effort)] ?? parsed.effort;
 }
 
-// Braille spinner frames — standard 10-frame set. Renders as a single
-// monospace glyph so line height doesn't shift between frames.
+// Keep each spinner frame inside a fixed box even when the glyph uses a fallback font.
 const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 const SPINNER_INTERVAL_MS = 90;
 
@@ -53,20 +52,23 @@ export function PrimaryStatus({ job }: Props) {
         letterSpacing: '1px',
         marginTop: '3px',
         marginLeft: '8px',
+        flex: '1 1 0',
         minWidth: 0,
+        lineHeight: '16px',
+        whiteSpace: 'nowrap',
         overflow: 'hidden',
         display: 'inline-flex',
         alignItems: 'center',
         gap: '8px',
       }}
     >
-      <span style={{ fontSize: '13px', width: '10px', textAlign: 'center' }}>
+      <span aria-hidden="true" style={{ fontSize: '13px', width: '13px', height: '16px', lineHeight: '16px', flex: '0 0 13px', textAlign: 'center', overflow: 'hidden' }}>
         {SPINNER_FRAMES[frame]}
       </span>
-      <span data-help="composer.turn-step" title={step.label} style={{ minWidth: 0, display: 'inline-flex', gap: '4px', alignItems: 'center' }}><span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{step.label}</span><span style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>· {step.time}{step.longRunning ? ' · LONG-RUNNING' : ''}</span></span>
-      {effort && <span style={{ opacity: 0.7 }}>· {String(effort).toUpperCase()}</span>}
+      <span data-help="composer.turn-step" title={`${step.label} · ${step.time}${step.longRunning ? ' · LONG-RUNNING' : ''}`} style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden', display: 'inline-flex', gap: '4px', alignItems: 'center' }}><span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{step.label}</span><span style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>· {step.time}{step.longRunning ? ' · LONG-RUNNING' : ''}</span></span>
+      {effort && <span style={{ opacity: 0.7, flexShrink: 0 }}>· {String(effort).toUpperCase()}</span>}
       {lastCtx > 0 && (
-        <span style={{ opacity: 0.55 }} title={`Last turn: ${lastCtx.toLocaleString()} ctx · ${lastOut.toLocaleString()} out`}>
+        <span style={{ opacity: 0.55, flexShrink: 0 }} title={`Last turn: ${lastCtx.toLocaleString()} ctx · ${lastOut.toLocaleString()} out`}>
           · last {formatCompact(lastCtx)} ctx
         </span>
       )}

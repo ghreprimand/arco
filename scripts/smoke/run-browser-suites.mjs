@@ -30,6 +30,7 @@ const SUITES = [
   { name: 'dialog-sizes', script: 'dialog-sizes-browser.py', port: 5250 },
   { name: 'app-window-browser', script: 'app-window-browser-browser.py', port: 5252 },
   { name: 'auto-handoff', script: 'auto-handoff-browser.py', port: 5253 },
+  { name: 'composer-stability', script: 'composer-stability-browser.py', port: 5254 },
   { name: 'composer-status', script: 'composer-status-browser.py', port: 5254 },
   { name: 'tidy-composer', script: 'tidy-composer-browser.py', port: 5226 },
   { name: 'recall-close', script: 'recall-close-browser.py', port: 5227 },
