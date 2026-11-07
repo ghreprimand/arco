@@ -53,7 +53,7 @@ export function artifactsDir(cwd: string, wfid: string): string {
 // a wall of warnings, they need pointed reminders about the surfaces that
 // actually cause OOMs and system locks.
 //
-// Lives ALONGSIDE the server-side hard caps (5MB output, 32GB RSS auto-kill,
+// Lives ALONGSIDE the server-side hard caps (50 MB output by default, 32GB RSS auto-kill,
 // process-tree kill on cancel). The footer is the prompt-side "please
 // don't"; the caps are the "we will."
 //

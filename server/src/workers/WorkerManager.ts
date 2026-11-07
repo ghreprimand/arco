@@ -135,7 +135,7 @@ export class WorkerManager {
       incognito?: boolean;
       // Skip the tree-RSS auto-kill for this worker. Only the primary-turn
       // spawn site honors this (via WorkflowMeta.disableRssGuard); reviewers
-      // and handoff reflections never set it. 5MB output cap + cancel-time
+      // and handoff reflections never set it. 50 MB output cap + cancel-time
       // kill still apply.
       disableRssGuard?: boolean;
       // Fired once on the first provider `init` event. Primary-worker callers
@@ -579,7 +579,7 @@ export class WorkerManager {
           // Workflow opted out (meta.json `disableRssGuard: true`). Still log
           // once per worker crossing the cap so the operator can tell from
           // the console that the bypass is doing real work — then rearm so
-          // we don't log every poll tick. Nothing else is bypassed: 5MB
+          // we don't log every poll tick. Nothing else is bypassed: 50 MB
           // output cap + cancel-time process-tree kill still apply.
           if (!rssWarned) {
             console.warn(`[arco] worker ${workerId} exceeded RSS cap (${usedGb}GB > ${capGb}GB) — RSS guard disabled for this workflow; not killing`);
