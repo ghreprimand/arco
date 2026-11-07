@@ -200,7 +200,7 @@ making it reachable elsewhere.
 - **Optional external services:** Strata and DeepSeek through Xolotl require separately installed services that Arco does not distribute. [Provider guide](docs/PROVIDERS.md)
 - **Utility agent:** one operator-chosen provider and model for short side jobs such as **BRIEF**, **CATCH ME UP**, and **TIDY**. Accepts Claude with Native sign-in, Codex, Cursor, Ollama, LM Studio, llama.cpp, and Strata or DeepSeek through Xolotl; never chosen silently. [Settings](docs/SETTINGS.md#utility-agent) | [Feature reference](docs/FEATURES.md)
 - **Conversation control:** interrupt an active Claude or Codex turn and send a correction next, preserving queued follow-ups. Mid-turn sends show Queued or Delivered; the working indicator names the current step and its elapsed time. [Interrupt and send](docs/PROVIDERS.md#interrupt-and-send)
-- **Operator actions:** Review, Compare, Research, Handoff, and Spawn keep results visible and actions explicit. [Operator actions](docs/OPERATOR_ACTIONS.md)
+- **Operator actions:** Review, SECOND OPINION, Research, Handoff, and Spawn keep results visible and actions explicit. [Operator actions](docs/OPERATOR_ACTIONS.md)
 - **Clusters and plans:** size-ordered templates, at most one director, shared
   task boards, peer messages, plans, and optional operator-armed AUTO-PICKUP
   (Rule-based recommended; Smart modes need an evaluator from the same

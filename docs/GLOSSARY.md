@@ -328,7 +328,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **TIDY** - Composer control that asks the utility agent to propose a clearer draft. **ACCEPT** replaces the composer text only; TIDY never sends. **KEEP ORIGINAL** and Escape leave the draft unchanged.
 
-**Version box** - Always-present control in the top bar, right of the power button. Shows the running version; accent state when an update is available; opens the update dialog; shows UPDATING while an update runs.
+**Version box** - Always-present control in the top bar, left of the power button. Shows the running version; accent state when an update is available; opens the update dialog; shows UPDATING while an update runs.
 
 **AUTO-PICKUP** - Operator-armed per-cluster mode (default Off) in `ClusterRightPanel`'s header. Modes: Off; Rule-based (recommended deterministic wake on idle mail via `server/src/clusterAutoTurn.ts`, with shared cooldown and rate guards plus adjustable Rule limits including chain-depth default 8); Smart: Observe-only (evaluator proposes wake / wait / ask, log only); Smart: Automatic (wake proposals may start a turn after server gates and limits). Smart evaluators accept only Claude Native, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata, or DeepSeek through Xolotl. Limits live in `shared/src/protocol/autoPickup.ts` and `server/src/smartPickup*.ts`. Distinct from MAIL ALERTS (toast only) and NUDGE (hand-picked). See the in-app manual, [SETTINGS.md](SETTINGS.md#auto-pickup), [PROTOCOL_CLUSTER.md](PROTOCOL_CLUSTER.md) and [SECURITY.md](../SECURITY.md#utility-agent-and-smart-auto-pickup-evaluator-requests).
 

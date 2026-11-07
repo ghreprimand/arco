@@ -11,7 +11,7 @@ layout for workflow and cluster tabs. Deep contracts:
 | **New project** | Opens a tab. The workflow creator opens a tab for the selected cwd, provider, model, effort, and tool allowlist. |
 | **Resume** | Lists existing native CLI sessions for the current cwd (`~/.claude/projects/...`, `~/.codex/sessions/...`). The selected session continues inside Arco. |
 | **Review** | Spawns an ephemeral reviewer (any provider/model) over the last turn or a plan slice. Output is a read-only artifact in the right pane. |
-| **Compare** | Races one prompt across N providers/models; the operator votes for a winner in the overlay. |
+| **SECOND OPINION** (formerly Compare) | Sends one question, or selected chat messages, to several provider/model legs; each drafts the reply the operator could send. With **Blind** on (the default) the model names stay hidden until one draft is picked; **USE THIS REPLY** puts a draft in the composer. Nothing is sent automatically. |
 | **Research** | Runs one bounded web-research turn; produces a cited markdown report in the RESEARCH tab. |
 | **Handoff** | Rotates the current tab's session. Quick builds a deterministic seed from recent conversation, the action digest and Git state; the new session starts in the same tab. A written handoff is optional and does not edit `DEVLOG.md`, `PLAN.md`, or other project files. |
 | **Spawn from here** | Forks the current context to a new tab with a configurable model/effort. Original tab continues in parallel. |
@@ -30,24 +30,31 @@ The right pane groups its tabs into four sections:
 - **RUNTIME** - PREVIEW, CONFIG, GITHUB
 
 Cluster tabs swap the per-workflow right pane for the cluster panel, grouped the
-same WORKSPACE / AGENT / MEMORY / RUNTIME way as a normal tab: MEMBERS /
-ACTIVITY / REVIEWS / HANDOFFS / PLAN / BOARD / MAILBOX, plus FILES / HISTORY /
-PREVIEW / CONFIG / GITHUB mirrors. Diagnostics / model-health / local-services
+same way as a normal tab:
+
+- **WORKSPACE** - MEMBERS, FILES
+- **AGENT** - ACTIVITY, REVIEWS, HANDOFFS, PLAN, BOARD, MAILBOX
+- **MEMORY** - HISTORY (the member in view), USAGE (every member's conversations in the project folder)
+- **RUNTIME** - PREVIEW, CONFIG, GITHUB
+
+FILES, HISTORY, PREVIEW, CONFIG and GITHUB mirror the single-worker tabs. Diagnostics / model-health / local-services
 live in the header SYSTEM modal, not the right pane.
 
 ## Cluster tabs
 
-A cluster tab hosts N member workflows pinned to one cwd, with a sticky
-broadcast composer and a shared peer-tool substrate. Use it for problems that
+A cluster tab hosts N member workflows pinned to one cwd, with one message box
+(its TO chip picks the recipients; the director by default) and a shared
+peer-tool substrate. Use it for problems that
 benefit from multiple agents working alongside each other. The operator remains
 the only actor that advances a member's turn (unless the operator arms
-auto-turn). Clusters are about peer-comms plumbing, not auto-orchestration.
+AUTO-PICKUP). Clusters are about peer-comms plumbing, not auto-orchestration.
 
 ### Creating and replacing members
 
-- Right-click a cluster-capable tab -> **Add to cluster with...** or
-  **Create cluster with N fresh workers...**.
-- From inside a cluster: **+ ADD WORKER** in the Members sub-tab.
+- Right-click a cluster-capable tab to open **CLUSTER ACTIONS**: **CREATE WITH
+  EXISTING**, **ADD TO EXISTING** or **CREATE WITH FRESH**.
+- From inside a cluster: **+ ADD FRESH** or **+ ADD EXISTING** in the MEMBERS
+  sub-tab.
 - **REPLACE** swaps one member slot to a brand-new workflow/provider session.
   The dialog starts from the old member and every choice can be changed:
   provider, model, effort, account, access, name, role, work size, focus, fast
@@ -125,8 +132,8 @@ Rule-based (recommended), Smart: Observe-only, and Smart: Automatic. Rule-based
 dispatches a synthetic primary turn when idle mail arrives, with acknowledgement
 filtering and adjustable wake-budget guards (shared cooldown default 20s per
 recipient, rate cap default 10 fires per 60s per cluster, chain-depth default 8;
-env-overridable). Smart modes need an evaluator on Claude Native, Cursor, or
-Ollama. Every fire and every guard refusal lands in `events.jsonl` as
+env-overridable). Smart modes need an evaluator on Claude Native, Codex, Cursor,
+Ollama, LM Studio, llama.cpp, or Strata or DeepSeek through Xolotl. Every fire and every guard refusal lands in `events.jsonl` as
 `cluster_auto_turn_fired`. Turning Off stops further fires; an in-flight turn
 finishes normally. See [SETTINGS.md](SETTINGS.md#auto-pickup).
 
@@ -167,8 +174,8 @@ A long-form markdown brief pinned to a workflow and injected into every primary
 turn so the agent stays oriented. Plans live at `<cwd>/.arco/plans/<id>.md`;
 one cwd can host many, and the same plan can attach to multiple workflows.
 
-- **PLAN button** in the composer opens a modal: *Draft for review* or
-  *Draft & auto-save*. Both inject a prompt synthesized from the conversation
+- **PLAN button** in the composer opens a modal: `DRAFT → I'LL REVIEW` or
+  **DRAFT & AUTO-SAVE**. Both inject a prompt synthesized from the conversation
   (Goal / Current state / Open questions / Next steps with `- [ ]` items).
 - **PLAN tab** - list of plans with attachment counts; active inline, completed
   behind a toggle. Select a plan to attach it.
