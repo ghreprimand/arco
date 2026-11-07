@@ -414,3 +414,5 @@ publishing is recovered through the workflow; the release script does not
 overwrite an existing local tag. See [Updating Arco](docs/OPERATIONS.md#updating-arco)
 for installs and updates. The release notes can be
 inspected independently with `node scripts/release/notes.mjs vX.Y.Z`.
+
+On Linux, `ARCO_TEST_PER_FILE=1` uses the same network namespace isolation as the aggregate unit runner. `ARCO_TEST_REQUIRE_NETNS=1` refuses a run when that isolation is unavailable.

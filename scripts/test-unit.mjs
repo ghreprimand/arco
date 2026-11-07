@@ -78,7 +78,9 @@ try {
     const baseArgs = testArgs.slice(0, testArgs.length - files.length);
     const failed = [], timedOut = [];
     for (const file of files) {
-      const r = spawnSync(process.execPath, [...baseArgs, file], { cwd: root, env, stdio: 'inherit', timeout: 120_000, killSignal: 'SIGKILL' });
+      const command = namespaced ? 'unshare' : process.execPath;
+      const args = namespaced ? ['-rn', ...wrapper, process.execPath, ...baseArgs, file] : [...baseArgs, file];
+      const r = spawnSync(command, args, { cwd: root, env, stdio: 'inherit', timeout: 120_000, killSignal: 'SIGKILL' });
       const name = file.slice(root.length + 1);
       if (r.error?.code === 'ETIMEDOUT' || (r.status === null && r.signal)) timedOut.push(name);
       else if (r.status !== 0) failed.push(name);
