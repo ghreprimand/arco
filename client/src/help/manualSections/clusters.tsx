@@ -98,9 +98,11 @@ export const clusters: Section[] = [
   <h4 className="manual-sub">Creating a cluster</h4>
   <p>
     Right-click any compatible tab
-  (Claude, Codex, Cursor, Ollama or llama.cpp pinned to a cwd that is not
-  already part of a cluster). Other providers cannot receive the cluster peer
-  tools, and the menu says so. The context menu offers three modes:
+  (Claude, Codex, Ollama or llama.cpp pinned to a cwd that is not already part
+  of a cluster). An open Cursor tab cannot join, because its Cursor session
+  started without the cluster peer tools; add Cursor members with + ADD FRESH
+  in the cluster panel. Other providers cannot receive the peer tools, and the
+  menu says so. The context menu offers three modes:
   </p>
   <ul>
   <li>

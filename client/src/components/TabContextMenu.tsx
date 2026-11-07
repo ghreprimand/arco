@@ -27,7 +27,8 @@ import { modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
 
 type Mode = 'create-existing' | 'add-existing' | 'create-fresh';
 
-export const CLUSTER_PROVIDER_REFUSAL = 'Clusters accept Claude, Codex, Cursor, Ollama and llama.cpp tabs. This tab uses another provider, which cannot receive the cluster peer tools.';
+export const CLUSTER_PROVIDER_REFUSAL = 'This menu adds Claude, Codex, Ollama and llama.cpp tabs to a cluster. This tab uses another provider, which cannot receive the cluster peer tools.';
+export const CURSOR_TAB_REFUSAL = 'An open Cursor tab cannot join a cluster: its Cursor session started without the cluster peer tools, so it could not read or send cluster mail. Add Cursor members as new workers instead, with + ADD FRESH in the cluster panel.';
 
 interface Props {
   // The tab the operator right-clicked.
@@ -75,9 +76,12 @@ export function TabContextMenu({
     [settings],
   );
 
-  // The server's own list (CLUSTER_MEMBER_PROVIDERS), so the menu never
-  // refuses a tab the server would accept.
-  const isClusterProvider = isClusterMemberProvider;
+  // The server's member list (CLUSTER_MEMBER_PROVIDERS) less Cursor: an open
+  // Cursor tab's ACP session was opened without the loopback peer-tools MCP
+  // (mcpServers is fixed when the session starts), so it would join as a mute
+  // member. Cursor members are added fresh, like ADD EXISTING in the cluster
+  // panel (AddWorkerSection) already does.
+  const isClusterProvider = (provider: string): boolean => isClusterMemberProvider(provider) && provider !== 'cursor';
 
   // Candidate same-cwd tabs whose providers can receive cluster peer tools.
   const existingCandidates = useMemo(() => {
@@ -289,12 +293,12 @@ export function TabContextMenu({
 
         {!anchorIsNative ? (
           <div style={{ color: 'var(--color-warning)', padding: '12px 0' }}>
-            {CLUSTER_PROVIDER_REFUSAL}
+            {(anchor.config.primaryProvider ?? 'claude') === 'cursor' ? CURSOR_TAB_REFUSAL : CLUSTER_PROVIDER_REFUSAL}
           </div>
         ) : mode === 'create-existing' ? (
           existingCandidates.length === 0 ? (
             <div style={{ color: 'var(--color-fg-muted)', padding: '12px 0' }}>
-              No other Claude, Codex, Cursor, Ollama or llama.cpp tabs in this cwd. Open a second compatible tab in <span style={{ color: 'var(--color-fg)' }}>{anchor.config.workingDirectory}</span> first, or switch to CREATE WITH FRESH.
+              No other Claude, Codex, Ollama or llama.cpp tabs in this cwd. Open a second compatible tab in <span style={{ color: 'var(--color-fg)' }}>{anchor.config.workingDirectory}</span> first, or switch to CREATE WITH FRESH.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '320px', overflowY: 'auto' }}>

@@ -67,7 +67,7 @@ export const tabbarHelp: Record<string, HelpEntry> = {
   },
   'tabbar.context-menu': {
     title: 'Cluster actions',
-    body: <p>Right-clicking a tab opens cluster actions for it. Claude, Codex, Cursor, Ollama and llama.cpp tabs can join a cluster; other providers cannot receive the cluster peer tools. CREATE WITH EXISTING makes a cluster from this tab and the open tabs ticked in the same folder. ADD TO EXISTING adds this tab to a cluster already working in that folder. CREATE WITH FRESH starts a cluster from this tab plus new workers, with provider, model, account and effort for them. The action button names what will happen; CANCEL closes the menu without changes.</p>,
+    body: <p>Right-clicking a tab opens cluster actions for it. Claude, Codex, Ollama and llama.cpp tabs can join a cluster. An open Cursor tab cannot (its session started without the cluster peer tools); add Cursor members with + ADD FRESH in the cluster panel. CREATE WITH EXISTING makes a cluster from this tab and the open tabs ticked in the same folder. ADD TO EXISTING adds this tab to a cluster already working in that folder. CREATE WITH FRESH starts a cluster from this tab plus new workers, with provider, model, account and effort for them. The action button names what will happen; CANCEL closes the menu without changes.</p>,
     manualSection: 'cluster-tab',
   },
 };

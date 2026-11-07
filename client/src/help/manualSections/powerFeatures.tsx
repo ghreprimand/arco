@@ -150,7 +150,8 @@ export const powerFeatures: Section[] = [
   matters. Inside a cluster, ticking "Spawn into cluster" adds the ROLE, TIER,
   FOCUS and ACCESS fields from ADD WORKER so the new tab joins as a described
   member. Spawning into a cluster is available when the new tab uses Claude or
-  Codex; Cursor, Ollama and llama.cpp tabs join from the tab right-click menu.
+  Codex; Ollama and llama.cpp tabs join from the tab right-click menu, and Cursor
+  members are added with + ADD FRESH in the cluster panel.
   </li>
   <li>
   <strong>REWIND CONVERSATION</strong> (Claude Native only) moves the live
