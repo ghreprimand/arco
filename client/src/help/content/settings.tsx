@@ -26,7 +26,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.strata-endpoint': {
     title: 'Strata endpoint', manualSection: 'provider-strata',
-    body: <p>Standalone Strata's OpenAI-compatible base URL, default
+    body: <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported. Standalone Strata's OpenAI-compatible base URL, default
       <C>http://127.0.0.1:8081/v1</C>. A missing /v1 is added automatically.
       This setting overrides STRATA_URL_BASE. Prepared local profiles can load
       for the next message; changing the address does not prepare models or
@@ -65,7 +65,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Project trust',
     body: (
       <>
-        <p>
+        <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported.
           Every repo Arco opens is checked for three project-local surfaces -{' '}
           <C>CLAUDE.md</C>, <C>.arco/skills</C>, <C>.arco/settings.json</C>:
           that would otherwise enter the model&apos;s system prompt unread. Until
@@ -147,7 +147,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   'settings.operator-name': {
     title: 'Operator name',
     body: (
-      <p>
+      <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported.
         Replaces the generic <C>&gt; OPERATOR</C> prefix in chat with your
         chosen label. Applies to rendered transcripts that get fed back into
         handoff seeds. Leave blank to keep <C>OPERATOR</C>. Max 32 chars.
@@ -222,7 +222,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     manualSection: 'settings-providers',
     title: 'Enabled providers',
     body: (
-      <p>
+      <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported.
         Per-provider on/off toggle. Disabled providers are hidden from the
         workflow creator and Handoff/Spawn dialogs entirely: useful if you
         prefer to keep a provider out of the picker. New homes enable detected
@@ -237,7 +237,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Authentication',
     body: (
       <>
-        <p>Native sign-in in Settings and inline recovery tracks a specific flow, even while rejected credentials remain present. Local callbacks complete automatically when reachable; another device can paste the redirected localhost URL. CANCEL SIGN-IN cancels that flow. After matching recovery, review the original workflow and send explicitly. Drafts are retained and work is never replayed automatically.</p>
+        <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported. Native sign-in in Settings and inline recovery tracks a specific flow, even while rejected credentials remain present. Local callbacks complete automatically when reachable; another device can paste the redirected localhost URL. CANCEL SIGN-IN cancels that flow. After matching recovery, review the original workflow and send explicitly. Drafts are retained and work is never replayed automatically.</p>
         <p>
           The sign-in rows show provider status and sign-in controls. Claude
           Native, Claude CLI, Codex profiles and Cursor use separate sign-ins.
@@ -298,7 +298,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Codex profiles',
     body: (
       <>
-        <p>
+        <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported.
           Multiple Codex identities, each pinned to its own{' '}
           <C>CODEX_HOME</C> directory so they authenticate independently. Add{' '}
           <C>Work</C> / <C>Home</C> (or arbitrary) profiles to route different
@@ -317,7 +317,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   'settings.board-auto-done': {
     title: 'Board auto-done',
     body: (
-      <p>
+      <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported.
         When checked, a task in review is marked done as soon as the director&apos;s
         sign-off reads <C>met</C>, the same as pressing ACCEPT on the Board. Partial and
         not-met sign-offs are left for you. Off by default, so you accept finished work
@@ -405,7 +405,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Transport defaults',
     body: (
       <>
-        <p>
+        <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported.
           Cascade defaults for per-tab transport toggles. Two independent
           knobs (Codex defaults to app-server; Claude defaults to native):
         </p>
@@ -461,7 +461,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Notifications',
     body: (
       <>
-        <p>
+        <p>Rapid changes to notification switches, Ollama compaction fields and service pins are saved in order. Each edit uses the latest saved values, so a later click does not undo an earlier field change.
           Choose which events notify you and where; desktop and phone alerts are off until you tick them. Events: a turn finished
           (after at least 15 seconds), a turn failed, and waiting for you (a question or an approval). <strong>This computer</strong> shows
           a system notification only while Arco is not the window you are looking at, once per event; clicking it opens
@@ -485,7 +485,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Auto-handoff defaults',
     body: (
       <>
-        <p>
+        <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported.
           Starting auto-handoff state for newly-created tabs; off by default. When enabled, a
           tab starts a fresh session at the end of a turn after the set number of compactions
           in one conversation (default 5, 1 to 20). Auto-compaction keeps handling the context

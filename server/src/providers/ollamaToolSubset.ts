@@ -166,7 +166,8 @@ export interface SubsetInput {
 // cache preserved across turns).
 export function subsetOllamaTools(input: SubsetInput): SubsetResult {
   const { tools, taskContext } = input;
-  const cap = resolveCap();
+  const coordinationCount = input.clusterMember ? tools.filter(t => OLLAMA_CLUSTER_CORE.includes(t.function.name)).length : 0;
+  const cap = resolveCap() + coordinationCount;
 
   const coreNames = new Set<string>(OLLAMA_CORE_TOOLS);
   if (input.clusterMember) {

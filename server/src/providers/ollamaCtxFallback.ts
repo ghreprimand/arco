@@ -71,8 +71,7 @@ export interface CtxEscalationTarget {
   label: string;
   // The effective num_ctx the re-dispatch will run against (the new, larger
   // window). For 'numctx_bump' this is forced onto the request; for
-  // 'peer_backend' it's the peer's probed ceiling (informational + the request
-  // there applies its own preset/clamp against the same probe).
+  // 'peer_backend' it is also forced, using the peer's probed ceiling.
   toWindow: number;
   // Human-readable reason for the context_window_fallback event line.
   reason: string;

@@ -1,3 +1,4 @@
+import { queueSettingsPatch } from '../utils/settingsRequests';
 import { useEffect, useMemo, useState } from 'react';
 import type { LocalService, ServicesResponse, PinnedService, ArcoSettings } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
@@ -216,27 +217,14 @@ export function ServicesTab({
 
   // Persist a new pinned-services array to global settings (full-array replace),
   // then mirror into the store — exactly like ConfigTab's settings patches.
-  const persistPins = async (next: PinnedService[]) => {
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pinnedServices: next }),
-      });
-      if (!res.ok) return;
-      const fresh = (await res.json()) as ArcoSettings;
-      if (fresh) setSettings(fresh);
-    } catch { /* best-effort: the next pin/unpin retries */ }
-  };
-
-  const togglePin = (cwd: string | null, port: number) => {
+  const persistPins = (cwd: string | null, port: number) => queueSettingsPatch(current => {
+    const pins = current.pinnedServices ?? [];
     const key = pinKey(cwd, port);
-    if (pinnedKeys.has(key)) {
-      persistPins(pinned.filter((p) => pinKey(p.cwd, p.port) !== key));
-    } else {
-      persistPins([...pinned, { cwd, port, pinnedAt: Date.now() }]);
-    }
-  };
+    return { pinnedServices: pins.some(p => pinKey(p.cwd, p.port) === key)
+      ? pins.filter(p => pinKey(p.cwd, p.port) !== key)
+      : [...pins, { cwd, port, pinnedAt: Date.now() }] };
+  });
+  const togglePin = (cwd: string | null, port: number) => { void persistPins(cwd, port); };
 
   if (loading && !data) {
     return <EmptyState text="Scanning local listening sockets…" />;

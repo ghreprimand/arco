@@ -1089,3 +1089,7 @@ history once, sequentially. The canonical event reader includes sealed logs.
 Only the latest delivered-reply fact is retained from history, with its first
 line capped at 2,000 characters. Pending messages keep their existing content
 and preview limits.
+
+## Goal runs in new members
+
+Fresh workers, replacements and Native Task children inherit the standing goal but not an armed goal run. Each new tab needs its own explicit run.

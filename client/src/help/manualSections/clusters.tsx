@@ -611,6 +611,7 @@ export const clusters: Section[] = [
   title: 'Replacing members and access modes',
   body: (
   <>
+  <p>Fresh workers, replacements and Native Task children inherit the standing goal but not an armed goal run. Each new tab needs its own explicit run.</p>
   <p>
   Use <Code>REPLACE</Code> on a row in the MEMBERS sub-tab for a
   genuinely fresh worker in the same cluster slot.

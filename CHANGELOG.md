@@ -62,6 +62,12 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Reload supported Computer scripts with more than 128 action/target combinations, accept successful empty GitHub rerun responses, and check all Genesis stages for scaffold readiness.
 - Refuse import rename collisions before changing source contents, preserving tracked index entries and unstaged edits.
 
+- Ollama retains successful context increases during tool rounds, retries transient single-backend failures, distinguishes DNS and request-validation errors, and preserves free-text reviews when structured synthesis fails.
+- Local-model cluster tools keep room for file and web actions and support the peer status-confirmation handshake.
+- Workflow setting failures explicitly report temporary changes; combined goal-and-run updates validate the proposed goal, and new workers never inherit an armed goal run.
+- TUNE MD refuses proposals whose reviewed original has changed. Rapid preference edits preserve earlier clicks, and refused settings replies preserve the live settings and appearance.
+
+
 - Plan checkbox saves preserve intervening edits; architecture actions and text-matched ticks use the current saved plan. Reference lists follow the selected plan, and creating a ref cannot replace an existing document.
 - Skill UPDATE refuses a changed installed folder. Model catalog saves reject duplicate aliases and stale revisions, including diagnosis fixes.
 - Plan and reference forms wait while saves are pending. Recall keeps distillation edits made after submission.

@@ -8,6 +8,7 @@ export const configuration: Section[] = [
   title: 'Settings - providers',
   body: (
   <>
+  <p>A refused or incomplete global settings response leaves the previous settings and appearance active and reports a save error. SAVE AS DEFAULTS reports success only after a valid reply.</p>
   <p>
   The <Code>⚙ SETTINGS</Code> modal is the operator-global config surface;
   use its provider list to enable providers and sign in. Per-workflow config
@@ -455,6 +456,7 @@ export const configuration: Section[] = [
   title: 'Settings - operator name & catalog',
   body: (
   <>
+  <p>A refused or incomplete global settings response leaves the previous settings and appearance active and reports a save error. SAVE AS DEFAULTS reports success only after a valid reply.</p>
   <p>
   Operator name, catalog, skills and handoff prompts are global operator
   surfaces edited from Settings. Use them for context that should apply
@@ -590,6 +592,8 @@ export const configuration: Section[] = [
   title: 'Per-workflow CONFIG tab',
   body: (
   <>
+  <p>Workflow CONFIG reports a metadata write failure as a temporary change in the running tab. The change may be lost after restart; retry the save after storage is available. Auto-compaction retains its previous policy if its save fails.</p>
+  <p>A combined north-star and goal-run update validates the new goal before changing settings. Clearing the goal while arming a run is refused. Fresh workers, replacements and Native Task children keep the standing goal but start without an armed run.</p>
   <p>In a cluster, changing the CONFIG member resets the INDEX PATH draft to that member. ATTACH and Re-index now use the path displayed for the selected member.</p>
 <p>
   The CONFIG tab in the right pane holds settings for one workflow. Use it to
@@ -1007,6 +1011,7 @@ export const configuration: Section[] = [
   title: 'Notifications',
   body: (
   <>
+  <p>Rapid changes to notification switches, Ollama compaction fields and service pins are saved in order. Each edit uses the latest saved values, so a later click does not undo an earlier field change.</p>
   <p>
   Settings &gt; Notifications chooses which events notify you, as a grid of
   events and places. Desktop and phone alerts are off until you tick a box.

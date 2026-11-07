@@ -96,14 +96,15 @@ export interface MdTuneupProposedMessage {
 
 // Operator accepted the proposal (client→server). The server re-reads the
 // current file, backs it up, then writes `proposed`. `tuneupId` + `filePath`
-// are echoed for correlation/logging; `proposed` is the authoritative content
-// to write (the server does not trust a cached copy).
+// are echoed for correlation/logging. `original` binds acceptance to the
+// reviewed base; `proposed` supplies the replacement content.
 export interface MdTuneupAcceptMessage {
   type: 'md_tuneup_accept';
   workflowId: string;
   tuneupId: string;
   filePath: string;
   proposed: string;
+  original: string;
 }
 
 // Result of the accept (server→client). On success `backupPath` is the absolute

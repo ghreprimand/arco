@@ -309,7 +309,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Model (live swap)',
     body: (
       <>
-        <p>
+        <p>If metadata cannot be saved, a notice identifies the change as temporary for this running tab; retry after storage is available.
           Switch the model for the next turn. Same-provider swaps don't rotate the
           session: they take effect immediately on the following turn. The list
           is the live provider catalog. If the Codex CLI is missing, its picker
@@ -338,7 +338,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   'rightpanel.config.effort': {
     title: 'Effort (live swap)',
     body: (
-      <p>
+      <p>If metadata cannot be saved, a notice identifies the change as temporary for this running tab; retry after storage is available.
         Reasoning budget for the next turn. The available levels come from the
         selected model's catalog entry. On Ollama, LOW turns thinking off and the
         rest are the model's own advertised thinking levels (LOW / HIGH on models
@@ -467,7 +467,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   'rightpanel.config.north-star': {
     title: 'North star',
     body: (
-      <p>
+      <p>If metadata cannot be saved, a notice identifies the change as temporary for this running tab; retry after storage is available.
         A durable, per-tab objective pinned into the system prompt every turn
         until you clear it: it steers priorities and what "done" looks like.
         Operator-only write, model read-only; capped at <C>2048</C> bytes
@@ -484,7 +484,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Goal run',
     body: (
       <>
-        <p>
+        <p>A combined goal-and-arm request uses the proposed goal. Clearing that goal while arming is refused. If metadata cannot be saved, a notice identifies the change as temporary for this running tab; retry after storage is available.
           Keeps this tab working toward its north star without you retyping
           &quot;continue&quot;. Armed for a fixed number of iterations; after each
           turn settles, one automatic continuation turn is dispatched. Every
@@ -565,7 +565,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   'rightpanel.config.ollama-compaction': {
     title: 'Auto-compaction (Ollama)',
     body: (
-      <p>
+      <p>Rapid field changes save in order and preserve earlier edits.
         Ollama tabs have no resident session to compact, so at the{' '}
         <C>THRESHOLD</C> fill % Arco summarizes older messages{' '}
         <em>in place</em>, keeping the newest <C>KEEP LAST</C> messages, so the
@@ -586,7 +586,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   'rightpanel.config.ollama-params': {
     title: 'Advanced params (Ollama)',
     body: (
-      <p>
+      <p>A successful context increase lasts for later tool requests on that backend in the same turn. Only context-overflow errors widen the window; other invalid requests keep their original error.
         Per-tab Ollama generation params merged into <C>/api/chat</C> through a
         typed allowlist: <C>num_ctx</C> (trusted-only: clamped to the model's
         probed window, a higher value is dropped), <C>keep_alive</C>,{' '}

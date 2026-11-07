@@ -60,6 +60,7 @@ export async function memberConfigFromTemplate(r: TemplateMemberRequest): Promis
   const config: WorkflowConfig = r.kind === 'fresh'
     ? { ...r.template, autoCompaction: undefined, name: r.name ?? r.template.name, workingDirectory: r.cwd, resumeSessionId: undefined, resumeWorkflowId: undefined }
     : { ...r.template, workingDirectory: r.cwd, resumeSessionId: undefined, resumeWorkflowId: undefined, researchSpawnToken: undefined, templateSpawnToken: undefined };
+  delete config.goalRun;
   if (r.kind === 'replacement' && r.name && r.name.trim()) config.name = r.name.trim();
   if (r.tuning) applyMemberTuning(config, r.tuning);
   if (r.choice.requested || r.choice.provider !== r.choice.inherited) {

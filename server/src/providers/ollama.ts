@@ -1262,19 +1262,26 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       modelCache: Map<string, string[] | null>;
       showCache: Map<string, OllamaShowMetadata>;
       resolvedModelByBase: Map<string, string>;
+      effectiveWindows?: Map<string, number>;
       lastChosen: { base: string; numCtx?: number } | null;
     },
     firstIteration: boolean,
     // M5 — structured-output schema for THIS turn; forwarded to streamOneTurn,
     // which only attaches it when the turn carries no tools.
     format?: 'json' | Record<string, unknown>,
+    terminal = true,
   ): Promise<
     | { ok: true; assistantMessage: OllamaChatMessage; usage: { inputTokens: number; outputTokens: number; durationMs: number; genSpeed: GenSpeedSample | null }; sawDone: boolean }
     | { ok: false; abort: true }
     | null
   > {
+    const fail = (message: string) => {
+      if (terminal) this.fail(message);
+      else this.emit('system_notice', `Ollama synthesis fallback: ${message}`);
+    };
     const requested = this.config.model;
     const attempted = new Set<string>();
+    const effectiveWindows = ctx.effectiveWindows ??= new Map<string, number>();
     // Models known to be served by a host per its /api/tags (+ the affinity
     // hint). `undefined` from the helper means "unknown" → optimistic.
     const servesModel = (b: ResolvedBackend): boolean | undefined => {
@@ -1327,16 +1334,21 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       // Count currently-healthy, model-serving backends (for the never-cool-
       // last guard and the peer-available backoff decision).
       const now = Date.now();
-      const selection = selectBackend({
+      let selection = selectBackend({
         backends,
         exclude: attempted,
         servesModel,
         now,
         rng: this.rng,
       });
+      if (!selection && attempted.size) {
+        // Start a new selection pass within the fixed request budget.
+        attempted.clear();
+        selection = selectBackend({ backends, exclude: attempted, servesModel, now, rng: this.rng });
+      }
       if (!selection) {
         this.emitRouting({ kind: 'exhausted', reason: 'no backend left to try' });
-        this.fail(`Ollama: all ${backends.length} backend(s) failed this turn`);
+        fail(`Ollama: all ${backends.length} backend(s) failed this turn`);
         return null;
       }
 
@@ -1396,8 +1408,9 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       // else the Modelfile value) — the CTX bar denominator. Before 2026-09-29
       // this was always the Modelfile value, so an operator num_ctx below it
       // left the bar measuring against a window the daemon wasn't using.
-      ctx.lastChosen = { base, numCtx: effectiveNumCtx(this.config.ollamaParams, showMeta) };
-      let result = await this.streamOneTurn(base, resolvedModel, messages, tools, nativeThinking, showMeta, format);
+      const retainedWindow = effectiveWindows.get(base);
+      ctx.lastChosen = { base, numCtx: retainedWindow ?? effectiveNumCtx(this.config.ollamaParams, showMeta) };
+      let result = await this.streamOneTurn(base, resolvedModel, messages, tools, nativeThinking, showMeta, format, retainedWindow);
 
       if (result.ok) {
         // No num_ctx went out and no Modelfile value exists → the daemon picked
@@ -1439,8 +1452,8 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
           ctx.resolvedModelByBase.set(resolved, tsModel);
           const tsShow = ctx.showCache.get(resolved) ?? await fetchModelShowMetadata(tsModel, resolved);
           ctx.showCache.set(resolved, tsShow);
-          ctx.lastChosen = { base: resolved, numCtx: effectiveNumCtx(this.config.ollamaParams, tsShow) };
-          const tsResult = await this.streamOneTurn(resolved, tsModel, messages, tools, nativeThinkingOf(tsShow), tsShow, format);
+          ctx.lastChosen = { base: resolved, numCtx: effectiveWindows.get(resolved) ?? effectiveNumCtx(this.config.ollamaParams, tsShow) };
+          const tsResult = await this.streamOneTurn(resolved, tsModel, messages, tools, nativeThinkingOf(tsShow), tsShow, format, effectiveWindows.get(resolved));
           if (tsResult.ok) return tsResult;
           if (tsResult.abort) return { ok: false, abort: true };
           attempted.add(resolved);
@@ -1474,7 +1487,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
         // un-bumpable). undefined when even the probe was unknown (M8 defers to
         // M9 on exactly that case; planCtxEscalation treats undefined as the
         // default for the strict-greater comparison).
-        const failedAppliedCtx = applyOllamaParams(this.config.ollamaParams, showMeta.numCtx, showMeta.archCtx).options.num_ctx;
+        const failedAppliedCtx = retainedWindow ?? applyOllamaParams(this.config.ollamaParams, showMeta.numCtx, showMeta.archCtx).options.num_ctx;
         let escFailedWindow = typeof failedAppliedCtx === 'number'
           ? failedAppliedCtx
           : (showMeta.numCtx !== undefined ? OLLAMA_DEFAULT_WINDOW : undefined);
@@ -1526,8 +1539,8 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
 
           // Resolve the target model + capabilities on the chosen base, then
           // re-dispatch ONCE. For 'numctx_bump' force the larger window onto the
-          // SAME backend; for 'peer_backend' run on the peer (its own preset/
-          // clamp applies against its probe). Same messages — escalate, don't
+          // SAME backend; for 'peer_backend' explicitly use the peer's larger
+          // probed window too. Same messages — escalate, don't
           // recompact.
           const tBase = target.baseUrl;
           let tModel = ctx.resolvedModelByBase.get(tBase);
@@ -1541,12 +1554,13 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
             ctx.showCache.set(tBase, tShow);
           }
           ctx.lastChosen = { base: tBase, numCtx: target.toWindow };
-          const forceNumCtx = target.kind === 'numctx_bump' ? target.toWindow : undefined;
+          const forceNumCtx = target.toWindow;
           const escResult = await this.streamOneTurn(
             tBase, tModel, messages, tools, nativeThinkingOf(tShow),
             tShow, format, forceNumCtx,
           );
           if (escResult.ok) {
+            effectiveWindows.set(tBase, target.toWindow);
             this.emit('system_notice', `context_window_fallback: re-dispatch on ${target.label} succeeded.`);
             return escResult;
           }
@@ -1567,7 +1581,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
         }
         // Exhausted/no-target: actionable terminal message (the operator can
         // raise num_ctx or add a bigger-window backend). Fall through.
-        this.fail(
+        fail(
           `Ollama context overflow with no larger window available — raise the model's num_ctx ` +
           `(Modelfile / CONFIG preset) or add a backend serving this model with a bigger window. ` +
           `(${result.error instanceof Error ? result.error.message : String(result.error)})`,
@@ -1577,7 +1591,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
 
       // Non-retryable (4xx/validation/400 overflow) → terminal, no failover.
       if (!decision.retryable || midStreamWithOutput) {
-        this.fail(result.error instanceof Error ? result.error.message : String(result.error));
+        fail(result.error instanceof Error ? result.error.message : String(result.error));
         return null;
       }
 
@@ -1619,7 +1633,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     }
 
     this.emitRouting({ kind: 'exhausted', reason: `exceeded ${maxAttempts} attempts` });
-    this.fail(`Ollama: exhausted backend failover after ${maxAttempts} attempts`);
+    fail(`Ollama: exhausted backend failover after ${maxAttempts} attempts`);
     return null;
   }
 
@@ -1639,6 +1653,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       modelCache: Map<string, string[] | null>;
       showCache: Map<string, OllamaShowMetadata>;
       resolvedModelByBase: Map<string, string>;
+      effectiveWindows?: Map<string, number>;
       lastChosen: { base: string; numCtx?: number } | null;
     },
   ): Promise<void> {
@@ -1848,6 +1863,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     ctx: {
       showCache: Map<string, OllamaShowMetadata>;
       resolvedModelByBase: Map<string, string>;
+      effectiveWindows?: Map<string, number>;
     },
   ): Promise<boolean> {
     // Prefer a backend known to serve the model; fall back to the first.
@@ -1952,6 +1968,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       modelCache: Map<string, string[] | null>;
       showCache: Map<string, OllamaShowMetadata>;
       resolvedModelByBase: Map<string, string>;
+      effectiveWindows?: Map<string, number>;
       lastChosen: { base: string; numCtx?: number } | null;
     } = {
       modelCache: new Map(),
@@ -2228,9 +2245,9 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
         // JSON the primitive can parse without regex-scraping. Done exactly
         // once (`structuredSynthesisDone`), and only when the operator wired a
         // format (Review verdict). Skipped entirely for normal chat turns.
-        // Fail-safe: if the constrained turn errors/aborts, we fall through to
+        // Fail-safe: if the constrained turn errors, we fall through to
         // the free-text answer already streamed — the caller's free-text parser
-        // still applies, so a non-grammar model never breaks.
+        // still applies. Operator cancellation still ends the turn.
         if (this.config.ollamaFormat && !structuredSynthesisDone) {
           structuredSynthesisDone = true;
           this.emit('system_notice', 'Ollama structured-output: re-asking on a schema-constrained (format) turn for a guaranteed-valid result.');
@@ -2244,6 +2261,8 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
           // schema JSON only (the structured primitive parses + reconstructs the
           // markdown body from it; see reviewSchema.ts). The free-text answer
           // is preserved in the message stack so the model can restate it.
+          const freeTextOutput = this._output;
+          const freeTextCapped = this.outputCapped;
           this._output = '';
           this.outputCapped = false;
           // Tool-free synthesis turn: pass `undefined` tools so the format gate
@@ -2256,16 +2275,22 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
             failoverCtx,
             false,
             this.config.ollamaFormat,
+            false,
           );
-          if (structuredResult === null) return; // terminal failure — fail() emitted
-          if (!structuredResult.ok) return; // operator abort
-          anyTurnSawDone = anyTurnSawDone || structuredResult.sawDone;
-          totalInputTokens += structuredResult.usage.inputTokens;
-          totalOutputTokens += structuredResult.usage.outputTokens;
-          totalDurationMs += structuredResult.usage.durationMs;
-          turnGenSpeed = addGenSpeed(turnGenSpeed, structuredResult.usage.genSpeed);
-          if (structuredResult.usage.inputTokens > 0) lastTurnInputTokens = structuredResult.usage.inputTokens;
-          messages.push(structuredResult.assistantMessage);
+          if (structuredResult === null) {
+            this._output = freeTextOutput;
+            this.outputCapped = freeTextCapped;
+            this.emit('system_notice', 'Ollama structured synthesis fallback: using the completed free-text answer.');
+          } else {
+            if (!structuredResult.ok) return; // operator abort
+            anyTurnSawDone = anyTurnSawDone || structuredResult.sawDone;
+            totalInputTokens += structuredResult.usage.inputTokens;
+            totalOutputTokens += structuredResult.usage.outputTokens;
+            totalDurationMs += structuredResult.usage.durationMs;
+            turnGenSpeed = addGenSpeed(turnGenSpeed, structuredResult.usage.genSpeed);
+            if (structuredResult.usage.inputTokens > 0) lastTurnInputTokens = structuredResult.usage.inputTokens;
+            messages.push(structuredResult.assistantMessage);
+          }
           // Fall through to the result emit below with the JSON now in
           // this._output. (A model that ignored `format` and emitted prose still
           // lands here; the primitive's parser falls back to free-text in that

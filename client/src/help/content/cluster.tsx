@@ -7,7 +7,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Cluster tab',
     body: (
       <>
-        <p>A cluster is a team of workers sharing one project folder. Member cards on the left show each worker at a glance, the focused member&apos;s chat sits beside them, and the right panel holds the shared tools: members, files, activity, reviews, handoffs, plan, board, mail, history, preview, settings and GitHub.</p>
+        <p>Local-model members retain action tools alongside coordination tools, and can confirm a guarded status message when requested. A cluster is a team of workers sharing one project folder. Member cards on the left show each worker at a glance, the focused member&apos;s chat sits beside them, and the right panel holds the shared tools: members, files, activity, reviews, handoffs, plan, board, mail, history, preview, settings and GitHub.</p>
         <p>Start a cluster from New work or from a tab&apos;s right-click menu. The same menu offers <C>ADD TO EXISTING</C> to bring an open tab into a cluster that already uses its folder.</p>
       </>
     ),
@@ -334,7 +334,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.add-fresh': {
     title: 'ADD FRESH',
-    body: <p>Creates one or more new workers in this cluster&apos;s project folder. Opens choices for access, provider, model, effort, account, name, role, work size, focus, fast mode, tool filter, output style, auto-compaction and count. Provider, model, effort and the tab settings start from the cluster&apos;s first member; name, role, work size, focus and auto-compaction start empty.</p>,
+    body: <p>Fresh workers, replacements and Native Task children inherit the standing goal but not an armed goal run. Each new tab needs its own explicit run. Creates one or more new workers in this cluster&apos;s project folder. Opens choices for access, provider, model, effort, account, name, role, work size, focus, fast mode, tool filter, output style, auto-compaction and count. Provider, model, effort and the tab settings start from the cluster&apos;s first member; name, role, work size, focus and auto-compaction start empty.</p>,
     manualSection: 'cluster-tab',
   },
   'cluster.spawn': {
@@ -422,7 +422,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Replace member',
     body: (
       <>
-        <p>Puts a brand-new worker into this member&apos;s slot in the roster. The dialog starts from this member, and every choice can be changed: provider, model, effort, account, name, role, work size, focus, fast mode, tool filter, output style, auto-compaction and access. Settings the dialog does not show are copied.</p>
+        <p>Fresh workers, replacements and Native Task children inherit the standing goal but not an armed goal run. Each new tab needs its own explicit run. Puts a brand-new worker into this member&apos;s slot in the roster. The dialog starts from this member, and every choice can be changed: provider, model, effort, account, name, role, work size, focus, fast mode, tool filter, output style, auto-compaction and access. Settings the dialog does not show are copied.</p>
         <p>The new worker starts fresh rather than resuming the old session. Bringing over history and open tasks are separate choices. The old worker&apos;s files stay on disk, but it leaves the cluster.</p>
       </>
     ),

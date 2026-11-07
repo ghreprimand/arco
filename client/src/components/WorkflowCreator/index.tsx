@@ -1,3 +1,4 @@
+import { readSavedSettings } from '../../utils/settingsRequests';
 import { TerminalSessions } from '../TerminalSessions';
 import { MessageGuardControl } from '../ClusterRightPanel/MessageGuardControl';
 import { TERMINAL_CODEX_ACCOUNT, DEFAULT_OUTPUT_STYLE, OUTPUT_STYLES, resolveOutputStyle, CLUSTER_EFFICIENCY_CREATE_DEFAULT, CLUSTER_MESSAGE_GUARD_CREATE_DEFAULT, type ClusterMessageGuard, type ClusterTaskBoardMode, type ClusterProgressMode } from '@arco/shared';
@@ -283,7 +284,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch),
       });
-      const data = await res.json() as ArcoSettings;
+      const data = await readSavedSettings(res);
       setSettings(data);
       setDefaultsSavedAt(Date.now());
     } catch { /* silently fail; next click retries */ }

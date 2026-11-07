@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ATTENTION_KINDS, isValidNtfyTopic, normalizeNtfyServer, type AttentionKind, type NotificationChannels } from '@arco/shared';
+import { ATTENTION_KINDS, isValidNtfyTopic, normalizeNtfyServer, type AttentionKind, type NotificationChannels, type NotificationChannelsView } from '@arco/shared';
 import { useNotificationChannelsStore } from '../stores/notificationChannelsStore';
 import { runDesktopTest, type DesktopTestOutcome, type NotificationApi } from '../alerts/desktopTest';
 
@@ -42,16 +42,16 @@ export function NotificationChannelsSettings() {
 
   if (!view) return <p style={{ margin: 0, color: 'var(--color-fg-muted)' }}>{error || 'Loading notification settings...'}</p>;
 
-  const base = (): Omit<NotificationChannels, 'ntfy'> & { ntfy: { server: string; topic: string; token?: string | null } } => ({
-    desktop: view.desktop, phone: view.phone, phoneText: view.phoneText, clusterFinished: view.clusterFinished,
-    ntfy: { server: view.ntfy.server, topic: view.ntfy.topic },
+  const base = (current: NotificationChannelsView): Omit<NotificationChannels, 'ntfy'> & { ntfy: { server: string; topic: string; token?: string | null } } => ({
+    desktop: current.desktop, phone: current.phone, phoneText: current.phoneText, clusterFinished: current.clusterFinished,
+    ntfy: { server: current.ntfy.server, topic: current.ntfy.topic },
   });
 
   const toggleDesktop = async (kind: AttentionKind, on: boolean) => {
     if (on && typeof Notification !== 'undefined' && Notification.permission === 'default') {
       setPermission(await Notification.requestPermission());
     }
-    await save({ ...base(), desktop: { ...view.desktop, [kind]: on } });
+    await save(current => ({ ...base(current), desktop: { ...current.desktop, [kind]: on } }));
   };
   const testDesktop = async () => {
     setDesktopTesting(true); setDesktopTest(null);
@@ -63,7 +63,7 @@ export function NotificationChannelsSettings() {
       setDesktopTesting(false);
     }
   };
-  const togglePhone = (kind: AttentionKind, on: boolean) => save({ ...base(), phone: { ...view.phone, [kind]: on } });
+  const togglePhone = (kind: AttentionKind, on: boolean) => save(current => ({ ...base(current), phone: { ...current.phone, [kind]: on } }));
 
   const addressProblem = (): string => {
     if (!normalizeNtfyServer(server)) return 'Enter the server address, for example https://ntfy.sh.';
@@ -73,7 +73,7 @@ export function NotificationChannelsSettings() {
   const saveAddress = async (clearToken = false) => {
     const problem = addressProblem();
     if (problem) { setNote(problem); return; }
-    const ok = await save({ ...base(), ntfy: { server: server.trim(), topic: topic.trim(), ...(clearToken ? { token: null } : token ? { token } : {}) } });
+    const ok = await save(current => ({ ...base(current), ntfy: { server: server.trim(), topic: topic.trim(), ...(clearToken ? { token: null } : token ? { token } : {}) } }));
     setToken('');
     setNote(ok ? (clearToken ? 'Saved. The access token was removed.' : 'Saved.') : 'Could not save.');
   };
@@ -122,7 +122,7 @@ export function NotificationChannelsSettings() {
       {permission === 'denied' && <p style={{ margin: 0, color: 'var(--color-warning)' }}>This browser is blocking notifications from Arco. Allow them in the browser's site settings.</p>}
       <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         In a cluster, "a turn finished" comes from
-        <select className="arco-field" aria-label="Cluster finished source" value={view.clusterFinished} onChange={(e) => void save({ ...base(), clusterFinished: e.target.value === 'all' ? 'all' : 'director' })}>
+        <select className="arco-field" aria-label="Cluster finished source" value={view.clusterFinished} onChange={(e) => { const clusterFinished = e.target.value === 'all' ? 'all' : 'director'; void save(current => ({ ...base(current), clusterFinished })); }}>
           <option value="director">the director only</option>
           <option value="all">every member</option>
         </select>
@@ -140,7 +140,7 @@ export function NotificationChannelsSettings() {
         <button type="button" className="display-font" disabled={testing} onClick={() => void test()}>TEST</button>
       </div>
       <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <input type="checkbox" checked={view.phoneText} onChange={(e) => void save({ ...base(), phoneText: e.target.checked })} />
+        <input type="checkbox" checked={view.phoneText} onChange={(e) => { const phoneText = e.target.checked; void save(current => ({ ...base(current), phoneText })); }} />
         Include message text (the question, the error, or the start of the reply). Off: phone messages carry only the tab name and what happened.
       </label>
       <div role="status" style={{ minHeight: 16 }}>{note || error}</div>

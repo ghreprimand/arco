@@ -1169,7 +1169,7 @@ Before dispatch, each candidate shows its line count, approximate tokens (UTF-8 
 
 ### Propose -> approve fence
 
-On **Accept** the client fires `md_tuneup_accept { tuneupId, filePath, proposed }`; `handleMdTuneupAccept` -> `backupAndWriteInstructionFile` re-reads the current file, backs the original up to a uniquely created `.arco/md-backups/<baseName>.<ts>.bak` (fsync-flushed BEFORE the overwrite), then writes `proposed` through a guarded regular-file handle, answering `md_tuneup_applied { ok, backupPath?, undoId?, bytesWritten?, error? }`. Symlink escapes, hard-linked targets, invalid UTF-8, files over 16 MiB, and changed file handles are refused. Reject discards; nothing is written.
+On **Accept** the client fires `md_tuneup_accept { tuneupId, filePath, original, proposed }`; `handleMdTuneupAccept` -> `backupAndWriteInstructionFile` re-reads the current file, refuses a mismatch with the reviewed `original`, backs the original up to a uniquely created `.arco/md-backups/<baseName>.<ts>.bak` (fsync-flushed BEFORE the overwrite), then writes `proposed` through a guarded regular-file handle, answering `md_tuneup_applied { ok, backupPath?, undoId?, bytesWritten?, error? }`. Symlink escapes, hard-linked targets, invalid UTF-8, files over 16 MiB, and changed file handles are refused. Reject discards; nothing is written.
 
 After acceptance, UNDO uses the server-held receipt for that workflow and backup. The server verifies the backup hash and target path, refuses concurrent managed work, and compares the file with the accepted text. If it changed, confirmation is required and the confirmed version is checked again. The current content is backed up before the original is restored. The result is logged as `md_tuneup_undone`. Undo is available in the open review while the server is running; the backup remains on disk afterward.
 
@@ -1226,3 +1226,7 @@ Review via member supports LAST TURN and LAST N TURNS from the retained conversa
 ### Fresh summarizer cancellation
 
 Stopping a fresh summarizer during preparation starts no worker. Cancellation is checked again before saving and publishing its handoff. A cancelled attempt creates no successful handoff result, so the earlier context remains available for replay.
+
+## Instruction proposal revisions
+
+ACCEPT checks that the instruction file still matches the original shown in the proposal. If another edit changed it, nothing is overwritten. Run TUNE MD again and review the new diff before accepting.

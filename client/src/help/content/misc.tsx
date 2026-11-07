@@ -685,7 +685,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   'creator.save-defaults': {
     title: 'Save as defaults',
     body: (
-      <p>
+      <p>A refused or incomplete reply leaves the previous defaults active and reports a save error.
         Persists the current picker state: provider, model, effort,
         permissions, fast mode, fallback: to{' '}
         <C>~/.arco/settings.json</C> so the next workflow pre-selects the
@@ -955,7 +955,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   'review.run': {
     title: 'Run review',
     body: (
-      <p>
+      <p>If Ollama rejects structured synthesis after completing a review, the free-text result remains available with a fallback notice.
         Spawns the reviewer worker with the chosen scope + model. Output is
         a markdown artifact in the REVIEW tab; verdict (PASS / MINOR /
         BLOCKING) is parsed from the tail and surfaced as a chip on the
@@ -2095,7 +2095,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'services.pin': {
     title: 'PIN / UNPIN',
-    body: <p>Pin a service to the machine-level inventory (global settings, keyed by <C>cwd + port</C>) so it stays listed across restarts: a pinned-but-stopped service shows as an offline row. UNPIN removes it.</p>,
+    body: <p>Rapid PIN and UNPIN clicks save in order and preserve changes to other services. Pin a service to the machine-level inventory (global settings, keyed by <C>cwd + port</C>) so it stays listed across restarts: a pinned-but-stopped service shows as an offline row. UNPIN removes it.</p>,
   },
   'services.kill': {
     title: 'KILL',

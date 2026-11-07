@@ -585,6 +585,7 @@ export const actions: Section[] = [
     title: 'TUNE MD - compact an agent-instruction file',
     body: (
       <>
+  <p>ACCEPT checks that the instruction file still matches the original shown in the proposal. If another edit changed it, nothing is overwritten. Run TUNE MD again and review the new diff before accepting.</p>
         <p>
           TUNE MD proposes a compacted agent-instruction file as a reviewable
           diff. The <Code>✦ TUNE MD</Code> button targets the per-turn token cost

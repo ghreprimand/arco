@@ -2108,7 +2108,8 @@ export async function handleMdTuneupAccept(
 
   try {
     const abs = resolveWithinCwd(cwd, msg.filePath);
-    const { backupPath, bytesWritten, backupHash } = await backupAndWriteInstructionFile(cwd, abs, msg.proposed, ts);
+    if (typeof msg.original !== 'string') throw new Error('The reviewed original is missing. Run TUNE MD again and review the new diff.');
+    const { backupPath, bytesWritten, backupHash } = await backupAndWriteInstructionFile(cwd, abs, msg.proposed, ts, msg.original);
     const undoId = rememberTuneupUndo({ workflowId: msg.workflowId, cwd, filePath: abs, backupPath, backupHash, proposed: msg.proposed });
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] md-tuneup ${msg.tuneupId} applied to ${path.basename(abs)} (${bytesWritten} bytes, backup ${backupPath})`);
     send(ws, { type: 'md_tuneup_applied', workflowId: msg.workflowId, tuneupId: msg.tuneupId, filePath: abs, ok: true, backupPath, undoId, bytesWritten, ts });

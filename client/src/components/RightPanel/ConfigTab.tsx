@@ -1,3 +1,4 @@
+import { queueSettingsPatch } from '../../utils/settingsRequests';
 import { confirmationSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
 import { useCallback, useState, useEffect, useRef, type CSSProperties } from 'react';
@@ -2472,31 +2473,10 @@ function OllamaCompactionSection() {
   const warnPct = Math.round((cfg?.warn ?? 0.75) * 100);
   const keepLast = cfg?.keepLast ?? 10;
 
-  const patch = async (next: OllamaCompactionConfig) => {
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ollama: { compaction: next } }),
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as typeof settings;
-      if (data) setSettings(data);
-    } catch { /* best-effort; server stays source of truth */ }
-  };
-
-  // Whole-object writes (the merge replaces the compaction sub-object) so a
-  // single field edit can't drop the others — assemble the full object each time
-  // from the currently-displayed values.
-  const setField = (field: Partial<OllamaCompactionConfig>) => {
-    void patch({
-      enabled,
-      threshold: thresholdPct / 100,
-      warn: warnPct / 100,
-      keepLast,
-      ...field,
-    });
-  };
+  const patch = async (next: OllamaCompactionConfig) => queueSettingsPatch(current => ({
+    ollama: { compaction: { ...current.ollama?.compaction, ...next } },
+  }));
+  const setField = (field: Partial<OllamaCompactionConfig>) => { void patch(field); };
 
   return (
     <div style={{ marginTop: '18px' }} data-help="rightpanel.config.ollama-compaction">

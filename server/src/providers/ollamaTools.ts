@@ -983,6 +983,7 @@ const PeerSendTool: OllamaToolEntry = {
             type: 'string',
             description: 'Peer workflowId, unique 8-char prefix, unique display name, or unique role text.',
           },
+          confirm: { type: 'boolean', description: 'Set true only when retrying a status_confirmation response.' },
           content: {
             type: 'string',
             description: 'Message body, up to 16 KB.',
@@ -999,6 +1000,7 @@ const PeerSendTool: OllamaToolEntry = {
       from: ctx.workflowId,
       to: asString(args.to, 'to'),
       content: asString(args.content, 'content'),
+      ...(args.confirm === true ? { confirm: true } : {}),
     }),
   }),
 };

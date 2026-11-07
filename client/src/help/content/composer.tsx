@@ -309,7 +309,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   'composer.tuneup': {
     title: 'TUNE MD button',
     body: (
-      <p>
+      <p>ACCEPT checks that the instruction file still matches the original shown in the proposal. If another edit changed it, nothing is overwritten. Run TUNE MD again and review the new diff before accepting.
         Opens the agent-instruction tune-up flow for files like{' '}
         <C>CLAUDE.md</C>, <C>CLAUDE.local.md</C>, and <C>AGENTS.md</C>. Arco
         shows line counts, approximate tokens, deterministic hints and VIEW

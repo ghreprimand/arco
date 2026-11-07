@@ -101,7 +101,7 @@ check('classify: HTTP 400 → NOT retryable, NOT cooldown (context overflow is n
   (() => { const d = classifyOllamaError(new Error('x'), 400); return !d.retryable && !d.cooldown; })());
 
 check('classify: HTTP 400 → contextOverflow=true (M9 ctx-fallback seam trigger)',
-  (() => { const d = classifyOllamaError(new Error('x'), 400); return d.contextOverflow === true; })());
+  (() => { const d = classifyOllamaError(new Error('context overflow'), 400); return d.contextOverflow === true; })());
 
 check('classify: HTTP 404 → NOT contextOverflow (genuine client error, no window escalation)',
   (() => { const d = classifyOllamaError(new Error('x'), 404); return !d.contextOverflow; })());
@@ -232,7 +232,7 @@ check('classify: plain operator abort → NOT retryable, NOT cooldown',
   const now = Date.now();
   reportFailure({
     backend: TWO_BACKENDS[0],
-    decision: classifyOllamaError(new Error('overflow'), 400),
+    decision: classifyOllamaError(new Error('context overflow'), 400),
     healthyServingCount: 2,
     now,
   });

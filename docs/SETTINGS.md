@@ -203,3 +203,13 @@ ignored. `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` lifts the limit.
 ### Built-in skills
 
 Skill descriptions can be up to 300 characters. Settings > SKILLS lists the built-in skills with an OPERATOR or MODEL badge, TURN OFF and TURN ON. The composer SKILLS menu runs them or creates an EDITABLE COPY. A project or global skill with the same name replaces the built-in. Operator-run (slash): grill-me, grill-with-docs, wait-what, retro; Architecture review via `/improve-codebase-architecture`. Model-invoked (manifest / MODEL badge): grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype, writing-for-agents. Built-in third-party skills and their license are listed in [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES).
+
+## Save outcomes and rapid edits
+
+Rapid changes to notification switches, Ollama compaction fields and service pins are saved in order. Each edit uses the latest saved values, so a later click does not undo an earlier field change.
+
+A refused or incomplete global settings response leaves the previous settings and appearance active and reports a save error. SAVE AS DEFAULTS reports success only after a valid reply.
+
+Workflow CONFIG reports a metadata write failure as a temporary change in the running tab. The change may be lost after restart; retry the save after storage is available. Auto-compaction retains its previous policy if its save fails.
+
+A combined north-star and goal-run update validates the new goal before changing settings. Clearing the goal while arming a run is refused. Fresh workers, replacements and Native Task children keep the standing goal but start without an armed run.

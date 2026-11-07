@@ -132,14 +132,10 @@ export function classifyOllamaError(err: unknown, httpStatus?: number): RetryDec
     if (httpStatus >= 500) {
       return { retryable: true, cooldown: true, reason: `HTTP ${httpStatus} server error` };
     }
-    // 4xx other than 429 — client/validation error. 400 is context overflow on
-    // Ollama; that's NOT a host fault and must not cool the backend. Flag the
-    // 400 as contextOverflow so M9's ctx-fallback seam can escalate to a larger
-    // window instead of failing the turn (the host stays HOT — see the field
-    // comment + ollamaCtxFallback.ts). Other 4xx (404 missing model, 422, ...)
-    // are genuine client errors with no window escalation to offer.
-    if (httpStatus === 400) {
-      return { retryable: false, cooldown: false, contextOverflow: true, reason: `HTTP 400 context overflow` };
+    // Validation errors only trigger widening when the daemon identifies context overflow.
+    const detail = (err instanceof Error ? err.message : String(err)).toLowerCase();
+    if (httpStatus === 400 && /context overflow|context (?:window|length).*(?:exceed|overflow|too (?:long|large|small))|(?:exceed|overflow|too (?:long|large)).*context|input length exceeds/.test(detail)) {
+      return { retryable: false, cooldown: false, contextOverflow: true, reason: 'HTTP 400 context overflow' };
     }
     return { retryable: false, cooldown: false, reason: `HTTP ${httpStatus} (non-retryable client error)` };
   }
@@ -161,6 +157,11 @@ export function classifyOllamaError(err: unknown, httpStatus?: number): RetryDec
     }
     const code = e.code || e.cause?.code || '';
     const msg = (e.message || '').toLowerCase();
+    if (code === 'ENOTFOUND' || code === 'EAI_AGAIN' || msg.includes('enotfound') || msg.includes('getaddrinfo')) {
+      // DNS failure — retryable AND the trigger for the Tailscale fallback
+      // (Phase 8). Cool the host so we don't hammer a name that won't resolve.
+      return { retryable: true, cooldown: true, reason: 'DNS resolution failed' };
+    }
     if (
       code === 'ECONNREFUSED' || code === 'ECONNRESET' || code === 'ETIMEDOUT' ||
       code === 'EHOSTUNREACH' || code === 'ENETUNREACH' || code === 'EPIPE' ||
@@ -170,11 +171,7 @@ export function classifyOllamaError(err: unknown, httpStatus?: number): RetryDec
     ) {
       return { retryable: true, cooldown: true, reason: `connection error (${code || 'network'})` };
     }
-    if (code === 'ENOTFOUND' || code === 'EAI_AGAIN' || msg.includes('enotfound') || msg.includes('getaddrinfo')) {
-      // DNS failure — retryable AND the trigger for the Tailscale fallback
-      // (Phase 8). Cool the host so we don't hammer a name that won't resolve.
-      return { retryable: true, cooldown: true, reason: 'DNS resolution failed' };
-    }
+
   }
   // Unknown error — treat conservatively as retryable+cool so a flaky host
   // doesn't pin the turn, but the caller's retry cap bounds it.

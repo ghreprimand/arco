@@ -160,7 +160,7 @@ test('accept and undo handlers report conflicts and restore only after confirmat
   workflows.set(id, wf);
   workflowCwds.set(id, cwd); await initWorkflowStore(cwd, id);
   try {
-    await handleMdTuneupAccept(ws, {} as Session, { type: 'md_tuneup_accept', workflowId: id, tuneupId: 'fixture', filePath: target, proposed: 'tuned' });
+    await handleMdTuneupAccept(ws, {} as Session, { type: 'md_tuneup_accept', workflowId: id, tuneupId: 'fixture', filePath: target, proposed: 'tuned', original: 'original' });
     const applied = sent.find((message) => message.type === 'md_tuneup_applied');
     assert.equal(applied?.ok, true); const undoId = String(applied?.undoId);
     wf.busy = true;

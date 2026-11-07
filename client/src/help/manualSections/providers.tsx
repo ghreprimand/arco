@@ -661,6 +661,9 @@ export const providers: Section[] = [
   title: 'Ollama (local models)',
   body: (
   <>
+  <p>A successful larger context window is retained for later tool requests on that backend during the same turn. Peer escalation sends the larger window explicitly. Only identified context-overflow errors trigger widening; other request validation errors retain their original explanation.</p>
+  <p>Transient backend failures receive bounded retries even with one backend. DNS lookup failures can use the configured hostname fallback. A rejected structured review synthesis keeps the completed free-text review and reports the fallback.</p>
+  <p>Cluster coordination tools have a separate allowance from action tools, so joining a cluster does not remove file-writing and web-research tools. Local-model peer messages can retry with confirm after a status-confirmation response; the first-send guard still applies.</p>
   <p>After a completed handoff, local replay keeps the new brief and subsequent exchanges. Cancelled handoffs keep earlier context. Literal USER and AGENT labels in quoted text or code remain part of their original message.</p>
   <p>Fenced tool mode keeps plan checkbox changes callable. Ordinary code and JSON examples remain answers; explicit malformed tool blocks still report argument errors. Native and local Write create nested parent directories on Windows. HTTP throttling can advance a configured fallback chain for a bounded job; context overflow stays on context recovery.</p>
   <p>

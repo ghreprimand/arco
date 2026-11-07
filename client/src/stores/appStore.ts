@@ -1,3 +1,4 @@
+import { validateSettings } from '../utils/settingsResponse';
 import { create } from 'zustand';
 import { forgetGitDialog } from '../utils/gitDialogMemory';
 import { allowanceBindingChanged, invalidateClaudeAllowanceRequests } from '../utils/claudeAllowance';
@@ -307,6 +308,10 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   setCursorCatalog: (cursorCatalog) => set({ cursorCatalog }),
 
   setSettings: (settings) => {
+    if (!validateSettings(settings)) {
+      get().pushNotification('error', 'The settings response was incomplete. Previous settings remain active.');
+      return;
+    }
     applyPhosphorPreferences(settings, true);
     applyUiScale(settings.uiScale ?? 1);
     writeCachedUiScale(settings.uiScale ?? 1);

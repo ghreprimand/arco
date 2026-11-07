@@ -1,3 +1,5 @@
+import { transformSync } from 'esbuild';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { WorkflowConfig } from '@arco/shared';
@@ -120,4 +122,23 @@ test('member tuning shape check', () => {
   assert.equal(memberTuningRefusal({ efficiencyToolFilter: 'max' as never }), 'invalid_tool_filter');
   assert.equal(memberTuningRefusal({ fastMode: 'yes' as never }), 'invalid_fast_mode');
   assert.equal(memberTuningRefusal({ autoCompaction: { enabled: true, thresholdPercent: 10 } }), 'invalid_auto_compaction');
+});
+
+test('B136 fresh and replacement members keep the north star but never inherit an armed run', async () => {
+  const template={...TEMPLATE,goal:'standing direction',goalRun:{enabled:true,total:4,remaining:3,tokensUsed:5}};
+  for(const kind of ['fresh','replacement'] as const) {
+    const child=await memberConfigFromTemplate({template,cwd:'/p',kind,choice:claude,isolated:false,resolveCodexAccount:accounts});
+    assert.equal(child.goal,'standing direction');assert.equal(child.goalRun,undefined);
+  }
+  assert.equal(template.goalRun.remaining,3);
+});
+
+test('B136 Native Task child does not reuse its parent run budget',()=>{
+  const source=readFileSync(new URL('../index.ts',import.meta.url),'utf8');
+  const body=source.match(/const childConfig: WorkflowConfig = (\{[\s\S]*?\n  \});/)![1];
+  const parent={config:{goal:'direction',goalRun:{enabled:true,remaining:2}}};
+  const code=transformSync(`return (${body})`,{loader:'ts'}).code;
+  const child=new Function('parent','childName','model',code)(parent,'fixture','haiku');
+  assert.equal(child.primaryModel,'haiku');
+  assert.equal(child.goal,'direction');assert.equal(child.goalRun,undefined);
 });

@@ -45,7 +45,7 @@ export interface MdTuneupEditor {
 // Module-level WS sender bridges — registered by useWebSocket once the socket is
 // live, so the deeply-mounted composer button / modal don't thread callbacks.
 type RequestSender = (args: { workflowId: string; editor: MdTuneupEditor; target: MdTuneupTarget }) => void;
-type AcceptSender = (args: { workflowId: string; tuneupId: string; filePath: string; proposed: string }) => void;
+type AcceptSender = (args: { workflowId: string; tuneupId: string; filePath: string; proposed: string; original: string }) => void;
 type CandidatesSender = (workflowId: string) => void;
 type UndoSender = (args: { workflowId: string; undoId: string; confirmedHash?: string }) => boolean;
 let requestSender: RequestSender | null = null;
@@ -140,8 +140,12 @@ export const useMdTuneupStore = create<MdTuneupState>((set, get) => ({
   accept: (workflowId) => {
     const entry = get().byWorkflow[workflowId];
     if (!entry || entry.status !== 'proposed' || !entry.tuneupId || !entry.filePath || !entry.proposed) return;
+    if (typeof entry.original !== 'string') {
+      set((s) => ({ byWorkflow: { ...s.byWorkflow, [workflowId]: { ...entry, status: 'error', error: 'The reviewed original is missing. Run TUNE MD again.' } } }));
+      return;
+    }
     set((s) => ({ byWorkflow: { ...s.byWorkflow, [workflowId]: { ...entry, status: 'applying' } } }));
-    if (acceptSender) acceptSender({ workflowId, tuneupId: entry.tuneupId, filePath: entry.filePath, proposed: entry.proposed });
+    if (acceptSender) acceptSender({ workflowId, tuneupId: entry.tuneupId, filePath: entry.filePath, proposed: entry.proposed, original: entry.original });
   },
   onApplied: (workflowId, patch) => set((s) => {
     const prev = s.byWorkflow[workflowId];

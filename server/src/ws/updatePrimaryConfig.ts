@@ -32,6 +32,13 @@ export async function handleUpdatePrimaryConfig(
     return;
   }
 
+  const proposedGoal = msg.goal === undefined ? wf.config.goal : capGoal(msg.goal);
+  const proposedGoalRun = msg.goalRun === undefined ? undefined : normalizeGoalRunArm(msg.goalRun, !!proposedGoal?.trim());
+  if (typeof proposedGoalRun === 'string') {
+    send(ws, { type: 'error', workflowId: msg.workflowId, message: proposedGoalRun });
+    return;
+  }
+
 
   if (msg.autoCompaction !== undefined && msg.autoCompaction !== null && !isAutoCompactionPolicy(msg.autoCompaction)) {
     send(ws, { type: 'error', message: 'Auto-compaction requires a boolean and an integer threshold from 30 to 95.' });
@@ -101,16 +108,11 @@ export async function handleUpdatePrimaryConfig(
 
   // docs/GOTCHAS.md - arm / re-arm / disarm the north-star auto-continue.
   // Deliberately NOT mirrored into meta.json (see GoalRunStateMessage): the
-  // run is in-memory, so a restart ends it. Evaluated against the goal AFTER
-  // the `msg.goal` block above runs, so `/goal <text>` + arm in one message
-  // works.
+  // run is in-memory, so a restart ends it. Validation uses the proposed goal
+  // before any live setting changes, including a combined goal-and-arm request.
   let goalRunBroadcast: { enabled: boolean; total: number; remaining: number; tokensUsed: number; tokenBudget?: number } | undefined;
   if (msg.goalRun !== undefined) {
-    const next = normalizeGoalRunArm(msg.goalRun, !!wf.config.goal?.trim());
-    if (typeof next === 'string') {
-      send(ws, { type: 'error', message: next });
-      return;
-    }
+    const next = proposedGoalRun!;
     if (next.enabled) {
       wf.config.goalRun = next;
     } else {
@@ -332,9 +334,9 @@ export async function handleUpdatePrimaryConfig(
 
   const cwd = wf.config.workingDirectory;
   const hasOtherConfig = Object.keys(msg).some((key) => key !== 'type' && key !== 'workflowId' && key !== 'autoCompaction');
-  if (cwd && hasOtherConfig) {
+  if (cwd && hasOtherConfig && !wf.config.incognito) {
     try {
-      await updateMeta(cwd, msg.workflowId, (meta) => {
+      const saved = await updateMeta(cwd, msg.workflowId, (meta) => {
         if (msg.model !== undefined) meta.primaryModel = msg.model;
         if (msg.effort !== undefined) meta.primaryEffort = msg.effort;
         if (msg.providerAccountRef !== undefined) meta.providerAccountRef = msg.providerAccountRef || undefined;
@@ -382,14 +384,20 @@ export async function handleUpdatePrimaryConfig(
         if (msg.ollamaParams !== undefined) meta.ollamaParams = msg.ollamaParams;
         meta.lastActiveAt = Date.now();
       });
+      if (!saved) throw new Error('workflow metadata unavailable');
     } catch (err) {
       console.error(`[arco] [${msg.workflowId.slice(0, 8)}] update_primary_config meta write failed:`, err);
+      const message = 'Workflow settings could not be saved. Changes are temporary for this running tab and may be lost after restart. Retry the save when storage is available.';
+      send(ws, { type: 'error', workflowId: msg.workflowId, message });
+      broadcastWorkflow(msg.workflowId, { type: 'system_notice', workflowId: msg.workflowId, content: message });
+      if (!wf.bootMaterialized) broadcastTransient(msg.workflowId, { type: 'workflow_config_synced', workflowId: msg.workflowId, config: wf.config });
+      if (remoteEnabledChanged) refreshHubReporting();
+      return;
     }
   }
 
   // Persist-then-announce (see the north-star note above): the meta.json write
-  // is durable now, so emit the goal_set event. Fires even if cwd was absent or
-  // the write threw (caught + logged) — the in-memory value still changed.
+  // is durable now, so emit the goal_set event. Storage failures return above with an explicit temporary-setting notice.
   if (goalBroadcast) {
     broadcastWorkflow(msg.workflowId, {
       type: 'goal_set',

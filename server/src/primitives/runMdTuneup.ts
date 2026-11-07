@@ -185,6 +185,7 @@ export async function backupAndWriteInstructionFile(
   filePath: string,
   proposed: string,
   ts: number,
+  expectedOriginal?: string,
 ): Promise<{ backupPath: string; bytesWritten: number; backupHash: string }> {
   if (!proposed || !proposed.trim()) {
     throw new Error('Refusing to write an empty instruction file.');
@@ -194,6 +195,9 @@ export async function backupAndWriteInstructionFile(
   const handle = await openGuardedInstructionFile(cwd, abs);
   try {
     const current = await readGuardedContent(handle);
+    if (expectedOriginal !== undefined && current !== expectedOriginal) {
+      throw new Error('Instruction file changed since review. Run TUNE MD again and review the new diff. Nothing was overwritten.');
+    }
     const backupPath = await createTuneupBackup(cwd, baseName, current, ts);
     if (await readGuardedContent(handle) !== current) throw new Error('Instruction file changed during backup. Nothing was overwritten.');
     await assertGuardedHandleCurrent(cwd, abs, handle);

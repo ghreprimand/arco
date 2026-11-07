@@ -65,7 +65,7 @@ async function main(): Promise<void> {
   // The classifier flags a 400 as a context overflow (the M9 seam's trigger),
   // and leaves it non-retryable + non-cooling (host stays HOT).
   {
-    const d = classifyOllamaError(new Error('overflow'), 400);
+    const d = classifyOllamaError(new Error('context overflow'), 400);
     check('classify: 400 → contextOverflow=true', d.contextOverflow === true);
     check('classify: 400 → NOT retryable, NOT cooling (host stays hot)', !d.retryable && !d.cooldown);
     const d503 = classifyOllamaError(new Error('x'), 503);

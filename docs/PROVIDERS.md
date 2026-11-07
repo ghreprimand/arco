@@ -1290,13 +1290,13 @@ The applied `options` envelope is the **single insertion point** and is prefix-c
 `server/src/providers/ollamaCtxFallback.ts` `planCtxEscalation` - on a detected overflow, re-dispatch to a larger window instead of failing. Builds on multi-backend routing. Emits a `context_window_fallback` `system_notice` (from→to). **Escalate, don't re-compact** - context compaction owns the transcript; this is the escape hatch when even compaction isn't enough or a bigger window exists.
 
 - **Order:** (1) `numctx_bump` - same backend/model, request the **full probed ceiling**, only when it's `>` the failing window; (2) `peer_backend` - a different backend whose probed window for the same model is known-larger.
-- Reuses multi-backend routing's `contextOverflow` classification (400 stays non-retryable + HOT - it's not the host's fault). Bounded re-dispatch (max 2 hops, `MAX_CTX_ESCALATIONS`, no re-pick), with a mid-stream guard so a re-dispatch can't double-emit.
+- Reuses multi-backend routing's `contextOverflow` classification (only explicit context-overflow detail in a 400 triggers widening; unrelated 400 errors remain validation failures). Bounded re-dispatch (max 2 hops, `MAX_CTX_ESCALATIONS`, no re-pick), with a mid-stream guard so a re-dispatch can't double-emit.
 
 ### Relevant-tool subsetting
 
 `server/src/providers/ollamaToolSubset.ts` (pure) caps the advertised tool catalog so large schema payloads don't degrade small-model tool selection (Hardening 7 - heuristic, no embeddings).
 
-- **`OLLAMA_CORE_TOOLS`** = `Read/Grep/Glob/Bash` (+ cluster peer/plan tools when the workflow is a member) - never trimmed. The remainder is ranked by term-overlap relevance against the **stable system-block signal** (not the volatile last message - see prefix-cache invariant in GOTCHAS), capped at **9** (`ARCO_OLLAMA_TOOL_CAP`, floored at the core size).
+- **`OLLAMA_CORE_TOOLS`** = `Read/Grep/Glob/Bash` (+ cluster peer/plan tools when the workflow is a member) - never trimmed. The remainder is ranked by term-overlap relevance against the **stable system-block signal** (not the volatile last message - see prefix-cache invariant in GOTCHAS), capped at **9** (`ARCO_OLLAMA_TOOL_CAP`, floored at the core size), plus a separate allowance for the advertised cluster coordination tools.
 - Computed **once per turn** from a stable signal → byte-identical `tools[]` across turns = prefix-cache-safe. Passthrough below the cap; disable entirely with `ARCO_OLLAMA_TOOL_SUBSET=0`. The chosen subset is logged to `events.jsonl`.
 
 ### Capability-gated tool handling
@@ -2061,3 +2061,11 @@ Automatic Claude CLI calibration starts only while the same session remains idle
 STOP also revokes a normal message still preparing prompt or file context. It cannot enter a queue or start a provider turn after that cancellation.
 
 A busy message resolves its selected one-shot skills before entering the queue. The same skill context is delivered once whether the provider consumes it as mid-turn steering or the queue runs it after the turn.
+
+## Local-model recovery and cluster tools
+
+A successful larger context window is retained for later tool requests on that backend during the same turn. Peer escalation sends the larger window explicitly. Only identified context-overflow errors trigger widening; other request validation errors retain their original explanation.
+
+Transient backend failures receive bounded retries even with one backend. DNS lookup failures can use the configured hostname fallback. A rejected structured review synthesis keeps the completed free-text review and reports the fallback.
+
+Cluster coordination tools have a separate allowance from action tools, so joining a cluster does not remove file-writing and web-research tools. Local-model peer messages can retry with confirm after a status-confirmation response; the first-send guard still applies.

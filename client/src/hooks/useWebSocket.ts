@@ -550,7 +550,7 @@ export function useWebSocket() {
       target: args.target,
     }));
   }, []);
-  const acceptMdTuneup = useCallback((args: { workflowId: string; tuneupId: string; filePath: string; proposed: string }) => {
+  const acceptMdTuneup = useCallback((args: { workflowId: string; tuneupId: string; filePath: string; proposed: string; original: string }) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify({
       type: 'md_tuneup_accept',
@@ -558,6 +558,7 @@ export function useWebSocket() {
       tuneupId: args.tuneupId,
       filePath: args.filePath,
       proposed: args.proposed,
+      original: args.original,
     }));
   }, []);
   const requestMdTuneupCandidates = useCallback((workflowId: string) => {

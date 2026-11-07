@@ -1,3 +1,4 @@
+import { readSavedSettings } from '../utils/settingsRequests';
 import { NotificationChannelsSettings } from './NotificationChannelsSettings';
 import { UtilityAgentPicker } from './UtilityAgentPicker';
 import { MESSAGE_BOX_SIZES, setMessageBoxSize, useMessageBoxSize } from '../utils/messageBoxSize';
@@ -91,7 +92,7 @@ export function SettingsPanel({ onClose }: Props) {
     try {
       const response = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uiScale }) });
       if (!response.ok) throw new Error('settings save failed');
-      setSettings(await response.json() as ArcoSettings);
+      setSettings(await readSavedSettings(response));
     } catch {
       setSettings(previous);
       useAppStore.getState().pushNotification('error', 'Could not save interface text size.');
@@ -155,7 +156,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ operatorName: next }),
       });
-      const data = await res.json() as ArcoSettings;
+      const data = await readSavedSettings(res);
       setSettings(data);
     } catch {
       // Revert draft to authoritative value on failure.
@@ -184,22 +185,23 @@ export function SettingsPanel({ onClose }: Props) {
       },
     };
     setSavingProvider(provider);
-    setSettings(next); // optimistic
+    if (settings) setSettings({ ...settings, enabledProviders: next.enabledProviders }); // optimistic
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(next),
       });
-      const data = await res.json() as ArcoSettings;
+      const data = await readSavedSettings(res);
       setSettings(data);
     } catch {
-      // Revert on failure — re-fetch authoritative state.
+      // Restore the complete settings even if the refresh also fails.
+      if (settings) setSettings(settings);
       try {
         const res = await fetch('/api/settings');
-        const data = await res.json() as ArcoSettings;
+        const data = await readSavedSettings(res);
         setSettings(data);
-      } catch { /* leave optimistic: unlikely path */ }
+      } catch { /* the previous complete settings remain active */ }
     } finally {
       setSavingProvider(null);
     }
@@ -215,7 +217,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ollama: next ? { baseUrl: next } : {} }),
       });
-      const data = await res.json() as ArcoSettings;
+      const data = await readSavedSettings(res);
       setSettings(data);
       const authRes = await fetch('/api/auth-status');
       const auth = await authRes.json() as AuthStatusByProvider;
@@ -253,7 +255,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ollama: { utility } }),
       });
-      const data = await res.json() as ArcoSettings;
+      const data = await readSavedSettings(res);
       setSettings(data);
     } catch { /* HMR will reconcile */ }
     finally { setOllamaUtilitySaving(false); }
@@ -274,7 +276,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ollama: { utility: next } }),
       });
-      const data = await res.json() as ArcoSettings;
+      const data = await readSavedSettings(res);
       setSettings(data);
     } catch { /* HMR will reconcile */ }
     finally { setOllamaUtilitySaving(false); }
@@ -292,7 +294,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lmstudio: next ? { baseUrl: next } : {} }),
       });
-      const data = await res.json() as ArcoSettings;
+      const data = await readSavedSettings(res);
       setSettings(data);
       const authRes = await fetch('/api/auth-status');
       const auth = await authRes.json() as AuthStatusByProvider;
@@ -313,7 +315,7 @@ export function SettingsPanel({ onClose }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ strata: next ? { baseUrl: next } : {} }),
       });
-      const data = await res.json() as ArcoSettings;
+      const data = await readSavedSettings(res);
       setSettings(data);
       const authRes = await fetch('/api/auth-status');
       const auth = await authRes.json() as AuthStatusByProvider;
@@ -1348,7 +1350,7 @@ function CodexTransportDefaultsSection() {
         body: JSON.stringify({ codex: { transport: next } }),
       });
       if (res.ok) {
-        const data = (await res.json()) as ArcoSettings;
+        const data = await readSavedSettings(res);
         setSettings(data);
       }
     } catch { /* HMR will reconcile */ }
@@ -1365,7 +1367,7 @@ function CodexTransportDefaultsSection() {
         body: JSON.stringify({ claude: { transport: next } }),
       });
       if (res.ok) {
-        const data = (await res.json()) as ArcoSettings;
+        const data = await readSavedSettings(res);
         setSettings(data);
       }
     } catch { /* HMR will reconcile */ }
@@ -1482,7 +1484,7 @@ function AutoHandoffDefaultsSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ autoHandoffDefaults: next }),
       });
-      if (res.ok) setSettings((await res.json()) as ArcoSettings);
+      if (res.ok) setSettings(await readSavedSettings(res));
     } catch { /* HMR will reconcile */ }
     finally { setSaving(false); }
   };
@@ -1506,7 +1508,7 @@ function AutoHandoffDefaultsSection() {
         // null clears it back to "use the tab's current primary".
         body: JSON.stringify({ handoffSummarizer: next }),
       });
-      if (res.ok) setSettings((await res.json()) as ArcoSettings);
+      if (res.ok) setSettings(await readSavedSettings(res));
     } catch { /* HMR will reconcile */ }
     finally { setSaving(false); }
   };
@@ -1671,7 +1673,7 @@ function BoardAutoDoneSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ autoMarkDoneOnMetSignoff: next }),
       });
-      if (res.ok) setSettings((await res.json()) as ArcoSettings);
+      if (res.ok) setSettings(await readSavedSettings(res));
     } catch { /* HMR will reconcile */ }
     finally { setSaving(false); }
   };
@@ -1726,7 +1728,7 @@ function ProjectTrustSection({ activeCwd }: { activeCwd: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ defaultProjectTrust: next }),
       });
-      if (res.ok) setSettings((await res.json()) as ArcoSettings);
+      if (res.ok) setSettings(await readSavedSettings(res));
       await refresh();
     } catch { /* next refresh reconciles */ }
     finally { setSavingDefault(false); }
@@ -1988,7 +1990,7 @@ function CodexProfilesSection() {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error || res.statusText);
       }
-      const data = await res.json() as ArcoSettings;
+      const data = await readSavedSettings(res);
       setSettings(data);
       setEditingIds(new Set());
       const authRes = await fetch('/api/auth-status');
