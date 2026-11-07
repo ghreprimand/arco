@@ -2033,3 +2033,5 @@ OpenAI-compatible generation includes waiting for response headers in its stall 
 OpenAI-compatible streams finish at `[DONE]`; Ollama streams finish at `done: true`, even when the HTTP body remains open. Claude CLI snapshots track text by message and block so repeated snapshots do not hide later blocks or shorter final answers.
 
 Claude Native token-count telemetry has a five-second deadline and is cancelled by STOP. A cancelled or failed count falls back to response usage so turn completion does not wait on telemetry.
+
+Claude Native checks MCP session health and launch settings at each turn boundary. Failed or closed sessions reconnect, and a changed command, arguments or environment replaces the previous session. Healthy unchanged sessions stay open.

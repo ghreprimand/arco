@@ -322,6 +322,7 @@ export interface McpSessionTool {
 }
 
 export interface McpSession {
+  isClosed(): boolean;
   // Cached from initialize/tools-list. Empty on a failed/closed session.
   listTools(): McpSessionTool[];
   // Repeated tool calls. Resolves (never rejects) — a closed/errored session
@@ -349,6 +350,7 @@ const DEFAULT_CALL_TIMEOUT_MS = 60_000;
 // instead of throwing so the worker never crashes a turn on a dead server.
 function closedSession(error: string): McpSession {
   return {
+    isClosed: () => true,
     listTools: () => [],
     callTool: async () => ({ text: `[error] mcp session unavailable: ${error}`, isError: true }),
     close: () => { /* nothing to kill */ },
@@ -477,7 +479,8 @@ export async function connectServer(def: McpServerDef, opts: ConnectOptions = {}
     }));
 
   return {
-    listTools: () => tools.slice(),
+    isClosed: () => closed,
+    listTools: () => closed ? [] : tools.slice(),
     callTool: async (name, args) => {
       if (closed) return { text: '[error] mcp session closed', isError: true };
       const resp = await request('tools/call', { name, arguments: args ?? {} }, callTimeoutMs);

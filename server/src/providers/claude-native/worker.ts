@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { ensureProjectStateIgnore } from '../../projectStateIgnore.js';
 import { replayEventsWithTs } from '../../workflowStore.js';
 import { computerToolDefinitions, executeComputerTool } from '../../voice/toolDefinitions.js';
@@ -508,6 +509,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // and MUST be closed on dispose — a leaked stdio child outlives the worker
   // otherwise (load-bearing, docs/GOTCHAS.md § Claude Native transport).
   private mcpSessions = new Map<string, McpSession>();
+  private mcpDefinitions = new Map<string, string>();
 
   constructor(opts: WorkerOpts) {
     super();
@@ -1715,9 +1717,10 @@ export class ClaudeNativeWorker extends EventEmitter {
 
     // Close + drop sessions no longer wanted (no leaked children).
     for (const [key, session] of this.mcpSessions) {
-      if (!wantedKeys.has(key)) {
+      if (!wantedKeys.has(key) || session.isClosed()) {
         try { session.close(); } catch { /* already gone */ }
         this.mcpSessions.delete(key);
+        this.mcpDefinitions.delete(key);
       }
     }
 
@@ -1725,7 +1728,16 @@ export class ClaudeNativeWorker extends EventEmitter {
     // ResolvedMcpServer carries the spawn fields (command/args/env) — the rest
     // (id/name/enabled/createdAt) are unused by the spawn path.
     for (const server of wanted) {
-      if (this.mcpSessions.has(server.key)) continue;
+      const fingerprint = createHash('sha256').update(JSON.stringify([
+        server.command, server.args, Object.entries(server.env ?? {}).sort(([a], [b]) => a.localeCompare(b)),
+      ])).digest('hex');
+      const current = this.mcpSessions.get(server.key);
+      if (current && this.mcpDefinitions.get(server.key) === fingerprint) continue;
+      if (current) {
+        current.close();
+        this.mcpSessions.delete(server.key);
+        this.mcpDefinitions.delete(server.key);
+      }
       const session = await connectServer({
         id: server.key,
         name: server.key,
@@ -1736,6 +1748,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         createdAt: 0,
       });
       this.mcpSessions.set(server.key, session);
+      this.mcpDefinitions.set(server.key, fingerprint);
     }
   }
 
@@ -1746,6 +1759,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       try { session.close(); } catch { /* already gone */ }
     }
     this.mcpSessions.clear();
+    this.mcpDefinitions.clear();
   }
 
   private buildToolDefs(): ClaudeNativeToolDef[] {
