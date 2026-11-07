@@ -296,6 +296,8 @@ interface WorkflowMeta {
   codexTransport?: 'exec' | 'appserver';
   codexContextPolicy?: 'max' | 'standard';  // absent ⇒ MAX (dynamic from the account's models_cache.json)
   chatWebAccess?: boolean;               // chat-only; absent ⇒ chatWebArmed default (on for saved chats)
+  voiceOperator?: boolean;               // this Chat is the Computer voice operator (docs/VOICE.md)
+  autoCompaction?: AutoCompactionPolicy; // per-worker auto-compaction override; absent ⇒ inherit cluster or Provider
   autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number };  // per-tab auto-fold (Native)
   reviewSafeMode?: 'off' | 'on';         // DEBAG per-tab durable review gate; absent on rehydrate ⇒ OFF
   leafSeq?: number; // fork head pointer; absent ⇒ head is physical tail
@@ -759,7 +761,9 @@ Global shape (representative subset):
   themeId?: string, fontPackOverride?: string, /* + Phosphor / frost / brightness display prefs */
   claude?: { transport? }, codex?: { transport? },
   ollama?: { baseUrl?, backends?, modelHostMap?,... }, lmstudio?: { baseUrl? },
-  fallbackChains?, autoHandoffDefaults?, handoffSummarizer?, defaultProjectTrust?, mediaUnconfined?, pinnedServices?, tabOrder?,
+  fallbackChains?, autoHandoffDefaults?, handoffSummarizer?, defaultProjectTrust?, mediaUnconfined?, mediaAllowedRoots?, pinnedServices?, tabOrder?,
+  onboardingComplete?, providerConfirmed?,   // first-run setup finished or skipped; a provider check succeeded
+  autoMarkDoneOnMetSignoff?,                  // Settings > Agents and clusters > Board auto-done
   //...
 }
 ```

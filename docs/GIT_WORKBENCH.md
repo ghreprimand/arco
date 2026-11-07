@@ -307,7 +307,10 @@ same source `HEAD`.
    `~/.arco/bakeoffs/<cwd-hash>/worktrees/<bakeoffId>/<attemptId>`.
 3. `bakeoffHandlers.ts` creates background workflow tabs and concurrently sends
    the same prompt plus fixed isolation rules. Sticky Ultracode and Goal Run
-   are disabled on attempt tabs so one bounded fan-out cannot multiply.
+   are disabled on attempt tabs so one bounded fan-out cannot multiply. Each
+   attempt tab's `WorkflowConfig` carries `bakeoffId`, `bakeoffAttemptId` and
+   `bakeoffSourceWorkflowId`, which tie it back to the source tab's BAKE-OFF
+   panel and manifest.
 4. The operator opens any attempt tab for its transcript or clicks **VIEW DIFF** in
    BAKE-OFF. `GET /api/git/bakeoffs/diff` feeds the shared `DiffView`.
 5. The operator explicitly clicks **PROMOTE**. Arco stages candidate project
