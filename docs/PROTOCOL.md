@@ -1,6 +1,6 @@
 # WebSocket protocol
 
-Complete catalog of every message that crosses the WebSocket between client and server. Source of truth: the [`shared/src/protocol/`](../shared/src/protocol/) directory - ~44 per-domain files (`clientMessages.ts` + `serverMessages.ts` carry the two top-level unions; the rest define the families). The legacy [`shared/src/protocol.ts`](../shared/src/protocol.ts) is now a thin barrel that re-exports `protocol/index.ts`, so old import paths still resolve to the full flat surface. This doc tracks the same content with deeper commentary, direction tags, persistence notes, and happy-path sequence diagrams.
+Complete catalog of every message that crosses the WebSocket between client and server. Source of truth: the [`shared/src/protocol/`](../shared/src/protocol/) directory. `clientMessages.ts` and `serverMessages.ts` carry the two top-level unions; the other modules define message families. The legacy [`shared/src/protocol.ts`](../shared/src/protocol.ts) is a thin barrel that re-exports `protocol/index.ts`, so old import paths still resolve to the full flat surface. This doc tracks the same content with deeper commentary, direction tags, persistence notes, and happy-path sequence diagrams.
 
 For the higher-level lifecycle (when these messages fire), see [`ARCHITECTURE.md`](ARCHITECTURE.md). For terminology, see [`GLOSSARY.md`](GLOSSARY.md).
 

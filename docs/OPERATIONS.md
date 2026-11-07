@@ -267,6 +267,7 @@ After the switch:
 | HISTORY checkpoint reverts | Shown without change counts. |
 | SHARE WITH REPOSITORY projects | Do not use RESTORE IGNORE FILE or STOP TRACKING; either would undo the sharing. |
 | Output style | Plain does not exist in 0.1.4. Plain is saved as no choice, so tabs, members, presets and templates on Plain run as Normal, and a New-tab default of Plain falls back to Lite. Normal and Terse are kept. |
+| Management-hub cloud snapshots | Existing snapshots stored as legacy `<id>.bin` blobs remain readable by 0.1.4. Snapshots saved or replaced by 0.1.5 use checksum-named blobs, which 0.1.4 cannot read. Keep a 0.1.5-compatible hub available to read those snapshots; downgrading does not delete their files. |
 
 Coming back to 0.1.5 later: if Settings were changed while on 0.1.4, set the App
 window browser choice and the default auto-handoff compaction count again (the

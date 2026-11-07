@@ -2,7 +2,7 @@
 
 **Status:** Stable project identity, organization, creation and removal, and missing-path or relocation recovery remain in progress. See [Development status](DEVELOPMENT_STATUS.md).
 
-The web UI. Vite + React 19 + Zustand. Two-column layout: chat + composer on the left (2/3), tabbed right pane (1/3). Talks to the server over a single persistent WebSocket; HTTP only for file uploads, transcripts, artifact bodies, plan bodies, and auth.
+The web UI. Vite + React 19 + Zustand. Two-column layout: chat + composer on the left (2/3), tabbed right pane (1/3). Uses a persistent WebSocket for workflow events and actions, plus HTTP for authentication, settings, catalogs, file operations, project data, artifacts, plans, media, and other request-response APIs.
 
 This doc covers the store, components, render pipeline, theme + shader system, and performance patterns. For the WebSocket protocol see [`PROTOCOL.md`](PROTOCOL.md). For the server side see [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
@@ -92,7 +92,7 @@ move the pane. This is UI intent, never worker/background activity.
 - `activeClusterId: string | null` - currently focused cluster tab. Mutually exclusive with `activeJobId` - setting one clears the other so the App.tsx routing branch picks deterministically.
 - `jobs: Record<string, JobState>` - per-workflow state (the workhorse)
 - `clusters: Record<string, ClusterStatePayload>` - server-authoritative cluster mirror, persisted alongside `jobs`
-- `clusterFocusedMember: Record<clusterId, workflowId>` - operator's currently-focused member inside each cluster tab (local UI state, not persisted)
+- `clusterFocusedMember: Record<clusterId, workflowId>` - operator's currently-focused member inside each cluster tab (persisted only while the member still belongs to that saved cluster)
 - `clusterGridSplit: number` - fraction of `ClusterTab` body width given to the `MemberCard` grid (left); detail `MemberPane` gets the remainder. Default `0.35`; persisted.
 - `attachments: Record<workflowId, DraftAttachment[]>` - staged composer files, lifted to the store so tab-switch remounts don't drop them (blob-URL revocation lives in the actions). Drafts live in `draftStore`. Neither is persisted.
 - `clusterMemberLabels`, `clusterCardLayout` (persisted), `handoffLocksByCwd` (`handoff_lock_snapshot` mirror) - cluster/handoff UI mirrors
@@ -303,7 +303,7 @@ The store uses Zustand's `persist` middleware over `debouncedJSONStorage` (`stor
 - `connected`, `sessionId` - WS state
 - `connectionState`, `quotaState`, `capabilities`, `authStatus`, usage snapshots, `cliChanges`, model catalogs, `ollamaLive`, `llamacppLive`, `taskLedger`, `mcp*`, `bakeoffsByWorkflow` - fetched or re-pushed on connect
 - `snapshotReceived`, `busy`, `turnStartedAt`, `lastTurnEndedAt`, `activity`, `primaryBackgroundJobs`, `turnTokenUsage` - reset on connect; the authoritative snapshot arrives within seconds
-- `attachments`, `notifications`, `flashTarget`, `wsSendRaw`, `clusterFocusedMember`, `detailWorker` - session-only UI state
+- `attachments`, `notifications`, `flashTarget`, `wsSendRaw`, `detailWorker` - session-only UI state
 
 On rehydrate, `onRehydrateStorage` also strips persisted streaming flags, drops queued optimistic entries older than 30 s, and dedupes any `peer-sent-<msgId>` / `peer-recv-<msgId>` rows that earlier builds (pre-intake-dedup) accidentally duplicated.
 
@@ -506,7 +506,7 @@ The 2/3 - 1/3 splitter width and active right-tab key persist to localStorage in
 
 ### Help-system doc-sync checker (`scripts/docs-check.ts`)
 
-The three help pieces - `data-help="key"` attributes on elements, the `HELP_CONTENT` registry (`client/src/help/content/`, assembled in `helpContent.tsx`), and the manual sections (`client/src/help/manualSections/`, each a `{ id, title, group, body }`) - have no compile-time link. `npm run docs:check` (Workbench Expansion) is a deterministic static validator that keeps them in sync. It runs as text/regex scans (the house style of `scripts/size-check.ts`), exits non-zero on a real orphan, and is wired into the per-phase DONE checklist (see `CONTRIBUTING.md-sync`).
+The three help pieces - `data-help="key"` attributes on elements, the `HELP_CONTENT` registry (`client/src/help/content/`, assembled in `helpContent.tsx`), and the manual sections (`client/src/help/manualSections/`, each a `{ id, title, group, body }`) - have no compile-time link. `npm run docs:check` is a deterministic static validator that keeps them in sync. It runs as text/regex scans (the house style of `scripts/size-check.ts`), exits non-zero on a real orphan, and is wired into the per-change checklist in [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 What it validates:
 
@@ -576,7 +576,7 @@ Scan `displayMessages` for `[HANDOFF U+2014` and spawn-suffix prefixes. If found
 
 Implementation note: the selector reads the full `clusters` map (`useAppStore((s) => s.clusters)`) and the derivation runs through `useMemo` keyed on `[clusters, lookupWfid]`. Selecting a fresh-object literal each render (`s => ({ name, role })`) re-runs the memo every commit and triggers an infinite update loop - keep the selector pointing at the referentially-stable map.
 
-Row identity uses deterministic ids (`peer-sent-<msgId>` / `peer-recv-<msgId>`) so rehydrate-on-subscribe + tsx-watch restarts are idempotent. Three-layer dedupe: WS handler intake check, `appStore.addMessage` defense-in-depth, `onRehydrateStorage` strips historical duplicates on load. See `GOTCHAS.md-polish push gotchas`.
+Row identity uses deterministic ids (`peer-sent-<msgId>` / `peer-recv-<msgId>`) so rehydrate-on-subscribe + tsx-watch restarts are idempotent. Three-layer dedupe: WS handler intake check, `appStore.addMessage` defense-in-depth, `onRehydrateStorage` strips historical duplicates on load. See [Gotchas](GOTCHAS.md).
 
 ### "Run in terminal" chat chip (Workbench Expansion)
 
