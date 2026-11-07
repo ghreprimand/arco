@@ -381,7 +381,8 @@ export const headerHelp: Record<string, HelpEntry> = {
         <p>
           The bell collects notices such as a turn finishing in another tab or in a cluster member that is not in view,
           a provider's quota recovering or a terminal exiting non-zero. A badge
-          counts unread notices. Attention notices do not show a pop-up.
+          counts unread notices. A notice names its tab, or its member and cluster.
+          Hover over a shortened notice to read it in full. Attention notices do not show a pop-up.
         </p>
         <p>
           Use <strong>SHOW IN BELL</strong> to choose categories. A checked box

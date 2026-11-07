@@ -74,6 +74,8 @@ async function main() {
     assert(req.body.startsWith('[workstation]'), `body leads with workstation: ${req.body}`);
     assert(req.body.includes('Ran 2m 3s.'), 'body carries the notice body');
     assert(req.body.includes('workflow abcd1234'), 'body carries an 8-char workflow hint');
+    const long = buildNtfyRequest(notice({ title: `Director in ${'Long cluster '.repeat(40)}finished` }), { topicUrl: 't' }).headers.Title;
+    assert(long.length <= 200 && long.includes('...') && long.endsWith('finished'), 'long title retains its source and event');
   });
 
   await step('buildNtfyRequest: priority + tag by severity; no Click/Auth when unset', () => {
@@ -125,7 +127,7 @@ async function main() {
     }) as unknown as typeof fetch;
 
     const active = initNtfyTransport({
-      env: { ARCO_NTFY_URL: 'http://hub:3501/arco-x', ARCO_HUB_URL: 'ws://hub:3500/agent', ARCO_NTFY_TOKEN: 'tk' },
+      env: { ARCO_NTFY_URL: 'http://hub:3501/arco-x', ARCO_HUB_URL: 'ws://hub:3500/agent', ARCO_NTFY_TOKEN: 'tk', ARCO_ALLOW_TEMP_HOME: '1' },
       fetchImpl: fakeFetch,
       instanceLabel: 'workstation',
     });

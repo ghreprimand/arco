@@ -20,7 +20,8 @@ import type {
   NotificationMutesMessage,
   ProviderName,
 } from '@arco/shared';
-import { WORKBENCH_NOTICE_CATEGORIES } from '@arco/shared';
+import { attentionTitle, scopedNoticeTitle, WORKBENCH_NOTICE_CATEGORIES } from '@arco/shared';
+import { noticeSourceFor } from './noticeSource.js';
 import { atomicWriteFile } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
 
@@ -99,11 +100,14 @@ export function setMutes(muted: WorkbenchNoticeCategory[]): void {
  */
 export function emit(
   n: Omit<WorkbenchNotice, 'id' | 'ts'> & { ts?: number },
-  options: { transportOnly?: boolean } = {},
+  options: { transportOnly?: boolean; sourceName?: string } = {},
 ): WorkbenchNotice | null {
   if (mutedCategories.has(n.category)) return null;
+  const source = n.workflowId ? noticeSourceFor(n.workflowId, options.sourceName) : '';
+  const title = source && n.category === 'turn-finished' ? attentionTitle(source, 'finished') : scopedNoticeTitle(source, n.title);
   const notice: WorkbenchNotice = {
     ...n,
+    title,
     id: `wn_${Date.now().toString(36)}_${(idCounter++).toString(36)}`,
     ts: n.ts ?? Date.now(),
   };
@@ -141,11 +145,11 @@ export function onTurnEnded(workflowId: string, opts?: { provider?: ProviderName
   emit({
     category: 'turn-finished',
     severity: 'success',
-    title: `Turn finished — ${opts?.workflowName ?? workflowId.slice(0, 8)}`,
+    title: 'Turn finished',
     body: `Ran ${dur}.`,
     workflowId,
     provider: opts?.provider,
-  }, { transportOnly: true });
+  }, { transportOnly: true, sourceName: opts?.workflowName });
 }
 
 /** A throttled provider became available again. */

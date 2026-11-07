@@ -2629,7 +2629,7 @@ message is a mute *preference*. Full design in [`NOTIFICATIONS.md`](NOTIFICATION
 { type: 'attention_event', id: string, kind: 'finished' | 'failed' | 'waiting', workflowId: string, workflowName: string }
 ```
 
-An opt-in alert for the desktop channel (see [Notifications](NOTIFICATIONS.md#attention-alerts-desktop-and-phone)). Sent to every client only when the server has a desktop switch on for `kind`; it carries no message text. Each browser decides whether to show a system notification (permission granted, window unfocused or hidden); `id` is the notification tag.
+An attention event for BELL and the optional desktop channel (see [Notifications](NOTIFICATIONS.md#attention-alerts-desktop-and-phone)). `workflowName` names the tab or the member and cluster; it carries no message text. Each browser decides whether to show a system notification (the switch and permission are on, and the window is unfocused or hidden); `id` is the notification tag.
 
 ### `workbench_notice` <-
 ```ts

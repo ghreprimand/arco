@@ -172,6 +172,7 @@ export interface AttentionEventMessage {
   id: string;
   kind: AttentionKind;
   workflowId: string;
+  // The tab name, or the member and cluster name, captured at the event.
   workflowName: string;
   // Short turns and filtered cluster members can still produce in-app notices.
   desktopEligible?: boolean;

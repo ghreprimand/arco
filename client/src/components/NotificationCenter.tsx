@@ -155,15 +155,15 @@ export function NotificationCenter({ onSetMutes }: { onSetMutes: (muted: Workben
               notices.map((n) => (
                 <div key={n.id} style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-border-hairline)' }}>
                   {n.workflowId ? <button data-help="header.notifications" onClick={() => { focusNoticeWorkflow(n.workflowId!); setOpen(false); }} style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 0, padding: 0, color: 'inherit', cursor: 'pointer' }}>
-                    <span className="display-font" style={{ fontSize: '10px', letterSpacing: '0.5px', color: severityColor[n.severity] }}>{n.title}</span>
-                    <span style={{ float: 'right', color: 'var(--color-fg-muted)', fontSize: '9px' }}>{relativeTime(n.ts)}</span>
-                    {n.body && <div style={{ color: 'var(--color-fg-muted)', marginTop: '2px', lineHeight: 1.4 }}>{n.body}</div>}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                      <span className="display-font" title={[n.title, n.body].filter(Boolean).join(': ')} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px', letterSpacing: '0.5px', color: severityColor[n.severity] }}>{n.title}{n.body && <>: {n.body}</>}</span>
+                      <span style={{ flexShrink: 0, color: 'var(--color-fg-muted)', fontSize: '9px', whiteSpace: 'nowrap' }}>{relativeTime(n.ts)}</span>
+                    </span>
                   </button> : <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-                    <span className="display-font" style={{ fontSize: '10px', letterSpacing: '0.5px', color: severityColor[n.severity] }}>{n.title}</span>
+                    <span className="display-font" title={[n.title, n.body].filter(Boolean).join(': ')} style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '10px', letterSpacing: '0.5px', color: severityColor[n.severity] }}>{n.title}{n.body && <>: {n.body}</>}</span>
                     <span style={{ color: 'var(--color-fg-muted)', fontSize: '9px', whiteSpace: 'nowrap' }}>{relativeTime(n.ts)}</span>
                   </div>
-                  {n.body && <div style={{ color: 'var(--color-fg-muted)', marginTop: '2px', lineHeight: 1.4 }}>{n.body}</div>}
                   </>}
                 </div>
               ))

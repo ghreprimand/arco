@@ -15,7 +15,8 @@ import { arcoHome } from './arcoHome.js';
 import { environmentNtfyAllowed } from './management/hubGuard.js';
 import { broadcastToClients } from './notifications.js';
 import * as clusterStore from './clusterStore.js';
-import { isClusterDirector } from '@arco/shared';
+import { attentionTitle, isClusterDirector } from '@arco/shared';
+import { noticeSourceFor } from './noticeSource.js';
 
 // Desktop and phone finished alerts require a longer turn.
 export const MIN_FINISHED_TURN_MS = 15_000;
@@ -85,19 +86,18 @@ export function phoneHandlesFinished(): boolean {
   return channels.phone.finished && resolvePhoneTarget() !== null;
 }
 
-function ascii(s: string, max = 120): string {
-  return s.replace(/[\r\n]+/g, ' ').replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+function ascii(s: string, max = 120, keepEnd = false): string {
+  const value = s.replace(/[\r\n]+/g, ' ').replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim();
+  if (value.length <= max) return value;
+  if (max <= 3) return '.'.repeat(Math.max(0, max));
+  if (!keepEnd) return `${value.slice(0, Math.max(0, max - 3))}...`;
+  const start = Math.ceil((max - 3) / 2);
+  return `${value.slice(0, start)}...${value.slice(-(max - 3 - start))}`;
 }
-
-const HEADLINE: Record<AttentionKind, string> = {
-  finished: 'finished',
-  failed: 'hit an error',
-  waiting: 'is waiting for you',
-};
 
 export async function sendPhone(target: { url: string; token?: string }, title: string, body: string, kind: AttentionKind | 'test'): Promise<{ ok: boolean; error?: string }> {
   const headers: Record<string, string> = {
-    Title: ascii(title),
+    Title: ascii(title, 120, true),
     Priority: kind === 'failed' || kind === 'waiting' ? 'high' : 'default',
     Tags: kind === 'failed' ? 'rotating_light' : kind === 'waiting' ? 'raising_hand' : 'white_check_mark',
   };
@@ -136,13 +136,13 @@ export function raise(kind: AttentionKind, workflowId: string, info: WorkflowInf
   const now = Date.now();
   if (now - (lastAlertAt.get(key) ?? 0) < 3000) return;
   lastAlertAt.set(key, now);
-  const name = ascii(info.name || workflowId.slice(0, 8), 60);
+  const name = noticeSourceFor(workflowId, info.name);
   {
     broadcastToClients({ type: 'attention_event', id: `at_${now.toString(36)}_${(idCounter++).toString(36)}`, kind, workflowId, workflowName: name, desktopEligible: wantDesktop });
   }
   if (target) {
     const body = channels.phoneText && text ? ascii(text, TEXT_MAX) : `Open Arco to see it.`;
-    void sendPhone(target, `${name} ${HEADLINE[kind]}`, body, kind).then((r) => {
+    void sendPhone(target, attentionTitle(name, kind), body, kind).then((r) => {
       if (!r.ok) console.warn(`[ntfy] attention push failed: ${r.error}`);
     });
   }

@@ -986,9 +986,9 @@ export const configuration: Section[] = [
   <ul>
   <li><strong>Events</strong> - a turn finished (one that ran at least 15 seconds; in a cluster only the director's unless you choose every member), a turn failed, and waiting for you (a question or an approval is open). Incognito tabs never notify.</li>
   <li><strong>This computer</strong> - a system notification, shown only while Arco is not the window you are looking at, once per event. Clicking it opens that tab. The permission state is shown here. REQUEST PERMISSION asks the browser. TEST DESKTOP asks first if the browser has not been asked, then sends a test and shows Sent, Blocked, Not allowed, Not supported or Failed beside the button, with what to do. If blocked, allow notifications in the browser's site settings; an app window with its own browser profile has its own setting.</li>
-  <li><strong>BELL</strong> - a quiet notice for a different tab that finishes, fails or needs you. In a cluster tab, every member other than the one in view counts as a different tab. It is on by default; use SHOW IN BELL to choose categories.</li>
+  <li><strong>BELL</strong> - a quiet notice for a different tab that finishes, fails or needs you. In a cluster tab, every member other than the one in view counts as a different tab. Entries name their tab or cluster member. It is on by default; use SHOW IN BELL to choose categories.</li>
   <li><strong>Phone</strong> - a message through an ntfy server, with no hub and no REMOTE switch needed. See Phone setup below.</li>
-  <li><strong>Message text</strong> - left out of phone messages unless you tick it; then they include the question, the error or the start of the reply. The tab name is always included.</li>
+  <li><strong>Message text</strong> - left out of phone messages unless you tick it; then they include the question, the error or the start of the reply. The tab name, or member and cluster names, are always included.</li>
   </ul>
   <Sub>Phone setup</Sub>
   <ol>

@@ -57,15 +57,18 @@ function tagFor(sev: WorkbenchNoticeSeverity): string {
 // values). Strip control chars / non-ASCII and cap length so a unicode title
 // can't break the request. The body (POST payload, not a header) keeps unicode.
 function headerSafe(s: string, max = 200): string {
-  return s
+  const value = s
     .replace(/[‒-―]/g, '-')      // figure/en/em dashes → hyphen
     .replace(/[‘’]/g, "'")        // smart single quotes
     .replace(/[“”]/g, '"')        // smart double quotes
     .replace(/[\r\n]+/g, ' ')
     .replace(/[^\x20-\x7E]/g, '')           // strip any remaining non-ascii
     .replace(/\s+/g, ' ')                   // collapse runs left by stripped glyphs
-    .trim()
-    .slice(0, max);
+    .trim();
+  if (value.length <= max) return value;
+  if (max <= 3) return '.'.repeat(Math.max(0, max));
+  const start = Math.ceil((max - 3) / 2);
+  return `${value.slice(0, start)}...${value.slice(-(max - 3 - start))}`;
 }
 
 // ws://host:port/agent → http://host:port/  (the console is the hub's HTTP root

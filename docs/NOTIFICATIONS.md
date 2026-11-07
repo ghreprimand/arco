@@ -45,6 +45,7 @@ is not a failed turn), applies the switches, allows one alert per
 workflow and event every 3 seconds, and does three things:
 
 - **BELL:** sends an `attention_event` with no message text. Each browser adds a quiet notice when the matching BELL category is shown and the workflow is not the one in view: a different tab, or in a cluster tab any member other than the chosen one (the first member when none is chosen).
+- Notice titles name the tab, or the member and cluster for a cluster tab. Each BELL notice stays on one line; hover to read its full text. Scoped desktop and phone alerts use the same source. Machine-wide notices name the event or provider.
 - **This computer:** uses the same `attention_event`. Each browser
   shows a system notification only when its switch is on, permission is granted
   and the window is unfocused or hidden; the event id is the notification tag so

@@ -1,13 +1,7 @@
-import type { AttentionEventMessage, AttentionKind, NotificationChannelsView } from '@arco/shared';
+import { attentionTitle, type AttentionEventMessage, type AttentionKind, type NotificationChannelsView } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useNotificationChannelsStore } from '../stores/notificationChannelsStore';
 import { useNotificationStore } from '../stores/notificationStore';
-
-const PHRASE: Record<AttentionKind, string> = {
-  finished: 'finished',
-  failed: 'hit an error',
-  waiting: 'is waiting for you',
-};
 
 // Open the tab that holds a workflow: its cluster (focused on the member) or the workflow tab.
 export function focusWorkflowTab(workflowId: string): void {
@@ -55,7 +49,7 @@ export function handleAttentionEvent(msg: AttentionEventMessage): void {
   const viewing = isViewingWorkflow(useAppStore.getState(), msg.workflowId);
   const category = msg.kind === 'finished' ? 'turn-finished' : 'attention';
   if (shouldAddAttentionNotice(!useNotificationStore.getState().muted.includes(category), viewing)) {
-    useNotificationStore.getState().pushNotice({ id: msg.id, category, severity: msg.kind === 'failed' ? 'error' : 'info', title: `${msg.workflowName} ${PHRASE[msg.kind]}`, ts: Date.now(), workflowId: msg.workflowId });
+    useNotificationStore.getState().pushNotice({ id: msg.id, category, severity: msg.kind === 'failed' ? 'error' : 'info', title: attentionTitle(msg.workflowName, msg.kind), ts: Date.now(), workflowId: msg.workflowId });
   }
   if (typeof Notification === 'undefined' || msg.desktopEligible === false) return;
   const ok = shouldRaiseDesktop(view, msg.kind, {
@@ -65,7 +59,7 @@ export function handleAttentionEvent(msg: AttentionEventMessage): void {
   });
   if (!ok) return;
   try {
-    const n = new Notification(`${msg.workflowName} ${PHRASE[msg.kind]}`, { body: 'Open Arco to see it.', tag: msg.id });
+    const n = new Notification(attentionTitle(msg.workflowName, msg.kind), { body: 'Open Arco to see it.', tag: msg.id });
     n.onclick = () => {
       try { window.focus(); } catch { /* ignore */ }
       focusWorkflowTab(msg.workflowId);

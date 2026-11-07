@@ -49,6 +49,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- BELL and matching desktop and phone alerts name the tab, or the member and cluster. Hover over a shortened BELL notice to read it in full.
+
 - Cluster creation leaves the director plan draft option off by default. Public-project choices are available in plan review and editing, Genesis and the plans library, and are saved per project for agent-created plans.
 
 - Creating a cluster, ADD WORKERS and REPLACE no longer show the new members as their own tabs first. Before, each member appeared as a top-level tab and took focus until the cluster tab opened and folded them in; now the cluster tab appears once with its members.

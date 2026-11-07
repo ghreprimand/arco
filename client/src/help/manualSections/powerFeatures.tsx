@@ -704,7 +704,7 @@ export const powerFeatures: Section[] = [
   Use <strong>SHOW IN BELL</strong> to choose categories; a checked box shows that category. The choices are saved on the server. Opening
   the center clears the unread badge, and CLEAR wipes the history.
   </p>
-  <p>Select a notice or error pop-up linked to a worker to open that worker. If its tab has closed, a message says it is no longer open.</p>
+  <p>A notice names its tab, or its member and cluster. Hover over a shortened notice to read it in full. Select a notice or error pop-up linked to a worker to open that worker. If its tab has closed, a message says it is no longer open.</p>
   <Sub>Desktop and phone alerts</Sub>
   <p>
   In Settings &gt; Notifications, tick when a turn finishes, fails or is waiting

@@ -7,7 +7,7 @@ import { join, parse } from 'node:path';
 import type { ServerMessage } from '@arco/shared';
 import { initNotifications, _setMutesPathForTest, _resetTransportsForTest, registerNoticeTransport, onTurnStarted, onTurnEnded } from './notifications.js';
 import {
-  _setChannelsPathForTest, _setFetchForTest, channelsView, loadChannels, observeAttention, resolvePhoneTarget, saveChannels, sendTest, MIN_FINISHED_TURN_MS,
+  _setChannelsPathForTest, _setFetchForTest, channelsView, loadChannels, observeAttention, resolvePhoneTarget, saveChannels, sendPhone, sendTest, MIN_FINISHED_TURN_MS,
 } from './attention.js';
 
 const sent: ServerMessage[] = [];
@@ -162,4 +162,12 @@ test('a home inside the temporary folder ignores ARCO_NTFY_URL, keeps a saved ad
   const saved = await saveChannels({ phone: { waiting: true }, ntfy: { server: 'https://ntfy.example.org', topic: 'arco-t9' } });
   assert.deepEqual(resolvePhoneTarget(saved, inherited), { url: 'https://ntfy.example.org/arco-t9' }, 'an address saved in Settings still works');
   assert.equal(channelsView(saved, inherited).ntfyEnvironmentHeldBack, false);
+});
+
+test('phone titles stay on one line and mark truncation', async () => {
+  await sendPhone({ url: 'https://ntfy.example.org/fixture' }, `Director in ${'Long cluster '.repeat(20)}finished`, 'Fixture', 'finished');
+  assert.ok(posts[0].headers.Title.length <= 120);
+  assert.ok(posts[0].headers.Title.includes('...'));
+  assert.ok(posts[0].headers.Title.endsWith('finished'));
+  assert.doesNotMatch(posts[0].headers.Title, /[\r\n]/);
 });
