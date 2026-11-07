@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- The Media Studio manual accurately distinguishes confirmed image overwrites from conversion outputs written as new files.
+
 - Rough-theme panels show their SVG borders and redraw them when the active state changes.
 
 - Closing or changing a Media Studio source cancels its active conversion and stem-separation jobs.

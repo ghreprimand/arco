@@ -16,8 +16,7 @@ export const media: Section[] = [
       <>
         <p>
           The Media studio views, edits and converts image, audio and video
-          files inside Arco. Every edit writes a new file, so the source is
-          never overwritten.
+          files inside Arco. Audio and video conversions write new files. Image SAVE can replace an on-disk source after an overwrite confirmation.
         </p>
         <p>
           Edits run on the server with <strong>FFmpeg</strong>. Optional AI
@@ -62,8 +61,7 @@ export const media: Section[] = [
           </li>
           <li>
             <strong>EDIT</strong> opens a layer-based editor with crop, brush,
-            filters and undo/redo. <strong>SAVE</strong> asks for a Save-As
-            path.
+            filters and undo/redo. <strong>SAVE</strong> targets the original path for an image opened from FILES and asks before overwriting it. An imported image asks for a new filename. Saving requires a workflow context.
           </li>
         </ul>
         <p>EXIF metadata is not shown yet.</p>

@@ -133,7 +133,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   'media.save': {
     title: 'Save the edited image',
     body: (
-      <p>
+      <p>Saving requires a workflow context; open from FILES to save into a project.
         Flatten the layers and write the result through Arco's guarded{' '}
         <C>/api/image/write</C> endpoint (path-confined to the workflow cwd). A
         file opened from <strong>FILES</strong> saves over the original (with an
