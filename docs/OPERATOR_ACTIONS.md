@@ -161,9 +161,6 @@ Automation under an AUTOMATION header (closed by default):
   consecutive-failure breaker)
 - Swarm helper (root blackboard -> N workers -> verifier -> synthesizer)
 - Worktree-aware dispatch (`autoWorktree`, default OFF)
-- Orchestration assist (operator-armed model drafts of task graph / assignments /
-  recovery / synthesis / swarm that land as preview proposals and only mutate
-  state when the operator accepts selected items through the normal task APIs)
 
 See [Cluster protocol](PROTOCOL_CLUSTER.md), [Task ledger](TASK_LEDGER.md), and
 [Gotchas: Cluster mode](GOTCHAS.md) for load-bearing invariants.

@@ -1139,18 +1139,14 @@ Cluster BOARD sub-tab (`client/src/components/ClusterTaskBoardTab.tsx`). Renders
 - **Runs** - run history with heartbeat age, stale indicator, and per-run RECLAIM / TERMINATE controls (`task_run_recover` WS message). Open runs are listed first.
 - **Dependency graph** - `taskGraphSummary` helper computes parent/child counts and blocked-parent / open-child summary. Displayed as a plain-text graph summary.
 
-**Collapsed AUTOMATION header.** The dispatcher, SWARM, and orchestration-assist controls now live behind a single collapsed **AUTOMATION** disclosure (`automationOpen`, default false; `data-help="cluster.board-automation-toggle"`; the header badge appends `· N` proposed-count when non-zero). Expanded, it exposes:
+**Collapsed AUTOMATION header.** The dispatcher and SWARM controls live behind a collapsed **AUTOMATION** disclosure (`automationOpen`, default false; `data-help="cluster.board-automation-toggle"`). Expanded, it exposes:
 - `DISPATCH ONCE` - fires `cluster_dispatch_once`; one deterministic explicit-assignee sweep.
 - Armed-daemon toggle (DISPATCHER) - `cluster_dispatch_toggle`; persisted in cluster meta; status shown as `Armed` / `Disarmed` tooltip.
 - Per-cap settings (max open runs cluster-wide, per-member cap) - fires `cluster_dispatch_settings_update`.
 - Run concurrency pill showing `RUNS N/cap` - visual throttle indicator.
-- CREATE SWARM / DRAFT ASSIST - the orchestration-assist panel below.
+- CREATE SWARM - creates the selected task structure.
 
-**Orchestration assist panel** (`orchestrationAssistStore`). An operator-armed DRAFT ASSIST panel inside the AUTOMATION disclosure. Gated: only appears when the cluster is armed (via the panel's own arm toggle). Five assist modes (radio/select): `TASK GRAPH / ASSIGNMENTS / RECOVERY / SYNTHESIS / SWARM`. On dispatch:
-1. Client fires `cluster_orchestration_assist_request` with the chosen mode + a freeform prompt + requester workflowId.
-2. Server generates (or stubs) a proposal and stores it via `orchestrationProposals.ts`; broadcasts `cluster_orchestration_proposal` back.
-3. Client upserts the proposal into `orchestrationAssistStore.byCluster[clusterId]` and auto-selects it.
-4. Selected proposal previews in the panel. Operator can **accept selected items** (fires `cluster_orchestration_proposal_apply`, which runs through the normal task-kernel APIs producing ordinary `task_ledger_event`s) or **reject** (fires `cluster_orchestration_proposal_reject`; mutates nothing in the task store).
+**Orchestration assist.** DRAFT ASSIST is hidden in this version. Existing proposal storage and acceptance paths remain in place.
 
 `orchestrationAssistStore` (`client/src/stores/orchestrationAssistStore.ts`) is a standalone Zustand store (not in `appStore`). Shape:
 ```ts

@@ -272,9 +272,9 @@ default no-dispatch behavior, and dispatch-after-create not producing terminal
 statuses for worker/verifier/synthesizer tasks.
 
 Stage K adds orchestration-assist proposals as a preview layer above the same
-ledger. A proposal may draft tasks, assignments, swarm layouts, recovery
-actions, synthesis comments, and provider/model/effort suggestions, but it is
-not task state. Rejecting a proposal is audit-only and must leave
+ledger. A proposal may contain supplied task, assignment, recovery, synthesis,
+swarm, and provider suggestions, but it is not task state. Requests do not
+invoke a model. Rejecting a proposal is audit-only and must leave
 `tasks.json`/the task kernel unchanged. Accepting selected task-affecting items
 must go through the normal task-kernel mutation APIs and emit ordinary
 `task_ledger_event` rows (`create`, `update`, `link`, `comment`, etc.) followed
@@ -291,21 +291,17 @@ exactly the same `persistLedgerMutation` path the peer-tools use.
 
 **Proposal lifecycle:**
 
-1. **Requested**, operator opens **DRAFT ASSIST** in the cluster BOARD tab
-   (it reads **PROPOSALS N** while proposals wait), picks a kind (`task_graph` /
-   `assignments` / `swarm` / `recovery` / `synthesis`), optionally supplies input
-   refs and a prompt, and clicks **REQUEST DRAFT**. The server validates cluster membership, creates an
-   `OrchestrationProposal` record, and persists it to
-   `<cwd>/.arco/project/orchestration-proposals.json`.
+1. **Requested**, the server accepts a supplied draft and stores it in the
+   proposal file. DRAFT ASSIST is hidden in this version; requests do not invoke a model.
 2. **Proposed**, the proposal broadcasts to all cluster members as
    `cluster_orchestration_proposals_snapshot`. It is preview data: no
    `task_ledger_event` has fired, `tasks.json` is unchanged.
-3. **Rejected**, operator clicks REJECT. The proposal `status` transitions to
+3. **Rejected**, a reject request changes the proposal `status` to
    `rejected` and a `rejected` entry is appended to `actions[]`. **No task
    mutation.** `tasks.json` is untouched. Already-accepted proposals cannot be
    rejected.
-4. **Accepted (partial or full)**, operator selects item ids and clicks ACCEPT
-   SELECTED. For each selected item the server executes the **ordinary task-
+4. **Accepted (partial or full)**, an apply request supplies selected item ids.
+   For each selected item the server executes the **ordinary task-
    kernel mutation** under the per-cwd lock:
    - `task_create` items -> `taskLedger.newTask` + optional `applyUpdate` for
      status/assignee/parents -> `task_ledger_event op='create'` + `op='update'`

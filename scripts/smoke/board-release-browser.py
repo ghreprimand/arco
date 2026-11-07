@@ -54,6 +54,11 @@ async def main():
           window.root=createRoot(document.getElementById('fixture'));
           root.render(React.createElement(ClusterTaskBoardTab,{cluster}));
         }''')
+        await page.locator('[data-help="cluster.board-automation-toggle"]').click()
+        await expect(page.locator('[data-help="cluster.board-dispatch-once"]')).to_be_visible()
+        await expect(page.locator('[data-help="cluster.swarm-create"]')).to_be_visible()
+        await expect(page.get_by_role('button', name='DRAFT ASSIST', exact=True)).to_have_count(0)
+        await expect(page.locator('[data-help="cluster.orchestration-proposals"]')).to_have_count(0)
         done_toggle = page.get_by_role('button', name='SHOW DONE', exact=False)
         if await done_toggle.get_attribute('aria-pressed') == 'false': await done_toggle.click()
         await expect(page.get_by_text('Task a', exact=True)).to_be_visible()

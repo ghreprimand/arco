@@ -232,8 +232,8 @@ scripts/arco logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
   [<strong key="hb">Heartbeat</strong>, <span>A <Code>cluster_task_heartbeat</Code> call a long-running worker makes to show it is alive. A run with a stale heartbeat can be recovered.</span>],
   [<strong key="dp">Dispatcher</strong>, <span>An optional automatic assigner, off by default (<Code>cluster_dispatch_toggle</Code>). Gives <Code>ready</Code> tasks to idle members. <Code>cluster_dispatch_once</Code> runs a single pass.</span>],
   [<strong key="sw">Swarm</strong>, <span>A <Code>cluster_swarm_create</Code> shortcut that creates a root blackboard, N worker tasks, a verifier that waits on all workers, and a synthesizer that waits on the verifier.</span>],
-  [<strong key="oa">Orchestration assist</strong>, 'The DRAFT ASSIST panel on the BOARD tab. The operator picks a mode (task_graph / assignments / recovery / synthesis / swarm) and requests a draft proposal. Nothing changes until the operator accepts selected items.'],
-  [<strong key="pp">Proposal</strong>, 'A draft plan from the assist panel: pending, applied or rejected. Accepting applies items through the normal task tools; rejecting changes nothing.'],
+  [<strong key="oa">Orchestration assist</strong>, 'DRAFT ASSIST is hidden in this version. Existing proposals remain in project storage.'],
+  [<strong key="pp">Proposal</strong>, 'A saved set of proposed task changes: pending, applied or rejected. Accepted items use the normal task tools.'],
   ]}
   />
 

@@ -1032,18 +1032,9 @@ Creative-mode controls, WebSocket messages, and scaffold safety.
 
 ## 15. Orchestration assist (Stage K - operator-armed proposal surface)
 
-An operator-armed surface that asks a model/member to draft coordination
-proposals for the cluster task board. The proposals are **preview data only**;
-the task ledger is not touched until the operator explicitly accepts individual
-items. Everything is logged, reversible, and gated on explicit operator action.
-
-> Not a primitive in the ephemeral-worker sense - no ephemeral worker is
-> spawned, no `.md` artifact is written, no verdict is produced. The proposals
-> are durable JSON stored alongside the task ledger. Stage K ships the
-> server/store/UI slice; the live model-call hook is deferred to a follow-on
-> stage and the current server accepts the optional `draft` field from the
-> requester as a stand-in so smoke and operator-driven flows can exercise the
-> full lifecycle without a provider round-trip.
+DRAFT ASSIST is hidden in this version. The server
+retains its proposal store and acceptance path. A request can supply draft items;
+it does not call a model. Accepted items use the ordinary task ledger.
 
 ### Proposal kinds
 
@@ -1126,20 +1117,12 @@ direct kernel mutation (`task_kernel`, the default) and comment-as-update
   `replaceClusterProposals` / `upsertProposal` / `markRejected` / `markApplied`
   maintain the local cache; `selectedProposalId` tracks the active proposal in
   the proposal drawer.
-- **UI** (`client/src/components/ClusterTaskBoardTab.tsx`): a `DRAFT ASSIST` toggle
-  button (`PROPOSALS N` while proposals wait; `data-help="cluster.orchestration-assist"`) in the BOARD tab header.
-  Opening the panel exposes mode picker (five kinds), member/model selector,
-  and a free-text prompt. `REQUEST DRAFT` fires the dispatch. A
-  `ProposalSummaryCard` list (latest four) lets the operator switch the active
-  proposal. `ProposalDetailDrawer` renders the full item list with ACCEPT
-  SELECTED / REJECT / item-level checkboxes and edit affordances.
-  Reject sends `cluster_orchestration_proposal_reject` and optimistically
-  calls `markRejected`. Accept sends `cluster_orchestration_proposal_apply`
-  and optimistically calls `markApplied`.
+- **UI**: the DRAFT ASSIST request panel is hidden. The saved proposal and
+  acceptance code remains available for a future model-backed flow.
 
 ### Fence note
 
-Operator-initiated (a button click + explicit item selection) + bounded by
+An explicit apply request with item selection is bounded by
 deterministic size caps (16-64 KB limits, 64-item cap) + every action logged
 in `actions[]` + in `task_ledger_event` for accepted items + reversible
 (rejected proposals are audit-only; accepted items can be undone via normal

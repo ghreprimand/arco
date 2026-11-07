@@ -1481,9 +1481,9 @@ export const clusters: Section[] = [
   <strong>The automation controls are collapsed behind an{' '}
   <Code>AUTOMATION</Code> disclosure</strong> in the board header (default
   closed) so the board reads as task-grooming, not swarm-running; the task
-  count and a pending-proposal count badge stay visible on the header. Open{' '}
+  count stays visible on the header. Open{' '}
   <Code>AUTOMATION</Code> to reveal <Code>DISPATCH ONCE</Code>,{' '}
-  <Code>CREATE SWARM</Code>, <Code>DRAFT ASSIST</Code>, and the entire{' '}
+  <Code>CREATE SWARM</Code> and the entire{' '}
   <Code>DISPATCHER</Code> row.
   </p>
   <p>
@@ -1646,46 +1646,11 @@ export const clusters: Section[] = [
   {
   id: 'cluster-orchestration-assist',
   group: 'Clusters',
-  title: 'Orchestration assist proposals',
+  title: 'Saved orchestration proposals',
   body: (
-  <>
   <p>
-  <strong>DRAFT ASSIST</strong> is an operator-armed model-assist surface
-  for cluster orchestration. It lives inside the BOARD sub-tab&apos;s{' '}
-  <Code>AUTOMATION</Code> disclosure (default closed - open it to reveal
-  DRAFT ASSIST alongside DISPATCH ONCE / CREATE SWARM / DISPATCHER).
+  DRAFT ASSIST is hidden in this version. Saved proposals stay in the project folder.
   </p>
-  <p>
-  It can ask a selected source member/model to draft a task graph,
-  assignment set, recovery action, synthesis comment, or swarm layout
-  from the current board/plan/transcript context.
-  </p>
-  <p>
-  The output is a <strong>proposal preview</strong>, not a mutation.
-  Proposal cards show source member, model/provider/effort metadata,
-  status, creation time, rationale, input refs, and proposed item
-  count. Opening a card shows each proposed item with kind, title,
-  body, assignee/task references, dependencies, rationale, and any
-  provider/model/effort suggestions.
-  </p>
-  <p>
-  The operator owns the application step. Each item has a checkbox and
-  editable title/body fields. <Code>ACCEPT SELECTED</Code> sends the
-  selected item ids plus edits; the backend should translate them into
-  ordinary task-kernel mutations such as task creates, assignment
-  updates, recovery events, or comments.
-  </p>
-  <p>
-    <Code>SAVE COMMENT</Code> uses
-  the same explicit accept path with comment mode. <Code>REJECT</Code>
-  keeps the proposal inspectable and mutates no task state.
-  </p>
-  <Note>
-  Suggested provider/model/effort values are metadata until accepted by
-  the operator. The proposal surface does not change dispatcher state,
-  does not infer assignees, and does not mark tasks done.
-  </Note>
-  </>
   ),
   },
   {

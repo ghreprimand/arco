@@ -699,9 +699,8 @@ export const clusterHelp: Record<string, HelpEntry> = {
       <p>
         Collapsed by default so the board reads as &quot;groom tasks,&quot;
         not &quot;run a swarm.&quot; Click to reveal the automation controls:{' '}
-        <C>DISPATCH ONCE</C>, <C>CREATE SWARM</C>, <C>DRAFT ASSIST</C>, and
-        the dispatcher daemon row. A <C>· N</C> suffix shows the count of open
-        orchestration proposals when any exist. The task count and this toggle
+        <C>DISPATCH ONCE</C>, <C>CREATE SWARM</C>, and the dispatcher daemon
+        row. The task count and this toggle
         stay visible whether open or closed.
       </p>
     ),
@@ -839,54 +838,6 @@ export const clusterHelp: Record<string, HelpEntry> = {
       </>
     ),
     manualSection: 'cluster-board',
-  },
-  'cluster.orchestration-assist': {
-    title: 'Draft assist',
-    body: (
-      <>
-        <p>
-          Operator-armed orchestration assist. Click to open the request +
-          proposal surface; nothing runs unless you request a draft. The model
-          can propose task graph, assignment, recovery, synthesis, or swarm
-          items, but it cannot apply them directly.
-        </p>
-        <p>
-          Proposals remain previews until you select items and click{' '}
-          <C>ACCEPT SELECTED</C> or <C>SAVE COMMENT</C>. <C>REJECT</C> keeps
-          the proposal inspectable and mutates no task state.
-        </p>
-      </>
-    ),
-    manualSection: 'cluster-orchestration-assist',
-  },
-  'cluster.orchestration-proposals': {
-    title: 'Proposal list',
-    body: (
-      <p>
-        Shows durable orchestration proposals for this cluster: source member,
-        model metadata, status, rationale, and proposed item count. Pick a card
-        to inspect or edit individual items before accepting.
-      </p>
-    ),
-    manualSection: 'cluster-orchestration-assist',
-  },
-  'cluster.orchestration-proposal': {
-    title: 'Proposal preview',
-    body: (
-      <>
-        <p>
-          Review surface for one model-drafted proposal. Each item has a
-          checkbox plus editable title/body fields. Accept sends only the
-          selected item ids and edits; the backend applies accepted work through
-          ordinary task-kernel mutations.
-        </p>
-        <p>
-          Suggested provider/model/effort values are metadata until selected
-          and accepted. Rejecting this preview does not touch the ledger.
-        </p>
-      </>
-    ),
-    manualSection: 'cluster-orchestration-assist',
   },
   'cluster.board-card': {
     title: 'Board task card',

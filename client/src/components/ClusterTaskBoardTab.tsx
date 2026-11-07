@@ -16,9 +16,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, useDraggable, useDroppable } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
-import type { ClusterDispatcherState, ClusterStatePayload, LedgerTask, LedgerTaskStatus, OrchestrationProposal, OrchestrationProposalItem, TaskComment, TaskDetails, TaskLink, TaskRun } from '@arco/shared';
+import type { ClusterDispatcherState, ClusterStatePayload, LedgerTask, LedgerTaskStatus, TaskComment, TaskDetails, TaskLink, TaskRun } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
-import { useOrchestrationAssistStore } from '../stores/orchestrationAssistStore';
 import { clearBoardTaskRequest, useBoardTaskRequest } from '../stores/boardTaskRequest';
 import { PlanRefViewer } from './plans/PlanRefsSection';
 import type { ClusterDispatcherSettingsPatch, ClusterSwarmCreateRequest } from './ClusterRightPanel/types';
@@ -55,14 +54,6 @@ const DEFAULT_DISPATCHER_INTERVAL_MS = 10_000;
 const DEFAULT_DISPATCHER_MAX_TASKS = 4;
 const RUN_STALE_AFTER_MS = 5 * 60 * 1000;
 const OPEN_RUN_STATUSES = new Set<TaskRun['status']>(['claimed', 'running']);
-
-// Stable empty fallback for the proposals selector. Returning `?? []` INSIDE a
-// zustand selector hands useSyncExternalStore a fresh array reference on every
-// render → it sees the snapshot "change" each time → infinite re-render → React
-// #185. The fallback must be a module-level constant applied OUTSIDE the
-// selector so the snapshot stays referentially stable when a cluster has no
-// proposals (the common case). See docs/GOTCHAS.md.
-const EMPTY_PROPOSALS: OrchestrationProposal[] = [];
 
 type WorktreeAwareDispatcherState = ClusterDispatcherState & { autoWorktree?: boolean };
 type WorktreeAwareLedgerTask = LedgerTask & { worktreeRequired?: boolean };
@@ -255,32 +246,14 @@ export function ClusterTaskBoardTab({
   const [sweepCapDraft, setSweepCapDraft] = useState(String(dispatcher.maxTasksPerSweep));
   const [runCapDraft, setRunCapDraft] = useState(String(dispatcher.maxConcurrentRuns));
   const [swarmOpen, setSwarmOpen] = useState(false);
-  const [assistOpen, setAssistOpen] = useState(false);
-  // §10.7 P12.6 — the automation controls (dispatch / swarm / assist /
-  // dispatcher) are collapsed behind a disclosure by default so the board reads
-  // as "groom tasks," not "run a swarm." The operator opens it when ready to
-  // automate; the count + toggle stay visible.
+  // Automation controls stay collapsed until explicitly opened.
   const [automationOpen, setAutomationOpen] = useState(false);
-  const [assistMode, setAssistMode] = useState<'task_graph' | 'assignments' | 'recovery' | 'synthesis' | 'swarm'>('task_graph');
-  const [assistSourceWorkflowId, setAssistSourceWorkflowId] = useState(cluster.members[0]?.workflowId ?? '');
-  const [assistPrompt, setAssistPrompt] = useState('');
-  const proposals = useOrchestrationAssistStore((s) => s.byCluster[cluster.clusterId]) ?? EMPTY_PROPOSALS;
-  const selectedProposalId = useOrchestrationAssistStore((s) => s.selectedProposalId[cluster.clusterId] ?? null);
-  const dispatchAssist = useOrchestrationAssistStore((s) => s.dispatch);
-  const selectProposal = useOrchestrationAssistStore((s) => s.selectProposal);
-  const rejectLocalProposal = useOrchestrationAssistStore((s) => s.markRejected);
-  const acceptLocalProposal = useOrchestrationAssistStore((s) => s.markApplied);
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
-  const jobs = useAppStore((s) => s.jobs);
   const selectedTask = selectedTaskId
     ? (details?.task.id === selectedTaskId ? details.task : tasks.find((t) => t.id === selectedTaskId) ?? null)
     : null;
   const graph = useMemo(() => taskGraphSummary(details), [details]);
   const dispatcherControlReady = Boolean(taskShowReader && onToggleDispatcher && onUpdateDispatcherSettings);
-  const activeProposal = selectedProposalId
-    ? proposals.find((p) => p.id === selectedProposalId) ?? null
-    : null;
-  const proposedCount = proposals.filter((p) => p.status === 'proposed' || p.status === 'partially_accepted').length;
 
   useEffect(() => {
     setIntervalDraft(String(Math.round(dispatcher.intervalMs / 1000)));
@@ -288,11 +261,6 @@ export function ClusterTaskBoardTab({
     setRunCapDraft(String(dispatcher.maxConcurrentRuns));
   }, [dispatcher.intervalMs, dispatcher.maxConcurrentRuns, dispatcher.maxTasksPerSweep]);
 
-  useEffect(() => {
-    if (!cluster.members.some((m) => m.workflowId === assistSourceWorkflowId)) {
-      setAssistSourceWorkflowId(cluster.members[0]?.workflowId ?? '');
-    }
-  }, [assistSourceWorkflowId, cluster.members]);
 
   // Map a claimant workflowId → its operator-set display name (falls back to
   // the 8-char prefix the server uses everywhere else).
@@ -449,58 +417,6 @@ export function ClusterTaskBoardTab({
     onUpdateDispatcherSettings(cluster.clusterId, taskShowReader, { [field]: cap });
   };
 
-  const requestAssist = () => {
-    if (!taskShowReader || !wsSendRaw) return;
-    const sourceWorkflowId = assistSourceWorkflowId || taskShowReader;
-    const sourceJob = jobs[sourceWorkflowId] ?? jobs[taskShowReader];
-    const provider = sourceJob?.config.primaryProvider;
-    if (!provider) return;
-    dispatchAssist({
-      clusterId: cluster.clusterId,
-      workflowId: taskShowReader,
-      kind: assistMode,
-      prompt: assistPrompt.trim() || 'Draft an operator-reviewable orchestration proposal for the current cluster board.',
-      model: {
-        provider,
-        model: sourceJob?.config.primaryModel,
-        effort: sourceJob?.config.primaryEffort,
-        providerAccountRef: sourceJob?.config.providerAccountRef,
-        memberWorkflowId: sourceWorkflowId,
-      },
-    });
-    setSelectedTaskId(null);
-    setAssistOpen(true);
-  };
-
-  const rejectProposal = (proposalId: string) => {
-    wsSendRaw?.({
-      type: 'cluster_orchestration_proposal_reject',
-      clusterId: cluster.clusterId,
-      workflowId: taskShowReader,
-      proposalId,
-    });
-    rejectLocalProposal(cluster.clusterId, proposalId);
-  };
-
-  const acceptProposal = (
-    proposalId: string,
-    itemIds: string[],
-    itemEdits?: Record<string, { title?: string; body?: string }>,
-    applyMode?: 'task_kernel' | 'comment',
-  ) => {
-    if (itemIds.length === 0) return;
-    wsSendRaw?.({
-      type: 'cluster_orchestration_proposal_apply',
-      clusterId: cluster.clusterId,
-      workflowId: taskShowReader,
-      proposalId,
-      itemIds,
-      ...(itemEdits && Object.keys(itemEdits).length > 0 ? { itemEdits } : {}),
-      ...(applyMode ? { applyMode } : {}),
-    });
-    acceptLocalProposal(cluster.clusterId, proposalId, itemIds);
-  };
-
   useEffect(() => {
     if (!selectedTaskId) {
       setDetails(null);
@@ -624,9 +540,9 @@ export function ClusterTaskBoardTab({
               padding: '3px 8px',
               whiteSpace: 'nowrap',
             }}
-            title="Show / hide dispatcher, swarm, and assist automation controls."
+            title="Show / hide dispatcher and swarm automation controls."
           >
-            {automationOpen ? '▾ AUTOMATION' : '▸ AUTOMATION'}{proposedCount > 0 ? ` · ${proposedCount}` : ''}
+            {automationOpen ? '▾ AUTOMATION' : '▸ AUTOMATION'}
           </button>
           {automationOpen && (<>
           <button
@@ -671,125 +587,8 @@ export function ClusterTaskBoardTab({
           >
             CREATE SWARM
           </button>
-          <button
-            type="button"
-            data-help="cluster.orchestration-assist"
-            disabled={!taskShowReader || !wsSendRaw}
-            onClick={() => setAssistOpen((v) => !v)}
-            className="display-font"
-            style={{
-              border: '1px solid var(--color-border-hairline)',
-              background: proposedCount > 0 ? 'var(--color-accent-primary-a06)' : 'transparent',
-              color: taskShowReader && wsSendRaw ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
-              cursor: taskShowReader && wsSendRaw ? 'pointer' : 'not-allowed',
-              fontSize: '10px',
-              letterSpacing: '0.8px',
-              padding: '4px 8px',
-              whiteSpace: 'nowrap',
-            }}
-            title="Ask a selected model/member to draft visible orchestration proposals. Nothing applies until selected items are accepted."
-          >
-            {proposedCount > 0 ? `PROPOSALS ${proposedCount}` : 'DRAFT ASSIST'}
-          </button>
           </>)}
         </div>
-        {automationOpen && assistOpen && (
-          <div
-            data-help="cluster.orchestration-proposals"
-            style={{
-              border: '1px solid var(--color-border-hairline)',
-              background: 'var(--color-bg-inset)',
-              padding: '8px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px',
-            }}
-          >
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '8px' }}>
-              <label className="display-font" style={assistLabelStyle}>
-                MODE
-                <select
-                  value={assistMode}
-                  onChange={(event) => setAssistMode(event.target.value as typeof assistMode)}
-                  style={assistSelectStyle}
-                >
-                  <option value="task_graph">TASK GRAPH</option>
-                  <option value="assignments">ASSIGNMENTS</option>
-                  <option value="recovery">RECOVERY</option>
-                  <option value="synthesis">SYNTHESIS</option>
-                  <option value="swarm">SWARM</option>
-                </select>
-              </label>
-              <label className="display-font" style={assistLabelStyle}>
-                SOURCE
-                <select
-                  value={assistSourceWorkflowId}
-                  onChange={(event) => setAssistSourceWorkflowId(event.target.value)}
-                  style={assistSelectStyle}
-                >
-                  {cluster.members.map((member) => (
-                    <option key={member.workflowId} value={member.workflowId}>
-                      {member.displayName || shortId(member.workflowId)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <textarea
-              value={assistPrompt}
-              onChange={(event) => setAssistPrompt(event.target.value)}
-              placeholder="Optional operator instruction for the draft."
-              rows={2}
-              maxLength={4000}
-              style={{
-                resize: 'vertical',
-                minHeight: '52px',
-                background: 'var(--color-bg-panel)',
-                color: 'var(--color-fg)',
-                border: '1px solid var(--color-border-hairline)',
-                padding: '7px',
-                fontFamily: 'var(--font-code)',
-                fontSize: '11px',
-                lineHeight: 1.4,
-              }}
-            />
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <button
-                type="button"
-                disabled={!taskShowReader || !wsSendRaw}
-                onClick={requestAssist}
-                className="display-font"
-                style={smallButtonStyle(Boolean(taskShowReader && wsSendRaw))}
-              >
-                REQUEST DRAFT
-              </button>
-              <span style={{ fontSize: '10px', color: 'var(--color-fg-muted)' }}>
-                Proposals are previews only. Reject is inert; accept sends selected item ids.
-              </span>
-            </div>
-            {proposals.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {proposals.slice(0, 4).map((proposal) => (
-                  <ProposalSummaryCard
-                    key={proposal.id}
-                    proposal={proposal}
-                    selected={proposal.id === selectedProposalId}
-                    nameFor={nameFor}
-                    onSelect={() => {
-                      setSelectedTaskId(null);
-                      selectProposal(cluster.clusterId, proposal.id);
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-            {proposals.length === 0 && (
-              <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)' }}>
-                No proposals yet.
-              </div>
-            )}
-          </div>
-        )}
         {automationOpen && (
         <div
           data-help="cluster.board-arm-dispatcher"
@@ -1029,389 +828,8 @@ export function ClusterTaskBoardTab({
           onClose={() => { setSelectedTaskId(null); }}
         />
       )}
-      {activeProposal && (
-        <ProposalDetailDrawer
-          proposal={activeProposal}
-          nameFor={nameFor}
-          onClose={() => selectProposal(cluster.clusterId, null)}
-          onReject={() => rejectProposal(activeProposal.id)}
-          onAccept={(itemIds, itemEdits, applyMode) => acceptProposal(activeProposal.id, itemIds, itemEdits, applyMode)}
-        />
-      )}
     </div>
   );
-}
-
-const assistLabelStyle: CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '4px',
-  color: 'var(--color-fg-muted)',
-  fontSize: '9px',
-  letterSpacing: '0.8px',
-};
-
-const assistSelectStyle: CSSProperties = {
-  background: 'var(--color-bg-panel)',
-  color: 'var(--color-fg)',
-  border: '1px solid var(--color-border-hairline)',
-  padding: '5px 6px',
-  fontSize: '11px',
-};
-
-function proposalStatusColor(status: OrchestrationProposal['status']): string {
-  switch (status) {
-    case 'proposed': return 'var(--color-accent-secondary)';
-    case 'partially_accepted': return 'var(--color-accent-primary)';
-    case 'accepted': return '#58a66c';
-    case 'rejected': return 'var(--color-fg-muted)';
-    default: return 'var(--color-fg-muted)';
-  }
-}
-
-function proposalKindLabel(kind: OrchestrationProposalItem['type']): string {
-  switch (kind) {
-    case 'task_create': return 'TASK';
-    case 'task_update': return 'UPDATE';
-    case 'task_comment': return 'COMMENT';
-    case 'note': return 'NOTE';
-  }
-}
-
-function proposalItemTitle(item: OrchestrationProposalItem): string {
-  switch (item.type) {
-    case 'task_create': return item.title;
-    case 'task_update': return item.patch.title ?? `Update ${shortId(item.taskId)}`;
-    case 'task_comment': return `Comment on ${shortId(item.taskId)}`;
-    case 'note': return item.title ?? 'Synthesis note';
-  }
-}
-
-function proposalItemBody(item: OrchestrationProposalItem): string {
-  switch (item.type) {
-    case 'task_create': return item.notes ?? '';
-    case 'task_update': return item.patch.notes ?? item.patch.blockedReason ?? '';
-    case 'task_comment': return item.body;
-    case 'note': return item.body;
-  }
-}
-
-function proposalItemTaskId(item: OrchestrationProposalItem): string | undefined {
-  switch (item.type) {
-    case 'task_update':
-    case 'task_comment':
-      return item.taskId;
-    case 'task_create':
-    case 'note':
-      return undefined;
-  }
-}
-
-function proposalItemAssignee(item: OrchestrationProposalItem): string | undefined {
-  switch (item.type) {
-    case 'task_create': return item.assignee;
-    case 'task_update': return item.patch.assignee;
-    case 'task_comment':
-    case 'note':
-      return undefined;
-  }
-}
-
-function proposalItemPriority(item: OrchestrationProposalItem): number | undefined {
-  switch (item.type) {
-    case 'task_create': return item.priority;
-    case 'task_update': return item.patch.priority;
-    case 'task_comment':
-    case 'note':
-      return undefined;
-  }
-}
-
-function proposalItemDependsOn(item: OrchestrationProposalItem): string[] {
-  if (item.type !== 'task_create') return [];
-  return [...(item.parentItemIds ?? []), ...(item.parentTaskIds ?? [])];
-}
-
-function ProposalSummaryCard({
-  proposal,
-  selected,
-  nameFor,
-  onSelect,
-}: {
-  proposal: OrchestrationProposal;
-  selected: boolean;
-  nameFor: (workflowId: string) => string;
-  onSelect: () => void;
-}) {
-  const source = proposal.model.memberWorkflowId ? `@${nameFor(proposal.model.memberWorkflowId)}` : 'model assist';
-  const model = [proposal.model.provider, proposal.model.model, proposal.model.effort].filter(Boolean).join(' · ');
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      style={{
-        width: '100%',
-        textAlign: 'left',
-        border: `1px solid ${selected ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,
-        background: selected ? 'var(--color-accent-primary-a06)' : 'transparent',
-        color: 'var(--color-fg)',
-        padding: '7px',
-        cursor: 'pointer',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-        <span className="display-font" style={{ fontSize: '9px', color: proposalStatusColor(proposal.status), letterSpacing: '0.8px' }}>
-          {proposal.status.toUpperCase()}
-        </span>
-        <span style={{ fontSize: '11px', color: 'var(--color-fg-muted)' }}>{source}</span>
-        {model && <span style={{ fontSize: '10px', color: 'var(--color-fg-muted)' }}>{model}</span>}
-      </div>
-      <div style={{ marginTop: '3px', fontSize: '12px', color: 'var(--color-fg)', wordBreak: 'break-word' }}>
-        {proposal.kind.replace(/_/g, ' ')}
-      </div>
-      <div style={{ marginTop: '3px', fontSize: '10px', color: 'var(--color-fg-muted)' }}>
-        {proposal.items.length} item{proposal.items.length === 1 ? '' : 's'} · {formatTime(proposal.createdAt)}
-      </div>
-    </button>
-  );
-}
-
-function ProposalDetailDrawer({
-  proposal,
-  nameFor,
-  onClose,
-  onReject,
-  onAccept,
-}: {
-  proposal: OrchestrationProposal;
-  nameFor: (workflowId: string) => string;
-  onClose: () => void;
-  onReject: () => void;
-  onAccept: (itemIds: string[], itemEdits: Record<string, { title?: string; body?: string }>, applyMode: 'task_kernel' | 'comment') => void;
-}) {
-  const acceptedIds = new Set(proposal.acceptedItemIds ?? []);
-  const selectable = proposal.status === 'proposed' || proposal.status === 'partially_accepted';
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(proposal.items.filter((item) => !acceptedIds.has(item.id)).map((item) => item.id)));
-  const [edits, setEdits] = useState<Record<string, { title?: string; body?: string }>>({});
-
-  useEffect(() => {
-    const accepted = new Set(proposal.acceptedItemIds ?? []);
-    setSelectedIds(new Set(proposal.items.filter((item) => !accepted.has(item.id)).map((item) => item.id)));
-    setEdits({});
-  }, [proposal.id, proposal.items, proposal.acceptedItemIds]);
-
-  const selectedItemIds = proposal.items.map((item) => item.id).filter((id) => selectedIds.has(id));
-  const source = proposal.model.memberWorkflowId
-    ? `@${nameFor(proposal.model.memberWorkflowId)} (${shortId(proposal.model.memberWorkflowId)})`
-    : 'model assist';
-  const model = [proposal.model.provider, proposal.model.model, proposal.model.effort].filter(Boolean).join(' · ') || '-';
-  const toggle = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-  const editItem = (id: string, patch: { title?: string; body?: string }) => {
-    setEdits((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
-  };
-  const compactEdits = Object.fromEntries(
-    Object.entries(edits).filter(([id, edit]) =>
-      selectedIds.has(id) && (edit.title?.trim() || edit.body?.trim())),
-  );
-  return (
-    <div
-      data-help="cluster.orchestration-proposal"
-      style={{
-        flex: '0 0 min(52%, 430px)',
-        minHeight: '250px',
-        maxHeight: '52%',
-        borderTop: '1px solid var(--color-border)',
-        background: 'var(--color-bg-panel)',
-        display: 'flex',
-        flexDirection: 'column',
-        minWidth: 0,
-      }}
-    >
-      <div
-        style={{
-          padding: '8px 10px',
-          borderBottom: '1px solid var(--color-border-hairline)',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '8px',
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', color: proposalStatusColor(proposal.status) }}>
-            PROPOSAL · {proposal.status.toUpperCase()} · {shortId(proposal.id)}
-          </div>
-          <div style={{ marginTop: '3px', fontSize: '13px', color: 'var(--color-fg)', wordBreak: 'break-word' }}>
-            {proposal.kind.replace(/_/g, ' ')}
-          </div>
-        </div>
-        <button type="button" onClick={onClose} className="display-font" style={smallButtonStyle(true)}>
-          CLOSE
-        </button>
-      </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 10px 12px' }}>
-        <DrawerSection title="Source">
-          <FieldGrid>
-            <Field label="Member" value={source} />
-            <Field label="Model" value={model} />
-            <Field label="Created" value={formatTime(proposal.createdAt)} />
-            <Field label="Updated" value={formatTime(proposal.updatedAt)} />
-          </FieldGrid>
-          {proposal.inputRefs.length > 0 && <InlineBlock label="Input refs" body={proposal.inputRefs.map((ref) => `${ref.kind}:${ref.label ?? ref.ref}`).join('\n')} />}
-          {proposal.rationale && <InlineBlock label="Rationale" body={proposal.rationale} />}
-        </DrawerSection>
-
-        <DrawerSection title="Items">
-          {proposal.items.length === 0 && (
-            <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)' }}>
-              No proposed items.
-            </div>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {proposal.items.map((item) => {
-              const checked = selectedIds.has(item.id);
-              const accepted = acceptedIds.has(item.id);
-              const title = proposalItemTitle(item);
-              const body = proposalItemBody(item);
-              const edit = edits[item.id] ?? {};
-              const taskId = proposalItemTaskId(item);
-              const assignee = proposalItemAssignee(item);
-              const dependsOn = proposalItemDependsOn(item);
-              return (
-                <div
-                  key={item.id}
-                  style={{
-                    border: '1px solid var(--color-border-hairline)',
-                    background: checked ? 'var(--color-accent-primary-a06)' : accepted ? 'var(--color-bg-sunken)' : 'var(--color-bg-inset)',
-                    padding: '8px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '6px',
-                  }}
-                >
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', cursor: selectable && !accepted ? 'pointer' : 'default' }}>
-                    <input
-                      type="checkbox"
-                      disabled={!selectable || accepted}
-                      checked={checked}
-                      onChange={() => toggle(item.id)}
-                    />
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span className="display-font" style={{ fontSize: '9px', color: 'var(--color-accent-secondary)', letterSpacing: '0.8px' }}>
-                        {proposalKindLabel(item.type)}
-                      </span>
-                      <span style={{ display: 'block', marginTop: '2px', fontSize: '12px', color: 'var(--color-fg)', wordBreak: 'break-word' }}>
-                        {title}
-                      </span>
-                      {accepted && (
-                        <span className="display-font" style={{ display: 'block', marginTop: '2px', fontSize: '9px', color: '#58a66c', letterSpacing: '0.8px' }}>
-                          ACCEPTED
-                        </span>
-                      )}
-                    </span>
-                  </label>
-                  <textarea
-                    value={edit.title ?? title}
-                    disabled={!selectable || !checked || accepted}
-                    onChange={(event) => editItem(item.id, { title: event.target.value })}
-                    rows={1}
-                    style={proposalEditStyle(Boolean(selectable && checked && !accepted))}
-                  />
-                  <textarea
-                    value={edit.body ?? body}
-                    disabled={!selectable || !checked || accepted}
-                    onChange={(event) => editItem(item.id, { body: event.target.value })}
-                    rows={3}
-                    placeholder="Optional item body / notes / comment text."
-                    style={proposalEditStyle(Boolean(selectable && checked && !accepted))}
-                  />
-                  {item.rationale && <InlineBlock label="Why" body={item.rationale} />}
-                  <FieldGrid>
-                    <Field label="Task" value={taskId ?? 'new'} />
-                    <Field label="Assignee" value={assignee ? `@${nameFor(assignee)}` : '-'} />
-                    <Field label="Priority" value={typeof proposalItemPriority(item) === 'number' ? String(proposalItemPriority(item)) : '-'} />
-                    <Field label="Source type" value={item.type} />
-                  </FieldGrid>
-                  {dependsOn.length > 0 && <InlineBlock label="Depends on" body={dependsOn.join('\n')} />}
-                </div>
-              );
-            })}
-          </div>
-        </DrawerSection>
-      </div>
-      <div
-        style={{
-          borderTop: '1px solid var(--color-border-hairline)',
-          padding: '8px 10px',
-          display: 'flex',
-          gap: '6px',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ fontSize: '10px', color: 'var(--color-fg-muted)', marginRight: 'auto' }}>
-          {selectedItemIds.length} selected
-        </span>
-        <button
-          type="button"
-          disabled={!selectable}
-          onClick={onReject}
-          className="display-font"
-          style={smallButtonStyle(selectable)}
-          title="Reject keeps the proposal inspectable and does not touch task state."
-        >
-          REJECT
-        </button>
-        <button
-          type="button"
-          disabled={!selectable || selectedItemIds.length === 0}
-          onClick={() => onAccept(selectedItemIds, compactEdits, 'comment')}
-          className="display-font"
-          style={smallButtonStyle(selectable && selectedItemIds.length > 0)}
-          title="Ask the backend to save selected proposal items as comments instead of applying task mutations."
-        >
-          SAVE COMMENT
-        </button>
-        <button
-          type="button"
-          disabled={!selectable || selectedItemIds.length === 0}
-          onClick={() => onAccept(selectedItemIds, compactEdits, 'task_kernel')}
-          className="display-font"
-          style={{
-            ...smallButtonStyle(selectable && selectedItemIds.length > 0),
-            color: selectable && selectedItemIds.length > 0 ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
-            borderColor: selectable && selectedItemIds.length > 0 ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)',
-          }}
-          title="Accept selected items explicitly. The backend should apply them via ordinary task-kernel mutations."
-        >
-          ACCEPT SELECTED
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function proposalEditStyle(enabled: boolean): CSSProperties {
-  return {
-    width: '100%',
-    boxSizing: 'border-box',
-    resize: 'vertical',
-    background: enabled ? 'var(--color-bg-panel)' : 'transparent',
-    color: enabled ? 'var(--color-fg)' : 'var(--color-fg-muted)',
-    border: '1px solid var(--color-border-hairline)',
-    padding: '5px 6px',
-    fontFamily: 'var(--font-code)',
-    fontSize: '11px',
-    lineHeight: 1.4,
-  };
 }
 
 function SwarmCreateModal({
