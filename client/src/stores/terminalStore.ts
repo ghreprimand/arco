@@ -178,7 +178,7 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
       // server restarted and the old sessions are gone) drops to null.
       const live = new Set(sorted.map((x) => x.sessionId));
       const windows = s.windows.map((w) =>
-        w.sessionId && !live.has(w.sessionId) ? { ...w, sessionId: null } : w,
+        w.workflowId === workflowId && w.sessionId && !live.has(w.sessionId) ? { ...w, sessionId: null } : w,
       );
       return {
         sessionsByWorkflow: { ...s.sessionsByWorkflow, [workflowId]: sorted },

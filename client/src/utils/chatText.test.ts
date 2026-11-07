@@ -35,3 +35,21 @@ test('a streaming non-JSON code block is left visible', () => {
   const msg = 'Run:\n\n```bash\nssh workstation';
   assert.equal(cleanPrimaryText(msg).text, msg);
 });
+
+test('ordinary JSON answers keep reserved-looking application keys', () => {
+  for (const body of ['{"workers":4,"timeout":30}', '{"stateMutations":{"enabled":true}}', '{"qualityVerdicts":["pass"]}', '{"dispatch":{"mode":"application"}}']) {
+    const text = '```json\n' + body + '\n```';
+    assert.equal(cleanPrimaryText(text).text, text);
+  }
+});
+
+test('the hyphenated artifact fence is recognized closed and streaming', () => {
+  assert.equal(cleanPrimaryText('```arco-artifact\n{"path":"fixture.md"}\n```').artifacts, 1);
+  assert.match(cleanPrimaryText('```arco-artifact\n{"path":').text, /artifact/);
+});
+
+test('recognized legacy envelopes still collapse to their summaries', () => {
+  const body = JSON.stringify({workers:[{id:'worker',model:'fixture',prompt:'Inspect fixture'}],stateMutations:[{op:'set',path:'fixture'}],qualityVerdicts:[{workerId:'worker',verdict:'pass'}]});
+  const result = cleanPrimaryText('```json\n'+body+'\n```');
+  assert.equal(result.dispatchedWorkers,1);assert.equal(result.stateMutations,1);assert.equal(result.qualityVerdicts,1);
+});

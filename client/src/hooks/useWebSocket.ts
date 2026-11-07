@@ -11,10 +11,10 @@ import { getStreamRef, streamingMsgs } from '../ws/streamState';
 import { handleServerMessage } from '../ws/handleServerMessage';
 import { ensureWsSession } from '../utils/wsSession';
 import { uploadAttachment } from '../utils/uploadAttachment';
-import { registerDocEditSender, type DocEditRequestArgs } from '../stores/docEditStore';
+import { useDocEditStore, registerDocEditSender, type DocEditRequestArgs } from '../stores/docEditStore';
 import { registerMdTuneupRequestSender, registerMdTuneupAcceptSender, registerMdTuneupCandidatesSender, registerMdTuneupUndoSender, type MdTuneupEditor } from '../stores/mdTuneupStore';
 import type { MdTuneupTarget } from '@arco/shared';
-import { registerDistillSender, type DistillRequestArgs } from '../stores/knowledgeDistillStore';
+import { useKnowledgeDistillStore, registerDistillSender, type DistillRequestArgs } from '../stores/knowledgeDistillStore';
 import { deriveConnectionState, HEALTHZ_PROBE_TIMEOUT_MS } from '../runtime/runtimeState';
 import {
   registerCompareRequestSender, registerCompareVoteSender,
@@ -167,6 +167,8 @@ export function useWebSocket() {
 
       ws.onclose = () => {
         useAppStore.getState().setConnected(false);
+        useDocEditStore.getState().onDisconnected();
+        useKnowledgeDistillStore.getState().onDisconnected();
         streamingMsgs.clear();
         // §C1 — socket dropped. Reset the probe to "unknown" and show the
         // optimistic 'disconnected' immediately; scheduleReconnect fires the
@@ -510,7 +512,7 @@ export function useWebSocket() {
   // an existing workflow. The agent returns text only; the proposal arrives via
   // doc_edit_proposed and is routed into the docEditStore.
   const requestDocEdit = useCallback((args: DocEditRequestArgs) => {
-    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return false;
     wsRef.current.send(JSON.stringify({
       type: 'doc_edit_request',
       workflowId: args.workflowId,
@@ -524,6 +526,7 @@ export function useWebSocket() {
       instruction: args.instruction,
       wholeDoc: args.wholeDoc,
     }));
+    return true;
   }, []);
 
   // Register the module-level sender the docEditStore (and the deeply-nested
@@ -603,13 +606,14 @@ export function useWebSocket() {
   // knowledge_distill_proposed for the operator to edit + Save. Nothing is saved
   // by the agent.
   const requestDistill = useCallback((args: DistillRequestArgs) => {
-    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return false;
     wsRef.current.send(JSON.stringify({
       type: 'knowledge_distill_request',
       workflowId: args.workflowId,
       drafter: args.drafter,
       focus: args.focus,
     }));
+    return true;
   }, []);
   useEffect(() => {
     registerDistillSender(requestDistill);

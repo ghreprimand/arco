@@ -33,6 +33,7 @@ export const workflows: Section[] = [
   title: 'Native sessions & resume',
   body: (
   <>
+  <p>The Resume index follows the selected project. A slower reply from a previously selected project cannot replace its titles, pins or archive metadata.</p>
   <p>
   Where the provider supports it, Arco's session is a real CLI session. It can
   leave Arco and continue in a terminal, or the reverse. Arco owns the tab state;

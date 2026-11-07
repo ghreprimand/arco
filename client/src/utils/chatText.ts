@@ -16,9 +16,9 @@ interface CleanedChatText {
   dispatchMode?: string;
 }
 
-const FENCED_BLOCK_RE = /```(\w+)?\s*\n([\s\S]*?)```/g;
+const FENCED_BLOCK_RE = /```([\w-]+)?\s*\n([\s\S]*?)```/g;
 // Opening-fence shape for the trailing-unclosed check: lang tag + newline.
-const FENCE_OPEN_RE = /^```(\w+)?\s*\n([\s\S]*)$/;
+const FENCE_OPEN_RE = /^```([\w-]+)?\s*\n([\s\S]*)$/;
 
 // The trailing fenced block that is opened but not yet closed (mid-stream), or
 // null. Fences pair up in order, so a block is unclosed only when the ``` count
@@ -58,10 +58,18 @@ export function cleanPrimaryText(content: string): CleanedChatText {
       return tagLine('artifact');
     }
     if (lang === 'json' || !lang) {
-      const isDispatch = /"dispatch"\s*:\s*\{/.test(trimmed);
-      const isWorkers = /"workers"\s*:/.test(trimmed) && !isDispatch;
-      const isMutations = /"stateMutations"\s*:/.test(trimmed);
-      const isVerdicts = /"qualityVerdicts"\s*:/.test(trimmed);
+      let parsed: Record<string, unknown> | null = null;
+      try { parsed = JSON.parse(trimmed); } catch { /* Ordinary or partial JSON stays visible. */ }
+      const records = (value: unknown, fields: string[]) => Array.isArray(value) && value.length > 0
+        && value.every(row => row && typeof row === 'object' && fields.every(key => typeof row[key] === 'string'));
+      const internalEnvelope = !!parsed && !Array.isArray(parsed)
+        && Object.keys(parsed).every(key => ['dispatch', 'workers', 'stateMutations', 'qualityVerdicts'].includes(key));
+      const dispatch = parsed?.dispatch as { mode?: unknown; workers?: unknown } | undefined;
+      const isDispatch = internalEnvelope && !!dispatch && ['single', 'parallel', 'sequential'].includes(String(dispatch.mode))
+        && records(dispatch.workers, ['id', 'model', 'prompt']);
+      const isWorkers = internalEnvelope && !isDispatch && records(parsed?.workers, ['id', 'model', 'prompt']);
+      const isMutations = internalEnvelope && records(parsed?.stateMutations, ['op', 'path']);
+      const isVerdicts = internalEnvelope && records(parsed?.qualityVerdicts, ['workerId', 'verdict']);
       if (isDispatch || isWorkers || isMutations || isVerdicts) {
         const lines: string[] = [];
         if (isDispatch) {

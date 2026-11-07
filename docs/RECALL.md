@@ -208,6 +208,8 @@ an error); plus an unknown-wfid hard-failure case.
 
 ## F3, Global search surface
 
+When searches overlap, only the newest request can replace the visible results, loading state or error. A slower response for an earlier query is ignored.
+
 One **top-level Recall view** (not a per-tab RightPanel sub-tab): keyword search over every conversation in
 the F1 index, filtered by project / provider / date. Recall searches indexed conversations by keyword
 and can filter by project, provider, and date.

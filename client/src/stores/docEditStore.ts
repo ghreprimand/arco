@@ -43,10 +43,9 @@ export interface DocEditRequestArgs {
   wholeDoc: boolean;
 }
 
-// Module-level WS sender bridge — registered by useWebSocket once the socket is
-// live. Returns a docEditId the caller seeds the store with, or null if the
-// socket is not open.
-type DocEditSender = (args: DocEditRequestArgs) => void;
+// Module-level sender bridge. False means nothing was sent and the pending
+// request must become a retryable error.
+type DocEditSender = (args: DocEditRequestArgs) => boolean;
 let sender: DocEditSender | null = null;
 export function registerDocEditSender(fn: DocEditSender | null) { sender = fn; }
 
@@ -54,17 +53,12 @@ interface DocEditState {
   // Keyed by docEditId. A modal tracks the docEditId it dispatched and reads
   // its own entry; entries are pruned on modal close / accept / reject.
   byId: Record<string, DocEditEntry>;
-  // Seed a pending entry and fire the WS request. The caller supplies the
-  // docEditId is NOT known until the server assigns one, so we key the pending
-  // entry by a client token until the server's doc_edit_started/proposed lands;
-  // since the server generates the id, we instead correlate by the most-recent
-  // pending entry per file. Simpler: we let the affordance hold the docEditId
-  // returned from the server events filtered by filePath. To keep correlation
-  // robust we stamp a client requestKey and match server events by filePath +
-  // selection offsets (echoed back). See dispatch() below.
+  // The returned client key remains stable. The entry records the server id
+  // separately when started/proposed arrives, so the editor keeps its lookup.
   dispatch: (args: DocEditRequestArgs) => string;
   onStarted: (docEditId: string, filePath: string) => void;
   onProposed: (docEditId: string, patch: { replacement: string; error?: string; selectionFrom: number; selectionTo: number; filePath: string }) => void;
+  onDisconnected: () => void;
   clear: (docEditId: string) => void;
 }
 
@@ -74,7 +68,7 @@ export const useDocEditStore = create<DocEditState>((set) => ({
     // Client request key: correlates the server's doc_edit_started (which
     // carries the authoritative docEditId + echoed offsets/file) back to this
     // pending entry. We key the pending entry on the request key; onStarted
-    // re-keys it to the server docEditId. Since the affordance dispatches ONE
+    // records the server id while keeping the client lookup stable. Since the affordance dispatches ONE
     // request at a time per modal, a per-request key is sufficient.
     const requestKey = `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     set((s) => ({
@@ -91,10 +85,10 @@ export const useDocEditStore = create<DocEditState>((set) => ({
         },
       },
     }));
-    if (sender) sender(args);
+    if (!sender || !sender(args)) set(s => ({ byId: { ...s.byId, [requestKey]: { ...s.byId[requestKey], status: 'error', error: 'Not connected. Retry when the connection returns.' } } }));
     return requestKey;
   },
-  // The server assigns the real docEditId. Re-key the single pending entry for
+  // The server assigns the real docEditId. Keep the client lookup key for
   // this file onto the authoritative id (the affordance dispatches one request
   // at a time per modal, so a per-file match is unambiguous).
   onStarted: (docEditId, filePath) => set((s) => {
@@ -103,15 +97,13 @@ export const useDocEditStore = create<DocEditState>((set) => ({
       s.byId[k].status === 'pending' && s.byId[k].filePath === filePath);
     if (!pendingKey) return s;
     const entry = { ...s.byId[pendingKey], docEditId };
-    const next = { ...s.byId };
-    delete next[pendingKey];
-    next[docEditId] = entry;
+    const next = { ...s.byId, [pendingKey]: entry };
     return { byId: next };
   }),
   onProposed: (docEditId, patch) => set((s) => {
     // Match by authoritative id; fall back to the pending entry with matching
     // file+offsets (covers a started event we never saw, e.g. dropped frame).
-    let key = s.byId[docEditId] ? docEditId : undefined;
+    let key = Object.keys(s.byId).find(k => k === docEditId || s.byId[k].docEditId === docEditId);
     if (!key) {
       key = Object.keys(s.byId).find((k) =>
         s.byId[k].status === 'pending'
@@ -139,8 +131,7 @@ export const useDocEditStore = create<DocEditState>((set) => ({
     }
     const entry = s.byId[key];
     const next = { ...s.byId };
-    if (key !== docEditId) delete next[key];
-    next[docEditId] = {
+    next[key] = {
       ...entry,
       docEditId,
       status: patch.error ? 'error' : 'proposed',
@@ -149,6 +140,7 @@ export const useDocEditStore = create<DocEditState>((set) => ({
     };
     return { byId: next };
   }),
+  onDisconnected: () => set(s => ({ byId: Object.fromEntries(Object.entries(s.byId).map(([key, entry]) => [key, entry.status === 'pending' ? { ...entry, status: 'error', error: 'Connection lost. Retry when the connection returns.' } : entry])) })),
   clear: (docEditId) => set((s) => {
     if (!s.byId[docEditId]) return s;
     const next = { ...s.byId };

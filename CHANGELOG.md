@@ -58,6 +58,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Keep Resume and Recall results tied to the latest request, preserve editor proposal keys, and settle disconnected editing and distillation requests as errors.
+- Retry missing cluster members after reconnect, keep other workflows' terminal windows attached, preserve application JSON and artifact fences, and recognize saved HISTORY times and Windows file references.
 - Native tools preserve MCP schema definitions, warn after capped reads, report Grep failures, and keep the newest shell output when saving full output fails. Native and local Write create nested directories correctly on Windows.
 - Fenced local-model tools retain plan checkbox changes and accept ordinary code examples as answers. Concurrent catalog failures use one fallback result, Codex metadata follows CODEX_HOME, and HTTP throttles retain their bounded-job fallback behavior.
 - Peer attachments remain pending when a file write fails. Matching filenames are kept separately, and malformed attachment records are preserved aside so valid mail can continue.

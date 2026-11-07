@@ -54,6 +54,7 @@ export const clusters: Section[] = [
   title: 'The cluster tab',
   body: (
   <>
+  <p>After reconnecting, missing members are requested again if their rehydrate reply was lost. Other members keep their existing state.</p>
   <p>
   The cluster parent tab takes over the full main pane: a member-card
   grid on the left, a focused-member detail pane on the right, and a

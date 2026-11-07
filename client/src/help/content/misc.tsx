@@ -185,7 +185,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'chat.message.agent': {
     title: 'Agent reply',
-    body: <p>The primary's reply. Streams token-by-token while the turn is in flight.</p>,
+    body: <p>The primary's reply. Streams token-by-token while the turn is in flight. Ordinary JSON with application keys stays visible. Valid legacy envelopes and arco-artifact fences use compact summaries. Drive-qualified Windows and UNC filenames can be opened as file references.</p>,
   },
   'chat.message.thinking': {
     title: 'Reasoning trace',
@@ -802,7 +802,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Single workflow only. Lists CLI sessions already on disk for this cwd (
         <C>~/.claude/projects</C>, <C>~/.codex/sessions</C>). Pick one to continue inside Arco: the session
         remains a real native CLI session you can also resume from a terminal.
-      </p>
+       The index follows the selected project; replies from earlier selections are ignored.</p>
     ),
     manualSection: 'sessions-and-resume',
   },
@@ -1645,7 +1645,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         workflow-scoped, long-lived resources; two windows may point at the same
         session (both render the same live output). The list survives a client
         reconnect: the server re-sends it on rehydrate.
-      </p>
+       Refreshing this workflow does not detach other workflows' terminal windows.</p>
     ),
     manualSection: 'integrated-terminal',
   },
@@ -1740,7 +1740,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         What you want the agent to do to the selection: "tighten this
         paragraph", "fix the formatting", "rewrite in my voice". One bounded turn
         per proposal; no back-and-forth loop. The agent returns text only.
-      </p>
+       The proposal stays attached to this editor request. Unsent or disconnected pending requests show an error; retry PROPOSE EDIT when connected.</p>
     ),
     manualSection: 'ai-edit',
   },

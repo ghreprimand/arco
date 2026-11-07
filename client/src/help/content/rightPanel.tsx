@@ -709,7 +709,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           <C>TOOL CALLS</C>, <C>LABELS</C>, <C>HANDOFFS</C>, <C>REVIEWS</C>,{' '}
           <C>CHECKPOINTS</C>, <C>REWINDS</C>) persists per workflow. Selecting an
           event shows the label field and the action buttons for that point.
-        </p>
+         Replay keeps the original saved event time.</p>
         <p>
           Click an event row to scroll-and-flash the corresponding chat row
           (when the event has a chat message id: user sends + assistant
@@ -912,7 +912,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.knowledge.add-distill': {
     title: 'Distill from this session',
-    body: <p>An agent <em>drafts</em> an article from the current transcript. The agent only proposes: it has no write tool. You edit the draft and explicitly <C>Save</C>; nothing is auto-saved.</p>,
+    body: <p>An agent <em>drafts</em> an article from the current transcript. The agent only proposes: it has no write tool. You edit the draft and explicitly <C>Save</C>; nothing is auto-saved. Unsent or disconnected pending requests show an error; retry when connected.</p>,
     manualSection: 'knowledge-base',
   },
   'rightpanel.knowledge.link-url': {

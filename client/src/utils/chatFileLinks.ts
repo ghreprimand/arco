@@ -4,7 +4,8 @@ import { createElement, Fragment, type ReactNode } from 'react';
 // extension, allowed body chars are word/dot/slash/dash. URLs are rejected by
 // resolveChatFilePath before we get here. False positives are tolerable —
 // clicking a non-file just opens FileViewerModal which renders a clean error.
-const FILENAME_RE = /^[\w./_-]+\.[A-Za-z][A-Za-z0-9]{0,7}$/;
+const FILENAME_SOURCE = String.raw`(?:[A-Za-z]:)?[\w./\\_-]+\.[A-Za-z][A-Za-z0-9]{0,7}`;
+const FILENAME_RE = new RegExp(`^${FILENAME_SOURCE}$`);
 
 export function looksLikeFilename(s: string | undefined | null): boolean {
   if (!s) return false;
@@ -60,7 +61,7 @@ export function resolveChatFilePath(
 
 const WINDOWS_ABSOLUTE_RE = /^(?:[A-Za-z]:[\\/]|\\\\)/;
 
-const FILENAME_TOKEN_RE = /(?<![\w./\\:-])((?:[A-Za-z]:)?[\w./\\_-]+\.[A-Za-z][A-Za-z0-9]{0,7})(?![\w-])/g;
+const FILENAME_TOKEN_RE = new RegExp(String.raw`(?<![\w./\\:-])(${FILENAME_SOURCE})(?![\w-])`, 'g');
 
 // Link filenames inside prose text: a whole line that is one filename links
 // (the viewer reports a missing file), while a filename inside a sentence links

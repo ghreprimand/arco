@@ -28,7 +28,7 @@ export const recallHelp: Record<string, HelpEntry> = {
           machine-global recall index (every workflow ever run) and a
           deterministic search engine: <strong>no LLM</strong>: SQLite FTS5
           over titles / summaries / tags, plus optional ripgrep over transcripts.
-        </p>
+         Only the latest search request can change results, loading or errors.</p>
         <p>Type to search; results rank by relevance and show a match snippet.</p>
       </>
     ),
@@ -41,23 +41,23 @@ export const recallHelp: Record<string, HelpEntry> = {
         Keywords matched against conversation titles, summaries, and tags via
         FTS5 (prefix-matched, so <C>refac</C> finds <C>refactor</C>). Empty query
         lists your most-recent conversations.
-      </p>
+       Only the latest search request can change results, loading or errors.</p>
     ),
     manualSection: 'recall-search',
   },
   'recall.filter.project': {
     title: 'Project filter',
-    body: <p>Narrow results to one project (the conversation's cwd basename).</p>,
+    body: <p>Narrow results to one project (the conversation's cwd basename). Only the latest search request can change results, loading or errors.</p>,
     manualSection: 'recall-search',
   },
   'recall.filter.provider': {
     title: 'Provider filter',
-    body: <p>Narrow results to one provider (Claude, Codex and the rest).</p>,
+    body: <p>Narrow results to one provider (Claude, Codex and the rest). Only the latest search request can change results, loading or errors.</p>,
     manualSection: 'recall-search',
   },
   'recall.filter.date': {
     title: 'Date range',
-    body: <p>Inclusive bounds on a conversation's last-active date.</p>,
+    body: <p>Inclusive bounds on a conversation's last-active date. Only the latest search request can change results, loading or errors.</p>,
     manualSection: 'recall-search',
   },
   'recall.filter.transcripts': {
@@ -68,7 +68,7 @@ export const recallHelp: Record<string, HelpEntry> = {
           Operator toggle (default OFF). When on, the query also runs as a
           ripgrep full-text scan over each conversation's <C>events.jsonl</C>:
           finds keywords that appear only in the body, not the title/summary/tags.
-        </p>
+         Only the latest search request can change results, loading or errors.</p>
         <p>
           Heavier than the FTS index pass; disabled when <C>rg</C> isn't on PATH.
         </p>

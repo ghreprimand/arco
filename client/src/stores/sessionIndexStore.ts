@@ -1,3 +1,4 @@
+import { requestGeneration } from '../utils/requestGeneration';
 import { create } from 'zustand';
 import type {
   ProviderName,
@@ -42,6 +43,8 @@ function indexEntries(list: SessionIndexEntry[]): Record<string, SessionIndexEnt
   return out;
 }
 
+const indexRead = requestGeneration();
+
 export const useSessionIndexStore = create<SessionIndexState>((set) => ({
   entries: {},
   cwd: '',
@@ -49,12 +52,15 @@ export const useSessionIndexStore = create<SessionIndexState>((set) => ({
   error: null,
 
   fetchIndex: async (cwd) => {
+    const isCurrent = indexRead();
     set({ loading: true, error: null, cwd });
     try {
       const res = await fetch(`/api/session-index?path=${encodeURIComponent(cwd)}`);
       const body = (await res.json()) as SessionIndexResponse;
+      if (!isCurrent()) return;
       set({ entries: indexEntries(body.entries ?? []), loading: false });
     } catch (err) {
+      if (!isCurrent()) return;
       set({ error: err instanceof Error ? err.message : String(err), loading: false });
     }
   },

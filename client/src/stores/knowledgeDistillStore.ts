@@ -32,7 +32,7 @@ export interface DistillRequestArgs {
   focus?: string;
 }
 
-type DistillSender = (args: DistillRequestArgs) => void;
+type DistillSender = (args: DistillRequestArgs) => boolean;
 let sender: DistillSender | null = null;
 export function registerDistillSender(fn: DistillSender | null) { sender = fn; }
 
@@ -45,6 +45,7 @@ interface DistillState {
     workflowId: string,
     patch: { distillId: string; title: string; body: string; tags: string[]; error?: string },
   ) => void;
+  onDisconnected: () => void;
   clear: (workflowId: string) => void;
 }
 
@@ -64,7 +65,7 @@ export const useKnowledgeDistillStore = create<DistillState>((set) => ({
         },
       },
     }));
-    if (sender) sender(args);
+    if (!sender || !sender(args)) set(s => ({ byWorkflow: { ...s.byWorkflow, [args.workflowId]: { ...s.byWorkflow[args.workflowId], status: 'error', error: 'Not connected. Retry when the connection returns.' } } }));
   },
   onStarted: (workflowId, distillId) => set((s) => {
     const e = s.byWorkflow[workflowId];
@@ -85,6 +86,7 @@ export const useKnowledgeDistillStore = create<DistillState>((set) => ({
       },
     },
   })),
+  onDisconnected: () => set(s => ({ byWorkflow: Object.fromEntries(Object.entries(s.byWorkflow).map(([key, entry]) => [key, entry.status === 'pending' ? { ...entry, status: 'error', error: 'Connection lost. Retry when the connection returns.' } : entry])) })),
   clear: (workflowId) => set((s) => {
     if (!s.byWorkflow[workflowId]) return s;
     const next = { ...s.byWorkflow };

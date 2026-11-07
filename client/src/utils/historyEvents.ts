@@ -71,7 +71,8 @@ function formatElapsedShort(ms: number): string {
 export function narrativeEventFromMessage(msg: ServerMessage): HistoryEventEntry | null {
   const seq = (msg as { seq?: number }).seq;
   if (typeof seq !== 'number') return null;
-  const eventTs = (msg as { ts?: number }).ts;
+  const timed = msg as { eventTs?: number; ts?: number };
+  const eventTs = timed.eventTs ?? timed.ts;
   const fallbackAt = typeof eventTs === 'number' ? eventTs : Date.now();
   switch (msg.type) {
     case 'user_message_echo':

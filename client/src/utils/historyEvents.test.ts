@@ -18,3 +18,8 @@ test('checkpoint markers find their checkpoint on new and older events', () => {
   assert.equal(reverted?.seq, 50);
   assert.equal(reverted?.revertedCheckpointSeq, 40);
 });
+
+test('replayed narrative rows retain eventTs instead of receive time', () => {
+  const entry = narrativeEventFromMessage({ type: 'primary_complete', workflowId: 'fixture', seq: 4, eventTs: 1234, ts: 9999 } as unknown as ServerMessage);
+  assert.equal(entry?.at, 1234);
+});

@@ -259,6 +259,7 @@ export const workspace: Section[] = [
     title: 'The chat panel',
     body: (
       <>
+  <p>Application JSON remains visible even when it uses workers, stateMutations or qualityVerdicts keys. Valid legacy internal envelopes and arco-artifact fences use compact summaries. Windows drive and UNC filenames work as file references.</p>
         <p>
           After a file-changing turn, a changed-files line opens that turn's
           captured checkpoint diff. UNDO THIS TURN uses the existing restore
@@ -756,6 +757,7 @@ export const workspace: Section[] = [
     title: 'AI-collaborative editing',
     body: (
       <>
+  <p>ASK AI keeps its proposal attached to the original editor request while the server assigns an id. Unsent or disconnected pending requests show an error; PROPOSE EDIT can be retried when connected.</p>
         <p>
           AI-collaborative editing turns a selection into a scoped, reviewable
           rewrite without a full conversational turn. Inside the editor (after{' '}

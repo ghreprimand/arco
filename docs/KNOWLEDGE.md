@@ -58,6 +58,8 @@ On-demand (not always-include) articles are user-readable in the tab but never i
 
 ## The ADD ARTICLE wizard
 
+A distillation request that cannot be sent, or loses its connection before a reply, shows an error instead of remaining pending. Retry Distill when connected again; no article is saved automatically.
+
 **+ ADD** in the KNOWLEDGE tab opens **ADD ARTICLE** (`KnowledgeWizard.tsx`), which offers three sources, all converging on the **same editable draft fields**. The user then saves the draft:
 
 1. **Blank article**: an empty draft.

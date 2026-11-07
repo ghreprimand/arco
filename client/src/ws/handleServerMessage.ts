@@ -135,7 +135,7 @@ function turnReply(workflowId: string, turnId: string | null): string {
 // member's transcript pane is stuck on "AWAITING REHYDRATE…" forever. Deduped by
 // workflowId (cleared in the workflow_created handler once the job lands) so
 // repeated cluster_state pushes don't re-request before materialization.
-const requestedMemberRehydrate = new Set<string>();
+const requestedMemberRehydrate = new WeakMap<WebSocket, Set<string>>();
 function requestMissingMemberJobs(
   clusterId: string,
   state: { members?: Array<{ workflowId: string }> },
@@ -143,11 +143,13 @@ function requestMissingMemberJobs(
 ): void {
   const ws = deps.wsRef.current;
   if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  let requested = requestedMemberRehydrate.get(ws);
+  if (!requested) { requested = new Set(); requestedMemberRehydrate.set(ws, requested); }
   const jobs = useAppStore.getState().jobs;
   for (const m of state.members ?? []) {
     if (jobs[m.workflowId]) continue;
-    if (requestedMemberRehydrate.has(m.workflowId)) continue;
-    requestedMemberRehydrate.add(m.workflowId);
+    if (requested.has(m.workflowId)) continue;
+    requested.add(m.workflowId);
     ws.send(JSON.stringify({ type: 'cluster_member_rehydrate', clusterId, workflowId: m.workflowId }));
   }
 }
@@ -269,7 +271,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         case 'workflow_created': {
           // A member job just materialized — clear its rehydrate-request guard
           // so a future genuine gap (e.g. re-add) can request again.
-          const restored = requestedMemberRehydrate.delete(msg.workflowId);
+          const restored = deps.wsRef.current ? requestedMemberRehydrate.get(deps.wsRef.current)?.delete(msg.workflowId) : false;
           store.createJob(
             msg.workflowId,
             msg.config,

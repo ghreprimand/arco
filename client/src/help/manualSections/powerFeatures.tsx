@@ -57,6 +57,7 @@ export const powerFeatures: Section[] = [
   title: 'The HISTORY tab - read-only timeline',
   body: (
   <>
+  <p>Replayed events retain their saved event time. Reopening HISTORY does not make older events appear newly received.</p>
   <p>
   The <strong>HISTORY</strong> tab in the right pane is a read-only timeline of
   this workflow's narrative events. Use it to find a past moment, label it,
@@ -774,6 +775,7 @@ export const powerFeatures: Section[] = [
   title: 'The integrated terminal',
   body: (
   <>
+  <p>Refreshing one workflow's session list keeps terminal windows for other workflows attached to their own sessions.</p>
   <p>
   Arco includes a real terminal, so you can run system commands without leaving
   the workbench. It opens in a <strong>floating, draggable, resizable
@@ -827,6 +829,7 @@ export const powerFeatures: Section[] = [
   title: 'Recall - cross-session conversation search',
   body: (
   <>
+  <p>When searches overlap, only the newest request changes the visible results, loading state or error.</p>
   <p>
   <strong>Recall</strong> searches every conversation Arco has ever run, across
   all projects and providers, not just the open tabs. Use it for "find the
@@ -872,6 +875,7 @@ export const powerFeatures: Section[] = [
   title: 'The KNOWLEDGE tab - operator-curated project facts',
   body: (
   <>
+  <p>A disconnected Distill request shows a retryable error. Retry when connected; no draft is saved as an article automatically.</p>
   <p>
   The KNOWLEDGE tab is a per-project knowledge base that you own. It is a curated
   companion to <Code>CLAUDE.md</Code>: repo layout, gotchas, deploy steps and

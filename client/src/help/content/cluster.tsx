@@ -1244,7 +1244,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.right-panel.member-in-view': {
     title: 'Member shown',
-    body: <p>Which member HISTORY or PREVIEW shows. It follows the member card or tab you selected and starts at the director. Choosing a member here selects it in the cluster tab too.</p>,
+    body: <p>Which member HISTORY or PREVIEW shows. It follows the member card or tab you selected and starts at the director. Choosing a member here selects it in the cluster tab too. Missing member rehydrate requests are retried on a new connection.</p>,
     manualSection: 'cluster-cwd-tabs',
   },
   'cluster.right-panel.group.runtime': {

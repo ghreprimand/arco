@@ -101,3 +101,14 @@ test('an unrelated error does not reveal members still being created', () => {
   deliver({ type: 'error', message: 'Unknown workflow 12345678' });
   assert.deepEqual(standaloneIds(), []);
 });
+
+test('B35: a fresh socket retries a member lost before rehydrate completed', () => {
+  reset();
+  const frames: string[] = [];
+  const connection = () => ({ readyState: WebSocket.OPEN, send: (value: string) => frames.push(value) }) as unknown as WebSocket;
+  deps.wsRef.current = connection();
+  deliver({type:'cluster_state',clusterId:'retry-cluster',state:state('retry-cluster',['lost-member'])});
+  deps.wsRef.current = connection();
+  deliver({type:'cluster_state',clusterId:'retry-cluster',state:state('retry-cluster',['lost-member'])});
+  assert.equal(frames.filter(frame => JSON.parse(frame).type === 'cluster_member_rehydrate').length,2);
+});

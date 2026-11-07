@@ -1,3 +1,4 @@
+import { requestGeneration } from '../utils/requestGeneration';
 import { create } from 'zustand';
 import type {
   RecallEntry, RecallIndexResponse, ProviderName,
@@ -102,6 +103,8 @@ function epochOf(dateStr: string, endOfDay: boolean): number | undefined {
   return Number.isFinite(t) ? t : undefined;
 }
 
+const searchRead = requestGeneration();
+
 export const useRecallStore = create<RecallState>((set, get) => ({
   entries: [],
   loading: false,
@@ -126,6 +129,7 @@ export const useRecallStore = create<RecallState>((set, get) => ({
   searchError: null,
   transcriptsAvailable: true,
   runSearch: async (filters) => {
+    const isCurrent = searchRead();
     set({ searching: true, searchError: null });
     try {
       const params = new URLSearchParams();
@@ -140,12 +144,14 @@ export const useRecallStore = create<RecallState>((set, get) => ({
       const qs = params.toString();
       const res = await fetch(`/api/recall/search${qs ? `?${qs}` : ''}`);
       const body = (await res.json()) as RecallSearchResponse;
+      if (!isCurrent()) return;
       set({
         hits: body.hits ?? [],
         transcriptsAvailable: body.transcriptsAvailable !== false,
         searching: false,
       });
     } catch (err) {
+      if (!isCurrent()) return;
       set({ searchError: err instanceof Error ? err.message : String(err), searching: false });
     }
   },
