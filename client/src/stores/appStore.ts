@@ -623,7 +623,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
 
   setDetailWorker: (detailWorker) => set({ detailWorker }),
 
-  createJob: (id, config, resumedVia, parentWorkflowId, backgroundCreated, restored) =>
+  createJob: (id, config, resumedVia, parentWorkflowId, backgroundCreated, restored, clusterMemberPending) =>
     set((s) => {
       // Phase 7b — Task children mint a JobState (so promote can flip it
       // into the top tab strip without a server round-trip) but don't
@@ -632,7 +632,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       // TASKS sub-tab on the parent's view.
       const isParentedChild = typeof parentWorkflowId === 'string' && parentWorkflowId.length > 0;
       // A restore never replaces a creator the operator explicitly opened.
-      const keepFocus = isParentedChild || config.voiceOperator === true || backgroundCreated || (restored === true && (s.creatorRequested || s.showHome));
+      const keepFocus = isParentedChild || config.voiceOperator === true || backgroundCreated || clusterMemberPending === true || (restored === true && (s.creatorRequested || s.showHome));
       return {
         jobs: {
           ...s.jobs,
@@ -671,6 +671,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
             // 'replay-recovered' badge for REPLAY_RECOVERED_WINDOW_MS.
             ...(resumedVia ? { recoveredAt: Date.now() } : {}),
             ...(isParentedChild ? { parentWorkflowId } : {}),
+            ...(clusterMemberPending === true ? { pendingClusterMember: true } : {}),
           },
         },
         activeJobId: keepFocus ? s.activeJobId : id,
@@ -750,11 +751,26 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
           ? prior
           : { displayName: member.displayName, role };
       }
+      // Members the cluster now lists are no longer pending: the cluster tab
+      // shows them.
+      const pendingListed = state.members.filter((m) => s.jobs[m.workflowId]?.pendingClusterMember);
+      const jobsPatch = pendingListed.length === 0 ? {} : {
+        jobs: Object.fromEntries(Object.entries(s.jobs).map(([id, job]) => [id,
+          memberIds.has(id) && job.pendingClusterMember ? { ...job, pendingClusterMember: undefined } : job])),
+      };
       return {
         clusters: { ...s.clusters, [clusterId]: state },
         clusterMemberLabels,
         ...focusPatch,
+        ...jobsPatch,
       };
+    }),
+
+  releasePendingClusterMembers: () =>
+    set((s) => {
+      if (!Object.values(s.jobs).some((job) => job.pendingClusterMember)) return {};
+      return { jobs: Object.fromEntries(Object.entries(s.jobs).map(([id, job]) => [id,
+        job.pendingClusterMember ? { ...job, pendingClusterMember: undefined } : job])) };
     }),
 
   clearCluster: (clusterId) =>
@@ -1957,6 +1973,9 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   },
   onRehydrateStorage: () => (state) => {
     if (!state) return;
+    // A member still pending when the page closed is shown again: its cluster
+    // state arrives on reconnect, or it stays a standalone tab.
+    for (const job of Object.values(state.jobs ?? {})) delete job.pendingClusterMember;
     // A saved focus whose cluster or member is gone falls back to the default
     // (the director) when the cluster state arrives.
     state.clusterFocusedMember = Object.fromEntries(Object.entries(state.clusterFocusedMember ?? {})

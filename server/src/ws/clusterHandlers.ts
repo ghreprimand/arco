@@ -76,7 +76,7 @@ import { setClusterPlanBody } from '../clusterPlanBridge.js';
 export interface ClusterHandlerDeps {
   handleUserMessage: (ws: WebSocket, session: Session, workflowId: string, content: string, clientMessageId: string | undefined, attachments: string[] | undefined, interjection: boolean, kind: 'steer' | 'follow-up' | 'interrupt' | undefined, primitive: 'docs' | 'git' | 'plan-review' | undefined) => Promise<void>;
   handleRemoveWorkflow: (workflowId: string) => void;
-  createBlankNativeWorkflow: (ws: WebSocket, session: Session, config: WorkflowConfig) => Promise<string>;
+  createBlankNativeWorkflow: (ws: WebSocket, session: Session, config: WorkflowConfig, options?: { clusterMemberPending?: boolean }) => Promise<string>;
   assertAllMembersClaudeOrCodex: (memberIds: string[]) => Promise<string | null>;
   catalogModelKnown?: (provider: ClusterMemberProvider, modelId: string) => Promise<boolean>;
 }
@@ -154,6 +154,11 @@ export function detachRemovedMemberFromClusterObservers(clusterId: string, remov
     if (!observedElsewhere && wf) wf.observers.delete(obsWs);
   }
 }
+
+// A member minted for a cluster is announced to the browser before the
+// cluster (or its new membership) is: `clusterMemberPending` keeps it out of
+// the tab bar until the cluster state that lists it arrives.
+const MEMBER_PENDING = { clusterMemberPending: true } as const;
 
 export async function handleClusterSubscribe(ws: WebSocket, session: Session, clusterId: string): Promise<void> {
   const payload = await buildClusterStatePayload(clusterId);
@@ -1543,7 +1548,7 @@ export async function handleClusterCreateWithFreshWorkers(
       model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: false, resolveCodexAccount,
     });
     try {
-      const newId = await deps.createBlankNativeWorkflow(ws, session, childConfig);
+      const newId = await deps.createBlankNativeWorkflow(ws, session, childConfig, MEMBER_PENDING);
       newWorkflowIds.push(newId);
     } catch (err) {
       console.error(`[arco] cluster_create_with_fresh_workers: child ${i + 1} create failed:`, err);
@@ -1666,7 +1671,7 @@ export async function handleClusterCreateFromScratch(
   for (let i = 0; i < msg.members.length; i++) {
     const childConfig = await memberConfigFromSpec(msg.members[i], i, msg.cwd, resolveCodexAccount);
     try {
-      const newId = await deps.createBlankNativeWorkflow(ws, session, childConfig);
+      const newId = await deps.createBlankNativeWorkflow(ws, session, childConfig, MEMBER_PENDING);
       newWorkflowIds.push(newId);
     } catch (err) {
       console.error(`[arco] cluster_create_from_scratch: member ${i + 1} create failed:`, err);
@@ -1857,7 +1862,7 @@ export async function handleClusterAddFreshWorkers(
       tuning: msg,
     });
     try {
-      const id = await deps.createBlankNativeWorkflow(ws, session, childConfig);
+      const id = await deps.createBlankNativeWorkflow(ws, session, childConfig, MEMBER_PENDING);
       newIds.push(id);
     } catch (err) {
       console.error(`[arco] cluster_add_fresh_workers: child ${i + 1} create failed:`, err);
@@ -2003,7 +2008,7 @@ export async function handleClusterMemberReplace(
 
   let newWorkflowId: string;
   try {
-    newWorkflowId = await deps.createBlankNativeWorkflow(ws, session, childConfig);
+    newWorkflowId = await deps.createBlankNativeWorkflow(ws, session, childConfig, MEMBER_PENDING);
     const replaced = await clusterStore.replaceMember(
       msg.clusterId,
       msg.workflowId,

@@ -244,6 +244,7 @@ Server confirms the new workflow. Carries the canonical `workflowId` (server-min
   config: WorkflowConfig,
   resumedVia?: 'native' | 'bootstrapped',
   backgroundCreated?: boolean,      // worktree bake-off attempts - batch-created tabs; the source tab keeps focus
+  clusterMemberPending?: boolean,   // a new cluster member (create, ADD WORKERS, REPLACE) sent before the cluster state that lists it: no own tab, no focus; a `cluster_*` error releases it as a standalone tab
   parentWorkflowId?: string, // set when minted by a Task tool call. Client creates the JobState but suppresses tab creation + active-tab switch while parented + unpromoted.
   priorClaudeSessionId?: string,    // legacy hint kept parallel to priorSessionId so older client builds hydrate Claude sessions unchanged
   priorSessionId?: string,          // native CLI session UUID (Claude or Codex) to fetch transcript for

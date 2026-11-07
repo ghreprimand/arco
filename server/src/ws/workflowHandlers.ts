@@ -1579,7 +1579,7 @@ export async function createBlankNativeWorkflow(
   ws: WebSocket,
   session: Session,
   config: WorkflowConfig,
-  options?: { backgroundCreated?: boolean },
+  options?: { backgroundCreated?: boolean; clusterMemberPending?: boolean },
 ): Promise<string> {
   // Cluster fresh-worker creations are never resumes; honor the global
   // server-side-compaction default (defaults OFF — NATIVE_COMPACTION_PLAN §1).
@@ -1617,6 +1617,7 @@ export async function createBlankNativeWorkflow(
     workflowId,
     config,
     ...(options?.backgroundCreated ? { backgroundCreated: true } : {}),
+    ...(options?.clusterMemberPending ? { clusterMemberPending: true } : {}),
   });
   console.log(`[arco] Workflow created (blank/native helper): "${config.name}" [${workflowId.slice(0, 8)}]`);
   return workflowId;

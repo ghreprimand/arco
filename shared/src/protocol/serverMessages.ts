@@ -134,6 +134,10 @@ export interface WorkflowCreatedMessage {
   // Worktree bake-off attempts are ordinary top-level workflow tabs, but are
   // created as a batch. Keep the source tab focused while they materialize.
   backgroundCreated?: boolean;
+  // A new cluster member, sent before the cluster state that lists it. The
+  // client keeps it out of the tab bar and does not switch to it; the cluster
+  // tab shows it once that state arrives.
+  clusterMemberPending?: boolean;
   priorClaudeSessionId?: string;
   // Provider-aware prior-session hints. `priorSessionId` is the native CLI
   // session UUID (Claude or Codex) to fetch a transcript for; `priorProvider`

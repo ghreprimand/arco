@@ -890,6 +890,12 @@ patch into the shared `DiffView`, explicitly promote it, or clean selected
 worktrees. `appStore.bakeoffsByWorkflow` is a server-rehydrated projection;
 durable truth remains the out-of-repo manifest.
 
+**New cluster members.** A `workflow_created` with `clusterMemberPending` sets
+`JobState.pendingClusterMember`: `standaloneTabJobs` (TabBar) and `openWork`
+(Home) leave the job out and `createJob` keeps the current focus, until
+`setClusterState` lists the member (the flag is cleared) or a `cluster_*` error
+calls `releasePendingClusterMembers`. The flag is not kept across a reload.
+
 **FILES tab - worktree picker (Workbench I / `WorktreeInfo`).** `useWorktreeSelection` + `WorktreePicker` (shared by `FilesTabBody` + `ClusterFilesTabBody`) resolve which git worktree a worker is editing - AUTO = the worker's active-task worktree from the store `taskLedger` (in_progress preferred; cluster keys by `baseCwd::boardKey`), plus enumerated linked worktrees via `GET /api/git/worktrees` (4s poll). The resolved `effectiveCwd` (`selectedWorktree || autoWorktreePath || baseCwd`) is passed to `LiveChangesPanel` / `ChangesPanel` / `WorkingChangesPanel` / `CompareRemotePanel` (was always `cwd`). The header picker shows when >1 worktree or an auto target exists; main is labelled "tab root" / "cluster root".
 
 **FILES tab - CHANGES sub-tab + the diff renderer (Workbench Expansion A3).** `client/src/components/diff/DiffView.tsx` is a **source-agnostic** unified-diff renderer (`react-diff-view`, themed to CSS vars via `diff-view.css`, unified/split toggle, collapsible per-file): it takes a `patch` string (or pre-parsed `files`) and nothing else - it never imports the endpoint or any "source" concept, so A4 revert, A6/A7 file-edit diffs, D5 inline comments, and all of Part I (Git/GitHub workbench) reuse it unchanged. All data-fetching/source selection lives outside it: `ChangesPanel` (client) calls `GET /api/workflows/diff?wfid&path&from&to`, and `server/src/gitDiff.ts` (via `server/src/http/diffRoutes.ts`) runs the right `git diff` (two shadow `refs/arco/*` refs, or working-tree vs HEAD). The CHANGES sub-tab shows working-tree-vs-HEAD; `GitDialog` shows the same working-tree diff (collapsible) before the commit prompt. The endpoint always answers 200 with `{ patch, isRepo, from, to, missingRef? }` - non-git dirs / missing refs degrade gracefully, never 500.

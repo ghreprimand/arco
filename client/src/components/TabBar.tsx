@@ -19,6 +19,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAppStore, type JobState } from '../stores/appStore';
+import { standaloneTabJobs } from '../utils/homeModel';
 import { useRecallStore } from '../stores/recallStore';
 import { closeSummaryPlan } from '../recall/closeSummary';
 import { TabContextMenu } from './TabContextMenu';
@@ -178,13 +179,7 @@ export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster
   // Slice 6a — split workflows into "in a cluster" and "standalone". Cluster
   // members get no tab (reach them via the cluster's member cards);
   // standalone workflows + cluster tabs share the top row.
-  const memberWorkflowIds = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of clusterList) for (const m of c.members) set.add(m.workflowId);
-    return set;
-  }, [clusterList]);
-
-  const standaloneJobs = allJobs.filter((j) => !memberWorkflowIds.has(j.id));
+  const standaloneJobs = useMemo(() => standaloneTabJobs(allJobs, clusterList), [allJobs, clusterList]);
 
   // Slice 6a — top-row sortable items. Workflows + clusters share one
   // ordering (operator can interleave them).

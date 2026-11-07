@@ -35,7 +35,10 @@ test('each creation path builds the new member from its request', async () => {
   const captured: Array<Record<string, unknown>> = [];
   const tab = (config: Record<string, unknown>) => { const id = randomUUID(); workflows.set(id, { config: { workingDirectory: cwd, ...config }, busy: false, observers: new Set(), primary: { provider: (config.primaryProvider as string) ?? 'claude' } } as never); return id; };
   const catalogChecks: string[] = [];
-  h.initClusterHandlers({ catalogModelKnown: async (provider) => { catalogChecks.push(provider); return true; }, handleUserMessage: async () => {}, handleRemoveWorkflow: () => {}, assertAllMembersClaudeOrCodex: async () => null, createBlankNativeWorkflow: async (_w, _s, config) => { captured.push(config as never); return tab(config as never); } });
+  // Whether each new member was announced as pending (kept out of the tab bar
+  // until the cluster state lists it), in every creation path.
+  const announced: boolean[] = [];
+  h.initClusterHandlers({ catalogModelKnown: async (provider) => { catalogChecks.push(provider); return true; }, handleUserMessage: async () => {}, handleRemoveWorkflow: () => {}, assertAllMembersClaudeOrCodex: async () => null, createBlankNativeWorkflow: async (_w, _s, config, options) => { captured.push(config as never); announced.push(options?.clusterMemberPending === true); return tab(config as never); } });
   const run = async (f: () => Promise<void>) => {
     captured.length = 0; const n = errors.length; await f();
     for (const c of captured) assert.equal(c.workingDirectory, cwd);
@@ -142,6 +145,7 @@ test('each creation path builds the new member from its request', async () => {
     { configs: [], errors: ['cluster_create_from_scratch rejected: member[0] unknown_account:gone'] });
   assert.deepEqual(await run(() => h.handleClusterCreateFromScratch(ws, session, { cwd, members: [{ provider: 'codex', model: 'gpt-5.5', accessMode: 'isolated' }] } as never)),
     { configs: [], errors: ['cluster_create_from_scratch rejected: member[0] isolated_requires_claude_native'] });
+  assert.ok(announced.length >= 10 && announced.every(Boolean), 'every path announces its new members as pending cluster members');
 });
 
 test.after(async () => {

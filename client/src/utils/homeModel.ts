@@ -160,6 +160,14 @@ function lastActivity(job: JobState): number {
   return typeof last?.timestamp === 'number' ? last.timestamp : 0;
 }
 
+// The workflows that get their own tab in the top row: not cluster members
+// (reached through their cluster) and not members announced before the cluster
+// state that lists them, so a new member never shows as its own tab.
+export function standaloneTabJobs(jobs: JobState[], clusters: ClusterStatePayload[]): JobState[] {
+  const memberIds = new Set(clusters.flatMap((c) => c.members.map((m) => m.workflowId)));
+  return jobs.filter((j) => !memberIds.has(j.id) && !j.pendingClusterMember);
+}
+
 // Every open tab the operator can return to: standalone workflows and chats
 // (not Incognito, not unpromoted task children, not cluster members, which
 // open through their cluster) plus clusters. Newest activity first.
@@ -167,7 +175,7 @@ export function openWork(jobs: Record<string, JobState>, clusters: Record<string
   const memberIds = new Set(Object.values(clusters).flatMap((c) => c.members.map((m) => m.workflowId)));
   const items: OpenWorkItem[] = [];
   for (const job of Object.values(jobs)) {
-    if (job.config.voiceOperator || job.config.incognito || memberIds.has(job.id)) continue;
+    if (job.config.voiceOperator || job.config.incognito || memberIds.has(job.id) || job.pendingClusterMember) continue;
     if (job.parentWorkflowId && !job.promoted) continue;
     items.push({
       kind: job.config.kind === 'chat' ? 'chat' : 'workflow',

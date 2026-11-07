@@ -97,6 +97,7 @@ const SUITES = [
   { name: 'settings-text-color', script: 'settings-text-color-browser.py', port: 5255 },
   { name: 'theme-controls', script: 'theme-controls-browser.py', port: 5256 },
   { name: 'chat-timeline-order', script: 'chat-timeline-order-browser.py', port: 5262 },
+  { name: 'cluster-create-tabs', script: 'cluster-create-tabs-browser.py', port: 5263 },
 ];
 // Suites known to fail are listed here with the board task that tracks them.
 const KNOWN_FAILING = [];

@@ -394,6 +394,10 @@ export interface JobState {
   // tab" on the inline card or TASKS row).
   parentWorkflowId?: string;
   promoted?: boolean;
+  // A new cluster member announced before the cluster state that lists it.
+  // Kept out of the tab bar and Home until that state arrives (then the
+  // cluster tab shows it) or an error releases it as a standalone tab.
+  pendingClusterMember?: boolean;
   // Phase 8 — narrative-event timeline backing the HISTORY tab. Sourced
   // from events.jsonl replay (resume / reconnect) and from live broadcasts.
   // Append-only with dedup by seq; capped at 1000 entries via
@@ -834,7 +838,11 @@ export interface AppState {
     parentWorkflowId?: string,
     backgroundCreated?: boolean,
     restored?: boolean,
+    clusterMemberPending?: boolean,
   ) => void;
+  // Shows pending cluster members that no cluster lists as standalone tabs
+  // (cluster creation failed after the members were made).
+  releasePendingClusterMembers: () => void;
   setActiveJob: (id: string) => void;
   showJobCreator: () => void;
   showHomeView: () => void;

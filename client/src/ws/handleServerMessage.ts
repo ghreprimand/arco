@@ -277,6 +277,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             msg.parentWorkflowId,
             msg.backgroundCreated,
             restored,
+            msg.clusterMemberPending,
           );
           if (msg.claudeSessionId) store.setClaudeSessionId(msg.workflowId, msg.claudeSessionId);
           // docs/ARCHITECTURE.md - a research run dispatched to a
@@ -1449,6 +1450,9 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // member_not_native from spawn-into-cluster with non-Native provider)
           // were invisible to the operator.
           store.pushNotification('error', msg.message, msg.workflowId);
+          // A failed cluster create, add or replace leaves the members it already
+          // made without a cluster: show them as standalone tabs.
+          if (typeof msg.message === 'string' && msg.message.startsWith('cluster_')) store.releasePendingClusterMembers();
           {
             const targetWorkflowId = msg.workflowId ?? store.activeJobId;
             if (!targetWorkflowId || !store.jobs[targetWorkflowId]) break;
