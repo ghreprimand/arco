@@ -54,6 +54,7 @@ export const clusters: Section[] = [
   title: 'The cluster tab',
   body: (
   <>
+  <p>Sending to one member through TO preserves picked skills, steering intent and composer actions, including when another member is in view. After a successful send, TO returns to the member in view. Computer opens the chooser with the current recipients. Question options keep literal pipes and backslashes in one answer.</p>
   <p>After reconnecting, missing members are requested again if their rehydrate reply was lost. Other members keep their existing state.</p>
   <p>
   The cluster parent tab takes over the full main pane: a member-card
@@ -1384,6 +1385,7 @@ export const clusters: Section[] = [
   title: 'Task board + task peer-tools (cluster_task_*)',
   body: (
   <>
+  <p>RESET in the task editor also restores RELEASE. A release-only edit no longer remains pending after RESET.</p>
   <p>
   The cluster right panel&apos;s <strong>BOARD</strong> sub-tab is a
   kanban <em>view</em> over this cluster&apos;s project task ledger:

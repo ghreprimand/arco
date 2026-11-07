@@ -6,6 +6,7 @@ export const chat: Section[] = [
   {
   id: 'chat-mode', group: 'Workflows & sessions', title: 'Chat - conversation without a project',
   body: <>
+  <p>EDIT replaces the draft text and attachments with the selected message. Editing a text-only message clears any staged attachments.</p>
   <p>
   Chat is a plain conversation with a model, with no project attached. Use an
   Agent tab instead when the work needs files, commands or project tools.

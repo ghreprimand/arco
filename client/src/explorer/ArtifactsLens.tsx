@@ -25,10 +25,11 @@ interface Props {
 const RECENT_STRIP = 10;
 
 function subdirOf(rel: string): string {
+  rel = rel.replace(/\\/g, '/');
   const i = rel.lastIndexOf('/');
   return i === -1 ? '·' : rel.slice(0, i) + '/';
 }
-function revealable(path: string): boolean { return !path.includes('/.arco/'); }
+function revealable(path: string): boolean { return !path.split(/[\\/]/).includes('.arco'); }
 
 export function ArtifactsLens({ focusTick, onOpen, onRevealInTree }: Props) {
   const [items, setItems] = useState<ProjectItem[] | null>(null);
@@ -143,7 +144,7 @@ function ItemRow({ item, onOpen, onRevealInTree, showProject }: { item: ProjectI
         </span>
       </button>
       {revealable(item.path) && (
-        <button onClick={() => onRevealInTree(item.path)} className="display-font" title="Reveal in the file tree" style={revealBtn}>⊞</button>
+        <button data-help="header.archive" onClick={() => onRevealInTree(item.path)} className="display-font" title="Reveal in the file tree" style={revealBtn}>⊞</button>
       )}
     </div>
   );

@@ -149,7 +149,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.member-question': {
     title: 'Waiting question',
-    body: <p>This member is waiting for an answer to a structured question. Select the card to open the question.</p>,
+    body: <p>This member is waiting for an answer to a structured question. Select the card to open the question. Options containing pipes or backslashes remain one complete answer.</p>,
     manualSection: 'cluster-grid',
   },
   'cluster.member-card.role-chip': {
@@ -171,8 +171,8 @@ export const clusterHelp: Record<string, HelpEntry> = {
         Who your next message goes to. It starts as the member in view. Click
         to choose one or several members (<C>EVERYONE</C> selects all). Idle
         members start a fresh turn; busy members receive it as a follow-up.
-        The toast reads <em>X of N members</em> to confirm scope. After a
-        message to several members the chip returns to the member in view. If disconnected, the draft, attachments and recipient selection remain for retry.
+        A message to one member preserves picked skills, steering intent and composer actions. Computer opens this chooser with the current selection. For several members, the toast reads <em>X of N members</em> to confirm scope. After a
+        successful message the chip returns to the member in view. If disconnected, the draft, attachments and recipient selection remain for retry.
       </p>
     ),
     manualSection: 'cluster-tab',
@@ -741,7 +741,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Operator card editing folded into the drawer: change the task title,
-        notes, and priority (<C>SAVE</C> / <C>RESET</C>), add or remove
+        notes, priority and release (<C>SAVE</C> / <C>RESET</C>), add or remove
         dependency parents, and <C>DELETE TASK</C>. Reuses the operator{' '}
         <C>task_ledger_update</C> / <C>task_ledger_delete</C> paths. Status
         moves to <C>done</C> / <C>archived</C> stay routed through the dedicated
@@ -934,7 +934,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
       <p>
         An optional label such as 0.1.4 that says which release this task
         belongs to. Leave it empty for no label; saving an empty field removes
-        the label.
+        the label. RESET restores the saved release and clears that pending edit.
       </p>
     ),
     manualSection: 'cluster-board',
@@ -1239,7 +1239,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.right-panel.tab.usage': {
     title: 'USAGE',
-    body: <p>Token usage per provider and day for every conversation saved in the cluster&apos;s project folder, so all members are included. MEASURE STORAGE measures that folder&apos;s saved state and MEASURE ARCO FOLDER measures Arco&apos;s own folder; neither changes anything. Failed or invalid usage reads show an error; reopen USAGE to retry.</p>,
+    body: <p>Token usage per provider and day for every conversation saved in the cluster&apos;s project folder, so all members are included. MEASURE STORAGE measures that folder&apos;s saved state and MEASURE ARCO FOLDER measures Arco&apos;s own folder; neither changes anything. Failed or invalid usage reads show an error; reopen USAGE to retry. Computer can also open this panel.</p>,
     manualSection: 'cluster-tab',
   },
   'cluster.right-panel.member-in-view': {

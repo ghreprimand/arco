@@ -162,8 +162,8 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
   // only the text came back and the image silently fell off the edit.
   const handleEditMessage = useCallback((text: string, messageAttachments?: string[]) => {
     setDraft(job.id, text);
+    clearAttachments(job.id);
     if (messageAttachments && messageAttachments.length > 0) {
-      clearAttachments(job.id);
       for (const path of messageAttachments) {
         addAttachment(job.id, { filename: basename(path), path, isImage: IMAGE_EXT_RE.test(path) });
       }

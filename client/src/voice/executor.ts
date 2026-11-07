@@ -16,6 +16,7 @@ import { buildClusterNudge } from '../utils/clusterNudge';
 import { ComputerConversation } from './conversation';
 import { requestVoiceDialog, VOICE_DIALOGS, type VoiceDialog } from './dialogs';
 import { actOnScreen, readScreen, readText } from './screen';
+import { CLUSTER_PANELS } from '../components/ClusterRightPanel/panels';
 import { HELP_CONTENT } from '../help/content';
 
 export interface VoiceSenders {
@@ -238,7 +239,7 @@ export class VoiceExecutor {
         if (!id) return 'Select a workflow or cluster first.';
         if (context.clusterId) {
           panel = ({ review: 'reviews', tasks: 'board' } as Record<string, string>)[panel] ?? panel;
-          if (!['members', 'files', 'activity', 'reviews', 'handoffs', 'plan', 'board', 'mailbox', 'history', 'preview', 'config', 'github'].includes(panel)) return 'That panel is not available in a cluster.';
+          if (!CLUSTER_PANELS.some(({ id }) => id === panel)) return 'That panel is not available in a cluster.';
         } else {
           panel = ({ reviews: 'review', board: 'ledger' } as Record<string, string>)[panel] ?? panel;
           if (['members', 'mailbox'].includes(panel) || s.jobs[id]?.config.kind === 'chat') return 'That panel is not available in this conversation.';

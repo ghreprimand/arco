@@ -158,6 +158,10 @@ async def main():
         await expect(dialog).to_have_count(0)
         await expect(to).to_contain_text('TO: 2 MEMBERS')
         await expect(msg).to_have_attribute('placeholder', 'Message 2 members...')
+        # B145: the voice chooser reflects the latest explicit recipients.
+        await page.evaluate("async () => (await import('/src/voice/dialogs.ts')).requestVoiceDialog('broadcast',null,'cluster-a')")
+        await expect(dialog.locator('input[type=checkbox]:checked')).to_have_count(2)
+        await page.keyboard.press('Escape')
         # A closed sender must retain the composer and its explicit recipients.
         await page.evaluate('window.broadcastConnected=false')
         await msg.fill('unsent subset'); await msg.press('Enter')
@@ -182,6 +186,15 @@ async def main():
         assert len(await page.evaluate('broadcasts')) == 2
         await msg.fill('just beta'); await msg.press('Enter')
         assert len(await page.evaluate('broadcasts')) == 2 and await page.evaluate('sent.length') == 1
+        # B144: a different single recipient uses the per-member send path.
+        await to.click()
+        await dialog.get_by_text('Alpha', exact=True).click()
+        await dialog.get_by_text('Beta', exact=True).click()
+        await done.click()
+        await msg.fill('single alpha'); await msg.press('Enter')
+        await page.wait_for_function("sent.at(-1)?.[1] === 'single alpha'")
+        assert await page.evaluate("sent.at(-1)[0]") == 'worker-a'
+        assert len(await page.evaluate('broadcasts')) == 2
         # NEW REPLY on the director card: quiet, no focus change, clears on open.
         mark=page.get_by_test_id('member-new-reply')
         await expect(mark).to_have_count(0)

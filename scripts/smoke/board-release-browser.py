@@ -28,6 +28,8 @@ async def main():
             u = urlparse(route.request.url)
             if u.netloc == '127.0.0.1:' + PORT and u.path == '/fixture':
                 await route.fulfill(status=200, content_type='text/html', body=HTML); return
+            if u.netloc == '127.0.0.1:' + PORT and u.path == '/api/clusters/c1/peer/task-show':
+                await route.fulfill(json={'task':{'id':'b','title':'Task b','status':'done','release':'0.1.4','links':[],'notes':'','priority':0,'parentIds':[],'createdAt':1,'updatedAt':1},'runs':[],'comments':[]}); return
             if u.netloc == '127.0.0.1:' + PORT and u.path == '/api/outputs':
                 await route.fulfill(json={'outputs':[]}); return
             if u.netloc == '127.0.0.1:' + PORT and u.path == '/api/workflows/diff':
@@ -77,6 +79,14 @@ async def main():
         # Accepting the last open task reads READY TO RELEASE.
         await page.evaluate("setLedger([{...s.getState().taskLedger['/projects/demo'][0]},{...s.getState().taskLedger['/projects/demo'][1],status:'done'},...s.getState().taskLedger['/projects/demo'].slice(2)])")
         await expect(page.get_by_test_id('release-summary')).to_contain_text('2 IN, 2 ACCEPTED, 0 LEFT - READY TO RELEASE')
+        # B147: resetting a release-only edit restores its original value.
+        await page.get_by_text('Task b', exact=True).click()
+        release = page.locator('input[data-help="cluster.task-release"]')
+        await release.fill('next-release')
+        await page.get_by_role('button', name='RESET', exact=True).click()
+        await expect(release).to_have_value('0.1.4')
+        await expect(page.get_by_role('button', name='SAVE', exact=True)).to_be_disabled()
+        await page.get_by_role('button', name='CLOSE', exact=True).click()
         # A board without any labels shows no release controls.
         await page.evaluate("setLedger(s.getState().taskLedger['/projects/demo'].map(({release, ...rest}) => rest))")
         await expect(page.get_by_label('Release filter')).to_have_count(0)

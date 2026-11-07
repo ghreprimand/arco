@@ -259,7 +259,8 @@ export const workspace: Section[] = [
     title: 'The chat panel',
     body: (
       <>
-  <p>Application JSON remains visible even when it uses workers, stateMutations or qualityVerdicts keys. Valid legacy internal envelopes and arco-artifact fences use compact summaries. Windows drive and UNC filenames work as file references.</p>
+  <p>Claude Native questions offer complete answer options, including literal pipes and backslashes. Choose an option or type an answer to resume the waiting agent.</p>
+<p>Application JSON remains visible even when it uses workers, stateMutations or qualityVerdicts keys. Valid legacy internal envelopes and arco-artifact fences use compact summaries. Windows drive and UNC filenames work as file references.</p>
         <p>
           After a file-changing turn, a changed-files line opens that turn's
           captured checkpoint diff. UNDO THIS TURN uses the existing restore

@@ -667,6 +667,10 @@ capture preservation and two display-font overrides.
 
 ## Composer state
 
+CATCH ME UP resets its running state when switching workflows or clusters and cancels the old scope request. A late result cannot block summarization in the new scope.
+
+In Chat, EDIT replaces both the draft text and its attachments. Editing a text-only message clears unrelated staged files. Claude Native question options preserve escaped pipe characters and original backslashes as part of the same answer.
+
 `TerminalInput.tsx` decides between idle and queue mode based on:
 
 ```ts
@@ -826,6 +830,8 @@ Notable shader-related commits:
 CSS animations are gated by data attributes set in apply: `data-anim-scan` / `data-anim-pulseHalo` / `data-anim-flicker`. Each theme opts in.
 
 ### Theme switching
+
+Switching palettes removes optional tokens supplied only by the previous theme, including classic link colors. Independent preferences remain unchanged.
 
 `store.setThemeId(id)` is optimistic: applies locally first, then PATCHes `/api/settings`. On failure, reverts.
 
@@ -1190,6 +1196,8 @@ Dragged splitter positions are saved separately for each layout. Positions from 
 `client/src/layout/keepInWindow.ts` is the one placement rule for every dropdown, popover, menu, hover card and corner notice. Each panel keeps its own CSS position (below or above its trigger, at a pointer, in a corner); `useKeepInWindow()` returns a callback ref that, after the panel is drawn, measures it and only where it would leave the window: caps its width to the window less an 8 px margin on each side, flips it to the other side of its trigger when that side has more room, caps its height to the room on the chosen side and scrolls inside, and shifts it along the edge so the whole box is inside with the margin. It moves the panel with the CSS `translate` property, so a panel's own `transform` still applies. The trigger defaults to the panel's positioned parent (`offsetParent`) for absolute panels; fixed panels pass `anchor` (NeedsYouBadge passes its button; pointer menus and notices pass none and are only shifted and capped). It runs again on window `resize`, `arco:ui-scale`, page scroll, a size change of the panel or its trigger (`ResizeObserver`), the end of an animation and the `toggle` of an enclosing `<details>`. Lengths written back are divided by the interface scale. Every managed panel carries `data-window-placement` (`below`, `above` or `free`). `planPlacement` is the pure part, unit-tested in `keepInWindow.test.ts`; the `popover-placement` browser suite opens each panel where the layout puts it and with its trigger pinned near each window corner at 1280x800, 900x700 and 480x800, at 100% and 150%, and checks the box is inside the window.
 
 ## ARTIFACTS explorer (`?app=explorer`)
+
+RECENTS extracts filenames from slash-separated and native Windows paths. ARTIFACTS and RECENTS omit OPEN IN TREE for any path inside the Arco state folder; the viewer remains available.
 
 A standalone chromeless window, mounted by `main.tsx` on `?app=explorer`, sharing the same root/theme bootstrap but no app store or `/ws`. `explorer/ExplorerApp.tsx` is the shell - `LensId = 'artifacts' | 'recents' | 'plans' | 'storage' | 'tree'` (ARTIFACTS is the landing home; PLANS and STORAGE are described below), left-nav lens switcher, poll-on-focus + manual ↻, an A-/A+ window-zoom control (`document.documentElement.style.zoom`, persisted `arco_explorer_zoom3`, default 0.85), a transparent root so the theme's body background shows through, and a reused `FileExplorer` for the TREE lens. `ArtifactsLens.tsx` (HOME recent-across-projects strip + per-project drill-down over `/api/explorer/artifacts` + `/docs`), `RecentsLens.tsx` (AGENT WRITES ledger + RECENTLY MODIFIED scan, filter chips ALL/DOCS/IMAGES, `/api/explorer/recents` + `/changed`), `types.ts` (client mirrors of the server read-models), and `launch.ts` (`openArchive` - same-browser `window.open` popup, falling back to `POST /api/explorer/open`, last-resort plain tab). `/api/explorer/*` (6 routes) lives in `server/src/http/explorerRoutes.ts`. Zero model authority. Every lens is read-only except PLANS (plan edits and MARK DONE, through the plan routes) and STORAGE, whose actions each ask for a confirmation first.
 

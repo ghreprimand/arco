@@ -18,6 +18,8 @@ command-list era; it is not a list of phrases the client recognizes.
 
 ### Start here
 
+Computer can open the cluster USAGE panel. Its recipient chooser starts from the current TO selection and member roster. Voice setup releases acquired microphone tracks if browser audio initialization fails.
+
 1. Run `npm run voice:setup` once.
 2. Open the header voice controls and enable hands-free (or press Ctrl/Cmd+Shift+Space). Use localhost or HTTPS.
 3. Say "Computer", wait for the soft double pulse, speak, then pause and say "over" alone to submit. Silence never sends a directive.

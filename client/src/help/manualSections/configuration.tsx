@@ -90,6 +90,7 @@ export const configuration: Section[] = [
   title: 'Settings - themes',
   body: (
   <>
+  <p>Switching themes clears optional colors from the previous palette. Independent preferences, such as crisp text, stay as chosen.</p>
   <p>
   Themes change the workbench colors, fonts and background effects. Switching
   is instant; no reload is needed, and all components re-render with the new
@@ -1035,6 +1036,7 @@ export const configuration: Section[] = [
   title: 'Utility agent',
   body: (
   <>
+  <p>Switching to another workflow or cluster closes its catch-up dialog and cancels the pending request. CATCH ME UP in the new tab starts ready for a new summary.</p>
   <p>
   The <strong>utility agent</strong> is one provider and model for short side
   jobs outside your workflows: CATCH ME UP, TIDY and BRIEF. Choose it once,

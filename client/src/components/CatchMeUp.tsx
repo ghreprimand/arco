@@ -40,7 +40,7 @@ export function CatchMeUp({ scope }: { scope: Scope | null }) {
   const active = useRef('');
   const cancel = () => { const id = active.current; if (id) void fetch('/api/utility-agent/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jobId: id }) }).catch(() => undefined); };
   const close = () => { cancel(); active.current = ''; setRunning(false); setOpen(false); };
-  useEffect(() => { setOpen(false); setResult(null); setError(''); return () => { cancel(); active.current = ''; }; }, [scope?.id, scope?.kind]);
+  useEffect(() => { setOpen(false); setRunning(false); setSlow(false); setResult(null); setError(''); return () => { cancel(); active.current = ''; }; }, [scope?.id, scope?.kind]);
   const run = async (range?: 'last-turn' | 'hour' | 'today') => {
     if (!scope || running) return;
     const jobId = `catch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; active.current = jobId;

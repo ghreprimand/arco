@@ -1070,6 +1070,10 @@ task-board contents are not part of a cluster snapshot.
 
 A new cluster or preset may have at most one director. Role text beginning with Director or Coordinator identifies a director. Existing clusters and saved presets remain readable without rewriting their roles. Assigning a director to another member is rejected. Legacy clusters that already have two directors remain intact, surface a warning on MEMBERS rows, and still allow REPLACE that preserves both directors' roles. The optional `tier` field is a work-size hint for the director: light for quick edits, standard for normal feature work, and heavy for large or architectural changes. It does not change model or effort and is most useful when several members can take the same work. Template review offers work size only for repeated roles.
 
+## Composer and task editor recovery
+
+A TO selection containing one member uses the per-member sender, preserving picked skills, steering intent and composer actions. Multiple recipients use broadcast. A successful single-recipient send returns TO to the member in view. The voice recipient chooser reads the latest selection and roster. Task editor RESET restores RELEASE together with title, notes and priority.
+
 ## Related links
 
 - [WebSocket protocol](PROTOCOL.md)

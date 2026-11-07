@@ -54,6 +54,9 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Theme switches clear stale optional colors; Windows artifact rows show filenames and omit unavailable tree reveal actions. Computer can open cluster USAGE, and failed voice setup releases the microphone.
+- Question options preserve pipes and backslashes; switching catch-up scope leaves the new tab ready. Chat EDIT clears unrelated attachments, single-recipient sends preserve skills and intent, voice recipient selection stays current, and task RESET restores RELEASE.
+
 - Moving an artifact into a project works when the project path uses a folder alias.
 - Keep Resume and Recall results tied to the latest request, preserve editor proposal keys, and settle disconnected editing and distillation requests as errors.
 - Retry missing cluster members after reconnect, keep other workflows' terminal windows attached, preserve application JSON and artifact fences, and recognize saved HISTORY times and Windows file references.

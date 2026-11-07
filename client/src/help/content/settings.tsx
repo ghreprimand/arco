@@ -54,7 +54,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         Choose a family first: Arco Classic retains all 43 existing selections,
         including <C>provider-auto</C>; Arco Phosphor offers 68 Phosphor palettes
         sharing one CRT treatment. Search by name/ID or filter Phosphor categories.
-        Switching updates CSS vars on <C>:root</C>, without rearranging the
+        Switching clears optional colors from the previous palette and updates CSS vars on <C>:root</C>, without rearranging the
         workbench. Phosphor glow softness defaults to 50%; effects, crisp text,
         font overrides and background/text brightness are separate controls.
       </p>
@@ -213,7 +213,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         microphone shows a level bar and records nothing. Say a phrase records
         up to five seconds once and shows what the local recognizer heard.
         Model notices lists every downloaded component and its license. On
-        Docker, voice needs the native run.
+        Docker, voice needs the native run. If audio initialization fails after permission is granted, the microphone tracks are stopped.
       </p>
     ),
     manualSection: 'hands-free-voice',

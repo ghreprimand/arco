@@ -40,7 +40,7 @@ export function parseAskNotice(content: string): { questionId: string; question:
   }
   const optMatch = last.match(ASK_OPTIONS_RE);
   if (optMatch) {
-    options = optMatch[1].split('|').map((s) => s.trim().replace(/\\\|/g, '|')).filter(Boolean);
+    options = optMatch[1].split(/(?<!\\)\|/).map((s) => s.trim().replace(/\\\|/g, '|')).filter(Boolean);
     body = lines.slice(0, -1).join('\n').trimEnd();
   } else {
     body = lines.join('\n').trimEnd();
@@ -110,6 +110,7 @@ export function AskUserQuestionNotice({ workflowId, questionId, question, option
 
   return (
     <div
+      data-help="chat.ask-question"
       style={{
         animation: 'fade-in-up 0.3s ease-out',
         marginBottom: '16px',

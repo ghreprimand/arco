@@ -52,6 +52,7 @@ MOUNT = '''async (mode) => {
     s.getState().clearAttachments(id);
   }
   s.setState({connected: true, connectionState: 'online', activeJobId: id});
+  if (mode === 'chat') s.getState().addMessage(id,{id:'edit-fixture',role:'user',content:'Original text only',timestamp:1});
   const job = s.getState().jobs[id];
   const onUpload = (file) => uploadAttachment(file);
   const noop = () => {};
@@ -185,6 +186,11 @@ async def main():
         chat_alert = page.get_by_role('alert')
         await expect(chat_alert).to_contain_text('chat-bad.png')
         await expect(chat_alert).to_contain_text('empty file')
+        # B142: EDIT replaces the entire draft, including an empty attachment list.
+        await page.evaluate("__uploadStore.getState().addAttachment('upload-chat',{filename:'unrelated.txt',path:'/projects/fixture/unrelated.txt',isImage:false})")
+        await page.get_by_role('button', name='EDIT', exact=True).click()
+        assert await page.evaluate("__uploadStore.getState().attachments['upload-chat']?.length ?? 0") == 0
+        await expect(page.locator('textarea')).to_have_value('Original text only')
         assert all(':3001' not in u['url'] for u in state['uploads'])
         assert not any(':3001' in b for b in state['blocked'])
 

@@ -6,6 +6,7 @@ import { Code, Example, Kbd, Sub } from '../../components/UserManual/components'
 export const voice: Section[] = [{
   id: 'hands-free-voice', group: 'Power features', title: 'Hands-free voice control',
   body: <>
+  <p>If microphone setup fails after permission is granted, the acquired microphone tracks are stopped. Computer can open USAGE in a cluster, and its recipient chooser starts from the current selection.</p>
   <p>
   Hands-free voice lets you speak to Arco without touching the keyboard. It
   listens for "Computer", captures a spoken directive, and hands it to the

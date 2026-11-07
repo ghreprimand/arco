@@ -628,6 +628,11 @@ export function ClusterTab({
   const sendFromComposer = (viewId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review', pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>) => {
     const allIds = cluster.members.map((m) => m.workflowId);
     const sub = composerRecipients ? allIds.filter((id) => composerRecipients.includes(id)) : [];
+    if (sub.length === 1) {
+      const sent = onSendToMember(sub[0], content, attachments, kind, primitive, pickedSkills);
+      if (sent) setComposerRecipients(null);
+      return sent;
+    }
     if (sub.length === 0 || !onBroadcast) return onSendToMember(viewId, content, attachments, kind, primitive, pickedSkills);
     const recipientList = sub.length < allIds.length ? sub : undefined;
     const clientMessageId = `cb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -743,10 +748,12 @@ export function ClusterTab({
   };
   // Computer (voice) asks for the nudge picker or the recipient chooser by
   // name; it opens exactly what a click would and sends nothing.
+  const voiceOpeners = useRef({ openNudgeModal, openRecipients });
+  voiceOpeners.current = { openNudgeModal, openRecipients };
   useEffect(() => onVoiceDialog((r) => {
     if (r.clusterId !== clusterId) return false;
-    if (r.name === 'nudge') { openNudgeModal(); return true; }
-    if (r.name === 'broadcast') { openRecipients(); return true; }
+    if (r.name === 'nudge') { voiceOpeners.current.openNudgeModal(); return true; }
+    if (r.name === 'broadcast') { voiceOpeners.current.openRecipients(); return true; }
     return false;
   }), [clusterId]);
   // Esc closes the nudge modal. Listener only attached while open.

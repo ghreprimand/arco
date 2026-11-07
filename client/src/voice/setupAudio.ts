@@ -43,8 +43,10 @@ export interface MicCapture { rate: number; stop: () => void }
 export async function openSetupMic(onFrame: (frame: Float32Array) => void): Promise<MicCapture> {
   if (!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone access requires localhost or HTTPS.');
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: false }, video: false });
-  const audio = new AudioContext({ latencyHint: 'interactive' });
+  let audio: AudioContext | undefined;
   try {
+    audio = new AudioContext({ latencyHint: 'interactive' });
+    const context = audio;
     await audio.audioWorklet.addModule('/voice-setup-capture.js');
     const node = new AudioWorkletNode(audio, 'arco-voice-setup-capture');
     node.port.onmessage = (e: MessageEvent<Float32Array>) => onFrame(e.data);
@@ -56,10 +58,10 @@ export async function openSetupMic(onFrame: (frame: Float32Array) => void): Prom
     return { rate: audio.sampleRate, stop: () => {
       if (stopped) return; stopped = true;
       node.port.onmessage = null; source.disconnect(); node.disconnect();
-      stream.getTracks().forEach((t) => t.stop()); void audio.close().catch(() => {});
+      stream.getTracks().forEach((t) => t.stop()); void context.close().catch(() => {});
     } };
   } catch (e) {
-    stream.getTracks().forEach((t) => t.stop()); void audio.close().catch(() => {});
+    stream.getTracks().forEach((t) => t.stop()); void audio?.close().catch(() => {});
     throw e;
   }
 }

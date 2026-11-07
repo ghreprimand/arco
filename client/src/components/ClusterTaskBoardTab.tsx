@@ -1211,6 +1211,7 @@ function TaskDetailDrawer({
     onEditTask(task.id, patch);
   };
   const resetFields = () => {
+    setReleaseDraft(task.release ?? '');
     setTitleDraft(task.title);
     setNotesDraft(task.notes ?? '');
     setPriorityDraft(String(task.priority));

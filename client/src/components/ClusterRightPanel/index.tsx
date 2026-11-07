@@ -45,21 +45,7 @@ import { AUTO_PICKUP_MODE_LABELS } from '@arco/shared';
 import { SavedClustersList } from '../SavedClustersList';
 import { requestClusterSnapshotSave } from '../../stores/clusterSnapshotsStore';
 
-const TABS: { id: SubTab; label: string }[] = [
-  { id: 'members', label: 'MEMBERS' },
-  { id: 'files', label: 'FILES' },
-  { id: 'activity', label: 'ACTIVITY' },
-  { id: 'reviews', label: 'REVIEWS' },
-  { id: 'handoffs', label: 'HANDOFFS' },
-  { id: 'plan', label: 'PLAN' },
-  { id: 'board', label: 'BOARD' },
-  { id: 'mailbox', label: 'MAILBOX' },
-  { id: 'history', label: 'HISTORY' },
-  { id: 'usage', label: 'USAGE' },
-  { id: 'preview', label: 'PREVIEW' },
-  { id: 'config', label: 'CONFIG' },
-  { id: 'github', label: 'GITHUB' },
-];
+import { CLUSTER_PANELS as TABS } from './panels';
 
 type GroupId = 'workspace' | 'agent' | 'memory' | 'runtime';
 const GROUPS: { id: GroupId; label: string; tabs: SubTab[] }[] = [

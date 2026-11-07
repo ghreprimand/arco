@@ -171,7 +171,7 @@ function shiftValue(token: string, amount: number): string {
 // Matches the historical hardcoded panel alpha so existing setups are unchanged.
 export const DEFAULT_FROSTED_OPACITY = 0.8;
 export const DEFAULT_TEXT_BRIGHTNESS = 25;
-let previousPhosphorKeys: string[] = [];
+let previousThemeKeys: string[] = [];
 
 export function applyTheme(
   theme: Theme,
@@ -182,8 +182,8 @@ export function applyTheme(
 ): void {
   const root = document.documentElement;
   const phosphor = theme.family === 'phosphor';
-  for (const key of previousPhosphorKeys) if (!(key in theme.tokens)) root.style.removeProperty(`--${key}`);
-  previousPhosphorKeys = phosphor ? Object.keys(theme.tokens) : [];
+  for (const key of previousThemeKeys) if (!(key in theme.tokens)) root.style.removeProperty(`--${key}`);
+  previousThemeKeys = Object.keys(theme.tokens);
   root.dataset.themeFamily = phosphor ? 'phosphor' : 'classic';
   if (phosphor) root.style.setProperty('--phosphor-text', phosphorEmission(Number(root.dataset.phosphorSoftness ?? 50)));
   else root.style.removeProperty('--phosphor-text');
