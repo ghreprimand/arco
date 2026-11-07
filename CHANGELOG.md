@@ -51,6 +51,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- CLI capability probes stop stalled processes, and Codex cancellation and compaction deadlines include the initial RPC reply. Unanswered Codex RPC requests now expire.
+
+- Claude Native file edits preserve unmatched lines when replace-all finds overlapping whitespace-normalized matches.
+
 - The COMPACT button no longer sends a continue message when COMPACTION AUTO-CONTINUE is on; the switch applies to automatic compactions only.
 - Concurrent preset saves and knowledge article changes retain accepted updates. Unreadable pending peer messages remain on disk and report an error instead of being discarded. Failed member replacements keep pending mail reachable. Concurrent image saves refuse unconfirmed collisions, and a failed media export cannot delete another export.
 

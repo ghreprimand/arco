@@ -113,7 +113,12 @@ function spliceLineFuzzy(
     for (let k = 0; k < n; k++) {
       if (norm(fileLines[i + k]) !== normOld[k]) { ok = false; break; }
     }
-    if (ok) starts.push(i);
+    if (ok) {
+      starts.push(i);
+      // replace_all follows exact replacement semantics: consume each source
+      // line at most once. Keep overlapping candidates for uniqueness checks.
+      if (replaceAll) i += n - 1;
+    }
   }
   if (starts.length === 0) return null;
   // Guard: a fuzzy match that ALSO matches exactly is the exact path's job; we

@@ -785,18 +785,6 @@ export class CodexAppServerWorker extends EventEmitter {
       this.current.interruptResolve = resolve;
       this.current.interruptDeadline = Date.now() + INTERRUPT_ACK_TIMEOUT_MS;
     });
-    let interruptError: Error | null = null;
-    try {
-      await this.rpc.request('turn/interrupt', params);
-    } catch (err) {
-      interruptError = err instanceof Error ? err : new Error(String(err));
-    }
-    if (interruptError) {
-      console.warn(`[appserver:${this.workflowId.slice(0, 8)}] turn/interrupt RPC error — falling through to SIGKILL: ${interruptError.message}`);
-      this.hardKill();
-      this.settleTurn({ error: 'Worker killed (interrupt failed)' });
-      return;
-    }
     // Wait for `turn/completed { status: 'interrupted' }`; the notification
     // handler resolves `interruptResolve` and clears `current.turnId`.
     const timer = setTimeout(() => {
@@ -811,6 +799,15 @@ export class CodexAppServerWorker extends EventEmitter {
       }
     }, INTERRUPT_ACK_TIMEOUT_MS);
     try {
+      try {
+        await Promise.race([this.rpc.request('turn/interrupt', params), ackPromise]);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`[appserver:${this.workflowId.slice(0, 8)}] turn/interrupt RPC error - falling through to SIGKILL: ${message}`);
+        this.hardKill();
+        this.settleTurn({ error: 'Worker killed (interrupt failed)' });
+        return;
+      }
       await ackPromise;
     } finally {
       clearTimeout(timer);
@@ -869,7 +866,7 @@ export class CodexAppServerWorker extends EventEmitter {
 
     try {
       const params: ThreadCompactStartParams = { threadId: this.threadId };
-      await this.rpc.request<ThreadCompactStartResponse>('thread/compact/start', params);
+      await Promise.race([this.rpc.request<ThreadCompactStartResponse>('thread/compact/start', params), completion]);
     } catch (err) {
       finish('request-failed');
       await completion;

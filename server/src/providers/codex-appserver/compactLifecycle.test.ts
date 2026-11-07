@@ -128,3 +128,18 @@ test('timeout retirement waits for the old process to exit before reuse', async 
   await retirement;
   assert.equal(finished,true);
 });
+
+test('compact deadline includes a missing RPC acknowledgement', async () => {
+  const { worker, internals } = readyWorker({
+    request: () => new Promise(() => {}),
+    close: () => {},
+  });
+  internals.compactTimeoutMs = 5;
+  const result = await Promise.race([
+    worker.compactThread(),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('compact did not settle')), 100)),
+  ]);
+  assert.equal(result.ok, false);
+  assert.equal(result.recycle, true);
+  assert.equal(internals.compacting, false);
+});

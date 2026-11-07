@@ -22,3 +22,17 @@ test('STOP during interrupt shares one RPC and waits for interrupted completion'
   await Promise.all([first, second]);
   assert(settled);
 });
+
+test('interrupt deadline includes a missing RPC acknowledgement', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const worker = new CodexAppServerWorker('interrupt-deadline', {} as WorkerConfig, 'thread-test');
+  const internals = worker as any;
+  Object.assign(internals, { rpc: { request: () => new Promise(() => {}) }, threadId: 'thread-test' });
+  Object.assign(internals.current, { turnId: 'turn-test', startedAt: Date.now() });
+  let settled = false;
+  const pending = worker.cancelCurrentTurn().then(() => { settled = true; });
+  t.mock.timers.tick(5001);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(settled, true);
+  await pending;
+});

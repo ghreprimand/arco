@@ -100,3 +100,18 @@ test('exact wins over fuzzy when both could match (precision)', () => {
   const r = applyEdit(file, 'value = 1;', 'value = 2;', false);
   assert.equal(r.applied, false, 'exact ambiguity refused, not fuzzed');
 });
+
+for (const replacement of ['X', 'X\nY\nZ']) {
+  test(`fuzzy replace_all preserves overlapping unmatched lines with ${replacement.split('\n').length} replacement lines`, () => {
+    const result = applyEdit('a \na \na ', 'a\na', replacement, true);
+    assert.equal(result.applied, true);
+    assert.equal(result.count, 1);
+    assert.equal(result.updated, `${replacement}\na `);
+  });
+}
+
+test('fuzzy replace_all selects multiple disjoint ranges from left to right', () => {
+  const result = applyEdit('a \na \na \na \na ', 'a\na', 'X', true);
+  assert.equal(result.count, 2);
+  assert.equal(result.updated, 'X\nX\na ');
+});

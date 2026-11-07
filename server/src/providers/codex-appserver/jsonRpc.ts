@@ -101,6 +101,7 @@ export class JsonRpcClient extends EventEmitter {
     private readonly stdin: Writable,
     stdout: Readable,
     private readonly handleInteractiveRequest?: (request: JsonRpcServerRequest) => boolean,
+    private readonly requestTimeoutMs = 30_000,
   ) {
     super();
     stdout.on('data', (chunk: Buffer) => this.onStdoutData(chunk));
@@ -114,14 +115,20 @@ export class JsonRpcClient extends EventEmitter {
     const id = this.nextId++;
     const payload = JSON.stringify({ id, method, params });
     return new Promise<R>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`${method} timed out after ${this.requestTimeoutMs} ms`));
+      }, this.requestTimeoutMs);
+      timer.unref();
       this.pending.set(id, {
-        resolve: (v) => resolve(v as R),
-        reject,
+        resolve: (v) => { clearTimeout(timer); resolve(v as R); },
+        reject: (err) => { clearTimeout(timer); reject(err); },
         method,
       });
       try {
         this.stdin.write(payload + '\n');
       } catch (err) {
+        clearTimeout(timer);
         this.pending.delete(id);
         reject(err instanceof Error ? err : new Error(String(err)));
       }

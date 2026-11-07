@@ -52,6 +52,15 @@ export const providers: Section[] = [
   body: (
   <>
   <p>
+  CLI version and help checks stop after five seconds when a process stalls.
+  Codex interrupt and compaction deadlines include the initial server reply.
+  </p>
+  <p>
+  Native file edits that replace every occurrence use non-overlapping matches
+  from left to right, including matches recovered through whitespace normalization.
+  Lines outside those matches stay unchanged.
+  </p>
+  <p>
   Claude runs through one of two transports, Native or CLI. This section
   covers choosing a transport, the model list, sign-in, and the behaviors
   that differ between the two.

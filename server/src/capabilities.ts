@@ -15,6 +15,11 @@ import { arcoHome } from './arcoHome.js';
 import { commandArgs } from './windowsCommand.js';
 
 const execFileAsync = promisify(execFile);
+const CLI_PROBE_OPTIONS = {
+  timeout: 5_000,
+  killSignal: 'SIGKILL' as const,
+  maxBuffer: 2 * 1024 * 1024,
+};
 
 const FALLBACK_EFFORTS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max'];
 const MODELS: ModelName[] = [...CLAUDE_MODELS] as ModelName[];
@@ -31,9 +36,9 @@ export type CliProvider = 'claude' | 'codex';
 // optional dep, so npm exited 0 — and every `codex --version` threw. Collapsing
 // that into 'unknown' made the whole CODEX row disappear from the popover, which
 // reads as "not installed" and gives the operator nothing to click or diagnose.
-async function probeVersion(bin: string, flags: string[] = ['--version']): Promise<string> {
+export async function probeVersion(bin: string, flags: string[] = ['--version'], timeoutMs = 5_000): Promise<string> {
   try {
-    const { stdout } = await execFileAsync(...commandArgs(bin, flags));
+    const { stdout } = await execFileAsync(...commandArgs(bin, flags), { ...CLI_PROBE_OPTIONS, timeout: timeoutMs });
     const match = stdout.match(/(\d+\.\d+\.\d+(?:[-.][A-Za-z0-9.-]+)?)/);
     return match ? match[1] : 'unknown';
   } catch (err) {
@@ -46,7 +51,7 @@ async function probeVersion(bin: string, flags: string[] = ['--version']): Promi
 // fits the popover's one-line result slot.
 async function probeFailureReason(bin: string): Promise<string | null> {
   try {
-    await execFileAsync(...commandArgs(bin, ['--version']));
+    await execFileAsync(...commandArgs(bin, ['--version']), CLI_PROBE_OPTIONS);
     return null;
   } catch (err) {
     const e = err as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
@@ -61,7 +66,7 @@ export async function probeCapabilities(): Promise<Capabilities> {
   let efforts = FALLBACK_EFFORTS;
 
   try {
-    const { stdout } = await execFileAsync(...commandArgs('claude', ['--help']), { maxBuffer: 2 * 1024 * 1024 });
+    const { stdout } = await execFileAsync(...commandArgs('claude', ['--help']), CLI_PROBE_OPTIONS);
     const match = stdout.match(/--effort\s+<level>[^(]*\(([^)]+)\)/);
     if (match) {
       const parsed = match[1].split(',').map((s) => s.trim()).filter(Boolean);
@@ -322,7 +327,7 @@ interface SnapshotMeta {
 
 async function runHelpProbe(bin: CliProvider, args: string[]): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync(...commandArgs(bin, args), { maxBuffer: 2 * 1024 * 1024 });
+    const { stdout } = await execFileAsync(...commandArgs(bin, args), CLI_PROBE_OPTIONS);
     return stdout;
   } catch {
     return null; // flag not supported on this version — skip silently

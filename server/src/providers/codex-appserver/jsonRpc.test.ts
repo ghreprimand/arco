@@ -60,3 +60,21 @@ test('notifications still emit as notifications', async () => {
   assert.deepEqual(got, ['turn/started']);
   assert.equal(written.length, 0);
 });
+
+test('missing RPC replies expire and release their pending request', async () => {
+  const input = new PassThrough();
+  const output = new PassThrough();
+  const client = new JsonRpcClient(input, output, undefined, 10);
+  try {
+    const result = await Promise.race([
+      client.request('initialize'),
+      new Promise((resolve) => setTimeout(() => resolve('still pending'), 60)),
+    ]);
+    assert.fail(`expected a request timeout, received ${result}`);
+  } catch (err) {
+    assert.match(String(err), /initialize.*timed out/);
+    assert.equal((client as any).pending.size, 0);
+  } finally {
+    client.close('test cleanup');
+  }
+});
