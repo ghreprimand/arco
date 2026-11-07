@@ -327,3 +327,5 @@ UI niceties added while testing N1-N4. All client-only; no protocol surface.
 
 - [Feature reference](FEATURES.md)
 - [Documentation style](STYLE.md)
+
+Closing the studio, unloading its source or switching away from a media editor cancels that editor's active conversion or stem-separation request. Replacing the source cancels the old job before the new source can run an operation.

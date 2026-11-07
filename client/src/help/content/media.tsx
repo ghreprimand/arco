@@ -12,7 +12,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   'header.media': {
     title: 'Media studio',
     body: (
-      <p>
+      <p>Closing an editor or replacing its source cancels its active conversion or stem-separation job.
         Opens the <strong>Media studio</strong>: a viewer/player for images,
         audio and video. Opens <strong>empty</strong> here (then drag-drop or{' '}
         <strong>Import</strong> a file); or right-click a media file in{' '}
@@ -35,7 +35,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   'media.mode': {
     title: 'Media mode switch',
     body: (
-      <p>
+      <p>Switching mode cancels active conversion and stem-separation jobs.
         Flip the studio between <C>IMAGE</C>, <C>AUDIO</C>, and <C>VIDEO</C> in
         place. Each mode has its own editor and FFmpeg ops. Switching clears the
         current source (any imported file is released) so the new mode opens
@@ -47,7 +47,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   'media.back': {
     title: 'Back to previous file',
     body: (
-      <p>
+      <p>Returning to the previous source cancels jobs still using the current source.
         Appears after you click an op's output to load it (e.g. a spectrogram
         opens in image mode). <strong>← BACK</strong> restores the file you were
         working on before: so previewing a result is non-destructive. An
@@ -59,7 +59,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   'media.unload': {
     title: 'Unload the file',
     body: (
-      <p>
+      <p>Unloading cancels active conversion and stem-separation jobs.
         Drop the current source and return to the <strong>Import</strong>
         affordance: <em>without</em> closing the studio or switching mode. Any
         imported blob is released; an on-disk file is just unbound (the file on
@@ -71,7 +71,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   'media.import': {
     title: 'Import a file',
     body: (
-      <p>
+      <p>Replacing the source cancels jobs still using the previous source.
         Drag-drop a file here or use <strong>IMPORT…</strong> to load one from the
         browser. Filtered to the active mode (image / audio / video). Imported
         files use a browser object URL for playback. Audio and video operations
@@ -375,7 +375,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   },
   'media.op-output': {
     title: 'Output file (click to load)',
-    body: <p>The freshly-written op output. <strong>Click it to load the result back into the studio</strong> as the new working file (a convert→WAV becomes the WAV you're editing; a spectrogram opens as an image). The path is shown so you know where it landed.</p>,
+    body: <p>Loading an output cancels jobs still using the previous source. The freshly-written op output. <strong>Click it to load the result back into the studio</strong> as the new working file (a convert→WAV becomes the WAV you're editing; a spectrogram opens as an image). The path is shown so you know where it landed.</p>,
     manualSection: S,
   },
 
@@ -464,6 +464,6 @@ export const mediaHelp: Record<string, HelpEntry> = {
   },
   'media.close': {
     title: 'Close Media studio',
-    body: <p>Closes Media studio. Files already saved stay where they were written; an unsaved edit is discarded.</p>,
+    body: <p>Closing cancels active conversion and stem-separation jobs. Closes Media studio. Files already saved stay where they were written; an unsaved edit is discarded.</p>,
   },
 };

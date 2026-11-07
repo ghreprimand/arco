@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   VIDEO_FORMAT_NAMES,
   VIDEO_RES_PRESETS,
@@ -61,6 +61,15 @@ export function VideoOpsPanel({ diskPath, importedFile, fileContext, getRegion, 
   const [saveName, setSaveName] = useState('');
   const [status, setStatus] = useState<Status>({ phase: 'idle' });
   const abortRef = useRef<AbortController | null>(null);
+  const generationRef = useRef(0);
+  useEffect(() => {
+    setStatus({ phase: 'idle' });
+    return () => {
+      generationRef.current++;
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, [diskPath, importedFile, fileContext?.cwd, fileContext?.workflowId]);
   const { pick, pickerElement } = useDirectoryPicker();
 
   // On-disk needs a cwd to resolve against; an imported file just needs the blob.
@@ -70,16 +79,18 @@ export function VideoOpsPanel({ diskPath, importedFile, fileContext, getRegion, 
 
   const runOp = useCallback(async (spec: MediaOpSpec) => {
     if (!enabled) return;
+    const generation = generationRef.current;
     let dir = saveDir;
     let name = saveName;
     // An IMPORTED file with no destination would silently land in scratch — pop
     // the folder picker (Save-As). On-disk keeps "next to the source".
     if (!diskPath && !dir.trim()) {
       const picked = await pick({ initialPath: fileContext?.cwd, defaultName: sourceStem, title: 'Save output to…' });
-      if (!picked) return;
+      if (!picked || generationRef.current !== generation) return;
       dir = picked.dir; name = picked.basename;
       setSaveDir(picked.dir); setSaveName(picked.basename);
     }
+    if (generationRef.current !== generation) return;
     const ac = new AbortController();
     abortRef.current = ac;
     setStatus({ phase: 'running', op: spec.op });
@@ -90,9 +101,12 @@ export function VideoOpsPanel({ diskPath, importedFile, fileContext, getRegion, 
         output: { dir, basename: name },
         signal: ac.signal,
       });
+      if (generationRef.current !== generation) return;
+      if (ac.signal.aborted) { setStatus({ phase: 'idle' }); return; }
       if (body.ok) setStatus({ phase: 'done', relPath: body.relPath, outputPath: body.outputPath ?? '' });
       else setStatus({ phase: 'error', message: body.error || 'op failed', code: body.code });
     } catch (err) {
+      if (generationRef.current !== generation) return;
       // An abort (Cancel) lands here too; the server kills the child + cleans up.
       if (ac.signal.aborted) setStatus({ phase: 'idle' });
       else setStatus({ phase: 'error', message: err instanceof Error ? err.message : String(err) });

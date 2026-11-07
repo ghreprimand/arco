@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   STEM_MODELS,
   STEM_NAMES,
@@ -44,18 +44,29 @@ export function MediaStemsControls({ source, saveDir, setSaveDir, pick, initialP
   const [format, setFormat] = useState<StemFormat>('mp3');
   const [status, setStatus] = useState<Status>({ phase: 'idle' });
   const abortRef = useRef<AbortController | null>(null);
+  const generationRef = useRef(0);
+  useEffect(() => {
+    setStatus({ phase: 'idle' });
+    return () => {
+      generationRef.current++;
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, [source.diskPath, source.importedFile, source.fileContext?.cwd, source.fileContext?.workflowId]);
 
   const run = useCallback(async () => {
     if (!enabled) return;
+    const generation = generationRef.current;
     // An imported source with no destination would land its stems in scratch —
     // pop the folder picker (Save-As) first. On-disk keeps "next to source".
     let outDir = saveDir;
     if (!source.diskPath && !outDir.trim()) {
       const picked = await pick({ initialPath, defaultName: '', withFilename: false, title: 'Save stems into…' });
-      if (!picked) return; // cancelled
+      if (!picked || generationRef.current !== generation) return; // cancelled
       outDir = picked.dir;
       setSaveDir(picked.dir);
     }
+    if (generationRef.current !== generation) return;
     const ac = new AbortController();
     abortRef.current = ac;
     setStatus({ phase: 'running' });
@@ -68,9 +79,12 @@ export function MediaStemsControls({ source, saveDir, setSaveDir, pick, initialP
         outputDir: outDir,
         signal: ac.signal,
       });
+      if (generationRef.current !== generation) return;
+      if (ac.signal.aborted) { setStatus({ phase: 'idle' }); return; }
       if (r.ok) setStatus({ phase: 'done', stems: r.stems ?? [], relDir: r.relDir, dir: r.dir });
       else setStatus({ phase: 'error', message: r.error || 'separation failed', code: r.code });
     } catch (err) {
+      if (generationRef.current !== generation) return;
       if (ac.signal.aborted) setStatus({ phase: 'idle' });
       else setStatus({ phase: 'error', message: err instanceof Error ? err.message : String(err) });
     } finally {

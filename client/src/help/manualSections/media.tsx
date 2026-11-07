@@ -41,7 +41,7 @@ export const media: Section[] = [
         </ul>
         <p>
           The <Code>IMAGE</Code> / <Code>AUDIO</Code> / <Code>VIDEO</Code>{' '}
-          switch changes mode in place.
+          switch changes mode in place. Closing the studio, unloading or replacing its source, or switching editors cancels active conversion and stem-separation jobs.
         </p>
         <p>
           Imported files support every operation. Arco first copies them into

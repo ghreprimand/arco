@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Closing or changing a Media Studio source cancels its active conversion and stem-separation jobs.
+
 - Source services retain the Arco home selected during installation instead of reopening the default state directory.
 
 - Source app, agent and management service units preserve paths containing spaces and use the installed runtime.
