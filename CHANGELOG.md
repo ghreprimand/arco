@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Standalone Media Studio reopens Windows drive and UNC output paths without requiring a workflow.
+
 - Media output reveal selects the source file's pinned workflow rather than an unrelated active tab.
 
 - The Media Studio manual accurately distinguishes confirmed image overwrites from conversion outputs written as new files.

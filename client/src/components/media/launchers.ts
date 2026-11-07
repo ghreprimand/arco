@@ -58,3 +58,7 @@ export function openImageForEdit(path: string, context?: MediaFileContext): void
   }
   useAppStore.getState().setMediaStudio({ open: true, mode: 'image', path, edit: true, context });
 }
+
+export function isAbsoluteMediaPath(value: string): boolean {
+  return /^(?:\/|[A-Za-z]:[\\/]|\\\\)/.test(value);
+}

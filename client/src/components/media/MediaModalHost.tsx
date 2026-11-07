@@ -6,7 +6,7 @@ import { contentSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurf
 import { AudioEditor, AudioOpsPanel } from './AudioEditor';
 import { VideoEditor, VideoOpsPanel } from './VideoEditor';
 import { ImageEditor } from './ImageEditor';
-import { classifyMediaExt, type MediaMode } from './launchers';
+import { classifyMediaExt, isAbsoluteMediaPath, type MediaMode } from './launchers';
 
 // WORKBENCH_EXPANSION §H1 — Media studio modal host. The shared shell for the
 // later editors (H2 image / H5 audio / H7 video — none of which exist yet).
@@ -124,7 +124,7 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
     // with the artifacts-dir fallback). An ABSOLUTE path (e.g. an op output in
     // scratch / a chosen dir) is served by the fence-aware raw route instead —
     // see imageServeUrl below — so skip the fetch for it.
-    if (mode !== 'image' || !activePath || importedUrl || activePath.startsWith('/')) { return; }
+    if (mode !== 'image' || !activePath || importedUrl || isAbsoluteMediaPath(activePath)) { return; }
     let cancelled = false;
     const params = new URLSearchParams({ path: activePath });
     if (fileContext) {
@@ -240,7 +240,7 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
   // gates it (cwd | scratch | unconfined) with cwd optional.
   const serveUrl = (path: string | null): string | null => {
     if (!path) return null;
-    if (!fileContext && !path.startsWith('/')) return null; // relative needs a cwd
+    if (!fileContext && !isAbsoluteMediaPath(path)) return null; // relative needs a cwd
     const p = new URLSearchParams({ path });
     if (fileContext) { p.set('cwd', fileContext.cwd); p.set('workflowId', fileContext.workflowId); }
     return `/api/media/raw?${p.toString()}`;
@@ -248,7 +248,7 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
 
   // The active image source: imported object URL wins; an ABSOLUTE on-disk path
   // streams via the raw route; otherwise the file-content dataUrl (relative open).
-  const imageServeUrl = mode === 'image' && !importedUrl && activePath?.startsWith('/') ? serveUrl(activePath) : null;
+  const imageServeUrl = mode === 'image' && !importedUrl && (activePath && isAbsoluteMediaPath(activePath)) ? serveUrl(activePath) : null;
   const imageSrc = mode === 'image'
     ? (importedUrl ?? imageServeUrl ?? (imagePayload?.type === 'image' ? imagePayload.dataUrl : null))
     : null;

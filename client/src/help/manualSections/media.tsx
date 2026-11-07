@@ -39,7 +39,7 @@ export const media: Section[] = [
           </li>
         </ul>
         <p>
-          REVEAL IN FILES returns to the file's pinned workflow rather than an unrelated active tab. The <Code>IMAGE</Code> / <Code>AUDIO</Code> / <Code>VIDEO</Code>{' '}
+          REVEAL IN FILES returns to the file's pinned workflow rather than an unrelated active tab. Absolute Windows drive and UNC outputs can be reopened without an active workflow. The <Code>IMAGE</Code> / <Code>AUDIO</Code> / <Code>VIDEO</Code>{' '}
           switch changes mode in place. Closing the studio, unloading or replacing its source, or switching editors cancels active conversion and stem-separation jobs.
         </p>
         <p>

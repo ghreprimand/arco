@@ -12,7 +12,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   'header.media': {
     title: 'Media studio',
     body: (
-      <p>REVEAL IN FILES follows the source file's pinned workflow. Closing an editor or replacing its source cancels its active conversion or stem-separation job.
+      <p>Standalone output reopening supports Windows drive and UNC paths. REVEAL IN FILES follows the source file's pinned workflow. Closing an editor or replacing its source cancels its active conversion or stem-separation job.
         Opens the <strong>Media studio</strong>: a viewer/player for images,
         audio and video. Opens <strong>empty</strong> here (then drag-drop or{' '}
         <strong>Import</strong> a file); or right-click a media file in{' '}
@@ -375,7 +375,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   },
   'media.op-output': {
     title: 'Output file (click to load)',
-    body: <p>Loading an output cancels jobs still using the previous source. The freshly-written op output. <strong>Click it to load the result back into the studio</strong> as the new working file (a convert→WAV becomes the WAV you're editing; a spectrogram opens as an image). The path is shown so you know where it landed.</p>,
+    body: <p>Windows drive and UNC output paths also reopen without an active workflow. Loading an output cancels jobs still using the previous source. The freshly-written op output. <strong>Click it to load the result back into the studio</strong> as the new working file (a convert→WAV becomes the WAV you're editing; a spectrogram opens as an image). The path is shown so you know where it landed.</p>,
     manualSection: S,
   },
 

@@ -333,3 +333,5 @@ Closing the studio, unloading its source or switching away from a media editor c
 Image SAVE differs from conversion output: an image opened from FILES targets its original path and requires confirmation before overwrite. Image saving requires a workflow context. An imported image asks for a filename. Audio and video conversions retain their new-file behavior.
 
 REVEAL IN FILES selects the workflow pinned to the media file, even when another tab was active when the studio opened.
+
+Standalone Media Studio can reopen absolute output paths on Windows, including drive and UNC paths, through the guarded media route without a workflow context.
