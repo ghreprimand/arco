@@ -399,3 +399,5 @@ restore safeguards.
 ## Continue a terminal session
 
 For a project with local Claude Code or Codex history, open its Home card menu and choose **Continue a session from the terminal**, or use the session creator. Home reads that project history when the menu opens. Select **OPEN** to continue in Arco. Close the terminal session first to avoid concurrent writes. Claude sessions require a connected Claude CLI; the tab uses the CLI transport. Codex uses the terminal account, even when other profiles are configured. Discovery reads the provider history in place. Docker shows these sessions only when the history directories are mounted.
+
+The Linux source launcher stops only processes whose checkout, Arco home and start identity match its ownership checks. It does not kill unrelated development servers by command-line pattern. A reused or unverifiable PID is left alone.

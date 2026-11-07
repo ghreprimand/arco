@@ -121,7 +121,9 @@ export const gettingStarted: Section[] = [
   <Code>arco setup</Code>
   </p>
   <p>
-  Source systemd service definitions preserve checkout paths containing spaces and retain the Arco home selected during installation. Reinstall a source unit after changing that home.
+  The Linux source launcher verifies process ownership before stopping a development server. Source systemd service definitions preserve checkout paths containing spaces and retain the Arco home selected during installation. Reinstall a source unit after changing that home.
+  </p>
+  <p>
   Setup asks before installing the per-user service and creating an application
   shortcut, starts the service, and opens the local URL. The package saves an
   available port and moves if it becomes occupied; shortcuts and{' '}

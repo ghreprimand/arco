@@ -15,6 +15,7 @@ while [ -L "$_arco_self" ]; do
   esac
 done
 ARCO_DIR="${ARCO_DIR:-$(cd "$(dirname "$_arco_self")/.." && pwd -P)}"
+ARCO_DIR="$(cd "$ARCO_DIR" && pwd -P)"
 unset _arco_self _arco_link
 CLIENT_PORT="${ARCO_CLIENT_PORT:-5173}"
 SERVER_PORT="${ARCO_SERVER_PORT:-3001}"
@@ -92,34 +93,62 @@ find_free_port() {
   return 1
 }
 
-# True if the given PID's cwd (or ancestry's cwd) is inside $ARCO_DIR.
-# We walk up the parent chain too, because npm/concurrently wrappers may have
-# the project root as cwd while the child vite/tsx process has a subdir.
+# Process facts are kept separate so ownership tests never signal host processes.
+process_cwd() { readlink "/proc/$1/cwd" 2>/dev/null || true; }
+process_home() {
+  [[ -r "/proc/$1/environ" ]] || return 1
+  local values configured user_home
+  values=$(head -c 65536 "/proc/$1/environ" | tr '\0' '\n')
+  configured=$(printf '%s\n' "$values" | sed -n 's/^ARCO_HOME=//p' | head -n 1)
+  user_home=$(printf '%s\n' "$values" | sed -n 's/^HOME=//p' | head -n 1)
+  if [[ -n "$configured" ]]; then printf '%s' "$configured";
+  elif [[ -n "$user_home" ]]; then printf '%s/.arco' "$user_home";
+  else return 1; fi
+}
+process_start_id() {
+  local value
+  value=$(head -c 4096 "/proc/$1/stat" 2>/dev/null) || return 1
+  value=${value##*) }
+  set -- $value
+  printf '%s' "${20:-}"
+}
+process_group() { ps -o pgid= -p "$1" 2>/dev/null | tr -d ' '; }
+
 pid_is_arco() {
-  local pid="$1"
-  [[ -z "$pid" ]] && return 1
-  local p="$pid" hops=0
-  while [[ -n "$p" && "$p" -gt 1 && "$hops" -lt 6 ]]; do
-    local cwd
-    cwd=$(readlink "/proc/$p/cwd" 2>/dev/null || true)
-    if [[ -n "$cwd" && "$cwd" == "$ARCO_DIR"* ]]; then
-      return 0
-    fi
-    # Check cmdline for arco path too (covers cases where cwd was changed)
-    if [[ -r "/proc/$p/cmdline" ]]; then
-      if tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q "$ARCO_DIR"; then
-        return 0
-      fi
-    fi
-    # Walk to parent
-    if [[ -r "/proc/$p/stat" ]]; then
-      p=$(awk '{print $4}' "/proc/$p/stat" 2>/dev/null || echo "")
-    else
-      p=""
-    fi
-    hops=$((hops + 1))
-  done
-  return 1
+  local pid="$1" cwd target_home
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  cwd=$(process_cwd "$pid")
+  [[ "$cwd" == "$ARCO_DIR" || "$cwd" == "$ARCO_DIR/"* ]] || return 1
+  target_home=$(process_home "$pid") || return 1
+  [[ "$target_home" == "${ARCO_HOME:-$HOME/.arco}" ]]
+}
+
+record_pid() {
+  local pid="$1" started
+  started=$(process_start_id "$pid") || return 1
+  [[ -n "$started" ]] || return 1
+  printf '%s\n' "$pid" "$started" "$ARCO_DIR" "${ARCO_HOME:-$HOME/.arco}" > "$PID_FILE.tmp"
+  mv "$PID_FILE.tmp" "$PID_FILE"
+}
+
+recorded_pid() {
+  [[ -f "$PID_FILE" ]] || return 1
+  local pid started current
+  pid=$(sed -n '1p' "$PID_FILE")
+  started=$(sed -n '2p' "$PID_FILE")
+  [[ -n "$started" && "$(sed -n '3p' "$PID_FILE")" == "$ARCO_DIR" && "$(sed -n '4p' "$PID_FILE")" == "${ARCO_HOME:-$HOME/.arco}" ]] || return 1
+  current=$(process_start_id "$pid") || return 1
+  [[ "$current" == "$started" ]] && pid_is_arco "$pid" || return 1
+  [[ "$(process_start_id "$pid")" == "$started" ]] || return 1
+  printf '%s' "$pid"
+}
+
+signal_owned_pid() {
+  local pid="$1" signal="${2:-TERM}" started
+  started=$(process_start_id "$pid") || return 1
+  [[ -n "$started" ]] && pid_is_arco "$pid" || return 1
+  [[ "$(process_start_id "$pid")" == "$started" ]] || return 1
+  kill "-$signal" "$pid" 2>/dev/null || true
 }
 
 # Reap orphaned Arco processes holding our ports. Safe — only kills
@@ -130,7 +159,7 @@ reap_orphans() {
     local pid
     pid=$(pid_on_port "$port")
     if [[ -n "$pid" ]] && pid_is_arco "$pid"; then
-      kill "$pid" 2>/dev/null || true
+      signal_owned_pid "$pid" TERM || true
       reaped=1
     fi
   done
@@ -141,7 +170,7 @@ reap_orphans() {
       local pid
       pid=$(pid_on_port "$port")
       if [[ -n "$pid" ]] && pid_is_arco "$pid"; then
-        kill -9 "$pid" 2>/dev/null || true
+        signal_owned_pid "$pid" KILL || true
       fi
     done
     sleep 0.5
@@ -149,17 +178,13 @@ reap_orphans() {
 }
 
 is_running() {
-  if [[ -f "$PID_FILE" ]]; then
-    local pid
-    pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
-    if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-      return 0
-    fi
-  fi
-  if port_in_use "$CLIENT_PORT" && port_in_use "$SERVER_PORT"; then
-    return 0
-  fi
-  return 1
+  local pid
+  pid=$(recorded_pid) || pid=""
+  if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then return 0; fi
+  local client_pid server_pid
+  client_pid=$(pid_on_port "$CLIENT_PORT")
+  server_pid=$(pid_on_port "$SERVER_PORT")
+  [[ -n "$client_pid" && -n "$server_pid" ]] && pid_is_arco "$client_pid" && pid_is_arco "$server_pid"
 }
 
 wait_ready() {
@@ -239,15 +264,9 @@ start() {
   # reap-orphans branching.
   if is_running \
        || port_in_use "$CLIENT_PORT" \
-       || port_in_use "$SERVER_PORT" \
-       || pgrep -f "tsx.*(server|src)/index\.ts" >/dev/null 2>&1 \
-       || pgrep -f "concurrently.*arco" >/dev/null 2>&1; then
+       || port_in_use "$SERVER_PORT"; then
     trace "start NUKE-EXISTING → stop before fresh boot"
     stop
-    # Belt-and-suspenders: if stop() missed anything (orphaned tsx whose
-    # pid-file is gone), pkill by signature one more time.
-    pkill -f "tsx.*(server|src)/index\.ts" 2>/dev/null || true
-    pkill -f "concurrently.*arco" 2>/dev/null || true
     # Brief settle so the kernel releases ports before we try to bind.
     sleep 1
     # If a non-Arco process is squatting on a port, bump to the next
@@ -271,7 +290,7 @@ start() {
             eval "$port_var=$fresh"
           fi
         else
-          [[ -n "$pid" ]] && kill -9 "$pid" 2>/dev/null || true
+          [[ -n "$pid" ]] && signal_owned_pid "$pid" KILL || true
         fi
       fi
     done
@@ -292,7 +311,7 @@ start() {
   export ARCO_CLIENT_PORT="$CLIENT_PORT"
   export ARCO_PORT="$SERVER_PORT"
   nohup setsid npm run dev >> "$LOG_FILE" 2>&1 &
-  echo $! > "$PID_FILE"
+  record_pid "$!" || true
   if ! wait_ready 60; then
     notify "Arco: start failed" "Did not bind ports within 30s. See $LOG_FILE" "critical"
     exit 1
@@ -308,8 +327,9 @@ stop() {
   # to close itself before the process dies. Since the session-cookie gate
   # (server/src/http/wsAuth.ts) this curl gets a 401 unless the server runs
   # with ARCO_WS_AUTH=off, and the signal fallback below does the work.
-  local api_ok=0
-  if port_in_use "$SERVER_PORT" && command -v curl >/dev/null 2>&1; then
+  local api_ok=0 server_pid
+  server_pid=$(pid_on_port "$SERVER_PORT")
+  if [[ -n "$server_pid" ]] && pid_is_arco "$server_pid" && command -v curl >/dev/null 2>&1; then
     if curl -sf -X POST "http://localhost:${SERVER_PORT}/api/shutdown" >/dev/null 2>&1; then
       api_ok=1
       # Give the server its 1.5s client-notify window + a little slack
@@ -320,17 +340,16 @@ stop() {
   # If the API didn't clean everything up (or wasn't available), fall back
   # to signalling the process group directly.
   local pid=""
-  if [[ -f "$PID_FILE" ]]; then
-    pid=$(cat "$PID_FILE" 2>/dev/null || echo "")
-  fi
+  pid=$(recorded_pid) || pid=""
   if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-    kill -- -"$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+    if [[ "$(process_group "$pid")" == "$pid" ]]; then
+      kill -- -"$pid" 2>/dev/null || true
+    else
+      signal_owned_pid "$pid" TERM || true
+    fi
   fi
   reap_orphans
-  # Last-resort cleanup of known Arco dev process signatures
-  pkill -f "tsx watch src/index.ts" 2>/dev/null || true
-  pkill -f "concurrently.*arco" 2>/dev/null || true
-  rm -f "$PID_FILE"
+  if [[ -f "$PID_FILE" && "$(sed -n '3p' "$PID_FILE")" == "$ARCO_DIR" && "$(sed -n '4p' "$PID_FILE")" == "${ARCO_HOME:-$HOME/.arco}" ]]; then rm -f "$PID_FILE"; fi
   if [[ "$api_ok" -eq 1 ]]; then
     notify "Arco stopped" "Clients notified via API"
   else
@@ -344,7 +363,7 @@ status() {
     echo "  URL:    $URL"
     echo "  log:    $LOG_FILE"
     if [[ -f "$PID_FILE" ]]; then
-      echo "  PID:    $(cat "$PID_FILE")"
+      echo "  PID:    $(head -n 1 "$PID_FILE")"
     fi
   else
     echo "Arco: STOPPED"

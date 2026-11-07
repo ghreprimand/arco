@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- The Linux source launcher no longer kills unrelated development servers by global process patterns and rejects reused process identities.
+
 - Member-routed reviews disable scopes they cannot resolve accurately instead of substituting a whole plan or retained transcript. Those scopes remain available through SUB-WORKER.
 
 - Standalone Media Studio reopens Windows drive and UNC output paths without requiring a workflow.
