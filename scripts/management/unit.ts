@@ -1,3 +1,4 @@
+import { arcoHome } from '../../server/src/arcoHome.js';
 import { systemdArg, systemdValue, systemdDirectory } from '../service/systemd.js';
 // arco-management — pure CLI arg parse + systemd unit render. Side-effect-free
 // so the smoke imports and asserts without an install. Mirrors agent/unit.ts.
@@ -99,6 +100,7 @@ export function renderManagementUnit(opts: ManagementUnitOptions): string {
     'Type=simple',
     `WorkingDirectory=${systemdDirectory(opts.repoRoot)}`,
     `ExecStart=${execStart}`,
+    `Environment=${systemdValue(`ARCO_HOME=${arcoHome()}`)}`,
     `Environment=${systemdValue(`ARCO_HUB_KEY=${opts.privateKeyPath}`)}`,
     'Restart=always',
     `RestartSec=${restartSec}`,

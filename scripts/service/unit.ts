@@ -1,3 +1,4 @@
+import { arcoHome } from '../../server/src/arcoHome.js';
 import { systemdArg, systemdValue, systemdDirectory } from './systemd.js';
 // docs/ARCHITECTURE.md - Production Service Mode: pure helpers.
 //
@@ -107,6 +108,7 @@ export function renderSystemdUnit(opts: UnitOptions): string {
   const execStart = [process.execPath, join(repoRoot, 'server', 'dist', 'index.js')].map(systemdArg).join(' ');
 
   const env: string[] = [
+    `Environment=${systemdValue(`ARCO_HOME=${arcoHome()}`)}`,
     'Environment=ARCO_SERVE_CLIENT=1',
     'Environment=NODE_ENV=production',
     // Enable structured file logging (server/src/server/logger.ts). The server

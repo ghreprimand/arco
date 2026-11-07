@@ -1,3 +1,4 @@
+import { arcoHome } from '../../server/src/arcoHome.js';
 import { systemdArg, systemdValue, systemdDirectory } from '../service/systemd.js';
 // arco-agent §13.3 — pure helpers: CLI arg parsing + systemd `--user` unit
 // rendering for the agent supervisor. Side-effect-free so the smoke imports and
@@ -87,7 +88,7 @@ export function renderAgentUnit(opts: AgentUnitOptions): string {
   const entry = posixJoin(opts.repoRoot, 'scripts', 'arco-agent.ts');
   const execStart = [process.execPath, posixJoin(opts.repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs'), entry, 'run'].map(systemdArg).join(' ');
 
-  const env: string[] = [];
+  const env: string[] = [`Environment=${systemdValue(`ARCO_HOME=${arcoHome()}`)}`];
   if (opts.hubUrl) env.push(`Environment=${systemdValue(`ARCO_HUB_URL=${opts.hubUrl}`)}`);
   if (opts.publicKeyPath) env.push(`Environment=${systemdValue(`ARCO_HUB_PUBKEY=${opts.publicKeyPath}`)}`);
 

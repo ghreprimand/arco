@@ -350,3 +350,5 @@ register/heartbeat/action/result message shapes, and the signed-envelope shape. 
 - [Documentation style](STYLE.md)
 
 Source systemd units quote checkout and key paths, including spaces, and use the installed Node executable and local tsx entry. Reinstall a source unit to regenerate it after moving the checkout.
+
+Source app, lifecycle agent and management units retain the resolved `ARCO_HOME` from installation. Reinstall the unit after changing that location; restarting an older unit alone does not rewrite its environment.
