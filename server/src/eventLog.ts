@@ -165,7 +165,11 @@ function reportUnreadable(err: unknown): void {
 
 async function* segmentLines(seg: Segment): AsyncGenerator<string> {
   const input = createReadStream(seg.file);
-  const rl = createInterface({ input: input.pipe(createBrotliDecompress()), crlfDelay: Infinity });
+  const decompressed = createBrotliDecompress();
+  // An error opening or reading the file (a segment removed or replaced since
+  // it was listed) reaches the reader below instead of going unhandled.
+  input.on('error', (err) => decompressed.destroy(err));
+  const rl = createInterface({ input: input.pipe(decompressed), crlfDelay: Infinity });
   try {
     for await (const line of rl) if (line) yield line;
   } catch (err) {

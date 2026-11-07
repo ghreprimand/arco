@@ -40,8 +40,12 @@ export async function unsealLog(dir) {
   let last = 0;
   for (const seg of segments) {
     const input = createReadStream(seg.file);
+    const decompressed = createBrotliDecompress();
+    // A segment that cannot be opened or read stops this conversation's export
+    // (its segments are kept) instead of ending the process.
+    input.on('error', (error) => decompressed.destroy(error));
     try {
-      for await (const line of lines(input.pipe(createBrotliDecompress()))) { parts.push(line); const s = lineSeq(line); if (s !== null) last = Math.max(last, s); }
+      for await (const line of lines(input.pipe(decompressed))) { parts.push(line); const s = lineSeq(line); if (s !== null) last = Math.max(last, s); }
     } finally { input.destroy(); }
   }
   const live = join(dir, 'events.jsonl');
