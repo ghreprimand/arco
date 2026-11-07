@@ -2041,3 +2041,5 @@ FOLD and S-FOLD can restore a saved Claude Native conversation after a server re
 Deterministic Fold keeps the newest complete question and answer together, even when that exchange exceeds the tail token target or is the whole saved conversation.
 
 Claude CLI session watching belongs to the current workflow and session generation. A delayed load from an older reconnect or handoff cannot replay rows or replace a newer watcher.
+
+Automatic Claude CLI calibration starts only while the same session remains idle. A new primary turn or cancellation during estimation or probe admission prevents a concurrent context probe.

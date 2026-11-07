@@ -932,7 +932,15 @@ export async function maybeAutoContinueAfterCompact(
 // turn starts while calibration is running, the pty is cancelled via
 // wf.cancelCalibration (set by the primary turn handler in handleUserMessage).
 export async function maybeCalibrate(workflowId: string, wf: WorkflowState, cwd: string): Promise<void> {
-  if (wf.primary.provider !== 'claude') return;
+  const sessionId = wf.primarySessionId;
+  const model = wf.primary.model;
+  const claim = lastBusyClaim.get(wf);
+  const revocation = busyRevocations.get(wf);
+  const stillIdle = () => workflows.get(workflowId) === wf && !wf.busy
+    && wf.primary.provider === 'claude' && wf.primarySessionId === sessionId
+    && wf.primary.model === model && lastBusyClaim.get(wf) === claim
+    && busyRevocations.get(wf) === revocation;
+  if (!sessionId || !stillIdle() || wf.cancelCalibration) return;
   // CLI transport only. Native gets exact token counts from the API
   // (lastPromptTokens) — the byte-ratio estimator this tunes never runs for
   // it. Worse than useless: the `--print "/context"` probe APPENDS synthetic
@@ -941,8 +949,7 @@ export async function maybeCalibrate(workflowId: string, wf: WorkflowState, cwd:
   // CLI session that polluted a file the session watcher was treating as
   // transcript truth.
   if (await resolveClaudeTransport(wf, cwd) === 'native') return;
-  const sessionId = wf.primarySessionId;
-  if (!sessionId) return;
+  if (!stillIdle()) return;
 
   const cal: CalibrationState = wf.calibration ?? {
     ratio: BYTES_PER_TOKEN_DEFAULT,
@@ -952,7 +959,7 @@ export async function maybeCalibrate(workflowId: string, wf: WorkflowState, cwd:
 
   // Get current estimate to detect zone crossing
   const est = await estimateContextFill(cwd, sessionId, wf.primary.model, cal).catch(() => null);
-  if (!est) return;
+  if (!est || !stillIdle()) return;
 
   const currentPercent = est.percentOfWindow;
   const prevPercent = wf.lastContextPercent;
@@ -983,15 +990,22 @@ export async function maybeCalibrate(workflowId: string, wf: WorkflowState, cwd:
 
   console.log(`[arco] [${workflowId.slice(0, 8)}] calibrating zone ${zone} at ${currentPercent}%`);
 
+  if (!stillIdle() || wf.cancelCalibration) return;
+  let cancelProbe: (() => void) | undefined;
+  let cancelled = false;
+  const cancel = () => { cancelled = true; cancelProbe?.(); };
+  wf.cancelCalibration = cancel;
   let result: import('../contextCalibrator.js').CalibrationResult | null = null;
   try {
     result = await runCalibration(sessionId, wf.primary.model, cwd, est.jsonlBytes, (cancelFn) => {
-      wf.cancelCalibration = cancelFn;
+      cancelProbe = cancelFn;
+      if (cancelled || !stillIdle()) cancelFn();
     });
   } catch (err) {
     console.error(`[arco] [${workflowId.slice(0, 8)}] calibration error:`, err);
   }
-  wf.cancelCalibration = undefined;
+  if (wf.cancelCalibration === cancel) wf.cancelCalibration = undefined;
+  if (cancelled || !stillIdle()) return;
 
   if (!result) {
     console.warn(`[arco] [${workflowId.slice(0, 8)}] calibration zone ${zone} failed or was cancelled`);

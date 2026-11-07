@@ -456,7 +456,7 @@ export const composerHelp: Record<string, HelpEntry> = {
       <>
         <p>
           The worker header shows estimated context-window usage. <C>●</C> = ground-truth (reported by
-          provider or calibrated locally), <C>○</C> = estimate.
+          provider or calibrated locally), <C>○</C> = estimate. Automatic calibration starts only while the session remains idle and yields to a new turn.
         </p>
         <p>
           Click here to recalibrate on demand (Claude only: runs <C>/context</C>{' '}

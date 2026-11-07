@@ -167,6 +167,7 @@ export async function runCalibration(
     };
 
     if (registerCancel) registerCancel(cancelFn);
+    if (settled) return;
 
     try {
       // Pass --model so /context renders for the model Arco's session is

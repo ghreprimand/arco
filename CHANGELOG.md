@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Automatic Claude CLI context calibration cannot start alongside a newer primary turn.
+
 - Delayed Claude CLI session loads no longer replace a newer watcher or replay an older session after reconnect or handoff.
 
 - Deterministic Fold preserves the newest complete question and answer even when they exceed its tail token target.
