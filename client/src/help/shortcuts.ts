@@ -21,6 +21,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Global', combo: 'Ctrl/Cmd+K', label: 'Open the workflow creator (new tab): only when focus is outside a text field (inside a composer Ctrl+K kills to end of line).' },
   { group: 'Global', combo: 'Ctrl/Cmd+P', label: 'Toggle the command palette: search tabs, files, transcript, commands (prefix > for ripgrep content search).' },
   { group: 'Global', combo: 'Ctrl/Cmd+?', label: 'Toggle this keyboard-shortcut cheat sheet.' },
+  { group: 'Global', combo: 'Ctrl/Cmd+Shift+Space', label: 'Turn hands-free voice on or off (needs local voice set up and microphone permission).' },
 
   // ── Command palette / Recall ──
   { group: 'Command palette & Recall', combo: '↑ / ↓', label: 'Move the selection up / down through results.' },

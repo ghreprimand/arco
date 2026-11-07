@@ -272,7 +272,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Race the same implementation prompt through 2–5 ordinary agent tabs.
+          Race the same implementation prompt through 2-5 ordinary agent tabs.
           Every attempt starts at the same commit on its own managed git
           worktree and branch. Enter an optional <C>NAME</C> and the{' '}
           <C>TASK PROMPT</C>, choose the number of <C>ATTEMPTS</C> and the agent
@@ -296,7 +296,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'CONFIG',
     body: (
       <>
-        <p>Settings for this tab that apply while it runs: model, effort, Codex sandbox, Claude tool list, automatic handoff thresholds and the memory guard. A red dot means the provider&apos;s command-line tool changed what it supports since you last looked.</p>
+        <p>Settings for this tab that apply while it runs: model, effort, Codex sandbox, Claude tool list, auto-handoff after a number of compactions and the memory guard. A red dot means the provider&apos;s command-line tool changed what it supports since you last looked.</p>
         <p>Claude tabs choose a <C>TRANSPORT</C>: <C>cli</C> starts the command-line tool for each turn, while <C>native</C> keeps a long-running worker that adds compaction, automatic handoff, plan mode and subtasks. Codex tabs choose <C>exec</C> or <C>app-server</C>; app-server adds clean interrupts and steering during a turn. Reviews and handoff notes for Claude and Codex always use the command-line tool.</p>
         <p>Every tab has <C>OUTPUT STYLE</C>: <C>NORMAL</C>, <C>PLAIN</C> (clear sentences with the answer first, and a complete final reply) and <C>TERSE</C> (short sentences, no summary). It changes how replies are written, not what is sent. Plain is the default: a tab without a saved choice uses it, and a tab saved as Lite before 0.1.5 uses Plain. Code, error text and file paths stay exact, and Review, Handoff, DOCS and GIT always use Normal.</p>
       </>
@@ -537,7 +537,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       <p>
         Register external <C>MCP</C> servers once (machine-global) and enable
         them per tab. Enabling a server exposes all its tools <em>except</em>{' '}
-        dangerous ones (write / delete / exec / shell / post …), which stay OFF
+        dangerous ones (write / delete / exec / shell / post and similar), which stay OFF
         until you tick them per tab. <C>probe</C> connects, lists the tools, and
         flags the dangerous ones. On CLI Claude the denylist is enforced via{' '}
         <C>--disallowedTools</C> (composes with skip-permissions). Codex has no
@@ -583,7 +583,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         typed allowlist: <C>num_ctx</C> (trusted-only: clamped to the model's
         probed window, a higher value is dropped), <C>keep_alive</C>,{' '}
         <C>num_gpu</C> (GPU layers; 0 = CPU-only), <C>temperature</C>, plus
-        power-user keys (<C>top_p</C>, <C>num_predict</C>, …) accepted on the
+        power-user keys (<C>top_p</C>, <C>num_predict</C> and others) accepted on the
         wire. Takes effect next turn; <C>RESET</C> clears them back to the
         Modelfile / daemon defaults.
       </p>
@@ -859,8 +859,8 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     manualSection: 'knowledge-base',
   },
   'rightpanel.knowledge.add': {
-    title: 'ADD ARTICLE',
-    body: <p>Open the "Add from…" wizard: a blank article, a manual quick link, or an agent-drafted "distill from this session". All converge on editable fields you <C>Save</C>.</p>,
+    title: '+ ADD',
+    body: <p>Opens <C>ADD ARTICLE</C> with three sources: <C>Blank article</C>, <C>Quick link</C> (a URL and a summary you write) or <C>Distill from this session</C> (an agent drafts from the transcript). Each ends in editable fields you <C>SAVE</C>.</p>,
     manualSection: 'knowledge-base',
   },
   'rightpanel.knowledge.budget': {

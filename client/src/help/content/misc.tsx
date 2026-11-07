@@ -727,7 +727,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         from the header model picker (same provider). Strata adds prepared Original
         and SC117 Abliterated profiles; the next message loads the chosen profile
         and retains history, with only one model resident. For <b>Cursor</b>, this is a two-part picker: choose the model
-        <i>family</i> (Opus, Grok, GPT-5.x Sol, …) then its <i>effort</i>, with
+        <i>family</i> (Opus, Grok, GPT-5.x Sol and others) then its <i>effort</i>, with
         optional <b>FAST</b> / <b>THINK</b> toggles: Cursor bakes effort into
         the model id, so the picker only offers combinations Cursor actually
         advertises (no invalid selections). <b>Auto</b> lets Cursor's router
@@ -1934,7 +1934,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Appears when the last <C>llama-server</C> launch failed. Arco
         classifies the stderr against an ordered registry of known causes
-        (port-in-use, OOM, ctx-too-large, gguf-missing, unsupported-arch, …) and
+        (port-in-use, OOM, ctx-too-large, gguf-missing, unsupported-arch and others) and
         shows the matched <strong>cause</strong>, a plain-language explanation,
         and concrete <em>suggestions</em>. Read-only diagnosis; only the
         one-click <strong>fix</strong> buttons below it mutate config.

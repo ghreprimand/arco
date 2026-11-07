@@ -262,7 +262,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         <p>
           Probes your tailscale peers and <C>localhost</C> for a reachable
           Ollama (<C>/api/tags</C>) or OpenAI-compatible (<C>/v1/models</C>)
-          endpoint on a small fixed port list (<C>11434</C> + <C>8000–8010</C>),
+          endpoint on a small fixed port list (<C>11434</C> + <C>8000-8010</C>),
           so your workstation's Ollama over Tailscale shows up without typing a
           base URL. Select a result to fill the Ollama endpoint field, then focus
           and leave the field or press Enter to save it. Discovery never changes

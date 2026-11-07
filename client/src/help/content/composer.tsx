@@ -349,7 +349,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Round cap',
     body: (
       <p>
-        Hard ceiling on web-search rounds (clamped <C>1–10</C>, default <C>4</C>).
+        Hard ceiling on web-search rounds (clamped <C>1-10</C>, default <C>4</C>).
         Enforced mechanically on Claude Native (web-tool <C>max_uses</C>); on Codex
         it is stated in the prompt as the non-negotiable stop.
       </p>
@@ -573,7 +573,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           <C>⊞ S-FOLD</C> sends <strong>one</strong> Anthropic on-demand
           compaction call: older turns are replaced by a signed server-written
           summary and the last two turns stay verbatim: thinking included, so
-          Opus 5.5 / Fable 5.1 keep their reasoning. Seconds, not the 5–10
+          Opus 5.5 / Fable 5.1 keep their reasoning. Seconds, not the 5-10
           minutes of a Handoff; richer than the deterministic <C>⊞ FOLD</C>.
         </p>
         <p>

@@ -245,7 +245,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   },
   'media.bitrate': {
     title: 'Bitrate',
-    body: <p>The encode bitrate for a lossy target (mp3 / ogg / m4a / aac). Picked from a bounded set (96k–320k). Lossless targets (wav / flac) ignore it.</p>,
+    body: <p>The encode bitrate for a lossy target (mp3 / ogg / m4a / aac). Picked from a bounded set (96k-320k). Lossless targets (wav / flac) ignore it.</p>,
     manualSection: S,
   },
   'media.op-cancel': {
@@ -382,7 +382,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   //: Advanced ops (N3):
   'media.op-speed': {
     title: 'Change speed',
-    body: <p>Re-time the media by the factor in the box (0.25–4×). Audio tempo is <strong>pitch-preserved</strong> (<C>atempo</C>); a video also re-times the picture (<C>setpts</C>). Writes a new file.</p>,
+    body: <p>Re-time the media by the factor in the box (0.25 to 4×). Audio tempo is <strong>pitch-preserved</strong> (<C>atempo</C>); a video also re-times the picture (<C>setpts</C>). Writes a new file.</p>,
     manualSection: S,
   },
   'media.op-gain': {
@@ -417,7 +417,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   },
   'media.video-op-speed': {
     title: 'Change speed',
-    body: <p>Re-time the video by the factor in the box (0.25–4×): the picture via <C>setpts</C> and the audio via a pitch-preserved <C>atempo</C> chain. Writes a new file.</p>,
+    body: <p>Re-time the video by the factor in the box (0.25 to 4×): the picture via <C>setpts</C> and the audio via a pitch-preserved <C>atempo</C> chain. Writes a new file.</p>,
     manualSection: S,
   },
   'media.video-op-mute': {

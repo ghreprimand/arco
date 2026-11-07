@@ -8,8 +8,8 @@ export const headerHelp: Record<string, HelpEntry> = {
       builds a declaration over actual worker state: busy, queues, mail, human
       input, context fullness and compaction. Compose AND/OR/NOT, group/count
       checks, recurrence and ordered steps. Director actions are optional. To discard an unsent voice request, say
-      “cancel” alone or “Cancel capture”; that leaves scripts unchanged. An
-      unclear “oh cancel” must be clarified before changing a rule.
+      &quot;cancel&quot; alone or &quot;Cancel capture&quot;; that leaves scripts unchanged. An
+      unclear &quot;oh cancel&quot; must be clarified before changing a rule.
       Saved token measurements restore after restart without worker prompts;
       compaction invalidates older readings until a fresh measurement.</p>
       <p>The heading separates active and paused counts. Armed scripts show
@@ -28,8 +28,8 @@ export const headerHelp: Record<string, HelpEntry> = {
       replies hold with an explanation. Review/resume can retry unknown history.</p>
       <p>Pause/resume/cancel by voice or here; the activity master switch pauses
       scripts too. New scripts have no expiry or action/worker-turn limit
-      unless you ask for one. “Allow 100 turns per worker and stop after six
-      hours” sets those limits; “Remove the limits from that script” removes
+      unless you ask for one. &quot;Allow 100 turns per worker and stop after six
+      hours&quot; sets those limits; &quot;Remove the limits from that script&quot; removes
       them in place without resetting counts or resending work. Existing
       numeric limits stay until changed. The panel shows no-limit settings
       and actual counts. Compaction and continuation each count as a worker
@@ -48,7 +48,7 @@ export const headerHelp: Record<string, HelpEntry> = {
       the microphone controls. Choose the agent and saved/no-history mode here.
       Computer remembers requests within the current context, including
       recipients from recent questions and answers: Relay mail followed
-      by “nudge the builder” refers to Relay’s unique builder. Multiple
+      by &quot;nudge the builder&quot; refers to Relay&apos;s unique builder. Multiple
       matching members within that cluster still require clarification.
       Clearing starts fully fresh, without a summary.</p>,
   },
@@ -60,7 +60,7 @@ export const headerHelp: Record<string, HelpEntry> = {
       Saved settings load on chat restoration after reload, without speaking
       or pressing USE AGENT, and work with the mic off. Loading/disconnection
       and errors are explicit; RETRY ACTIVITY reloads a failed read.</p>
-      <p>Enable event automations pauses this Computer context’s scripts and mailbox actions
+      <p>Enable event automations pauses this Computer context&apos;s scripts and mailbox actions
       and optional agent updates; waiting updates are cancelled.
       Completion watches still resolve. Agent updates default OFF. Choose
       matched conditions only or worker completions plus matches to send facts
@@ -95,7 +95,7 @@ export const headerHelp: Record<string, HelpEntry> = {
   },
   'computer.watches': {
     title: 'Computer completion watches', manualSection: 'computer-tools',
-    body: <><p>Ask “Let me know when Builder 1 in Relay finishes” to watch
+    body: <><p>Ask &quot;Let me know when Builder 1 in Relay finishes&quot; to watch
       exactly that worker, or name the cluster to watch all its currently busy
       members. A one-shot watch waits for current turns and queued messages;
       it does not judge whether a project is complete or send workers prompts.
@@ -120,8 +120,8 @@ export const headerHelp: Record<string, HelpEntry> = {
       automatic gain control is off; echo cancellation and noise suppression
       stay enabled. Capture changes require reload and re-enabling the mic.
       If Last heard
-      shows “older” or “over it” instead of “over”, that is a transcription error:
-      pause and say “over” separately, or use “End capture”.</p>,
+      shows &quot;older&quot; or &quot;over it&quot; instead of &quot;over&quot;, that is a transcription error:
+      pause and say &quot;over&quot; separately, or use &quot;End capture&quot;.</p>,
   },
   'computer.context': {
     title: 'Computer context', manualSection: 'computer-conversation',
@@ -144,27 +144,27 @@ export const headerHelp: Record<string, HelpEntry> = {
   'voice.hands-free': {
     title: 'Hands-free voice control', manualSection: 'hands-free-voice',
     body: <p>Enable voice here or with Ctrl/Cmd+Shift+Space; off means no
-      listening, and close/reload or disconnect turns it off. Say “Computer”,
-      wait for the soft double pulse, speak naturally with pauses, then “over” on its own
-      to submit (“cancel” discards). Everything goes to Computer and its selected
-      agent, with Arco’s controls as tools: an instruction is carried out
+      listening, and close/reload or disconnect turns it off. Say &quot;Computer&quot;,
+      wait for the soft double pulse, speak naturally with pauses, then &quot;over&quot; on its own
+      to submit (&quot;cancel&quot; discards). Everything goes to Computer and its selected
+      agent, with Arco&apos;s controls as tools: an instruction is carried out
       silently like your mouse and keyboard; a question is answered by voice
-      after Computer looks it up (the manual, a project’s recent activity, the
-      screen, subscription quota); “dictate” sends the exact words. Ask for a
+      after Computer looks it up (the manual, a project&apos;s recent activity, the
+      screen, subscription quota); &quot;dictate&quot; sends the exact words. Ask for a
       completion watch by naming a worker or cluster, or a bounded mailbox rule
       to nudge selected workers for new mail before nudging a final recipient. Settings and other Arco
-      controls are available through the screen tools. Say “Computer” while it talks to
-      stop it and wait; “stop” / “quiet” cut speech and “stop listening”
+      controls are available through the screen tools. Say &quot;Computer&quot; while it talks to
+      stop it and wait; &quot;stop&quot; / &quot;quiet&quot; cut speech and &quot;stop listening&quot;
       releases the microphone, all instantly. Recognition is local; spoken
       reply text goes to Microsoft for online speech, with local Kokoro fallback.
       Choose the agent in COMPUTER; Codex Luna LOW is the default. Cloud agents
       use your existing login; Ollama/Strata use your configured local service.
-      See the manual’s Hands-free voice sections.</p>,
+      See the manual&apos;s Hands-free voice sections.</p>,
   },
   'computer.agent': {
     title: 'Computer agent and history', manualSection: 'computer-conversation',
     body: <p>Choose Codex, Claude, Ollama or Strata and a model/effort. USE AGENT
-      waits for the current turn and queue, then uses that selection’s separate
+      waits for the current turn and queue, then uses that selection&apos;s separate
       context. Switching back resumes saved history; no earlier messages are
       copied. No history keeps transcripts in memory until cleared, left,
       reloaded or closed; cloud inference and online speech still receive what
