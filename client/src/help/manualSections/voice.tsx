@@ -20,7 +20,7 @@ export const voice: Section[] = [{
   <Kbd>Ctrl/Cmd+Shift+Space</Kbd>. Microphone access needs localhost or HTTPS.
   </p>
   <p>
-  <strong>Settings &gt; VOICE SETUP</strong> is the guided setup. It shows the
+  <strong>Settings &gt; Voice &gt; Voice setup</strong> is the guided setup. It shows the
   voice home, <Code>uv</Code> and Python status, installed packages, model
   status and sizes, and model notices.
   </p>

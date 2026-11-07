@@ -167,7 +167,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          <C>▸ CONTINUE</C> appears after a Claude-native compaction folds the
+          <C>COMPACTED: CONTINUE</C> appears in the composer status line after a Claude-native compaction folds the
           conversation into a summary. Click it to resume the work from the
           compacted seed: it sends a short continuance prompt so the model
           picks the task back up against the smaller context. The <C>×</C>

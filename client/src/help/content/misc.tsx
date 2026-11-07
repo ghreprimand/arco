@@ -220,7 +220,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         The whole chat area is taken over and the composer is disabled while it
         runs (one summarization round, between turns). It clears on success, on
         failure, or when the next turn starts. The folded transcript stays in{' '}
-        <C>events.jsonl</C>; a <C>▸ CONTINUE</C> affordance resumes the work
+        <C>events.jsonl</C>; a <C>COMPACTED: CONTINUE</C> button in the composer resumes the work
         afterward.
       </p>
     ),
