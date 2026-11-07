@@ -293,7 +293,7 @@ The store uses Zustand's `persist` middleware over `debouncedJSONStorage` (`stor
 - `arco.sidePanelWidth` - single-tab right-panel splitter, with the same range suffixes
 - `arco.layoutMode` - Settings > Appearance > Layout (`auto`, `standard`, `compact` or `narrow`)
 - `arco.focusMode` - I3 focus-mode flag (`'1'`/`'0'`); read into the store's `focusMode` at init, written by `setFocusMode`
-- splitter widths (per-workflow + cluster) via `usePersistedSplitter`
+- splitter widths (single-tab and cluster) through `readRangeFraction` / `writeRangeFraction` in `client/src/layout/layoutRange.ts`, one key per layout range
 
 **NOT persisted** (rebuilt on reconnect):
 - `sessionChat` - server is the source of truth via `session_entry` stream
