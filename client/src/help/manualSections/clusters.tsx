@@ -109,7 +109,7 @@ export const clusters: Section[] = [
   </li>
   <li>
   <strong>CREATE WITH FRESH</strong> - spawn N (1-4) new workflows
-  inheriting the anchor's primary config and join them under a new
+  (Claude or Codex) inheriting the anchor's primary config and join them under a new
   cluster.
   </li>
   <li>
@@ -742,12 +742,11 @@ export const clusters: Section[] = [
   cluster plan - these do not apply).
   </p>
   <p>
-  <strong>REVIEW / VERIFY surfaces pop a member picker first.</strong>{' '}
-  The existing review dialog needs a target workflow + a resolvable{' '}
-  <Code>planId</Code>; the cluster plan body lives in members'
-  per-turn system blocks, not in a standalone <Code>.md</Code> file.{' '}The operator picks which member's plan + transcript the reviewer
-  should cross-check, and the dispatch rides on that member's attached
-  plan.
+  <strong>REVIEW and VERIFY open the review dialog directly</strong> on
+  the shared cluster plan (scope <Code>CLUSTER PLAN</Code> or a phase);
+  the first member only names the review&apos;s files. Only{' '}
+  <Code>CUSTOM REVIEW</Code> asks for a member first, because it reviews
+  that member&apos;s transcript.
   </p>
   <p>
   <strong>SPAWN PHASE</strong> spawns a fresh cluster member off the
@@ -948,7 +947,7 @@ export const clusters: Section[] = [
   legacy hard cap, pinned before a style change.
   </p>
   <p>
-  New clusters use a cluster-local board and Keep current Both. Saved
+  New clusters use a cluster-local board and progress tracking set to Both. Saved
   choices and old-format snapshot fallbacks are preserved; existing
   boards are not moved or merged. Manual NUDGE requires explicit
   recipients, MAIL ALERTS only alerts the operator, and AUTO-PICKUP
@@ -1248,7 +1247,8 @@ export const clusters: Section[] = [
   </p>
   <p>
   On success, the server toggles the checkbox in{' '}
-  <Code>~/.arco/clusters/&lt;id&gt;/plan.md</Code> and
+  the attached plan file (<Code>.arco/plans/&lt;id&gt;.md</Code> in the
+  project) and
   broadcasts <Code>cluster_plan_changed</Code> cluster-wide - every
   member's PLAN tab + ACTIVITY feed re-renders.{' '}
   <strong>The tool only mutates check state.</strong> Use{' '}
@@ -1720,19 +1720,13 @@ export const clusters: Section[] = [
   separate project plan.
   </p>
   <p>
-  REVIEW / VERIFY surfaces pop a <strong>member picker</strong>{' '}
-  first. The reviewer still has to run on <em>some</em> workflow,
-  so the operator picks which member should lend its transcript +
-  git-diff context before the ReviewDialog opens.
-  </p>
-  <p>
-    The picked member's <Code>workflowId</Code> rides on the request; the
-  cluster plan body is the review subject regardless of which member
-  runs it.{' '}<Code>CUSTOM REVIEW</Code> still reuses the existing{' '}
-  <Code>PlanReviewPicker</Code>; the picker runs against the picked
-  member's promoted plan rather than the cluster body directly
-  (the cluster body has no stable per-item IDs the way per-cwd
-  plans do).
+  REVIEW and VERIFY open the review dialog directly. The review runs
+  on the first member&apos;s workflow, which only names the artifact
+  and its channel; the cluster plan body is the subject and the code
+  is the cluster&apos;s folder.{' '}<Code>CUSTOM REVIEW</Code> asks for a
+  member first, because it reviews that member&apos;s transcript (last
+  turn, recent turns, full transcript or git diff only) without a plan
+  reference.
   </p>
   </>
   ),
@@ -1984,8 +1978,8 @@ export const clusters: Section[] = [
   </ul>
   <p>
   A live preview shows the formatted slice + byte count against the{' '}
-  <strong>32 KB cap</strong> (matches the cluster-plan body cap; 4×
-  the model-driven <Code>peer_send</Code> limit).
+  <strong>32 KB cap</strong> (matches the cluster-plan body cap; twice
+  the 16 KB model-driven <Code>peer_send</Code> limit).
   </p>
   <p>
     The slicer drops rendering noise - context dividers, tool-call pills,
