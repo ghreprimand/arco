@@ -11,7 +11,7 @@
 import { mkdir, readFile, readdir, stat } from 'fs/promises';
 import { realpathSync } from 'node:fs';
 import { homedir, tmpdir } from 'os';
-import { listWorkflowMetas } from './workflowMeta.js';
+import { recentProjectActivity } from './recentProjectActivity.js';
 import path from 'path';
 import { readKnownCwds } from './crashRecovery.js';
 import { chatRootDir } from './chatMode.js';
@@ -230,8 +230,8 @@ export async function listProjects(): Promise<ProjectList> {
   const recentProjects = (await Promise.all(history.map(async folder => {
     const entry = byPath.get(canonicalProjectPath(folder));
     if (!entry || !usable(entry)) return null;
-    const activity = await listWorkflowMetas(folder);
-    return { ...pickerFolderList([entry])[0], lastUsedAt: activity[0]?.lastActiveAt ?? 0 };
+    const lastUsedAt = await recentProjectActivity.get(folder);
+    return { ...pickerFolderList([entry])[0], lastUsedAt };
   }))).filter((p): p is ProjectEntry & { lastUsedAt: number } => p !== null)
     .sort((a, b) => b.lastUsedAt - a.lastUsedAt || a.name.localeCompare(b.name))
     .filter(entry => { const key = canonicalProjectPath(entry.path); if (seenRecent.has(key)) return false; seenRecent.add(key); return true; });
