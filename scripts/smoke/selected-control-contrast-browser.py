@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
@@ -24,7 +25,7 @@ window.__vite_plugin_react_preamble_installed__=true;window.fixtureReady=true;</
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None, args=['--enable-unsafe-swiftshader'])
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None, args=['--enable-unsafe-swiftshader'])
         page = await browser.new_page(viewport={'width':1400,'height':1000})
         errors, blocked, writes = [], [], []
         trust_release = asyncio.Event()

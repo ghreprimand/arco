@@ -1,16 +1,82 @@
 // Runs Playwright browser smokes sequentially. UI suites use Vite with fixture APIs.
 // Isolated-server suites use the built client and start temporary Arco servers with
 // synthetic projects, denying CLI stubs and fixture providers (Linux only).
-// Chromium comes from ARCO_TEST_CHROME or Playwright's installed browser.
+// Chromium comes from ARCO_TEST_CHROME or one shared lookup (never the temporary HOME).
+// The whole run is re-executed inside an empty network namespace when the host allows
+// it, so fixed Vite ports stay private to this process. ARCO_TEST_REQUIRE_NETNS=1
+// refuses to start on the shared host network. ARCO_TEST_NETNS=0 opts out.
 // Usage: node scripts/smoke/run-browser-suites.mjs [suite-name ...]   (default: every listed suite)
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
 import { existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { outputTail, runWithCiRetry } from './browser-suite-retry.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+
+function networkWrapper() {
+  if (process.env.ARCO_TEST_NETNS === '0' || process.platform !== 'linux') return undefined;
+  const uid = process.getuid?.() ?? 1000;
+  const gid = process.getgid?.() ?? 1000;
+  const wrappers = [
+    ['sh', '-c', `ip link set lo up && exec unshare -U --map-user=${uid} --map-group=${gid} "$@"`, 'sh'],
+    ['sh', '-c', 'ip link set lo up && exec "$@"', 'sh'],
+  ];
+  return wrappers.find((wrapper) => spawnSync('unshare', ['-rn', ...wrapper, 'true'], { stdio: 'ignore' }).status === 0);
+}
+
+function resolveChrome() {
+  if (process.env.ARCO_TEST_CHROME) return process.env.ARCO_TEST_CHROME;
+  const found = spawnSync('python3', ['-c', 'import host_isolation; print(host_isolation.chrome_executable(), end="")'], {
+    cwd: join(root, 'scripts/smoke'),
+    encoding: 'utf8',
+  });
+  if (found.status !== 0) {
+    console.error(found.stderr || 'Chromium lookup failed.');
+    process.exit(1);
+  }
+  return (found.stdout || '').trim();
+}
+
+function playwrightBrowsersPath(chrome) {
+  const marker = `${sep}ms-playwright${sep}`;
+  const at = chrome.lastIndexOf(marker);
+  return at < 0 ? '' : chrome.slice(0, at + marker.length - 1);
+}
+
+if (process.env.ARCO_BROWSER_NETNS_ACTIVE !== '1') {
+  const wrapper = networkWrapper();
+  if (!wrapper && process.env.ARCO_TEST_REQUIRE_NETNS === '1') {
+    console.error('An isolated network namespace is required but unavailable. Refusing to run browser suites on the shared host network.');
+    process.exit(1);
+  }
+  const chromeFromCaller = Boolean(process.env.ARCO_TEST_CHROME);
+  const chrome = resolveChrome();
+  if (!chrome) {
+    console.error('Chromium was not found via ARCO_TEST_CHROME or the shared lookup. Refusing to search a temporary HOME.');
+    process.exit(1);
+  }
+  const env = {
+    ...process.env,
+    ARCO_TEST_CHROME: chrome,
+    CHROMIUM_PATH: process.env.CHROMIUM_PATH || chrome,
+    ARCO_BROWSER_CHROME_SOURCE: chromeFromCaller ? 'ARCO_TEST_CHROME' : 'shared lookup',
+  };
+  const browsers = playwrightBrowsersPath(chrome);
+  if (browsers && !env.PLAYWRIGHT_BROWSERS_PATH) env.PLAYWRIGHT_BROWSERS_PATH = browsers;
+  if (wrapper) {
+    env.ARCO_BROWSER_NETNS_ACTIVE = '1';
+    env.ARCO_TEST_NETNS_ACTIVE = '1';
+    const isolated = spawnSync('unshare', ['-rn', ...wrapper, process.execPath, ...process.argv.slice(1)], { cwd: root, env, stdio: 'inherit' });
+    process.exit(isolated.status ?? 1);
+  }
+  Object.assign(process.env, env);
+  console.error('note: browser suites are using the host network namespace; parallel runs can collide on fixed ports');
+  console.log(`Chromium: ${env.ARCO_BROWSER_CHROME_SOURCE}.`);
+} else {
+  console.log(`Browser network: isolated namespace (loopback only). Chromium: ${process.env.ARCO_BROWSER_CHROME_SOURCE || 'ARCO_TEST_CHROME'}.`);
+}
 const SUITES = [
   { name: 'cluster-coordination-wire', script: 'cluster-coordination-server.py', isolatedServer: true },
   { name: 'cluster-coordination', script: 'cluster-coordination-browser.py', port: 5206 },
@@ -111,6 +177,7 @@ const viteBin = join(root, 'node_modules/vite/bin/vite.js');
 const hostedCi = process.env.CI === 'true';
 const harnessTests = [
   [process.execPath, ['--test', join(root, 'scripts/smoke/browser-suite-retry.test.mjs')]],
+  [process.execPath, ['--test', join(root, 'scripts/smoke/browser-suite-isolation.test.mjs')]],
   ['python3', [join(root, 'scripts/smoke/browser_navigation.test.py')]],
 ];
 for (const [command, args] of harnessTests) {

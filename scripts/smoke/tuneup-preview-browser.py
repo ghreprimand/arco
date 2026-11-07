@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from fs_url import fs_path
+from host_isolation import chrome_executable
 
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5239')
 ORIGIN = 'http://127.0.0.1:' + PORT
@@ -17,7 +18,7 @@ window.__vite_plugin_react_preamble_installed__=true; window.fixtureReady=true;
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         page = await browser.new_page(viewport={'width': 1000, 'height': 900})
         errors, blocked = [], []
         async def route(req):

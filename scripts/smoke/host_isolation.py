@@ -41,6 +41,50 @@ def closed_port():
         return s.getsockname()[1]
 
 
+def _chromium_revision(path):
+    for part in Path(path).parts:
+        revision = part.removeprefix('chromium-')
+        if part.startswith('chromium-') and revision.isdigit():
+            return int(revision)
+    return -1
+
+
+def chrome_executable():
+    """Absolute Chromium binary for browser suites.
+
+    ARCO_TEST_CHROME wins, then CHROMIUM_PATH, then the login account's
+    Playwright cache or a browser on PATH. The process HOME is ignored:
+    acceptance suites replace it with a temporary directory, and a lookup
+    under that directory cannot see the installed browser.
+    """
+    for key in ('ARCO_TEST_CHROME', 'CHROMIUM_PATH'):
+        explicit = os.environ.get(key, '').strip()
+        if explicit:
+            return explicit
+    roots = []
+    browsers = os.environ.get('PLAYWRIGHT_BROWSERS_PATH', '').strip()
+    if browsers and browsers != '0':
+        roots.append(Path(browsers))
+    try:
+        import pwd
+        roots.append(Path(pwd.getpwuid(os.getuid()).pw_dir) / '.cache' / 'ms-playwright')
+    except Exception:
+        pass
+    found = []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for pattern in ('chromium-*/chrome-linux*/chrome', 'chromium-*/chrome-win*/chrome.exe'):
+            found.extend(root.glob(pattern))
+    if found:
+        return str(max(found, key=lambda path: _chromium_revision(path)))
+    for candidate in ('google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'):
+        located = shutil.which(candidate)
+        if located:
+            return located
+    return ''
+
+
 def install_stubs(root):
     stubs = Path(root) / 'deny-bin'
     stubs.mkdir(parents=True, exist_ok=True)

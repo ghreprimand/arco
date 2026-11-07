@@ -6,11 +6,12 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
 ART = Path('/tmp/arco-phosphor-production'); ART.mkdir(exist_ok=True)
-CHROME = os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
+CHROME = chrome_executable()
 async def main():
  async with async_playwright() as p:
   browser = await p.chromium.launch(executable_path=CHROME, args=['--enable-unsafe-swiftshader'])

@@ -6,11 +6,12 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 from urllib.parse import urlparse
+from host_isolation import chrome_executable
 
 async def main():
     base = os.environ['ARCO_SMOKE_BASE_URL']
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await playwright.chromium.launch(executable_path=chrome_executable() or None)
         context = await browser.new_context(permissions=['clipboard-read', 'clipboard-write'])
         async def local_only(route):
             if urlparse(route.request.url).netloc == urlparse(base).netloc:

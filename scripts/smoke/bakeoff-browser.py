@@ -5,6 +5,7 @@ import os
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
@@ -14,7 +15,7 @@ RECORD = {'id':'saved-comparison','sourceWorkflowId':WORKFLOW,'sourceCwd':'/proj
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         context = await browser.new_context(viewport={'width':1920,'height':1080})
         # This suite checks controls in the Standard layout; layout-ranges-browser.py covers the other layouts.
         await context.add_init_script("localStorage.setItem('arco.layoutMode', 'standard')")

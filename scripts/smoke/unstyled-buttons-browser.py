@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
 from fs_url import fs_path
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
@@ -42,7 +43,7 @@ PROBE = r'''() => {
 async def main():
     assert PORT != '3001'
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         page = await browser.new_page(viewport={'width': 1100, 'height': 900})
         errors, blocked = [], []
 

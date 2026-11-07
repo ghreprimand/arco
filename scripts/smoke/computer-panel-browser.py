@@ -11,11 +11,12 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
 URL = os.environ.get('ARCO_COMPUTER_PREVIEW_URL', 'http://127.0.0.1:5193/')
-CHROME = os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
+CHROME = chrome_executable()
 ART = Path('/tmp/arco-computer-panel-review')
 
 

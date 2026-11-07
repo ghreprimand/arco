@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
@@ -21,7 +22,7 @@ async def main():
     upstream = {'sha': '1111111111111111111111111111111111111111'}
     installed = {'strata': '0.1.44.1'}
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome')))
+        browser = await p.chromium.launch(executable_path=chrome_executable())
         context = await browser.new_context(viewport={'width': 1200, 'height': 850})
         async def api(route):
             path = urlparse(route.request.url).path

@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(ROOT / 'scripts' / 'smoke'))
 import host_isolation  # noqa: E402
+from host_isolation import chrome_executable
 
 host_isolation.enter_isolated_network()
 
@@ -177,7 +178,7 @@ async def palette(page, label):
 
 async def run(base):
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await playwright.chromium.launch(executable_path=chrome_executable() or None)
         try:
             # Automatic (default) follows the agreed interface-width boundaries.
             context, page, errors = await open_page(browser, base, 1280)

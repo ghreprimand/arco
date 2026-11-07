@@ -30,6 +30,7 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 import host_isolation
+from host_isolation import chrome_executable
 
 host_isolation.enter_isolated_network()
 REPO = Path(__file__).resolve().parents[2]
@@ -88,7 +89,7 @@ class IsolatedServer:
 class Browser:
     def __init__(self, playwright, server): self.playwright=playwright;self.server=server
     async def open(self):
-        self.browser=await self.playwright.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        self.browser=await self.playwright.chromium.launch(executable_path=chrome_executable() or None)
         self.context=await self.browser.new_context()
         async def local_only(route):
             if urlparse(route.request.url).netloc==urlparse(self.server.base).netloc: await route.continue_()
@@ -133,7 +134,7 @@ async def browser(playwright,server,ready=True,fresh=False):
         await context.route('**/api/auth-login?*',login)
     b.on_context=setup
     if fresh:
-        b.browser=await playwright.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        b.browser=await playwright.chromium.launch(executable_path=chrome_executable() or None)
         b.context=await b.browser.new_context()
         host=urlparse(server.base).netloc
         async def local_only(route):

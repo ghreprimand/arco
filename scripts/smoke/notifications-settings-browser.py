@@ -12,6 +12,7 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 from fs_url import fs_path, fs_url
+from host_isolation import chrome_executable
 
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5203')
 ORIGIN = 'http://127.0.0.1:' + PORT
@@ -26,7 +27,7 @@ VIEW = {'desktop': {'finished': False, 'failed': False, 'waiting': False}, 'phon
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.firefox.launch() if os.environ.get('ARCO_TEST_FIREFOX') == '1' else await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.firefox.launch() if os.environ.get('ARCO_TEST_FIREFOX') == '1' else await p.chromium.launch(executable_path=chrome_executable() or None)
         page = await browser.new_page(viewport={'width': 1200, 'height': 1000})
         await page.add_init_script('''
           window.notificationLog = [];

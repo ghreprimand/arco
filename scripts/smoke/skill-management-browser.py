@@ -53,7 +53,7 @@ async def main():
             except Exception: await asyncio.sleep(.15)
         else: raise RuntimeError('Fixture Vite did not start')
         async with async_playwright() as p:
-            browser = await p.chromium.launch(executable_path=h.os.environ.get('ARCO_TEST_CHROME') or None)
+            browser = await p.chromium.launch(executable_path=h.chrome_executable() or None)
             context = await browser.new_context(viewport={'width': 1200, 'height': 1000})
             async def local_only(route):
                 parsed = urlparse(route.request.url)

@@ -12,6 +12,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
@@ -66,7 +67,7 @@ class Fresh(h.IsolatedServer):
 
 async def page_for(playwright, server):
     b = h.Browser(playwright, server)
-    b.browser = await playwright.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+    b.browser = await playwright.chromium.launch(executable_path=chrome_executable() or None)
     b.context = await b.browser.new_context()
 
     async def local_only(route):

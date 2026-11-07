@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from fs_url import fs_path
+from host_isolation import chrome_executable
 
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5250')
 ORIGIN = 'http://127.0.0.1:' + PORT
@@ -18,7 +19,7 @@ async def main():
     ART.mkdir(parents=True, exist_ok=True)
     rows = []
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         page = await browser.new_page(viewport={'width':1280, 'height':800})
         async def isolate(route):
             url = urlparse(route.request.url)

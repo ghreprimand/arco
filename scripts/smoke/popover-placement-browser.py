@@ -16,9 +16,10 @@ import json
 import os
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright
+from host_isolation import chrome_executable
 
 URL = f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5251')}/"
-CHROME = os.environ.get('ARCO_TEST_CHROME') or None
+CHROME = chrome_executable() or None
 REPORT_ONLY = os.environ.get('ARCO_POPOVER_REPORT_ONLY') == '1'
 SHOTS = os.environ.get('ARCO_SHOT_DIR')
 SHOT_CASES = set(filter(None, os.environ.get('ARCO_POPOVER_SHOTS', '').split(',')))

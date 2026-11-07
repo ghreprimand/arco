@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 URL = 'http://127.0.0.1:' + os.environ.get('ARCO_CLIENT_PORT', '5201') + '/'
@@ -28,7 +29,7 @@ async def main():
     long_title = 'A long generation prompt that must clamp in the Outputs list so operators can scan the card without reading fifteen lines of prompt text before the actions. UniqueNeedleWord appears only near the end.'
     state = {'outputs': [output('a', 'generated.png', 'images', long_title), output('b', 'report.md', 'documents', keptBy='artifacts'), output('c', 'sound.wav', 'audio'), output('d', 'clip.mp4', 'video'), output('e', 'archive.bin', 'other', primary=False), output('f', 'missing.txt', 'documents', missing=True), output('g', 'short.png', 'images', 'Short title')], 'writes': [], 'requests': [], 'frames': [], 'text': '# Synthetic report\nDurable content.'}
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         context = await browser.new_context(viewport={'width': 1280, 'height': 720})
         async def api(route):
             req = route.request; path = urlparse(req.url).path; query = parse_qs(urlparse(req.url).query)

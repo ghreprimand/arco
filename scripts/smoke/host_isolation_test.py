@@ -24,6 +24,28 @@ class HostIsolationTest(unittest.TestCase):
         self.assertFalse([key for key in actual if key.startswith(('ARCH' + 'ON_')) or key in blocked])
         self.assertEqual(actual['ARCO_UPDATE_CHECK'], '0')
 
+    def test_chrome_lookup_uses_an_explicit_binary(self):
+        env = dict(os.environ)
+        env['ARCO_TEST_CHROME'] = '/opt/browsers/chrome'
+        env['HOME'] = '/tmp/arco-empty-home'
+        output = subprocess.check_output(
+            ['python3', '-c', 'import host_isolation; print(host_isolation.chrome_executable(), end="")'],
+            cwd=os.path.dirname(__file__), env=env, text=True,
+        )
+        self.assertEqual(output, '/opt/browsers/chrome')
+
+    def test_chrome_lookup_ignores_a_temporary_home(self):
+        with tempfile.TemporaryDirectory() as home:
+            env = dict(os.environ)
+            env['HOME'] = home
+            env.pop('ARCO_TEST_CHROME', None)
+            env.pop('CHROMIUM_PATH', None)
+            output = subprocess.check_output(
+                ['python3', '-c', 'import host_isolation; print(host_isolation.chrome_executable(), end="")'],
+                cwd=os.path.dirname(__file__), env=env, text=True,
+            )
+        self.assertFalse(output.startswith(home))
+
 
 if __name__ == '__main__':
     unittest.main()

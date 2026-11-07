@@ -8,6 +8,7 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 from fs_url import fs_path
+from host_isolation import chrome_executable
 
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5203')
 ORIGIN = 'http://127.0.0.1:' + PORT
@@ -82,7 +83,7 @@ async def open_picker(page):
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         page, blocked, errors = await open_page(browser, 1500, 900, 'standard')
         await page.locator('button[data-help="cluster.broadcast.nudge"]').click()
         dialog = page.get_by_role('dialog', name='Nudge: pick recipients')

@@ -8,6 +8,7 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 from fs_url import fs_path
+from host_isolation import chrome_executable
 
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5203')
 ORIGIN = 'http://127.0.0.1:' + PORT
@@ -21,7 +22,7 @@ DIRECTOR = "Director role. Delegate via peer_send, never Task; don't write code;
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         page = await browser.new_page(viewport={'width': 1500, 'height': 1000})
         # Standard layout: the controls are checked, not the layout.
         await page.add_init_script("localStorage.setItem('arco.layoutMode', 'standard')")

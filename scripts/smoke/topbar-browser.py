@@ -4,6 +4,7 @@ import json
 import os
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
+from host_isolation import chrome_executable
 
 URL = f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5203')}/"
 SHOTS = os.environ.get('ARCO_SHOT_DIR')
@@ -14,7 +15,7 @@ def fixture(local):
 
 async def run(p, width, local, voice_ready, shots):
     fx = fixture(local)
-    browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+    browser = await p.chromium.launch(executable_path=chrome_executable() or None)
     context = await browser.new_context(viewport={'width': width, 'height': 700})
     errors = []
     async def api(route):

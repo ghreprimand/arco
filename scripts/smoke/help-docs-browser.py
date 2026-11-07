@@ -8,11 +8,12 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from playwright.async_api import async_playwright
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
 URL = os.environ.get('ARCO_HELP_PREVIEW_URL', f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5179')}/")
-CHROME = os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
+CHROME = chrome_executable()
 ART = Path('/tmp/arco-help-docs-review')
 
 async def main():

@@ -11,6 +11,7 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 from fs_url import fs_path
+from host_isolation import chrome_executable
 
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5253')
 ORIGIN = 'http://127.0.0.1:' + PORT
@@ -23,7 +24,7 @@ window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         page = await browser.new_page(viewport={'width': 1280, 'height': 1600})
         errors, blocked = [], []
 

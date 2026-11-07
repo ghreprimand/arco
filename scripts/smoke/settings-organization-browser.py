@@ -19,6 +19,7 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 from host_isolation import closed_port, enter_isolated_network, harden
+from host_isolation import chrome_executable
 
 REPO = Path(__file__).resolve().parents[2]
 PAGES = ['Appearance', 'Projects', 'Providers and models', 'Agents and clusters', 'Voice', 'Files and media', 'Advanced']
@@ -31,7 +32,7 @@ async def visible_sections(dialog):
 
 async def check_browser(base):
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         try:
             context = await browser.new_context(viewport={'width': 1400, 'height': 1000})
             async def local_only(route):

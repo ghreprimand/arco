@@ -5,6 +5,7 @@ import os
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
@@ -184,7 +185,7 @@ async def check(browser, scale, width):
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         for scale in [1.0, 1.1, 1.5]:
             await check(browser, scale, 1280)
         await check(browser, 1.1, 600)

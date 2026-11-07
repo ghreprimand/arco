@@ -5,6 +5,7 @@ import os
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
@@ -12,7 +13,7 @@ URL = f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5198')}/"
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         context = await browser.new_context()
         settings = {'themeId': 'arch', 'enabledProviders': {'claude': True}, 'onboardingComplete': True, 'updateCheck': True}
         release = {'type': 'app_update_available', 'current': '0.1.0', 'latest': 'v0.2.0', 'url': 'https://github.com/ghreprimand/arco/releases/tag/v0.2.0', 'publishedAt': '2026-10-27T12:00:00Z'}

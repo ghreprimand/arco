@@ -9,6 +9,7 @@ import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
+from host_isolation import chrome_executable
 
 spec = importlib.util.spec_from_file_location('storage_harness', Path(__file__).with_name('connections-browser.py'))
 h = importlib.util.module_from_spec(spec)
@@ -48,7 +49,7 @@ async def main():
             except Exception: await asyncio.sleep(.15)
         else: raise RuntimeError('Fixture Vite did not start')
         async with async_playwright() as p:
-            browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+            browser = await p.chromium.launch(executable_path=chrome_executable() or None)
             context = await browser.new_context()
             async def local_only(route):
                 parsed = urlparse(route.request.url)

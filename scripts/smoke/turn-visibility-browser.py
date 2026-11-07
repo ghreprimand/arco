@@ -5,6 +5,7 @@ import os
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
@@ -12,7 +13,7 @@ URL = 'http://127.0.0.1:' + os.environ.get('ARCO_CLIENT_PORT', '5203') + '/'
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         page = await browser.new_page(viewport={'width': 400, 'height': 800})
         errors, messages = [], []
         page.on('pageerror', lambda error: errors.append(str(error)))

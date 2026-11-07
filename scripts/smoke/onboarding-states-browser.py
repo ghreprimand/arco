@@ -35,6 +35,7 @@ install_navigation_defaults()
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import host_isolation  # noqa: E402
+from host_isolation import chrome_executable
 
 host_isolation.enter_isolated_network()
 
@@ -129,7 +130,7 @@ def seed_scanned(server):
 
 async def visit(server, expect_setup, label):
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await playwright.chromium.launch(executable_path=chrome_executable() or None)
         context = await browser.new_context()
         base_host = urlparse(server.base).netloc
 

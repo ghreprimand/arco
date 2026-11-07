@@ -9,6 +9,7 @@ from collections import deque
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
@@ -20,7 +21,7 @@ async def open_voice_controls(p):
 
 async def main():
  async with async_playwright() as p:
-  browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome')), args=['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'])
+  browser = await p.chromium.launch(executable_path=chrome_executable(), args=['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'])
   context = await browser.new_context(viewport={'width':1600,'height':1000}, permissions=['microphone'])
   errors, messages, requests = [], [], []
   transcripts = deque()

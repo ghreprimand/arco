@@ -4,6 +4,7 @@ import os
 from urllib.parse import urlparse, parse_qs
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 URL = 'http://127.0.0.1:' + os.environ.get('ARCO_CLIENT_PORT', '5201') + '/'
@@ -16,7 +17,7 @@ def output(id, name, category, **extra):
 async def main():
     state = {'outputs': [output('b', 'report.md', 'documents'), output('c', 'brief.pdf', 'documents'), output('d', 'setup.exe', 'other'), output('e', 'lost.pdf', 'documents', missing=True)], 'opens': [], 'desktop': True, 'text': 'Synthetic report'}
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         context = await browser.new_context(viewport={'width': 1280, 'height': 720})
         async def api(route):
             req = route.request; path = urlparse(req.url).path; query = parse_qs(urlparse(req.url).query)

@@ -6,6 +6,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
 from fs_url import fs_path
+from host_isolation import chrome_executable
 
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5252')
 ORIGIN = 'http://127.0.0.1:' + PORT
@@ -85,7 +86,7 @@ async def notice_checks(browser, init, label):
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         # A Chromium-family page shows no notice; the Settings choice saves and reports.
         state = {'choice': None, 'browsers': [{'id': 'chromium', 'name': 'Chromium', 'path': '/usr/bin/chromium'}, {'id': 'vivaldi-flatpak', 'name': 'Vivaldi (Flatpak)', 'path': '/var/lib/flatpak/exports/bin/com.vivaldi.Vivaldi'}], 'posts': []}
         context, page, load = await fixture_page(browser, state)

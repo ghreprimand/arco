@@ -8,6 +8,7 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 from fs_url import fs_path, fs_url
+from host_isolation import chrome_executable
 
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5210')
 ORIGIN = 'http://127.0.0.1:' + PORT
@@ -35,7 +36,7 @@ RANK = {'none': 0, 'minimal': 0, 'low': 1, 'medium': 2, 'high': 3, 'xhigh': 4, '
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         page = await browser.new_page(viewport={'width': 1300, 'height': 1000})
         errors, blocked, writes = [], [], []
 

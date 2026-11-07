@@ -6,13 +6,14 @@ import asyncio, json, os
 from pathlib import Path
 from playwright.async_api import async_playwright
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
 BASE = 'http://127.0.0.1:5178/phosphor-demo.html'
 ART = Path(os.environ.get('PHOSPHOR_ARTIFACT_DIR', '/tmp/arco-phosphor-review'))
 ART.mkdir(parents=True, exist_ok=True)
-CHROME = os.environ.get('CHROMIUM_PATH', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
+CHROME = chrome_executable()
 
 async def main():
  async with async_playwright() as p:

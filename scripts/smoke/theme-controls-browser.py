@@ -16,9 +16,10 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 from fs_url import fs_path, fs_url
+from host_isolation import chrome_executable
 
 URL = os.environ.get('ARCO_HELP_PREVIEW_URL', f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5179')}/")
-CHROME = os.environ.get('ARCO_TEST_CHROME') or None
+CHROME = chrome_executable() or None
 REPORT = os.environ.get('ARCO_HELP_COVERAGE_REPORT')
 ROOT = Path(__file__).resolve().parents[2]
 fixtures = {}

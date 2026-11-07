@@ -5,11 +5,12 @@ import asyncio
 import os
 from playwright.async_api import async_playwright
 from browser_navigation import install_navigation_defaults
+from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
 URL = os.environ.get('ARCO_VOICE_SCROLL_URL', 'http://127.0.0.1:5195')
-CHROME = os.environ.get('ARCO_TEST_CHROME', os.path.expanduser('~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome'))
+CHROME = chrome_executable()
 
 async def main():
     async with async_playwright() as p:

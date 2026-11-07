@@ -9,6 +9,7 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 from home_controls import open_saved_project_form
+from host_isolation import chrome_executable
 
 URL = 'http://127.0.0.1:' + os.environ.get('ARCO_CLIENT_PORT', '5196') + '/'
 ART = Path(os.environ.get('ARCO_HOME_VISUAL_ARTIFACTS', '/tmp/arco-home-start-page'))
@@ -393,7 +394,7 @@ async def check(browser, scale, scenario):
 async def main():
     ART.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         for scenario in ['empty', 'discovery', 'populated']:
             await check(browser, 1.0, scenario)
         scenarios = ['discovery'] if os.environ.get('ARCO_HOME_DISCOVERY_ONLY') == '1' else ['empty', 'discovery', 'multiple', 'populated']

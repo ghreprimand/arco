@@ -8,6 +8,7 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 from fs_url import fs_path, fs_url
+from host_isolation import chrome_executable
 PORT=os.environ.get('ARCO_CLIENT_PORT','5203')
 ORIGIN='http://127.0.0.1:'+PORT
 ROOT=Path(__file__).resolve().parents[2]
@@ -16,7 +17,7 @@ SHARED=fs_url(ROOT/'shared')+'/'
 HTML='''<!doctype html><html><body><div id="fixture"></div><script type="module">import R from '/@react-refresh';R.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;window.ready=true;</script></body></html>'''
 async def main():
  async with async_playwright() as p:
-  browser=await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+  browser=await p.chromium.launch(executable_path=chrome_executable() or None)
   page=await browser.new_page(); blocked=[]; errors=[]
   async def isolate(route):
    u=urlparse(route.request.url)

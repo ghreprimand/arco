@@ -13,6 +13,7 @@ from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
 from fs_url import fs_path, fs_url
+from host_isolation import chrome_executable
 
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5211')
 ORIGIN = 'http://127.0.0.1:' + PORT
@@ -34,7 +35,7 @@ LIMITS = {'maxInFlight': 1, 'callsPerClusterHour': 12, 'callsPerMemberHour': 3, 
 
 async def main():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
+        browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         page = await browser.new_page(viewport={'width': 1500, 'height': 900})
         # This suite checks controls in the Standard layout; layout-ranges-browser.py covers the other layouts.
         await page.add_init_script("localStorage.setItem('arco.layoutMode', 'standard')")
