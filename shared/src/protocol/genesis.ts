@@ -56,6 +56,8 @@ export interface GenesisNameWorkbench {
 // ("treat empty fields as unknown — never invent audiences/tech/scope") depends on
 // empties staying empty rather than being pre-filled with placeholders.
 export interface GenesisSeed {
+  // Draft a plan for the existing working directory without scaffolding a new project.
+  planOnly?: boolean;
   // Working name for the project. Required before the Case stage advances.
   title: string;
   // The Spark — the raw idea / unfiltered notes. Source-of-truth for everything
@@ -250,4 +252,12 @@ export interface GenesisCreativeArmedMessage {
   readiness: GenesisReadiness;
   nextPrompt: string;
   codebase?: GenesisCodebaseInfo;
+}
+
+export interface GenesisPlanSavedMessage {
+  type: 'genesis_plan_saved';
+  workflowId: string;
+  cwd: string;
+  planId: string;
+  written: string[];
 }

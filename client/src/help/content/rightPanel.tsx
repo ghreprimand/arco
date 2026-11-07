@@ -89,7 +89,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.tab.genesis': {
     title: 'GENESIS',
-    body: <p>Project ideation for this tab: walks a vague idea through <C>Spark → Concept → Case → Build-direction</C> with an advisory readiness readout, an editable staged seed, and an operator-confirmed create-&amp;-scaffold step (plus Creative mode inside an existing project). Nothing advances or touches disk without your click.</p>,
+    body: <p>Project ideation for this tab: walks a vague idea through <C>Spark → Concept → Case → Build-direction</C> with an advisory readiness readout, an editable staged seed, and an operator-confirmed SAVE PLAN for an existing-folder draft or CREATE &amp; SCAFFOLD for a new project (plus Creative mode for alternative directions). Nothing advances or touches disk without your click.</p>,
     manualSection: 'genesis-workflow',
   },
   'rightpanel.files.live': {
@@ -103,7 +103,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         Genesis moves a vague idea through four stages: <C>Spark → Concept →
         Case → Build-direction</C>. This panel shows the current stage, what's
         still missing to advance, and the next question to answer. Readiness is
-        advisory: you decide when to move on and when to scaffold.
+        advisory: you decide when to move on, save an existing-folder plan, or scaffold a new project.
       </p>
     ),
     manualSection: 'genesis-workflow',
@@ -121,10 +121,11 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     manualSection: 'genesis-workflow',
   },
   'rightpanel.genesis.scaffold': {
-    title: 'Genesis: create & scaffold',
+    title: 'Genesis: save plan or scaffold',
     body: (
       <p>
-        Operator-confirmed. Seed controls are temporarily disabled while the public-project choice is saved. Sends pending seed edits first, then creates the project folder under the parent you pick
+        Operator-confirmed. Pending seed edits are sent first, and seed controls are disabled while saving the public-project choice.
+        For an existing-folder plan draft, SAVE PLAN saves a checklist and reference documents. SPEC.md and TODO.md are created only when missing; existing files stay unchanged and README.md is not written. The public-project box uses the folder's saved choice and Git remote suggestion, remembers the selection, and adds privacy guardrails when selected. For a new project, creates the project folder under the parent you pick
         (default <C>~/Projects</C>), writes seed docs (<C>README</C>/<C>SPEC</C>/
         <C>TODO</C>/<C>CLAUDE.md</C>), optionally a GitHub repo, then binds this
         workflow to the new folder (carrying the transcript over) and seeds a

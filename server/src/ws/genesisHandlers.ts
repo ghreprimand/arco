@@ -46,6 +46,7 @@ import {
   uniqueProjectDir,
   writeScaffold,
 } from '../genesis/scaffold.js';
+import { saveGenesisPlan } from '../genesis/savePlan.js';
 import { ALTERNATIVE_DIR, assessCodebase, gatherProjectContext } from '../genesis/creative.js';
 
 const execFileAsync = promisify(execFile);
@@ -643,6 +644,23 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
 
   if (msg.publicProject !== undefined && typeof msg.publicProject !== 'boolean') {
     fail(ws, 'Invalid public-project choice.');
+    return;
+  }
+
+  if (seed.planOnly && !seed.creative) {
+    const cwd = workflowCwds.get(msg.workflowId) ?? wf.config.workingDirectory ?? '';
+    if (!cwd || isScratchCwd(cwd)) {
+      fail(ws, 'Saving a Genesis plan requires an existing project folder.');
+      return;
+    }
+    try {
+      if (typeof msg.publicProject === 'boolean') await setPublicProjectChoice(cwd, msg.publicProject);
+      const selected = msg.publicProject ?? await getPublicProjectChoice(cwd) ?? false;
+      const result = await saveGenesisPlan(cwd, seed, selected);
+      broadcastWorkflow(msg.workflowId, { type: 'genesis_plan_saved', workflowId: msg.workflowId, cwd, ...result });
+    } catch (error) {
+      fail(ws, `Genesis plan save failed; any saved references or new files remain available: ${(error as Error).message}`);
+    }
     return;
   }
 

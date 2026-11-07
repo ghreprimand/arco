@@ -270,7 +270,7 @@ codex exec resume <thread-id> "next prompt"
   Pick <Code>GENESIS</Code> in the new-workflow mode toggle, give a working name and
   a <em>Spark</em> (the raw idea), and launch. No working directory is required.
   </p>
-  <p>Seed controls are temporarily disabled while CREATE ALTERNATIVE saves the public-project choice. Seed edits save automatically. Pending edits are sent when leaving GENESIS and before CREATE &amp; SCAFFOLD or CREATE ALTERNATIVE.</p>
+  <p>Seed controls are temporarily disabled while SAVE PLAN or CREATE ALTERNATIVE saves the public-project choice. Seed edits save automatically. Pending edits are sent when leaving GENESIS and before SAVE PLAN, CREATE &amp; SCAFFOLD or CREATE ALTERNATIVE.</p>
   <Sub>The four stages</Sub>
   <p>
   The workflow runs in a hidden scratch space while the idea is shaped through four
@@ -300,6 +300,18 @@ codex exec resume <thread-id> "next prompt"
   resume across sessions. Scaffolding creates files on disk and needs your
   confirmation.
   </Note>
+  <Sub>Save a plan in an existing folder</Sub>
+  <p>
+  An existing-folder Genesis draft follows the same stages. <Code>SAVE PLAN</Code>
+  saves a checklist and reference documents for the concept, case, build direction,
+  first steps and generated spec. <Code>SPEC.md</Code> and <Code>TODO.md</Code> are
+  created only when missing. Existing files stay unchanged; <Code>README.md</Code>
+  is not written. Generated content remains in the references.
+  </p>
+  <p>
+  The public-project box uses this folder's saved choice and remote suggestion.
+  Selecting it adds privacy guardrails to the plan and remembers the choice.
+  </p>
   <Sub>Creative mode in an existing project</Sub>
   <p>
   On any tab with a real project folder, the <Code>GENESIS</Code> tab offers{' '}

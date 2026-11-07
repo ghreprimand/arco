@@ -2406,6 +2406,10 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // Repoint the persisted config so reload resumes the real project.
           store.setWorkflowCwd(msg.workflowId, msg.cwd);
           break;
+        case 'genesis_plan_saved':
+          store.setGenesisScaffold(msg.workflowId, { cwd: msg.cwd, written: msg.written, planId: msg.planId });
+          store.pushNotification('info', 'Genesis plan saved. Existing project files were preserved.');
+          break;
         case 'genesis_scaffolded':
           store.setGenesisScaffold(msg.workflowId, {
             cwd: msg.cwd,

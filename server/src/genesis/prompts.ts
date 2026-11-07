@@ -183,6 +183,8 @@ export function buildGenesisSystemBlock(seed: GenesisSeed, opts: { base?: string
     : `Current stage: ${GENESIS_STAGE_LABELS[stage]}. Toward "${GENESIS_STAGE_LABELS[readiness.nextStage]}": ${readiness.missing.length > 0 ? `still missing — ${readiness.missing.join('; ')}` : 'ready to advance when the operator is'}.`;
   blocks.push(`--- Stage status ---\n${readinessLine} Readiness is advisory; the operator decides when to advance.`);
 
+  if (seed.planOnly) blocks.push('This is a plan for the existing project. Finish with SAVE PLAN in Genesis. It saves a checklist and reference documents, creates SPEC.md and TODO.md only when absent, and never writes README.md. Do not scaffold a new project or edit project files during this planning conversation.');
+
   blocks.push(seedContext(seed));
 
   if (field) blocks.push(`--- This turn ---\n${fieldAnchorContract(field)}`);
@@ -198,6 +200,7 @@ export function buildGenesisSystemBlock(seed: GenesisSeed, opts: { base?: string
 export function nextFieldPrompt(seed: GenesisSeed): string {
   const field = nextField(seed);
   if (!field) {
+    if (seed.planOnly) return 'The seed covers every stage. Choose SAVE PLAN to save the plan for this folder, or keep refining any field.';
     return 'The seed covers the Spark, Concept, the Case, and a Build-direction. When you are ready, ask to create the scaffold — or keep refining any field.';
   }
   switch (field) {

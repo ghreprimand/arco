@@ -60,6 +60,7 @@ import type {
   GenesisSeedUpdatedMessage,
   WorkflowCwdBoundMessage,
   GenesisScaffoldedMessage,
+  GenesisPlanSavedMessage,
   GenesisCreativeArmedMessage,
   GenesisAssistStartedMessage,
   GenesisAssistProposedMessage,
@@ -1611,6 +1612,7 @@ export type ServerMessage =
   | GenesisSeedUpdatedMessage
   | WorkflowCwdBoundMessage
   | GenesisScaffoldedMessage
+  | GenesisPlanSavedMessage
   | GenesisCreativeArmedMessage
   | GenesisAssistStartedMessage
   | GenesisAssistProposedMessage

@@ -45,3 +45,11 @@ test('an unarmed real-folder tab shows the arm panel, not DISARM', () => {
   assert.equal(disarm(doc), undefined);
   assert.match(doc.body.textContent ?? '', /GENESIS · CREATIVE MODE/);
 });
+
+test('existing-folder plan ending offers SAVE PLAN without scaffold or Creative controls', () => {
+  const doc = render({ genesisSeed: { ...seed, creative: false, planOnly: true } });
+  assert.ok([...doc.querySelectorAll('button')].some((button) => button.textContent?.trim() === 'SAVE PLAN'));
+  assert.doesNotMatch(doc.body.textContent ?? '', /PARENT FOLDER|CREATE ALTERNATIVE|CREATE & SCAFFOLD|ARM CREATIVE/);
+  assert.match(doc.body.textContent ?? '', /Existing files are preserved/);
+  assert.ok(doc.querySelector('[data-testid="genesis-public-project"]'));
+});

@@ -56,6 +56,27 @@ field is anchored to its upstream source-of-truth, so the model can't silently r
 project when filling a later field. Both rules are baked into **every** assembled block
 regardless of stage.
 
+## Save a plan for an existing folder
+
+An existing-folder Genesis draft uses the same guided stages. **SAVE PLAN** creates
+an Arco checklist with reference documents for the concept, case, build direction,
+first steps and generated spec. `SPEC.md` and `TODO.md` are created only when absent,
+using exclusive file creation. Existing documents, symlinks and directories stay
+untouched. The generated content remains in the plan references in every case.
+`README.md` is not written.
+
+The public-project box uses the folder's saved choice and Git remote suggestion.
+Selecting it adds privacy and public safety guardrails to the plan and saves the
+choice for the folder. Saving does not attach the plan to another workflow or
+cluster automatically. The new-folder and Creative mode endings remain available
+for their respective workflows.
+
+The seed carries `planOnly: true`. The existing `genesis_scaffold` request saves
+this ending and replies with `genesis_plan_saved`, including `workflowId`, `cwd`,
+`planId` and the document paths created in `written`. No folder is moved and the
+workflow keeps its working directory. A failed save reports an error; references
+or documents already saved remain available.
+
 ## The from-nothing flow
 
 A Genesis workflow starts with **no project folder**. But the turn engine requires a cwd, so

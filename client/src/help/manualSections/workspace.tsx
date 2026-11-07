@@ -482,7 +482,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="gen">GENESIS</strong>,
-              <>Idea-to-project ideation: moves a vague idea through Spark → Concept → Case → Build-direction with an advisory readiness readout and an editable staged seed, then an operator-confirmed create &amp; scaffold. Shown for from-nothing Genesis tabs and any real-cwd tab (where it offers Creative mode - an alternative direction scaffolded into a sibling folder). See &quot;Genesis&quot; under Workflows &amp; sessions.</>,
+              <>Idea-to-project ideation: moves a vague idea through Spark → Concept → Case → Build-direction with an advisory readiness readout and an editable staged seed, then SAVE PLAN for an existing-folder draft or CREATE &amp; SCAFFOLD for a new project. Other real-folder tabs offer Creative mode - an alternative direction scaffolded into a sibling folder. See &quot;Genesis&quot; under Workflows &amp; sessions.</>,
             ],
             [
               <strong key="a">ACTIVITY</strong>,

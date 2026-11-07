@@ -97,7 +97,8 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
   const cwd = job.config.workingDirectory ?? '';
   const inScratch = SCRATCH_RE.test(cwd);
   const creative = !!seed?.creative;               // M3 armed
-  const canArm = !inScratch && cwd.trim().length > 0 && !creative; // M3 not-yet-armed
+  const planOnly = !!seed?.planOnly && !creative;
+  const canArm = !planOnly && !inScratch && cwd.trim().length > 0 && !creative; // M3 not-yet-armed
 
   // Local editor state. Seeded from the workflow's seed on mount/tab-switch, and once
   // more when a seed first ARRIVES (arming a previously-seedless workflow) so the
@@ -250,6 +251,20 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
 
   const doScaffold = async () => {
     if (!draft.title.trim()) return;
+    if (planOnly) {
+      if (!window.confirm('Save a plan and reference documents for this folder? SPEC.md and TODO.md are created only when missing. Existing files are preserved.')) return;
+      flushSeed();
+      setScaffolding(true);
+      try {
+        const selected = await rememberPublicChoice(cwd);
+        onScaffold?.(job.id, undefined, undefined, selected);
+      } catch {
+        window.alert('Could not save the public-project choice. Try again.');
+      } finally {
+        setScaffolding(false);
+      }
+      return;
+    }
     if (creative) {
       const ok = window.confirm(
         `Scaffold an alternative direction into a new ALTERNATIVE/${draft.title.trim()} folder inside this project, plus a separate plan?\n\nThis creates files in a sibling folder only: your existing project is not touched.`,
@@ -318,7 +333,7 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
         {readiness && (
           <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
             {readiness.readyToScaffold
-              ? 'Every stage is filled: ready to scaffold.'
+              ? planOnly ? 'Every stage is filled: ready to save a plan.' : 'Every stage is filled: ready to scaffold.'
               : readiness.missing.length > 0
                 ? `Toward ${readiness.nextStage}: ${readiness.missing.join('; ')}`
                 : 'Ready to advance when you are.'}
@@ -462,9 +477,13 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
       {/* Scaffold */}
       <div data-help="rightpanel.genesis.scaffold" style={{ border: '1px solid var(--color-border-hairline)', borderRadius: '6px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <div className="display-font" style={{ fontSize: '12px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
-          {creative ? 'CREATE ALTERNATIVE' : 'CREATE & SCAFFOLD'}
+          {planOnly ? 'SAVE PLAN' : creative ? 'CREATE ALTERNATIVE' : 'CREATE & SCAFFOLD'}
         </div>
-        {creative ? (
+        {planOnly ? (
+          <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
+            Saves a checklist and reference documents in this folder. Creates SPEC.md and TODO.md only when missing. Existing files are preserved; README.md is not written.
+          </div>
+        ) : creative ? (
           <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
             Writes into <code>ALTERNATIVE/{draft.title.trim() ? draft.title.trim() : '…'}</code> inside this project, with a
             separate plan. Your existing files stay untouched.
@@ -507,10 +526,10 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
             </div>
           </>
         )}
-        <PublicProjectBox cwd={creative ? cwd : ''} newProjectValue={creative ? undefined : newPublicProject} onChange={creative ? undefined : setNewPublicProject} testId="genesis-public-project" />
+        <PublicProjectBox cwd={creative || planOnly ? cwd : ''} newProjectValue={creative || planOnly ? undefined : newPublicProject} onChange={creative || planOnly ? undefined : setNewPublicProject} testId="genesis-public-project" />
         {scaffolded ? (
           <div style={{ fontSize: '11px', color: 'var(--color-accent-primary)', lineHeight: 1.5 }}>
-            {scaffolded.creative ? 'Alternative scaffolded → ' : 'Scaffolded → '}
+            {planOnly ? 'Plan saved: ' : scaffolded.creative ? 'Alternative scaffolded → ' : 'Scaffolded → '}
             {scaffolded.cwd}{scaffolded.creative ? '/ALTERNATIVE' : ''}
             {scaffolded.repoUrl && <> · {scaffolded.repoUrl}</>}
             {scaffolded.repoError && <div style={{ color: 'var(--color-warning)' }}>repo: {scaffolded.repoError}</div>}
@@ -537,7 +556,7 @@ export function GenesisTab({ job, onSeedUpdate, onScaffold, onCreativeArm, onAss
               letterSpacing: '2px',
             }}
           >
-            {creative ? 'CREATE ALTERNATIVE' : 'CREATE & SCAFFOLD'}
+            {planOnly ? 'SAVE PLAN' : creative ? 'CREATE ALTERNATIVE' : 'CREATE & SCAFFOLD'}
           </button>
         )}
       </div>

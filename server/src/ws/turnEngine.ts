@@ -2360,7 +2360,7 @@ export async function handleUserMessage(
       // scratch-dir path. buildGenesisSystemBlock folds in seed.projectContext for
       // this case so the model stays anchored to what is really on disk.
       const inGenesisCreative = !!genesisSeed && genesisSeed.creative === true;
-      if ((inGenesisScratch || inGenesisCreative) && genesisSeed) {
+      if ((inGenesisScratch || inGenesisCreative || genesisSeed?.planOnly) && genesisSeed) {
         if (wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' || (wf.primary.provider === 'strata' || wf.primary.provider === 'deepseek')) {
           finalSystemPrompt = buildGenesisSystemBlock(genesisSeed, { base: finalSystemPrompt });
         } else {
