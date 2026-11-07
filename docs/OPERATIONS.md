@@ -501,10 +501,11 @@ out earlier provider-side effects. See [Persistence](PERSISTENCE.md) and the
 | 3001 | HTTP + WebSocket | Server. Override with `ARCO_PORT` |
 | 5173 | Vite dev server | Client. Override with `ARCO_CLIENT_PORT` |
 | 8081 | Strata service | Standalone OpenAI-compatible `/v1`; `STRATA_URL_BASE` or Settings -> STRATA ENDPOINT |
+| 8150 | Xolotl (DeepSeek) service | Standalone OpenAI-compatible `/v1`; `DEEPSEEK_URL_BASE` or `deepseek.baseUrl` in `settings.json` |
 | 8888 | SearXNG | Default search backend for local web tools; `ARCO_SEARXNG_URL` |
 | 11434 | Ollama daemon | Default Ollama port; override the URL via `OLLAMA_URL_BASE` |
 
-`/ws` and `/api/*` on the Vite dev server proxy to the server port. `/uploads/*` is served directly by the server.
+`/ws`, `/terminal`, `/api/*`, `/upload` and `/health` on the Vite dev server proxy to the server port, as do per-workflow preview paths.
 
 ---
 
@@ -542,8 +543,8 @@ Origin header, such as `curl`, pass this check.
 To use Arco remotely, **prefer an SSH or Vite tunnel** (forward `5173`/`3001`
 over SSH, or `ssh -L`) so the bind stays loopback and only your authenticated
 SSH session reaches it. Set `ARCO_HOST=0.0.0.0` **only** when you deliberately
-want LAN/tailnet clients to reach the no-auth surface directly - there is no
-access control to fall back on.
+want LAN/tailnet clients to reach the surface directly - there is no user login,
+only the browser session cookie and the Host and Origin check above.
 
 The **Security & Exposure** group in the System modal's Diagnostics tab (and the
 support bundle) reports this posture: bind address, terminal/git/filesystem/
@@ -570,7 +571,7 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 |---|---|---|
 | `ARCO_PORT` | `3001` | Server HTTP/WS port |
 | `ARCO_UPDATE_CHECK` | enabled | Set `0` to prevent automatic and manual GitHub release checks; overrides Settings |
-| `ARCO_HOST` | `127.0.0.1` | Server bind address. Loopback by default - the HTTP/WS surface has **no auth** (see Exposure posture). Set `0.0.0.0` only to deliberately expose to the LAN |
+| `ARCO_HOST` | `127.0.0.1` | Server bind address. Loopback by default - the HTTP/WS surface has **no user login**, only the session cookie and Host/Origin check (see Exposure posture). Set `0.0.0.0` only to deliberately expose to the LAN |
 | `ARCO_ALLOWED_HOSTS` | unset | Extra host names the Host and Origin check accepts (comma-separated, `*.suffix` wildcards), for a reverse proxy or tunnel name. Kept by the package service |
 | `ARCO_WS_AUTH` | on | `off` disables the session-cookie gate on `/ws`, `/terminal`, `/upload` and `/api/*` (`server/src/http/wsAuth.ts`). For throwaway smoke-test servers and as an emergency off-switch only - never leave it on `arco.service` |
 | `ARCO_HOME` | `~/.arco` (`%USERPROFILE%\.arco` on Windows) | Relocates the whole Arco home: settings, provider accounts and secrets, clusters, chats, checkpoints, the MCP registry, logs and the source for `scripts/arco-backup.ts`. `ARCO_HOME` takes precedence. Per-project state stays under `<project>/.arco/` |
@@ -673,7 +674,7 @@ cp scripts/arco.desktop scripts/arco-quit.desktop ~/.local/share/applications/
 update-desktop-database ~/.local/share/applications
 ```
 
-Installs **Arco** (start + open browser) and **Quit Arco** (stop) as desktop entries. Both call into `scripts/arco`.
+Installs **Arco - Dev** (start + open browser) and **Quit Arco** (stop) as desktop entries. Both call into `scripts/arco`.
 
 ---
 
@@ -712,8 +713,8 @@ rebuild/restart coordination. See the documentation index for maintained guides.
 `install` bakes `ARCO_HUB_URL` / `ARCO_NTFY_URL` into the unit **only if they are set in the shell at install time** (remote-management is operator-supplied config, not baked into the repo). A clean checkout that runs `npm run arco:service -- install` produces a working but hub-unlinked unit. For a remote-management deployment, configure the hub endpoints explicitly:
 
 ```bash
-ARCO_HUB_URL=ws://<hub-tailnet-ip>:3500 \
-ARCO_NTFY_URL=http://<hub-tailnet-ip>:3501/arco-<topic> \
+ARCO_HUB_URL=ws://<hub-address>:<hub-port> \
+ARCO_NTFY_URL=http://<ntfy-address>:<ntfy-port>/<topic> \
 npm run arco:service -- install --enable
 ```
 
@@ -801,7 +802,7 @@ Per-service. Status surfaced via the SystemHeader's `HeaderAuthChip` and the `Au
 | LM Studio | (no login) | `${LMSTUDIO_URL_BASE}` OpenAI-compat server reachable |
 | llama.cpp | (no login - Arco spawns/manages `llama-server`) | `llama-server` reachable |
 
-CLI flows are triggered via `POST /api/auth-login?provider=<name>`. Claude Native uses a separate set of `/api/auth/claude-native/*` endpoints (see [`HTTP_API.md`](HTTP_API.md) section Claude Native auth). The auth-status endpoint is `GET /api/auth-status`. Polled every 2 minutes by the client. Native tokens persist to `~/.arco/auth.json`; refresh races serialize via `proper-lockfile`.
+CLI flows are triggered via `POST /api/auth-login?provider=<name>`. Claude Native uses a separate set of `/api/auth/claude-native/*` endpoints (see [`HTTP_API.md`](HTTP_API.md) section Claude Native auth). The auth-status endpoint is `GET /api/auth-status`. Polled every 2 minutes by the client (every 30 seconds while no provider is signed in). Native tokens persist to `~/.arco/auth.json`; refresh races serialize via `proper-lockfile`.
 
 ### Recovering Native sign-in
 
@@ -859,7 +860,6 @@ The Media studio's audio ops (H6: clip / convert / normalize / mono / stereo / f
 
 - **Detection:** `server/src/media/ffmpeg.ts::ffmpegAvailable()` caches a `ffmpeg -version` probe. If ffmpeg is absent, `POST /api/media/op` returns `200 { ok: false, code: 'ffmpeg-missing', error }` (with this pointer) - never a crash. The op buttons surface the error inline.
 - **Install (generic):** any recent ffmpeg (8.x verified) - `apt install ffmpeg` / `brew install ffmpeg` / your distro's package. Confirm with `ffmpeg -version` and `ffprobe -version`.
-- **Install (a source-built distribution):** follow `the distribution packaging guide` (manifest-tracked, 5 categories). **Never `curl | sh`.**
 - **After install:** a running Arco server caches "ffmpeg missing"; **restart the server** to re-probe.
 
 #### Media access fence + scratch
@@ -874,7 +874,7 @@ The studio is a **general** media tool: it can open a picker-imported file, a fi
 The audio panel's **STEMS** control shells out to **`demucs`** (Python + torch) for AI source separation - vocals / drums / bass / other, or a two-stems karaoke split. **Optional:** absent -> `POST /api/media/stems` returns `200 { code: 'demucs-missing' }` with this pointer (never a crash); every other media feature works without it.
 
 - **Detection:** `server/src/media/demucs.ts::demucsAvailable()` is a cached **PATH scan** (it does *not* run `demucs --help` - that imports torch and is slow). It also checks `~/.local/bin` (the common `pip --user` location). Restart the server to re-probe after installing.
-- **Install (a source-built distribution):** follow `the distribution packaging guide` (manifest-tracked). **Never `curl | sh` / bare `pip`.** Demucs pulls torch + the `htdemucs` weights (cached under `~/.cache/torch` on first run).
+- **Install:** use the system package manager or a dedicated Python environment (`python3 -m venv` then `pip install demucs`) so `demucs` is on the server's `PATH`. **Never `curl | sh`.** Demucs pulls torch + the `htdemucs` weights (cached under `~/.cache/torch` on first run).
 - **GPU:** the runner passes **no `-d`**, so demucs auto-selects CUDA when available else CPU. On an RTX-class GPU a short track separates in seconds; on CPU it's minutes (the UI shows a running state + CANCEL the whole time). Cancel SIGKILLs the child and removes the partial output folder.
 - **Output format caveat (`torchcodec`):** some torchaudio builds route **wav/flac** writes through `save_with_torchcodec`, which needs the separate **`torchcodec`** package. If it's absent, wav/flac fail and the runner returns a clear hint - use **mp3** (lameenc, the default, always works) or add `torchcodec` with the system package manager.
 - **Output layout:** a fresh `~/<chosen-or-source-dir>/<track>.stems[-N]/` folder per run (never clobbers a prior run or the source), with the stems flattened directly inside (demucs's forced `<model>/` subdir is removed). Reveal points at the folder.
@@ -1042,7 +1042,7 @@ Operational guidance for the task-dispatch layer built on top of cluster mode. F
 
 The per-cluster dispatcher is **OFF by default**. Two arming surfaces:
 
-- **One-shot** - `cluster_dispatch_once` immediately sweeps `ready` tasks not already claimed/running and assigns each to an idle member. No daemon; fires once per operator request.
+- **One-shot** - `cluster_dispatch_once` immediately sweeps `ready` tasks that are not already claimed or running and already have an explicit idle assignee in the cluster; it never picks an assignee. No daemon; fires once per operator request.
 - **Daemon** - `cluster_dispatch_toggle` arms/disarms an interval sweep (default interval: configurable via `cluster_dispatch_settings_update`). Armed state persists in the cluster meta across server restarts.
 
 On **server restart**, the daemon re-arms automatically from the persisted meta, but only dispatches tasks that are genuinely `ready` and unclaimed - already-claimed or open runs are never double-dispatched. In-flight runs at the moment of restart finish normally once the member reconnects; the daemon does not cancel them.
@@ -1051,20 +1051,16 @@ To **pause** without losing the setting: `cluster_dispatch_toggle` with `armed: 
 
 ### Run recovery controls
 
-`task_run_recover` (message type) accepts four actions on a run identified by `clusterId` + `taskId` + `runId`:
+`task_run_recover` (message type, `server/src/ws/taskLedgerHandlers.ts`) accepts four actions on one run identified by `taskId` + `runId` (plus the board key):
 
 | Action | Effect |
 |---|---|
-| `reclaim` | Mark the run abandoned; task returns to `ready` for re-dispatch. |
-| `terminate` | Mark the run terminated; task moves to `blocked`. Operator must unblock before re-dispatch. |
-| `reassign` | Abandon the current run and immediately dispatch to a different member. |
-| `fail` | Mark the run and task as `failed`; stops automatic retry. |
+| `reclaim` | Marks the run reclaimed; the task returns to `ready` with no assignee. |
+| `terminate` | Marks the run terminated; the task moves to `blocked` with the reason. |
+| `reassign` | Marks the run reclaimed; the task returns to `ready` assigned to `reassignToWorkflowId` (required). It is dispatched on the next sweep or DISPATCH ONCE. |
+| `fail` | Marks the run failed; the task returns to `ready`, or moves to `blocked` once it has `failureLimit` (default 3) consecutive failed, timed-out or terminated runs. |
 
-All actions run under a per-cwd lock. Accessible from the BOARD task drawer in the cluster UI.
-
-**Stale-claim / heartbeat detection** - a run whose heartbeat has not refreshed within the configured stale window is flagged `stale` by the dispatcher sweep. The dispatcher can reclaim stale runs automatically (configurable; default: reclaim and re-dispatch).
-
-**Consecutive-failure breaker** - a task that accumulates N consecutive failed runs (default: 3) is automatically moved to `blocked`. The operator must manually unblock (`cluster_task_update` with `blocked: false`) before the dispatcher will touch it again.
+Only open runs (`claimed` or `running`) can be recovered, and `staleOnly` (with `staleAfterMs`, default 30 minutes) limits an action to runs whose heartbeat is that old. All actions run under the per-cwd ledger lock and are reached from the BOARD task drawer (REASSIGN, RECLAIM, TERMINATE). The board marks an open run STALE after five minutes without a heartbeat; nothing reclaims stale runs automatically. A blocked task needs an explicit status change before the dispatcher picks it up again.
 
 None of these controls are model-initiated - all are operator actions or deterministic server-side rules. Every recovery action is logged to `events.jsonl`.
 
@@ -1250,11 +1246,9 @@ With `reviewSafeMode` armed (CONFIG, default OFF, Claude Native only), a sensiti
 
 ## Disk usage
 
-`<cwd>/.arco/workflows/<wfid>/events.jsonl` grows append-only. There's no automatic rotation. At the 100 MB rotation cap (a soft target, not enforced), the on-disk file may be manually trimmed - but Arco never does this automatically.
+`<cwd>/.arco/workflows/<wfid>/events.jsonl` is append-only. Since 0.1.4, once the live file reaches 16 MiB its records are sealed into Brotli-compressed segments (`events.<firstSeq>-<lastSeq>.jsonl.br`) beside it; nothing is deleted and every reader still sees the whole history (see [Persistence](PERSISTENCE.md#sealed-segments) and [Storage plan](STORAGE_PLAN.md)). Closed conversations keep plain logs until COMPRESS OLD LOGS in ARTIFACTS > STORAGE. Do not trim log files by hand.
 
-If a workflow's events.jsonl gets unwieldy:
-- Use Handoff to rotate the session (the new session has a fresh events.jsonl).
-- Or manually trim the file to keep only the latest N MB; the snapshot-only fallback handles the case where the client's `lastSeq` falls below the new `firstSeq`.
+To see and reclaim space, use MEMORY > USAGE (MEASURE STORAGE, MEASURE ARCO FOLDER) or the STORAGE lens in the ARTIFACTS window, which offers KEEP, ARCHIVE, RESTORE, DELETE and EMPTY SCRATCH, each after a confirmation. Handoff starts a fresh session but keeps the workflow's log.
 
 Saved Chat tabs live under `~/.arco/chats/<wfid>/`; closing a chat tab does not delete it (it stays in PAST CHATS). Removing a chat's directory while Arco is stopped deletes it for good. Incognito chats never write there.
 
@@ -1274,7 +1268,7 @@ ssh -L 5173:localhost:5173 <ssh-target>
 # Then open http://localhost:5173 locally
 ```
 
-Only port 5173 needs forwarding - Vite proxies WS and API to the server. **Do not forward port 3001 directly** unless you're aware that the WS endpoint has no auth.
+Only port 5173 needs forwarding - Vite proxies WS and API to the server. **Do not forward port 3001 directly** unless you accept that it has no user login, only the session cookie and Host and Origin check.
 
 The server binds `127.0.0.1` by default (`ARCO_HOST`, see [environment variables](#environment-variables)). The HTTP surface exposes filesystem read/list endpoints, an `/upload` sink, and a `/api/github/*` proxy that piggybacks on the local `gh` token. There are no user accounts: the browser session check and the Host and Origin check described under [Exposure posture](#exposure-posture) are the only gates. Loopback binding makes accidental LAN exposure impossible. Override to `0.0.0.0` only if you're putting Arco behind your own auth-enforcing reverse proxy.
 
