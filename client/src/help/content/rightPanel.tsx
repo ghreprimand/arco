@@ -564,9 +564,11 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Ollama tabs have no resident session to compact, so at the{' '}
-        <C>THRESHOLD</C> fill % Arco summarizes the older half of the
-        transcript <em>in place</em> on the local model so the next turn fits
-        the window (with a <C>WARN</C> level below it). This is a{' '}
+        <C>THRESHOLD</C> fill % Arco summarizes older messages{' '}
+        <em>in place</em>, keeping the newest <C>KEEP LAST</C> messages, so the
+        next turn fits the window (<C>WARN</C> only flags fill near the
+        threshold). The summary uses the Ollama utility model from Settings,
+        or a deterministic digest when none is set. This is a{' '}
         <strong>global</strong> setting (applies to every Ollama tab); the
         composer <C>⊟ COMPACT</C> button forces a round on the next turn
         regardless. The summary framing prompt is editable in Settings →

@@ -100,7 +100,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
       <p>
         Operator override for the translucent-blur backdrop through panel
         surfaces. <C>ON</C> / <C>OFF</C> overrides the active theme's own
-        default; <C>reset to theme default</C> clears the override so each
+        default; <C>reset to default</C> clears the override so each
         theme reverts to its built-in setting. The opacity slider defaults to
         80%; a saved value is kept. Purely cosmetic.
       </p>
@@ -179,7 +179,8 @@ export const settingsHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Settings are grouped by task: Appearance, Projects, Providers and
-        models, Agents and clusters, Voice, Files and media, and Advanced.
+        models, Agents and clusters, Voice, Notifications, Files and media,
+        and Advanced.
         The category buttons on the left open one group.
         Search looks through every category at once, including each
         control's help text. Every section shows where it applies and can be

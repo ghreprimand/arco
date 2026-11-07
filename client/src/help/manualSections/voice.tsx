@@ -62,11 +62,11 @@ export const voice: Section[] = [{
   microphone volume.
   </p>
   <ul>
-  <li>Low: 6‰ RMS</li>
-  <li>Very low: 10‰</li>
-  <li>Normal: 3.5‰</li>
+  <li>Very high (quiet room): 1‰ RMS</li>
   <li>High: 2‰</li>
-  <li>Very high: 1‰</li>
+  <li>Normal: 3.5‰</li>
+  <li>Low: 6‰</li>
+  <li>Very low (noisy room): 10‰</li>
   </ul>
   <p>
   Compare Input peak with Speech onset. If Last heard shows "older" or "over

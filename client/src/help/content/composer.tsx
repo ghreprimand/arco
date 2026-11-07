@@ -15,8 +15,8 @@ export const composerHelp: Record<string, HelpEntry> = {
         <p>
           Type your prompt and click <strong>SEND</strong> or press <C>Enter</C> to send. <C>Shift+Enter</C> for
           a newline, <C>Ctrl+K</C> to kill to end of line. Drop or paste
-          attachments (images go native on Claude; others are referenced by
-          path). <C>/goal …</C> sets the north star or arms a goal run without
+          attachments (images go native where the provider supports them;
+          other files are referenced by path). <C>/goal …</C> sets the north star or arms a goal run without
           sending a turn.
         </p>
         <p>
@@ -71,9 +71,10 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Attach file',
     body: (
       <p>
-        Add a file to your next message. Images ride as native content blocks
-        on Claude; other files are appended as <C>[file: &lt;path&gt;]</C>{' '}
-        references in the prompt text.
+        Add a file to your next message. Images go as native image input on
+        Claude, Codex, Cursor and local models with vision; other files are
+        appended as <C>[attached file: &lt;path&gt;]</C> references in the
+        prompt text.
       </p>
     ),
   },
@@ -208,10 +209,11 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Plan button',
     body: (
       <p>
-        Draft a plan for this workflow. The plan body re-injects on every turn
-        so the agent stays oriented. Two modes: <em>Draft → I'll review</em>{' '}
+        Draft a plan for this workflow. Once attached, a one-line header naming
+        the plan and its file is added to every turn so the agent stays
+        oriented; the agent reads the body from the file. Two modes: <em>Draft → I'll review</em>{' '}
         (manual save) or <em>Draft &amp; auto-save</em>. This is the reliable
-        path: it saves and attaches for you. Review drafts run without project tools and are not saved until you attach them. You can also just ask the agent
+        path: it saves and attaches for you (in a cluster, ATTACH TO CLUSTER asks first). Review drafts run without project tools and are not saved until you attach them. You can also just ask the agent
         in prose ("create a plan and attach it to this workflow"): every
         plan-less turn now carries the create+attach endpoint and the required
         body shape, so the agent can do it itself instead of writing a loose
