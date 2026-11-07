@@ -157,7 +157,8 @@ export const headerHelp: Record<string, HelpEntry> = {
       stop it and wait; &quot;stop&quot; / &quot;quiet&quot; cut speech and &quot;stop listening&quot;
       releases the microphone, all instantly. Recognition is local; spoken
       reply text goes to Microsoft for online speech, with local Kokoro fallback.
-      Choose the agent in COMPUTER; Codex Luna LOW is the default. Cloud agents
+      Choose the agent under VOICE CONVERSATION AND MEMORY in the VOICE menu;
+      Codex Luna LOW is the default. Cloud agents
       use your existing login; Ollama/Strata use your configured local service.
       See the manual&apos;s Hands-free voice sections.</p>,
   },
@@ -398,7 +399,7 @@ export const headerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>Hides secondary controls so the chat can use the full width while an agent works: the right panel, provider status, the KNOWLEDGE and TOOLS menus, Help and Settings.</p>
-        <p>Urgent items stay: the provider throttling warning, connection status, the system menu, and this button (now <C>EXIT FOCUS</C>). Fully reversible; the choice is remembered across reloads.</p>
+        <p>Urgent items stay: the provider throttling warning, VOICE, connection status, the bell, the version box, the system menu, and this button (now <C>EXIT FOCUS</C>). Fully reversible; the choice is remembered across reloads.</p>
       </>
     ),
   },

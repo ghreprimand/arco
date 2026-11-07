@@ -168,8 +168,8 @@ export const gettingStarted: Section[] = [
   unauthenticated.
   </p>
   <p>
-  Appearance, Projects, Agents and clusters, Voice, Files and media, and Advanced
-  are the other task-based categories. Search finds controls across categories;
+  Appearance, Projects, Agents and clusters, Voice, Notifications, Files and
+  media, and Advanced are the other task-based categories. Search finds controls across categories;
   the control-location map is in <Code>docs/SETTINGS.md</Code>.
   </p>
   </>
@@ -358,9 +358,9 @@ export const gettingStarted: Section[] = [
   in Connections as <Code>Cluster members that may use this runtime at once</Code>.
   </Note>
   <Note>
-  To add more members later, right-click the cluster tab and choose{' '}
-  <em>+ ADD WORKER</em>, or open the cluster's MEMBERS sub-tab and use the
-  in-panel spawn button.
+  To add more members later, open the cluster's MEMBERS sub-tab and use{' '}
+  <Code>+ ADD FRESH</Code> or <Code>+ ADD EXISTING</Code>. An open tab in the
+  same folder can also join from its right-click menu, ADD TO EXISTING.
   </Note>
   </>
   ),

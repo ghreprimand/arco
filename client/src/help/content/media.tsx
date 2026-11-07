@@ -387,7 +387,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   },
   'media.op-gain': {
     title: 'Adjust gain',
-    body: <p>Raise or lower the volume by the dB value in the box (−60…+30 dB), writing a new file. Negative attenuates, positive amplifies.</p>,
+    body: <p>Raise or lower the volume by the dB value in the box (-60 to +30 dB), writing a new file. Negative attenuates, positive amplifies.</p>,
     manualSection: S,
   },
   'media.op-spectrogram': {

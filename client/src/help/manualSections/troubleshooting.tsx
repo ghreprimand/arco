@@ -261,7 +261,7 @@ export const troubleshooting: Section[] = [
   <p>If a tab gets stuck in the busy state with no apparent activity:</p>
   <ol>
   <li>
-  Click <strong>cancel</strong> in the chat header. The server
+  Click <strong>✕ CANCEL</strong> in the composer. The server
   unconditionally ends the turn even if the worker has gone "ghost"
   (silently exited mid-turn). This is the standard escape hatch.
   </li>
@@ -365,8 +365,9 @@ export const troubleshooting: Section[] = [
   to, and undoing a rewind is just another rewind.
   </p>
   <p>
-  Rewind is <strong>Claude Native only</strong> in v1 and is rejected on
-  CLI/Codex. Cancel any in-flight turn first.
+  Rewind is <strong>Claude Native only</strong>. For other providers and
+  the Claude CLI the button stays visible but disabled, with the reason
+  beside it. Cancel any in-flight turn first.
   </p>
   </>
   ),
@@ -480,7 +481,7 @@ New turns blocked for 60s. Recover via Handoff.`}</Pre>
   </ul>
   <Sub>"Tool calls don't show as inline pills"</Sub>
   <ul>
-  <li>Inline pills are Claude-only. Other providers show tool calls in the ACTIVITY tab.</li>
+  <li>Inline pills appear for the tool calls a provider reports to Arco. A provider that reports none shows its work only in the ACTIVITY tab.</li>
   </ul>
   <Sub>"CTX bar shows ○ instead of ●"</Sub>
   <ul>

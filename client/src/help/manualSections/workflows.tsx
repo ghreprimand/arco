@@ -252,8 +252,8 @@ codex exec resume <thread-id> "next prompt"
   </p>
   <Note kind="warn">
   Rewind is Claude Native only for now. CLI and Codex resume is summarizer-backed, so
-  a true byte-identical rewind would silently do nothing; Arco rejects the request
-  rather than pretend. Rewind during a turn is also refused, so cancel the active
+  a true byte-identical rewind would silently do nothing, so for them the
+  button stays visible but disabled, with the reason beside it. Rewind during a turn is also refused, so cancel the active
   turn first.
   </Note>
   </>
