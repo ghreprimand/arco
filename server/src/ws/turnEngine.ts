@@ -528,6 +528,8 @@ export function anyObserver(workflowId: string): WebSocket | null {
 let busyClaimSeq = 0;
 const busyCheckoutLeases = new WeakMap<WorkflowState, () => void>();
 const busyOwners = new WeakMap<WorkflowState, number>();
+const storageMigrations = new WeakSet<WorkflowState>();
+const incomingMessages = new WeakMap<WorkflowState, number>();
 const lastBusyClaim = new WeakMap<WorkflowState, number>();
 const busyRevocations = new WeakMap<WorkflowState, number>();
 
@@ -538,7 +540,8 @@ export function publishWorkerActivity(wf: WorkflowState, kind: 'worker_started' 
   }
 }
 
-export function claimBusy(wf: WorkflowState): number {
+export function claimBusy(wf: WorkflowState, workerActivity = true): number {
+  if (storageMigrations.has(wf)) throw new Error('Workflow storage is moving. Wait for the scaffold to finish.');
   // Keep the existing conservative restore reservation, but observe isolated
   // members at their actual scratch cwd for turn-overlap reporting.
   const wfid = [...workflows].find(([, current]) => current === wf)?.[0];
@@ -554,8 +557,17 @@ export function claimBusy(wf: WorkflowState): number {
   watchClaimed(wf, token);
   wf.busy = true;
   if(wf.config?.voiceOperator)wf.computerSettled=false;
-  publishWorkerActivity(wf, 'worker_started');
+  if (workerActivity) publishWorkerActivity(wf, 'worker_started');
   return token;
+}
+
+export function isWorkflowStorageMoving(wf: WorkflowState): boolean { return storageMigrations.has(wf); }
+
+export function reserveWorkflowMigration(wf: WorkflowState): () => void {
+  if (wf.busy || storageMigrations.has(wf) || incomingMessages.get(wf)) throw new Error('Workflow is busy.');
+  const token = claimBusy(wf, false);
+  storageMigrations.add(wf);
+  return () => { storageMigrations.delete(wf); if (!releaseBusy(wf, token, 'finished', false)) wf.busy = false; };
 }
 
 export function ownsBusy(wf: WorkflowState, token: number): boolean {
@@ -598,7 +610,7 @@ export function revokeBusy(wf: WorkflowState): void {
   watchSettled(wf, busyOwners.get(wf), 'interrupted');
   busyOwners.delete(wf);
   busyCheckoutLeases.get(wf)?.(); busyCheckoutLeases.delete(wf);
-  wf.busy = false;
+  wf.busy = storageMigrations.has(wf);
   if (token !== undefined) clearComputerBackgroundClaim([...workflows].find(([, current]) => current === wf)?.[0] ?? '', token);
   if (wf.config?.voiceOperator) computerProjectionChanged();
   if(token !== undefined)publishWorkerActivity(wf, 'worker_interrupted');
@@ -1425,6 +1437,12 @@ export async function handleUserMessage(
     send(ws, { type: 'error', message: `Unknown workflow ${workflowId.slice(0, 8)}` });
     return;
   }
+  if (storageMigrations.has(wf)) {
+    send(ws, { type: 'error', message: 'Message not sent: workflow storage is moving. Wait for the scaffold to finish, then resend.' });
+    return;
+  }
+  incomingMessages.set(wf, (incomingMessages.get(wf) ?? 0) + 1);
+  try {
   const busyOnlyClaim = lastBusyClaim.get(wf);
   if (opts?.busyOnly && !wf.busy) return;
   const interruptEpoch = busyRevocations.get(wf) ?? 0;
@@ -2968,6 +2986,10 @@ export async function handleUserMessage(
     // handoff and compaction all reshape the context this tick would run against.
     goalRun: () => maybeGoalRun(workflowId, wf, ws, session, lastTurnErrored),
   });
+  } finally {
+    const remaining = (incomingMessages.get(wf) ?? 1) - 1;
+    if (remaining) incomingMessages.set(wf, remaining); else incomingMessages.delete(wf);
+  }
 }
 
 // docs/GOTCHAS.md - one tick of an armed goal run. Every branch either

@@ -114,6 +114,7 @@ import {
   derivePrimaryConfig,
   disarmGoalRun,
   claimBusy,
+  isWorkflowStorageMoving,
   ownsBusy,
   releaseBusy,
   drainQueueIfIdle,
@@ -826,6 +827,10 @@ export async function handleClearPreviewPort(workflowId: string): Promise<void> 
 export function handleCancel(ws: WebSocket, workflowId: string): void {
   const wf = workflows.get(workflowId);
   if (!wf) return;
+  if (isWorkflowStorageMoving(wf)) {
+    send(ws, { type: 'error', message: 'Workflow storage is moving. Wait for the scaffold to finish before stopping this conversation.' });
+    return;
+  }
   // Smart: Automatic leaves the mail this member has now alone after STOP.
   void noteSmartPickupStop(workflowId).catch(() => undefined);
   wf.manager.killAll();

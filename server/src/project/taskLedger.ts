@@ -96,6 +96,7 @@ type LegacyTasksFile = { tasks: unknown[] };
 type TaskKernelFile = TaskKernelSnapshot | LegacyTasksFile;
 
 interface TaskKernelState {
+  proposalReceipts?: Record<string, string>;
   tasks: LedgerTask[];
   comments: TaskComment[];
   runs: TaskRun[];
@@ -302,7 +303,9 @@ function taskKernelState(file: TaskKernelFile): TaskKernelState | null {
   const runs = Array.isArray(raw.runs)
     ? raw.runs.filter(isTaskRun).map((run) => normalizeRun(run))
     : [];
-  return { tasks, comments, runs };
+  const proposalReceipts = Object.fromEntries(Object.entries(raw.proposalReceipts ?? {})
+    .filter(([key, value]) => key.length > 0 && typeof value === 'string' && value.length > 0));
+  return { tasks, comments, runs, proposalReceipts };
 }
 
 // ── load / save / query boundary ──────────────────────────────────────────
@@ -336,19 +339,15 @@ export async function load(cwd: string, boardKey?: TaskBoardKey): Promise<Ledger
   if (!cwd) return [];
   const snapshot = await readSnapshot(cwd, boardKey);
   if (snapshot !== null) return snapshot;
-  // Snapshot missing or corrupt — rebuild from the durable event log and
-  // re-materialize the cache so the next load is cheap.
-  const rebuilt = await rebuildFromEvents(cwd, boardKey);
-  const comments = await rebuildCommentsFromEvents(cwd, boardKey);
-  const runs = await rebuildRunsFromEvents(cwd, boardKey);
-  await saveKernel(cwd, { tasks: rebuilt, comments, runs }, boardKey).catch(() => { /* best-effort cache write */ });
-  return rebuilt;
+  return (await loadKernel(cwd, boardKey)).tasks;
 }
 
 export async function save(cwd: string, tasks: LedgerTask[], boardKey?: TaskBoardKey): Promise<void> {
   if (!cwd) return;
-  const prev = await readKernelSnapshot(cwd, boardKey).catch(() => null);
+  const prev = await readKernelSnapshot(cwd, boardKey);
+  const proposalReceipts = prev?.proposalReceipts;
   const file: TaskKernelSnapshot = {
+    ...(proposalReceipts ? { proposalReceipts } : {}),
     version: TASK_KERNEL_VERSION,
     tasks: tasks.map(normalizeTask),
     ...(prev?.comments.length ? { comments: prev.comments } : {}),
@@ -365,13 +364,20 @@ export async function loadKernel(cwd: string, boardKey?: TaskBoardKey): Promise<
   const tasks = await rebuildFromEvents(cwd, boardKey);
   const comments = await rebuildCommentsFromEvents(cwd, boardKey);
   const runs = await rebuildRunsFromEvents(cwd, boardKey);
-  await saveKernel(cwd, { tasks, comments, runs }, boardKey).catch(() => { /* best-effort cache write */ });
-  return { tasks, comments, runs };
+  const proposalReceipts: Record<string, string> = {};
+  for (const event of await taskLedgerEvents(cwd, boardKey)) {
+    const receipt = event.payload?.proposalReceipt as { key?: unknown; taskId?: unknown } | undefined;
+    if (typeof receipt?.key === 'string' && typeof receipt.taskId === 'string') proposalReceipts[receipt.key] = receipt.taskId;
+  }
+  await saveKernel(cwd, { tasks, comments, runs, proposalReceipts }, boardKey).catch(() => { /* best-effort cache write */ });
+  return { tasks, comments, runs, proposalReceipts };
 }
 
 export async function saveKernel(cwd: string, state: TaskKernelState, boardKey?: TaskBoardKey): Promise<void> {
   if (!cwd) return;
+  const proposalReceipts = state.proposalReceipts ?? (await readKernelSnapshot(cwd, boardKey))?.proposalReceipts;
   const file: TaskKernelSnapshot = {
+    ...(proposalReceipts ? { proposalReceipts } : {}),
     version: TASK_KERNEL_VERSION,
     tasks: state.tasks.map(normalizeTask),
     ...(state.comments.length ? { comments: state.comments.map(normalizeComment) } : {}),

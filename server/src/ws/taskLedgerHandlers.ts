@@ -12,6 +12,7 @@
 // load-mutate-save round.
 
 import { WebSocket } from 'ws';
+import { realpathSync } from 'node:fs';
 import type {
   LedgerTask,
   TaskBoardKey,
@@ -35,7 +36,8 @@ import { broadcastWorkflow, send, sendWorkflowLive } from '../server/broadcast.j
 const cwdLocks = new Map<string, Promise<unknown>>();
 
 function lockKey(cwd: string, boardKey?: TaskBoardKey): string {
-  return taskLedger.taskBoardStoreKey(cwd, boardKey);
+  const canonical = realpathSync.native(cwd);
+  return taskLedger.taskBoardStoreKey(process.platform === 'win32' ? canonical.toLowerCase() : canonical, boardKey);
 }
 
 function withCwdLock<T>(cwd: string, fn: () => Promise<T>, boardKey?: TaskBoardKey): Promise<T> {
@@ -84,7 +86,7 @@ export async function persistLedgerKernelMutation(
   workflowId: string,
   cwd: string,
   op: TaskLedgerEventOp,
-  mutate: (state: Awaited<ReturnType<typeof taskLedger.loadKernel>>) =>
+  mutate: (state: Awaited<ReturnType<typeof taskLedger.loadKernel>>) => Promise<{ state: Awaited<ReturnType<typeof taskLedger.loadKernel>>; id: string; task?: LedgerTask; payload?: Record<string, unknown> } | null>
     | {
       state: Awaited<ReturnType<typeof taskLedger.loadKernel>>;
       id: string;
@@ -101,7 +103,7 @@ export async function persistLedgerKernelMutation(
 } | null> {
   return withCwdLock(cwd, async () => {
     const state = await taskLedger.loadKernel(cwd, opts?.boardKey);
-    const result = mutate(state);
+    const result = await mutate(state);
     if (!result) return null;
     await taskLedger.saveKernel(cwd, result.state, opts?.boardKey);
     emitEvent(workflowId, cwd, op, result.id, result.task, result.payload, opts?.boardKey);
@@ -129,20 +131,27 @@ export async function appendLedgerComment(
   }, boardKey);
 }
 
-// Re-snapshot the cwd to every observer of the originating workflow. We
-// broadcast on the originating workflow so the snapshot fans out to the tab(s)
-// looking at this cwd; the client keys it by `cwd`. Live only (P7.2): a full
+// Re-snapshot every workflow observing this canonical project and board.
+// A socket observing several workflows receives one authoritative copy. Live only (P7.2): a full
 // board copy is not written to events.jsonl. The ledger store holds the board,
 // emitEvent below persists each change, and a reconnecting tab gets a fresh
 // copy from sendTaskLedgerSnapshot.
 export function broadcastSnapshot(workflowId: string, cwd: string, tasks: LedgerTask[], boardKey?: TaskBoardKey): void {
-  sendWorkflowLive(workflowId, {
-    type: 'task_ledger_snapshot',
-    workflowId,
-    cwd,
-    ...(boardKey ? { boardKey } : {}),
-    tasks,
-  });
+  const sent = new Set<WebSocket>();
+  const key = lockKey(cwd, boardKey);
+  for (const [id] of workflows) {
+    const otherCwd = cwdForWorkflow(id);
+    if (!otherCwd) continue;
+    const clusterId = clusterStore.getClusterIdForWorkflow(id);
+    const cluster = clusterId ? clusterStore.getClusterCached(clusterId) : null;
+    if (boardKey && (!cluster || !clusterStore.isTaskBoardEnabledForState(cluster))) continue;
+    const otherBoard = boardKey && cluster ? clusterStore.taskBoardKeyForState(cluster) : undefined;
+    // A stale tab can point at a folder removed since it was opened. Its
+    // failed lookup must not prevent delivery to the remaining observers.
+    try { if (lockKey(otherCwd, otherBoard) !== key) continue; }
+    catch { continue; }
+    sendWorkflowLive(id, { type: 'task_ledger_snapshot', workflowId, cwd, ...(boardKey ? { boardKey } : {}), tasks }, sent);
+  }
 }
 
 // Append the durable per-mutation event to the workflow's events.jsonl (this is

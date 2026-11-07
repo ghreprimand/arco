@@ -603,12 +603,12 @@ function planAuditCopy(
 // in the ledger store, reconnecting tabs get a fresh copy
 // (sendTaskLedgerSnapshot / task_ledger_list), and recovery folds the
 // persisted task_ledger_event records.
-export function sendWorkflowLive(workflowId: string, message: ServerMessage): void {
+export function sendWorkflowLive(workflowId: string, message: ServerMessage, sent?: Set<WebSocket>): void {
   const wf = workflows.get(workflowId);
   if (!wf) return;
   const payload = JSON.stringify(message);
   for (const obs of wf.observers) {
-    if (obs.readyState === WebSocket.OPEN) obs.send(payload);
+    if (obs.readyState === WebSocket.OPEN && !sent?.has(obs)) { sent?.add(obs); obs.send(payload); }
   }
 }
 

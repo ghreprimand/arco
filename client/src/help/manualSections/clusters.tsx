@@ -1505,12 +1505,12 @@ export const clusters: Section[] = [
   <Code>ready</Code> tasks. It fires only tasks that already have an
   explicit idle assignee in the cluster, records a run before starting
   the member&apos;s turn, and logs skipped ready tasks with reason codes.
-  It does not infer routing and never marks work <Code>done</Code>.
+  Assignments, dependencies, membership and worker availability are checked again before the claim is saved. Changed eligibility skips the task. It does not infer routing and never marks work <Code>done</Code>.
   </p>
   <p>
   <strong>DISPATCHER</strong> is the armed daemon surface. It defaults
   OFF. When ARMED, the server repeats the same deterministic sweep on
-  an interval.
+  an interval. Turning it off prevents a pending sweep from claiming more work. Current run and sweep limits are checked at each claim.
   </p>
   <ul>
   <li><Code>EVERY</Code> - seconds between sweeps.</li>
@@ -1605,7 +1605,7 @@ export const clusters: Section[] = [
   </Note>
   <p>
   Claims and updates are saved like operator edits. Every member&apos;s
-  board updates live.
+  board updates live. Edits in a project LEDGER refresh every open tab viewing that board.
   </p>
   </>
   ),
@@ -1664,6 +1664,10 @@ export const clusters: Section[] = [
   body: (
   <p>
   DRAFT ASSIST is hidden in this version. Saved proposals stay in the project folder.
+  Concurrent decisions preserve each other. Retrying after an acceptance-save error
+  does not repeat recorded task or comment effects. Parent tasks remain dependencies
+  when selections are reversed or applied separately. Unresolved or cyclic parents
+  refuse the selection.
   </p>
   ),
   },

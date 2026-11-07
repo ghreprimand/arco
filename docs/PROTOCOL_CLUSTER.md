@@ -1096,3 +1096,14 @@ and preview limits.
 ## Goal runs in new members
 
 Fresh workers, replacements and Native Task children inherit the standing goal but not an armed goal run. Each new tab needs its own explicit run.
+
+Proposal decision handlers serialize per project through ledger application and
+acceptance persistence. Each applied item has a durable ledger receipt, so a retry
+after an acceptance-save error does not repeat the effect. Proposal task dependencies
+resolve in parent-first order and retain mappings across selections. Unresolved or
+cyclic parents return an error before creating tasks.
+
+Dispatch validates current eligibility again at the claim boundary. Changes to the
+assignee, dependencies, membership, board or worker availability can produce
+`race_lost` without overwriting the accepted edit. Daemon dispatch also observes
+current arming and capacity limits.

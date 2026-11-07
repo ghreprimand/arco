@@ -17,7 +17,7 @@ import type {
   OrchestrationProposalItem,
   OrchestrationProposalStatus,
 } from '@arco/shared';
-import { atomicWriteFile } from '../atomicFile.js';
+import { atomicWriteFile, withFileLock } from '../atomicFile.js';
 
 const VERSION = 1;
 const PROMPT_MAX = 16 * 1024;
@@ -285,4 +285,9 @@ export function withAcceptedItems(
       },
     ],
   };
+}
+
+// Every handler holds this decision lock through ledger effects and acceptance.
+export function withDecisionLock<T>(cwd: string, fn: () => Promise<T>): Promise<T> {
+  return fs.realpath(cwd).then(real => withFileLock(proposalsPath(process.platform === 'win32' ? real.toLowerCase() : real), fn));
 }

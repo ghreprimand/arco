@@ -34,7 +34,7 @@ import { getPublicProjectChoice, setPublicProjectChoice } from '../publicProject
 import { workflows, workflowCwds } from '../server/state.js';
 import { send, broadcastWorkflow } from '../server/broadcast.js';
 import { updateMeta } from '../workflowMeta.js';
-import { persistInitialMeta } from './turnEngine.js';
+import { persistInitialMeta, reserveWorkflowMigration, drainQueueIfIdle } from './turnEngine.js';
 import { initWorkflowStore, flushWorkflowBuffer, forgetWorkflowBuffer } from '../workflowStore.js';
 import { rememberCwd } from '../crashRecovery.js';
 import { createPlan, recordAttachment } from '../planStore.js';
@@ -651,6 +651,10 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
     return;
   }
 
+  let release: () => void;
+  try { release = reserveWorkflowMigration(wf); }
+  catch (error) { fail(ws, (error as Error).message); return; }
+  try {
   if (seed.planOnly && !seed.creative) {
     const cwd = workflowCwds.get(msg.workflowId) ?? wf.config.workingDirectory ?? '';
     if (!cwd || isScratchCwd(cwd)) {
@@ -779,7 +783,7 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
   if (planId) wf.planId = planId;
 
   // Remove the now-empty scratch ideation dir (best-effort).
-  fs.rm(scratchCwd, { recursive: true, force: true }).catch(() => { /* best-effort */ });
+  await fs.rm(scratchCwd, { recursive: true, force: true }).catch(() => { /* best-effort */ });
 
   // Broadcast: cwd bound first (so the client repoints its persisted config +
   // refreshes cwd-scoped panels), then the scaffold result.
@@ -796,4 +800,10 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
     ...(repoUrl ? { repoUrl } : {}),
     ...(repoError ? { repoError } : {}),
   });
+  } finally {
+    release();
+    if (wf.queue && (wf.queue.steering.length || wf.queue.followUp.length)) {
+      void drainQueueIfIdle(msg.workflowId).catch(error => console.error('[arco] scaffold queue drain failed:', error));
+    }
+  }
 }

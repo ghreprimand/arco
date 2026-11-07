@@ -756,7 +756,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>A board view of this cluster&apos;s tasks, in columns from triage through to-do, ready, in progress, blocked and review to done and archived. CLUSTER mode uses the cluster&apos;s private board; PROJECT shares the project folder&apos;s board with ordinary tabs, whose LEDGER panel shows the same tasks.</p>
-        <p>Members create, claim, update and complete tasks with their board tools, and the board updates live. Click a card to open its details, edit it or delete it; add tasks with the box at the top and drag cards between columns. Workers can move work as far as review. <strong>Only you can mark a task done or archived.</strong></p>
+        <p>Members create, claim, update and complete tasks with their board tools, and the board updates live. Edits in a project LEDGER refresh every open tab viewing that board. Click a card to open its details, edit it or delete it; add tasks with the box at the top and drag cards between columns. Workers can move work as far as review. <strong>Only you can mark a task done or archived.</strong></p>
       </>
     ),
     manualSection: 'cluster-board',
@@ -781,7 +781,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         Runs one deterministic dispatch sweep. Only <C>ready</C> tasks with an
         explicit idle assignee are claimed, moved to <C>in_progress</C>, given a
         run record, and sent to that member as a normal turn. Skips are logged
-        with stable reasons; terminal statuses remain operator-only.
+        with stable reasons; terminal statuses remain operator-only. The current assignment, dependencies, membership and idle worker are checked again before each claim.
       </p>
     ),
     manualSection: 'cluster-board',
@@ -794,7 +794,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
           Operator-armed, default OFF. When ARMED, the server periodically runs
           the same deterministic ready-task sweep as <C>DISPATCH ONCE</C>.
           It does not infer assignees: tasks must already have an explicit idle
-          cluster member assigned.
+          cluster member assigned. Turning it off prevents pending claims. Current run and sweep limits are checked before each claim.
         </p>
         <p>
           <C>EVERY</C> is the sweep interval in seconds. <C>SWEEP</C> caps how
@@ -815,7 +815,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         Dispatcher setting for worktree-aware task runs. When ON, the dispatcher
         may create an isolated task worktree before firing a task marked{' '}
         <C>worktreeRequired</C>. When OFF, dispatch leaves worktree creation to
-        the operator&apos;s existing <C>ISOLATE</C> button on the LEDGER tab.
+        the operator&apos;s existing <C>ISOLATE</C> button on the LEDGER tab. A pending automatic claim checks this setting again after preparing a worktree.
       </p>
     ),
     manualSection: 'cluster-board',

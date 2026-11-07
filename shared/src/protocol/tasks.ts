@@ -110,6 +110,7 @@ export interface TaskSignoff {
 export interface TaskKernelSnapshot {
   version: typeof TASK_KERNEL_VERSION;
   tasks: LedgerTask[];
+  proposalReceipts?: Record<string, string>;
   comments?: TaskComment[];
   runs?: TaskRun[];
 }

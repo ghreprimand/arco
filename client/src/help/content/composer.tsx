@@ -18,6 +18,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Composer',
     body: (
       <>
+        <p>While Genesis moves conversation storage, new messages are refused before acknowledgement. Wait for the active folder to be ready, then resend.</p>
         <p><C>/prompt name args</C> expands a saved template. Inserted arguments remain literal; <C>$$1</C> in a template produces literal <C>$1</C>.</p>
         <p>
           Type your prompt and click <strong>SEND</strong> or press <C>Enter</C> to send. <C>Shift+Enter</C> for
@@ -53,21 +54,21 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Send normally',
     body: <p>Same as <C>Enter</C>: starts a turn when idle, or steers the running
       agent at its next supported input boundary. Use <strong>INTERRUPT &amp; SEND</strong>
-      {' '}to stop the current turn and deliver the draft next.</p>,
+      {' '}to stop the current turn and deliver the draft next. During Genesis storage moves, wait for the folder to be ready before sending.</p>,
     manualSection: 'composer',
   },
   'composer.interrupt': {
     title: 'Interrupt & send',
     body: <p>Interrupts the active Claude or Codex turn, then sends your draft in
       the same conversation. <C>Ctrl/Cmd+Enter</C> does the same. Earlier queued
-      messages run afterward; completed edits remain in place.</p>,
+      messages run afterward; completed edits remain in place. During Genesis storage moves, wait until the folder is ready, then resend.</p>,
     manualSection: 'composer',
   },
   'composer.cancel': {
     title: 'Cancel turn',
     body: (
       <p>
-        Stops the active turn, including pending Claude Native token-count telemetry. It also revokes messages still preparing prompt or file context before dispatch or queueing. The server unconditionally fires{' '}
+        Stops the active turn, including pending Claude Native token-count telemetry. It also revokes messages still preparing prompt or file context before dispatch or queueing. While Genesis moves conversation storage, STOP is refused until the move finishes. For an active turn the server fires{' '}
         <C>turn_cancelled</C> + <C>primary_turn_ended</C>, which unsticks the UI
         even if the worker has gone "ghost" (silently exited mid-turn).
       </p>

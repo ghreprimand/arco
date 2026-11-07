@@ -305,6 +305,11 @@ codex exec resume <thread-id> "next prompt"
   resume across sessions. Scaffolding creates files on disk and needs your
   confirmation.
   </Note>
+  <p>
+  Scaffolding reserves the conversation until its history has moved and the active
+  folder is ready. Another scaffold is refused. New messages are refused before acknowledgement; resend them after the active folder is ready. STOP keeps the storage move
+  reserved until it finishes. Errors release the reservation too.
+  </p>
   <Sub>Save a plan in an existing folder</Sub>
   <p>
   An existing-folder Genesis draft follows the same stages. <Code>SAVE PLAN</Code>

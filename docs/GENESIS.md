@@ -123,6 +123,12 @@ non-fatal) -> seed + attach a plan -> rename the workflow to the final seed titl
 `meta.json` (real cwd + seed mirror + planId) -> remove the scratch dir -> broadcast
 `workflow_cwd_bound` + `workflow_renamed` + `genesis_scaffolded`.
 
+Scaffolding holds the workflow's busy reservation through folder creation, history
+flush and move, rebinding and scratch cleanup. Another scaffold is refused. New messages are refused before acknowledgement while the move is reserved;
+resend them after the active folder is ready. A scaffold also waits for message
+preparation already in progress. STOP does not release the storage reservation while migration is in progress.
+Failures release the reservation too.
+
 The GitHub checkbox uses the operator's local `gh` CLI auth and runs
 `gh repo create <repo> --private|--public --source <dir> --remote origin --push`. The UI collects
 visibility (private by default, public optional) and an optional repo name; when omitted, the

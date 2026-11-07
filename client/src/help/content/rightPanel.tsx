@@ -129,7 +129,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         (default <C>~/Projects</C>), writes seed docs (<C>README</C>/<C>SPEC</C>/
         <C>TODO</C>/<C>CLAUDE.md</C>), optionally a GitHub repo, then binds this
         workflow to the new folder (carrying the transcript over) and seeds a
-        plan. Select the public-project box to include privacy guardrails in the plan. Creates files on disk: irreversible.
+        plan. Select the public-project box to include privacy guardrails in the plan. The conversation stays reserved until its history move and folder setup finish; new messages are refused before acknowledgement until it is ready. A second scaffold is refused. STOP does not interrupt the storage move. Creates files on disk: irreversible.
       </p>
     ),
     manualSection: 'genesis-workflow',
@@ -145,6 +145,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         and an established codebase shows a warning. <C>DISARM</C> is shown
         whenever Creative mode is armed and keeps the idea fields. If the idea
         diverges, use <C>SPAWN</C> to fork it into a fresh tab.
+        While the alternative is being written, new messages are refused before acknowledgement; resend them when creation finishes.
       </p>
     ),
     manualSection: 'genesis-workflow',
@@ -622,7 +623,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'LEDGER',
     body: (
       <>
-        <p>The project&apos;s task list: tasks for this project folder that last across sessions and tabs. It is separate from PLAN (a plan and its reviews) and TASKS (subtasks the agent starts within a turn); work from either can attach to a ledger task.</p>
+        <p>The project&apos;s task list: tasks for this project folder that last across sessions and tabs. Edits refresh every open workflow viewing this board. It is separate from PLAN (a plan and its reviews) and TASKS (subtasks the agent starts within a turn); work from either can attach to a ledger task.</p>
         <p>Every change is recorded, so the list can be rebuilt if its saved copy is lost. Only you can mark a task <C>DONE</C> or <C>ARCHIVED</C>, from the status picker; nothing does it automatically.</p>
       </>
     ),

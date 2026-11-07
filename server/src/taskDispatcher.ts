@@ -22,6 +22,7 @@ import * as clusterStore from './clusterStore.js';
 import * as taskLedger from './project/taskLedger.js';
 import { createTaskWorktree, TaskWorktreeError } from './project/taskWorktree.js';
 import { workflows } from './server/state.js';
+import { claimBusy, releaseBusy } from './ws/turnEngine.js';
 import { persistLedgerKernelMutation } from './ws/taskLedgerHandlers.js';
 
 export interface DispatchOnceResult {
@@ -235,14 +236,32 @@ export async function dispatchOnce(opts: DispatchOnceOptions): Promise<DispatchO
         continue;
       }
     }
-    const result = await persistLedgerKernelMutation(item.assignee, cluster.cwd, 'dispatch_fired', (current) => {
+    const worker = workflows.get(item.assignee);
+    let busyToken: number | undefined;
+    let result: Awaited<ReturnType<typeof persistLedgerKernelMutation>>;
+    try {
+    result = await persistLedgerKernelMutation(item.assignee, cluster.cwd, 'dispatch_fired', async (current) => {
+      if (opts.shouldContinue && !(await opts.shouldContinue())) return null;
+      const latest = clusterStore.getClusterCached(opts.clusterId);
+      if (!latest || latest.cwd !== cluster.cwd || !clusterStore.isTaskBoardEnabledForState(latest)
+          || clusterStore.taskBoardKeyForState(latest) !== boardKey
+          || !latest.members.includes(opts.requestedByWorkflowId) || !latest.members.includes(item.assignee)
+          || (opts.source === 'daemon' && !clusterStore.isTaskDispatcherEnabled(opts.clusterId))
+          || !worker || workflows.get(item.assignee) !== worker || worker.busy || !isClusterMemberProvider(worker.primary.provider)) return null;
+      const settings = clusterStore.normalizeTaskDispatcherSettings(latest.dispatcher);
+      if (opts.source === 'daemon' && (countOpenClusterRuns(current.runs, opts.clusterId) >= settings.maxConcurrentRuns
+          || fired.length >= settings.maxTasksPerSweep)) return null;
+      if (item.needsAutoWorktree && !settings.autoWorktree) return null;
       const currentTask = current.tasks.find((task) => task.id === item.task.id);
-      if (!currentTask || currentTask.status !== 'ready' || hasOpenRun(current.runs, item.task.id)) {
+      if (!currentTask || currentTask.status !== 'ready' || currentTask.assignee !== item.assignee
+          || currentTask.parentIds.some(id => current.tasks.find(task => task.id === id)?.status !== 'done')
+          || hasOpenRun(current.runs, item.task.id)) {
         return null;
       }
       if (currentTask.worktreeRequired === true && !currentTask.worktree && !autoWorktree) {
         return null;
       }
+      busyToken = claimBusy(worker, false);
       const applied = taskLedger.applyUpdate(current.tasks, currentTask.id, {
         status: 'in_progress',
         assignee: item.assignee,
@@ -277,6 +296,7 @@ export async function dispatchOnce(opts: DispatchOnceOptions): Promise<DispatchO
         },
       };
     }, { boardKey });
+    } finally { if (worker && busyToken !== undefined) releaseBusy(worker, busyToken, 'finished', false); }
     const createdRun = run as TaskRun | null;
     if (!result || !createdRun || result.task?.status !== 'in_progress') {
       const itemSkip: ClusterDispatchSkipped = {

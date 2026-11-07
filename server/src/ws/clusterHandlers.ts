@@ -59,7 +59,7 @@ import {
   releaseClusterPlansWatcher,
   send,
 } from '../server/broadcast.js';
-import { appendLedgerComment, broadcastSnapshot, persistLedgerMutation } from './taskLedgerHandlers.js';
+import { broadcastSnapshot, persistLedgerMutation, persistLedgerKernelMutation } from './taskLedgerHandlers.js';
 import { PORT } from '../server/constants.js';
 import {
   sessions,
@@ -944,6 +944,7 @@ export async function handleClusterOrchestrationAssistRequest(
     createdAt: Date.now(),
   });
 
+  await orchestrationProposals.withDecisionLock(cluster.cwd, async () => {
   const proposals = await orchestrationProposals.load(cluster.cwd);
   const proposal = orchestrationProposals.create({
     clusterId: msg.clusterId,
@@ -972,6 +973,7 @@ export async function handleClusterOrchestrationAssistRequest(
     proposal: toWireProposal(proposal),
   });
   broadcastProposalSnapshot(msg.clusterId, msg.workflowId, next.filter((p) => p.clusterId === msg.clusterId));
+  });
 }
 
 export async function handleClusterOrchestrationProposalReject(
@@ -983,6 +985,7 @@ export async function handleClusterOrchestrationProposalReject(
     send(ws, { type: 'error', message: `cluster_orchestration_proposal_reject rejected: unknown_cluster` });
     return;
   }
+  await orchestrationProposals.withDecisionLock(baseCluster.cwd, async () => {
   const proposals = await orchestrationProposals.load(baseCluster.cwd);
   const proposal = proposals.find((p) => p.id === msg.proposalId && p.clusterId === msg.clusterId);
   if (!proposal) {
@@ -1015,13 +1018,7 @@ export async function handleClusterOrchestrationProposalReject(
     at: rejected.updatedAt,
   });
   broadcastProposalSnapshot(msg.clusterId, requester, proposals.map((p) => (p.id === rejected.id ? rejected : p)).filter((p) => p.clusterId === msg.clusterId));
-}
-
-// Locked + fresh-state append — the old loadKernel/saveKernel here ran outside
-// the ledger lock and wrote back `result.tasks`, reverting a claim that landed
-// in between and dropping a concurrent comment.
-async function appendProposalComment(cwd: string, boardKey: string | undefined, comment: ReturnType<typeof taskLedger.newTaskComment>): Promise<void> {
-  await appendLedgerComment(cwd, comment, boardKey);
+  });
 }
 
 export async function handleClusterOrchestrationProposalApply(
@@ -1040,6 +1037,7 @@ export async function handleClusterOrchestrationProposalApply(
     send(ws, { type: 'error', message: `cluster_orchestration_proposal_apply rejected: unknown_cluster` });
     return;
   }
+  await orchestrationProposals.withDecisionLock(baseCluster.cwd, async () => {
   const proposals = await orchestrationProposals.load(baseCluster.cwd);
   const proposal = proposals.find((p) => p.id === msg.proposalId && p.clusterId === msg.clusterId);
   if (!proposal) {
@@ -1075,113 +1073,84 @@ export async function handleClusterOrchestrationProposalApply(
       return;
     }
   }
+  const kernel = await taskLedger.loadKernel(cluster.cwd, boardKey);
+  const receiptKey = (itemId: string) => JSON.stringify([proposal.id, itemId]);
   const itemTaskIds = new Map<string, string>();
-  const appliedTaskIds: string[] = [];
+  for (const item of proposal.items) {
+    const taskId = kernel.proposalReceipts?.[receiptKey(item.id)];
+    if (taskId) itemTaskIds.set(item.id, taskId);
+  }
+  // Old accepted proposals have no durable item mapping. Refuse an unresolved
+  // dependency rather than silently dropping it or inventing a parent task.
+  const ordered: string[] = [], visiting = new Set<string>(), visited = new Set<string>();
+  const selectedSet = new Set(selected);
+  function visit(id: string): void {
+    if (visited.has(id)) return;
+    if (visiting.has(id)) throw new Error('cyclic proposal dependency');
+    visiting.add(id);
+    const item = itemById.get(id)!;
+    if (item.type === 'task_create') for (const parent of item.parentItemIds ?? []) {
+      if (itemById.get(parent)?.type !== 'task_create') throw new Error(`unresolved proposal dependency:${parent}`);
+      if (itemTaskIds.has(parent)) {
+        if (!kernel.tasks.some(task => task.id === itemTaskIds.get(parent))) throw new Error(`missing parent task:${parent}`);
+      } else if (selectedSet.has(parent)) visit(parent);
+      else throw new Error(`unresolved proposal dependency:${parent}`);
+    }
+    visiting.delete(id); visited.add(id); ordered.push(id);
+  }
+  try { for (const id of selected) visit(id); }
+  catch (error) { send(ws, { type: 'error', message: `cluster_orchestration_proposal_apply rejected: ${(error as Error).message}` }); return; }
+  const appliedTaskIds: string[] = [], appliedItemIds: string[] = [];
   const itemEdits = msg.itemEdits && typeof msg.itemEdits === 'object' ? msg.itemEdits : {};
   const applyMode = msg.applyMode === 'comment' ? 'comment' : 'task_kernel';
-
-  for (const itemId of selected) {
-    const item = itemById.get(itemId);
-    if (!item) continue;
+  for (const itemId of ordered) {
+    const item = itemById.get(itemId)!;
     const edit = itemEdits[item.id];
     const editedTitle = typeof edit?.title === 'string' && edit.title.trim() ? edit.title.trim() : undefined;
     const editedBody = typeof edit?.body === 'string' && edit.body.trim() ? edit.body.trim() : undefined;
-    if (item.type === 'task_create') {
-      if (applyMode === 'comment') continue;
-      const parentIds = [
-        ...(item.parentTaskIds ?? []),
-        ...(item.parentItemIds ?? []).map((id) => itemTaskIds.get(id)).filter((id): id is string => !!id),
-      ];
-      const task = taskLedger.newTask({
-        title: editedTitle ?? item.title,
-        notes: editedBody ?? item.notes,
-        links: item.links,
-        priority: item.priority,
-        parentIds,
-        reviewRequired: item.reviewRequired,
-        goalMode: item.goalMode,
-        goalMaxTurns: item.goalMaxTurns,
-        worktreeRequired: item.worktreeRequired,
-        createdBy: requester,
-      });
-      await persistLedgerMutation(requester, cluster.cwd, 'create', (tasks) => ({
-        tasks: [...tasks, task],
-        id: task.id,
-        task,
-      }), { boardKey });
-      let finalTask = task;
-      if (item.status || item.assignee || parentIds.length > 0) {
-        const updated = await persistLedgerMutation(requester, cluster.cwd, 'update', (tasks) => {
-          const applied = taskLedger.applyUpdate(tasks, task.id, {
-            status: item.status,
-            assignee: item.assignee,
-            parentIds,
-            updatedBy: requester,
-          });
-          return applied ? { tasks: applied.tasks, id: task.id, task: applied.updated } : null;
-        }, { boardKey });
-        finalTask = updated?.task ?? task;
-      }
-      itemTaskIds.set(item.id, finalTask.id);
-      appliedTaskIds.push(finalTask.id);
-    } else if (item.type === 'task_update') {
-      if (applyMode === 'comment') {
-        const body = [editedTitle ?? `Proposal note for ${item.taskId.slice(0, 8)}`, editedBody ?? item.rationale ?? 'Accepted orchestration proposal item.']
-          .filter(Boolean)
-          .join('\n\n');
-        const comment = taskLedger.newTaskComment({
-          taskId: item.taskId,
-          body,
-          authorWorkflowId: requester,
-          authorLabel: clusterStore.displayNameFor(requester),
-          metadata: { source: 'orchestration_proposal', proposalId: proposal.id, itemId: item.id, applyMode },
-        });
-        const result = await persistLedgerMutation(requester, cluster.cwd, 'comment', (tasks) => {
-          const existing = tasks.find((task) => task.id === item.taskId);
-          if (!existing) return null;
-          return { tasks, id: item.taskId, payload: { comment } };
-        }, { boardKey });
-        if (result) {
-          await appendProposalComment(cluster.cwd, boardKey, comment);
-          appliedTaskIds.push(item.taskId);
-        }
-        continue;
-      }
-      const updated = await persistLedgerMutation(requester, cluster.cwd, 'update', (tasks) => {
-        const applied = taskLedger.applyUpdate(tasks, item.taskId, {
-          ...item.patch,
-          ...(editedTitle ? { title: editedTitle } : {}),
-          ...(editedBody ? { notes: editedBody } : {}),
-          updatedBy: requester,
-        });
-        return applied ? { tasks: applied.tasks, id: item.taskId, task: applied.updated } : null;
-      }, { boardKey });
-      if (updated?.task) appliedTaskIds.push(updated.task.id);
-    } else if (item.type === 'task_comment') {
-      const comment = taskLedger.newTaskComment({
-        taskId: item.taskId,
-        body: editedBody ?? item.body,
-        authorWorkflowId: requester,
-        authorLabel: clusterStore.displayNameFor(requester),
-        metadata: { source: 'orchestration_proposal', proposalId: proposal.id, itemId: item.id, applyMode },
-      });
-      const result = await persistLedgerMutation(requester, cluster.cwd, 'comment', (tasks) => {
-        const existing = tasks.find((task) => task.id === item.taskId);
-        if (!existing) return null;
-        return { tasks, id: item.taskId, payload: { comment } };
-      }, { boardKey });
-      if (result) {
-        await appendProposalComment(cluster.cwd, boardKey, comment);
-        appliedTaskIds.push(item.taskId);
-      }
+    let appliedId: string | undefined;
+    const result = await persistLedgerKernelMutation(requester, cluster.cwd, item.type === 'task_create' ? 'create' : item.type === 'task_update' && applyMode !== 'comment' ? 'update' : 'comment', current => {
+      const key = receiptKey(itemId), previous = current.proposalReceipts?.[key];
+      if (previous) { appliedId = previous; return null; }
+      let tasks = current.tasks, comments = current.comments;
+      let task: import('@arco/shared').LedgerTask | undefined;
+      let comment: import('@arco/shared').TaskComment | undefined;
+      if (item.type === 'task_create') {
+        if (applyMode === 'comment') return null;
+        const parentIds = [...(item.parentTaskIds ?? []), ...(item.parentItemIds ?? []).map(id => itemTaskIds.get(id)!)];
+        if (parentIds.some(id => !tasks.some(task => task.id === id))) throw new Error('Proposal parent task no longer exists.');
+        task = taskLedger.newTask({ ...item, title: editedTitle ?? item.title, notes: editedBody ?? item.notes, parentIds, createdBy: requester });
+        task = taskLedger.applyUpdate([task], task.id, { status: item.status, assignee: item.assignee, parentIds, updatedBy: requester })!.updated;
+        tasks = [...tasks, task];
+      } else if (item.type === 'task_update' && applyMode !== 'comment') {
+        const updated = taskLedger.applyUpdate(tasks, item.taskId, { ...item.patch, ...(editedTitle ? { title: editedTitle } : {}), ...(editedBody ? { notes: editedBody } : {}), updatedBy: requester });
+        if (!updated) return null;
+        tasks = updated.tasks; task = updated.updated;
+      } else if (item.type === 'task_comment' || item.type === 'task_update') {
+        task = tasks.find(task => task.id === item.taskId);
+        if (!task) return null;
+        const body = item.type === 'task_comment' ? editedBody ?? item.body : [editedTitle ?? `Proposal note for ${item.taskId.slice(0, 8)}`, editedBody ?? item.rationale ?? 'Accepted orchestration proposal item.'].join('\n\n');
+        comment = taskLedger.newTaskComment({ taskId: task.id, body, authorWorkflowId: requester, authorLabel: clusterStore.displayNameFor(requester), metadata: { source: 'orchestration_proposal', proposalId: proposal.id, itemId, applyMode } });
+        comments = [...comments, comment];
+      } else return null;
+      appliedId = task.id;
+      return { state: { ...current, tasks, comments, proposalReceipts: { ...current.proposalReceipts, [key]: task.id } }, id: task.id, task,
+        payload: { ...(comment ? { comment } : {}), proposalReceipt: { key, taskId: task.id } } };
+    }, { boardKey });
+    if (result?.task && item.type === 'task_create' && (item.status || item.assignee || result.task.parentIds.length > 0)) {
+      // Preserve the ordinary create/update event pair without a second state
+      // write between task creation and its durable item receipt.
+      broadcastWorkflow(requester, { type: 'task_ledger_event', workflowId: requester, cwd: cluster.cwd,
+        ...(boardKey ? { boardKey } : {}), op: 'update', id: result.task.id, task: result.task, at: Date.now() });
     }
+    if (appliedId) { itemTaskIds.set(itemId, appliedId); appliedTaskIds.push(appliedId); appliedItemIds.push(itemId); }
   }
 
   if (appliedTaskIds.length === 0) {
     send(ws, { type: 'error', message: `cluster_orchestration_proposal_apply rejected: no_applicable_items` });
     return;
   }
-  const updatedProposal = orchestrationProposals.withAcceptedItems(proposal, requester, selected, appliedTaskIds);
+  const updatedProposal = orchestrationProposals.withAcceptedItems(proposal, requester, appliedItemIds, appliedTaskIds);
   await orchestrationProposals.save(cluster.cwd, proposals.map((p) => (p.id === updatedProposal.id ? updatedProposal : p)));
   const tasks = await taskLedger.load(cluster.cwd, boardKey);
   broadcastCluster(msg.clusterId, {
@@ -1210,6 +1179,7 @@ export async function handleClusterOrchestrationProposalApply(
     at: updatedProposal.updatedAt,
   });
   broadcastProposalSnapshot(msg.clusterId, requester, proposals.map((p) => (p.id === updatedProposal.id ? updatedProposal : p)).filter((p) => p.clusterId === msg.clusterId));
+  });
 }
 
 // Operator-driven transcript-send. Mirrors a model-issued peer_send but lets

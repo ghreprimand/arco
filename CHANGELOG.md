@@ -65,6 +65,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Saved proposal decisions survive concurrent requests and retries. Parent tasks remain dependencies across reversed or separate selections.
+- Genesis reserves its conversation while scaffolding and moving its history. Task dispatch checks current assignments, dependencies and automation settings before claiming work.
+- Project-board edits from LEDGER refresh every open workflow viewing that board without duplicate snapshots on shared connections.
+
 - Keep recent writes and complete native-session rows during concurrent updates; summaries and automatic titles target the current provider session.
 - Keep the newest 500 recently modified files across allowed folders, stream mailbox context once per sender, and search Recall transcripts through compressed history.
 - Reload supported Computer scripts with more than 128 action/target combinations, accept successful empty GitHub rerun responses, and check all Genesis stages for scaffold readiness.

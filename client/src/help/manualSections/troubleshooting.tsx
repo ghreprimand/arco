@@ -256,6 +256,7 @@ export const troubleshooting: Section[] = [
   title: 'Stuck workflows & recovery',
   body: (
   <>
+  <p>During a Genesis storage move, STOP is refused until the operation finishes. New messages are also refused before acknowledgement; resend them when the active folder is ready.</p>
   <p>
   Escape a tab stuck in the busy state with cancel, then Handoff, then
   restart - and watch the stuck-worker breaker for repeated failing tools.
@@ -264,7 +265,7 @@ export const troubleshooting: Section[] = [
   <ol>
   <li>
   Click <strong>✕ CANCEL</strong> in the composer. The server
-  unconditionally ends the turn even if the worker has gone "ghost"
+  ends an active turn even if the worker has gone "ghost"
   (silently exited mid-turn). This is the standard escape hatch.
   </li>
   <li>

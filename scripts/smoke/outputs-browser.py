@@ -16,7 +16,7 @@ URL = 'http://127.0.0.1:' + os.environ.get('ARCO_CLIENT_PORT', '5201') + '/'
 ART = Path(os.environ.get('ARCO_OUTPUT_VISUAL_ARTIFACTS', '/tmp/arco-outputs-browser'))
 A, B = '11111111-2222-4333-8444-555555555555', '22222222-3333-4444-8555-666666666666'
 CWD = '/projects/harbor'
-PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jubkAAAAASUVORK5CYII=')
+PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=')
 
 def output(id, name, category, title=None, **extra):
     return {'id': id * 32, 'name': name, 'title': title or name, 'path': CWD + '/' + name, 'originPath': CWD + '/' + name, 'category': category, 'workflowId': A, 'cwd': CWD, 'producer': 'Producer A', 'createdAt': 1793210000000, 'updatedAt': 1793210000000, 'size': 32, 'missing': False, 'source': 'artifact event', **extra}

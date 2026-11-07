@@ -112,6 +112,11 @@ from the workflow):
 | `task_ledger_snapshot` | The full cwd-scoped list (`cwd`, `tasks[]`). Sent live after every mutation and on connect/rehydrate; never written to `events.jsonl` (since 0.1.4; older logs still hold copies and replay them). The client keys it by `cwd`. |
 | `task_ledger_event` | The durable per-mutation event (`op`, `id`, `task?`, `payload?`, `at`). This is what lands in `events.jsonl` and what `rebuildFromEvents()` folds. Live clients no-op on it (the snapshot follows). |
 
+An operator edit from a workflow's LEDGER sends one live snapshot to every open workflow observing
+the same project and board. A connection observing several such workflows receives
+one copy. Cluster-local and disabled boards remain separate. The durable mutation
+event is recorded on the initiating workflow.
+
 On rehydrate the server pushes a `task_ledger_snapshot` per workflow (see
 `handoffHandlers.ts`), so a reconnecting client mirrors the ledger without an
 explicit list request, consistent with the plan/preview wire echoes.
@@ -455,3 +460,23 @@ documented trigger, **not** an assumed future, do not pre-migrate.
 
 - [Feature reference](FEATURES.md)
 - [Documentation style](STYLE.md)
+
+### Concurrent proposal decisions and retry receipts
+
+Proposal creation, rejection and application share one project decision lock.
+Each applied item writes its task or comment and an item-to-task receipt in the
+same atomic task-kernel replacement. The optional `proposalReceipts` object maps
+encoded proposal/item pairs to task ids. Other ledger mutations retain it, and
+`task_ledger_event.payload.proposalReceipt` restores it during event-log recovery.
+Existing snapshots without receipts continue to load.
+
+A failed proposal acceptance save can be retried without repeating its recorded
+ledger effects. Parent items are resolved before their children, including parents
+accepted in an earlier selection. Missing or cyclic proposal dependencies refuse
+the selection before task creation. A legacy accepted parent without a receipt
+requires an explicit task dependency; the server does not guess its identity.
+
+Dispatch rechecks the current task assignment, dependencies, cluster membership,
+board selection and worker availability under the ledger claim lock. Daemon claims
+also check its enabled state and current run and sweep limits. The worker is
+reserved during claim persistence, then receives the validated task in its turn.
