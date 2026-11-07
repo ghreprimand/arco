@@ -1524,9 +1524,9 @@ export async function handleUserMessage(
   }
   let expandedContext = contextExpansion.block || undefined;
 
-  // STOP/removal during async ref/trust preparation cancels this explicit
-  // redirect too. A naturally completed turn still accepts it normally.
-  if (kind === 'interrupt' && (workflows.get(workflowId) !== wf || (busyRevocations.get(wf) ?? 0) !== interruptEpoch)) {
+  // STOP/removal during async ref/trust preparation revokes every pending
+  // send, before it can claim a fresh busy token or enter either queue.
+  if (workflows.get(workflowId) !== wf || (busyRevocations.get(wf) ?? 0) !== interruptEpoch) {
     if (clientMessageId) send(ws, { type: 'queued_message_cancelled', workflowId, clientMessageId });
     return;
   }
@@ -1669,7 +1669,7 @@ export async function handleUserMessage(
     await opts.claimGuard(() => {
       // Async preflight may have lost to STOP, a real operator turn or removal.
       // Conditional nudges must never fall into the ordinary follow-up queue.
-      if (workflows.get(workflowId) !== wf || wf.busy || wf.computerResetting || wf.queue.steering.length || wf.queue.followUp.length
+      if (workflows.get(workflowId) !== wf || (busyRevocations.get(wf) ?? 0) !== interruptEpoch || wf.busy || wf.computerResetting || wf.queue.steering.length || wf.queue.followUp.length
         || (wf.lastForeignWriteAt && Date.now() - wf.lastForeignWriteAt < FOREIGN_WRITE_BLOCK_MS)) return false;
       guardedToken = claimBusy(wf); return true;
     });

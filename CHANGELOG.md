@@ -54,6 +54,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- STOP cancels normal messages still preparing prompt or file context instead of allowing them to start afterward.
+
 - Automatic Claude CLI context calibration cannot start alongside a newer primary turn.
 
 - Delayed Claude CLI session loads no longer replace a newer watcher or replay an older session after reconnect or handoff.

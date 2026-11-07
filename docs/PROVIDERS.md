@@ -2043,3 +2043,5 @@ Deterministic Fold keeps the newest complete question and answer together, even 
 Claude CLI session watching belongs to the current workflow and session generation. A delayed load from an older reconnect or handoff cannot replay rows or replace a newer watcher.
 
 Automatic Claude CLI calibration starts only while the same session remains idle. A new primary turn or cancellation during estimation or probe admission prevents a concurrent context probe.
+
+STOP also revokes a normal message still preparing prompt or file context. It cannot enter a queue or start a provider turn after that cancellation.

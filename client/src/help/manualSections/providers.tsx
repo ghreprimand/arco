@@ -104,6 +104,7 @@ export const providers: Section[] = [
   <p>Native reconnects failed or closed MCP sessions at the next turn. Changed server commands, arguments or environment settings replace the old connection then; healthy unchanged sessions stay open.</p>
   <p>Claude CLI reconnects and handoffs retain only the current session watcher. A delayed load of an older session cannot mix its rows into the conversation.</p>
   <p>Automatic Claude CLI context calibration waits for an idle session. Starting a new turn cancels pending calibration admission, so the probe cannot run alongside that turn.</p>
+  <p>STOP also cancels a message still preparing prompt or file context, before it starts a provider turn or enters a queue.</p>
   <Sub>Sign-in</Sub>
   <ul>
   <li>
