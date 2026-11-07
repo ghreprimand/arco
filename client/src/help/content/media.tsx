@@ -12,7 +12,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   'header.media': {
     title: 'Media studio',
     body: (
-      <p>Closing an editor or replacing its source cancels its active conversion or stem-separation job.
+      <p>REVEAL IN FILES follows the source file's pinned workflow. Closing an editor or replacing its source cancels its active conversion or stem-separation job.
         Opens the <strong>Media studio</strong>: a viewer/player for images,
         audio and video. Opens <strong>empty</strong> here (then drag-drop or{' '}
         <strong>Import</strong> a file); or right-click a media file in{' '}
@@ -255,7 +255,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   },
   'media.op-reveal': {
     title: 'Reveal in Files',
-    body: <p>Switch the right panel to the FILES explorer so you can see the newly-written output file.</p>,
+    body: <p>Selects the file's pinned workflow, even if another tab is active. Switch the right panel to the FILES explorer so you can see the newly-written output file.</p>,
     manualSection: S,
   },
 
@@ -363,7 +363,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   },
   'media.video-op-reveal': {
     title: 'Reveal in Files',
-    body: <p>Switch the right panel to the FILES explorer so you can see the newly-written output file.</p>,
+    body: <p>Selects the file's pinned workflow, even if another tab is active. Switch the right panel to the FILES explorer so you can see the newly-written output file.</p>,
     manualSection: S,
   },
 
@@ -459,7 +459,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   },
   'media.stems-reveal': {
     title: 'Reveal stems folder',
-    body: <p>Switch the right panel to the FILES explorer to see the freshly-written stems folder.</p>,
+    body: <p>Selects the file's pinned workflow, even if another tab is active. Switch the right panel to the FILES explorer to see the freshly-written stems folder.</p>,
     manualSection: S,
   },
   'media.close': {

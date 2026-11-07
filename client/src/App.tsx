@@ -1,3 +1,4 @@
+import { requestVoicePanel } from './voice/panels';
 import { CatchMeUp } from './components/CatchMeUp';
 import './components/Home/home.css';
 import { HomeView } from './components/Home/HomeView';
@@ -481,6 +482,7 @@ function AppBody() {
   }, []);
 
   const activeJob = activeJobId ? jobs[activeJobId] : undefined;
+  const effectiveMediaContext = mediaStudio.context ?? (activeJob ? { cwd: activeJob.config.workingDirectory, workflowId: activeJob.id } : undefined);
 
   // Resolve the cluster a workflow belongs to (if any). Used by the
   // PlanCandidateBanner cluster shortcut, the BACK TO CLUSTER button, and
@@ -988,13 +990,16 @@ ${scopeBody}
           // relative path against the right cwd (+ artifacts-dir fallback, same
           // as FileViewerModal). A launcher-pinned context (e.g. an artifact
           // from a background tab) wins over the active tab.
-          fileContext={mediaStudio.context ?? (activeJob ? { cwd: activeJob.config.workingDirectory, workflowId: activeJob.id } : undefined)}
+          fileContext={effectiveMediaContext}
           // H6 — Reveal a freshly-written op output in the Files panel. The
           // RightPanel listens for this event + flips to FILES for the workflow;
           // we close the modal so the panel is visible.
           onRevealInFiles={() => {
-            if (activeJob) {
-              window.dispatchEvent(new CustomEvent('arco:reveal-in-files', { detail: { workflowId: activeJob.id } }));
+            if (effectiveMediaContext && jobs[effectiveMediaContext.workflowId]) {
+              const workflowId = effectiveMediaContext.workflowId;
+              useAppStore.getState().setActiveJob(workflowId);
+              requestVoicePanel(workflowId, 'files');
+              window.dispatchEvent(new CustomEvent('arco:reveal-in-files', { detail: { workflowId } }));
             }
             setMediaStudio({ open: false });
           }}

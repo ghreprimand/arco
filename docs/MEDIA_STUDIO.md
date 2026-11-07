@@ -331,3 +331,5 @@ UI niceties added while testing N1-N4. All client-only; no protocol surface.
 Closing the studio, unloading its source or switching away from a media editor cancels that editor's active conversion or stem-separation request. Replacing the source cancels the old job before the new source can run an operation.
 
 Image SAVE differs from conversion output: an image opened from FILES targets its original path and requires confirmation before overwrite. Image saving requires a workflow context. An imported image asks for a filename. Audio and video conversions retain their new-file behavior.
+
+REVEAL IN FILES selects the workflow pinned to the media file, even when another tab was active when the studio opened.
