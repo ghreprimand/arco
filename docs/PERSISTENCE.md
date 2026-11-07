@@ -345,7 +345,7 @@ interface SessionHistoryEntry {
   startedAt: number;
   endedAt: number;
   turnCount: number;
-  archivedReason: 'handoff' | 'fresh-cascade-reset';
+  archivedReason: 'handoff' | 'fresh-cascade-reset' | 'computer-fresh-context';
   handoffArtifactName?: string;
 }
 ```
@@ -584,7 +584,7 @@ After the turn, `meta.planLastSeenUpdatedAt = plan.updatedAt` so the next turn f
 
 **Why one-liner only.** Earlier behavior injected the full body on first attach AND on every edit. Two problems: (a) the agent's own edits (tick-offs etc.) bumped `updatedAt`, which re-injected the body the very next turn - a feedback loop where every working turn re-injected ~1.5-5KB of plan prose; (b) Claude's session JSONL records the full prompt verbatim, so the prefix surfaced as a duplicate user bubble in chat (the clean copy comes from `user_message_echo`). One-liner only avoids both.
 
-**`stripPlanPrefix` in `toSessionEntries`.** Even with the one-liner, the prefix would still echo into chat via the session JSONL. The session_entry emitter strips it via `PLAN_PREFIX_RE = /^\[Active project plan[^\n]*\]\n(?:<plan>\n[\s\S]*?\n<\/plan>\n)?\n/` (the optional `<plan>...</plan>` branch is kept so any historical entries written under the old behavior also strip cleanly). Anchored at message start so user-typed content that mentions plans later is untouched.
+**`stripPlanPrefix` in `toSessionEntries`.** Even with the one-liner, the prefix would still echo into chat via the session JSONL. The session_entry emitter strips it via `PLAN_PREFIX_RE = /^\[(?:Active project plan|No project plan is attached)[^\n]*\]\n(?:<plan>\n[\s\S]*?\n<\/plan>\n)?\n/` (it also strips the no-plan authoring note) (the optional `<plan>...</plan>` branch is kept so any historical entries written under the old behavior also strip cleanly). Anchored at message start so user-typed content that mentions plans later is untouched.
 
 Plans survive across workflows, server restarts, and Handoffs. `wf.planId` persists in `meta.json`; rehydrate re-acquires the watcher and idempotently re-records the open attachment span.
 
@@ -701,8 +701,8 @@ Proposals are stored only while they are pending operator action (accept / apply
 ├── clusters/
 │   └── <clusterId>/
 │       ├── meta.json                # ClusterState (members[], cwd, createdAt ISO, taskBoardMode, efficiencyLevel, dispatcher, memberRoles/Tiers/Focuses, progressTracking, ...)
-│       ├── plan.md                  # shared cluster plan body
-│       ├── plan.meta.json           # { updatedAt } sidecar for plan.md
+│       ├── plan.md                  # legacy cluster plan body, read once and migrated to <cwd>/.arco/plans/
+│       ├── plan.meta.json           # legacy { updatedAt } sidecar for plan.md
 │       └── mailbox/
 │           └── <recipientWfId>/
 │               └── <msgId>.json     # one file per pending peer message
@@ -797,7 +797,7 @@ Small global JSON stores, each written through `atomicFile.ts` (`notification-mu
 
 ### trust.json
 
-`server/src/projectTrust.ts`. Flat versioned map `{ version: 1, entries: { <canonical abs cwd>: { decision: 'always' | 'never', at } } }`. Gates the three project-local injection surfaces (AGENTS.md, project skills, project `.arco/settings.json`) behind an explicit operator trust decision; nearest-ancestor wins (a `never` on a subdir overrides an `always` on its parent). The fallback default lives in global `settings.json` under `defaultProjectTrust` (`'ask' | 'always' | 'never'`, default `'ask'`) - resolved from USER/GLOBAL scope ONLY before any project-local file is read, so a cloned repo cannot self-grant trust via a checked-in `.arco/settings.json`. A recorded decision is one line the operator can flip or delete by hand.
+`server/src/projectTrust.ts`. Flat versioned map `{ version: 1, entries: { <canonical abs cwd>: { decision: 'always' | 'never', at } } }`. Gates the three project-local injection surfaces (`CLAUDE.md`, project skills, project `.arco/settings.json`) behind an explicit operator trust decision; nearest-ancestor wins (a `never` on a subdir overrides an `always` on its parent). The fallback default lives in global `settings.json` under `defaultProjectTrust` (`'ask' | 'always' | 'never'`, default `'ask'`) - resolved from USER/GLOBAL scope ONLY before any project-local file is read, so a cloned repo cannot self-grant trust via a checked-in `.arco/settings.json`. A recorded decision is one line the operator can flip or delete by hand.
 
 ### prompts/
 
@@ -842,8 +842,8 @@ Project scope takes precedence over global; both fall back to built-in templates
 
 ```json
 [
-  "~/Projects/Arco",
-  "~/Projects/sample-app"
+  "/home/user/projects/example-app",
+  "/home/user/projects/sample-app"
 ]
 ```
 
@@ -936,14 +936,14 @@ arming, a session ID, captured speech or sample audio. Reload remains mic-off.
 
 ## Cleanup / GC
 
-None for conversation records - Arco is append-only by design:
+Nothing removes conversation records automatically - Arco is append-only by design:
 
-- `events.jsonl` grows forever. There is **no rotation** (the "100 MB rotation cap" in `workflowStore.ts` comments is a sizing assumption, not enforced). A manual trim is survivable: the snapshot-only fallback handles `firstSeq > clientLastSeq + 1`.
+- `events.jsonl` is append-only; from 16 MiB its older records are sealed into compressed segments (see [Sealed segments](#sealed-segments)), which keeps every record. Do not trim logs by hand; use the STORAGE actions (ARCHIVE, DELETE) for whole closed conversations.
 - `cliSessions[]` normally grows forever; Computer fresh-context boundaries retire its Codex entries into `history[]`.
 - `history[]` grows forever (one entry per Handoff or Computer fresh start).
 - Artifacts and handoffs accumulate forever.
 
-Deletion is operator-only: PURGE CONVERSATION (`DELETE /api/workflows/:wfid`, see Purge above) or by hand on disk. Closing a tab (`remove_workflow`) keeps the directory. The bounded/reaped stores are listed under [Two roots](#two-roots).
+Deletion is operator-only: PURGE CONVERSATION (`DELETE /api/workflows/:wfid`, see Purge above), ARCHIVE or DELETE in the ARTIFACTS STORAGE lens, or by hand on disk. Closing a tab (`remove_workflow`) keeps the directory. The bounded/reaped stores are listed under [Two roots](#two-roots).
 
 ---
 
