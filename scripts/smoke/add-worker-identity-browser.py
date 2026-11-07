@@ -35,6 +35,9 @@ async def main():
                 if url.path == '/api/outputs':
                     await route.fulfill(json={'outputs':[]})
                     return
+                if url.path == '/api/public-project/choice':
+                    await route.fulfill(json={'choice': None})
+                    return
                 if url.path == '/api/public-project/remote':
                     await route.fulfill(json={'state':'none'})
                     return
