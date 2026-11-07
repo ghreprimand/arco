@@ -86,7 +86,7 @@ test('Strata manual is searchable, distinguishes memory limits, and opens the re
   for (const term of ['prepared profile', 'none', 'low', 'medium', 'high', 'next message']) assert.ok(provider.includes(term), term);
   assert.doesNotMatch(provider, /Arco does not start/);
   const memory = section('strata-memory');
-  for (const term of ['mixture of experts', '24 GiB', '36 GiB', '262144', '32768', 'PLE', 'tok/s']) assert.ok(memory.includes(term), term);
+  for (const term of ['mixture of experts', 'expert budget', 'hard ceiling', '262144', '32768', 'PLE', 'tok/s']) assert.ok(memory.includes(term), term);
   assert.match(section('strata-recovery'), /FREE VRAM.*unloads loopback/);
   for (const id of ['provider-strata', 'strata-memory', 'strata-recovery']) {
     const html = renderToStaticMarkup(createElement('article', null, MANUAL_SECTIONS.find(s => s.id === id)!.body));
@@ -105,7 +105,7 @@ test('Strata manual is searchable, distinguishes memory limits, and opens the re
 
 test('DeepSeek help explains runtime, routing, memory, guards and version limits', () => {
   const text = section('deepseek');
-  for (const term of ['Xolotl', 'Exact', 'Light', '0.25 / 0.15', '262,144', '48 GiB', '64 GiB', 'GPU workload', 'checkout', 'Incognito', 'fork', 'Strata-DSV4.1', 'UP TO DATE']) assert.ok(text.includes(term), term);
+  for (const term of ['Xolotl', 'Exact', 'Light', '0.25 / 0.15', '262,144', 'Host expert arena', 'MemoryMax', 'GPU workload', 'checkout', 'Incognito', 'fork', 'Strata-DSV4.1', 'UP TO DATE']) assert.ok(text.includes(term), term);
   assert.equal(HELP_CONTENT['settings.deepseek'].manualSection, 'deepseek');
   assert.equal(HELP_CONTENT['header.xolotl-version'].manualSection, 'deepseek');
 });

@@ -18,7 +18,7 @@ export const strataGuide: Section[] = [
   </p>
   <Table headers={['Component', 'Strata MoE setup']} rows={[
   ['Dense work / hot experts', 'GPU plus hybrid CPU/GPU expert execution'],
-  ['Host experts', 'Up to 24 GiB budget; uncached experts read from files'],
+  ['Host experts', 'A budget in host RAM set in the Strata service configuration; uncached experts read from files'],
   ['PLE / n-gram table', 'Second GGUF shard on NVMe; distinct from conversation KV'],
   ['Conversation KV', 'INT8 in host memory, with 32768 cells resident on GPU'],
   ['Image encoder', 'CPU, 8 threads, up to 1024 image tokens'],
@@ -29,9 +29,9 @@ export const strataGuide: Section[] = [
   Strata&apos;s service is capped separately from Arco.
   </p>
   <ul>
-  <li>A <strong>32 GiB soft threshold and 36 GiB hard ceiling</strong>, with no swap allowance.</li>
+  <li>The <strong>soft threshold, hard ceiling and swap allowance</strong> are set in the Strata service&apos;s own configuration. Size them to the host.</li>
   <li>Child processes and charged file cache count toward that ceiling.</li>
-  <li>The 24 GiB expert budget is only one part of it; the runtime may choose less.</li>
+  <li>The expert budget is only one part of it; the runtime may choose less.</li>
   <li>Arco&apos;s own memory guard does not resize this independent service.</li>
   </ul>
   <Sub>Context and tool caps</Sub>

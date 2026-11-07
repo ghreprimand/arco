@@ -51,8 +51,8 @@ export const deepseekGuide: Section[] = [{
   ['Context', '262,144 tokens shared by input, history, thinking and output.'],
   ['Thinking', 'None, low, medium or high. Medium defaults to an 8K thinking budget.'],
   ['Output', '16K total allowance, including thinking; it consumes context too.'],
-  ['Host expert arena', '48 GiB; this is not the entire service memory footprint.'],
-  ['Service limits', 'MemoryHigh 60 GiB; MemoryMax 64 GiB; no swap.'],
+  ['Host expert arena', 'Set in the DeepSeek service configuration; it is not the entire service memory footprint.'],
+  ['Service limits', 'MemoryHigh, MemoryMax and swap are set in the service\'s own configuration. Size them to the host.'],
   ['Modalities', 'Text, images and tools when the matching vision encoder is prepared. Text-only profiles reject images before loading.'],
   ['JSON', 'Prompt and validate. No constrained-decoding guarantee.'],
   ]} />
