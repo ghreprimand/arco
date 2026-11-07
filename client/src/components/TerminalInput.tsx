@@ -651,7 +651,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
 
   const handleSubmit = (kind?: 'steer' | 'follow-up' | 'interrupt') => submitComposer({
     kind, isCompacting, uploading, readDraft, attachments, provider, isBusy,
-    onCompact, addMessage, job, setValue, clearAttachments, onUpdatePrimary,
+    compactAvailable: compactVisible, onCompact, addMessage, job, setValue, clearAttachments, onUpdatePrimary,
     planModeArmed, planModeToggleVisible, onArmPlanMode, setPlanModeArmed,
     onSend, pickedSkills, setPickedSkills,
   });

@@ -158,7 +158,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           <C>/compress</C> in the composer routes through this same safe path.
         </p>
         <p>
-          Shown only on Codex-app-server, Cursor, Claude-native, and Ollama
+          Typing <C>/compact</C> uses this handler wherever COMPACT is available; while busy it keeps the draft and asks to wait. Claude CLI-only command hints stay on Claude tabs. Shown only on Codex-app-server, Cursor, Claude-native, and Ollama
           tabs. Runs between turns: disabled while a turn is in flight.
         </p>
       <p>For Cursor, STOP during compression finishes its cancellation wait when compression settles. A later turn is not affected by the old cancellation timer.</p>
@@ -391,6 +391,11 @@ export const composerHelp: Record<string, HelpEntry> = {
         </p>
       </>
     ),
+    manualSection: 'composer-compare',
+  },
+  'composer.compare.close': {
+    title: 'Close comparison results',
+    body: <p>CANCEL stops active drafting or synthesis before closing the results. Once all work has finished, CLOSE dismisses the results.</p>,
     manualSection: 'composer-compare',
   },
   'composer.compare.prompt': {

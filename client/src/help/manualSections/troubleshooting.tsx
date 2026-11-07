@@ -229,7 +229,8 @@ export const troubleshooting: Section[] = [
   path; the stderr tail is a read of the existing log file.
   </Note>
   <Sub>Services tab</Sub>
-  <p>
+  <p>Automatic service scans wait for the previous request to finish before polling again. Slow scans remain visible when they complete. Closing Services aborts its pending read.</p>
+<p>
   The <strong>SERVICES</strong> tab is a machine-wide browser of the local
   listening web/dev services Arco discovers. It lives here, not in the
   per-workflow right panel, because it is project-agnostic.
@@ -379,7 +380,8 @@ export const troubleshooting: Section[] = [
   title: 'OFFLINE / SYNCING / reconnect',
   body: (
   <>
-  <p>
+  <p>The quiet-worker clock advances while a workflow is busy and online, including when no new events arrive. At the silence threshold, the warning offers CANCEL TURN for that workflow.</p>
+<p>
   The header pill reports ONLINE, SYNCING or OFFLINE for the WebSocket and
   workflow replay state.
   </p>

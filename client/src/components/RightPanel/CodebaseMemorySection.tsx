@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { JobState } from '../../stores/appStore';
 import { useAppStore } from '../../stores/appStore';
 
@@ -23,6 +23,8 @@ export function CodebaseMemorySection({
   const attached = cm?.attached === true;
   const defaultPath = cm?.indexPath || job.config.workingDirectory || '';
   const [draftPath, setDraftPath] = useState<string>(defaultPath);
+  // Member changes reset this editor; edits within one member remain local.
+  useEffect(() => { setDraftPath(defaultPath); }, [job.id]);
   const [reindexing, setReindexing] = useState(false);
   const pushNotification = useAppStore((s) => s.pushNotification);
 

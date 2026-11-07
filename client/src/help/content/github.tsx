@@ -5,7 +5,7 @@ export const githubHelp: Record<string, HelpEntry> = {
   // -------------------------------------------------------- GITHUB BROWSER
   'github.tab.code': {
     title: 'Code tab',
-    body: <p>Browse the repository's file tree at the current ref. Click a file to view its contents.</p>,
+    body: <p>Browse the repository's file tree at the current ref. Click a file to view its contents. Superseded tree, README and file reads cannot replace the current selection. README text uses UTF-8. Relative document links open the decoded filename and scroll to their section.</p>,
   },
   'github.tab.pulls': {
     title: 'Pull requests',

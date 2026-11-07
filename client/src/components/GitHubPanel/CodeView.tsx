@@ -4,7 +4,7 @@ import type {
   GhRelease, GhContributor, GhTag,
 } from './types';
 import {
-  Loading, ErrorBox, EmptyBox, Markdown, fmtDate, fmtBytes, detectLang,
+  decodeGithubBase64, Loading, ErrorBox, EmptyBox, Markdown, fmtDate, fmtBytes, detectLang,
   inputStyle, selectChip, mergeBtnStyle, badgeStyle,
 } from './shared';
 import { useKeepInWindow } from '../../layout/keepInWindow';
@@ -13,6 +13,8 @@ import { useKeepInWindow } from '../../layout/keepInWindow';
 
 export function CodeView({ owner, name, repo, ref, onRefChange }: { owner: string; name: string; repo: GhRepo; ref: string; onRefChange: (r: string) => void }) {
   const [path, setPath] = useState('');
+  const [fileFragment, setFileFragment] = useState<string | undefined>();
+  const openFile = (path: string, fragment?: string) => { setFilePath(path); setFileFragment(fragment); };
   const [filePath, setFilePath] = useState<string | null>(null); // null = directory view
   const [tree, setTree] = useState<GhTreeEntry[] | null>(null);
   const [treeError, setTreeError] = useState<string | null>(null);
@@ -34,34 +36,40 @@ export function CodeView({ owner, name, repo, ref, onRefChange }: { owner: strin
   const ghRawBase = `https://raw.githubusercontent.com/${owner}/${name}/${ref}`;
 
   // Reset file viewer when path/ref changes via the tree
-  useEffect(() => { setFilePath(null); }, [path, ref]);
+  useEffect(() => { setFilePath(null); }, [owner, name, path, ref]);
 
   // Load tree at current path + ref
   useEffect(() => {
+    let cancelled = false; const controller = new AbortController();
     setTree(null);
     setTreeError(null);
     const q = new URLSearchParams();
     q.set('ref', ref);
     if (path) q.set('path', path);
-    fetch(`/api/github/repos/${owner}/${name}/tree?${q.toString()}`)
+    fetch(`/api/github/repos/${owner}/${name}/tree?${q.toString()}`, { signal: controller.signal })
       .then((r) => r.ok ? r.json() : r.json().then((j) => Promise.reject(j.error || r.statusText)))
-      .then(setTree)
-      .catch((e) => setTreeError(String(e)));
+      .then((data) => { if (!cancelled) setTree(data); })
+      .catch((e) => { if (!cancelled) setTreeError(String(e)); });
+    return () => { cancelled = true; controller.abort(); };
   }, [owner, name, ref, path]);
 
   // Load README only at repo root
   useEffect(() => {
-    if (path) { setReadme(null); return; }
-    fetch(`/api/github/repos/${owner}/${name}/readme?ref=${encodeURIComponent(ref)}`)
+    setReadme(null);
+    if (path) return;
+    let cancelled = false; const controller = new AbortController();
+    fetch(`/api/github/repos/${owner}/${name}/readme?ref=${encodeURIComponent(ref)}`, { signal: controller.signal })
       .then((r) => r.ok ? r.json() : Promise.reject(r.statusText))
       .then((d: GhReadme) => {
+        if (cancelled) return;
         try {
-          setReadme(atob(d.content.replace(/\n/g, '')));
+          setReadme(decodeGithubBase64(d.content));
         } catch {
           setReadme(null);
         }
       })
-      .catch(() => setReadme(null));
+      .catch(() => { if (!cancelled) setReadme(null); });
+    return () => { cancelled = true; controller.abort(); };
   }, [owner, name, ref, path]);
 
   // Branch picker opens lazily; the list was already prefetched on mount for
@@ -134,7 +142,7 @@ export function CodeView({ owner, name, repo, ref, onRefChange }: { owner: strin
   return (
     <div style={{ display: 'flex', height: '100%', minHeight: 0, position: 'relative' }}>
       {showGoTo && (
-        <GoToFileModal owner={owner} name={name} refName={ref} onClose={() => setShowGoTo(false)} onPick={(p) => { setShowGoTo(false); setFilePath(p); }} />
+        <GoToFileModal owner={owner} name={name} refName={ref} onClose={() => setShowGoTo(false)} onPick={(p) => { setShowGoTo(false); openFile(p); }} />
       )}
       {/* Main column */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
@@ -240,7 +248,8 @@ export function CodeView({ owner, name, repo, ref, onRefChange }: { owner: strin
               path={filePath}
               refName={ref}
               onBack={() => setFilePath(null)}
-              onOpenFile={(p) => setFilePath(p)}
+              onOpenFile={openFile}
+              fragment={fileFragment}
             />
           ) : (
             <>
@@ -264,7 +273,7 @@ export function CodeView({ owner, name, repo, ref, onRefChange }: { owner: strin
                       key={entry.path}
                       onClick={() => {
                         if (entry.type === 'dir') { setPath(entry.path); setFilePath(null); }
-                        else setFilePath(entry.path);
+                        else openFile(entry.path);
                       }}
                       style={{
                         display: 'flex', alignItems: 'center', gap: '10px', width: '100%',
@@ -293,7 +302,7 @@ export function CodeView({ owner, name, repo, ref, onRefChange }: { owner: strin
                     basePath=""
                     ghBlobBase={ghBlobBase}
                     ghRawBase={ghRawBase}
-                    onOpenRelative={(p) => setFilePath(p)}
+                    onOpenRelative={openFile}
                   />
                 </div>
               )}
@@ -448,7 +457,7 @@ function LanguagesBar({ languages }: { languages: Record<string, number> | null 
   );
 }
 
-function FileContents({ owner, name, path, refName, onBack, onOpenFile }: { owner: string; name: string; path: string; refName: string; onBack: () => void; onOpenFile: (path: string) => void }) {
+function FileContents({ owner, name, path, refName, onBack, onOpenFile, fragment }: { owner: string; name: string; path: string; refName: string; onBack: () => void; onOpenFile: (path: string, fragment?: string) => void; fragment?: string }) {
   const [file, setFile] = useState<GhFileContent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const parentDir = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
@@ -456,25 +465,24 @@ function FileContents({ owner, name, path, refName, onBack, onOpenFile }: { owne
   const ghRawBase = `https://raw.githubusercontent.com/${owner}/${name}/${refName}`;
 
   useEffect(() => {
+    let cancelled = false; const controller = new AbortController();
     setFile(null);
     setError(null);
     const q = new URLSearchParams();
     q.set('path', path);
     q.set('ref', refName);
-    fetch(`/api/github/repos/${owner}/${name}/contents?${q.toString()}`)
+    fetch(`/api/github/repos/${owner}/${name}/contents?${q.toString()}`, { signal: controller.signal })
       .then((r) => r.ok ? r.json() : r.json().then((j) => Promise.reject(j.error || r.statusText)))
-      .then((d: GhFileContent) => setFile(d))
-      .catch((e) => setError(String(e)));
+      .then((d: GhFileContent) => { if (!cancelled) setFile(d); })
+      .catch((e) => { if (!cancelled) setError(String(e)); });
+    return () => { cancelled = true; controller.abort(); };
   }, [owner, name, path, refName]);
 
   const decoded = useMemo(() => {
     if (!file) return null;
     if (file.encoding === 'base64') {
       try {
-        const bin = atob(file.content.replace(/\n/g, ''));
-        // UTF-8 safe decode
-        const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-        return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+        return decodeGithubBase64(file.content);
       } catch { return null; }
     }
     return file.content;
@@ -503,6 +511,7 @@ function FileContents({ owner, name, path, refName, onBack, onOpenFile }: { owne
           <div style={{ border: '1px solid var(--color-border-hairline)', borderRadius: '4px', padding: '16px 20px', background: 'rgba(0, 8, 4, 0.4)' }}>
             <Markdown
               value={decoded}
+              fragment={fragment}
               basePath={parentDir}
               ghBlobBase={ghBlobBase}
               ghRawBase={ghRawBase}

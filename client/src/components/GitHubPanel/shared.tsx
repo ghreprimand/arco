@@ -119,12 +119,18 @@ function renderChildrenToString(children: React.ReactNode): string {
   return '';
 }
 
+export function decodeGithubBase64(content: string): string {
+  const bytes = Uint8Array.from(atob(content.replace(/\n/g, '')), c => c.charCodeAt(0));
+  return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+}
+
 interface MarkdownProps {
   value: string;
   // Click handler for internal, relative links. If provided, clicking
   // `[docs](./reports/thing.md)` calls this with 'reports/thing.md' (normalized
   // against basePath). Falls back to open-in-new-tab via the GH url if omitted.
-  onOpenRelative?: (path: string) => void;
+  onOpenRelative?: (path: string, fragment?: string) => void;
+  fragment?: string;
   // Current path inside the repo (for resolving relative links). Empty means
   // repo root; 'src/foo' means links resolve from there.
   basePath?: string;
@@ -134,7 +140,13 @@ interface MarkdownProps {
   ghRawBase?: string;  // e.g. https://raw.githubusercontent.com/owner/repo/main
 }
 
-export function Markdown({ value, onOpenRelative, basePath, ghBlobBase, ghRawBase }: MarkdownProps) {
+export function Markdown({ value, onOpenRelative, basePath, ghBlobBase, ghRawBase, fragment }: MarkdownProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!fragment) return;
+    const target = [...(rootRef.current?.querySelectorAll<HTMLElement>('[id]') ?? [])].find(el => el.id === fragment);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [value, fragment]);
   // Per-render counter to resolve duplicate slugs within a single document.
   const slugCounts = new Map<string, number>();
   const mkHeading = (level: 1 | 2 | 3 | 4 | 5 | 6) =>
@@ -193,16 +205,19 @@ export function Markdown({ value, onOpenRelative, basePath, ghBlobBase, ghRawBas
     }
     // Relative — prefer the in-panel file viewer for .md / other text files
     // when a handler is wired. Fall back to opening on GitHub otherwise.
-    const cleanHref = href.replace(/^\.\//, '');
-    const resolved = resolveRelative(cleanHref);
+    const url = new URL(href, 'https://repository.invalid/' + (basePath ? basePath.split('/').map(encodeURIComponent).join('/') + '/' : ''));
+    const decode = (value: string) => { try { return decodeURIComponent(value); } catch { return value; } };
+    const resolved = decode(url.pathname.slice(1));
+    const fragment = url.hash ? decode(url.hash.slice(1)) : undefined;
+    const externalHref = ghBlobBase ? `${ghBlobBase}${url.pathname}${url.search}${url.hash}` : href;
     if (onOpenRelative) {
       return (
         <a
-          href={ghBlobBase ? `${ghBlobBase}/${resolved}` : href}
+          href={externalHref}
           onClick={(e) => {
             if (e.metaKey || e.ctrlKey || e.shiftKey) return; // let modifier-clicks open externally
             e.preventDefault();
-            onOpenRelative(resolved);
+            onOpenRelative(resolved, fragment);
           }}
           {...rest}
         >
@@ -210,7 +225,7 @@ export function Markdown({ value, onOpenRelative, basePath, ghBlobBase, ghRawBas
         </a>
       );
     }
-    const fallback = ghBlobBase ? `${ghBlobBase}/${resolved}` : href;
+    const fallback = externalHref;
     return (
       <a href={fallback} target="_blank" rel="noopener noreferrer" {...rest}>
         {children}
@@ -229,7 +244,7 @@ export function Markdown({ value, onOpenRelative, basePath, ghBlobBase, ghRawBas
   };
 
   return (
-    <div className="arco-markdown" style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.55, color: 'var(--color-accent-primary-dim)' }}>
+    <div ref={rootRef} className="arco-markdown" style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.55, color: 'var(--color-accent-primary-dim)' }}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}

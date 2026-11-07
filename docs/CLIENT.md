@@ -873,6 +873,10 @@ The 42 (alphabetical by id): abyssal · amber-crt · arch · arrakis · aurora �
 
 ## Right panel tabs
 
+The GitHub Code view decodes README and file contents as UTF-8. Tree, README and file reads are cancelled and ignored after selection changes. Relative document links separate decoded repository paths from URL fragments; opening the file scrolls to its section.
+
+In CONFIG, the codebase memory index draft resets when the member changes. Expanded review rows load their report when completion arrives and clear a previous read error on success.
+
 | Tab | Component | Data source |
 |---|---|---|
 | FILES | `FileExplorer` + a `LIVE` sub-tab (`LiveChangesPanel`, live working-tree subscription via `liveChangesStore`) + a `CHANGES` sub-tab (`ChangesPanel`, A3 whole-tree diff) + a `SOURCE` sub-tab (`WorkingChangesPanel`, I1 per-file grouped changes) + a `REMOTE` sub-tab (`CompareRemotePanel`, I2 local↔upstream ahead/behind + fetch); `BlastRadiusTab` sub-tab when codebase memory attached | `GET /api/files?path=` lazy on expand; `GET /api/workflows/diff` for CHANGES; `GET /api/git/diff` for SOURCE; `GET /api/git/compare` + `POST /api/git/fetch` for REMOTE; `job.config.codebaseMemory` for the BLAST RADIUS nav |
@@ -988,6 +992,8 @@ Selection state is local to `HistoryTab`. When the selected event has a `chatMes
 ---
 
 ## Overlays
+
+The comparison results header shows CANCEL while either drafting or synthesis is active and requests cancellation before dismissal. Once work finishes it shows CLOSE. The runtime banner keeps its clock advancing while a worker is busy and online so silence can reach the stuck threshold without another event.
 
 These are full-screen gates that block UI when something critical is happening:
 

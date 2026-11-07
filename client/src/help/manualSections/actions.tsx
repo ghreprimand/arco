@@ -44,7 +44,8 @@ export const actions: Section[] = [
     title: 'Review - cross-family second opinion',
     body: (
       <>
-        <p>
+        <p>An expanded review waits for completion before reading its report. The completed report appears without closing and reopening the row; a successful read clears an earlier read error.</p>
+<p>
           Review spawns an ephemeral second-opinion worker over a turn slice or
           plan content and writes a read-only artifact. Click the{' '}
           <Code>✎ REVIEW</Code> button in the composer action bar to open the
@@ -538,7 +539,8 @@ export const actions: Section[] = [
     title: 'SECOND OPINION - several models draft your reply',
     body: (
       <>
-        <p>
+        <p>While synthesis is running, the results header shows CANCEL. Selecting it requests cancellation before dismissing the results. Completed results use CLOSE.</p>
+<p>
           SECOND OPINION helps you answer a worker. The <Code>SECOND OPINION</Code>{' '}
           button opens a dialog where you type a question, or you tick one or
           more chat messages and press <Code>SECOND OPINION</Code> in the bar

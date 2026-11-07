@@ -4,7 +4,7 @@ import type { DraftAttachment, JobState, useAppStore } from '../../stores/appSto
 type Store = ReturnType<typeof useAppStore.getState>;
 type SubmitOptions = Pick<Props, 'onCompact' | 'onUpdatePrimary' | 'onArmPlanMode' | 'onSend'> & {
   kind?: 'steer' | 'follow-up' | 'interrupt';
-  isCompacting: boolean; uploading: boolean; readDraft: () => string;
+  compactAvailable: boolean; isCompacting: boolean; uploading: boolean; readDraft: () => string;
   attachments: DraftAttachment[]; provider: string; isBusy: boolean; job: JobState;
   addMessage: Store['addMessage']; clearAttachments: Store['clearAttachments'];
   setValue: (value: string) => void; planModeArmed: boolean; planModeToggleVisible: boolean;
@@ -25,7 +25,7 @@ const TUI_ONLY_SLASH_COMMANDS = new Set([
 ]);
 
 // All send-time routing and side effects live at this seam.
-export function submitComposer({ kind, isCompacting, uploading, readDraft, attachments, provider, isBusy,
+export function submitComposer({ kind, compactAvailable, isCompacting, uploading, readDraft, attachments, provider, isBusy,
   onCompact, addMessage, job, setValue, clearAttachments, onUpdatePrimary, planModeArmed,
   planModeToggleVisible, onArmPlanMode, setPlanModeArmed, onSend, pickedSkills, setPickedSkills }: SubmitOptions): void {
     // Phase 3 — block sends while compacting; the worker has no history to
@@ -65,7 +65,14 @@ export function submitComposer({ kind, isCompacting, uploading, readDraft, attac
       clearAttachments(job.id);
       return;
     }
-    if (slashMatch && TUI_ONLY_SLASH_COMMANDS.has(slashMatch[1])) {
+    if (slashMatch?.[1] === 'compact' && compactAvailable && onCompact) {
+      if (isBusy) {
+        addMessage(job.id, { id: crypto.randomUUID(), role: 'system', content: 'Compaction runs between turns. Wait for the current turn to finish, then use /compact or COMPACT.', isStreaming: false, timestamp: Date.now() });
+        return;
+      }
+      onCompact(); setValue(''); clearAttachments(job.id); return;
+    }
+    if (provider === 'claude' && slashMatch && TUI_ONLY_SLASH_COMMANDS.has(slashMatch[1])) {
       const cmd = slashMatch[1];
       const content = cmd === 'login' || cmd === 'logout'
         ? `[AUTH:claude] "/${cmd}" is a terminal-only Claude CLI command: Arco runs claude non-interactively so it can't reach that dispatcher. Click RE-LOGIN to trigger the OAuth flow, or run claude in a native terminal.`

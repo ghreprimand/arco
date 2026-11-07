@@ -398,7 +398,8 @@ export const powerFeatures: Section[] = [
   title: 'GitHub browser',
   body: (
   <>
-  <p>Failed or invalid detail reads show an error instead of opening a broken view. Return to the list and reopen the item to retry.</p>
+  <p>Repository README text uses UTF-8. Switching refs, folders or files discards superseded reads. Relative document links decode their file paths separately from fragments, then scroll to the linked section after opening.</p>
+<p>Failed or invalid detail reads show an error instead of opening a broken view. Return to the list and reopen the item to retry.</p>
   <p>
   The full-screen GitHub browser lets you browse repos, PRs, issues and Actions
   without leaving Arco.

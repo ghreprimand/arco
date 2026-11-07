@@ -6,7 +6,7 @@ type Options = Parameters<typeof submitComposer>[0];
 function fixture(overrides: Partial<Options> = {}) {
   const events: unknown[][] = [];
   const options: Options = {
-    isCompacting: false, uploading: false, readDraft: () => ' hello ', attachments: [],
+    compactAvailable: false, isCompacting: false, uploading: false, readDraft: () => ' hello ', attachments: [],
     provider: 'claude', isBusy: false,
     job: { id: 'test', config: {} } as Options['job'],
     addMessage: ((...args: unknown[]) => events.push(['message', ...args])) as Options['addMessage'],
@@ -75,7 +75,7 @@ test('cursor compression waits out a busy turn and refuses when the view cannot 
 });
 
 test('terminal-only commands, goal edges and an attachment-only send keep their old routes', () => {
-  const compact = fixture({ provider: 'cursor', readDraft: () => '/compact' });
+  const compact = fixture({ provider: 'claude', readDraft: () => '/compact' });
   submitComposer(compact.options);
   assert.match((compact.events[0][2] as { content: string }).content, /terminal-only/);
   assert.equal(compact.events.some((event) => event[0] === 'send'), false);
@@ -108,4 +108,23 @@ test('terminal-only commands, goal edges and an attachment-only send keep their 
   submitComposer(hidden.options);
   assert.equal(hidden.events.some((event) => event[0] === 'arm'), false);
   assert.equal(hidden.events.some((event) => event[0] === 'send'), true);
+});
+
+for (const provider of ['codex', 'claude']) test(`B181: ${provider} native compact uses the available compact handler`, () => {
+  let calls = 0;
+  const { options, events } = fixture({ compactAvailable: true, provider, readDraft: () => '/compact', onCompact: () => { calls++; } });
+  submitComposer(options);
+  assert.equal(calls, 1);
+  assert.ok(!events.some(e => e[0] === 'send' || e[0] === 'message'));
+});
+
+
+test('B181: busy native compact retains its draft and other providers keep their own commands', () => {
+  const busy = fixture({ compactAvailable: true, provider: 'codex', isBusy: true, readDraft: () => '/compact', onCompact: () => { throw new Error('busy'); } });
+  submitComposer(busy.options);
+  assert.equal(busy.events.filter(e => e[0] === 'message').length, 1);
+  assert.ok(!busy.events.some(e => e[0] === 'draft' || e[0] === 'send'));
+  const other = fixture({ provider: 'codex', readDraft: () => '/status' });
+  submitComposer(other.options);
+  assert.ok(other.events.some(e => e[0] === 'send'));
 });

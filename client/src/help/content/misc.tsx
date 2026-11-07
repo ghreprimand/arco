@@ -279,7 +279,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         The worker has emitted no output for a while and may be hung. There's no
         safe way to poke a stuck provider awake, so the honest recovery is to{' '}
         <C>CANCEL TURN</C> (kills this workflow's in-flight turn) and re-send your
-        prompt.
+        prompt. The silence clock advances while this worker is busy and online, even without new events.
       </p>
     ),
     manualSection: 'offline',
@@ -1973,7 +1973,7 @@ export const miscHelp: Record<string, HelpEntry> = {
           pid. Hover a row for its working directory; click to expand the full
           cmdline / cwd / pid / host and the action set. Backed by the read-only{' '}
           <C>GET /api/services</C>; refreshed on open + a bounded ~5s auto-poll
-          while the tab is open.
+          while the tab is open. Each automatic poll waits for the previous scan to settle; closing the view aborts its read.
         </p>
         <p>
           It lives here (not the right panel) because it's project-agnostic:

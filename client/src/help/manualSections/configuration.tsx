@@ -589,7 +589,8 @@ export const configuration: Section[] = [
   title: 'Per-workflow CONFIG tab',
   body: (
   <>
-  <p>
+  <p>In a cluster, changing the CONFIG member resets the INDEX PATH draft to that member. ATTACH and Re-index now use the path displayed for the selected member.</p>
+<p>
   The CONFIG tab in the right pane holds settings for one workflow. Use it to
   change model, effort, transport and safety controls without rotating the
   session.

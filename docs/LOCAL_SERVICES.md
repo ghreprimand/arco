@@ -141,9 +141,7 @@ Dense list rows (not cards), matching the existing panel density:
 ### Refresh + bounded auto-poll
 
 Fetches `GET /api/services` on mount and on REFRESH (the UsageTab nonce pattern).
-A `setInterval` re-triggers the fetch every **~5s**; because the System modal only
-mounts this body while its tab is active (and unmounts it on tab-switch or close),
-an unmount `clearInterval` is sufficient, no visibility tracking.
+Each scan schedules the next read about five seconds after settling. A slow scan remains usable and automatic polling keeps at most one read in flight. The System modal mounts this body only while its tab is active; closing it aborts its owned read and clears the next poll.
 
 ### Web-only filter
 

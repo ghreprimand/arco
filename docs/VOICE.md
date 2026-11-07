@@ -18,7 +18,7 @@ command-list era; it is not a list of phrases the client recognizes.
 
 ### Start here
 
-Computer can open the cluster USAGE panel. Its recipient chooser starts from the current TO selection and member roster. Voice setup releases acquired microphone tracks if browser audio initialization fails.
+Computer can open the cluster USAGE panel. Its recipient chooser starts from the current TO selection and member roster. Voice setup releases acquired microphone tracks if browser audio initialization fails. Pending startup disables duplicate tests and offers CANCEL MICROPHONE. Closing Settings invalidates the attempt and stops any capture that finishes opening later.
 
 1. Run `npm run voice:setup` once.
 2. Open the header voice controls and enable hands-free (or press Ctrl/Cmd+Shift+Space). Use localhost or HTTPS.

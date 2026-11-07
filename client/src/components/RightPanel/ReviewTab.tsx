@@ -114,15 +114,16 @@ function ReviewRow({
   const findings = useMemo(() => (body ? parseReviewFindings(body) : []), [body]);
 
   useEffect(() => {
-    if (!open || body !== null || !review.artifactName || !cwd) return;
+    if (!open || !done || body !== null || !review.artifactName || !cwd) return;
     let cancelled = false;
+    setLoadError(null);
     const q = new URLSearchParams({ path: cwd, workflowId, name: review.artifactName });
     fetch(`/api/workflows/artifact?${q.toString()}`)
       .then((r) => r.ok ? r.json() as Promise<{ contents: string }> : Promise.reject(r.statusText))
-      .then((d) => { if (!cancelled) setBody(d.contents); })
+      .then((d) => { if (!cancelled) { setBody(d.contents); setLoadError(null); } })
       .catch((err) => { if (!cancelled) setLoadError(String(err)); });
     return () => { cancelled = true; };
-  }, [open, review.artifactName, cwd, workflowId, body]);
+  }, [open, review.artifactName, review.completedAt, cwd, workflowId, body]);
 
   const verdictColor = review.verdict === 'BLOCKING'
     ? 'var(--color-warning)'

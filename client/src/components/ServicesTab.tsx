@@ -14,8 +14,8 @@ import { EmptyState } from './RightPanel/FilesTab';
 // (cmdline/cwd/pid/host) + the full action set.
 //
 // Operator-triggered + bounded. On mount + REFRESH it fetches once; a ~5s
-// auto-poll re-triggers while the tab is mounted (the System modal only renders
-// this body when active, so an unmount clearInterval is sufficient). The ONE
+// auto-poll waits for each scan to settle while the tab is mounted. Unmount
+// aborts the owned read and clears its next poll. The ONE
 // mutation — KILL — is a two-step inline confirm hitting DELETE /api/services/
 // :pid (SIGTERM, server-guarded). Pins live in global settings keyed by a
 // stable (cwd, port) identity, so a pinned-but-dead service shows as an offline
@@ -95,7 +95,7 @@ export function ServicesTab({
   const [data, setData] = useState<ServicesResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Bump to refetch (REFRESH + the poll tick both bump it).
+  // Bump after each settled scan or an explicit REFRESH.
   const [nonce, setNonce] = useState(0);
   // Web-only filter — default ON (show only likelyWeb). Local state; persisting
   // it is optional in L2.
@@ -112,9 +112,11 @@ export function ServicesTab({
 
   useEffect(() => {
     let cancelled = false;
+    let timer: number | undefined;
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
-    fetch('/api/services')
+    fetch('/api/services', { signal: controller.signal })
       .then((r) => r.json())
       .then((body: ServicesResponse) => {
         if (cancelled) return;
@@ -125,17 +127,10 @@ export function ServicesTab({
         if (cancelled) return;
         setError(e instanceof Error ? e.message : String(e));
         setLoading(false);
-      });
-    return () => { cancelled = true; };
+      })
+      .finally(() => { if (!cancelled) timer = window.setTimeout(() => setNonce(n => n + 1), POLL_INTERVAL_MS); });
+    return () => { cancelled = true; controller.abort(); if (timer !== undefined) window.clearTimeout(timer); };
   }, [nonce]);
-
-  // Bounded auto-poll — re-trigger the fetch every ~5s. The tab body only
-  // renders while active (RightPanel conditional), so this interval is created
-  // on mount and cleared on unmount; no visibility tracking needed.
-  useEffect(() => {
-    const id = window.setInterval(() => setNonce((n) => n + 1), POLL_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, []);
 
   const services = data?.services ?? [];
 

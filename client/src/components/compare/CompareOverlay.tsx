@@ -27,8 +27,9 @@ export function CompareOverlay() {
   const voted = active.winnerLegIndex >= 0;
   const canVote = active.raceDone && !voted;
 
+  const inFlight = !active.raceDone || active.synthesizing;
   const onCancelAndClose = () => {
-    if (!active.raceDone) sendCompareCancel(active.workflowId, active.compareId);
+    if (inFlight) sendCompareCancel(active.workflowId, active.compareId);
     dismiss();
   };
 
@@ -57,11 +58,12 @@ export function CompareOverlay() {
             <span className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', color: 'var(--color-accent-primary)' }}>{replyDraft ? 'PICK A DRAFT' : 'PICK A WINNER'}</span>
           )}
           <button
+            data-help="composer.compare.close"
             onClick={onCancelAndClose}
             className="display-font"
             style={{ padding: '4px 10px', background: 'transparent', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-fg-muted)', cursor: 'pointer', fontSize: '10px', letterSpacing: '2px' }}
           >
-            {active.raceDone ? 'CLOSE' : 'CANCEL'}
+            {inFlight ? 'CANCEL' : 'CLOSE'}
           </button>
         </div>
 

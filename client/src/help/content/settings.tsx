@@ -213,7 +213,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         microphone shows a level bar and records nothing. Say a phrase records
         up to five seconds once and shows what the local recognizer heard.
         Model notices lists every downloaded component and its license. On
-        Docker, voice needs the native run. If audio initialization fails after permission is granted, the microphone tracks are stopped.
+        Docker, voice needs the native run. If audio initialization fails after permission is granted, the microphone tracks are stopped. While permission or startup is pending, CANCEL MICROPHONE cancels the attempt. Closing Settings stops a capture that finishes opening later; duplicate starts are ignored.
       </p>
     ),
     manualSection: 'hands-free-voice',

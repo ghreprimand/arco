@@ -41,9 +41,8 @@ export function RuntimeStateBanner({ job, onCancel }: Props) {
   });
   const action = recoveryActionFor({ connection: connectionState, workflow: state });
 
-  // Only tick while a transient state is actually showing — no background
-  // timer churn when the workflow is plainly idle/busy.
-  const ticking = state === 'stuck' || state === 'replay-recovered';
+  // Busy workers need a clock before they cross the silence deadline.
+  const ticking = connectionState === 'online' && (job.busy === true || state === 'replay-recovered');
   useEffect(() => {
     if (!ticking) return;
     const t = window.setInterval(() => setNow(Date.now()), 1000);

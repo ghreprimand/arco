@@ -46,7 +46,7 @@ const button = (active: boolean): CSSProperties => ({
 });
 const pre: CSSProperties = { ...mono, fontSize: '10px', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '220px', overflowY: 'auto', margin: '0 0 8px', padding: '6px 10px', background: 'var(--color-bg-sunken)', border: '1px solid var(--color-border-hairline)', borderRadius: '4px' };
 
-type Mic = 'off' | 'meter' | 'phrase' | 'recognizing';
+type Mic = 'starting' | 'off' | 'meter' | 'phrase' | 'recognizing';
 
 export function VoiceSetupSettings() {
   const [status, setStatus] = useState<VoiceSetupStatus | null>(null);
@@ -56,6 +56,8 @@ export function VoiceSetupSettings() {
   const [heard, setHeard] = useState<{ text: string; detail: string } | null>(null);
   const [notices, setNotices] = useState<string | null>(null);
   const capture = useRef<MicCapture | null>(null);
+  const micGeneration = useRef(0);
+  const acquiring = useRef(false);
   const frames = useRef<Float32Array[]>([]);
   const phraseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logRef = useRef<HTMLPreElement | null>(null);
@@ -81,6 +83,7 @@ export function VoiceSetupSettings() {
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [status?.install.log]);
 
   const closeMic = useCallback(() => {
+    micGeneration.current++; acquiring.current = false;
     if (phraseTimer.current) { clearTimeout(phraseTimer.current); phraseTimer.current = null; }
     capture.current?.stop(); capture.current = null; setLevel(0);
   }, []);
@@ -97,11 +100,14 @@ export function VoiceSetupSettings() {
   }
 
   async function startMeter() {
-    setError(''); setHeard(null);
+    if (acquiring.current || capture.current) return;
+    acquiring.current = true; const generation = ++micGeneration.current;
+    setError(''); setHeard(null); setMic('starting');
     try {
-      capture.current = await openSetupMic((f) => setLevel(peakLevel(f)));
-      setMic('meter');
-    } catch (e) { closeMic(); setMic('off'); setError(`Microphone unavailable: ${e instanceof Error ? e.message : String(e)}`); }
+      const next = await openSetupMic((f) => { if (micGeneration.current === generation) setLevel(peakLevel(f)); });
+      if (micGeneration.current !== generation) { next.stop(); return; }
+      acquiring.current = false; capture.current = next; setMic('meter');
+    } catch (e) { if (micGeneration.current !== generation) return; closeMic(); setMic('off'); setError(`Microphone unavailable: ${e instanceof Error ? e.message : String(e)}`); }
   }
 
   async function finishPhrase() {
@@ -120,12 +126,15 @@ export function VoiceSetupSettings() {
   }
 
   async function startPhrase() {
-    setError(''); setHeard(null); frames.current = [];
+    if (acquiring.current || capture.current) return;
+    acquiring.current = true; const generation = ++micGeneration.current;
+    setError(''); setHeard(null); frames.current = []; setMic('starting');
     try {
-      capture.current = await openSetupMic((f) => { frames.current.push(f); setLevel(peakLevel(f)); });
-      setMic('phrase');
+      const next = await openSetupMic((f) => { if (micGeneration.current === generation) { frames.current.push(f); setLevel(peakLevel(f)); } });
+      if (micGeneration.current !== generation) { next.stop(); return; }
+      acquiring.current = false; capture.current = next; setMic('phrase');
       phraseTimer.current = setTimeout(() => { void finishPhrase(); }, SETUP_PHRASE_SECONDS * 1000);
-    } catch (e) { closeMic(); setMic('off'); setError(`Microphone unavailable: ${e instanceof Error ? e.message : String(e)}`); }
+    } catch (e) { if (micGeneration.current !== generation) return; closeMic(); setMic('off'); setError(`Microphone unavailable: ${e instanceof Error ? e.message : String(e)}`); }
   }
 
   const stopMic = () => { if (mic === 'phrase') void finishPhrase(); else { closeMic(); setMic('off'); } };
@@ -164,8 +173,8 @@ export function VoiceSetupSettings() {
             {running
               ? <button type="button" className="display-font" style={button(true)} onClick={() => void post('/api/voice/setup/cancel')}>CANCEL INSTALL</button>
               : <button type="button" className="display-font" style={button(mic === 'off')} disabled={mic !== 'off'} onClick={() => void post('/api/voice/setup/install')}>{status.ready ? 'REINSTALL / REPAIR' : 'INSTALL'}</button>}
-            {mic === 'meter' || mic === 'phrase'
-              ? <button type="button" className="display-font" style={button(true)} onClick={stopMic}>{mic === 'phrase' ? 'STOP AND RECOGNIZE' : 'STOP MICROPHONE'}</button>
+            {mic === 'starting' || mic === 'meter' || mic === 'phrase'
+              ? <button type="button" className="display-font" style={button(true)} onClick={stopMic}>{mic === 'starting' ? 'CANCEL MICROPHONE' : mic === 'phrase' ? 'STOP AND RECOGNIZE' : 'STOP MICROPHONE'}</button>
               : <>
                   <button type="button" className="display-font" style={button(!running && mic === 'off')} disabled={running || mic !== 'off'} onClick={() => void startMeter()}>TEST MICROPHONE</button>
                   <button type="button" className="display-font" style={button(canTest && mic === 'off')} disabled={!canTest || mic !== 'off'} onClick={() => void startPhrase()}>SAY A PHRASE</button>
@@ -180,6 +189,7 @@ export function VoiceSetupSettings() {
               <p style={{ ...note, margin: '4px 0 0' }}>{mic === 'phrase' ? `Listening for up to ${SETUP_PHRASE_SECONDS} seconds. Say a short sentence.` : 'Speak normally; the bar should move with your voice. Nothing is recorded or sent.'}</p>
             </div>
           )}
+          {mic === 'starting' && <p role="status" style={note}>Opening microphone...</p>}
           {mic === 'recognizing' && <p role="status" style={note}>Recognizing locally...</p>}
           {heard && <p role="status" aria-label="Recognized phrase" style={{ ...note, margin: '0 0 8px' }}>Heard: <span style={{ ...mono, color: 'var(--color-accent-primary)' }}>{heard.text || '(nothing recognized; try again closer to the microphone)'}</span> <span>({heard.detail})</span></p>}
           {(running || status.install.log) && <pre ref={logRef} aria-label="Voice setup log" style={pre}>{status.install.log}</pre>}

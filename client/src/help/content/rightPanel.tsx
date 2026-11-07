@@ -213,7 +213,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       <p>
         Read-only artifacts from past Reviews: verdict (PASS / MINOR /
         BLOCKING), reviewer model, body. <C>↳ SEND TO AGENT</C> appends the review body to the
-        composer, preserving any unsent draft.
+        composer, preserving any unsent draft. An expanded running review loads its report when it completes.
       </p>
     ),
     manualSection: 'review-action',
@@ -959,6 +959,6 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.config.codebase-memory': {
     title: 'Indexes and memory',
-    body: <p>Attach codebase memory to this tab records that the tab should use the local codebase index. <C>INDEX PATH</C> chooses the folder to index (the working folder by default), and <C>Re-index now</C> rebuilds the index once. The status line shows the indexed file count and the last sync. Indexing is deterministic and uses no model.</p>,
+    body: <p>Attach codebase memory to this tab records that the tab should use the local codebase index. <C>INDEX PATH</C> chooses the folder to index (the working folder by default), and <C>Re-index now</C> rebuilds the index once. The status line shows the indexed file count and the last sync. Changing the selected cluster member resets the index path draft to that member. Indexing is deterministic and uses no model.</p>,
   },
 };

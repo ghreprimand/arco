@@ -236,7 +236,8 @@ export const maintenance: Section[] = [
   {
   id: 'provider-recovery', group: 'Troubleshooting', title: 'Compaction, sign-in and quiet thinking',
   body: <>
-  <p>
+  <p>Typing /compact dispatches the available COMPACT action between turns. A busy tab keeps the command draft and asks to wait. Cursor /compress still uses its native handler. Claude CLI-only command hints apply to Claude tabs.</p>
+<p>
   These recoveries cover slow Codex compaction, stale Cursor auth children,
   quiet Claude Native thinking, and old Native binding errors.
   </p>
