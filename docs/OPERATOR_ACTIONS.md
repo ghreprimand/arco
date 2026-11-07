@@ -141,7 +141,7 @@ finishes normally. See [SETTINGS.md](SETTINGS.md#auto-pickup).
 
 Clusters carry a durable task kernel: tasks with dependencies, comments,
 run/attempt history, and statuses triage / todo / ready / in_progress / blocked /
-review / done / archived. New clusters default-attach a project task board.
+review / done / archived. New clusters start with their own cluster board; the creator and the board bar can choose the project board or none instead.
 Workers drive their own work through lifecycle peer-tools
 (`cluster_task_show` / `create` / `link` / `comment` / `heartbeat` / `block` /
 `complete`) but can only move work to `review`. `done` and `archived` stay

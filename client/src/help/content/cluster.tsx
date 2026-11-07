@@ -243,7 +243,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
           <C>Full transcript</C>.
         </p>
         <p>
-          <strong>32 KB cap</strong> (4× the model-driven{' '}
+          <strong>32 KB cap</strong> (twice the 16 KB model-driven{' '}
           <C>peer_send</C> limit). Slicer drops rendering noise
           (context dividers, tool pills, single-line metadata system
           pills) but keeps substantive multi-line content like inlined
