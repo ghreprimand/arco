@@ -61,7 +61,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Cancel turn',
     body: (
       <p>
-        Stops the active turn. The server unconditionally fires{' '}
+        Stops the active turn, including pending Claude Native token-count telemetry. The server unconditionally fires{' '}
         <C>turn_cancelled</C> + <C>primary_turn_ended</C>, which unsticks the UI
         even if the worker has gone "ghost" (silently exited mid-turn).
       </p>

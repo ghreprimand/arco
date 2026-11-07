@@ -401,6 +401,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   // Per-turn state.
   private inFlight: AbortController | null = null;
+  private tokenCountAbort: AbortController | null = null;
   // Text streamed by the CURRENT streamOneRound attempt. A mid-stream
   // overload retry re-generates the whole round, so this partial is retracted
   // (`text_discard`) — otherwise the adapter's _output persisted it followed
@@ -2164,6 +2165,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   cancel(): void {
     this.cancelCompaction();
     this.cancelRequested = true;
+    try { this.tokenCountAbort?.abort(); } catch { /* already aborted */ }
     try { this.inFlight?.abort(); } catch { /* already aborted */ }
     try { this.toolAbort?.abort(); } catch { /* already aborted */ }
     // Reject any awaiting AskUserQuestion so the tool result returns the
@@ -3020,13 +3022,21 @@ export class ClaudeNativeWorker extends EventEmitter {
   }
 
   private async countCurrentContextTokens(): Promise<number | undefined> {
-    if (!this.client) return undefined;
+    if (!this.client || this.cancelRequested) return undefined;
+    const controller = new AbortController();
+    this.tokenCountAbort = controller;
+    const timer = setTimeout(() => controller.abort(), 5_000);
+    let onAbort!: () => void;
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      onAbort = () => reject(new Error('Token count cancelled or timed out'));
+      controller.signal.addEventListener('abort', onAbort, { once: true });
+    });
     try {
       const effort = this.config.effort ?? 'high';
       const thinkingParams = buildThinkingParams(this.capModel(), effort, this.config.claudeNativeThinkingDisplay ?? 'omitted');
       const betaHeader = this.buildBetaHeader();
       const prefix = this.peekPrefix();
-      const counted = await this.client.messages.countTokens({
+      const counted = await Promise.race([cancelled, this.client.messages.countTokens({
         model: this.requestModel(),
         cache_control: { type: 'ephemeral' },
         system: prefix.system as unknown as string,
@@ -3037,12 +3047,19 @@ export class ClaudeNativeWorker extends EventEmitter {
         ...thinkingParams,
       } as Parameters<Anthropic['messages']['countTokens']>[0], {
         headers: { 'anthropic-beta': betaHeader },
-      });
+        signal: controller.signal,
+        timeout: 5_000,
+        maxRetries: 0,
+      })]);
       return counted.input_tokens;
     } catch (err) {
       const detail = err instanceof Error ? err.message : String(err);
       console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] count_tokens failed; falling back to response usage: ${detail.slice(0, 300)}`);
       return undefined;
+    } finally {
+      clearTimeout(timer);
+      controller.signal.removeEventListener('abort', onAbort);
+      if (this.tokenCountAbort === controller) this.tokenCountAbort = null;
     }
   }
 

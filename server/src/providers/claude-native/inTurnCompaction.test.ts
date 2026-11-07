@@ -307,3 +307,49 @@ test('a PreCompact hook that blocks skips the in-turn compaction and the turn co
     assert.equal(s.results.length, 1);
   } finally { await s.done(); }
 });
+
+test('B86: cancelling a finished response settles a stalled token count', async () => {
+  const s = setup([done(321)], { config: { claudeNativeInTurnCompactPercent: undefined } });
+  let entered!: () => void;
+  const started = new Promise<void>((resolve) => { entered = resolve; });
+  let release!: (value: { input_tokens: number }) => void;
+  const count = new Promise<{ input_tokens: number }>((resolve) => { release = resolve; });
+  const start = s.w.ensureStarted;
+  s.w.ensureStarted = async () => {
+    await start();
+    (s.w.client as { messages: { countTokens: () => Promise<{ input_tokens: number }> } }).messages.countTokens = () => { entered(); return count; };
+  };
+  const turn = s.w.runTurn('A fixture response');
+  try {
+    await started;
+    s.w.cancel();
+    const settled = await Promise.race([turn.then(() => true), new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 200))]);
+    assert.equal(settled, true, 'STOP must not wait for optional count_tokens telemetry');
+  } finally {
+    release({ input_tokens: 321 });
+    await turn;
+    await s.done();
+  }
+});
+
+test('B86: token-count telemetry expires without STOP and preserves completion', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const s = setup([done(321)], { config: { claudeNativeInTurnCompactPercent: undefined } });
+  let entered!: () => void;
+  const started = new Promise<void>(resolve => { entered = resolve; });
+  let release!: (value: { input_tokens: number }) => void;
+  const count = new Promise<{ input_tokens: number }>(resolve => { release = resolve; });
+  const start = s.w.ensureStarted;
+  s.w.ensureStarted = async () => {
+    await start();
+    (s.w.client as { messages: { countTokens: () => Promise<{ input_tokens: number }> } }).messages.countTokens = () => { entered(); return count; };
+  };
+  const turn = s.w.runTurn('A fixture response');
+  try {
+    await started;
+    t.mock.timers.tick(5_000);
+    await turn;
+    assert.equal(s.results.length, 1);
+    assert.equal(s.errors.length, 0);
+  } finally { release({ input_tokens: 321 }); await turn; await s.done(); }
+});

@@ -100,6 +100,7 @@ export const providers: Section[] = [
   changes are appended as system notes rather than rebuilding it. Effort is
   always sent explicitly.
   </p>
+  <p>Claude Native token-count telemetry stops after five seconds or when STOP is clicked. The context display then uses response usage, so a stalled count cannot delay turn completion.</p>
   <Sub>Sign-in</Sub>
   <ul>
   <li>

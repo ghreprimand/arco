@@ -2031,3 +2031,5 @@ HANDOFF starts a fresh session and can help when changing to an unrelated task, 
 OpenAI-compatible generation includes waiting for response headers in its stall deadline. llama.cpp uses the smaller of the recovery stall and turn budgets while recovery is enabled. Discovery keeps its three-second deadline through model-list JSON parsing. WebSearch keeps its deadline and operator cancellation active through JSON parsing.
 
 OpenAI-compatible streams finish at `[DONE]`; Ollama streams finish at `done: true`, even when the HTTP body remains open. Claude CLI snapshots track text by message and block so repeated snapshots do not hide later blocks or shorter final answers.
+
+Claude Native token-count telemetry has a five-second deadline and is cancelled by STOP. A cancelled or failed count falls back to response usage so turn completion does not wait on telemetry.
