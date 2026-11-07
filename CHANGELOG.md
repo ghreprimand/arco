@@ -58,6 +58,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Peer attachments remain pending when a file write fails. Matching filenames are kept separately, and malformed attachment records are preserved aside so valid mail can continue.
+
 - Malformed peer messages are preserved aside so valid mail can still arrive. Temporary read errors keep every pending message intact for retry.
 - Concurrent skill creation keeps distinct skills, and concurrent template and MCP server changes retain accepted updates. Windows checkpoint restores preserve excluded descendants and refuse to overwrite capped parent files.
 

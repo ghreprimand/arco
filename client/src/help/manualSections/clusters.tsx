@@ -683,6 +683,7 @@ export const clusters: Section[] = [
   <Code>peer_send artifact_paths</Code>. Arco copies them across the
   boundary into the recipient&apos;s{' '}
   <Code>.arco/peer-artifacts/&lt;messageId&gt;/</Code> directory.
+  Separate delivery and file folders preserve attachments with matching names.
   </p>
   <Note kind="warn">
   Changing an already-informed worker to ISOLATED in place would retain
@@ -884,8 +885,12 @@ export const clusters: Section[] = [
   </li>
   </ul>
   <p>
-  Temporary mailbox read failures leave pending messages untouched for retry.
-  Malformed messages are preserved aside with a <Code>.bad-</Code> suffix,
+  Temporary mailbox read or attachment-write failures leave pending messages
+  untouched for retry. Each attachment gets a separate file, even when names
+  match. Existing delivered files are preserved.
+  </p>
+  <p>
+  Malformed messages or attachment metadata are preserved aside with a <Code>.bad-</Code> suffix,
   so valid messages can still arrive. A warning records the preserved filename.
   </p>
   <p>
@@ -1892,7 +1897,8 @@ export const clusters: Section[] = [
   <p>
   Malformed messages are preserved aside and logged once rather than listed
   here. Other pending messages remain readable. Temporary read errors keep
-  pending mail in place for retry.
+  pending mail in place for retry. Attachment-write failures also leave the
+  complete pending batch available for another read.
   </p>
   <p>
   Cancelling removes the message from the recipient&apos;s mailbox and

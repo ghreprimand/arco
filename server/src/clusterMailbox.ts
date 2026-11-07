@@ -126,30 +126,63 @@ export async function enqueue(toWfId: string, msg: PeerMessage, opts?: { maxCont
   noteSentPeerMessage(msg.fromWorkflowId, toWfId, msg.content, msg.createdAt);
 }
 
+type MaterializedArtifact = { name: string; path: string; byteLength: number };
+const preparedArtifacts = new WeakMap<PeerMessage, { workflowId: string; directory: string; files: MaterializedArtifact[] }>();
+
+function validArtifacts(artifacts: unknown): artifacts is PeerArtifact[] | undefined {
+  if (artifacts === undefined) return true;
+  if (!Array.isArray(artifacts) || artifacts.length > 8) return false;
+  let total = 0;
+  for (const artifact of artifacts) {
+    if (!artifact || typeof artifact.name !== 'string' || typeof artifact.contentBase64 !== 'string'
+      || !Number.isSafeInteger(artifact.byteLength) || artifact.byteLength < 0
+      || artifact.contentBase64.length > Math.ceil(MAX_ARTIFACT_BYTES / 3) * 4) return false;
+    const bytes = Buffer.from(artifact.contentBase64, 'base64');
+    if (bytes.length !== artifact.byteLength || bytes.toString('base64') !== artifact.contentBase64) return false;
+    total += bytes.length;
+  }
+  return total <= MAX_ARTIFACT_BYTES;
+}
+
 export async function materializeArtifacts(
   wfId: string,
   msg: PeerMessage,
-): Promise<Array<{ name: string; path: string; byteLength: number }>> {
+): Promise<MaterializedArtifact[]> {
+  const prepared = preparedArtifacts.get(msg);
+  if (prepared?.workflowId === wfId) return prepared.files;
+  if (!validArtifacts(msg.artifacts)) throw new MailboxError('invalid_artifacts', 'Invalid peer artifact metadata.');
   if (!msg.artifacts?.length) return [];
   const clusterId = getClusterIdForWorkflow(wfId);
-  if (!clusterId) return [];
+  if (!clusterId) throw new MailboxError('recipient_not_in_cluster', 'Peer artifact recipient is no longer a cluster member.');
   const state = await readCluster(clusterId);
-  if (!state) return [];
+  if (!state) throw new MailboxError('recipient_not_in_cluster', 'Peer artifact cluster is unavailable.');
   const root = getMemberAccessMode(clusterId, wfId) === 'isolated'
     ? join(isolatedWorkspaceFor(clusterId, wfId), '.peer-artifacts', msg.msgId)
     : join(state.cwd, '.arco', 'peer-artifacts', msg.msgId);
   if (getMemberAccessMode(clusterId, wfId) !== 'isolated') ensureProjectStateIgnore(state.cwd);
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
-  const out: Array<{ name: string; path: string; byteLength: number }> = [];
-  for (let i = 0; i < msg.artifacts.length; i++) {
-    const artifact = msg.artifacts[i];
-    const safeName = basename(artifact.name).replace(/[^a-zA-Z0-9._-]/g, '_') || `artifact-${i + 1}`;
-    const path = join(root, safeName);
-    const data = Buffer.from(artifact.contentBase64, 'base64');
-    await fs.writeFile(path, data, { mode: 0o600 });
-    out.push({ name: safeName, path, byteLength: data.byteLength });
+  // Reserve a fresh directory so retries never overwrite an earlier delivery
+  // or a recipient's edits. Ordinals also separate names after sanitization.
+  const directory = await fs.mkdtemp(join(root, 'delivery-'));
+  const out: MaterializedArtifact[] = [];
+  try {
+    for (let i = 0; i < msg.artifacts.length; i++) {
+      const artifact = msg.artifacts[i];
+      const safeName = basename(artifact.name).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const name = !safeName || safeName === '.' || safeName === '..' ? `artifact-${i + 1}` : safeName;
+      const slot = join(directory, String(i + 1));
+      await fs.mkdir(slot, { mode: 0o700 });
+      const path = join(slot, name);
+      const data = Buffer.from(artifact.contentBase64, 'base64');
+      await fs.writeFile(path, data, { mode: 0o600, flag: 'wx' });
+      out.push({ name, path, byteLength: data.byteLength });
+    }
+    preparedArtifacts.set(msg, { workflowId: wfId, directory, files: out });
+    return out;
+  } catch (err) {
+    await fs.rm(directory, { recursive: true, force: true }).catch(() => undefined);
+    throw err;
   }
-  return out;
 }
 
 async function readDirSafe(dir: string): Promise<string[]> {
@@ -172,7 +205,7 @@ async function readMessageFile(path: string): Promise<PeerMessage | null> {
   try {
     const msg = JSON.parse(raw) as PeerMessage;
     if (!msg || typeof msg.msgId !== 'string' || typeof msg.toWorkflowId !== 'string'
-      || typeof msg.content !== 'string' || typeof msg.delivered !== 'boolean') {
+      || typeof msg.content !== 'string' || typeof msg.delivered !== 'boolean' || !validArtifacts(msg.artifacts)) {
       throw new Error('Invalid mailbox record.');
     }
     return msg;
@@ -236,6 +269,24 @@ export async function drain(wfId: string): Promise<PeerMessage[]> {
     for (const name of names) {
       const path = join(dir, name);
       pending.push({ path, msg: await readMessageFile(path) });
+    }
+    // Complete every attachment before consuming any message in the batch.
+    // On a transient failure, discard only this attempt's private output;
+    // the durable mailbox records retain all original payloads for retry.
+    try {
+      for (const { msg } of pending) {
+        if (msg && !msg.delivered) await materializeArtifacts(wfId, msg);
+      }
+    } catch (err) {
+      for (const { msg } of pending) {
+        if (!msg) continue;
+        const prepared = preparedArtifacts.get(msg);
+        if (prepared) {
+          preparedArtifacts.delete(msg);
+          await fs.rm(prepared.directory, { recursive: true, force: true }).catch(() => undefined);
+        }
+      }
+      throw err;
     }
     const out: PeerMessage[] = [];
     for (const { path, msg } of pending) {
