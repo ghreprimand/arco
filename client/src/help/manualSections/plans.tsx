@@ -397,6 +397,7 @@ export const plans: Section[] = [
           headings, such as conversation logs, artifacts, worktrees and caches, and its
           biggest item. Sizes are read-only; <strong>MEASURE AGAIN</strong> refreshes them.
         </p>
+  <p>ARCHIVE checks activity and file contents again before removal. A reopened conversation, queued event, metadata write or changed captured file cancels removal and leaves the live conversation intact.</p>
         <p>
           Open a project to list its conversations and archives. Every action asks for
           a confirmation first, and kept items always stay:
@@ -429,6 +430,7 @@ export const plans: Section[] = [
           knows about. Open it from <Code>PLANS</Code> in the header KNOWLEDGE menu or the{' '}
           <Code>⌸ ALL PLANS</Code> button on an empty PLAN tab.
         </p>
+  <p>Moving a plan detaches its source workflows only after success. Choosing the same project or an existing destination plan leaves those attachments unchanged.</p>
         <p>
           Filter by ACTIVE, COMPLETED or ALL, and search by title or project. The dot
           on each row shows its state:

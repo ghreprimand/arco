@@ -1368,7 +1368,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'storage.archive': {
     title: 'ARCHIVE',
-    body: <p>Packs a closed conversation into one compressed file in the project, after a confirmation, and checks it before removing anything. Kept items stay in place. RESTORE brings it back. Off while the conversation is open or working.</p>,
+    body: <p>Packs a closed conversation into one compressed file in the project, after a confirmation, and checks it before removing anything. Kept items stay in place. RESTORE brings it back. Off while the conversation is open or working. Reopening or writing to the conversation during archiving cancels source removal; close it and retry.</p>,
     manualSection: 'storage-view',
   },
   'storage.restore': {
@@ -1388,7 +1388,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'storage.auto-archive': {
     title: 'Auto-archive',
-    body: <p>Off by default. When on, a daily run archives conversations closed for more than the chosen number of days, except kept ones. It never deletes.</p>,
+    body: <p>Off by default. When on, a daily run archives conversations closed for more than the chosen number of days, except kept ones. It never deletes. Activity is checked again before source removal; a reopened or changed conversation stays live.</p>,
     manualSection: 'storage-view',
   },
   'storage.budget': {
@@ -1431,7 +1431,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         in the source cwd are dropped (they refer to a workflow that won't
         exist at the destination). The source tab's PLAN tab clears once
         the move completes.
-      </p>
+       A refused move keeps every source attachment unchanged.</p>
     ),
   },
   'plan.mark-complete': {

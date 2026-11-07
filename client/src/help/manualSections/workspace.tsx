@@ -606,6 +606,7 @@ export const workspace: Section[] = [
           changed since the last commit (<Code>git diff</Code> vs{' '}
           <Code>HEAD</Code>).
         </p>
+  <p>Filenames containing spaces stay complete, including renamed and conflicted files. A failed, oversized or timed-out Git comparison reports an error; a partial patch is never shown as complete.</p>
         <h4 className="manual-sub">Reading changes</h4>
         <ul>
           <li>

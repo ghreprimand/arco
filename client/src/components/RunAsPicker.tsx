@@ -24,13 +24,15 @@ interface Props {
   current: RunAsSelection;
   selection: RunAsSelection;
   onChange: (next: RunAsSelection) => void;
+  // Parents that persist explicit choices can keep normalization local.
+  onNormalize?: (next: RunAsSelection) => void;
   hint?: string;
   // Offer USE UTILITY AGENT for bounded side jobs. It only fills this
   // selection in; nothing is applied until the dialog's own action.
   utility?: boolean;
 }
 
-export function RunAsPicker({ current, selection, onChange, hint, utility }: Props) {
+export function RunAsPicker({ current, selection, onChange, onNormalize = onChange, hint, utility }: Props) {
   const utilityAgent = useUsableUtilityAgent();
   const authStatus = useAppStore((s) => s.authStatus);
   const isProviderEnabled = useAppStore((s) => s.isProviderEnabled);
@@ -75,7 +77,7 @@ export function RunAsPicker({ current, selection, onChange, hint, utility }: Pro
   useEffect(() => {
     if (modelChoices.length === 0) return;
     if (!modelChoices.includes(selection.model)) {
-      onChange({
+      onNormalize({
         ...selection,
         model: defaultModelForProvider(selection.provider, catalogs),
       });
@@ -86,7 +88,7 @@ export function RunAsPicker({ current, selection, onChange, hint, utility }: Pro
     if (selection.provider !== 'codex') return;
     if (selection.providerAccountRef && codexAccounts.some((a) => a.id === selection.providerAccountRef)) return;
     if (codexAccounts.length === 0) return;
-    onChange({
+    onNormalize({
       ...selection,
       providerAccountRef: current.provider === 'codex' && current.providerAccountRef ? current.providerAccountRef : codexAccounts[0]?.id,
     });

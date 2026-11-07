@@ -1,3 +1,4 @@
+import { beginConversationWrite } from './conversationActivity.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 import { normalizeAutoHandoff, normalizeOutputStyle, retiredProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
 // Slot 9 — per-workflow identity + session ledger (meta.json).
@@ -406,7 +407,9 @@ export async function writeMeta(cwd: string, meta: WorkflowMeta): Promise<void> 
   // that is on still hands off after going back to 0.1.4.
   if (meta.autoHandoff) meta.autoHandoff = normalizeAutoHandoff(meta.autoHandoff) ?? meta.autoHandoff;
   ensureProjectStateIgnore(cwd);
-  await atomicWriteFile(metaPath(cwd, meta.workflowId), JSON.stringify(meta, null, 2) + '\n');
+  const release = beginConversationWrite(cwd, meta.workflowId);
+  try { await atomicWriteFile(metaPath(cwd, meta.workflowId), JSON.stringify(meta, null, 2) + '\n'); }
+  finally { release(); }
   // Workbench Expansion §F1 — keep the machine-global Recall index current as
   // workflows run. FAILURE-ISOLATED: a recall hiccup must never break a real
   // workflow's meta write, so the upsert is fired-and-logged, never awaited

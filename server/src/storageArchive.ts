@@ -1,4 +1,9 @@
-import { promises as fs, createReadStream, createWriteStream } from 'node:fs';
+import { conversationUnchanged } from './conversationActivity.js';
+import { readFileVersion, verifyFileVersion, fileVersionMatchesNow, type FileVersion } from './fileVersion.js';
+import { hasPendingWorkflowWrites } from './workflowStore.js';
+import { snapshot } from './workspace.js';
+import { workflows } from './server/state.js';
+import { promises as fs, createReadStream, createWriteStream, unlinkSync, rmdirSync } from 'node:fs';
 import { createBrotliCompress, createBrotliDecompress, constants as zc } from 'node:zlib';
 import { createHash, randomUUID } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
@@ -33,16 +38,11 @@ export function archivePath(cwd: string, workflowId: string): string {
 
 interface Entry { path: string; size: number; mode: number; mtimeMs: number; sha256: string }
 
-async function hashFile(file: string): Promise<string> {
-  const h = createHash('sha256');
-  for await (const chunk of createReadStream(file)) h.update(chunk as Buffer);
-  return h.digest('hex');
-}
-
 // Regular files to archive, relative to the conversation folder, '/' paths.
 // Links are not followed and not archived (they stay, like kept items).
-async function collect(dir: string, kept: Parameters<typeof isKept>[0]): Promise<{ files: Entry[]; skipped: number }> {
+async function collect(dir: string, kept: Parameters<typeof isKept>[0]): Promise<{ files: Entry[]; versions: Map<string, FileVersion>; skipped: number }> {
   const files: Entry[] = [];
+  const versions = new Map<string, FileVersion>();
   let skipped = 0;
   const walk = async (rel: string): Promise<void> => {
     const abs = rel ? path.join(dir, ...rel.split('/')) : dir;
@@ -55,12 +55,13 @@ async function collect(dir: string, kept: Parameters<typeof isKept>[0]): Promise
       const child = path.join(abs, entry.name);
       if (entry.isDirectory()) { await walk(childRel); continue; }
       if (!entry.isFile()) { skipped++; continue; }
-      const st = await fs.lstat(child);
-      files.push({ path: childRel, size: st.size, mode: st.mode & 0o777, mtimeMs: st.mtimeMs, sha256: await hashFile(child) });
+      const version = await readFileVersion(child);
+      versions.set(childRel, version);
+      files.push({ path: childRel, size: version.size, mode: version.mode, mtimeMs: version.mtimeMs, sha256: version.sha256 });
     }
   };
   await walk('');
-  return { files, skipped };
+  return { files, versions, skipped };
 }
 
 async function* archiveStream(dir: string, files: Entry[], trailer: Record<string, unknown>): AsyncGenerator<Buffer> {
@@ -150,7 +151,15 @@ async function noLinkOnPath(dir: string, rel: string): Promise<void> {
 }
 
 export async function archiveConversation(cwd: string, workflowId: string, opts: { open: boolean; busy: boolean; by: 'operator' | 'policy' }): Promise<ArchiveResult> {
-  if (opts.open || opts.busy) throw new StorageActionError('open', 'Close the conversation before archiving it.');
+  const unchanged = conversationUnchanged(cwd, workflowId);
+  const stillClosed = () => {
+    const workspace = snapshot();
+    return !opts.open && !opts.busy && !workflows.get(workflowId)?.busy
+      && !workspace.workflows.some((wf) => wf.workflowId === workflowId)
+      && !workspace.clusters.some((cluster) => cluster.memberIds.includes(workflowId));
+  };
+  const inactive = () => unchanged() && stillClosed() && !hasPendingWorkflowWrites(cwd, workflowId);
+  if (!inactive()) throw new StorageActionError('open', 'Close the conversation before archiving it.');
   const dir = await checkedConversationDir(cwd, workflowId);
   await checkedArchiveFolder(cwd);
   const target = archivePath(cwd, workflowId);
@@ -161,7 +170,7 @@ export async function archiveConversation(cwd: string, workflowId: string, opts:
     const keep = await readKeep(dir);
     if (!keep.ok) throw new StorageActionError('keep_unreadable', 'The KEEP list of this conversation cannot be read, so nothing was archived.');
     if (isKept(keep.items, '.')) throw new StorageActionError('kept', 'The whole conversation is kept.');
-    const { files, skipped } = await collect(dir, keep.items);
+    const { files, versions, skipped } = await collect(dir, keep.items);
     const archivedAt = Date.now();
     ensureProjectStateIgnore(cwd);
     await fs.mkdir(archiveDir(cwd), { recursive: true });
@@ -187,13 +196,24 @@ export async function archiveConversation(cwd: string, workflowId: string, opts:
       await fs.rm(tmp, { force: true });
       throw err;
     }
-    // Remove what was archived; kept items and links stay. A folder swapped
-    // for a link since the walk stops the removal.
-    for (const f of files) {
-      await noLinkOnPath(dir, f.path);
-      await fs.rm(path.join(dir, ...f.path.split('/')), { force: true });
+    // Recheck the live files after compression and publication. New writes,
+    // queued events or a reopened tab invalidate the entire removal batch.
+    try {
+      for (const f of files) {
+        await noLinkOnPath(dir, f.path);
+        await verifyFileVersion(path.join(dir, ...f.path.split('/')), versions.get(f.path)!);
+      }
+      if (!inactive() || files.some((f) => !fileVersionMatchesNow(path.join(dir, ...f.path.split('/')), versions.get(f.path)!))) {
+        throw new StorageActionError('changed', 'The conversation changed or was opened during archiving. Nothing was removed.');
+      }
+    } catch (err) {
+      await fs.rm(target, { force: true });
+      throw err;
     }
-    await pruneEmptyFolders(dir, keep.items);
+    // No await between the final activity/version checks and removal: a new
+    // server-side admission cannot start halfway through this batch.
+    for (const f of files) unlinkSync(path.join(dir, ...f.path.split('/')));
+    await pruneEmptyFolders(dir, keep.items, inactive);
     const archiveBytes = (await fs.stat(target)).size;
     const originalBytes = files.reduce((n, f) => n + f.size, 0);
     await recordStorageAction(cwd, { action: 'archive', by: opts.by, workflowId, files: files.length, originalBytes, archiveBytes, keptItems: skipped });
@@ -201,7 +221,7 @@ export async function archiveConversation(cwd: string, workflowId: string, opts:
   });
 }
 
-async function pruneEmptyFolders(dir: string, kept: Parameters<typeof isKept>[0]): Promise<void> {
+async function pruneEmptyFolders(dir: string, kept: Parameters<typeof isKept>[0], unchanged = () => true): Promise<void> {
   const prune = async (abs: string, rel: string): Promise<boolean> => {
     let entries;
     try { entries = await fs.readdir(abs, { withFileTypes: true }); } catch { return false; }
@@ -211,10 +231,10 @@ async function pruneEmptyFolders(dir: string, kept: Parameters<typeof isKept>[0]
       if (e.isDirectory() && !isKept(kept, childRel) && await prune(path.join(abs, e.name), childRel)) continue;
       empty = false;
     }
-    if (empty && rel && !holdsKept(kept, rel)) { await fs.rmdir(abs).catch(() => undefined); return true; }
+    if (empty && rel && !holdsKept(kept, rel) && unchanged()) { try { rmdirSync(abs); return true; } catch { return false; } }
     return empty && !!rel;
   };
-  if (await prune(dir, '') ) await fs.rmdir(dir).catch(() => undefined);
+  if (await prune(dir, '') && unchanged()) { try { rmdirSync(dir); } catch { /* New or kept files remain. */ } }
 }
 
 export interface RestoreResult { files: number; restoredBytes: number }

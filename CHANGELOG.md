@@ -54,6 +54,11 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Output Move retains both files when the source changes; ARCHIVE cancels removal when a conversation reopens or receives new writes.
+- Settings preserve Strata and DeepSeek endpoints, keep cleared summarizer pins unset and follow the selected cluster's project folder.
+- Git status retains complete filenames with spaces; failed or truncated comparisons show errors. Refused plan moves retain source attachments.
+- Skill edits retain quoted metadata, and long skill folder names leave room for collision suffixes.
+
 - Mid-turn steering retains selected one-shot skills instead of silently dropping their instructions.
 
 - STOP cancels normal messages still preparing prompt or file context instead of allowing them to start afterward.

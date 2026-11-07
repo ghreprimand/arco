@@ -15,7 +15,7 @@ import { promisify } from 'node:util';
 import { auditSkillContent, type AuditFinding } from './skillAudit.js';
 import {
   BODY_MAX, DESCRIPTION_MAX, NAME_MAX, SKILL_SIDECAR, isValidSlug, listBuiltinSkills, listSkills, parseSkillFile, readSkillSidecar,
-  renderSkillFile, rootForScope, slugify, type SkillScope, type SkillSidecar, type StoredSkillSource,
+  renderSkillFile, rootForScope, slugify, skillSlugCandidate, type SkillScope, type SkillSidecar, type StoredSkillSource,
 } from './skills.js';
 import { appendShareBlock, ensureProjectStateIgnore, skillShareLines } from './projectStateIgnore.js';
 import { projectGitEnv, suggestFromRemote } from './publicProject.js';
@@ -288,9 +288,15 @@ async function skillDir(scope: SkillScope, slug: string, cwd: string): Promise<s
 }
 
 async function freeSlug(root: string, base: string): Promise<string> {
-  let candidate = base; let n = 2;
-  while (await fs.lstat(path.join(root, candidate)).then(() => true, () => false)) candidate = `${base}-${n++}`.slice(0, 64);
-  return candidate;
+  for (let n = 1; n <= 10000; n++) {
+    const candidate = skillSlugCandidate(base, n);
+    try { await fs.lstat(path.join(root, candidate)); }
+    catch (err) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return candidate;
+      throw err;
+    }
+  }
+  throw new Error('No free skill name was found. Choose another name.');
 }
 
 // Writes a skill folder next to its final place, then renames it in. Files get

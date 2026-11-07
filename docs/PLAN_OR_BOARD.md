@@ -12,6 +12,8 @@ Members can update tasks, while the operator accepts completed work. A plan
 and a board can be used together: the plan holds the shared direction and the
 board tracks the work in progress.
 
+Moving a plan detaches its source workflows only after the move succeeds. A refused move, including choosing the same project again or an existing destination plan, keeps those attachments.
+
 The composer's PLAN button explains in its hover text that a plan keeps the next
 steps in one place.
 A cluster without a plan offers DRAFT A PLAN, ATTACH EXISTING, and NOT NOW;

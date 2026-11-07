@@ -15,6 +15,7 @@ import { useAppStore } from '../stores/appStore';
 import { useStartupStore } from '../stores/startupStore';
 import { ClaudeNativeAuthRow } from './ClaudeNativeAuthRow';
 import type { AuthStatus, AuthStatusByProvider, AuthLoginTarget, AuthLoginResult, ArcoSettings, ProviderName, ModelName, EffortLevel, ProviderAccountProfile, DiscoveredEndpoint, EndpointDiscoverResponse } from '@arco/shared';
+import { activeProjectCwd } from '../utils/activeProject';
 import { RunAsPicker, type RunAsSelection } from './RunAsPicker';
 import { LoginCommand } from './LoginCommand';
 import { THEME_REGISTRY, DEFAULT_THEME_ID } from '../themes/registry';
@@ -354,8 +355,7 @@ export function SettingsPanel({ onClose }: Props) {
   // open + after every save/delete; project skills require an active
   // workflow's cwd, global skills don't. Edits propagate to the next
   // primary turn automatically (server scans on every turn) — no restart.
-  const activeJob = useAppStore((s) => (s.activeJobId ? s.jobs[s.activeJobId] : undefined));
-  const activeCwd = activeJob?.config.workingDirectory ?? '';
+  const activeCwd = useAppStore(activeProjectCwd);
   // Slot 12 — catalog editor state. Lazy-loaded when the operator opens the
   // editor; local edits hold in catalogDraft until SAVE commits them.
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -1494,6 +1494,8 @@ function AutoHandoffDefaultsSection() {
   // manual handoffs (dialog default) and auto-handoffs. Provider is required;
   // model/effort optional (resolver fills from the tab's primary when absent).
   const hs = settings?.handoffSummarizer;
+  const [summarizerDraft, setSummarizerDraft] = useState<RunAsSelection | null>(null);
+  useEffect(() => { setSummarizerDraft(null); }, [hs?.provider, hs?.model, hs?.effort]);
   const commitSummarizer = async (next: { provider: ProviderName; model?: ModelName; effort?: EffortLevel } | null) => {
     if (saving) return;
     setSaving(true);
@@ -1510,7 +1512,7 @@ function AutoHandoffDefaultsSection() {
   };
   // For the picker, default to claude when nothing is pinned. `current` is the
   // reset target — same default so RESET TO CURRENT clears any local drift.
-  const summarizerSelection: RunAsSelection = {
+  const summarizerSelection: RunAsSelection = summarizerDraft ?? {
     provider: hs?.provider ?? 'claude',
     model: (hs?.model as ModelName) ?? ('' as ModelName),
     effort: hs?.effort ?? 'medium',
@@ -1641,6 +1643,7 @@ function AutoHandoffDefaultsSection() {
           <RunAsPicker
             current={summarizerSelection}
             selection={summarizerSelection}
+            onNormalize={setSummarizerDraft}
             onChange={(next) => { void commitSummarizer({ provider: next.provider, model: next.model, effort: next.effort }); }}
             utility
           />

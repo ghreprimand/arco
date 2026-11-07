@@ -1,5 +1,6 @@
+import { readFileVersion, verifyFileVersion, fileVersionMatchesNow } from './fileVersion.js';
 import { createHash, randomUUID } from 'node:crypto';
-import { constants, createReadStream, createWriteStream, realpathSync } from 'node:fs';
+import { constants, createReadStream, createWriteStream, realpathSync, unlinkSync } from 'node:fs';
 import { open, lstat, writeFile, readFile, readdir, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { homedir } from 'node:os';
@@ -320,6 +321,7 @@ export async function transferOutput(ctx: OutputContext, id: string, destination
     if (target === source) throw new Error('Choose a different destination.');
     // Exclusive destination creation refuses existing files and dangling links;
     // a no-follow source handle prevents final-component link swaps.
+    const copiedVersion = move ? await readFileVersion(source) : undefined;
     if (entry.inline) await writeFile(target, entry.inline.content, { flag: 'wx', mode: 0o600 });
     else await copyOutputBytes(source, target);
     const grant = { cwd: realpathSync(ctx.cwd), workflowId: ctx.workflowId, file: target };
@@ -334,7 +336,16 @@ export async function transferOutput(ctx: OutputContext, id: string, destination
     } else index.entries.push({ ...entry, inline: undefined, category: outputCategory(target), id: idFor(randomUUID()), path: target, originPath: target, aliases: [], derivedFrom: entry.id, title: path.basename(target), name: path.basename(target), source: 'saved copy', actions: [{ action: 'copy', from: source, to: target, at: Date.now() }], createdAt: Date.now(), updatedAt: Date.now() });
     try { await writeIndex(ctx.cwd, ctx.workflowId, index); } catch (err) { await unlink(target).catch(() => {}); if (grantNeeded) await removeOutputGrant(grant).catch(() => {}); throw new Error('Output location was not saved. The source remains intact.'); }
     if (move) {
-      try { await unlink(source); } catch (err) {
+      try {
+        await verifyFileVersion(source, copiedVersion!);
+        const copied = await readFileVersion(target);
+        if (copied.sha256 !== copiedVersion!.sha256 || !fileVersionMatchesNow(source, copiedVersion!)) throw new Error('Output changed during MOVE.');
+      } catch {
+        await writeIndex(ctx.cwd, ctx.workflowId, old);
+        // Keep both copies. The source may contain a newly accepted edit.
+        throw new Error('The output changed during MOVE. Both files were kept; review the copy before retrying.');
+      }
+      try { unlinkSync(source); } catch (err) {
         await writeIndex(ctx.cwd, ctx.workflowId, old);
         await unlink(target).catch(() => {});
         if (grantNeeded) await removeOutputGrant(grant).catch(() => {});

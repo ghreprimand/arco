@@ -60,8 +60,9 @@ async function runGit(
     });
     return { stdout, stderr, code: 0 };
   } catch (err) {
-    const e = err as NodeJS.ErrnoException & { stdout?: string; stderr?: string; code?: number | string };
-    const code = typeof e.code === 'number' ? e.code : 1;
+    const e = err as NodeJS.ErrnoException & { stdout?: string; stderr?: string; code?: number | string; killed?: boolean };
+    if (typeof e.code !== 'number' || e.killed) throw new Error('Git command failed before its output was complete.');
+    const code = e.code;
     return { stdout: e.stdout ?? '', stderr: e.stderr ?? e.message ?? '', code };
   }
 }
@@ -96,7 +97,7 @@ async function untrackedAdditions(cwd: string): Promise<string> {
   // (so we never show ignored junk). -z keeps paths intact (spaces, unicode).
   // ls-files expands untracked directories into their individual files.
   const listed = await runGit(cwd, ['ls-files', '--others', '--exclude-standard', '-z']);
-  if (listed.code !== 0) return '';
+  if (listed.code !== 0) throw new Error('Could not list files for the Git diff.');
   const paths = listed.stdout.split('\0').filter(Boolean);
   if (paths.length === 0) return '';
 
@@ -109,7 +110,7 @@ async function untrackedAdditions(cwd: string): Promise<string> {
     // "Binary files … differ" line. `--` keeps a `-`-leading path a path.
     const nd = await runGit(cwd, ['diff', '--no-color', '--no-index', '--', '/dev/null', path]);
     // --no-index exits 1 on differences; only a >1 code is a real failure.
-    if (nd.code > 1) continue;
+    if (nd.code !== 0 && nd.code !== 1) throw new Error('Could not read the added-file Git diff.');
     if (nd.stdout) chunks.push(nd.stdout);
   }
   return chunks.join('');
@@ -196,6 +197,7 @@ export async function computeDiff(args: ComputeDiffArgs): Promise<DiffResult> {
       // synthesized new-file diffs (untrackedAdditions) — on a brand-new repo
       // that's the whole story.
       const empty = await runGit(cwd, ['diff', '--no-color', '4b825dc642cb6eb9a060e54bf8d69288fbee4904']);
+      if (empty.code !== 0) throw new Error('Could not read the Git diff.');
       const untracked = await untrackedAdditions(cwd);
       return { ...base, patch: joinPatches(empty.stdout, untracked), from: '(empty)', to };
     }
@@ -206,6 +208,7 @@ export async function computeDiff(args: ComputeDiffArgs): Promise<DiffResult> {
     // but omits untracked files — append them as new-file diffs so the preview
     // matches the GIT popup's DIRTY count (which counts untracked too).
     const wt = await runGit(cwd, ['diff', '--no-color', baseRev]);
+    if (wt.code !== 0) throw new Error('Could not read the Git diff.');
     const untracked = await untrackedAdditions(cwd);
     return { ...base, patch: joinPatches(wt.stdout, untracked), from: baseRev, to };
   }
@@ -217,5 +220,6 @@ export async function computeDiff(args: ComputeDiffArgs): Promise<DiffResult> {
     }
   }
   const diff = await runGit(cwd, ['diff', '--no-color', from, to]);
+  if (diff.code !== 0) throw new Error('Could not read the Git diff.');
   return { ...base, patch: diff.stdout, from, to };
 }

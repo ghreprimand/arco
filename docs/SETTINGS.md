@@ -20,6 +20,12 @@ same contextual help as the `?` mode.
   transport, auto-compaction, auto-handoff, north star and the rest) stay in the workflow
   creator and the workflow's CONFIG tab. They are not part of this dialog.
 
+Project skills, handoff prompt overrides and the active-folder suggestion follow the selected workflow or cluster. A selected cluster supplies its shared folder even when no individual member tab is active.
+
+The default fresh summarizer stays unpinned until an explicit picker choice. Opening Settings or loading a model catalog does not save a pin. **CLEAR** restores the per-tab primary fallback. Unrelated settings changes preserve saved Strata and DeepSeek endpoints; an explicit empty endpoint block still resets that provider.
+
+Skill names and descriptions retain quotes and backslashes through repeated edits. IMPORT, MOVE, DUPLICATE and new skill creation reserve room for numeric collision suffixes within the 64-character folder-name limit.
+
 ## Addresses
 
 `#settings/<category>` opens a category and `#settings/<category>/<section>`

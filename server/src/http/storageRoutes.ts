@@ -47,7 +47,7 @@ async function projectFor(cwd: unknown): Promise<string | null> {
   return key;
 }
 
-const ACTION_STATUS: Record<StorageActionError['code'], number> = { keep_unreadable: 409, busy: 409, open: 409, kept: 409, exists: 409, unsafe: 409, not_found: 404, invalid: 400 };
+const ACTION_STATUS: Record<StorageActionError['code'], number> = { changed: 409, keep_unreadable: 409, busy: 409, open: 409, kept: 409, exists: 409, unsafe: 409, not_found: 404, invalid: 400 };
 
 // Operator storage actions. Each needs `confirm: true`: the client asks first.
 async function handleStorageAction(req: IncomingMessage, res: ServerResponse, action: string): Promise<void> {

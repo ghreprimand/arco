@@ -204,7 +204,7 @@ const MOVE_ATTEMPTS = 3;
 // have manually copied a plan id between projects). Attachments are NOT
 // carried over — the source attachments record workflows in the source cwd
 // which won't apply at the destination. Caller is responsible for detaching
-// workflows in the source cwd beforehand (broadcasts plan_detached) and for
+// workflows in the source cwd after success (broadcasts plan_detached) and for
 // setting watcher skip-flags on both cwds.
 //
 // The source is removed only while it still matches what the target holds

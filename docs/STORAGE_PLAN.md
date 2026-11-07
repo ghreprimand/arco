@@ -309,6 +309,12 @@ One file per conversation, `<project>/.arco/workflows/<id>/keep.json`, written t
 - Git objects shared with a project's own history cannot be assigned to single conversations.
 - Compression ratios come from a sample of real logs; they are not guarantees.
 
+## Archive activity checks
+
+ARCHIVE rechecks the live files after writing and verifying the compressed copy. Reopening the conversation, queuing events, writing metadata or changing captured file contents cancels source removal. The refused archive is removed so another attempt remains possible. KEEP items and plans stay untouched.
+
+Metadata writes, event writes and log initialization report activity to the archive check. File hashes use bounded reads. Final activity and file-identity checks run with source removal before another server admission can interleave. The archive format is unchanged.
+
 ## Related
 
 - [Persistence](PERSISTENCE.md)

@@ -9,6 +9,7 @@ export const deepseekGuide: Section[] = [{
   <strong>XOLOTL</strong> runs the DeepSeek model locally. Pick Exact for
   unchanged answers or Light for speed, then send a message to load it.
   </p>
+  <p>Saving unrelated settings preserves the configured DeepSeek endpoint. An explicit endpoint reset still restores the environment or default address.</p>
   <Sub>Runtime and model</Sub>
   <p>
   <strong>Xolotl is the inference runtime; DeepSeek is the model.</strong>

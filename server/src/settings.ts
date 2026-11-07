@@ -1061,9 +1061,10 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
   }
   // An empty Strata patch resets the endpoint to its env/default cascade.
   if ('deepseek' in patch) merged.deepseek = sanitizeLmstudioConfig(patch.deepseek) ?? {};
+  else if (current.deepseek) merged.deepseek = current.deepseek;
   if ('strata' in patch) {
     merged.strata = sanitizeLmstudioConfig(patch.strata) ?? {};
-  }
+  } else if (current.strata) merged.strata = current.strata;
   // M13 — LM Studio config. Same merge semantics as ollama: a patch of
   // `{ lmstudio: {} }` clears the configured baseUrl (so the SettingsPanel can
   // reset to the env/localhost default), a patch with a baseUrl overrides it.

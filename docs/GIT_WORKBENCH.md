@@ -22,6 +22,8 @@ changed file, grouped into three categories, each opening its own diff.
 - **UNTRACKED**, new files git isn't tracking yet, rendered as an all-added
   new-file diff.
 
+Filenames containing spaces remain complete, including rename origins and conflict paths.
+
 A file can appear in both STAGED and CHANGES at once (staged some hunks, edited
 more), that's faithful to `git status`, which reports a status code per side.
 
@@ -54,8 +56,9 @@ budget.
   NUL-containing paths are rejected) so a path can't smuggle a git flag.
 - Read-only: the module never touches the index, HEAD, or history.
 - Graceful degradation: a non-git cwd returns `isRepo:false` + empty result
-  (never a 500); binary or oversized files return `binary:true` + empty patch
-  (bounded by a 32 MiB buffer / 15 s timeout, mirroring `gitDiff.ts`).
+  (never a 500); binary files return `binary:true` + empty patch. Git errors,
+  the 32 MiB output limit and the 15 s timeout report a failed comparison.
+  A partial patch is never presented as complete.
 - The endpoint always answers **200** with a structured body in every
   non-fatal case (non-git dir, invalid path, clean tree).
 

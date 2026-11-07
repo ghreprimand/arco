@@ -1,3 +1,4 @@
+import { beginConversationWrite, noteConversationActivity } from './conversationActivity.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // Slot 5 — Continuity Phase D. Per-workflow event log on disk.
 //
@@ -188,6 +189,7 @@ async function* effectiveLines(dir: string, fromSeq = 0): AsyncGenerator<{ line:
 export async function initWorkflowStore(cwd: string, wfid: string): Promise<void> {
   if (!cwd) return;
   validateWfid(wfid);
+  noteConversationActivity(cwd, wfid);
   const key = bufferKey(cwd, wfid);
   let buf = buffers.get(key);
   if (buf?.initialized) return;
@@ -306,6 +308,7 @@ export function persistAndStampSeq(
   if (!cwd) return message;
   const buf = buffers.get(bufferKey(cwd, wfid));
   if (!buf || !buf.initialized || buf.readOnly) return message;
+  noteConversationActivity(cwd, wfid);
   // Phase 0 — link each event back to its predecessor for HISTORY (Phase 8)
   // and forks (Phase 9). Linear workflows: parent = previous seq. The very
   // first event has no parent (left undefined; readers treat absent as
@@ -365,6 +368,7 @@ async function flushBuffer(buf: WorkflowBuffer): Promise<void> {
   if (buf.flushInFlight) {
     return buf.flushInFlight;
   }
+  const release = beginConversationWrite(buf.cwd, buf.wfid);
   buf.flushInFlight = (async () => {
     const filePath = eventsPath(buf.cwd, buf.wfid);
     // Loop so events queued during the write are included in this flush
@@ -405,7 +409,13 @@ async function flushBuffer(buf: WorkflowBuffer): Promise<void> {
     await buf.flushInFlight;
   } finally {
     buf.flushInFlight = null;
+    release();
   }
+}
+
+export function hasPendingWorkflowWrites(cwd: string, wfid: string): boolean {
+  const buf = buffers.get(bufferKey(cwd, wfid));
+  return !!buf && (buf.pending.length > 0 || !!buf.flushInFlight || !buf.initialized);
 }
 
 // COMPRESS OLD LOGS (P7.3/P7.5): seal a conversation's live log now, inside

@@ -11,6 +11,7 @@ export const maintenance: Section[] = [
   recents, plans, storage and the raw tree - not a workflow or an agent. Only PLANS
   and STORAGE change anything; each STORAGE action asks first.
   </p>
+  <p>If an output changes during Move, both files stay and a conflict is reported. The entry keeps its source location. Review the destination copy before retrying.</p>
   <ul>
   <li>
   <strong>ARTIFACTS</strong> starts with project cards and recent artifacts

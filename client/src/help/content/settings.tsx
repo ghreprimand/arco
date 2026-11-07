@@ -22,7 +22,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
       Both use a 262144-token context. Prepared vision profiles accept screenshots
       through an on-demand CPU image encoder; text-only profiles reject images. Unload stops the service
       and releases model memory. Other GPU workloads and competing loaded models cause a refusal;
-      Arco never stops external GPU workloads. See HELP for memory limits, cancellation and recovery.</p>,
+      Arco never stops external GPU workloads. See HELP for memory limits, cancellation and recovery. Saving unrelated settings preserves the configured endpoint.</p>,
   },
   'settings.strata-endpoint': {
     title: 'Strata endpoint', manualSection: 'provider-strata',
@@ -31,7 +31,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
       This setting overrides STRATA_URL_BASE. Prepared local profiles can load
       for the next message; changing the address does not prepare models or
       increase memory limits. Live image/context capabilities come from the
-      service, and inactive profiles from their checked configuration.</p>,
+      service, and inactive profiles from their checked configuration. Saving unrelated settings preserves the configured endpoint.</p>,
   },
   // -------------------------------------------------------- SETTINGS PANEL
   'settings.phosphor-effects': {
@@ -70,7 +70,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           <C>CLAUDE.md</C>, <C>.arco/skills</C>, <C>.arco/settings.json</C>:
           that would otherwise enter the model&apos;s system prompt unread. Until
           you vouch for a repo they stay suppressed from every turn.
-        </p>
+         The selected workflow or cluster supplies the project folder.</p>
         <p>
           Search trust decisions filters the scrollable list by path. Decisions are keyed by directory, nearest ancestor wins, and cover
           every tab and cluster member pointed at that path. <C>FLIP</C> swaps
@@ -356,13 +356,13 @@ export const settingsHelp: Record<string, HelpEntry> = {
         where an imported skill came from, and skill names its text refers to that
         are not installed. Project skills are in <C>.arco/skills/</C>, which Git
         ignores unless you use <C>SHARE WITH REPOSITORY</C>.
-      </p>
+       The selected workflow or cluster supplies the project folder. Quotes and backslashes survive repeated name and description edits.</p>
     ),
     manualSection: 'skills',
   },
   'settings.skills.import': {
     title: 'IMPORT',
-    body: <p><C>IMPORT</C> adds a skill from a public GitHub link (a skill folder or its <C>SKILL.md</C>), a folder on this computer, or a zip file. <C>REVIEW</C> fetches or reads it and lists every file with its size and the security check findings; nothing is saved until <C>IMPORT</C>. Choose this project or global. All files of the skill folder are kept, without executable bits; hidden files are left out. Limits: 64 files, 512 KB per file, 2 MB in total.</p>,
+    body: <p><C>IMPORT</C> adds a skill from a public GitHub link (a skill folder or its <C>SKILL.md</C>), a folder on this computer, or a zip file. <C>REVIEW</C> fetches or reads it and lists every file with its size and the security check findings; nothing is saved until <C>IMPORT</C>. Choose this project or global. All files of the skill folder are kept, without executable bits; hidden files are left out. Limits: 64 files, 512 KB per file, 2 MB in total. Long folder names leave room for a numeric collision suffix within the 64-character limit.</p>,
     manualSection: 'skills',
   },
   'settings.skills.update': {
@@ -377,12 +377,12 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.skills.move': {
     title: 'MOVE TO GLOBAL / MOVE TO PROJECT',
-    body: <p>Moves the skill folder, with all its files, between this project's skills and your global skills (every project). It asks first. Tabs that pinned the skill lose the pin.</p>,
+    body: <p>Moves the skill folder, with all its files, between this project's skills and your global skills (every project). It asks first. Tabs that pinned the skill lose the pin. Long folder names leave room for a numeric collision suffix within the 64-character limit.</p>,
     manualSection: 'skills',
   },
   'settings.skills.duplicate': {
     title: 'DUPLICATE',
-    body: <p><C>DUPLICATE</C> copies the skill and its files under a new name, as a starting point for your own version. The copy has no import source, so UPDATE does not apply to it.</p>,
+    body: <p><C>DUPLICATE</C> copies the skill and its files under a new name, as a starting point for your own version. The copy has no import source, so UPDATE does not apply to it. Long folder names leave room for a numeric collision suffix within the 64-character limit.</p>,
     manualSection: 'skills',
   },
   'settings.skills.share': {
@@ -397,7 +397,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         Edit the seed prompt used by Handoff / Spawn context export. Project
         overrides live under <C>{'<cwd>/.arco/'}</C>; validation warns if a
         template drops required handoff sentinels.
-      </p>
+       The selected workflow or cluster supplies the project folder.</p>
     ),
     manualSection: 'settings-operator',
   },
@@ -492,7 +492,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           fill. QUICK is the default mode; a saved per-tab or global written mode remains in
           effect. Settings saved with the earlier WARN and AUTO percentages keep their on or
           off state and use 5 compactions.
-        </p>
+         Catalog loading only updates the local picker. The default summarizer stays unpinned until an explicit choice; CLEAR restores the per-tab primary fallback.</p>
         <p>
           The per-tab <strong>AUTO-HANDOFF</strong> control in the CONFIG tab
           always wins: this only seeds tabs that have never been touched.

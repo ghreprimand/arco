@@ -879,6 +879,7 @@ export const providers: Section[] = [
   Choose <strong>STRATA</strong> in the provider picker for a standalone
   local inference service, separate from Ollama and LM Studio.
   </p>
+  <p>Saving unrelated settings preserves the configured Strata endpoint. An explicit endpoint reset still restores the environment or default address.</p>
   <Sub>Endpoint and profiles</Sub>
   <p>
   Set its address in <strong>Settings &gt; STRATA ENDPOINT</strong>; the default

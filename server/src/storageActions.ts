@@ -8,7 +8,7 @@ import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // when the KEEP file cannot be read, and is recorded in
 // <project>/.arco/storage-actions.jsonl.
 export class StorageActionError extends Error {
-  constructor(readonly code: 'keep_unreadable' | 'busy' | 'open' | 'not_found' | 'kept' | 'exists' | 'invalid' | 'unsafe', message: string) {
+  constructor(readonly code: 'changed' | 'keep_unreadable' | 'busy' | 'open' | 'not_found' | 'kept' | 'exists' | 'invalid' | 'unsafe', message: string) {
     super(message);
   }
 }

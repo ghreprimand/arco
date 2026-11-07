@@ -460,6 +460,7 @@ export const configuration: Section[] = [
   surfaces edited from Settings. Use them for context that should apply
   across workflows.
   </p>
+  <p>Project skills, handoff prompt overrides and active-folder suggestions follow the selected workflow or cluster. A selected cluster uses its shared project folder without requiring a member tab.</p>
   <Sub>Operator name and catalog</Sub>
   <p>
   <strong>Operator name</strong> is the label that replaces the generic{' '}
@@ -515,6 +516,7 @@ export const configuration: Section[] = [
   imported skill came from, and skill names its text mentions that are not
   installed, such as "Refers to release-notes, not installed".
   </p>
+  <p>Quotes and backslashes in skill names and descriptions survive repeated edits. IMPORT, MOVE, DUPLICATE and new skill creation keep collision suffixes within the 64-character folder-name limit.</p>
   <Sub>Built-in skills</Sub>
   <p>Built-ins are on by default. Settings lists each with an OPERATOR or MODEL
   badge and can turn each off. A project or
@@ -592,6 +594,7 @@ export const configuration: Section[] = [
   change model, effort, transport and safety controls without rotating the
   session.
   </p>
+  <p>The global default fresh summarizer stays unpinned until an explicit picker choice. Opening Settings or loading a model catalog does not save a pin. CLEAR restores the per-tab primary fallback.</p>
   <Sub>Model and effort</Sub>
   <p>
   <strong>MODEL</strong> - same provider, different model. Affects the next

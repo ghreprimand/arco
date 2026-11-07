@@ -209,6 +209,12 @@ export function slugify(name: string): string {
   return base || 'skill';
 }
 
+export function skillSlugCandidate(base: string, n: number): string {
+  if (n === 1) return base.slice(0, 64);
+  const suffix = `-${n}`;
+  return base.slice(0, 64 - suffix.length).replace(/-+$/, '') + suffix;
+}
+
 // Resolve the SKILL.md path for a (scope, slug) pair and verify the
 // resolved path stays under the scope's root. Caller passes a known-valid
 // slug; the resolve step is the second line of defence against weird
@@ -244,9 +250,8 @@ export function parseSkillFile(text: string): ParsedFrontmatter {
     if (idx === -1) continue;
     const key = line.slice(0, idx).trim();
     let value = line.slice(idx + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
+    if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1).replace(/\\([\\"])/g, '$1');
+    else if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1).replace(/''/g, "'");
     out[key] = value;
   }
   // Skip the closing `---` and any blank lines between it and the body —
@@ -434,7 +439,8 @@ export async function writeSkill(
         break;
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
-        candidate = `${base}-${n++}`;
+        if (n > 10000) throw new Error('No free skill name was found. Choose another name.');
+        candidate = skillSlugCandidate(base, n++);
       }
     }
     slug = candidate;

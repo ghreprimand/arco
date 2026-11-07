@@ -647,7 +647,7 @@ export async function tryHandleWorkflowDataRoutes(
   // Move a plan from one cwd to another. MUST come before the generic POST
   // /api/plans handler below — startsWith('/api/plans') matches both, and
   // route order decides which one runs. Detaches any workflows in the
-  // source cwd (so observers see plan_detached), writes target body+index
+  // source cwd only after the move succeeds. Writes target body+index
   // first, then removes source. Plan id stays the same; attachments do
   // not carry over since they reference workflows in the old cwd.
   if (req.url?.startsWith('/api/plans/move') && req.method === 'POST') {
@@ -669,9 +669,6 @@ export async function tryHandleWorkflowDataRoutes(
         res.end(JSON.stringify({ error: 'targetCwd required in body' }));
         return true;
       }
-      // Detach any workflows currently using this plan in the source cwd —
-      // observers receive plan_detached before the file vanishes.
-      await deps.detachAllForPlan(sourceCwd, planId);
       // Tell both watchers to skip the next file event for this id so we
       // don't get redundant reconcile broadcasts (we own the move).
       const sourceWatcher = plansWatchers.get(sourceCwd);
@@ -686,6 +683,8 @@ export async function tryHandleWorkflowDataRoutes(
         res.end(JSON.stringify({ error: result.error }));
         return true;
       }
+      // A refused move must leave all source workflow bindings intact.
+      await deps.detachAllForPlan(sourceCwd, planId);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ plan: result.plan }));
     } catch (err) {

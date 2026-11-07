@@ -23,6 +23,8 @@ shown when **All files** is ticked; a note under the filters says how many are
 hidden. The server marks each entry with `primary` (`isPrimaryOutput` in
 `server/src/outputs.ts`); the toggle is per view and resets when the panel reopens.
 
+If the source is edited or replaced during **Move**, Arco keeps both files and reports the conflict. The original entry stays at the source; review the destination copy before retrying.
+
 ## Discovery and persistence
 
 The collection joins files in each workflow's `artifacts` directory with durable

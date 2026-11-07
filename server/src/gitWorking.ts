@@ -57,8 +57,9 @@ async function runGit(
     });
     return { stdout, stderr, code: 0 };
   } catch (err) {
-    const e = err as NodeJS.ErrnoException & { stdout?: string; stderr?: string; code?: number | string };
-    const code = typeof e.code === 'number' ? e.code : 1;
+    const e = err as NodeJS.ErrnoException & { stdout?: string; stderr?: string; code?: number | string; killed?: boolean };
+    if (typeof e.code !== 'number' || e.killed) throw new Error('Git command failed before its output was complete.');
+    const code = e.code;
     return { stdout: e.stdout ?? '', stderr: e.stderr ?? e.message ?? '', code };
   }
 }
@@ -111,9 +112,8 @@ function parsePorcelainV2(raw: string): WorkingChangesResponse {
       const xy = tok.slice(2, sp === -1 ? undefined : sp);
       const x = xy[0];
       const y = xy[1];
-      // The path is the last space-delimited field of THIS token.
-      const lastSp = tok.lastIndexOf(' ');
-      const path = tok.slice(lastSp + 1);
+      // Consume the fixed metadata fields, preserving every pathname space.
+      const path = tok.split(' ').slice(kind === '2' ? 9 : 8).join(' ');
       let origPath: string | undefined;
       if (kind === '2') {
         // Rename/copy: the original path is the immediately following NUL
@@ -131,8 +131,7 @@ function parsePorcelainV2(raw: string): WorkingChangesResponse {
     }
     if (kind === 'u') {
       // Unmerged (conflict): surface under unstaged so the operator sees it.
-      const lastSp = tok.lastIndexOf(' ');
-      const path = tok.slice(lastSp + 1);
+      const path = tok.split(' ').slice(10).join(' ');
       unstaged.push({ path, status: 'U' });
       continue;
     }
@@ -198,7 +197,8 @@ export async function getFileDiff(cwd: string, args: FileDiffArgs): Promise<Work
   // non-zero for an untracked path. Untracked files have no index entry, so
   // `git diff` shows nothing — we synthesize an all-added diff instead.
   const tracked = await runGit(cwd, ['ls-files', '--error-unmatch', '--', path]);
-  const isUntracked = tracked.code !== 0;
+  if (tracked.code !== 0 && tracked.code !== 1) throw new Error('Could not check files for the Git diff.');
+  const isUntracked = tracked.code === 1;
 
   if (isUntracked) {
     // New file with no index entry: diff against the empty/absent side.
@@ -210,7 +210,7 @@ export async function getFileDiff(cwd: string, args: FileDiffArgs): Promise<Work
       '/dev/null', path,
     ]);
     // --no-index exits 1 on differences; treat only a >1 code as failure.
-    if (nd.code > 1) return base;
+    if (nd.code !== 0 && nd.code !== 1) throw new Error('Could not read the added-file Git diff.');
     const patch = nd.stdout;
     if (looksBinary(patch)) return { ...base, patch: '', binary: true };
     return { ...base, patch };
@@ -221,7 +221,7 @@ export async function getFileDiff(cwd: string, args: FileDiffArgs): Promise<Work
     ? ['diff', '--no-color', '--cached', '--', path]
     : ['diff', '--no-color', '--', path];
   const diff = await runGit(cwd, diffArgs);
-  if (diff.code > 1) return base;
+  if (diff.code !== 0) throw new Error('Could not read the Git diff.');
   const patch = diff.stdout;
   if (looksBinary(patch)) return { ...base, patch: '', binary: true };
   return { ...base, patch };
@@ -407,7 +407,7 @@ export async function getComparisonDiff(
     ? `${cmp.upstream}...HEAD`
     : `HEAD...${cmp.upstream}`;
   const diff = await runGit(cwd, ['diff', '--no-color', range]);
-  if (diff.code > 1) return base;
+  if (diff.code !== 0) throw new Error('Could not read the Git diff.');
   const patch = diff.stdout;
   if (looksBinary(patch)) return { ...base, patch: '', binary: true };
   return { ...base, patch };

@@ -292,7 +292,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           (commit / +push / +PR via <C>gh pr create</C>), protected-branch
           warnings, per-repo localStorage prefs. Branch switch dispatches
           server-side <em>before</em> the agent prompt; refuses on dirty trees.
-        </p>
+         Filenames with spaces stay complete; failed or truncated comparisons report an error.</p>
         <p>
           Builds a structured prompt with branch context, action steps, pause-and-ask
           rules, and expected deliverables. RUN AS picker to escalate to a different
