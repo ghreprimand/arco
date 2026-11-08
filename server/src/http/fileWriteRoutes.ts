@@ -1,3 +1,4 @@
+import { writeCheckedFile } from '../checkedFile.js';
 import { IncomingMessage, ServerResponse } from 'http';
 import { writeFile, stat, mkdir } from 'fs/promises';
 import { basename, dirname, relative, resolve } from 'path';
@@ -84,7 +85,7 @@ export async function writeFileWithinCwd(
   if (parent && parent !== resolve(cwd)) {
     await mkdir(parent, { recursive: true });
   }
-  await writeFile(abs, content, 'utf8');
+  await writeCheckedFile(abs, content);
   return {
     ok: true,
     status: 200,

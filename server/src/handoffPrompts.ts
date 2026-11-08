@@ -1,3 +1,4 @@
+import { readCheckedText, writeCheckedFile } from './checkedFile.js';
 import { managedPath, projectDocumentPath } from './managedPath.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // Phase 3 (operator-features) — operator-editable Handoff prompts.
@@ -197,7 +198,7 @@ function overridePath(scope: HandoffPromptScope, mode: HandoffPromptMode, cwd: s
 
 async function readIfExists(p: string): Promise<string | null> {
   try {
-    return await fs.readFile(p, 'utf8');
+    return await readCheckedText(p);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw err;

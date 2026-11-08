@@ -1,3 +1,4 @@
+import { openCheckedFile } from '../checkedFile.js';
 import { constants, createReadStream } from 'node:fs';
 import { open, lstat } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
@@ -53,7 +54,7 @@ export async function tryHandleOutputRoutes(req: IncomingMessage, res: ServerRes
       }
       const { entry, file } = await readOutput(ctx, id);
       if (url.pathname === '/api/outputs/content') return json(res, 200, await readFileForExplorer(file));
-      const handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+      const handle = await openCheckedFile(file);
       try {
         const info = await handle.stat();
         if (!info.isFile()) throw new Error('Output is not a regular file.');

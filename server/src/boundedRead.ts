@@ -1,3 +1,4 @@
+import { openCheckedFile } from './checkedFile.js';
 import { constants, promises as fs } from 'node:fs';
 
 // Nonblocking open also closes the stat/open race for pipes on POSIX. Verify
@@ -5,7 +6,7 @@ import { constants, promises as fs } from 'node:fs';
 async function openRegular(path: string) {
   const before = await fs.stat(path);
   if (!before.isFile()) throw new Error('not a regular file; use Glob for directories');
-  const handle = await fs.open(path, constants.O_RDONLY | (constants.O_NONBLOCK ?? 0));
+  const handle = await openCheckedFile(path);
   try {
     const stat = await handle.stat();
     if (!stat.isFile()) throw new Error('not a regular file');

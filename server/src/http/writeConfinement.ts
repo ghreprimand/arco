@@ -104,8 +104,8 @@ function isWithin(root: string, target: string): boolean {
 }
 
 /**
- * Lexical gate (resolveWithinCwd) + symlink-safe re-check. Returns the lexical
- * absolute path (callers compute cwd-relative paths from it); throws with an
+ * Lexical gate (resolveWithinCwd) + symlink-safe re-check. Returns the canonical
+ * absolute path used for the subsequent file operation; throws with an
  * operator-readable message on any escape. A TOCTOU swap after this check is
  * out of scope — this stops pre-existing links, which is the realistic vector.
  */
@@ -142,7 +142,7 @@ export async function confineRealPath(cwd: string, p: string): Promise<string> {
     if (!isWithin(realRoot, resolved)) {
       throw new Error(`path "${p}" resolves outside the workflow cwd (symlink)`);
     }
-    return abs;
+    return resolved;
   }
   throw new Error(`path "${p}" has no existing ancestor`);
 }

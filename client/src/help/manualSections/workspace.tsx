@@ -735,6 +735,7 @@ export const workspace: Section[] = [
     title: 'Editing a file',
     body: (
       <>
+  <p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If either changes during the operation, retry from a fresh file selection. These checks are not an operating-system sandbox.</p>
         <p>
           The file viewer doubles as a light editor for quick hand-tweaks that
           do not warrant an agent turn. Open any text file from the{' '}

@@ -77,6 +77,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- File reads and saves verify opened-file identity and parent paths before accessing content; output copies remain owner-only.
+
 - Search, Git and project document actions validate the selected workflow or known project folder.
 
 - Skill folder imports and updates reject protected source aliases and protected files.

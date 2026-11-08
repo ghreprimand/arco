@@ -1,3 +1,4 @@
+import { openCheckedFile } from '../checkedFile.js';
 import { open } from 'fs/promises';
 import { constants } from 'fs';
 import { FileAccessError } from '../fileAccessPolicy.js';
@@ -17,7 +18,7 @@ const IMAGE_MIME: Record<string, string> = {
 
 export async function readFileForExplorer(path: string) {
   const ext = extname(path).toLowerCase();
-  const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  const handle = await openCheckedFile(path);
   try {
     const stats = await handle.stat();
     if (!stats.isFile()) throw new FileAccessError();

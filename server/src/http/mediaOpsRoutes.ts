@@ -1,3 +1,4 @@
+import { openCheckedFile } from '../checkedFile.js';
 import { IncomingMessage, ServerResponse } from 'http';
 import { createReadStream, constants } from 'fs';
 import { pipeline } from 'stream/promises';
@@ -296,7 +297,7 @@ export async function tryHandleMediaOpsRoutes(
       let st;
       let handle;
       try {
-        handle = await open(abs, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+        handle = await openCheckedFile(abs);
         st = await handle.stat();
       } catch {
         await handle?.close();

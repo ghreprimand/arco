@@ -1,3 +1,4 @@
+import { writeCheckedFile } from '../checkedFile.js';
 import { IncomingMessage, ServerResponse } from 'http';
 import { writeFile, stat, mkdir } from 'fs/promises';
 import { dirname, extname, relative } from 'path';
@@ -149,7 +150,7 @@ export async function tryHandleImageWriteRoutes(
     // resolveWithinCwd gate), so the mkdir can't escape.
     const parent = dirname(abs);
     if (parent && parent !== cwd) await mkdir(parent, { recursive: true });
-    await writeFile(abs, parsed.buf, { flag: body.overwrite === true ? 'w' : 'wx' });
+    await writeCheckedFile(abs, parsed.buf, body.overwrite === true);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'EEXIST' && body.overwrite !== true) {
       return send(res, 200, { ok: false, code: 'exists', error: 'file exists; pass overwrite:true to replace' } satisfies ImageWriteResult);

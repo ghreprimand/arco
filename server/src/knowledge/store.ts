@@ -1,3 +1,4 @@
+import { openCheckedFile, readCheckedText, atomicCheckedWriteFile as atomicWriteFile } from '../checkedFile.js';
 import { projectDocumentPath } from '../managedPath.js';
 import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // Knowledge store - docs/ARCHITECTURE.md
@@ -32,7 +33,7 @@ import {
   type KnowledgeArticle,
   type KnowledgeArticleSummary,
 } from '@arco/shared';
-import { atomicWriteFile, withFileLock } from '../atomicFile.js';
+import { withFileLock } from '../atomicFile.js';
 
 const ID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 const TITLE_MAX = 200;
@@ -81,7 +82,7 @@ interface KnowledgeIndex {
 
 async function readIndex(cwd: string): Promise<KnowledgeIndex> {
   try {
-    const raw = await fs.readFile(indexPath(cwd), 'utf8');
+    const raw = await readCheckedText(indexPath(cwd));
     const parsed = JSON.parse(raw) as KnowledgeIndex;
     if (!parsed || !Array.isArray(parsed.articles)) return { articles: [] };
     return parsed;
@@ -122,7 +123,7 @@ const jsonStore: KnowledgeStore = {
     if (!summary) return null;
     let body: string;
     try {
-      body = await fs.readFile(bodyPath(cwd, id), 'utf8');
+      body = await readCheckedText(bodyPath(cwd, id));
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw err;

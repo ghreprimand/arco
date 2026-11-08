@@ -1,3 +1,4 @@
+import { openCheckedFile, readCheckedText, atomicCheckedWriteFile as atomicWriteFile } from './checkedFile.js';
 import { managedPath, projectDocumentPath } from './managedPath.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // Plan store — long-form markdown briefs that workflows can attach to.
@@ -16,7 +17,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import type { PlanSummary, PlanFull, PlanRefSummary, PlanRefFull } from '@arco/shared';
-import { atomicWriteFile, withFileLock } from './atomicFile.js';
+import { withFileLock } from './atomicFile.js';
 
 const PLAN_ID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 const TITLE_MAX = 200;
@@ -63,7 +64,7 @@ interface PlanIndex {
 
 async function readIndex(cwd: string): Promise<PlanIndex> {
   try {
-    const raw = await fs.readFile(indexPath(cwd), 'utf8');
+    const raw = await readCheckedText(indexPath(cwd));
     const parsed = JSON.parse(raw) as PlanIndex;
     if (!parsed || !Array.isArray(parsed.plans)) return { plans: [] };
     return parsed;
@@ -103,7 +104,7 @@ export async function readPlan(cwd: string, planId: string): Promise<PlanFull | 
   if (!summary) return null;
   let body: string;
   try {
-    body = await fs.readFile(bodyPath(cwd, planId), 'utf8');
+    body = await readCheckedText(bodyPath(cwd, planId));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw err;
@@ -154,7 +155,7 @@ export async function updatePlan(
     if (i === -1) return null;
     let currentBody: string | undefined;
     if (typeof input === 'function' || opts.expectedBody !== undefined) {
-      currentBody = await fs.readFile(bodyPath(cwd, planId), 'utf8');
+      currentBody = await readCheckedText(bodyPath(cwd, planId));
       if (opts.expectedBody !== undefined && currentBody !== opts.expectedBody) throw new PlanConflictError();
     }
     // Callbacks run under the canonical index lock and must not call another
@@ -171,7 +172,7 @@ export async function updatePlan(
       await atomicWriteFile(bodyPath(cwd, planId), nextBody);
     } else {
       try {
-        nextBody = await fs.readFile(bodyPath(cwd, planId), 'utf8');
+        nextBody = await readCheckedText(bodyPath(cwd, planId));
       } catch {
         nextBody = '';
       }
@@ -195,7 +196,7 @@ async function refsSnapshot(cwd: string, planId: string): Promise<string> {
   for (const name of names) {
     let content: string | null = null;
     const file = managedPath(dir, name);
-    try { content = await fs.readFile(file, 'utf8'); } catch { /* not a readable file */ }
+    try { content = await readCheckedText(file); } catch { /* not a readable file */ }
     out.push([name, content]);
   }
   return JSON.stringify(out);
@@ -445,7 +446,7 @@ export async function reconcilePlanFile(cwd: string, planId: string): Promise<Re
   return withIndexLock(cwd, async () => {
     let body: string | null = null;
     try {
-      body = await fs.readFile(bodyPath(cwd, planId), 'utf8');
+      body = await readCheckedText(bodyPath(cwd, planId));
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
     }
@@ -500,7 +501,7 @@ export async function listPlanRefs(cwd: string, planId: string): Promise<PlanRef
       const st = await fs.stat(p);
       if (!st.isFile()) continue;
       // Title from the head only — a 256 KB ref shouldn't be read to list it.
-      const fh = await fs.open(p, 'r');
+      const fh = await openCheckedFile(p);
       let head = '';
       try {
         const buf = Buffer.alloc(Math.min(st.size, 4096));
@@ -519,7 +520,7 @@ export async function readPlanRef(cwd: string, planId: string, slug: string): Pr
   if (!cwd || !isValidPlanId(planId) || !isValidRefSlug(slug)) return null;
   try {
     const p = refPath(cwd, planId, slug);
-    const [body, st] = await Promise.all([fs.readFile(p, 'utf8'), fs.stat(p)]);
+    const [body, st] = await Promise.all([readCheckedText(p), fs.stat(p)]);
     return { slug, title: extractTitleFromBody(body) || slug, bytes: st.size, updatedAt: Math.round(st.mtimeMs), body };
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;

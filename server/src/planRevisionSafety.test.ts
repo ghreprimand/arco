@@ -1,3 +1,4 @@
+import { syncBuiltinESMExports } from 'node:module';
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { promises as fs, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
@@ -27,17 +28,24 @@ test('B29: every concurrent architecture decision remains in its reference', asy
 });
 
 test('B29: ADD TO PLAN preserves an intervening plan edit', async (t) => {
-  const f = await plan(), original = fs.readFile;
+  const f = await plan(), original = fs.open;
   const file = join(f.cwd, '.arco', 'plans', `${f.plan.id}.md`);
   let inject = true;
-  t.mock.method(fs, 'readFile', async (...args: any[]) => {
-    const content = await Reflect.apply(original, fs, args);
-    if (args[0] === file && inject) {
-      inject = false;
+  t.mock.method(fs, 'open', async (...args: any[]) => {
+    const handle = await Reflect.apply(original, fs, args);
+    const read = handle.readFile.bind(handle);
+    handle.readFile = (async (...readArgs: any[]) => {
+      const content = await Reflect.apply(read, handle, readArgs);
+      if (args[0] === file && inject) {
+        inject = false;
       await store.updatePlan(f.cwd, f.plan.id, { body: '# Work\n- [x] Original task\nOperator edit\n' });
-    }
-    return content;
+      }
+      return content;
+    }) as typeof handle.readFile;
+    return handle;
   });
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
   await architecture.addCandidateToPlan(f.cwd, f.plan.id, report, 'c1');
   const body = (await store.readPlan(f.cwd, f.plan.id))!.body;
   assert.match(body, /\[x\] Original task/); assert.match(body, /Operator edit/); assert.match(body, /Split storage/);
@@ -67,16 +75,23 @@ test('B130: text-matched ticks resolve against the body actually being saved', a
   const member = randomUUID();
   const cluster = await clusters.createCluster({ cwd: f.cwd, memberWorkflowIds: [member, randomUUID()] });
   await bridge.attachExistingPlan(cluster.clusterId, f.plan.id);
-  const file = join(f.cwd, '.arco', 'plans', `${f.plan.id}.md`), original = fs.readFile;
+  const file = join(f.cwd, '.arco', 'plans', `${f.plan.id}.md`), original = fs.open;
   let inject = true;
-  t.mock.method(fs, 'readFile', async (...args: any[]) => {
-    const content = await Reflect.apply(original, fs, args);
-    if (args[0] === file && inject) {
-      inject = false;
+  t.mock.method(fs, 'open', async (...args: any[]) => {
+    const handle = await Reflect.apply(original, fs, args);
+    const read = handle.readFile.bind(handle);
+    handle.readFile = (async (...readArgs: any[]) => {
+      const content = await Reflect.apply(read, handle, readArgs);
+      if (args[0] === file && inject) {
+        inject = false;
       await store.updatePlan(f.cwd, f.plan.id, { body: '# Work\n- [ ] Inserted task\n- [ ] Original task\n' });
-    }
-    return content;
+      }
+      return content;
+    }) as typeof handle.readFile;
+    return handle;
   });
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
   const result = await peerPlanTick({ workflowId: member, clusterId: cluster.clusterId, broadcastSender() {}, broadcastRecipient() {} }, { taskText: 'Original task' }, () => {});
   assert.equal(result.ok, true);
   const body = (await store.readPlan(f.cwd, f.plan.id))!.body;

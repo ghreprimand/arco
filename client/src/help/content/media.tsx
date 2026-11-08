@@ -133,13 +133,13 @@ export const mediaHelp: Record<string, HelpEntry> = {
   'media.save': {
     title: 'Save the edited image',
     body: (
-      <p>Saving requires a workflow context; open from FILES to save into a project.
+      <><p>Saving requires a workflow context; open from FILES to save into a project.
         Flatten the layers and write the result through Arco's guarded{' '}
         <C>/api/image/write</C> endpoint (path-confined to the workflow cwd). A
         file opened from <strong>FILES</strong> saves over the original (with an
         overwrite confirm); an imported image asks for a new filename. On success
         the new file is revealed in the FILES panel.
-      </p>
+      </p><p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If either changes during the operation, retry from a fresh file selection. These checks are not an operating-system sandbox.</p></>
     ),
     manualSection: S,
   },

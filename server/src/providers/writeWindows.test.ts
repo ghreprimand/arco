@@ -19,6 +19,10 @@ for(const provider of ['Native','local'] as const)test(`${provider} Write create
   t.mock.method(fs,'stat',async()=>{throw Object.assign(new Error('missing'),{code:'ENOENT'});});
   t.mock.method(fs,'mkdir',async(name:unknown)=>{parents.push(String(name));return undefined;});
   t.mock.method(fs,'writeFile',async(name:unknown)=>{writes.push(String(name));});
+  const info = { isFile: () => true, isSymbolicLink: () => false, dev: 1, ino: 1 };
+  t.mock.method(fs, 'lstat', async () => info as never);
+  t.mock.method(fs, 'open', async (name: unknown) => ({ stat: async () => info, truncate: async () => {}, writeFile: async () => { writes.push(String(name)); }, close: async () => {} }) as never);
+  syncBuiltinESMExports();
   try{
     const ctx:NativeToolContext={cwd,abortSignal:new AbortController().signal,shells:{byId:new Map(),mintId:()=> 'fixture'},readSet:new Set(),planMode:false,onTodos:()=>{}};
     const result=provider==='Native'?await executeNativeTool('Write',{file_path:target,content:'fixture'},ctx):await executeOllamaTool('Write',{file_path:target,content:'fixture'},{cwd});

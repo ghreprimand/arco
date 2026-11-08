@@ -1,3 +1,4 @@
+import { openCheckedFile, writeCheckedFile, replaceCheckedFile } from './checkedFile.js';
 import { readFileVersion, verifyFileVersion, fileVersionMatchesNow } from './fileVersion.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { constants, createReadStream, createWriteStream, realpathSync, unlinkSync } from 'node:fs';
@@ -285,12 +286,12 @@ export async function trackOutputFile(ctx: OutputContext, file: string, derivedF
   });
 }
 async function copyOutputBytes(source: string, target: string): Promise<void> {
-  const input = await open(source, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  const input = await openCheckedFile(source);
   let output: Awaited<ReturnType<typeof open>> | undefined;
   try {
     const info = await input.stat();
     if (!info.isFile()) throw new Error('Output source is not a regular file.');
-    output = await open(target, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
+    output = await openCheckedFile(target, 'create');
     if (info.size) await pipeline(createReadStream('', { fd: input.fd, autoClose: false, emitClose: false, start: 0, end: info.size - 1 }), createWriteStream('', { fd: output.fd, autoClose: false, emitClose: false }));
     await output.sync();
   } catch (err) {
@@ -322,7 +323,7 @@ export async function transferOutput(ctx: OutputContext, id: string, destination
     // Exclusive destination creation refuses existing files and dangling links;
     // a no-follow source handle prevents final-component link swaps.
     const copiedVersion = move ? await readFileVersion(source) : undefined;
-    if (entry.inline) await writeFile(target, entry.inline.content, { flag: 'wx', mode: 0o600 });
+    if (entry.inline) await writeCheckedFile(target, entry.inline.content, false, 0o600);
     else await copyOutputBytes(source, target);
     const grant = { cwd: realpathSync(ctx.cwd), workflowId: ctx.workflowId, file: target };
     if (grantNeeded) {
@@ -376,7 +377,7 @@ export async function saveOutputText(ctx: OutputContext, id: string, content: st
     const entry = index.entries.find(e => e.id === id);
     if (!entry?.path) throw new Error('Output file is unavailable.');
     const file = await safeOutputFile(ctx, entry.path);
-    await atomicWriteFile(file, content); entry.updatedAt = Date.now();
+    await replaceCheckedFile(file, content); entry.updatedAt = Date.now();
     await writeOutputIndex(ctx.cwd, ctx.workflowId, index);
   });
 }

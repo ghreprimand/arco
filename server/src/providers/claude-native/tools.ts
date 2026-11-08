@@ -1,4 +1,5 @@
 import { readRegularRange, regularFileLines } from '../../boundedRead.js';
+import { writeCheckedFile, readCheckedText } from '../../checkedFile.js';
 // Phase 7a — core tool surface for Claude Native transport.
 //
 // Eight tools: Read / Write / Edit / Bash / Grep / Glob / KillShell /
@@ -331,7 +332,7 @@ const WriteTool: Entry = {
       if (parent && parent !== resolve(ctx.cwd)) {
         await fs.mkdir(parent, { recursive: true });
       }
-      await fs.writeFile(abs, content, 'utf8');
+      await writeCheckedFile(abs, content);
       // §C3 — fire-and-forget LSP diagnostics. Never awaited; wrapped so a hook
       // error can't fail the Write (diagnostics are best-effort).
       try { ctx.onFileWritten?.(abs); } catch { /* diagnostics are best-effort */ }
@@ -373,7 +374,7 @@ const EditTool: Entry = {
     // reintroduce the lost-write race (splice a stale copy, overwrite a peer's
     // change). The readSet check above is pure validation and stays outside.
     return runUnderMutationLock(ctx, abs, 'Edit', async () => {
-      const buf = await fs.readFile(abs, 'utf8');
+      const buf = await readCheckedText(abs);
       // H50 — exact-first with a deterministic fuzzy fallback chain (escape-drift,
       // trailing-ws, indent). On a true no-match the result carries a "closest
       // lines" hint so the model can fix old_string without re-Reading.
@@ -381,7 +382,7 @@ const EditTool: Entry = {
       if (!r.applied || r.updated === undefined) {
         throw new Error(`${r.reason ?? 'old_string not found'} (in ${filePath})`);
       }
-      await fs.writeFile(abs, r.updated, 'utf8');
+      await writeCheckedFile(abs, r.updated);
       // §C3 — fire-and-forget LSP diagnostics. Never awaited; wrapped so a hook
       // error can't fail the Edit (diagnostics are best-effort).
       try { ctx.onFileWritten?.(abs); } catch { /* diagnostics are best-effort */ }

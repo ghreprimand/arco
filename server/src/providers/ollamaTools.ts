@@ -1,4 +1,5 @@
 import { readRegularRange, regularFileLines, readResponsePrefix } from '../boundedRead.js';
+import { writeCheckedFile } from '../checkedFile.js';
 import { resolveToolPath } from '../toolPath.js';
 import { requestWithDeadline } from './requestDeadline.js';
 
@@ -386,7 +387,7 @@ const WriteTool: OllamaToolEntry = {
     if (parent && parent !== resolve(ctx.cwd)) {
       await fs.mkdir(parent, { recursive: true });
     }
-    await fs.writeFile(abs, content, 'utf8');
+    await writeCheckedFile(abs, content);
     return `wrote ${content.length} bytes to ${relative(ctx.cwd, abs)}`;
   },
 };
