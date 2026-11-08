@@ -1,6 +1,6 @@
 # HTTP API
 
-File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If either changes during the operation, retry from a fresh file selection. These checks are not an operating-system sandbox.
+File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If validation detects a changed file or parent folder when opening the file, select the file again and retry. These checks are not an operating-system sandbox.
 
 Search and Git views use the selected workflow folder. A supplied path cannot redirect them to another folder. Project document actions require a folder known to Arco; open or register the intended project before using these actions.
 

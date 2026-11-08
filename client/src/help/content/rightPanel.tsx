@@ -12,7 +12,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.outputs.download': {
     title: 'Download output', manualSection: 'archive-explorer',
-    body: <><p>Download this output through the browser. The file stays in its current location.</p><p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If either changes during the operation, retry from a fresh file selection. These checks are not an operating-system sandbox.</p></>,
+    body: <><p>Download this output through the browser. The file stays in its current location.</p><p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If validation detects a changed file or parent folder when opening the file, select the file again and retry. These checks are not an operating-system sandbox.</p></>,
   },
   'rightpanel.outputs.all-files': {
     title: 'All files',

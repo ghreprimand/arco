@@ -1789,7 +1789,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Locked if no newer edits were typed while saving. Newer edits stay visible and unsaved; <strong>LOCK</strong> discards edits and returns to the viewer.
         Closing with unsaved edits asks first. Only shown for text files opened
         from the FILES explorer.
-      </p><p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If either changes during the operation, retry from a fresh file selection. These checks are not an operating-system sandbox.</p><p>On Windows, file paths with trailing dots or spaces in a component, or alternate data stream separators, are refused. Use ordinary file and folder names. Drive-letter paths and network shares remain supported.</p></>
+      </p><p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If validation detects a changed file or parent folder when opening the file, select the file again and retry. These checks are not an operating-system sandbox.</p><p>On Windows, file paths with trailing dots or spaces in a component, or alternate data stream separators, are refused. Use ordinary file and folder names. Drive-letter paths and network shares remain supported.</p></>
     ),
     manualSection: 'editing-a-file',
   },
@@ -2172,7 +2172,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'dialog.save-destination': {
     title: 'Destination folder and filename',
-    body: <><p>Navigate to the destination with Go or Enter in the path field. SAVE HERE and Enter in the filename field choose only the loaded folder. Both wait while loading and refuse an edited path or a failed listing.</p><p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If either changes during the operation, retry from a fresh file selection. These checks are not an operating-system sandbox.</p><p>On Windows, file paths with trailing dots or spaces in a component, or alternate data stream separators, are refused. Use ordinary file and folder names. Drive-letter paths and network shares remain supported.</p></>,
+    body: <><p>Navigate to the destination with Go or Enter in the path field. SAVE HERE and Enter in the filename field choose only the loaded folder. Both wait while loading and refuse an edited path or a failed listing.</p><p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If validation detects a changed file or parent folder when opening the file, select the file again and retry. These checks are not an operating-system sandbox.</p><p>On Windows, file paths with trailing dots or spaces in a component, or alternate data stream separators, are refused. Use ordinary file and folder names. Drive-letter paths and network shares remain supported.</p></>,
     manualSection: 'archive-explorer',
   },
   'dialog.create-folder': {

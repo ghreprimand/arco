@@ -736,7 +736,7 @@ export const workspace: Section[] = [
     body: (
       <>
   <p>On Windows, file paths with trailing dots or spaces in a component, or alternate data stream separators, are refused. Use ordinary file and folder names. Drive-letter paths and network shares remain supported.</p>
-  <p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If either changes during the operation, retry from a fresh file selection. These checks are not an operating-system sandbox.</p>
+  <p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If validation detects a changed file or parent folder when opening the file, select the file again and retry. These checks are not an operating-system sandbox.</p>
         <p>
           The file viewer doubles as a light editor for quick hand-tweaks that
           do not warrant an agent turn. Open any text file from the{' '}
