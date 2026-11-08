@@ -20,6 +20,8 @@ async def main():
                 accept=base64.b64encode(hashlib.sha1((self.headers['Sec-WebSocket-Key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode()).digest()).decode()
                 self.send_response(101);self.send_header('Upgrade','websocket');self.send_header('Connection','Upgrade');self.send_header('Sec-WebSocket-Accept',accept);self.end_headers()
                 self.wfile.write(b'\x81\x0bhmr-fixture');self.wfile.flush();return
+            if self.path=='/clear-site':
+                self.send_response(200);self.send_header('Clear-Site-Data','"cookies", "storage"');self.send_header('Content-Length','0');self.end_headers();return
             body=b'<!doctype html><title>Preview fixture</title><script src="/asset.js"></script>' if self.path=='/' else b'window.fixtureReady=true;'
             self.send_response(200);self.send_header('Content-Type','text/html' if self.path=='/' else 'text/javascript')
             self.send_header('Set-Cookie','arco_session_poison=blocked; Path=/');self.send_header('Set-Cookie','app_cookie=allowed; Path=/')
@@ -59,6 +61,13 @@ async def main():
                     await page.wait_for_timeout(50)
                 assert frame,lease['port'];frames.append(frame)
             first,second=frames
+            before_cookies={c['name']:c['value'] for c in await context.cookies() if c['name'].startswith('arco_')}
+            assert len(before_cookies)>=3,before_cookies
+            assert await first.evaluate("async()=> (await fetch('/clear-site')).status")==200
+            await page.wait_for_timeout(100)
+            after_cookies={c['name']:c['value'] for c in await context.cookies() if c['name'].startswith('arco_')}
+            assert after_cookies==before_cookies,(before_cookies,after_cookies)
+            for frame in frames: assert await frame.evaluate("async()=> (await fetch('/asset.js')).status")==200
             assert await first.evaluate("async()=>await new Promise(r=>{const w=new WebSocket(location.origin.replace('http:','ws:')+'/hmr');w.onmessage=e=>{r(e.data);w.close()};w.onerror=()=>r('error')})")=='hmr-fixture'
             for destination in [server.base+'/api/settings',f'http://127.0.0.1:{leases[1]["port"]}/']:
                 assert await first.evaluate("async url=>{try{return (await fetch(url,{credentials:'include'})).status}catch{return -1}}",destination)==-1

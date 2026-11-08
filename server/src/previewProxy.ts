@@ -7,7 +7,19 @@ import { activePreviewPorts } from './previewPorts.js';
 const HOP = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade']);
 const reservedCookie = (value: string) => /^\s*(?:__Host-|__Secure-)?arco_/i.test(value);
 const safeCookies = (value: string) => value.split(';').filter(part => !reservedCookie(part)).join(';');
-const safeSetCookies = (values: string[] | undefined) => values?.filter(value => !reservedCookie(value));
+// Cookies and host policies outlive a port lease and may affect other ports.
+const SITE_HEADERS = new Set(['clear-site-data', 'strict-transport-security', 'public-key-pins', 'public-key-pins-report-only', 'alt-svc', 'report-to', 'reporting-endpoints', 'nel']);
+const safeSetCookies = (values: string[] | undefined) => values?.filter(value => !reservedCookie(value) && !/;\s*domain\s*=/i.test(value));
+function responseHeaders(source: http.IncomingHttpHeaders, upgrade: boolean) {
+  const headers = { ...source };
+  for (const key of Object.keys(headers)) if (SITE_HEADERS.has(key) || (!upgrade && HOP.has(key))) delete headers[key];
+  headers['set-cookie'] = safeSetCookies(source['set-cookie']);
+  if (!headers['set-cookie']?.length) delete headers['set-cookie'];
+  headers['cache-control'] = 'no-store'; headers['referrer-policy'] = 'same-origin';
+  delete headers.etag;
+  delete headers['access-control-allow-origin']; delete headers['access-control-allow-credentials'];
+  return headers;
+}
 const token = () => randomBytes(32).toString('hex');
 const equal = (a: string, b: string) => /^[a-f0-9]{64}$/.test(a) && /^[a-f0-9]{64}$/.test(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 const origin = (value: string | undefined): string | undefined => { try { return value ? new URL(value).origin : undefined; } catch { return undefined; } };
@@ -116,13 +128,7 @@ export class PreviewGateways {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': `default-src 'none'; script-src 'nonce-${nonce}'; base-uri 'none'`, 'set-cookie': `arco_preview_${listener.port}=${lease.capability}; HttpOnly; SameSite=Strict; Path=/${secure}`, 'cache-control': 'no-store', 'referrer-policy': 'same-origin' }); res.end(`<!doctype html><title>Opening preview</title><script nonce="${nonce}">location.replace('/');</script>`); return;
     }
     const upstream = http.request({ host: '127.0.0.1', port: listener.backend, method: req.method, path: req.url, headers: proxyHeaders(req, listener.backend, false) }, response => {
-      const headers = { ...response.headers };
-      for (const key of Object.keys(headers)) if (HOP.has(key)) delete headers[key];
-      headers['set-cookie'] = safeSetCookies(response.headers['set-cookie']);
-      if (!headers['set-cookie']?.length) delete headers['set-cookie'];
-      headers['cache-control'] = 'no-store'; headers['referrer-policy'] = 'same-origin';
-      delete headers.etag;
-      delete headers['access-control-allow-origin']; delete headers['access-control-allow-credentials'];
+      const headers = responseHeaders(response.headers, false);
       res.writeHead(response.statusCode ?? 502, headers); response.pipe(res);
     });
     upstream.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end('Preview backend unreachable.'); });
@@ -135,10 +141,10 @@ export class PreviewGateways {
     upstream.on('response', response => { response.resume(); socket.end(`HTTP/1.1 ${response.statusCode ?? 502} Preview Upgrade Failed\r\nConnection: close\r\n\r\n`); });
     upstream.on('upgrade', (response, connection, pending) => {
       const lines = [`HTTP/1.1 101 Switching Protocols`];
-      for (const [key, value] of Object.entries(response.headers)) {
+      for (const [key, value] of Object.entries(responseHeaders(response.headers, true))) {
         if (value === undefined) continue;
         const values = Array.isArray(value) ? value : [value];
-        for (const item of key === 'set-cookie' ? safeSetCookies(values) ?? [] : values) lines.push(`${key}: ${item}`);
+        for (const item of values) lines.push(`${key}: ${item}`);
       }
       socket.write(lines.join('\r\n') + '\r\n\r\n');
       if (pending.length) socket.write(pending); if (head.length) connection.write(head);

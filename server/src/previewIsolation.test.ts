@@ -10,9 +10,10 @@ import { WebSocket, WebSocketServer } from 'ws';
 async function listen(server: http.Server) { server.listen(0, '127.0.0.1'); await once(server, 'listening'); return (server.address() as { port: number }).port; }
 async function fixture(run: (context: { gateway: PreviewGateways; backend: number; seen: http.IncomingHttpHeaders[]; range: number; workflows: Map<string, number> }) => Promise<void>) {
   const seen: http.IncomingHttpHeaders[] = [];
-  const backendServer = http.createServer((req, res) => { seen.push(req.headers); res.setHeader('set-cookie', ['arco_session_3001=poison; Path=/', 'arco_preview_4300=poison', 'app_cookie=ok; Path=/']); res.end(req.url); });
+  const backendServer = http.createServer((req, res) => { seen.push(req.headers); for (const name of ['Alt-Svc', 'Report-To', 'Reporting-Endpoints', 'NEL', 'Public-Key-Pins', 'Public-Key-Pins-Report-Only']) res.setHeader(name, 'fixture'); res.setHeader('Clear-Site-Data', '"cookies", "storage"'); res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains'); res.setHeader('Set-Cookie', ['arco_session_3001=poison; Path=/', 'app_cookie=ok; Path=/', 'domain_cookie=bad; Domain=localhost; Path=/']); res.end(req.url); });
   const backend = await listen(backendServer);
   const socketServer = new WebSocketServer({ server: backendServer });
+  socketServer.on('headers', headers => headers.push(...['Alt-Svc', 'Report-To', 'Reporting-Endpoints', 'NEL', 'Public-Key-Pins', 'Public-Key-Pins-Report-Only'].map(name => `${name}: fixture`), 'Clear-Site-Data: "cookies"', 'Strict-Transport-Security: max-age=31536000', 'Set-Cookie: domain_cookie=bad; Domain=localhost', 'Set-Cookie: app_cookie=ok; Path=/'));
   socketServer.on('connection', (socket, req) => { seen.push(req.headers); socket.send('hmr-fixture'); socket.on('message', data => socket.send(data)); });
   // Temporary free ports avoid competing with other local test suites.
   const probe = http.createServer(); const range = await listen(probe); await new Promise<void>(resolve => probe.close(() => resolve()));
@@ -44,6 +45,9 @@ test('L02: preview credentials stay at the gateway, application cookies survive 
   assert.equal(await response.text(), '/assets/app.js');
   assert.equal(seen.at(-1)?.cookie, 'app_cookie=ok'); assert.equal(seen.at(-1)?.authorization, undefined); assert.equal(seen.at(-1)?.referer, undefined);
   assert.deepEqual(response.headers.getSetCookie(), ['app_cookie=ok; Path=/']);
+  assert.equal(response.headers.get('clear-site-data'), null);
+  assert.equal(response.headers.get('strict-transport-security'), null);
+  for (const name of ['alt-svc', 'report-to', 'reporting-endpoints', 'nel', 'public-key-pins', 'public-key-pins-report-only']) assert.equal(response.headers.get(name), null);
   assert.equal((await fetch(`${base}/api/session`)).status, 403);
   assert.equal((await fetch(`${base}/sw.js`, { headers: { cookie: cookie(lease), referer: base, 'service-worker': 'script' } })).status, 403);
 }));
@@ -91,7 +95,8 @@ test('L02: removed workflows, changed backends and expired leases cannot serve s
 test('L02: live-reload WebSockets keep application traffic and strip operator credentials', async () => fixture(async ({ gateway, seen }) => {
   const lease = await gateway.acquire('first', control);
   const socket = new WebSocket(`ws://127.0.0.1:${lease.port}/hmr`, { origin: address(lease.port), headers: { cookie: `${cookie(lease)}; arco_session_3001=secret`, authorization: 'Bearer secret' } });
-  try { const [data] = await once(socket, 'message'); assert.equal(data.toString(), 'hmr-fixture'); assert.equal(seen.at(-1)?.cookie, undefined); assert.equal(seen.at(-1)?.authorization, undefined); }
+  const upgrade = once(socket, 'upgrade'), message = once(socket, 'message');
+  try { const [response] = await upgrade; assert.equal(response.headers['clear-site-data'], undefined); assert.equal(response.headers['strict-transport-security'], undefined); for (const name of ['alt-svc', 'report-to', 'reporting-endpoints', 'nel', 'public-key-pins', 'public-key-pins-report-only']) assert.equal(response.headers[name], undefined); assert.deepEqual(response.headers['set-cookie'], ['app_cookie=ok; Path=/']); const [data] = await message; assert.equal(data.toString(), 'hmr-fixture'); assert.equal(seen.at(-1)?.cookie, undefined); assert.equal(seen.at(-1)?.authorization, undefined); }
   finally { socket.terminate(); }
   const denied = new WebSocket(`ws://127.0.0.1:${lease.port}/hmr`, { origin: 'http://127.0.0.1:4309', headers: { cookie: cookie(lease) } });
   const error = await once(denied, 'error'); assert.match(String(error[0]), /403/);

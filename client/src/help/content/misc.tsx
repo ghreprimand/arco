@@ -337,7 +337,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'preview.open': {
     title: 'PREVIEW · OPEN',
-    body: <p>Open the separate preview address in a new browser tab for full-window viewing. Keep PREVIEW open in Arco to retain its port. Previews cannot use Arco controls. If no port is free, close another preview or change PREVIEW PORTS in Settings.</p>,
+    body: <p>Open the separate preview address in a new browser tab for full-window viewing. Keep PREVIEW open in Arco to retain its port. Previews cannot use Arco controls. App responses cannot clear cookies across ports or set host-wide transport, persistent routing or reporting policies. Arco and Domain cookies are discarded; host-only application cookies still work. If no port is free, close another preview or change PREVIEW PORTS in Settings.</p>,
     manualSection: 'preview-tab',
   },
   'preview.unbind': {

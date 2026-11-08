@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep preview responses from clearing Arco cookies or changing persistent browser policies; discard Domain cookies from preview apps.
+
 - Document the separate Tailscale Serve entry required for each preview port.
 
 - Isolate live previews from Arco controls, strip operator credentials, and allocate one port per open preview. PREVIEW PORTS and ARCO_PREVIEW_PORTS configure the range; remote access needs matching forwarding and firewall rules. Existing remote installations must allow the preview range as well as Arco's control port.
