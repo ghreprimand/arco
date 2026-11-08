@@ -19,14 +19,14 @@ test('FA4 browser content search refuses an unbound folder', async () => {
   await tryHandleSearchRoutes(req as any, res as any);
   assert.equal(status, 403);
 });
-test('FA4 binding ignores a forged cwd and accepts a known project without a workflow', async () => {
+test('FA4 binding refuses a forged cwd and accepts a known project without a workflow', async () => {
   const { requireProjectBinding } = await import('./http/projectBinding.js');
   const { workflowCwds } = await import('./server/state.js');
   const { realpathSync } = await import('node:fs');
   const cwd = folder(), other = folder();
   workflowCwds.set('binding-fixture', cwd);
   try {
-    assert.equal(await requireProjectBinding(other, 'binding-fixture'), realpathSync(cwd));
+    await assert.rejects(requireProjectBinding(other, 'binding-fixture'), /selected worktree/i);
     assert.equal(await requireProjectBinding(cwd), realpathSync(cwd));
     await assert.rejects(requireProjectBinding(other));
     await assert.rejects(requireProjectBinding(cwd, 'unknown-fixture'));

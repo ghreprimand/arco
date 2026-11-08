@@ -168,6 +168,6 @@ export async function tryHandleGitOpRoutes(
     // needsConfirm refusals are operator-visible conditions, not server bugs.
     return send(200, result);
   } catch (err) {
-    return send(500, { ok: false, op: 'git_op', stderr: err instanceof Error ? err.message : String(err) });
+    return send((err as NodeJS.ErrnoException).code === 'EACCES' ? 403 : 500, { ok: false, op: 'git_op', stderr: err instanceof Error ? err.message : String(err) });
   }
 }

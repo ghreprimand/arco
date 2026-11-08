@@ -360,7 +360,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         where an imported skill came from, and skill names its text refers to that
         are not installed. Project skills are in <C>.arco/skills/</C>, which Git
         ignores unless you use <C>SHARE WITH REPOSITORY</C>.
-       The selected workflow or cluster supplies the project folder. Quotes and backslashes survive repeated name and description edits.</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p><p>Search and Git views use the selected workflow folder. A supplied path cannot redirect them to another folder. Project document actions require a folder known to Arco; open or register the intended project before using these actions.</p></>
+       The selected workflow or cluster supplies the project folder. Quotes and backslashes survive repeated name and description edits.</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p><p>Search and Git views use the workflow folder or a selected worktree registered with its repository. Unrelated or unavailable selections show an error; requests never silently switch to the main tree. Project document actions require a folder known to Arco.</p></>
     ),
     manualSection: 'skills',
   },
@@ -401,7 +401,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         Edit the seed prompt used by Handoff / Spawn context export. Project
         overrides live under <C>{'<cwd>/.arco/'}</C>; validation warns if a
         template drops required handoff sentinels.
-       The selected workflow or cluster supplies the project folder.</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p><p>Search and Git views use the selected workflow folder. A supplied path cannot redirect them to another folder. Project document actions require a folder known to Arco; open or register the intended project before using these actions.</p></>
+       The selected workflow or cluster supplies the project folder.</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p><p>Search and Git views use the workflow folder or a selected worktree registered with its repository. Unrelated or unavailable selections show an error; requests never silently switch to the main tree. Project document actions require a folder known to Arco.</p></>
     ),
     manualSection: 'settings-operator',
   },

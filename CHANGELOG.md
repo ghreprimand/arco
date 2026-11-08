@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Honor the selected registered Git worktree for changes and operations; refuse unrelated or unavailable selections instead of acting on the main tree.
+
 - Keep later new-plan edits when an earlier CREATE AND ATTACH request finishes.
 - Refresh saved public-project choices without overwriting another browser's newer decision.
 
