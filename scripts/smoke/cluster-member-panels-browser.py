@@ -103,6 +103,22 @@ async def main():
           window.captureCalls = [];
           s.setState(st => ({wsSendRaw: m => {captureCalls.push(m); return true}, jobs: {...st.jobs, 'builder-cli': {...st.jobs['builder-cli'], preview: {port: 5173}}}}));
         }""")
+        # The bound frame must receive height through the actual cluster panel.
+        cluster_frame = page.locator('iframe')
+        await expect(cluster_frame).to_be_visible()
+        for width, height in [(1280, 800), (1920, 1080), (1920, 1200), (2560, 1440), (3840, 2160)]:
+            await page.set_viewport_size({'width': width, 'height': height})
+            for zoom in [1, 1.5]:
+                await page.evaluate("""([zoom, height]) => {
+                  document.documentElement.style.zoom = String(zoom);
+                  document.getElementById('fixture').style.height = (height / zoom - 40) + 'px';
+                }""", [zoom, height])
+                await expect(cluster_frame).to_be_visible()
+                box = await cluster_frame.bounding_box()
+                assert box and box['width'] > 0 and box['height'] > 0, (width, height, zoom, box)
+        await page.evaluate("document.documentElement.style.zoom = '1'")
+        await page.set_viewport_size({'width': 700, 'height': 950})
+        await page.evaluate("document.getElementById('fixture').style.height = '900px'")
         await page.get_by_role('button', name='MOBILE', exact=True).click()
         for label in ['CAPTURE SCREENSHOT', 'CHECK CONSOLE', 'CHECK NETWORK']:
             await page.get_by_role('button', name=label, exact=True).click()

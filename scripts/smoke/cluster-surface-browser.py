@@ -41,6 +41,9 @@ async def main():
                 if url.path == '/api/cluster-snapshots/cloud':
                     await route.fulfill(json={'snapshots': []})
                     return
+                if url.path.startswith('/api/preview/'):
+                    await route.fulfill(status=200, content_type='text/html', body='<p>Preview fixture</p>')
+                    return
                 if url.path == '/api/outputs':
                     await route.fulfill(json={'outputs':[]})
                     return
@@ -300,6 +303,25 @@ async def main():
           show('cluster-b');
         }""")
         await expect(page.locator('[data-help="cluster.no-plan-hint"]')).to_be_visible()
+        # Exercise the actual cluster tab at the supported viewport and text scales.
+        await page.locator('[data-help="cluster.right-panel.group.runtime"]').click()
+        await page.locator('[data-help="cluster.right-panel.preview"]').click()
+        member_id = await page.get_by_label('PREVIEW of member').input_value()
+        await page.evaluate("""id => s.setState(st => ({jobs: {...st.jobs, [id]: {...st.jobs[id], preview: {port: 5173}}}}))""", member_id)
+        frame = page.locator('iframe')
+        await expect(frame).to_be_visible()
+        for width, height in [(1280, 800), (1920, 1080), (1920, 1200), (2560, 1440), (3840, 2160)]:
+            await page.set_viewport_size({'width': width, 'height': height})
+            for zoom in [1, 1.5]:
+                await page.evaluate("""([zoom, height]) => {
+                  document.documentElement.style.zoom = String(zoom);
+                  document.querySelector('#fixture > div').style.height = (height / zoom - 40) + 'px';
+                }""", [zoom, height])
+                await expect(frame).to_be_visible()
+                box = await frame.bounding_box()
+                assert box and box['width'] > 0 and box['height'] > 0, (width, height, zoom, box)
+        await page.evaluate("document.documentElement.style.zoom = '1'")
+        await page.set_viewport_size({'width': 1500, 'height': 900})
         await page.evaluate('showSaved()')
         await expect(page.get_by_text('Fixture snapshot', exact=True)).to_be_visible()
         await expect(page.get_by_role('button', name='CLOUD', exact=True)).to_have_count(0)

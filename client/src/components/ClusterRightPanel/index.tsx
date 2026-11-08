@@ -512,7 +512,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px', ...(tab === 'preview' ? { display: 'flex', flexDirection: 'column' } : {}) }}>
         {tab === 'members' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {/* Slice 6a — cluster name + rename affordance. Click the

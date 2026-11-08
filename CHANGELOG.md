@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show the bound page in the cluster PREVIEW panel when the panel has limited height.
 - Keep the ARTIFACTS file tree readable when the default folder is unavailable, show index patches for staged files in LIVE, and require a loaded destination for both mouse and keyboard saves.
 
 - Add EDIT to pending messages and their PREVIEW view in single and cluster tabs, returning text, kind and attachments without replacing the current draft or taking back a delivered message.
