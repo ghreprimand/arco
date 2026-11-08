@@ -921,7 +921,7 @@ export const configuration: Section[] = [
   <li>
   <strong>TOOL-RESULT FILTER</strong> (<Code>off</Code> /{' '}
   <Code>conservative</Code> / <Code>aggressive</Code>) - trims noisy tool
-  output. Raw bytes are kept gzipped in the workflow artifacts for recovery.
+  output. Raw bytes are kept gzipped in the workflow artifacts for recovery. Native shell failures use their exit, timeout and cancellation status for filtering and failure hooks. Compiler, configuration and test-collection diagnostics remain visible.
   </li>
   <li>
   <strong>FACT-FORCE FIRST EDIT</strong> (default <Code>off</Code>) - when

@@ -139,7 +139,15 @@ export interface ClaudeToolDef {
   };
 }
 
-type ToolExec = (args: Record<string, unknown>, ctx: NativeToolContext) => Promise<string>;
+export interface NativeToolOutcome {
+  text: string;
+  isError: boolean;
+  exitCode?: number | null;
+  signal?: string | null;
+  timedOut?: boolean;
+  aborted?: boolean;
+}
+type ToolExec = (args: Record<string, unknown>, ctx: NativeToolContext) => Promise<string | NativeToolOutcome>;
 
 interface Entry {
   def: ClaudeToolDef;
@@ -629,12 +637,13 @@ async function runBashForeground(
   command: string,
   timeoutMs: number,
   ctx: NativeToolContext,
-): Promise<string> {
+): Promise<NativeToolOutcome> {
   const { child, killTree, ended } = spawnShell(command, ctx.cwd);
   const shellId = ctx.shells.mintId();
   ctx.shells.byId.set(shellId, { kill: killTree, backgrounded: false, ended });
 
-  return new Promise<string>((resolveResult) => {
+  return new Promise<NativeToolOutcome>((resolveResult) => {
+    let finished = false;
     let timedOut = false;
     let aborted = false;
 
@@ -673,7 +682,9 @@ async function runBashForeground(
     child.stdout?.on('data', (b: Buffer) => acc.push(b));
     child.stderr?.on('data', (b: Buffer) => acc.push(b));
 
-    const finish = (exitDescription: string): void => {
+    const finish = (exitDescription: string, exitCode: number | null, signal: string | null, spawnError = false): void => {
+      if (finished) return;
+      finished = true;
       clearTimeout(timer);
       ctx.abortSignal.removeEventListener('abort', onAbort);
       ctx.shells.byId.delete(shellId);
@@ -693,12 +704,12 @@ async function runBashForeground(
       const body = r.text.trimEnd();
       if (body) parts.push('--- output (stdout+stderr) ---', body);
       else parts.push('(no output)');
-      resolveResult(parts.join('\n'));
+      resolveResult({text: parts.join('\n'), isError: spawnError || timedOut || aborted || exitCode !== 0, exitCode, signal, timedOut, aborted});
     };
-    child.on('error', (err) => finish(`[error] failed to spawn shell: ${err.message}`));
+    child.on('error', (err) => finish(`[error] failed to spawn shell: ${err.message}`, null, null, true));
     child.on('close', (code, signal) => {
       const desc = code === null ? `exit signal: ${signal ?? 'unknown'}` : `exit code: ${code}`;
-      finish(desc);
+      finish(desc,code,signal);
     });
   });
 }
@@ -994,20 +1005,18 @@ export function isKnownNativeTool(name: string): boolean {
   return name in REGISTRY;
 }
 
-// Execute a single tool. Errors stringify into the result so the model
-// can correct on the next iteration; matches Ollama's posture.
-export async function executeNativeTool(
-  name: string,
-  args: Record<string, unknown>,
-  ctx: NativeToolContext,
-): Promise<string> {
+// The text adapter stays available to legacy callers. Native dispatch uses
+// the structured outcome so shell status never depends on output spelling.
+export async function executeNativeTool(name: string, args: Record<string, unknown>, ctx: NativeToolContext): Promise<string> {
+  return (await executeNativeToolResult(name,args,ctx)).text;
+}
+export async function executeNativeToolResult(name: string, args: Record<string, unknown>, ctx: NativeToolContext): Promise<NativeToolOutcome> {
   const entry = REGISTRY[name];
-  if (!entry) {
-    return `[error] unknown tool "${name}". Available: ${Object.keys(REGISTRY).join(', ')}`;
-  }
+  if (!entry) return {text:`[error] unknown tool "${name}". Available: ${Object.keys(REGISTRY).join(', ')}`,isError:true};
   try {
-    return await entry.execute(args, ctx);
+    const result = await entry.execute(args,ctx);
+    return typeof result === 'string' ? {text:result,isError:result.startsWith('[error]')} : result;
   } catch (err) {
-    return `[error] ${err instanceof Error ? err.message : String(err)}`;
+    return {text:`[error] ${err instanceof Error ? err.message : String(err)}`,isError:true};
   }
 }

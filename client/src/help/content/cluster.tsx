@@ -461,7 +461,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.member.tool-filter': {
     title: 'Tool filter',
-    body: <p>Shortens long tool results before the Claude Native worker reads them. OFF keeps them whole; CONSERVATIVE and AGGRESSIVE shorten more. Shown for Claude only; other providers start with it off.</p>,
+    body: <p>Shortens long tool results before the Claude Native worker reads them. Nonzero exits, timeouts and cancellation use failure filters; compiler, configuration and test-collection diagnostics remain visible. OFF keeps them whole; CONSERVATIVE and AGGRESSIVE shorten more. Shown for Claude only; other providers start with it off.</p>,
     manualSection: 'cluster-member-replacement',
   },
   'cluster.member.output-style': {

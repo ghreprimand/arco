@@ -21,6 +21,7 @@ export const bashPytest: FilterPack = {
     if (exitCode === 0 || exitCode === null) {
       return lines.filter((l) => !PASSED_LINE.test(l) || FAILED_LINE.test(l)).join('\n');
     }
+    if (/=+ ERRORS =+|ERROR collecting|ImportError while importing|INTERNALERROR|UsageError/.test(text)) return text;
     // Red: keep section headers + everything inside the FAILURES section,
     // plus failed-line markers in the per-test progress.
     const out: string[] = [];

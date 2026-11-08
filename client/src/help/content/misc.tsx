@@ -259,7 +259,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Claude Native efficiency control. Conservative filters trim noisy tool
-        output before it enters the next model call; reductions are logged so
+        output before it enters the next model call. Shell exit, timeout and cancellation status selects failure handling; compiler, configuration and test-collection diagnostics remain visible. Reductions are logged so
         transcript review can see what changed. A new home starts at{' '}
         <C>conservative</C>; a saved default, including <C>off</C>, is kept.
       </p>

@@ -50,7 +50,8 @@ import { lspManager } from '../../lsp/client.js';
 import { isClaudeServerToolDef, isServerToolResultType, pruneServerToolEvidenceAfterTurn, stripDanglingServerToolResults } from './retainedContext.js';
 import { gzipSync } from 'node:zlib';
 import {
-  executeNativeTool,
+  executeNativeToolResult,
+  type NativeToolOutcome,
   getNativeToolDefinitions,
   MAX_TOOL_OUTPUT_BYTES,
   type NativeToolContext,
@@ -3699,6 +3700,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     }
 
     let resultText: string;
+    let toolOutcome: NativeToolOutcome | undefined;
     let isError = false;
     // §E1 (E1-Native) — decoded once; the registry branch below uses it.
     const registryTool = parseRegistryToolName(block.name);
@@ -3782,8 +3784,9 @@ export class ClaudeNativeWorker extends EventEmitter {
       }
     } else {
       try {
-        resultText = await executeNativeTool(block.name, input, ctx);
-        if (resultText.startsWith('[error] ')) isError = true;
+        toolOutcome = await executeNativeToolResult(block.name, input, ctx);
+        resultText = toolOutcome.text;
+        isError = toolOutcome.isError;
       } catch (err) {
         resultText = `[error] ${err instanceof Error ? err.message : String(err)}`;
         isError = true;
@@ -3793,11 +3796,11 @@ export class ClaudeNativeWorker extends EventEmitter {
     // After the tool, in order (toolChecks.ts postToolSteps): the output
     // filter, the partial-read note, then PostToolUse hooks.
     const done = await runPostToolSteps(postToolSteps({
-      filter: (text, failed) => this.filterToolOutput(block, input, text, failed),
+      filter: (text, failed) => this.filterToolOutput(block, input, text, failed, toolOutcome?.exitCode),
       partialNote: partialWarn.warn ? partialWarn.note : null,
       postHooks: (text, failed) => this.runHooks(failed ? 'PostToolUseFailure' : 'PostToolUse', matcher,
         failed
-          ? { tool_name: block.name, tool_input: hookToolInput(input, ctx.cwd), tool_use_id: block.id, error: text, is_interrupt: ctx.abortSignal.aborted }
+          ? { tool_name: block.name, tool_input: hookToolInput(input, ctx.cwd), tool_use_id: block.id, error: text, is_interrupt: ctx.abortSignal.aborted || toolOutcome?.aborted === true, ...(toolOutcome?.exitCode !== undefined ? {exit_code:toolOutcome.exitCode,signal:toolOutcome.signal,timed_out:toolOutcome.timedOut} : {}) }
           : { tool_name: block.name, tool_input: hookToolInput(input, ctx.cwd), tool_use_id: block.id, tool_response: text },
         ctx.cwd, ctx.abortSignal),
       toolName: block.name,
@@ -3815,17 +3818,14 @@ export class ClaudeNativeWorker extends EventEmitter {
   // stays untouched. When the filter actually shrinks output we gzip
   // the raw bytes to artifacts/raw-tools/ so the operator can recover
   // what the model didn't see — reversibility is non-negotiable.
-  private async filterToolOutput(block: ToolUseBlock, input: Record<string, unknown>, resultText: string, isError: boolean): Promise<string> {
+  private async filterToolOutput(block: ToolUseBlock, input: Record<string, unknown>, resultText: string, isError: boolean, exitCode?: number | null): Promise<string> {
     const filterMode = this.config.efficiencyToolFilter ?? 'off';
     if (filterMode === 'off') return resultText;
     const pack = resolveFilterPack(block.name, input, filterMode);
     if (!pack) return resultText;
-    // Synthesize an exit code from the [error] sentinel so the pack's
-    // branch_on_exit can flip head_cap → tail_cap. true exit codes
-    // aren't surfaced by executeNativeTool (returns string only); the
-    // model's view of "did this fail" is what matters here.
-    const synthExit = isError ? 1 : 0;
-    const fr = filterToolResult(block.name, resultText, synthExit, pack);
+    // Shell results carry their real status; other tools retain the existing
+    // success/failure adapter for packs that only need that distinction.
+    const fr = filterToolResult(block.name, resultText, exitCode ?? (isError ? 1 : 0), pack);
     if (fr.filteredBytes !== fr.originalBytes) {
       let rawArtifactPath: string | undefined;
       try {

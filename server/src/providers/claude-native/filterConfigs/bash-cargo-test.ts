@@ -24,6 +24,7 @@ export const bashCargoTest: FilterPack = {
       const kept = lines.filter((l) => !/^test [\w:]+ \.\.\. (ok|ignored)$/.test(l));
       return kept.join('\n');
     }
+    if (!/\.\.\. FAILED$|^---- [\w:]+ stdout ----$/m.test(text) || /^error(?:\[|:)/m.test(text)) return text;
     // Failure path: keep summary + FAILED markers + first 5 lines of each
     // `---- <name> stdout ----` block. Other lines drop unless they're the
     // tail "failures:" / "test result:" / panic context.

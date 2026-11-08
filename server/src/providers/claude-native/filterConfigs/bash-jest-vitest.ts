@@ -19,6 +19,7 @@ export const bashJestVitest: FilterPack = {
     if (exitCode === 0 || exitCode === null) {
       return lines.filter((l) => !PASS_LINE.test(l)).join('\n');
     }
+    if (!/^[ \t]*(?:✗|×|FAIL|✕|●)\s/m.test(text) || /Validation Error|Configuration Error|failed to load config|Error:.*config/i.test(text)) return text;
     // Red path: keep failures + summary + indented contextual lines that
     // immediately follow a fail marker (5 lines).
     const out: string[] = [];

@@ -122,6 +122,7 @@ CLIs plus real Native loop over mocked Anthropic streaming; zero model spend).
 
 ## Claude
 
+Native shell results carry exit, signal, timeout and cancellation status separately from output text. Failed commands show failed activity, run PostToolUseFailure hooks and select failure filters. Compiler, configuration and test-collection diagnostics remain visible when a test-result filter cannot safely summarize them.
 
 Native Task model overrides are applied to the child workflow configuration before deriving its primary. The live child, emitted tab configuration and saved metadata therefore name the same requested model, including after promotion or reopen.
 
@@ -518,7 +519,7 @@ Three more deterministic floors run in the same dispatcher pre-flight (all stati
 
 **In-turn tool-loop guardrail.** `toolLoopGuard.ts` watches for the same `(tool, args)` repeating within one operator turn - the in-turn sibling of 3.1's cross-turn stuck-worker breaker. Default posture is warnings-only: a `tool_loop_warning` event + `system_notice`. The hard-stop (abort the loop) is opt-in via `ARCO_TOOL_LOOP_GUARD=stop`.
 
-**Tool-result filtering.** `filterToolResult.ts` is a pure-TS staged pipeline applied to a single tool_result before it enters `messages[]`. Plugged into `dispatchTool` between `executeNativeTool` and the PostToolUse hook fold so operator-curated hook stderr / `additionalContext` stays unfiltered. Stages, all optional per pack:
+**Tool-result filtering.** `filterToolResult.ts` is a pure-TS staged pipeline applied to a single tool_result before it enters `messages[]`. Plugged into `dispatchTool` between `executeNativeToolResult` and the PostToolUse hook fold so operator-curated hook stderr / `additionalContext` stays unfiltered. Stages, all optional per pack:
 
 1. `strip_ansi` - removes CSI / OSC / single-byte ESC sequences.
 2. `replace[]` - `{ pattern: RegExp, replacement: string }[]` substitutions.
