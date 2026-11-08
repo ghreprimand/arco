@@ -25,6 +25,14 @@
 // distinguish them.
 
 import path, { resolve, basename, parse, sep } from 'node:path';
+import { resolveToolPath } from '../../toolPath.js';
+
+// Match the path identity used by Native file tools. Invalid or unavailable
+// targets still reach the executor, which reports the confinement error.
+function guardPath(cwd: string, input: string): string {
+  try { return resolveToolPath(cwd, input); }
+  catch { return resolve(cwd, input); }
+}
 
 // Paths considered config that the model should not edit. Matched on the
 // resolved absolute path's basename — so any depth in the tree counts (a
@@ -111,7 +119,9 @@ export function checkConfigProtection(
   if (!MUTATING_TOOLS.has(toolName)) return { blocked: false };
   const path = pathFromInput(toolName, input);
   if (!path) return { blocked: false };
-  const absPath = resolve(cwd, path);
+  const canonical = guardPath(cwd, path);
+  const lexical = resolve(cwd, path);
+  const absPath = isProtectedPath(canonical) ? canonical : lexical;
   if (!isProtectedPath(absPath)) return { blocked: false };
   const reason = `Edits to ${basename(absPath)} are gated by config-protection.`;
   const syntheticResult = `[blocked by config-protection] ${reason}\n\nFix the code instead of weakening lint/type-check config. If you genuinely need to edit ${basename(absPath)} (e.g. adding a new path mapping, not relaxing strictness), explain why and the operator can disable the gate.`;
@@ -150,7 +160,7 @@ export function checkFactForceFirstEdit(
   if (!MUTATING_TOOLS.has(toolName)) return { blocked: false, resolvedPath: null };
   const path = pathFromInput(toolName, input);
   if (!path) return { blocked: false, resolvedPath: null };
-  const absPath = resolve(cwd, path);
+  const absPath = guardPath(cwd, path);
   if (filesEditedThisTurn.has(absPath)) {
     // Second-or-later edit to a known file this turn — silent passthrough.
     return { blocked: false, resolvedPath: absPath };
@@ -202,7 +212,7 @@ export function checkPartialReadFullWrite(
   if (toolName !== 'Write') return { warn: false };
   const p = typeof input.file_path === 'string' ? input.file_path : null;
   if (!p) return { warn: false };
-  const absPath = resolve(cwd, p);
+  const absPath = guardPath(cwd, p);
   if (!partialReadSet.has(absPath)) return { warn: false };
   const name = basename(absPath);
   const reason = `Write to ${name} after only a partial Read of it this turn.`;

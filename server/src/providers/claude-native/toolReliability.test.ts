@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import fsSync, { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import fsSync, { mkdtempSync, writeFileSync, rmSync, realpathSync, symlinkSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { executeNativeTool, type NativeToolContext } from './tools.js';
-import { checkPartialReadFullWrite } from './pretoolGuards.js';
+import { checkPartialReadFullWrite, checkConfigProtection, checkFactForceFirstEdit } from './pretoolGuards.js';
 import { registryToolDefs } from './registryTools.js';
 import { commandShell } from '../../commandShell.js';
 import { OutputAccumulator } from './outputAccumulator.js';
@@ -72,4 +72,24 @@ test('Native Bash reports unavailable retention while returning its real newest 
     assert.match(result,/TAIL_FIXTURE$/);
     assert.doesNotMatch(result,/full output saved/);
   }finally{t.mock.restoreAll();syncBuiltinESMExports();rmSync(cwd,{recursive:true,force:true});}
+});
+
+
+test('Native file guards identify linked aliases as the same file', t => {
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-guard-alias-'));
+  try {
+    const file = join(cwd, 'tsconfig.json');
+    writeFileSync(file, '{}');
+    try { symlinkSync('tsconfig.json', join(cwd, 'alias.json')); }
+    catch (error) {
+      if (process.platform === 'win32' && (error as NodeJS.ErrnoException).code === 'EPERM') { t.skip('File symlinks require Windows developer mode or privileges'); return; }
+      throw error;
+    }
+    assert.equal(checkConfigProtection('Write', { file_path: 'alias.json' }, cwd).blocked, true);
+    const first = checkFactForceFirstEdit('Edit', { file_path: 'alias.json' }, cwd, new Set());
+    assert.equal(first.blocked, true);
+    assert.equal(first.resolvedPath, realpathSync(file));
+    const edited = new Set([first.resolvedPath!]);
+    assert.equal(checkFactForceFirstEdit('Edit', { file_path: file }, cwd, edited).blocked, false);
+  } finally { rmSync(cwd, { recursive: true, force: true }); }
 });

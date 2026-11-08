@@ -2091,3 +2091,5 @@ A successful larger context window is retained for later tool requests on that b
 Transient backend failures receive bounded retries even with one backend. DNS lookup failures can use the configured hostname fallback. A rejected structured review synthesis keeps the completed free-text review and reports the fallback.
 
 Cluster coordination tools have a separate allowance from action tools, so joining a cluster does not remove file-writing and web-research tools. Local-model peer messages can retry with confirm after a status-confirmation response; the first-send guard still applies.
+
+Claude Native file guards use the same resolved file identity as Read, Write and Edit. A linked project folder or an in-project file alias preserves the partial-read warning and first-edit tracking. Configuration protection checks both the requested name and the resolved target. These checks do not expand which folders file tools may access.

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Preserve Claude Native partial-read warnings and file guard identity through linked project paths.
+
 - Stop multipart Native compaction at cancellation boundaries without starting later summary requests or replacing the retained history.
 
 - Preserve the retained round's narration when a Native worker rebuilds after in-turn compaction.

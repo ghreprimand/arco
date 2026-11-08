@@ -54,7 +54,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Fact-force first edit', manualSection: 'config-tab',
     body: <p>Claude Native, off by default. When enabled, the first file mutation
       asks the model to state importers, API surface and the operator instruction
-      before retrying. Arco does not independently verify that recital. Existing
+      before retrying. Linked aliases of the same file share this first-edit check. Arco does not independently verify that recital. Existing
       explicit on settings remain honored; turn it off here to remove this layer.</p>,
   },
   'rightpanel.config.thinking-visibility': {
