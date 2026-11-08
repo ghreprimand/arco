@@ -9,6 +9,7 @@ export const providers: Section[] = [
   title: 'Choosing a provider',
   body: (
   <>
+  <p>Native and local-model file tools refuse links that leave the workflow folder, including links used as search folders. Links to files inside the same folder remain usable. New nested files can still be created.</p>
   <p>
   A provider is the model service behind a workflow tab. Use this table to
   pick one by transport, session resume, tool use and reasoning controls.

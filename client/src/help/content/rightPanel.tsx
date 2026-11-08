@@ -413,7 +413,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           your base for when it's off. Runs unattended with full access and
           spends heavily; takes effect next turn; reversible.
         </p>
-      </>
+      <p>Native and local-model file tools refuse links that leave the workflow folder, including links used as search folders. Links to files inside the same folder remain usable. New nested files can still be created.</p></>
     ),
     manualSection: 'config-tab',
   },

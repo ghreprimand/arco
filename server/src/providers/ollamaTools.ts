@@ -1,4 +1,5 @@
 import { readRegularRange, regularFileLines, readResponsePrefix } from '../boundedRead.js';
+import { resolveToolPath } from '../toolPath.js';
 import { requestWithDeadline } from './requestDeadline.js';
 
 import { promises as fs } from 'node:fs';
@@ -179,7 +180,7 @@ const ReadTool: OllamaToolEntry = {
       ? Math.floor(rawLimit)
       : undefined;
     const builtin = readBuiltinVirtualFile(filePath);
-    const abs = builtin === undefined ? resolveWithinCwd(ctx.cwd, filePath) : filePath;
+    const abs = builtin === undefined ? resolveToolPath(ctx.cwd, filePath) : filePath;
     const result = builtin === undefined
       ? await readRegularRange(abs, READ_BYTE_CAP, offset, limit, ctx.abortSignal)
       : { text: builtin.split('\n').slice(offset - 1, limit === undefined ? undefined : offset - 1 + limit).join('\n'), truncated: false };
@@ -217,8 +218,9 @@ const GlobTool: OllamaToolEntry = {
   },
   execute: async (args, ctx) => {
     const pattern = asString(args.pattern, 'pattern');
+    if (isAbsolute(pattern) || /(^|[\\/({,])\.\.($|[\\/}),])/.test(pattern)) throw new Error('Glob pattern must stay inside the workflow folder');
     const basePath = asOptionalString(args.path, 'path');
-    const baseAbs = basePath ? resolveWithinCwd(ctx.cwd, basePath) : resolve(ctx.cwd);
+    const baseAbs = resolveToolPath(ctx.cwd, basePath || '.');
     const out: string[] = [];
     // Node 22 fs.promises.glob lives on the namespace import. Pattern is
     // resolved relative to `cwd: baseAbs`, so absolute-style patterns are
@@ -227,7 +229,7 @@ const GlobTool: OllamaToolEntry = {
       // Each entry is relative to baseAbs. Re-validate to catch any escape
       // (e.g. a symlink that resolves outside cwd is still caught here).
       try {
-        resolveWithinCwd(ctx.cwd, join(baseAbs, entry));
+        resolveToolPath(ctx.cwd, isAbsolute(entry) ? entry : join(baseAbs, entry));
       } catch {
         continue;
       }
@@ -307,7 +309,7 @@ const GrepTool: OllamaToolEntry = {
     } catch (err) {
       throw new Error(`invalid regex: ${err instanceof Error ? err.message : String(err)}`);
     }
-    const baseAbs = basePath ? resolveWithinCwd(ctx.cwd, basePath) : resolve(ctx.cwd);
+    const baseAbs = resolveToolPath(ctx.cwd, basePath || '.');
     const baseStat = await fs.stat(baseAbs);
     if (!baseStat.isFile() && !baseStat.isDirectory()) throw new Error('not a regular file or directory');
     const out: string[] = [];
@@ -368,7 +370,7 @@ const WriteTool: OllamaToolEntry = {
   execute: async (args, ctx) => {
     const filePath = asString(args.file_path, 'file_path');
     const content = asString(args.content, 'content');
-    const abs = resolveWithinCwd(ctx.cwd, filePath);
+    const abs = resolveToolPath(ctx.cwd, filePath);
     // Refuse to clobber a directory with a file write.
     try {
       const stat = await fs.stat(abs);

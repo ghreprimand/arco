@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import path from 'node:path';
-import { promises as fs } from 'node:fs';
+import fsSync, { promises as fs } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { executeNativeTool, type NativeToolContext } from './claude-native/tools.js';
 import { executeOllamaTool } from './ollamaTools.js';
@@ -9,7 +9,12 @@ import { executeOllamaTool } from './ollamaTools.js';
 for(const provider of ['Native','local'] as const)test(`${provider} Write creates the Windows parent rather than a filename directory`,async(t)=>{
   const cwd=path.win32.resolve('C:', 'fixture');const target=path.win32.join(cwd,'new','nested','file.txt');
   const parents:string[]=[];const writes:string[]=[];
-  for(const key of ['resolve','relative','isAbsolute','dirname'] as const)t.mock.method(path,key,path.win32[key]);
+  for(const key of ['resolve','relative','isAbsolute','dirname','join','basename'] as const)t.mock.method(path,key,path.win32[key]);
+  t.mock.method(fsSync, 'realpathSync', (name: unknown) => String(name));
+  t.mock.method(fsSync, 'lstatSync', (name: unknown) => {
+    if (String(name) === cwd) return {} as never;
+    throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+  });
   syncBuiltinESMExports();
   t.mock.method(fs,'stat',async()=>{throw Object.assign(new Error('missing'),{code:'ENOENT'});});
   t.mock.method(fs,'mkdir',async(name:unknown)=>{parents.push(String(name));return undefined;});

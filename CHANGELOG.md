@@ -77,6 +77,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Native and local file tools refuse links and Glob patterns that leave the workflow folder while preserving ordinary inward links.
+
 - Saved proposal decisions survive concurrent requests and retries. Parent tasks remain dependencies across reversed or separate selections.
 - Genesis reserves its conversation while scaffolding and moving its history. Task dispatch checks current assignments, dependencies and automation settings before claiming work.
 - Project-board edits from LEDGER refresh every open workflow viewing that board without duplicate snapshots on shared connections.

@@ -18,7 +18,7 @@ import { promises as fs, openSync, writeSync, closeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, relative, join, isAbsolute, dirname } from 'node:path';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { resolveWithinCwd } from '../ollamaTools.js';
+import { resolveToolPath } from '../../toolPath.js';
 import { readBuiltinVirtualFile } from '../../skills.js';
 import { withFileMutationLock } from './file-mutation-queue.js';
 import { OutputAccumulator, type SpillSink } from './outputAccumulator.js';
@@ -188,7 +188,7 @@ function truncate(text: string, cap: number, what: string): string {
 // collapses to <cwd>/ before we get here — refuses correctly.
 function refuseIfPlanModeOutsideArco(ctx: NativeToolContext, abs: string): void {
   if (!ctx.planMode) return;
-  const arcoRoot = resolve(ctx.cwd, '.arco');
+  const arcoRoot = resolveToolPath(ctx.cwd, '.arco');
   const rel = relative(arcoRoot, abs);
   if (rel.length > 0 && !rel.startsWith('..') && !isAbsolute(rel)) return;
   throw new Error('write tools disabled until ExitPlanMode (writes under <cwd>/.arco/ are exempt)');
@@ -280,7 +280,7 @@ const ReadTool: Entry = {
     const rawLimit = asOptNumber(args.limit, 'limit');
     const limit = rawLimit !== undefined && rawLimit >= 1 ? Math.floor(rawLimit) : undefined;
     const builtin = readBuiltinVirtualFile(filePath);
-    const abs = builtin === undefined ? resolveWithinCwd(ctx.cwd, filePath) : filePath;
+    const abs = builtin === undefined ? resolveToolPath(ctx.cwd, filePath) : filePath;
     const result = builtin === undefined
       ? await readRegularRange(abs, READ_BYTE_CAP, offset, limit, ctx.abortSignal)
       : { text: builtin.split('\n').slice(offset - 1, limit === undefined ? undefined : offset - 1 + limit).join('\n'), truncated: false };
@@ -315,7 +315,7 @@ const WriteTool: Entry = {
     if (!ctx.cwd) throw new Error('Write requires a workflow cwd');
     const filePath = asString(args.file_path, 'file_path');
     const content = asString(args.content, 'content');
-    const abs = resolveWithinCwd(ctx.cwd, filePath);
+    const abs = resolveToolPath(ctx.cwd, filePath);
     refuseIfPlanModeOutsideArco(ctx, abs);
     await gateSensitiveWrite(ctx, abs, 'Write'); // H47 — operator OK for secret/VCS paths
     // DD3 — the stat→mkdir→writeFile RMW runs under the per-realpath lock so a
@@ -362,7 +362,7 @@ const EditTool: Entry = {
     const oldStr = asString(args.old_string, 'old_string');
     const newStr = asString(args.new_string, 'new_string');
     const replaceAll = asOptBool(args.replace_all, 'replace_all') ?? false;
-    const abs = resolveWithinCwd(ctx.cwd, filePath);
+    const abs = resolveToolPath(ctx.cwd, filePath);
     refuseIfPlanModeOutsideArco(ctx, abs);
     await gateSensitiveWrite(ctx, abs, 'Edit'); // H47 — operator OK for secret/VCS paths
     if (!ctx.readSet.has(abs)) {
@@ -408,12 +408,13 @@ const GlobTool: Entry = {
   },
   execute: async (args, ctx) => {
     const pattern = asString(args.pattern, 'pattern');
+    if (isAbsolute(pattern) || /(^|[\\/({,])\.\.($|[\\/}),])/.test(pattern)) throw new Error('Glob pattern must stay inside the workflow folder');
     const basePath = asOptString(args.path, 'path');
-    const baseAbs = basePath ? resolveWithinCwd(ctx.cwd, basePath) : resolve(ctx.cwd);
+    const baseAbs = resolveToolPath(ctx.cwd, basePath || '.');
     const out: string[] = [];
     const globIter = (fs as unknown as { glob: (p: string, o: { cwd: string }) => AsyncIterable<string> }).glob(pattern, { cwd: baseAbs });
     for await (const entry of globIter) {
-      try { resolveWithinCwd(ctx.cwd, join(baseAbs, entry)); }
+      try { resolveToolPath(ctx.cwd, isAbsolute(entry) ? entry : join(baseAbs, entry)); }
       catch { continue; }
       out.push(entry);
       if (out.length >= 1000) break;
@@ -521,7 +522,7 @@ const GrepTool: Entry = {
     const basePath = asOptString(args.path, 'path');
     const ci = asOptBool(args.case_insensitive, 'case_insensitive') ?? false;
     const filesOnly = asOptBool(args.files_only, 'files_only') ?? false;
-    const baseAbs = basePath ? resolveWithinCwd(ctx.cwd, basePath) : resolve(ctx.cwd);
+    const baseAbs = resolveToolPath(ctx.cwd, basePath || '.');
 
     const baseStat = await fs.stat(baseAbs);
     if (!baseStat.isFile() && !baseStat.isDirectory()) throw new Error('not a regular file or directory');
