@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Offer RETRY SAVE after a failed public-project checkbox save, keeping plan startup blocked until it succeeds.
+
 - Apply confirmed-public remote suggestions to server plan guardrail checks when no explicit choice is saved.
 
 - Honor the selected registered Git worktree for changes and operations; refuse unrelated or unavailable selections instead of acting on the main tree.

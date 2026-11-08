@@ -12,7 +12,7 @@ interface Props {
 // "This project is public (or will be)": saved per project in Arco home,
 // pre-ticked only when the Git remote is confirmed public.
 export function PublicProjectBox({ cwd, testId = 'public-project-box', onChange, newProjectValue }: Props) {
-  const { checked, set, reason, hint, error } = usePublicProject(cwd);
+  const { checked, set, reason, hint, error, retry } = usePublicProject(cwd);
   if (!cwd && newProjectValue === undefined) return null;
   return (
     <span data-help="plan.public-project" style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', fontSize: '11px', color: 'var(--color-fg-muted)' }}>
@@ -21,6 +21,7 @@ export function PublicProjectBox({ cwd, testId = 'public-project-box', onChange,
         This project is public (or will be)
       </label>
       {error && <span role="alert">{error}</span>}
+      {retry && <button type="button" data-help="plan.public-project-retry" onClick={retry}>RETRY SAVE</button>}
       {reason && <span data-testid={`${testId}-reason`}>{reason}</span>}
       {!reason && hint && <span data-testid={`${testId}-hint`}>{hint}</span>}
     </span>

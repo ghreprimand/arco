@@ -97,7 +97,9 @@ export function usePublicProject(cwd: string) {
   const [, render] = useState(0);
   const [suggestion, setSuggestion] = useState<RemoteSuggestion | null>(() => suggestions.get(cwd) ?? null);
   const [error, setError] = useState('');
+  const [failedSave, setFailedSave] = useState(false);
   useEffect(() => {
+    setError(''); setFailedSave(false);
     const changed = () => render(n => n + 1);
     events.addEventListener('change', changed);
     const storageChanged = (event: StorageEvent) => {
@@ -115,7 +117,13 @@ export function usePublicProject(cwd: string) {
   }, [cwd]);
   const chosen = getPublicChoice(cwd);
   const checked = chosen ?? suggestion?.state === 'public';
-  const set = useCallback((value: boolean) => { setError(''); void setPublicChoice(cwd, value).catch(() => setError('Could not save the public-project choice.')); }, [cwd]);
+  const set = useCallback((value: boolean) => {
+    setError(''); setFailedSave(false);
+    void setPublicChoice(cwd, value).catch(() => {
+      setFailedSave(true);
+      setError('Could not save the public-project choice. Select RETRY SAVE to save the displayed choice before starting a plan.');
+    });
+  }, [cwd]);
   const note = chosen === null ? suggestionNote(suggestion) : {};
-  return { checked, set, reason: note.reason, hint: note.hint, error };
+  return { checked, set, reason: note.reason, hint: note.hint, error, retry: failedSave && chosen !== null ? () => set(chosen) : undefined };
 }
