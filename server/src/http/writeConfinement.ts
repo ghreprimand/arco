@@ -82,8 +82,15 @@ export async function resolveBoundCwd(
   }
   if (!callerCwd) return { ok: false, reason: 'none' };
   try { safeDirectory(callerCwd); } catch { return { ok: false, reason: 'unknown-cwd' }; }
-  const roots = await knownRoots();
   const canonical = safeDirectory(callerCwd);
+  // Live bindings already grant these exact roots. Check them before building
+  // the complete project list, which scans folders and reads display metadata.
+  const live = [...workflowCwds.values(), ...[...workflows.values()].map(wf => wf.config.workingDirectory),
+    ...clusterStore.listKnownClusterIds().map(id => clusterStore.getClusterCached(id)?.cwd)];
+  for (const root of live) {
+    try { if (root && safeDirectory(root) === canonical) return { ok: true, cwd: callerCwd }; } catch { /* protected or stale root */ }
+  }
+  const roots = await knownRoots();
   for (const root of roots) {
     try { if (safeDirectory(root) === canonical) return { ok: true, cwd: callerCwd }; } catch { /* protected or stale root */ }
   }

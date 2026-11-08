@@ -12,7 +12,7 @@ import {
   deletePlan,
   deletePlanRef,
   listPlanRefs,
-  listPlans,
+  listPlansWithTaskCounts,
   movePlan,
   readPlan,
   readPlanRef,
@@ -642,7 +642,7 @@ export async function tryHandleWorkflowDataRoutes(
         res.end(JSON.stringify({ error: 'path query required' }));
         return true;
       }
-      const plans = await listPlans(cwd);
+      const plans = await listPlansWithTaskCounts(cwd);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ plans }));
     } catch (err) {

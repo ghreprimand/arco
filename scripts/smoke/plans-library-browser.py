@@ -10,7 +10,7 @@ from host_isolation import chrome_executable
 install_navigation_defaults()
 now = int(time.time() * 1000)
 def plan(id, title, **kw):
-    return {'id': id, 'title': title, 'createdAt': now, 'updatedAt': now, 'refCount': 0, 'attached': False, 'clusters': [], 'checkboxTotal': 0, 'checkboxDone': 0, **kw}
+    return {'id': id, 'title': title, 'createdAt': now, 'updatedAt': now, 'refCount': 0, 'attached': False, 'clusters': [], 'taskCount': 1, 'checkboxTotal': 0, 'checkboxDone': 0, **kw}
 projects = [
     {'cwd': '/projects/one', 'name': 'One', 'plans': [plan('a', 'Draft', updatedAt=now-31*86400000), plan('b', ' draft ', attached=True, attachments=[{'workflowId':'w','workflowName':'Builder','attachedAt':now,'detachedAt':None}]), plan('c', 'Finished', checkboxTotal=1, checkboxDone=1)]},
     {'cwd': '/projects/two', 'name': 'Two', 'plans': [plan('d', 'Old', updatedAt=now-31*86400000)]},
@@ -20,6 +20,7 @@ async def main():
         browser = await p.chromium.launch(executable_path=chrome_executable() or None)
         context = await browser.new_context()
         attached = []
+        body_reads = []
         async def api(route):
             req = route.request
             path = urlparse(req.url).path
@@ -34,6 +35,7 @@ async def main():
             if path == '/api/public-project/remote':
                 await route.fulfill(json={'state': 'none'}); return
             if path == '/api/plans/body':
+                body_reads.append(req.url)
                 await route.fulfill(json={'plan': {**projects[0]['plans'][0], 'body':'# Draft\n\n### Phase\n- [ ] Task'}}); return
             if path == '/api/plans/refs':
                 await route.fulfill(json={'refs': []}); return
@@ -95,6 +97,7 @@ async def main():
         await expect(page.get_by_text('Attached to Tab.', exact=True)).to_be_visible()
         assert attached[-1][0] == '/api/plans/attach'
         assert attached[-1][1]['workflowId'] == ['workflow-1']
+        before_chooser = len(body_reads)
         await page.evaluate('''async () => {
           const React = (await import('/node_modules/.vite/deps/react.js')).default;
           const {createRoot} = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;
@@ -107,6 +110,8 @@ async def main():
           }));
         }''')
         await expect(page.get_by_text('1 task').first).to_be_visible()
+        assert len(body_reads) == before_chooser
+        assert await page.get_by_test_id('plan-chooser-list').evaluate("e => getComputedStyle(e).overflowY === 'auto' && getComputedStyle(e).maxHeight !== 'none'")
         await expect(page.get_by_role('button', name='Show finished (1)')).to_be_visible()
         await page.get_by_role('button', name='Show finished (1)').click()
         await expect(page.get_by_role('button', name='Attach Finished', exact=True)).to_be_visible()

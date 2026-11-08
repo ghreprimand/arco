@@ -50,23 +50,14 @@ export function PlanChooser({ cwd, onAttach, onNew, onGenesis, onAllPlans, onCom
         const response = await fetch(`/api/plans?path=${encodeURIComponent(cwd)}`);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json() as { plans: PlanSummary[] };
-        const choices = await Promise.all(data.plans.map(async plan => {
-          try {
-            const r = await fetch(`/api/plans/body?path=${encodeURIComponent(cwd)}&planId=${encodeURIComponent(plan.id)}`);
-            if (!r.ok) return { ...plan, body: null };
-            const result = await r.json() as { plan: PlanFull };
-            return { ...plan, body: result.plan.body };
-          } catch { return { ...plan, body: null }; }
-        }));
+        const choices = data.plans.map(plan => ({ ...plan, body: null }));
         if (!cancelled && request === generation) { setLoadedCwd(cwd); setPlans(choices); setError(''); }
       } catch (err) {
         if (!cancelled && request === generation) { setLoadedCwd(cwd); setError(err instanceof Error ? err.message : String(err)); setPlans([]); }
       }
     };
     void load();
-    const onFocus = () => { void load(); };
-    window.addEventListener('focus', onFocus);
-    return () => { cancelled = true; window.removeEventListener('focus', onFocus); };
+    return () => { cancelled = true; };
   }, [cwd, refreshKey, savedRevision]);
   const currentPlans = loadedCwd === cwd ? plans : null;
   const open = (currentPlans ?? []).filter(plan => plan.completedAt == null);
@@ -76,21 +67,33 @@ export function PlanChooser({ cwd, onAttach, onNew, onGenesis, onAllPlans, onCom
       <div style={{ flex: 1, minWidth: 0 }}>
         <strong>{plan.title}</strong>
         <div style={{ color: 'var(--color-fg-muted)', fontSize: 10 }}>
-          {planRowSubtitle(plan, splitAttachments(plan.attachments).active, splitAttachments(plan.attachments).past)} - {plan.body === null ? 'task count unavailable' : `${countPlanTasks(plan.body)} ${countPlanTasks(plan.body) === 1 ? 'task' : 'tasks'}`}
+          {planRowSubtitle(plan, splitAttachments(plan.attachments).active, splitAttachments(plan.attachments).past)} - {plan.taskCount == null ? 'task count unavailable' : `${plan.taskCount} ${plan.taskCount === 1 ? 'task' : 'tasks'}`}
         </div>
       </div>
-      <button type="button" data-help="plan.chooser-preview" aria-label={`Preview ${plan.title}`} style={buttonStyle} disabled={plan.body === null} onClick={() => setPreview(preview === plan.id ? null : plan.id)}>PREVIEW</button>
+      <button type="button" data-help="plan.chooser-preview" aria-label={`Preview ${plan.title}`} style={buttonStyle} onClick={async () => {
+        if (preview === plan.id) { setPreview(null); return; }
+        setPreview(plan.id);
+        if (plan.body !== null) return;
+        try {
+          const response = await fetch(`/api/plans/body?path=${encodeURIComponent(cwd)}&planId=${encodeURIComponent(plan.id)}`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json() as { plan: PlanFull };
+          if (currentCwd.current === cwd) setPlans(value => value?.map(row => row.id === plan.id ? { ...row, body: data.plan.body } : row) ?? null);
+        } catch (err) { if (currentCwd.current === cwd) setError(err instanceof Error ? err.message : String(err)); }
+      }}>PREVIEW</button>
       <button type="button" data-help="plan.chooser-attach" aria-label={`Attach ${plan.title}`} style={buttonStyle} disabled={disabled || busy} onClick={() => onAttach(plan)}>ATTACH</button>
       {plan.completedAt == null && onComplete && <button type="button" data-help="plan.mark-complete" style={buttonStyle} onClick={() => onComplete(plan)}>MARK DONE</button>}
       {plan.completedAt != null && onReopen && <button type="button" data-help="plan.chooser-reopen" style={buttonStyle} onClick={() => onReopen(plan)}>REOPEN</button>}
       {onDelete && <button type="button" data-help="plan.delete" style={buttonStyle} onClick={() => onDelete(plan)}>DELETE</button>}
-      {preview === plan.id && <pre style={{ flexBasis: '100%', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', color: 'var(--color-fg)', maxHeight: 240, overflowY: 'auto' }}>{plan.body}</pre>}
+      {preview === plan.id && <pre style={{ flexBasis: '100%', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', color: 'var(--color-fg)', maxHeight: 240, overflowY: 'auto' }}>{plan.body ?? 'Loading preview...'}</pre>}
     </div>
   ));
   return <div style={{ display: 'flex', flexDirection: 'column', gap: 8, color: 'var(--color-fg)' }}>
     {saveNotice && <div role="status">{saveNotice}</div>}
     {error && <div role="alert" style={{ color: 'var(--color-warning)' }}>Could not load plans: {error}</div>}
+    <div data-testid="plan-chooser-list" style={{ maxHeight: 'min(calc(50dvh / var(--ui-scale, 1)), 36rem)', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
     {currentPlans === null ? <span>Loading plans...</span> : <>{open.length === 0 && <span>No open plans in this folder.</span>}{rows(open)}{finished.length > 0 && <><button type="button" data-help="plan.chooser-finished" style={buttonStyle} onClick={() => setShowFinished(!showFinished)} aria-expanded={showFinished}>Show finished ({finished.length})</button>{showFinished && rows(finished)}</>}</>}
+    </div>
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       <button type="button" data-help="plan.new" style={buttonStyle} disabled={busy} onClick={() => { draftVersion.current += 1; if (onNew) onNew(); else setCreating(true); }}>+ NEW PLAN</button>
       {onGenesis && <button type="button" data-help="plan.chooser-genesis" style={buttonStyle} onClick={onGenesis}>DRAFT IN GENESIS</button>}

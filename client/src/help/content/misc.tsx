@@ -1361,7 +1361,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'plan.chooser-preview': {
     title: 'Preview a plan',
-    body: <p>Show this plan before attaching it. Preview does not change the plan.</p>,
+    body: <p>Load and show this plan before attaching it. Other plan bodies stay unloaded. Preview does not change the plan.</p>,
     manualSection: 'plans-library',
   },
   'plan.choose': {
@@ -1371,7 +1371,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'plan.chooser-attach': {
     title: 'Attach a plan',
-    body: <p>In an existing tab or cluster, attach this plan now. In the cluster creator, select it for attachment when CREATE CLUSTER is submitted.</p>,
+    body: <p>The list includes task counts and scrolls within half the window height. Switching window focus keeps it in place. In an existing tab or cluster, attach this plan now. In the cluster creator, select it for attachment when CREATE CLUSTER is submitted.</p>,
     manualSection: 'plans-library',
   },
   'plan.chooser-finished': {

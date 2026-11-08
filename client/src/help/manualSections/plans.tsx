@@ -443,6 +443,9 @@ export const plans: Section[] = [
           <Code>ALL PLANS</Code> button in a PLAN tab.
         </p>
         <p>
+          The project plan chooser scrolls within half the window height. Task counts arrive with the list; a body loads only on <Code>PREVIEW</Code>. Switching window focus keeps the list in place.
+        </p>
+        <p>
           When opened from a tab or
           cluster, <Code>ATTACH TO</Code> attaches a plan from that same project.
           Plans from another project cannot be attached to that target.

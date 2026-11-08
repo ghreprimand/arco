@@ -119,6 +119,7 @@ export interface PlanSummary {
   updatedAt: number;
   attachments?: PlanAttachmentSpan[];
   completedAt?: number | null;
+  taskCount?: number | null;
 }
 
 export interface PlanFull extends PlanSummary {

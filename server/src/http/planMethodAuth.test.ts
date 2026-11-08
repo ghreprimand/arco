@@ -56,7 +56,11 @@ test('real plan routes retain agent authoring and refuse operator changes before
     const created=await send('POST','/api/plans',{}, {title:'Synthetic plan',body:'### Phase\n- [ ] Task',attach:true,workflowId:id});
     assert.equal(created.status,200);const planId=created.json.plan.id;
     assert.deepEqual(attachments,[planId]);
-    assert.equal((await send('GET','/api/plans',{})).json.plans[0].id,planId);
+    const listed = (await send('GET','/api/plans',{})).json.plans[0];
+    assert.equal(listed.id, planId);
+    assert.equal(listed.taskCount, 1);
+    await plans.updatePlan(cwd, planId, { body: '- [x] One\n  - [ ] Two' });
+    assert.equal((await send('GET','/api/plans',{})).json.plans[0].taskCount, 2);
     assert.equal((await send('POST','/api/plans/attach',{planId,workflowId:id})).status,200);
     assert.equal((await send('PUT','/api/plans/refs',{planId,slug:'fixture'},{body:'# Fixture\nBody'})).status,200);
     assert.equal((await send('GET','/api/plans/refs',{planId})).json.refs.length,1);

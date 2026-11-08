@@ -97,6 +97,36 @@ export async function listPlans(cwd: string): Promise<PlanSummary[]> {
   return [...plans].sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+// Cache only counts, never authorization: each lookup still resolves the
+// managed path, pins the ordinary file, and checks its current identity.
+const taskCounts = new Map<string, { signature: string; count: number }>();
+export async function listPlansWithTaskCounts(cwd: string): Promise<PlanSummary[]> {
+  const plans = await listPlans(cwd);
+  if (!plans.length) return plans;
+  const directory = plansDir(cwd);
+  const result: PlanSummary[] = [];
+  for (const plan of plans) {
+    let taskCount: number | null = null;
+    if (isValidPlanId(plan.id)) {
+      try {
+        const file = managedPath(directory, `${plan.id}.md`);
+        const handle = await openCheckedFile(file);
+        try {
+          const stat = await handle.stat();
+          const signature = `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
+          const cached = taskCounts.get(file);
+          taskCount = cached?.signature === signature ? cached.count
+            : (await handle.readFile('utf8')).split('\n').filter(line => /^\s*-\s+\[[ xX]\]\s+/.test(line)).length;
+          taskCounts.set(file, { signature, count: taskCount });
+          if (taskCounts.size > 512) taskCounts.delete(taskCounts.keys().next().value!);
+        } finally { await handle.close(); }
+      } catch { /* Missing or unsafe bodies remain unavailable for counting. */ }
+    }
+    result.push({ ...plan, taskCount });
+  }
+  return result;
+}
+
 export async function readPlan(cwd: string, planId: string): Promise<PlanFull | null> {
   if (!cwd || !isValidPlanId(planId)) return null;
   const { plans } = await readIndex(cwd);
