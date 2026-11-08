@@ -698,6 +698,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'HISTORY',
     body: (
       <>
+        <p>Automatic mailbox reminders start folded. Use + to read the full text.</p>
         <p>Native session rows appear after their complete newline-delimited record arrives, including writes split across chunks.</p>
         <p>
           Read-only timeline of seq-stamped narrative events for this workflow.

@@ -485,8 +485,8 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             if (!job) return s;
             const turnMessages = { ...job.turnMessages };
             if (job.busy) {
-              for (const item of msg.steering) if (item.clientMessageId) turnMessages[item.clientMessageId] = { content: item.content, kind: item.interrupt ? 'interrupt' : 'steer', state: 'queued' };
-              for (const item of msg.followUp) if (item.clientMessageId) turnMessages[item.clientMessageId] = { content: item.content, kind: 'follow-up', state: 'queued' };
+              for (const item of msg.steering) if (item.clientMessageId) turnMessages[item.clientMessageId] = { content: item.content, automaticKind: item.automaticKind, kind: item.interrupt ? 'interrupt' : 'steer', state: 'queued' };
+              for (const item of msg.followUp) if (item.clientMessageId) turnMessages[item.clientMessageId] = { content: item.content, automaticKind: item.automaticKind, kind: 'follow-up', state: 'queued' };
             }
             return {
               jobs: {
@@ -578,7 +578,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
                 timestamp: splitTimestamp,
               });
             }
-            store.updateMessage(msg.workflowId, msg.clientMessageId, { eventSeq: echoSeq });
+            store.updateMessage(msg.workflowId, msg.clientMessageId, { eventSeq: echoSeq, automaticKind: msg.automaticKind });
             break;
           }
           store.addMessage(msg.workflowId, {
@@ -586,6 +586,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             id: msg.clientMessageId ?? crypto.randomUUID(),
             role: 'user',
             content: msg.content,
+            ...(msg.automaticKind ? { automaticKind: msg.automaticKind } : {}),
             isStreaming: false,
             attachments: msg.attachments,
             // For mid-turn splits, ts pins between the before/after halves
@@ -1909,11 +1910,17 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
               const haystack = norm(msg.entry.content);
               const idsToRemove: string[] = [];
               const attsToCarry: string[] = [];
+              const hasAutomatic = job.messages.some((m) => m.role === 'user' && m.queued && m.automaticKind &&
+                m.content.length > 0 && haystack.includes(norm(m.content)));
               for (const m of job.messages) {
                 if (m.role !== 'user' || !m.queued) continue;
                 const needle = norm(m.content.slice(0, 120));
                 if (needle.length > 0 && haystack.includes(needle)) {
-                  idsToRemove.push(m.id);
+                  if (m.automaticKind || hasAutomatic) {
+                    store.updateMessage(msg.workflowId, m.id, { queued: false, timestamp: msg.entry.timestamp });
+                  } else {
+                    idsToRemove.push(m.id);
+                  }
                   if (m.attachments && m.attachments.length > 0) {
                     attsToCarry.push(...m.attachments);
                   }

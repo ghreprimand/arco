@@ -834,6 +834,8 @@ The snapshot (`server/src/smartPickupEvaluator.ts`) holds the recipient's role l
 
 Otherwise an evaluator slot is reserved, then one request is made and the slot settled. The answer must be exactly `{"action":"wake"|"defer"|"ask","reason":<enum>}` (`SMART_PICKUP_REASONS`), optionally in one json code fence; extra keys, other values, prose, errors, timeouts, tool attempts and over-long answers are recorded as `invalid_answer:<problem>` or `evaluator_error:<reason>` with no action. A result is discarded (`session_changed`) when Smart was turned off or re-armed during the request. A failure before the evaluator's provider session was ready (reason prefix `startup_`, e.g. `evaluator_error:startup_timeout` after a cold Cursor start) is evaluated once more for the same mail with a new reservation; a second start-up failure, and every other failure, stands until the mail changes. Observe-only records each decision with outcome `logged`; it never starts a turn and never reads mail destructively.
 
+Automatic nudges and pickup reminders carry a message marker in the server echo and saved event. Chat, pending PREVIEW and HISTORY show a folded mailbox line with + and - controls. The worker receives the full prompt. A typed message is not marked based on its text. The peer mailbox notice is added to the worker system context, not the chat echo.
+
 #### Smart: Automatic gate
 
 In `smart-auto` a `wake` proposal goes through `gateWake` in `server/src/smartPickupObserver.ts`; Smart never drains, acknowledges or rewrites mail, and the turn it starts is the normal auto-pickup prompt (`buildClusterAutoPickup`) through `handleUserMessage`'s conditional admission (`claimGuard`), the same path Computer mailbox rules use.

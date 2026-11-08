@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Fold automatic nudges and pickup reminders into an expandable mailbox line in chat, pending PREVIEW and HISTORY.
+
 - Retry transient Windows file locks when saving plans, plan references and knowledge documents, while refusing changed destinations.
 
 - Preserve archived directory permissions when restoring legacy tar checkpoints on POSIX systems.

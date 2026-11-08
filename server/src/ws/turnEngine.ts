@@ -1151,9 +1151,10 @@ export async function buildPlanPrefix(
   return header;
 }
 
-export function projectQueue(items: QueueItem[]): Array<{ content: string; clientMessageId?: string; interrupt?: boolean }> {
+export function projectQueue(items: QueueItem[]): Array<{ content: string; clientMessageId?: string; interrupt?: boolean; automaticKind?: import('@arco/shared').AutomaticMessageKind }> {
   return items.map((q) => ({
     content: q.content,
+    ...(q.automaticKind ? { automaticKind: q.automaticKind } : {}),
     ...(q.interrupt ? { interrupt: true } : {}),
     ...(q.clientMessageId ? { clientMessageId: q.clientMessageId } : {}),
   }));
@@ -1412,7 +1413,7 @@ export async function enqueueBusyReminder(workflowId: string, content: string, a
   const ws = { readyState: WebSocket.CLOSED, send: () => undefined } as unknown as WebSocket;
   const session = { id: 'busy-reminder', workflowIds: new Set([workflowId]), clusterIds: new Set<string>(), clusterObserved: new Map() } as Session;
   await handleUserMessage(ws,session,workflowId,content,undefined,undefined,true,'steer',undefined,undefined,
-    { busyOnly: true, busyOnlyGuard: allow, onBusyQueued: () => { accepted = true; } });
+    { automaticKind: 'auto-pickup', busyOnly: true, busyOnlyGuard: allow, onBusyQueued: () => { accepted = true; } });
   return accepted;
 }
 
@@ -1429,7 +1430,7 @@ export async function handleUserMessage(
   pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>,
   // drainQueueIfIdle only: take the prompt from wf.queue at claim time
   // instead of `content` (items were echoed + expanded at enqueue).
-  opts?: { fromQueue?: boolean; busyOnly?: boolean; busyOnlyGuard?: () => boolean; onBusyQueued?: () => void; backgroundEvent?: boolean; onBackgroundSettled?: (error?: string) => void; claimGuard?: (claim: () => boolean) => Promise<boolean> },
+  opts?: { automaticKind?: import('@arco/shared').AutomaticMessageKind; fromQueue?: boolean; busyOnly?: boolean; busyOnlyGuard?: () => boolean; onBusyQueued?: () => void; backgroundEvent?: boolean; onBackgroundSettled?: (error?: string) => void; claimGuard?: (claim: () => boolean) => Promise<boolean> },
 ): Promise<void> {
   const fromQueue = opts?.fromQueue === true;
   const wf = workflows.get(workflowId);
@@ -1614,12 +1615,13 @@ export async function handleUserMessage(
       content: '[INTERRUPT & SEND] No interruptible Claude or Codex primary turn is running. Your message is queued as a follow-up.',
     });
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
-    const queuedItem = { content, attachments: isolatedMember ? undefined : attachments, clientMessageId, expandedContext, pickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
+    const queuedItem = { automaticKind: opts?.automaticKind, content, attachments: isolatedMember ? undefined : attachments, clientMessageId, expandedContext, pickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
     arr.push(queuedItem);
     opts?.onBusyQueued?.();
     send(ws, {
       type: 'user_message_echo',
       workflowId,
+      ...(opts?.automaticKind ? { automaticKind: opts.automaticKind } : {}),
       content,
       attachments,
       clientMessageId,
@@ -1670,6 +1672,7 @@ export async function handleUserMessage(
     send(ws, {
       type: 'user_message_echo',
       workflowId,
+      ...(opts?.automaticKind ? { automaticKind: opts.automaticKind } : {}),
       content,
       attachments,
       clientMessageId,
@@ -1979,6 +1982,7 @@ export async function handleUserMessage(
         if (!fromQueue) send(ws, {
           type: 'user_message_echo',
           workflowId,
+          ...(opts?.automaticKind ? { automaticKind: opts.automaticKind } : {}),
           content: prompt,
           attachments: promptAttachments,
           clientMessageId: promptClientMessageId,

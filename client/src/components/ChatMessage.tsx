@@ -1,3 +1,4 @@
+import { AutomaticMessage } from './AutomaticMessage';
 import { OperatorQuestionNotice } from './OperatorQuestionNotice';
 import { useMessageSelectionStore } from '../stores/messageSelectionStore';
 import { memo, useMemo, useRef, useState } from 'react';
@@ -957,4 +958,11 @@ function PeerMessageBlock({ message, jobId, onMakeTask }: { message: ChatMessage
 // store object, `writtenFiles` and `onMakeTask` are useMemo'd in ChatPanel,
 // `onCancelQueued` is passed straight through, and jobId/jobCwd are strings.
 // If you add a prop, keep it stable or this silently stops helping.
-export const ChatMessage = memo(ChatMessageInner);
+function ChatMessageWrapper(props: Props) {
+  if (props.message.role === 'user' && props.message.automaticKind) {
+    return <AutomaticMessage kind={props.message.automaticKind} content={props.message.content} />;
+  }
+  return <ChatMessageInner {...props} />;
+}
+
+export const ChatMessage = memo(ChatMessageWrapper);

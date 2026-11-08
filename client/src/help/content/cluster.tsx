@@ -187,6 +187,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>Nudges every member that has waiting mail, without ticking them. The number is how many members have mail. It works like SEND NUDGE with exactly those members picked: idle members start a turn with the wake-up prompt; busy members get the gentler reminder to read their mail at a convenient point, or after the current turn on providers without mid-turn steering. Members without mail are never nudged.</p>
+        <p>Nudges appear as a folded mailbox line in chat, pending preview and HISTORY. Use + to read the full text; the member receives it in full.</p>
         <p>Unavailable when no member has mail; the reason shows under the list. The command palette offers the same action as Cluster: nudge all with mail while a cluster tab is open.</p>
       </>
     ),
@@ -206,7 +207,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
           gentler reminder to check their mail when they reach a convenient
           point in their current work, using the existing steering path.
           Providers without mid-turn steering receive it after the current
-          turn. Members read pending messages with <C>peer_read</C>; sending
+          turn. Chat, pending preview and HISTORY show a folded mailbox line; + opens the full text. Members read pending messages with <C>peer_read</C>; sending
           a nudge does not drain the mailbox. A toast confirms how many were
           nudged and, when any were busy, how many got the busy reminder.{' '}
           <C>Esc</C> closes without sending.
@@ -308,6 +309,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         <p><strong>Rule-based (recommended)</strong> wakes an idle member for mail that asks for something and leaves plain acknowledgements waiting. Limits stop two members waking each other back and forth and cap wakes per member and per arming. <C>RESUME</C> starts a fresh allowance.</p>
         <p><strong>Smart</strong> modes ask a model you choose whether to wake the member, wait, or ask you. <strong>Observe-only</strong> only records the answers. <strong>Automatic</strong> may start the member&apos;s normal turn, but only after Arco checks again that the member is idle, the mail is unchanged and every limit allows it. <C>STOP</C> on a member holds its current mail until new mail arrives. A Smart session ends at its time limit, or after a restart when its limit record cannot be read, and must then be armed again.</p>
         <p><strong>Also remind busy members</strong> optionally sends busy members the existing NUDGE for actionable unread mail, once per batch with a five-minute gap per member. It is off by default and works only under Rule-based and Smart: Automatic.</p>
+        <p>Pickup messages appear as a folded mailbox line in chat, pending preview and HISTORY. Use + to read the full text; the member receives it in full.</p>
         <p><strong>Distinct from MAIL ALERTS and NUDGE.</strong> MAIL ALERTS only notify you; NUDGE wakes members you pick by hand.</p>
       </>
     ),
@@ -1122,6 +1124,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'HISTORY',
     body: (
       <>
+        <p>Automatic mailbox reminders start folded. Use + to read the full text.</p>
         <p>Past events and checkpoints of the member in view: the member whose card or tab you selected, or the director until you select one. The line at the top names the member; pick another there to switch (the same as clicking its card). The choice is kept when the page reloads, as long as that member is still in the cluster.</p>
         <p>A cluster with no members shows a placeholder until a worker is added from MEMBERS.</p>
       </>
@@ -1271,7 +1274,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.auto-pickup-remind-busy': {
     title: 'Also remind busy members',
-    body: <p>Off by default and saved for this cluster. Under Rule-based or Smart: Automatic, send the existing busy NUDGE for new actionable unread mail, once per batch and at most once every five minutes per member. Plain acknowledgements do not trigger it. Off and Observe-only send none. Idle pickup keeps its usual rules.</p>,
+    body: <p>Off by default and saved for this cluster. Under Rule-based or Smart: Automatic, send the existing busy NUDGE for new actionable unread mail, once per batch and at most once every five minutes per member. Plain acknowledgements do not trigger it. Off and Observe-only send none. Idle pickup keeps its usual rules. Automatic reminders appear as a folded mailbox line; + opens the full text.</p>,
     manualSection: 'cluster-auto-pickup',
   },
   'cluster.auto-pickup-rule-limits': {

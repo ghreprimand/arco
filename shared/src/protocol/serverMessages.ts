@@ -14,7 +14,7 @@ import type {
 import type { PrimaryPhase, ProviderName } from './providers.js';
 import type { GenerationSpeed, TokenUsage } from './usage.js';
 import type { AuthRecoveryContext, Capabilities, CliChangeEntry } from './models.js';
-import type { ChatMessage } from './chat.js';
+import type { AutomaticMessageKind, ChatMessage } from './chat.js';
 import type { WorkflowConfig, WorkflowSessionMetadata, WorkspaceSnapshotPayload } from './workflows.js';
 import type { PermissionDenial, PrimaryBackgroundJob, WorkerState } from './workers.js';
 import type { ReviewStartedMessage, ReviewArtifactReadyMessage } from './reviews.js';
@@ -159,6 +159,7 @@ export interface WorkflowCreatedMessage {
 // seq-stamped and appended to events.jsonl. Makes user prompts durable on
 // reconnect / replay.
 export interface UserMessageEchoMessage {
+  automaticKind?: AutomaticMessageKind;
   // Dispatch/delivery records establish the input position for replay.
   deliveryTracked?: boolean;
   // Server-owned input identity is this echo's stamped workflow sequence.
@@ -1300,6 +1301,7 @@ export interface OperatorLabelMessage {
 // Phase 0 declared the draft as `string[]`; the entry-object form was
 // adopted in Phase 4 — see decision log.
 export interface QueueEntry {
+  automaticKind?: AutomaticMessageKind;
   // Priority entry in the steering bucket; not delivered by a steer hook.
   interrupt?: boolean;
   content: string;

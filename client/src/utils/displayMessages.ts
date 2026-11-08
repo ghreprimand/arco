@@ -7,7 +7,30 @@ const SESSION_ASSISTANT_DEDUP_CHAR_CAP = 512 * 1024;
 export function projectChatMessages(job: JobState, presentation: 'workbench' | 'chat' = 'workbench'): ChatMessageType[] {
     const visibleInPresentation = (m: ChatMessageType) =>
       presentation !== 'chat' || !(m.role === 'system' && m.content.startsWith('[TURN ·'));
-    const { sessionChat, canonicalIds } = reconcileEventTranscript(job);
+    const { sessionChat: rawSessionChat, canonicalIds } = reconcileEventTranscript(job);
+    // A CLI can join queued prompts into one session row. Split only where a
+    // server-marked event matches, retaining every ordinary text segment.
+    const matchedUserEvents = new Set<string>();
+    const sessionChat = rawSessionChat.flatMap((row) => {
+      if (row.role !== 'user' || row.toolUse) return [row];
+      const events = job.messages.filter((event) => event.role === 'user' && !event.queued && !matchedUserEvents.has(event.id) && event.content &&
+        Math.abs((row.timestamp ?? 0) - (event.timestamp ?? 0)) <= 5000 && row.content.includes(event.content));
+      if (!events.some((event) => event.automaticKind) || events.some((event) => event.automaticKind && row.content === event.content)) return [row];
+      const pieces: ChatMessageType[] = [];
+      let cursor = 0;
+      for (const event of events) {
+        const at = row.content.indexOf(event.content, cursor);
+        if (at < 0) continue;
+        const gap = row.content.slice(cursor, at);
+        if (gap.trim()) pieces.push({ ...row, id: `${row.id}::text-${cursor}`, content: gap });
+        pieces.push({ ...event, id: `${row.id}::event-${event.id}` });
+        matchedUserEvents.add(event.id);
+        cursor = at + event.content.length;
+      }
+      const tail = row.content.slice(cursor);
+      if (tail.trim()) pieces.push({ ...row, id: `${row.id}::text-${cursor}`, content: tail });
+      return pieces.length ? pieces : [row];
+    });
     // Queued optimistic entries must stay hidden even in the early-return
     // path - the main extras pipeline filters them at line ~146, but that
     // branch is only reached when sessionChat is populated. Without this
@@ -89,6 +112,7 @@ export function projectChatMessages(job: JobState, presentation: 'workbench' | '
     // job.messages. Without this overlay, operator interjections stay
     // invisible until the current turn finishes and Claude writes them out.
     const extras = job.messages.flatMap((m) => {
+      if (matchedUserEvents.has(m.id)) return [];
       if (m.role === 'system' || m.role === 'peer-sent' || m.role === 'peer-received' || canonicalIds.has(m.id)) return [m];
       // Phase 7b - synthetic Task tool_use rows (injected by
       // recordTaskStarted) live on job.messages, not sessionChat. Admit
@@ -235,21 +259,35 @@ export function projectChatMessages(job: JobState, presentation: 'workbench' | '
         optimisticUserMetaByKey.set(key, { ts, attachments: m.attachments });
       }
     }
+    // Session JSONL has no Arco marker. Pair each row with the nearest exact
+    // event echo once, so a separately typed lookalike is not reclassified.
+    const eventUsers = new Map<string, ChatMessageType[]>();
+    for (const message of job.messages) {
+      if (message.role !== 'user' || message.queued) continue;
+      const rows = eventUsers.get(message.content) ?? [];
+      rows.push(message);
+      eventUsers.set(message.content, rows);
+    }
+    const paired = new Set<ChatMessageType>();
     const enrichedSession = optimisticUserMetaByKey.size === 0
       ? sessionChat
       : sessionChat.map((m) => {
           if (m.role !== 'user' || m.toolUse) return m;
+          const candidates = (eventUsers.get(m.content) ?? []).filter((candidate) =>
+            !paired.has(candidate) && Math.abs((m.timestamp ?? 0) - (candidate.timestamp ?? 0)) <= DEDUP_WINDOW_MS);
+          candidates.sort((a, b) => Math.abs((m.timestamp ?? 0) - a.timestamp) - Math.abs((m.timestamp ?? 0) - b.timestamp));
+          const pairedEvent = candidates[0];
+          if (pairedEvent) paired.add(pairedEvent);
           const hit = optimisticUserMetaByKey.get(userContentKey(m));
-          if (!hit) return m;
-          // Only merge if the optimistic send is within the dedup window of
-          // this session echo - otherwise an unrelated later send with the
-          // same prefix would attach its files (and its ts) to an old
-          // message above.
-          if (Math.abs((m.timestamp ?? 0) - hit.ts) > DEDUP_WINDOW_MS) return m;
+          // Only merge attachment metadata from an echo in the dedup window.
+          if (!hit || Math.abs((m.timestamp ?? 0) - hit.ts) > DEDUP_WINDOW_MS) {
+            return pairedEvent?.automaticKind ? { ...m, automaticKind: pairedEvent.automaticKind } : m;
+          }
           return {
             ...m,
             timestamp: hit.ts,
             attachments: hit.attachments ?? m.attachments,
+            ...(pairedEvent?.automaticKind ? { automaticKind: pairedEvent.automaticKind } : {}),
           };
         });
     // NOTE: no final seen-set dedup. Extras are already filtered against

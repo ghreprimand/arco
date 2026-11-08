@@ -1,3 +1,4 @@
+import { AutomaticMessage } from './AutomaticMessage';
 import { useMemo, useState } from 'react';
 import { useAppStore, type JobState, type HistoryEventEntry } from '../stores/appStore';
 import type { ProviderName, ModelName, EffortLevel, ReviewContextRef, WorkflowConfig, ServerMessage } from '@arco/shared';
@@ -540,6 +541,14 @@ function TimelineRow({
         ? '#ff4d4d'
         : 'var(--color-accent-primary-dim)';
 
+  if (entry.automaticKind && entry.automaticContent !== undefined) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', padding: '6px 12px 6px 16px', borderLeft: selected ? '2px solid var(--color-accent-primary)' : '2px solid transparent', background: selected ? 'var(--color-accent-primary-a08)' : 'transparent' }}>
+        <button type="button" onClick={onSelect} className="display-font" style={{ background: 'transparent', border: 'none', color: 'var(--color-fg-muted)', cursor: 'pointer', fontSize: '10px' }}>{formatTime(entry.at)} · USER</button>
+        <AutomaticMessage kind={entry.automaticKind} content={entry.automaticContent} />
+      </div>
+    );
+  }
   return (
     <button
       type="button"

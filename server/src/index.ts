@@ -747,7 +747,7 @@ wss.on('connection', (ws: WebSocket) => {
           break;
         }
         (workflows.get(msg.workflowId)?.config.incognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() =>
-          handleUserMessage(ws, session, msg.workflowId, msg.content, msg.clientMessageId, msg.attachments, msg.interjection === true, msg.kind, msg.primitive, msg.pickedSkills).catch((err) => {
+          handleUserMessage(ws, session, msg.workflowId, msg.content, msg.clientMessageId, msg.attachments, msg.interjection === true, msg.kind, msg.primitive, msg.pickedSkills, { automaticKind: msg.automaticKind === 'nudge' ? 'nudge' : undefined }).catch((err) => {
             console.error('[arco] user_message handler failed:', err);
           // Tell the client the turn died — without this, the UI sits
           // mid-turn forever on any internal exception inside the handler.
@@ -2299,6 +2299,8 @@ function onListening() {
         false,       // not an interjection — auto-turn only fires on idle
         undefined,   // kind: default ('follow-up' path is for busy recipients)
         undefined,   // no DOCS/GIT primitive
+        undefined,   // no picked skills
+        { automaticKind: 'auto-pickup' },
       ).catch((err) => {
         console.error(`[arco] auto-turn handleUserMessage failed for ${wfid.slice(0, 8)}:`, err);
       });
@@ -2329,10 +2331,11 @@ function onListening() {
     void pending.then(()=>{resolve(false);settled();},()=>{resolve(false);settled('Computer activity turn failed or was interrupted.');});
   }));
 
-  const conditionalTurn: Parameters<typeof configureMailRules>[0] = (wfid, content, guard) => new Promise<boolean>((resolve) => {
+  const conditionalTurn = (wfid: string, content: string, guard: (claim: () => boolean) => Promise<boolean>, automaticKind?: 'auto-pickup') => new Promise<boolean>((resolve) => {
     const fakeWs = { readyState: WebSocket.CLOSED, send: () => undefined } as unknown as WebSocket;
     const fakeSession: Session = { id: 'computer-mail-rule', workflowIds: new Set([wfid]), clusterIds: new Set(), clusterObserved: new Map() };
     void handleUserMessage(fakeWs, fakeSession, wfid, content, undefined, undefined, false, undefined, undefined, undefined, {
+      automaticKind,
       claimGuard: async (claim) => {
         const accepted = await guard(claim); resolve(accepted); return accepted;
       },
@@ -2342,7 +2345,7 @@ function onListening() {
   // Smart: Automatic wakes use the same conditional admission; an ask
   // proposal raises one operator notice.
   configureSmartPickupObserver({
-    dispatchGuarded: conditionalTurn,
+    dispatchGuarded: (wfid, content, guard) => conditionalTurn(wfid, content, guard, 'auto-pickup'),
     notifyAsk: (d) => emitNotice({
       category: 'cluster-nudge',
       severity: 'warning',

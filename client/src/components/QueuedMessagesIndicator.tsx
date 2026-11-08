@@ -1,3 +1,4 @@
+import { AutomaticMessage } from './AutomaticMessage';
 import { useAppStore } from '../stores/appStore';
 import { requestQueuedMessageEdit, retryQueuedMessageEdits } from '../utils/queuedMessageEdit';
 import { formSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
@@ -17,6 +18,7 @@ interface Props {
 interface QueueItem {
   kind: 'steer' | 'follow-up' | 'interrupt';
   content: string;
+  automaticKind?: 'nudge' | 'auto-pickup';
   clientMessageId?: string;
   // Position within the kind's array. Used as a stable React key when no
   // clientMessageId is available (e.g., post-reload entries reconstructed
@@ -43,8 +45,8 @@ export function QueuedMessagesIndicator({ job, onCancel }: Props) {
   useEffect(() => { if (online) retryQueuedMessageEdits(job.id); }, [job.id, online]);
 
   const items: QueueItem[] = [
-    ...(job.queue?.steering ?? []).map<QueueItem>((q, i) => ({ kind: q.interrupt ? 'interrupt' : 'steer', content: q.content, clientMessageId: q.clientMessageId, index: i })),
-    ...(job.queue?.followUp ?? []).map<QueueItem>((q, i) => ({ kind: 'follow-up', content: q.content, clientMessageId: q.clientMessageId, index: i })),
+    ...(job.queue?.steering ?? []).map<QueueItem>((q, i) => ({ kind: q.interrupt ? 'interrupt' : 'steer', content: q.content, automaticKind: q.automaticKind, clientMessageId: q.clientMessageId, index: i })),
+    ...(job.queue?.followUp ?? []).map<QueueItem>((q, i) => ({ kind: 'follow-up', content: q.content, automaticKind: q.automaticKind, clientMessageId: q.clientMessageId, index: i })),
   ];
 
   const queuedIds = new Set(items.map((item) => item.clientMessageId));
@@ -66,7 +68,7 @@ export function QueuedMessagesIndicator({ job, onCancel }: Props) {
   if (items.length === 0) return null;
 
   const steerTooltip = providerSteerTooltip(job.config.primaryProvider ?? 'claude', job.config.claudeTransport, job.config.codexTransport);
-  const tooltip = items.map((item) => `${item.kind.toUpperCase()} (${item.state?.toUpperCase()}): ${item.content}`).join('\n') + `\n\n${steerTooltip}`;
+  const tooltip = items.map((item) => `${item.kind.toUpperCase()} (${item.state?.toUpperCase()}): ${item.automaticKind ? `(${item.automaticKind}) Peer mail waiting` : item.content}`).join('\n') + `\n\n${steerTooltip}`;
   return (
     <span data-help="composer.turn-messages">
       <button type="button" onClick={() => setOpen(true)} title={tooltip} className="display-font">PENDING · {items.length}</button>
@@ -272,7 +274,7 @@ function QueuedMessagesModal({ workflowId, online, items, onCancel, onClose }: M
                   fontFamily: 'var(--font-body)',
                 }}
               >
-                {linkifyText(item.content)}
+                {item.automaticKind ? <AutomaticMessage kind={item.automaticKind} content={item.content} /> : linkifyText(item.content)}
               </div>
             </div>
           ))}

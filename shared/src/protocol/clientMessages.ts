@@ -1,5 +1,6 @@
 // ── Client → Server messages ──
 
+import type { AutomaticMessageKind } from './chat.js';
 import type { OperatorQuestionReplyMessage } from './operatorQuestions.js';
 import type { VoiceToolResultMessage, ComputerContextControlMessage } from './voiceOperator.js';
 
@@ -118,6 +119,7 @@ export interface CreateWorkflowMessage {
 
 export interface UserMessage {
   type: 'user_message';
+  automaticKind?: AutomaticMessageKind;
   workflowId: string;
   content: string;
   attachments?: string[]; // file paths on server

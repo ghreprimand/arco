@@ -313,7 +313,7 @@ export function useWebSocket() {
   // Returns false when the socket is down and nothing was sent, so composers
   // keep the draft + staged attachments instead of wiping an unsent message
   // (Enter during a reconnect used to erase the text with no trace).
-  const sendMessage = useCallback((workflowId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review', pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>): boolean => {
+  const sendMessage = useCallback((workflowId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review', pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>, automaticKind?: 'nudge' | 'auto-pickup'): boolean => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return false;
     // Slot 8 — detect busy state on this workflow. If busy, mark the message
     // as an interjection so the server queues it instead of rejecting as
@@ -359,12 +359,14 @@ export function useWebSocket() {
       ...(effectiveKind ? { kind: effectiveKind } : {}),
       ...(primitive ? { primitive } : {}),
       ...(pickedSkills && pickedSkills.length > 0 ? { pickedSkills } : {}),
+      ...(automaticKind ? { automaticKind } : {}),
     }));
 
     useAppStore.getState().addMessage(workflowId, {
       id: clientMessageId,
       role: 'user',
       content,
+      ...(automaticKind ? { automaticKind } : {}),
       isStreaming: false,
       attachments,
       timestamp: Date.now(),

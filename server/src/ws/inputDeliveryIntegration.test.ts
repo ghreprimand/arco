@@ -119,3 +119,28 @@ test('a busy reminder abandoned during preparation cannot steer a replacement tu
   f.pending[0].finish('fixture answer');await run;
  }finally{f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const p of f.pending)p.finish('cleanup');await run;if(token!==undefined)engine.releaseBusy(f.wf,token);await f.close();}
 });
+
+test('automatic markers persist with full idle and queued prompts while typed lookalikes stay ordinary', async () => {
+ const f=await fixture('claude'); let run:Promise<void>|undefined;
+ try {
+  const first='(nudge) full synthetic wake';
+  run=engine.handleUserMessage(f.ws,f.session,f.id,first,'auto-first',undefined,false,undefined,undefined,undefined,{automaticKind:'nudge'});
+  await f.wait(1);
+  assert.ok(f.pending[0].spec.task.includes(first));
+  const busy='(auto-pickup) full synthetic reminder';
+  assert.equal(await engine.enqueueBusyReminder(f.id,busy),true);
+  await engine.handleUserMessage(f.ws,f.session,f.id,'(nudge) typed manually','typed',undefined,true,'steer',undefined);
+  const queue=engine.projectQueue(f.wf.queue.steering);
+  assert.equal(queue[0].automaticKind,'auto-pickup');
+  assert.equal(queue[0].content,busy);
+  assert.equal(queue[1].automaticKind,undefined);
+  f.wf.queue.steering.length=0;
+  f.pending[0].finish('answer'); await run; await flushAll();
+  const echoes=(await replayEvents(f.cwd,f.id,0)).filter(e=>e.type==='user_message_echo');
+  assert.deepEqual(echoes.map(e=>[e.content,e.automaticKind]),[[first,'nudge'],[busy,'auto-pickup'],['(nudge) typed manually',undefined]]);
+ } finally {
+  f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;
+  for(const pending of f.pending) pending.finish('cleanup');
+  await run; await f.close();
+ }
+});

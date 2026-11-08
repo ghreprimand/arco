@@ -90,6 +90,7 @@ const SUITES = [
   { name: 'workspace-rename', script: 'workspace-rename-browser.py', port: 5203 },
   { name: 'cluster-mail-visibility', script: 'cluster-mail-visibility-browser.py', port: 5203 },
   { name: 'cluster-member-panels', script: 'cluster-member-panels-browser.py', port: 5203 },
+  { name: 'automatic-messages', script: 'automatic-messages-browser.py', port: 5265 },
   { name: 'add-worker-identity', script: 'add-worker-identity-browser.py', port: 5203 },
   { name: 'member-settings', script: 'member-settings-browser.py', port: 5203 },
   { name: 'nudge-all', script: 'nudge-all-browser.py', port: 5203 },

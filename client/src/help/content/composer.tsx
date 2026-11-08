@@ -9,7 +9,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.pending-preview': {
     title: 'Preview a pending message',
-    body: <p>Read the complete pending message in PREVIEW. EDIT and CANCEL work here as in the list. BACK TO LIST returns without changing the message.</p>,
+    body: <p>Read a pending message in PREVIEW. Automatic mailbox reminders start folded; use + to read the full text. EDIT and CANCEL work here as in the list. BACK TO LIST returns without changing the message.</p>,
     manualSection: 'composer',
   },
   'composer.pending-edit-kind': {

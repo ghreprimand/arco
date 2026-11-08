@@ -386,8 +386,8 @@ export interface JobState {
   // ChatMessage.queued flag is still set on the originating tab so the
   // operator's send echoes immediately, but the strip's render reads from
   // here.
-  queue?: { steering: Array<{ content: string; clientMessageId?: string; interrupt?: boolean }>; followUp: Array<{ content: string; clientMessageId?: string; interrupt?: boolean }> };
-  turnMessages?: Record<string, { content: string; kind: 'steer' | 'follow-up' | 'interrupt'; state: 'queued' | 'delivered' }>;
+  queue?: { steering: Array<{ content: string; clientMessageId?: string; interrupt?: boolean; automaticKind?: import('@arco/shared').AutomaticMessageKind }>; followUp: Array<{ content: string; clientMessageId?: string; interrupt?: boolean; automaticKind?: import('@arco/shared').AutomaticMessageKind }> };
+  turnMessages?: Record<string, { content: string; automaticKind?: import('@arco/shared').AutomaticMessageKind; kind: 'steer' | 'follow-up' | 'interrupt'; state: 'queued' | 'delivered' }>;
   // Phase 7b — set when this JobState was minted by a Task tool call from
   // another workflow. The TabBar filters parented children out of the top
   // tab strip until `promoted` is flipped (operator clicked "promote to
@@ -468,6 +468,8 @@ export interface JobState {
 // re-emits the same event doesn't double-render. The HISTORY tab filters
 // by `category` per the filter strip presets.
 export interface HistoryEventEntry {
+  automaticKind?: import('@arco/shared').AutomaticMessageKind;
+  automaticContent?: string;
   seq: number;
   category: 'user' | 'primary' | 'tool' | 'task' | 'handoff' | 'review' | 'label' | 'checkpoint' | 'fork';
   // Display columns. `label` is the short tag ("USER", "PRIMARY", "TOOL",

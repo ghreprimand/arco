@@ -1015,6 +1015,7 @@ export const clusters: Section[] = [
   title: 'AUTO-PICKUP and Smart pickup',
   body: (
   <>
+  <p>Pickup messages appear as a folded mailbox line in chat, pending PREVIEW and HISTORY. Use + to read the full text; the member receives it in full.</p>
   <p>
   AUTO-PICKUP sits next to MAIL ALERTS on the cluster right-panel header.
   Unlike MAIL ALERTS (toast only) and NUDGE (hand-picked recipients), it
@@ -1189,6 +1190,7 @@ export const clusters: Section[] = [
   title: 'NUDGE button + modal',
   body: (
   <>
+  <p>Nudges appear as a folded mailbox line in chat, pending PREVIEW and HISTORY. Use + to read the full text; the member receives it in full.</p>
   <p>
   NUDGE is a larger button in the message box's bottom row, beside the send area. It is
   highlighted and shows the total pending mail for current members (for example NUDGE 2).
@@ -2134,6 +2136,7 @@ export const clusters: Section[] = [
   actually sees the content.
   </p>
   <h4 className="manual-sub">Nudges and automatic pickup</h4>
+  <p>Nudges and automatic pickup messages show as a muted mailbox line in chat, pending PREVIEW and HISTORY. Use + to read the full message and - to fold it. The member still receives the full text. A typed message stays visible.</p>
   <p>In AUTO-PICKUP, <strong>Also remind busy members</strong> adds the busy nudge below to Rule-based and Smart: Automatic. It is off by default, saved per cluster and sends once for new actionable unread mail with a five-minute gap per member. Off and Observe-only never send these reminders.</p>
   <p>Operator nudges and automatic pickup start with a fixed tag and the same guidance line:</p>
   <ul>

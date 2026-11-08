@@ -18,7 +18,7 @@ A terminal reconnect replaces the old display with the server's bounded scrollba
 
 ## Edit pending messages
 
-Open PENDING beside the composer, then choose EDIT beside CANCEL. PREVIEW shows one message in full with the same actions; BACK TO LIST returns. The server removes the queued item before its text, kind and attachments return to that tab's message box. This works in single and cluster tabs.
+Open PENDING beside the composer, then choose EDIT beside CANCEL. PREVIEW shows one message with the same actions; automatic mailbox reminders start folded. Use + to read the full text; BACK TO LIST returns. The server removes the queued item before its text, kind and attachments return to that tab's message box. This works in single and cluster tabs.
 
 Existing draft text is kept and the pending text is appended after a blank line. If delivery wins the removal race, Arco says `Already sent, nothing to edit` and leaves the draft unchanged. An offline page cannot edit the queue. Reconnect retries the same pending edit request without removing an item twice.
 
@@ -1075,6 +1075,9 @@ See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the full dev workflow.
 ---
 
 ## Cluster tab rendering
+
+Automatic nudges and pickup reminders appear as folded mailbox lines in chat, pending PREVIEW and HISTORY. Use + to read the full text and - to fold it. The member receives the full message; typed messages are not folded by their wording.
+
 
 A new connection retries missing member rehydrate requests whose replies were lost on the previous socket. Duplicate requests on one socket are still suppressed.
 

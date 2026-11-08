@@ -93,8 +93,8 @@ async def main():
         await expect(dialog.locator('input[type=checkbox]:checked')).to_have_count(0)
         await everyone.click()
         await expect(dialog).to_have_count(0)
-        sent = await page.evaluate("sent.map(x=>[x[0], x[1]===nudge.buildClusterNudge(undefined,false,undefined) ? 'wake' : x[1]===nudge.buildClusterNudge(undefined,true,undefined) ? 'reminder' : 'other', x[3]])")
-        assert sent == [['alpha', 'wake', 'steer'], ['beta', 'wake', 'steer'], ['gamma', 'reminder', 'steer']], sent
+        sent = await page.evaluate("sent.map(x=>[x[0], x[1]===nudge.buildClusterNudge(undefined,false,undefined) ? 'wake' : x[1]===nudge.buildClusterNudge(undefined,true,undefined) ? 'reminder' : 'other', x[3], x[6]])")
+        assert sent == [['alpha', 'wake', 'steer', 'nudge'], ['beta', 'wake', 'steer', 'nudge'], ['gamma', 'reminder', 'steer', 'nudge']], sent
         await expect(page.get_by_text('Nudged 3 members (1 busy: reminded to read mail when convenient)')).to_be_visible()
         # No mail: disabled, with the reason in the dialog and the tooltip.
         await page.evaluate('sent.length=0; snapshot({removed:2})')

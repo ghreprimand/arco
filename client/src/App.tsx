@@ -714,7 +714,7 @@ ${scopeBody}
             <ClusterTab
               key={activeClusterId}
               clusterId={activeClusterId}
-              onSendToMember={(workflowId, content, attachments, kind, primitive, pickedSkills) => sendMessage(workflowId, content, attachments, kind, primitive, pickedSkills)}
+              onSendToMember={(workflowId, content, attachments, kind, primitive, pickedSkills, automaticKind) => sendMessage(workflowId, content, attachments, kind, primitive, pickedSkills, automaticKind)}
               onCancelMember={(workflowId) => cancel(workflowId)}
               onCancelQueuedForMember={(workflowId, clientMessageId) => cancelQueuedMessage(workflowId, clientMessageId)}
               onUpload={uploadFile}

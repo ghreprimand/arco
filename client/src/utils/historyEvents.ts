@@ -80,7 +80,8 @@ export function narrativeEventFromMessage(msg: ServerMessage): HistoryEventEntry
         seq,
         category: 'user',
         label: 'USER',
-        summary: trim80(msg.content),
+        summary: msg.automaticKind ? `(${msg.automaticKind}) Peer mail waiting` : trim80(msg.content),
+        ...(msg.automaticKind ? { automaticKind: msg.automaticKind, automaticContent: msg.content } : {}),
         at: msg.timestamp ?? fallbackAt,
         ...(msg.clientMessageId ? { chatMessageId: msg.clientMessageId } : {}),
       };

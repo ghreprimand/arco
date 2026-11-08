@@ -5,6 +5,8 @@ import type { OperatorQuestionState } from './operatorQuestions.js';
 import type { AuthRecoveryContext } from './models.js';
 import type { PrimaryPhase } from './providers.js';
 
+export type AutomaticMessageKind = 'nudge' | 'auto-pickup';
+
 export interface ChatMessage {
   id: string;
   // docs/PROTOCOL_CLUSTER.md - peer-sent / peer-received are synthetic
@@ -15,6 +17,7 @@ export interface ChatMessage {
   // chat row, so a reload preserves the visual peer-message timeline.
   role: 'user' | 'assistant' | 'system' | 'peer-sent' | 'peer-received' | 'ctx-divider';
   content: string;
+  automaticKind?: AutomaticMessageKind;
   authRecovery?: AuthRecoveryContext;
   operatorQuestion?: OperatorQuestionState;
   operatorQuestionError?: string;

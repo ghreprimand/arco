@@ -83,7 +83,7 @@ const RIGHT_STRIP = [
 interface Props {
   clusterId: string;
   // Per-member dispatch (threaded through from App.tsx → useWebSocket).
-  onSendToMember: (workflowId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review', pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>) => boolean | void;
+  onSendToMember: (workflowId: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up' | 'interrupt', primitive?: 'docs' | 'git' | 'plan-review', pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>, automaticKind?: 'nudge' | 'auto-pickup') => boolean | void;
   onCancelMember: (workflowId: string) => void;
   onCancelQueuedForMember: (workflowId: string, clientMessageId: string) => void;
   onUpload: (file: File) => Promise<UploadResult>;
@@ -697,6 +697,9 @@ export function ClusterTab({
         buildClusterNudge(cluster.efficiencyLevel, active, member.role),
         undefined,
         'steer',
+        undefined,
+        undefined,
+        'nudge',
       );
       if (result !== false) {
         sent++;

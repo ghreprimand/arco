@@ -20,7 +20,7 @@ import { CLUSTER_PANELS } from '../components/ClusterRightPanel/panels';
 import { HELP_CONTENT } from '../help/content';
 
 export interface VoiceSenders {
-  sendMessage: (id: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up') => boolean;
+  sendMessage: (id: string, content: string, attachments?: string[], kind?: 'steer' | 'follow-up', primitive?: 'docs' | 'git' | 'plan-review', pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>, automaticKind?: 'nudge' | 'auto-pickup') => boolean;
   cancel: (id: string) => void;
   createWorkflow?: (config: WorkflowConfig) => void;
 }
@@ -296,7 +296,7 @@ export class VoiceExecutor {
         const member = s.clusters[t.clusterId]?.members.find((m) => m.workflowId === t.id);
         const active = member?.status === 'busy' || job.busy || job.messages.some((m) => m.isStreaming)
           || Object.values(job.workers).some((w) => w.status === 'running' || w.status === 'spawning');
-        return this.sendMessage(t.id, buildClusterNudge(s.clusters[t.clusterId]?.efficiencyLevel, active, member?.role), undefined, 'steer') ? `Nudged ${t.name}.` : 'Disconnected. No nudge was sent.';
+        return this.sendMessage(t.id, buildClusterNudge(s.clusters[t.clusterId]?.efficiencyLevel, active, member?.role), undefined, 'steer', undefined, undefined, 'nudge') ? `Nudged ${t.name}.` : 'Disconnected. No nudge was sent.';
       }
       case 'cancel-turn': {
         if (!s.connected) return 'Disconnected. Cannot cancel the worker.';

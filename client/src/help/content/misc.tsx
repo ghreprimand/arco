@@ -197,6 +197,11 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: <p>Choose one complete option or type an answer. Pipes and backslashes inside an option are kept as part of that answer. Submitting resumes the waiting agent.</p>,
     manualSection: 'chat-panel',
   },
+  'chat.automatic-message': {
+    title: 'Automatic mailbox message',
+    body: <p>Automatic nudges and pickup reminders start folded. Use + to read the full message and - to fold it again. The member receives the full text. Typed messages stay visible.</p>,
+    manualSection: 'cluster-peer-read-tool',
+  },
   'chat.message.user': {
     title: 'Operator message',
     body: <p>Your prompt. Long messages collapse to a preview with an expand toggle. In Chat, EDIT replaces the draft text and attachments, clearing staged files when the message has none.</p>,

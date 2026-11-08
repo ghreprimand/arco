@@ -201,6 +201,7 @@ export interface WorkflowState {
 // per-item cancel and queue-strip [×]). The wire `queue_update` snapshot
 // re-projects to QueueEntry (content + clientMessageId + interrupt intent).
 export interface QueueItem {
+  automaticKind?: import('@arco/shared').AutomaticMessageKind;
   ollamaInputSeq?: number;
   interrupt?: boolean;
   pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>;
