@@ -152,17 +152,17 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.files.changes': {
     title: 'CHANGES',
-    body: <p>Everything that differs from the last commit, file by file. Each file folds open, and <C>UNIFIED</C> or <C>SPLIT</C> chooses the layout; it is the same view the GIT dialog shows before a commit. Empty when nothing has changed or the folder is not a git repository. Filenames with spaces remain complete. A failed, oversized or timed-out Git comparison shows an error instead of a partial or empty diff.</p>,
+    body: <><p>Everything that differs from the last commit, file by file. Each file folds open, and <C>UNIFIED</C> or <C>SPLIT</C> chooses the layout; it is the same view the GIT dialog shows before a commit. Empty when nothing has changed or the folder is not a git repository. Filenames with spaces remain complete. A failed, oversized or timed-out Git comparison shows an error instead of a partial or empty diff.</p><p>This view uses the selected workflow folder. A supplied path cannot redirect it to another project.</p></>,
     manualSection: 'changes-diff',
   },
   'rightpanel.files.source': {
     title: 'SOURCE',
-    body: <p>Changed files in one list, grouped as <C>STAGED</C>, <C>CHANGES</C> and <C>UNTRACKED</C> (new files git does not know yet). Click a file to see only its changes. Binary or very large files show a note instead. Empty when nothing has changed or the folder is not a git repository.</p>,
+    body: <><p>Changed files in one list, grouped as <C>STAGED</C>, <C>CHANGES</C> and <C>UNTRACKED</C> (new files git does not know yet). Click a file to see only its changes. Binary or very large files show a note instead. Empty when nothing has changed or the folder is not a git repository.</p><p>This view uses the selected workflow folder. A supplied path cannot redirect it to another project.</p></>,
     manualSection: 'source-changes',
   },
   'rightpanel.files.remote': {
     title: 'REMOTE',
-    body: <p>How this branch compares with its remote copy: commits to push and commits to pull, each with an expandable list and its changes. <C>FETCH</C> downloads the latest remote information only; it never merges or changes your files. Otherwise this view is read-only.</p>,
+    body: <><p>How this branch compares with its remote copy: commits to push and commits to pull, each with an expandable list and its changes. <C>FETCH</C> downloads the latest remote information only; it never merges or changes your files. Otherwise this view is read-only.</p><p>This view uses the selected workflow folder. A supplied path cannot redirect it to another project.</p></>,
     manualSection: 'remote-compare',
   },
   'rightpanel.tab.activity': {
@@ -267,7 +267,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           done work against the tree and diff.
         </p>
       <p>Reconnect restores the active plan independently of context estimation, including when its original attachment event is outside the recent history tail.</p>
-      <p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>
+      <p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p><p>Search and Git views use the selected workflow folder. A supplied path cannot redirect them to another folder. Project document actions require a folder known to Arco; open or register the intended project before using these actions.</p></>
     ),
     manualSection: 'plan-review',
   },
@@ -661,18 +661,18 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           the branch</strong> so any committed work is preserved. Needs a git repo
           with at least one commit.
         </p>
-      </>
+      <p>This view uses the selected workflow folder. A supplied path cannot redirect it to another project.</p></>
     ),
   },
   'rightpanel.ledger.worktree-required': {
     title: 'Worktree required',
     body: (
-      <p>
+      <><p>
         Marks this task as needing an isolated checkout before automated
         dispatch runs it. The flag does not create a worktree by itself; use{' '}
         <C>ISOLATE</C> manually or arm the board&apos;s <C>AUTO WORKTREE</C>{' '}
         dispatcher setting.
-      </p>
+      </p><p>This view uses the selected workflow folder. A supplied path cannot redirect it to another project.</p></>
     ),
   },
   'rightpanel.ledger.link': {
@@ -867,7 +867,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         (within a bounded byte budget); leave it on-demand to keep it readable
         here only. Articles are operator-authored or agent-drafted, but nothing
         saves without an explicit <C>Save</C>.
-      </p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>
+      </p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p><p>Search and Git views use the selected workflow folder. A supplied path cannot redirect them to another folder. Project document actions require a folder known to Arco; open or register the intended project before using these actions.</p></>
     ),
     manualSection: 'knowledge-base',
   },

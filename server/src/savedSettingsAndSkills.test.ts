@@ -74,6 +74,8 @@ test('B26: a refused plan move keeps its attachment and emits no detach', async 
   const f = fixture();
   try {
     const { createPlan } = await import('./planStore.js');
+    const { workflowCwds } = await import('./server/state.js');
+    workflowCwds.set('move-fixture', f.project);
     const { tryHandleWorkflowDataRoutes } = await import('./http/workflowDataRoutes.js');
     const plan = await createPlan(f.project, { title: 'Fixture', body: '# Fixture\n- [ ] Task' });
     let detached = 0, status = 0;

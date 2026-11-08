@@ -10,7 +10,7 @@
 import { lstatSync, statSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { IncomingMessage, ServerResponse } from 'http';
-import { assertSafePath } from '../fileAccessPolicy.js';
+import { assertSafePath, safeDirectory } from '../fileAccessPolicy.js';
 import { checkProjectState, restoreIgnoreFile, stopTrackingState, suggestFromRemote } from '../publicProject.js';
 import { realpathWithinProjects } from '../projects.js';
 import { getPublicProjectChoice, setPublicProjectChoice } from '../publicProjectChoice.js';
@@ -23,7 +23,7 @@ function sendJson(res: ServerResponse, code: number, body: unknown): true {
 
 function validDir(value: unknown): string | null {
   if (typeof value !== 'string' || !isAbsolute(value)) return null;
-  try { assertSafePath(value); return statSync(value).isDirectory() ? value : null; } catch { return null; }
+  try { return safeDirectory(value); } catch { return null; }
 }
 
 // A link at .arco or .arco/.gitignore would make RESTORE IGNORE FILE write, or

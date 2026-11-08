@@ -1,3 +1,4 @@
+import { requireProjectBinding } from './projectBinding.js';
 import { IncomingMessage, ServerResponse } from 'http';
 import { computeDiff, WORKTREE } from '../gitDiff.js';
 import { PORT } from '../server/constants.js';
@@ -58,13 +59,13 @@ export async function tryHandleDiffRoutes(
     // Prefer an explicit ?path (the other workflow routes pass it); otherwise
     // resolve the workflow's live cwd. A diff against a workflow with no bound
     // cwd is a clean empty result, not an error.
-    const cwd = url.searchParams.get('path') || workflowCwds.get(wfid) || '';
+    const cwd = await requireProjectBinding(url.searchParams.get('path'), wfid);
     const from = url.searchParams.get('from') || undefined;
     const to = url.searchParams.get('to') || WORKTREE;
     const result = await computeDiff({ cwd, from, to });
     return send(200, result);
   } catch (err) {
-    return send(500, { error: err instanceof Error ? err.message : String(err) });
+    return send((err as NodeJS.ErrnoException).code === 'EACCES' ? 403 : 500, { error: err instanceof Error ? err.message : String(err) });
   }
 }
 
@@ -92,6 +93,6 @@ async function handleCheckpointPreview(req: IncomingMessage, res: ServerResponse
     if (!cwd) return send(200, { ok: false, error: 'This workflow has no working directory.' });
     return send(200, await previewCheckpointRevert({ cwd, workflowId: wfid, seq }));
   } catch (err) {
-    return send(500, { error: err instanceof Error ? err.message : String(err) });
+    return send((err as NodeJS.ErrnoException).code === 'EACCES' ? 403 : 500, { error: err instanceof Error ? err.message : String(err) });
   }
 }

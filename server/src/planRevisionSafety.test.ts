@@ -85,6 +85,8 @@ test('B130: text-matched ticks resolve against the body actually being saved', a
 
 async function request(cwd: string, id: string, method: string, payload: unknown, refs = false) {
   const { tryHandleWorkflowDataRoutes } = await import('./http/workflowDataRoutes.js');
+  const { workflowCwds } = await import('./server/state.js');
+  workflowCwds.set('revision-fixture', cwd);
   const query = new URLSearchParams({ path: cwd, planId: id, ...(refs ? { slug: 'details' } : {}) });
   const req = Object.assign(Readable.from([JSON.stringify(payload)]), { method, url: `/api/plans${refs ? '/refs' : ''}?${query}`, headers: {} });
   let status = 0, body = '';

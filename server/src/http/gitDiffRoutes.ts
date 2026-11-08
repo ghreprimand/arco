@@ -1,3 +1,4 @@
+import { requireProjectBinding } from './projectBinding.js';
 import { IncomingMessage, ServerResponse } from 'http';
 import { getWorkingChanges, getFileDiff } from '../gitWorking.js';
 import { PORT } from '../server/constants.js';
@@ -48,7 +49,7 @@ export async function tryHandleGitDiffRoutes(
     if (!wfid || !isValidWfid(wfid)) {
       return send(400, { error: 'valid wfid query required' });
     }
-    const cwd = url.searchParams.get('path') || workflowCwds.get(wfid) || '';
+    const cwd = await requireProjectBinding(url.searchParams.get('path'), wfid);
     const file = url.searchParams.get('file');
 
     if (file) {
@@ -67,6 +68,6 @@ export async function tryHandleGitDiffRoutes(
     const result = await getWorkingChanges(cwd);
     return send(200, result);
   } catch (err) {
-    return send(500, { error: err instanceof Error ? err.message : String(err) });
+    return send((err as NodeJS.ErrnoException).code === 'EACCES' ? 403 : 500, { error: err instanceof Error ? err.message : String(err) });
   }
 }

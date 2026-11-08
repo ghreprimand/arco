@@ -1,3 +1,4 @@
+import { requireProjectBinding } from './projectBinding.js';
 import { IncomingMessage, ServerResponse } from 'http';
 import type { WorktreeListResponse } from '@arco/shared';
 import { listWorktrees } from '../project/taskWorktree.js';
@@ -43,7 +44,7 @@ export async function tryHandleGitWorktreeRoutes(
     if (!wfid || !isValidWfid(wfid)) {
       return send(400, { error: 'valid wfid query required' });
     }
-    const cwd = url.searchParams.get('path') || workflowCwds.get(wfid) || '';
+    const cwd = await requireProjectBinding(url.searchParams.get('path'), wfid);
     if (!cwd) {
       return send(200, isOtherWork ? { isRepo: false, defaultBranch: null, rows: [], prStatus: 'unavailable', truncated: false } : ({ isRepo: false, worktrees: [] } satisfies WorktreeListResponse));
     }
@@ -51,6 +52,6 @@ export async function tryHandleGitWorktreeRoutes(
     const worktrees = await listWorktrees(cwd);
     return send(200, { isRepo: worktrees.length > 0, worktrees } satisfies WorktreeListResponse);
   } catch (err) {
-    return send(500, { error: err instanceof Error ? err.message : String(err) });
+    return send((err as NodeJS.ErrnoException).code === 'EACCES' ? 403 : 500, { error: err instanceof Error ? err.message : String(err) });
   }
 }

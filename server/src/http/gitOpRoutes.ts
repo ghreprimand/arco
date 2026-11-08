@@ -1,3 +1,4 @@
+import { requireProjectBinding } from './projectBinding.js';
 import { IncomingMessage, ServerResponse } from 'http';
 import type { GitOpResult, GitOpResultMessage } from '@arco/shared';
 import {
@@ -91,9 +92,7 @@ export async function tryHandleGitOpRoutes(
     if (wfid && !isValidWfid(wfid)) {
       return send(400, { ok: false, op: family, stderr: 'invalid wfid' });
     }
-    const cwd = (typeof body.path === 'string' && body.path)
-      || (wfid ? workflowCwds.get(wfid) : '')
-      || '';
+    const cwd = await requireProjectBinding(typeof body.path === 'string' ? body.path : undefined, wfid);
     if (!cwd) {
       return send(200, { ok: false, op: family, stderr: 'no working directory' });
     }

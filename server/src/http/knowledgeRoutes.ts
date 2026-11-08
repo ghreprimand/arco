@@ -1,3 +1,4 @@
+import { requireProjectBinding } from './projectBinding.js';
 import { IncomingMessage, ServerResponse } from 'http';
 import {
   alwaysIncludeBytes,
@@ -49,6 +50,7 @@ export async function tryHandleKnowledgeRoutes(
   if (!cwd) return json(400, { error: 'path query required' });
 
   try {
+    await requireProjectBinding(cwd);
     // One full article.
     if (url.pathname === '/api/knowledge/body' && req.method === 'GET') {
       const id = url.searchParams.get('id');

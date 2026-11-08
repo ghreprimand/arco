@@ -459,6 +459,7 @@ export const workspace: Section[] = [
     title: 'The right panel',
     body: (
       <>
+  <p>Search and Git views use the selected workflow folder. A supplied path cannot redirect them to another folder. Project document actions require a folder known to Arco; open or register the intended project before using these actions.</p>
         <p>
           The right panel holds per-workflow tools grouped into four families.
           Each workflow remembers its active tab and starts with FILES.

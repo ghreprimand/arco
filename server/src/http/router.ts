@@ -1,3 +1,4 @@
+import { requireProjectBinding } from './projectBinding.js';
 import { tryHandleStorageRoutes } from './storageRoutes.js';
 import { tryHandleArchitectureReviewRoutes } from './architectureReviewRoutes.js';
 import { tryHandleSkillManagementRoutes } from './skillManagementRoutes.js';
@@ -552,7 +553,7 @@ export async function handleHttpRequest(
         res.end(JSON.stringify({ error: 'path query required' }));
         return;
       }
-      const status = await getGitStatus(cwd);
+      const status = await getGitStatus(await requireProjectBinding(cwd));
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(status));
     } catch (err) {
@@ -581,7 +582,7 @@ export async function handleHttpRequest(
       const create = parsed.create?.fromBranch
         ? { fromBranch: parsed.create.fromBranch }
         : undefined;
-      const result = await checkoutBranch(parsed.path, parsed.branch, create);
+      const result = await checkoutBranch(await requireProjectBinding(parsed.path), parsed.branch, create);
       res.writeHead(result.ok ? 200 : 400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
     } catch (err) {
@@ -638,6 +639,7 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const cwd = url.searchParams.get('cwd') ?? '';
+      if (cwd) await requireProjectBinding(cwd);
       const scopeParam = url.searchParams.get('scope');
       const slug = url.searchParams.get('slug') ?? '';
       if (scopeParam !== 'project' && scopeParam !== 'global') {
@@ -680,6 +682,7 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const cwd = url.searchParams.get('cwd') ?? '';
+      if (cwd) await requireProjectBinding(cwd);
       let body = '';
       for await (const chunk of req) body += chunk;
       const parsed = JSON.parse(body || '{}') as { scope?: string; slug?: string };
@@ -716,6 +719,7 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const cwd = url.searchParams.get('cwd') ?? '';
+      if (cwd) await requireProjectBinding(cwd);
       const catalog = await listSkills(cwd);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(catalog));
@@ -731,6 +735,7 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const cwd = url.searchParams.get('cwd') ?? '';
+      if (cwd) await requireProjectBinding(cwd);
       let body = '';
       for await (const chunk of req) body += chunk;
       const parsed = JSON.parse(body || '{}') as {
@@ -776,6 +781,7 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const cwd = url.searchParams.get('cwd') ?? '';
+      if (cwd) await requireProjectBinding(cwd);
       const scopeParam = url.searchParams.get('scope');
       const slug = url.searchParams.get('slug') ?? '';
       if (scopeParam !== 'project' && scopeParam !== 'global') {
@@ -820,6 +826,7 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const cwd = url.searchParams.get('cwd') ?? '';
+      if (cwd) await requireProjectBinding(cwd);
       const modes: HandoffPromptMode[] = ['original-worker', 'fresh-summarizer', 'ollama-compaction'];
       const project: Record<HandoffPromptMode, string | null> = {
         'original-worker': null,
@@ -863,6 +870,7 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const cwd = url.searchParams.get('cwd') ?? '';
+      if (cwd) await requireProjectBinding(cwd);
       let raw = '';
       for await (const chunk of req) raw += chunk;
       const parsed = JSON.parse(raw || '{}') as {
@@ -907,6 +915,7 @@ export async function handleHttpRequest(
     try {
       const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const cwd = url.searchParams.get('cwd') ?? '';
+      if (cwd) await requireProjectBinding(cwd);
       const scopeParam = url.searchParams.get('scope');
       const modeParam = url.searchParams.get('mode');
       if (scopeParam !== 'project' && scopeParam !== 'global') {

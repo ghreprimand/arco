@@ -1,3 +1,4 @@
+import { requireProjectBinding } from './projectBinding.js';
 // P8.6 Skill management routes: IMPORT and UPDATE (review, then confirm),
 // ON/OFF, MOVE, DUPLICATE, contents and needs, SHARE WITH REPOSITORY.
 // Matched before the plain /api/skills routes.
@@ -40,6 +41,7 @@ export async function tryHandleSkillManagementRoutes(req: IncomingMessage, res: 
   const action = match[1];
   const cwd = url.searchParams.get('cwd') ?? '';
   try {
+    if (cwd) await requireProjectBinding(cwd);
     if (action === 'details') {
       if (req.method !== 'GET') { json(res, 405, { error: 'method not allowed' }); return true; }
       json(res, 200, { skills: await skillDetails(cwd) });

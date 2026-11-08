@@ -1,3 +1,4 @@
+import { requireProjectBinding } from './projectBinding.js';
 import { hasGuardrails } from '@arco/shared';
 import { getPublicProjectChoice } from '../publicProjectChoice.js';
 import { resolveWorkflowDocument } from './readConfinement.js';
@@ -124,6 +125,11 @@ export async function tryHandleWorkflowDataRoutes(
   res: ServerResponse,
   deps: HttpDeps,
 ): Promise<boolean> {
+  if (req.url?.startsWith('/api/plans')) {
+    const cwd = new URL(req.url, 'http://localhost').searchParams.get('path');
+    try { await requireProjectBinding(cwd); }
+    catch { jsonReply(res, 403, { error: 'Project is unavailable' }); return true; }
+  }
   // Machine-global Chat history. Incognito chats never create meta.json and
   // therefore cannot appear here by construction.
   if (req.url?.match(/^\/api\/chats(\?|$)/) && req.method === 'GET') {
@@ -671,6 +677,7 @@ export async function tryHandleWorkflowDataRoutes(
         res.end(JSON.stringify({ error: 'targetCwd required in body' }));
         return true;
       }
+      await requireProjectBinding(targetCwd);
       // Tell both watchers to skip the next file event for this id so we
       // don't get redundant reconcile broadcasts (we own the move).
       const sourceWatcher = plansWatchers.get(sourceCwd);

@@ -1,3 +1,4 @@
+import { requireProjectBinding } from './projectBinding.js';
 import { IncomingMessage, ServerResponse } from 'http';
 import { fetchRemote, getUpstreamComparison, getComparisonDiff } from '../gitWorking.js';
 import { PORT } from '../server/constants.js';
@@ -44,7 +45,7 @@ export async function tryHandleGitCompareRoutes(
       if (!wfid || !isValidWfid(wfid)) {
         return send(400, { error: 'valid wfid query required' });
       }
-      const cwd = url.searchParams.get('path') || workflowCwds.get(wfid) || '';
+      const cwd = await requireProjectBinding(url.searchParams.get('path'), wfid);
 
       // /api/git/compare/diff — per-direction unified diff for the A3 renderer.
       if (url.pathname === '/api/git/compare/diff') {
@@ -72,9 +73,7 @@ export async function tryHandleGitCompareRoutes(
     if (wfid && !isValidWfid(wfid)) {
       return send(400, { error: 'invalid wfid' });
     }
-    const cwd = (typeof parsed.path === 'string' && parsed.path)
-      || (wfid ? workflowCwds.get(wfid) : '')
-      || '';
+    const cwd = await requireProjectBinding(typeof parsed.path === 'string' ? parsed.path : undefined, wfid);
     if (!cwd) {
       return send(200, { ok: false, remote: parsed.remote ?? '', fetched: false, error: 'no working directory' });
     }
@@ -83,6 +82,6 @@ export async function tryHandleGitCompareRoutes(
     // ok:false (offline / auth) is a non-fatal operator-visible condition → 200.
     return send(200, result);
   } catch (err) {
-    return send(500, { error: err instanceof Error ? err.message : String(err) });
+    return send((err as NodeJS.ErrnoException).code === 'EACCES' ? 403 : 500, { error: err instanceof Error ? err.message : String(err) });
   }
 }

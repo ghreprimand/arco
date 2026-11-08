@@ -317,6 +317,8 @@ async function call(method: string, url: string, payload?: unknown): Promise<{ c
 
 test('routes: import through the review token, details, and share for registered projects only', async () => {
   const cwd = project(); git(cwd, 'init', '-q');
+  const { workflowCwds } = await import('./server/state.js');
+  workflowCwds.set('skill-route-fixture', cwd);
   const gh = github({ 'grill/SKILL.md': SKILL('Grill route') });
   _setSkillFetchForTest(gh.fetchImpl);
   const q = `?cwd=${encodeURIComponent(cwd)}`;

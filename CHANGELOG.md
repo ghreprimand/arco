@@ -77,6 +77,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Search, Git and project document actions validate the selected workflow or known project folder.
+
 - Skill folder imports and updates reject protected source aliases and protected files.
 
 - Plan references, skills, knowledge and handoff prompt storage refuse linked files and folders.

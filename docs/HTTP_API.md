@@ -1,5 +1,7 @@
 # HTTP API
 
+Search and Git views use the selected workflow folder. A supplied path cannot redirect them to another folder. Project document actions require a folder known to Arco; open or register the intended project before using these actions.
+
 The HTTP surface served alongside the WebSocket endpoint at `/ws`. `server/src/index.ts` creates the server; every route is dispatched by `handleHttpRequest` in `server/src/http/router.ts`, which runs inline routes and delegates to the `tryHandle*Routes` modules in `server/src/http/*Routes.ts` (order matters - prefix matches like `/api/usage` vs `/api/usage-stats` are resolved by placement). Most state-changing operations go through the WebSocket (see [`PROTOCOL.md`](PROTOCOL.md)); HTTP is reserved for one-shot reads (transcripts, artifact bodies, settings) and operations that don't naturally fit the WS event model (file uploads, auth flows, GitHub proxy).
 
 For terminology see [`GLOSSARY.md`](GLOSSARY.md). For where these are called from on the client, see [`CLIENT.md`](CLIENT.md).

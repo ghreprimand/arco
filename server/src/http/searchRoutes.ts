@@ -1,3 +1,4 @@
+import { requireProjectBinding } from './projectBinding.js';
 import { IncomingMessage, ServerResponse } from 'http';
 import { searchContent } from '../contentSearch.js';
 import { PORT } from '../server/constants.js';
@@ -43,7 +44,7 @@ export async function tryHandleSearchRoutes(
     if (!wfid || !isValidWfid(wfid)) {
       return send(400, { error: 'valid wfid query required' });
     }
-    const cwd = url.searchParams.get('path') || workflowCwds.get(wfid) || '';
+    const cwd = await requireProjectBinding(url.searchParams.get('path'), wfid);
     if (!cwd) {
       // No bound cwd is an empty result, not an error (the workflow may not
       // have started a turn yet).
@@ -55,6 +56,6 @@ export async function tryHandleSearchRoutes(
     const result = await searchContent({ cwd, query, maxHits });
     return send(200, result);
   } catch (err) {
-    return send(500, { error: err instanceof Error ? err.message : String(err) });
+    return send((err as NodeJS.ErrnoException).code === 'EACCES' ? 403 : 500, { error: err instanceof Error ? err.message : String(err) });
   }
 }
