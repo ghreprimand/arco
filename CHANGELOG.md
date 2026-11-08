@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Apply theme colors to the PREVIEW PORTS field, label, help text and save feedback.
+
 - Keep PREVIEW PORTS from accepting edits while SAVE is pending, so a save reply cannot replace a newer draft.
 
 - Keep preview responses from clearing Arco cookies or changing persistent browser policies; discard Domain cookies from preview apps.
