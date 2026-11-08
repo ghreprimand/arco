@@ -1203,7 +1203,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         section of standing rules. Unticked, the request is unchanged. The choice
         is saved for this project and can be changed in plan controls. Starting or saving a plan refreshes the saved choice without reposting an older browser value. After a failed checkbox save, select RETRY SAVE below it before starting the plan. Agent-created plans use the saved choice, or the confirmed-public remote suggestion when no choice is saved; a missing section offers INSERT GUARDRAILS for review. It is pre-ticked
         only when the Git remote is confirmed public on GitHub, with the reason
-        shown. A remote on another host, or a GitHub repository whose visibility is unknown, shows only a hint naming the host. Your own choice always wins.
+        shown. A remote on another host, or a GitHub repository whose visibility is unknown, shows only a hint naming the host. Your own choice always wins. A newer choice received from another tab is kept when an older read finishes.
       </p>
     ),
     manualSection: 'public-project',

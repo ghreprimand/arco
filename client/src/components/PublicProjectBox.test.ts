@@ -54,3 +54,24 @@ test('LA12: RETRY SAVE resends the failed displayed choice and unblocks plan sta
     assert.equal(f.dom.window.document.querySelector('[role="alert"]'), null);
   } finally { await f.cleanup(); }
 });
+
+test('LA13: sibling-tab choice invalidates an older read without posting a new decision', async () => {
+  let resolveRead!: (value: Response) => void;
+  const oldRead = new Promise<Response>(resolve => { resolveRead = resolve; });
+  let posts = 0;
+  const f = await fixture(async (url, init) => {
+    if (init?.method === 'POST') posts += 1;
+    return String(url).includes('/remote?') ? Response.json({ state: 'none' }) : oldRead;
+  });
+  try {
+    await act(async () => {
+      f.dom.window.localStorage.setItem('arco.publicProject./projects/fixture', '1');
+      f.dom.window.dispatchEvent(new f.dom.window.StorageEvent('storage', { key: 'arco.publicProject./projects/fixture', newValue: '1' }));
+    });
+    assert.equal(f.dom.window.document.querySelector('input')!.checked, true);
+    await act(async () => { resolveRead(Response.json({ choice: false })); });
+    assert.equal(f.dom.window.document.querySelector('input')!.checked, true);
+    assert.equal(f.dom.window.localStorage.getItem('arco.publicProject./projects/fixture'), '1');
+    assert.equal(posts, 0);
+  } finally { await f.cleanup(); }
+});

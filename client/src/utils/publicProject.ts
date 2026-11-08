@@ -104,6 +104,7 @@ export function usePublicProject(cwd: string) {
     events.addEventListener('change', changed);
     const storageChanged = (event: StorageEvent) => {
       if (event.key !== KEY + cwd) return;
+      revisions.set(cwd, (revisions.get(cwd) ?? 0) + 1);
       choices.set(cwd, event.newValue === '1' ? true : event.newValue === '0' ? false : null);
       changed();
     };

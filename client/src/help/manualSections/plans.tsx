@@ -197,6 +197,7 @@ export const plans: Section[] = [
           every notice can be dismissed.
         </p>
         <Sub>The public-project box</Sub>
+        <p>A newer choice received from another tab is kept when an older read finishes. Passive tab synchronization does not save a new decision.</p>
         <p>Starting or saving a plan refreshes the saved choice without reposting an older browser value. Changing the checkbox saves a new decision. After a failed checkbox save, select RETRY SAVE below it to save the displayed choice before starting the plan.</p>
         <p>
           <Code>This project is public (or will be)</Code> sits beside the plan-draft
