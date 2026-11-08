@@ -18,7 +18,7 @@ export function PreviewPortsSection() {
     } catch (error) { setNotice((error as Error).message); } finally { setBusy(false); }
   };
   return <div data-help="settings.preview-ports">
-    <label>PREVIEW PORTS <input aria-label="PREVIEW PORTS" value={range} onChange={e => setRange(e.target.value)} placeholder="4300-4309" /></label>
+    <label>PREVIEW PORTS <input aria-label="PREVIEW PORTS" disabled={busy} value={range} onChange={e => setRange(e.target.value)} placeholder="4300-4309" /></label>
     <button type="button" disabled={busy} onClick={() => void save()}>SAVE</button>
     <p>Remote access: allow this TCP range through the firewall and forward it with Arco. Each open preview uses one port. ARCO_PREVIEW_PORTS overrides this setting. Changes affect new previews.</p>
     {notice && <p role="status">{notice}</p>}

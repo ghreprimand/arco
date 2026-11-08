@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep PREVIEW PORTS from accepting edits while SAVE is pending, so a save reply cannot replace a newer draft.
+
 - Keep preview responses from clearing Arco cookies or changing persistent browser policies; discard Domain cookies from preview apps.
 
 - Document the separate Tailscale Serve entry required for each preview port.
