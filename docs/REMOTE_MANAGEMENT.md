@@ -374,6 +374,15 @@ Listeners use the same `ARCO_HOST` address as Arco. Loopback-only use needs no p
 
 SSH must forward each preview port that may be allocated in addition to the existing Arco forward. For two ports: `ssh -L 4300:localhost:4300 -L 4301:localhost:4301 host`. Either forward every port in PREVIEW PORTS or narrow the setting to the forwarded range. The browser keeps the same hostname and uses the allocated port; local and remote port numbers must match.
 
+Tailscale Serve needs one HTTPS entry per preview port, in addition to the existing Arco control entry. Keep the same Tailscale hostname and matching port numbers. For example:
+
+```sh
+tailscale serve --bg --https=4300 http://127.0.0.1:4300
+tailscale serve --bg --https=4301 http://127.0.0.1:4301
+```
+
+Repeat for every port in PREVIEW PORTS, normally through 4309, or narrow the setting to the entries configured. Check the entries with `tailscale serve status`. A single Serve entry for Arco's control port does not forward preview ports. These commands configure Serve; Arco still opens each local preview listener only while a view uses it. See the [Tailscale Serve command reference](https://tailscale.com/docs/reference/tailscale-cli/serve).
+
 A reverse proxy exposes matching preview ports on the same hostname as Arco, forwarding each to that port on the Arco host. Preserve Host, forward WebSocket Upgrade/Connection headers, and support long-lived connections. HTTPS requires TLS termination on every preview port. For example, with Arco bound to loopback, an nginx server bound to the proxy address with `listen 192.0.2.10:4300 ssl` and the same certificate as Arco uses `location / { proxy_pass http://127.0.0.1:4300; proxy_set_header Host $http_host; proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection "upgrade"; }`; replace the documentation address with the proxy address and repeat for the remaining range. The proxy and gateway listeners must bind distinct addresses to avoid a conflict, or run on separate machines. Do not use an all-address proxy listener on the same port as a gateway on that machine. Do not expose preview origins through ARCO_ALLOWED_ORIGINS: preview code must never gain control access.
 
 Preview listeners strip Arco cookies and Authorization before forwarding and discard upstream Arco Set-Cookie headers. Their expiring access is workflow-specific. Cross-preview HTTP and WebSocket access is refused. Service-worker registration is blocked to keep a later user of the same port isolated. Preview capture continues to inspect the bound backend directly.
