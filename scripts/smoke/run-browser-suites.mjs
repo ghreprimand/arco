@@ -121,6 +121,7 @@ const SUITES = [
   { name: 'home-density', script: 'home-density-browser.py', port: 5207 },
   { name: 'project-roots', script: 'project-roots-browser.py', isolatedServer: true },
   { name: 'first-run', script: 'first-run-browser.py', isolatedServer: true },
+  { name: 'https-cookie', script: 'https-cookie-browser.py', isolatedServer: true },
   { name: 'origin-boundary', script: 'origin-boundary-browser.py', isolatedServer: true },
   { name: 'connections', script: 'connections-browser.py', isolatedServer: true },
   { name: 'update-reconnect', script: 'update-reconnect-browser.py', isolatedServer: true },

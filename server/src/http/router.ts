@@ -253,7 +253,7 @@ export async function handleHttpRequest(
       res.end(JSON.stringify({ error: 'Session mint refused' }));
       return;
     }
-    res.writeHead(204, { 'Set-Cookie': sessionCookieHeader(mintToken()), 'Cache-Control': 'no-store' });
+    res.writeHead(204, { 'Set-Cookie': sessionCookieHeader(mintToken(), req), 'Cache-Control': 'no-store' });
     res.end();
     return;
   }

@@ -16,25 +16,28 @@ const root = mkdtempSync(path.join(tmpdir(), 'arco-router-auth-'));
 installIsolatedTestHome(root);
 delete process.env.ARCO_WS_AUTH;
 
-interface Reply { status: number; body: string }
+interface Reply { status: number; body: string; headers: Record<string, string> }
 function request(method: string, url: string, body = '', headers: Record<string, string> = {}): IncomingMessage {
   const req = Readable.from(body ? [Buffer.from(body)] : []) as unknown as IncomingMessage;
   Object.assign(req, { method, url, headers: { host: '127.0.0.1:3001', ...headers }, socket: { remoteAddress: '127.0.0.1', remotePort: 1 } });
   return req;
 }
-async function send(method: string, url: string, body = '', headers: Record<string, string> = {}): Promise<Reply> {
+async function send(method: string, url: string, body = '', headers: Record<string, string> = {}, transport: { encrypted?: boolean; remoteAddress?: string } = {}): Promise<Reply> {
   const { handleHttpRequest } = await import('./router.js');
   let status = 200, out = '';
+  const replyHeaders: Record<string, string> = {};
   const res: Record<string, unknown> = {
     headersSent: false,
-    setHeader() { return res; }, getHeader() { return undefined; }, removeHeader() {},
-    writeHead(code: number) { status = code; res.headersSent = true; return res; },
+    setHeader(name: string, value: unknown) { replyHeaders[name.toLowerCase()] = String(value); return res; }, getHeader(name: string) { return replyHeaders[name.toLowerCase()]; }, removeHeader(name: string) { delete replyHeaders[name.toLowerCase()]; },
+    writeHead(code: number, values: Record<string, unknown> = {}) { status = code; for (const [name, value] of Object.entries(values)) replyHeaders[name.toLowerCase()] = String(value); res.headersSent = true; return res; },
     write(chunk: unknown) { out += String(chunk); return true; },
     end(chunk?: unknown) { if (chunk !== undefined) out += String(chunk); return res; },
     on() { return res; }, once() { return res; },
   };
-  await handleHttpRequest(request(method, url, body, headers), res as unknown as ServerResponse, {} as never);
-  return { status, body: out };
+  const req = request(method, url, body, headers);
+  Object.assign(req.socket, transport);
+  await handleHttpRequest(req, res as unknown as ServerResponse, {} as never);
+  return { status, body: out, headers: replyHeaders };
 }
 
 test('utility-agent, tidy, smart-pickup and notification routes need the session cookie', async () => {
@@ -118,4 +121,17 @@ test.after(() => { setImmediate(() => process.exit(process.exitCode ?? 0)); });
       assert.equal(reply.status, 403, `${method} ${origin}: ${reply.body}`);
     }
   }
+});
+
+ test('L04: the real mint route passes TLS and trusted proxy context to its cookie header', async () => {
+  const metadata = { 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty' };
+  for (const [headers, transport] of [
+    [{ host: 'localhost:3001', origin: 'https://localhost:3001' }, { encrypted: true }],
+    [{ host: 'workbench.tail-example.ts.net', origin: 'https://workbench.tail-example.ts.net', 'x-forwarded-proto': 'https' }, { remoteAddress: '127.0.0.1' }],
+  ] as const) {
+    const reply = await send('POST', '/api/session', '', { ...metadata, ...headers }, transport);
+    assert.equal(reply.status, 204); assert.match(reply.headers['set-cookie'], /; Secure(?:;|$)/);
+  }
+  const http = await send('POST', '/api/session', '', { ...metadata, host: 'localhost:3001', origin: 'http://localhost:3001', 'x-forwarded-proto': 'https' });
+  assert.equal(http.status, 204); assert.doesNotMatch(http.headers['set-cookie'], /; Secure(?:;|$)/);
 });

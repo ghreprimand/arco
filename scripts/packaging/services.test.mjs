@@ -37,11 +37,12 @@ test('service installation uses injected managers and keeps prior configuration'
   t.after(() => rmSync(base, { recursive: true, force: true }));
   for (const platform of ['linux', 'darwin', 'win32']) {
     const home = join(base, platform); const paths = { home, config: join(home, 'service/config.json'), unit: join(home, 'unit') };
-    const calls = []; const deps = { platform, uid: 999, paths, env: { ARCO_PORT: '4567', ARCO_HUB_URL: 'https://example.invalid/hub', ARCO_ALLOWED_ORIGINS: 'https://workbench.example:8443', USERNAME: 'Fixture', USERDOMAIN: 'LOCAL' }, run: (cmd, args) => { calls.push([cmd, ...args]); return { status: args.includes('/Query') || args[0] === 'print' ? 1 : 0 };  } };
+    const calls = []; const deps = { platform, uid: 999, paths, env: { ARCO_PORT: '4567', ARCO_HUB_URL: 'https://example.invalid/hub', ARCO_ALLOWED_ORIGINS: 'https://workbench.example:8443', ARCO_TRUSTED_PROXIES: '192.0.2.20', USERNAME: 'Fixture', USERDOMAIN: 'LOCAL' }, run: (cmd, args) => { calls.push([cmd, ...args]); return { status: args.includes('/Query') || args[0] === 'print' ? 1 : 0 };  } };
     await serviceAction('install', deps);
     assert.equal(JSON.parse(readFileSync(paths.config)).env.ARCO_PORT, '4567');
     assert.equal(JSON.parse(readFileSync(paths.config)).env.ARCO_HUB_URL, 'https://example.invalid/hub');
     assert.equal(JSON.parse(readFileSync(paths.config)).env.ARCO_ALLOWED_ORIGINS, 'https://workbench.example:8443');
+    assert.equal(JSON.parse(readFileSync(paths.config)).env.ARCO_TRUSTED_PROXIES, '192.0.2.20');
     assert.ok(calls.length);
     deps.env.ARCO_PORT = '9999';
     await serviceAction('install', deps);

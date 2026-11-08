@@ -69,9 +69,11 @@ For terminology see [`GLOSSARY.md`](GLOSSARY.md). For where these are called fro
 
 ## Session cookie (WS gate)
 
+HTTPS proxy detection requires a trusted peer, a single `X-Forwarded-Proto: https` declaration and an approved HTTPS browser Origin. Loopback proxy peers are trusted; other proxy addresses must be listed exactly in `ARCO_TRUSTED_PROXIES`. Forwarding headers alone, an unrelated peer or an HTTP Origin do not assert TLS.
+
 ### `POST /api/session`
 
-Mints the `arco_session_<port>` cookie that `/ws` and `/terminal` upgrades and the gated HTTP routes require (`server/src/http/wsAuth.ts`). `204` with `Set-Cookie: ...; HttpOnly; SameSite=Strict; Path=/` - deliberately session-only (no `Max-Age`), so browsers keep it in memory instead of the on-disk cookie store; the server still rejects tokens older than an hour. Only a same-origin browser `fetch` qualifies: `Origin` present plus `Sec-Fetch-Site: same-origin`, `Sec-Fetch-Mode: cors|same-origin`, `Sec-Fetch-Dest: empty` - anything else is `403 { "error": "Session mint refused" }` and a `refused session mint` log line. The token is HMAC-signed with a per-boot in-memory key, so a restart invalidates every cookie; the client re-mints before each socket connect, every 20 min, on tab focus, and once on any gated-route `401` (`client/src/utils/wsSession.ts`). `ARCO_WS_AUTH=off` turns this into a no-op `204`. No body.
+Mints the `arco_session_<port>` cookie that `/ws` and `/terminal` upgrades and the gated HTTP routes require (`server/src/http/wsAuth.ts`). `204` with `Set-Cookie: ...; HttpOnly; SameSite=Strict; Path=/` (also `Secure` for TLS or a trusted HTTPS proxy) - deliberately session-only (no `Max-Age`), so browsers keep it in memory instead of the on-disk cookie store; the server still rejects tokens older than an hour. Only a same-origin browser `fetch` qualifies: `Origin` present plus `Sec-Fetch-Site: same-origin`, `Sec-Fetch-Mode: cors|same-origin`, `Sec-Fetch-Dest: empty` - anything else is `403 { "error": "Session mint refused" }` and a `refused session mint` log line. The token is HMAC-signed with a per-boot in-memory key, so a restart invalidates every cookie; the client re-mints before each socket connect, every 20 min, on tab focus, and once on any gated-route `401` (`client/src/utils/wsSession.ts`). `ARCO_WS_AUTH=off` turns this into a no-op `204`. No body.
 
 ---
 

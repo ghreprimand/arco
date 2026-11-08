@@ -538,6 +538,10 @@ Every HTTP request and socket upgrade passes Host validation and a separate brow
 
 Requests without Origin remain available to non-browser clients. Browser requests marked same-site or cross-site need an approved Origin for APIs and uploads; navigation to the app shell remains available.
 
+HTTPS sessions set Secure on the browser cookie. Direct TLS needs no proxy setting. For HTTPS forwarded by a proxy, Arco also requires an approved HTTPS browser Origin and a single `X-Forwarded-Proto: https` value. Loopback proxy peers are trusted by default. List any other proxy peer IPs exactly in `ARCO_TRUSTED_PROXIES`; forwarding headers from other peers are ignored for cookie security. The proxy must overwrite client-supplied forwarding headers.
+
+Package service environment values are saved at first installation in `service/config.json` under the Arco home. Edit that file's `env` values and restart to change an installed service; reinstalling keeps its prior configuration. Source services and containers use their configured environment.
+
 To use Arco remotely, **prefer an SSH or Vite tunnel** (forward `5173`/`3001`
 over SSH, or `ssh -L`) so the bind stays loopback and only your authenticated
 SSH session reaches it. Set `ARCO_HOST=0.0.0.0` **only** when you deliberately
@@ -572,6 +576,7 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_HOST` | `127.0.0.1` | Server bind address. Loopback by default - the HTTP/WS surface has **no user login**, only the session cookie and Host/Origin check (see Exposure posture). Set `0.0.0.0` only to deliberately expose to the LAN |
 | `ARCO_ALLOWED_HOSTS` | unset | Extra Host names (comma-separated, `*.suffix` wildcards). Exact names also approve the standard server/development HTTP and HTTPS origins; wildcards do not approve browser origins. Kept by the package service |
 | `ARCO_ALLOWED_ORIGINS` | unset | Extra exact HTTP(S) browser origins, including scheme and port, for reverse proxies or custom remote access. Kept by the package service |
+| `ARCO_TRUSTED_PROXIES` | loopback peers only | Additional exact proxy IPs (comma-separated) permitted to declare HTTPS for the session cookie, with an approved HTTPS browser Origin. Kept by the package service |
 | `ARCO_WS_AUTH` | on | `off` disables the session-cookie gate on `/ws`, `/terminal`, `/upload` and `/api/*` (`server/src/http/wsAuth.ts`). For throwaway smoke-test servers and as an emergency off-switch only - never leave it on `arco.service` |
 | `ARCO_HOME` | `~/.arco` (`%USERPROFILE%\.arco` on Windows) | Relocates the whole Arco home: settings, provider accounts and secrets, clusters, chats, checkpoints, the MCP registry, logs and the source for `scripts/arco-backup.ts`. `ARCO_HOME` takes precedence. Per-project state stays under `<project>/.arco/` |
 | `ARCO_SERVE_CLIENT` | unset | Set `1` (service mode) to make the server serve the built `client/dist` as a static-file fallback (SPA fallback to `index.html`). Unset -> Vite owns the client in dev. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |

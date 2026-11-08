@@ -368,7 +368,8 @@ export const powerFeatures: Section[] = [
   the loop.
   </p>
   <Sub>Browser origins</Sub>
-  <p>Arco approves a browser origin by its complete scheme, host and port. Other localhost ports, except the enabled development frontend, and unconfigured tailnet sites cannot use the API or control sockets. Host wildcards do not widen browser approval.</p>
+  <p>Arco approves a browser origin by its complete scheme, host and port. Other localhost ports, except the enabled development frontend, and unconfigured tailnet sites cannot use the API or control sockets. Host wildcards do not widen browser approval. The development frontend uses <Code>ARCO_CLIENT_PORT</Code> (normally 5173), only when <Code>ARCO_SERVE_CLIENT</Code> is not 1.</p>
+  <p>HTTPS session cookies use Secure. A proxy must declare HTTPS from a trusted peer with an approved HTTPS browser origin. Loopback proxies are trusted; other proxy IPs need <Code>ARCO_TRUSTED_PROXIES</Code>. Forwarding headers alone do not prove TLS.</p>
   <Sub>Project trust</Sub>
   <p>
   When a tab's folder ships a <Code>CLAUDE.md</Code>, project skills or project
@@ -645,6 +646,7 @@ export const powerFeatures: Section[] = [
   covers checking on work from a phone.
   </p>
   <p>Existing access through Arco's own address keeps working after Host validation. A reverse proxy preserves Host and states its public scheme. Extra cross-origin callers need their full origin in <Code>ARCO_ALLOWED_ORIGINS</Code>, including scheme and port. The package service keeps that setting; restart after changing it. The separate outbound management hub is unchanged.</p>
+  <p>A packaged service saves environment values at first installation. For an installed service, change the <Code>env</Code> values in <Code>service/config.json</Code> under the Arco home, then restart. Reinstalling keeps the prior configuration. Source services and containers use their own environment settings.</p>
   <Sub>Using Arco over SSH</Sub>
   <ol>
   <li>

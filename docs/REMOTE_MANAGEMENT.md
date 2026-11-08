@@ -22,7 +22,7 @@ commands from a fixed allowlist and has no file, workflow, or shell access.
 
 A hub URL alone cannot read files, run a shell, manage credentials, or apply a workflow action rejected by the local instance.
 
-Desktop workbench access is separate from this hub. Its browser-origin check approves exact schemes, hosts and ports. Requests through the workbench's own served address keep working after Host validation, without new upgrade configuration. A reverse proxy preserves Host and sets X-Forwarded-Proto to its public scheme. Extra cross-origin callers use `ARCO_ALLOWED_ORIGINS`, for example `https://workbench.example:8443`. Wildcard Host rules do not approve every matching browser origin. See [Exposure posture](OPERATIONS.md#exposure-posture). The outbound hub and signed lifecycle paths are unchanged.
+Desktop workbench access is separate from this hub. Its browser-origin check approves exact schemes, hosts and ports. Requests through the workbench's own served address keep working after Host validation, without new upgrade configuration. A reverse proxy preserves Host and sets X-Forwarded-Proto to its public scheme. Extra cross-origin callers use `ARCO_ALLOWED_ORIGINS`, for example `https://workbench.example:8443`. Wildcard Host rules do not approve every matching browser origin. See [Exposure posture](OPERATIONS.md#exposure-posture). HTTPS workbench cookies use Secure for direct TLS or a trusted proxy. Loopback proxy peers need no extra trust setting; other proxy IPs use `ARCO_TRUSTED_PROXIES`. The proxy overwrites X-Forwarded-Proto with its public scheme. The outbound hub and signed lifecycle paths are unchanged.
 
 ## 2. Architecture
 

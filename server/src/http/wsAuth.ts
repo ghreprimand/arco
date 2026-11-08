@@ -10,6 +10,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import type { IncomingMessage } from 'http';
 import { PORT } from '../server/constants.js';
+import { sessionUsesHttps } from './sessionTransport.js';
 
 const KEY = randomBytes(32);
 const TOKEN_TTL_MS = 60 * 60 * 1000;
@@ -70,8 +71,8 @@ export function checkMintRequest(req: IncomingMessage): AuthVerdict {
 }
 
 // No Max-Age / Expires on purpose — see header.
-export function sessionCookieHeader(token: string): string {
-  return `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/`;
+export function sessionCookieHeader(token: string, req?: IncomingMessage): string {
+  return `${SESSION_COOKIE}=${token}; HttpOnly; SameSite=Strict; Path=/${sessionUsesHttps(req) ? '; Secure' : ''}`;
 }
 
 // The agent tool surface — reachable without the cookie. Keep this list to
