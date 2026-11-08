@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Restrict browser HTTP and WebSocket access to exact approved origins while preserving same-origin remote access without upgrade configuration, configured remote hosts and the development frontend. Extra cross-origin callers use ARCO_ALLOWED_ORIGINS.
+
 - Bind saved Claude Native login tokens to Anthropic unless a custom endpoint is explicitly configured in the global settings file.
 
 - Keep Native OAuth verifiers out of sign-in and callback URLs by using an independent random state value.

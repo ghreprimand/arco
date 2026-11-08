@@ -52,3 +52,42 @@ test('requests: cross-site no-cors subresource refused; cross-site navigation to
   assert.equal(checkRequestOrigin(req({ host: '127.0.0.1:3001', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' }, 'GET', '/')).ok, true);
   assert.equal(checkRequestOrigin(req({ host: '127.0.0.1:3001', 'sec-fetch-site': 'cross-site', 'sec-fetch-mode': 'navigate' }, 'GET', '/api/files')).ok, false);
 });
+
+ test('L01: browser origins are exact scheme/host/port tuples, not hostname classes', () => {
+  const previous = process.env.ARCO_SERVE_CLIENT;
+  process.env.ARCO_SERVE_CLIENT = '1';
+  try {
+    for (const origin of ['http://localhost:45678', 'https://localhost:3001', 'http://192.0.2.40:3001', 'https://unrelated.tail-example.ts.net', 'http://localhost:5173']) {
+      for (const [method, url] of [['OPTIONS', '/api/fixture-only'], ['POST', '/api/fixture-only'], ['GET', '/ws'], ['GET', '/terminal']]) {
+        assert.equal(checkRequestOrigin(req({ host: 'localhost:3001', origin }, method, url)).ok, false, `${method} ${url} ${origin}`);
+      }
+    }
+    assert.equal(checkRequestOrigin(req({ host: 'localhost:3001', origin: 'http://localhost:3001' })).ok, true);
+  } finally { if (previous === undefined) delete process.env.ARCO_SERVE_CLIENT; else process.env.ARCO_SERVE_CLIENT = previous; }
+});
+
+ test('L01: development and explicitly configured remote origins keep their exact authority', () => {
+  const names = ['ARCO_SERVE_CLIENT', 'ARCO_ALLOWED_HOSTS', 'ARCO_ALLOWED_ORIGINS', 'ARCO_CLIENT_PORT'];
+  const previous = new Map(names.map(name => [name, process.env[name]]));
+  delete process.env.ARCO_SERVE_CLIENT; process.env.ARCO_CLIENT_PORT = '5173';
+  process.env.ARCO_ALLOWED_HOSTS = 'workbench.tail-example.ts.net';
+  process.env.ARCO_ALLOWED_ORIGINS = 'https://workbench.example:8443';
+  try {
+    for (const [host, origin] of [['localhost:3001', 'http://localhost:5173'], ['workbench.tail-example.ts.net', 'https://workbench.tail-example.ts.net'], ['workbench.example:8443', 'https://workbench.example:8443']]) {
+      assert.equal(checkRequestOrigin(req({ host, origin }, 'POST')).ok, true, origin);
+    }
+    for (const origin of ['http://workbench.example:8443', 'https://workbench.example:8444', 'https://other.tail-example.ts.net', 'http://user:pass@localhost:3001', 'http://localhost:3001/path']) {
+      assert.equal(checkRequestOrigin(req({ host: 'localhost:3001', origin }, 'POST')).ok, false, origin);
+    }
+    assert.equal(checkRequestOrigin(req({ host: 'localhost:3001', 'sec-fetch-site': 'same-site', 'sec-fetch-mode': 'no-cors' }, 'GET', '/api/fixture-only')).ok, false);
+  } finally { for (const [name, value] of previous) { if (value === undefined) delete process.env[name]; else process.env[name] = value; } }
+});
+
+ test('L01: same-origin remote upgrades need no new configuration', () => {
+  const saved = process.env.ARCO_ALLOWED_HOSTS; delete process.env.ARCO_ALLOWED_HOSTS;
+  try {
+    for (const [host, origin, forwarded] of [['existing.tail-example.ts.net:8088', 'http://existing.tail-example.ts.net:8088', ''], ['existing.tail-example.ts.net', 'https://existing.tail-example.ts.net', 'https']]) {
+      assert.equal(checkRequestOrigin(req({ host, origin, ...(forwarded ? { 'x-forwarded-proto': forwarded } : {}) }, 'POST')).ok, true, origin);
+    }
+  } finally { if (saved === undefined) delete process.env.ARCO_ALLOWED_HOSTS; else process.env.ARCO_ALLOWED_HOSTS = saved; }
+});

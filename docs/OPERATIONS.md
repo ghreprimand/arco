@@ -532,14 +532,11 @@ servers for the smoke harness use): `ARCO_WS_AUTH=off`, e.g. an
 `Environment=ARCO_WS_AUTH=off` line in the unit's `override.conf`, then
 restart.
 
-Every HTTP request and socket upgrade also passes a Host and Origin check
-(`server/src/http/originGuard.ts`) that stops other web pages and DNS
-rebinding from reaching the server through the browser. Allowed names are
-loopback names, IP addresses, this computer's host name, Tailscale MagicDNS
-names (`*.ts.net`) and the names in `ARCO_ALLOWED_HOSTS` (comma-separated;
-`*.example.com` allows every subdomain). Set `ARCO_ALLOWED_HOSTS` when a
-reverse proxy or tunnel reaches Arco under another name. Requests without an
-Origin header, such as `curl`, pass this check.
+Every HTTP request and socket upgrade passes Host validation and a separate browser-origin check. Browser approval matches the complete scheme, host and port. A request matching its own served address remains approved after Host validation, including existing remote addresses; no upgrade configuration is needed for that access. A reverse proxy preserves Host and sets X-Forwarded-Proto to its public scheme. The server's local origins are approved; the frontend port (`ARCO_CLIENT_PORT`, normally 5173) is approved only in development mode, when `ARCO_SERVE_CLIENT` is not `1`. Other localhost ports, unrelated IP origins and unconfigured tailnet names are refused before handlers run.
+
+`ARCO_ALLOWED_HOSTS` retains Host rules, including `*.example.com`. Exact names also approve HTTP at the server/development port and HTTPS at its default port. Wildcards never approve browser origins. Add extra cross-origin callers through `ARCO_ALLOWED_ORIGINS`, a comma-separated list such as `https://workbench.example:8443`. Values must be HTTP(S) origins without credentials, paths, queries or fragments. The package service keeps this configuration. Restart the service after changing it.
+
+Requests without Origin remain available to non-browser clients. Browser requests marked same-site or cross-site need an approved Origin for APIs and uploads; navigation to the app shell remains available.
 
 To use Arco remotely, **prefer an SSH or Vite tunnel** (forward `5173`/`3001`
 over SSH, or `ssh -L`) so the bind stays loopback and only your authenticated
@@ -573,7 +570,8 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_PORT` | `3001` | Server HTTP/WS port |
 | `ARCO_UPDATE_CHECK` | enabled | Set `0` to prevent automatic and manual GitHub release checks; overrides Settings |
 | `ARCO_HOST` | `127.0.0.1` | Server bind address. Loopback by default - the HTTP/WS surface has **no user login**, only the session cookie and Host/Origin check (see Exposure posture). Set `0.0.0.0` only to deliberately expose to the LAN |
-| `ARCO_ALLOWED_HOSTS` | unset | Extra host names the Host and Origin check accepts (comma-separated, `*.suffix` wildcards), for a reverse proxy or tunnel name. Kept by the package service |
+| `ARCO_ALLOWED_HOSTS` | unset | Extra Host names (comma-separated, `*.suffix` wildcards). Exact names also approve the standard server/development HTTP and HTTPS origins; wildcards do not approve browser origins. Kept by the package service |
+| `ARCO_ALLOWED_ORIGINS` | unset | Extra exact HTTP(S) browser origins, including scheme and port, for reverse proxies or custom remote access. Kept by the package service |
 | `ARCO_WS_AUTH` | on | `off` disables the session-cookie gate on `/ws`, `/terminal`, `/upload` and `/api/*` (`server/src/http/wsAuth.ts`). For throwaway smoke-test servers and as an emergency off-switch only - never leave it on `arco.service` |
 | `ARCO_HOME` | `~/.arco` (`%USERPROFILE%\.arco` on Windows) | Relocates the whole Arco home: settings, provider accounts and secrets, clusters, chats, checkpoints, the MCP registry, logs and the source for `scripts/arco-backup.ts`. `ARCO_HOME` takes precedence. Per-project state stays under `<project>/.arco/` |
 | `ARCO_SERVE_CLIENT` | unset | Set `1` (service mode) to make the server serve the built `client/dist` as a static-file fallback (SPA fallback to `index.html`). Unset -> Vite owns the client in dev. See [`SERVICE_MODE.md`](SERVICE_MODE.md) |

@@ -705,6 +705,8 @@ Cursor is an ACP provider (`cursor-agent acp`). Current transport details are su
 
 ## Operator session-cookie gate (WS + HTTP)
 
+- **Browser approval uses exact origins, not hostname classes.** Scheme, host and port must match a served local origin, enabled development frontend or explicitly configured remote origin. `ARCO_ALLOWED_HOSTS` wildcards apply to Host validation only. Custom proxy ports use `ARCO_ALLOWED_ORIGINS`. Same-site browser subresources without Origin cannot use the API.
+
 - **`/ws`, `/terminal`, `/upload` and every non-agent `/api/*` route need the browser session cookie** (`server/src/http/wsAuth.ts`). Origin guard alone admitted every Origin-less local process - a local script could otherwise drive `cluster_dispatch_once` and `update_primary_config { goalRun }` over a Node `ws` connection with every automation toggle OFF. Don't add an Origin-less or cookie-less bypass for convenience; scripted clients use a test server with `ARCO_WS_AUTH=off`.
 - **The signing key is memory-only and per-boot.** Never persist it or put it in env/a file - anything an agent can `cat` defeats the gate. Consequence: every restart invalidates cookies, so every client connect path must `await ensureWsSession()` first (both `useWebSocket.ts` and `XtermView.tsx` do). A new socket opener that skips it works until the first deploy, then 401-loops.
 - **Mint requires browser fetch metadata** (`Sec-Fetch-Site: same-origin`, `Sec-Fetch-Mode: cors|same-origin`, `Sec-Fetch-Dest: empty`, `Origin`). Not an OS sandbox: a same-user process that forges those headers can mint. The gate makes scripting the control plane deliberate circumvention, and logs every refusal.

@@ -85,7 +85,7 @@ export default defineConfig({
         const wsProxy = createProxyMiddleware({
           target: SERVER_TARGET,
           ws: true,
-          changeOrigin: true,
+          changeOrigin: false,
         });
         // Intercept WebSocket upgrades and proxy them to the Arco server.
         // `/ws` = the main seq'd protocol; `/terminal` = the operator-PTY raw
@@ -115,9 +115,9 @@ export default defineConfig({
     // diverge from $URL and break the launcher's wait_ready check).
     strictPort: true,
     proxy: {
-      '/upload': { target: SERVER_TARGET, changeOrigin: true },
-      '/health': { target: SERVER_TARGET, changeOrigin: true },
-      '/api': { target: SERVER_TARGET, changeOrigin: true },
+      '/upload': { target: SERVER_TARGET, changeOrigin: false },
+      '/health': { target: SERVER_TARGET, changeOrigin: false },
+      '/api': { target: SERVER_TARGET, changeOrigin: false },
       // Catch-all for iframe sub-resources whose absolute paths land at
       // Vite. The bypass function returns `req.url` to SKIP the proxy
       // (Vite serves the request normally) and `undefined` to PROXY. We
@@ -128,7 +128,7 @@ export default defineConfig({
       // `/src/*`, `/@vite/*`, `/@fs/*` paths in Vite 6.
       '^/.*': {
         target: SERVER_TARGET,
-        changeOrigin: true,
+        changeOrigin: false,
         bypass(req) {
           const wfid = previewWfidForRequest(req);
           if (!wfid) return req.url; // not a preview request — let Vite handle

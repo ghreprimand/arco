@@ -108,3 +108,14 @@ test('a path with dot segments or another non-canonical form cannot reach a prot
 });
 
 test.after(() => { setImmediate(() => process.exit(process.exitCode ?? 0)); });
+
+ test('L01: wrong origins stop preflight and credentialed HTTP before route work', async () => {
+  const { mintToken, SESSION_COOKIE } = await import('./wsAuth.js');
+  const cookie = `${SESSION_COOKIE}=${mintToken()}`;
+  for (const origin of ['http://localhost:45678', 'http://192.0.2.40:3001', 'https://unrelated.tail-example.ts.net']) {
+    for (const method of ['OPTIONS', 'POST']) {
+      const reply = await send(method, '/api/fixture-only', '', { origin, cookie });
+      assert.equal(reply.status, 403, `${method} ${origin}: ${reply.body}`);
+    }
+  }
+});

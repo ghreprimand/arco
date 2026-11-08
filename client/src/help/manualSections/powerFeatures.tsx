@@ -362,6 +362,8 @@ export const powerFeatures: Section[] = [
   None of them rely on a model's judgment; they use fixed signals and put you in
   the loop.
   </p>
+  <Sub>Browser origins</Sub>
+  <p>Arco approves a browser origin by its complete scheme, host and port. Other localhost ports, except the enabled development frontend, and unconfigured tailnet sites cannot use the API or control sockets. Host wildcards do not widen browser approval.</p>
   <Sub>Project trust</Sub>
   <p>
   When a tab's folder ships a <Code>CLAUDE.md</Code>, project skills or project
@@ -636,6 +638,7 @@ export const powerFeatures: Section[] = [
   machine and use it from anywhere over SSH. A separate, much narrower hub path
   covers checking on work from a phone.
   </p>
+  <p>Existing access through Arco's own address keeps working after Host validation. A reverse proxy preserves Host and states its public scheme. Extra cross-origin callers need their full origin in <Code>ARCO_ALLOWED_ORIGINS</Code>, including scheme and port. The package service keeps that setting; restart after changing it. The separate outbound management hub is unchanged.</p>
   <Sub>Using Arco over SSH</Sub>
   <ol>
   <li>
