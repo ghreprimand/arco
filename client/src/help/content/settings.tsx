@@ -169,7 +169,9 @@ export const settingsHelp: Record<string, HelpEntry> = {
         Provider accounts, credentials and system folders stay blocked. Remove a
         folder, turn access off or choose Revoke all to end extra access on the
         next request. Media conversion operations write a new file. The image
-        editor can overwrite an existing image after confirmation.
+        editor can overwrite an existing image after confirmation. This setting
+        controls Media Studio only; browser file views, built-in file tools and
+        shell commands use separate access rules.
       </p>
     ),
     manualSection: 'settings-operator',

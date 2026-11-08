@@ -589,16 +589,18 @@ export const miscHelp: Record<string, HelpEntry> = {
         <ul style={{ margin: '4px 0', paddingLeft: '18px' }}>
           <li>
             <strong>AUTO</strong>: passes <C>--dangerously-skip-permissions</C>
-            {' '}(Claude) / unrestricted sandbox to the primary. Tools execute
-            without per-call approval. The agent can write files, run Bash,
-            etc. autonomously. Faster, but the agent has full system access
-            within the cwd.
+            {' '}(Claude) / danger-full-access sandbox to the primary unless a
+            Codex sandbox is set explicitly. Tools execute without per-call
+            approval. The agent can write files and run Bash autonomously.
+            Reach depends on the provider and enabled tools; shell commands may
+            access files outside the workflow folder.
           </li>
           <li>
-            <strong>SAFE</strong>: every privileged tool call requires
-            explicit approval. Slower in interactive use; appropriate when you
-            don't yet trust the agent on this codebase, or when running an
-            untested model.
+            <strong>SAFE</strong>: does not enable AUTO. Arco-managed local
+            tool loops return a denial for calls instead of running them;
+            Claude and Codex use their own normal permission or sandbox rules.
+            Built-in file tools have workflow-folder checks, and Native has a
+            separate limited write prompt. These checks do not sandbox Bash.
           </li>
         </ul>
         <p>
@@ -606,6 +608,7 @@ export const miscHelp: Record<string, HelpEntry> = {
           setting (Read/Grep/Glob only for Claude; <C>read-only</C> sandbox for
           Codex).
         </p>
+        <p>Browser file views use an allowed-root policy that refuses private folders. Built-in file tools stay inside the project folder but can read project content such as <C>.claude</C> or <C>.codex</C>. Claude Native has a separate prompt for writes to a small set of sensitive targets. These rules do not constrain Bash or replace provider CLI sandbox settings.</p>
       </>
     ),
     manualSection: 'safety-rails',

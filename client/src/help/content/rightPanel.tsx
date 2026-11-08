@@ -300,7 +300,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'CONFIG',
     body: (
       <>
-        <p>Settings for this tab that apply while it runs: model, effort, Codex sandbox, Claude tool list, auto-handoff after a number of compactions and the memory guard. A red dot means the provider&apos;s command-line tool changed what it supports since you last looked.</p>
+        <p>Settings for this tab that apply while it runs: model, effort, Codex sandbox, Claude tool list, auto-handoff after a number of compactions and the memory guard. The Codex sandbox is enforced by Codex and is separate from Arco&apos;s browser path policy and workflow-folder file-tool boundary. A red dot means the provider&apos;s command-line tool changed what it supports since you last looked.</p>
         <p>Claude tabs choose a <C>TRANSPORT</C>: <C>cli</C> starts the command-line tool for each turn, while <C>native</C> keeps a long-running worker that adds compaction, automatic handoff, plan mode and subtasks. Codex tabs choose <C>exec</C> or <C>app-server</C>; app-server adds clean interrupts and steering during a turn. Reviews and handoff notes for Claude and Codex always use the command-line tool.</p>
         <p>Every tab has <C>OUTPUT STYLE</C>: <C>NORMAL</C>, <C>PLAIN</C> (clear sentences with the answer first, and a complete final reply) and <C>TERSE</C> (short sentences, no summary). It changes how replies are written, not what is sent. Plain is the default: a tab without a saved choice uses it, and a tab saved as Lite before 0.1.5 uses Plain. Code, error text and file paths stay exact, and Review, Handoff, DOCS and GIT always use Normal.</p>
       </>

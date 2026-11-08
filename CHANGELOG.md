@@ -68,6 +68,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ### Changed
 
 - With KEEP CURRENT set to PLAN or BOTH and a plan attached, directors add uncovered approved work before assignment, group related work into one plan item and name the item in their reply.
+- Clarify the scope of browser file checks, built-in file tools, Media Access, and shell permissions.
 
 - DRAFT ASSIST is hidden in this version.
 - Project folder choices list existing location folders and bookmarks alphabetically, with recently used folders separate and temporary folders excluded. Project trust decisions have search and a bounded scrolling list.

@@ -157,7 +157,10 @@ export const media: Section[] = [
           outside-folder access and an allowed folder in Settings &gt; Files and
           media &gt; Media folder access. By default, access is limited to the workflow folder,
           uploads and import scratch. Removing a folder or turning access off
-          takes effect on the next request.
+          takes effect on the next request. This setting controls Media Studio
+          only. Browser file views and built-in file tools use separate path
+          checks; shell commands follow their own execution and provider
+          permission settings.
         </Note>
 
         <Sub>Working with results</Sub>

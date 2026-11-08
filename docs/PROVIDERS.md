@@ -1424,7 +1424,7 @@ The v1 allowlist (`server/src/providers/ollamaTools.ts`):
 
 The web tools are the only network-touching ones in v1. SSRF guard is intentional - operators who genuinely need to fetch a localhost URL can use `Bash + curl` in AUTO mode (their explicit choice).
 
-**Path validation.** Every tool resolves its path argument via `resolveWithinCwd()`; absolute paths and `..`-escapes are both rejected. The tool runtime is the only way a local model can touch the filesystem in Arco, so the security boundary lives here, not in the loop layer.
+**Path validation.** Arco-managed file tools stay within the workflow folder and reject links that leave it. Browser file views use a separate allowed-root policy that refuses private folders. That private-folder list does not apply inside project folders, so agent file tools can read project content such as `.claude` or `.codex`. Claude Native also asks before writes to a small set of sensitive targets; that approval is not a read filter. These checks are not a shell sandbox. In AUTO, local-model Bash commands execute; SAFE returns a denial. Provider CLI tools follow their own sandbox and approval settings.
 
 **AUTO vs SAFE.** AUTO mode (`WorkerConfig.skipPermissions = true`) executes tools server-side. SAFE mode (default) returns a denial string the model sees as the tool result, so the loop converges without a new operator-approval protocol surface - the operator can always cancel mid-turn. Per 5.4 design choice (a).
 

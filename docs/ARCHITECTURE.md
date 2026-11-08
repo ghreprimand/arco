@@ -459,6 +459,8 @@ Deterministic, always-on guards (not the model's judgment) that bound what a Nat
 - **OSV malware pre-check** - MCP registry-add runs an OSV malware check (block-with-override, fail-open).
 - **Operator skill security audit** - operator-triggered invisible-unicode + threat scan over skills (`POST /api/skills/audit` + the editor AUDIT button). Diagnostic only - it flags, never blocks.
 
+Arco's browser file views use an allowed-root policy that refuses private folders. Built-in file tools stay inside the project folder but do not apply that private-folder list inside projects; agents can read project content such as `.claude` or `.codex`. Claude Native asks before writes to a small set of sensitive targets, but that is not a read filter. These controls do not sandbox shell commands. Provider CLI tools follow their own sandbox and approval settings, and an allowed command can access paths beyond Arco's file roots. Media Studio has a separate Media Access setting for outside-folder inputs and outputs.
+
 ### Auth
 
 Per-service. Status discovered at boot and cached:

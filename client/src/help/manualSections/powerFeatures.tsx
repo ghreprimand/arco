@@ -567,6 +567,7 @@ export const powerFeatures: Section[] = [
   Arco enforces a set of limits on every spawned worker so a runaway process
   cannot take the machine down.
   </p>
+  <p>Arco&apos;s browser file views use an allowed-root policy that refuses private folders. Built-in file tools stay inside the project folder but can read project content such as <Code>.claude</Code> or <Code>.codex</Code>. Claude Native asks before writes to a small set of sensitive targets, but that is not a read filter. These rules do not sandbox Bash commands or provider CLIs, which follow their own execution, approval and sandbox settings.</p>
   <ul>
   <li>
   <strong>50 MB output cap per turn</strong> (<Code>ARCO_MAX_WORKER_OUTPUT_BYTES</Code>). Beyond that, a truncation notice

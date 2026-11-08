@@ -405,9 +405,10 @@ export const providers: Section[] = [
   <Sub>Sandbox modes</Sub>
   <ul>
   <li><Code>read-only</Code> - reviewers always force this. Reads only.</li>
-  <li><Code>workspace-write</Code> - full read + write within cwd. The default for primaries.</li>
-  <li><Code>danger-full-access</Code> - no sandboxing. Use only when the implications are understood.</li>
+  <li><Code>workspace-write</Code> - provider sandbox permits workspace writes. The default for primaries.</li>
+  <li><Code>danger-full-access</Code> - no provider sandbox. Use only when the implications are understood.</li>
   </ul>
+  <p>These are Codex sandbox modes, separate from Arco&apos;s browser file views and built-in file-tool path checks. Shell commands and provider CLI tools follow their own execution, approval and sandbox settings; Arco&apos;s allowed-root policy does not constrain them.</p>
   <Sub>App-server features</Sub>
   <p>
   CONFIG can switch a tab from <Code>exec</Code> to <Code>app-server</Code>.
@@ -709,6 +710,8 @@ export const providers: Section[] = [
   ['SAFE', 'Returns a denial string the model sees as the tool result. The loop converges without an operator-approval surface.'],
   ]}
   />
+  <p>Arco-managed file tools stay within the workflow folder, but the browser private-folder list is not applied inside projects. Agents can read project content such as <Code>.claude</Code> or <Code>.codex</Code>. Claude Native also asks before writes to a small set of sensitive targets. Browser file views use separate private-path checks.</p>
+  <p>These file checks are not a shell sandbox. AUTO runs local-model Bash commands, while SAFE returns a denial. Provider CLI tools follow their own sandbox and approval settings.</p>
   <p>Mid-turn cancel remains available at any time in either mode.</p>
   <Sub>Limitations to keep in mind</Sub>
   <ul>
