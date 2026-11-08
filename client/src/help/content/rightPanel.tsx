@@ -267,7 +267,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           done work against the tree and diff.
         </p>
       <p>Reconnect restores the active plan independently of context estimation, including when its original attachment event is outside the recent history tail.</p>
-      </>
+      <p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>
     ),
     manualSection: 'plan-review',
   },
@@ -860,20 +860,20 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   'rightpanel.tab.knowledge': {
     title: 'KNOWLEDGE',
     body: (
-      <p>
+      <><p>
         Per-project knowledge base: durable facts, gotchas, and links stored as
         markdown under <C>.arco/knowledge/</C>. Mark an article{' '}
         <em>always include</em> to fold it into every turn's system prompt
         (within a bounded byte budget); leave it on-demand to keep it readable
         here only. Articles are operator-authored or agent-drafted, but nothing
         saves without an explicit <C>Save</C>.
-      </p>
+      </p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>
     ),
     manualSection: 'knowledge-base',
   },
   'rightpanel.knowledge.add': {
     title: '+ ADD',
-    body: <p>Opens <C>ADD ARTICLE</C> with three sources: <C>Blank article</C>, <C>Quick link</C> (a URL and a summary you write) or <C>Distill from this session</C> (an agent drafts from the transcript). Each ends in editable fields you <C>SAVE</C>.</p>,
+    body: <><p>Opens <C>ADD ARTICLE</C> with three sources: <C>Blank article</C>, <C>Quick link</C> (a URL and a summary you write) or <C>Distill from this session</C> (an agent drafts from the transcript). Each ends in editable fields you <C>SAVE</C>.</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>,
     manualSection: 'knowledge-base',
   },
   'rightpanel.knowledge.budget': {
@@ -893,7 +893,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.knowledge.delete': {
     title: 'Delete article',
-    body: <p>Remove this article from the knowledge base (deletes its markdown file under <C>.arco/knowledge/</C>).</p>,
+    body: <><p>Remove this article from the knowledge base (deletes its markdown file under <C>.arco/knowledge/</C>).</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>,
     manualSection: 'knowledge-base',
   },
   'rightpanel.knowledge.backlinks': {
@@ -949,7 +949,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.knowledge.save': {
     title: 'Save article',
-    body: <p>Persist the article to the knowledge base. <strong>This is the only path that saves</strong>: a distilled draft is never saved until you click here.</p>,
+    body: <><p>Persist the article to the knowledge base. <strong>This is the only path that saves</strong>: a distilled draft is never saved until you click here.</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>,
     manualSection: 'knowledge-base',
   },
   'rightpanel.workspace-rename': {

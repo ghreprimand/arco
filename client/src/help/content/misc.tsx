@@ -1249,27 +1249,27 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'plan.checkbox': {
     title: 'Plan checkbox',
-    body: <p>Marks this task done or not done. The save checks the plan version you saw. If another edit arrived first, it is kept and a conflict asks for a fresh review before retrying.</p>,
+    body: <><p>Marks this task done or not done. The save checks the plan version you saw. If another edit arrived first, it is kept and a conflict asks for a fresh review before retrying.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>,
     manualSection: 'plan-checklists',
   },
   'plan.new': {
     title: 'New plan',
     body: (
-      <p>
+      <><p>
         Open the inline plan editor: type a title and body, then click{' '}
         <C>CREATE & ATTACH</C> to save and attach in one step. Bypasses the
         agent draft flow.
-       Plan fields and changes to the draft wait while its save is pending.</p>
+       Plan fields and changes to the draft wait while its save is pending.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
     ),
   },
   'plan.edit': {
     title: 'Edit plan',
     body: (
-      <p>
+      <><p>
         Opens the title + body editor for the active plan. Save commits to{' '}
         <C>.arco/plans/&lt;id&gt;.md</C>; the body re-injects on the next
         turn so the agent sees your edits.
-       Plan fields and changes to the draft wait while its save is pending.</p>
+       Plan fields and changes to the draft wait while its save is pending.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
     ),
   },
   'plan.detach': {
@@ -1325,14 +1325,14 @@ export const miscHelp: Record<string, HelpEntry> = {
   'plan.refs': {
     title: 'Reference docs',
     body: (
-      <p>
+      <><p>
         Long-form docs attached to this plan (<C>.arco/plans/&lt;id&gt;.refs/</C>).
         Keep the plan a checklist and link detail from a task as{' '}
         <C>[label](ref:slug)</C>: the link renders as a chip that opens the doc.
         <C> + REF</C> adds one; the viewer edits or deletes it. Agents write refs
         with <C>plan_ref_write</C>, and are told to read the refs a task links
         before working it.
-       Lists follow the selected plan. Opening a link checks the saved document before offering creation; creating a ref never replaces an existing one. Fields and Cancel wait while a save is pending.</p>
+       Lists follow the selected plan. Opening a link checks the saved document before offering creation; creating a ref never replaces an existing one. Fields and Cancel wait while a save is pending.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
     ),
     manualSection: 'plan-refs',
   },
@@ -1505,32 +1505,32 @@ export const miscHelp: Record<string, HelpEntry> = {
   'plan.move': {
     title: 'Move plan to another project',
     body: (
-      <p>
+      <><p>
         Relocates the plan's <C>.md</C> file from the current tab's project
         directory to a different one. Pick from the list of other open
         tabs, or paste an absolute path. Plan id is preserved; attachments
         in the source cwd are dropped (they refer to a workflow that won't
         exist at the destination). The source tab's PLAN tab clears once
         the move completes.
-       A refused move keeps every source attachment unchanged.</p>
+       A refused move keeps every source attachment unchanged.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
     ),
   },
   'plan.mark-complete': {
     title: 'Mark complete',
     body: (
-      <p>
+      <><p>
         Archives the plan and auto-detaches it from any attached workflows.
         Lives in the completed list (toggle to view); reopenable if needed.
-      </p>
+      </p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
     ),
   },
   'plan.delete': {
     title: 'Delete plan',
     body: (
-      <p>
+      <><p>
         Permanently deletes the plan file from disk. Confirmation required.
         Use <C>MARK COMPLETE</C> instead if you want to keep the history.
-      </p>
+      </p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
     ),
   },
   // -------------------------------------------------------- CHAT SURFACES

@@ -1,3 +1,4 @@
+import { managedPath, projectDocumentPath } from './managedPath.js';
 import { withSkillMutation } from './skillMutation.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // Arco-managed operator skills. Distinct from `toolbox.ts`, which scans the
@@ -111,7 +112,7 @@ export async function setBuiltinSkillOff(slug: string, off: boolean): Promise<vo
   if (!listBuiltinSkills().some((s) => s.slug === slug)) throw new Error('built-in skill not found');
   const dir = path.join(arcoHome(), 'builtin-skill-state', slug);
   await mkdir(dir, { recursive: true, mode: 0o700 });
-  const file = path.join(dir, SKILL_SIDECAR);
+  const file = managedPath(dir, SKILL_SIDECAR);
   if (off) {
     const temp = `${file}.${randomUUID()}.tmp`;
     try { await writeFile(temp, '{"off":true}\n', { mode: 0o600, flag: 'wx' }); await rename(temp, file); }
@@ -169,7 +170,7 @@ export type StoredSkillSource =
 export interface SkillSidecar { off?: boolean; source?: StoredSkillSource; importedAt?: number; updatedAt?: number }
 export async function readSkillSidecar(dir: string): Promise<SkillSidecar> {
   try {
-    const parsed = JSON.parse(await readFile(path.join(dir, SKILL_SIDECAR), 'utf8')) as SkillSidecar;
+    const parsed = JSON.parse(await readFile(managedPath(dir, SKILL_SIDECAR), 'utf8')) as SkillSidecar;
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch { return {}; }
 }
@@ -183,11 +184,11 @@ export function isValidSlug(slug: string): boolean {
 }
 
 function projectSkillsRoot(cwd: string): string {
-  return path.join(cwd, '.arco', 'skills');
+  return projectDocumentPath(cwd, 'skills');
 }
 
 function globalSkillsRoot(): string {
-  return path.join(arcoHome(), 'skills');
+  return managedPath(arcoHome(), 'skills');
 }
 
 export function rootForScope(scope: SkillScope, cwd: string): string {
@@ -223,7 +224,7 @@ export function skillSlugCandidate(base: string, n: number): string {
 function skillFilePath(scope: SkillScope, slug: string, cwd: string): string {
   if (!isValidSlug(slug)) throw new Error(`invalid skill slug: ${slug}`);
   const root = rootForScope(scope, cwd);
-  const candidate = path.resolve(root, slug, 'SKILL.md');
+  const candidate = managedPath(root, slug, 'SKILL.md');
   const rootResolved = path.resolve(root);
   if (!candidate.startsWith(rootResolved + path.sep)) {
     throw new Error('skill path escapes scope root');
@@ -300,16 +301,18 @@ async function scanScope(scope: SkillScope, cwd: string): Promise<SkillSummary[]
   const results: SkillSummary[] = [];
   for (const slug of entries) {
     if (!isValidSlug(slug)) continue;
-    const dir = path.join(root, slug);
+    let dir: string;
     try {
+      dir = managedPath(root, slug);
       const st = await stat(dir);
       if (!st.isDirectory()) continue;
     } catch {
       continue;
     }
-    const skillPath = path.join(dir, 'SKILL.md');
+    let skillPath: string;
     let text: string;
     try {
+      skillPath = managedPath(root, slug, 'SKILL.md');
       text = await readFile(skillPath, 'utf8');
     } catch {
       continue; // no SKILL.md (or unreadable) — skipped per the plan

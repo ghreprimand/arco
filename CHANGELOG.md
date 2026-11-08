@@ -77,6 +77,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Plan references, skills, knowledge and handoff prompt storage refuse linked files and folders.
+
 - Native and local file tools refuse links and Glob patterns that leave the workflow folder while preserving ordinary inward links.
 
 - Saved proposal decisions survive concurrent requests and retries. Parent tasks remain dependencies across reversed or separate selections.

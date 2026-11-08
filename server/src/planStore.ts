@@ -1,3 +1,4 @@
+import { managedPath, projectDocumentPath } from './managedPath.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // Plan store — long-form markdown briefs that workflows can attach to.
 //
@@ -22,15 +23,15 @@ const TITLE_MAX = 200;
 const BODY_MAX = 256 * 1024; // 256 KB — generous for long-form briefs
 
 function plansDir(cwd: string): string {
-  return path.join(cwd, '.arco', 'plans');
+  return projectDocumentPath(cwd, 'plans');
 }
 
 function indexPath(cwd: string): string {
-  return path.join(plansDir(cwd), 'index.json');
+  return projectDocumentPath(cwd, 'plans', 'index.json');
 }
 
 function bodyPath(cwd: string, planId: string): string {
-  return path.join(plansDir(cwd), `${planId}.md`);
+  return projectDocumentPath(cwd, 'plans', `${planId}.md`);
 }
 
 export function isValidPlanId(id: string): boolean {
@@ -49,11 +50,11 @@ export function isValidRefSlug(slug: string): boolean {
 }
 
 export function planRefsDir(cwd: string, planId: string): string {
-  return path.join(plansDir(cwd), `${planId}.refs`);
+  return projectDocumentPath(cwd, 'plans', `${planId}.refs`);
 }
 
 function refPath(cwd: string, planId: string, slug: string): string {
-  return path.join(planRefsDir(cwd, planId), `${slug}.md`);
+  return projectDocumentPath(cwd, 'plans', `${planId}.refs`, `${slug}.md`);
 }
 
 interface PlanIndex {
@@ -193,14 +194,30 @@ async function refsSnapshot(cwd: string, planId: string): Promise<string> {
   const out: Array<[string, string | null]> = [];
   for (const name of names) {
     let content: string | null = null;
-    try { content = await fs.readFile(path.join(dir, name), 'utf8'); } catch { /* not a readable file */ }
+    const file = managedPath(dir, name);
+    try { content = await fs.readFile(file, 'utf8'); } catch { /* not a readable file */ }
     out.push([name, content]);
   }
   return JSON.stringify(out);
 }
 
+async function checkRefsTree(cwd: string, planId: string): Promise<void> {
+  const root = planRefsDir(cwd, planId);
+  const walk = async (dir: string): Promise<void> => {
+    let entries;
+    try { entries = await fs.readdir(dir, { withFileTypes: true }); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return; throw error; }
+    for (const entry of entries) {
+      const file = managedPath(root, path.relative(root, dir), entry.name);
+      if (entry.isDirectory()) await walk(file);
+    }
+  };
+  await walk(root);
+}
+
 // The target's reference documents become a copy of the source's.
 async function copyRefs(sourceCwd: string, targetCwd: string, planId: string): Promise<void> {
+  await checkRefsTree(sourceCwd, planId);
   await fs.rm(planRefsDir(targetCwd, planId), { recursive: true, force: true });
   try {
     await fs.cp(planRefsDir(sourceCwd, planId), planRefsDir(targetCwd, planId), { recursive: true, force: true });
@@ -235,6 +252,7 @@ export async function movePlan(
   if (!sourceCwd || !targetCwd) return { ok: false, error: 'sourceCwd and targetCwd required' };
   if (!isValidPlanId(planId)) return { ok: false, error: 'invalid plan id' };
   if (sourceCwd === targetCwd) return { ok: false, error: 'source and target must differ' };
+  await checkRefsTree(sourceCwd, planId);
   let source = await readPlan(sourceCwd, planId);
   if (!source) return { ok: false, error: 'source plan not found' };
   const movedSummary: PlanSummary = {

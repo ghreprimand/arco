@@ -1,3 +1,4 @@
+import { managedPath, projectDocumentPath } from './managedPath.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // Phase 3 (operator-features) — operator-editable Handoff prompts.
 //
@@ -175,15 +176,15 @@ export const DEFAULT_TEMPLATES: Record<HandoffPromptMode, string> = {
 };
 
 function rootForScope(scope: HandoffPromptScope, cwd: string): string {
-  if (scope === 'global') return arcoHome();
+  if (scope === 'global') return managedPath(arcoHome());
   if (!cwd) throw new Error('project scope requires cwd');
-  return path.join(cwd, '.arco');
+  return projectDocumentPath(cwd);
 }
 
 function overridePath(scope: HandoffPromptScope, mode: HandoffPromptMode, cwd: string): string {
   const root = rootForScope(scope, cwd);
   const file = FILE_BY_MODE[mode];
-  const candidate = path.resolve(root, file);
+  const candidate = managedPath(root, file);
   const rootResolved = path.resolve(root);
   // Guardrail mirrored from skills.ts: the file must live directly in the
   // scope root. With a fixed basename this is structurally guaranteed, but

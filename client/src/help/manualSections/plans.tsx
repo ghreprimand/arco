@@ -334,6 +334,7 @@ export const plans: Section[] = [
     title: 'Plan reference docs',
     body: (
       <>
+  <p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p>
         <p>
           Reference docs hold the long-form detail a checklist should not: specs,
           research, design notes and API contracts that a task depends on. They are

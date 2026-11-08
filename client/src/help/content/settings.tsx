@@ -349,14 +349,14 @@ export const settingsHelp: Record<string, HelpEntry> = {
   'settings.skills': {
     title: 'Skills',
     body: (
-      <p>
+      <><p>
         Project and global skills: a folder with a <C>SKILL.md</C> and any files
         it needs. Arco lists names and descriptions to the agent each turn; the
         agent reads a full skill only when needed. Descriptions can have up to 300 characters. Built-in skills can be turned on or off. Each row shows the extra files,
         where an imported skill came from, and skill names its text refers to that
         are not installed. Project skills are in <C>.arco/skills/</C>, which Git
         ignores unless you use <C>SHARE WITH REPOSITORY</C>.
-       The selected workflow or cluster supplies the project folder. Quotes and backslashes survive repeated name and description edits.</p>
+       The selected workflow or cluster supplies the project folder. Quotes and backslashes survive repeated name and description edits.</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>
     ),
     manualSection: 'skills',
   },
@@ -372,17 +372,17 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.skills.toggle': {
     title: 'TURN OFF / TURN ON',
-    body: <p><C>TURN OFF</C> keeps the skill but leaves it out of the agent's list, of tab pins and of the composer SKILLS menu. It is shown greyed with OFF. Built-in skills stay visible in the composer but cannot run. <C>TURN ON</C> brings it back.</p>,
+    body: <><p><C>TURN OFF</C> keeps the skill but leaves it out of the agent's list, of tab pins and of the composer SKILLS menu. It is shown greyed with OFF. Built-in skills stay visible in the composer but cannot run. <C>TURN ON</C> brings it back.</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>,
     manualSection: 'skills',
   },
   'settings.skills.move': {
     title: 'MOVE TO GLOBAL / MOVE TO PROJECT',
-    body: <p>Moves the skill folder, with all its files, between this project's skills and your global skills (every project). It asks first. Tabs that pinned the skill lose the pin. Long folder names leave room for a numeric collision suffix within the 64-character limit.</p>,
+    body: <><p>Moves the skill folder, with all its files, between this project's skills and your global skills (every project). It asks first. Tabs that pinned the skill lose the pin. Long folder names leave room for a numeric collision suffix within the 64-character limit.</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>,
     manualSection: 'skills',
   },
   'settings.skills.duplicate': {
     title: 'DUPLICATE',
-    body: <p><C>DUPLICATE</C> copies the skill and its files under a new name, as a starting point for your own version. The copy has no import source, so UPDATE does not apply to it. Long folder names leave room for a numeric collision suffix within the 64-character limit.</p>,
+    body: <><p><C>DUPLICATE</C> copies the skill and its files under a new name, as a starting point for your own version. The copy has no import source, so UPDATE does not apply to it. Long folder names leave room for a numeric collision suffix within the 64-character limit.</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>,
     manualSection: 'skills',
   },
   'settings.skills.share': {
@@ -393,11 +393,11 @@ export const settingsHelp: Record<string, HelpEntry> = {
   'settings.handoff-prompts': {
     title: 'Handoff prompts',
     body: (
-      <p>
+      <><p>
         Edit the seed prompt used by Handoff / Spawn context export. Project
         overrides live under <C>{'<cwd>/.arco/'}</C>; validation warns if a
         template drops required handoff sentinels.
-       The selected workflow or cluster supplies the project folder.</p>
+       The selected workflow or cluster supplies the project folder.</p><p>Plan references, knowledge articles, skills and handoff prompt overrides refuse linked files or folders inside their storage. Replace the link with an ordinary file or folder before saving. The project folder itself can still use a filesystem alias.</p></>
     ),
     manualSection: 'settings-operator',
   },

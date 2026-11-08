@@ -1,3 +1,4 @@
+import { projectDocumentPath } from '../managedPath.js';
 import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // Knowledge store - docs/ARCHITECTURE.md
 //
@@ -39,13 +40,13 @@ const TAG_MAX = 40;
 const TAGS_MAX = 24;
 
 function knowledgeDir(cwd: string): string {
-  return path.join(cwd, '.arco', 'knowledge');
+  return projectDocumentPath(cwd, 'knowledge');
 }
 function indexPath(cwd: string): string {
-  return path.join(knowledgeDir(cwd), 'index.json');
+  return projectDocumentPath(cwd, 'knowledge', 'index.json');
 }
 function bodyPath(cwd: string, id: string): string {
-  return path.join(knowledgeDir(cwd), `${id}.md`);
+  return projectDocumentPath(cwd, 'knowledge', `${id}.md`);
 }
 
 export function isValidKnowledgeId(id: string): boolean {

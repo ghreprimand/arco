@@ -1,3 +1,4 @@
+import { managedPath } from './managedPath.js';
 import { getPublicProjectChoice } from './publicProjectChoice.js';
 // P8.6 Skill management: IMPORT (GitHub link, local folder, zip), UPDATE with
 // a per-file diff, ON/OFF, MOVE between project and global, DUPLICATE, the
@@ -283,7 +284,7 @@ export async function previewImport(source: ImportSource, fetchImpl: FetchLike =
 async function skillDir(scope: SkillScope, slug: string, cwd: string): Promise<string> {
   if (!isValidSlug(slug)) throw new Error('Unknown skill.');
   const root = rootForScope(scope, cwd);
-  const dir = path.join(root, slug);
+  const dir = managedPath(root, slug);
   const st = await fs.lstat(dir).catch(() => null);
   if (!st || !st.isDirectory()) throw new Error('Unknown skill.');
   return dir;

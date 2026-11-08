@@ -1,3 +1,4 @@
+import { managedPath } from './managedPath.js';
 import { lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { atomicWriteFileSync } from './atomicFile.js';
@@ -46,7 +47,7 @@ export function ignoreWithShares(base: string, slugs: string[]): string {
 /** Create protection before writing project state. Preserve every edited ignore file. */
 export function ensureProjectStateIgnore(cwd: string): void {
   if (!cwd) throw new Error('Project directory required');
-  const dir = join(cwd, '.arco');
+  const dir = managedPath(cwd, '.arco');
   const file = join(dir, '.gitignore');
   mkdirSync(dir, { recursive: true });
   try { writeFileSync(file, DEFAULT_PROJECT_IGNORE, { encoding: 'utf8', flag: 'wx' }); return; }
