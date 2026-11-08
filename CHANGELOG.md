@@ -6,6 +6,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ## Unreleased
 
 - Keep later new-plan edits when an earlier CREATE AND ATTACH request finishes.
+- Refresh saved public-project choices without overwriting another browser's newer decision.
 
 - Apply file-browser privacy rules to artifact listings and avoid linked workflow metadata.
 

@@ -8,6 +8,7 @@ const suggestions = new Map<string, RemoteSuggestion>();
 const suggestionLoads = new Map<string, Promise<void>>();
 const choices = new Map<string, boolean | null>();
 const pending = new Map<string, Promise<void>>();
+const revisions = new Map<string, number>();
 const loading = new Map<string, Promise<void>>();
 const events = new EventTarget();
 
@@ -21,6 +22,7 @@ export function getPublicChoice(cwd: string): boolean | null {
 }
 export function setPublicChoice(cwd: string, value: boolean): Promise<void> {
   if (!cwd) return Promise.resolve();
+  revisions.set(cwd, (revisions.get(cwd) ?? 0) + 1);
   choices.set(cwd, value);
   try { localStorage.setItem(KEY + cwd, value ? '1' : '0'); } catch { /* server remains authoritative */ }
   notify();
@@ -30,27 +32,32 @@ export function setPublicChoice(cwd: string, value: boolean): Promise<void> {
     if (!response.ok) throw new Error('Could not save the public-project choice.');
   });
   pending.set(cwd, next);
-  void next.finally(() => { if (pending.get(cwd) === next) pending.delete(cwd); }).catch(() => {});
+  void next.then(() => { if (pending.get(cwd) === next) pending.delete(cwd); }, () => { /* Keep failed explicit choices blocking plan startup until retried. */ });
   return next;
 }
-async function loadChoice(cwd: string): Promise<void> {
-  if (choices.has(cwd)) return;
+async function loadChoice(cwd: string, refresh = false): Promise<void> {
+  if (!refresh && choices.has(cwd)) return;
   const existing = loading.get(cwd);
-  if (existing) return existing;
+  if (existing) {
+    await existing;
+    if (!refresh) return;
+  }
+  const revision = revisions.get(cwd) ?? 0;
+  const initial = !choices.has(cwd);
   const task = (async () => {
     const response = await fetch(`/api/public-project/choice?path=${encodeURIComponent(cwd)}`);
     if (!response.ok) throw new Error('Could not load the public-project choice.');
     const data = await response.json() as { choice?: unknown };
-    if (choices.has(cwd)) return;
+    if ((revisions.get(cwd) ?? 0) !== revision) return;
     const remote = typeof data.choice === 'boolean' ? data.choice : null;
-    const legacy = localChoice(cwd);
+    const legacy = initial ? localChoice(cwd) : null;
     choices.set(cwd, remote ?? legacy);
     if (remote !== null) { try { localStorage.setItem(KEY + cwd, remote ? '1' : '0'); } catch { /* server remains authoritative */ } }
     notify();
     if (remote === null && legacy !== null) await setPublicChoice(cwd, legacy);
   })();
   loading.set(cwd, task);
-  try { await task; } finally { loading.delete(cwd); }
+  try { await task; } finally { if (loading.get(cwd) === task) loading.delete(cwd); }
 }
 async function loadSuggestion(cwd: string): Promise<void> {
   if (suggestions.has(cwd)) return;
@@ -68,14 +75,17 @@ export function effectivePublic(cwd: string): boolean {
   const chosen = getPublicChoice(cwd);
   return chosen !== null ? chosen : suggestions.get(cwd)?.state === 'public';
 }
-/** Persist the answer before starting a draft or creating a plan. */
+async function awaitChoiceWrites(cwd: string): Promise<void> {
+  while (pending.has(cwd)) await pending.get(cwd);
+}
+/** Refresh the saved answer without turning an old cache into a new decision. */
 export async function rememberPublicChoice(cwd: string): Promise<boolean> {
   if (!cwd) return false;
-  await loadChoice(cwd);
+  await awaitChoiceWrites(cwd);
+  await loadChoice(cwd, true);
+  await awaitChoiceWrites(cwd);
   if (getPublicChoice(cwd) === null) await loadSuggestion(cwd);
-  const value = effectivePublic(cwd);
-  await setPublicChoice(cwd, value);
-  return value;
+  return effectivePublic(cwd);
 }
 export function suggestionNote(s: RemoteSuggestion | null): { reason?: string; hint?: string } {
   if (!s) return {};

@@ -2,7 +2,7 @@
 import asyncio
 import os
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urlparse, parse_qs
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
 
@@ -43,12 +43,12 @@ async def main():
                 if u.path == '/api/public-project/choice':
                     if route.request.method == 'POST':
                         body = route.request.post_data_json
-                        if delayed_choice['enabled']:
-                            delayed_choice['entered'].set()
-                            await delayed_choice['release'].wait()
                         public_choices[body['path']] = body['value']
                         await route.fulfill(json={'choice': body['value']}); return
-                    await route.fulfill(json={'choice': None}); return
+                    if delayed_choice['enabled']:
+                        delayed_choice['entered'].set()
+                        await delayed_choice['release'].wait()
+                    await route.fulfill(json={'choice': public_choices.get(parse_qs(u.query)['path'][0])}); return
                 if u.path.startswith('/api/'):
                     if route.request.method != 'GET':
                         writes.append(u.path)
@@ -293,7 +293,7 @@ async def main():
         await expect(page.get_by_text('Selected plan: Fixture plan', exact=True)).to_be_visible()
         await expect(name).to_have_value('Kept creator')
 
-        # A delayed choice save must not open Genesis for a folder left behind.
+        # A delayed choice refresh must not open Genesis for a folder left behind.
         await page.evaluate("show('cluster'); window.rawMessages=[]; s.setState({wsSendRaw:m=>rawMessages.push(m)});")
         delayed_choice['enabled'] = True
         await page.get_by_label('Draft in Genesis first', exact=True).check()
