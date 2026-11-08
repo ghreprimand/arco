@@ -1210,6 +1210,7 @@ Lists plans for a cwd.
     title: string,
     createdAt: number,
     updatedAt: number,
+    taskCount: number | null, // checklist tasks; null when the body is unavailable
     attachments?: Array<{
       workflowId: string,
       workflowName: string,    // snapshot of WorkflowConfig.name at attach time
@@ -1222,6 +1223,8 @@ Lists plans for a cwd.
 ```
 
 Sorted by `updatedAt` desc. Active and completed plans share the list; the client splits them. `attachments` carries every span (open + closed) so the Plan tab can show "active in <name>" badges plus a collapsed "previously attached" history per plan.
+
+Task counts include checked and unchecked nested checklist items. Counts are cached by file identity, size and timestamps, while each read rechecks the ordinary file and its checked parent. A missing, linked or replaced storage parent cannot supply a count. Plan bodies load separately through the body endpoint.
 
 ### `GET /api/plans/body?path=<cwd>&planId=<id>`
 

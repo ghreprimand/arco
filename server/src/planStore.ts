@@ -97,8 +97,8 @@ export async function listPlans(cwd: string): Promise<PlanSummary[]> {
   return [...plans].sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-// Cache only counts, never authorization: each lookup still resolves the
-// managed path, pins the ordinary file, and checks its current identity.
+// Cache only counts, never authorization: each list checks the managed
+// folder, and each lookup pins the ordinary file and rechecks its parent.
 const taskCounts = new Map<string, { signature: string; count: number }>();
 export async function listPlansWithTaskCounts(cwd: string): Promise<PlanSummary[]> {
   const plans = await listPlans(cwd);
@@ -109,7 +109,9 @@ export async function listPlansWithTaskCounts(cwd: string): Promise<PlanSummary[
     let taskCount: number | null = null;
     if (isValidPlanId(plan.id)) {
       try {
-        const file = managedPath(directory, `${plan.id}.md`);
+        // Keep the checked parent spelling. Re-canonicalizing a replaced
+        // directory here would grant the replacement link's destination.
+        const file = path.join(directory, `${plan.id}.md`);
         const handle = await openCheckedFile(file);
         try {
           const stat = await handle.stat();
