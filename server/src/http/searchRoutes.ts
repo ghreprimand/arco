@@ -1,8 +1,7 @@
-import { requireProjectBinding } from './projectBinding.js';
+import { requireProjectFolder } from './projectBinding.js';
 import { IncomingMessage, ServerResponse } from 'http';
 import { searchContent } from '../contentSearch.js';
 import { PORT } from '../server/constants.js';
-import { workflowCwds } from '../server/state.js';
 
 // Workbench Expansion A5 — Content search endpoint group.
 //
@@ -15,7 +14,7 @@ import { workflowCwds } from '../server/state.js';
 // Query params:
 //   wfid — workflow id (validated; resolves the cwd when ?path is omitted).
 //   q    — the search query (literal regex; empty → empty result).
-//   path — explicit cwd (mirrors the other workflow-scoped routes).
+//   path — optional folder within the bound project or a verified worktree.
 //   max  — optional hit cap (1..1000; default from searchContent).
 //
 // Always 200 in non-fatal cases. When `rg` is missing the body carries
@@ -44,7 +43,7 @@ export async function tryHandleSearchRoutes(
     if (!wfid || !isValidWfid(wfid)) {
       return send(400, { error: 'valid wfid query required' });
     }
-    const cwd = await requireProjectBinding(url.searchParams.get('path'), wfid);
+    const cwd = await requireProjectFolder(url.searchParams.get('path'), wfid);
     if (!cwd) {
       // No bound cwd is an empty result, not an error (the workflow may not
       // have started a turn yet).

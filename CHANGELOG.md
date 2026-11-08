@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Restore folder-scoped content searches within a bound project or verified worktree, including projects without Git.
+
 - Fold automatic nudges and pickup reminders into an expandable mailbox line in chat, pending PREVIEW and HISTORY.
 
 - Retry transient Windows file locks when saving plans, plan references and knowledge documents, while refusing changed destinations.

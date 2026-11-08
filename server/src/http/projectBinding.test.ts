@@ -91,3 +91,45 @@ test('LA07: the registered managed task worktree remains selectable', async () =
   try { assert.equal(await requireProjectBinding(selected, 'managed-tree-fixture'), realpathSync(selected)); }
   finally { workflowCwds.delete('managed-tree-fixture'); }
 });
+
+for (const useGit of [false, true]) test(`LA14: search scopes folders in ${useGit ? 'Git' : 'non-Git'} projects`, async () => {
+  const { workflowCwds } = await import('../server/state.js');
+  const { tryHandleSearchRoutes } = await import('./searchRoutes.js');
+  const { tryHandleGitDiffRoutes } = await import('./gitDiffRoutes.js');
+  const root = join(home, `search-${useGit}`), outside = join(home, `outside-${useGit}`);
+  if (useGit) init(root); else mkdirSync(root);
+  mkdirSync(outside);
+  mkdirSync(join(root, 'nested'));
+  writeFileSync(join(root, 'root.txt'), 'scopefixture');
+  writeFileSync(join(root, 'nested', 'match.txt'), 'scopefixture');
+  writeFileSync(join(outside, 'private.txt'), 'scopefixture');
+  symlinkSync(realpathSync(outside), join(root, 'escape'), 'junction');
+  symlinkSync(realpathSync(join(root, 'nested')), join(root, 'inside'), 'junction');
+  const id = `search-scope-${useGit}`;
+  workflowCwds.set(id, root);
+  const search = (scope: string) => request(tryHandleSearchRoutes, `/api/search/content?wfid=${id}&q=scopefixture&path=${encodeURIComponent(scope)}`);
+  try {
+    for (const scope of [join(root, 'nested'), join(root, 'inside')]) {
+      const response = await search(scope);
+      assert.equal(response.status, 200);
+      assert.equal(response.result.available, true);
+      assert.deepEqual(response.result.hits.map((hit: any) => hit.file), ['match.txt']);
+    }
+    for (const scope of [outside, join(root, 'escape')]) assert.equal((await search(scope)).status, 403);
+    if (useGit) {
+      assert.equal((await request(tryHandleGitDiffRoutes, `/api/git/diff?wfid=${id}&path=${encodeURIComponent(join(root, 'nested'))}`)).status, 403);
+      const tree = join(home, 'search-linked');
+      git(root, 'worktree', 'add', '-b', 'search-linked', tree);
+      mkdirSync(join(tree, 'nested'));
+      writeFileSync(join(tree, 'nested', 'linked.txt'), 'scopefixture');
+      const response = await search(join(tree, 'nested'));
+      assert.equal(response.status, 200);
+      assert.deepEqual(response.result.hits.map((hit: any) => hit.file), ['linked.txt']);
+      symlinkSync(realpathSync(outside), join(tree, 'escape'), 'junction');
+      assert.equal((await search(join(tree, 'escape'))).status, 403);
+      symlinkSync(realpathSync(root), join(tree, 'other-tree'), 'junction');
+      assert.equal((await search(join(tree, 'other-tree', 'nested'))).status, 403);
+      assert.equal((await search(join(root, '.git'))).status, 403);
+    }
+  } finally { workflowCwds.delete(id); }
+});

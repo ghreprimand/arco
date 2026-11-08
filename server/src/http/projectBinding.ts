@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { FileAccessError, safeDirectory } from '../fileAccessPolicy.js';
+import { confinedPath, isPathWithin, FileAccessError, safeDirectory } from '../fileAccessPolicy.js';
 import { worktreesRoot } from '../project/taskWorktree.js';
 import { resolveBoundCwd } from './writeConfinement.js';
 
@@ -68,4 +68,37 @@ export async function requireProjectBinding(cwd?: string | null, workflowId?: st
   } catch {
     throw new SelectedWorktreeError();
   }
+}
+
+/** Search may narrow a project or admitted worktree to an ordinary folder. */
+export async function requireProjectFolder(cwd?: string | null, workflowId?: string | null): Promise<string> {
+  const bound = await resolveBoundCwd(cwd, workflowId);
+  if (!bound.ok) throw new FileAccessError();
+  const root = safeDirectory(bound.cwd);
+  if (!cwd) return root;
+  const belongs = (owner: string) => isPathWithin(owner, cwd) || isPathWithin(realpathSync(owner), cwd);
+  try {
+    // Resolve links inside the same root. A link out must not gain admission
+    // merely because its destination is another registered worktree.
+    if (belongs(bound.cwd)) return confinedPath(cwd, [bound.cwd], 'directory');
+    const registry = await gitOutput(root, ['worktree', 'list', '--porcelain', '-z']);
+    const candidates = registry.split('\0').filter(field => field.startsWith('worktree ')).map(field => field.slice(9));
+    // Walk from the outermost requested ancestor. This preserves parent
+    // aliases but chooses the owning tree before any link inside that tree.
+    const ancestors: string[] = [];
+    for (let current = path.resolve(cwd); ; current = path.dirname(current)) {
+      ancestors.unshift(current);
+      if (current === path.dirname(current)) break;
+    }
+    for (const ancestor of ancestors) {
+      const real = realpathSync(ancestor);
+      const candidate = candidates.find(candidate => {
+        try { return samePath(realpathSync(candidate), real); } catch { return false; }
+      });
+      if (!candidate) continue;
+      await requireProjectBinding(candidate, workflowId);
+      return confinedPath(cwd, [ancestor], 'directory');
+    }
+  } catch { /* invalid folder or non-Git project */ }
+  throw new FileAccessError();
 }
