@@ -41,9 +41,11 @@ const RENAME_RETRY_LIMIT_MS = 5_000;
 const isWindows = process.platform === 'win32';
 const retryable = (e: unknown): boolean => isWindows && RENAME_RETRY_CODES.has((e as NodeJS.ErrnoException)?.code ?? '');
 
-export async function renameWithRetry(from: string, to: string): Promise<void> {
+export async function renameWithRetry(from: string, to: string, beforeAttempt?: () => Promise<void>): Promise<void> {
   const started = Date.now();
   for (let delay = 5; ; delay = Math.min(delay * 2, 100)) {
+    // Validation failures are final; only rename errors enter the lock retry.
+    await beforeAttempt?.();
     try { await fs.rename(from, to); return; } catch (e) {
       if (!retryable(e) || Date.now() - started > RENAME_RETRY_LIMIT_MS) throw e;
       await new Promise((r) => setTimeout(r, delay));

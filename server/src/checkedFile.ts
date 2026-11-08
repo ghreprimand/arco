@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { constants, realpathSync } from 'node:fs';
-import { open, lstat, rename, rm, mkdir } from 'node:fs/promises';
+import { constants, realpathSync, type Stats } from 'node:fs';
+import { open, lstat, rm, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { renameWithRetry } from './atomicFile.js';
 import { FileAccessError } from './fileAccessPolicy.js';
 
 // Callers first authorize a canonical path. Pin the opened regular file and
@@ -10,7 +11,7 @@ import { FileAccessError } from './fileAccessPolicy.js';
 export async function openCheckedFile(file: string, mode: 'read' | 'replace' | 'create' = 'read', permissions = 0o600) {
   const target = path.resolve(file), parent = path.dirname(target);
   if (realpathSync(parent) !== parent) throw new FileAccessError();
-  let before;
+  let before: Stats | undefined;
   try { before = await lstat(target); }
   catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
   if (before && (!before.isFile() || before.isSymbolicLink())) throw new FileAccessError();
@@ -46,13 +47,17 @@ export async function readCheckedText(file: string): Promise<string> {
 export async function replaceCheckedFile(file: string, contents: string): Promise<void> {
   const original = await openCheckedFile(file);
   const before = await original.stat();
+  const parent = path.dirname(file);
   const temp = `${file}.${randomUUID()}.tmp`;
   try {
+    const parentBefore = await lstat(parent);
     await writeCheckedFile(temp, contents, false, before.mode & 0o777);
-    const current = await lstat(file);
-    if (current.dev !== before.dev || current.ino !== before.ino || current.isSymbolicLink()
-      || realpathSync(path.dirname(file)) !== path.dirname(file)) throw new FileAccessError();
-    await rename(temp, file);
+    await renameWithRetry(temp, file, async () => {
+      const current = await lstat(file), parentNow = await lstat(parent);
+      if (!current.isFile() || current.dev !== before.dev || current.ino !== before.ino || current.isSymbolicLink()
+        || parentNow.dev !== parentBefore.dev || parentNow.ino !== parentBefore.ino
+        || realpathSync(parent) !== parent) throw new FileAccessError();
+    });
   } finally {
     await original.close();
     if (realpathSync(path.dirname(file)) === path.dirname(file)) await rm(temp, { force: true });
@@ -63,18 +68,22 @@ export async function atomicCheckedWriteFile(file: string, contents: string | Bu
   const parent = path.dirname(file);
   await mkdir(parent, { recursive: true });
   if (realpathSync(parent) !== parent) throw new FileAccessError();
-  let before;
+  const parentBefore = await lstat(parent);
+  let before: Stats | undefined;
   try { before = await lstat(file); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
   if (before && (!before.isFile() || before.isSymbolicLink())) throw new FileAccessError();
   const temp = `${file}.${randomUUID()}.tmp`;
   try {
     const output = await openCheckedFile(temp, 'create', before ? before.mode & 0o777 : 0o666);
     try { await output.writeFile(contents); await output.sync(); } finally { await output.close(); }
-    let current;
-    try { current = await lstat(file); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-    if (realpathSync(parent) !== parent || Boolean(before) !== Boolean(current)
-      || (before && current && (before.dev !== current.dev || before.ino !== current.ino || current.isSymbolicLink()))) throw new FileAccessError();
-    await rename(temp, file);
+    await renameWithRetry(temp, file, async () => {
+      let current;
+      try { current = await lstat(file); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+      const parentNow = await lstat(parent);
+      if (realpathSync(parent) !== parent || parentNow.dev !== parentBefore.dev || parentNow.ino !== parentBefore.ino
+        || Boolean(before) !== Boolean(current)
+        || (before && current && (!current.isFile() || before.dev !== current.dev || before.ino !== current.ino || current.isSymbolicLink()))) throw new FileAccessError();
+    });
   } finally {
     if (realpathSync(parent) === parent) await rm(temp, { force: true });
   }
