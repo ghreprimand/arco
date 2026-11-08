@@ -82,6 +82,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - TUNE MD refuses proposals whose reviewed original has changed. Rapid preference edits preserve earlier clicks, and refused settings replies preserve the live settings and appearance.
 
 
+- Delayed language diagnostics reach the workflows interested in their document.
+
 - Plan checkbox saves preserve intervening edits; architecture actions and text-matched ticks use the current saved plan. Reference lists follow the selected plan, and creating a ref cannot replace an existing document.
 - Skill UPDATE refuses a changed installed folder. Model catalog saves reject duplicate aliases and stale revisions, including diagnosis fixes.
 - Plan and reference forms wait while saves are pending. Recall keeps distillation edits made after submission.

@@ -200,9 +200,9 @@ class LspManager extends EventEmitter {
   private servers = new Map<string, ServerEntry>();
   // De-dup concurrent spawns for the same key.
   private pending = new Map<string, Promise<ServerEntry | null>>();
-  // Per-(workflow) diagnostics sink, set by the worker hook each call. Keyed by
-  // server key so each server forwards to the right workflow's broadcast.
-  private sinks = new Map<string, { workflowId: string; sink: DiagnosticsSink }>();
+  // Each document may interest several workflows. Refresh by workflow id so
+  // repeated writes replace callbacks instead of retaining every turn closure.
+  private sinks = new Map<string, Map<string, Map<string, DiagnosticsSink>>>();
   private idleTimer: NodeJS.Timeout | null = null;
 
   // Public entry point from the Native write hook. Fire-and-forget: the caller
@@ -216,7 +216,12 @@ class LspManager extends EventEmitter {
       if (!languageId) return; // unsupported language → no-op
       const entry = await this.ensure(cwd, languageId);
       if (!entry) return; // no server installed → graceful no-op
-      this.sinks.set(entry.key, { workflowId, sink });
+      let documents = this.sinks.get(entry.key);
+      if (!documents) this.sinks.set(entry.key, documents = new Map());
+      const uri = pathToFileURL(resolve(absPath)).href;
+      let interested = documents.get(uri);
+      if (!interested) documents.set(uri, interested = new Map());
+      interested.set(workflowId, sink);
       await entry.ready;
       entry.lastUsedAt = Date.now();
       this.armIdleTimer();
@@ -328,13 +333,15 @@ class LspManager extends EventEmitter {
     }
     // server→client publishDiagnostics notification.
     if (msg.method === 'textDocument/publishDiagnostics' && msg.params) {
-      const sinkEntry = this.sinks.get(entry.key);
-      if (!sinkEntry) return;
-      try {
-        const out = mapPublishDiagnostics(msg.params as PublishDiagnosticsParams, entry.cwd, sinkEntry.workflowId);
-        sinkEntry.sink(out);
-      } catch (err) {
-        this.emit('error', err instanceof Error ? err.message : String(err));
+      const params = msg.params as PublishDiagnosticsParams;
+      if (typeof params.uri !== 'string') return;
+      let uri: string;
+      try { uri = pathToFileURL(resolve(fileURLToPath(params.uri))).href; } catch { return; }
+      const interested = this.sinks.get(entry.key)?.get(uri);
+      if (!interested) return;
+      for (const [workflowId, sink] of interested) {
+        try { sink(mapPublishDiagnostics(params, entry.cwd, workflowId)); }
+        catch (err) { this.emit('error', err instanceof Error ? err.message : String(err)); }
       }
     }
   }

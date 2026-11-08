@@ -122,6 +122,7 @@ CLIs plus real Native loop over mocked Anthropic streaming; zero model spend).
 
 ## Claude
 
+
 Native Task model overrides are applied to the child workflow configuration before deriving its primary. The live child, emitted tab configuration and saved metadata therefore name the same requested model, including after promotion or reopen.
 
 Spawn from a HISTORY point reads the selected earlier prefix even when it is outside the recent replay tail. Cancelled handoffs leave prior Native context intact, including the older-history summary. A cancellation or failure during pre-warm revokes an earlier prepared artifact for replay; a successful fallback after a failed reflection remains valid. Derived summary caches from the earlier replay rule are rebuilt automatically; original events remain unchanged.
@@ -1101,6 +1102,7 @@ usage nor the standard `usage_update { used, size }` notification, even though t
 those optional shapes. Dashboard events are billing totals across internal calls, not a retained
 prompt snapshot, so they are not a valid substitute for context fill.
 
+
 ### Context compression
 
 Cursor automatically summarizes older history as its context fills. Arco also exposes an idle-only
@@ -1664,6 +1666,8 @@ require operator coordination and leave both profiles stopped afterward.
 ---
 
 ## llama.cpp
+
+
 
 `server/src/providers/llamacpp.ts` (provider) + `server/src/providers/llamacppManager.ts` (lifecycle) + `server/src/llamacppCatalog.ts` (operator-declared model registry).
 

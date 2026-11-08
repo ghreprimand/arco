@@ -189,7 +189,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         <C>PATH</C> (<C>typescript-language-server</C> for TS/JS,{' '}
         <C>pyright-langserver</C> for Python, <C>gopls</C> for Go,{' '}
         <C>rust-analyzer</C> for Rust): absent ⇒ no diagnostics, no error.
-        Native transport only.
+        Diagnostics follow the document to its interested workflows; a write in another tab does not redirect them. Native transport only.
       </p>
     ),
   },

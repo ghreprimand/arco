@@ -491,7 +491,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="a">ACTIVITY</strong>,
-              <>Live stream of tool-use, thinking, and long-running activity, capped at 500 entries and reset each turn. Sticky sections above it - ultracode FLEET, LSP DIAGNOSTICS, CHECKPOINTS, TOKEN USAGE, background jobs - survive; CHECKPOINTS and the per-turn TOKEN USAGE rows collapse behind their headers and scroll in short boxes so the live feed stays visible.</>,
+              <>Live stream of tool-use, thinking, and long-running activity, capped at 500 entries and reset each turn. Sticky sections above it - ultracode FLEET, LSP DIAGNOSTICS, CHECKPOINTS, TOKEN USAGE, background jobs - survive; diagnostics follow the written document to its requesting workflows, so later writes in another tab do not redirect them; CHECKPOINTS and the per-turn TOKEN USAGE rows collapse behind their headers and scroll in short boxes so the live feed stays visible.</>,
             ],
             [
               <strong key="r">REVIEW</strong>,

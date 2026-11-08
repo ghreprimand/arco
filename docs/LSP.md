@@ -4,6 +4,8 @@ After a successful Write or Edit in a Claude Native turn, Arco can start the
 project's language server, open the changed file, and show semantic diagnostics
 inline on the Activity tab. Fixing an error clears its diagnostic badge.
 
+Diagnostics follow their document URI to the workflows interested in that file. A later write in another tab does not redirect delayed diagnostics. Repeated writes refresh that workflow's callback without accumulating duplicates.
+
 This is its own subsystem under `server/src/lsp/`. It is deliberately small,
 the **diagnostics slice of LSP only**. No completion, hover, formatting, or
 code actions.
