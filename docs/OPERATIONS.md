@@ -1009,6 +1009,7 @@ The full schema is `ArcoSettings` in `shared/src/protocol/settings.ts` (barrel-e
 | `textBrightness` / `bgBrightness` / `crispText` | Independent brightness and text-legibility controls | Yes |
 | `operatorName` | Replace `> OPERATOR` chat label | Yes |
 | `acknowledgedCliVersions` | Dismiss CONFIG-tab dot | Yes |
+| `claudeNative.baseUrl` | Saved Native login destination for workflows and evaluators. Global settings file only; absent uses `https://api.anthropic.com`. Project settings and inherited `ANTHROPIC_BASE_URL` cannot redirect saved tokens. A custom endpoint receives the saved token. Remove the field or patch it to null to reset. No UI control. | Yes |
 | `claude.transport` (`'cli' \| 'native'`) | Per-tab Claude transport - overridden by `WorkflowConfig.claudeTransport`. Reviewers and handoff seeds always run on `cli` regardless. | Yes |
 | `codex.transport` (`'exec' \| 'appserver'`) | Per-tab Codex transport - overridden by `WorkflowConfig.codexTransport`. Reviewers and handoff seeds always run on `exec`. | Yes |
 | `autoHandoffDefaults` / `handoffSummarizer` | Seed new tabs' auto-handoff (`enabled`, `afterCompactions`, `mode`); pin a fresh-summarizer provider/model for handoffs | Yes |

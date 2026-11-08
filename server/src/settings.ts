@@ -346,6 +346,17 @@ function sanitizeMediaUnconfined(raw: unknown): boolean | undefined {
   return typeof raw === 'boolean' ? raw : undefined;
 }
 
+function sanitizeClaudeNativeConfig(raw: unknown): { baseUrl?: string } | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const value = (raw as Record<string, unknown>).baseUrl;
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  try {
+    const url = new URL(value.trim());
+    if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) return undefined;
+    return { baseUrl: url.href.replace(/\/+$/, '') };
+  } catch { return undefined; }
+}
+
 function sanitizeClaudeConfig(raw: unknown): { transport?: 'cli' | 'native'; nativeWarningSeen?: boolean } | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Record<string, unknown>;
@@ -661,6 +672,8 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   if (mediaUnconfined !== undefined) result.mediaUnconfined = mediaUnconfined;
   const mediaAllowedRoots = sanitizeMediaAllowedRoots(partial.mediaAllowedRoots);
   if (mediaAllowedRoots) result.mediaAllowedRoots = mediaAllowedRoots;
+  const claudeNative = sanitizeClaudeNativeConfig(partial.claudeNative);
+  if (claudeNative) result.claudeNative = claudeNative;
   const claude = sanitizeClaudeConfig(partial.claude);
   result.claude = { ...base.claude, ...claude };
   const codex = sanitizeCodexConfig(partial.codex);
@@ -986,6 +999,13 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
   // pass through whatever's on disk so a UI-driven POST /api/settings doesn't
   // drop the operator's chains.
   if (current.fallbackChains) merged.fallbackChains = current.fallbackChains;
+  if ('claudeNative' in patch) {
+    const endpoint = sanitizeClaudeNativeConfig(patch.claudeNative);
+    if (endpoint) merged.claudeNative = endpoint;
+    else if (patch.claudeNative && typeof patch.claudeNative === 'object' && patch.claudeNative.baseUrl !== null) {
+      if (current.claudeNative) merged.claudeNative = current.claudeNative;
+    }
+  } else if (current.claudeNative) merged.claudeNative = current.claudeNative;
   // Phase 7a — claude sub-config: patch keys merge over current; absent
   // keys pass through. Sanitizer drops invalid values silently. The
   // TRANSPORT DEFAULTS row + CONFIG-tab toggle write through here.

@@ -165,6 +165,8 @@ export interface ArcoSettings {
   // enable warning so it doesn't fire again — cleared when a tab is flipped
   // back to `'cli'` so a re-enable on any tab re-shows the warning.
   claude?: { transport?: 'cli' | 'native'; nativeWarningSeen?: boolean };
+  // Global-file-only destination override for saved Native login credentials.
+  claudeNative?: { baseUrl?: string };
   // Phase 6: per-project Codex transport pin. 'exec' = current per-turn
   // `codex exec --json` worker (default); 'appserver' = long-lived
   // `codex app-server` JSON-RPC worker that unlocks non-destructive

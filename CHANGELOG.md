@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Bind saved Claude Native login tokens to Anthropic unless a custom endpoint is explicitly configured in the global settings file.
+
 - Keep Native OAuth verifiers out of sign-in and callback URLs by using an independent random state value.
 
 - Limit cookie-free plan routes to the exact methods used by agent tools; plan replacement, completion and deletion require the operator browser session.

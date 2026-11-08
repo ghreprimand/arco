@@ -383,6 +383,10 @@ OAuth subscription flow adapted from `earendil-works/pi`:
 - Refresh runs 30s ahead of expiry. On `400 invalid_grant`, the loop emits `[AUTH:claude]` system_notice and fails the turn; after three consecutive auth failures within the workflow the notice escalates and auto-retry stops until the operator re-logs in.
 - Re-login goes through `POST /api/auth/claude-native/login` (returns the authorize URL + a `manualFallback` flag); the callback is captured by the local server or accepted via `POST /api/auth/claude-native/callback` (`{ url }` body) for headless / port-blocked operators.
 
+Saved Native login tokens use `https://api.anthropic.com` for both workflow requests and the Native evaluator. An inherited `ANTHROPIC_BASE_URL` alone cannot redirect them. An explicit `claudeNative.baseUrl` in the global settings file selects a custom endpoint; project settings cannot select that destination. The next turn or evaluation reads the setting, and an existing worker rebuilds its SDK client when the endpoint changes. Remove the setting to restore the provider default.
+
+A configured custom endpoint receives the saved Native login token. Configure only a trusted destination. This setting does not add API-key-only Native sign-in or change the SDK's environment endpoint behavior for API-key-only callers.
+
 #### Headers (wire fingerprint)
 
 | Header | Value | Notes |

@@ -5,9 +5,11 @@ import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { AddressInfo } from 'node:net';
-import { claudeAdapter, codexAdapter, cursorAdapter, ollamaAdapter, EvaluatorRefused, isStartupFailure } from './smartPickupAdapters.js';
+import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
 
 const dir = await mkdtemp(join(tmpdir(), 'arco-evaluator-adapters-'));
+installIsolatedTestHome(join(dir, 'home'));
+const { claudeAdapter, codexAdapter, cursorAdapter, ollamaAdapter, EvaluatorRefused, isStartupFailure } = await import('./smartPickupAdapters.js');
 after(() => rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 const req = { model: 'm', instructions: 'Classify.', prompt: 'DATA', timeoutMs: 2000, maxOutputTokens: 64 };
 const ANSWER = '{"action":"defer","reason":"ack_or_status"}';

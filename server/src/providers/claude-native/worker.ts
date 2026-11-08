@@ -1,3 +1,4 @@
+import { nativeOAuthBaseUrl } from './apiEndpoint.js';
 import { createHash } from 'node:crypto';
 import { ensureProjectStateIgnore } from '../../projectStateIgnore.js';
 import { replayEventsWithTs } from '../../workflowStore.js';
@@ -1416,13 +1417,15 @@ export class ClaudeNativeWorker extends EventEmitter {
         console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] catalog warm for alias '${this.config.model}' failed; using static fallback:`, err instanceof Error ? err.message : err);
       });
     }
-    if (this.client && this.clientTokenObtainedAt === tokens.obtainedAt) return;
+    const baseURL = await nativeOAuthBaseUrl();
+    if (this.client && this.clientTokenObtainedAt === tokens.obtainedAt && this.client.baseURL === baseURL) return;
     const isRebuild = this.client !== null;
     if (isRebuild) {
-      console.log(`[claude-native:${this.workflowId.slice(0, 8)}] tokens rotated — rebuilding Anthropic client`);
+      console.log(`[claude-native:${this.workflowId.slice(0, 8)}] credentials or endpoint changed - rebuilding Anthropic client`);
     }
     this.client = new Anthropic({
       authToken: tokens.accessToken,
+      baseURL,
       defaultHeaders: this.buildDefaultHeaders(),
       // H10 — our handleApiError ladder is the SINGLE retry path. The SDK's
       // default maxRetries:2 would retry 429/529/500 INTERNALLY before throwing,

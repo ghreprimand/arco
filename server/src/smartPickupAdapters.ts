@@ -1,3 +1,4 @@
+import { nativeOAuthBaseUrl } from './providers/claude-native/apiEndpoint.js';
 // Smart AUTO-PICKUP evaluator adapters. Each makes one bounded request with
 // no tools and nothing Arco keeps or resumes afterwards: a time limit, an
 // abort signal and an output cap. Any error, tool attempt or oversized answer
@@ -167,6 +168,7 @@ export function claudeAdapter(opts: { fetchImpl?: typeof fetch; tokens?: () => P
         const { accessToken } = await tokens().catch(() => { throw new EvaluatorRefused('not_signed_in'); });
         const client = new Anthropic({
           authToken: accessToken,
+          baseURL: await nativeOAuthBaseUrl(),
           maxRetries: 0,
           defaultHeaders: { 'anthropic-beta': 'claude-code-20250219,oauth-2025-04-20', 'anthropic-dangerous-direct-browser-access': 'true', 'user-agent': CLAUDE_CLI_USER_AGENT, 'x-app': 'cli' },
           ...(opts.fetchImpl ? { fetch: opts.fetchImpl } : {}),

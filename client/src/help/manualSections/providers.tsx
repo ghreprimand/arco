@@ -143,6 +143,8 @@ export const providers: Section[] = [
   ]}
   />
   <p>Native sign-in uses a separate random state and PKCE verifier. The verifier stays on the server and does not appear in the browser sign-in or callback URL. Local callbacks and manual URL paste use the same guarded flow.</p>
+  <p>Saved Native login tokens go to Anthropic unless <Code>claudeNative.baseUrl</Code> is set in the global settings file. Project settings and an inherited <Code>ANTHROPIC_BASE_URL</Code> cannot redirect them. Workflows and the Native evaluator use the same destination; a change applies to the next turn or evaluation.</p>
+  <p>A custom destination receives the saved token. Configure only a trusted endpoint. Remove the global setting to restore Anthropic. There is no endpoint UI control.</p>
   <p>Native status reads one of these messages:</p>
   <ul>
   <li>
