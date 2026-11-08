@@ -127,6 +127,7 @@ import {
 flushAll as flushAllWorkflowEvents
 } from '../workflowStore.js';
 import { readFileForExplorer } from './fileRead.js';
+import { explorerRoot } from './explorerRoot.js';
 import { listBrowserDirectory, resolveBrowserRead } from './readConfinement.js';
 import { confinedPath, safeDirectory } from '../fileAccessPolicy.js';
 import { tryHandleClusterRoutes } from './clusterRoutes.js';
@@ -436,9 +437,7 @@ export async function handleHttpRequest(
     // No explicit path → start at the operator-configured default, then
     // ~/Projects, then $HOME. The setting is what lets a machine whose work
     // doesn't live under ~/Projects (e.g. a Mac) repoint the browser root.
-    const settings = await readSettings().catch(() => null);
-    const fallbackRoot = settings?.defaultWorkingDirectory || join(homedir(), 'Projects');
-    const requested = url.searchParams.get('path') || fallbackRoot;
+    const requested = url.searchParams.get('path') || await explorerRoot();
     const listAt = async (dir: string) => {
       const { root, entries } = await listBrowserDirectory(dir, true);
       const dirs = entries.map(({ name, path }) => ({ name, path }))

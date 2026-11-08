@@ -94,7 +94,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.files.live': {
     title: 'LIVE',
-    body: <p>Files changing right now in this project, grouped as <C>CHANGING</C>, <C>NEW FILES</C> and <C>STAGED</C>, refreshed about every second so the agent&apos;s edits appear as they land. Recently touched rows flash a <C>LIVE</C> marker. Click a file to see its changed lines. Arco&apos;s own <C>.arco</C> state files are hidden. Empty when nothing has changed or the folder is not a git repository.</p>,
+    body: <p>Files changing right now in this project, grouped as <C>CHANGING</C>, <C>NEW FILES</C> and <C>STAGED</C>, refreshed about every second so the agent&apos;s edits appear as they land. Recently touched rows flash a <C>LIVE</C> marker. Click a file to see its changed lines. STAGED shows the index patch against HEAD, including staged deletions. CHANGING and NEW FILES show the current file. Arco&apos;s own <C>.arco</C> state files are hidden. Empty when nothing has changed or the folder is not a git repository.</p>,
   },
   'rightpanel.genesis.readiness': {
     title: 'Genesis: stage readiness',

@@ -31,7 +31,7 @@ export const maintenance: Section[] = [
   actions; see STORAGE - where disk space goes.
   </li>
   <li>
-  <strong>TREE</strong> browses the raw file hierarchy.
+  <strong>TREE</strong> browses the raw file hierarchy. It starts at the first readable location: the configured working folder, Projects in the home folder, then the home folder. File previews use the same root.
   </li>
   </ul>
   <p>
@@ -40,6 +40,11 @@ export const maintenance: Section[] = [
   or an approved project or media folder. Protected state and unsafe links are
   refused. On systems with POSIX permissions, saved copies are created with access
   limited to the owner. The result stays visible until the dialog is closed.
+  </p>
+  <p>
+  In a save picker, navigate with Go or Enter in the path field before choosing.
+  SAVE HERE and Enter in the filename field use the loaded folder. Both wait
+  during loading and refuse an edited path or a failed listing.
   </p>
   <p>
   MOVE TO PROJECT in OUTPUTS offers KEEP IT PRIVATE or a copy into the project.

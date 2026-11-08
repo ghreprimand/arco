@@ -47,7 +47,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
   const [name, setName] = useState(defaultName || '');
   const [newFolder, setNewFolder] = useState('');
   const [creatingFolder, setCreatingFolder] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
 
   const load = useCallback(async (path: string) => {
@@ -103,7 +103,10 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
     }
   };
 
-  const confirm = () => onDone({ dir: cwd, basename: name.trim() });
+  const ready = !!cwd && !loading && !err && pathDraft === cwd;
+  const confirm = () => {
+    if (ready) onDone({ dir: cwd, basename: name.trim() });
+  };
 
   const content = <div
       className={inline ? 'directory-browser-host' : undefined}
@@ -128,7 +131,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
         <div style={{ padding: '8px 14px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button onClick={goUp} className="display-font" title="Up one folder" style={btn} disabled={loading}>↑ UP</button>
           <label htmlFor={pathId} style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden' }}>Browse folder path</label>
-          <input id={pathId} value={pathDraft} onChange={e => { pathEdits.current++; setPathDraft(e.target.value); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void load(pathDraft); } }} style={{ ...input, flex: 1, minWidth: 0 }} />
+          <input data-help="dialog.save-destination" id={pathId} value={pathDraft} onChange={e => { pathEdits.current++; setPathDraft(e.target.value); }} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void load(pathDraft); } }} style={{ ...input, flex: 1, minWidth: 0 }} />
           <button type="button" style={btn} onClick={() => void load(pathDraft)} disabled={loading}>Go</button>
         </div>
         {roots.length > 0 && <div aria-label="Location shortcuts" style={{ padding: '4px 14px', display: 'flex', flexWrap: 'wrap', gap: 4, maxHeight: 64, overflowY: 'auto' }}>{roots.map(root => <button type="button" key={root.path} style={btn} title={root.path} onClick={() => void load(root.path)}>{root.name}</button>)}</div>}
@@ -174,9 +177,10 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
         {withFilename && (
           <div style={{ padding: '8px 14px', borderTop: '1px solid var(--color-border-hairline)' }}>
             <input
+              data-help="dialog.save-destination"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') confirm(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); confirm(); } }}
               placeholder="filename (blank = auto; the op sets the extension)"
               spellCheck={false}
               style={{ ...input, width: '100%', boxSizing: 'border-box' }}
@@ -186,7 +190,7 @@ export function DirectoryBrowser({ initialPath, defaultName, withFilename = true
         {err && <div style={{ padding: '0 14px 8px', fontSize: '10px', color: 'var(--color-danger)' }}>{err}</div>}
         <div style={{ padding: '10px 14px', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
           {!inline && <button onClick={() => onDone(null)} className="display-font" style={btn}>CANCEL</button>}
-          <button onClick={confirm} className="display-font" style={{ ...btn, borderColor: 'var(--color-accent-primary)', color: 'var(--color-accent-primary)' }} disabled={!cwd || loading || !!err || pathDraft !== cwd}>{confirmLabel}</button>
+          <button data-help="dialog.save-destination" onClick={confirm} className="display-font" style={{ ...btn, borderColor: 'var(--color-accent-primary)', color: 'var(--color-accent-primary)' }} disabled={!ready}>{confirmLabel}</button>
         </div>
       </div>
     </div>;

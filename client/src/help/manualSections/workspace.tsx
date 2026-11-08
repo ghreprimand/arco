@@ -654,6 +654,7 @@ export const workspace: Section[] = [
     title: 'The SOURCE sub-tab - file-by-file working-tree changes',
     body: (
       <>
+        <p>LIVE shows the index patch against HEAD for STAGED rows, including staged deletions. CHANGING and NEW FILES show the current file. Later unstaged edits do not alter a staged preview.</p>
         <p>
           SOURCE is a Source-Control-style file list of staged, unstaged, and
           untracked changes. The <strong>SOURCE</strong> sub-tab (next to

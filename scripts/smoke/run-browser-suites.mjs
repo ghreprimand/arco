@@ -78,6 +78,7 @@ if (process.env.ARCO_BROWSER_NETNS_ACTIVE !== '1') {
   console.log(`Browser network: isolated namespace (loopback only). Chromium: ${process.env.ARCO_BROWSER_CHROME_SOURCE || 'ARCO_TEST_CHROME'}.`);
 }
 const SUITES = [
+  { name: 'file-selection', script: 'file-selection-browser.py', port: 5291 },
   { name: 'cluster-coordination-wire', script: 'cluster-coordination-server.py', isolatedServer: true },
   { name: 'cluster-coordination', script: 'cluster-coordination-browser.py', port: 5206 },
   { name: 'form-controls', script: 'form-controls-browser.py', port: 5207 },

@@ -5,6 +5,7 @@ import type {
   WorkingChangesResponse,
   WorkingFileDiffResponse,
 } from '@arco/shared';
+import { DiffView } from './DiffView';
 import { useAppStore } from '../../stores/appStore';
 import {
   liveChangesKey,
@@ -312,7 +313,8 @@ function LiveFileSource({ wfid, cwd, row, refreshKey }: { wfid: string; cwd: str
         if (!r.ok) throw new Error((await r.text()) || `HTTP ${r.status}`);
         return (await r.json()) as WorkingFileDiffResponse;
       }),
-      fetch(`/api/file-content?${fileParams.toString()}`).then((r) => r.json() as Promise<FilePayload>),
+      row.group === 'staged' ? Promise.resolve(null)
+        : fetch(`/api/file-content?${fileParams.toString()}`).then((r) => r.json() as Promise<FilePayload>),
     ])
       .then(([d, p]) => {
         if (cancelled) return;
@@ -345,9 +347,23 @@ function LiveFileSource({ wfid, cwd, row, refreshKey }: { wfid: string; cwd: str
   if (error) {
     return <div className="arco-diff-empty display-font" style={{ color: 'var(--color-danger)' }}>Failed to inspect file: {error}</div>;
   }
-  if (!diff || !payload) {
+  if (!diff || (row.group !== 'staged' && !payload)) {
     return <div className="arco-diff-empty display-font">Opening changed area...</div>;
   }
+
+  if (row.group === 'staged') {
+    return <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <div style={sourceToolbarStyle}>
+        <span className="display-font">{row.status} STAGED</span>
+        <span>{row.path}</span>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+        {diff.binary ? <InfoLine text="Binary or oversized file - source diff is not available." />
+          : <DiffView patch={diff.patch} defaultViewType="unified" hideToolbar emptyText="No staged text changes." />}
+      </div>
+    </div>;
+  }
+  if (!payload) return null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>

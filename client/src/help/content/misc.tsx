@@ -2169,6 +2169,11 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Dialog size',
     body: <p>Maximize fills the window and Restore returns to the previous size. Drag Resize or use its arrow keys to change the size. Reset size or Home restores the default. Arco remembers the size for this kind of dialog in this browser, without saving project details.</p>,
   },
+  'dialog.save-destination': {
+    title: 'Destination folder and filename',
+    body: <p>Navigate to the destination with Go or Enter in the path field. SAVE HERE and Enter in the filename field choose only the loaded folder. Both wait while loading and refuse an edited path or a failed listing.</p>,
+    manualSection: 'archive-explorer',
+  },
   'dialog.create-folder': {
     title: 'Create folder',
     body: <p>Show or hide the fields for creating a folder in the current location. Enter a name and select + FOLDER to create it.</p>,

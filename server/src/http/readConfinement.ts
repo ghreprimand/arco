@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { explorerRoot } from './explorerRoot.js';
 import { readdir } from 'node:fs/promises';
 import { FileAccessError, assertSafePath, confinedPath, safeDirectory } from '../fileAccessPolicy.js';
 import { knownRoots, resolveBoundCwd } from './writeConfinement.js';
@@ -9,7 +10,7 @@ import { artifactsDir } from '../workers/limits.js';
 export async function readRoots(cwd?: string | null, workflowId?: string | null): Promise<string[]> {
   const bound = await resolveBoundCwd(cwd, workflowId);
   if (!bound.ok && bound.reason !== 'none') throw new FileAccessError();
-  return [...(bound.ok ? [bound.cwd] : await knownRoots()), UPLOADS_DIR, SCRATCH_ROOT];
+  return [...(bound.ok ? [bound.cwd] : [...await knownRoots(), await explorerRoot()]), UPLOADS_DIR, SCRATCH_ROOT];
 }
 
 export async function resolveBrowserRead(p: string, cwd?: string | null, workflowId?: string | null, kind: 'file' | 'directory' = 'file'): Promise<string> {

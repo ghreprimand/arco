@@ -1221,6 +1221,12 @@ Dragged splitter positions are saved separately for each layout. Positions from 
 
 ## ARTIFACTS explorer (`?app=explorer`)
 
+TREE starts at the first readable location: the configured working folder, Projects in the home folder, then the home folder. Startup, directory listings and previews share that read-only root. This fallback does not register a project or grant writes.
+
+In save pickers, Go or Enter in the path field loads the destination. SAVE HERE and Enter in the filename field choose the loaded folder only. Both refuse submission during loading, after a listing error, or while the path is being edited.
+
+In LIVE WORKTREE, STAGED renders the index patch against HEAD, including staged deletions. CHANGING and NEW FILES retain the current-file preview. An unstaged edit cannot change the text or line positions shown in a staged patch.
+
 RECENTS extracts filenames from slash-separated and native Windows paths. ARTIFACTS and RECENTS omit OPEN IN TREE for any path inside the Arco state folder; the viewer remains available.
 
 A standalone chromeless window, mounted by `main.tsx` on `?app=explorer`, sharing the same root/theme bootstrap but no app store or `/ws`. `explorer/ExplorerApp.tsx` is the shell - `LensId = 'artifacts' | 'recents' | 'plans' | 'storage' | 'tree'` (ARTIFACTS is the landing home; PLANS and STORAGE are described below), left-nav lens switcher, poll-on-focus + manual ↻, an A-/A+ window-zoom control (`document.documentElement.style.zoom`, persisted `arco_explorer_zoom3`, default 0.85), a transparent root so the theme's body background shows through, and a reused `FileExplorer` for the TREE lens. `ArtifactsLens.tsx` (HOME recent-across-projects strip + per-project drill-down over `/api/explorer/artifacts` + `/docs`), `RecentsLens.tsx` (AGENT WRITES ledger + RECENTLY MODIFIED scan, filter chips ALL/DOCS/IMAGES, `/api/explorer/recents` + `/changed`), `types.ts` (client mirrors of the server read-models), and `launch.ts` (`openArchive` - same-browser `window.open` popup, falling back to `POST /api/explorer/open`, last-resort plain tab). `/api/explorer/*` (6 routes) lives in `server/src/http/explorerRoutes.ts`. Zero model authority. Every lens is read-only except PLANS (plan edits and MARK DONE, through the plan routes) and STORAGE, whose actions each ask for a confirmation first.
