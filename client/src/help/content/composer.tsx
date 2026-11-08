@@ -97,7 +97,7 @@ export const composerHelp: Record<string, HelpEntry> = {
         Claude, Codex, Cursor and local models with vision; other files are
         appended as <C>[attached file: &lt;path&gt;]</C> references in the
         prompt text.
-       SEND waits for every pending upload batch, including another paste or drop started while uploading.</p>
+       SEND waits for every pending upload batch, including another paste or drop started while uploading. The upload folder and its parents must be real folders, not links.</p>
     ),
   },
   'composer.remote': {

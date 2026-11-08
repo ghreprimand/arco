@@ -1,3 +1,4 @@
+import { ensureStorageRoot, UnsafeStorageRootError } from '../storageRoot.js';
 import { requireProjectBinding } from './projectBinding.js';
 import { tryHandleStorageRoutes } from './storageRoutes.js';
 import { tryHandleArchitectureReviewRoutes } from './architectureReviewRoutes.js';
@@ -369,16 +370,18 @@ export async function handleHttpRequest(
       const filename = basename(rawFilename) + (inferredExt ?? '');
       const fileId = crypto.randomUUID().slice(0, 8);
       const savePath = join(UPLOADS_DIR, `${fileId}-${filename}`);
-      await writeFile(savePath, body);
+      await ensureStorageRoot(UPLOADS_DIR);
+      await writeFile(savePath, body, { flag: 'wx' });
       console.log(`[arco] File uploaded: ${filename} -> ${savePath}`);
       // Model-side downscale runs in the background; providers await it
       // (bounded) at turn start. The original stays byte-for-byte as sent.
       queueModelImage(savePath);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ fileId, filename, path: savePath }));
-    } catch {
+    } catch (error) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Upload failed' }));
+      const message = error instanceof UnsafeStorageRootError ? error.message : 'Upload failed';
+      res.end(JSON.stringify({ error: message }));
     }
     return;
   }

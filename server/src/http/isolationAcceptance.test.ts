@@ -11,7 +11,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { promises as fs, mkdtempSync, mkdirSync, writeFileSync, symlinkSync, existsSync, readFileSync } from 'node:fs';
+import { promises as fs, mkdtempSync, mkdirSync, writeFileSync, symlinkSync, existsSync, readFileSync, realpathSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -138,7 +138,7 @@ type Msg = Record<string, unknown>;
 interface Socket { ws: WebSocket; messages: Msg[]; seen(): string; waitFor(pred: (m: Msg) => boolean, ms?: number): Promise<Msg | undefined>; close(): Promise<void> }
 
 class Instance {
-  readonly root = mkdtempSync(path.join(tmpdir(), 'arco-isolation-'));
+  readonly root = realpathSync(mkdtempSync(path.join(tmpdir(), 'arco-isolation-')));
   readonly home = path.join(this.root, 'home');
   readonly scratch = path.join(this.root, 'tmp');
   readonly uploads = path.join(this.root, 'uploads');
@@ -277,6 +277,24 @@ test('writes stay inside the project: absolute escape, symlink escape and unknow
 });
 
 // ── legitimate reads that confinement must keep allowing ──────────────────
+test('upload refuses a replaced linked uploads root', async (t) => {
+  const saved = `${main.uploads}-saved`;
+  await fs.rename(main.uploads, saved);
+  let linked = false;
+  try {
+    try { await fs.symlink(main.outside, main.uploads, 'dir'); linked = true; }
+    catch (error) { if (['EPERM', 'ENOTSUP'].includes((error as NodeJS.ErrnoException).code ?? '')) return t.skip('symlinks unavailable'); throw error; }
+    const before = (await fs.readdir(main.outside)).sort();
+    const response = await main.api('/upload', { method: 'POST', headers: { 'Content-Type': 'text/plain', 'X-Filename': 'fixture.txt' }, body: 'synthetic upload' });
+    assert.equal(response.ok, false);
+    assert.match((await response.json() as { error: string }).error, /real folders, not links/i);
+    assert.deepEqual((await fs.readdir(main.outside)).sort(), before);
+  } finally {
+    if (linked) await fs.unlink(main.uploads);
+    await fs.rename(saved, main.uploads);
+  }
+});
+
 test('legitimate reads keep working: project file, nested in-root symlink, listing, upload', async () => {
   const q = encodeURIComponent;
   assert.equal((await main.fileContent(`cwd=${q(main.project)}&path=ok.txt`)).content, 'inside\n');

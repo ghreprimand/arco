@@ -1,3 +1,4 @@
+import { ensureStorageRoot } from './storageRoot.js';
 import './envAliases.js'; // env fallback resolves before any module reads ARCO_* (see envAliases.ts)
 import { APP_VERSION } from './appVersion.js';
 import { detectInitialProviders } from './initialProviders.js';
@@ -26,7 +27,6 @@ WorkflowConfig
 import { hasGuardrails, isClusterMemberProvider, resolveOutputStyle } from '@arco/shared';
 import { getPublicProjectChoice } from './publicProjectChoice.js';
 import { spawnSync } from 'child_process';
-import { mkdir } from 'fs/promises';
 import { createServer,IncomingMessage,ServerResponse, type Server } from 'http';
 import { WebSocket,WebSocketServer } from 'ws';
 import { detectCliChanges,probeCapabilities,type CliChange } from './capabilities.js';
@@ -336,7 +336,7 @@ initFileLogging();
 // the file-logging tee in prod. The interval timer is .unref()'d internally.
 startMemoryMonitor({ enabled: getLogFilePath() !== null });
 
-await mkdir(UPLOADS_DIR, { recursive: true });
+await ensureStorageRoot(UPLOADS_DIR);
 
 await initializeProviderSettings(detectInitialProviders);
 

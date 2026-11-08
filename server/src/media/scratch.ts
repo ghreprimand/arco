@@ -33,6 +33,7 @@ import path from 'path';
 import { homedir } from 'os';
 import type { Readable } from 'stream';
 import { arcoHome } from '../arcoHome.js';
+import { ensureStorageRoot } from '../storageRoot.js';
 
 // The scratch root. A sibling of settings.json / clusters / skills under
 // ~/.arco, so it's already an Arco-owned tree the operator knows about.
@@ -76,7 +77,7 @@ export function isWithinScratch(abs: string): boolean {
 }
 
 async function ensureRoot(): Promise<void> {
-  await fs.mkdir(SCRATCH_ROOT, { recursive: true });
+  await ensureStorageRoot(SCRATCH_ROOT);
 }
 
 // Create a fresh per-upload subdir and return its id + absolute path.
@@ -84,7 +85,7 @@ async function createEntryDir(): Promise<{ id: string; dir: string }> {
   await ensureRoot();
   const id = randomUUID();
   const dir = path.join(SCRATCH_ROOT, id);
-  await fs.mkdir(dir, { recursive: true });
+  await fs.mkdir(dir);
   return { id, dir };
 }
 
@@ -166,6 +167,7 @@ export async function saveScratchUpload(
 // effort: a missing root / a racing delete is non-fatal. Safe to call at
 // startup and after every upload.
 export async function reapScratch(): Promise<void> {
+  try { await ensureStorageRoot(SCRATCH_ROOT, false); } catch { return; }
   let ids: string[];
   try {
     ids = await fs.readdir(SCRATCH_ROOT);
