@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show cluster members as working from turn acceptance, including tool-first turns.
+
 - Apply theme colors to the PREVIEW PORTS field, label, help text and save feedback.
 
 - Keep PREVIEW PORTS from accepting edits while SAVE is pending, so a save reply cannot replace a newer draft.

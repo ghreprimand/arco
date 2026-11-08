@@ -144,3 +144,14 @@ test('automatic markers persist with full idle and queued prompts while typed lo
   await run; await f.close();
  }
 });
+
+test('a native turn beginning with a tool publishes working before output',async()=>{
+ const f=await fixture('claude');const clusters=await import('../clusterStore.js');const {sessions}=await import('../server/state.js');const cluster=await clusters.createCluster({cwd:f.cwd,memberWorkflowIds:[f.id,randomUUID()]});
+ const updates:any[]=[];const observer={readyState:1,send:(raw:string)=>updates.push(JSON.parse(raw))} as any;sessions.set(observer,{id:'cluster-fixture',workflowIds:new Set(),clusterIds:new Set([cluster.clusterId]),clusterObserved:new Map()} as any);let run:Promise<void>|undefined;
+ try{
+  run=engine.handleUserMessage(f.ws,f.session,f.id,'FIRST_TOOL','tool-start',undefined,false,undefined,undefined);await f.wait(1);
+  f.pending[0].emit({type:'worker_tool_use',workerId:f.id,tool:'Read',input:JSON.stringify({file_path:'fixture.txt'}),status:'started'});
+  for(let i=0;i<100&&!updates.some(u=>u.type==='cluster_state'&&u.state.members.find((m:any)=>m.workflowId===f.id)?.status==='busy');i++)await new Promise(resolve=>setTimeout(resolve,10));
+  assert.ok(updates.some(u=>u.type==='cluster_state'&&u.state.members.find((m:any)=>m.workflowId===f.id)?.status==='busy'),'cluster must see the accepted turn before any text or thinking');
+ }finally{for(const pending of f.pending)pending.finish('cleanup');await run;sessions.delete(observer);await clusters.deleteCluster(cluster.clusterId);await f.close();}
+});

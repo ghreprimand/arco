@@ -283,7 +283,7 @@ export const clusters: Section[] = [
   <ul>
   <li>
   <strong>Status dot</strong> - solid + pulsing while the member is
-  busy; outlined while idle.
+  busy; outlined while idle. A turn is busy from acceptance until it settles, including when its first activity is a tool call.
   </li>
   <li>
   <strong>Friendly name</strong> in bold (operator-set rename, or

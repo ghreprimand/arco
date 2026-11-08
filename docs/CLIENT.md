@@ -1076,6 +1076,8 @@ See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the full dev workflow.
 
 ## Cluster tab rendering
 
+Member status shows WORKING when a turn is accepted, including when its first activity is a tool call, and returns to IDLE when the turn settles.
+
 Automatic nudges and pickup reminders appear as folded mailbox lines in chat, pending PREVIEW and HISTORY. Use + to read the full text and - to fold it. The member receives the full message; typed messages are not folded by their wording.
 
 

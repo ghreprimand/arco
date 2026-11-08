@@ -725,5 +725,8 @@ export async function notifyClusterStateForWorkflow(workflowId: string): Promise
   if (!clusterId) return;
   const payload = await buildClusterStatePayload(clusterId);
   if (!payload) return;
+  // Payload construction reads disk. Refresh turn state immediately before
+  // sending so a slow earlier snapshot cannot revive a settled turn.
+  for (const member of payload.members) member.status = workflows.get(member.workflowId)?.busy ? 'busy' : 'idle';
   broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
 }

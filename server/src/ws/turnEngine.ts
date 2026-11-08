@@ -556,6 +556,7 @@ export function claimBusy(wf: WorkflowState, workerActivity = true): number {
   lastBusyClaim.set(wf, token);
   watchClaimed(wf, token);
   wf.busy = true;
+  if (wfid && workerActivity) void notifyClusterStateForWorkflow(wfid);
   if(wf.config?.voiceOperator)wf.computerSettled=false;
   if (workerActivity) publishWorkerActivity(wf, 'worker_started');
   return token;

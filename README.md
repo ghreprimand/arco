@@ -206,7 +206,8 @@ making it reachable elsewhere.
   task boards, peer messages, plans, and optional operator-armed AUTO-PICKUP
   (Rule-based recommended; Smart modes need an evaluator from the same
   providers as the utility agent). A plan gives a workflow or cluster its
-  shared direction; the board tracks who is doing each task. Describe a
+  shared direction; the board tracks who is doing each task. Member status shows
+  when a turn starts and remains working until it settles. Describe a
   cluster's purpose during creation to request a director's draft, then review
   it before attaching.
   [Task ledger](docs/TASK_LEDGER.md) | [Plan or board?](docs/PLAN_OR_BOARD.md) | [Getting started](docs/GETTING_STARTED.md)

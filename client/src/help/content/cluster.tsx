@@ -130,7 +130,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.member-card': {
     title: 'Member card',
-    body: <p>One member at a glance: status light, name, idle or busy, short id, role, waiting mail, and the latest reply (or live activity while busy). Click to focus that member. In Compact and Narrow layouts the card is one row with a one-line reply and the short id in its tooltip (Settings, Layout).</p>,
+    body: <p>One member at a glance: status light, name, idle or busy, short id, role, waiting mail, and the latest reply (or live activity while busy). Status changes when a turn is accepted, even if a tool call comes first, and returns to idle when it settles. Click to focus that member. In Compact and Narrow layouts the card is one row with a one-line reply and the short id in its tooltip (Settings, Layout).</p>,
     manualSection: 'cluster-grid',
   },
   'cluster.member-mail': {
