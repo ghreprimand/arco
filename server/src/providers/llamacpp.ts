@@ -12,7 +12,7 @@ import {
   type OllamaToolDefinition,
 } from './ollamaTools.js';
 import { ThinkSplitter, ollamaToolCallAllowed, parseRenderedTranscript } from './ollama.js';
-import { llamacppManager, type LlamacppLoadedState } from './llamacppManager.js';
+import { llamacppManager, llamacppBaseUrl, type LlamacppLoadedState } from './llamacppManager.js';
 import { decideLocalToolCall, dispatchLocalToolCalls, localUnknownToolResult, parseToolArguments, toolNotEnabledResult, truncateLocalToolResult, type LocalToolRules, type LocalToolRuntime } from './localToolDispatch.js';
 import { LLAMACPP_NOT_FOUND, resolveLlamaServer } from './llamacppBinary.js';
 import { goalBlock } from './goalBlock.js';
@@ -792,7 +792,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
     startedAt: number,
   ): Promise<void> {
 
-    const baseUrl = `http://${loaded.host}:${loaded.port}`;
+    const baseUrl = llamacppBaseUrl(loaded);
     // Bounded wait for the upload-time downscaled copies; buildMessages reads
     // them synchronously via modelImagePath.
     await awaitModelImages(this.config.attachments);

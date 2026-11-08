@@ -39,7 +39,7 @@ import { resolveClaudeAliasFromCatalog } from './providers/claude-native/catalog
 import { getLmstudioBase, probeLmstudio } from './providers/lmstudio.js';
 import { getStrataBase, probeStrata } from './providers/strata.js';
 import { getDeepSeekBase, probeDeepSeek } from './providers/deepseek.js';
-import { llamacppManager } from './providers/llamacppManager.js';
+import { llamacppManager, llamacppBaseUrl } from './providers/llamacppManager.js';
 import { probeLlamacppLive } from './providers/llamacpp.js';
 import { queueLocalProvider, type LocalProviderName } from './providers/localProviderQueue.js';
 import { localModelsUnloading } from './providers/localModelControl.js';
@@ -556,7 +556,7 @@ let adapters: Record<SmartPickupEvaluatorProvider, EvaluatorAdapter> = {
   llamacpp: openAiCompatibleAdapter('llamacpp', { base: async (model) => {
     const status = llamacppManager.getStatus();
     if (status.state !== 'ready' || status.alias !== model || !status.port) throw new EvaluatorRefused('model_not_loaded_llamacpp');
-    return `http://${llamacppManager.getEndpoint().host}:${status.port}/v1`;
+    return `${llamacppBaseUrl({host:llamacppManager.getEndpoint().host,port:status.port})}/v1`;
   }, available: async () => (await probeLlamacppLive()).up, run: (work) => localRun('llamacpp', async () => {
     const release = llamacppManager.acquire(); try { return await work(); } finally { release(); }
   }) }),

@@ -760,6 +760,7 @@ export const providers: Section[] = [
   body: (
   <>
   <p>If the managed server exits or reports a process error, ready state clears and the next request can load a replacement.</p>
+  <p>A port fix uses the same endpoint for launch, health checks and inference. The last host or port override wins; malformed ports are refused before launch.</p>
   <p>
   llama.cpp runs local GGUF models with Arco owning the server process. Use it
   when a model feature, such as a new vision architecture, has not reached

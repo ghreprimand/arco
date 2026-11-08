@@ -340,7 +340,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           Per-row <C>Load now</C> pre-warms the singleton <C>llama-server</C> so
           the next workflow turn doesn't pay the 20-30s cold-start. <C>Unload</C>{' '}
           frees VRAM immediately. <C>chatTemplate</C> and <C>extraArgs</C> are
-          preserved across edits even if not exposed in the form. A server exit clears ready state; the next request can reload it.
+          preserved across edits even if not exposed in the form. Endpoint overrides use the same host and port for launch, health and inference. A server exit clears ready state; the next request can reload it.
         </p>
       </>
     ),

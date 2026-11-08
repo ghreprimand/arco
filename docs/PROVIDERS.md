@@ -1671,6 +1671,7 @@ require operator coordination and leave both profiles stopped afterward.
 
 A managed server exit or process error clears ready state; the next request can load a replacement.
 
+Endpoint overrides in `extraArgs`, including the suggested `--port 8081` fix, use one host and port for listener checks, health polling, loaded state and inference. The final `--host` or `--port` flag wins; malformed port overrides are refused before launch.
 
 `server/src/providers/llamacpp.ts` (provider) + `server/src/providers/llamacppManager.ts` (lifecycle) + `server/src/llamacppCatalog.ts` (operator-declared model registry).
 

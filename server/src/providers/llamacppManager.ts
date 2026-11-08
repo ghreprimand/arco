@@ -75,6 +75,11 @@ export interface LlamacppLoadedState {
   lastUsedAt: number;
 }
 
+export function llamacppBaseUrl(endpoint: { host: string; port: number }): string {
+  const host = endpoint.host.includes(':') && !endpoint.host.startsWith('[') ? `[${endpoint.host}]` : endpoint.host;
+  return `http://${host}:${endpoint.port}`;
+}
+
 export interface LlamacppManagerStatus {
   state: 'idle' | 'loading' | 'ready' | 'failed';
   alias?: string;
@@ -106,6 +111,7 @@ class LlamacppManager extends EventEmitter {
   // the existing spawn path; surfaced via getStatus(). Read-only metadata — it
   // does not feed any lifecycle decision.
   private lastLaunchArgs: string[] | undefined;
+  private lastEndpoint: { host: string; port: number } | undefined;
 
   // Public API: workers call this before issuing their HTTP request.
   // Returns once the requested model is loaded and /health passes. Multiple
@@ -197,16 +203,18 @@ class LlamacppManager extends EventEmitter {
   // Resolved host/port the manager spawns llama-server on. Exposed read-only so
   // the model-health panel can probe whether the port currently has a listener.
   getEndpoint(): { host: string; port: number } {
-    return { host: defaultHost(), port: defaultPort() };
+    return this.current ? { host: this.current.host, port: this.current.port }
+      : this.lastEndpoint ?? { host: defaultHost(), port: defaultPort() };
   }
 
   // Operator-facing eviction: explicitly unload regardless of idle timer.
   // Useful for "free the VRAM, I'm about to do something else with it".
   async unload(): Promise<void> {
+    const endpoint = this.getEndpoint();
     this.clearIdleTimer();
     await this.killChild('manual unload');
     await ensureLogStream(this);
-    await reapStaleLlamacppListener(this, defaultHost(), defaultPort(), 'manual unload');
+    await reapStaleLlamacppListener(this, endpoint.host, endpoint.port, 'manual unload');
   }
 
   // SIGTERM/SIGINT hook from the server bootstrap.
@@ -224,9 +232,9 @@ class LlamacppManager extends EventEmitter {
     this.lastError = undefined;
     this.emit('loading', { alias: def.alias });
 
-    const port = defaultPort();
-    const host = defaultHost();
-    const args = buildSpawnArgs(def, port, host);
+    const args = buildSpawnArgs(def, defaultPort(), defaultHost());
+    const { host, port } = managedEndpoint(args);
+    this.lastEndpoint = { host, port };
     // Retain for the A3 model-health panel (read-only forensics). Captured here
     // because this is the only spawn site; nothing downstream reads it back.
     this.lastLaunchArgs = args;
@@ -360,6 +368,24 @@ function buildSpawnArgs(def: LlamacppModelDef, port: number, host: string): stri
   if (def.chatTemplate) args.push('--chat-template', def.chatTemplate);
   if (Array.isArray(def.extraArgs)) args.push(...def.extraArgs);
   return args;
+}
+
+// Raw endpoint overrides must agree with the child arguments, including the
+// existing diagnostic port fix. The final occurrence follows CLI precedence.
+function managedEndpoint(args: string[]): { host: string; port: number } {
+  let host = defaultHost(), port = defaultPort();
+  for (let i = 0; i < args.length; i++) {
+    const flag = args[i];
+    if (flag === '--host' || flag.startsWith('--host=')) {
+      host = flag === '--host' ? args[++i] : flag.slice('--host='.length);
+      if (!host?.trim() || /[\s/]/.test(host)) throw new Error('Invalid llama-server host override');
+    } else if (flag === '--port' || flag.startsWith('--port=')) {
+      const raw = flag === '--port' ? args[++i] : flag.slice('--port='.length);
+      if (!raw || !/^\d+$/.test(raw) || Number(raw) < 1 || Number(raw) > 65535) throw new Error('Invalid llama-server port override');
+      port = Number(raw);
+    }
+  }
+  return { host, port };
 }
 
 async function ensureLogStream(mgr: LlamacppManager): Promise<void> {
@@ -519,7 +545,7 @@ function pipeChildToLog(child: ChildProcess, mgr: LlamacppManager): void {
 
 async function waitForHealth(host: string, port: number, child: ChildProcess, signal: AbortSignal): Promise<void> {
   const deadline = Date.now() + HEALTH_TIMEOUT_MS;
-  const url = `http://${host}:${port}/health`;
+  const url = `${llamacppBaseUrl({host,port})}/health`;
   while (Date.now() < deadline) {
     signal.throwIfAborted();
     if (child.exitCode !== null || child.signalCode !== null) {

@@ -2036,7 +2036,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         <C>--port</C>/<C>extraArgs</C> flag. Each button writes that change to
         the loaded loadout's catalog entry and reloads <C>llama-server</C>.
         Disabled when no alias is currently loaded: apply it by hand in
-        Settings &gt; Providers and models &gt; llama.cpp model registry instead.
+        Settings &gt; Providers and models &gt; llama.cpp model registry instead. A port fix uses the same endpoint for launch, conflict checks, health polling and inference.
        A catalog change while the fix is being saved refuses the save; the model is not reloaded. Refresh and review the fix again.</p>
     ),
     manualSection: 'diagnostics',
