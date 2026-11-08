@@ -30,7 +30,7 @@ import type {
   GenesisSeedUpdateMessage,
 } from '@arco/shared';
 import { emptyGenesisSeed, insertGuardrails } from '@arco/shared';
-import { getPublicProjectChoice, setPublicProjectChoice } from '../publicProjectChoice.js';
+import { getEffectivePublicProjectChoice, setPublicProjectChoice } from '../publicProjectChoice.js';
 import { workflows, workflowCwds } from '../server/state.js';
 import { send, broadcastWorkflow } from '../server/broadcast.js';
 import { updateMeta } from '../workflowMeta.js';
@@ -611,7 +611,7 @@ async function handleCreativeScaffold(
   try {
     const plan = await createPlan(cwd, {
       title: `${seed.title.trim()} — alternative direction`,
-      body: (msg.publicProject ?? await getPublicProjectChoice(cwd)) ? insertGuardrails(planBodyFor(seed)) : planBodyFor(seed),
+      body: (msg.publicProject ?? await getEffectivePublicProjectChoice(cwd)) ? insertGuardrails(planBodyFor(seed)) : planBodyFor(seed),
     });
     planId = plan.id;
     await recordAttachment(cwd, plan.id, msg.workflowId, wf.config.name).catch(() => { /* best-effort */ });
@@ -663,7 +663,7 @@ export async function handleGenesisScaffold(ws: WebSocket, msg: GenesisScaffoldM
     }
     try {
       if (typeof msg.publicProject === 'boolean') await setPublicProjectChoice(cwd, msg.publicProject);
-      const selected = msg.publicProject ?? await getPublicProjectChoice(cwd) ?? false;
+      const selected = msg.publicProject ?? await getEffectivePublicProjectChoice(cwd) ?? false;
       const result = await saveGenesisPlan(cwd, seed, selected);
       broadcastWorkflow(msg.workflowId, { type: 'genesis_plan_saved', workflowId: msg.workflowId, cwd, ...result });
     } catch (error) {

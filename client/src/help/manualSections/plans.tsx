@@ -207,7 +207,7 @@ export const plans: Section[] = [
         </p>
         <p>
           The choice is saved per project and can be changed at these controls.
-          Agent-created plans use it; a public plan missing the section offers
+          Agent-created plans use it, or the confirmed-public remote suggestion when no choice is saved. A public plan missing the section offers
           INSERT GUARDRAILS for review. Genesis includes the section in its new plan
           when selected.
         </p>

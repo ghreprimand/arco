@@ -1,6 +1,6 @@
 import { requireProjectBinding } from './projectBinding.js';
 import { hasGuardrails } from '@arco/shared';
-import { getPublicProjectChoice } from '../publicProjectChoice.js';
+import { getEffectivePublicProjectChoice } from '../publicProjectChoice.js';
 import { resolveWorkflowDocument } from './readConfinement.js';
 import type { ChatMessage } from '@arco/shared';
 import { readFile, stat } from 'fs/promises';
@@ -750,7 +750,7 @@ export async function tryHandleWorkflowDataRoutes(
       let body = '';
       for await (const chunk of req) body += chunk;
       const parsed = JSON.parse(body || '{}') as { title?: string; body?: string; workflowId?: string; attach?: boolean };
-      const publicProject = await getPublicProjectChoice(cwd);
+      const publicProject = await getEffectivePublicProjectChoice(cwd);
       const plan = await createPlan(cwd, {
         title: parsed.title ?? '',
         body: parsed.body ?? '',

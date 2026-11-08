@@ -25,7 +25,7 @@ ServerMessage,
 WorkflowConfig
 } from '@arco/shared';
 import { hasGuardrails, isClusterMemberProvider, resolveOutputStyle } from '@arco/shared';
-import { getPublicProjectChoice } from './publicProjectChoice.js';
+import { getEffectivePublicProjectChoice } from './publicProjectChoice.js';
 import { spawnSync } from 'child_process';
 import { createServer,IncomingMessage,ServerResponse, type Server } from 'http';
 import { WebSocket,WebSocketServer } from 'ws';
@@ -2012,7 +2012,7 @@ async function handleNativeEnterPlanModeSet(workflowId: string, plan: string): P
   const title = stripped.slice(0, 80) || 'Native plan';
 
   const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
-  const needsPublicReview = Boolean(wf && cwd && !clusterId && !hasGuardrails(plan) && await getPublicProjectChoice(cwd).catch(() => true));
+  const needsPublicReview = Boolean(wf && cwd && !clusterId && !hasGuardrails(plan) && await getEffectivePublicProjectChoice(cwd).catch(() => true));
   let planId: string | undefined;
   if (wf && cwd && !clusterId && !needsPublicReview) {
     try {

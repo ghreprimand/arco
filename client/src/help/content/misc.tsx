@@ -1201,7 +1201,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         When ticked, the plan draft also asks for a "Privacy and public safety"
         section of standing rules. Unticked, the request is unchanged. The choice
-        is saved for this project and can be changed in plan controls. Starting or saving a plan refreshes the saved choice without reposting an older browser value. Retry a failed checkbox save before starting the plan. Agent-created plans use the saved choice; a missing section offers INSERT GUARDRAILS for review. It is pre-ticked
+        is saved for this project and can be changed in plan controls. Starting or saving a plan refreshes the saved choice without reposting an older browser value. Retry a failed checkbox save before starting the plan. Agent-created plans use the saved choice, or the confirmed-public remote suggestion when no choice is saved; a missing section offers INSERT GUARDRAILS for review. It is pre-ticked
         only when the Git remote is confirmed public on GitHub, with the reason
         shown. A remote on another host, or a GitHub repository whose visibility is unknown, shows only a hint naming the host. Your own choice always wins.
       </p>

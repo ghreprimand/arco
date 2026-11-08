@@ -4,6 +4,7 @@ import { after, test } from 'node:test';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { Readable } from 'node:stream';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { HttpDeps } from './router.js';
@@ -15,9 +16,17 @@ const { setPublicProjectChoice } = await import('../publicProjectChoice.js');
 const { workflows, workflowCwds } = await import('../server/state.js');
 after(() => rmSync(root, { recursive: true, force: true }));
 
-test('agent plan creation reports missing public guardrails without silently changing the plan', async () => {
-  const cwd = join(root, 'project'); mkdirSync(cwd);
-  await setPublicProjectChoice(cwd, true);
+for (const classification of ['explicit', 'suggested']) test(`agent plan creation reports ${classification} public guardrails without changing the plan`, async () => {
+  const cwd = join(root, classification); mkdirSync(cwd);
+  const { getPublicProjectChoice } = await import('../publicProjectChoice.js');
+  if (classification === 'explicit') await setPublicProjectChoice(cwd, true);
+  else {
+    execFileSync('git', ['init'], { cwd, stdio: 'ignore' });
+    execFileSync('git', ['remote', 'add', 'origin', 'https://github.com/fixture/project.git'], { cwd });
+    const { suggestFromRemote } = await import('../publicProject.js');
+    await suggestFromRemote(cwd, { fetchImpl: async () => ({ status: 200, json: async () => ({ private: false }) }) });
+    assert.equal(await getPublicProjectChoice(cwd), null);
+  }
   const events: Array<{ type: string; body?: string }> = [];
   const workflowId = 'public-fixture';
   const observer = { readyState: 1, send: (payload: string) => events.push(JSON.parse(payload)) };
@@ -38,10 +47,14 @@ test('agent plan creation reports missing public guardrails without silently cha
   assert.equal(missing.plan.body, plain);
   assert.equal(events.at(-1)?.type, 'plan_candidate_ready');
   assert.equal(events.at(-1)?.body, plain);
+  if (classification === 'suggested') assert.equal(await getPublicProjectChoice(cwd), null);
+  const { buildPlanPrefix } = await import('../ws/turnEngine.js');
+  assert.match(await buildPlanPrefix(cwd, workflows.get(workflowId)!, workflowId), /This project is public/);
   const present = await create('# Fixture\n\n## Privacy and public safety\nProtect secrets.\n\n### Phase\n- [ ] Task\n');
   assert.equal(present.needsGuardrails, false);
   await setPublicProjectChoice(cwd, false);
   assert.equal((await create(plain)).needsGuardrails, false);
+  assert.doesNotMatch(await buildPlanPrefix(cwd, workflows.get(workflowId)!, workflowId), /This project is public/);
   workflows.delete(workflowId);
   workflowCwds.delete(workflowId);
 });

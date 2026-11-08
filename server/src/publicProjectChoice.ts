@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { suggestFromRemote } from './publicProject.js';
 import { arcoHome } from './arcoHome.js';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
 
@@ -28,4 +29,11 @@ export async function setPublicProjectChoice(cwd: string, value: boolean): Promi
     choices[id] = value;
     await atomicWriteFile(file, JSON.stringify(choices, null, 2) + '\n', { mode: 0o600 });
   });
+}
+
+/** Classification for plan safety checks; suggestions never become explicit choices. */
+export async function getEffectivePublicProjectChoice(cwd: string): Promise<boolean> {
+  const saved = await getPublicProjectChoice(cwd);
+  if (saved !== null) return saved;
+  return (await suggestFromRemote(cwd)).state === 'public';
 }

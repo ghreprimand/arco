@@ -155,3 +155,5 @@ controls. For installation and first session, see
 - [Documentation style](STYLE.md)
 
 Starting or saving a plan refreshes the project's saved public choice without reposting an older browser value. Changing **This project is public (or will be)** saves a new decision. If that save fails, retry the checkbox choice before starting a plan. A remote suggestion alone does not become an explicit saved choice when starting a plan.
+
+Server plan checks use the saved public-project choice first. With no saved choice, a confirmed-public remote suggestion also requires public-project guidance and missing-guardrail review. This classification does not save a new explicit choice.

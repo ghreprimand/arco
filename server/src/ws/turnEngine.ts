@@ -1,4 +1,4 @@
-import { getPublicProjectChoice } from '../publicProjectChoice.js';
+import { getEffectivePublicProjectChoice } from '../publicProjectChoice.js';
 import { buildMessageGuardPolicy, storedOutputStyle } from '@arco/shared';
 import * as attention from '../attention.js';
 import { acquireCheckoutWriter, assertCheckoutAvailable, workflowWritePaths, observeCheckoutWriters } from '../checkoutOwnership.js';
@@ -1093,7 +1093,7 @@ export async function buildPlanPrefix(
 ): Promise<string> {
   if (!cwd) return '';
   if (!wf.planId) {
-    const isPublic = await getPublicProjectChoice(cwd).catch((error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') return null; throw error; });
+    const isPublic = await getEffectivePublicProjectChoice(cwd).catch((error: NodeJS.ErrnoException) => { if (error.code === 'ENOENT') return null; throw error; });
     return planAuthoringNote(cwd, workflowId, isPublic === true);
   }
   const plan = await readPlan(cwd, wf.planId).catch(() => null);
