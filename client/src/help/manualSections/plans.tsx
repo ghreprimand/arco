@@ -146,7 +146,7 @@ export const plans: Section[] = [
         <p>
           The PLAN tab lists plans in this folder. Each row shows its age and
           task count, with <Code>PREVIEW</Code> and <Code>ATTACH</Code> buttons.
-          Completed plans are under <Code>Show finished</Code>. The same chooser
+          Later edits made while CREATE AND ATTACH is pending stay in the form. The submitted version is saved, but a changed or reopened form is not cleared or automatically attached. Completed plans are under <Code>Show finished</Code>. The same chooser
           is used for cluster plans and the cluster creator.
         </p>
         <p>

@@ -1373,7 +1373,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'plan.chooser-create': {
     title: 'Create and attach',
-    body: <p>Save the new plan in this project and choose it for the current target.</p>,
+    body: <p>Save the new plan in this project and choose it for the current target. Later edits or a reopened form stay available while saving. If the form changed, choose the saved plan separately to attach it.</p>,
     manualSection: 'plans-library',
   },
   'plan.chooser-reopen': {

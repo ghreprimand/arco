@@ -25,7 +25,10 @@ export function PlanChooser({ cwd, onAttach, onNew, onGenesis, onAllPlans, onCom
 }) {
   const [plans, setPlans] = useState<PlanChoice[] | null>(null);
   const [loadedCwd, setLoadedCwd] = useState('');
+  const [savedRevision, setSavedRevision] = useState(0);
+  const draftVersion = useRef(0);
   const currentCwd = useRef(cwd);
+  if (currentCwd.current !== cwd) draftVersion.current += 1;
   currentCwd.current = cwd;
   const [error, setError] = useState('');
   const [showFinished, setShowFinished] = useState(false);
@@ -34,6 +37,7 @@ export function PlanChooser({ cwd, onAttach, onNew, onGenesis, onAllPlans, onCom
   const [newTitle, setNewTitle] = useState('');
   const [newBody, setNewBody] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveNotice, setSaveNotice] = useState('');
   const { checked: publicProject } = usePublicProject(cwd);
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +67,7 @@ export function PlanChooser({ cwd, onAttach, onNew, onGenesis, onAllPlans, onCom
     const onFocus = () => { void load(); };
     window.addEventListener('focus', onFocus);
     return () => { cancelled = true; window.removeEventListener('focus', onFocus); };
-  }, [cwd, refreshKey]);
+  }, [cwd, refreshKey, savedRevision]);
   const currentPlans = loadedCwd === cwd ? plans : null;
   const open = (currentPlans ?? []).filter(plan => plan.completedAt == null);
   const finished = (currentPlans ?? []).filter(plan => plan.completedAt != null);
@@ -84,33 +88,41 @@ export function PlanChooser({ cwd, onAttach, onNew, onGenesis, onAllPlans, onCom
     </div>
   ));
   return <div style={{ display: 'flex', flexDirection: 'column', gap: 8, color: 'var(--color-fg)' }}>
+    {saveNotice && <div role="status">{saveNotice}</div>}
     {error && <div role="alert" style={{ color: 'var(--color-warning)' }}>Could not load plans: {error}</div>}
     {currentPlans === null ? <span>Loading plans...</span> : <>{open.length === 0 && <span>No open plans in this folder.</span>}{rows(open)}{finished.length > 0 && <><button type="button" data-help="plan.chooser-finished" style={buttonStyle} onClick={() => setShowFinished(!showFinished)} aria-expanded={showFinished}>Show finished ({finished.length})</button>{showFinished && rows(finished)}</>}</>}
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      <button type="button" data-help="plan.new" style={buttonStyle} disabled={busy} onClick={() => onNew ? onNew() : setCreating(true)}>+ NEW PLAN</button>
+      <button type="button" data-help="plan.new" style={buttonStyle} disabled={busy} onClick={() => { draftVersion.current += 1; if (onNew) onNew(); else setCreating(true); }}>+ NEW PLAN</button>
       {onGenesis && <button type="button" data-help="plan.chooser-genesis" style={buttonStyle} onClick={onGenesis}>DRAFT IN GENESIS</button>}
       <button type="button" data-help="plan.library" style={buttonStyle} onClick={onAllPlans}>ALL PLANS</button>
     </div>
     {creating && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label data-help="plan.chooser-title" style={{ color: 'var(--color-fg)' }}>Plan title <input className="arco-field" value={newTitle} onChange={event => setNewTitle(event.target.value)} /></label>
+      <label data-help="plan.chooser-title" style={{ color: 'var(--color-fg)' }}>Plan title <input className="arco-field" value={newTitle} onChange={event => { draftVersion.current += 1; setNewTitle(event.target.value); }} /></label>
       <PublicProjectBox cwd={cwd} />
-      {publicProject && !hasGuardrails(newBody) && <button type="button" data-help="plan.insert-guardrails" style={buttonStyle} onClick={() => setNewBody(insertGuardrails(newBody))}>INSERT GUARDRAILS</button>}
-      <label data-help="plan.chooser-body" style={{ color: 'var(--color-fg)' }}>Plan body <textarea className="arco-field" value={newBody} onChange={event => setNewBody(event.target.value)} rows={10} /></label>
+      {publicProject && !hasGuardrails(newBody) && <button type="button" data-help="plan.insert-guardrails" style={buttonStyle} onClick={() => { draftVersion.current += 1; setNewBody(insertGuardrails(newBody)); }}>INSERT GUARDRAILS</button>}
+      <label data-help="plan.chooser-body" style={{ color: 'var(--color-fg)' }}>Plan body <textarea className="arco-field" value={newBody} onChange={event => { draftVersion.current += 1; setNewBody(event.target.value); }} rows={10} /></label>
       <div>
         <button type="button" data-help="plan.chooser-create" style={buttonStyle} disabled={saving || !newTitle.trim()} onClick={async () => {
-          setSaving(true); setError('');
+          const submittedVersion = draftVersion.current;
+          setSaving(true); setError(''); setSaveNotice('');
           try {
             await rememberPublicChoice(cwd);
             const response = await fetch(`/api/plans?path=${encodeURIComponent(cwd)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newTitle.trim(), body: newBody }) });
             if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
             const data = await response.json() as { plan: PlanFull };
-            setCreating(false); setNewTitle(''); setNewBody('');
-            if (currentCwd.current === cwd) onAttach(data.plan);
-            else setError('The plan was saved in the previous project. Select it there to attach it.');
+            setSavedRevision(value => value + 1);
+            if (currentCwd.current !== cwd) {
+              setSaveNotice('The plan was saved in the previous project. Select it there to attach it.');
+            } else if (draftVersion.current !== submittedVersion) {
+              setSaveNotice('The submitted plan was saved. Later edits remain in the form. Choose the saved plan to attach it.');
+            } else {
+              setCreating(false); setNewTitle(''); setNewBody('');
+              onAttach(data.plan);
+            }
           } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
           finally { setSaving(false); }
         }}>{saving ? 'SAVING...' : 'CREATE AND ATTACH'}</button>
-        <button type="button" data-help="plan.chooser-cancel" style={buttonStyle} onClick={() => { setCreating(false); setNewTitle(''); setNewBody(''); }}>CANCEL</button>
+        <button type="button" data-help="plan.chooser-cancel" style={buttonStyle} onClick={() => { draftVersion.current += 1; setCreating(false); setNewTitle(''); setNewBody(''); }}>CANCEL</button>
       </div>
     </div>}
   </div>;

@@ -1366,3 +1366,5 @@ lock so accepted recent records survive concurrent notifications.
 
 RERUN in the GitHub Actions run view accepts a successful response with no JSON
 body and shows `Rerun requested.` It sends one request per click.
+
+When CREATE AND ATTACH is pending in the plan chooser, later title or body edits stay in the form. Cancelling and opening a new form also keeps that new draft. The submitted version is saved, but attachment waits for another choice when the form has changed.

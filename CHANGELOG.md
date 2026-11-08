@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep later new-plan edits when an earlier CREATE AND ATTACH request finishes.
+
 - Apply file-browser privacy rules to artifact listings and avoid linked workflow metadata.
 
 - Refuse attachment and media imports when their storage folder or a parent is a link.
