@@ -139,7 +139,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
         file opened from <strong>FILES</strong> saves over the original (with an
         overwrite confirm); an imported image asks for a new filename. On success
         the new file is revealed in the FILES panel.
-      </p><p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If either changes during the operation, retry from a fresh file selection. These checks are not an operating-system sandbox.</p></>
+      </p><p>File previews, downloads and file/image saves verify the opened file and its parent folder before reading or changing content. If either changes during the operation, retry from a fresh file selection. These checks are not an operating-system sandbox.</p><p>On Windows, file paths with trailing dots or spaces in a component, or alternate data stream separators, are refused. Use ordinary file and folder names. Drive-letter paths and network shares remain supported.</p></>
     ),
     manualSection: S,
   },
@@ -370,7 +370,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
   //: Save destination (N2):
   'media.save-to': {
     title: 'Save to…',
-    body: <p>Opens a <strong>folder picker</strong> to choose where op output lands (navigate folders, make a new one, optionally name the file). Blank = next to the source: but an <em>imported</em> file would go to scratch, so running an op without a destination pops this picker automatically. A destination outside the workflow folder needs outside-folder access and an explicit allowed folder in Settings.</p>,
+    body: <><p>Opens a <strong>folder picker</strong> to choose where op output lands (navigate folders, make a new one, optionally name the file). Blank = next to the source: but an <em>imported</em> file would go to scratch, so running an op without a destination pops this picker automatically. A destination outside the workflow folder needs outside-folder access and an explicit allowed folder in Settings.</p><p>On Windows, file paths with trailing dots or spaces in a component, or alternate data stream separators, are refused. Use ordinary file and folder names. Drive-letter paths and network shares remain supported.</p></>,
     manualSection: S,
   },
   'media.op-output': {

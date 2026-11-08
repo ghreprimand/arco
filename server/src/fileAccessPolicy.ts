@@ -47,6 +47,16 @@ function protectedRoots(): { root: string; temporaryRoot?: string }[] {
 
 export function assertSpellingSafe(target: string, pathApi = path): void {
   if (target.includes('\0') || /^\\\\[?.]\\/.test(target)) throw new FileAccessError();
+  if (pathApi.sep === '\\') {
+    const resolved = pathApi.resolve(target);
+    const root = pathApi.parse(resolved).root;
+    const components = resolved.slice(root.length).split(/[\\/]/).filter(Boolean);
+    // A drive colon belongs only to the parsed root. Other colons select
+    // alternate data streams; trailing dots/spaces can alias another name.
+    if (components.some(part => /[. ]$/.test(part) || part.includes(':'))) throw new FileAccessError();
+    const unc = root.startsWith('\\\\') ? root.split('\\').filter(Boolean) : [];
+    if (unc.some(part => /[. ]$/.test(part) || part.includes(':'))) throw new FileAccessError();
+  }
   const parts = pathApi.resolve(target).split(pathApi.sep).map((p) => p.toLowerCase());
   if (parts.some((p, i) => PRIVATE_COMPONENTS.has(p)
     && !(p === 'appdata' && pathApi.sep === '\\' && parts[i + 1] === 'local' && parts[i + 2] === 'temp'))) throw new FileAccessError();

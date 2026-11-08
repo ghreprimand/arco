@@ -77,6 +77,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Windows file paths refuse trailing dots or spaces and alternate data stream components.
+
 - File reads and saves verify opened-file identity and parent paths before accessing content; output copies remain owner-only.
 
 - Search, Git and project document actions validate the selected workflow or known project folder.

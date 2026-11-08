@@ -1,5 +1,7 @@
 # Getting started
 
+On Windows, file paths with trailing dots or spaces in a component, or alternate data stream separators, are refused. Use ordinary file and folder names. Drive-letter paths and network shares remain supported.
+
 This guide takes a new Arco install from provider setup to a project chat, then
 covers a first cluster, optional voice, and backups.
 
