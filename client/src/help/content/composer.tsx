@@ -104,6 +104,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           cluster-level <C>◉ REMOTE</C> switch; their individual setting is ignored
           while clustered.
         </p>
+      <p>Cursor COMPACT uses the normal native compression handler with the same busy and saved-session checks as the desktop.</p>
       <p>Long conversations keep updating past the retained window. Growing replies update in place; a window change refreshes the recent history while preserving unsent text.</p>
       </>
     ),

@@ -600,6 +600,7 @@ export const providers: Section[] = [
   It can read the codebase to ground its answer but cannot write or run
   shell, and it never touches the transcript of the tab that launched it.
   </p>
+  <p>Cursor COMPACT from the remote console reaches the same native compression handler as the desktop. A running turn or a missing saved session still prevents compression.</p>
   <Sub>Usage and context</Sub>
   <p>If Cursor usage pages are capped or end before their reported total, Arco shows an incomplete-usage error and withholds monthly totals. Open the dashboard for the complete period.</p>
   <p>

@@ -1,3 +1,4 @@
+import { supportsManualCompact } from '../manualCompactCapability.js';
 // `compact_workflow` handler — operator-triggered native compaction. One WS
 // message, provider-routed:
 //   - Codex (app-server): fires `thread/compact/start` against the live
@@ -50,7 +51,7 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
     return;
   }
   const provider = wf.primary.provider;
-  if (provider !== 'codex' && provider !== 'claude' && provider !== 'ollama' && provider !== 'cursor') {
+  if (!supportsManualCompact(provider)) {
     send(ws, { type: 'error', message: 'Native compact is available on Codex, Cursor, Claude Native, and Ollama — use Handoff on other providers.' });
     return;
   }

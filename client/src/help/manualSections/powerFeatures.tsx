@@ -627,6 +627,7 @@ export const powerFeatures: Section[] = [
   title: 'Remote-friendly operation',
   body: (
   <>
+  <p>Remote Cursor COMPACT uses the desktop native compression handler with the same busy and saved-session checks.</p>
   <p>Long remote conversations keep updating when older messages leave the retained window. Growing replies update their existing row. The recent window is refreshed together while unsent text and retained scroll positions are kept. Earlier history remains on the computer.</p>
   <p>
   Arco needs only <strong>one forwarded port</strong>, so you can run it on a dev

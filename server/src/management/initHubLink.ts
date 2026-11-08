@@ -1,3 +1,4 @@
+import { supportsManualCompact } from '../manualCompactCapability.js';
 // Workflow-reporting layer — wires the real Arco turn engine to the hub link.
 // This is the ONLY file that couples the hub link to server internals; the
 // connector (hubLink.ts) stays turn-engine-free and independently smoke-tested.
@@ -195,7 +196,7 @@ function areGatesRemoteResolvable(wfid: string, wf: WorkflowState): boolean {
 // summary carries the tail of the last assistant message so the console has
 // enough context to decide (§13.5), plus the R1 decision-context fields
 // (context zone, queue, parked question/gates) — all cheap in-memory reads.
-function snapshotWorkflows(): WorkflowSummary[] {
+export function snapshotWorkflows(): WorkflowSummary[] {
   const out: WorkflowSummary[] = [];
   for (const [wfid, wf] of workflows.entries()) {
     // REMOTE_MANAGEMENT.md §1.4 + R3 §3 — opt-in gate. Default OFF: a workflow
@@ -223,7 +224,7 @@ function snapshotWorkflows(): WorkflowSummary[] {
     // only after its first turn); the handler re-validates regardless.
     const claudeNativeLikely = wf.config.claudeTransport === 'native' || pending !== null;
     const p = wf.primary.provider;
-    const canCompact = p === 'codex' || p === 'cursor' || p === 'ollama' || (p === 'claude' && claudeNativeLikely);
+    const canCompact = supportsManualCompact(p, claudeNativeLikely);
     const canFold = p === 'claude' && claudeNativeLikely;
     out.push({
       workflowId: wfid,
@@ -384,7 +385,7 @@ function fakeSession(wfid: string): Session {
 
 // Apply a routed action, RE-VALIDATING against the live workflow first. The hub
 // only routes; this is where the local instance decides the action is valid.
-async function applyAction(
+export async function applyAction(
   action: WorkflowActionRequest,
   actionId: string,
 ): Promise<WorkflowActionResult> {
@@ -449,7 +450,7 @@ async function applyAction(
       const p = wf.primary.provider;
       const okProvider = action.type === 'fold'
         ? p === 'claude'
-        : p === 'codex' || p === 'claude' || p === 'ollama';
+        : supportsManualCompact(p);
       if (!okProvider) return { ...base, ok: false, error: 'unsupported' };
       // The handlers do the deep validation (transport cascade, busy re-check)
       // and surface their own error/system_notice on the workflow's broadcast
