@@ -1358,7 +1358,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'plan.chooser-attach': {
     title: 'Attach a plan',
-    body: <p>Attach this plan to the selected tab or cluster.</p>,
+    body: <p>In an existing tab or cluster, attach this plan now. In the cluster creator, select it for attachment when CREATE CLUSTER is submitted.</p>,
     manualSection: 'plans-library',
   },
   'plan.chooser-finished': {
