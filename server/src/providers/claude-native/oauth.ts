@@ -90,7 +90,8 @@ export async function startBootstrap(expectedBinding?: ClaudeCredentialBinding, 
     if (expectedBinding && !sameBinding(expectedBinding, binding)) throw new Error('Native credentials changed. Review sign-in status before starting again.');
     if (pendingFlow) finishFlow(pendingFlow, 'superseded');
     const verifier = randomBytes(32).toString('base64url');
-    const flow: PendingFlow = { state: verifier, codeVerifier: verifier, server: null, result: {
+    const state = randomBytes(32).toString('base64url');
+    const flow: PendingFlow = { state, codeVerifier: verifier, server: null, result: {
       id: randomUUID(), status: 'pending', startedAt: Date.now(), expiresAt: Date.now() + FLOW_TTL_MS,
       bindingBefore: binding, ...(workflowId ? { workflowId } : {}),
     } };
@@ -119,8 +120,8 @@ export async function startBootstrap(expectedBinding?: ClaudeCredentialBinding, 
     flow.timer = setTimeout(() => { void cancelBootstrap(flow.result.id, 'expired'); }, FLOW_TTL_MS);
     flow.timer.unref?.();
     const params = new URLSearchParams({ code: 'true', client_id: CLIENT_ID, response_type: 'code', redirect_uri: REDIRECT_URI,
-      scope: SCOPES, code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256', state: verifier });
-    return { authorizationUrl: `${AUTHORIZE_URL}?${params}`, state: verifier, manualFallback: !flow.server, manualReason, flow: { ...flow.result } };
+      scope: SCOPES, code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256', state });
+    return { authorizationUrl: `${AUTHORIZE_URL}?${params}`, state, manualFallback: !flow.server, manualReason, flow: { ...flow.result } };
   });
 }
 
@@ -158,7 +159,7 @@ function completeFlow(flow: PendingFlow, url: URL): Promise<{ ok: true; flow: Cl
   flow.result = { ...flow.result, status: 'exchanging' };
   flow.completion = (async () => {
     try {
-      const tokens = await exchangeCode(code, flow.codeVerifier);
+      const tokens = await exchangeCode(code, flow.state, flow.codeVerifier);
       await withAuthLock(async () => {
         if (!currentFlow(flow)) throw new Error('Sign-in flow is no longer pending. Start again.');
         if (!sameBinding(flow.result.bindingBefore, nativeCredentialBinding(await readTokensUnlocked()))) {
@@ -187,9 +188,9 @@ export async function completeBootstrap(rawUrl: string, flowId?: string): Promis
   return completeFlow(flow, url);
 }
 
-async function exchangeCode(code: string, codeVerifier: string): Promise<ClaudeNativeTokens> {
-  // Pi-parity: JSON body, not form-encoded; include `state` (= verifier)
-  // alongside `code_verifier` (= verifier).
+async function exchangeCode(code: string, state: string, codeVerifier: string): Promise<ClaudeNativeTokens> {
+  // The callback state binds the flow; the independent verifier stays
+  // server-side until this back-channel token exchange.
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -197,7 +198,7 @@ async function exchangeCode(code: string, codeVerifier: string): Promise<ClaudeN
       grant_type: 'authorization_code',
       client_id: CLIENT_ID,
       code,
-      state: codeVerifier,
+      state,
       redirect_uri: REDIRECT_URI,
       code_verifier: codeVerifier,
     }),

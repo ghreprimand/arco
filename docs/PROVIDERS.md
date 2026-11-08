@@ -375,10 +375,10 @@ These moves are pure (no behavior change); `workerParity.test.ts` / `stripTraili
 
 #### Auth
 
-OAuth subscription flow lifted verbatim from `earendil-works/pi`:
+OAuth subscription flow adapted from `earendil-works/pi`:
 
 - `CLIENT_ID = 9d1c250a-e61b-44d9-88ed-5944d1962f5e` (stored as base64 + `atob` at module load - minor protection against repo scrapes; not a security boundary).
-- Callback `127.0.0.1:53692/callback` (overridable via `ARCO_OAUTH_CALLBACK_HOST`). On `EADDRINUSE` we fall back to manual-paste mode automatically.
+- OAuth state and the PKCE verifier are independent random values. The authorization URL carries state and the S256 challenge; the callback carries code and state; the verifier stays server-side until the token exchange. Callback `127.0.0.1:53692/callback` (overridable via `ARCO_OAUTH_CALLBACK_HOST`). On `EADDRINUSE` we fall back to manual-paste mode automatically.
 - Tokens persist to `~/.arco/auth.json` under `claude.native` - mode 0600, parent dir 0700, atomic tmp+rename, `proper-lockfile` around the read-refresh-write cycle. Lock is **not** held across the SDK call.
 - Refresh runs 30s ahead of expiry. On `400 invalid_grant`, the loop emits `[AUTH:claude]` system_notice and fails the turn; after three consecutive auth failures within the workflow the notice escalates and auto-retry stops until the operator re-logs in.
 - Re-login goes through `POST /api/auth/claude-native/login` (returns the authorize URL + a `manualFallback` flag); the callback is captured by the local server or accepted via `POST /api/auth/claude-native/callback` (`{ url }` body) for headless / port-blocked operators.

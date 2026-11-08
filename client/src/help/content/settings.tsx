@@ -238,6 +238,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported. Native sign-in in Settings and inline recovery tracks a specific flow, even while rejected credentials remain present. Local callbacks complete automatically when reachable; another device can paste the redirected localhost URL. CANCEL SIGN-IN cancels that flow. After matching recovery, review the original workflow and send explicitly. Drafts are retained and work is never replayed automatically.</p>
+        <p>Native sign-in keeps its PKCE verifier on the server. Browser sign-in and callback URLs use an independent random state. Local callback and manual paste share the same flow checks.</p>
         <p>
           The sign-in rows show provider status and sign-in controls. Claude
           Native, Claude CLI, Codex profiles and Cursor use separate sign-ins.

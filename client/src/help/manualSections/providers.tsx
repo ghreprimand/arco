@@ -142,6 +142,7 @@ export const providers: Section[] = [
   ['LOGOUT', 'Removes the stored tokens.'],
   ]}
   />
+  <p>Native sign-in uses a separate random state and PKCE verifier. The verifier stays on the server and does not appear in the browser sign-in or callback URL. Local callbacks and manual URL paste use the same guarded flow.</p>
   <p>Native status reads one of these messages:</p>
   <ul>
   <li>

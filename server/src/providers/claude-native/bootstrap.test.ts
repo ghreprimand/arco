@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { installIsolatedTestHome } from '../../testSupport/isolatedHome.js';
 
@@ -14,9 +15,10 @@ const { saveTokens, loadTokens, nativeCredentialBinding } = await import('./auth
 const { getClaudeNativeAuthStatus } = await import('./authStatus.js');
 const originalFetch = globalThis.fetch, originalNow = Date.now;
 let tokenCalls = 0;
+let exchangeBody: Record<string,string> | null = null;
 let grant = async () => new Response(JSON.stringify({ access_token: 'fixture-new-access', refresh_token: 'fixture-new-refresh', expires_in: 3600 }));
 globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
-  if (String(url) === 'https://platform.claude.com/v1/oauth/token') { tokenCalls++; return grant(); }
+  if (String(url) === 'https://platform.claude.com/v1/oauth/token') { tokenCalls++; exchangeBody=JSON.parse(String(init?.body)); return grant(); }
   assert.match(String(url), /^http:\/\/(127\.0\.0\.1|localhost):53692\/callback\?/);
   return originalFetch(url, init);
 }) as typeof fetch;
@@ -185,4 +187,23 @@ test('a malformed successful exchange does not complete recovery or replace cred
   grant = async () => new Response(JSON.stringify({ access_token: 'fixture-incomplete' }));
   await assert.rejects(oauth.completeBootstrap(callback(start.state), start.flow.id), /Invalid Native token exchange response/);
   assert.deepEqual(await loadTokens(), before); assert.equal((await oauth.getBootstrapFlow(start.flow.id))?.status, 'failed');
+});
+
+
+test('OAuth state is independent of the server-only PKCE verifier', async () => {
+  const start=await begin();
+  const authorization=new URL(start.authorizationUrl);
+  assert.equal(authorization.searchParams.get('state'),start.state);
+  assert.equal(authorization.searchParams.get('code_challenge_method'),'S256');
+  await oauth.completeBootstrap(callback(start.state),start.flow.id);
+  const exchange=exchangeBody as unknown as Record<string,string>;
+  assert.match(exchange.code_verifier,/^[A-Za-z0-9_-]{43,128}$/);
+  assert.notEqual(exchange.code_verifier,start.state);
+  assert.equal(exchange.state,start.state);
+  assert.equal(exchange.code,'fixture-code');
+  assert.equal(authorization.searchParams.get('code_challenge'),createHash('sha256').update(exchange.code_verifier).digest('base64url'));
+  for (const publicValue of [start.authorizationUrl,callback(start.state),JSON.stringify(start.flow),JSON.stringify(await oauth.getBootstrapFlow(start.flow.id))]) {
+    assert.ok(!publicValue.includes(exchange.code_verifier),'verifier must remain server-side');
+  }
+  assert.equal(tokenCalls,1);
 });
