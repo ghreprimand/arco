@@ -266,3 +266,12 @@ export function tokensPerSecond(tokens: number, ms: number): number | null {
 export function formatTokPerSec(rate: number): string {
   return rate < 10 ? rate.toFixed(1) : String(Math.round(rate));
 }
+
+// Activity rows and session sums use disjoint fresh/cache counts. Codex input
+// includes its cache hits; Anthropic input excludes cache reads and writes.
+export function promptTokenCounts(t: TokenUsage, provider?: ProviderName): { fresh: number; prompt: number } {
+  const cached = t.cacheRead ?? 0, created = t.cacheCreate ?? 0;
+  return provider === 'codex'
+    ? { fresh: Math.max(0, t.input - cached), prompt: t.input }
+    : { fresh: t.input, prompt: t.input + cached + created };
+}

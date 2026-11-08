@@ -159,3 +159,46 @@ test('scrolling a named control scrolls its containing panel rather than the pag
   await actOnScreen(doc, { control: 'Latest item', action: 'scroll', text: 'top' }); assert.equal(pane.scrollTop, 0);
   await actOnScreen(doc, { control: 'Latest item', action: 'scroll', text: 'bottom' }); assert.equal(pane.scrollTop, 1500);
 });
+
+ test('B75: native editing, selection, button activation and literal space have effects', async () => {
+  const { window } = new JSDOM('<label for="text">Text</label><input id="text" value="abc"><button>Apply</button>', { pretendToBeVisual: true });
+  try {
+    const doc = window.document, input = doc.querySelector('input')!;
+    input.focus(); input.setSelectionRange(3, 3);
+    await actOnScreen(doc, { action: 'press', control: 'Text', text: 'Backspace' });
+    assert.equal(input.value, 'ab');
+    input.setSelectionRange(0, 1);
+    await actOnScreen(doc, { action: 'press', control: 'Text', text: 'Delete' });
+    assert.equal(input.value, 'b');
+    await actOnScreen(doc, { action: 'press', control: 'Text', text: 'End' });
+    await actOnScreen(doc, { action: 'press', control: 'Text', text: ' ' });
+    assert.equal(input.value, 'b ');
+    input.value = 'a😀b'; input.setSelectionRange(3, 3);
+    await actOnScreen(doc, { action: 'press', control: 'Text', text: 'ArrowLeft' });
+    await actOnScreen(doc, { action: 'press', control: 'Text', text: 'Delete' });
+    assert.equal(input.value, 'ab', 'navigation and deletion cannot split a surrogate pair');
+
+    let clicked = 0; doc.querySelector('button')!.onclick = () => { clicked++; };
+    await actOnScreen(doc, { action: 'press', control: 'Apply', text: 'Enter' });
+    await actOnScreen(doc, { action: 'press', control: 'Apply', text: 'space' });
+    assert.equal(clicked, 2);
+  } finally { window.close(); }
+});
+
+ test('B75: native key defaults respect confirmation, readonly fields and cancelled key events', async () => {
+  const { window } = new JSDOM('<button>Delete everything</button><label for="ro">Readonly</label><input id="ro" readonly value="abc"><label for="custom">Custom</label><input id="custom" value="abc"><input type="checkbox" aria-label="Flag">', { pretendToBeVisual: true });
+  try {
+    const doc = window.document; let clicked = 0;
+    doc.querySelector('button')!.onclick = () => { clicked++; };
+    assert.match(await actOnScreen(doc, { action: 'press', control: 'Delete everything', text: 'Shift+Enter' }), /destructive/);
+    assert.equal(clicked, 0);
+    assert.match(await actOnScreen(doc, { action: 'press', control: 'Readonly', text: 'Backspace' }), /not supported/);
+    assert.equal((doc.getElementById('ro') as HTMLInputElement).value, 'abc');
+    const input = doc.getElementById('custom') as HTMLInputElement; input.setSelectionRange(3, 3);
+    input.addEventListener('keydown', e => e.preventDefault());
+    await actOnScreen(doc, { action: 'press', control: 'Custom', text: 'Backspace' });
+    assert.equal(input.value, 'abc');
+    await actOnScreen(doc, { action: 'press', control: 'Flag', text: 'space' });
+    assert.equal(doc.querySelector<HTMLInputElement>('[type=checkbox]')!.checked, true);
+  } finally { window.close(); }
+});

@@ -1,3 +1,4 @@
+import { findDiagnosticExecutable } from './executableLookup.js';
 // -- Local model health report (docs/ARCHITECTURE.md) --
 //
 // The single source behind GET /api/diagnostics/model-health. A richer,
@@ -23,8 +24,6 @@
 // `warn` sub-report instead of failing the whole call. buildModelHealthReport
 // never throws.
 
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import { promises as fs } from 'node:fs';
 import type { FileHandle } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -52,7 +51,6 @@ import { parseParams } from '../hardware/modelFiles.js';
 import { modelsDir } from '../hardware/modelFiles.js';
 import { arcoHome } from '../arcoHome.js';
 
-const execFileAsync = promisify(execFile);
 const ARCO_HOME = arcoHome();
 const LLAMACPP_LOG = join(ARCO_HOME, 'llamacpp.log');
 
@@ -65,15 +63,9 @@ const LOG_TAIL_MAX_BYTES = 64 * 1024;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-// which-style PATH lookup that never throws. argv array, no shell.
+// Honor the managed runtime binary override as well as platform PATH lookup.
 async function onPath(bin: string): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync('which', [bin], { timeout: 3000 });
-    const first = stdout.split('\n')[0]?.trim();
-    return first || null;
-  } catch {
-    return null;
-  }
+  return findDiagnosticExecutable(bin);
 }
 
 // Read the trailing LOG_TAIL_LINES of a text file, bounded to the last

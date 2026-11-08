@@ -529,6 +529,7 @@ export const powerFeatures: Section[] = [
   (about five rows, newest first), and its header toggles ▾/▸ to hide it. The
   choice is remembered across tabs. HISTORY still owns revert and view-diff.
   </p>
+  <p>Codex prompt totals already include cache hits. Fresh input subtracts those hits; the cached percentage uses the full prompt. Claude reports separate fresh, cache-read and cache-write counts. Session totals normalize each turn before adding them.</p>
   <Sub>Subscription dots</Sub>
   <p>
   The header's live-status dots are separate. Hover the <Code>A</Code> (Claude)
@@ -791,6 +792,7 @@ export const powerFeatures: Section[] = [
   window</strong> that stays on top and never reflows the two-column layout. Drag
   the title bar to move it and the bottom-right corner to resize it.
   </p>
+  <p>When a terminal reconnects, its display reloads the server's bounded scrollback once. The live shell keeps running.</p>
   <Sub>Opening a terminal</Sub>
   <ul>
   <li><Code>TERMINAL</Code> in the header TOOLS menu opens a shell in the active workflow's root.</li>

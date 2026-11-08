@@ -179,6 +179,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       </p>
     ),
   },
+  'rightpanel.activity.tokens': { title: 'Token usage', manualSection: 'token-tracking', body: <p>Expand TOKEN USAGE for per-turn counts. Codex prompt totals include cache hits; fresh input excludes them. Claude reports fresh, cache-read and cache-write counts separately. Session totals normalize each turn before adding it.</p> },
   'rightpanel.activity.diagnostics': {
     title: 'DIAGNOSTICS',
     body: (

@@ -69,6 +69,7 @@ export const troubleshooting: Section[] = [
   <li><strong>Services</strong> - Local Services, below.</li>
   </ul>
   <p>Diagnostics and Model Health show a read error for failed or invalid server responses. <strong>↻ REFRESH</strong> retries the request.</p>
+  <p>Tool detection follows platform PATH lookup, including Windows executable suffixes. Model Health also uses <Code>ARCO_LLAMACPP_BIN</Code> when configured, matching the managed runtime.</p>
   <Sub>Diagnostics checks</Sub>
   <p>
   Diagnostics is grouped, read-only status checks that answer "what's

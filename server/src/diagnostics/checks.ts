@@ -1,3 +1,4 @@
+import { findDiagnosticExecutable } from './executableLookup.js';
 // -- Diagnostics check registry (docs/ARCHITECTURE.md) --
 //
 // The single source of probe logic behind GET /api/diagnostics. Every check is
@@ -22,7 +23,7 @@
 //   - Probes run concurrently (Promise.all) and each binary probe is itself
 //     time-bounded by the underlying helper, so one slow binary can't hang the
 //     whole call.
-//   - Cross-platform: POSIX-only. The lone platform-specific note is the GPU
+//   - Cross-platform: PATH lookup honors Windows executable suffixes. The lone platform-specific note is the GPU
 //     probe inside hardware/probe (which already degrades on macOS); nothing
 //     here hardcodes a /usr path or a Linux-only binary.
 
@@ -91,17 +92,9 @@ async function safeProbe(
   }
 }
 
-// `which`-style PATH lookup that never throws. Returns the resolved path or null.
-// POSIX `command -v` would need a shell; we use the `which` binary with an argv
-// array (no shell) and treat any non-zero exit / ENOENT as "not found".
+// Cross-platform executable lookup shared with the runtime resolvers.
 async function onPath(bin: string): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync('which', [bin], { timeout: 3000 });
-    const first = stdout.split('\n')[0]?.trim();
-    return first || null;
-  } catch {
-    return null;
-  }
+  return findDiagnosticExecutable(bin);
 }
 
 // Version probe: run `<bin> <flag>` and pull the first semver-ish token. Resolves

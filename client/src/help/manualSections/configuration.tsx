@@ -14,6 +14,7 @@ export const configuration: Section[] = [
   use its provider list to enable providers and sign in. Per-workflow config
   lives in the CONFIG tab on the right pane.
   </p>
+  <p>In Connections, clear <strong>Model server address</strong> and choose <strong>Save endpoint</strong> to restore the runtime default. Other Ollama options stay saved. Use <strong>Test connection</strong> to check the resulting address.</p>
   <Sub>Claude sign-ins</Sub>
   <p>
   <strong>Claude</strong> has two separate sign-ins, grouped at the top of the

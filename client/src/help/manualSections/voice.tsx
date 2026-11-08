@@ -680,6 +680,7 @@ export const voice: Section[] = [{
   <li>Click, toggle, type into or select any control by number or label.</li>
   <li>Inspect dropdown options and set bounded numeric or slider values.</li>
   <li>Hover, double-click, open right-click menus, focus fields, scroll inside a dialog or panel, and press navigation and editing keys.</li>
+  <li>Backspace and Delete edit native text fields. Space inserts a space or activates a native button or checkbox. Enter activates a native button, submits a field's form or adds a text-area newline. Unsupported key actions report their limit; click or type remains available.</li>
   <li>Read the words on screen, the whole open dialog, or just the section whose heading matches a word.</li>
   </ul>
   <p>

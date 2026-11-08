@@ -1,3 +1,4 @@
+import { promptTokenCounts } from '../../utils/format';
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import type { JobState, ActivityEntry, HistoryEventEntry } from '../../stores/appStore';
 import type { PrimaryBackgroundJob, PrimaryTurnTokenUsageMessage, DiagnosticItem } from '@arco/shared';
@@ -140,9 +141,11 @@ const TOKEN_ROWS_MAX_PX = 260;
 function TokenUsageSection({ usage }: { usage: PrimaryTurnTokenUsageMessage[] }) {
   const [expanded, setExpanded] = useState(loadTokenRowsExpanded);
   const session = useMemo(() => {
-    let input = 0, output = 0, cacheRead = 0, cacheCreate = 0, lastPromptTokens = 0, thinkingBytes = 0, toolBytes = 0, serverToolBytes = 0, anyToolKnown = false;
+    let prompt = 0, input = 0, output = 0, cacheRead = 0, cacheCreate = 0, lastPromptTokens = 0, thinkingBytes = 0, toolBytes = 0, serverToolBytes = 0, anyToolKnown = false;
     for (const u of usage) {
-      input += u.input;
+      const counts = promptTokenCounts(u, u.provider);
+      input += counts.fresh;
+      prompt += counts.prompt;
       output += u.output;
       cacheRead += u.cacheRead;
       cacheCreate += u.cacheCreate;
@@ -151,16 +154,16 @@ function TokenUsageSection({ usage }: { usage: PrimaryTurnTokenUsageMessage[] })
       if (u.toolResultBytes >= 0) { toolBytes += u.toolResultBytes; anyToolKnown = true; }
       if ((u.serverToolResultBytes ?? 0) > 0) { serverToolBytes += u.serverToolResultBytes ?? 0; anyToolKnown = true; }
     }
-    return { input, output, cacheRead, cacheCreate, lastPromptTokens, thinkingBytes, toolBytes, serverToolBytes, anyToolKnown };
+    return { prompt, input, output, cacheRead, cacheCreate, lastPromptTokens, thinkingBytes, toolBytes, serverToolBytes, anyToolKnown };
   }, [usage]);
 
-  const promptProcessed = session.input + session.cacheRead + session.cacheCreate;
+  const promptProcessed = session.prompt;
   const cachedShare = promptProcessed > 0 ? Math.round((session.cacheRead / promptProcessed) * 100) : 0;
   const toolLine = formatToolByteSummary(session.toolBytes, session.serverToolBytes, session.anyToolKnown);
   const sessionCacheUnreported = usage.every((u) => cacheUnreported(u.provider));
 
   return (
-    <div style={{ marginBottom: '10px' }}>
+    <div style={{ marginBottom: '10px' }} data-help="rightpanel.activity.tokens">
       <button
         onClick={() => setExpanded((v) => {
           const next = !v;
@@ -470,7 +473,8 @@ function CheckpointsSection({ checkpoints }: { checkpoints: HistoryEventEntry[] 
 
 function TokenUsageRow({ usage, index }: { usage: PrimaryTurnTokenUsageMessage; index: number }) {
   const transportLabel = usage.transport ? ` · ${usage.transport}` : '';
-  const promptProcessed = usage.input + usage.cacheRead + usage.cacheCreate;
+  const counts = promptTokenCounts(usage, usage.provider);
+  const promptProcessed = counts.prompt;
   const cachedShare = promptProcessed > 0
     ? Math.round((usage.cacheRead / promptProcessed) * 100)
     : 0;
@@ -498,7 +502,7 @@ function TokenUsageRow({ usage, index }: { usage: PrimaryTurnTokenUsageMessage; 
       <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px', marginTop: '1px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
         {cacheUnreported(usage.provider)
           ? 'cache: not reported by daemon'
-          : `${formatTokens(usage.input)} fresh · ${formatTokens(usage.cacheRead)} cache-read · ${formatTokens(usage.cacheCreate)} cache-write`}
+          : `${formatTokens(counts.fresh)} fresh · ${formatTokens(usage.cacheRead)} cache-read · ${formatTokens(usage.cacheCreate)} cache-write`}
       </div>
       <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px', marginTop: '1px', textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
         thinking {usage.thinkingBytes > 0 ? formatBytes(usage.thinkingBytes) : '-'}

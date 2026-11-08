@@ -203,6 +203,12 @@ async def run(base):
             assert hidden == items, (hidden, items)
             await page.keyboard.press('Escape')
             await expect(menu).to_be_hidden()
+            # B41 no longer reproduces: SKILLS is outside the overflowing toolbar.
+            skills = page.locator('[data-help="composer.skills"]')
+            assert await skills.evaluate('el => !el.closest("[data-overflowed=true]")')
+            await skills.get_by_role('button', name='SKILLS', exact=False).click()
+            await expect(skills.get_by_text('BUILT-IN', exact=True)).to_be_visible()
+            await page.keyboard.press('Escape')
             # A wider window brings the tools back.
             await page.set_viewport_size({'width': 1999, 'height': 800})
             await page.wait_for_function("() => document.querySelectorAll('[data-testid=\"composer-toolbar\"] > [data-overflowed=\"true\"]').length < %d" % (len(items) + 1), timeout=10000)

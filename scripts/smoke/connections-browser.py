@@ -246,6 +246,15 @@ async def checks_and_endpoints(playwright,server):
         await local.get_by_role('button',name='Save endpoint',exact=True).click()
         await local.get_by_text('Endpoint saved.',exact=False).wait_for()
         assert not state['checks'],'saving does not implicitly test the endpoint'
+        await local.get_by_label('Model server address').fill('')
+        await local.get_by_role('button',name='Save endpoint',exact=True).click()
+        await local.get_by_text('Endpoint saved.',exact=False).wait_for()
+        await page.wait_for_function("() => document.querySelector('.connections-endpoint input')?.value === ''")
+        assert 'baseUrl' not in json.loads((server.home/'.arco'/'settings.json').read_text()).get('ollama',{}),'empty endpoint restores default'
+        await local.get_by_label('Model server address').fill('http://host.docker.internal:11434')
+        await local.get_by_role('button',name='Save endpoint',exact=True).click()
+        await page.wait_for_timeout(100)
+
         capacity=local.get_by_label('Cluster members that may use this runtime at once')
         assert await capacity.input_value()=='1','a fresh home allows one Ollama member per cluster'
         await capacity.fill('17')

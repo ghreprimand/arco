@@ -1142,6 +1142,8 @@ types into or selects one, or presses Escape, Enter, Tab or an arrow. Dialogs
 without a `role="dialog"` (most of Arco's modals: DOCS, GIT, SPAWN, REVIEW,
 HANDOFF, SYSTEM, the nudge picker) still count as dialogs: any fixed
 full-viewport overlay that takes pointer events is reported by its heading.
+For native text fields, `arco_act` press applies Backspace, Delete, horizontal navigation, Home, End and space directly. Enter activates native buttons or submits a field's form; it adds a newline in a text area. Space also activates buttons and toggles checkboxes. Unsupported native key actions report that limit and suggest click or type. Destructive activation still requires confirmation.
+
 `arco_read_text` reads the words on screen (the open dialog, or the page), or
 just the section whose heading matches a word: "Computer, read me the section on
 Strata from the manual, over" opens the manual, finds the section and reads it

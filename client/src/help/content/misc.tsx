@@ -162,6 +162,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Connections', manualSection: 'settings-providers',
     body: <p>Choose a provider to review account requirements, sign in, save an endpoint, or check its current status. A successful explicit connection check enables that provider for new work. Claude Native credentials and CLI sign-in are separate sign-ins with separate status and recovery controls. Native is the default transport, so Claude shows Native: sign-in needed until SIGN IN FOR NATIVE completes; Use Claude CLI instead switches the transport when the CLI is signed in; local credential presence does not verify execution or usage limits access. Cursor signs in from here and shows the link to open; when Cursor has rejected the saved sign-in, its status reads Sign-in rejected and the button reads Sign in again. Advanced settings retain the provider controls. Skip keeps the workspace available without starting a workflow.</p>,
   },
+  'auth.endpoint': { title: 'Model server address', manualSection: 'settings-providers', body: <p>Set an http or https service address, then Save endpoint. Clear the field and save to restore the runtime default. Other Ollama options stay saved. Test connection checks the resulting address.</p> },
   'auth.login-flow': {
     title: 'Provider sign-in', manualSection: 'settings-providers',
     body: <p>Open the provider sign-in link and follow its instructions. Enter a returned code only when requested. The provider CLI stores credentials in the server home. Cancel stops this login; the terminal command remains available as a fallback.</p>,
@@ -1898,7 +1899,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Grouped, read-only status checks answering "what's actually working on
         this machine?": Core, Providers, Local Tools, Workbench, Storage, and Security &amp; Exposure. Each
         row expands to a detail line + remediation hint. Operator-triggered: the
-        report runs on open and on <C>↻ REFRESH</C>, never on a timer.
+        report runs on open and on <C>↻ REFRESH</C>, never on a timer. Tool detection honors Windows executable suffixes.
       </p>
     ),
     manualSection: 'diagnostics',
@@ -1989,7 +1990,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'llama.cpp health',
     body: (
       <p>
-        The llama.cpp lifecycle manager: the <C>llama-server</C> binary path,
+        The llama.cpp lifecycle manager: the <C>llama-server</C> binary path (uses <C>ARCO_LLAMACPP_BIN</C> when configured; otherwise searches PATH),
         registered loadouts (from <C>~/.arco/llamacpp.json</C>), the manager
         state (idle/loading/ready/failed), the currently-loaded alias + port +
         pid, the <strong>last launch args</strong>, and a tail of the last

@@ -220,13 +220,53 @@ function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: strin
   el.dispatchEvent(new (el.ownerDocument.defaultView?.Event ?? Event)('change', { bubbles: true }));
 }
 
-function pressKey(target: Element | Document, key: string): void {
+function pressKey(target: Element | Document, key: string): boolean {
   const view = (target as Document).defaultView ?? (target as Element).ownerDocument.defaultView;
   const KE = view?.KeyboardEvent ?? KeyboardEvent;
   const shiftKey = key.startsWith('Shift+'); if (shiftKey) key = key.slice(6);
-  const init = { shiftKey, key, code: key === 'Escape' ? 'Escape' : key === 'Enter' ? 'Enter' : key, bubbles: true, cancelable: true };
-  target.dispatchEvent(new KE('keydown', init));
+  const init = { shiftKey, key, code: key === ' ' ? 'Space' : key, bubbles: true, cancelable: true };
+  const handled = !target.dispatchEvent(new KE('keydown', init));
+  let supported = handled || key === 'Escape';
+  if (!handled && 'tagName' in target) {
+    const el = target as HTMLElement;
+    const tag = el.tagName.toLowerCase();
+    const input = tag === 'input' ? el as HTMLInputElement : undefined;
+    const editable = tag === 'textarea' || (input && ['text', 'search', 'url', 'tel', 'password', 'email'].includes(input.type));
+    if ((key === 'Enter' && el.matches('button, input[type=button], input[type=submit], input[type=reset], a[href]'))
+      || (key === ' ' && el.matches('button, input[type=button], input[type=submit], input[type=reset], input[type=checkbox], input[type=radio]'))) {
+      el.click(); supported = true;
+    } else if (editable) {
+      const field = el as HTMLInputElement | HTMLTextAreaElement;
+      // Some native input types do not expose text selections.
+      let start = field.selectionStart, end = field.selectionEnd;
+      if (start != null && end != null) {
+        const value = field.value, selected = start !== end;
+        let insert: string | undefined;
+        if (!field.readOnly && (key === 'Backspace' || key === 'Delete')) {
+          if (!selected) {
+            if (key === 'Backspace' && start > 0) start -= [...value.slice(0, start)].at(-1)!.length;
+            if (key === 'Delete' && end < value.length) end += [...value.slice(end)][0].length;
+          }
+          insert = '';
+        } else if (!field.readOnly && (key === ' ' || (key === 'Enter' && tag === 'textarea'))) insert = key === ' ' ? ' ' : '\n';
+        if (insert !== undefined) {
+          setNativeValue(field, value.slice(0, start) + insert + value.slice(end));
+          field.setSelectionRange(start + insert.length, start + insert.length); supported = true;
+        } else if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) {
+          const pos = key === 'Home' ? start === 0 ? 0 : value.lastIndexOf('\n', start - 1) + 1
+            : key === 'End' ? (() => { const n = value.indexOf('\n', end); return n < 0 ? value.length : n; })()
+            : key === 'ArrowLeft' ? selected ? start : start - ([...value.slice(0, start)].at(-1)?.length ?? 0)
+            : selected ? end : end + ([...value.slice(end)][0]?.length ?? 0);
+          field.setSelectionRange(pos, pos); supported = true;
+        }
+      }
+      if (!supported && key === 'Enter' && !shiftKey && input?.form) {
+        input.form.requestSubmit(); supported = true;
+      }
+    }
+  }
   target.dispatchEvent(new KE('keyup', init));
+  return supported;
 }
 
 function openDialogs(doc: Document): Element[] {
@@ -261,21 +301,23 @@ export async function actOnScreen(doc: Document, request: ActRequest, options: S
     return finish(doc, before, `Scrolled ${direction}.`);
   }
   if (request.action === 'press') {
-    const key = collapse(request.text || request.control);
+    const rawKey = request.text ?? request.control;
+    const key = rawKey === ' ' || /^(space|spacebar)$/i.test(rawKey) ? ' ' : collapse(rawKey);
     if (!['Escape', 'Enter', 'Tab', 'Shift+Tab', 'Shift+Enter', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown', 'Backspace', 'Delete', ' '].includes(key)) return `Keys: Escape, Enter, Shift+Enter, Tab, Shift+Tab, arrows, Home, End, PageUp, PageDown, Backspace, Delete, space. Not "${key}".`;
     const target = (/^\d+$/.test(collapse(request.control)) || !/^(escape|enter|tab|arrow)/i.test(collapse(request.control))) && collapse(request.control)
       ? resolve(doc, request.control, options) : (doc.activeElement && doc.activeElement !== doc.body ? doc.activeElement : doc);
     if (typeof target === 'string') return target;
     const element = 'el' in (target as ScreenControl) ? (target as ScreenControl).el : (target as Element | Document);
-    if ('tagName' in element && (key === 'Enter' || key === ' ') && DANGER.test(labelOf(element, doc, options.helpTitle)) && !request.confirm) return 'That control looks destructive. Ask the operator to confirm, then pass confirm true.';
+    if ('tagName' in element && (key === 'Enter' || key === 'Shift+Enter' || key === ' ') && DANGER.test(labelOf(element, doc, options.helpTitle)) && !request.confirm) return 'That control looks destructive. Ask the operator to confirm, then pass confirm true.';
     if ('tagName' in element && ((element as HTMLButtonElement).disabled || element.getAttribute('aria-disabled') === 'true')) return 'That control is disabled.';
+    if ('tagName' in element) (element as HTMLElement).focus?.();
     if (key === 'Tab' || key === 'Shift+Tab') {
       const scope = openDialogs(doc).at(-1) ?? doc.body;
       const tabs = Array.from(scope.querySelectorAll<HTMLElement>(CONTROL_SELECTOR)).filter((e) => visible(e) && !('disabled' in e && e.disabled) && e.tabIndex >= 0);
       const current = tabs.indexOf(doc.activeElement as HTMLElement);
       const next = key === 'Tab' ? (current + 1) % tabs.length : (current <= 0 ? tabs.length - 1 : current - 1);
       tabs[next]?.focus();
-    } else pressKey(element, key);
+    } else if (!pressKey(element, key)) return `Native ${key === ' ' ? 'space' : key} is not supported for this control. Use its click or type action.`;
     return finish(doc, before, `Pressed ${key}.`);
   }
   const hit = resolve(doc, request.control, options);

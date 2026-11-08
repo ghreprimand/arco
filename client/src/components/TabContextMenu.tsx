@@ -215,7 +215,7 @@ export function TabContextMenu({
     // we don't forward a value.
     const opts: { name?: string; provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string } = {};
     if (freshName.trim().length > 0) opts.name = freshName.trim();
-    if (freshProvider !== anchorProvider) opts.provider = freshProvider;
+    if (freshProvider !== (anchor.config.primaryProvider ?? 'claude')) opts.provider = freshProvider;
     if (freshModel && freshModel !== anchorModel) opts.model = freshModel;
     if (freshEffort && freshEffort !== anchorEffort) opts.effort = freshEffort;
     if (freshProvider === 'codex' && freshAccountRef && freshAccountRef !== anchorAccountRef) opts.providerAccountRef = freshAccountRef;

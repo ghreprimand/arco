@@ -10,6 +10,10 @@ For the abstract interface, see `server/src/providers/types.ts`. For when these 
 
 ---
 
+## Diagnostic executable lookup
+
+Diagnostics uses platform PATH lookup, including Windows PATHEXT suffixes, to find optional tools and language servers. Model Health uses the runtime's `ARCO_LLAMACPP_BIN` override when configured; otherwise it searches PATH. An invalid configured override is reported missing. These checks do not launch a model.
+
 ## Topics
 
 | Topic |

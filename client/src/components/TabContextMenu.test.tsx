@@ -7,7 +7,7 @@ import { CLUSTER_MEMBER_PROVIDERS } from '@arco/shared';
 import { useAppStore } from '../stores/appStore.js';
 import { CLUSTER_PROVIDER_REFUSAL, CURSOR_TAB_REFUSAL, TabContextMenu } from './TabContextMenu.js';
 
-async function render(jobs: Record<string, { provider: string }>, anchor: string): Promise<string> {
+async function render(jobs: Record<string, { provider: string }>, anchor: string, fresh?: (opts: unknown) => void): Promise<string> {
   const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: 'http://localhost/', pretendToBeVisual: true });
   const previous = new Map(['window', 'document', 'localStorage', 'navigator', 'React', 'IS_REACT_ACT_ENVIRONMENT'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   for (const name of ['window', 'document', 'localStorage', 'navigator'] as const) Object.defineProperty(globalThis, name, { configurable: true, value: name === 'window' ? dom.window : dom.window[name] });
@@ -22,7 +22,11 @@ async function render(jobs: Record<string, { provider: string }>, anchor: string
     for (const [id, { provider }] of Object.entries(jobs)) {
       useAppStore.getState().createJob(id, { name: `tab ${id}`, workingDirectory: '/fixture/project', skipPermissions: false, primaryProvider: provider as never, primaryModel: 'fixture-model', primaryEffort: 'low' });
     }
-    await act(async () => root.render(createElement(TabContextMenu, { anchorJobId: anchor, onClose() {}, onCreateCluster() {}, onAddClusterMember() {}, onCreateClusterWithFreshWorkers() {} })));
+    await act(async () => root.render(createElement(TabContextMenu, { anchorJobId: anchor, onClose() {}, onCreateCluster() {}, onAddClusterMember() {}, onCreateClusterWithFreshWorkers(_id, _count, opts) { fresh?.(opts); } })));
+    if (fresh) {
+      const click = async (label: string) => { const button = [...dom.window.document.querySelectorAll('button')].find(b => b.textContent?.trim() === label); assert.ok(button, label); await act(async () => button.click()); };
+      await click('CREATE WITH FRESH'); await click('CREATE + 2 FRESH');
+    }
     return dom.window.document.body.textContent ?? '';
   } finally {
     await act(async () => root.unmount());
@@ -55,4 +59,12 @@ test('a provider without peer tools is refused with the accurate provider list',
   for (const name of ['Claude', 'Codex', 'Ollama', 'llama.cpp']) assert.ok(CLUSTER_PROVIDER_REFUSAL.includes(name), name);
   assert.ok(!CLUSTER_PROVIDER_REFUSAL.includes('Cursor'));
   assert.doesNotMatch(text, /only Claude or Codex|no MCP wiring/);
+});
+
+ test('B177: fresh Claude workers from local anchors explicitly select the displayed provider', async () => {
+  for (const provider of ['ollama', 'llamacpp']) {
+    let options: any;
+    await render({ a: { provider } }, 'a', opts => { options = opts; });
+    assert.equal(options?.provider, 'claude', provider);
+  }
 });

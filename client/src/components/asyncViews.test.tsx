@@ -195,3 +195,56 @@ test('B155: a repository link fetches its decoded pathname and scrolls to its se
     assert.deepEqual(paths, ['docs/a guide.md']); assert.ok(f.scrolled.includes('install'));
   } finally { await f.close(); }
 });
+
+ test('B164: Activity normalizes cached Codex input before session and row totals', async () => {
+  const f = await fixture();
+  try {
+    const { TokenUsageSection } = await component('./RightPanel/ActivityTab.tsx', 'TokenUsageSection');
+    localStorage.setItem('arco.activity.tokenUsageRowsExpanded', '1');
+    const usage = [{ provider: 'codex', input: 100, output: 10, cacheRead: 80, cacheCreate: 0, turnStartedAt: 1, thinkingBytes: 0, toolResultBytes: -1 }];
+    await f.render(TokenUsageSection, { usage });
+    const text = document.body.textContent ?? '';
+    assert.match(text, /Session · 100 prompt \(80% cached\)/);
+    assert.match(text, /20 fresh · 80 cache-read/);
+    assert.doesNotMatch(text, /180 prompt/);
+  } finally { await f.close(); }
+});
+
+ test('B176: reconnect replaces the terminal replay instead of duplicating it', async () => {
+  const f = await fixture();
+  const names = ['WebSocket', 'ResizeObserver', 'requestAnimationFrame', 'getComputedStyle', '__term', '__sockets', 'setTimeout', 'clearTimeout'];
+  const before = new Map(names.map(n => [n, Object.getOwnPropertyDescriptor(g, n)]));
+  const timers: (() => void)[] = [];
+  try {
+    Object.defineProperty(f.dom.window.HTMLElement.prototype, 'clientWidth', { get: () => 800 });
+    Object.defineProperty(f.dom.window.HTMLElement.prototype, 'clientHeight', { get: () => 400 });
+    g.getComputedStyle = f.dom.window.getComputedStyle.bind(f.dom.window);
+    g.ResizeObserver = class { observe() {} disconnect() {} };
+    g.requestAnimationFrame = (fn: () => void) => fn();
+    g.setTimeout = (fn: () => void) => { timers.push(fn); return timers.length; }; g.clearTimeout = () => {};
+    g.__sockets = [];
+    g.WebSocket = class { static OPEN = 1; readyState = 1; constructor() { g.__sockets.push(this); } send() {} close() {} };
+    const { XtermView } = await component('./Terminal/XtermView.tsx', '', {
+      '@xterm/xterm': `exports.Terminal = class {
+        constructor() { globalThis.__term=this; this.text=''; this.options={}; this.cols=80; this.rows=24; }
+        loadAddon() {} open() {} focus() {} refresh() {} dispose() {}
+        onData() { return { dispose() {} }; } onSelectionChange() { return { dispose() {} }; }
+        reset() { this.text=''; } write(bytes) { this.text+=bytes; }
+      };`,
+      '@xterm/addon-fit': 'exports.FitAddon=class {fit(){}};',
+      wsSession: 'exports.ensureWsSession=async()=>{};',
+      'themes/registry': 'exports.THEME_REGISTRY={};',
+    });
+    await f.render(XtermView, { sessionId: 'fixture-terminal' });
+    const message = (socket: any) => socket.onmessage({ data: JSON.stringify({ type: 'data', bytes: 'one\r\ntwo\r\n' }) });
+    const first = g.__sockets[0]; assert.ok(first);
+    await act(async () => { first.onopen(); message(first); first.onclose(); });
+    await act(async () => { for (const fn of timers.splice(0)) fn(); });
+    const second = g.__sockets[1]; assert.ok(second);
+    await act(async () => { second.onopen(); message(second); });
+    assert.equal(g.__term.text, 'one\r\ntwo\r\n');
+  } finally {
+    await f.close();
+    for (const [n, desc] of before) { if (desc) Object.defineProperty(g, n, desc); else delete g[n]; }
+  }
+});

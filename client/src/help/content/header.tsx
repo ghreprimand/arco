@@ -153,7 +153,7 @@ export const headerHelp: Record<string, HelpEntry> = {
       screen, subscription quota); &quot;dictate&quot; sends the exact words. Ask for a
       completion watch by naming a worker or cluster, or a bounded mailbox rule
       to nudge selected workers for new mail before nudging a final recipient. Settings and other Arco
-      controls are available through the screen tools. Say &quot;Computer&quot; while it talks to
+      controls are available through the screen tools. Native text deletion and button activation apply directly; unsupported key actions report their limit. Say &quot;Computer&quot; while it talks to
       stop it and wait; &quot;stop&quot; / &quot;quiet&quot; cut speech and &quot;stop listening&quot;
       releases the microphone, all instantly. Recognition is local; spoken
       reply text goes to Microsoft for online speech, with local Kokoro fallback.
@@ -349,7 +349,7 @@ export const headerHelp: Record<string, HelpEntry> = {
   },
   'header.terminal': {
     title: 'Terminal launcher',
-    body: <p>Opens a real terminal in a floating window, starting in the active tab&apos;s project folder. <strong>Closing the window leaves the shell running</strong>, so a dev server keeps going; reopening shows it again. Only <C>KILL</C> ends it. The terminal is yours alone; the agent cannot type into it. Unavailable until a tab is open. See &quot;The integrated terminal&quot;.</p>,
+    body: <p>Opens a real terminal in a floating window, starting in the active tab&apos;s project folder. <strong>Closing the window leaves the shell running</strong>, so a dev server keeps going; reopening shows it again. Reconnecting replaces the display with one bounded scrollback replay. Only <C>KILL</C> ends it. The terminal is yours alone; the agent cannot type into it. Unavailable until a tab is open. See &quot;The integrated terminal&quot;.</p>,
     manualSection: 'integrated-terminal',
   },
   'header.settings': {

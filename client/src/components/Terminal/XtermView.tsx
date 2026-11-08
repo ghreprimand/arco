@@ -186,6 +186,8 @@ export function XtermView({ sessionId, onCommandLine, onExit, onError, prefill, 
 
       ws.onopen = () => {
         if (disposed) return;
+        // Every attach starts with the server's complete bounded replay.
+        term.reset();
         ws.send(JSON.stringify({ type: 'attach', sessionId }));
         attachedRef.current = true;
         sendResize();

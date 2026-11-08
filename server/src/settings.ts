@@ -1052,6 +1052,7 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
     // `{ ollama: { utility: null } }` to reset the compaction utility model
     // back to the deterministic-digest default.
     const po = patch.ollama;
+    if (po && typeof po === 'object' && (po as Record<string, unknown>).baseUrl === null) delete next.baseUrl;
     if (po && typeof po === 'object' && (po as Record<string, unknown>).utility === null) {
       delete next.utility;
     }
@@ -1066,11 +1067,12 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
     merged.strata = sanitizeLmstudioConfig(patch.strata) ?? {};
   } else if (current.strata) merged.strata = current.strata;
   // M13 — LM Studio config. Same merge semantics as ollama: a patch of
-  // `{ lmstudio: {} }` clears the configured baseUrl (so the SettingsPanel can
+  // `{ lmstudio: { baseUrl: null } }` clears the configured baseUrl (so the SettingsPanel can
   // reset to the env/localhost default), a patch with a baseUrl overrides it.
   if ('lmstudio' in patch) {
     const sanitizedPatch = sanitizeLmstudioConfig(patch.lmstudio) ?? {};
     const next = { ...(current.lmstudio ?? {}), ...sanitizedPatch };
+    if (patch.lmstudio && typeof patch.lmstudio === 'object' && (patch.lmstudio as Record<string, unknown>).baseUrl === null) delete next.baseUrl;
     if (Object.keys(next).length > 0) merged.lmstudio = next;
   } else if (current.lmstudio) {
     merged.lmstudio = current.lmstudio;

@@ -86,6 +86,24 @@ async def main():
   page = await context.new_page(); page.on('pageerror',lambda e:errors.append(str(e)))
   page.on('console',lambda m:errors.append(m.text) if '[arco] render boundary caught' in m.text else None)
   await page.goto(os.environ.get('ARCO_VOICE_PREVIEW_URL','http://127.0.0.1:5193/')); await page.wait_for_timeout(700)
+  # B75: synthetic keyboard events need explicit native default actions.
+  keys = await page.evaluate("""async () => {
+    const {actOnScreen} = await import('/src/voice/screen.ts');
+    const box=document.createElement('section');
+    box.innerHTML='<label for="key-test">Keyboard fixture</label><input id="key-test" value="abc"><button>Activate fixture</button>';
+    document.body.append(box);
+    const input=box.querySelector('input'), button=box.querySelector('button');
+    let clicks=0;button.onclick=()=>clicks++;
+    input.focus();input.setSelectionRange(3,3);
+    const press=(control,text)=>actOnScreen(document,{action:'press',control,text});
+    await press('Keyboard fixture','Backspace');const deleted=input.value;
+    input.setSelectionRange(0,1);await press('Keyboard fixture','Delete');
+    await press('Keyboard fixture','End');await press('Keyboard fixture',' ');const spaced=input.value;
+    await press('Activate fixture','Enter');await press('Activate fixture','space');
+    box.remove();return {deleted,spaced,clicks};
+  }""")
+  assert keys == {'deleted':'ab','spaced':'b ','clicks':2},keys
+
   await page.evaluate('''async()=>{
    // Match modules already loaded by Vite, including any HMR timestamp.
    const loaded=path=>performance.getEntriesByType('resource').map(e=>e.name).findLast(url=>new URL(url).pathname===path) ?? path;
