@@ -12,7 +12,7 @@ import { handleKillLine } from './composer/killLine';
 import { submitComposer } from './composer/submitComposer';
 import { useAppStore, type JobState, type DraftAttachment } from '../stores/appStore';
 import { onVoiceDialog } from '../voice/dialogs';
-import { useDraftStore, readDraft as readDraftFor } from '../stores/draftStore';
+import { useDraftStore, mergeDraftSkillPicks, type DraftSkillPick, readDraft as readDraftFor } from '../stores/draftStore';
 import { useCodexCatalogFor } from '../hooks/useCodexCatalog';
 import { useHubLinkStore } from '../stores/hubLinkStore';
 import { ToolboxMenu } from './ToolboxMenu';
@@ -352,9 +352,17 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   const toolbarOneLine = useLayoutRange() !== 'standard';
   const toolbarHidden = useToolbarOverflow(toolbarRef, toolbarOneLine, TOOLBAR_KEEP);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  // DD8 — operator-picked Arco skills to inline into the next turn. Per-tab;
-  // cleared after each send and when the active tab changes.
-  const [pickedSkills, setPickedSkills] = useState<Array<{ scope: 'project' | 'global'; slug: string; name: string }>>([]);
+  // One-shot choices stay with the draft, including EDIT replies for inactive tabs.
+  const draftSkillPicks = useDraftStore(s => s.queueEditSkills[job.id]);
+  type NamedSkillPick = DraftSkillPick & { name: string };
+  const setPickedSkills = useCallback((next: NamedSkillPick[] | ((previous: NamedSkillPick[]) => NamedSkillPick[])) => {
+    useDraftStore.setState(s => {
+      const previous = (s.queueEditSkills[job.id] ?? []).map(p => ({ ...p, name: p.name ?? p.slug }));
+      const choices = mergeDraftSkillPicks(typeof next === 'function' ? next(previous) : next);
+      const { [job.id]: _, ...rest } = s.queueEditSkills;
+      return { queueEditSkills: choices.length ? { ...rest, [job.id]: choices } : rest };
+    });
+  }, [job.id]);
   const [skillMenuOpen, setSkillMenuOpen] = useState(false);
   const skillMenuPlaceRef = useKeepInWindow();
   const skillMenuRef = useRef<HTMLDivElement>(null);
@@ -366,9 +374,10 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   // P8.5 — skills shipped with Arco: run once, or make an editable copy.
   const [builtinSkills, setBuiltinSkills] = useState<Array<{ slug: string; name: string; description: string; operatorOnly?: boolean; off?: boolean; replaced?: boolean }>>([]);
   const [builtinNote, setBuiltinNote] = useState('');
+  const pickedSkills = (draftSkillPicks ?? []).map(p => ({ ...p, name: p.name ?? (p.scope === 'builtin' ? builtinSkills.find(s => s.slug === p.slug)?.name : availableSkills.find(s => s.scope === p.scope && s.slug === p.slug)?.name) ?? p.slug }));
   const pinnedSkills = job.config.pinnedSkills ?? [];
   const pinnedSkillsKey = pinnedSkills.map((s) => `${s.scope}:${s.slug}`).join('|');
-  useEffect(() => { setPickedSkills([]); setSkillMenuOpen(false); setShowSkillEditor(false); }, [job.id]);
+  useEffect(() => { setSkillMenuOpen(false); setShowSkillEditor(false); }, [job.id]);
   useEffect(() => {
     if (!skillMenuOpen) return;
     const onOutside = (event: MouseEvent) => { if (!skillMenuRef.current?.contains(event.target as Node)) setSkillMenuOpen(false); };
@@ -396,13 +405,13 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
       .catch(() => { if (!cancelled) { setAvailableSkills([]); setSkillCatalogStatus('error'); } });
     return () => { cancelled = true; };
   }, [skillMenuOpen, pinnedSkillsKey, job.config.workingDirectory, skillCatalogRevision]);
-  const togglePickedSkill = useCallback((s: { scope: 'project' | 'global'; slug: string; name: string }) => {
+  const togglePickedSkill = useCallback((s: { scope: 'project' | 'global' | 'builtin'; slug: string; name: string }) => {
     setPickedSkills((prev) =>
       prev.some((p) => p.scope === s.scope && p.slug === s.slug)
         ? prev.filter((p) => !(p.scope === s.scope && p.slug === s.slug))
         : [...prev, { scope: s.scope, slug: s.slug, name: s.name }],
     );
-  }, []);
+  }, [setPickedSkills]);
   const setSkillPinned = useCallback((s: { scope: 'project' | 'global'; slug: string }, pinned: boolean) => {
     if (!onUpdatePrimary) return;
     const exists = pinnedSkills.some((p) => p.scope === s.scope && p.slug === s.slug);
@@ -414,7 +423,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
       // A standing pin supersedes a staged one-shot copy of the same body.
       setPickedSkills((prev) => prev.filter((p) => !(p.scope === s.scope && p.slug === s.slug)));
     }
-  }, [onUpdatePrimary, pinnedSkillsKey]);
+  }, [onUpdatePrimary, pinnedSkillsKey, setPickedSkills]);
   const runBuiltinSkill = (s: { slug: string; name: string }) => {
     const sent = onSend(`Run the ${s.name} on this project.`, undefined, isBusy ? 'follow-up' : undefined, undefined, [{ scope: 'builtin', slug: s.slug }]);
     if (sent === false) { setBuiltinNote('Not connected; nothing was sent.'); return; }
@@ -668,7 +677,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
     kind: restoreKind ? useDraftStore.getState().queueEditKinds[job.id] ?? kind : kind, isCompacting, uploading, readDraft, attachments, provider, isBusy,
     compactAvailable: compactVisible, onCompact, addMessage, job, setValue, clearAttachments, onUpdatePrimary,
     planModeArmed, planModeToggleVisible, onArmPlanMode, setPlanModeArmed,
-    onSend, pickedSkills, setPickedSkills,
+    onSend, pickedSkills, readPickedSkills: () => useDraftStore.getState().queueEditSkills[job.id] ?? [], setPickedSkills,
   });
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

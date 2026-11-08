@@ -1566,6 +1566,12 @@ export async function handleUserMessage(
   }
   let expandedContext = contextExpansion.block || undefined;
 
+  const editPickedSkills = Array.isArray(pickedSkills)
+    ? pickedSkills.filter(p => p && ['project', 'global', 'builtin'].includes(p.scope) && typeof p.slug === 'string' && p.slug.length > 0)
+      .filter((p, index, all) => all.findIndex(other => other.scope === p.scope && other.slug === p.slug) === index)
+      .map(({ scope, slug }) => ({ scope, slug })) : undefined;
+  pickedSkills = editPickedSkills;
+
   // A synchronous provider drain cannot load one-shot skills. Resolve them
   // before admitting a busy send; both drain paths then carry the same block.
   if (wf.busy && pickedSkills?.length) {
@@ -1615,7 +1621,7 @@ export async function handleUserMessage(
       content: '[INTERRUPT & SEND] No interruptible Claude or Codex primary turn is running. Your message is queued as a follow-up.',
     });
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
-    const queuedItem = { automaticKind: opts?.automaticKind, content, attachments: isolatedMember ? undefined : attachments, clientMessageId, expandedContext, pickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
+    const queuedItem = { automaticKind: opts?.automaticKind, content, attachments: isolatedMember ? undefined : attachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
     arr.push(queuedItem);
     opts?.onBusyQueued?.();
     send(ws, {

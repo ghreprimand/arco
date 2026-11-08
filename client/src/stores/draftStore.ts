@@ -27,8 +27,26 @@ import { create } from 'zustand';
 // Deliberately NOT a debounce: that would leave the store transiently stale and
 // force flush handling on send / blur / unmount, which is exactly the kind of
 // edge case that turns into a "message sent without my last word" bug.
+export type DraftSkillPick = { scope: 'project' | 'global' | 'builtin'; slug: string; name?: string };
+export function mergeDraftSkillPicks(...groups: unknown[]): DraftSkillPick[] {
+  const result: DraftSkillPick[] = [];
+  for (const group of groups) {
+    if (!Array.isArray(group)) continue;
+    for (const pick of group) {
+      if (!pick || !['project', 'global', 'builtin'].includes(pick.scope) || typeof pick.slug !== 'string' || !pick.slug) continue;
+      if (result.some(p => p.scope === pick.scope && p.slug === pick.slug)) continue;
+      result.push({ scope: pick.scope, slug: pick.slug, ...(typeof pick.name === 'string' ? { name: pick.name } : {}) });
+    }
+  }
+  return result;
+}
+export function clearDraftSkillPicks(jobId: string): void {
+  useDraftStore.setState(s => { const { [jobId]: _, ...queueEditSkills } = s.queueEditSkills; return { queueEditSkills }; });
+}
+
 interface DraftState {
   drafts: Record<string, string>;
+  queueEditSkills: Record<string, DraftSkillPick[]>;
   queueEditKinds: Record<string, 'steer' | 'follow-up' | 'interrupt'>;
   tidyUndo: Record<string, { original: string; replacement: string }>;
   applyTidy: (jobId: string, expected: string, replacement: string) => boolean;
@@ -39,6 +57,7 @@ interface DraftState {
 
 export const useDraftStore = create<DraftState>((set) => ({
   drafts: {},
+  queueEditSkills: {},
   queueEditKinds: {},
   tidyUndo: {},
   applyTidy: (jobId, expected, replacement) => {
@@ -79,11 +98,12 @@ export const useDraftStore = create<DraftState>((set) => ({
 
   clearDraft: (jobId) =>
     set((s) => {
-      if (!(jobId in s.drafts) && !(jobId in s.tidyUndo) && !(jobId in s.queueEditKinds)) return {};
+      if (!(jobId in s.drafts) && !(jobId in s.tidyUndo) && !(jobId in s.queueEditKinds) && !(jobId in s.queueEditSkills)) return {};
       const { [jobId]: _, ...rest } = s.drafts;
       const { [jobId]: _undo, ...tidyUndo } = s.tidyUndo;
       const { [jobId]: _kind, ...queueEditKinds } = s.queueEditKinds;
-      return { drafts: rest, tidyUndo, queueEditKinds };
+      const { [jobId]: _skills, ...queueEditSkills } = s.queueEditSkills;
+      return { drafts: rest, tidyUndo, queueEditKinds, queueEditSkills };
     }),
 }));
 

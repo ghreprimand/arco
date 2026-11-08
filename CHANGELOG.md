@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Restore selected skills when editing a pending message, keep existing choices, and apply each skill once when resending.
+
 - Add Secure to session cookies for direct HTTPS and trusted HTTPS proxies while keeping ordinary loopback HTTP working.
 
 - Restore folder-scoped content searches within a bound project or verified worktree, including projects without Git.

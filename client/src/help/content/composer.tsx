@@ -4,7 +4,7 @@ import type { HelpEntry } from './shared';
 export const composerHelp: Record<string, HelpEntry> = {
   'composer.pending-edit': {
     title: 'Edit a pending message',
-    body: <p>Remove this message from the queue and append its text to this tab&apos;s current draft. Its kind and attachments return too. The server confirms removal first. If delivery won the race, the draft stays unchanged and Arco says Already sent, nothing to edit. Reconnect before editing.</p>,
+    body: <p>Remove this message from the queue and append its text to this tab&apos;s current draft. Its kind, attachments and selected skills return too. Skill choices merge with the tab&apos;s existing choices without duplicates and stay with that tab across navigation. Resending applies each selected skill once. The server confirms removal first. If delivery won the race, the draft stays unchanged and Arco says Already sent, nothing to edit. Reconnect before editing.</p>,
     manualSection: 'composer',
   },
   'composer.pending-preview': {
@@ -58,7 +58,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.turn-messages': {
     title: 'Turn message state',
-    body: <><p>Select PENDING to inspect, preview, edit or cancel queued messages. EDIT waits for removal and appends to the current draft with the original kind and attachments; already-delivered messages cannot be taken back. Queued means Arco has accepted the message but has not confirmed delivery. Delivered means the provider acknowledged it or its input boundary was reached. The delivered label clears on the next agent text or turn end. Follow-ups remain queued for the next turn. Selected one-shot skills accompany steering as well as messages delivered after the turn.</p><p>Restored context and reviews associate each follow-up with its actual execution. Steering stays at its delivery boundary, including acknowledgements received later. STOP prevents a failed old steer from returning to the queue.</p></>,
+    body: <><p>Select PENDING to inspect, preview, edit or cancel queued messages. EDIT waits for removal and appends to the current draft with the original kind, attachments and selected skills; already-delivered messages cannot be taken back. Queued means Arco has accepted the message but has not confirmed delivery. Delivered means the provider acknowledged it or its input boundary was reached. The delivered label clears on the next agent text or turn end. Follow-ups remain queued for the next turn. Selected one-shot skills accompany steering as well as messages delivered after the turn.</p><p>Restored context and reviews associate each follow-up with its actual execution. Steering stays at its delivery boundary, including acknowledgements received later. STOP prevents a failed old steer from returning to the queue.</p></>,
     manualSection: 'composer',
   },
   'composer.turn-step': {
@@ -677,7 +677,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.skills': {
     title: 'Skills',
-    body: <p><C>SKILLS</C> lists the operator skills for this project and globally, including operator-only skills that the model does not see. Apply one to the next turn or pin it to every turn; the counter shows picked and pinned totals. <C>NEW SKILL</C> opens the editor. BUILT-IN lists the shipped skills. RUN applies one; EDITABLE COPY saves your version. Skills marked MODEL also appear in the agent list. Turn built-ins on or off in Settings; a same-name personal skill replaces the built-in. When the agent supports its own skills, the same menu also offers Claude CLI <C>/name</C> or Codex <C>$name</C> entries.</p>,
+    body: <p><C>SKILLS</C> lists the operator skills for this project and globally, including operator-only skills that the model does not see. Apply one to the next turn or pin it to every turn; the counter shows picked and pinned totals. One-shot choices stay with this tab across navigation. EDIT merges restored choices, and an accepted send clears them. <C>NEW SKILL</C> opens the editor. BUILT-IN lists the shipped skills. RUN applies one; EDITABLE COPY saves your version. Skills marked MODEL also appear in the agent list. Turn built-ins on or off in Settings; a same-name personal skill replaces the built-in. When the agent supports its own skills, the same menu also offers Claude CLI <C>/name</C> or Codex <C>$name</C> entries.</p>,
   },
   'composer.skills.import': {
     title: 'IMPORT a skill',

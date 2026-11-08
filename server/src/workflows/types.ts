@@ -205,6 +205,8 @@ export interface QueueItem {
   ollamaInputSeq?: number;
   interrupt?: boolean;
   pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>;
+  // Original choices for EDIT; their resolved bodies may already be in expandedContext.
+  editPickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>;
   content: string;
   attachments?: string[];
   clientMessageId?: string;

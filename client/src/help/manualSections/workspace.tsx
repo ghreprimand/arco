@@ -335,8 +335,8 @@ export const workspace: Section[] = [
     title: 'The composer (terminal input)',
     body: (
       <>
-  <p>Open PENDING to inspect queued messages. PREVIEW shows one message; automatic mailbox reminders start folded. Use + to read the full text; BACK TO LIST returns. EDIT is available beside CANCEL in both views. It removes the message from the queue before restoring its text, kind and attachments to that tab&apos;s message box.</p>
-  <p>Existing draft text is kept, with the pending text appended after a blank line. If the message was delivered first, Arco says Already sent, nothing to edit and leaves the draft unchanged. Editing requires a connection.</p>
+  <p>Open PENDING to inspect queued messages. PREVIEW shows one message; automatic mailbox reminders start folded. Use + to read the full text; BACK TO LIST returns. EDIT is available beside CANCEL in both views. It removes the message from the queue before restoring its text, kind, attachments and selected skills to that tab&apos;s message box.</p>
+  <p>Existing draft text is kept, with the pending text appended after a blank line. Selected skills merge with the tab&apos;s existing choices without duplicates and stay with that tab across navigation. Resending applies each skill once. If the message was delivered first, Arco says Already sent, nothing to edit and leaves the draft unchanged. Editing requires a connection.</p>
   <p>While busy, SEND or Enter keeps the restored kind. Alt+Enter chooses follow-up; INTERRUPT &amp; SEND or Ctrl/Cmd+Enter chooses interrupt where available. If the worker is idle, the message starts an ordinary turn. Sending or clearing the draft clears the EDITING marker.</p>
 
   <p>Attachment uploads require the upload folder to be a real folder, not a link. SEND waits until all attachment upload batches finish. A second paste or drop does not release that guard early.</p>

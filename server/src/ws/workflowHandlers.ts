@@ -922,7 +922,7 @@ export function handleCancelQueuedMessage(ws: WebSocket, workflowId: string, cli
   }
   send(ws, { type: 'queued_message_cancelled', workflowId, clientMessageId });
   broadcastQueueUpdate(workflowId);
-  if (result) reply({ ...result, item: { content: item.content, kind, ...(item.attachments ? { attachments: [...item.attachments] } : {}) } });
+  if (result) reply({ ...result, item: { content: item.content, kind, ...(item.attachments ? { attachments: [...item.attachments] } : {}), ...((item.editPickedSkills ?? item.pickedSkills)?.length ? { pickedSkills: (item.editPickedSkills ?? item.pickedSkills)!.map(({ scope, slug }) => ({ scope, slug })) } : {}) } });
 }
 
 // "Load earlier messages" — pop the next older page of raw JSONL entries and

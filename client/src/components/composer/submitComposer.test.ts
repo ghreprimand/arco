@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { submitComposer } from './submitComposer';
+import { useDraftStore } from '../../stores/draftStore';
 
 type Options = Parameters<typeof submitComposer>[0];
 function fixture(overrides: Partial<Options> = {}) {
@@ -127,4 +128,25 @@ test('B181: busy native compact retains its draft and other providers keep their
   const other = fixture({ provider: 'codex', readDraft: () => '/status' });
   submitComposer(other.options);
   assert.ok(other.events.some(e => e[0] === 'send'));
+});
+
+test('LA05: send reads restored skill choices at send time and clears them only after acceptance', () => {
+  const before = useDraftStore.getState();
+  try {
+    const picks = [{ scope: 'builtin', slug: 'grill-me' }, { scope: 'project', slug: 'fixture' }];
+    const { options, events } = fixture({ readPickedSkills: () => useDraftStore.getState().queueEditSkills.test ?? [], onSend: (...args) => { events.push(['send', ...args]); return false; } } as Partial<Options>);
+    useDraftStore.setState({ queueEditSkills: { test: picks } } as any);
+    submitComposer(options);
+    assert.deepEqual(events.find(e => e[0] === 'send')?.[5], picks);
+    assert.deepEqual((useDraftStore.getState() as any).queueEditSkills.test, picks);
+    options.onSend = (...args) => { events.push(['send', ...args]); };
+    submitComposer(options);
+    assert.equal((useDraftStore.getState() as any).queueEditSkills.test, undefined);
+  } finally { useDraftStore.setState(before, true); }
+});
+
+test('LA05: send does not restore a skill removed since the last render', () => {
+  const { options, events } = fixture({ pickedSkills: [{ scope: 'project', slug: 'removed', name: 'Removed' }], readPickedSkills: () => [] } as Partial<Options>);
+  submitComposer(options);
+  assert.equal(events.find(e => e[0] === 'send')?.[5], undefined);
 });

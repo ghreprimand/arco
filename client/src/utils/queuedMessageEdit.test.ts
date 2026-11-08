@@ -60,3 +60,17 @@ test('reconnect retries keep the same edit identity and offline clicks send noth
     assert.equal(f.sent.length,2);
   } finally {f.close();}
 });
+
+test('LA05: EDIT merges skill references into the owning draft without duplicates or cross-tab changes', () => {
+  const f = fixture();
+  try {
+    useDraftStore.setState({ queueEditSkills: { fixture: [{ scope: 'global', slug: 'existing' }], other: [{ scope: 'builtin', slug: 'kept' }] } } as any);
+    useDraftStore.getState().setDraft('fixture', 'Existing draft');
+    requestQueuedMessageEdit('fixture', 'skill-message');
+    finishQueuedMessageEdit({ type: 'queued_message_edit_result', workflowId: 'fixture', clientMessageId: 'skill-message', requestId: f.sent[0].editRequestId, item: { content: 'Use the rule', kind: 'steer', pickedSkills: [{ scope: 'project', slug: 'fixture' }, { scope: 'global', slug: 'existing' }, { scope: 'builtin', slug: 'grill-me' }] } } as any);
+    assert.deepEqual((useDraftStore.getState() as any).queueEditSkills.fixture, [{ scope: 'global', slug: 'existing' }, { scope: 'project', slug: 'fixture' }, { scope: 'builtin', slug: 'grill-me' }]);
+    assert.deepEqual((useDraftStore.getState() as any).queueEditSkills.other, [{ scope: 'builtin', slug: 'kept' }]);
+    useDraftStore.getState().clearDraft('fixture');
+    assert.equal((useDraftStore.getState() as any).queueEditSkills.fixture, undefined);
+  } finally { f.close(); }
+});

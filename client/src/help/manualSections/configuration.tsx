@@ -485,7 +485,7 @@ export const configuration: Section[] = [
   </p>
   <p>From the composer:</p>
   <ul>
-  <li><strong>APPLY ONCE</strong> inlines one body into the next turn.</li>
+  <li><strong>APPLY ONCE</strong> inlines one body into the next turn. Choices stay with the tab across navigation; EDIT merges restored choices, and an accepted send clears them.</li>
   <li>
   <strong>PIN TO TAB</strong> keeps reapplying the current body every turn
   until its visible chip is removed.

@@ -906,7 +906,7 @@ Server confirms removal. Persisted (so replay sees the same final state).
 
 ### `queued_message_edit_result` <-
 
-An edit request removes the item synchronously before delivery can take it. A successful reply carries its original content, kind and attachments. A request for an item already taken by delivery returns `Already sent, nothing to edit` and no item. The live workflow retains a bounded reply cache for idempotent retries. The client accepts replies only for its own matching request and workflow, once.
+An edit request removes the item synchronously before delivery can take it. A successful reply carries its original content, kind, attachments and selected skill references. The draft merges those references without duplicating choices; resend resolves the skills again, without copying the removed item's expanded context. A request for an item already taken by delivery returns `Already sent, nothing to edit` and no item. The live workflow retains a bounded reply cache for idempotent retries. The client accepts replies only for its own matching request and workflow, once.
 
 ```ts
 {
@@ -914,7 +914,7 @@ An edit request removes the item synchronously before delivery can take it. A su
   workflowId: string,
   clientMessageId: string,
   requestId: string,
-  item?: { content: string, kind: 'steer' | 'follow-up' | 'interrupt', attachments?: string[] },
+  item?: { content: string, kind: 'steer' | 'follow-up' | 'interrupt', attachments?: string[], pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin', slug: string }> },
   error?: string,
 }
 ```

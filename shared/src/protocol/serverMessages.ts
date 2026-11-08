@@ -1036,7 +1036,7 @@ export interface QueuedMessageEditResultMessage {
   workflowId: string;
   clientMessageId: string;
   requestId: string;
-  item?: { content: string; kind: 'steer' | 'follow-up' | 'interrupt'; attachments?: string[] };
+  item?: { content: string; kind: 'steer' | 'follow-up' | 'interrupt'; attachments?: string[]; pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }> };
   error?: string;
 }
 

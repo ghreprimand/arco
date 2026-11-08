@@ -27,6 +27,8 @@ async def main():
             data = {'files': [], 'entries': [], 'workflows': [], 'projects': [], 'clusters': [], 'skills': [], 'plans': [], 'items': [], 'tasks': [], 'sessions': [], 'messages': [], 'chats': [], 'dirs': []}
             if path == '/api/settings':
                 data = {'themeId': 'arch', 'enabledProviders': {'codex': True, 'claude': True}}
+            elif path == '/api/skills':
+                data = {'project': [{'scope': 'project', 'slug': 'restored', 'name': 'Restored rule', 'description': 'Synthetic restored skill'}, {'scope': 'project', 'slug': 'existing', 'name': 'Existing rule', 'description': 'Synthetic existing skill'}], 'global': [], 'builtin': []}
             elif path == '/api/auth-status':
                 data = {n: {'loggedIn': True, 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex',  'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'github']}
             elif path == '/api/capabilities':
@@ -115,11 +117,15 @@ async def main():
                 queued_id = f'edit-{clustered}-{kind}'
                 content = f'Queued {kind}'
                 path = '/tmp/fixture-attachment.txt'
-                queue_items[queued_id] = {'content': content, 'kind': kind, 'attachments': [path]}
+                queue_items[queued_id] = {'content': content, 'kind': kind, 'attachments': [path], 'pickedSkills': [{'scope': 'project', 'slug': 'restored'}, {'scope': 'project', 'slug': 'existing'}]}
                 await page.evaluate("""({id,content,kind}) => {
                   const q={clientMessageId:id,content,...(kind==='interrupt'?{interrupt:true}:{})};
                   testStore.setState(st=>({jobs:{...st.jobs,'interrupt-ui':{...st.jobs['interrupt-ui'],queue:{steering:kind==='follow-up'?[]:[q],followUp:kind==='follow-up'?[q]:[]},turnMessages:{[id]:{content,kind,state:'queued'}}}}}));
                 }""", {'id': queued_id, 'content': content, 'kind': kind})
+                await page.locator('[data-help="composer.skills"]').click()
+                await page.get_by_title('Apply this skill to the next turn only', exact=True).nth(1).click()
+                await page.keyboard.press('Escape')
+                await expect(page.get_by_text('INLINE SKILLS:', exact=True)).to_be_visible()
                 await draft.fill('Unsent work')
                 await page.locator('[data-help="composer.turn-messages"] button').first.click()
                 if kind != 'steer':
@@ -128,6 +134,8 @@ async def main():
                 await page.get_by_role('button', name='EDIT', exact=True).click()
                 await expect(draft).to_have_value('Unsent work\n\n' + content)
                 await expect(page.get_by_text('EDITING ' + kind.upper(), exact=True)).to_be_visible()
+                await expect(page.get_by_title('Inline "Restored rule" (project) into the next turn', exact=True)).to_be_visible()
+                await expect(page.get_by_title('Inline "Existing rule" (project) into the next turn', exact=True)).to_have_count(1)
                 await expect(page.get_by_title('Remove attachment').first).to_be_visible()
                 await draft.fill('Unsent work\n\nEdited ' + kind)
                 await normal.click()
@@ -135,6 +143,8 @@ async def main():
                 assert messages[-1]['type'] == 'user_message' and messages[-1]['kind'] == kind, messages[-1]
                 assert messages[-1]['content'] == 'Unsent work\n\nEdited ' + kind, messages[-1]
                 assert messages[-1]['attachments'] == [path]
+                assert messages[-1]['pickedSkills'] == [{'scope': 'project', 'slug': 'existing'}, {'scope': 'project', 'slug': 'restored'}]
+                await expect(page.get_by_text('INLINE SKILLS:', exact=True)).to_have_count(0)
                 assert messages[-1]['clientMessageId'] != queued_id
                 await expect(page.get_by_text('EDITING ' + kind.upper(), exact=True)).to_have_count(0)
         # A server-side delivery wins even if the browser still shows the pending snapshot.

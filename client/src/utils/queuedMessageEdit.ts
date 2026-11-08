@@ -1,6 +1,6 @@
 import type { QueuedMessageEditResultMessage } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
-import { useDraftStore, readDraft } from '../stores/draftStore';
+import { useDraftStore, readDraft, mergeDraftSkillPicks } from '../stores/draftStore';
 
 const requests = new Map<string, { workflowId: string; clientMessageId: string }>();
 export function requestQueuedMessageEdit(workflowId: string, clientMessageId: string): boolean {
@@ -30,7 +30,7 @@ export function finishQueuedMessageEdit(result: QueuedMessageEditResultMessage):
   if (!store.jobs[result.workflowId]) return;
   const current = readDraft(result.workflowId);
   useDraftStore.getState().setDraft(result.workflowId, current ? `${current}\n\n${result.item.content}` : result.item.content);
-  useDraftStore.setState(s => ({ queueEditKinds: { ...s.queueEditKinds, [result.workflowId]: result.item!.kind } }));
+  useDraftStore.setState(s => ({ queueEditKinds: { ...s.queueEditKinds, [result.workflowId]: result.item!.kind }, queueEditSkills: { ...s.queueEditSkills, [result.workflowId]: mergeDraftSkillPicks(s.queueEditSkills[result.workflowId], result.item!.pickedSkills) } }));
   for (const path of result.item.attachments ?? []) {
     if ((useAppStore.getState().attachments[result.workflowId] ?? []).some(a => a.path === path)) continue;
     store.addAttachment(result.workflowId, { path, filename: path.split(/[\\/]/).pop() ?? path, isImage: /\.(?:png|jpe?g|gif|webp)$/i.test(path) });

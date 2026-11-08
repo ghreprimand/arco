@@ -1,6 +1,8 @@
 import type { Props } from '../TerminalInput';
 import type { DraftAttachment, JobState, useAppStore } from '../../stores/appStore';
 
+import { mergeDraftSkillPicks, clearDraftSkillPicks, type DraftSkillPick } from '../../stores/draftStore';
+
 type Store = ReturnType<typeof useAppStore.getState>;
 type SubmitOptions = Pick<Props, 'onCompact' | 'onUpdatePrimary' | 'onArmPlanMode' | 'onSend'> & {
   kind?: 'steer' | 'follow-up' | 'interrupt';
@@ -9,8 +11,9 @@ type SubmitOptions = Pick<Props, 'onCompact' | 'onUpdatePrimary' | 'onArmPlanMod
   addMessage: Store['addMessage']; clearAttachments: Store['clearAttachments'];
   setValue: (value: string) => void; planModeArmed: boolean; planModeToggleVisible: boolean;
   setPlanModeArmed: (value: boolean) => void;
-  pickedSkills: Array<{ scope: 'project' | 'global'; slug: string; name: string }>;
-  setPickedSkills: (value: Array<{ scope: 'project' | 'global'; slug: string; name: string }>) => void;
+  readPickedSkills?: () => DraftSkillPick[];
+  pickedSkills: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string; name: string }>;
+  setPickedSkills: (value: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string; name: string }>) => void;
 };
 
 // Claude Code TUI-only slash commands. Arco runs `claude -p` (non-interactive
@@ -27,7 +30,7 @@ const TUI_ONLY_SLASH_COMMANDS = new Set([
 // All send-time routing and side effects live at this seam.
 export function submitComposer({ kind, compactAvailable, isCompacting, uploading, readDraft, attachments, provider, isBusy,
   onCompact, addMessage, job, setValue, clearAttachments, onUpdatePrimary, planModeArmed,
-  planModeToggleVisible, onArmPlanMode, setPlanModeArmed, onSend, pickedSkills, setPickedSkills }: SubmitOptions): void {
+  planModeToggleVisible, onArmPlanMode, setPlanModeArmed, onSend, pickedSkills, readPickedSkills, setPickedSkills }: SubmitOptions): void {
     // Phase 3 — block sends while compacting; the worker has no history to
     // receive a turn until the summary lands. The takeover overlay + greyed
     // send already signal this; this is the hard guard.
@@ -171,15 +174,18 @@ export function submitComposer({ kind, compactAvailable, isCompacting, uploading
     // Phase 4 — `kind` only flows when busy. The hook ignores it on idle
     // sends (where there's no queue to land in). Pre-Phase-4 callers passed
     // no kind; the server still defaults to follow-up for back-compat.
+    const currentPicks = mergeDraftSkillPicks(readPickedSkills ? readPickedSkills() : pickedSkills)
+      .filter(p => !(job.config.pinnedSkills ?? []).some(pin => pin.scope === p.scope && pin.slug === p.slug));
     const sent = onSend(
       trimmed,
       attachments.length > 0 ? attachments.map((a) => a.path) : undefined,
       kind === 'interrupt' ? kind : isBusy ? kind : undefined,
       undefined,
-      pickedSkills.length > 0 ? pickedSkills.map((s) => ({ scope: s.scope, slug: s.slug })) : undefined,
+      currentPicks.length > 0 ? currentPicks.map((s) => ({ scope: s.scope, slug: s.slug })) : undefined,
     );
     if (sent === false) return;
     setValue('');
     clearAttachments(job.id);
     setPickedSkills([]);
+    clearDraftSkillPicks(job.id);
 }

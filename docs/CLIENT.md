@@ -18,9 +18,9 @@ A terminal reconnect replaces the old display with the server's bounded scrollba
 
 ## Edit pending messages
 
-Open PENDING beside the composer, then choose EDIT beside CANCEL. PREVIEW shows one message with the same actions; automatic mailbox reminders start folded. Use + to read the full text; BACK TO LIST returns. The server removes the queued item before its text, kind and attachments return to that tab's message box. This works in single and cluster tabs.
+Open PENDING beside the composer, then choose EDIT beside CANCEL. PREVIEW shows one message with the same actions; automatic mailbox reminders start folded. Use + to read the full text; BACK TO LIST returns. The server removes the queued item before its text, kind, attachments and selected skills return to that tab's message box. This works in single and cluster tabs.
 
-Existing draft text is kept and the pending text is appended after a blank line. If delivery wins the removal race, Arco says `Already sent, nothing to edit` and leaves the draft unchanged. An offline page cannot edit the queue. Reconnect retries the same pending edit request without removing an item twice.
+Existing draft text is kept and the pending text is appended after a blank line. Existing skill choices are kept and merged without duplicates. Choices stay with their tab across navigation. Resending resolves each selected skill once; delivery text already expanded for the removed message is not copied into the draft. If delivery wins the removal race, Arco says `Already sent, nothing to edit` and leaves the draft unchanged. An offline page cannot edit the queue. Reconnect retries the same pending edit request without removing an item twice.
 
 While the worker is busy, SEND or Enter preserves the restored kind shown by EDITING. Alt+Enter explicitly chooses follow-up; INTERRUPT & SEND or Ctrl/Cmd+Enter chooses interrupt where available. An idle worker receives an ordinary new turn. Sending or clearing the draft clears the marker.
 
