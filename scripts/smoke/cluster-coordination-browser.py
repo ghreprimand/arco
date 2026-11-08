@@ -55,7 +55,7 @@ async def main():
           for(const id of ['worker-a','worker-b'])s.getState().createJob(id,{name:id,workingDirectory:'/projects/fixture',primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'medium'});
           const root=createRoot(document.getElementById('fixture'));
           let gen=0;
-          window.showCreator=()=>root.render(React.createElement(WorkflowCreator,{key:++gen,onCreate:()=>{},onCreateCluster:p=>created.push(p)}));
+          window.showCreator=()=>{s.setState({clusterCreationPending:false});root.render(React.createElement(WorkflowCreator,{key:++gen,onCreate:()=>{},onCreateCluster:p=>{created.push(p);s.setState({clusterCreationPending:false});}}));};
           window.showCluster=(legacy=false)=>{
             const cluster={clusterId:'fixture-cluster',cwd:'/projects/fixture',createdAt:'',taskBoardMode:'cluster',taskBoardAttached:true,progressTracking:'board',efficiencyLevel:'lean',efficiencyAddendum:'Saved NOTE',...(legacy?{}:{messageGuard:{mode:'warn',threshold:15}}),members:[{workflowId:'worker-a',displayName:'Alpha',status:'idle',role:'Implementer'},{workflowId:'worker-b',displayName:'Beta',status:'busy',role:'Director'}],mailboxDepth:{'worker-a':1,'worker-b':1}};
             s.setState({clusters:{...s.getState().clusters,[cluster.clusterId]:cluster}});

@@ -724,7 +724,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         the provider is not connected, the reason and an Open Connections link
         appear above the button. A project workflow also needs a working
         directory; Chat does not. Chat launches a saved or Incognito conversation
-        according to the checkbox. Cluster requires every member provider to be enabled and connected; Genesis and Cluster have their own form gates.
+        according to the checkbox. Cluster requires every member provider to be enabled and connected; Genesis and Cluster have their own form gates. CREATE CLUSTER sends immediately, then shows Starting... until creation succeeds or fails. A director plan draft refreshes the public-project choice after creation, before its model turn. A failed refresh leaves the cluster available; use DRAFT A PLAN to retry.
       </p>
     ),
     manualSection: 'creating-workflow',

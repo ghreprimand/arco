@@ -685,6 +685,7 @@ export interface AppState {
   activeJobId: string | null;
   showCreator: boolean; // show workflow creator panel
   creatorRequested: boolean;
+  clusterCreationPending: boolean;
   showHome: boolean;
   creatorPrefill: CreatorPrefill | null;
 

@@ -48,6 +48,7 @@ const PROGRESS_LABELS: Record<ClusterProgressMode, string> = { both: 'Keep plan 
 export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, initialProvider: suppliedProvider }: Props) {
   const [initialProvider] = useState(() => suppliedProvider ?? useAppStore.getState().creatorPrefill?.provider);
   const connected = useAppStore((s) => s.connected);
+  const clusterCreationPending = useAppStore((s) => s.clusterCreationPending);
   const capabilities = useAppStore((s) => s.capabilities);
   const authStatus = useAppStore((s) => s.authStatus);
   const isProviderEnabled = useAppStore((s) => s.isProviderEnabled);
@@ -879,11 +880,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
 
   const handleCreate = async () => {
     if (mode === 'cluster') {
-      if (!canLaunchCluster || !onCreateCluster) return;
-      if (planChoice !== 'none') {
-        try { await rememberPublicChoice(workDir); }
-        catch { window.alert('Could not save the public-project choice. Try again.'); return; }
-      }
+      if (!canLaunchCluster || !onCreateCluster || useAppStore.getState().clusterCreationPending) return;
+      useAppStore.setState({ clusterCreationPending: true });
       const derived = deriveDisplayNames(members);
       onCreateCluster({
         cwd: workDir,
@@ -2013,7 +2011,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         {mode === 'cluster' ? (
           <button
             onClick={handleCreate}
-            disabled={!canLaunchCluster}
+            disabled={!canLaunchCluster || clusterCreationPending}
+            aria-busy={clusterCreationPending}
             className={canLaunchCluster ? 'glow-border' : ''}
             style={{
               padding: '12px 24px',
@@ -2027,7 +2026,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               letterSpacing: '3px',
             }}
           >
-            {!connected ? 'DISCONNECTED' : 'CREATE CLUSTER'}
+            {!connected ? 'DISCONNECTED' : clusterCreationPending ? 'Starting...' : 'CREATE CLUSTER'}
           </button>
         ) : mode === 'genesis' ? (
           <button

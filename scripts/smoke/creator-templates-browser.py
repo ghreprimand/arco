@@ -75,9 +75,9 @@ async def main():
               ollama:{loggedIn:!!connected.ollama,installedModels:connected.ollama?['local-small','local-large']:[]}};
             // Cursor is connected but disabled in Settings, so it must never be offered.
             auth.cursor={loggedIn:true};
-            s.setState({connected:true,creatorPrefill:{mode:'cluster',workDir:'/projects/fixture'},
+            s.setState({connected:true,clusterCreationPending:false,creatorPrefill:{mode:'cluster',workDir:'/projects/fixture'},
               settings:{enabledProviders:{claude:true,codex:true,ollama:true,cursor:false,llamacpp:true},projectRoots:[],...(capacity?{localClusterCapacity:capacity}:{})},authStatus:auth});
-            root.render(React.createElement(WorkflowCreator,{key:++gen,onCreate:()=>{},onCreateCluster:c=>clusters.push(c)}));
+            root.render(React.createElement(WorkflowCreator,{key:++gen,onCreate:()=>{},onCreateCluster:c=>{clusters.push(c);s.setState({clusterCreationPending:false});}}));
           };
         }''')
 

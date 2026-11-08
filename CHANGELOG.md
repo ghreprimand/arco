@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Start cluster creation immediately, show Starting... while waiting for the server, and check public-project choices before the new plan draft starts.
+
 - Load plan choices in one request with task counts, fetch bodies only for PREVIEW, and keep long lists in a scrolling area.
 - Show cluster members as working from turn acceptance, including tool-first turns.
 

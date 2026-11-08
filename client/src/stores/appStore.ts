@@ -168,6 +168,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   jobs: {},
   activeJobId: null,
   showCreator: false,
+  clusterCreationPending: false,
   creatorRequested: false, showHome: true, creatorPrefill: null,
   attachments: {},
   clusters: {},
@@ -258,7 +259,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       const jobs = connected
         ? s.jobs
         : Object.fromEntries(Object.entries(s.jobs).map(([id, j]) => [id, { ...j, snapshotReceived: false }]));
-      return { connected, sessionId: sessionId ?? s.sessionId, jobs };
+      return { connected, sessionId: sessionId ?? s.sessionId, jobs, ...(!connected ? { clusterCreationPending: false } : {}) };
     }),
 
   setConnectionState: (state) => set({ connectionState: state }),

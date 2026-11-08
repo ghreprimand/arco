@@ -23,18 +23,39 @@ test('cluster plan review captures a candidate without saving it', () => {
   assert.equal(useAppStore.getState().jobs[id].planCandidate?.mode, 'review');
 });
 
-test('cluster creation starts only the selected director draft in review mode', () => {
-  const id = 'plan-start-fixture';
-  useAppStore.getState().createJob(id, { name: 'fixture', primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'medium', workingDirectory: '/fixture', skipPermissions: false } as WorkflowConfig);
+for (const outcome of ['success', 'failure', 'removed'] as const) test(`cluster creation precedes the public-choice refresh; draft ${outcome}`, async t => {
+  const id = `plan-start-${outcome}`, clusterId = `cluster-${outcome}`;
+  useAppStore.getState().createJob(id, { name: 'fixture', primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'medium', workingDirectory: `/projects/${outcome}`, skipPermissions: false } as WorkflowConfig);
   const sent: Array<Record<string, unknown>> = [];
   const deps: WsDeps = { wsRef: { current: { readyState: 1, send: (body: string) => sent.push(JSON.parse(body)) } as unknown as WebSocket }, scheduleReconnect: () => {} };
-  handleServerMessage({ type: 'cluster_created', clusterId: 'new-cluster', state: { clusterId: 'new-cluster', cwd: '/fixture', members: [{ workflowId: id, role: 'Director', displayName: 'Director' }] }, initialPlanDraft: { workflowId: id, goal: 'Make a small tool' } } as unknown as ServerMessage, deps);
-  const request = sent.find((message) => message.type === 'user_message');
-  assert.equal(request?.workflowId, id);
-  assert.equal(request?.primitive, 'plan-review');
-  assert.match(String(request?.content), /Make a small tool/);
-  assert.equal(useAppStore.getState().jobs[id].pendingPlanCapture, 'review');
-  assert.equal(sent.some((message) => message.type === 'cluster_plan_set'), false);
+  let finish!: (response: Response) => void;
+  t.mock.method(globalThis, 'fetch', () => new Promise<Response>(resolve => { finish = resolve; }));
+  handleServerMessage({ type: 'cluster_created', clusterId, state: { clusterId, cwd: `/projects/${outcome}`, members: [{ workflowId: id, role: 'Director', displayName: 'Director' }] }, initialPlanDraft: { workflowId: id, goal: 'Make a small tool' } } as unknown as ServerMessage, deps);
+  assert.ok(useAppStore.getState().clusters[clusterId], 'the cluster is available before the choice request finishes');
+  assert.equal(sent.some(message => message.type === 'user_message'), false, 'the draft still waits for the authoritative choice');
+  await new Promise(resolve => setImmediate(resolve));
+  if (outcome === 'removed') useAppStore.getState().clearCluster(clusterId);
+  finish(outcome === 'failure' ? new Response('Unavailable', { status: 503 }) : Response.json({ choice: true }));
+  await new Promise(resolve => setImmediate(resolve));
+  const request = sent.find(message => message.type === 'user_message');
+  if (outcome !== 'success') assert.equal(request, undefined);
+  else {
+    assert.equal(request?.workflowId, id); assert.equal(request?.primitive, 'plan-review');
+    assert.match(String(request?.content), /Make a small tool/);
+    assert.match(String(request?.content), /public/);
+    assert.equal(useAppStore.getState().jobs[id].pendingPlanCapture, 'review');
+    assert.equal(sent.some(message => message.type === 'cluster_plan_set'), false);
+  }
+});
+
+test('cluster creation pending clears on rejection and disconnection', () => {
+  const deps: WsDeps = { wsRef: { current: null }, scheduleReconnect() {} };
+  useAppStore.setState({ clusterCreationPending: true });
+  handleServerMessage({ type: 'error', message: 'cluster_create_from_scratch rejected: no_members' } as ServerMessage, deps);
+  assert.equal(useAppStore.getState().clusterCreationPending, false);
+  useAppStore.setState({ clusterCreationPending: true });
+  useAppStore.getState().setConnected(false);
+  assert.equal(useAppStore.getState().clusterCreationPending, false);
 });
 
 test('plan-shaped cluster replies are offered for review without an implicit save', () => {

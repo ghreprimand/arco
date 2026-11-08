@@ -1,7 +1,7 @@
 import { finishQueuedMessageEdit } from '../utils/queuedMessageEdit';
 import { PRIMARY_PROVIDERS, isClusterDirector } from '@arco/shared';
 import { beginPlanReview } from '../components/terminalInput/planDraft';
-import { effectivePublic } from '../utils/publicProject';
+import { rememberPublicChoice } from '../utils/publicProject';
 import { usePlanGenesisStore } from '../stores/planGenesisStore';
 import { useAppUpdateStore } from '../stores/appUpdateStore';
 import { receiveComputerActivityChanged } from '../voice/activity';
@@ -1479,6 +1479,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'error':
+          if (msg.message.startsWith('cluster_create_from_scratch')) useAppStore.setState({ clusterCreationPending: false });
           // Phase 2.5.1 — surface server-side rejections as a top-right toast
           // regardless of which tab is focused. The pre-2.5.1 behavior of
           // appending [ERROR] to chat is kept as a secondary record. Provider
@@ -2187,19 +2188,27 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           store.clearCluster(msg.clusterId);
           break;
         case 'cluster_created':
+          useAppStore.setState({ clusterCreationPending: false });
           store.setClusterState(msg.clusterId, msg.state);
           requestMissingMemberJobs(msg.clusterId, msg.state, deps);
           store.setActiveCluster(msg.clusterId);
           if (msg.initialPlanDraft) {
             const draft = msg.initialPlanDraft;
-            const director = msg.state.members.some((member) => member.workflowId === draft.workflowId && isClusterDirector(member.role));
-            const started = director && beginPlanReview(draft.workflowId, (content) => {
-              const ws = deps.wsRef.current;
-              if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-              ws.send(JSON.stringify({ type: 'user_message', workflowId: draft.workflowId, content, primitive: 'plan-review' }));
-              return true;
-            }, draft.goal, true, effectivePublic(store.jobs[draft.workflowId]?.config.workingDirectory ?? msg.state.cwd ?? ''));
-            if (!started) store.pushNotification('error', 'The cluster was created, but the plan draft did not start. Use DRAFT A PLAN when the director is ready.');
+            const cwd = store.jobs[draft.workflowId]?.config.workingDirectory ?? msg.state.cwd ?? '';
+            // Creation and navigation complete first. Only the model draft
+            // waits for saved choices and any remote suggestion to refresh.
+            void rememberPublicChoice(cwd).then(publicProject => {
+              const latest = useAppStore.getState();
+              const cluster = latest.clusters[msg.clusterId];
+              if (!cluster?.members.some(member => member.workflowId === draft.workflowId && isClusterDirector(member.role))) return;
+              const started = beginPlanReview(draft.workflowId, content => {
+                const ws = deps.wsRef.current;
+                if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+                ws.send(JSON.stringify({ type: 'user_message', workflowId: draft.workflowId, content, primitive: 'plan-review' }));
+                return true;
+              }, draft.goal, true, publicProject);
+              if (!started) latest.pushNotification('error', 'The cluster was created, but the plan draft did not start. Use DRAFT A PLAN when the director is ready.');
+            }).catch(() => useAppStore.getState().pushNotification('error', 'The cluster was created, but its public-project choice could not be refreshed. Use DRAFT A PLAN to retry.'));
           }
           // A snapshot restore completes as a cluster_created with a brand-new
           // clusterId (fork semantics — there's no dedicated restored message).

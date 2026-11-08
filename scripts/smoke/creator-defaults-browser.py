@@ -55,7 +55,7 @@ async def main():
           window.s=s; window.created=[];
           const root=createRoot(document.getElementById('fixture')); let gen=0;
           window.show=(defaults)=>{
-            s.setState({connected:true,creatorPrefill:{mode:'cluster',workDir:'/projects/fixture'},
+            s.setState({connected:true,clusterCreationPending:false,creatorPrefill:{mode:'cluster',workDir:'/projects/fixture'},
               settings:{enabledProviders:{claude:true},...(defaults?{workflowDefaults:defaults}:{}),projectRoots:[]},
               authStatus:{claude:{loggedIn:true,native:{credentialPresent:true}}}});
             root.render(React.createElement(WorkflowCreator,{key:++gen,onCreate:()=>{},onCreateCluster:p=>created.push(p)}));

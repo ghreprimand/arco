@@ -87,7 +87,7 @@ async def main():
           const root=createRoot(document.getElementById('fixture')); let gen=0;
           const fullAuth={claude:{loggedIn:true},codex:{loggedIn:true},ollama:{loggedIn:false,installedModels:[]},cursor:{loggedIn:true},llamacpp:{loggedIn:false}};
           window.show=(mode,opt={})=>{
-            s.setState({connected:true,creatorPrefill:{mode,...(mode==='single'||mode==='cluster'?{workDir:'/projects/fixture'}:{})},
+            s.setState({connected:true,clusterCreationPending:false,creatorPrefill:{mode,...(mode==='single'||mode==='cluster'?{workDir:'/projects/fixture'}:{})},
               settings:{enabledProviders:{claude:true,codex:true,ollama:true,cursor:false},workflowDefaults:opt.defaults??{primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'medium'},projectRoots:[]},
               authStatus:opt.auth??fullAuth});
             root.render(React.createElement(WorkflowCreator,{key:++gen,onCreate:c=>created.push(c),onCreateCluster:c=>clusters.push(c)}));
@@ -262,8 +262,17 @@ async def main():
         await folder.fill('/projects/fixture')
         await page.get_by_label('Attach an existing plan', exact=True).check()
         await page.get_by_role('button', name='Attach Fixture plan', exact=True).click()
-        await page.get_by_role('button', name='CREATE CLUSTER', exact=True).click()
-        await page.wait_for_function('clusters.length===4')
+        # A pending project-choice refresh cannot delay the create request.
+        delayed_choice['enabled'] = True
+        try:
+            await page.get_by_role('button', name='CREATE CLUSTER', exact=True).click()
+            await page.wait_for_function('clusters.length===4', timeout=1000)
+            await expect(page.get_by_role('button', name='Starting...', exact=True)).to_be_disabled()
+        finally:
+            delayed_choice['release'].set()
+            delayed_choice['enabled'] = False
+        delayed_choice['entered'] = asyncio.Event()
+        delayed_choice['release'] = asyncio.Event()
         assert (await page.evaluate('clusters[3].initialPlanId')) == 'fixture-plan'
 
         await page.evaluate("show('cluster')")

@@ -1175,6 +1175,8 @@ per-cluster browser dismissal. The composer's PLAN button explains in its hover 
 
 **Reconnect handling.** `handleServerMessage`'s `connected` case re-subscribes to every persisted cluster (one `cluster_subscribe` per id). The server's reply is a fresh `cluster_state`; the existing entry is overwritten in-place. If the cluster was torn down while disconnected the server sends an `error` (which we ignore - the persisted entry stays stale until the operator closes the tab manually).
 
+Cluster creation sends its request immediately after the form checks pass. CREATE CLUSTER shows Starting... and prevents another submission until the server creates the cluster, rejects the request or disconnects. A director plan draft refreshes the public-project choice after creation and before its model turn. A failed refresh leaves the cluster available and offers DRAFT A PLAN for retry. Attaching an existing plan needs no remote suggestion lookup.
+
 ### BOARD tab - `ClusterTaskBoardTab.tsx`
 
 Cluster BOARD sub-tab (`client/src/components/ClusterTaskBoardTab.tsx`). Renders the cwd-scoped task ledger as a Kanban-style board shared across all cluster members. **Task-ledger integration** (see [TASK_LEDGER.md](TASK_LEDGER.md)).
