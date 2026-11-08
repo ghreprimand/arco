@@ -1,9 +1,13 @@
+import { useAppStore } from '../stores/appStore';
+import { requestQueuedMessageEdit, retryQueuedMessageEdits } from '../utils/queuedMessageEdit';
 import { formSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { JobState } from '../stores/appStore';
 import type { ProviderName } from '@arco/shared';
 import { linkifyText } from '../utils/linkify';
+
+const queueActionStyle = { background: 'transparent', border: '1px solid var(--color-border-hairline)', borderRadius: 3, color: 'var(--color-accent-secondary)', fontSize: 10, padding: '2px 6px' };
 
 interface Props {
   job: JobState;
@@ -35,6 +39,8 @@ interface QueueItem {
 // commitment short and out-of-band from chat.
 export function QueuedMessagesIndicator({ job, onCancel }: Props) {
   const [open, setOpen] = useState(false);
+  const online = useAppStore(s => s.connectionState === 'online');
+  useEffect(() => { if (online) retryQueuedMessageEdits(job.id); }, [job.id, online]);
 
   const items: QueueItem[] = [
     ...(job.queue?.steering ?? []).map<QueueItem>((q, i) => ({ kind: q.interrupt ? 'interrupt' : 'steer', content: q.content, clientMessageId: q.clientMessageId, index: i })),
@@ -64,7 +70,7 @@ export function QueuedMessagesIndicator({ job, onCancel }: Props) {
   return (
     <span data-help="composer.turn-messages">
       <button type="button" onClick={() => setOpen(true)} title={tooltip} className="display-font">PENDING · {items.length}</button>
-      {open && <QueuedMessagesModal items={items} onCancel={onCancel} onClose={() => setOpen(false)} />}
+      {open && <QueuedMessagesModal workflowId={job.id} online={online} items={items} onCancel={onCancel} onClose={() => setOpen(false)} />}
     </span>
   );
 }
@@ -100,12 +106,17 @@ function providerSteerTooltip(
 
 
 interface ModalProps {
+  workflowId: string;
+  online: boolean;
   items: QueueItem[];
   onCancel: (clientMessageId: string) => void;
   onClose: () => void;
 }
 
-function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
+function QueuedMessagesModal({ workflowId, online, items, onCancel, onClose }: ModalProps) {
+  const [previewId, setPreviewId] = useState<string | null>(null);
+  const keyFor = (item: QueueItem) => item.clientMessageId ?? `${item.kind}-${item.index}`;
+  const preview = items.find(item => keyFor(item) === previewId);
   const surface = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -159,7 +170,8 @@ function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
             className="display-font glow-text-cyan"
             style={{ fontSize: '12px', letterSpacing: '2px' }}
           >
-            QUEUED MESSAGES · {items.length}
+            {preview ? 'PREVIEW' : `QUEUED MESSAGES · ${items.length}`}
+            {preview && <button data-help="composer.pending-preview" style={queueActionStyle} onClick={() => setPreviewId(null)}>BACK TO LIST</button>}
           </div>
           <WorkSurfaceControls surface={surface} storageKey="queued-messages" />
           <button
@@ -192,7 +204,7 @@ function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
           >
             Interrupt messages run first. Remaining steering items flush before follow-ups.
           </div>
-          {items.map((item, i) => (
+          {(preview ? [preview] : items).map((item, i) => (
             <div
               key={item.clientMessageId ?? `${item.kind}-${item.index}`}
               style={{
@@ -222,6 +234,12 @@ function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
                 >
                   #{i + 1} · {item.kind === 'interrupt' ? 'INTERRUPT & SEND' : item.kind === 'steer' ? 'STEER' : 'FOLLOW-UP'} · {item.state === 'delivered' ? 'DELIVERED' : 'QUEUED'}
                 </span>
+                <span style={{ display: 'flex', gap: 6 }}>
+                  {!preview && <button type="button" data-help="composer.pending-preview" style={queueActionStyle} onClick={() => setPreviewId(keyFor(item))}>PREVIEW</button>}
+                  <button type="button" data-help="composer.pending-edit" style={queueActionStyle}
+                    disabled={!online || !item.cancellable || item.state === 'delivered'}
+                    title={item.state === 'delivered' ? 'Already sent, nothing to edit' : !online ? 'Reconnect to edit this pending message' : !item.cancellable ? 'This message has no queue identifier' : 'Remove from the queue and return to the message box'}
+                    onClick={() => requestQueuedMessageEdit(workflowId, item.clientMessageId!)}>EDIT</button>
                 {item.cancellable && (
                   <button
                     onClick={() => onCancel(item.clientMessageId!)}
@@ -242,6 +260,7 @@ function QueuedMessagesModal({ items, onCancel, onClose }: ModalProps) {
                     CANCEL
                   </button>
                 )}
+                </span>
               </div>
               <div
                 style={{

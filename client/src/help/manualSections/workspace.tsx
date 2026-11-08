@@ -335,6 +335,10 @@ export const workspace: Section[] = [
     title: 'The composer (terminal input)',
     body: (
       <>
+  <p>Open PENDING to inspect queued messages. PREVIEW shows one message in full; BACK TO LIST returns. EDIT is available beside CANCEL in both views. It removes the message from the queue before restoring its text, kind and attachments to that tab&apos;s message box.</p>
+  <p>Existing draft text is kept, with the pending text appended after a blank line. If the message was delivered first, Arco says Already sent, nothing to edit and leaves the draft unchanged. Editing requires a connection.</p>
+  <p>While busy, SEND or Enter keeps the restored kind. Alt+Enter chooses follow-up; INTERRUPT &amp; SEND or Ctrl/Cmd+Enter chooses interrupt where available. If the worker is idle, the message starts an ordinary turn. Sending or clearing the draft clears the EDITING marker.</p>
+
   <p>SEND waits until all attachment upload batches finish. A second paste or drop does not release that guard early.</p>
       <p>While Genesis moves conversation storage, new messages are refused before acknowledgement. Wait for the active folder to be ready, then resend. STOP does not interrupt this storage move.</p>
   <p>Follow-ups are associated with the turn that actually receives them. Inputs dispatched together stay together in restored context and reviews. Steering retains its delivery position; a late acknowledgement does not move it into a newer turn.</p>

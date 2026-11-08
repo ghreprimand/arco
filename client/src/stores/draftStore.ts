@@ -29,6 +29,7 @@ import { create } from 'zustand';
 // edge case that turns into a "message sent without my last word" bug.
 interface DraftState {
   drafts: Record<string, string>;
+  queueEditKinds: Record<string, 'steer' | 'follow-up' | 'interrupt'>;
   tidyUndo: Record<string, { original: string; replacement: string }>;
   applyTidy: (jobId: string, expected: string, replacement: string) => boolean;
   undoTidy: (jobId: string) => boolean;
@@ -38,6 +39,7 @@ interface DraftState {
 
 export const useDraftStore = create<DraftState>((set) => ({
   drafts: {},
+  queueEditKinds: {},
   tidyUndo: {},
   applyTidy: (jobId, expected, replacement) => {
     let applied = false;
@@ -65,21 +67,23 @@ export const useDraftStore = create<DraftState>((set) => ({
       // Tombstone empty strings to keep the drafts map small; a missing key
       // reads back as '' at the callsite. (Behaviour carried over verbatim
       // from appStore so tab-switch / clear semantics are unchanged.)
-      if (s.drafts[jobId] === text || (text === '' && !(jobId in s.drafts))) return {};
+      if ((s.drafts[jobId] === text || (text === '' && !(jobId in s.drafts))) && !(text === '' && jobId in s.queueEditKinds)) return {};
       const { [jobId]: _undo, ...tidyUndo } = s.tidyUndo;
       if (text === '') {
         const { [jobId]: _, ...rest } = s.drafts;
-        return { drafts: rest, tidyUndo };
+        const { [jobId]: _kind, ...queueEditKinds } = s.queueEditKinds;
+        return { drafts: rest, tidyUndo, queueEditKinds };
       }
       return { drafts: { ...s.drafts, [jobId]: text }, tidyUndo };
     }),
 
   clearDraft: (jobId) =>
     set((s) => {
-      if (!(jobId in s.drafts) && !(jobId in s.tidyUndo)) return {};
+      if (!(jobId in s.drafts) && !(jobId in s.tidyUndo) && !(jobId in s.queueEditKinds)) return {};
       const { [jobId]: _, ...rest } = s.drafts;
       const { [jobId]: _undo, ...tidyUndo } = s.tidyUndo;
-      return { drafts: rest, tidyUndo };
+      const { [jobId]: _kind, ...queueEditKinds } = s.queueEditKinds;
+      return { drafts: rest, tidyUndo, queueEditKinds };
     }),
 }));
 

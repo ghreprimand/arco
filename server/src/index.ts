@@ -802,7 +802,7 @@ wss.on('connection', (ws: WebSocket) => {
         setHubLinkEnabled(msg.enabled);
         break;
       case 'cancel_queued_message':
-        (scopedIncognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() => handleCancelQueuedMessage(ws, msg.workflowId, msg.clientMessageId));
+        (scopedIncognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() => handleCancelQueuedMessage(ws, msg.workflowId, msg.clientMessageId, msg.editRequestId));
         break;
       case 'remove_workflow':
         (scopedIncognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() => handleRemoveWorkflow(msg.workflowId));

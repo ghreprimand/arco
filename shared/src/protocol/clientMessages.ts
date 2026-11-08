@@ -200,6 +200,7 @@ export interface CancelQueuedMessageMessage {
   type: 'cancel_queued_message';
   workflowId: string;
   clientMessageId: string;
+  editRequestId?: string;
 }
 
 // Operator closed the tab. Server tears down any in-flight worker, drops the

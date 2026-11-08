@@ -38,7 +38,22 @@ async def main():
         await context.route('**/api/**', api)
         await context.route('**/healthz', lambda r: r.fulfill(json={'status': 'live'}))
         await context.route('https://**/*', lambda r: r.abort())
-        await context.route_web_socket('**/*', lambda ws: ws.on_message(lambda raw: messages.append(json.loads(raw))))
+        queue_items = {}
+        def socket_route(ws):
+            def receive(raw):
+                msg = json.loads(raw)
+                messages.append(msg)
+                if msg.get('type') != 'cancel_queued_message' or not msg.get('editRequestId'): return
+                item = queue_items.pop(msg['clientMessageId'], None)
+                result = {'type': 'queued_message_edit_result', 'workflowId': msg['workflowId'], 'clientMessageId': msg['clientMessageId'], 'requestId': msg['editRequestId']}
+                if item:
+                    ws.send(json.dumps({'type': 'queued_message_cancelled', 'workflowId': msg['workflowId'], 'clientMessageId': msg['clientMessageId']}))
+                    ws.send(json.dumps({'type': 'queue_update', 'workflowId': msg['workflowId'], 'steering': [], 'followUp': []}))
+                    result['item'] = item
+                else: result['error'] = 'Already sent, nothing to edit'
+                ws.send(json.dumps(result))
+            ws.on_message(receive)
+        await context.route_web_socket('**/*', socket_route)
         await context.add_init_script('''
           const OriginalWebSocket = window.WebSocket;
           window.WebSocket = class extends OriginalWebSocket {
@@ -56,6 +71,8 @@ async def main():
           s.getState().beginPrimaryTurn('interrupt-ui', Date.now());
           s.setState({connected:true,connectionState:'online',focusMode:true});
         }''')
+        await page.wait_for_timeout(100)
+        assert not errors, errors
         draft = page.locator('textarea').first
         button = page.get_by_role('button', name='INTERRUPT & SEND', exact=True)
         normal = page.get_by_role('button', name='SEND', exact=True)
@@ -86,6 +103,53 @@ async def main():
         assert messages[-1]['kind'] == 'steer'
         await draft.fill('later task'); await draft.press('Alt+Enter')
         assert messages[-1]['kind'] == 'follow-up'
+        # P8.24: list and preview EDIT restore metadata in standalone and cluster tabs.
+        for clustered in [False, True]:
+            if clustered:
+                await page.evaluate("""() => {
+                  const cluster = {clusterId:'edit-cluster',cwd:'/tmp',createdAt:'',members:[{workflowId:'interrupt-ui',displayName:'Editor',role:'Director',status:'running'}],mailboxDepth:{},taskBoardMode:'none',taskBoardAttached:false};
+                  testStore.getState().setClusterState('edit-cluster',cluster);
+                  testStore.getState().setActiveCluster('edit-cluster');
+                }""")
+            for kind in ['steer', 'follow-up', 'interrupt']:
+                queued_id = f'edit-{clustered}-{kind}'
+                content = f'Queued {kind}'
+                path = '/tmp/fixture-attachment.txt'
+                queue_items[queued_id] = {'content': content, 'kind': kind, 'attachments': [path]}
+                await page.evaluate("""({id,content,kind}) => {
+                  const q={clientMessageId:id,content,...(kind==='interrupt'?{interrupt:true}:{})};
+                  testStore.setState(st=>({jobs:{...st.jobs,'interrupt-ui':{...st.jobs['interrupt-ui'],queue:{steering:kind==='follow-up'?[]:[q],followUp:kind==='follow-up'?[q]:[]},turnMessages:{[id]:{content,kind,state:'queued'}}}}}));
+                }""", {'id': queued_id, 'content': content, 'kind': kind})
+                await draft.fill('Unsent work')
+                await page.locator('[data-help="composer.turn-messages"] button').first.click()
+                if kind != 'steer':
+                    await page.get_by_role('button', name='PREVIEW', exact=True).click()
+                    await expect(page.get_by_role('button', name='BACK TO LIST', exact=True)).to_be_visible()
+                await page.get_by_role('button', name='EDIT', exact=True).click()
+                await expect(draft).to_have_value('Unsent work\n\n' + content)
+                await expect(page.get_by_text('EDITING ' + kind.upper(), exact=True)).to_be_visible()
+                await expect(page.get_by_title('Remove attachment').first).to_be_visible()
+                await draft.fill('Unsent work\n\nEdited ' + kind)
+                await normal.click()
+                await expect(draft).to_have_value('')
+                assert messages[-1]['type'] == 'user_message' and messages[-1]['kind'] == kind, messages[-1]
+                assert messages[-1]['content'] == 'Unsent work\n\nEdited ' + kind, messages[-1]
+                assert messages[-1]['attachments'] == [path]
+                assert messages[-1]['clientMessageId'] != queued_id
+                await expect(page.get_by_text('EDITING ' + kind.upper(), exact=True)).to_have_count(0)
+        # A server-side delivery wins even if the browser still shows the pending snapshot.
+        await page.evaluate("""() => {
+          testStore.getState().setActiveCluster(null); testStore.getState().setActiveJob('interrupt-ui');
+          const item={clientMessageId:'already-sent',content:'Already delivered'};
+          testStore.setState(st=>({jobs:{...st.jobs,'interrupt-ui':{...st.jobs['interrupt-ui'],queue:{steering:[item],followUp:[]},turnMessages:{'already-sent':{content:item.content,kind:'steer',state:'queued'}}}}}));
+        }""")
+        await draft.fill('Keep current draft')
+        await page.locator('[data-help="composer.turn-messages"] button').first.click()
+        await page.get_by_role('button', name='EDIT', exact=True).click()
+        await expect(page.get_by_text('Already sent, nothing to edit', exact=True)).to_be_visible()
+        await expect(draft).to_have_value('Keep current draft')
+        await page.keyboard.press('Escape')
+        await page.evaluate("testStore.setState(st=>({jobs:{...st.jobs,'interrupt-ui':{...st.jobs['interrupt-ui'],queue:{steering:[],followUp:[]},turnMessages:{}}}}))")
         await draft.fill('keep this draft'); await draft.press('Shift+Enter')
         await expect(draft).to_have_value('keep this draft\n')
         count = len(messages)
@@ -114,7 +178,7 @@ async def main():
         Path('/tmp/arco-interrupt-ui').mkdir(exist_ok=True)
         await page.screenshot(path='/tmp/arco-interrupt-ui/composer.png')
         assert not errors, errors
-        print('PASS: visible normal SEND and INTERRUPT & SEND, normal send payload, button/draft updates, Ctrl+Enter, ordinary steer/follow-up, newline, disconnected draft retention, provider/idle visibility and narrow layout.')
+        print('PASS: pending EDIT, preview, append, kind/attachment restore, change/resend in single and cluster tabs, delivery race; visible normal SEND and INTERRUPT & SEND, normal send payload, button/draft updates, Ctrl+Enter, ordinary steer/follow-up, newline, disconnected draft retention, provider/idle visibility and narrow layout.')
         await browser.close()
 
 

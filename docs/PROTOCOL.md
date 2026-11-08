@@ -888,6 +888,7 @@ Operator pulled a queued mid-turn prompt before it fired.
   type: 'cancel_queued_message',
   workflowId: string,
   clientMessageId: string,
+  editRequestId?: string, // request an authoritative take-back for editing
 }
 ```
 
@@ -902,6 +903,23 @@ Server confirms removal. Persisted (so replay sees the same final state).
   clientMessageId: string,
 }
 ```
+
+### `queued_message_edit_result` <-
+
+An edit request removes the item synchronously before delivery can take it. A successful reply carries its original content, kind and attachments. A request for an item already taken by delivery returns `Already sent, nothing to edit` and no item. The live workflow retains a bounded reply cache for idempotent retries. The client accepts replies only for its own matching request and workflow, once.
+
+```ts
+{
+  type: 'queued_message_edit_result',
+  workflowId: string,
+  clientMessageId: string,
+  requestId: string,
+  item?: { content: string, kind: 'steer' | 'follow-up' | 'interrupt', attachments?: string[] },
+  error?: string,
+}
+```
+
+The normal cancellation event and queue snapshot still notify every observer. The reply is saved in workflow history; an unrelated observer or replay without a matching pending request never changes a draft.
 
 ### Sequence: a normal turn
 

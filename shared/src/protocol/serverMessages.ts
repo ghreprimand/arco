@@ -1029,6 +1029,15 @@ export interface SessionEntryMessage {
 // Operator cancelled a queued mid-turn message before it fired. Persisted
 // so the removal survives events.jsonl replay — the client drops any chat
 // message matching `clientMessageId` when this arrives.
+export interface QueuedMessageEditResultMessage {
+  type: 'queued_message_edit_result';
+  workflowId: string;
+  clientMessageId: string;
+  requestId: string;
+  item?: { content: string; kind: 'steer' | 'follow-up' | 'interrupt'; attachments?: string[] };
+  error?: string;
+}
+
 export interface QueuedMessageCancelledMessage {
   type: 'queued_message_cancelled';
   workflowId: string;
@@ -1559,6 +1568,7 @@ export type ServerMessage =
   | SystemNoticeMessage
   | ClaudeNativeQuestionSettledMessage
   | QueuedMessageCancelledMessage
+  | QueuedMessageEditResultMessage
   | QueuedMessagesDrainedMessage
   | PrimaryActivityMessage
   | SessionHistoryStatusMessage

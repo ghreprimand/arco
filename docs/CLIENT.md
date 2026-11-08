@@ -8,6 +8,15 @@ This doc covers the store, components, render pipeline, theme + shader system, a
 
 ---
 
+## Edit pending messages
+
+Open PENDING beside the composer, then choose EDIT beside CANCEL. PREVIEW shows one message in full with the same actions; BACK TO LIST returns. The server removes the queued item before its text, kind and attachments return to that tab's message box. This works in single and cluster tabs.
+
+Existing draft text is kept and the pending text is appended after a blank line. If delivery wins the removal race, Arco says `Already sent, nothing to edit` and leaves the draft unchanged. An offline page cannot edit the queue. Reconnect retries the same pending edit request without removing an item twice.
+
+While the worker is busy, SEND or Enter preserves the restored kind shown by EDITING. Alt+Enter explicitly chooses follow-up; INTERRUPT & SEND or Ctrl/Cmd+Enter chooses interrupt where available. An idle worker receives an ordinary new turn. Sending or clearing the draft clears the marker.
+
+
 ## Pending work and navigation
 
 SEND waits for every pending attachment upload in Agent and Chat composers. Overlapping paste or drop batches cannot release the guard early. Completed files remain staged for the message.
@@ -576,7 +585,7 @@ The sort handles out-of-order frame arrivals on the wire (long pauses between te
 3. For each `job.messages` entry, decide its fate:
    - **System notice** - keep as-is.
    - **Streaming bubble** - try to trim the prefix that sessionChat has already materialized. If the suffix is empty after trim, drop the bubble. If trim fails but normalized whitespace matches, drop. If the streaming content has genuinely diverged from sessionChat, keep but pin to bottom (`timestamp = lastSessionTs + 1`).
-   - **Queued user message** - drop (surfaces in the composer status line as **PENDING**; open it to inspect or cancel. Source of truth is `job.queue`, kept in sync via the `queue_update` WS event).
+   - **Queued user message** - drop (surfaces in the composer status line as **PENDING**; open it to inspect, preview, edit or cancel. Source of truth is `job.queue`, kept in sync via the `queue_update` WS event).
    - **Operator user message** - keep if there's no sessionChat echo within 5s (proximity-based dedup).
 4. Build `optimisticUserMetaByKey` to merge optimistic-add metadata (timestamp + attachments) onto the matching sessionChat echo. Only merge if within `DEDUP_WINDOW_MS = 5000`.
 5. Concat `enrichedSession + extras`, sort by timestamp.

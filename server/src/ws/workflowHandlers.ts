@@ -880,30 +880,49 @@ export function handleCancel(ws: WebSocket, workflowId: string): void {
   }
 }
 
-export function handleCancelQueuedMessage(ws: WebSocket, workflowId: string, clientMessageId: string): void {
+// Retain bounded replies on the live workflow so reconnect retries cannot
+// take an item twice or lose a removal whose first reply missed the socket.
+const queuedEditReplies = new WeakMap<object, Map<string, import('@arco/shared').QueuedMessageEditResultMessage>>();
+export function handleCancelQueuedMessage(ws: WebSocket, workflowId: string, clientMessageId: string, editRequestId?: string): void {
   const wf = workflows.get(workflowId);
-  if (!wf) return;
-  // Phase 4 — try both buckets. The id is unique within a workflow so at most
-  // one of these matches; we don't care which kind it was.
-  const tryRemove = (arr: QueueItem[]): boolean => {
-    const idx = arr.findIndex((q) => q.clientMessageId === clientMessageId);
-    if (idx === -1) return false;
-    arr.splice(idx, 1);
-    return true;
+  const reply = (result: import('@arco/shared').QueuedMessageEditResultMessage) => {
+    if (wf) {
+      let cache = queuedEditReplies.get(wf);
+      if (!cache) queuedEditReplies.set(wf, cache = new Map());
+      cache.set(result.requestId, result);
+      if (cache.size > 64) cache.delete(cache.keys().next().value!);
+    }
+    send(ws, result);
   };
-  const removed = tryRemove(wf.queue.steering) || tryRemove(wf.queue.followUp);
-  if (!removed) {
-    // Already flushed (turn drained past it) or never queued. No-op — don't
-    // broadcast, since that would retroactively remove a message the primary
-    // has already processed.
+  if (editRequestId) {
+    const cached = wf && queuedEditReplies.get(wf)?.get(editRequestId);
+    if (cached) { reply(cached); return; }
+  }
+  if (!wf && !editRequestId) return;
+  const result = editRequestId ? { type: 'queued_message_edit_result' as const, workflowId, clientMessageId, requestId: editRequestId } : undefined;
+  // No await between lookup and removal: a delivery that already took the
+  // item wins; an edit that takes it first leaves nothing for delivery.
+  let item: QueueItem | undefined;
+  let kind: 'steer' | 'follow-up' | 'interrupt' = 'steer';
+  if (wf) for (const bucket of ['steering', 'followUp'] as const) {
+    const index = wf.queue[bucket].findIndex(q => q.clientMessageId === clientMessageId);
+    if (index >= 0) {
+      [item] = wf.queue[bucket].splice(index, 1);
+      kind = bucket === 'followUp' ? 'follow-up' : item.interrupt ? 'interrupt' : 'steer';
+      break;
+    }
+  }
+  if (!item) {
+    if (result) reply({ ...result, error: 'Already sent, nothing to edit' });
     return;
   }
-  const remaining = wf.queue.steering.length + wf.queue.followUp.length;
-  if (!wf.config.incognito) {
+  if (wf && !wf.config.incognito) {
+    const remaining = wf.queue.steering.length + wf.queue.followUp.length;
     console.log(`[arco] [${workflowId.slice(0, 8)}] queued message cancelled (${clientMessageId.slice(0, 8)}; remaining=${remaining})`);
   }
   send(ws, { type: 'queued_message_cancelled', workflowId, clientMessageId });
   broadcastQueueUpdate(workflowId);
+  if (result) reply({ ...result, item: { content: item.content, kind, ...(item.attachments ? { attachments: [...item.attachments] } : {}) } });
 }
 
 // "Load earlier messages" — pop the next older page of raw JSONL entries and

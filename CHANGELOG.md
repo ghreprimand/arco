@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Add EDIT to pending messages and their PREVIEW view in single and cluster tabs, returning text, kind and attachments without replacing the current draft or taking back a delivered message.
+
 - Keep SEND guarded until every overlapping attachment upload finishes, and require resume sessions to belong to the selected creator folder.
 - Reveal HISTORY messages in PRIOR SESSIONS, advance past event pages without narrative rows, and refresh open task drawers from live snapshots.
 - Show file results above the command palette, fit PREVIEW at every interface text size, and send cluster captures to the member in view.

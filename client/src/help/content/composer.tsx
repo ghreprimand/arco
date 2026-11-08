@@ -2,6 +2,22 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const composerHelp: Record<string, HelpEntry> = {
+  'composer.pending-edit': {
+    title: 'Edit a pending message',
+    body: <p>Remove this message from the queue and append its text to this tab&apos;s current draft. Its kind and attachments return too. The server confirms removal first. If delivery won the race, the draft stays unchanged and Arco says Already sent, nothing to edit. Reconnect before editing.</p>,
+    manualSection: 'composer',
+  },
+  'composer.pending-preview': {
+    title: 'Preview a pending message',
+    body: <p>Read the complete pending message in PREVIEW. EDIT and CANCEL work here as in the list. BACK TO LIST returns without changing the message.</p>,
+    manualSection: 'composer',
+  },
+  'composer.pending-edit-kind': {
+    title: 'Restored pending-message kind',
+    body: <p>SEND or Enter keeps the restored steer, follow-up or interrupt kind while the worker is busy. Alt+Enter chooses follow-up instead; INTERRUPT &amp; SEND or Ctrl/Cmd+Enter explicitly chooses interrupt where available. An idle worker receives an ordinary new turn. Clearing or sending the draft clears this marker.</p>,
+    manualSection: 'composer',
+  },
+
   'composer.agent-skills': {
     title: 'Agent skill discovery',
     body: <p>Lists skills available to the current Claude or Codex runtime. Discovery progress and failures appear here. Reopen the menu to retry after a failure.</p>,
@@ -42,7 +58,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.turn-messages': {
     title: 'Turn message state',
-    body: <><p>Select PENDING to inspect or cancel queued messages. Queued means Arco has accepted the message but has not confirmed delivery. Delivered means the provider acknowledged it or its input boundary was reached. The delivered label clears on the next agent text or turn end. Follow-ups remain queued for the next turn. Selected one-shot skills accompany steering as well as messages delivered after the turn.</p><p>Restored context and reviews associate each follow-up with its actual execution. Steering stays at its delivery boundary, including acknowledgements received later. STOP prevents a failed old steer from returning to the queue.</p></>,
+    body: <><p>Select PENDING to inspect, preview, edit or cancel queued messages. EDIT waits for removal and appends to the current draft with the original kind and attachments; already-delivered messages cannot be taken back. Queued means Arco has accepted the message but has not confirmed delivery. Delivered means the provider acknowledged it or its input boundary was reached. The delivered label clears on the next agent text or turn end. Follow-ups remain queued for the next turn. Selected one-shot skills accompany steering as well as messages delivered after the turn.</p><p>Restored context and reviews associate each follow-up with its actual execution. Steering stays at its delivery boundary, including acknowledgements received later. STOP prevents a failed old steer from returning to the queue.</p></>,
     manualSection: 'composer',
   },
   'composer.turn-step': {
@@ -51,10 +67,8 @@ export const composerHelp: Record<string, HelpEntry> = {
     manualSection: 'composer',
   },
   'composer.send': {
-    title: 'Send normally',
-    body: <p>Same as <C>Enter</C>: starts a turn when idle, or steers the running
-      agent at its next supported input boundary. Use <strong>INTERRUPT &amp; SEND</strong>
-      {' '}to stop the current turn and deliver the draft next. During Genesis storage moves, wait for the folder to be ready before sending.</p>,
+    title: 'Send the message',
+    body: <p>Starts a turn when idle. While busy, SEND or Enter uses the restored kind after EDIT; otherwise it steers at the next supported boundary. INTERRUPT &amp; SEND explicitly interrupts instead. Wait for Genesis storage moves to finish before sending.</p>,
     manualSection: 'composer',
   },
   'composer.interrupt': {

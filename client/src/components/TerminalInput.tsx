@@ -295,12 +295,14 @@ function ComposerSendButtons({ jobId, blocked, hasAttachments, busy, canInterrup
   onSend: () => void; onInterrupt: () => void;
 }) {
   const draft = useDraftStore((s) => s.drafts[jobId] ?? '');
+  const editKind = useDraftStore((s) => s.queueEditKinds[jobId]);
   const disabled = blocked || (!draft.trim() && !hasAttachments);
   const style = { padding: '3px 10px', background: 'transparent', borderRadius: '3px',
     fontSize: '10px', letterSpacing: '1px', whiteSpace: 'nowrap' as const, cursor: disabled ? 'not-allowed' : 'pointer' };
   return <>
+    {editKind && <span data-help="composer.pending-edit-kind" className="display-font">EDITING {editKind.toUpperCase()}</span>}
     <button onClick={onSend} disabled={disabled} data-help="composer.send" className="display-font"
-      title={busy ? 'Send normally (Enter). Steers at the next supported boundary without interrupting the turn.' : 'Send message (Enter)'}
+      title={busy && editKind ? `Resend the edited ${editKind} message (Enter)` : busy ? 'Send normally (Enter). Steers at the next supported boundary without interrupting the turn.' : 'Send message (Enter)'}
       style={{ ...style, border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)' }}>
       SEND
     </button>
@@ -567,6 +569,13 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
     return () => document.removeEventListener('mousedown', handler);
   }, [chipPopover]);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const focus = (event: Event) => {
+      if ((event as CustomEvent).detail?.workflowId === job.id) inputRef.current?.focus();
+    };
+    window.addEventListener('arco:focus-composer', focus);
+    return () => window.removeEventListener('arco:focus-composer', focus);
+  }, [job.id]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeWorkerCount = Object.values(job.workers).filter(
@@ -655,8 +664,8 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
     return () => window.removeEventListener('arco:attach-files', handler);
   }, [uploadAndAppend]);
 
-  const handleSubmit = (kind?: 'steer' | 'follow-up' | 'interrupt') => submitComposer({
-    kind, isCompacting, uploading, readDraft, attachments, provider, isBusy,
+  const handleSubmit = (kind?: 'steer' | 'follow-up' | 'interrupt', restoreKind = true) => submitComposer({
+    kind: restoreKind ? useDraftStore.getState().queueEditKinds[job.id] ?? kind : kind, isCompacting, uploading, readDraft, attachments, provider, isBusy,
     compactAvailable: compactVisible, onCompact, addMessage, job, setValue, clearAttachments, onUpdatePrimary,
     planModeArmed, planModeToggleVisible, onArmPlanMode, setPlanModeArmed,
     onSend, pickedSkills, setPickedSkills,
@@ -680,13 +689,13 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
     if (e.key === 'Enter' && !e.shiftKey) {
       if ((e.ctrlKey || e.metaKey) && !e.altKey && isBusy && interruptAvailable) {
         e.preventDefault();
-        handleSubmit('interrupt');
+        handleSubmit('interrupt', false);
         return;
       }
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
         if (!isBusy) return; // idle Alt+Enter is a no-op (no queue to land in)
         e.preventDefault();
-        handleSubmit('follow-up');
+        handleSubmit('follow-up', false);
         return;
       }
       if (!e.altKey && !e.ctrlKey && !e.metaKey) {
@@ -1151,7 +1160,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         <TidyComposer key={job.id} jobId={job.id} disabled={uploading || isCompacting} />
         <ComposerSendButtons jobId={job.id} blocked={uploading || isCompacting}
           hasAttachments={attachments.length > 0} busy={isBusy} canInterrupt={interruptAvailable}
-          onSend={() => handleSubmit(isBusy ? 'steer' : undefined)} onInterrupt={() => handleSubmit('interrupt')} />
+          onSend={() => handleSubmit(isBusy ? 'steer' : undefined)} onInterrupt={() => handleSubmit('interrupt', false)} />
         {isBusy && (
           <button
             onClick={onCancel}

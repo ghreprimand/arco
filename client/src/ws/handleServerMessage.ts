@@ -1,3 +1,4 @@
+import { finishQueuedMessageEdit } from '../utils/queuedMessageEdit';
 import { PRIMARY_PROVIDERS, isClusterDirector } from '@arco/shared';
 import { beginPlanReview } from '../components/terminalInput/planDraft';
 import { effectivePublic } from '../utils/publicProject';
@@ -452,6 +453,11 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             'info',
             `Removed ${msg.attemptIds.length} bake-off worktree${msg.attemptIds.length === 1 ? '' : 's'}; branches were preserved.`,
           );
+          break;
+        }
+
+        case 'queued_message_edit_result': {
+          finishQueuedMessageEdit(msg);
           break;
         }
 
