@@ -1268,7 +1268,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <><p>
         Opens the title + body editor for the active plan. Save commits to{' '}
         <C>.arco/plans/&lt;id&gt;.md</C>; the body re-injects on the next
-        turn so the agent sees your edits.
+        turn so the agent sees the edits. HTTP replacement uses the operator browser session; cookie-free agent plan tools cannot replace the body.
        Plan fields and changes to the draft wait while its save is pending.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
     ),
   },
@@ -1331,7 +1331,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         <C>[label](ref:slug)</C>: the link renders as a chip that opens the doc.
         <C> + REF</C> adds one; the viewer edits or deletes it. Agents write refs
         with <C>plan_ref_write</C>, and are told to read the refs a task links
-        before working it.
+        before working it. Reference deletion through HTTP requires the operator browser session; agent reference reads and writes remain available.
        Lists follow the selected plan. Opening a link checks the saved document before offering creation; creating a ref never replaces an existing one. Fields and Cancel wait while a save is pending.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
     ),
     manualSection: 'plan-refs',
@@ -1478,7 +1478,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'plans.mark-done': {
     title: 'Mark plan done',
-    body: <p>Moves this plan to Completed. Reopen it from the plan details if work resumes.</p>,
+    body: <p>Moves this plan to Completed. Reopen it from the plan details if work resumes. HTTP completion requires the operator browser session.</p>,
     manualSection: 'plans-library',
   },
   'plans.versions': {
@@ -1528,7 +1528,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Delete plan',
     body: (
       <><p>
-        Permanently deletes the plan file from disk. Confirmation required.
+        Permanently deletes the plan file from disk. Confirmation required. HTTP deletion also requires the operator browser session; cookie-free plan tools cannot delete it.
         Use <C>MARK COMPLETE</C> instead if you want to keep the history.
       </p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
     ),

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Limit cookie-free plan routes to the exact methods used by agent tools; plan replacement, completion and deletion require the operator browser session.
+
 - Omit files protected by the file browser from content search results.
 
 - Bound file and local web reads before allocation, refuse special files, and preserve line-range reads with visible truncation notices.

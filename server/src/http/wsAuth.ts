@@ -79,17 +79,23 @@ export function sessionCookieHeader(token: string): string {
 const AGENT_TOOL_ROUTE = /^\/api\/clusters\/[^/]+\/peer\/[^/]+$/;
 // `/api/voice/tool` is the arco-voice MCP child's relay (docs/VOICE.md);
 // the route itself additionally refuses non-loopback peers.
-const AGENT_TOOL_PATHS = new Set(['/api/plans', '/api/plans/attach', '/api/plans/refs', '/api/plans/refs/body', '/api/voice/tool']);
+const AGENT_TOOL_METHODS: Readonly<Record<string, readonly string[]>> = {
+  '/api/plans': ['GET', 'POST'],
+  '/api/plans/attach': ['POST'],
+  '/api/plans/refs': ['GET', 'PUT'],
+  '/api/plans/refs/body': ['GET'],
+};
 
-export function isAgentToolRoute(path: string): boolean {
-  return AGENT_TOOL_PATHS.has(path) || AGENT_TOOL_ROUTE.test(path);
+export function isAgentToolRoute(path: string, method = 'GET'): boolean {
+  return AGENT_TOOL_METHODS[path]?.includes(method) === true
+    || path === '/api/voice/tool' || AGENT_TOOL_ROUTE.test(path);
 }
 
-function needsHttpAuth(path: string): boolean {
+function needsHttpAuth(path: string, method: string): boolean {
   if (path === '/api/session') return false;
   if (path === '/upload' || path.startsWith('/upload/')) return true;
   if (path !== '/api' && !path.startsWith('/api/')) return false;
-  return !isAgentToolRoute(path);
+  return !isAgentToolRoute(path, method);
 }
 
 // A request path every security decision and every route reads the same way.
@@ -106,7 +112,7 @@ export function isCanonicalRequestPath(url: string | undefined): boolean {
 export function checkHttpAuth(req: IncomingMessage): AuthVerdict {
   if (!wsAuthEnabled()) return { ok: true };
   const path = (req.url ?? '/').split('?')[0];
-  if (!needsHttpAuth(path)) return { ok: true };
+  if (!needsHttpAuth(path, req.method ?? '')) return { ok: true };
   if (!verifyToken(readCookie(req, SESSION_COOKIE))) return { ok: false, reason: 'missing or invalid session cookie' };
   return { ok: true };
 }

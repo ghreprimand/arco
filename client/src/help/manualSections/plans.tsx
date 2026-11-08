@@ -13,6 +13,7 @@ export const plans: Section[] = [
           Long-form detail belongs in the plan's <strong>reference docs</strong>,
           not the checklist (see Plan reference docs).
         </p>
+        <p>Agent plan tools can create, list and attach plans, and read or write reference docs. HTTP body replacement, completion and deletion require the operator browser session. The normal plan controls keep using that session automatically.</p>
         <Sub>What a plan is</Sub>
         <p>
           A <strong>plan</strong> is an itemized markdown checklist pinned to a
