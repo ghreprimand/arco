@@ -680,7 +680,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.skills.import': {
     title: 'IMPORT a skill',
-    body: <p><C>IMPORT</C> adds a skill from a public GitHub link, a folder or a zip file, after a review that lists every file and the security check. The same dialog is in Settings &gt; SKILLS.</p>,
+    body: <><p><C>IMPORT</C> adds a skill from a public GitHub link, a folder or a zip file, after a review that lists every file and the security check. The same dialog is in Settings &gt; SKILLS.</p><p>Folder skill imports and updates refuse protected source folders, including aliases that point to private application or credential storage. Protected files within a source folder are also refused. Choose an ordinary skill source folder.</p></>,
     manualSection: 'skills',
   },
   'composer.skills.run-builtin': {

@@ -362,12 +362,12 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.skills.import': {
     title: 'IMPORT',
-    body: <p><C>IMPORT</C> adds a skill from a public GitHub link (a skill folder or its <C>SKILL.md</C>), a folder on this computer, or a zip file. <C>REVIEW</C> fetches or reads it and lists every file with its size and the security check findings; nothing is saved until <C>IMPORT</C>. Choose this project or global. All files of the skill folder are kept, without executable bits; hidden files are left out. Limits: 64 files, 512 KB per file, 2 MB in total. Long folder names leave room for a numeric collision suffix within the 64-character limit.</p>,
+    body: <><p><C>IMPORT</C> adds a skill from a public GitHub link (a skill folder or its <C>SKILL.md</C>), a folder on this computer, or a zip file. <C>REVIEW</C> fetches or reads it and lists every file with its size and the security check findings; nothing is saved until <C>IMPORT</C>. Choose this project or global. All files of the skill folder are kept, without executable bits; hidden files are left out. Limits: 64 files, 512 KB per file, 2 MB in total. Long folder names leave room for a numeric collision suffix within the 64-character limit.</p><p>Folder skill imports and updates refuse protected source folders, including aliases that point to private application or credential storage. Protected files within a source folder are also refused. Choose an ordinary skill source folder.</p></>,
     manualSection: 'skills',
   },
   'settings.skills.update': {
     title: 'UPDATE',
-    body: <p><C>UPDATE</C> appears for a skill imported from GitHub or a folder. It fetches the source again and shows, per file, what was added, removed or changed, with the security check. <C>APPLY UPDATE</C> replaces the skill's files; whether it is on or off stays as it was. A local change after REVIEW refuses the update and preserves the installed files. REVIEW again before applying.</p>,
+    body: <><p><C>UPDATE</C> appears for a skill imported from GitHub or a folder. It fetches the source again and shows, per file, what was added, removed or changed, with the security check. <C>APPLY UPDATE</C> replaces the skill's files; whether it is on or off stays as it was. A local change after REVIEW refuses the update and preserves the installed files. REVIEW again before applying.</p><p>Folder skill imports and updates refuse protected source folders, including aliases that point to private application or credential storage. Protected files within a source folder are also refused. Choose an ordinary skill source folder.</p></>,
     manualSection: 'skills',
   },
   'settings.skills.toggle': {

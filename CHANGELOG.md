@@ -77,6 +77,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ### Fixed
 
+- Skill folder imports and updates reject protected source aliases and protected files.
+
 - Plan references, skills, knowledge and handoff prompt storage refuse linked files and folders.
 
 - Native and local file tools refuse links and Glob patterns that leave the workflow folder while preserving ordinary inward links.

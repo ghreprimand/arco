@@ -1,5 +1,7 @@
 # Feature reference
 
+Folder skill imports and updates refuse protected source folders, including aliases that point to private application or credential storage. Protected files within a source folder are also refused. Choose an ordinary skill source folder.
+
 A complete tour of Arco capabilities, with links to subsystem contracts and
 controls. For installation and first session, see
 [Getting started](GETTING_STARTED.md).

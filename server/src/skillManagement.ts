@@ -1,3 +1,4 @@
+import { safeDirectory, assertSafePath } from './fileAccessPolicy.js';
 import { managedPath } from './managedPath.js';
 import { getPublicProjectChoice } from './publicProjectChoice.js';
 // P8.6 Skill management: IMPORT (GitHub link, local folder, zip), UPDATE with
@@ -132,7 +133,10 @@ function previewFiles(files: Map<string, Buffer>): { list: PreviewFile[]; findin
 
 export async function collectFromFolder(dir: string): Promise<Tree> {
   if (!path.isAbsolute(dir)) throw new Error('Choose a folder by its full path.');
-  const root = await fs.realpath(dir);
+  return collectSkillTree(safeDirectory(dir), true);
+}
+
+async function collectSkillTree(root: string, imported = false): Promise<Tree> {
   if (!(await fs.lstat(root)).isDirectory()) throw new Error('Choose a folder.');
   const files = new Map<string, Buffer>(); const skipped: string[] = [];
   let total = 0;
@@ -145,6 +149,7 @@ export async function collectFromFolder(dir: string): Promise<Tree> {
       if (e.isSymbolicLink()) throw new Error(`The folder contains a link (${child}); links are not imported.`);
       if (e.isDirectory()) { await walk(child, depth + 1); continue; }
       if (!e.isFile()) { skipped.push(child); continue; }
+      if (imported) assertSafePath(path.join(root, child));
       const st = await fs.lstat(path.join(root, child));
       if (st.size > IMPORT_LIMITS.fileBytes) throw new Error(`${child} is larger than ${IMPORT_LIMITS.fileBytes / 1024} KB.`);
       total += st.size;
@@ -336,7 +341,7 @@ export async function confirmImport(token: string, scope: SkillScope, cwd: strin
 // --- update -----------------------------------------------------------------
 
 async function readFolderFiles(dir: string): Promise<Map<string, Buffer>> {
-  const r = await collectFromFolder(dir);
+  const r = await collectSkillTree(dir);
   r.files.delete(SKILL_SIDECAR);
   return r.files;
 }
@@ -493,7 +498,7 @@ export async function skillDetails(cwd: string): Promise<SkillDetails[]> {
     const dir = path.dirname(s.path);
     const files: SkillDetails['files'] = [];
     try {
-      const r = await collectFromFolder(dir);
+      const r = await collectSkillTree(dir);
       for (const [p, data] of r.files) if (p !== 'SKILL.md' && p !== SKILL_SIDECAR) files.push({ path: p, bytes: data.length });
     } catch { /* too large or unreadable: no file list */ }
     let body = '';
@@ -514,7 +519,7 @@ export interface SharePreview { slug: string; files: string[]; alreadyTrackable:
 
 export async function previewShare(cwd: string, slug: string): Promise<SharePreview> {
   const dir = await skillDir('project', slug, cwd);
-  const r = await collectFromFolder(dir);
+  const r = await collectSkillTree(dir);
   const files = [...r.files.keys(), ...(await fs.lstat(path.join(dir, SKILL_SIDECAR)).then(() => [SKILL_SIDECAR], () => []))].map((p) => `.arco/skills/${slug}/${p}`).sort();
   const ignore = await fs.readFile(path.join(cwd, '.arco', '.gitignore'), 'utf8').catch(() => '');
   const states = await Promise.all(files.map((f) => gitIgnored(cwd, f)));
