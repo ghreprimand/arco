@@ -746,6 +746,9 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           revert while a turn is running: cancel it first.
         </p>
         <p>
+          Older tar checkpoints keep newer files. On POSIX systems they restore file and directory permissions; new directories stay private until their contents are restored.
+        </p>
+        <p>
           Only files go back. The conversation, the task board and other cluster
           members stay as they are; use <C>REWIND CONVERSATION</C> for the
           conversation. In a cluster the checkpoint covers the whole folder,

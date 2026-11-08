@@ -103,6 +103,11 @@ export const powerFeatures: Section[] = [
   </li>
   </ul>
   <p>
+  Older tar checkpoints keep files created after the checkpoint. On POSIX systems,
+  their file and directory permissions are restored too; new directories stay
+  private until their contents have been restored.
+  </p>
+  <p>
   Before anything changes, the confirm dialog counts what the revert would do:
   files changed back, files created since that are removed, files deleted since
   that are restored, and files already unchanged. It says so when nothing would

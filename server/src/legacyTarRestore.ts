@@ -1,5 +1,5 @@
-import { realpathSync } from 'node:fs';
-import { mkdir, mkdtemp, rm, lstat } from 'node:fs/promises';
+import { constants, realpathSync } from 'node:fs';
+import { mkdir, mkdtemp, rm, lstat, open } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { openCheckedFile } from './checkedFile.js';
@@ -131,11 +131,18 @@ export async function restoreLegacyTar(archive: string, cwd: string): Promise<nu
         if (entry.directory ? !current.isDirectory() : !current.isFile()) throw bad();
       } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
     }
+    const directories: Array<{ destination: string; mode: number; dev: number; ino: number }> = [];
     let files = 0;
     for (const entry of entries) {
       const destination = managedPath(project, ...entry.name.split('/'));
-      if (entry.directory) { await mkdir(destination, { recursive: true }); continue; }
-      await mkdir(path.dirname(destination), { recursive: true });
+      if (entry.directory) {
+        await mkdir(destination, { recursive: true, mode: 0o700 });
+        const info = await lstat(destination);
+        if (!info.isDirectory() || info.isSymbolicLink()) throw bad();
+        directories.push({ destination, mode: entry.mode, dev: info.dev, ino: info.ino });
+        continue;
+      }
+      await mkdir(path.dirname(destination), { recursive: true, mode: 0o700 });
       const source = await openCheckedFile(managedPath(stage, ...entry.name.split('/')));
       let output: Awaited<ReturnType<typeof openCheckedFile>> | undefined;
       try {
@@ -146,6 +153,24 @@ export async function restoreLegacyTar(archive: string, cwd: string): Promise<nu
         await output.chmod(entry.mode);
       } finally { await source.close(); await output?.close(); }
       files++;
+    }
+    // Populate first, then restore directory modes from the leaves upward.
+    // Keep new parents private during extraction and retain traversal until
+    // every child is complete. Windows does not implement POSIX directory modes.
+    if (process.platform !== 'win32') {
+      directories.sort((a, b) => b.destination.split(path.sep).length - a.destination.split(path.sep).length);
+      for (const directory of directories) {
+        const target = managedPath(project, path.relative(project, directory.destination));
+        const handle = await open(target, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+        try {
+          const opened = await handle.stat(), current = await lstat(target);
+          if (!opened.isDirectory() || current.isSymbolicLink() || !current.isDirectory()
+            || opened.dev !== directory.dev || opened.ino !== directory.ino
+            || opened.dev !== current.dev || opened.ino !== current.ino
+            || realpathSync(target) !== target) throw bad();
+          await handle.chmod(directory.mode);
+        } finally { await handle.close(); }
+      }
     }
     return files;
   } finally { await input.close(); if (stage) await rm(stage, { recursive: true, force: true }); }

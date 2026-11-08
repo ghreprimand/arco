@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Preserve archived directory permissions when restoring legacy tar checkpoints on POSIX systems.
+
 - Keep unrelated environment API keys out of saved-login Native worker and evaluator requests.
 
 - Preserve Claude Native partial-read warnings and file guard identity through linked project paths.
