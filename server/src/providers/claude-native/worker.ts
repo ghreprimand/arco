@@ -101,6 +101,7 @@ import {
   splitSummaryParts,
   estimateSummaryTokens,
   inTurnCompactedHistory,
+  inTurnReplaySummary,
 } from './workerHelpers.js';
 import { buildFoldDigest } from './foldDigest.js';
 import { CLAUDE_CLI_USER_AGENT } from './wireFingerprint.js';
@@ -1301,7 +1302,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.workflowEventBroadcast({
       type: 'native_compacted',
       workflowId: this.workflowId,
-      summary,
+      summary: inTurnReplaySummary(summary, inProgressRound),
       foldedTurns,
       ...(tailForSeed.length > 0 ? { keptTail: tailForSeed } : {}),
       ...reason,

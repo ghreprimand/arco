@@ -520,7 +520,8 @@ export interface NativeCompactedMessage {
   keptTail?: Array<{ role: 'user' | 'assistant'; content: string | Array<{ type: 'text'; text: string }> }>;
   // In-turn auto-compaction (Claude Native): the compaction ran between two
   // requests of a running turn, which then continued. `continueNote` is the
-  // user note the worker added after the seed (replay rebuilds it);
+  // user note the worker added after the seed (replay rebuilds it). In-turn
+  // summaries also retain the assistant narration of the live-preserved round;
   // `promptTokensAfter` / `contextWindow` refresh the CTX reading at once.
   inTurn?: boolean;
   trigger?: 'auto-in-turn';

@@ -353,3 +353,39 @@ test('B86: token-count telemetry expires without STOP and preserves completion',
     assert.equal(s.errors.length, 0);
   } finally { release({ input_tokens: 321 }); await turn; await s.done(); }
 });
+
+test('replay keeps the live-preserved round narration exactly once', async () => {
+  const fact='RETAINED_FACT: the fixture checksum is cobalt-47.';
+  const s=setup([tool('a',300000,'older narration'),tool('b',750000,fact),done(100000)],{summary:async()=>summaryStream('Earlier task context.')()});
+  const recorded:Array<Record<string,unknown>>=[{type:'user_message_echo',content:'Complete the interrupted fixture task',seq:1}];
+  const broadcast=s.w.workflowEventBroadcast;
+  s.w.workflowEventBroadcast=event=>{broadcast(event);recorded.push({...event,seq:recorded.length+1});};
+  s.w.on('text',(text:string)=>recorded.push({type:'primary_text',text,seq:recorded.length+1}));
+  s.w.on('result',()=>recorded.push({type:'primary_complete',seq:recorded.length+1}));
+  try {
+    await s.w.runTurn('Complete the interrupted fixture task');
+    assert.deepEqual(s.errors,[]);
+    const marker=recorded.find(event=>event.type==='native_compacted')!;
+    const live=JSON.stringify(s.requests[2]);
+    const replay=buildMessagesFromReplayEvents(recorded as never);
+    assert.equal(live.split(fact).length-1,1,'live history retains the raw round once');
+    assert.equal(JSON.stringify(replay).split(fact).length-1,1,'rebuilt history retains narration once');
+    assert.equal(String(marker.summary).split(fact).length-1,1,'the persisted summary contains the round');
+    assert.ok(!JSON.stringify(marker.keptTail??[]).includes(fact),'the round is not also in the kept tail');
+    assert.match(JSON.stringify(replay),/Complete the interrupted fixture task/);
+    assert.match(JSON.stringify(replay),/compacted automatically in the middle/);
+    assert.match(JSON.stringify(replay),/all done/);
+    assertPairsIntact(replay as MessageParam[]);
+    const {summarizeClaudeNativePriorTurns}=await import('./resumeSummary.js');
+    assert.match(summarizeClaudeNativePriorTurns(recorded as never).summary,/RETAINED_FACT/);
+  } finally {await s.done();}
+});
+
+test('a preserved tool-only round adds no fabricated narration to the persisted summary',async()=>{
+  const s=setup([tool('a',300000),tool('b',750000,''),done(100000)],{summary:async()=>summaryStream('Earlier task context.')()});
+  try {
+    await s.w.runTurn('Fixture task');
+    assert.deepEqual(s.errors,[]);
+    assert.equal(s.events.find(event=>event.type==='native_compacted')?.summary,'Earlier task context.');
+  } finally {await s.done();}
+});

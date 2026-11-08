@@ -1066,3 +1066,8 @@ independently of the optional model-update inbox.
 - [Architecture](ARCHITECTURE.md)
 - [Backup](BACKUP.md)
 - [Documentation style](STYLE.md)
+
+
+### In-turn compaction narration
+
+For `native_compacted` markers with `inTurn: true`, the saved `summary` also carries the verbatim assistant narration from the round retained raw by the live worker. Replay therefore retains those facts once after the marker resets earlier rows. The live history keeps its original summary plus the raw round and does not append the narration twice. This uses the existing summary string and does not add structured tool replay or change older marker parsing.

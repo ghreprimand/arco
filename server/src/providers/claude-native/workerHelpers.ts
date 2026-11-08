@@ -321,3 +321,14 @@ export function inTurnCompactedHistory(
   }
   return [...out, ...inProgressRound];
 }
+
+// Live keeps this round raw; replay deliberately projects tools away. Keep its
+// assistant narration in the persisted summary so both representations retain
+// it once, without introducing structured tool replay or changing the schema.
+export function inTurnReplaySummary(summary: string, inProgressRound: MessageParam[]): string {
+  const narration = inProgressRound.filter((message) => message.role === 'assistant')
+    .map((message) => flattenConversationalText(message.content)).join('\n\n');
+  return narration.trim()
+    ? `${summary}\n\nVerbatim narration from the retained in-progress round:\n\n${narration}`
+    : summary;
+}
