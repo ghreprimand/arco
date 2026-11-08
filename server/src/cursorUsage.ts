@@ -15,7 +15,7 @@ const REQUEST_TIMEOUT_MS = 12_000;
 const PAGE_SIZE = 100;
 // Backstop so a runaway/huge month can't spin forever; 50 pages = 5000 events.
 const MAX_PAGES = 50;
-// Keep the per-event table bounded — aggregates cover the whole period regardless.
+// Keep the per-event table bounded; only complete pagination yields totals.
 const MAX_ROWS = 50;
 
 interface UsageEvent {
@@ -180,10 +180,17 @@ async function fetchAllEvents(cookie: string, startDate: number, endDate: number
     if (!res.ok) throw new HttpError(res.status, `get-filtered-usage-events HTTP ${res.status}`);
     const body = (await res.json()) as FilteredUsageResponse;
     const batch = body.usageEventsDisplay ?? [];
-    if (typeof body.totalUsageEventsCount === 'number') total = body.totalUsageEventsCount;
+    if (Number.isSafeInteger(body.totalUsageEventsCount) && body.totalUsageEventsCount! >= 0) {
+      total = Number.isFinite(total) ? Math.max(total, body.totalUsageEventsCount!) : body.totalUsageEventsCount!;
+    }
     all.push(...batch);
-    // Defensive: if a page returns nothing, stop rather than loop to MAX_PAGES.
+    // An unreported total is complete only when the endpoint ends its pages.
+    if (!Number.isFinite(total) && batch.length < PAGE_SIZE) return all;
     if (batch.length === 0) break;
+  }
+  if (!Number.isFinite(total) || all.length < total) {
+    const expected = Number.isFinite(total) ? ` of ${total}` : '';
+    throw new Error(`Cursor monthly usage is incomplete (${all.length}${expected} events read). Open the dashboard for complete totals.`);
   }
   return all;
 }

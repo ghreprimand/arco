@@ -1102,6 +1102,7 @@ usage nor the standard `usage_update { used, size }` notification, even though t
 those optional shapes. Dashboard events are billing totals across internal calls, not a retained
 prompt snapshot, so they are not a valid substitute for context fill.
 
+Incomplete Cursor usage pages never appear as complete monthly totals. A page cap or an early end before the reported event count makes the snapshot unavailable with an incomplete-usage message and a dashboard link.
 
 ### Context compression
 

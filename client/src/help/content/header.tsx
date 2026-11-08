@@ -459,6 +459,7 @@ export const headerHelp: Record<string, HelpEntry> = {
           enabled provider is signed in. Providers disabled in Settings show no dot or popover.
         </p>
         <p>Claude and Codex include a refresh button beside the provider name. Sign-in and account detail is in Connections and Settings.</p>
+        <p>If Cursor event pages are incomplete, monthly totals are unavailable and the error points to the dashboard.</p>
         <p>The Claude dot itself still shows the selected transport's sign-in state. Usage-limits errors describe the meter and do not invalidate execution authentication. Recovery follows the selected Claude transport.</p>
         <p>A usage limits snapshot is retained as stale only for unchanged credentials, and the refresh button asks for a fresh check. CLI refresh remains owned by Claude CLI.</p>
       </>

@@ -804,6 +804,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           already in each workflow's <C>events.jsonl</C>: no new capture, nothing
           mutated.
          Failed or invalid reads show an error; reopen USAGE to retry.</p>
+        <p>Incomplete Cursor event pages show an incomplete-usage error instead of partial monthly totals. Open the dashboard for the complete period.</p>
         <p>
           Each provider block shows a hand-drawn SVG sparkline of daily prompt
           volume, a cache-hit-ratio bar, and a per-day breakdown. Cache-hit ratio

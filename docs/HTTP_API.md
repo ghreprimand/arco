@@ -1929,7 +1929,7 @@ Checks the configured Python and browser prerequisites, then launches a headed C
 
 ### `GET /api/cursor-usage[?force=1]`
 
-Month-to-date Cursor usage snapshot backing the Usage tab's `CursorUsageCard`. **Fail-soft: always 200** - `getCursorUsage` never throws. Reads the cursor.com session JWT **fresh each poll** from `$ARCO_CURSOR_AUTH` ?? `~/.config/cursor/auth.json` (never cached); 3-minute result cache, `?force=1` bypasses. On missing/stale auth or an upstream error it returns `{ available:false, source, needsLogin? }` instead of an error status. Backed by `server/src/cursorUsage.ts`.
+Month-to-date Cursor usage snapshot backing the Usage tab's `CursorUsageCard`. **Fail-soft: always 200** - `getCursorUsage` never throws. Reads the cursor.com session JWT **fresh each poll** from `$ARCO_CURSOR_AUTH` ?? `~/.config/cursor/auth.json` (never cached); 3-minute result cache, `?force=1` bypasses. On missing/stale auth or an upstream error it returns `{ available:false, source, needsLogin? }` instead of an error status. Backed by `server/src/cursorUsage.ts`. If event pagination is capped or ends before its reported total, the snapshot is unavailable with an incomplete-usage error; partial sums are not returned as monthly totals.
 
 **Response** - `CursorUsageInfo` (`shared/src/protocol/usage.ts`):
 `{ available, fetchedAt, source: 'dashboard'|'disabled'|'unavailable'|'error', dashboardUrl, periodStart?, periodEnd?, summary?, chargedCents?, inputTokens?, outputTokens?, cacheReadTokens?, totalTokens?, eventCount?, kindCounts?, hardCapped?, included?: CursorIncludedUsage, rows?: CursorUsageEventRow[], needsLogin?, error? }`.

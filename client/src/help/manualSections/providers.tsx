@@ -601,6 +601,7 @@ export const providers: Section[] = [
   shell, and it never touches the transcript of the tab that launched it.
   </p>
   <Sub>Usage and context</Sub>
+  <p>If Cursor usage pages are capped or end before their reported total, Arco shows an incomplete-usage error and withholds monthly totals. Open the dashboard for the complete period.</p>
   <p>
   <strong>Usage.</strong> The ACP stream carries no token counts, so the
   header <Code>X</Code> dot is live-status only. Billed MTD $/token detail
