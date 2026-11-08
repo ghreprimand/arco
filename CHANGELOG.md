@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Defer provider CLI updates when the platform build is confirmed missing and no usable fallback can be verified, preserving the current installation.
+
 - Show the bound page in the cluster PREVIEW panel when the panel has limited height.
 - Keep the ARTIFACTS file tree readable when the default folder is unavailable, show index patches for staged files in LIVE, and require a loaded destination for both mouse and keyboard saves.
 

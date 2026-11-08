@@ -269,6 +269,8 @@ export const headerHelp: Record<string, HelpEntry> = {
         <p>For npm CLIs with their own platform package, Arco checks that the
           matching binary is published before installing. It can keep or select an
           older installable version and show <C>v… (!)</C>; hover for the notice.
+          If the build is confirmed missing and no usable fallback is found,
+          the update is deferred without changing the current CLI. Retry later.
           A broken installed executable is distinct from a missing CLI.</p>
         <p>
           Chips for providers you've disabled in Settings or for un-installed

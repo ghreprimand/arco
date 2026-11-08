@@ -113,9 +113,7 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-export interface ResolvedInstall {
-  /** Version to hand `npm install -g <pkg>@<version>`. */
-  version: string;
+interface InstallDetails {
   /** Registry `latest`, for reporting when we had to walk back off it. */
   latest?: string;
   /** The platform build this version needs, when the package has one. */
@@ -124,6 +122,24 @@ export interface ResolvedInstall {
   degraded: boolean;
   /** Operator-facing one-liner explaining a non-obvious choice. Null when boring. */
   notice: string | null;
+}
+
+export type ResolvedInstall = InstallDetails & (
+  | { blocked?: false; version: string }
+  | { blocked: true; version?: never }
+);
+
+// Only a registry 404 establishes that a build is absent. A network or
+// service failure remains unknown and keeps the existing fallback policy.
+async function platformBuildPublished(dep: PlatformDep): Promise<boolean | null> {
+  try {
+    const response = await fetch(`${NPM_REGISTRY}/${encodePkg(dep.realName)}/${dep.realVersion}`, {
+      signal: AbortSignal.timeout(MANIFEST_TIMEOUT_MS),
+    });
+    if (response.status === 404) return false;
+    if (!response.ok) return null;
+    return (await response.json()) ? true : null;
+  } catch { return null; }
 }
 
 /**
@@ -141,7 +157,8 @@ export async function resolveInstallableVersion(pkg: string): Promise<ResolvedIn
   // deps belong to third parties) — nothing to verify, `latest` is the answer.
   if (!dep) return { version: latest, latest, degraded: false, notice: null };
 
-  const published = await fetchJson(`${NPM_REGISTRY}/${encodePkg(dep.realName)}/${dep.realVersion}`, MANIFEST_TIMEOUT_MS);
+  const published = await platformBuildPublished(dep);
+  if (published === null) return null;
   if (published) return { version: latest, latest, platformDep: dep, degraded: false, notice: null };
 
   // `latest` has no build for this platform — almost always because the tarballs
@@ -153,11 +170,11 @@ export async function resolveInstallableVersion(pkg: string): Promise<ResolvedIn
   const versions = packument?.versions;
   if (!versions) {
     return {
-      version: latest,
+      blocked: true,
       latest,
       platformDep: dep,
       degraded: false,
-      notice: `${pkg}@${latest} has no ${platformKey()} build published yet and the version list could not be read`,
+      notice: `Update deferred: ${pkg}@${latest} has no ${platformKey()} build published yet and the version list could not be read. The current CLI was not changed.`,
     };
   }
 
@@ -184,10 +201,10 @@ export async function resolveInstallableVersion(pkg: string): Promise<ResolvedIn
   }
 
   return {
-    version: latest,
+    blocked: true,
     latest,
     platformDep: dep,
     degraded: false,
-    notice: `${pkg}@${latest} has no ${platformKey()} build and neither do the ${MAX_WALK_BACK} versions before it`,
+    notice: `Update deferred: ${pkg}@${latest} has no ${platformKey()} build and no usable fallback was found in the version list. The current CLI was not changed.`,
   };
 }

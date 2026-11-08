@@ -165,7 +165,7 @@ export interface UpdateResult {
   currentVersion: string;
   capabilities: Capabilities;
   output: string;
-  // Set when the update command exited but left no working binary behind.
+  // Set when preflight refuses the install or the command leaves no working binary.
   // The client renders this instead of a bogus version transition.
   error?: string;
   // Deterministic explanation for a non-obvious outcome — most often "latest
@@ -199,7 +199,7 @@ function versionForProvider(caps: Capabilities, provider: CliProvider): string {
  * self-updater; Codex falls back to `npm install -g …@latest`. Re-probes
  * capabilities after so callers get the refreshed version strings.
  */
-export async function runCliUpdate(previous: Capabilities, provider: CliProvider = 'claude'): Promise<UpdateResult> {
+export async function runCliUpdate(previous: Capabilities, provider: CliProvider = 'claude', runCommand = runUpdateCommand): Promise<UpdateResult> {
   const previousVersion = versionForProvider(previous, provider);
 
   // Pre-flight: for npm-installed CLIs, work out which version can actually run
@@ -218,6 +218,18 @@ export async function runCliUpdate(previous: Capabilities, provider: CliProvider
     const resolved = await resolveInstallableVersion(pkg);
     if (resolved) {
       notice = resolved.notice;
+      if (resolved.blocked) {
+        return {
+          provider,
+          updated: false,
+          previousVersion,
+          currentVersion: previousVersion,
+          capabilities: previous,
+          output: notice ?? 'Update deferred; the current CLI was not changed.',
+          error: notice ?? 'Update deferred: no installable platform build was found.',
+          ...(notice ? { notice } : {}),
+        };
+      }
       args = ['install', '-g', `${pkg}@${resolved.version}`];
       // Already on the version we would install, and it runs — skip the install
       // entirely so a no-op click can't churn a working CLI into a broken one.
@@ -235,7 +247,7 @@ export async function runCliUpdate(previous: Capabilities, provider: CliProvider
     }
   }
 
-  let output = await runUpdateCommand(cmd, args);
+  let output = await runCommand(cmd, args);
   let next = await probeCapabilities();
   let currentVersion = versionForProvider(next, provider);
 
@@ -246,7 +258,7 @@ export async function runCliUpdate(previous: Capabilities, provider: CliProvider
   if ((currentVersion === 'broken' || currentVersion === 'unknown') && pkg) {
     const repairArgs = [...args, '--force'];
     output += `\n\n[arco] ${provider} did not run after the update — retrying: npm ${repairArgs.join(' ')}`;
-    output += `\n${await runUpdateCommand('npm', repairArgs)}`;
+    output += `\n${await runCommand('npm', repairArgs)}`;
     next = await probeCapabilities();
     currentVersion = versionForProvider(next, provider);
   }

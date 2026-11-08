@@ -110,7 +110,8 @@ export const maintenance: Section[] = [
   For npm CLIs that publish their own platform binary package, Arco checks
   that a matching platform version exists before installing. During an upstream
   publish gap it may select an older installable version or retain the working
-  one.
+  one. If the build is confirmed missing and no installable fallback can be
+  verified, the update is deferred. The current CLI stays unchanged; retry later.
   </p>
   <p>
   A <Code>v... (!)</Code> notice explains this on hover; it does not mean
