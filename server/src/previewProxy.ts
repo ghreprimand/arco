@@ -1,203 +1,164 @@
-// Per-workflow dev-server proxy. The Preview tab loads
-// `/api/preview/<workflowId>/` in an iframe; the operator binds a port for
-// each workflow (set_preview_port WS message) and this module forwards every
-// request scoped to that workflow's wfid to 127.0.0.1:<port>.
-//
-// Why a proxy instead of direct iframe-to-localhost: Arco is commonly
-// accessed remotely with only port 5173 forwarded. A naked iframe to
-// `http://localhost:5173` would hit the OPERATOR's localhost (Arco's own
-// client), not the dev server on the SERVER's box. Same-origin proxy means
-// the iframe always works regardless of forwarding setup.
-//
-// Two entry paths handle the same target:
-//   1. Explicit prefix:  /api/preview/<wfid>/<rest>  → backend /<rest>
-//   2. Referer fallback: any unmatched request whose Referer points back to
-//      a /api/preview/<wfid>/ page → forward as-is to that wfid's backend.
-// The fallback is what makes Vite's absolute paths (`/@vite/client`,
-// `/src/main.tsx`) work without per-project base-url config — the browser
-// requests them from Arco's origin with the iframe's URL as Referer, and
-// we route them back through the right backend.
+// Preview listeners have their own authority and never expose operator routes.
+import http, { type IncomingMessage, type ServerResponse } from 'node:http';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
+import type { Duplex } from 'node:stream';
+import { activePreviewPorts } from './previewPorts.js';
 
-import http, { IncomingMessage, ServerResponse } from 'http';
-import type { Duplex } from 'stream';
-
-const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
-const PREFIX_RE = /^\/api\/preview\/([a-zA-Z0-9-]{1,64})(\/.*)?$/;
-const REFERER_RE = /\/api\/preview\/([a-zA-Z0-9-]{1,64})\//;
-
-// RFC 7230 §6.1 — connection-specific headers MUST NOT be forwarded by proxies.
-const HOP_BY_HOP = new Set([
-  'connection',
-  'keep-alive',
-  'proxy-authenticate',
-  'proxy-authorization',
-  'te',
-  'trailer',
-  'transfer-encoding',
-  'upgrade',
-]);
-
-export type PortLookup = (wfid: string) => number | undefined;
-
-// Match the request to a (wfid, backendPath) pair. `allowReferer` controls
-// whether the Referer-based fallback is considered: it's safe at the 404
-// fallback point (the request would have died anyway) but dangerous at the
-// top of the route table (a stale iframe's Referer would hijack legitimate
-// Arco API requests originating from another tab).
-function resolveTarget(
-  req: IncomingMessage,
-  allowReferer: boolean,
-): { wfid: string; backendPath: string } | null {
-  const url = req.url || '/';
-  const m = PREFIX_RE.exec(url);
-  if (m) {
-    return { wfid: m[1], backendPath: m[2] || '/' };
-  }
-  if (!allowReferer) return null;
-  const ref = req.headers.referer;
-  if (typeof ref === 'string') {
-    const rm = REFERER_RE.exec(ref);
-    if (rm && WFID_PATTERN.test(rm[1])) {
-      return { wfid: rm[1], backendPath: url };
-    }
-  }
-  return null;
+const HOP = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade']);
+const reservedCookie = (value: string) => /^\s*(?:__Host-|__Secure-)?arco_/i.test(value);
+const safeCookies = (value: string) => value.split(';').filter(part => !reservedCookie(part)).join(';');
+const safeSetCookies = (values: string[] | undefined) => values?.filter(value => !reservedCookie(value));
+const token = () => randomBytes(32).toString('hex');
+const equal = (a: string, b: string) => /^[a-f0-9]{64}$/.test(a) && /^[a-f0-9]{64}$/.test(b) && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+const origin = (value: string | undefined): string | undefined => { try { return value ? new URL(value).origin : undefined; } catch { return undefined; } };
+export interface PreviewLease { id: string; port: number; capability: string; }
+interface Lease extends PreviewLease { expires: number; controlOrigin: string; }
+interface Listener { capability: string; workflow: string; backend: number; port: number; server: http.Server; leases: Map<string, Lease>; sockets: Set<Duplex>; }
+export interface PreviewGatewayOptions {
+  host: string;
+  range: () => Promise<string>;
+  lookup: (workflow: string) => number | undefined;
+  excludedPorts: () => number[];
+  ttlMs?: number;
 }
 
-// Forward an HTTP request to the workflow's dev server. Returns true when
-// handled (responded to or errored), false when the request didn't match a
-// preview route (so the caller can fall through to other routes).
-export function tryHandlePreviewRequest(
-  req: IncomingMessage,
-  res: ServerResponse,
-  lookupPort: PortLookup,
-  opts: { allowReferer?: boolean } = {},
-): boolean {
-  const target = resolveTarget(req, opts.allowReferer === true);
-  if (!target) return false;
-  const port = lookupPort(target.wfid);
-  console.log(`[arco-preview-proxy] ${req.method} ${req.url} → wfid=${target.wfid.slice(0, 8)} port=${port ?? 'UNBOUND'} backend=${target.backendPath}`);
-  if (!port) {
-    res.writeHead(503, { 'Content-Type': 'text/plain' });
-    res.end('Preview backend not configured for this workflow.');
-    return true;
+export class PreviewGateways {
+  private listeners = new Map<string, Listener>();
+  private queue: Promise<unknown> = Promise.resolve();
+  private timer: ReturnType<typeof setInterval>;
+  constructor(private options: PreviewGatewayOptions) {
+    this.timer = setInterval(() => this.sweep(), 1000); this.timer.unref();
   }
-
-  // Strip hop-by-hop and framework-confusing headers before forwarding. We
-  // pass Referer through untouched — Vite's HMR client uses it to authenticate
-  // WS upgrades.
-  const headers: Record<string, string | string[]> = {};
-  for (const [k, v] of Object.entries(req.headers)) {
-    if (v === undefined) continue;
-    const lk = k.toLowerCase();
-    if (lk === 'host' || lk === 'content-length') continue;
-    if (HOP_BY_HOP.has(lk)) continue;
-    headers[k] = v as string | string[];
-  }
-  headers['host'] = `127.0.0.1:${port}`;
-
-  const upstream = http.request(
-    {
-      host: '127.0.0.1',
-      port,
-      method: req.method,
-      path: target.backendPath,
-      headers,
-    },
-    (proxyRes) => {
-      const out: Record<string, string | string[] | number> = {};
-      for (const [k, v] of Object.entries(proxyRes.headers)) {
-        if (v === undefined) continue;
-        const lk = k.toLowerCase();
-        // Strip hop-by-hop headers (RFC 7230 §6.1). Forwarding upstream's
-        // `connection`/`keep-alive` across the 5181→3001→5173→browser chain
-        // confused Firefox's HTTP parser on parallel module fetches and
-        // produced NS_ERROR_CORRUPTED_CONTENT for everything after main.ts.
-        if (HOP_BY_HOP.has(lk)) continue;
-        out[k] = v as string | string[];
-      }
-      // Force no-store so Firefox can't poison itself with a stale text/html
-      // response (Vite's SPA fallback) cached against a JS module URL — once
-      // that happens, hard-reload only revalidates and the bad MIME sticks.
-      out['cache-control'] = 'no-store, must-revalidate';
-      delete out['etag'];
-      // One connection per request. Eliminates any chance of the double-proxy
-      // chain misaligning response boundaries on a reused keep-alive socket.
-      out['connection'] = 'close';
-      res.writeHead(proxyRes.statusCode || 502, out);
-      proxyRes.pipe(res);
-    },
-  );
-  upstream.on('error', (err) => {
-    if (res.headersSent) {
-      try { res.end(); } catch { /* ignore */ }
-      return;
+  private sweep() {
+    for (const listener of this.listeners.values()) {
+      for (const [id, lease] of listener.leases) if (lease.expires <= Date.now()) listener.leases.delete(id);
+      if (!listener.leases.size || this.options.lookup(listener.workflow) !== listener.backend) this.closeListener(listener);
     }
-    res.writeHead(502, { 'Content-Type': 'text/plain' });
-    res.end(`Preview backend unreachable: ${(err as Error).message}`);
-  });
-  req.pipe(upstream);
-  return true;
+  }
+  private closeListener(listener: Listener) {
+    if (this.listeners.get(listener.workflow) !== listener) return;
+    this.listeners.delete(listener.workflow); activePreviewPorts.delete(listener.port);
+    for (const socket of listener.sockets) socket.destroy();
+    listener.server.close();
+  }
+  close() { clearInterval(this.timer); for (const listener of this.listeners.values()) this.closeListener(listener); }
+  acquire(workflow: string, controlOrigin: string): Promise<PreviewLease> {
+    const result = this.queue.then(() => this.allocate(workflow, controlOrigin));
+    this.queue = result.catch(() => {}); return result;
+  }
+  private async allocate(workflow: string, controlOrigin: string): Promise<PreviewLease> {
+    this.sweep();
+    const backend = this.options.lookup(workflow);
+    if (!backend || this.options.excludedPorts().includes(backend) || activePreviewPorts.has(backend)) throw new Error('Preview backend is unavailable.');
+    let listener = this.listeners.get(workflow);
+    if (!listener) {
+      const range = await this.options.range();
+      const [first, last] = parsePreviewPorts(range, 65536);
+      for (let port = first; port <= last; port++) {
+        if (port === backend || activePreviewPorts.has(port) || this.options.excludedPorts().includes(port) || port === Number(new URL(controlOrigin).port || (controlOrigin.startsWith('https:') ? 443 : 80))) continue;
+        const candidate = { capability: token(), workflow, backend, port, leases: new Map(), sockets: new Set() } as Listener;
+        candidate.server = http.createServer((req, res) => this.request(candidate, req, res));
+        candidate.server.on('connection', socket => { candidate.sockets.add(socket); socket.on('close', () => candidate.sockets.delete(socket)); });
+        candidate.server.on('upgrade', (req, socket, head) => this.upgrade(candidate, req, socket, head));
+        const bound = await new Promise<boolean>((resolve, reject) => {
+          candidate.server.once('error', error => { if (['EADDRINUSE', 'EACCES'].includes((error as NodeJS.ErrnoException).code ?? '')) resolve(false); else reject(error); });
+          candidate.server.listen(port, this.options.host, () => resolve(true));
+        });
+        if (!bound) continue;
+        listener = candidate; this.listeners.set(workflow, candidate); activePreviewPorts.add(port); break;
+      }
+      if (!listener) throw new Error(`No preview port is free in ${range}. Close another preview or change PREVIEW PORTS in Settings.`);
+    }
+    const lease: Lease = { id: token(), port: listener.port, capability: listener.capability, expires: Date.now() + (this.options.ttlMs ?? 180_000), controlOrigin };
+    listener.leases.set(lease.id, lease);
+    return { id: lease.id, port: lease.port, capability: lease.capability };
+  }
+  renew(workflow: string, id: string): boolean {
+    this.sweep(); const lease = this.listeners.get(workflow)?.leases.get(id);
+    if (!lease) return false; lease.expires = Date.now() + (this.options.ttlMs ?? 180_000); return true;
+  }
+  release(workflow: string, id: string) {
+    const listener = this.listeners.get(workflow); if (!listener) return;
+    listener.leases.delete(id); if (!listener.leases.size) this.closeListener(listener);
+  }
+  private authorize(listener: Listener, req: IncomingMessage, bootstrap: string | null = null): Lease | undefined {
+    this.sweep();
+    if (this.listeners.get(listener.workflow) !== listener || !req.headers.host) return;
+    const own = origin(`http://${req.headers.host}`);
+    const ownHttps = origin(`https://${req.headers.host}`);
+    if (!own || Number(new URL(own).port || 80) !== listener.port && Number(new URL(ownHttps!).port || 443) !== listener.port) return;
+    const from = typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
+    const ref = origin(req.headers.referer);
+    const site = req.headers['sec-fetch-site'];
+    if (site === 'cross-site' || from === 'null') return;
+    for (const lease of listener.leases.values()) {
+      if (bootstrap) {
+        if (req.method !== 'GET' || !equal(bootstrap, lease.capability) || ref !== lease.controlOrigin || (from && from !== lease.controlOrigin)) continue;
+        return lease;
+      }
+      if (from && from !== own && from !== ownHttps) continue;
+      if (ref && ref !== own && ref !== ownHttps) continue;
+      // Cross-port cookies are same-site. Only this authority may use them.
+      if (!from && !ref && site && site !== 'same-origin' && site !== 'none') continue;
+      const cookies = (req.headers.cookie ?? '').split(';').map(part => part.trim());
+      if (cookies.some(part => part.startsWith(`arco_preview_${listener.port}=`) && equal(part.slice(part.indexOf('=') + 1), lease.capability))) return lease;
+    }
+  }
+  private request(listener: Listener, req: IncomingMessage, res: ServerResponse) {
+    let url: URL; try { url = new URL(req.url ?? '/', 'http://preview.invalid'); } catch { res.writeHead(400); res.end(); return; }
+    const bootstrap = url.pathname === '/.arco-preview' ? url.searchParams.get('cap') : null;
+    const lease = this.authorize(listener, req, bootstrap);
+    // Do not allow a preview to install a worker that survives port reuse.
+    if (!lease || req.headers['service-worker'] || req.headers['sec-fetch-dest'] === 'serviceworker') { res.writeHead(403); res.end('Preview access refused. Reopen PREVIEW from Arco.'); return; }
+    if (bootstrap) {
+      const secure = lease.controlOrigin.startsWith('https:') ? '; Secure' : '';
+      const nonce = token();
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': `default-src 'none'; script-src 'nonce-${nonce}'; base-uri 'none'`, 'set-cookie': `arco_preview_${listener.port}=${lease.capability}; HttpOnly; SameSite=Strict; Path=/${secure}`, 'cache-control': 'no-store', 'referrer-policy': 'same-origin' }); res.end(`<!doctype html><title>Opening preview</title><script nonce="${nonce}">location.replace('/');</script>`); return;
+    }
+    const upstream = http.request({ host: '127.0.0.1', port: listener.backend, method: req.method, path: req.url, headers: proxyHeaders(req, listener.backend, false) }, response => {
+      const headers = { ...response.headers };
+      for (const key of Object.keys(headers)) if (HOP.has(key)) delete headers[key];
+      headers['set-cookie'] = safeSetCookies(response.headers['set-cookie']);
+      if (!headers['set-cookie']?.length) delete headers['set-cookie'];
+      headers['cache-control'] = 'no-store'; headers['referrer-policy'] = 'same-origin';
+      delete headers.etag;
+      delete headers['access-control-allow-origin']; delete headers['access-control-allow-credentials'];
+      res.writeHead(response.statusCode ?? 502, headers); response.pipe(res);
+    });
+    upstream.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end('Preview backend unreachable.'); });
+    res.on('close', () => upstream.destroy()); req.pipe(upstream);
+  }
+  private upgrade(listener: Listener, req: IncomingMessage, socket: Duplex, head: Buffer) {
+    if (!this.authorize(listener, req)) { socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n'); return; }
+    const upstream = http.request({ host: '127.0.0.1', port: listener.backend, method: 'GET', path: req.url, headers: proxyHeaders(req, listener.backend, true) });
+    upstream.on('error', () => socket.destroy());
+    upstream.on('response', response => { response.resume(); socket.end(`HTTP/1.1 ${response.statusCode ?? 502} Preview Upgrade Failed\r\nConnection: close\r\n\r\n`); });
+    upstream.on('upgrade', (response, connection, pending) => {
+      const lines = [`HTTP/1.1 101 Switching Protocols`];
+      for (const [key, value] of Object.entries(response.headers)) {
+        if (value === undefined) continue;
+        const values = Array.isArray(value) ? value : [value];
+        for (const item of key === 'set-cookie' ? safeSetCookies(values) ?? [] : values) lines.push(`${key}: ${item}`);
+      }
+      socket.write(lines.join('\r\n') + '\r\n\r\n');
+      if (pending.length) socket.write(pending); if (head.length) connection.write(head);
+      connection.pipe(socket); socket.pipe(connection);
+      socket.on('close', () => connection.destroy()); connection.on('close', () => socket.destroy());
+      socket.on('error', () => connection.destroy()); connection.on('error', () => socket.destroy());
+    }); upstream.end();
+  }
 }
-
-// Forward a WS upgrade to the workflow's dev server. Vite's HMR talks WS
-// over the same origin as the page; this is what keeps hot reload working
-// without the operator wiring it up. Returns true when handled.
-export function tryHandlePreviewUpgrade(
-  req: IncomingMessage,
-  socket: Duplex,
-  head: Buffer,
-  lookupPort: PortLookup,
-  opts: { allowReferer?: boolean } = {},
-): boolean {
-  const target = resolveTarget(req, opts.allowReferer === true);
-  if (!target) return false;
-  const port = lookupPort(target.wfid);
-  if (!port) {
-    socket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
-    socket.destroy();
-    return true;
-  }
-
-  const headers: Record<string, string | string[]> = {};
-  for (const [k, v] of Object.entries(req.headers)) {
-    if (v === undefined) continue;
-    const lk = k.toLowerCase();
-    if (lk === 'host' || lk === 'content-length') continue;
-    headers[k] = v as string | string[];
-  }
-  headers['host'] = `127.0.0.1:${port}`;
-
-  const upstream = http.request({
-    host: '127.0.0.1',
-    port,
-    method: 'GET',
-    path: target.backendPath,
-    headers,
-  });
-  upstream.on('error', () => {
-    try { socket.destroy(); } catch { /* ignore */ }
-  });
-  upstream.on('upgrade', (upRes, upSocket, upHead) => {
-    const lines = [
-      `HTTP/1.1 ${upRes.statusCode || 101} ${upRes.statusMessage || 'Switching Protocols'}`,
-    ];
-    for (const [k, v] of Object.entries(upRes.headers)) {
-      if (v === undefined) continue;
-      if (Array.isArray(v)) {
-        for (const item of v) lines.push(`${k}: ${item}`);
-      } else {
-        lines.push(`${k}: ${v}`);
-      }
-    }
-    lines.push('', '');
-    socket.write(lines.join('\r\n'));
-    if (upHead && upHead.length > 0) socket.write(upHead);
-    upSocket.pipe(socket);
-    socket.pipe(upSocket);
-    upSocket.on('error', () => { try { socket.destroy(); } catch { /* ignore */ } });
-    socket.on('error', () => { try { upSocket.destroy(); } catch { /* ignore */ } });
-  });
-  upstream.end(head);
-  return true;
+function proxyHeaders(req: IncomingMessage, port: number, upgrade: boolean) {
+  const headers = { ...req.headers };
+  for (const key of Object.keys(headers)) if ((!upgrade && HOP.has(key)) || ['authorization', 'proxy-authorization', 'referer', 'forwarded', 'x-forwarded-host', 'x-forwarded-proto', 'x-forwarded-for'].includes(key)) delete headers[key];
+  if (headers.cookie) { headers.cookie = safeCookies(headers.cookie); if (!headers.cookie.trim()) delete headers.cookie; }
+  headers.host = `127.0.0.1:${port}`; return headers;
+}
+// Stay below the lowest supported host temporary-port range. Runtime host
+// ranges may lower this ceiling further in previewPortConfiguration.ts.
+export function parsePreviewPorts(value: unknown, ceiling = 32768): [number, number] {
+  if (typeof value !== 'string' || !/^\d{1,5}-\d{1,5}$/.test(value)) throw new Error('PREVIEW PORTS must be a range such as 4300-4309.');
+  const [first, last] = value.split('-').map(Number);
+  if (first < 1024 || last < first || last >= ceiling || last - first > 99) throw new Error(`PREVIEW PORTS must contain 1 to 100 ports from 1024 to ${ceiling - 1}, below the host temporary-port range.`);
+  return [first, last];
 }

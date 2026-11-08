@@ -57,3 +57,12 @@ test('interface scale defaults, snaps to allowed steps, and persists', async () 
   assert.equal((await patchSettings({ uiScale: 9 })).uiScale, 1.5);
   await assert.rejects(patchSettings({ uiScale: NaN }));
 });
+
+test('L02: preview ports survive unrelated saves and invalid changes keep the last range', async () => {
+  const { readSettings, patchSettings } = await import('./settings.js');
+  await patchSettings({ previewPorts: '4300-4304' });
+  await patchSettings({ projects: [] });
+  assert.equal((await readSettings()).previewPorts, '4300-4304');
+  await assert.rejects(patchSettings({ previewPorts: '0-65535' }));
+  assert.equal((await readSettings()).previewPorts, '4300-4304');
+});

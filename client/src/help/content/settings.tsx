@@ -2,6 +2,11 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const settingsHelp: Record<string, HelpEntry> = {
+  'settings.preview-ports': {
+    title: 'PREVIEW PORTS - remote access',
+    body: <><p>One port per open preview, normally 4300-4309. SAVE changes new previews; ARCO_PREVIEW_PORTS overrides the saved range. Ports in use by other programs are skipped. Close previews to free ports. This range must stay below the host temporary-port range.</p><p>Previews listen on the same addresses as Arco and cannot use Arco controls. Remote access needs the preview range forwarded through SSH or a proxy. Allow inbound TCP 4300-4309 only from the intended network in firewalld, ufw, Windows Defender Firewall or the macOS firewall. Existing installations that allowed only Arco's port must add the preview range. See the manual's PREVIEW section for commands.</p></>,
+    manualSection: 'preview-tab',
+  },
   'settings.first-run': {
     title: 'Run setup again',
     body: <p>Reopens welcome, multi-folder setup, Connections and completion. Existing project locations and bookmarked folders appear in the summary and remain unless explicitly removed. Add several choices with Add another, then Continue. The final screen summarizes folders and provider, with Go to Home and Start a chat in the normal creator. Either saves completion without launching work. Existing chats and settings remain intact.</p>,

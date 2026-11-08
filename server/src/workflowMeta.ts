@@ -236,8 +236,8 @@ export interface WorkflowMeta {
   // and handoff reflections always run under the global cap.
   disableRssGuard?: boolean;
   // Preview tab — operator-bound dev-server port for this workflow. Iframe
-  // src is /api/preview/<workflowId>/, served by the in-server proxy that
-  // forwards to 127.0.0.1:<port>. Persisted so a reconnect/restart restores
+  // uses a separate leased listener forwarding to 127.0.0.1:<port>.
+  // Persisted so a reconnect/restart restores
   // the iframe without re-typing.
   preview?: { port: number; framework?: string; manual: boolean };
   // History of recent preview binds for this workflow — most-recent-first,

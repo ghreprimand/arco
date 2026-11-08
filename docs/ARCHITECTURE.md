@@ -295,7 +295,7 @@ A few concepts repeat throughout the system; nailing them down up front saves ti
    - `GET /api/plans/*` - plan store CRUD
    - `POST /api/shutdown` - graceful exit
    - `POST /api/restart` - graceful exit + respawn dev tree
-4. Open WebSocket endpoint at `/ws`. Heartbeat ping every 15s. The `httpServer.on('upgrade')` fan-out also routes two non-`/ws` WS paths: the per-workflow **preview proxy** (`/api/preview/<wfid>/*`, Vite/Next HMR) and the operator **`/terminal`** channel (Workbench - the raw PTY byte stream for the integrated terminal, deliberately off the seq'd `/ws` protocol and out of `events.jsonl`; see [`TERMINAL.md`](TERMINAL.md)). Both inherit `/ws`'s loopback-bind access posture.
+4. Open WebSocket endpoint at `/ws`. Heartbeat ping every 15s. The `httpServer.on('upgrade')` fan-out also routes the operator **`/terminal`** channel (Workbench - the raw PTY byte stream for the integrated terminal, deliberately off the seq'd `/ws` protocol and out of `events.jsonl`; see [`TERMINAL.md`](TERMINAL.md)). It inherits `/ws`'s origin and session checks. Preview HTTP and HMR use separate per-workflow listeners with narrow expiring access.
 5. Listen on `ARCO_PORT` (default 3001), bound to `ARCO_HOST` (default `127.0.0.1` - see [`OPERATIONS.md`](OPERATIONS.md#remote-access) for why and when to override).
 6. Inside the `listen` callback (post-listen, async): recover workflows from disk (`recoverWorkflowsFromDisk` walks each known cwd's `.arco/workflows/`), ensure the model + llama.cpp catalogs, and install the global settings watcher. Recovery is deliberately post-listen - the seq buffer for each recovered workflow is primed at boot by `crashRecovery.ts` so seq continuity holds even before recovery completes.
 7. Install `SIGTERM` / `SIGINT` handlers: SIGKILL all live worker PIDs, flush `events.jsonl`, exit.
@@ -868,7 +868,7 @@ Plans are explicitly attached, not auto-bound - the same plan can be attached to
 | `artifacts.ts` | Extracts `arco-artifact` fenced blocks from primary turn text. Invalid JSON silently dropped (artifact extraction must never break chat flow). |
 | `workers/limits.ts` | `MAX_WORKER_OUTPUT_BYTES` and `RSS_KILL_BYTES` constants + the per-process tree-RSS check. |
 | `workers/processActivity.ts` | Linux `/proc`-based activity probe (1.5s polled). Drives the CPU-pulse UI and silent-exit supervision. ENOENT means the process exited; reported as dead. |
-| `previewProxy.ts` | Per-workflow HTTP+WS proxy at `/api/preview/<wfid>/*`. Two entry paths: explicit prefix (matched against the iframe URL) and Referer fallback (catches Vite's absolute-path sub-resources). `tryHandlePreviewRequest` / `tryHandlePreviewUpgrade` strip hop-by-hop headers (RFC 7230) and force `connection: close` + `cache-control: no-store` to prevent Firefox poisoning the cache with empty-MIME responses. |
+| `previewProxy.ts` | Separate per-workflow HTTP and WebSocket listeners, lazy fixed-range allocation, observer leases, credential stripping and cross-preview request checks. `previewPorts.ts` prevents active preview origins from entering the control API. |
 | `terminal/ptyManager.ts` | Workbench Per-workflow operator PTY session pool. `spawn`/`attach`/`detach`/`write`/`resize`/`kill` + a bounded scrollback ring. Sessions outlive windows (session ≠ connection); cwd guarded by `resolveWithinCwd`. Operator-only - never a model tool. See [`TERMINAL.md`](TERMINAL.md). |
 | `terminal/terminalChannel.ts` | The dedicated `/terminal` WS path (raw PTY byte stream). Wired into `index.ts`'s upgrade fan-out; off the seq'd `/ws` protocol + out of `events.jsonl`. Envelope: attach/input/resize/kill ↔ data/exit/error. |
 | `previewAutoDetect.ts` | Watches `worker_tool_use` (Bash-command sniff via `DEV_SERVER_RE`) and `worker_text` (URL extraction via `URL_PORT_RE`). Races a Layer-1 HTTP probe of common dev ports against a Layer-2 `/proc`-based PID-tree listening-port discovery (`workers/procListening.ts`). First port to commit wins; cross-workflow port-conflict filter prevents one tab from stealing another's bound port; `manual: true` binds are never overridden. |
@@ -969,7 +969,7 @@ Routes are registered from `server/src/http/router.ts` and the per-domain `serve
 | `GET /api/skills` / `POST /api/skills` / `DELETE /api/skills` | operator-managed skills CRUD (`<cwd>/.arco/skills/`, `~/.arco/skills/`) |
 | `POST /api/skills/audit` | Operator-triggered skill security audit - invisible-unicode + threat scan, diagnostic only |
 | `GET /api/handoff-prompts` / `POST /api/handoff-prompts` / `DELETE /api/handoff-prompts` | operator-editable Handoff prompts |
-| `GET /api/preview/<wfid>/*` (ANY method, WS upgrade supported) / `GET /api/preview/probe?port=N` / `GET /api/preview/listening` | Live Preview tab proxy + port probes |
+| `POST /api/preview/lease/<wfid>` / `DELETE /api/preview/lease/<wfid>?id=<id>` / `GET /api/preview/probe?port=N` / `GET /api/preview/listening` | Protected preview lease management and port probes; content uses a separate listener |
 | `POST /api/mkdir` | Directory creation (Resume picker convenience) |
 | `POST /api/debug/throttle` | Manual throttle toggle (dev only) |
 | `POST /api/files/*` | File viewer support |

@@ -1,3 +1,4 @@
+import { PreviewPortsSection } from './settings/PreviewPortsSection';
 import { readSavedSettings } from '../utils/settingsRequests';
 import { NotificationChannelsSettings } from './NotificationChannelsSettings';
 import { UtilityAgentPicker } from './UtilityAgentPicker';
@@ -1139,6 +1140,7 @@ export function SettingsPanel({ onClose }: Props) {
             this only changes (a) tabs that have never been toggled and
             (b) the starting value for newly-created Codex tabs. Phase 7's
             plan-doc must mirror this for `claude.transport`. */}
+        <SettingsSection id="preview-ports"><PreviewPortsSection /></SettingsSection>
         <SettingsSection id="transport-defaults">
         <CodexTransportDefaultsSection />
         </SettingsSection>

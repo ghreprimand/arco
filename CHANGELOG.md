@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Isolate live previews from Arco controls, strip operator credentials, and allocate one port per open preview. PREVIEW PORTS and ARCO_PREVIEW_PORTS configure the range; remote access needs matching forwarding and firewall rules. Existing remote installations must allow the preview range as well as Arco's control port.
+
 - Restore selected skills when editing a pending message, keep existing choices, and apply each skill once when resending.
 
 - Add Secure to session cookies for direct HTTPS and trusted HTTPS proxies while keeping ordinary loopback HTTP working.

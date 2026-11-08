@@ -29,6 +29,10 @@ async def main():
         public_choices = {}
         async def isolate(route):
             url = urlparse(route.request.url)
+            if url.scheme == 'http' and url.netloc == '127.0.0.1:4300':
+                await route.fulfill(status=200, content_type='text/html', body='<p>Separate preview fixture</p>'); return
+            if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and url.path.startswith('/api/preview/lease/'):
+                await route.fulfill(json={'id': 'fixture-lease', 'port': 4300, 'capability': 'fixture-access'}); return
             if url.scheme == 'https' and url.netloc in ('fonts.googleapis.com', 'fonts.gstatic.com'):
                 await route.fulfill(status=200, content_type='text/css', body='')
                 return

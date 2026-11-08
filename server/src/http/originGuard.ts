@@ -19,6 +19,7 @@
 import type { IncomingMessage } from 'http';
 import { isIP } from 'net';
 import { hostname as osHostname, networkInterfaces } from 'os';
+import { activePreviewPorts } from '../previewPorts.js';
 import { PORT } from '../server/constants.js';
 
 function extraAllowed(): string[] {
@@ -119,6 +120,7 @@ export function isAllowedOrigin(origin: string | undefined, req?: IncomingMessag
   try {
     const url = new URL(origin);
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || origin !== url.origin) return false;
+    if (activePreviewPorts.has(Number(url.port || (url.protocol === 'https:' ? 443 : 80)))) return false;
     return allowedOrigins(req).has(url.origin);
   } catch { return false; }
 }

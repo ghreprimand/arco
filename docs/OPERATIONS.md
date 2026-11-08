@@ -1311,7 +1311,7 @@ The Codex `appserver` transport (`server/src/providers/codex-appserver/`) keeps 
 
 ## Preview tab port discovery
 
-The PREVIEW tab binds a workflow's `set_preview_port` to the per-workflow `/api/preview/<wfid>/` proxy. Port discovery has two paths:
+The PREVIEW tab binds a workflow's `set_preview_port` to its app backend. An open view leases a separate preview listener from PREVIEW PORTS, normally 4300-4309. `ARCO_PREVIEW_PORTS` overrides the saved range. Listeners use `ARCO_HOST`, skip occupied ports, and release when the last view closes. Changes affect new previews. Remote users must forward this range and allow it through any firewall; existing installations that allowed only Arco's port need the additional range. See [preview firewall and proxy steps](REMOTE_MANAGEMENT.md#preview-ports-and-firewalls). Port discovery has two paths:
 
 - **`GET /api/preview/listening`** - Linux-only. Walks `/proc/net/tcp{,6}` for LISTEN sockets, then reverse-resolves PIDs by scanning `/proc/<pid>/fd/`. Returns `{ entries: Array<{ port, pid, command }> }`. Excludes Arco's own PID. On macOS or non-Linux kernels returns `[]` - the operator must set the port manually (via the PREVIEW tab's manual BIND input).
 - **`GET /api/preview/probe?port=<n>`** - platform-independent liveness check. Used when the operator clicks a RECENT history pill: if the upstream is dead the UI shows a "service no longer running" modal with the listening-processes list so the operator can rebind.

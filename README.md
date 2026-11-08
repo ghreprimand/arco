@@ -290,3 +290,5 @@ license. See [LICENSE](LICENSE). Bundled assets and downloaded speech components
 have their own notices and applicable terms; see
 [voice component notices](docs/VOICE.md) and the
 [bundled background terms](client/public/backgrounds/LICENSE).
+
+Live PREVIEW uses separate ports, normally 4300-4309. Remote access must forward that range and allow it through the firewall as well as Arco's control port. Existing installations need the additional rule. Set PREVIEW PORTS in Settings or `ARCO_PREVIEW_PORTS`; see [preview access and firewall steps](docs/REMOTE_MANAGEMENT.md#preview-ports-and-firewalls).

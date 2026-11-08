@@ -296,8 +296,8 @@ export const powerFeatures: Section[] = [
   <p>
   The <strong>PREVIEW</strong> tab shows the workflow's dev server (Vite, Next,
   Astro, Nuxt, plain Node and so on) inside Arco, so the agent's output is
-  visible without leaving the window. It also works over SSH with no extra
-  forwarded ports.
+  visible without leaving the window. Remote previews need their own forwarded
+  ports in addition to Arco's control port.
   </p>
   <p>Automatic discovery gives each candidate request 500 ms to respond, so a stalled server does not hold up the discovery loop.</p>
   <Sub>Header controls</Sub>
@@ -341,14 +341,13 @@ export const powerFeatures: Section[] = [
   ratio that fits the right pane and centered, so it is never clipped. The dev
   server sees that fixed width however large the Arco window is.
   </p>
-  <Sub>Why a proxy</Sub>
-  <p>
-  The preview loads through Arco's own per-workflow proxy to the dev server. A
-  plain iframe pointing at <Code>localhost</Code> would reach your laptop's
-  localhost, not the machine Arco runs on. The same-origin proxy works with any
-  port-forwarding setup, and hot reload keeps working because WebSocket upgrades
-  are forwarded too.
-  </p>
+  <Sub>Separate preview ports and remote access</Sub>
+  <p>Each open PREVIEW takes one port from <strong>Settings &gt; Advanced &gt; PREVIEW PORTS</strong>, normally <Code>4300-4309</Code>. The panel shows the address. Arco skips ports held by other programs and reports when none is free. Closing the last view, unbinding or removing its workflow releases the port. OPEN stays usable while PREVIEW remains open.</p>
+  <p>Previews listen on the same addresses as Arco. They forward assets and live-reload WebSockets to the bound app, strip Arco cookies and Authorization, and cannot use Arco controls. Preview access expires after a disconnected view stops renewing. Service workers are blocked so code cannot remain on a port after another workflow takes it.</p>
+  <p>PREVIEW PORTS accepts up to 100 ports below the host temporary-port range. SAVE affects new previews. <Code>ARCO_PREVIEW_PORTS</Code> overrides the saved setting. A packaged service keeps its installation environment in <Code>service/config.json</Code>; edit that environment and restart to change an override.</p>
+  <p>SSH must forward the preview range as well as the Arco port. For each needed port, add a matching local forward, for example <Code>ssh -L 4300:localhost:4300 -L 4301:localhost:4301 host</Code>. Match every port that previews may take. A reverse proxy must preserve Host and forward HTTP plus WebSocket upgrades on the matching preview ports. HTTPS needs TLS on every exposed preview port.</p>
+  <p>Existing installations with a firewall rule for only Arco must allow the preview range from the intended network. Linux firewalld: <Code>firewall-cmd --permanent --zone=work --add-port=4300-4309/tcp</Code>, then reload; use a zone restricted to that network. ufw: <Code>ufw allow from 192.0.2.0/24 to any port 4300:4309 proto tcp</Code>; replace the documentation subnet with the intended network.</p>
+  <p>Windows Defender Firewall: add an inbound TCP rule for local ports <Code>4300-4309</Code>, restricted to the Private profile and intended remote addresses. macOS: allow the Node executable running Arco in System Settings &gt; Network &gt; Firewall &gt; Options; any additional network firewall must allow TCP <Code>4300-4309</Code>. Loopback-only SSH use needs no public inbound preview rule.</p>
   <Note>
   The preview iframe is sandboxed and cannot navigate the Arco window away.
   </Note>
@@ -641,8 +640,8 @@ export const powerFeatures: Section[] = [
   <p>Remote Cursor COMPACT uses the desktop native compression handler with the same busy and saved-session checks.</p>
   <p>Long remote conversations keep updating when older messages leave the retained window. Growing replies update their existing row. The recent window is refreshed together while unsent text and retained scroll positions are kept. Earlier history remains on the computer.</p>
   <p>
-  Arco needs only <strong>one forwarded port</strong>, so you can run it on a dev
-  machine and use it from anywhere over SSH. A separate, much narrower hub path
+  Arco controls need one forwarded port. Live PREVIEW also needs its configured
+  preview ports forwarded over SSH. A separate, much narrower hub path
   covers checking on work from a phone.
   </p>
   <p>Existing access through Arco's own address keeps working after Host validation. A reverse proxy preserves Host and states its public scheme. Extra cross-origin callers need their full origin in <Code>ARCO_ALLOWED_ORIGINS</Code>, including scheme and port. The package service keeps that setting; restart after changing it. The separate outbound management hub is unchanged.</p>

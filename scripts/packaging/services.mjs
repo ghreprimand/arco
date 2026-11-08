@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 const cli = fileURLToPath(new URL('./arco.mjs', import.meta.url));
 const label = 'arco-workbench';
-export const SERVICE_ENV_KEYS = ['ARCO_HOST', 'ARCO_PORT', 'ARCO_HOME', 'ARCO_ALLOWED_HOSTS', 'ARCO_ALLOWED_ORIGINS', 'ARCO_TRUSTED_PROXIES', 'ARCO_HUB_URL', 'ARCO_NTFY_URL', 'ARCO_VOICE_HOME', 'ARCO_LOG_DIR', 'ARCO_UPDATE_CHECK', 'PATH'];
+export const SERVICE_ENV_KEYS = ['ARCO_HOST', 'ARCO_PORT', 'ARCO_HOME', 'ARCO_ALLOWED_HOSTS', 'ARCO_ALLOWED_ORIGINS', 'ARCO_TRUSTED_PROXIES', 'ARCO_PREVIEW_PORTS', 'ARCO_HUB_URL', 'ARCO_NTFY_URL', 'ARCO_VOICE_HOME', 'ARCO_LOG_DIR', 'ARCO_UPDATE_CHECK', 'PATH'];
 const xml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 function systemdQuote(value) {
   if (/[\r\n\0]/.test(value)) throw new Error('A service path contains an unsupported character.');

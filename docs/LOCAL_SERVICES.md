@@ -222,7 +222,7 @@ down `App -> SystemHeader -> SystemModal -> ServicesTab` as `onSetPreviewPort`
 (NOT pre-bound to a workflow id, the tab supplies the focused `activeJobId` at
 click time). On click it: (1) `onSetPreviewPort(activeJobId, port, framework)`
 (the same `set_preview_port` message the per-workflow PreviewTab uses, hitting
-the existing `/api/preview/<workflowId>/` proxy); (2) dispatches an
+a separate listener leased by the open PREVIEW view); (2) dispatches an
 `arco:open-preview` CustomEvent, `RightPanel` listens for it (sibling to the
 H6 `arco:reveal-in-files` handler) and flips its tab to PREVIEW for the
 matching workflow; (3) closes the System modal. Manual port binds deliberately

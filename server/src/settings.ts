@@ -1,3 +1,5 @@
+import { parsePreviewPorts } from './previewProxy.js';
+import { hostTemporaryPortStart } from './previewPortConfiguration.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 import { clampAutoHandoffCompactions, normalizeOutputStyle, retiredProviderReason, sanitizeLocalClusterCapacity, sanitizeUtilityAgent } from '@arco/shared';
 // Three-layer operator-settings cascade.
@@ -623,6 +625,9 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
     }
   }
   const result: ArcoSettings = { enabledProviders: enabled, fontPackOverride: base.fontPackOverride };
+  if (typeof partial.previewPorts === 'string') {
+    try { parsePreviewPorts(partial.previewPorts); result.previewPorts = partial.previewPorts; } catch { /* invalid saved range uses default */ }
+  }
   result.uiScale = normalizeUiScale(partial.uiScale);
   const wd = sanitizeWorkflowDefaults(partial.workflowDefaults);
   if (wd) result.workflowDefaults = wd;
@@ -815,6 +820,9 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
   } else if (current.workflowDefaults) {
     merged.workflowDefaults = current.workflowDefaults;
   }
+  if ('previewPorts' in patch) {
+    parsePreviewPorts(patch.previewPorts); merged.previewPorts = patch.previewPorts;
+  } else if (current.previewPorts) merged.previewPorts = current.previewPorts;
   if ('localClusterCapacity' in patch) {
     // Per-runtime keys merge; a runtime omitted from the patch keeps its value.
     const next = { ...(current.localClusterCapacity ?? {}), ...(sanitizeLocalClusterCapacity(patch.localClusterCapacity) ?? {}) };
@@ -1123,7 +1131,8 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
 // mutation — reachable from two ConfigTab toggles in quick succession, or two
 // browser tabs saving at once (the atomic write itself can't prevent this;
 // only ordering can). See atomicFile.ts § withFileLock.
-export function patchSettings(patch: Partial<ArcoSettings>): Promise<ArcoSettings> {
+export async function patchSettings(patch: Partial<ArcoSettings>): Promise<ArcoSettings> {
+  if (patch.previewPorts !== undefined) parsePreviewPorts(patch.previewPorts, Math.min(await hostTemporaryPortStart(), 32768));
   return withFileLock(GLOBAL_SETTINGS_PATH, () => patchSettingsUnlocked(patch));
 }
 

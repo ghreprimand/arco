@@ -358,3 +358,24 @@ Source systemd units quote checkout and key paths, including spaces, and use the
 Source app, lifecycle agent and management units retain the resolved `ARCO_HOME` from installation. Reinstall the unit after changing that location; restarting an older unit alone does not rewrite its environment.
 
 Cursor workflows that advertise COMPACT route it through the same native compression handler as the desktop. Busy checks and live-session validation still apply.
+
+## Preview ports and firewalls
+
+Arco controls and preview content use separate addresses. Each open workflow preview uses one listener from **Settings > Advanced > PREVIEW PORTS**, normally `4300-4309`. `ARCO_PREVIEW_PORTS` overrides the setting. The range accepts 1 to 100 ports below the host temporary-port range. Changes affect new previews. The package service saves this override with its installation environment; edit `env` in its `service/config.json` and restart to change it.
+
+Ports open only while a preview is in use. Other programs' ports are skipped. Closing the last view, unbinding, removing the workflow or lease expiry releases a port. If none is free, PREVIEW names the range and directs the user to close a preview or change PREVIEW PORTS. The panel shows the address it uses. Keep PREVIEW open while using OPEN in another browser tab.
+
+Listeners use the same `ARCO_HOST` address as Arco. Loopback-only use needs no public firewall rule. For LAN or remote proxy access, allow only the intended source network. Existing installations that allowed only the Arco control port must add the preview range.
+
+- firewalld: in a zone restricted to the intended network, run `firewall-cmd --permanent --zone=work --add-port=4300-4309/tcp`, then `firewall-cmd --reload`. Choose the restricted zone appropriate to the installation instead of opening the range on every interface.
+- ufw: `ufw allow from 192.0.2.0/24 to any port 4300:4309 proto tcp`. Replace the documentation subnet with the intended network.
+- Windows Defender Firewall: create an inbound TCP rule for local ports `4300-4309`, Private profile, scoped to the intended remote addresses. PowerShell example: `New-NetFirewallRule -DisplayName "Arco previews" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 4300-4309 -Profile Private -RemoteAddress 192.0.2.0/24`. Replace the documentation subnet before running it.
+- macOS: allow the Node executable running Arco in System Settings > Network > Firewall > Options. A separate network firewall must allow TCP `4300-4309` from the intended network. The application firewall does not expose a per-port range control.
+
+SSH must forward each preview port that may be allocated in addition to the existing Arco forward. For two ports: `ssh -L 4300:localhost:4300 -L 4301:localhost:4301 host`. Either forward every port in PREVIEW PORTS or narrow the setting to the forwarded range. The browser keeps the same hostname and uses the allocated port; local and remote port numbers must match.
+
+A reverse proxy exposes matching preview ports on the same hostname as Arco, forwarding each to that port on the Arco host. Preserve Host, forward WebSocket Upgrade/Connection headers, and support long-lived connections. HTTPS requires TLS termination on every preview port. For example, with Arco bound to loopback, an nginx server bound to the proxy address with `listen 192.0.2.10:4300 ssl` and the same certificate as Arco uses `location / { proxy_pass http://127.0.0.1:4300; proxy_set_header Host $http_host; proxy_http_version 1.1; proxy_set_header Upgrade $http_upgrade; proxy_set_header Connection "upgrade"; }`; replace the documentation address with the proxy address and repeat for the remaining range. The proxy and gateway listeners must bind distinct addresses to avoid a conflict, or run on separate machines. Do not use an all-address proxy listener on the same port as a gateway on that machine. Do not expose preview origins through ARCO_ALLOWED_ORIGINS: preview code must never gain control access.
+
+Preview listeners strip Arco cookies and Authorization before forwarding and discard upstream Arco Set-Cookie headers. Their expiring access is workflow-specific. Cross-preview HTTP and WebSocket access is refused. Service-worker registration is blocked to keep a later user of the same port isolated. Preview capture continues to inspect the bound backend directly.
+
+Command references: [firewalld port ranges](https://firewalld.org/documentation/man-pages/firewall-cmd.html), [ufw rules](https://manpages.ubuntu.com/manpages/bionic/man8/ufw.8.html), [Windows firewall rules](https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule), [macOS firewall options](https://support.apple.com/guide/mac-help/mh34041/mac), and [nginx WebSocket forwarding](https://nginx.org/en/docs/http/websocket.html).

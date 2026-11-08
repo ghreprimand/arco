@@ -12,7 +12,7 @@ const LAYOUT_KEYS = new Set(['settings.navigation', 'settings.scope']);
 
 test('every Settings help entry belongs to exactly one section', () => {
   const keys = [...help.matchAll(/^ {2}'(settings\.[a-z-]+)':/gm)].map((m) => m[1]).filter((k) => !LAYOUT_KEYS.has(k));
-  assert.equal(keys.length, 38);
+  assert.equal(keys.length, 39);
   assert.ok(!keys.includes('settings.zai-api-key'));
   for (const key of keys) assert.equal(SETTINGS_SECTIONS.filter((s) => s.help.includes(key)).length, 1, key);
   for (const s of SETTINGS_SECTIONS) for (const key of s.help) assert.ok(keys.includes(key), `${s.id} help ${key} exists`);

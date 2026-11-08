@@ -56,7 +56,6 @@ recordAttachment,
 recordDetachment
 } from './planStore.js';
 import { PreviewAutoDetect } from './previewAutoDetect.js';
-import { tryHandlePreviewUpgrade } from './previewProxy.js';
 import { ptyManager, reapOrphanTerminals } from './terminal/ptyManager.js';
 import { handleTerminalUpgrade, setTerminalKillHook, setTerminalExitHook } from './terminal/terminalChannel.js';
 import { runPrimaryTurn } from './primitives/seedWorker.js';
@@ -432,8 +431,8 @@ httpServer.on('request', (req: IncomingMessage, res: ServerResponse) => {
 const wss = new WebSocketServer({ noServer: true });
 
 // WS upgrade fan-out — the sole 'upgrade' listener. Routes '/ws' to the main
-// protocol server, '/terminal' to the raw-PTY channel, preview paths to the
-// preview proxy, everything else to a clean 404.
+// protocol server, '/terminal' to the raw-PTY channel, everything else to a
+// clean 404. Preview upgrades use separate listeners.
 httpServer.on('upgrade', (req, socket, head) => {
   const wsPath = (req.url || '').split('?')[0];
   // Browsers don't apply CORS to WebSockets, so a hostile page could open
@@ -450,7 +449,7 @@ httpServer.on('upgrade', (req, socket, head) => {
   }
   // Control socket + raw PTY need the browser session cookie (http/wsAuth.ts) —
   // the origin guard alone admits any Origin-less local process, including
-  // the agents this server spawns. Preview upgrades stay on the origin guard.
+  // the agents this server spawns. Preview upgrades use separate listeners.
   if (wsPath === '/ws' || wsPath === '/terminal') {
     const auth = checkUpgradeAuth(req);
     if (!auth.ok) {
@@ -471,9 +470,6 @@ httpServer.on('upgrade', (req, socket, head) => {
   // access posture (origin guard + the session-cookie gate above). See
   // server/src/terminal/terminalChannel.ts.
   if (handleTerminalUpgrade(req, socket, head)) return;
-  if (tryHandlePreviewUpgrade(req, socket, head, (wfid) => workflows.get(wfid)?.preview?.port, { allowReferer: true })) {
-    return;
-  }
   // Unknown upgrade target — close cleanly so curious clients get a clear NACK.
   try {
     socket.write('HTTP/1.1 404 Not Found\r\n\r\n');

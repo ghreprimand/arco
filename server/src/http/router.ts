@@ -63,7 +63,9 @@ type HandoffPromptScope,
 import type { LlamacppCatalog } from '../llamacppCatalog.js';
 import { readCatalogSnapshot as readLlamacppCatalog, writeCatalog as writeLlamacppCatalog, LlamacppCatalogError } from '../llamacppCatalog.js';
 import { probeOnce as probePreviewPort } from '../previewAutoDetect.js';
-import { tryHandlePreviewRequest } from '../previewProxy.js';
+import { PreviewGateways } from '../previewProxy.js';
+import { previewPortRange } from '../previewPortConfiguration.js';
+import { HOST } from '../server/constants.js';
 import { clearTokens as clearClaudeNativeTokens } from '../providers/claude-native/auth.js';
 import { getClaudeNativeAuthStatus } from '../providers/claude-native/authStatus.js';
 import { getCatalog as getClaudeNativeCatalog } from '../providers/claude-native/catalog.js';
@@ -168,6 +170,13 @@ import { checkHttpAuth, checkMintRequest, isCanonicalRequestPath, describePeer, 
 // index.ts-local closures the routes still reach (mutable `capabilities`, the
 // http server handle, the dev-wrapper killer, and the plan/cluster handlers).
 // See docs/ARCHITECTURE.md.
+
+const previewGateways = new PreviewGateways({
+  host: HOST,
+  range: async () => previewPortRange((await readSettings()).previewPorts),
+  lookup: workflow => workflows.get(workflow)?.preview?.port,
+  excludedPorts: () => [PORT, ...(process.env.ARCO_ALLOWED_ORIGINS ?? '').split(',').flatMap(value => { try { const url = new URL(value.trim()); return [Number(url.port || (url.protocol === 'https:' ? 443 : 80))]; } catch { return []; } }), ...(process.env.ARCO_SERVE_CLIENT !== '1' ? [Number(process.env.ARCO_CLIENT_PORT ?? 5173)] : [])],
+});
 
 export interface HttpDeps {
   getCapabilities: () => Capabilities;
@@ -283,16 +292,8 @@ export async function handleHttpRequest(
     return;
   }
 
-  // Preview tab proxy — explicit prefix only at this point. The Referer-based
-  // fallback runs further down (just before the 404) so it can't hijack
-  // legitimate Arco API requests from any tab whose stale iframe Referer
-  // happens to match a preview path. See previewProxy.ts.
-  if (tryHandlePreviewRequest(req, res, (wfid) => workflows.get(wfid)?.preview?.port)) {
-    return;
-  }
-
   // Session-cookie gate for /api/* + /upload (wsAuth.ts). Placed after the
-  // probes, the mint route and the preview prefix proxy; agent tool routes
+  // probes and the mint route; agent tool routes
   // (cluster peer / plan tools) are exempt inside checkHttpAuth.
   const httpAuth = checkHttpAuth(req);
   if (!httpAuth.ok) {
@@ -308,6 +309,30 @@ export async function handleHttpRequest(
   if (await tryHandleTidyRoutes(req, res)) return;
   if (await tryHandleUtilityAgentRoutes(req, res)) return;
   if (await tryHandleNotificationChannelsRoutes(req, res)) return;
+
+  if (req.url?.startsWith('/api/preview/lease/')) {
+    const url = new URL(req.url, 'http://control.invalid');
+    const workflow = url.pathname.slice('/api/preview/lease/'.length);
+    const leaseId = url.searchParams.get('id') ?? '';
+    try {
+      let result: unknown;
+      if (req.method === 'POST' && !leaseId) {
+        const controlOrigin = typeof req.headers.origin === 'string' ? req.headers.origin : undefined;
+        if (!controlOrigin) { res.writeHead(403); res.end(); return; }
+        result = await previewGateways.acquire(workflow, controlOrigin);
+      } else if (req.method === 'POST' && leaseId) {
+        if (!previewGateways.renew(workflow, leaseId)) { res.writeHead(410); res.end(); return; }
+        result = { ok: true };
+      } else if (req.method === 'DELETE' && leaseId) {
+        previewGateways.release(workflow, leaseId); result = { ok: true };
+      } else { res.writeHead(405); res.end(); return; }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(result));
+    } catch (error) {
+      res.writeHead(409, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: (error as Error).message }));
+    }
+    return;
+  }
 
   // Preview port liveness probe. Used by the PREVIEW tab when the operator
   // clicks a history pill — if the upstream is dead the client surfaces a
@@ -2144,13 +2169,8 @@ export async function handleHttpRequest(
     return;
   }
 
-  // Last-chance preview fallback — if a request didn't match any Arco route
-  // and its Referer points to a preview iframe, route it through that
-  // workflow's backend (handles Vite's absolute-path sub-resources without
-  // base-url config).
-  if (tryHandlePreviewRequest(req, res, (wfid) => workflows.get(wfid)?.preview?.port, { allowReferer: true })) {
-    return;
-  }
+  // Legacy preview content paths never fall through to the application shell.
+  if (req.url?.startsWith('/api/preview/')) { res.writeHead(404); res.end(); return; }
 
   // Production static-serve of the built client (ARCO_OPS_PLAN §B1). Gated on
   // an EXPLICIT opt-in env flag, NOT NODE_ENV: in dev Vite on 5173 owns the

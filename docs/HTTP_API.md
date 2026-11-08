@@ -58,7 +58,7 @@ For terminology see [`GLOSSARY.md`](GLOSSARY.md). For where these are called fro
 - All routes live on the server port (default `3001`). The Vite dev server proxies `/api/*` from `5173` to `3001`.
 - Error responses are JSON: `{ "error": "<message>" }` with an HTTP 4xx/5xx status. Several read routes deliberately degrade to `200` with an empty body instead (called out per route) so a picker never dead-ends.
 - CORS: only an exact approved scheme/host/port `Origin` is echoed (`originGuard.ts`) with `Access-Control-Allow-Credentials: true`. Unapproved origins get `403` before preflight, session or route handling. Allowed `OPTIONS` requests answer `204`. Local served origins, the enabled development frontend and explicit remote origins are approved; `ARCO_ALLOWED_ORIGINS` configures additional complete HTTP(S) origins. Host wildcards do not widen browser approval.
-- **Session cookie required** on every `/api/*` route and `/upload` (`401 { "error": "Session required" }` otherwise) - see cookie. Exempt: `/api/session`, the agent tool surface (`/api/clusters/:id/peer/<op>`, the exact plan methods listed below), the `/api/preview/<wfid>/...` proxy, `/api/app/version` (a page whose session ended with a restart uses it to notice the new server), and `/healthz` / `/health` / `/readyz`. Routes handled in their own modules (utility agent, tidy, smart pickup, notification channels) are behind the gate like the rest.
+- **Session cookie required** on every `/api/*` route and `/upload` (`401 { "error": "Session required" }` otherwise) - see cookie. Exempt: `/api/session`, the agent tool surface (`/api/clusters/:id/peer/<op>`, the exact plan methods listed below), `/api/app/version` (a page whose session ended with a restart uses it to notice the new server), and `/healthz` / `/health` / `/readyz`. Routes handled in their own modules (utility agent, tidy, smart pickup, notification channels) are behind the gate like the rest.
 - **Plan tool exceptions are method-specific:** `GET /api/plans`, `POST /api/plans`, `POST /api/plans/attach`, `GET /api/plans/refs`, `PUT /api/plans/refs` and `GET /api/plans/refs/body`. Other plan methods require the operator session, including body replacement, completion and deletion. Nearby paths do not inherit an exemption. Query parameters do not change the method/path decision.
 - **Canonical paths only.** A request path with a `.` or `..` segment (also written `%2e`), a backslash, a leading `//` or an absolute-form URL is refused with `400 { "error": "Bad request path" }` before the origin and session checks (`isCanonicalRequestPath` in `server/src/http/wsAuth.ts`). Browsers never send these forms; refusing them keeps the checks and the routes reading one path.
 - Unmatched requests fall through (in order) to the Referer-based preview fallback, the prod static client serve, then `404`.
@@ -2145,20 +2145,15 @@ the commits-LIST route (`/commits`, `rest.length === 1`).
 
 ## Preview proxy
 
-### `ANY /api/preview/<wfid>/<rest>`
+### `POST /api/preview/lease/<wfid>`
 
-Per-workflow proxy onto the dev server bound for `<wfid>` via `set_preview_port`. Forwards every request (including `WS upgrade` for HMR) to `127.0.0.1:<port>` with the original `<rest>` as the upstream path.
+Requires the browser session and an approved Origin. Opens a separate listener for the workflow's bound backend. Returns `{ id, port, capability }`. Only registered workflows with a current preview backend qualify. The control listener never forwards preview content or live-reload upgrades.
 
-- Returns `503 Preview backend not configured` if the workflow has no port bound.
-- Returns `502` on upstream connection error.
-- Strips hop-by-hop headers (RFC 7230: `connection`, `keep-alive`, `transfer-encoding`, etc.) before forwarding both directions.
-- Sets `cache-control: no-store, must-revalidate` and `connection: close` on the response, drops `etag` - together these stop Firefox from caching transient empty-MIME failures (e.g. when a port isn't bound yet) and from misaligning module response boundaries on parallel keep-alive fetches.
-- Two entry paths handle the same target:
-  1. **Explicit prefix** - URLs starting with `/api/preview/<wfid>/` (matched by `PREFIX_RE`).
-  2. **Referer fallback** - any unmatched request whose Referer points back to a `/api/preview/<wfid>/` page. Allowed only at the last-chance fallback in `server/src/http/router.ts`, after every Arco route (a stale iframe Referer hijacking a legitimate Arco API request from another tab would be a real bug - the explicit-prefix-first ordering is what prevents it).
-- The Vite dev server at port 5173 has a companion `^/.*` proxy entry in `client/vite.config.ts` that detects sub-resources from the iframe (Vite emits absolute paths like `/src/main.ts` and `/@vite/client` that would otherwise hit Arco's own client tree) and rewrites them with the explicit prefix before forwarding to the server. The bypass uses a TTL "bless map" so transitive imports - sub-modules whose Referer is the importing module rather than the iframe URL - also resolve to the right wfid.
+The client opens `/.arco-preview?cap=<capability>` on the returned port. This small landing page requires the issuing workbench's Referer, installs an HttpOnly preview cookie, and replaces itself with `/`. Each listener forwards only its workflow's backend. Arco cookies and Authorization are removed upstream; upstream Arco Set-Cookie headers are discarded. Cross-preview HTTP and WebSocket requests fail even though the browser shares cookies across ports. Service-worker registration is refused.
 
-WebSocket upgrades on the same prefix proxy to the dev server's WS too - keeps Vite/HMR working across the tunnel.
+`POST /api/preview/lease/<wfid>?id=<id>` renews that observer's lease. `DELETE` releases it. The client renews every minute; leases expire after three minutes without renewal. Multiple observers share one workflow listener. Its last observer closing, expiry, unbinding or workflow removal releases it. Unknown or expired renewal returns 410. Allocation errors return 409 and explain PREVIEW PORTS.
+
+The default range is 4300-4309, overridden by global `previewPorts` or `ARCO_PREVIEW_PORTS`. New listeners use the current range and `ARCO_HOST`; existing listeners keep their ports. Occupied ports, Arco's control and development frontend ports, and configured browser-origin ports are skipped. See [remote preview access](REMOTE_MANAGEMENT.md#preview-ports-and-firewalls).
 
 ### `GET /api/preview/probe?port=<n>`
 

@@ -286,7 +286,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'preview.port': {
     title: 'PREVIEW · PORT',
-    body: <p>Type the dev-server port and press Enter or click <C>BIND</C>. Vite defaults to 5173, Next 3000, Astro 4321.</p>,
+    body: <p>Type the dev-server port and press Enter or click <C>BIND</C>. The app opens on a separate preview address shown in the panel. Each open preview takes one port from PREVIEW PORTS in Settings, normally 4300-4309. Remote access needs that range forwarded and allowed through the firewall. Vite defaults to 5173, Next 3000, Astro 4321.</p>,
     manualSection: 'preview-tab',
   },
   // ------------------------------------------------- RUNTIME RECOVERY (§C2)
@@ -337,12 +337,12 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'preview.open': {
     title: 'PREVIEW · OPEN',
-    body: <p>Open the preview in a new browser tab: useful for full-window viewing.</p>,
+    body: <p>Open the separate preview address in a new browser tab for full-window viewing. Keep PREVIEW open in Arco to retain its port. Previews cannot use Arco controls. If no port is free, close another preview or change PREVIEW PORTS in Settings.</p>,
     manualSection: 'preview-tab',
   },
   'preview.unbind': {
     title: 'PREVIEW · UNBIND',
-    body: <p>Removes the port binding and hides the live view. Automatic detection can bind again the next time the agent starts a dev server.</p>,
+    body: <p>Removes the port binding, hides the live view and releases the preview listener when its last view closes. Automatic detection can bind again the next time the agent starts a dev server.</p>,
     manualSection: 'preview-tab',
   },
   'preview.verify': {

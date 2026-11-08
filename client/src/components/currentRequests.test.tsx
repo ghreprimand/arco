@@ -150,6 +150,7 @@ test('B156: history advances the server cursor through pages without narrative r
 
 test('B160: preview fit uses layout dimensions under root zoom',async()=>{
   const f=await fixture();let resize:()=>void=noop;
+  g.fetch=async()=>({ok:true,json:async()=>({id:'fixture-lease',port:4300,capability:'fixture-access'})});
   const old=Object.getOwnPropertyDescriptor(g,'ResizeObserver');
   g.ResizeObserver=class{constructor(fn:()=>void){resize=fn;}observe(){}disconnect(){}};
   f.dom.window.HTMLElement.prototype.getBoundingClientRect=function(){return {width:900,height:600} as DOMRect;};
@@ -162,6 +163,34 @@ test('B160: preview fit uses layout dimensions under root zoom',async()=>{
     const iframe=document.querySelector('iframe')!;assert.ok(iframe);
     const box=iframe.parentElement!; assert.ok(parseFloat(box.style.width)<=600,box.style.cssText);assert.ok(parseFloat(box.style.height)<=400,box.style.cssText);
   }finally{if(old)Object.defineProperty(g,'ResizeObserver',old);else delete g.ResizeObserver;await f.close();}
+});
+
+test('L02: a late preview acquisition releases only its original workflow',async()=>{
+  const f=await fixture();const pending:any[]=[];const released:string[]=[];
+  const old=Object.getOwnPropertyDescriptor(g,'ResizeObserver');g.ResizeObserver=class{observe(){}disconnect(){}};
+  Object.defineProperty(f.dom.window.HTMLElement.prototype,'clientWidth',{get:()=>600});
+  Object.defineProperty(f.dom.window.HTMLElement.prototype,'clientHeight',{get:()=>400});
+  g.fetch=(url:string,init:any)=>{if(init.method==='DELETE'){released.push(url);return Promise.resolve({ok:true});}return new Promise(resolve=>pending.push(resolve));};
+  try{
+    const {PreviewTab}=await component('./PreviewTab.tsx');
+    const job=(id:string)=>({id,config:{workingDirectory:'/projects/fixture'},preview:{port:5173},messages:[]});
+    await f.render(PreviewTab,{job:job('first')});await f.render(PreviewTab,{job:job('second')});
+    await act(async()=>pending[0]({ok:true,json:async()=>({id:'first-lease',port:4300,capability:'first-access'})}));
+    assert.deepEqual(released,['/api/preview/lease/first?id=first-lease']);assert.equal(document.querySelector('iframe'),null);
+    await act(async()=>pending[1]({ok:true,json:async()=>({id:'second-lease',port:4301,capability:'second-access'})}));
+    assert.match(document.querySelector('iframe')!.src,/:4301\//);
+    await f.unmount();assert.deepEqual(released,['/api/preview/lease/first?id=first-lease','/api/preview/lease/second?id=second-lease']);
+  }finally{if(old)Object.defineProperty(g,'ResizeObserver',old);else delete g.ResizeObserver;await f.close();}
+});
+
+test('L02: exhausted preview ports show the range and setting without losing the binding',async()=>{
+  const f=await fixture();g.fetch=async()=>({ok:false,json:async()=>({error:'No preview port is free in 4300-4309. Close another preview or change PREVIEW PORTS in Settings.'})});
+  try{
+    const {PreviewTab}=await component('./PreviewTab.tsx');
+    await f.render(PreviewTab,{job:{id:'fixture',config:{workingDirectory:'/projects/fixture'},preview:{port:5173},messages:[]}});
+    assert.match(document.body.textContent!,/No preview port is free in 4300-4309/);assert.match(document.body.textContent!,/PREVIEW PORTS/);
+    assert.doesNotMatch(document.body.textContent!,/No port bound/);assert.equal(document.querySelector('iframe'),null);
+  }finally{await f.close();}
 });
 
 test('B161: cluster preview actions dispatch to the member in view',async()=>{

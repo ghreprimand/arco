@@ -35,12 +35,7 @@ const CAPTURE_VIEWPORTS: PreviewViewport[] = ['desktop', 'tablet', 'mobile'];
 const VIEWPORT_LABEL: Record<PreviewViewport, string> = { desktop: 'DESKTOP', tablet: 'TABLET', mobile: 'MOBILE' };
 const VIEWPORT_STORAGE_KEY = 'arco.preview.captureViewport';
 
-// Live preview of the workflow's dev server. Operator types a port; iframe
-// loads /api/preview/<workflowId>/, which the server proxies to
-// 127.0.0.1:<port>. Survives reconnects via meta.json (server replays a
-// preview_set on hydrate). HMR works because the server upgrade handler
-// forwards WS to the same backend; no per-project base-url config required —
-// the Referer-based fallback in previewProxy.ts catches absolute paths.
+// The browser uses a separate preview listener with a short-lived lease.
 interface Props {
   job: JobState;
   onSetPort?: (port: number, framework?: string) => void;
@@ -106,7 +101,42 @@ export function PreviewTab({ job, onSetPort, onClear, onCapture, onReviewCapture
     setComposerDraft(job.id, current.trim() ? `${current.trimEnd()}\n\n${seed}` : seed);
   };
 
-  const src = preview?.port ? `/api/preview/${job.id}/` : null;
+  const [leaseView, setLeaseView] = useState<{ workflow: string; backend: number; src: string; address: string } | null>(null);
+  const [leaseError, setLeaseError] = useState('');
+  useEffect(() => {
+    setLeaseView(null); setLeaseError('');
+    if (!preview?.port) return;
+    let cancelled = false;
+    let id: string | undefined;
+    let renewing = false;
+    const endpoint = `/api/preview/lease/${encodeURIComponent(job.id)}`;
+    const release = (leaseId: string) => void fetch(`${endpoint}?id=${encodeURIComponent(leaseId)}`, { method: 'DELETE', keepalive: true }).catch(() => {});
+    void (async () => {
+      try {
+        const response = await fetch(endpoint, { method: 'POST' });
+        const result = await response.json() as { id?: string; port?: number; capability?: string; error?: string };
+        if (!response.ok || !result.id || !result.port || !result.capability) throw new Error(result.error ?? 'Could not open PREVIEW.');
+        id = result.id;
+        if (cancelled) { release(id); return; }
+        const url = new URL(window.location.origin); url.port = String(result.port);
+        const address = url.origin;
+        url.pathname = '/.arco-preview'; url.searchParams.set('cap', result.capability);
+        setLeaseView({ workflow: job.id, backend: preview.port, src: url.toString(), address });
+      } catch (error) { if (!cancelled) setLeaseError((error as Error).message); }
+    })();
+    const timer = window.setInterval(() => {
+      if (!id || renewing || cancelled) return;
+      renewing = true;
+      void fetch(`${endpoint}?id=${encodeURIComponent(id)}`, { method: 'POST' }).then(response => {
+        if (!response.ok && !cancelled) { setLeaseView(null); setLeaseError('Preview access expired. Close and reopen PREVIEW.'); }
+      }).catch(() => {}).finally(() => { renewing = false; });
+    }, 60_000);
+    const unload = () => { if (id) release(id); };
+    window.addEventListener('pagehide', unload);
+    return () => { cancelled = true; clearInterval(timer); window.removeEventListener('pagehide', unload); if (id) release(id); };
+  }, [job.id, preview?.port]);
+  const currentLease = leaseView?.workflow === job.id && leaseView.backend === preview?.port ? leaseView : null;
+  const src = currentLease?.src ?? null;
 
   // Compute the largest box of the active aspect ratio that fits in the
   // available pane, then derive the scale needed to fit a LOGICAL_W × logicalH
@@ -292,7 +322,8 @@ export function PreviewTab({ job, onSetPort, onClear, onCapture, onReviewCapture
           <a
             href={src}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener"
+            referrerPolicy="origin"
             style={{ ...tabBtnStyle(false), textDecoration: 'none', display: 'inline-block' }}
             title="Open preview in a new tab"
             data-help="preview.open"
@@ -510,6 +541,7 @@ export function PreviewTab({ job, onSetPort, onClear, onCapture, onReviewCapture
         </div>
       )}
 
+      {currentLease && <div data-help="preview.open" style={{ fontSize: 11, overflowWrap: 'anywhere' }}>{currentLease.address}</div>}
       {src ? (
         // Fit-to-pane 4:3 viewport. The iframe is given a fixed logical
         // viewport (LOGICAL_W × logicalH) so the inner app lays out as on a
@@ -542,6 +574,7 @@ export function PreviewTab({ job, onSetPort, onClear, onCapture, onReviewCapture
                 key={iframeReactKey}
                 ref={iframeRef}
                 src={src}
+                referrerPolicy="origin"
                 title="Workflow dev-server preview"
                 sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
                 style={{
@@ -570,8 +603,9 @@ export function PreviewTab({ job, onSetPort, onClear, onCapture, onReviewCapture
             lineHeight: 1.6,
           }}
         >
-          No port bound. Type the dev-server port (e.g. 5173 for Vite, 3000 for Next) and hit BIND.
-          The iframe loads through Arco's proxy so HMR keeps working over the same WebSocket origin.
+          {!preview?.port && 'No port bound. Type the dev-server port (e.g. 5173 for Vite, 3000 for Next) and hit BIND. '}
+          {leaseError || (preview?.port ? 'Opening the separate preview address...' : 'Bind a running app to open its separate preview address.')}
+          {currentLease && <span>{currentLease.address}</span>}
         </div>
       )}
 

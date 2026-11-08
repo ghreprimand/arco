@@ -73,6 +73,8 @@ export interface ProviderAccountsConfig {
 }
 
 export interface ArcoSettings {
+  // Separate preview listeners; new previews only. Environment may override.
+  previewPorts?: string;
   // One provider and model for utility jobs (BRIEF and similar side jobs).
   // Absent until the operator chooses; never selected silently.
   utilityAgent?: import('./utilityAgent.js').UtilityAgent;
