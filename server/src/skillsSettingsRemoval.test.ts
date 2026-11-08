@@ -7,7 +7,7 @@ import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
 
 const root = mkdtempSync(join(tmpdir(), 'arco-old-skill-settings-'));
 installIsolatedTestHome(root);
-const state = join(root, 'home', '.arco'); mkdirSync(state, { recursive: true });
+const state = join(root, 'state'); mkdirSync(state, { recursive: true });
 after(() => rmSync(root, { recursive: true, force: true }));
 
 test('obsolete extra skill paths do not survive settings reads or unrelated patches', async () => {

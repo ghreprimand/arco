@@ -30,6 +30,7 @@ import {
 } from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
+import { assertTestHomeSafe } from './arcoHome.js';
 
 // On Windows a rename over a file that another handle has open (a reader, a
 // virus scanner, the indexer, or a concurrent writer's own rename) fails with
@@ -94,6 +95,7 @@ export async function atomicWriteFile(
   contents: string | Buffer,
   opts: AtomicWriteOptions = {},
 ): Promise<void> {
+  assertTestHomeSafe(filePath);
   const { durability = 'durable', mode, skipMkdir = false } = opts;
   if (!skipMkdir) await fs.mkdir(path.dirname(filePath), { recursive: true });
 
@@ -167,6 +169,7 @@ export function atomicWriteFileSync(
   contents: string | Buffer,
   opts: AtomicWriteOptions = {},
 ): void {
+  assertTestHomeSafe(filePath);
   const { durability = 'durable', mode, skipMkdir = false } = opts;
   if (!skipMkdir) mkdirSync(path.dirname(filePath), { recursive: true });
 

@@ -33,7 +33,7 @@ try {
   writeFileSync(gitConfig, '');
   const env = {
     PATH: [binaries, dirname(process.execPath), process.env.PATH ?? ''].join(delimiter),
-    HOME: home, TMPDIR: temporary, TMP: temporary, TEMP: temporary,
+    HOME: home, ARCO_HOME: join(sandbox, 'state'), TMPDIR: temporary, TMP: temporary, TEMP: temporary,
     XDG_CONFIG_HOME: join(home, '.config'), XDG_DATA_HOME: join(home, '.local/share'),
     XDG_CACHE_HOME: join(home, '.cache'), CODEX_HOME: join(home, '.codex'),
     CLAUDE_CONFIG_DIR: join(home, '.claude'),

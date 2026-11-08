@@ -13,6 +13,7 @@ const project = path.join(fixture, 'mount', 'project');
 const outside = path.join(fixture, 'media');
 const customProvider = path.join(fixture, 'provider');
 for (const dir of [home, project, outside, customProvider, path.join(home, '.codex')]) mkdirSync(dir, { recursive: true });
+process.env.ARCO_HOME = path.join(fixture, 'state');
 process.env.HOME = home;
 process.env.USERPROFILE = home;
 process.env.CODEX_HOME = customProvider;
@@ -180,7 +181,7 @@ test('raw media HTTP grants are global, finite, Range-capable and immediately re
 });
 
 test('runtime aliases and scratch aliases cannot authorize account state', async () => {
-  const runtime = path.join(home, '.arco');
+  const runtime = process.env.ARCO_HOME!;
   const moved = path.join(fixture, 'runtime-volume');
   file(path.join(runtime, 'provider-accounts', 'fixture', 'session.txt'));
   renameSync(runtime, moved);

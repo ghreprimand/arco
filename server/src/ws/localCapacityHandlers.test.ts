@@ -9,7 +9,7 @@ import { test } from 'node:test';
 
 const home = mkdtempSync(join(tmpdir(), 'arco-local-capacity-handlers-'));
 process.env.HOME = home;
-process.env.ARCO_HOME = join(home, '.arco');
+process.env.ARCO_HOME = join(home, 'test-state');
 delete process.env.ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL;
 
 test('local capacity is enforced on from-scratch create, add, add fresh and replace', async () => {

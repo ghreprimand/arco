@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 const home = mkdtempSync(join(tmpdir(), 'arco-endpoint-reset-'));
-process.env.ARCO_HOME = join(home, '.arco');
+process.env.ARCO_HOME = join(home, 'test-state');
 test('B149: explicit endpoint clearing survives reread and keeps unrelated options', async () => {
   try {
     const { patchSettings, readSettings } = await import('./settings.js');

@@ -7,7 +7,7 @@ import { test } from 'node:test';
 
 const home = mkdtempSync(join(tmpdir(), 'arco-add-fresh-identity-'));
 process.env.HOME = home;
-process.env.ARCO_HOME = join(home, '.arco');
+process.env.ARCO_HOME = join(home, 'test-state');
 
 test('ADD FRESH applies the chosen name and role and names unnamed workers after the role', async () => {
   const store = await import('../clusterStore.js');

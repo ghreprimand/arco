@@ -92,7 +92,7 @@ test('import from a zip: one top-level folder, stored and deflated entries; unsa
   assert.deepEqual(preview.source, { kind: 'zip', name: 'tidy.zip' });
   const cwd = project();
   await m.confirmImport(preview.token, 'global', cwd);
-  assert.ok(existsSync(join(root, 'home', '.arco', 'skills', 'tidy', 'notes', 'extra.md')));
+  assert.ok(existsSync(join(root, 'state', 'skills', 'tidy', 'notes', 'extra.md')));
   for (const [name, entries, error] of [
     ['escape', [{ name: 'SKILL.md', data: SKILL('E') }, { name: '../evil.md', data: 'x' }], /Refused path/],
     ['absolute', [{ name: 'SKILL.md', data: SKILL('E') }, { name: '/etc/evil', data: 'x' }], /Refused path/],
@@ -184,11 +184,11 @@ test('MOVE and DUPLICATE keep every file; a duplicate gets the new name and no s
   const moved = await m.moveSkill('project', imported.slug, cwd, 'global');
   assert.equal(moved.scope, 'global');
   assert.equal(existsSync(join(cwd, '.arco', 'skills', imported.slug)), false);
-  const gdir = join(root, 'home', '.arco', 'skills', moved.slug);
+  const gdir = join(root, 'state', 'skills', moved.slug);
   assert.equal(readFileSync(join(gdir, 'ref', 'a.md'), 'utf8'), 'A\n');
   assert.equal(JSON.parse(readFileSync(join(gdir, '.arco-skill.json'), 'utf8')).source.kind, 'folder');
   const dup = await m.duplicateSkill('global', moved.slug, cwd, 'Mover variant');
-  const ddir = join(root, 'home', '.arco', 'skills', dup.slug);
+  const ddir = join(root, 'state', 'skills', dup.slug);
   assert.match(readFileSync(join(ddir, 'SKILL.md'), 'utf8'), /name: "Mover variant"/);
   assert.equal(readFileSync(join(ddir, 'ref', 'a.md'), 'utf8'), 'A\n');
   assert.equal(existsSync(join(ddir, '.arco-skill.json')), false);

@@ -14,7 +14,7 @@ import { homedir } from 'os';
 import type { LlamacppModelDef } from '@arco/shared';
 import { createHash } from 'node:crypto';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
-import { arcoHome } from './arcoHome.js';
+import { arcoHome, assertTestHomeSafe } from './arcoHome.js';
 
 const CATALOG_PATH = path.join(arcoHome(), 'llamacpp.json');
 
@@ -50,6 +50,7 @@ const BOOTSTRAP: string = JSON.stringify({
 }, null, 2) + '\n';
 
 export async function ensureCatalog(): Promise<void> {
+  assertTestHomeSafe(CATALOG_PATH);
   await fs.mkdir(path.dirname(CATALOG_PATH), { recursive: true });
   try {
     await fs.stat(CATALOG_PATH);

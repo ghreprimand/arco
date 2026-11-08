@@ -18,6 +18,7 @@ import os from 'os';
 // dir BEFORE the module loads so the test never touches the operator's index.
 const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-meta-home-'));
 process.env.HOME = fakeHome;
+process.env.ARCO_HOME = path.join(fakeHome, 'test-state');
 const metaMod = await import('./workflowMeta.js');
 const { readMeta, writeMeta, updateMeta, setResolvedModelId, appendCliSession, touchLastActive } = metaMod;
 type WorkflowMeta = import('./workflowMeta.js').WorkflowMeta;

@@ -8,7 +8,7 @@ import { Readable } from 'node:stream';
 
 const home = mkdtempSync(join(tmpdir(), 'arco-director-handler-'));
 process.env.HOME = home;
-process.env.ARCO_HOME = join(home, '.arco');
+process.env.ARCO_HOME = join(home, 'test-state');
 
 test('creation, preset save and concurrent role changes reject a second director', async () => {
   const store = await import('../clusterStore.js');

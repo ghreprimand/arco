@@ -16,8 +16,9 @@ mkdirSync(join(scan, 'alpha'), { recursive: true });
 mkdirSync(join(scan, 'beta'));
 mkdirSync(join(outside, 'client-site'), { recursive: true });
 writeFileSync(join(outside, 'client-site', 'notes.txt'), 'synthetic');
-mkdirSync(join(home, '.arco'), { recursive: true });
+mkdirSync(join(home, 'test-state'), { recursive: true });
 // Module-level paths (settings, recent-cwd registry) read HOME at import.
+process.env.ARCO_HOME = join(home, 'test-state');
 process.env.HOME = home;
 process.env.USERPROFILE = home;
 
@@ -43,14 +44,14 @@ async function call(method: string, path: string, body?: unknown): Promise<{ sta
 }
 const list = async () => (await call('GET', '/api/projects')).json;
 const find = (l: List, p: string) => l.projects.find((x) => x.path === p);
-const settingsProjects = () => JSON.parse(readFileSync(join(home, '.arco', 'settings.json'), 'utf8')).projects as string[] | undefined;
+const settingsProjects = () => JSON.parse(readFileSync(join(home, 'test-state', 'settings.json'), 'utf8')).projects as string[] | undefined;
 
 test('scanned folders stay transient until explicitly kept, then retain stable identity', async () => {
   const { patchSettings } = await import('./settings.js');
   await patchSettings({ defaultWorkingDirectory: scan, projectRoots: [{ name: 'Projects', path: scan }] });
   const discovered = await list();
   assert.equal(find(discovered, join(scan, 'alpha'))?.id, undefined);
-  assert.equal(existsSync(join(home, '.arco', 'projects.json')), false);
+  assert.equal(existsSync(join(home, 'test-state', 'projects.json')), false);
   await call('POST', '/api/projects', { path: join(scan, 'alpha') });
   const first = await list();
   assert.equal(first.organization, true);
@@ -59,7 +60,7 @@ test('scanned folders stay transient until explicitly kept, then retain stable i
   assert.ok(alpha?.id && alpha.source === 'registered' && alpha.exists && alpha.name === 'alpha' && alpha.derivedName === 'alpha');
   const second = await list();
   assert.deepEqual(second.projects.map((p) => [p.path, p.id]), first.projects.map((p) => [p.path, p.id]));
-  const store = JSON.parse(readFileSync(join(home, '.arco', 'projects.json'), 'utf8'));
+  const store = JSON.parse(readFileSync(join(home, 'test-state', 'projects.json'), 'utf8'));
   assert.equal(store.version, 1);
   assert.equal(store.records.length, 1);
 });
@@ -80,7 +81,7 @@ test('rename, pin and archive change only metadata and can be undone', async () 
 });
 
 test('the filesystem root, the home folder and chat storage cannot become projects', async () => {
-  for (const path of ['/', home, join(home, '.arco', 'chats')]) {
+  for (const path of ['/', home, join(home, 'test-state', 'chats')]) {
     if (path.includes('chats')) mkdirSync(path, { recursive: true });
     const res = await call('POST', '/api/projects', { path });
     assert.equal(res.status, 400, path);
@@ -145,7 +146,7 @@ test('a recently used folder that moved can be relocated without a duplicate ent
   const oldPath = join(outside, 'scratchpad');
   const newPath = join(outside, 'scratchpad-moved');
   mkdirSync(oldPath);
-  writeFileSync(join(home, '.arco', 'known-cwds.json'), JSON.stringify([oldPath]));
+  writeFileSync(join(home, 'test-state', 'known-cwds.json'), JSON.stringify([oldPath]));
   const recent = find(await list(), oldPath)!;
   assert.equal(recent.source, 'recent');
   renameSync(oldPath, newPath);
@@ -153,11 +154,11 @@ test('a recently used folder that moved can be relocated without a duplicate ent
   assert.equal(moved.status, 200, moved.json.error);
   assert.deepEqual([find(moved.json, newPath)?.id, find(moved.json, newPath)?.source], [recent.id, 'registered']);
   assert.equal(find(moved.json, oldPath), undefined);
-  assert.deepEqual(JSON.parse(readFileSync(join(home, '.arco', 'known-cwds.json'), 'utf8')), [oldPath], 'the recent-cwd registry is not rewritten');
+  assert.deepEqual(JSON.parse(readFileSync(join(home, 'test-state', 'known-cwds.json'), 'utf8')), [oldPath], 'the recent-cwd registry is not rewritten');
 });
 
 test('an unreadable record store is left alone: projects still list, organizing is refused', async () => {
-  const file = join(home, '.arco', 'projects.json');
+  const file = join(home, 'test-state', 'projects.json');
   const good = readFileSync(file, 'utf8');
   writeFileSync(file, '{"version":1,"records":[');
   try {

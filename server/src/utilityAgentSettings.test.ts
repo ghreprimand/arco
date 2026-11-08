@@ -5,9 +5,10 @@ import { join } from 'node:path';
 import { after, test } from 'node:test';
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), 'arco-utility-settings-')));
+process.env.ARCO_HOME = join(home, 'test-state');
 process.env.HOME = home;
 process.env.USERPROFILE = home;
-mkdirSync(join(home, '.arco'));
+mkdirSync(join(home, 'test-state'));
 after(() => rmSync(home, { recursive: true, force: true }));
 
 test('the utility agent is unset by default, kept across other patches, replaced whole and cleared by null', async () => {

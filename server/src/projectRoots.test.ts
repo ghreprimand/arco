@@ -7,9 +7,10 @@ import { after, test } from 'node:test';
 const sandbox = realpathSync(mkdtempSync(join(tmpdir(), 'arco-roots-')));
 const home = join(sandbox, 'home'), work = join(sandbox, 'work'), personal = join(sandbox, 'personal');
 const app = join(work, 'app'), nested = join(work, 'team'), tool = join(nested, 'tool');
-for (const folder of [join(home, '.arco'), app, tool, join(personal, 'notes')]) mkdirSync(folder, { recursive: true });
+for (const folder of [join(home, 'test-state'), app, tool, join(personal, 'notes')]) mkdirSync(folder, { recursive: true });
+process.env.ARCO_HOME = join(home, 'test-state');
 process.env.HOME = home; process.env.USERPROFILE = home;
-const settingsFile = join(home, '.arco', 'settings.json');
+const settingsFile = join(home, 'test-state', 'settings.json');
 after(() => rmSync(sandbox, { recursive: true, force: true }));
 
 test('legacy roots migrate once, browser changes stay independent, explicit empty survives every patch', async () => {

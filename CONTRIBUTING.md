@@ -181,6 +181,15 @@ Anything failing `tsc` fails the workspace's `build`. The `ClientMessage` / `Ser
 
 ### Unit tests
 
+`npm run test:unit` supplies a temporary `HOME` and a separate temporary
+`ARCO_HOME`. Single-file tests must do the same before importing runtime
+modules. `installIsolatedTestHome(root)` in `server/src/testSupport/isolatedHome.ts`
+sets both for fixtures. Tests refuse the default home, paths inside it and
+symlink aliases, even when `ARCO_HOME` explicitly names them. Node's test-runner
+context, test entry filenames and a loaded `node:test` detect test execution;
+`NODE_ENV` alone does not. Atomic writers also check cached paths when writing,
+so importing a store before the fixture setup cannot bypass that check.
+
 Pure-logic modules ship a co-located `*.test.ts` run under the Node built-in runner: `node --conditions development --import tsx --test <file>`. Each is wired as a `test:<name>` script (root `package.json` + `server/package.json`), e.g. `npm run test:cursor-models`. Convention: add a co-located test for each new deterministic parser, budgeter, or matcher. Run the relevant `test:*` script and `npm run typecheck`; run the aggregate unit suite with `npm run test:unit`.
 
 ---

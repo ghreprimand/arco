@@ -15,7 +15,7 @@ import { test } from 'node:test';
 
 const home = mkdtempSync(join(tmpdir(), 'arco-member-creation-'));
 process.env.HOME = home;
-process.env.ARCO_HOME = join(home, '.arco');
+process.env.ARCO_HOME = join(home, 'test-state');
 
 const TEMPLATE = { name: 'Lead', primaryModel: 'sonnet', primaryEffort: 'high', autoCompaction: { enabled: true, thresholdPercent: 70 }, resumeSessionId: 'old-session', resumeWorkflowId: 'old-wf', researchSpawnToken: 'r', templateSpawnToken: 't', providerAccountRef: 'acct-1', claudeTransport: 'cli', ultracode: true, skipPermissions: false, efficiencyToolFilter: 'aggressive' };
 // The template's settings a new member keeps in every template-based path.

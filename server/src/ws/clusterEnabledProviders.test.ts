@@ -8,7 +8,7 @@ import { Readable } from 'node:stream';
 
 const home = mkdtempSync(join(tmpdir(), 'arco-cluster-enabled-'));
 process.env.HOME = home;
-process.env.ARCO_HOME = join(home, '.arco');
+process.env.ARCO_HOME = join(home, 'test-state');
 
 test('cluster admission rejects disabled providers before creating or changing members', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'arco-cluster-project-'));

@@ -6,7 +6,7 @@ import { test } from 'node:test';
 
 const home = mkdtempSync(join(tmpdir(), 'arco-local-capacity-'));
 process.env.HOME = home;
-process.env.ARCO_HOME = join(home, '.arco');
+process.env.ARCO_HOME = join(home, 'test-state');
 delete process.env.ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL;
 
 test('server refusal follows saved capacity, ignores changes without local members and honors the env override', async () => {
@@ -25,9 +25,9 @@ test('server refusal follows saved capacity, ignores changes without local membe
     await patchSettings({ localClusterCapacity: { llamacpp: 2 } });
     await patchSettings({ localClusterCapacity: { ollama: 99 } as never });
     assert.deepEqual((await readSettings()).localClusterCapacity, { ollama: 3, llamacpp: 2 });
-    assert.deepEqual(JSON.parse(readFileSync(join(home, '.arco', 'settings.json'), 'utf8')).localClusterCapacity, { ollama: 3, llamacpp: 2 });
+    assert.deepEqual(JSON.parse(readFileSync(join(home, 'test-state', 'settings.json'), 'utf8')).localClusterCapacity, { ollama: 3, llamacpp: 2 });
     // A hand-edited out-of-range value reads as the default.
-    writeFileSync(join(home, '.arco', 'settings.json'), JSON.stringify({ localClusterCapacity: { ollama: 0, llamacpp: '4' } }));
+    writeFileSync(join(home, 'test-state', 'settings.json'), JSON.stringify({ localClusterCapacity: { ollama: 0, llamacpp: '4' } }));
     assert.equal((await readSettings()).localClusterCapacity, undefined);
     assert.match(await localCapacityRefusal(['ollama', 'ollama'], ['ollama']) ?? '', /allows 1 at once/);
     process.env.ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL = '1';

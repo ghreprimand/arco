@@ -7,14 +7,16 @@ import type { AddressInfo } from 'node:net';
 import { after, before, test } from 'node:test';
 
 const root=mkdtempSync(join(tmpdir(),'arco-connections-'));
-const home=join(root,'home');mkdirSync(join(home,'.arco'),{recursive:true});
+const home=join(root,'home');
+const state=join(root,'state');mkdirSync(state,{recursive:true});
+process.env.ARCO_HOME=state;
 process.env.HOME=home;
 process.env.USERPROFILE=home;
 process.env.ARCO_DEPLOYMENT='docker';
 for(const key of ['ANTHROPIC_API_KEY','OPENAI_API_KEY','GEMINI_API_KEY','GOOGLE_API_KEY'])delete process.env[key];
 let server:Server, model:Server, base:string;
 const requested:string[]=[];
-const settings=join(home,'.arco','settings.json');
+const settings=join(state,'settings.json');
 before(async()=>{
   model=createServer((req,res)=>{requested.push(req.url!);res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({models:[{name:'synthetic-model',details:{family:'test'}}]}));});
   await new Promise<void>(resolve=>model.listen(0,'127.0.0.1',resolve));
@@ -29,7 +31,7 @@ after(async()=>{
   rmSync(root,{recursive:true,force:true});
 });
 test('catalog reads metadata without probing an endpoint or reading retired secrets',async()=>{
-  writeFileSync(join(home,'.arco','provider-secrets.json'),JSON.stringify({ zaiApiKey: '!false' }));
+  writeFileSync(join(state,'provider-secrets.json'),JSON.stringify({ zaiApiKey: '!false' }));
   const res=await fetch(base+'/api/connections');const body=await res.json();
   assert.equal(res.status,200);assert.equal(res.headers.get('cache-control'),'no-store');
   assert.equal(body.providers.length,9);assert.deepEqual(requested,[]);
@@ -46,7 +48,7 @@ test('only an explicit supported check reaches the selected fixture runtime',asy
   const res=await fetch(base+'/api/connections/check?provider=ollama',{method:'POST'});
   const body=await res.json();assert.equal(res.status,200);assert.equal(body.provider,'ollama');assert.equal(body.status.loggedIn,true);
   assert.ok(body.status.installedModels.includes('synthetic-model'));
-  assert.equal(JSON.parse(readFileSync(join(home, '.arco', 'settings.json'), 'utf8')).providerConfirmed, true);
+  assert.equal(JSON.parse(readFileSync(join(state, 'settings.json'), 'utf8')).providerConfirmed, true);
   assert.ok(requested.length>0 && requested.every(p=>p==='/api/tags' || p==='/api/show'),'only model metadata is queried; no inference');
 });
 

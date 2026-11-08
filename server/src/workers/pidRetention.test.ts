@@ -17,7 +17,7 @@ test('unverified worker and terminal identities remain in their separate registr
     workers.retainRegisteredProcs(one); terminals.retainRegisteredTerminalProcs(two);
     assert.deepEqual(workers.readRegisteredProcs(), one);
     assert.deepEqual(terminals.readRegisteredTerminalProcs(), two);
-    const state = join(root, 'home', '.arco');
+    const state = join(root, 'state');
     assert.deepEqual(JSON.parse(readFileSync(join(state,'worker-pids.json'),'utf8')).procs, one);
     assert.deepEqual(JSON.parse(readFileSync(join(state,'terminal-pids.json'),'utf8')).procs, two);
     workers.registerWorkerPid(123, {cheap: () => 'new-worker'});

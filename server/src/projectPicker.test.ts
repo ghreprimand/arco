@@ -10,14 +10,15 @@ const systemTemp = join(sandbox, 'system-temp');
 const location = join(sandbox, 'location');
 const bookmark = join(sandbox, 'bookmark');
 const historyOnly = join(sandbox, 'history-only');
-for (const folder of [join(home, '.arco'), systemTemp, join(location, 'zeta'), join(location, 'Alpha'), bookmark, historyOnly, join(systemTemp, 'ignored')]) mkdirSync(folder, { recursive: true });
+for (const folder of [join(home, 'test-state'), systemTemp, join(location, 'zeta'), join(location, 'Alpha'), bookmark, historyOnly, join(systemTemp, 'ignored')]) mkdirSync(folder, { recursive: true });
+process.env.ARCO_HOME = join(home, 'test-state');
 process.env.HOME = home;
 process.env.USERPROFILE = home;
 process.env.TMPDIR = systemTemp;
 process.env.TMP = systemTemp;
 process.env.TEMP = systemTemp;
 writeFileSync(join(location, 'Alpha', 'package.json'), JSON.stringify({ name: 'other-name' }));
-writeFileSync(join(home, '.arco', 'known-cwds.json'), JSON.stringify([historyOnly, join(location, 'Alpha'), join(sandbox, 'missing'), join(systemTemp, 'ignored')]));
+writeFileSync(join(home, 'test-state', 'known-cwds.json'), JSON.stringify([historyOnly, join(location, 'Alpha'), join(sandbox, 'missing'), join(systemTemp, 'ignored')]));
 for (const [folder, at] of [[historyOnly, 200], [join(location, 'Alpha'), 100]] as const) {
   const metaDir = join(folder, '.arco', 'workflows', 'fixture');
   mkdirSync(metaDir, { recursive: true });

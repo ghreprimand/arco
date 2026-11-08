@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
 const home = realpathSync(mkdtempSync(join(tmpdir(), 'arco-update-settings-')));
-process.env.ARCO_HOME = join(home, '.arco');
+process.env.ARCO_HOME = join(home, 'test-state');
 process.env.HOME = home;
 process.env.USERPROFILE = home;
 after(() => rmSync(home, { recursive: true, force: true }));

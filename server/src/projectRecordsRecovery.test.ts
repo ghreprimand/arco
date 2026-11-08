@@ -12,12 +12,13 @@ import { after, before, test, mock } from 'node:test';
 
 const sandbox = realpathSync(mkdtempSync(join(tmpdir(), 'arco-project-adv-')));
 const home = join(sandbox, 'home');
-const arco = join(home, '.arco');
+const arco = join(home, 'test-state');
 const scan = join(home, 'Projects');
 const work = join(sandbox, 'work');
 mkdirSync(arco, { recursive: true });
 mkdirSync(scan, { recursive: true });
 mkdirSync(work, { recursive: true });
+process.env.ARCO_HOME = join(home, 'test-state');
 process.env.HOME = home;
 process.env.USERPROFILE = home;
 

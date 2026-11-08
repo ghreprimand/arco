@@ -5,9 +5,10 @@ import { join } from 'node:path';
 import { after, test } from 'node:test';
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), 'arco-setup-settings-')));
+process.env.ARCO_HOME = join(home, 'test-state');
 process.env.HOME = home;
 process.env.USERPROFILE = home;
-mkdirSync(join(home, '.arco'));
+mkdirSync(join(home, 'test-state'));
 after(() => rmSync(home, { recursive: true, force: true }));
 
 test('setup completion survives unrelated settings patches and cannot be reset by an old browser', async () => {
@@ -17,7 +18,7 @@ test('setup completion survives unrelated settings patches and cannot be reset b
   await patchSettings({ projects: [] });
   await patchSettings({ onboardingComplete: false });
   assert.equal((await readSettings()).onboardingComplete, true);
-  assert.equal(JSON.parse(readFileSync(join(home, '.arco', 'settings.json'), 'utf8')).onboardingComplete, true);
+  assert.equal(JSON.parse(readFileSync(join(home, 'test-state', 'settings.json'), 'utf8')).onboardingComplete, true);
 });
 
 test('default font survives settings round trips and saved choices remain intact', async () => {

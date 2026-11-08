@@ -8,9 +8,9 @@ const sandbox = realpathSync(mkdtempSync(path.join(tmpdir(), 'arco-outputs-')));
 const home = path.join(sandbox, 'home'), project = path.join(sandbox, 'mounted-project'), copies = path.join(sandbox, 'copies');
 const workflowId = '11111111-2222-4333-8444-555555555555';
 const dir = path.join(project, '.arco', 'workflows', workflowId), artifacts = path.join(dir, 'artifacts');
-for (const p of [path.join(home, '.arco'), artifacts, copies]) mkdirSync(p, { recursive: true });
-process.env.HOME = home; process.env.USERPROFILE = home; process.env.ARCO_HOME = path.join(home, '.arco');
-writeFileSync(path.join(home, '.arco', 'settings.json'), JSON.stringify({ projects: [project, copies], projectRoots: [] }));
+for (const p of [path.join(home, 'test-state'), artifacts, copies]) mkdirSync(p, { recursive: true });
+process.env.HOME = home; process.env.USERPROFILE = home; process.env.ARCO_HOME = path.join(home, 'test-state');
+writeFileSync(path.join(home, 'test-state', 'settings.json'), JSON.stringify({ projects: [project, copies], projectRoots: [] }));
 writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ name: 'Fixture producer', cwd: project }));
 const events = path.join(dir, 'events.jsonl');
 writeFileSync(events, '');
@@ -272,7 +272,7 @@ test('a home destination grant survives a server restart', async () => {
 
 test('a linked destination grant store is refused without losing the source', async () => {
   const { folder, moved, context: ctx, id: workflowId } = await movedDestinationFixture();
-  const grants = path.join(home, '.arco', 'output-destinations'), backup = grants + '.backup';
+  const grants = path.join(home, 'test-state', 'output-destinations'), backup = grants + '.backup';
   const victimDir = path.join(sandbox, 'grant-victim'); mkdirSync(victimDir);
   const victim = path.join(victimDir, 'fixture.json'); writeFileSync(victim, 'fixture');
   renameSync(grants, backup); symlinkSync(victimDir, grants, process.platform === 'win32' ? 'junction' : 'dir');

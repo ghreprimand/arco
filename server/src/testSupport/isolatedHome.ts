@@ -5,7 +5,7 @@ import { isAbsolute, join } from 'node:path';
 export function installIsolatedTestHome(root: string): void {
   if (!root || !isAbsolute(root)) throw new Error('An absolute temporary test root is required');
   const home = join(root, 'home');
-  const arcoHome = join(home, '.arco');
+  const arcoHome = join(root, 'state');
   mkdirSync(home, { recursive: true });
   process.env.HOME = home;
   process.env.USERPROFILE = home;

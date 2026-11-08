@@ -8,9 +8,9 @@ import { after, test } from 'node:test';
 const sandbox = realpathSync(mkdtempSync(path.join(tmpdir(), 'arco-output-http-')));
 const home = path.join(sandbox, 'home'), project = path.join(sandbox, 'project'), otherProject = path.join(sandbox, 'other');
 const ids = ['11111111-2222-4333-8444-555555555555', '22222222-3333-4444-8555-666666666666', '33333333-4444-4555-8666-777777777777'];
-for (const folder of [path.join(home, '.arco'), project, otherProject]) mkdirSync(folder, { recursive: true });
-process.env.HOME = home; process.env.USERPROFILE = home; process.env.ARCO_HOME = path.join(home, '.arco');
-writeFileSync(path.join(home, '.arco', 'settings.json'), JSON.stringify({ projects: [project, otherProject] }));
+for (const folder of [path.join(home, 'test-state'), project, otherProject]) mkdirSync(folder, { recursive: true });
+process.env.HOME = home; process.env.USERPROFILE = home; process.env.ARCO_HOME = path.join(home, 'test-state');
+writeFileSync(path.join(home, 'test-state', 'settings.json'), JSON.stringify({ projects: [project, otherProject] }));
 for (const [i, id] of ids.entries()) {
   const root = path.join(i === 1 ? otherProject : project, '.arco', 'workflows', id);
   mkdirSync(path.join(root, 'artifacts'), { recursive: true });

@@ -22,7 +22,7 @@ process.env.HOME = sandbox;
 // os.homedir() reads USERPROFILE on Windows, and an exported ARCO_HOME would
 // win over HOME; point the Arco home at the sandbox directly.
 process.env.USERPROFILE = sandbox;
-process.env.ARCO_HOME = join(sandbox, '.arco');
+process.env.ARCO_HOME = join(sandbox, 'test-state');
 
 const { forceRefreshTokens, refreshTokens } = await import('./oauth.js');
 const { loadTokens } = await import('./auth.js');
@@ -37,9 +37,9 @@ interface TokenSeed {
 }
 
 function seedAuthFile(tokens: TokenSeed): void {
-  mkdirSync(join(sandbox, '.arco'), { recursive: true });
+  mkdirSync(join(sandbox, 'test-state'), { recursive: true });
   writeFileSync(
-    join(sandbox, '.arco', 'auth.json'),
+    join(sandbox, 'test-state', 'auth.json'),
     JSON.stringify({ claude: { native: tokens } }),
     { mode: 0o600 },
   );
@@ -135,8 +135,8 @@ test('forceRefreshTokens surfaces the endpoint rejection status', async () => {
 });
 
 test('forceRefreshTokens throws NO_AUTH when the auth file is empty', async () => {
-  mkdirSync(join(sandbox, '.arco'), { recursive: true });
-  writeFileSync(join(sandbox, '.arco', 'auth.json'), '{}\n', { mode: 0o600 });
+  mkdirSync(join(sandbox, 'test-state'), { recursive: true });
+  writeFileSync(join(sandbox, 'test-state', 'auth.json'), '{}\n', { mode: 0o600 });
   const fetchMock = mockFetch(() => ({ status: 200, body: {} }));
   try {
     await assert.rejects(
@@ -165,7 +165,7 @@ test('refreshTokens still short-circuits on a not-near-expiry token (regression)
 test('lockfile artifacts do not leak into the auth dir', () => {
   // proper-lockfile creates auth.json.lock during the critical section; after
   // the calls above it must be gone (a leaked lock deadlocks the next refresh).
-  const entries = readFileSync(join(sandbox, '.arco', 'auth.json'), 'utf8');
+  const entries = readFileSync(join(sandbox, 'test-state', 'auth.json'), 'utf8');
   assert.ok(entries.length > 0);
-  assert.throws(() => readFileSync(join(sandbox, '.arco', 'auth.json.lock')));
+  assert.throws(() => readFileSync(join(sandbox, 'test-state', 'auth.json.lock')));
 });
