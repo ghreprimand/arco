@@ -330,6 +330,8 @@ export class ClaudeNativeWorker extends EventEmitter {
   private config: WorkerConfig;
   private client: Anthropic | null = null;
   private compactAbort?: AbortController;
+  private compactCancelEpoch = 0;
+  private compactOperationEpoch?: number;
   private compactInProgress = false;
   // In-turn auto-compaction: `fired` is set when one runs and cleared once a
   // request's prompt is below the threshold again, so a compaction that did not
@@ -824,8 +826,9 @@ export class ClaudeNativeWorker extends EventEmitter {
   async compactInPlace(stillOwner?: () => boolean): Promise<{ ok: boolean; error?: string; foldedTurns?: number }> {
     if (this.compactInProgress) return { ok: false, error: 'a compaction is already running' };
     this.compactInProgress = true;
+    this.compactOperationEpoch = this.compactCancelEpoch;
     try { return await this.compactInPlaceLocked(stillOwner); }
-    finally { this.compactInProgress = false; }
+    finally { this.compactInProgress = false; this.compactOperationEpoch = undefined; }
   }
 
   private async compactInPlaceLocked(stillOwner?: () => boolean): Promise<{ ok: boolean; error?: string; foldedTurns?: number }> {
@@ -1167,6 +1170,13 @@ export class ClaudeNativeWorker extends EventEmitter {
   // prefix is too large for one request it is summarized in parts, oldest
   // first, each part carrying the previous part's summary in front.
   private async summarizeInParts(prefix: MessageParam[]): Promise<string> {
+    const epoch = this.compactOperationEpoch ?? this.compactCancelEpoch;
+    const runPart = async (messages: MessageParam[]): Promise<string> => {
+      this.assertCompactionActive(epoch);
+      const summary = await this.generateCompactSummary(messages, epoch);
+      this.assertCompactionActive(epoch);
+      return summary;
+    };
     const win = lookupCtx(this.capModel()) ?? 200_000;
     const budget = win - COMPACT_SUMMARY_MAX_TOKENS - COMPACT_SUMMARY_REQUEST_OVERHEAD_TOKENS;
     const pending = [prefix as unknown as Parameters<typeof splitSummaryParts>[0]];
@@ -1192,7 +1202,7 @@ export class ClaudeNativeWorker extends EventEmitter {
           messages.unshift({ role: 'user', content: intro } as MessageParam);
         }
       }
-      running = await this.generateCompactSummary(messages);
+      running = await runPart(messages);
       if (!running.trim()) return '';
     }
     return running;
@@ -1228,6 +1238,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.inTurnCompact = { fired: true, warned: false };
     if (this.compactInProgress) return 'continue';
     this.compactInProgress = true;
+    this.compactOperationEpoch = this.compactCancelEpoch;
     try {
       const outcome = await this.compactInTurnLocked(percent, threshold);
       if (this.cancelRequested) return 'cancelled';
@@ -1238,6 +1249,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       return outcome.noteIndex ?? 'continue';
     } finally {
       this.compactInProgress = false;
+      this.compactOperationEpoch = undefined;
     }
   }
 
@@ -1317,7 +1329,12 @@ export class ClaudeNativeWorker extends EventEmitter {
     return { ok: true, noteIndex: this.messages.length - inProgressRound.length - 1 };
   }
 
-  private async generateCompactSummary(toSummarize: MessageParam[] = this.messages): Promise<string> {
+  private assertCompactionActive(epoch: number): void {
+    if (epoch !== this.compactCancelEpoch) throw new Error('Compaction cancelled');
+  }
+
+  private async generateCompactSummary(toSummarize: MessageParam[] = this.messages, epoch = this.compactOperationEpoch ?? this.compactCancelEpoch): Promise<string> {
+    this.assertCompactionActive(epoch);
     // ARCO_TEST compact-probe: return a canned summary instead of calling the
     // Anthropic API, so the smoke can exercise the real compactInPlace keep-tail
     // + native_compacted emission without spend. Gated on both the probe flag
@@ -1357,7 +1374,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     } finally { if (this.compactAbort === controller) this.compactAbort = undefined; }
   }
 
-  cancelCompaction(): void { this.compactAbort?.abort(); }
+  cancelCompaction(): void { this.compactCancelEpoch++; this.compactAbort?.abort(); }
 
   private async restoreSavedHistory(): Promise<void> {
     if (!this.replayed) {

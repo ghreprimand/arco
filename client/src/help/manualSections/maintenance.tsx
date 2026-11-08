@@ -247,6 +247,7 @@ export const maintenance: Section[] = [
   These recoveries cover slow Codex compaction, stale Cursor auth children,
   quiet Claude Native thinking, and old Native binding errors.
   </p>
+  <p>STOP during Native compaction cancels the current request and any remaining summary parts. A cancelled compaction keeps the prior history; a later explicit COMPACT can start afresh.</p>
   <Sub>Codex compaction</Sub>
   <p>A large thread can take several minutes to compact. Arco waits for the
   compact turn's completion, not just its summary event. Keep the tab open

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Stop multipart Native compaction at cancellation boundaries without starting later summary requests or replacing the retained history.
+
 - Preserve the retained round's narration when a Native worker rebuilds after in-turn compaction.
 
 - Keep every Native compaction summary part within its input budget, including carried summary text and continuation context.

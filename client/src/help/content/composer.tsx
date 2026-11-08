@@ -153,7 +153,8 @@ export const composerHelp: Record<string, HelpEntry> = {
         <p>
           <C>⊟ COMPACT</C> is the in-Arco equivalent of the provider CLI's{' '}
           <C>/compact</C>: it summarizes the conversation so the next turn
-          starts against a smaller prompt. Far cheaper than a Handoff (same tab,
+          starts against a smaller prompt. STOP during Native compaction also cancels
+          later summary parts; the prior history stays available. Far cheaper than a Handoff (same tab,
           no portable doc, no fresh worker); Handoff stays the heavier escape
           hatch for a clean break or a provider swap.
         </p>

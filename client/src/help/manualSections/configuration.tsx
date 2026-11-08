@@ -870,6 +870,8 @@ export const configuration: Section[] = [
   <p>
   It runs at most once per crossing: if the context stays above the threshold,
   one notice says so. A failed summary changes nothing and the turn continues.
+  STOP cancels the whole multipart summary, including between requests, and
+  leaves the prior history available.
   Off turns it off, and so does Claude API compaction (beta).
   </p>
   <p>
