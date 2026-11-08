@@ -4,7 +4,7 @@ import type { HelpEntry } from './shared';
 export const miscHelp: Record<string, HelpEntry> = {
   'palette.results': {
     title: 'Command palette results',
-    body: <p>Choose a file or content result to open the file viewer. The palette is hidden while viewing the file. Closing the viewer returns to the same query and selection.</p>,
+    body: <p>Choose a file or content result to open the file viewer. Content search omits files protected from the file browser. The palette is hidden while viewing the file. Closing the viewer returns to the same query and selection.</p>,
     manualSection: 'command-palette',
   },
 

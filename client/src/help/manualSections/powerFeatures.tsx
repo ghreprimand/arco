@@ -768,7 +768,7 @@ export const powerFeatures: Section[] = [
   workflow's folder, for example <Code>&gt;TODO</Code>. Each hit shows{' '}
   <Code>file:line</Code> and the matched text, and clicks through to the file
   viewer. The search respects the standard ignore set (<Code>node_modules</Code>,{' '}
-  <Code>.git</Code>, <Code>dist</Code> and so on) and <Code>.gitignore</Code>.
+  <Code>.git</Code>, <Code>dist</Code> and so on) and <Code>.gitignore</Code>. Files protected from the file browser are omitted from content results.
   </p>
   <Note kind="info">
   Content search needs <Code>ripgrep</Code> (<Code>rg</Code>) on the server's

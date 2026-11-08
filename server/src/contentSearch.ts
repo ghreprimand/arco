@@ -17,6 +17,8 @@
 //     throw, so the caller never has to special-case a missing binary.
 
 import { execFile, spawnSync } from 'node:child_process';
+import path from 'node:path';
+import { confinedPath } from './fileAccessPolicy.js';
 
 // Same ignore set the Native Grep tool uses (providers/claude-native/tools.ts).
 // Kept as a local copy rather than imported because that module pulls in the
@@ -121,7 +123,6 @@ export function searchContent(opts: SearchContentOpts): Promise<ContentSearchRes
         let capped = false;
         for (const rawLine of stdout.split('\n')) {
           if (!rawLine) continue;
-          if (hits.length >= maxHits) { capped = true; break; }
           let evt: unknown;
           try { evt = JSON.parse(rawLine); } catch { continue; }
           if (!evt || typeof evt !== 'object') continue;
@@ -136,6 +137,10 @@ export function searchContent(opts: SearchContentOpts): Promise<ContentSearchRes
             ? (subs[0] as { start: number }).start + 1
             : 1;
           if (!pathText || lineText === undefined) continue;
+          // Search has the same per-file boundary as the file browser, including
+          // resolved aliases. Private matches do not consume the result limit.
+          try { confinedPath(path.resolve(opts.cwd, pathText), [path.resolve(opts.cwd)]); } catch { continue; }
+          if (hits.length >= maxHits) { capped = true; break; }
           hits.push({
             // rg with `cwd` set and base `.` already yields relative paths, but
             // strip a leading `./` for tidy display.

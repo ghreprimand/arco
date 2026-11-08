@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Omit files protected by the file browser from content search results.
+
 - Bound file and local web reads before allocation, refuse special files, and preserve line-range reads with visible truncation notices.
 
 - Fix local endpoint resets, Codex Activity token totals, terminal reconnect replay, fresh-worker provider selection, diagnostic executable detection and Computer native key actions.
