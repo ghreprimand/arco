@@ -1,3 +1,4 @@
+import { readRegularRange, regularFileLines } from '../../boundedRead.js';
 // Phase 7a — core tool surface for Claude Native transport.
 //
 // Eight tools: Read / Write / Edit / Bash / Grep / Glob / KillShell /
@@ -280,24 +281,12 @@ const ReadTool: Entry = {
     const limit = rawLimit !== undefined && rawLimit >= 1 ? Math.floor(rawLimit) : undefined;
     const builtin = readBuiltinVirtualFile(filePath);
     const abs = builtin === undefined ? resolveWithinCwd(ctx.cwd, filePath) : filePath;
-    if (builtin === undefined && (await fs.stat(abs)).isDirectory()) throw new Error(`"${filePath}" is a directory; use Glob to list contents`);
-    const text = builtin ?? (await fs.readFile(abs)).toString('utf8');
-    let body = text;
-    let totalLines = -1;
-    if (offset > 1 || limit !== undefined) {
-      const lines = text.split('\n');
-      totalLines = lines.length;
-      const start = Math.min(offset - 1, lines.length);
-      const end = limit === undefined ? lines.length : Math.min(start + limit, lines.length);
-      body = lines.slice(start, end).join('\n');
-    }
-    const truncated = body.length > READ_BYTE_CAP;
-    if (truncated) {
-      const note = totalLines > 0
-        ? `\n\n[truncated at ${READ_BYTE_CAP} bytes — file has ${totalLines} lines; use offset+limit to read a smaller range]`
-        : `\n\n[truncated at ${READ_BYTE_CAP} bytes — pass offset+limit to read a specific line range]`;
-      body = body.slice(0, READ_BYTE_CAP) + note;
-    }
+    const result = builtin === undefined
+      ? await readRegularRange(abs, READ_BYTE_CAP, offset, limit, ctx.abortSignal)
+      : { text: builtin.split('\n').slice(offset - 1, limit === undefined ? undefined : offset - 1 + limit).join('\n'), truncated: false };
+    const truncated = result.truncated || Buffer.byteLength(result.text) > READ_BYTE_CAP;
+    let body = Buffer.from(result.text).subarray(0, READ_BYTE_CAP).toString('utf8');
+    if (truncated) body += `\n\n[truncated at ${READ_BYTE_CAP} bytes; use offset+limit to read a smaller range]`;
     ctx.readSet.add(abs);
     // H62 — flag a partial read (offset/limit) so a later full-file Write warns;
     // a FULL read clears any prior partial flag (the model has now seen it all).
@@ -534,7 +523,8 @@ const GrepTool: Entry = {
     const filesOnly = asOptBool(args.files_only, 'files_only') ?? false;
     const baseAbs = basePath ? resolveWithinCwd(ctx.cwd, basePath) : resolve(ctx.cwd);
 
-    await fs.stat(baseAbs);
+    const baseStat = await fs.stat(baseAbs);
+    if (!baseStat.isFile() && !baseStat.isDirectory()) throw new Error('not a regular file or directory');
     if (RIPGREP_BIN) {
       return runRipgrep(RIPGREP_BIN, pattern, baseAbs, ctx.cwd, { ci, filesOnly });
     }
@@ -546,35 +536,28 @@ const GrepTool: Entry = {
     catch (err) { throw new Error(`invalid regex: ${err instanceof Error ? err.message : String(err)}`); }
     const out: string[] = [];
     let bytes = 0;
+    let shortened = false;
     const counter = { n: 0 };
     for await (const filePath of walkFiles(baseAbs, SKIP_DIRS, GREP_WALK_FILE_CAP, counter)) {
-      let buf: Buffer;
-      try { buf = await fs.readFile(filePath); } catch { continue; }
-      if (buf.subarray(0, 1024).includes(0)) continue;
-      const text = buf.toString('utf8');
       const rel = relative(ctx.cwd, filePath);
-      if (filesOnly) {
-        if (regex.test(text)) {
-          out.push(rel);
-          bytes += rel.length + 1;
-        }
-      } else {
-        const lines = text.split('\n');
-        for (let i = 0; i < lines.length; i++) {
-          if (regex.test(lines[i])) {
-            const entry = `${rel}:${i + 1}: ${lines[i]}`;
+      try {
+        for await (const line of regularFileLines(filePath, MAX_TOOL_OUTPUT_BYTES, ctx.abortSignal)) {
+          if (line.number === 1 && line.text.slice(0, 1024).includes('\0')) break;
+          if (line.truncated) shortened = true;
+          if (regex.test(line.text)) {
+            const entry = filesOnly ? rel : `${rel}:${line.number}: ${line.text}`;
             out.push(entry);
-            bytes += entry.length + 1;
-            if (bytes >= MAX_TOOL_OUTPUT_BYTES) break;
+            bytes += Buffer.byteLength(entry) + 1;
+            if (filesOnly || bytes >= MAX_TOOL_OUTPUT_BYTES) break;
           }
         }
-      }
+      } catch (error) { if (ctx.abortSignal?.aborted) throw error; }
       if (bytes >= MAX_TOOL_OUTPUT_BYTES) break;
     }
-    if (out.length === 0) return '(no matches)';
-    let suffix = '';
+    if (out.length === 0 && !shortened) return '(no matches)';
+    let suffix = shortened ? '\n\n[truncated long lines during search; narrow the search or use a line range]' : '';
     if (counter.n >= GREP_WALK_FILE_CAP) {
-      suffix = `\n\n[walk capped at ${GREP_WALK_FILE_CAP} files — narrow with \`path\` to see more]`;
+      suffix += `\n\n[walk capped at ${GREP_WALK_FILE_CAP} files — narrow with \`path\` to see more]`;
     }
     return truncate(out.join('\n') + suffix, MAX_TOOL_OUTPUT_BYTES, 'Grep result');
   },

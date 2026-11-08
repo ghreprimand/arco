@@ -132,6 +132,8 @@ Native Task model overrides are applied to the child workflow configuration befo
 
 Spawn from a HISTORY point reads the selected earlier prefix even when it is outside the recent replay tail. Cancelled handoffs leave prior Native context intact, including the older-history summary. A cancellation or failure during pre-warm revokes an earlier prepared artifact for replay; a successful fallback after a failed reflection remains valid. Derived summary caches from the earlier replay rule are rebuilt automatically; original events remain unchanged.
 
+Context `@file:` references read at most 64 KiB from regular files. Native Read and local Read keep their 256 KiB and 32 KiB output caps while reading in chunks; `offset` and `limit` still select later lines. Special files are refused. The JavaScript Grep fallback scans in chunks and reports when a line exceeds its 64 KiB search prefix. Local WebFetch in fast mode stops and cancels the response after 128 KiB before stripping HTML, with a truncation notice. Native web tools run on the provider service.
+
 Native Read keeps the partial-read warning when its output is capped, until a later complete read covers the file. Native Grep reports invalid patterns and search failures as errors; a successful search with no matches remains empty. Native Bash keeps its newest output tail even if saving the full output fails, and reports that full output is unavailable. Native and local-model Write create nested parent directories on Windows.
 
 Registry MCP schemas keep their definitions and validation metadata, including local references. Unsupported top-level `oneOf`, `allOf` and `anyOf` are still removed before Native requests.

@@ -53,6 +53,7 @@ export const providers: Section[] = [
   <>
   <p>A Native Task child shows and saves the model requested by the Task call. Queued follow-ups keep their own replies in restored context and reviews. Steering before the first visible reply retains the original request as well as the new instruction.</p>
   <p>Spawn from HISTORY keeps the selected earlier conversation even when it falls outside the recent replay tail. Cancelled handoffs preserve prior context. Older derived summary caches are rebuilt automatically.</p>
+  <p>Native and local Read use bounded chunks and refuse special files. Their output caps remain 256 KiB and 32 KiB. Use offset and limit for later lines. JavaScript Grep reports shortened long lines; local fast WebFetch cancels downloads at 128 KiB before HTML extraction.</p>
   <p>Native Read keeps the partial-read warning when output is capped. A complete later read clears it. Grep reports invalid patterns and search failures as errors. If Bash cannot save full output, its newest tail remains available and the result explains the storage failure. Registry MCP schemas retain their referenced definitions.</p>
   <p>CLI snapshots retain every text block and the final answer without repeating streamed text. Local HTTP generation bounds waiting for response headers. Completed local streams finish at their done marker, even if the connection stays open. Model discovery and WebSearch deadlines remain active while reading JSON.</p>
   <p>

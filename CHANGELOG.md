@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Bound file and local web reads before allocation, refuse special files, and preserve line-range reads with visible truncation notices.
+
 - Fix local endpoint resets, Codex Activity token totals, terminal reconnect replay, fresh-worker provider selection, diagnostic executable detection and Computer native key actions.
 - Defer provider CLI updates when the platform build is confirmed missing and no usable fallback can be verified, preserving the current installation.
 

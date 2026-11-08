@@ -388,7 +388,7 @@ export const workspace: Section[] = [
           <Code>/clear</Code>, <Code>/model</Code>, ...) are intercepted with a
           hint instead of wasting a turn. Context references such as{' '}
           <Code>@file:src/x.ts</Code>, <Code>@diff</Code>, <Code>@staged</Code>{' '}
-          and <Code>@git:N</Code> expand into the prompt.
+          and <Code>@git:N</Code> expand into the prompt. File references read at most 64 KiB and refuse special files. Larger files show a truncation notice.
         </p>
         <p>
           <strong>Attachments:</strong> drop files anywhere on the window, paste

@@ -185,9 +185,9 @@ test('B114: messages and STOP are refused before writing into a moving store', a
 test('B114: a message already preparing context prevents a scaffold reservation', async (t) => {
   const f = await fixture(), engine = await import('./ws/turnEngine.js'), wf = state.workflows.get(f.ids[0]!)!;
   const file = join(f.cwd, 'context.txt'); await fs.writeFile(file, 'Fixture context');
-  const read = fs.readFile; let entered!: () => void, release!: () => void;
+  const read = fs.open; let entered!: () => void, release!: () => void;
   const started = new Promise<void>(r => entered = r), blocked = new Promise<void>(r => release = r);
-  t.mock.method(fs, 'readFile', async (...args: any[]) => {
+  t.mock.method(fs, 'open', async (...args: any[]) => {
     if (String(args[0]) === file) { entered(); await blocked; }
     return Reflect.apply(read, fs, args);
   }); syncBuiltinESMExports();

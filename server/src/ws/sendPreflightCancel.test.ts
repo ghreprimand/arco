@@ -32,8 +32,8 @@ for (const cancelled of [true, false]) test(`B121: ordinary send preflight respe
   let entered!: () => void, release!: () => void;
   const started = new Promise<void>(r => { entered = r; });
   const held = new Promise<void>(r => { release = r; });
-  const read = fs.readFile;
-  t.mock.method(fs, 'readFile', async (...args: Parameters<typeof fs.readFile>) => { if (String(args[0]) === await fs.realpath(join(cwd, 'input.txt'))) { entered(); await held; } return read(...args); });
+  const read = fs.open;
+  t.mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => { if (String(args[0]) === await fs.realpath(join(cwd, 'input.txt'))) { entered(); await held; } return read(...args); });
   syncBuiltinESMExports();
   try {
     const pending = engine.handleUserMessage(ws, session, id, 'Read @file:input.txt', 'sent-fixture', undefined, false, undefined, undefined);

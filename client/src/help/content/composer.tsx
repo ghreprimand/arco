@@ -217,7 +217,7 @@ export const composerHelp: Record<string, HelpEntry> = {
         <p>
           Type an <C>@</C>-ref inline and Arco expands it into the turn's
           context at send time (server-side): <C>@file:src/x.ts</C> (file
-          contents, bounded + truncated with a notice past 64 KB),{' '}
+          contents from regular files only, read up to 64 KiB with a truncation notice),{' '}
           <C>@diff</C> / <C>@staged</C> (<C>git diff [--cached]</C>),{' '}
           <C>@git:3</C> (last N commits, capped at 50).
         </p>
@@ -635,7 +635,8 @@ export const composerHelp: Record<string, HelpEntry> = {
         </p>
         <p>
           Session-local and reversible: reverts to <C>full</C> on reload.
-          Claude-native only.
+          Claude-native only. Read refuses special files and reads in bounded chunks.
+          Use offset and limit for later lines. JavaScript Grep reports shortened long lines.
         </p>
       </>
     ),

@@ -1,3 +1,4 @@
+import { readRegularRange, regularFileLines, readResponsePrefix } from '../boundedRead.js';
 import { requestWithDeadline } from './requestDeadline.js';
 
 import { promises as fs } from 'node:fs';
@@ -179,25 +180,12 @@ const ReadTool: OllamaToolEntry = {
       : undefined;
     const builtin = readBuiltinVirtualFile(filePath);
     const abs = builtin === undefined ? resolveWithinCwd(ctx.cwd, filePath) : filePath;
-    if (builtin === undefined && (await fs.stat(abs)).isDirectory()) throw new Error(`"${filePath}" is a directory; use Glob to list contents`);
-    const text = builtin ?? (await fs.readFile(abs)).toString('utf8');
-    // Line-slice when offset/limit given. Otherwise return whole file but cap.
-    let body = text;
-    let totalLines = -1;
-    if (offset > 1 || limit !== undefined) {
-      const lines = text.split('\n');
-      totalLines = lines.length;
-      const start = Math.min(offset - 1, lines.length);
-      const end = limit === undefined ? lines.length : Math.min(start + limit, lines.length);
-      body = lines.slice(start, end).join('\n');
-    }
-    // Hard byte cap regardless of line params.
-    if (body.length > READ_BYTE_CAP) {
-      const note = totalLines > 0
-        ? `\n\n[truncated at ${READ_BYTE_CAP} bytes — file has ${totalLines} lines; use offset+limit to read a smaller range]`
-        : `\n\n[truncated at ${READ_BYTE_CAP} bytes — pass offset+limit to read a specific line range]`;
-      body = body.slice(0, READ_BYTE_CAP) + note;
-    }
+    const result = builtin === undefined
+      ? await readRegularRange(abs, READ_BYTE_CAP, offset, limit, ctx.abortSignal)
+      : { text: builtin.split('\n').slice(offset - 1, limit === undefined ? undefined : offset - 1 + limit).join('\n'), truncated: false };
+    const truncated = result.truncated || Buffer.byteLength(result.text) > READ_BYTE_CAP;
+    let body = Buffer.from(result.text).subarray(0, READ_BYTE_CAP).toString('utf8');
+    if (truncated) body += `\n\n[truncated at ${READ_BYTE_CAP} bytes; use offset+limit to read a smaller range]`;
     return body;
   },
 };
@@ -320,43 +308,33 @@ const GrepTool: OllamaToolEntry = {
       throw new Error(`invalid regex: ${err instanceof Error ? err.message : String(err)}`);
     }
     const baseAbs = basePath ? resolveWithinCwd(ctx.cwd, basePath) : resolve(ctx.cwd);
+    const baseStat = await fs.stat(baseAbs);
+    if (!baseStat.isFile() && !baseStat.isDirectory()) throw new Error('not a regular file or directory');
     const out: string[] = [];
     let bytes = 0;
+    let shortened = false;
     const counter = { n: 0 };
     for await (const filePath of walkFiles(baseAbs, SKIP_DIRS, GREP_WALK_FILE_CAP, counter)) {
-      let buf: Buffer;
-      try {
-        buf = await fs.readFile(filePath);
-      } catch {
-        continue;
-      }
-      // Skip likely-binary files (NUL byte in first 1KB).
-      if (buf.subarray(0, 1024).includes(0)) continue;
-      const text = buf.toString('utf8');
       const rel = relative(ctx.cwd, filePath);
-      if (filesOnly) {
-        if (regex.test(text)) {
-          out.push(rel);
-          bytes += rel.length + 1;
-        }
-      } else {
-        const lines = text.split('\n');
-        for (let i = 0; i < lines.length; i++) {
-          if (regex.test(lines[i])) {
-            const entry = `${rel}:${i + 1}: ${lines[i]}`;
+      try {
+        for await (const line of regularFileLines(filePath, TOOL_OUTPUT_CAP, ctx.abortSignal)) {
+          if (line.number === 1 && line.text.slice(0, 1024).includes('\0')) break;
+          if (line.truncated) shortened = true;
+          if (regex.test(line.text)) {
+            const entry = filesOnly ? rel : `${rel}:${line.number}: ${line.text}`;
             out.push(entry);
-            bytes += entry.length + 1;
-            if (bytes >= TOOL_OUTPUT_CAP) break;
+            bytes += Buffer.byteLength(entry) + 1;
+            if (filesOnly || bytes >= TOOL_OUTPUT_CAP) break;
           }
         }
-      }
+      } catch (error) { if (ctx.abortSignal?.aborted) throw error; }
       if (bytes >= TOOL_OUTPUT_CAP) break;
     }
-    if (out.length === 0) return '(no matches)';
+    if (out.length === 0 && !shortened) return '(no matches)';
     const joined = out.join('\n');
-    let suffix = '';
+    let suffix = shortened ? '\n\n[truncated long lines during search; narrow the search or use a line range]' : '';
     if (counter.n >= GREP_WALK_FILE_CAP) {
-      suffix = `\n\n[walk capped at ${GREP_WALK_FILE_CAP} files — narrow the search with \`path\` to see more]`;
+      suffix += `\n\n[walk capped at ${GREP_WALK_FILE_CAP} files — narrow the search with \`path\` to see more]`;
     }
     return truncate(joined + suffix, TOOL_OUTPUT_CAP, 'Grep result');
   },
@@ -511,6 +489,7 @@ function isPrivateOrLoopbackHost(host: string): boolean {
 }
 
 interface FetchOutcome {
+  truncated?: boolean;
   ok: boolean;
   status?: number;
   contentType?: string;
@@ -538,9 +517,8 @@ async function fastFetch(targetUrl: string, signal: AbortSignal): Promise<FetchO
   const contentType = res.headers.get('content-type') ?? '';
   // Read up to 2x the cap so post-strip we still have a shot at filling
   // the budget. Beyond that we truncate.
-  const buf = await res.arrayBuffer();
-  const raw = new TextDecoder('utf-8', { fatal: false }).decode(buf).slice(0, TOOL_OUTPUT_CAP * 2);
-  return { ok: res.ok, status: res.status, contentType, text: raw };
+  const result = await readResponsePrefix(res, TOOL_OUTPUT_CAP * 2);
+  return { ok: res.ok, status: res.status, contentType, text: result.text, truncated: result.truncated };
 }
 
 // Cheap HTML→text. Strips <script> and <style> blocks, replaces line-
@@ -747,7 +725,7 @@ const WebFetchTool: OllamaToolEntry = {
       body = stripHtml(body);
     }
     const header = `[${usedMode}${outcome.status ? ` ${outcome.status}` : ''}] ${parsed.toString()}`;
-    return truncate(`${header}\n\n${body}`, TOOL_OUTPUT_CAP, 'WebFetch result');
+    return truncate(`${header}\n\n${body}`, TOOL_OUTPUT_CAP, 'WebFetch result') + (outcome.truncated ? '\n[truncated response at byte budget]' : '');
   },
 };
 

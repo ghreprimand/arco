@@ -44,7 +44,8 @@ export const chatHelp: Record<string, HelpEntry> = {
     body: <p>Arms web search and fetch for this chat: the only tools a Chat tab ever gets.
       No files, no shell, no project. On by default for a saved Chat, off for Incognito
       (a search query leaves the machine). Available on Claude, Codex, Ollama, Strata and DeepSeek; other Chat providers have
-      no web tool to arm. Takes effect on the next message.</p>,
+      no web tool to arm. Takes effect on the next message. Local fast fetch reads up
+      to 128 KiB before HTML extraction, cancels the remaining download and reports truncation.</p>,
   },
   'chat.attach': {
     title: 'Attach to chat', manualSection: 'chat-mode',

@@ -1,3 +1,4 @@
+import { readRegularPrefix } from './boundedRead.js';
 // Server-side expansion for the composer's `@`-context-refs
 // (docs/ARCHITECTURE.md). The client parses `@file:`, `@diff`,
 // `@staged`, `@git:N`, `@url:` into chips; at send time the server expands
@@ -136,26 +137,29 @@ async function expandFile(cwd: string, arg: string | undefined): Promise<{ body:
   if (rel.startsWith('..') || isAbsolute(rel)) {
     return { body: '', notice: `@file:${arg} refused — path not allowed (symlink escapes workflow directory)` };
   }
-  // Stat to reject directories early (reading a dir throws EISDIR).
+  // Reject special files before opening a handle.
   let stat;
   try {
     stat = await fs.stat(real);
   } catch (err) {
     return { body: '', notice: `@file:${arg} failed — ${(err as Error).message}` };
   }
-  if (stat.isDirectory()) {
-    return { body: '', notice: `@file:${arg} skipped — is a directory, not a file` };
+  if (!stat.isFile()) {
+    return { body: '', notice: `@file:${arg} skipped — not a regular file` };
   }
   let buf: Buffer;
+  let size: number;
   try {
-    buf = await fs.readFile(real);
+    const result = await readRegularPrefix(real, MAX_CONTEXT_REF_BYTES);
+    buf = result.buffer;
+    size = result.size;
   } catch (err) {
     return { body: '', notice: `@file:${arg} failed — ${(err as Error).message}` };
   }
   let text: string;
   let notice: string;
-  if (buf.byteLength > MAX_CONTEXT_REF_BYTES) {
-    const dropped = buf.byteLength - MAX_CONTEXT_REF_BYTES;
+  if (size > MAX_CONTEXT_REF_BYTES) {
+    const dropped = size - MAX_CONTEXT_REF_BYTES;
     text = buf.subarray(0, MAX_CONTEXT_REF_BYTES).toString('utf8') +
       `\n\n… [truncated ${dropped} bytes]`;
     notice = `@file:${arg} expanded (truncated — ${dropped} bytes over the ${MAX_CONTEXT_REF_BYTES}-byte cap)`;
