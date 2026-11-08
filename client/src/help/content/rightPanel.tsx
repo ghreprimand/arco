@@ -753,7 +753,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           <C>REVERTED</C> row show the counts; <C>VIEW CHANGES</C> on either shows
           the diff of what the revert changed.
         </p>
-      </>
+      <p>Legacy tar checkpoints are staged and checked before restoring any project file. Links, path escapes, special files and linked destination folders are refused. Archives are limited to 512 MB and 10,000 entries. Ordinary files still restore, while files created after the checkpoint remain. New Git-tree checkpoints use the existing restore path.</p></>
     ),
     manualSection: 'history-tab',
   },

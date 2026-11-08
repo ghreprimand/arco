@@ -1,5 +1,7 @@
 # Shadow-git checkpoints
 
+Legacy tar checkpoints are staged and checked before restoring any project file. Links, path escapes, special files and linked destination folders are refused. Archives are limited to 512 MB and 10,000 entries. Ordinary files still restore, while files created after the checkpoint remain. New Git-tree checkpoints use the existing restore path.
+
 Automatic working-tree snapshots taken **before and after file-mutating operator turns**, so the
 operator can undo what an agent did independent of their own git history. The model never sees them.
 

@@ -58,6 +58,7 @@ export const powerFeatures: Section[] = [
   title: 'The HISTORY tab - read-only timeline',
   body: (
   <>
+  <p>Legacy tar checkpoints are staged and checked before restoring any project file. Links, path escapes, special files and linked destination folders are refused. Archives are limited to 512 MB and 10,000 entries. Ordinary files still restore, while files created after the checkpoint remain. New Git-tree checkpoints use the existing restore path.</p>
   <p>LOAD EARLIER HISTORY advances through saved event pages even when a page contains no narrative rows. Selecting a message inside PRIOR SESSIONS reveals it in chat.</p>
   <p>Saved conversations restore their recent messages together, with their active plan and current terminal list. REWIND CONVERSATION reserves the tab while validating the target. A failed branch-metadata write leaves the conversation head unchanged; cancelled work cannot dispose a newer turn.</p>
   <p>Replayed events retain their saved event time. Reopening HISTORY does not make older events appear newly received.</p>

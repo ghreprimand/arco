@@ -1,3 +1,4 @@
+import { restoreLegacyTar } from './legacyTarRestore.js';
 // Workbench Expansion A2 — Shadow-git checkpoint store.
 //
 // Snapshots the working tree BEFORE a file-mutating operator turn so the
@@ -912,28 +913,11 @@ async function revertTarCheckpoint(
   // archived contents, but reliably DELETING files created after the snapshot
   // is not feasible from a plain tar without a tracked manifest of "what
   // existed then" vs "what exists now" — and the non-git cwd has no index to
-  // diff against. We extract over the cwd (additive/overwrite) and surface the
+  // diff against. A checked staging tree restores files additively and surfaces the
   // limitation to the operator. The safety snapshot (taken by the handler
   // before this runs) still makes the action reversible, so the operator can
   // undo if the residual files matter.
-  const extract = await execFileAsync(
-    'tar',
-    ['-xf', tarPath, '-C', cwd],
-    { timeout: GIT_TIMEOUT_MS, maxBuffer: GIT_MAX_BUFFER },
-  ).then(
-    () => ({ ok: true as const }),
-    (err: NodeJS.ErrnoException) => ({ ok: false as const, err }),
-  );
-  if (!extract.ok) {
-    console.error('[arco] gitSnapshots revert tar extract failed:', extract.err?.message ?? extract.err);
-    return null;
-  }
-
-  let fileCount = 0;
-  const list = await execFileAsync('tar', ['-tf', tarPath], { maxBuffer: GIT_MAX_BUFFER }).catch(() => null);
-  if (list) {
-    fileCount = list.stdout.split('\n').filter((l) => l.trim().length > 0 && !l.endsWith('/')).length;
-  }
+  const fileCount = await restoreLegacyTar(tarPath, cwd);
 
   return {
     fileCount,
