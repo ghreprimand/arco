@@ -759,6 +759,7 @@ export const providers: Section[] = [
   title: 'llama.cpp (local models, GGUF catalog)',
   body: (
   <>
+  <p>If the managed server exits or reports a process error, ready state clears and the next request can load a replacement.</p>
   <p>
   llama.cpp runs local GGUF models with Arco owning the server process. Use it
   when a model feature, such as a new vision architecture, has not reached

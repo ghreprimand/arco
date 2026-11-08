@@ -1993,7 +1993,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         registered loadouts (from <C>~/.arco/llamacpp.json</C>), the manager
         state (idle/loading/ready/failed), the currently-loaded alias + port +
         pid, the <strong>last launch args</strong>, and a tail of the last
-        <C> ~/.arco/llamacpp.log</C> stderr. A failed last launch is the one
+        <C> ~/.arco/llamacpp.log</C> stderr. A dead server clears ready state and can be loaded again on the next request. A failed last launch is the one
         <strong> ERROR</strong> case; the stderr tail is where to look.
       </p>
     ),

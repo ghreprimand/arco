@@ -23,6 +23,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { homedir } from 'os';
 import { EventEmitter } from 'events';
+import { setTimeout as sleep } from 'node:timers/promises';
 import type { LlamacppModelDef } from '@arco/shared';
 import { readCatalog, findModel } from '../llamacppCatalog.js';
 import { arcoHome } from '../arcoHome.js';
@@ -217,7 +218,7 @@ class LlamacppManager extends EventEmitter {
   // ---------- internals ----------
 
   private async doLoad(def: LlamacppModelDef): Promise<LlamacppLoadedState> {
-    if (this.current) {
+    if (this.child) {
       await this.killChild(`switching to "${def.alias}"`);
     }
     this.lastError = undefined;
@@ -239,20 +240,38 @@ class LlamacppManager extends EventEmitter {
     appendLog(this, `\n[${new Date().toISOString()}] spawn llama-server ${args.join(' ')}\n`);
     pipeChildToLog(child, this);
 
-    const exitWatcher = watchUnexpectedExit(child, this);
+    // Keep listeners for the whole child lifetime. Late events from an older
+    // child cannot invalidate a replacement, and spawn errors are consumed.
+    const healthAbort = new AbortController();
+    const failed = new Promise<never>((_resolve, reject) => {
+      const invalidate = (message: string, exited = false): void => {
+        reject(new Error(message));
+        if (this.child !== child) return;
+        const wasReady = this.current !== null;
+        if (exited) this.child = null;
+        this.current = null;
+        this.clearIdleTimer();
+        this.lastError = message;
+        appendLog(this, `[${new Date().toISOString()}] ${message}\n`);
+        if (wasReady) this.emit('failed', { alias: def.alias, error: message });
+      };
+      child.once('exit', (code, signal) => invalidate(`llama-server exited (code=${code} signal=${signal})`,true));
+      child.on('error', (err) => invalidate(`llama-server process error: ${err.message}`));
+    });
 
     try {
-      await waitForHealth(host, port, child);
+      await Promise.race([waitForHealth(host, port, child, healthAbort.signal), failed]);
+      if (this.child !== child || child.exitCode !== null || child.signalCode !== null) {
+        throw new Error('llama-server exited before readiness was published');
+      }
     } catch (err) {
-      exitWatcher.cancel();
       await this.killChild('readiness check failed');
       const msg = err instanceof Error ? err.message : String(err);
       this.lastError = msg;
       this.emit('failed', { alias: def.alias, error: msg });
       throw new Error(`llama-server failed to become ready: ${msg}`);
-    }
+    } finally { healthAbort.abort(); }
 
-    exitWatcher.cancel();
     const now = Date.now();
     this.current = {
       alias: def.alias,
@@ -498,38 +517,22 @@ function pipeChildToLog(child: ChildProcess, mgr: LlamacppManager): void {
   if (child.stderr) child.stderr.on('data', tag('err'));
 }
 
-// If llama-server dies during readiness wait, surface a useful error rather
-// than letting waitForHealth time out 5 minutes later.
-function watchUnexpectedExit(child: ChildProcess, mgr: LlamacppManager): { cancel: () => void } {
-  let cancelled = false;
-  const onExit = (code: number | null, signal: string | null): void => {
-    if (cancelled) return;
-    appendLog(mgr, `[${new Date().toISOString()}] llama-server exited unexpectedly (code=${code} signal=${signal})\n`);
-  };
-  child.once('exit', onExit);
-  return {
-    cancel: (): void => {
-      cancelled = true;
-      child.removeListener('exit', onExit);
-    },
-  };
-}
-
-async function waitForHealth(host: string, port: number, child: ChildProcess): Promise<void> {
+async function waitForHealth(host: string, port: number, child: ChildProcess, signal: AbortSignal): Promise<void> {
   const deadline = Date.now() + HEALTH_TIMEOUT_MS;
   const url = `http://${host}:${port}/health`;
   while (Date.now() < deadline) {
-    if (child.exitCode !== null) {
+    signal.throwIfAborted();
+    if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error(`llama-server exited with code ${child.exitCode} before becoming ready`);
     }
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(1500) });
+      const res = await fetch(url, { signal: AbortSignal.any([signal,AbortSignal.timeout(1500)]) });
       if (res.ok) return;
       // 503 = "loading" per llama-server convention; keep polling.
     } catch {
       // Connection refused while it boots — keep polling.
     }
-    await new Promise((r) => setTimeout(r, HEALTH_POLL_INTERVAL_MS));
+    await sleep(HEALTH_POLL_INTERVAL_MS,undefined,{signal});
   }
   throw new Error(`/health did not pass within ${HEALTH_TIMEOUT_MS}ms`);
 }

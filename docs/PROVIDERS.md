@@ -1669,6 +1669,7 @@ require operator coordination and leave both profiles stopped afterward.
 
 ## llama.cpp
 
+A managed server exit or process error clears ready state; the next request can load a replacement.
 
 
 `server/src/providers/llamacpp.ts` (provider) + `server/src/providers/llamacppManager.ts` (lifecycle) + `server/src/llamacppCatalog.ts` (operator-declared model registry).
