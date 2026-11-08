@@ -862,6 +862,9 @@ export const configuration: Section[] = [
   then Compacted, continuing; CTX updates at once.
   </p>
   <p>
+  Large summaries split into requests that reserve room for earlier summary text and stay within the input budget.
+  </p>
+  <p>
   It runs at most once per crossing: if the context stays above the threshold,
   one notice says so. A failed summary changes nothing and the turn continues.
   Off turns it off, and so does Claude API compaction (beta).

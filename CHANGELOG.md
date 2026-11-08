@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep every Native compaction summary part within its input budget, including carried summary text and continuation context.
+
 - Keep newer public-project choices received from another tab when an older read finishes.
 
 - Offer RETRY SAVE after a failed public-project checkbox save, keeping plan startup blocked until it succeeds.

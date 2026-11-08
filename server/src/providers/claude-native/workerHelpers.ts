@@ -274,7 +274,8 @@ function resumeMessageText(msg: ClaudeResumeMessage): string {
 // in the prefix is left out. Only the first part is guaranteed to start on a
 // user message; the worker puts the running summary in front of the others.
 export function splitSummaryParts(messages: ClaudeResumeMessage[], maxTokens: number): ClaudeResumeMessage[][] {
-  const budget = Math.max(1_000, Math.floor(maxTokens));
+  if (!Number.isFinite(maxTokens) || maxTokens < 1) throw new Error('Summary input budget must be positive');
+  const budget = Math.floor(maxTokens);
   const sliceChars = budget * 3;
   const withText = (role: ClaudeResumeMessage['role'], text: string): ClaudeResumeMessage =>
     role === 'user' ? { role: 'user', content: text } : { role: 'assistant', content: [{ type: 'text', text }] };
@@ -288,12 +289,11 @@ export function splitSummaryParts(messages: ClaudeResumeMessage[], maxTokens: nu
     if (cost > budget) {
       flush();
       for (let at = 0; at < text.length; at += sliceChars) {
-        const n = Math.floor(at / sliceChars) + 1, of = Math.ceil(text.length / sliceChars);
-        parts.push([withText(msg.role, `[part ${n} of ${of} of one long message]\n${text.slice(at, at + sliceChars)}`)]);
+        parts.push([withText(msg.role, text.slice(at, at + sliceChars))]);
       }
       continue;
     }
-    if (current.length > 0 && (used + cost > budget) && (msg.role === 'user' || used + cost > budget * 1.5)) flush();
+    if (current.length > 0 && used + cost > budget) flush();
     current.push(msg);
     used += cost;
   }

@@ -99,6 +99,7 @@ import {
   projectKeptTailByTokens,
   sleepWithSignal,
   splitSummaryParts,
+  estimateSummaryTokens,
   inTurnCompactedHistory,
 } from './workerHelpers.js';
 import { buildFoldDigest } from './foldDigest.js';
@@ -1167,13 +1168,21 @@ export class ClaudeNativeWorker extends EventEmitter {
   private async summarizeInParts(prefix: MessageParam[]): Promise<string> {
     const win = lookupCtx(this.capModel()) ?? 200_000;
     const budget = win - COMPACT_SUMMARY_MAX_TOKENS - COMPACT_SUMMARY_REQUEST_OVERHEAD_TOKENS;
-    const parts = splitSummaryParts(prefix as unknown as Parameters<typeof splitSummaryParts>[0], budget);
-    if (parts.length <= 1) return this.generateCompactSummary(prefix);
+    const pending = [prefix as unknown as Parameters<typeof splitSummaryParts>[0]];
     let running = '';
-    for (const part of parts) {
+    while (pending.length > 0) {
+      const next = pending.shift()!;
+      const intro = running
+        ? `Summary of the earlier part of this conversation:\n\n${running}`
+        : next[0]?.role === 'assistant' ? 'Summarize this continuation of the conversation.' : '';
+      const room = budget - (intro ? estimateSummaryTokens(`${intro}\n\n`) : 0);
+      if (room < 1) throw new Error('Carried summary exceeds the summary input budget');
+      const chunks = splitSummaryParts(next, room);
+      const part = chunks.shift();
+      if (!part) continue;
+      pending.unshift(...chunks);
       const messages = part.map((m) => ({ ...m })) as unknown as MessageParam[];
-      if (running) {
-        const intro = `Summary of the earlier part of this conversation:\n\n${running}`;
+      if (intro) {
         const first = messages[0] as unknown as { role: string; content: string | Array<{ text: string }> };
         if (first.role === 'user') {
           const firstText = typeof first.content === 'string' ? first.content : first.content.map((b) => b.text).join('');
