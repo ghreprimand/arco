@@ -2,6 +2,7 @@
 // server before they leave the workstation; hub-host never receives the key.
 
 import { useEffect, useRef, useState } from 'react';
+import { pathWithin } from '../utils/homeModel';
 import { useHubLinkStore } from '../stores/hubLinkStore';
 import {
   useClusterSnapshotsStore,
@@ -15,6 +16,7 @@ const DEFAULT_RESTORE_TURNS = 25;
 
 interface Props {
   targetCwd?: string;
+  scopeCwd?: string;
   heading?: string;
 }
 
@@ -29,7 +31,7 @@ interface CloudSnapshot {
   bytes: number;
 }
 
-export function SavedClustersList({ targetCwd, heading = 'SAVED CLUSTERS' }: Props) {
+export function SavedClustersList({ targetCwd, scopeCwd, heading = 'SAVED CLUSTERS' }: Props) {
   const hubConnected = useHubLinkStore(s => s.known && s.connected);
   const snapshots = useClusterSnapshotsStore((s) => s.snapshots);
   const restoringId = useClusterSnapshotsStore((s) => s.restoringId);
@@ -43,6 +45,8 @@ export function SavedClustersList({ targetCwd, heading = 'SAVED CLUSTERS' }: Pro
   const [turnsText, setTurnsText] = useState(String(DEFAULT_RESTORE_TURNS));
   const [restoreAll, setRestoreAll] = useState(false);
   const [filter, setFilter] = useState('');
+  const [scopeChoice, setScopeChoice] = useState<{ cwd?: string; all: boolean }>({ cwd: scopeCwd, all: false });
+  const showAll = scopeChoice.cwd === scopeCwd && scopeChoice.all;
   const fileRef = useRef<HTMLInputElement>(null);
 
   const openConfirm = (id: string) => {
@@ -176,7 +180,15 @@ export function SavedClustersList({ targetCwd, heading = 'SAVED CLUSTERS' }: Pro
   };
 
   const activeSource = hubConnected ? source : 'local';
-  const rows = activeSource === 'local' ? snapshots : cloud;
+  const allRows = activeSource === 'local' ? snapshots : cloud;
+  // Cloud metadata deliberately omits project paths. Match it to an available
+  // local summary, and leave unmatched cloud entries behind SHOW ALL.
+  const sourceFolders = new Map(snapshots.map(snapshot => [snapshot.id, snapshot.sourceCwd]));
+  const projectRows = scopeCwd ? allRows.filter(row => {
+    const cwd = sourceFolders.get(row.id);
+    return !!cwd && pathWithin(cwd, scopeCwd) && pathWithin(scopeCwd, cwd);
+  }) : allRows;
+  const rows = scopeCwd && !showAll ? projectRows : allRows;
   const needle = filter.trim().toLowerCase();
   const visibleRows = needle ? rows.filter((r) => r.name.toLowerCase().includes(needle)) : rows;
   const compact: React.CSSProperties = { padding: '1px 6px', fontSize: '8px' };
@@ -226,11 +238,16 @@ export function SavedClustersList({ targetCwd, heading = 'SAVED CLUSTERS' }: Pro
         </div>
       )}
 
+      {scopeCwd && <button type="button" data-help="cluster.snapshot-projects" aria-pressed={showAll} className="display-font" style={{ ...pill(showAll), marginBottom: '7px' }} onClick={() => {
+        setScopeChoice({ cwd: scopeCwd, all: !showAll }); setConfirmId(null);
+      }}>{showAll ? 'This project only' : `Show all projects (${allRows.length})`}</button>}
       {activeSource === 'cloud' && cloudLoading ? (
         <div className="display-font" style={{ fontSize: '10px', color: 'var(--color-fg-muted)' }}>LOADING CLOUD…</div>
       ) : rows.length === 0 ? (
         <div className="display-font" style={{ fontSize: '10px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px', opacity: 0.7 }}>
-          {activeSource === 'local'
+          {scopeCwd && !showAll
+            ? 'No saved clusters for this project. Show all projects to browse other folders or cloud copies without a local summary.'
+            : activeSource === 'local'
             ? 'No local snapshots yet. Use SAVE STATE on a live cluster.'
             : 'No cloud snapshots yet. Save a local snapshot to CLOUD first.'}
         </div>

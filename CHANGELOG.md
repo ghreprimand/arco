@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Start SAVED CLUSTERS in MEMBERS with the current project, add Show all projects, and keep the creator list and restore destinations unchanged.
+
 - Start cluster creation immediately, show Starting... while waiting for the server, and check public-project choices before the new plan draft starts.
 
 - Load plan choices in one request with task counts, fetch bodies only for PREVIEW, and keep long lists in a scrolling area.

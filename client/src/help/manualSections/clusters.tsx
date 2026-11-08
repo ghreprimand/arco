@@ -141,6 +141,8 @@ export const clusters: Section[] = [
   destination project directory and either the last N turns per member
   or all history.
   </p>
+  <p>MEMBERS lists saved clusters from this folder first. Show all projects lists every available copy; its number is the total in the selected LOCAL or CLOUD list. This project only restores the filter. The creator always lists all projects. Restore destinations stay unchanged.</p>
+  <p>Cloud copies without a matching local folder summary appear under Show all projects. Project paths are not added to cloud metadata.</p>
   <h4 className="manual-sub">Reopening an existing live cluster</h4>
   <p>
     If a browser tab

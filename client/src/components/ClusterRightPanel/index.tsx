@@ -757,7 +757,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                 history replayed. No targetCwd here → restores into the
                 snapshot's original cwd. */}
             <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--color-border-hairline)' }}>
-              <SavedClustersList />
+              <SavedClustersList scopeCwd={cluster.cwd} />
             </div>
           </div>
         )}

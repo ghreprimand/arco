@@ -39,9 +39,15 @@ export const clusterHelp: Record<string, HelpEntry> = {
       <>
         <p>Saved copies of a cluster: its settings, plan and each member&apos;s conversation history. Restoring always creates a new cluster with new ids, and you choose how many recent turns each worker brings back.</p>
         <p><C>LOCAL</C> lists snapshots on this computer, with <C>IMPORT FILE</C> and a <C>FILE</C> download on each row. <C>CLOUD</C> lists encrypted copies on the management hub and appears only while the hub is connected.</p>
+        <p>In MEMBERS, the list starts with this project. Show all projects lists every saved copy; the number is the total available. The creator always lists all projects. Cloud copies without a matching local folder summary appear under Show all projects.</p>
         <p>Saving with a name that already exists asks before replacing. The old copy stays untouched unless you confirm and the new one saves completely.</p>
       </>
     ),
+    manualSection: 'cluster-tab',
+  },
+  'cluster.snapshot-projects': {
+    title: 'Saved clusters from other projects',
+    body: <p>Show all projects lists every available saved cluster. The number is the total in the selected LOCAL or CLOUD list. This project only restores the folder filter. Cloud copies without a matching local folder summary appear only when showing all. This changes the list, not the restore destination.</p>,
     manualSection: 'cluster-tab',
   },
   'cluster.existing-live': {

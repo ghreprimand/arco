@@ -180,6 +180,24 @@ async def main():
         await page.keyboard.press('Escape')
         await expect(search).to_have_value('notes')
         assert await page.evaluate('window.paletteCloses') == 0
+        # The MEMBERS panel starts with snapshots from this exact folder.
+        await page.evaluate("""async () => {
+          const React = (await import('/node_modules/.vite/deps/react.js')).default;
+          const {ClusterRightPanel} = await import('/src/components/ClusterRightPanel/index.tsx');
+          const {useClusterSnapshotsStore} = await import('/src/stores/clusterSnapshotsStore.ts');
+          useClusterSnapshotsStore.getState().onList([
+            {id:'own',name:'Own snapshot',sourceCwd:'/projects/fixture',createdAt:'2026-01-01',memberCount:1},
+            {id:'other',name:'Other snapshot',sourceCwd:'/projects/elsewhere',createdAt:'2026-01-01',memberCount:1},
+          ]);
+          localStorage.setItem('arco.clusterSidePanelTab.byCluster', JSON.stringify({c1:'members'}));
+          fixtureRoot.render(React.createElement(ClusterRightPanel, {cluster:s.getState().clusters.c1}));
+        }""")
+        await expect(page.get_by_text('Own snapshot', exact=True)).to_be_visible()
+        await expect(page.get_by_text('Other snapshot', exact=True)).to_have_count(0)
+        await page.get_by_role('button', name='Show all projects (2)', exact=True).click()
+        await expect(page.get_by_text('Other snapshot', exact=True)).to_be_visible()
+        await page.get_by_role('button', name='This project only', exact=True).click()
+        await expect(page.get_by_text('Other snapshot', exact=True)).to_have_count(0)
         assert not errors, errors
         assert not blocked, blocked
         await browser.close()
