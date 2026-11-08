@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep unrelated environment API keys out of saved-login Native worker and evaluator requests.
+
 - Preserve Claude Native partial-read warnings and file guard identity through linked project paths.
 
 - Stop multipart Native compaction at cancellation boundaries without starting later summary requests or replacing the retained history.

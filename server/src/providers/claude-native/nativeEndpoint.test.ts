@@ -13,16 +13,18 @@ const {ClaudeNativeWorker}=await import('./worker.js');
 const {claudeAdapter}=await import('../../smartPickupAdapters.js');
 const {writeSettings,readSettings,patchSettings}=await import('../../settings.js');
 const savedEnv=process.env.ANTHROPIC_BASE_URL;
+const savedKey=process.env.ANTHROPIC_API_KEY;
+process.env.ANTHROPIC_API_KEY='fixture-ambient-proxy-key';
 process.env.ANTHROPIC_BASE_URL='https://example.net/ambient';
 const cwd=join(home,'project');await fs.mkdir(cwd);
 beforeEach(async()=>{await writeSettings({...await readSettings(),claudeNative:undefined});await saveTokens({accessToken:'fixture-saved-login',refreshToken:'fixture-refresh',expiresAt:Date.now()+3600000,obtainedAt:1,tokenType:'Bearer',scope:'fixture'});});
-after(async()=>{if(savedEnv===undefined)delete process.env.ANTHROPIC_BASE_URL;else process.env.ANTHROPIC_BASE_URL=savedEnv;await fs.rm(home,{recursive:true,force:true});});
+after(async()=>{if(savedEnv===undefined)delete process.env.ANTHROPIC_BASE_URL;else process.env.ANTHROPIC_BASE_URL=savedEnv;if(savedKey===undefined)delete process.env.ANTHROPIC_API_KEY;else process.env.ANTHROPIC_API_KEY=savedKey;await fs.rm(home,{recursive:true,force:true});});
 const request={model:'claude-opus-4-8',instructions:'Synthetic request',prompt:'Fixture',maxOutputTokens:16,timeoutMs:1000,freeText:true};
 const response=()=>Response.json({id:'fixture',type:'message',role:'assistant',model:'claude-opus-4-8',content:[{type:'text',text:'Fixture answer'}],stop_reason:'end_turn',usage:{input_tokens:1,output_tokens:1}});
 async function worker() {const value=new ClaudeNativeWorker({workflowId:'endpoint-fixture',config:{cwd,model:'claude-opus-4-8',effort:'low'}});await value.ensureStarted();return value;}
 for(const mode of ['worker','evaluator'] as const)test(`saved-login ${mode} ignores ambient SDK endpoint`,async t=>{
   const calls:string[]=[];
-  t.mock.method(globalThis,'fetch',async(target:any,init:any)=>{calls.push(String(target));assert.equal(new Headers(init?.headers).get('authorization'),'Bearer fixture-saved-login');return response();});
+  t.mock.method(globalThis,'fetch',async(target:any,init:any)=>{calls.push(String(target));assert.equal(new Headers(init?.headers).get('authorization'),'Bearer fixture-saved-login');assert.equal(new Headers(init?.headers).get('x-api-key'),null,'saved login must not send the ambient key');return response();});
   if(mode==='worker') {
     const value=await worker();
     try {const client=(value as any).client as Anthropic;assert.equal(client.baseURL,'https://api.anthropic.com');await client.messages.create({model:'claude-opus-4-8',max_tokens:1,messages:[{role:'user',content:'Fixture'}]});}
@@ -32,11 +34,12 @@ for(const mode of ['worker','evaluator'] as const)test(`saved-login ${mode} igno
 });
 test('explicit global endpoint serves both paths and a change rebuilds the worker client',async t=>{
   await writeSettings({claudeNative:{baseUrl:'https://example.com/native'}} as any);
-  const calls:string[]=[];t.mock.method(globalThis,'fetch',async(target:any)=>{calls.push(String(target));return response();});
+  const calls:string[]=[];t.mock.method(globalThis,'fetch',async(target:any,init:any)=>{calls.push(String(target));assert.equal(new Headers(init?.headers).get('authorization'),'Bearer fixture-saved-login');assert.equal(new Headers(init?.headers).get('x-api-key'),null);return response();});
   const value=await worker();
   try {
     const first=(value as any).client as Anthropic;assert.equal(first.baseURL,'https://example.com/native');
-    await claudeAdapter().evaluate(request);assert.equal(new URL(calls[0]).origin,'https://example.com');
+    await first.messages.create({model:'claude-opus-4-8',max_tokens:1,messages:[{role:'user',content:'Fixture'}]});
+    await claudeAdapter().evaluate(request);assert.equal(calls.length,2);for(const target of calls)assert.equal(new URL(target).origin,'https://example.com');
     await writeSettings({claudeNative:{baseUrl:'https://example.org/other'}} as any);
     await value.ensureStarted();assert.notEqual((value as any).client,first);assert.equal((value as any).client.baseURL,'https://example.org/other');
   }finally{await value.dispose();}
@@ -52,12 +55,17 @@ test('global endpoint survives unrelated saves and can be explicitly cleared',as
   await patchSettings({claudeNative:{baseUrl:null}} as any);
   assert.equal((await readSettings() as any).claudeNative?.baseUrl,undefined);
 });
-test('environment API-key SDK setup retains its explicitly inherited endpoint',()=>{
+test('environment API-key SDK setup retains its own endpoint and key on requests',async()=>{
   const previous=process.env.ANTHROPIC_API_KEY;process.env.ANTHROPIC_API_KEY='fixture-environment-key';
+  const calls:Array<{url:string;headers:Headers}>=[];
   try {
-    const client=new Anthropic();
+    const client=new Anthropic({authToken:null,fetch:(async(target:any,init:any)=>{calls.push({url:String(target),headers:new Headers(init?.headers)});return response();}) as typeof fetch});
+    await client.messages.create({model:'claude-opus-4-8',max_tokens:1,messages:[{role:'user',content:'Fixture'}]});
     assert.equal(client.apiKey,'fixture-environment-key');
     assert.equal(client.baseURL,'https://example.net/ambient');
+    assert.equal(new URL(calls[0].url).origin,'https://example.net');
+    assert.equal(calls[0].headers.get('x-api-key'),'fixture-environment-key');
+    assert.equal(calls[0].headers.get('authorization'),null);
   } finally {if(previous===undefined)delete process.env.ANTHROPIC_API_KEY;else process.env.ANTHROPIC_API_KEY=previous;}
 });
 test('invalid custom endpoint values cannot survive settings validation',async()=>{

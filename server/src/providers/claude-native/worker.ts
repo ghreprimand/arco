@@ -1452,6 +1452,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     }
     this.client = new Anthropic({
       authToken: tokens.accessToken,
+      apiKey: null,
       baseURL,
       defaultHeaders: this.buildDefaultHeaders(),
       // H10 — our handleApiError ladder is the SINGLE retry path. The SDK's

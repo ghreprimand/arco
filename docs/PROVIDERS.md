@@ -385,6 +385,8 @@ OAuth subscription flow adapted from `earendil-works/pi`:
 
 Saved Native login tokens use `https://api.anthropic.com` for both workflow requests and the Native evaluator. An inherited `ANTHROPIC_BASE_URL` alone cannot redirect them. An explicit `claudeNative.baseUrl` in the global settings file selects a custom endpoint; project settings cannot select that destination. The next turn or evaluation reads the setting, and an existing worker rebuilds its SDK client when the endpoint changes. Remove the setting to restore the provider default.
 
+Saved-login worker and evaluator clients explicitly disable SDK API-key inheritance. Their requests carry the saved OAuth Authorization header without an unrelated environment X-Api-Key header. API-key-only SDK clients keep their environment key and endpoint.
+
 A configured custom endpoint receives the saved Native login token. Configure only a trusted destination. This setting does not add API-key-only Native sign-in or change the SDK's environment endpoint behavior for API-key-only callers.
 
 #### Headers (wire fingerprint)
