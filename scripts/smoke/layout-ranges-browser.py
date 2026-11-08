@@ -121,6 +121,14 @@ async def open_page(browser, base, width, scale=1.0, layout=None, height=800, si
             data = await response.json()
             data.update({'uiScale': scale, 'onboardingComplete': True, 'updateCheck': False})
             await route.fulfill(response=response, json=data); return
+        # The UI store/socket uses synthetic workflow IDs, not server workflows.
+        # Supply the skill catalog for this layout-only fixture as well.
+        if u.path == '/api/skills' and route.request.method == 'GET':
+            await route.fulfill(json={'project': [], 'global': [], 'builtin': [
+                {'slug': 'architecture-review', 'name': 'Architecture review', 'description': 'Inspect a synthetic project.'}
+            ]}); return
+        if u.path == '/api/toolbox' and route.request.method == 'GET':
+            await route.fulfill(json={'supported': True, 'entries': []}); return
         if u.path in ('/api/auth-status', '/api/capabilities') or u.path.endswith('/catalog'):
             await route.fulfill(json=api_data(u.path, scale)); return
         await route.continue_()

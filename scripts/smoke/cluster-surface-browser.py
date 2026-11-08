@@ -2,7 +2,7 @@
 import asyncio
 import os
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urlparse, parse_qs
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
 
@@ -26,13 +26,18 @@ async def main():
         # This suite checks controls in the Standard layout; layout-ranges-browser.py covers the other layouts.
         await page.add_init_script("localStorage.setItem('arco.layoutMode', 'standard')")
         blocked, errors = [], []
+        public_choices = {}
         async def isolate(route):
             url = urlparse(route.request.url)
             if url.scheme == 'https' and url.netloc in ('fonts.googleapis.com', 'fonts.gstatic.com'):
                 await route.fulfill(status=200, content_type='text/css', body='')
                 return
             if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and url.path == '/api/public-project/choice':
-                await route.fulfill(json={'choice': None} if route.request.method == 'GET' else {'choice': route.request.post_data_json['value']})
+                cwd = parse_qs(url.query).get('path', [''])[0]
+                if route.request.method == 'POST':
+                    body = route.request.post_data_json
+                    cwd = body['path']; public_choices[cwd] = body['value']
+                await route.fulfill(json={'choice': public_choices.get(cwd)})
                 return
             if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and url.path == '/api/explorer/plans/attach' and route.request.method == 'POST':
                 await route.fulfill(json={'ok': True})
