@@ -1229,6 +1229,8 @@ Dragged splitter positions are saved separately for each layout. Positions from 
 
 ## ARTIFACTS explorer (`?app=explorer`)
 
+Artifact listings omit protected file paths. If workflow metadata is linked or unavailable, the listing uses the workflow identifier instead of a title.
+
 TREE starts at the first readable location: the configured working folder, Projects in the home folder, then the home folder. Startup, directory listings and previews share that read-only root. This fallback does not register a project or grant writes.
 
 In save pickers, Go or Enter in the path field loads the destination. SAVE HERE and Enter in the filename field choose the loaded folder only. Both refuse submission during loading, after a listing error, or while the path is being edited.

@@ -15,7 +15,7 @@ export const maintenance: Section[] = [
   <ul>
   <li>
   <strong>ARTIFACTS</strong> starts with project cards and recent artifacts
-  across projects; open a project to drill into its documents.
+  across projects; open a project to drill into its documents. Protected file paths are omitted. Linked or unavailable workflow metadata uses an identifier instead of a title.
   </li>
   <li>
   <strong>RECENTS</strong> separates attributed agent writes from the

@@ -14,10 +14,12 @@
 // Fencing (§5): every path is realpath-resolved and confirmed ⊆ $HOME before it
 // is returned. `realpathWithinHome` is exported for the Phase 4 changed scan.
 
-import { readFile, readdir, realpath, stat } from 'fs/promises';
+import { constants } from 'fs';
+import { lstat, open, readFile, readdir, realpath, stat } from 'fs/promises';
 import { basename, join, resolve, sep } from 'path';
 import { homedir } from 'os';
 import { arcoHome } from './arcoHome.js';
+import { assertSafePath, confinedPath } from './fileAccessPolicy.js';
 
 export interface ArtifactEntry {
   path: string;        // absolute, realpath-resolved, ⊆ $HOME
@@ -69,7 +71,22 @@ export async function readKnownCwds(): Promise<string[]> {
 async function readWorkflowMeta(cwd: string, wfid: string): Promise<{ tabTitle: string; provider: string }> {
   const fallback = { tabTitle: wfid.slice(0, 8), provider: 'unknown' };
   try {
-    const raw = await readFile(join(cwd, '.arco', 'workflows', wfid, 'meta.json'), 'utf8');
+    // The fixed workflow metadata file is internal state, so it is not a
+    // browser file grant. Refuse links on the path before using its title.
+    let current = cwd;
+    for (const component of ['.arco', 'workflows', wfid, 'meta.json']) {
+      current = join(current, component);
+      const entry = await lstat(current);
+      if (entry.isSymbolicLink() || (component === 'meta.json' && (!entry.isFile() || entry.nlink > 1))) return fallback;
+    }
+    const expected = await lstat(current);
+    const handle = await open(current, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+    let raw: string;
+    try {
+      const opened = await handle.stat();
+      if (!opened.isFile() || opened.nlink > 1 || opened.dev !== expected.dev || opened.ino !== expected.ino || await realpath(current) !== current) return fallback;
+      raw = await handle.readFile('utf8');
+    } finally { await handle.close(); }
     const meta = JSON.parse(raw) as { name?: string; primaryProvider?: string };
     return {
       tabTitle: meta.name && meta.name.trim().length > 0 ? meta.name.trim() : fallback.tabTitle,
@@ -96,7 +113,9 @@ async function walkArtifactFiles(dir: string, depth: number, out: string[]): Pro
       if (e.name === 'raw-tools') continue; // recovery spill, not review material
       await walkArtifactFiles(join(dir, e.name), depth + 1, out);
     } else if (e.isFile()) {
-      out.push(join(dir, e.name));
+      const file = join(dir, e.name);
+      try { assertSafePath(file); } catch { continue; }
+      out.push(file);
     }
   }
 }
@@ -104,6 +123,7 @@ async function walkArtifactFiles(dir: string, depth: number, out: string[]): Pro
 // Collect artifacts for one project cwd. Reads its workflows dir, walks each
 // workflow's artifacts/, joins meta.json.
 async function collectForCwd(cwd: string): Promise<ArtifactEntry[]> {
+  try { assertSafePath(cwd); } catch { return []; }
   const project = basename(cwd);
   const workflowsDir = join(cwd, '.arco', 'workflows');
   let wfdirs;
@@ -123,6 +143,7 @@ async function collectForCwd(cwd: string): Promise<ArtifactEntry[]> {
     for (const f of files) {
       const rp = await realpathWithinHome(f);
       if (!rp) continue; // escaped $HOME or vanished — drop
+      try { confinedPath(f, [cwd]); } catch { continue; }
       let st;
       try { st = await stat(rp); } catch { continue; }
       results.push({
