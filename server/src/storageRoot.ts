@@ -1,29 +1,25 @@
-import { lstat, mkdir } from 'node:fs/promises';
+import { lstat, mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 
 export class UnsafeStorageRootError extends Error {
-  constructor() { super('Storage folder and its parent folders must be real folders, not links.'); }
+  constructor() { super('The managed storage folder must be a real folder, not a link.'); }
 }
 
-/** Refuse linked or non-directory components before creating managed storage. */
-export async function ensureStorageRoot(root: string, create = true): Promise<void> {
+/** Resolve user-selected parents, but never follow a linked managed root. */
+export async function ensureStorageRoot(root: string, create = true): Promise<string> {
   const absolute = path.resolve(root);
-  const parsed = path.parse(absolute);
-  let current = parsed.root;
-  const parts = absolute.slice(parsed.root.length).split(path.sep).filter(Boolean);
-  for (const part of parts) {
-    current = path.join(current, part);
-    let entry;
-    try {
-      entry = await lstat(current);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || !create) throw error;
-      try { await mkdir(current); }
-      catch (mkdirError) { if ((mkdirError as NodeJS.ErrnoException).code !== 'EEXIST') throw mkdirError; }
-      entry = await lstat(current);
-    }
-    if (entry.isSymbolicLink() || !entry.isDirectory()) {
-      throw new UnsafeStorageRootError();
-    }
+  const parent = path.dirname(absolute);
+  if (create) await mkdir(parent, { recursive: true });
+  const canonicalParent = await realpath(parent);
+  const managed = path.join(canonicalParent, path.basename(absolute));
+  let entry;
+  try { entry = await lstat(managed); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || !create) throw error;
+    try { await mkdir(managed); }
+    catch (mkdirError) { if ((mkdirError as NodeJS.ErrnoException).code !== 'EEXIST') throw mkdirError; }
+    entry = await lstat(managed);
   }
+  if (entry.isSymbolicLink() || !entry.isDirectory()) throw new UnsafeStorageRootError();
+  return managed;
 }

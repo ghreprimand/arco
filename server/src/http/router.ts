@@ -369,8 +369,8 @@ export async function handleHttpRequest(
       const inferredExt = !ext && contentType ? UPLOAD_IMAGE_EXT[contentType] : undefined;
       const filename = basename(rawFilename) + (inferredExt ?? '');
       const fileId = crypto.randomUUID().slice(0, 8);
-      const savePath = join(UPLOADS_DIR, `${fileId}-${filename}`);
-      await ensureStorageRoot(UPLOADS_DIR);
+      const uploadRoot = await ensureStorageRoot(UPLOADS_DIR);
+      const savePath = join(uploadRoot, `${fileId}-${filename}`);
       await writeFile(savePath, body, { flag: 'wx' });
       console.log(`[arco] File uploaded: ${filename} -> ${savePath}`);
       // Model-side downscale runs in the background; providers await it

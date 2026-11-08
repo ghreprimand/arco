@@ -44,7 +44,7 @@ export const media: Section[] = [
         </p>
         <p>
           Imported files support every operation. Arco first copies them into
-          a temporary scratch folder under <Code>~/.arco/media-scratch/</Code>. The scratch folder and its parents must be real folders, not links.
+          a temporary scratch folder under <Code>~/.arco/media-scratch/</Code>. The scratch folder must be a real folder, not a link.
         </p>
 
         <Sub>Image viewer and editor</Sub>

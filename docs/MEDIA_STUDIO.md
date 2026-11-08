@@ -240,7 +240,7 @@ Operator-facing behavior lives in the `media-studio` manual section. HTTP shapes
 
 ### Scratch storage
 
-`server/src/media/scratch.ts`, `~/.arco/media-scratch/<uuid>/<sanitized-name>`. The scratch folder and its parents must be real folders, not links; an import reports an error if they are not. `saveScratchUpload` streams the request body to a fresh per-upload dir (so the write can't escape no matter what `?name=` contains), enforces a **per-upload byte cap** (4 GiB) mid-stream, and reaps on a **24h TTL** + a **total-size cap** (16 GiB, oldest evicted) after every upload. `isWithinScratch` is the read-side tier-2 gate. Scratch is disposable, the reaper clears it; the operator can delete the dir at any time.
+`server/src/media/scratch.ts`, `~/.arco/media-scratch/<uuid>/<sanitized-name>`. The scratch folder must be a real folder, not a link; an import reports an error if it is a link. `saveScratchUpload` streams the request body to a fresh per-upload dir (so the write can't escape no matter what `?name=` contains), enforces a **per-upload byte cap** (4 GiB) mid-stream, and reaps on a **24h TTL** + a **total-size cap** (16 GiB, oldest evicted) after every upload. `isWithinScratch` is the read-side tier-2 gate. Scratch is disposable, the reaper clears it; the operator can delete the dir at any time.
 
 ### Output destination (save dialog)
 

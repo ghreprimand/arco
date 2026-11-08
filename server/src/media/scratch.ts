@@ -34,6 +34,7 @@ import { homedir } from 'os';
 import type { Readable } from 'stream';
 import { arcoHome } from '../arcoHome.js';
 import { ensureStorageRoot } from '../storageRoot.js';
+import { realpathSync } from 'node:fs';
 
 // The scratch root. A sibling of settings.json / clusters / skills under
 // ~/.arco, so it's already an Arco-owned tree the operator knows about.
@@ -71,20 +72,23 @@ export function sanitizeScratchBasename(name: unknown): string | null {
 // ── PURE: is this absolute path inside the scratch root? ─────────────────────
 // The read-side gate. A scratch path is allowed regardless of mediaUnconfined.
 export function isWithinScratch(abs: string): boolean {
-  const root = path.resolve(SCRATCH_ROOT);
-  const rel = path.relative(root, path.resolve(abs));
-  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+  const roots = [path.resolve(SCRATCH_ROOT)];
+  try { roots.push(realpathSync(SCRATCH_ROOT)); } catch { /* root may not exist */ }
+  return roots.some(root => {
+    const rel = path.relative(root, path.resolve(abs));
+    return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+  });
 }
 
-async function ensureRoot(): Promise<void> {
-  await ensureStorageRoot(SCRATCH_ROOT);
+async function ensureRoot(): Promise<string> {
+  return ensureStorageRoot(SCRATCH_ROOT);
 }
 
 // Create a fresh per-upload subdir and return its id + absolute path.
 async function createEntryDir(): Promise<{ id: string; dir: string }> {
-  await ensureRoot();
+  const root = await ensureRoot();
   const id = randomUUID();
-  const dir = path.join(SCRATCH_ROOT, id);
+  const dir = path.join(root, id);
   await fs.mkdir(dir);
   return { id, dir };
 }
@@ -167,10 +171,11 @@ export async function saveScratchUpload(
 // effort: a missing root / a racing delete is non-fatal. Safe to call at
 // startup and after every upload.
 export async function reapScratch(): Promise<void> {
-  try { await ensureStorageRoot(SCRATCH_ROOT, false); } catch { return; }
+  let root: string;
+  try { root = await ensureStorageRoot(SCRATCH_ROOT, false); } catch { return; }
   let ids: string[];
   try {
-    ids = await fs.readdir(SCRATCH_ROOT);
+    ids = await fs.readdir(root);
   } catch {
     return; // root doesn't exist yet → nothing to reap
   }
@@ -178,7 +183,7 @@ export async function reapScratch(): Promise<void> {
   interface Entry { dir: string; mtimeMs: number; size: number }
   const entries: Entry[] = [];
   for (const id of ids) {
-    const dir = path.join(SCRATCH_ROOT, id);
+    const dir = path.join(root, id);
     try {
       const st = await fs.stat(dir);
       if (!st.isDirectory()) continue;

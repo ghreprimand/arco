@@ -75,7 +75,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
         Drag-drop a file here or use <strong>IMPORT…</strong> to load one from the
         browser. Filtered to the active mode (image / audio / video). Imported
         files use a browser object URL for playback. Audio and video operations
-        stage an imported source to scratch when they run. The scratch folder and its parents must be real folders, not links.
+        stage an imported source to scratch when they run. The scratch folder must be a real folder, not a link.
       </p>
     ),
     manualSection: S,

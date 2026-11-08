@@ -27,7 +27,7 @@ While the worker is busy, SEND or Enter preserves the restored kind shown by EDI
 
 ## Pending work and navigation
 
-Attachment uploads require the configured upload folder and its parents to be real folders, not links. SEND waits for every pending attachment upload in Agent and Chat composers. Overlapping paste or drop batches cannot release the guard early. Completed files remain staged for the message.
+Attachment uploads require the configured upload folder to be a real folder, not a link. SEND waits for every pending attachment upload in Agent and Chat composers. Overlapping paste or drop batches cannot release the guard early. Completed files remain staged for the message.
 
 HISTORY advances its saved-event cursor even when a page contains no narrative rows. Selecting an older message expands PRIOR SESSIONS when needed before scrolling and highlighting it.
 

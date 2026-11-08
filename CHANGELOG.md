@@ -18,7 +18,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Apply file-browser privacy rules to artifact listings and avoid linked workflow metadata.
 
-- Refuse attachment and media imports when their storage folder or a parent is a link.
+- Refuse attachment and media imports when their managed storage folder is a link; linked home folders remain supported.
 
 - Restrict browser HTTP and WebSocket access to exact approved origins while preserving same-origin remote access without upgrade configuration, configured remote hosts and the development frontend. Extra cross-origin callers use ARCO_ALLOWED_ORIGINS.
 

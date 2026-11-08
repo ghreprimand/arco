@@ -1,7 +1,7 @@
 // Shared operator-attachment helpers for providers that don't carry their own
 
 import { execFile } from 'child_process';
-import { existsSync, readFileSync, statSync } from 'fs';
+import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from 'fs';
 import { rename, stat, unlink } from 'fs/promises';
 import { homedir } from 'os';
 import { dirname, extname, join, resolve } from 'path';
@@ -297,10 +297,17 @@ export function modelImagePath(path: string): string {
 // Awaits an in-flight derivation (bounded), deriving on demand for an upload
 // that predates this code. On-demand is fenced to ./uploads so nothing new is
 // ever written next to a project file.
+function isUploadDirectory(dir: string): boolean {
+  try {
+    const root = lstatSync(UPLOADS_DIR);
+    return root.isDirectory() && !root.isSymbolicLink() && realpathSync(UPLOADS_DIR) === realpathSync(dir);
+  } catch { return false; }
+}
+
 export async function awaitModelImage(path: string, timeoutMs = AWAIT_MODEL_IMAGE_MS): Promise<string> {
   if (!isDerivable(path)) return path;
   if (!inflight.has(path) && !settled.has(path) && modelImagePath(path) === path
-    && dirname(resolve(path)) === resolve(UPLOADS_DIR) && existsSync(path)) {
+    && isUploadDirectory(dirname(resolve(path))) && existsSync(path)) {
     queueModelImage(path);
   }
   const pending = inflight.get(path);

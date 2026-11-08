@@ -155,7 +155,7 @@ class Instance {
     writeFileSync(path.join(this.home, '.codex', 'auth.json'), '{"synthetic":"not-a-credential"}\n');
   }
 
-  async start(): Promise<void> {
+  async start(readinessMs = 60_000): Promise<void> {
     const port = await freePort();
     this.base = `http://127.0.0.1:${port}`;
     const guarded = await hardenServerEnv({
@@ -169,7 +169,7 @@ class Instance {
       stdio: 'ignore',
       env: guarded.env,
     });
-    await until('server readiness', async () => { try { return (await fetch(`${this.base}/readyz`)).ok; } catch { return false; } }, 60_000);
+    await until('server readiness', async () => { try { return (await fetch(`${this.base}/readyz`)).ok; } catch { return false; } }, readinessMs);
     const minted = await fetch(`${this.base}/api/session`, { method: 'POST', headers: this.mintHeaders() });
     assert.equal(minted.status, 204);
     this.cookie = minted.headers.get('set-cookie')!.split(';')[0];
@@ -277,6 +277,29 @@ test('writes stay inside the project: absolute escape, symlink escape and unknow
 });
 
 // ── legitimate reads that confinement must keep allowing ──────────────────
+test('server starts and accepts uploads through a linked home parent', async (t) => {
+  const instance = new Instance();
+  let linked = false;
+  try {
+    const realHome = path.join(instance.root, 'relocated-home');
+    await fs.mkdir(realHome);
+    const alias = path.join(instance.root, 'home-alias');
+    try { await fs.symlink(realHome, alias, 'dir'); linked = true; }
+    catch (error) { if (['EPERM', 'ENOTSUP'].includes((error as NodeJS.ErrnoException).code ?? '')) return t.skip('symlinks unavailable'); throw error; }
+    Object.defineProperty(instance, 'uploads', { value: path.join(alias, 'uploads') });
+    await instance.start(5000);
+    const response = await instance.api('/upload', { method: 'POST', headers: { 'Content-Type': 'text/plain', 'X-Filename': 'fixture.txt' }, body: 'synthetic upload' });
+    assert.equal(response.ok, true);
+    const uploaded = await response.json() as { path: string };
+    assert.equal(await fs.readFile(uploaded.path, 'utf8'), 'synthetic upload');
+    assert.equal((await instance.fileContent(`path=${encodeURIComponent(uploaded.path)}`)).content, 'synthetic upload');
+    assert.equal((await fs.readdir(path.join(realHome, 'uploads'))).length, 1);
+  } finally {
+    if (!linked) await fs.rm(path.join(instance.root, 'home-alias'), { force: true }).catch(() => {});
+    await instance.stop();
+  }
+});
+
 test('upload refuses a replaced linked uploads root', async (t) => {
   const saved = `${main.uploads}-saved`;
   await fs.rename(main.uploads, saved);
@@ -287,7 +310,7 @@ test('upload refuses a replaced linked uploads root', async (t) => {
     const before = (await fs.readdir(main.outside)).sort();
     const response = await main.api('/upload', { method: 'POST', headers: { 'Content-Type': 'text/plain', 'X-Filename': 'fixture.txt' }, body: 'synthetic upload' });
     assert.equal(response.ok, false);
-    assert.match((await response.json() as { error: string }).error, /real folders, not links/i);
+    assert.match((await response.json() as { error: string }).error, /real folder, not a link/i);
     assert.deepEqual((await fs.readdir(main.outside)).sort(), before);
   } finally {
     if (linked) await fs.unlink(main.uploads);
