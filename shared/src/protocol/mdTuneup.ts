@@ -37,6 +37,7 @@ export interface MdTuneupCandidatesMessage {
   workflowId: string;
   candidates: MdTuneupCandidate[];
   skippedLinks?: MdTuneupSkippedLink[];
+  partial?: boolean;
   defaultPath?: string;
 }
 

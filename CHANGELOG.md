@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Bound TUNE MD discovery, skip ignored trees and nested checkouts, retain useful hidden guidance, and explain incomplete scans.
+
 - Bound Native and local-model file discovery, skip ignored directories and nested checkouts, retain useful hidden folders, and report truncated searches.
 
 - Keep the current step readable in the conversation header, stabilize member-card summaries, and place PLAN FIRST beside NORTH STAR.

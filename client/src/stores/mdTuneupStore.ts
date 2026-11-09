@@ -61,6 +61,7 @@ export interface MdTuneupCandidates {
   candidates: MdTuneupCandidate[];
   defaultPath?: string;
   skippedLinks?: MdTuneupSkippedLink[];
+  partial?: boolean;
   // false until the server's md_tuneup_candidates lands (so the dialog shows a
   // "scanning…" state rather than a premature "no files found").
   loaded: boolean;
@@ -70,7 +71,7 @@ interface MdTuneupState {
   byWorkflow: Record<string, MdTuneupEntry>;
   candidatesByWorkflow: Record<string, MdTuneupCandidates>;
   requestCandidates: (workflowId: string) => void;
-  onCandidates: (workflowId: string, candidates: MdTuneupCandidate[], defaultPath?: string, skippedLinks?: MdTuneupSkippedLink[]) => void;
+  onCandidates: (workflowId: string, candidates: MdTuneupCandidate[], defaultPath?: string, skippedLinks?: MdTuneupSkippedLink[], partial?: boolean) => void;
   dispatch: (workflowId: string, editor: MdTuneupEditor, target: MdTuneupTarget) => void;
   onStarted: (workflowId: string, patch: { tuneupId: string; filePath: string; baseName: string; originalBytes: number }) => void;
   onProposed: (workflowId: string, patch: {
@@ -94,8 +95,8 @@ export const useMdTuneupStore = create<MdTuneupState>((set, get) => ({
     set((s) => ({ candidatesByWorkflow: { ...s.candidatesByWorkflow, [workflowId]: { candidates: [], loaded: false } } }));
     if (candidatesSender) candidatesSender(workflowId);
   },
-  onCandidates: (workflowId, candidates, defaultPath, skippedLinks) => set((s) => ({
-    candidatesByWorkflow: { ...s.candidatesByWorkflow, [workflowId]: { candidates, defaultPath, skippedLinks, loaded: true } },
+  onCandidates: (workflowId, candidates, defaultPath, skippedLinks, partial) => set((s) => ({
+    candidatesByWorkflow: { ...s.candidatesByWorkflow, [workflowId]: { candidates, defaultPath, skippedLinks, partial, loaded: true } },
   })),
   dispatch: (workflowId, editor, target) => {
     set((s) => ({ byWorkflow: { ...s.byWorkflow, [workflowId]: { workflowId, status: 'pending' } } }));

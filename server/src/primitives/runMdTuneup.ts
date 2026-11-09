@@ -1,3 +1,4 @@
+import { projectFiles, scanBudget } from '../projectScan.js';
 import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // Agent-instruction-file tune-up primitive — see shared/src/protocol/mdTuneup.ts
 // for the full flow + fence rationale. Mirrors runDocEdit.ts: a SHORT-LIVED,
@@ -69,34 +70,19 @@ async function candidateMetrics(abs: string, bytes: number): Promise<Pick<MdTune
 // Discover recognized instruction files at the project root and in nested
 // folders. Results use project-relative paths and sort shallowest-first so
 // likely top-level guidance appears before files scoped to subdirectories.
-export async function discoverInstructionFilesWithLinks(cwd: string): Promise<{ candidates: MdTuneupCandidate[]; skippedLinks: MdTuneupSkippedLink[] }> {
+export async function discoverInstructionFilesWithLinks(cwd: string): Promise<{ candidates: MdTuneupCandidate[]; skippedLinks: MdTuneupSkippedLink[]; partial: boolean }> {
   const found: MdTuneupCandidate[] = [];
   const links: string[] = [];
   const root = await fs.realpath(cwd);
-  const walk = async (dir: string, depth: number): Promise<void> => {
-    if (depth > DISCOVERY_MAX_DEPTH) return;
-    let entries;
-    try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      return; // unreadable dir — skip silently
-    }
-    for (const ent of entries) {
-      if (ent.isDirectory()) {
-        if (SKIP_DIRS.has(ent.name) || ent.name.startsWith('.')) continue;
-        await walk(path.join(dir, ent.name), depth + 1);
-      } else if (ent.isSymbolicLink() && INSTRUCTION_NAME_SET.has(ent.name)) {
-        links.push(path.join(dir, ent.name));
-      } else if (ent.isFile() && INSTRUCTION_NAME_SET.has(ent.name)) {
-        const abs = path.join(dir, ent.name);
-        let bytes = 0;
-        try { bytes = (await fs.stat(abs)).size; } catch { /* ignore */ }
-        const metrics = await candidateMetrics(abs, bytes).catch(() => ({ hints: ['File could not be analyzed.'] }));
-        found.push({ path: path.relative(cwd, abs), baseName: ent.name, bytes, ...metrics });
-      }
-    }
-  };
-  await walk(cwd, 0);
+  const budget = scanBudget(20_000, 1000);
+  for await (const entry of projectFiles(cwd, { budget, skip: SKIP_DIRS, respectGitIgnore: true, includeLinks: true, maxDepth: DISCOVERY_MAX_DEPTH })) {
+    if (!INSTRUCTION_NAME_SET.has(entry.name)) continue;
+    const info = await fs.lstat(entry.path).catch(() => null);
+    if (info?.isSymbolicLink()) { links.push(entry.path); continue; }
+    if (!info?.isFile()) continue;
+    const metrics = await candidateMetrics(entry.path, info.size).catch(() => ({ hints: ['File could not be analyzed.'] }));
+    found.push({ path: path.relative(cwd, entry.path), baseName: entry.name, bytes: info.size, ...metrics });
+  }
   // Shallowest path first, then alphabetical — root CLAUDE.md/AGENTS.md lead.
   found.sort((a, b) => {
     const da = a.path.split(path.sep).length;
@@ -124,7 +110,7 @@ export async function discoverInstructionFilesWithLinks(cwd: string): Promise<{ 
   }
   for (const candidate of found) candidate.alsoReadAs?.sort();
   skippedLinks.sort((a, b) => a.path.localeCompare(b.path));
-  return { candidates: found, skippedLinks };
+  return { candidates: found, skippedLinks, partial: budget.partial };
 }
 
 export async function discoverInstructionFiles(cwd: string): Promise<MdTuneupCandidate[]> {

@@ -168,10 +168,11 @@ export function MdTuneupDialog({ workflowId, editor, onClose }: Props) {
             {!cand?.loaded && (
               <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)' }}>Scanning the project for agent-instruction files…</div>
             )}
+            {cand?.partial && <div role="status" style={{ color: 'var(--color-warning)', fontSize: '12px' }}>Results truncated. Open a smaller project folder to discover more instruction files.</div>}
             {cand?.loaded && cand.candidates.length === 0 && (
               <>
                 <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
-                  No CLAUDE.md / CLAUDE.local.md / AGENTS.md found in this project. Nothing to tune up.
+                  {cand.partial ? 'No instruction files found in the scanned portion of this project.' : 'No CLAUDE.md / CLAUDE.local.md / AGENTS.md found in this project. Nothing to tune up.'}
                 </div>
               </>
             )}

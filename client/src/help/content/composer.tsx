@@ -337,6 +337,8 @@ export const composerHelp: Record<string, HelpEntry> = {
   'composer.tuneup': {
     title: 'TUNE MD button',
     body: (
+      <>
+      <p>Discovery skips Git-ignored directories and nested Git checkouts or worktrees below the project root. Individually ignored instruction files and explicitly selected ignored folders remain searchable. Useful hidden folders remain searchable. Entry, time and depth budgets can stop the scan; Results truncated explains that a smaller project folder can reveal more files.</p>
       <p>ACCEPT checks that the instruction file still matches the original shown in the proposal. If another edit changed it, nothing is overwritten. Run TUNE MD again and review the new diff before accepting.
         Opens the agent-instruction tune-up flow for files like{' '}
         <C>CLAUDE.md</C>, <C>CLAUDE.local.md</C>, and <C>AGENTS.md</C>. Arco
@@ -344,6 +346,7 @@ export const composerHelp: Record<string, HelpEntry> = {
         before any model runs. Links to listed instruction files appear as other names on their target; links outside the project or to unlisted files are skipped. Review the proposed diff before accepting. UNDO
         restores the backup; a file changed since acceptance requires confirmation.
       </p>
+      </>
     ),
     manualSection: 'composer',
   },

@@ -40,12 +40,13 @@ async def main():
           const {useAppStore:s}=await import('/src/stores/appStore.ts');
           const m=await import('/src/stores/mdTuneupStore.ts'); window.m=m; window.calls=[];
           s.getState().createJob('fixture',{name:'Fixture',workingDirectory:'/fixture',primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'medium',skipPermissions:false});
-          m.registerMdTuneupCandidatesSender((id)=>setTimeout(()=>m.useMdTuneupStore.getState().onCandidates(id,[{path:'AGENTS.md',baseName:'AGENTS.md',bytes:120,lines:3,approximateTokens:30,hints:['Repeated lines found.'],alsoReadAs:['CLAUDE.md']}],'AGENTS.md',[{path:'nested/CLAUDE.md',reason:'Target is outside this project.'}]),0));
+          m.registerMdTuneupCandidatesSender((id)=>setTimeout(()=>m.useMdTuneupStore.getState().onCandidates(id,[{path:'AGENTS.md',baseName:'AGENTS.md',bytes:120,lines:3,approximateTokens:30,hints:['Repeated lines found.'],alsoReadAs:['CLAUDE.md']}],'AGENTS.md',[{path:'nested/CLAUDE.md',reason:'Target is outside this project.'}],true),0));
           m.registerMdTuneupRequestSender((a)=>{window.calls.push(['request',a]);setTimeout(()=>m.useMdTuneupStore.getState().onProposed(a.workflowId,{tuneupId:'tuneup',filePath:'/fixture/AGENTS.md',baseName:'AGENTS.md',original:'Original',proposed:'Tuned',notes:'',originalBytes:8,proposedBytes:5}),0)});
           m.registerMdTuneupAcceptSender((a)=>{window.calls.push(['accept',a]);setTimeout(()=>m.useMdTuneupStore.getState().onApplied(a.workflowId,{tuneupId:a.tuneupId,filePath:a.filePath,ok:true,backupPath:'/fixture/.arco/md-backups/fixture.bak',undoId:'undo'}),0)});
           m.registerMdTuneupUndoSender((a)=>{window.calls.push(['undo',a]);setTimeout(()=>m.useMdTuneupStore.getState().onUndone(a.workflowId,a.confirmedHash?{undoId:a.undoId,ok:true,safetyBackupPath:'/fixture/.arco/md-backups/safety.bak'}:{undoId:a.undoId,ok:false,conflictHash:'changed'}),0);return true});
           createRoot(document.getElementById('fixture')).render(React.createElement(MdTuneupDialog,{workflowId:'fixture',editor:{provider:'claude',model:'sonnet',effort:'medium'},onClose:()=>{}}));
         }''')
+        await expect(page.get_by_text('Results truncated. Open a smaller project folder to discover more instruction files.', exact=True)).to_be_visible()
         await expect(page.get_by_text('3 lines, ~30 tokens')).to_be_visible()
         await expect(page.get_by_text('Repeated lines found.')).to_be_visible()
         await expect(page.get_by_text('Also read as CLAUDE.md')).to_have_count(1)

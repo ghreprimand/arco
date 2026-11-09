@@ -2025,10 +2025,10 @@ export async function handleMdTuneupCandidatesRequest(
     send(ws, { type: 'md_tuneup_candidates', workflowId: msg.workflowId, candidates: [] });
     return;
   }
-  const { candidates, skippedLinks } = await discoverInstructionFilesWithLinks(cwd).catch(() => ({ candidates: [], skippedLinks: [] }));
+  const { candidates, skippedLinks, partial } = await discoverInstructionFilesWithLinks(cwd).catch(() => ({ candidates: [], skippedLinks: [], partial: true }));
   const providerDefault = tuneupBaseNameForProvider(wf.primary.provider);
   const defaultPath = candidates.find((c) => c.path === providerDefault || c.alsoReadAs?.includes(providerDefault))?.path;
-  send(ws, { type: 'md_tuneup_candidates', workflowId: msg.workflowId, candidates, skippedLinks, defaultPath });
+  send(ws, { type: 'md_tuneup_candidates', workflowId: msg.workflowId, candidates, skippedLinks, partial, defaultPath });
 }
 
 export async function handleMdTuneupRequest(

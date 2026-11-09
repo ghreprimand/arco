@@ -585,6 +585,7 @@ export const actions: Section[] = [
     title: 'TUNE MD - compact an agent-instruction file',
     body: (
       <>
+        <p>Discovery skips Git-ignored directories and nested Git checkouts or worktrees below the project root. Individually ignored instruction files and explicitly selected ignored folders remain searchable. Useful hidden folders remain searchable. Entry, time and depth budgets can stop the scan; Results truncated explains that a smaller project folder can reveal more files.</p>
   <p>ACCEPT checks that the instruction file still matches the original shown in the proposal. If another edit changed it, nothing is overwritten. Run TUNE MD again and review the new diff before accepting.</p>
         <p>
           TUNE MD proposes a compacted agent-instruction file as a reviewable
