@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { createWriteStream } from 'node:fs';
+import { constants, createWriteStream, promises as fs } from 'node:fs';
+import { setTimeout as delay } from 'node:timers/promises';
 import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -119,4 +120,31 @@ test('UTF-16 text with ASCII content is still scanned as text', async () => {
     assert.equal(review.files[0].unscanned, false);
     assert.deepEqual(review.files[0].findings, [{ line: 2, rule: 'password-or-secret' }]);
   } finally { await rm(cwd, { recursive: true, force: true }); }
+});
+
+// Let stream destruction finish before the enclosing finally closes its handle.
+// A raw-fd stream can otherwise race that close and accidentally close a reused fd.
+for (const phase of ['staging', 'publishing'] as const) test(`copy ${phase} preserves write errors without closing a descriptor twice`, async (t) => {
+  const { cwd, artifacts } = await repo();
+  const canonicalCwd = await fs.realpath(cwd);
+  const originalOpen = fs.open.bind(fs);
+  t.mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
+    const handle = await originalOpen(...args);
+    const isOutput = typeof args[1] === 'number' && (args[1] & constants.O_WRONLY) !== 0;
+    const inject = phase === 'staging' ? String(args[0]).includes('arco-reviewed-copy-') : String(args[0]) === path.join(canonicalCwd, 'ignored', 'owned.bin');
+    if (isOutput && inject) {
+      handle.writeFile = async () => { throw new Error('Synthetic copy write failure'); };
+    }
+    const close = handle.close.bind(handle);
+    handle.close = async () => { await delay(20); await close(); };
+    return handle;
+  });
+  try {
+    const bytes = Buffer.alloc(256 * 1024, 0xab);
+    await writeFile(path.join(artifacts, 'owned.bin'), bytes);
+    const folder = path.join(cwd, 'ignored');
+    const review = await inspectArtifactCopy(cwd, ID, 'artifacts/owned.bin', folder, false);
+    await assert.rejects(copyReviewedArtifact(cwd, ID, 'artifacts/owned.bin', folder, false, review.token), /Synthetic copy write failure/);
+    assert.deepEqual(await readFile(path.join(artifacts, 'owned.bin')), bytes);
+  } finally { t.mock.restoreAll(); await rm(cwd, { recursive: true, force: true }); }
 });

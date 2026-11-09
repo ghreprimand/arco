@@ -1,5 +1,5 @@
 import { openCheckedFile } from '../checkedFile.js';
-import { constants, createReadStream } from 'node:fs';
+import { constants } from 'node:fs';
 import { open, lstat } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -65,7 +65,7 @@ export async function tryHandleOutputRoutes(req: IncomingMessage, res: ServerRes
         const start = range ? Number(range[1]) : 0, end = range?.[2] ? Math.min(Number(range[2]), info.size - 1) : info.size - 1;
         if (range && (start > end || start >= info.size)) { res.writeHead(416, { 'Content-Range': `bytes */${info.size}` }); res.end(); return true; }
         res.writeHead(range ? 206 : 200, { 'Content-Type': preview ? MIME[ext] : 'application/octet-stream', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "sandbox; default-src 'none'", 'Content-Disposition': `${preview ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(entry.name)}`, 'Accept-Ranges': 'bytes', 'Content-Length': range ? end - start + 1 : info.size, ...(range ? { 'Content-Range': `bytes ${start}-${end}/${info.size}` } : {}) });
-        if (info.size) await pipeline(createReadStream('', { fd: handle.fd, autoClose: false, emitClose: false, start, end }), res); else res.end();
+        if (info.size) await pipeline(handle.createReadStream({ autoClose: false, emitClose: false, start, end }), res); else res.end();
         return true;
       } finally { await handle.close(); }
     }

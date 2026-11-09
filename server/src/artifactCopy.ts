@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { constants, createReadStream } from 'node:fs';
+import { constants } from 'node:fs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { tmpdir } from 'node:os';
@@ -92,7 +92,7 @@ async function scanFile(file: string, rel: string, maxFindings = MAX_FILE_FINDIN
         from = i + 1; line++;
       }
     };
-    for await (const chunk of createReadStream('', { fd: fh.fd, autoClose: false, emitClose: false })) {
+    for await (const chunk of fh.createReadStream({ autoClose: false, emitClose: false })) {
       const buffer = chunk as Buffer; hash.update(buffer);
       if (!scanText || capped) continue;
       // NUL bytes are dropped first, so UTF-16 text with ASCII content still
@@ -246,7 +246,7 @@ export async function copyReviewedArtifact(cwd: string, workflowId: string, item
         const output = await fs.open(path.join(temp, String(i)), constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL, 0o600);
         try {
           const hash = createHash('sha256');
-          for await (const chunk of createReadStream('', { fd: input.fd, autoClose: false, emitClose: false })) { hash.update(chunk as Buffer); await output.writeFile(chunk as Buffer); }
+          for await (const chunk of input.createReadStream({ autoClose: false, emitClose: false })) { hash.update(chunk as Buffer); await output.writeFile(chunk as Buffer); }
           if (hash.digest('hex') !== entry.hash) throw new Error('The artifact changed. Review it again.');
           await ensureNoLinks(check.source, rel);
           await output.sync();
@@ -276,7 +276,7 @@ export async function copyReviewedArtifact(cwd: string, workflowId: string, item
         const opened = await output.stat(); const target = await fs.lstat(outputPath);
         if (!opened.isFile() || target.isSymbolicLink() || opened.dev !== target.dev || opened.ino !== target.ino || await fs.realpath(outputPath) !== outputPath) throw new Error('Destination folder changed.');
         const input = await fs.open(path.join(temp, String(i)), constants.O_RDONLY | constants.O_NOFOLLOW);
-        try { for await (const chunk of createReadStream('', { fd: input.fd, autoClose: false, emitClose: false })) await output.writeFile(chunk as Buffer); }
+        try { for await (const chunk of input.createReadStream({ autoClose: false, emitClose: false })) await output.writeFile(chunk as Buffer); }
         finally { await input.close(); }
         await output.sync();
       } finally { await output.close(); }

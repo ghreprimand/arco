@@ -1,11 +1,10 @@
 import { openCheckedFile, writeCheckedFile, replaceCheckedFile } from './checkedFile.js';
 import { readFileVersion, verifyFileVersion, fileVersionMatchesNow } from './fileVersion.js';
 import { createHash, randomUUID } from 'node:crypto';
-import { constants, createReadStream, createWriteStream, realpathSync, unlinkSync } from 'node:fs';
+import { constants, createReadStream, realpathSync, unlinkSync } from 'node:fs';
 import { open, lstat, writeFile, readFile, readdir, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { homedir } from 'node:os';
-import { pipeline } from 'node:stream/promises';
 import type { OutputCategory, WorkflowOutput, ServerMessage } from '@arco/shared';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
 import { assertSafePath, confinedPath, isPathWithin } from './fileAccessPolicy.js';
@@ -292,7 +291,9 @@ async function copyOutputBytes(source: string, target: string): Promise<void> {
     const info = await input.stat();
     if (!info.isFile()) throw new Error('Output source is not a regular file.');
     output = await openCheckedFile(target, 'create');
-    if (info.size) await pipeline(createReadStream('', { fd: input.fd, autoClose: false, emitClose: false, start: 0, end: info.size - 1 }), createWriteStream('', { fd: output.fd, autoClose: false, emitClose: false }));
+    if (info.size) {
+      for await (const chunk of input.createReadStream({ autoClose: false, emitClose: false, start: 0, end: info.size - 1 })) await output.writeFile(chunk as Buffer);
+    }
     await output.sync();
   } catch (err) {
     if (output) { await output.close().catch(() => {}); output = undefined; await unlink(target).catch(() => {}); }
