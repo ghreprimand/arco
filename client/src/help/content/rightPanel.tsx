@@ -312,6 +312,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Model (live swap)',
     body: (
       <>
+        <p>Dated versions of bare Fable 5 and Mythos 5 keep their original model behavior.</p>
         <p>Fable 5.2 has five effort levels and 1M context. Switching from 5.2 to another model drops its earlier reasoning; the request still works.</p>
         <p>If metadata cannot be saved, a notice identifies the change as temporary for this running tab; retry after storage is available.
           Switch the model for the next turn. Same-provider swaps don't rotate the

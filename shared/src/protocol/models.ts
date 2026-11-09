@@ -545,13 +545,20 @@ export function supportsClaudeAdaptiveThinking(modelId: string): boolean {
 // without enabling binding for the bare 5 ids. Fable/Mythos 5.2 enforces the
 // prefix check on every account.
 
+// A point release has a one- or two-digit minor version. An eight-digit
+// suffix on bare Fable/Mythos 5 is a date, not a newer model generation.
+export function claude5PointReleaseMinor(modelId: string): number | null {
+  const match = /(?:fable|mythos)-5-([1-9]\d?)(?:-|$)/.exec(modelId);
+  return match ? Number(match[1]) : null;
+}
+
 // Which models bind thinking-block signatures to the conversation prefix and
 // (on enforced accounts) 400 when an earlier turn was edited. Also the models
 // that accept `thinking.block_binding` + the binding-controls beta. Opus 5.5
 // ships the same preserved-thinking mechanism as Fable 5.1 / 5.2. Note `opus-5-5`,
 // not `opus-5`: Opus 5 does not bind and would 400 on block_binding.
 export function enforcesPreservedThinking(modelId: string): boolean {
-  return /(?:fable|mythos)-5-[1-9]\d*(?:-|$)/.test(modelId) || modelId.includes('opus-5-5');
+  return claude5PointReleaseMinor(modelId) !== null || modelId.includes('opus-5-5');
 }
 
 // `{role: 'system'}` messages inside `messages[]` (GA, no header). Opus 4.8,
@@ -579,7 +586,7 @@ export function supportsMidConversationToolChanges(modelId: string): boolean {
 // Opus 5.5. On Opus 5.5 the between-tool-call notes that Opus 5 returned as
 // `text` come back as thinking blocks, empty under 'omitted'.
 export function supportsThinkingDisplayUpdates(modelId: string): boolean {
-  return modelId.includes('fable-5') || /mythos-5-[1-9]\d*(?:-|$)/.test(modelId) || modelId.includes('opus-5-5');
+  return modelId.includes('fable-5') || claude5PointReleaseMinor(modelId) !== null || modelId.includes('opus-5-5');
 }
 
 // Adaptive-thinking display modes the Native worker can request. 'updates' is

@@ -398,7 +398,7 @@ A configured custom endpoint receives the saved Native login token. Configure on
 | `x-app` | `cli` | Constant. |
 | `anthropic-dangerous-direct-browser-access` | `true` | Current Pi sends it on the SDK `authToken` path; Arco mirrors that wire fingerprint. |
 
-Fable 5.2 and Mythos 5.2 use a 1M context window and five effort levels: low, medium, high, xhigh and max. Native keeps their thinking and request prefix intact. Switching a tab from 5.2 to another model drops its earlier reasoning; the request still works.
+Fable 5.2 and Mythos 5.2 use a 1M context window and five effort levels: low, medium, high, xhigh and max. Native keeps their thinking and request prefix intact. A date suffix on bare Fable 5 or Mythos 5 keeps the original model behavior. Switching a tab from 5.2 to another model drops its earlier reasoning; the request still works.
 
 Short utility jobs (including BRIEF, CATCH ME UP, TIDY and Smart AUTO-PICKUP) and text compaction summaries use low effort on Fable/Mythos 5.2 and later 5.x point releases. Their response caps reserve another 8,192 tokens for reasoning. Utility answers keep the original visible-size limit. Compaction input splitting reserves this extra output space too. Normal worker turns keep the selected effort and 128K response cap.
 

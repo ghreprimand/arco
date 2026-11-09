@@ -107,6 +107,7 @@ export const providers: Section[] = [
   changes are appended as system notes rather than rebuilding it. Effort is
   always sent explicitly.
   </p>
+  <p>Dated versions of bare Fable 5 and Mythos 5 keep their original model behavior.</p>
   <p>Fable 5.2 and Mythos 5.2 have 1M context and five effort levels. Switching a tab from 5.2 to another model drops its earlier reasoning; the request still works.</p>
   <p>Claude Native token-count telemetry stops after five seconds or when STOP is clicked. The context display then uses response usage, so a stalled count cannot delay turn completion.</p>
   <p>Native reconnects failed or closed MCP sessions at the next turn. Changed server commands, arguments or environment settings replace the old connection then; healthy unchanged sessions stay open.</p>

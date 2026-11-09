@@ -3,6 +3,7 @@
 // thinking/effort params, and context-window lookup. No worker state here.
 
 import {
+  claude5PointReleaseMinor,
   enforcesPreservedThinking,
   supportsClaudeAdaptiveThinking,
   supportsThinkingDisplayUpdates,
@@ -190,7 +191,8 @@ export function shortTextRequestParams(modelId: string, maxOutputTokens: number)
   max_tokens: number;
   output_config?: { effort: 'low' };
 } {
-  return /(?:fable|mythos)-5-(?:[2-9]|[1-9]\d+)(?:-|$)/.test(modelId)
+  const minor = claude5PointReleaseMinor(modelId);
+  return minor !== null && minor >= 2
     ? { max_tokens: maxOutputTokens + 8192, output_config: { effort: 'low' } }
     : { max_tokens: maxOutputTokens };
 }

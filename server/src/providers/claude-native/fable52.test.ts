@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { installIsolatedTestHome } from '../../testSupport/isolatedHome.js';
 import { CLAUDE_MODELS, CLAUDE_MODEL_LABELS, CLAUDE_MODEL_EFFORTS, enforcesPreservedThinking, supportsThinkingDisplayUpdates } from '@arco/shared';
-import { buildThinkingParams, lookupCtx } from './modelParams.js';
+import { buildThinkingParams, lookupCtx, shortTextRequestParams } from './modelParams.js';
 import { nativeContextEstimate } from '../../contextEstimator.js';
 import { supportsServerFold } from './serverFold.js';
 import { CLAUDE_CLI_VERSION } from './wireFingerprint.js';
@@ -132,4 +132,21 @@ test('5.2 summary splitting reserves the larger response cap and carried summary
     }
     assert.match(String(requests[1].messages[0].content), /Carried summary/);
   } finally { await worker.dispose(); }
+});
+
+test('dated bare 5 models keep bare capabilities and short-request parameters', () => {
+  for (const family of ['fable', 'mythos']) {
+    const bare = `claude-${family}-5`;
+    const dated = `${bare}-20260609`;
+    assert.equal(enforcesPreservedThinking(dated), false, dated);
+    assert.equal(supportsThinkingDisplayUpdates(dated), supportsThinkingDisplayUpdates(bare));
+    assert.deepEqual(buildThinkingParams(dated, 'high', 'updates'), buildThinkingParams(bare, 'high', 'updates'));
+    assert.deepEqual(shortTextRequestParams(dated, 64), { max_tokens: 64 });
+    for (const suffix of ['1-20260901', '2-20261109', '10-20261109', '99']) {
+      const point = `${bare}-${suffix}`;
+      assert.equal(enforcesPreservedThinking(point), true, point);
+      assert.equal(supportsThinkingDisplayUpdates(point), true, point);
+      assert.deepEqual(shortTextRequestParams(point, 64), suffix.startsWith('1-') ? { max_tokens: 64 } : { max_tokens: 8256, output_config: { effort: 'low' } });
+    }
+  }
 });
