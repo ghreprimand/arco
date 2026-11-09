@@ -1419,8 +1419,8 @@ The v1 allowlist (`server/src/providers/ollamaTools.ts`):
 | Tool | Args | Notes |
 |---|---|---|
 | `Read` | `file_path`, optional `offset` (1-based start line) / `limit` (max lines) | 32 KB byte cap, refuses directories. Tighter than Claude's 256 KB because local model windows are smaller; chunk via `offset`/`limit` for larger files. |
-| `Glob` | `pattern`, optional `path` | Node 22 `fs.promises.glob`. Cwd-rooted base. |
-| `Grep` | `pattern`, optional `path` / `case_insensitive` / `files_only` | POSIX walk (no ripgrep dep), skips `node_modules` / `.git` / `dist` / `.arco` / `.cache` / etc. 5000-file walk cap, 64 KB output cap. |
+| `Glob` | `pattern`, optional `path` | Bounded matching under the cwd or `path`: 1,000 results, 20,000 visited entries or 1,000 milliseconds. Skips ignored folders and nested checkouts; reports results truncated. Individually ignored files and explicit ignored-folder scopes remain searchable. |
+| `Grep` | `pattern`, optional `path` / `case_insensitive` / `files_only` | JavaScript content search without a ripgrep dependency; supports a single-file `path`. Skips ignored folders and nested checkouts, retaining individually ignored files and explicit ignored-folder scopes. Stops at 5,000 files, 20,000 entries or 1,000 milliseconds; 64 KB output cap and truncation notices. |
 | `Write` | `file_path`, `content` | mkdir -p parents, refuses to clobber a directory. |
 | `Bash` | `command`, optional `description` / `timeout` | `/bin/sh -c` (Git Bash on Windows, see `commandShell.ts`; on Windows without Git Bash it is the `PowerShell` tool, as in Claude Code) in the workflow cwd. Stdin closed (no hangs). Combined stdout+stderr cap 64 KB, default 60s timeout, hard ceiling 600s. Spawned `detached:true` so timeout / abort / output-cap kills the whole process tree. Footer reminders apply. |
 | `WebSearch` | `query`, optional `max_results` (1-10, default 5) | Hits the operator's local SearXNG instance (`ARCO_SEARXNG_URL`, default `http://127.0.0.1:8888`). Returns a markdown list of `title - url\n  snippet`. SearXNG bang syntax (`!g foo`) routes to specific engines. 10s timeout. |

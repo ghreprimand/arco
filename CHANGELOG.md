@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Align file-search tool tables and the TUNE MD reference with bounded discovery and incomplete scan results.
+
 - Bound non-Git architecture and Genesis discovery, omit nested checkouts, and explain incomplete file assessments.
 
 - Bound RECENTLY MODIFIED discovery, skip ignored trees and nested checkouts, preserve workflow artifacts, and mark partial samples.
