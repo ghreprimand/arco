@@ -56,6 +56,7 @@ export const providers: Section[] = [
   <p>Spawn from HISTORY keeps the selected earlier conversation even when it falls outside the recent replay tail. Cancelled handoffs preserve prior context. Older derived summary caches are rebuilt automatically.</p>
   <p>Native and local Read use bounded chunks and refuse special files. Their output caps remain 256 KiB and 32 KiB. Use offset and limit for later lines. JavaScript Grep reports shortened long lines; local fast WebFetch cancels downloads at 128 KiB before HTML extraction.</p>
   <p>Native Read keeps the partial-read warning when output is capped. A complete later read clears it. Linked project folders and in-project file aliases refer to the same file for this warning and first-edit tracking. Configuration protection checks both the requested name and the resolved target.</p>
+  <p>Native and local Glob and JavaScript Grep skip ignored directories and nested Git checkouts or worktrees below the search root. Entry and time budgets report results truncated; narrow the path or pattern to continue. Individually ignored files and explicitly selected ignored folders stay searchable. Useful hidden folders remain searchable, and Grep can target one file.</p>
   <p>Grep reports invalid patterns and search failures as errors. If Bash cannot save full output, its newest tail remains available and the result explains the storage failure. Registry MCP schemas retain their referenced definitions.</p>
   <p>CLI snapshots retain every text block and the final answer without repeating streamed text. Local HTTP generation bounds waiting for response headers. Completed local streams finish at their done marker, even if the connection stays open. Model discovery and WebSearch deadlines remain active while reading JSON.</p>
   <p>
@@ -697,7 +698,7 @@ export const providers: Section[] = [
   headers={['Tool', 'Notes']}
   rows={[
   [<Code key="r">Read</Code>, '32 KB byte cap, refuses directories. Chunk via offset/limit for larger files.'],
-  [<Code key="g">Glob</Code>, 'Node 22 fs.promises.glob. Cwd-rooted.'],
+  [<Code key="g">Glob</Code>, 'Cwd-rooted matching with entry and time budgets. Ignores excluded folders and nested checkouts.'],
   [<Code key="gr">Grep</Code>, 'POSIX walk; skips node_modules / .git / dist / .arco. 64 KB output cap.'],
   [<Code key="w">Write</Code>, 'mkdir -p parents. Refuses to clobber a directory.'],
   [<Code key="b">Bash</Code>, '/bin/sh -c in cwd (Git Bash on Windows; on Windows without Git Bash the PowerShell tool instead). 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB.'],

@@ -3,6 +3,8 @@ import { writeCheckedFile } from '../checkedFile.js';
 import { resolveToolPath } from '../toolPath.js';
 import { requestWithDeadline } from './requestDeadline.js';
 
+import { projectFiles, scanBudget } from '../projectScan.js';
+import { matchesGlob } from 'node:path';
 import { promises as fs } from 'node:fs';
 import { resolve, relative, isAbsolute, join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -200,7 +202,7 @@ const GlobTool: OllamaToolEntry = {
     function: {
       name: 'Glob',
       description:
-        'List files matching a glob pattern (e.g. "**/*.ts", "src/**/*.{ts,tsx}"). Searches under the workflow cwd unless `path` narrows the base.',
+        'List files matching a glob pattern (e.g. "**/*.ts", "src/**/*.{ts,tsx}"). Searches under the workflow cwd unless `path` narrows the base. Skips ignored folders and nested checkouts; bounded walks report results truncated. Individually ignored files and explicitly selected ignored folders remain searchable.',
       parameters: {
         type: 'object',
         properties: {
@@ -223,20 +225,16 @@ const GlobTool: OllamaToolEntry = {
     const basePath = asOptionalString(args.path, 'path');
     const baseAbs = resolveToolPath(ctx.cwd, basePath || '.');
     const out: string[] = [];
-    // Node 22 fs.promises.glob lives on the namespace import. Pattern is
-    // resolved relative to `cwd: baseAbs`, so absolute-style patterns are
-    // not allowed (which is what we want — keeps results inside the base).
-    for await (const entry of (fs as unknown as { glob: (p: string, o: { cwd: string }) => AsyncIterable<string> }).glob(pattern, { cwd: baseAbs })) {
-      // Each entry is relative to baseAbs. Re-validate to catch any escape
-      // (e.g. a symlink that resolves outside cwd is still caught here).
-      try {
-        resolveToolPath(ctx.cwd, isAbsolute(entry) ? entry : join(baseAbs, entry));
-      } catch {
-        continue;
-      }
+    if (matchesGlob('', pattern) || matchesGlob('.', pattern)) out.push('.');
+    const budget = scanBudget(20_000, 1000);
+    for await (const file of projectFiles(baseAbs, { budget, skip: SKIP_DIRS, respectGitIgnore: true, includeDirectories: true, maxDepth: 64 })) {
+      const entry = relative(baseAbs, file.path);
+      if (!matchesGlob(entry, pattern)) continue;
+      try { resolveToolPath(ctx.cwd, file.path); } catch { continue; }
       out.push(entry);
-      if (out.length >= 1000) break;
+      if (out.length >= 1000) { budget.partial = true; break; }
     }
+    if (budget.partial) out.push('[results truncated; narrow the search path or pattern]');
     if (out.length === 0) return '(no matches)';
     return truncate(out.join('\n'), TOOL_OUTPUT_CAP, 'Glob result');
   },
@@ -248,25 +246,6 @@ const GlobTool: OllamaToolEntry = {
 // We don't shell out to ripgrep — it's not guaranteed installed (the
 // reference machine doesn't have it as of 2026-04-26). POSIX walk is fine for
 // the v1 use case and avoids a system dep flag.
-async function* walkFiles(dir: string, skip: Set<string>, fileCap: number, counter: { n: number }): AsyncGenerator<string> {
-  let entries: import('node:fs').Dirent[];
-  try {
-    entries = await fs.readdir(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const ent of entries) {
-    if (counter.n >= fileCap) return;
-    const full = join(dir, ent.name);
-    if (ent.isDirectory()) {
-      if (skip.has(ent.name)) continue;
-      yield* walkFiles(full, skip, fileCap, counter);
-    } else if (ent.isFile()) {
-      counter.n++;
-      yield full;
-    }
-  }
-}
 
 const GrepTool: OllamaToolEntry = {
   def: {
@@ -274,7 +253,7 @@ const GrepTool: OllamaToolEntry = {
     function: {
       name: 'Grep',
       description:
-        'Search file contents for a regular expression. Results are matched lines (with file:line: prefix) unless `files_only` is true. Recurses under the workflow cwd, skipping node_modules, .git, dist, etc.',
+        'Search file contents for a regular expression. Results are matched lines (with file:line: prefix) unless `files_only` is true. Recurses under the workflow cwd, skipping ignored folders and nested checkouts. Bounded walks report results truncated.',
       parameters: {
         type: 'object',
         properties: {
@@ -316,8 +295,12 @@ const GrepTool: OllamaToolEntry = {
     const out: string[] = [];
     let bytes = 0;
     let shortened = false;
-    const counter = { n: 0 };
-    for await (const filePath of walkFiles(baseAbs, SKIP_DIRS, GREP_WALK_FILE_CAP, counter)) {
+    const budget = scanBudget(20_000, 1000);
+    let files = 0;
+    const paths = baseStat.isFile() ? [{ path: baseAbs }] : projectFiles(baseAbs, { budget, skip: SKIP_DIRS, respectGitIgnore: true, maxDepth: 64 });
+    for await (const { path: filePath } of paths) {
+      if (++files > GREP_WALK_FILE_CAP) { budget.partial = true; break; }
+      try { resolveToolPath(ctx.cwd, filePath); } catch { continue; }
       const rel = relative(ctx.cwd, filePath);
       try {
         for await (const line of regularFileLines(filePath, TOOL_OUTPUT_CAP, ctx.abortSignal)) {
@@ -333,12 +316,10 @@ const GrepTool: OllamaToolEntry = {
       } catch (error) { if (ctx.abortSignal?.aborted) throw error; }
       if (bytes >= TOOL_OUTPUT_CAP) break;
     }
-    if (out.length === 0 && !shortened) return '(no matches)';
+    if (out.length === 0 && !shortened && !budget.partial) return '(no matches)';
     const joined = out.join('\n');
     let suffix = shortened ? '\n\n[truncated long lines during search; narrow the search or use a line range]' : '';
-    if (counter.n >= GREP_WALK_FILE_CAP) {
-      suffix += `\n\n[walk capped at ${GREP_WALK_FILE_CAP} files — narrow the search with \`path\` to see more]`;
-    }
+    if (budget.partial) suffix += '\n\n[results truncated; narrow the search path or pattern]';
     return truncate(joined + suffix, TOOL_OUTPUT_CAP, 'Grep result');
   },
 };

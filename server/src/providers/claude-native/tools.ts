@@ -15,6 +15,8 @@ import { writeCheckedFile, readCheckedText } from '../../checkedFile.js';
 // Read gets a 256 KB cap (looser than Ollama's 32 KB — Claude windows
 // are larger). 64 KB output cap for everything else.
 
+import { projectFiles, scanBudget } from '../../projectScan.js';
+import { matchesGlob } from 'node:path';
 import { promises as fs, openSync, writeSync, closeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, relative, join, isAbsolute, dirname } from 'node:path';
@@ -397,7 +399,7 @@ const EditTool: Entry = {
 const GlobTool: Entry = {
   def: {
     name: 'Glob',
-    description: 'List files matching a glob pattern (e.g. "**/*.ts"). Searches under the workflow cwd unless `path` narrows the base. Doubles as the directory listing tool.',
+    description: 'List files matching a glob pattern (e.g. "**/*.ts"). Searches under the workflow cwd unless `path` narrows the base. Doubles as the directory listing tool. Skips ignored folders and nested Git checkouts; bounded searches report results truncated.',
     input_schema: {
       type: 'object',
       properties: {
@@ -413,13 +415,16 @@ const GlobTool: Entry = {
     const basePath = asOptString(args.path, 'path');
     const baseAbs = resolveToolPath(ctx.cwd, basePath || '.');
     const out: string[] = [];
-    const globIter = (fs as unknown as { glob: (p: string, o: { cwd: string }) => AsyncIterable<string> }).glob(pattern, { cwd: baseAbs });
-    for await (const entry of globIter) {
-      try { resolveToolPath(ctx.cwd, isAbsolute(entry) ? entry : join(baseAbs, entry)); }
-      catch { continue; }
+    if (matchesGlob('', pattern) || matchesGlob('.', pattern)) out.push('.');
+    const budget = scanBudget(20_000, 1000);
+    for await (const file of projectFiles(baseAbs, { budget, skip: SKIP_DIRS, respectGitIgnore: true, includeDirectories: true, maxDepth: 64 })) {
+      const entry = relative(baseAbs, file.path);
+      if (!matchesGlob(entry, pattern)) continue;
+      try { resolveToolPath(ctx.cwd, file.path); } catch { continue; }
       out.push(entry);
-      if (out.length >= 1000) break;
+      if (out.length >= 1000) { budget.partial = true; break; }
     }
+    if (budget.partial) out.push('[results truncated; narrow the search path or pattern]');
     if (out.length === 0) return '(no matches)';
     return truncate(out.join('\n'), MAX_TOOL_OUTPUT_BYTES, 'Glob result');
   },
@@ -486,27 +491,11 @@ async function runRipgrep(
   });
 }
 
-async function* walkFiles(dir: string, skip: Set<string>, fileCap: number, counter: { n: number }): AsyncGenerator<string> {
-  let entries: import('node:fs').Dirent[];
-  try { entries = await fs.readdir(dir, { withFileTypes: true }); }
-  catch { return; }
-  for (const ent of entries) {
-    if (counter.n >= fileCap) return;
-    const full = join(dir, ent.name);
-    if (ent.isDirectory()) {
-      if (skip.has(ent.name)) continue;
-      yield* walkFiles(full, skip, fileCap, counter);
-    } else if (ent.isFile()) {
-      counter.n++;
-      yield full;
-    }
-  }
-}
 
 const GrepTool: Entry = {
   def: {
     name: 'Grep',
-    description: 'Search file contents for a regex. Returns matched lines with file:line: prefix unless `files_only` is true. Recurses under cwd, skipping node_modules / .git / dist / etc.',
+    description: 'Search file contents for a regex. Returns matched lines with file:line: prefix unless `files_only` is true. Recurses under cwd. JavaScript discovery skips ignored folders and nested checkouts; bounded walks report results truncated. Individually ignored files and explicitly selected ignored folders remain searchable.',
     input_schema: {
       type: 'object',
       properties: {
@@ -539,8 +528,12 @@ const GrepTool: Entry = {
     const out: string[] = [];
     let bytes = 0;
     let shortened = false;
-    const counter = { n: 0 };
-    for await (const filePath of walkFiles(baseAbs, SKIP_DIRS, GREP_WALK_FILE_CAP, counter)) {
+    const budget = scanBudget(20_000, 1000);
+    let files = 0;
+    const paths = baseStat.isFile() ? [{ path: baseAbs }] : projectFiles(baseAbs, { budget, skip: SKIP_DIRS, respectGitIgnore: true, maxDepth: 64 });
+    for await (const { path: filePath } of paths) {
+      if (++files > GREP_WALK_FILE_CAP) { budget.partial = true; break; }
+      try { resolveToolPath(ctx.cwd, filePath); } catch { continue; }
       const rel = relative(ctx.cwd, filePath);
       try {
         for await (const line of regularFileLines(filePath, MAX_TOOL_OUTPUT_BYTES, ctx.abortSignal)) {
@@ -556,11 +549,9 @@ const GrepTool: Entry = {
       } catch (error) { if (ctx.abortSignal?.aborted) throw error; }
       if (bytes >= MAX_TOOL_OUTPUT_BYTES) break;
     }
-    if (out.length === 0 && !shortened) return '(no matches)';
+    if (out.length === 0 && !shortened && !budget.partial) return '(no matches)';
     let suffix = shortened ? '\n\n[truncated long lines during search; narrow the search or use a line range]' : '';
-    if (counter.n >= GREP_WALK_FILE_CAP) {
-      suffix += `\n\n[walk capped at ${GREP_WALK_FILE_CAP} files — narrow with \`path\` to see more]`;
-    }
+    if (budget.partial) suffix += '\n\n[results truncated; narrow the search path or pattern]';
     return truncate(out.join('\n') + suffix, MAX_TOOL_OUTPUT_BYTES, 'Grep result');
   },
 };
