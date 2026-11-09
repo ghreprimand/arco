@@ -1,12 +1,16 @@
 import type { RecentRecord } from './types';
 
 function pathKey(path: string): string {
-  // Windows paths are case-insensitive and accept both separators. Preserve
-  // case and backslashes in POSIX paths, where they can be significant.
-  if (/^[a-z]:[\\/]/i.test(path) || path.startsWith('\\\\')) {
-    return path.replace(/\\/g, '/').replace(/\/{2,}/g, '/').toLowerCase();
+  // Keep UNC, Windows drive and POSIX identities in separate namespaces.
+  // POSIX case and backslashes are significant.
+  if (/^[\\/]{2}/.test(path)) {
+    const body = path.slice(2).replace(/\\/g, '/').replace(/\/{2,}/g, '/').toLowerCase();
+    return `unc://${body}`;
   }
-  return path.replace(/\/{2,}/g, '/');
+  if (/^[a-z]:[\\/]/i.test(path)) {
+    return `drive:${path.replace(/\\/g, '/').replace(/\/{2,}/g, '/').toLowerCase()}`;
+  }
+  return `posix:${path}`;
 }
 
 export function changedAttribution(path: string, mtime: number, records: RecentRecord[]): string | undefined {

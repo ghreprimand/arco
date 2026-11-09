@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep Windows network paths separate from POSIX paths when attributing changed files.
+
 - Replace RECENTS with CHANGED FILES: one bounded 48-hour project list for changes by any program, with matching tab and provider attribution when available; skip ignored trees and nested checkouts, retain workflow artifacts, keep the newest 500 matches, and mark incomplete scans.
 
 - Keep ARTIFACTS usable when a document or artifact list fails, show which list failed, and retry when the window regains focus.
