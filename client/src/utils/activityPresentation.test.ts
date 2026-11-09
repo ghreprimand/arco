@@ -27,3 +27,15 @@ test('plan first follows every preset and explicit no-code roles', () => {
   assert.equal(canPlanFirst('Builder role. Write code.'), true);
   assert.equal(canPlanFirst('Builder role. Ask a read-only reviewer, then write code.'), true);
 });
+
+test('plan first remains available when coding restrictions are conditional', () => {
+  for (const role of [
+    'Builder role. Do not edit code without a failing test.',
+    'Implementer role. Never modify code outside the assigned scope.',
+    'Builder: do not write code unless tests fail.',
+    'Builder: do not change code except when assigned.',
+    'Builder: do not edit code until approved.',
+    'Builder: do not modify code before review.',
+  ]) assert.equal(canPlanFirst(role), true, role);
+  assert.equal(canPlanFirst('Builder: do not edit code without tests. Never modify source code.'), false);
+});

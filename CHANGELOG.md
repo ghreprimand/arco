@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep PLAN FIRST available when a coding role permits edits under stated conditions.
+
 - Refuse whole shadow checkpoints and reverts when entry or time budgets are reached, and show one checkpoint skip notice with the limit controls.
 
 - Bound TUNE MD discovery, skip ignored trees and nested checkouts, retain useful hidden guidance, and explain incomplete scans.

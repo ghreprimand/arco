@@ -37,8 +37,15 @@ export function settledCardItem(job: JobState | undefined): { text: string; at: 
 export function canPlanFirst(role: string | undefined): boolean {
   const text = role ?? '';
   if (/^\s*(?:director|coordinator|reviewer|researcher|documenter)\b/i.test(text)) return false;
-  if (/^\s*(?:(?:you are|this is|role is)\s+(?:an?\s+)?)?read[ -]only\b/i.test(text) || /\b(?:no|without)\s+(?:source\s+)?(?:code|coding)\b/i.test(text)) return false;
-  return !/\b(?:do(?:es)?\s+not|don['’]t|doesn['’]t|never|must\s+not|cannot|can['’]t)\b[^.!?\n]{0,35}\b(?:write|writes|edit|edits|modify|modifies|change|changes|touch)\b[^.!?\n]{0,45}\b(?:code|coding|source\s+files?)\b/i.test(text);
+  if (/^\s*(?:(?:you are|this is|role is)\s+(?:an?\s+)?)?read[ -]only\b/i.test(text)) return false;
+
+  // A restriction qualified within its sentence permits changes under a condition.
+  const clauses = text.split(/[.!?;\n]/);
+  return !clauses.some((clause) => {
+    if (/\b(?:outside|unless|except|until|before|after|provided|if|when|without(?=\s+(?!code\b|coding\b|source\s+code\b)))\b/i.test(clause)) return false;
+    return /\b(?:no|without)\s+(?:source\s+)?(?:code|coding)\b/i.test(clause)
+      || /\b(?:do(?:es)?\s+not|don['’]t|doesn['’]t|never|must\s+not|cannot|can['’]t)\b[^.!?\n]{0,35}\b(?:write|writes|edit|edits|modify|modifies|change|changes|touch)\b[^.!?\n]{0,45}\b(?:code|coding|source\s+files?)\b/i.test(clause);
+  });
 }
 
 export function settledCardPreview(job: JobState | undefined): string | undefined { return settledCardItem(job)?.text; }
