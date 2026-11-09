@@ -290,6 +290,7 @@ export const plans: Section[] = [
     title: 'Architecture review',
     body: (
       <>
+        <p>Outside Git, project discovery skips nested checkouts and uses entry and time budgets. Truncated facts are marked Results truncated before reaching the reviewer. Useful hidden folders remain eligible; heavy folders and available Git directory-ignore rules still apply.</p>
         <p>
           The Architecture review is a built-in skill that finds places where the
           code is harder to change than it needs to be. Run it from the composer:{' '}

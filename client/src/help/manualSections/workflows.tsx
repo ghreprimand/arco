@@ -323,6 +323,7 @@ codex exec resume <thread-id> "next prompt"
   Selecting it adds privacy guardrails to the plan and remembers the choice.
   </p>
   <Sub>Creative mode in an existing project</Sub>
+  <p>Outside Git, file counting skips nested checkouts and uses entry and time budgets. An incomplete count keeps a conservative existing-codebase warning and says Results truncated; it never treats an unscanned folder as empty.</p>
   <p>
   On any tab with a real project folder, the <Code>GENESIS</Code> tab offers{' '}
   <Code>ARM CREATIVE MODE</Code> to explore an alternative direction. Creative mode

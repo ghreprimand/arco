@@ -29,7 +29,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'architecture-review.dialog': {
     title: 'Architecture review candidates',
-    body: <p>The candidates of one review report. Both actions write to the plan attached to this conversation, or to its cluster's plan; without one, attach a plan first. Nothing else in the project changes.</p>,
+    body: <p>Outside Git, project discovery skips nested checkouts and uses entry and time budgets. Truncated facts are marked Results truncated before reaching the reviewer. Useful hidden folders remain eligible; heavy folders and available Git directory-ignore rules still apply. The candidates of one review report. Both actions write to the plan attached to this conversation, or to its cluster's plan; without one, attach a plan first. Nothing else in the project changes.</p>,
     manualSection: 'architecture-review',
   },
   'architecture-review.add-to-plan': {
@@ -138,6 +138,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Genesis: Creative mode',
     body: (
       <p>
+        Outside Git, file counting skips nested checkouts and uses entry and time budgets. An incomplete count keeps a conservative existing-codebase warning and says Results truncated; it never treats an unscanned folder as empty.
         Run the Genesis process <em>inside</em> an existing project to explore an
         alternative direction. Arming snapshots the current project as grounding
         context (it's never invented). Creative mode never edits your project: a

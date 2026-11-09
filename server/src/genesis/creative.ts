@@ -1,3 +1,4 @@
+import { projectFiles, scanBudget } from '../projectScan.js';
 // ── Genesis Creative mode: project-context snapshot + codebase assessment (M3) ──
 //
 // M3 runs the M1 staged-ideation process INSIDE an existing workflow to explore an
@@ -32,7 +33,7 @@ export const ALTERNATIVE_DIR = 'ALTERNATIVE';
 
 // Dirs the capped walk skips — heavy/generated trees that would blow the cap without
 // telling us anything about how established the *source* is.
-const WALK_SKIP = new Set(['.git', 'node_modules', 'dist', 'build', '.next', 'out', 'target', '.venv', 'vendor', 'coverage']);
+const WALK_SKIP = new Set(['.arco', '.git', 'node_modules', 'dist', 'build', '.next', 'out', 'target', '.venv', 'vendor', 'coverage']);
 
 // Over this many source files we call the codebase "established" even without git
 // history — enough that an operator should be warned a creative fork is non-trivial.
@@ -172,44 +173,32 @@ async function gitHasCommits(cwd: string): Promise<boolean> {
 }
 
 // Bounded recursive file count, skipping heavy/generated dirs. Stops at WALK_CAP.
-async function walkFileCount(cwd: string): Promise<number> {
+async function walkFileCount(cwd: string): Promise<{ count: number; partial: boolean }> {
   let count = 0;
-  const stack: string[] = [cwd];
-  while (stack.length > 0 && count < WALK_CAP) {
-    const dir = stack.pop() as string;
-    let entries: import('node:fs').Dirent[];
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      entries = await fs.readdir(dir, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const ent of entries) {
-      if (ent.isDirectory()) {
-        if (WALK_SKIP.has(ent.name) || ent.name.startsWith('.')) continue;
-        stack.push(path.join(dir, ent.name));
-      } else if (ent.isFile()) {
-        count += 1;
-        if (count >= WALK_CAP) break;
-      }
-    }
+  const budget = scanBudget(20_000, 1000);
+  for await (const _file of projectFiles(cwd, { budget, skip: WALK_SKIP, respectGitIgnore: true, maxDepth: 64 })) {
+    if (++count >= WALK_CAP) { budget.partial = true; break; }
   }
-  return count;
+  return { count, partial: budget.partial };
 }
 
 export async function assessCodebase(cwd: string): Promise<GenesisCodebaseInfo> {
   const tracked = await gitTrackedCount(cwd);
-  const fileCount = tracked ?? (await walkFileCount(cwd));
+  const fallback = tracked === null ? await walkFileCount(cwd) : null;
+  const fileCount = tracked ?? fallback!.count;
   const hasCommits = tracked !== null ? await gitHasCommits(cwd) : false;
-  const capped = tracked === null && fileCount >= WALK_CAP;
+  const capped = tracked === null && (fallback!.partial || fileCount >= WALK_CAP);
 
-  const established = hasCommits || fileCount >= ESTABLISHED_FILE_THRESHOLD;
+  const established = hasCommits || capped || fileCount >= ESTABLISHED_FILE_THRESHOLD;
   let warning: string | undefined;
   if (established) {
-    const sizeStr = capped ? `${WALK_CAP}+ files` : `${fileCount} file${fileCount === 1 ? '' : 's'}`;
+    const sizeStr = capped ? (fileCount >= WALK_CAP ? `${WALK_CAP}+ files` : 'results truncated during file discovery') : `${fileCount} file${fileCount === 1 ? '' : 's'}`;
     const histStr = hasCommits ? ' with commit history' : '';
+    const assessment = capped && fileCount < WALK_CAP
+      ? 'Results truncated during file discovery; treat this folder as an established codebase.'
+      : `This is an established codebase (${sizeStr}${histStr}).`;
     warning =
-      `This is an established codebase (${sizeStr}${histStr}). Creative mode never edits it: ` +
+      `${assessment} Creative mode never edits it: ` +
       `the scaffold lands in a sibling ${ALTERNATIVE_DIR}/ dir and a separate plan. ` +
       `If the alternative diverges sharply, use Spawn-from-here to fork it into a fresh tab rather than building it here.`;
   }

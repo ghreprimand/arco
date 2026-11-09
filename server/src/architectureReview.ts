@@ -1,3 +1,4 @@
+import { projectFiles, scanBudget } from './projectScan.js';
 // P8.5 Architecture review: a built-in, operator-only skill. Arco gathers
 // deterministic facts about the project (no model), the agent explores and
 // writes a report of candidates to the conversation's artifacts, and the
@@ -84,23 +85,16 @@ async function gitLines(cwd: string, args: string[]): Promise<string[] | null> {
   } catch { return null; }
 }
 
-async function listFiles(cwd: string): Promise<{ files: string[]; git: boolean }> {
+async function listFiles(cwd: string): Promise<{ files: string[]; git: boolean; partial?: boolean }> {
   const tracked = await gitLines(cwd, ['ls-files', '--cached', '--others', '--exclude-standard']);
   if (tracked) return { files: tracked.filter((f) => !f.split('/').some((p) => SKIP_DIRS.has(p))).slice(0, MAX_FILES).sort(), git: true };
   const out: string[] = [];
-  async function walk(rel: string): Promise<void> {
-    if (out.length >= MAX_FILES) return;
-    let entries: import('node:fs').Dirent[];
-    try { entries = await fs.readdir(path.join(cwd, rel), { withFileTypes: true }); } catch { return; }
-    for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
-      if (out.length >= MAX_FILES) return;
-      const child = rel ? `${rel}/${e.name}` : e.name;
-      if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) await walk(child); }
-      else if (e.isFile()) out.push(child);
-    }
+  const budget = scanBudget(20_000, 1000);
+  for await (const file of projectFiles(cwd, { budget, skip: SKIP_DIRS, respectGitIgnore: true, maxDepth: 64 })) {
+    out.push(path.relative(cwd, file.path).split(path.sep).join('/'));
+    if (out.length >= MAX_FILES) { budget.partial = true; break; }
   }
-  await walk('');
-  return { files: out, git: false };
+  return { files: out.sort(), git: false, partial: budget.partial };
 }
 
 function countExports(rel: string, text: string): number {
@@ -112,6 +106,7 @@ function countExports(rel: string, text: string): number {
 }
 
 export interface ArchitectureFacts {
+  partial?: boolean;
   git: boolean;
   sourceFiles: number;
   testFiles: number;
@@ -124,7 +119,7 @@ export interface ArchitectureFacts {
 }
 
 export async function gatherArchitectureFacts(cwd: string, decisions: string | null = null): Promise<ArchitectureFacts> {
-  const { files, git } = await listFiles(cwd);
+  const { files, git, partial } = await listFiles(cwd);
   const tests = files.filter((f) => SOURCE_EXT.test(f) && isTestFile(f));
   const sources = files.filter((f) => SOURCE_EXT.test(f) && !isTestFile(f));
   const tested = new Set(tests.map(testedStem));
@@ -169,7 +164,7 @@ export async function gatherArchitectureFacts(cwd: string, decisions: string | n
     }
   }
   return {
-    git,
+    git, partial,
     sourceFiles: sources.length,
     testFiles: tests.length,
     largest: byLines.slice(0, LIST).map(({ path: p, lines }) => ({ path: p, lines })),
@@ -183,6 +178,7 @@ export async function gatherArchitectureFacts(cwd: string, decisions: string | n
 
 export function renderArchitectureFacts(f: ArchitectureFacts): string {
   const out: string[] = ['<arco-architecture-facts>', 'Facts gathered by Arco for this review (measured, not estimated).', ''];
+  if (f.partial) out.push('Results truncated: project discovery reached its entry or time budget.', '');
   out.push(`Source files: ${f.sourceFiles}. Test files: ${f.testFiles}.${f.git ? '' : ' This folder is not a Git repository, so change history is not available.'}`, '');
   out.push('Largest source files (lines):');
   for (const x of f.largest) out.push(`- ${x.path}: ${x.lines}`);

@@ -16,7 +16,7 @@ When the turn starts, Arco measures the project without a model and adds the res
 - the 15 files with the most exported names;
 - the attached plan's `decisions` reference doc, if there is one.
 
-Files come from `git ls-files` (tracked and untracked, not ignored) or, outside Git, from a walk of the folder. Dependency, build and state folders (`node_modules`, `dist`, `.arco` and similar) are left out. Bounds: 20,000 files, 2 MB per file, 256 MB read in total. The skill text also names the conversation's artifacts folder.
+Files come from `git ls-files` (tracked and untracked, not ignored) or, outside Git, from a walk of the folder. Dependency, build and state folders (`node_modules`, `dist`, `.arco` and similar) are left out. Bounds: 20,000 files, 2 MB per file, 256 MB read in total. Fallback discovery also stops at 20,000 visited entries or 1,000 milliseconds, skips nested Git checkouts or worktrees and marks truncated facts. The skill text also names the conversation's artifacts folder.
 
 ## The report
 
