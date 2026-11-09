@@ -18,7 +18,7 @@ export async function* projectFiles(root: string, options: {
   allowDirectory?: (segments: string[]) => boolean;
   allowIgnored?: (segments: string[], directory: boolean) => boolean;
   allowTopLevelCheckouts?: boolean; respectGitIgnore?: boolean; includeDirectories?: boolean; includeLinks?: boolean;
-}): AsyncGenerator<{ path: string; name: string; segments: string[] }> {
+}): AsyncGenerator<{ path: string; name: string; segments: string[]; directory: boolean }> {
   // An explicitly selected ignored root is a deliberate request to search it.
   const applyIgnore = options.respectGitIgnore && !(await ignoredProjectPaths(root, [root], options.budget.deadline - performance.now())).has(root);
   const queue = [{ dir: root, segments: [] as string[] }];
@@ -28,7 +28,7 @@ export async function* projectFiles(root: string, options: {
     if (segments.length && !(options.allowTopLevelCheckouts && segments.length === 1)) {
       if (await lstat(join(dir, '.git')).then(() => true, () => false)) continue;
     }
-    if (segments.length && options.includeDirectories) yield { path: dir, name: segments[segments.length - 1], segments };
+    if (segments.length && options.includeDirectories) yield { path: dir, name: segments[segments.length - 1], segments, directory: true };
     let directory;
     try { directory = await opendir(dir); } catch { continue; }
     try {
@@ -49,7 +49,7 @@ export async function* projectFiles(root: string, options: {
           if (options.skip.has(entry.name) || (options.hidden && entry.name.startsWith('.'))) continue;
           if (child.length > (options.maxDepth ?? 8)) { options.budget.partial = true; continue; }
           queue.push({ dir: path, segments: child });
-        } else if (entry.isFile() || (options.includeLinks && entry.isSymbolicLink())) yield { path, name: entry.name, segments: child };
+        } else if (entry.isFile() || (options.includeLinks && entry.isSymbolicLink())) yield { path, name: entry.name, segments: child, directory: false };
       }
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
   }

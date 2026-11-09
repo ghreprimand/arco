@@ -16,7 +16,7 @@ import { writeCheckedFile, readCheckedText } from '../../checkedFile.js';
 // are larger). 64 KB output cap for everything else.
 
 import { projectFiles, scanBudget } from '../../projectScan.js';
-import { matchesGlob } from 'node:path';
+import { matchesProjectGlob } from '../../projectGlob.js';
 import { promises as fs, openSync, writeSync, closeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, relative, join, isAbsolute, dirname } from 'node:path';
@@ -415,11 +415,11 @@ const GlobTool: Entry = {
     const basePath = asOptString(args.path, 'path');
     const baseAbs = resolveToolPath(ctx.cwd, basePath || '.');
     const out: string[] = [];
-    if (matchesGlob('', pattern) || matchesGlob('.', pattern)) out.push('.');
+    if (matchesProjectGlob('', pattern, true) || matchesProjectGlob('.', pattern, true)) out.push('.');
     const budget = scanBudget(20_000, 1000);
-    for await (const file of projectFiles(baseAbs, { budget, skip: SKIP_DIRS, respectGitIgnore: true, includeDirectories: true, maxDepth: 64 })) {
+    for await (const file of projectFiles(baseAbs, { budget, skip: SKIP_DIRS, respectGitIgnore: true, includeDirectories: true, includeLinks: true, maxDepth: 64 })) {
       const entry = relative(baseAbs, file.path);
-      if (!matchesGlob(entry, pattern)) continue;
+      if (!matchesProjectGlob(entry, pattern, file.directory)) continue;
       try { resolveToolPath(ctx.cwd, file.path); } catch { continue; }
       out.push(entry);
       if (out.length >= 1000) { budget.partial = true; break; }
