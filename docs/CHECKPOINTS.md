@@ -35,6 +35,8 @@ operator can undo what an agent did independent of their own git history. The mo
    untouched even if it later shrinks, and revert aborts before writing when a currently over-cap path
    overlaps the target tree. The safety snapshot cannot recover those bytes, so abort is the only safe path.
 
+   **Traversal budgets.** Non-Git discovery visits at most 20,000 entries or 5,000 milliseconds and yields between directories. Set positive `ARCO_CHECKPOINT_SCAN_ENTRIES` and `ARCO_CHECKPOINT_SCAN_MS` values to adjust those limits; invalid or nonpositive values use the defaults. Hitting either limit refuses the whole snapshot, so no partial ref is published. The tab shows one skip notice naming these controls and `ARCO_CHECKPOINT_TOTAL_CAP_BYTES`. A comparison or shadow revert that exceeds a budget stops before changing project files. Git-backed snapshots keep their existing Git-ignore behavior and do not use these traversal limits.
+
    Git-based snapshots replaced tar archives to avoid copying the full working
 tree each turn. They use content-addressed storage and preserve deletions during
 revert.

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Refuse whole shadow checkpoints and reverts when entry or time budgets are reached, and show one checkpoint skip notice with the limit controls.
+
 - Bound TUNE MD discovery, skip ignored trees and nested checkouts, retain useful hidden guidance, and explain incomplete scans.
 - Hide PLAN FIRST for non-coding cluster roles, including when the member opens in a standalone tab.
 

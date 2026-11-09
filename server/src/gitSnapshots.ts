@@ -27,6 +27,7 @@ import { restoreLegacyTar } from './legacyTarRestore.js';
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { setImmediate } from 'node:timers/promises';
 import { promises as fs } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { homedir, tmpdir } from 'node:os';
@@ -54,6 +55,7 @@ export interface CreateCheckpointArgs {
   label?: string;
   // Internal admission token for the restore's own safety snapshot.
   restoreOwner?: symbol;
+  onSkipped?: (message: string) => void;
 }
 
 export interface CheckpointResult {
@@ -281,6 +283,11 @@ function envCap(name: string, fallback: number): number {
 }
 const fileCapBytes = (): number => envCap('ARCO_CHECKPOINT_FILE_CAP_BYTES', DEFAULT_FILE_CAP_BYTES);
 const totalCapBytes = (): number => envCap('ARCO_CHECKPOINT_TOTAL_CAP_BYTES', DEFAULT_TOTAL_CAP_BYTES);
+export const CHECKPOINT_SKIP_NOTICE = 'Checkpoint skipped because this folder is too large. Limits: ARCO_CHECKPOINT_TOTAL_CAP_BYTES, ARCO_CHECKPOINT_SCAN_ENTRIES and ARCO_CHECKPOINT_SCAN_MS.';
+function scanLimit(name: string, fallback: number): number {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
 
 function cwdHash(cwd: string): string {
   return createHash('sha256').update(path.resolve(cwd)).digest('hex').slice(0, 16);
@@ -306,6 +313,7 @@ interface SnapshotWalk {
   // True when the included total crossed the total cap (walk early-exits;
   // `files` is partial and must not be snapshotted).
   exceededTotal: boolean;
+  exceededScan?: boolean;
 }
 
 // Enumerate what a shadow snapshot covers. Skips the top-level .arco (our
@@ -322,11 +330,17 @@ async function collectSnapshotFiles(
   const skippedLargePaths: string[] = [];
   let total = 0;
   const stack = [''];
+  let remaining = Math.max(1, Math.floor(scanLimit('ARCO_CHECKPOINT_SCAN_ENTRIES', 20_000)));
+  const deadline = performance.now() + scanLimit('ARCO_CHECKPOINT_SCAN_MS', 5000);
   while (stack.length > 0) {
+    if (remaining <= 0 || performance.now() >= deadline) return { files, skippedLargePaths, exceededTotal: false, exceededScan: true };
+    await setImmediate();
     const rel = stack.pop()!;
     const abs = rel ? path.join(root, rel) : root;
-    const entries = await fs.readdir(abs, { withFileTypes: true }).catch(() => []);
-    for (const ent of entries) {
+    const directory = await fs.opendir(abs).catch(() => null);
+    if (!directory) continue;
+    for await (const ent of directory) {
+      if (remaining-- <= 0 || performance.now() >= deadline) return { files, skippedLargePaths, exceededTotal: false, exceededScan: true };
       if (ent.name === '.git') continue;
       if (rel === '' && ent.name === '.arco') continue;
       const relPath = rel ? `${rel}/${ent.name}` : ent.name;
@@ -484,10 +498,11 @@ async function createShadowGitCheckpoint(args: CreateCheckpointArgs): Promise<Ch
   const ts = Date.now();
 
   const walk = await collectSnapshotFiles(cwd, fileCapBytes(), totalCapBytes());
-  if (walk.exceededTotal) {
+  if (walk.exceededTotal || walk.exceededScan) {
+    args.onSkipped?.(CHECKPOINT_SKIP_NOTICE);
     console.error(
       `[arco] [${workflowId.slice(0, 8)}] gitSnapshots: shadow snapshot skipped — ` +
-        `${cwd} exceeds the included-total cap (ARCO_CHECKPOINT_TOTAL_CAP_BYTES)`,
+        (walk.exceededScan ? 'entry or time scan budget exceeded' : `${cwd} exceeds the included-total cap (ARCO_CHECKPOINT_TOTAL_CAP_BYTES)`),
     );
     return null;
   }
@@ -758,8 +773,8 @@ async function prepareShadowRestore(cwd: string, workflowId: string, seq: number
     return { problem: tar ? 'legacy' : 'missing' };
   }
   const walk = await collectSnapshotFiles(cwd, fileCapBytes(), totalCapBytes());
-  if (walk.exceededTotal) {
-    console.error('[arco] gitSnapshots shadow revert aborted: working tree exceeds the included-total cap');
+  if (walk.exceededTotal || walk.exceededScan) {
+    console.error(walk.exceededScan ? '[arco] gitSnapshots shadow revert aborted: scan budget exceeded' : '[arco] gitSnapshots shadow revert aborted: working tree exceeds the included-total cap');
     return { problem: 'too-large' };
   }
   const targetPaths = await listTreePaths(cwd, gitDir, tree);
@@ -832,7 +847,7 @@ const PREVIEW_PROBLEMS: Record<Exclude<PrepareOutcome, PreparedRestore>['problem
   missing: 'This checkpoint is no longer stored (older checkpoints are pruned).',
   legacy: 'This older checkpoint cannot be previewed. REVERT still restores its files but does not remove files created after it.',
   failed: 'The working tree could not be read for a comparison.',
-  'too-large': 'The folder is larger than the checkpoint size limit, so it cannot be compared or restored.',
+  'too-large': `${CHECKPOINT_SKIP_NOTICE} No files were changed.`,
   'capped-overlap': 'A file now over the per-file checkpoint size limit is part of this checkpoint, so a revert would be refused.',
 };
 

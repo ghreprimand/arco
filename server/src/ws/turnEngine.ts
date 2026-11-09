@@ -2558,12 +2558,18 @@ export async function handleUserMessage(
         continue;
       }
 
+      let checkpointSkipNoticeSent = false;
+      const onCheckpointSkipped = (content: string) => {
+        if (checkpointSkipNoticeSent || workflows.get(workflowId) !== wf) return;
+        checkpointSkipNoticeSent = true;
+        broadcastWorkflow(workflowId, { type: 'system_notice', workflowId, content });
+      };
       let checkpoint: Awaited<ReturnType<typeof createCheckpoint>> = null;
       let checkpointGuardSeq: number | undefined;
       if (!(firstIteration && primitive === 'plan-review') && shouldCaptureTurn({ chatMode, planMode: armPlanMode, isolated: isolatedMember, provider: wf.primary.provider, tools: wf.primary.tools })) {
         checkpointGuardSeq = currentWorkflowSeq(cwd, workflowId);
         activeTurnObservation = observeCheckoutWriters(workflowWritePaths(wf), wf.manager);
-        checkpoint = await timelyCheckpoint((deps.captureCheckpoint ?? createCheckpoint)({ cwd, workflowId, seq: checkpointGuardSeq }));
+        checkpoint = await timelyCheckpoint((deps.captureCheckpoint ?? createCheckpoint)({ cwd, workflowId, seq: checkpointGuardSeq, onSkipped: onCheckpointSkipped }));
         if (!checkpoint || !ownsBusy(wf, busyToken)) {
           activeTurnObservation.stop(); activeTurnObservation = undefined;
           checkpoint = null;
@@ -2753,7 +2759,7 @@ export async function handleUserMessage(
         // otherwise a queued follow-up could alter the tree before the range ends.
         const endSeq = currentWorkflowSeq(cwd, workflowId);
         if (endSeq > checkpointGuardSeq) {
-          const end = await (deps.captureCheckpoint ?? createCheckpoint)({ cwd, workflowId, seq: endSeq });
+          const end = await (deps.captureCheckpoint ?? createCheckpoint)({ cwd, workflowId, seq: endSeq, onSkipped: onCheckpointSkipped });
           if (end && ownsBusy(wf, busyToken)) {
             const otherWriters = activeTurnObservation.hasOverlap();
             activeTurnObservation.stop(); activeTurnObservation = undefined;

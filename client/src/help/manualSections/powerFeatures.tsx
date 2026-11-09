@@ -102,6 +102,7 @@ export const powerFeatures: Section[] = [
   faithfully: files created after it are removed, not just overwritten.
   </li>
   </ul>
+  <p>In non-Git folders, checkpoint discovery has entry and time budgets. Exceeding a byte or scan budget skips the whole checkpoint and shows one notice; no partial checkpoint is published. A budget-limited comparison or REVERT TO HERE changes nothing. The scan limits are ARCO_CHECKPOINT_SCAN_ENTRIES and ARCO_CHECKPOINT_SCAN_MS; the included-byte limit is ARCO_CHECKPOINT_TOTAL_CAP_BYTES. Git-backed checkpoints keep their existing behavior.</p>
   <p>
   Older tar checkpoints keep files created after the checkpoint. On POSIX systems,
   their file and directory permissions are restored too; new directories stay

@@ -731,6 +731,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'CHECKPOINT REVERT',
     body: (
       <>
+        <p>In non-Git folders, checkpoint discovery has entry and time budgets. Exceeding a byte or scan budget skips the whole checkpoint and shows one notice; no partial checkpoint is published. A budget-limited comparison or REVERT TO HERE changes nothing. The scan limits are ARCO_CHECKPOINT_SCAN_ENTRIES and ARCO_CHECKPOINT_SCAN_MS; the included-byte limit is ARCO_CHECKPOINT_TOTAL_CAP_BYTES. Git-backed checkpoints keep their existing behavior.</p>
         <p>
           Each <C>CHECKPOINT ●</C> row is a working-tree snapshot Arco took
           before a file-mutating turn (your real git HEAD / index are never
