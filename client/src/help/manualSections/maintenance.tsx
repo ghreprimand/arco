@@ -19,7 +19,9 @@ export const maintenance: Section[] = [
   </li>
   <li>Project documents skip hidden folders, build and dependency folders, and nested Git checkouts or worktrees. Entry and time budgets keep discovery responsive. Slow or stalled folders return an incomplete list when the scan budget ends; available results remain usable. A partial list says "Showing the newest N; open a project for more". Opening a project searches it separately. Workflow artifacts stay listed in full, with their own loading state. A failed list shows a notice while the other results remain usable. Switch away from the window and return to retry.</li>
   <li>
-  <strong>CHANGED FILES</strong> lists files changed in the last 48 hours by any program. The tab and provider appear only when a matching ledger record is current. Artifacts and documents are under ARTIFACTS. The scan uses entry and time budgets through depth eight, skips Git-ignored directories and nested checkouts, and retains up to 500 newest matches from the visited folders. Results truncated marks an incomplete list. Useful hidden project folders and workflow artifacts remain eligible.
+  <p><strong>CHANGED FILES</strong> lists files changed in the last 48 hours by any program. The tab and provider appear only when a matching ledger record is current. Artifacts and documents are under ARTIFACTS.</p>
+  <p>The scan covers authorized project roots and the default projects folder, including registered projects outside the home folder. Roots share the entry and time budgets equally so a large project cannot consume another project's share. Duplicate and overlapping scans are avoided.</p>
+  <p>It searches through depth eight, skips Git-ignored directories and nested checkouts, and retains up to 500 newest matches from the visited folders. Results truncated marks an incomplete list. Useful hidden project folders and workflow artifacts remain eligible.</p>
   </li>
   <li>
   <strong>PLANS</strong> is the plans library - every plan across projects,

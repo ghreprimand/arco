@@ -733,12 +733,12 @@ The attribution ledger read - a partial record of agent-produced files used by C
 
 ### `GET /api/explorer/changed[?within=48h][&project=<abs>]`
 
-The bounded changed-within scan used for the CHANGED FILES list. Portable Node `fs` walk (no `fd`) over the default working dir (or one `project`), pruning `node_modules`/`.git`/`dist`/`.venv`/`__pycache__`/... and `.arco` internals **except** `.arco/workflows/*/artifacts/`, depth-capped (8) and count-capped (500, newest-first). Engine: `server/src/explorerChanged.ts` (`scanChangedPage`). `within` accepts `<n>h|d|m` (default/garbage -> 48h, floored at 1m).
+The bounded changed-within scan used for the CHANGED FILES list. Portable Node `fs` walk (no `fd`) over all authorized project roots plus the default projects folder (or one authorized `project`, including registered projects outside the home folder), pruning `node_modules`/`.git`/`dist`/`.venv`/`__pycache__`/... and `.arco` internals **except** `.arco/workflows/*/artifacts/`, depth-capped (8) and count-capped (500, newest-first). Engine: `server/src/explorerChanged.ts` (`scanChangedPage`). `within` accepts `<n>h|d|m` (default/garbage -> 48h, floored at 1m).
 
 - Always **200** with `{ entries, partial }` (newest-first, at most 500). `partial` is true when traversal or result limits stop the scan, so the list is an incomplete sample. A scan error degrades to `{ entries: [], error }`.
-- `ChangedEntry`: `{ path, name, size, mtime, project }` - `project` is the top-level dir under the base root (or the explicit project's basename).
+- `ChangedEntry`: `{ path, name, size, mtime, project }` - `project` is the registered root's basename, or the top-level dir under the default collection root. An explicit project uses its own basename.
 
-Directory discovery skips Git-ignored folders and nested checkouts below a project root. Useful hidden project folders and the workflow-artifact carve-out remain eligible. The entry/time budget is 20,000 entries or 650 milliseconds. A global collection may contain first-level repositories; a selected Git project excludes its nested repositories.
+Directory discovery skips Git-ignored folders and nested checkouts below a project root. Useful hidden project folders and the workflow-artifact carve-out remain eligible. The total traversal budget is 20,000 entries and 650 milliseconds, divided equally among roots so one large or stalled project cannot spend another's share. Canonical duplicates are combined; registered descendants are scanned separately and pruned from ancestor walks. Files remain subject to the same protected-target and project-confinement checks as other explorer reads. An unknown explicit project returns no entries. A global collection may contain first-level repositories; a selected Git project excludes its nested repositories.
 
 ### `GET /api/explorer/plans`
 

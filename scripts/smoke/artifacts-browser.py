@@ -2,7 +2,7 @@
 import asyncio
 import os
 import time
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
 from host_isolation import chrome_executable
@@ -15,13 +15,21 @@ async def main():
         context = await browser.new_context()
         ready = asyncio.Event()
         now = int(time.time() * 1000)
+        opened = []
+        revealed = []
         async def api(route):
             path = urlparse(route.request.url).path
             if path == '/api/explorer/docs':
                 await ready.wait()
                 await route.fulfill(json={'entries': [], 'partial': True})
             elif path == '/api/explorer/changed':
-                await route.fulfill(json={'entries': [{'path': '/projects/fixture/notes.md', 'name': 'notes.md', 'project': 'Fixture', 'mtime': now - 1000, 'size': 80}, {'path': '/projects/fixture/image.png', 'name': 'image.png', 'project': 'Fixture', 'mtime': now - 2000, 'size': 40}], 'partial': True})
+                await route.fulfill(json={'entries': [{'path': '/projects/fixture/notes.md', 'name': 'notes.md', 'project': 'Fixture', 'mtime': now - 1000, 'size': 80}, {'path': '/projects/fixture/image.png', 'name': 'image.png', 'project': 'Fixture', 'mtime': now - 2000, 'size': 40}, {'path': '/projects/beta/beta.md', 'name': 'beta.md', 'project': 'beta', 'mtime': now, 'size': 30}, {'path': '/data/external/external.md', 'name': 'external.md', 'project': 'external', 'mtime': now, 'size': 30}], 'partial': True})
+            elif path == '/api/file-content':
+                opened.append(parse_qs(urlparse(route.request.url).query)['path'][0])
+                await route.fulfill(json={'type': 'text', 'content': 'Opened synthetic project file', 'size': 30})
+            elif path == '/api/files':
+                revealed.append(parse_qs(urlparse(route.request.url).query))
+                await route.fulfill(json={'files': []})
             elif path == '/api/explorer/recents':
                 await route.fulfill(json={'records': [{'path': '/projects/fixture/notes.md', 'ts': now - 1500, 'tabTitle': 'Builder', 'provider': 'fixture'}, {'path': '/projects/fixture/image.png', 'ts': now - 6000, 'tabTitle': 'Old tab', 'provider': 'fixture'}]})
             elif path == '/api/explorer/artifacts':
@@ -52,7 +60,28 @@ async def main():
             await page.get_by_role('button', name='DOCS', exact=True).click()
             await expect(page.get_by_text('notes.md', exact=True)).to_be_visible()
             await expect(page.get_by_text('image.png', exact=True)).to_have_count(0)
-            print('artifacts: independent loading and artifact/recents partial notices passed')
+            for project, filename, fullpath in [('beta', 'beta.md', '/projects/beta/beta.md'), ('external', 'external.md', '/data/external/external.md')]:
+                await page.get_by_role('combobox').select_option(project)
+                await expect(page.get_by_text(filename, exact=True)).to_be_visible()
+                await expect(page.get_by_text('notes.md', exact=True)).to_have_count(0)
+                await page.locator('.archive-row').filter(has=page.get_by_text(filename, exact=True)).locator('button').first.click()
+                await expect(page.get_by_text('Opened synthetic project file', exact=True)).to_be_visible()
+                assert opened[-1] == fullpath
+                await page.keyboard.press('Escape')
+                await page.locator('.archive-row').filter(has=page.get_by_text(filename, exact=True)).get_by_title('Reveal in the file tree').click()
+                await expect(page.get_by_role('button', name='⊞ TREE', exact=True)).to_be_visible()
+                # Expansion outside TREE's default root is a separate client limit.
+                # Check the in-root reveal and the outside-root lens switch here.
+                if project == 'beta':
+                    for _ in range(30):
+                        if any(fullpath.rsplit('/', 1)[0] in str(query) for query in revealed):
+                            break
+                        await page.wait_for_timeout(20)
+                    assert any(fullpath.rsplit('/', 1)[0] in str(query) for query in revealed), revealed
+                    await expect(page.get_by_text('Opened synthetic project file', exact=True)).to_be_visible()
+                    await page.keyboard.press('Escape')
+                await page.get_by_role('button', name='⌁ CHANGED FILES', exact=True).click()
+            print('artifacts: independent loading, partial notices and cross-project filter/open and in-root reveal passed')
         finally:
             ready.set()
             await browser.close()

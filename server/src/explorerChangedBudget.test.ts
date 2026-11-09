@@ -18,6 +18,8 @@ file('.arco/workflows/11111111-2222-4333-8444-555555555555/artifacts/review.md')
 const { scanChanged } = await import('./explorerChanged.js');
 
 test('changed-file discovery skips ignored trees and nested checkouts without hiding workflow artifacts', async () => {
+  const { patchSettings } = await import('./settings.js');
+  await patchSettings({ projects: [project] });
   const start = performance.now();
   const files = await scanChanged({ project });
   const paths = files.map(item => item.path).join('\n');
@@ -29,6 +31,8 @@ test('changed-file discovery skips ignored trees and nested checkouts without hi
 test('the changed-files endpoint model distinguishes a capped sample from a complete list', async () => {
   const many = join(process.env.HOME!, 'many'); mkdirSync(many);
   for (let i = 0; i < 501; i++) writeFileSync(join(many, `note-${i}.md`), 'fixture');
+  const { patchSettings } = await import('./settings.js');
+  await patchSettings({ projects: [project, many] });
   const { scanChangedPage } = await import('./explorerChanged.js');
   const result = await scanChangedPage({ project: many });
   assert.ok(result.entries.length <= 500);
@@ -37,7 +41,7 @@ test('the changed-files endpoint model distinguishes a capped sample from a comp
 
 test('a configured Git project root does not admit its nested checkout as another top-level project', async () => {
   const { patchSettings } = await import('./settings.js');
-  await patchSettings({ defaultWorkingDirectory: project });
+  await patchSettings({ defaultWorkingDirectory: project, projects: [project] });
   const result = await scanChanged();
   const paths = result.map(item => item.path).join('\n');
   assert.match(paths, /root.md/); assert.doesNotMatch(paths, /noise.md/);

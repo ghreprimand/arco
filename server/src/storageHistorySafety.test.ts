@@ -82,6 +82,8 @@ test('B25: later subtrees can displace 500 older recent files', async t => {
   await fs.mkdir(join(cwd, 'a-new'), { recursive: true }); await fs.mkdir(join(cwd, 'z-old'));
   for (let i = 0; i < 505; i++) { const file = join(cwd, 'z-old', `old-${i}`); await fs.writeFile(file, 'old'); await fs.utimes(file, new Date(), new Date(Date.now() - 60000)); }
   const newest = join(cwd, 'a-new', 'newest'); await fs.writeFile(newest, 'new');
+  const { patchSettings } = await import('./settings.js');
+  await patchSettings({ projects: [cwd] });
   const { scanChanged } = await import('./explorerChanged.js');
   const result = await scanChanged({ project: cwd });
   assert.equal(result.length, 500); assert.equal(result[0].path, newest);

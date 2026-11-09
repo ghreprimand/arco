@@ -482,8 +482,8 @@ export const headerHelp: Record<string, HelpEntry> = {
           the plans library), <C>STORAGE</C> (disk use by project, with clean-up
           actions that each ask first) and <C>TREE</C> (the raw file tree).
           Only PLANS (plan edits, MARK DONE) and STORAGE change anything;
-          each STORAGE action asks first.
-         CHANGED FILES searches through depth eight within entry and time budgets, skipping ignored directories and nested checkouts. It retains up to 500 newest matches from visited folders and marks incomplete lists as Results truncated. Useful hidden project folders and workflow artifacts remain eligible. A matching current ledger record adds the tab and provider. Windows paths show filenames in CHANGED FILES; files inside the Arco state folder have no OPEN IN TREE action.</p>
+          each STORAGE action asks first.</p>
+        <p>CHANGED FILES covers authorized projects and the default projects folder, including registered folders outside the home folder. It divides its entry and time budgets equally among roots, avoids duplicate scans and searches through depth eight, skipping ignored directories and nested checkouts. It retains up to 500 newest matches from visited folders and marks incomplete lists as Results truncated. Useful hidden project folders and workflow artifacts remain eligible. A matching current ledger record adds the tab and provider. Windows paths show filenames in CHANGED FILES; files inside the Arco state folder have no OPEN IN TREE action.</p>
         <p>ARTIFACTS omits protected file paths. Linked or unavailable workflow metadata uses an identifier instead of a title.</p>
         <p>TREE starts at the first readable location: the configured working folder, Projects in the home folder, then the home folder. Folder listings and file previews use that same root.</p>
         <p>

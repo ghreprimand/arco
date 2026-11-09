@@ -1,22 +1,15 @@
 import { projectFiles, scanBudget } from './projectScan.js';
-import { confinedPath } from './fileAccessPolicy.js';
-// ARCHIVE (docs/CLIENT.md) - the RECENTLY MODIFIED scan. The
-// bounded, UNATTRIBUTED catch-all: an on-demand walk that surfaces files the
-// agent-writes ledger never saw (Bash redirects, generated images, ffmpeg /
-// demucs output — anything created outside a tracked tool event). Together with
-// the ledger it covers the hole either has alone (§9).
-//
-// Portable Node fs walk (§5 — no `fd`, which isn't guaranteed on macOS), pruning
-// the usual build/VCS dirs plus `.arco` internals EXCEPT
-// `.arco/workflows/*/artifacts/`. Depth-capped (8) and count-capped (500,
-// newest-first) so a pathological tree can't hang the request. $HOME-jailed via
-// realpathWithinHome.
-
-import { readdir, stat, lstat } from 'fs/promises';
-import { basename, join } from 'path';
-import { homedir } from 'os';
-import { realpathWithinHome } from './explorerArtifacts.js';
-import { readSettings } from './settings.js';
+// Bounded changed-file discovery over the explorer's existing project grants.
+// Each root receives a share of the request budget. Registered descendants are
+// scanned separately and pruned from ancestor walks to avoid duplicate work.
+import { lstat, stat } from 'node:fs/promises';
+import { basename, join } from 'node:path';
+import { homedir } from 'node:os';
+import { createReadAccessContext, isPathWithin, type ReadAccessContext } from './fileAccessPolicy.js';
+import { knownRoots } from './http/writeConfinement.js';
+import { readListingSettings } from './settings.js';
+import { scanBeforeDeadline } from './scanDeadline.js';
+import type { ScanBudget } from './projectScan.js';
 
 export interface ChangedEntry {
   path: string;
@@ -59,22 +52,24 @@ export function underArcoAllowed(segs: string[], isDir: boolean): boolean {
 }
 
 // `fixedProject` is set for a single-project scan (every file belongs to that
-// project). For a global scan over ~/Projects it stays undefined and each file's
-// project is derived from its top-level dir under the base root.
-async function walk(root: string, cutoff: number, out: ChangedEntry[], fixedProject?: string): Promise<boolean> {
+// project). The default collection instead derives labels from its top-level
+// folders. Registered descendants keep their own project labels.
+async function walk(root: string, cutoff: number, out: ChangedEntry[], budget: ScanBudget, access: ReadAccessContext, otherRoots: string[], fixedProject?: string): Promise<boolean> {
   const rootName = basename(root);
-  const budget = scanBudget(20_000, 650);
   let partial = false;
-  const rootIsCheckout = await lstat(join(root, '.git')).then(() => true, () => false);
+  const rootIsCheckout = await scanBeforeDeadline(lstat(join(root, '.git')).then(() => true, () => false), budget);
+  if (rootIsCheckout === undefined) return true;
+  const grant = [{ root, canonical: root }];
   for await (const file of projectFiles(root, { budget, skip: PRUNE_DIRS, maxDepth: MAX_DEPTH,
     respectGitIgnore: true, allowTopLevelCheckouts: !fixedProject && !rootIsCheckout,
-    allowDirectory: segments => underArcoAllowed(segments, true),
+    allowDirectory: segments => underArcoAllowed(segments, true) && !otherRoots.includes(join(root, ...segments)),
     allowIgnored: (segments, directory) => segments.includes('.arco') && underArcoAllowed(segments, directory),
   })) {
     if (!underArcoAllowed(file.segments, false)) continue;
     try {
-      confinedPath(file.path, [root], 'file');
-      const st = await stat(file.path);
+      const checked = await scanBeforeDeadline(access.inspect(file.path, grant, 'file').then(({ real }) => stat(real)), budget);
+      if (!checked) return true;
+      const st = checked;
       if (st.mtimeMs < cutoff) continue;
       const project = fixedProject ?? (file.segments.length >= 2 ? file.segments[0] : rootName);
       const entry = { path: file.path, name: file.name, size: st.size, mtime: st.mtimeMs, project };
@@ -86,34 +81,33 @@ async function walk(root: string, cutoff: number, out: ChangedEntry[], fixedProj
   return partial || budget.partial;
 }
 
-// Resolve the scan root(s): one explicit project, or the operator's default
-// working directory (settings.defaultWorkingDirectory, else ~/Projects).
-async function resolveRoots(project?: string): Promise<string[]> {
+// Resolve only existing explorer grants. HOME itself is not a content grant.
+async function resolveRoots(access: ReadAccessContext, project?: string): Promise<Array<{ path: string; fixed: boolean }>> {
+  const settings = await readListingSettings(access).catch(() => null);
+  const allowed = await access.prepareRoots([...await knownRoots(access, settings)]);
   if (project) {
-    const rp = await realpathWithinHome(project);
-    return rp ? [rp] : [];
+    try { return [{ path: (await access.inspect(project, allowed, 'directory')).real, fixed: true }]; }
+    catch { return []; }
   }
-  let base: string;
-  try {
-    const settings = await readSettings();
-    base = settings?.defaultWorkingDirectory || join(homedir(), 'Projects');
-  } catch {
-    base = join(homedir(), 'Projects');
-  }
-  const rp = await realpathWithinHome(base);
-  return rp ? [rp] : [];
+  const base = settings?.defaultWorkingDirectory || join(homedir(), 'Projects');
+  const canonicalBase = await access.rootDirectory(base).catch(() => null);
+  return [...new Set(allowed.map(r => r.canonical))].map(root => ({ path: root, fixed: root !== canonicalBase }));
 }
 
 // Public entry. Returns the newest MAX_ENTRIES files modified within the window,
 // newest-first. Bounded so a huge tree can't hang the request.
 export async function scanChangedPage(opts: { within?: string; project?: string } = {}): Promise<{ entries: ChangedEntry[]; partial: boolean }> {
   const cutoff = Date.now() - parseWithin(opts.within);
-  const roots = await resolveRoots(opts.project);
+  const access = await createReadAccessContext();
+  const roots = await resolveRoots(access, opts.project);
   const out: ChangedEntry[] = [];
   let partial = false;
   for (const root of roots) {
-    // Explicit project → attribute every file to it; global base → derive per file.
-    partial = (await walk(root, cutoff, out, opts.project ? basename(root) : undefined).catch(() => true)) || partial;
+    // Fixed shares reserve both entries and time for every remaining project.
+    // Unused shares stay unused rather than letting an early root starve others.
+    const budget = scanBudget(Math.floor(20_000 / roots.length), 650 / roots.length);
+    const descendants = roots.filter(other => other.path !== root.path && isPathWithin(root.path, other.path)).map(other => other.path);
+    partial = (await walk(root.path, cutoff, out, budget, access, descendants, root.fixed ? basename(root.path) : undefined).catch(() => true)) || partial;
   }
   out.sort((a, b) => b.mtime - a.mtime);
   return { entries: out.slice(0, MAX_ENTRIES), partial };
