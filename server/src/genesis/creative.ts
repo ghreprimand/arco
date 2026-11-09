@@ -23,6 +23,8 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { GenesisCodebaseInfo } from '@arco/shared';
+import { confinedPath } from '../fileAccessPolicy.js';
+import { readRegularPrefix } from '../boundedRead.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -55,9 +57,12 @@ export interface ProjectContext {
   block: string;
 }
 
-async function readIfPresent(file: string): Promise<string | null> {
+const METADATA_BYTE_CAP = 64 * 1024;
+async function readIfPresent(cwd: string, file: string): Promise<string | null> {
   try {
-    return await fs.readFile(file, 'utf8');
+    const canonical = confinedPath(file, [cwd]);
+    const { buffer, size } = await readRegularPrefix(canonical, METADATA_BYTE_CAP);
+    return size <= METADATA_BYTE_CAP ? buffer.toString('utf8') : null;
   } catch {
     return null;
   }
@@ -65,7 +70,7 @@ async function readIfPresent(file: string): Promise<string | null> {
 
 // Pull name + description from package.json without trusting it to be valid JSON.
 async function readPackageJson(cwd: string): Promise<{ name?: string; description?: string } | null> {
-  const raw = await readIfPresent(path.join(cwd, 'package.json'));
+  const raw = await readIfPresent(cwd, path.join(cwd, 'package.json'));
   if (!raw) return null;
   try {
     const pkg = JSON.parse(raw) as { name?: unknown; description?: unknown };
@@ -112,15 +117,15 @@ async function detectStackHints(cwd: string): Promise<string[]> {
   const hints: string[] = [];
   for (const [file, label] of checks) {
     // eslint-disable-next-line no-await-in-loop
-    if (await readIfPresent(path.join(cwd, file))) { if (!hints.includes(label)) hints.push(label); }
+    if (await readIfPresent(cwd, path.join(cwd, file))) { if (!hints.includes(label)) hints.push(label); }
   }
   return hints;
 }
 
 export async function gatherProjectContext(cwd: string): Promise<ProjectContext> {
   const pkg = await readPackageJson(cwd);
-  const readme = await readIfPresent(path.join(cwd, 'README.md'));
-  const hasClaudeMd = !!(await readIfPresent(path.join(cwd, 'CLAUDE.md')));
+  const readme = await readIfPresent(cwd, path.join(cwd, 'README.md'));
+  const hasClaudeMd = !!(await readIfPresent(cwd, path.join(cwd, 'CLAUDE.md')));
   const hints = await detectStackHints(cwd);
 
   const dirName = path.basename(cwd.replace(/[\\/]+$/, '')) || 'this project';

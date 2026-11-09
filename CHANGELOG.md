@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Confine Genesis Creative metadata to bounded regular files inside the project, including safe aliases.
+
 - Return safe in-project directory aliases for directory-only Glob patterns without traversing them.
 
 - Return partial discovery results on time when directory I/O stalls, close late handles, and handle late read failures without unhandled rejections.
