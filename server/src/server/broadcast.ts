@@ -77,6 +77,15 @@ export function isLossyEventType(t: string): boolean {
   return t === 'worker_thinking';
 }
 
+// Cluster payloads are assembled across asynchronous disk reads. Refresh the
+// volatile turn state at each send boundary, including direct replies.
+function currentClusterStatus(message: ServerMessage): ServerMessage {
+  if (message.type !== 'cluster_state' && message.type !== 'cluster_created') return message;
+  return { ...message, state: { ...message.state, members: message.state.members.map((member) => ({
+    ...member, status: workflows.get(member.workflowId)?.busy ? 'busy' : 'idle',
+  })) } };
+}
+
 function recordIncognitoEvent(workflowId: string, message: ServerMessage): void {
   const wf = workflows.get(workflowId);
   const events = wf?.incognitoEvents;
@@ -218,7 +227,7 @@ export function send(ws: WebSocket, message: ServerMessage): void {
   }
   // Non-workflow messages (connected, quota_status, etc.) deliver to the
   // originating ws only.
-  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(stamped));
+  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(currentClusterStatus(stamped)));
   if (stamped.type === 'cluster_created') workspaceOpenCluster(stamped.clusterId);
 }
 
@@ -558,7 +567,7 @@ export const CLUSTER_STATE_TRIGGERS = new Set<ServerMessage['type']>([
 // the on-disk cluster meta (members), and the mailbox files (depth). The
 // cluster_state push is a derived snapshot the client mirrors verbatim.
 export function broadcastCluster(clusterId: string, message: ServerMessage): void {
-  const payload = JSON.stringify(message);
+  const payload = JSON.stringify(currentClusterStatus(message));
   for (const [ws, sess] of sessions.entries()) {
     if (!sess.clusterIds.has(clusterId)) continue;
     if (ws.readyState === WebSocket.OPEN) ws.send(payload);
@@ -725,8 +734,5 @@ export async function notifyClusterStateForWorkflow(workflowId: string): Promise
   if (!clusterId) return;
   const payload = await buildClusterStatePayload(clusterId);
   if (!payload) return;
-  // Payload construction reads disk. Refresh turn state immediately before
-  // sending so a slow earlier snapshot cannot revive a settled turn.
-  for (const member of payload.members) member.status = workflows.get(member.workflowId)?.busy ? 'busy' : 'idle';
   broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
 }
