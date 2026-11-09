@@ -1590,6 +1590,23 @@ export async function handleClusterCreateFromScratch(
   session: Session,
   msg: import('@arco/shared').ClusterCreateFromScratchMessage,
 ): Promise<void> {
+  try {
+    await createClusterFromScratch(ws, session, msg);
+  } catch (error) {
+    send(ws, { type: 'error', message: 'cluster_create_from_scratch failed' });
+    throw error;
+  } finally {
+    if (typeof msg.requestId === 'string' && msg.requestId.length > 0 && msg.requestId.length <= 128) {
+      send(ws, { type: 'cluster_creation_finished', requestId: msg.requestId });
+    }
+  }
+}
+
+async function createClusterFromScratch(
+  ws: WebSocket,
+  session: Session,
+  msg: import('@arco/shared').ClusterCreateFromScratchMessage,
+): Promise<void> {
   if (!isClusterCreationSettings(msg)) { send(ws, { type: 'error', message: 'Invalid cluster creation settings' }); return; }
   if (typeof msg.cwd !== 'string' || msg.cwd.trim().length === 0) {
     send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: invalid_cwd' });

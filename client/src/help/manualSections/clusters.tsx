@@ -129,7 +129,7 @@ export const clusters: Section[] = [
   server-side and at the picker; non-compatible tabs are filtered out
   of the candidate list.
   </p>
-  <p>CREATE CLUSTER sends immediately and shows Starting... until the server answers. Another submission is disabled during that wait. A director plan draft checks the public-project choice after creation, before starting its model turn. If that check fails, the cluster stays available; use DRAFT A PLAN to retry.</p>
+  <p>CREATE CLUSTER sends immediately and shows Starting... until the server answers. Another submission is disabled during that wait. A failed send unlocks CREATE CLUSTER. If no response arrives, the wait ends with a notice; check saved clusters before retrying. A director plan draft checks the public-project choice after creation, before starting its model turn. If that check fails, the cluster stays available; use DRAFT A PLAN to retry.</p>
   <h4 className="manual-sub">Saving and moving a cluster</h4>
   <p>Disconnected broadcasts keep the draft, attachments and chosen recipients for retry.</p>
   <p>

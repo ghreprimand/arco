@@ -1,3 +1,4 @@
+import { submitClusterCreation } from '../utils/clusterCreation.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { ServerMessage, WorkflowConfig } from '@arco/shared';
@@ -50,8 +51,11 @@ for (const outcome of ['success', 'failure', 'removed'] as const) test(`cluster 
 
 test('cluster creation pending clears on rejection and disconnection', () => {
   const deps: WsDeps = { wsRef: { current: null }, scheduleReconnect() {} };
-  useAppStore.setState({ clusterCreationPending: true });
-  handleServerMessage({ type: 'error', message: 'cluster_create_from_scratch rejected: no_members' } as ServerMessage, deps);
+  let requestId = '';
+  submitClusterCreation(id => { requestId = id; });
+  handleServerMessage({ type: 'error', message: 'Invalid cluster creation settings' } as ServerMessage, deps);
+  assert.equal(useAppStore.getState().clusterCreationPending, true);
+  handleServerMessage({ type: 'cluster_creation_finished', requestId } as ServerMessage, deps);
   assert.equal(useAppStore.getState().clusterCreationPending, false);
   useAppStore.setState({ clusterCreationPending: true });
   useAppStore.getState().setConnected(false);

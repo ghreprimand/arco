@@ -32,7 +32,7 @@ test('B148: disconnected cluster broadcasts report failure without sending', asy
   };
   const source = await readFile(new URL('./useWebSocket.ts', import.meta.url), 'utf8');
   const result = await transform(source, { loader: 'ts', format: 'cjs', target: 'es2022' });
-  const module = { exports: {} as { useWebSocket: () => { broadcastToCluster: (...args: any[]) => unknown } } };
+  const module = { exports: {} as { useWebSocket: () => { broadcastToCluster: (...args: any[]) => unknown; createClusterFromScratch: (...args: any[]) => unknown } } };
   new Function('require', 'module', 'exports', result.code)(mockedRequire, module, module.exports);
   let api!: ReturnType<typeof module.exports.useWebSocket>;
   function Harness() { api = module.exports.useWebSocket(); return null; }
@@ -42,9 +42,12 @@ test('B148: disconnected cluster broadcasts report failure without sending', asy
     assert.equal(sockets.length, 1);
     assert.equal(api.broadcastToCluster('cluster', 'draft', ['attachment'], 'message', ['member']), false);
     assert.deepEqual(sockets[0].sent, []);
+    assert.equal(api.createClusterFromScratch({ cwd: '/fixture', members: [] }), false);
     sockets[0].readyState = FakeSocket.OPEN;
     assert.equal(api.broadcastToCluster('cluster', 'draft', ['attachment'], 'message', ['member']), true);
     assert.deepEqual(JSON.parse(sockets[0].sent[0]), { type: 'cluster_broadcast', clusterId: 'cluster', content: 'draft', attachments: ['attachment'], clientMessageId: 'message', recipientWorkflowIds: ['member'] });
+    sockets[0].send = () => { throw new Error('closed during send'); };
+    assert.equal(api.createClusterFromScratch({ cwd: '/fixture', members: [] }), false);
   } finally {
     await act(async () => root.unmount());
     dom.window.close();

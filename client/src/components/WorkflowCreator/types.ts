@@ -3,6 +3,7 @@ import type { useAppStore } from '../../stores/appStore';
 import type { WorkflowConfig, ModelName, EffortLevel, ProviderName, ArcoSettings, MemberTier, ClusterPreset, ClusterMemberProvider, WorkflowTemplate } from '@arco/shared';
 
 export interface ClusterCreatePayload extends ClusterCreationSettings {
+  requestId?: string;
   cwd: string;
   name?: string;
   initialPlanGoal?: string;
@@ -30,7 +31,7 @@ export interface Props {
   // submitted. Optional so the prop stays back-compat for any call sites
   // that haven't wired it yet (today: only App.tsx renders this component
   // and threads the WS sender through).
-  onCreateCluster?: (payload: ClusterCreatePayload) => void;
+  onCreateCluster?: (payload: ClusterCreatePayload) => boolean | void;
   // Reopen an intact server-side cluster whose browser tab mirror was lost.
   // This preserves the original cluster/member ids; it is not snapshot restore.
   onReopenCluster?: (clusterId: string) => void;

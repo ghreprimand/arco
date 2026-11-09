@@ -1,3 +1,4 @@
+import { submitClusterCreation } from '../../utils/clusterCreation';
 import { readSavedSettings } from '../../utils/settingsRequests';
 import { TerminalSessions } from '../TerminalSessions';
 import { MessageGuardControl } from '../ClusterRightPanel/MessageGuardControl';
@@ -881,32 +882,34 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const handleCreate = async () => {
     if (mode === 'cluster') {
       if (!canLaunchCluster || !onCreateCluster || useAppStore.getState().clusterCreationPending) return;
-      useAppStore.setState({ clusterCreationPending: true });
-      const derived = deriveDisplayNames(members);
-      onCreateCluster({
-        cwd: workDir,
-        ...(clusterName.trim().length > 0 ? { name: clusterName.trim() } : {}),
-        ...(draftInitialPlan && clusterPlanGoal.trim() ? { initialPlanGoal: clusterPlanGoal.trim() } : {}),
-        ...(planChoice === 'existing' && selectedPlan?.cwd === workDir ? { initialPlanId: selectedPlan.id } : {}),
-        efficiencyLevel: clusterEfficiency,
-        messageGuard,
-        taskBoardMode: clusterBoard,
-        progressTracking: clusterProgress,
-        ...(clusterEfficiencyNote.trim().length > 0 ? { efficiencyAddendum: clusterEfficiencyNote.trim() } : {}),
-        members: members.map((m, i) => ({
-          provider: m.provider,
-          model: String(m.model),
-          ...(m.effort ? { effort: m.effort } : {}),
-          ...(m.provider === 'codex' && m.providerAccountRef ? { providerAccountRef: m.providerAccountRef } : {}),
-          displayName: derived[i]!,
-          ...(m.role.trim().length > 0 ? { role: m.role.trim() } : {}),
-          ...(m.tier ? { tier: m.tier } : {}),
-          ...(m.focus.trim().length > 0 ? { focus: m.focus.trim() } : {}),
-          skipPermissions: m.skipPermissions,
-          ...(m.fastMode ? { fastMode: true } : {}),
-          ...(m.efficiencyToolFilter !== 'off' ? { efficiencyToolFilter: m.efficiencyToolFilter } : {}),
-          ...(m.outputStyle !== DEFAULT_OUTPUT_STYLE ? { outputStyle: m.outputStyle } : {}),
-        })),
+      submitClusterCreation(requestId => {
+        const derived = deriveDisplayNames(members);
+        return onCreateCluster({
+          requestId,
+          cwd: workDir,
+          ...(clusterName.trim().length > 0 ? { name: clusterName.trim() } : {}),
+          ...(draftInitialPlan && clusterPlanGoal.trim() ? { initialPlanGoal: clusterPlanGoal.trim() } : {}),
+          ...(planChoice === 'existing' && selectedPlan?.cwd === workDir ? { initialPlanId: selectedPlan.id } : {}),
+          efficiencyLevel: clusterEfficiency,
+          messageGuard,
+          taskBoardMode: clusterBoard,
+          progressTracking: clusterProgress,
+          ...(clusterEfficiencyNote.trim().length > 0 ? { efficiencyAddendum: clusterEfficiencyNote.trim() } : {}),
+          members: members.map((m, i) => ({
+            provider: m.provider,
+            model: String(m.model),
+            ...(m.effort ? { effort: m.effort } : {}),
+            ...(m.provider === 'codex' && m.providerAccountRef ? { providerAccountRef: m.providerAccountRef } : {}),
+            displayName: derived[i]!,
+            ...(m.role.trim().length > 0 ? { role: m.role.trim() } : {}),
+            ...(m.tier ? { tier: m.tier } : {}),
+            ...(m.focus.trim().length > 0 ? { focus: m.focus.trim() } : {}),
+            skipPermissions: m.skipPermissions,
+            ...(m.fastMode ? { fastMode: true } : {}),
+            ...(m.efficiencyToolFilter !== 'off' ? { efficiencyToolFilter: m.efficiencyToolFilter } : {}),
+            ...(m.outputStyle !== DEFAULT_OUTPUT_STYLE ? { outputStyle: m.outputStyle } : {}),
+          })),
+        });
       });
       return;
     }

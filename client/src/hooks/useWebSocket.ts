@@ -1075,6 +1075,7 @@ export function useWebSocket() {
   // front; no source workflow. Server mints N fresh workflows + creates
   // the cluster. Cluster fence applies.
   const createClusterFromScratch = useCallback((payload: {
+    requestId?: string;
     cwd: string;
     name?: string;
     initialPlanGoal?: string;
@@ -1099,20 +1100,24 @@ export function useWebSocket() {
       outputStyle?: import('@arco/shared').OutputStyle;
     }>;
   }) => {
-    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
-    wsRef.current.send(JSON.stringify({
-      type: 'cluster_create_from_scratch',
-      cwd: payload.cwd,
-      ...(payload.name && payload.name.trim().length > 0 ? { name: payload.name.trim() } : {}),
-      ...(payload.initialPlanGoal?.trim() ? { initialPlanGoal: payload.initialPlanGoal.trim() } : {}),
-      ...(payload.initialPlanId ? { initialPlanId: payload.initialPlanId } : {}),
-      ...(payload.efficiencyLevel ? { efficiencyLevel: payload.efficiencyLevel } : {}),
-      ...(payload.messageGuard ? { messageGuard: payload.messageGuard } : {}),
-      ...(payload.taskBoardMode ? { taskBoardMode: payload.taskBoardMode } : {}),
-      ...(payload.progressTracking ? { progressTracking: payload.progressTracking } : {}),
-      ...(payload.efficiencyAddendum && payload.efficiencyAddendum.trim().length > 0 ? { efficiencyAddendum: payload.efficiencyAddendum.trim() } : {}),
-      members: payload.members,
-    }));
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return false;
+    try {
+      wsRef.current.send(JSON.stringify({
+        type: 'cluster_create_from_scratch',
+        ...(payload.requestId ? { requestId: payload.requestId } : {}),
+        cwd: payload.cwd,
+        ...(payload.name && payload.name.trim().length > 0 ? { name: payload.name.trim() } : {}),
+        ...(payload.initialPlanGoal?.trim() ? { initialPlanGoal: payload.initialPlanGoal.trim() } : {}),
+        ...(payload.initialPlanId ? { initialPlanId: payload.initialPlanId } : {}),
+        ...(payload.efficiencyLevel ? { efficiencyLevel: payload.efficiencyLevel } : {}),
+        ...(payload.messageGuard ? { messageGuard: payload.messageGuard } : {}),
+        ...(payload.taskBoardMode ? { taskBoardMode: payload.taskBoardMode } : {}),
+        ...(payload.progressTracking ? { progressTracking: payload.progressTracking } : {}),
+        ...(payload.efficiencyAddendum && payload.efficiencyAddendum.trim().length > 0 ? { efficiencyAddendum: payload.efficiencyAddendum.trim() } : {}),
+        members: payload.members,
+      }));
+      return true;
+    } catch { return false; }
   }, []);
 
   // Phase 2.5.1 — operator clicked "+ ADD WORKER" inside ClusterRightPanel.

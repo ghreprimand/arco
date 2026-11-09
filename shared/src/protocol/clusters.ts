@@ -442,6 +442,7 @@ export interface ClusterCreateWithFreshWorkersMessage extends ClusterCreationSet
 // via the existing setMemberRole / setMemberTier / rename_workflow paths.
 export interface ClusterCreateFromScratchMessage extends ClusterCreationSettings {
   type: 'cluster_create_from_scratch';
+  requestId?: string;
   cwd: string;
   name?: string;
   // Operator-requested initial draft; returned to the creating client only.
@@ -871,6 +872,11 @@ export interface ClusterStateMessage {
 export interface ClusterNotFoundMessage {
   type: 'cluster_not_found';
   clusterId: string;
+}
+
+export interface ClusterCreationFinishedMessage {
+  type: 'cluster_creation_finished';
+  requestId: string;
 }
 
 export interface ClusterCreatedMessage {

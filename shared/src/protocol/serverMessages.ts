@@ -83,6 +83,7 @@ import type {
   ClusterStateMessage,
   ClusterNotFoundMessage,
   ClusterCreatedMessage,
+  ClusterCreationFinishedMessage,
   ClusterDeletedMessage,
   ClusterMemberAddedMessage,
   ClusterMemberRemovedMessage,
@@ -1594,6 +1595,7 @@ export type ServerMessage =
   | ClusterStateMessage
   | ClusterNotFoundMessage
   | ClusterCreatedMessage
+  | ClusterCreationFinishedMessage
   | ClusterDeletedMessage
   | ClusterMemberAddedMessage
   | ClusterMemberRemovedMessage

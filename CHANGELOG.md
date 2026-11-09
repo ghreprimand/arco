@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Unlock CREATE CLUSTER after rejected settings, a failed send, a disconnect or a missing response.
+
 - Keep plan task counts inside the checked project storage folder when its path changes during a list request.
 
 - Start SAVED CLUSTERS in MEMBERS with the current project, add Show all projects, and keep the creator list and restore destinations unchanged.

@@ -84,6 +84,8 @@ async def main():
           const {useAppStore:s}=await import('/src/stores/appStore.ts');
           const {useStartupStore:st}=await import('/src/stores/startupStore.ts');
           window.s=s; window.st=st; window.created=[]; window.clusters=[];
+          const {handleServerMessage}=await import('/src/ws/handleServerMessage.ts');
+          window.finishCreate=requestId=>handleServerMessage({type:'cluster_creation_finished',requestId},{wsRef:{current:null},scheduleReconnect(){}});
           const root=createRoot(document.getElementById('fixture')); let gen=0;
           const fullAuth={claude:{loggedIn:true},codex:{loggedIn:true},ollama:{loggedIn:false,installedModels:[]},cursor:{loggedIn:true},llamacpp:{loggedIn:false}};
           window.show=(mode,opt={})=>{
@@ -274,6 +276,10 @@ async def main():
         delayed_choice['entered'] = asyncio.Event()
         delayed_choice['release'] = asyncio.Event()
         assert (await page.evaluate('clusters[3].initialPlanId')) == 'fixture-plan'
+        await page.evaluate("finishCreate('unrelated-request')")
+        await expect(page.get_by_role('button', name='Starting...', exact=True)).to_be_disabled()
+        await page.evaluate('finishCreate(clusters[3].requestId)')
+        await expect(page.get_by_role('button', name='CREATE CLUSTER', exact=True)).to_be_enabled()
 
         await page.evaluate("show('cluster')")
         await page.get_by_label('Attach an existing plan', exact=True).check()

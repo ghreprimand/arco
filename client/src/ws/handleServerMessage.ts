@@ -1,3 +1,4 @@
+import { finishClusterCreation } from '../utils/clusterCreation';
 import { finishQueuedMessageEdit } from '../utils/queuedMessageEdit';
 import { PRIMARY_PROVIDERS, isClusterDirector } from '@arco/shared';
 import { beginPlanReview } from '../components/terminalInput/planDraft';
@@ -1479,7 +1480,6 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'error':
-          if (msg.message.startsWith('cluster_create_from_scratch')) useAppStore.setState({ clusterCreationPending: false });
           // Phase 2.5.1 — surface server-side rejections as a top-right toast
           // regardless of which tab is focused. The pre-2.5.1 behavior of
           // appending [ERROR] to chat is kept as a secondary record. Provider
@@ -2187,8 +2187,10 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // toast. Live persisted clusters can be reopened from +NEW.
           store.clearCluster(msg.clusterId);
           break;
+        case 'cluster_creation_finished':
+          finishClusterCreation(msg.requestId);
+          break;
         case 'cluster_created':
-          useAppStore.setState({ clusterCreationPending: false });
           store.setClusterState(msg.clusterId, msg.state);
           requestMissingMemberJobs(msg.clusterId, msg.state, deps);
           store.setActiveCluster(msg.clusterId);

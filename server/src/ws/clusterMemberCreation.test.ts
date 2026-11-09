@@ -157,6 +157,17 @@ test('each creation path builds the new member from its request', async () => {
   assert.ok(announced.length >= 10 && announced.every(Boolean), 'every path announces its new members as pending cluster members');
 });
 
+test('every scratch creation response finishes its exact request, including invalid settings', async () => {
+  const { handleClusterCreateFromScratch } = await import('./clusterHandlers.js');
+  const messages: any[] = [];
+  const ws = { readyState: 1, OPEN: 1, send: (raw: string) => messages.push(JSON.parse(raw)) };
+  await handleClusterCreateFromScratch(ws as never, {} as never, {
+    requestId: 'invalid-settings-fixture', efficiencyLevel: 'invalid', cwd: home, members: [],
+  } as never);
+  assert.equal(messages[0]?.message, 'Invalid cluster creation settings');
+  assert.deepEqual(messages.at(-1), { type: 'cluster_creation_finished', requestId: 'invalid-settings-fixture' });
+});
+
 test.after(async () => {
   const { settleWorkspaceWrites } = await import('../workspace.js');
   const { settleMetaSideEffects } = await import('../workflowMeta.js');
