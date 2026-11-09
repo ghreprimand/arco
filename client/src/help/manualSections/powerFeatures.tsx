@@ -203,7 +203,7 @@ export const powerFeatures: Section[] = [
   <Sub>Rules</Sub>
   <ul>
   <li><strong>One turn only.</strong> The next send uses and clears it. A reload, tab swap or cancelled send also clears it without firing.</li>
-  <li><strong>Visibility.</strong> The button appears only on Claude tabs using Native transport. It is hidden for director and reviewer cluster members.</li>
+  <li><strong>Visibility.</strong> The button appears only on Claude tabs using Native transport. It is hidden for director, coordinator, reviewer, researcher and documenter cluster members, and members whose roles prohibit code changes.</li>
   <li><strong>What is gated.</strong> Only <Code>Write</Code> and <Code>Edit</Code>. <Code>Bash</Code> is deliberately not gated, because recognizing write intent in arbitrary shell commands (<Code>sed -i</Code>, redirection, <Code>rm</Code> pipelines, in-place git) would be unreliable.</li>
   </ul>
   <p>

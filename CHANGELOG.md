@@ -6,6 +6,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ## Unreleased
 
 - Bound TUNE MD discovery, skip ignored trees and nested checkouts, retain useful hidden guidance, and explain incomplete scans.
+- Hide PLAN FIRST for non-coding cluster roles, including when the member opens in a standalone tab.
 
 - Bound Native and local-model file discovery, skip ignored directories and nested checkouts, retain useful hidden folders, and report truncated searches.
 

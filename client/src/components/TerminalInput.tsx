@@ -502,6 +502,15 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
     }
     return false;
   });
+  // A cluster member can also be opened in WorkflowView. Read roles from the
+  // store for both surfaces, rather than relying on a cluster-pane prop.
+  const clusterRolesAllowPlanFirst = useAppStore((s) => {
+    for (const cluster of Object.values(s.clusters)) {
+      const member = cluster.members.find((item) => item.workflowId === job.id);
+      if (member && !canPlanFirst(member.role)) return false;
+    }
+    return true;
+  });
   // Mirror the cascade the server applies when resolving the per-turn
   // transport: per-tab field wins, otherwise fall back to settings, default
   // 'cli'. Toggle is gated to Claude Native; on any other resolved
@@ -512,6 +521,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
     !!onArmPlanMode
     && (job.config.primaryProvider ?? 'claude') === 'claude'
     && resolvedClaudeTransport === 'native'
+    && clusterRolesAllowPlanFirst
     && (!clusterContext || canPlanFirst(memberRole));
   useEffect(() => { if (!planModeToggleVisible) setPlanModeArmed(false); }, [planModeToggleVisible]);
   // REMOTE_MANAGEMENT.md §1.4 — per-workflow hub opt-in toggle. Only shown when

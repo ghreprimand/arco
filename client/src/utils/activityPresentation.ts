@@ -35,7 +35,10 @@ export function settledCardItem(job: JobState | undefined): { text: string; at: 
 }
 
 export function canPlanFirst(role: string | undefined): boolean {
-  return !/^\s*(?:director|coordinator|reviewer)\b/i.test(role ?? '');
+  const text = role ?? '';
+  if (/^\s*(?:director|coordinator|reviewer|researcher|documenter)\b/i.test(text)) return false;
+  if (/^\s*(?:(?:you are|this is|role is)\s+(?:an?\s+)?)?read[ -]only\b/i.test(text) || /\b(?:no|without)\s+(?:source\s+)?(?:code|coding)\b/i.test(text)) return false;
+  return !/\b(?:do(?:es)?\s+not|don['’]t|doesn['’]t|never|must\s+not|cannot|can['’]t)\b[^.!?\n]{0,35}\b(?:write|writes|edit|edits|modify|modifies|change|changes|touch)\b[^.!?\n]{0,45}\b(?:code|coding|source\s+files?)\b/i.test(text);
 }
 
 export function settledCardPreview(job: JobState | undefined): string | undefined { return settledCardItem(job)?.text; }

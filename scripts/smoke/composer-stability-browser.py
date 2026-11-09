@@ -106,6 +106,21 @@ async def main():
                     step_box = await status.bounding_box()
                     counter_box = await page.locator('[data-help="worker.header.ctx"]').bounding_box()
                     assert step_box['x'] + step_box['width'] <= counter_box['x'] + 1, (step_box, counter_box)
+        # A member opened in WorkflowView keeps its cluster role restrictions.
+        await page.evaluate("""() => {
+          const s=window.testStore, id='interrupt-ui';
+          s.setState(st=>({jobs:{...st.jobs,[id]:{...st.jobs[id],busy:false,config:{...st.jobs[id].config,primaryProvider:'claude',claudeTransport:'native'}}}}));
+          s.getState().setActiveJob(id);
+        }""")
+        plan_first = page.locator('[data-help="composer.plan-first"]')
+        await expect(plan_first).to_be_visible()
+        await page.evaluate("""() => {
+          const s=window.testStore;
+          s.getState().setClusterState('role-fixture',{clusterId:'role-fixture',cwd:'/projects/fixture',createdAt:'',taskBoardMode:'none',taskBoardAttached:false,mailboxDepth:{},members:[{workflowId:'interrupt-ui',displayName:'Fixture',status:'idle',role:'Director role. Delegate'}]});
+        }""")
+        await expect(plan_first).to_have_count(0)
+        await page.evaluate("window.testStore.getState().clearCluster('role-fixture')")
+        await expect(plan_first).to_be_visible()
         assert not errors, errors
         await browser.close()
         print('PASS: composer remains stable during changing turn steps')

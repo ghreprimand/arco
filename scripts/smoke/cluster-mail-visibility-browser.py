@@ -33,6 +33,9 @@ async def main():
                 await route.fulfill(status=200, content_type='text/css', body='')
                 return
             if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and route.request.method == 'GET':
+                if url.path == '/api/cluster-snapshots':
+                    await route.fulfill(json={'snapshots':[]})
+                    return
                 if url.path == '/api/outputs':
                     await route.fulfill(json={'outputs':[]})
                     return

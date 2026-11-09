@@ -740,7 +740,7 @@ Drafts (`draftStore`) and attachments (`appStore`) are keyed by `workflowId` so 
 
 ### PLAN FIRST (Claude Native only)
 
-`PLAN FIRST (next turn)` sits beside NORTH STAR above the composer. It arms the next Native Claude turn to plan before editing and is separate from the attached project plan. It is hidden for director and reviewer cluster members and for other providers or transports. The local-only toggle clears after sending or leaving the tab. When armed, the placeholder reads `Type your task: plan mode armed for next turn`.
+`PLAN FIRST (next turn)` sits beside NORTH STAR above the composer. It arms the next Native Claude turn to plan before editing and is separate from the attached project plan. It is hidden for director, coordinator, reviewer, researcher and documenter cluster members, and members whose roles prohibit code changes and for other providers or transports. The local-only toggle clears after sending or leaving the tab. When armed, the placeholder reads `Type your task: plan mode armed for next turn`.
 
 Sending while armed dispatches `enter_plan_mode_request` before the normal message. The server gates Write and Edit until the worker exits plan mode. Bash is not gated.
 

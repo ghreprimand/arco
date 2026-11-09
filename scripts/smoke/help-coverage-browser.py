@@ -116,6 +116,8 @@ async def main():
                                      {'id': '00000000-0000-4000-8000-000000000002', 'name': 'bookmark', 'path': '/elsewhere/bookmark', 'source': 'registered', 'exists': True},
                                      {'name': 'beta', 'path': '/demo/beta', 'source': 'scanned', 'exists': True, 'rootPath': '/demo'},
                                      {'id': '00000000-0000-4000-8000-000000000003', 'name': 'gone', 'path': '/demo/gone', 'source': 'registered', 'exists': False, 'rootPath': '/demo'}]}
+            elif path == '/api/cluster-snapshots':
+                data = {'snapshots': [{'id':'cov-snap','name':'Coverage snapshot','createdAt':'2026-01-01T00:00:00.000Z','memberCount':2,'sourceCwd':'/demo/alpha','sameFolder':True}]}
             elif path == '/api/sessions':
                 data = {'sessions': [{'sessionId': 'saved-1', 'provider': 'claude', 'name': 'Earlier work', 'startedAt': 1793210400000, 'cwd': '/demo/alpha'}]}
             elif path == '/api/smart-pickup/evaluators':

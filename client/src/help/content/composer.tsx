@@ -63,7 +63,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.plan-first': {
     title: 'Plan first on the next turn',
-    body: <p>Arms Claude Native to plan before editing on the next turn. This switch is separate from the attached project plan. It clears when sent and is hidden for director and reviewer members.</p>,
+    body: <p>Arms Claude Native to plan before editing on the next turn. This switch is separate from the attached project plan. It clears when sent and is hidden for director, coordinator, reviewer, researcher and documenter members, and members whose roles prohibit code changes.</p>,
     manualSection: 'plan-mode-arming',
   },
   'composer.turn-step': {
