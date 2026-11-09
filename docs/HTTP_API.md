@@ -735,7 +735,7 @@ The AGENT WRITES ledger read - the attributed global record of agent-produced fi
 
 The bounded, unattributed changed-within scan - the catch-all for Bash-created / generated files the ledger never saw. Portable Node `fs` walk (no `fd`) over the default working dir (or one `project`), pruning `node_modules`/`.git`/`dist`/`.venv`/`__pycache__`/... and `.arco` internals **except** `.arco/workflows/*/artifacts/`, depth-capped (8) and count-capped (500, newest-first). Engine: `server/src/explorerChanged.ts` (`scanChangedPage`). `within` accepts `<n>h|d|m` (default/garbage -> 48h, floored at 1m).
 
-- Always **200** with `{ entries }` (newest-first, ≤500); a scan error degrades to `{ entries: [], error }`.
+- Always **200** with `{ entries, partial }` (newest-first, at most 500). `partial` is true when traversal or result limits stop the scan, so the list is an incomplete sample. A scan error degrades to `{ entries: [], error }`.
 - `ChangedEntry`: `{ path, name, size, mtime, project }` - `project` is the top-level dir under the base root (or the explicit project's basename).
 
 Directory discovery skips Git-ignored folders and nested checkouts below a project root. Useful hidden project folders and the workflow-artifact carve-out remain eligible. The entry/time budget is 20,000 entries or 650 milliseconds. A global collection may contain first-level repositories; a selected Git project excludes its nested repositories.

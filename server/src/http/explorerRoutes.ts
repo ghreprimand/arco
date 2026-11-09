@@ -157,9 +157,9 @@ export async function tryHandleExplorerRoutes(
     }
   }
 
-  // GET /api/explorer/changed[?within=48h][&project=<abs>] — the exhaustive
-  // changed-within scan (§4.2). Portable Node walk, pruned + depth/count-capped.
-  // Always 200; degrades to [] on error.
+  // GET /api/explorer/changed[?within=48h][&project=<abs>]: bounded scan.
+  // Returns { entries, partial }; traversal or result limits mark partial.
+  // Always 200; errors return { entries: [], error }.
   if (url.startsWith('/api/explorer/changed') && req.method === 'GET') {
     try {
       const q = new URL(url, `http://localhost:${PORT}`).searchParams;
