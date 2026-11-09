@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { contentSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import ReactMarkdown from 'react-markdown';
@@ -217,6 +217,29 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
     return c;
   }, [payload, path]);
 
+  // Keep defaults in a CSS variable: saved dimensions and maximize/restore
+  // can override width without losing the current formatted/raw reset target.
+  useLayoutEffect(() => {
+    const el = surface.current;
+    if (!el) return;
+    const reading = scrollBodyRef.current?.querySelector<HTMLElement>('[data-document-column]');
+    const measure = () => {
+      let width = String(contentSurfaceSize.width);
+      if (reading && !rawMode && !editing && (classification?.kind === 'markdown' || classification?.kind === 'plain')) {
+        const column = Number.parseFloat(window.getComputedStyle(reading).maxWidth);
+        const wideTable = [...reading.querySelectorAll('table')].some(table => table.scrollWidth > Math.min(column, reading.clientWidth) + 1);
+        if (Number.isFinite(column) && !wideTable) width = `min(calc(96vw / var(--ui-scale, 1)), ${column + 38}px)`;
+      }
+      el.style.setProperty('--file-viewer-width', width);
+    };
+    measure();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    if (reading) observer?.observe(reading);
+    window.addEventListener('resize', measure);
+    window.addEventListener('arco:ui-scale', measure);
+    return () => { observer?.disconnect(); window.removeEventListener('resize', measure); window.removeEventListener('arco:ui-scale', measure); };
+  }, [payload, classification, rawMode, editing]);
+
   const canFormat = classification && classification.kind !== 'plain';
 
   return createPortal(
@@ -230,7 +253,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
-        padding: '40px',
+        padding: 'calc(2vw / var(--ui-scale, 1))',
       }}
     >
       <div
@@ -240,6 +263,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
         data-dialog-surface="viewer"
         style={{
           ...contentSurfaceSize,
+          width: 'var(--file-viewer-width, min(calc(90vw / var(--ui-scale, 1)), 140em))',
           background: 'var(--color-bg)',
           border: '1px solid var(--color-border-bright)',
           borderRadius: '6px',
@@ -458,6 +482,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
           {payload?.type === 'text' && (
             rawMode || !classification || classification.kind === 'plain' ? (
               <pre
+                data-document-column
                 style={{
                   fontFamily: 'var(--font-body)',
                   fontSize: '12px',
@@ -465,13 +490,13 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
                   color: 'var(--color-accent-primary)',
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word',
-                  maxWidth: '90ch', margin: '0 auto',
+                  maxWidth: rawMode ? 'none' : '90ch', margin: '0 auto',
                 }}
               >
                 {payload.content}
               </pre>
             ) : classification.kind === 'markdown' ? (
-              <div className="arco-markdown" style={{ maxWidth: '90ch', margin: '0 auto' }}>
+              <div data-document-column className="arco-markdown" style={{ maxWidth: '90ch', margin: '0 auto' }}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
                   {payload.content}
                 </ReactMarkdown>

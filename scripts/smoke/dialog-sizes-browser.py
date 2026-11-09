@@ -4,7 +4,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 from playwright.async_api import async_playwright, expect
 from fs_url import fs_path
 from host_isolation import chrome_executable
@@ -28,7 +28,14 @@ async def main():
                 if url.path == '/api/list-dirs':
                     await route.fulfill(json={'parent':'/fixture','dirs':[{'name':f'Folder {i+1}','path':f'/fixture/folder-{i+1}'} for i in range(15)]}); return
                 if url.path == '/api/file-content':
+                    file=parse_qs(url.query)['path'][0]
                     text = '# Synthetic report\n\n' + ('A sample paragraph for reading in the dialog.\n\n' * 10)
+                    if file.endswith('wide.md'):
+                        text='| '+' | '.join('Column'+str(i)+'X'*30 for i in range(8))+' |\n| '+' | '.join('---' for i in range(8))+' |\n| '+' | '.join('value' for i in range(8))+' |'
+                    if file.endswith('.png'):
+                        await route.fulfill(json={'type':'image','dataUrl':'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6nE8AAAAASUVORK5CYII=','size':68}); return
+                    if file.endswith('.pdf'):
+                        await route.fulfill(json={'type':'binary','size':100}); return
                     await route.fulfill(json={'type':'text','content':text,'size':len(text)}); return
                 local = url.path.startswith('/@fs/') and fs_path(url.path).resolve().is_relative_to(ROOT)
                 if route.request.method == 'GET' and (local or url.path.startswith(('/@react-refresh','/@vite/','/@id/','/node_modules/.vite/deps/','/src/'))): await route.continue_(); return
@@ -53,6 +60,7 @@ async def main():
             else root.render(h(FileViewerModal,{path:'/fixture/report.md',onClose:close}));
           };
           window.closeFixture=()=>root.render(null);
+          window.showFile=path=>root.render(React.createElement(FileViewerModal,{key:path,path,onClose:()=>root.render(null)}));
           window.showForward=()=>root.render(React.createElement(ForwardDialog,{cluster:{members:[{workflowId:'fixture-a',displayName:'Worker A'},{workflowId:'fixture-b',displayName:'Worker B'}]},fromWorkflowId:'fixture-a',messages:[],onConfirm:()=>{},onCancel:()=>root.render(null)}));
         }""")
         for width,height in [(1280,800),(1920,1080),(1920,1200),(2560,1440),(3840,2160)]:
@@ -64,12 +72,17 @@ async def main():
                     box=page.locator('[data-dialog-surface="'+kind+'"]'); dialog=box
                     await expect(box).to_be_visible(); rect=await box.bounding_box(); assert rect
                     if kind=='picker': await expect(box.get_by_role('button').filter(has_text='Folder 1').first).to_be_visible()
-                    if kind=='viewer': await expect(box.get_by_text('Synthetic report',exact=True)).to_be_visible()
+                    if kind=='viewer':
+                        await expect(box.get_by_text('Synthetic report',exact=True)).to_be_visible()
+                        rect=await box.bounding_box()
                     font=await box.evaluate('el=>parseFloat(getComputedStyle(el).fontSize)') * scale
                     if kind == 'confirm': expected=min(width*.96,max(22*font,min(width*.4,36*font)))
                     elif kind == 'form': expected=min(width*.96,max(36*font,(640/14)*font,min(width*.5,60*font)))
                     elif kind == 'picker': expected=min(width*.96,max(40*font,min(width*.7,90*font)))
-                    else: expected=min(width*.9,140*font)
+                    else:
+                        column=box.locator('.arco-markdown').first
+                        reading=await column.evaluate('el=>parseFloat(getComputedStyle(el).maxWidth)')
+                        expected=min(width*.96,(reading+38)*scale)
                     assert abs(rect['width']-expected)<4, (kind,width,height,scale,rect,expected,font)
                     assert rect['x']>=0 and rect['y']>=0 and rect['x']+rect['width']<=width+1 and rect['y']+rect['height']<=height+1
                     if kind in ['confirm','form']: assert rect['height'] < min(height*.9, 40*font)
@@ -79,6 +92,50 @@ async def main():
                     await page.screenshot(path=str(ART/filename))
                     rows.append((filename,rect['width'],rect['height']))
                     await page.evaluate('window.closeFixture()'); await expect(dialog).to_have_count(0)
+        # Formatted text defaults, wide content, saved dimensions and current reset target.
+        await page.set_viewport_size({'width':1920,'height':1080})
+        await page.evaluate("document.documentElement.style.zoom='1';document.documentElement.style.setProperty('--ui-scale','1');localStorage.clear()")
+        for path,wide in [('/fixture/report.txt',False),('/fixture/wide.md',True),('/fixture/report.ts',True),('/fixture/report.png',True),('/fixture/report.pdf',True)]:
+            await page.evaluate('p=>window.showFile(p)',path)
+            box=page.locator('[data-dialog-surface="viewer"]')
+            await expect(box.locator('.arco-file-body')).not_to_contain_text('Loading')
+            rect=await box.bounding_box()
+            if wide: assert abs(rect['width']-1920*.9)<4, (path,rect)
+            else:
+                column=box.locator('[data-document-column]')
+                reading=await column.evaluate('el=>parseFloat(getComputedStyle(el).maxWidth)')
+                assert abs(rect['width']-(reading+38))<4
+            await page.evaluate('window.closeFixture()')
+        await page.evaluate("window.showFile('/fixture/report.md')")
+        box=page.locator('[data-dialog-surface="viewer"]')
+        await expect(box.get_by_text('Synthetic report',exact=True)).to_be_visible()
+        natural=await box.bounding_box()
+        grip=box.get_by_role('button',name='Resize dialog')
+        assert await grip.inner_text() == ''
+        assert await grip.evaluate('el=>getComputedStyle(el).cursor') == 'nwse-resize'
+        grip_rect=await grip.bounding_box()
+        assert abs(grip_rect['x']+grip_rect['width']-(natural['x']+natural['width']))<3
+        assert abs(grip_rect['y']+grip_rect['height']-(natural['y']+natural['height']))<3
+        await box.get_by_role('button',name='Maximize dialog').click()
+        assert abs((await box.bounding_box())['width']-1920*.96)<4
+        await box.get_by_role('button',name='Restore dialog size').click()
+        assert abs((await box.bounding_box())['width']-natural['width'])<2
+        await box.get_by_role('button',name='RAW',exact=True).click()
+        assert abs((await box.bounding_box())['width']-1920*.9)<4
+        await box.get_by_role('button',name='Reset dialog size').click()
+        assert abs((await box.bounding_box())['width']-1920*.9)<4
+        await box.get_by_role('button',name='FORMATTED',exact=True).click()
+        assert abs((await box.bounding_box())['width']-natural['width'])<2
+        await grip.hover(); await page.mouse.down(); await page.mouse.move(grip_rect['x']+75,grip_rect['y']+55,steps=5); await page.mouse.up()
+        dragged=await box.bounding_box()
+        assert dragged['width']>natural['width']+80 and dragged['height']>natural['height']+50
+        await page.evaluate('window.closeFixture()')
+        await page.evaluate("window.showFile('/fixture/report.md')")
+        await expect(box.get_by_text('Synthetic report',exact=True)).to_be_visible()
+        assert abs((await box.bounding_box())['width']-dragged['width'])<2
+        await box.get_by_role('button',name='Resize dialog').focus(); await page.keyboard.press('Home')
+        assert abs((await box.bounding_box())['width']-natural['width'])<2
+        await page.evaluate('window.closeFixture()')
         await page.set_viewport_size({'width':1280,'height':800}); await page.evaluate("document.documentElement.style.zoom='1';document.documentElement.style.setProperty('--ui-scale','1');localStorage.clear();window.showFixture('form')")
         dialog=page.locator('[data-dialog-surface="form"]'); box=dialog
         before=await box.bounding_box(); await dialog.get_by_role('button',name='Resize dialog').focus(); await page.keyboard.press('ArrowRight')

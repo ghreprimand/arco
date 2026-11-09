@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Rendered document viewers fit their reading width while wide content keeps the larger view. Dialogs have a bottom-right resize grip with pointer and keyboard controls.
+
 - Keep Windows network paths separate from POSIX paths when attributing changed files.
 
 - Replace RECENTS with CHANGED FILES: one bounded 48-hour list across authorized projects and the default projects folder, including registered projects outside the home folder, for changes by any program, with matching tab and provider attribution when available; divide scan budgets across roots; skip ignored trees and nested checkouts, retain workflow artifacts, keep the newest 500 matches, and mark incomplete scans.

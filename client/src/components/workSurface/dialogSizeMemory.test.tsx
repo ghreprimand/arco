@@ -25,13 +25,13 @@ async function mount(storageKey: string | undefined, scale = 1): Promise<{ root:
   const surface = createRef<HTMLDivElement>();
   surface.current = el;
   const host = document.createElement('div');
-  document.body.append(host);
+  el.append(host);
   const root = createRoot(host);
   await act(async () => { root.render(createElement(WorkSurfaceControls, { surface, storageKey })); });
   return { root, el, host };
 }
 
-const button = (host: ParentNode, label: string) => [...host.querySelectorAll('button')].find((item) => item.getAttribute('aria-label') === label)!;
+const button = (host: HTMLElement, label: string) => [...(host.parentElement ?? host).querySelectorAll('button')].find((item) => item.getAttribute('aria-label') === label)!;
 
 test('dialog kinds remember their own size, ignore a bad or path-like key, and store CSS pixels at 150%', async () => {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/', pretendToBeVisual: true });
@@ -56,6 +56,20 @@ test('dialog kinds remember their own size, ignore a bad or path-like key, and s
     const confirm = await mount('confirm');
     assert.equal(confirm.el.style.width, '400px', 'an out-of-range saved width is ignored');
     const resize = button(confirm.host, 'Resize dialog');
+    assert.equal(resize.textContent?.trim(), '', 'the corner grip has no misleading text button');
+    assert.equal(resize.parentElement, confirm.el, 'the grip belongs to the surface, outside its header');
+    assert.match(resize.title, /Drag to resize/);
+    resize.setPointerCapture = () => {};
+    await act(async () => {
+      resize.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, pointerId: 1, clientX: 395, clientY: 235 }));
+      resize.dispatchEvent(new dom.window.PointerEvent('pointermove', { bubbles: true, pointerId: 1, clientX: 425, clientY: 255 }));
+      resize.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true, pointerId: 1 }));
+      // The browser's release click is suppressed for this event-loop turn.
+      await new Promise(resolve => setTimeout(resolve, 1));
+    });
+    assert.equal(confirm.el.style.width, '460px');
+    assert.equal(confirm.el.style.height, '280px');
+    await act(async () => { button(confirm.host, 'Reset dialog size').click(); });
     await act(async () => { resize.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); });
     assert.equal(confirm.el.style.width, '420px');
     assert.equal(JSON.parse(localStorage.getItem('arco.dialog-size.confirm')!).width, 420);
@@ -104,11 +118,14 @@ test('dialog kinds remember their own size, ignore a bad or path-like key, and s
 
     window.addEventListener('click', seeClick, true);
     const drag = textWidth.el;
-    drag.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, clientX: 390, clientY: 230 }));
-    drag.style.width = '460px';
-    window.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true }));
-    window.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
-    assert.equal(clicks.length, 0, 'the click after a resize must not reach the backdrop');
+    await act(async () => {
+      drag.dispatchEvent(new dom.window.PointerEvent('pointerdown', { bubbles: true, clientX: 390, clientY: 230 }));
+      drag.style.width = '460px';
+      window.dispatchEvent(new dom.window.PointerEvent('pointerup', { bubbles: true }));
+      window.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, cancelable: true }));
+      assert.equal(clicks.length, 0, 'the click after a resize must not reach the backdrop');
+    });
+    await act(async () => textWidth.root.unmount());
   } finally {
     window.removeEventListener('click', seeClick, true);
     document.body.replaceChildren();

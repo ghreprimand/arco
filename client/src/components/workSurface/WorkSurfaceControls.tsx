@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 
 // Content windows share viewport-relative starting and maximum dimensions.
 // UI scale is applied outside the surface, so convert viewport dimensions back
@@ -40,6 +41,7 @@ export const pickerSurfaceSize: CSSProperties = {
 // paths never enter this key. CSS viewport limits still apply after a resize.
 export function WorkSurfaceControls({ surface, storageKey }: { surface: RefObject<HTMLElement | null>; storageKey?: string }) {
   const [maximized, setMaximized] = useState(false);
+  const [gripSurface, setGripSurface] = useState<HTMLElement | null>(null);
   const restore = useRef<{ width: string; height: string } | null>(null);
   const initial = useRef<{ width: string; height: string }>({ width: '', height: '' });
   const key = storageKey && /^[a-z0-9._-]{1,80}$/i.test(storageKey) ? `arco.dialog-size.${storageKey}` : undefined;
@@ -47,6 +49,9 @@ export function WorkSurfaceControls({ surface, storageKey }: { surface: RefObjec
     const el = surface.current;
     if (!el) return;
     initial.current = { width: el.style.width, height: el.style.height };
+    if (window.getComputedStyle(el).position === 'static' || !window.getComputedStyle(el).position) el.style.position = 'relative';
+    el.classList.add('work-surface-resizable');
+    setGripSurface(el);
     try {
       const saved = key ? JSON.parse(localStorage.getItem(key) || 'null') : null;
       if (saved && Number.isFinite(saved.width) && Number.isFinite(saved.height) && saved.width >= 200 && saved.width <= 10000 && saved.height >= 100 && saved.height <= 10000) {
@@ -120,10 +125,11 @@ export function WorkSurfaceControls({ surface, storageKey }: { surface: RefObjec
       setMaximized(true);
     }
   };
-  return <span className="work-surface-controls" data-help="dialog.size">
+  return <><span className="work-surface-controls" data-help="dialog.size">
     <button type="button" onClick={toggle} aria-label={maximized ? 'Restore dialog size' : 'Maximize dialog'}>{maximized ? 'Restore' : 'Maximize'}</button>
     <button type="button" onClick={reset} aria-label="Reset dialog size">Reset size</button>
-    <button type="button" className="work-surface-resize" aria-label="Resize dialog" title="Drag or use arrow keys to resize; Home restores initial size" onPointerDown={e => {
+  </span>
+    {gripSurface && createPortal(<button type="button" data-help="dialog.size" className="work-surface-resize" aria-label="Resize dialog" title="Drag to resize; arrow keys resize; Home resets size" onPointerDown={e => {
       const el = surface.current;
       if (!el) return;
       const s = scale(), rect = el.getBoundingClientRect();
@@ -144,6 +150,6 @@ export function WorkSurfaceControls({ surface, storageKey }: { surface: RefObjec
       const rect = el.getBoundingClientRect(), s = scale();
       change(rect.width / s + delta[0], rect.height / s + delta[1]);
       setMaximized(false);
-    }}>Resize</button>
-  </span>;
+    }}><svg aria-hidden="true" width="18" height="18" viewBox="0 0 18 18"><path d="M4 15 15 4M9 15l6-6M14 15l1-1" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg></button>, gripSurface)}
+  </>;
 }

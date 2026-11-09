@@ -13,10 +13,17 @@ export const workspace: Section[] = [
           to right:
         </p>
         <p>
-          Dialogs open at sizes suited to their content. Drag Resize or use its
-          arrow keys to change the size. Maximize fills the window; Restore
+          Dialogs open at sizes suited to their content. Drag the bottom-right
+          corner grip or focus it and use arrow keys to resize. Maximize fills the window; Restore
           returns to the previous size. Arco remembers the size for that kind
-          of dialog in this browser. Reset size or Home restores the default.
+          of dialog in this browser. Reset size or Home on the grip restores the default.
+        </p>
+        <p>
+          Rendered Markdown and plain text open at their reading width plus
+          padding, with most of the window height. RAW, code, overflowing tables
+          and media keep the larger viewer size. Saved sizes take priority;
+          Reset size returns to the current view's default. File and folder
+          pickers keep their larger share of the window.
         </p>
         <ul>
           <li>
