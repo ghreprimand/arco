@@ -112,7 +112,7 @@ async function resolveScanFolder(configured: string | undefined, access?: ReadAc
 
 // A repository location is itself a project and may also contain projects.
 // Docker's default single-repository mount is kept as one project.
-export async function scanFolderProjects(folder: string | null, options?: { dockerProjectRoot?: string; access?: ReadAccessContext }): Promise<string[]> {
+export async function scanFolderProjects(folder: string | null, options?: { dockerProjectRoot?: string; access?: ReadAccessContext; onRoot?: (root: string) => void }): Promise<string[]> {
   if (!folder) return [];
   try { if (options?.access) await options.access.rootDirectory(folder); else safeDirectory(folder); } catch { return []; }
   let repository = false;
@@ -124,7 +124,7 @@ export async function scanFolderProjects(folder: string | null, options?: { dock
     const entries = await readdir(folder, { withFileTypes: true });
     const candidates = entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).map(e => path.join(folder, e.name));
     const children = (await Promise.all(candidates.map(async p => {
-      try { if (options?.access) await options.access.rootDirectory(p); else safeDirectory(p); return p; } catch { return null; }
+      try { if (options?.access) await options.access.rootDirectory(p); else safeDirectory(p); options?.onRoot?.(p); return p; } catch { return null; }
     }))).filter((p): p is string => p !== null).sort((a, b) => a.localeCompare(b));
     return repository ? [folder, ...children] : children;
   } catch {
@@ -390,7 +390,24 @@ export async function createProject(body: Record<string, unknown>): Promise<Proj
 // list plus explicitly configured discovery roots. Browsing is independent.
 // Deliberately excludes $HOME; write confinement must not widen to the whole
 // home directory just because projects may live outside it.
-export async function projectRoots(access?: ReadAccessContext, settingsSnapshot?: Awaited<ReturnType<typeof readSettings>> | null): Promise<string[]> {
+export async function projectRoots(access?: ReadAccessContext, settingsSnapshot?: Awaited<ReturnType<typeof readSettings>> | null, onRoot?: (root: string) => void): Promise<string[]> {
+  // Discovery consumers can accept independent validated grants without waiting
+  // for display metadata or unrelated roots. The authority sources are identical.
+  if (access && onRoot) {
+    const settings = settingsSnapshot === undefined ? await readSettings().catch(() => null) : settingsSnapshot;
+    const roots = new Set<string>();
+    const add = (root: string) => { if (!roots.has(root)) { roots.add(root); onRoot(root); } };
+    const prepare = async (root: string) => { try { await access.rootDirectory(root); add(root); } catch { /* unavailable or protected */ } };
+    await Promise.all([
+      ...(settings?.projects ?? []).map(prepare),
+      ...(settings?.projectRoots ?? []).map(async root => {
+        await prepare(root.path);
+        for (const child of await scanFolderProjects(root.path, { access, onRoot: add })) add(child);
+      }),
+      readKnownCwds().then(paths => Promise.all(paths.filter(p => !isChatStorage(p)).map(prepare))),
+    ]);
+    return [...roots];
+  }
   const list = await listFolders(access, settingsSnapshot);
   const roots = list.projects.filter((p) => p.exists).map((p) => p.path);
   roots.push(...(list.roots ?? []).filter(root => root.exists).map(root => root.path));

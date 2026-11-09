@@ -3,7 +3,7 @@ import { projectFiles, scanBudget } from './projectScan.js';
 // Each root receives a share of the request budget. Registered descendants are
 // scanned separately and pruned from ancestor walks to avoid duplicate work.
 import { lstat, stat } from 'node:fs/promises';
-import { basename, join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { createReadAccessContext, isPathWithin, type ReadAccessContext } from './fileAccessPolicy.js';
 import { knownRoots } from './http/writeConfinement.js';
@@ -25,6 +25,7 @@ const PRUNE_DIRS = new Set([
 ]);
 const MAX_DEPTH = 8;
 const MAX_ENTRIES = 500;
+const REQUEST_MS = 650;
 const DEFAULT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 // Parse a "48h" / "7d" / "30m" window into ms. Falls back to 48h on garbage.
@@ -81,16 +82,52 @@ async function walk(root: string, cutoff: number, out: ChangedEntry[], budget: S
   return partial || budget.partial;
 }
 
-// Resolve only existing explorer grants. HOME itself is not a content grant.
-async function resolveRoots(access: ReadAccessContext, project?: string): Promise<Array<{ path: string; fixed: boolean }>> {
-  const settings = await readListingSettings(access).catch(() => null);
-  const allowed = await access.prepareRoots([...await knownRoots(access, settings)]);
+// Preparation has an early cutoff within the request deadline, reserving time
+// to scan healthy roots. Each candidate validates independently; late results
+// cannot add a grant or mutate the returned page.
+async function resolveRoots(access: ReadAccessContext, budget: ScanBudget, project?: string): Promise<Array<{ path: string; fixed: boolean }>> {
+  const settingsBudget = { deadline: budget.deadline - REQUEST_MS * 3 / 4, partial: false };
+  const settings = await scanBeforeDeadline(readListingSettings(access, settingsBudget).catch(() => null), budget);
+  if (settings === undefined) return [];
+  budget.partial ||= settingsBudget.partial;
+  const preparation = { deadline: budget.deadline - REQUEST_MS / 2, partial: false };
+  const bounded = new Proxy(access, { get(target, key) {
+    const value = Reflect.get(target, key);
+    if (typeof value !== 'function' || key === 'assertSafePath') return value;
+    return (...args: unknown[]) => {
+      if (performance.now() >= preparation.deadline) {
+        preparation.partial = true;
+        return Promise.reject(new Error('Project preparation deadline reached'));
+      }
+      return scanBeforeDeadline(value.apply(target, args), preparation).then(result => {
+        if (result === undefined) throw new Error('Project preparation deadline reached');
+        return result;
+      });
+    };
+  } });
+  const prepared = new Map<string, { root: string; canonical: string }>();
+  const tasks: Promise<void>[] = [];
+  let closed = false;
+  const collect = (root: string) => {
+    if (closed) return;
+    tasks.push(bounded.rootDirectory(root).then(canonical => {
+      if (!closed && performance.now() < preparation.deadline) prepared.set(resolve(root), { root, canonical });
+    }).catch(() => {}));
+  };
+  try {
+    const pending = knownRoots(bounded, settings, collect).then(() => Promise.all(tasks));
+    await scanBeforeDeadline(pending, preparation);
+  } catch { preparation.partial = true; }
+  finally { closed = true; budget.partial ||= preparation.partial; }
+  const allowed = [...prepared.values()];
   if (project) {
-    try { return [{ path: (await access.inspect(project, allowed, 'directory')).real, fixed: true }]; }
-    catch { return []; }
+    try {
+      const checked = await scanBeforeDeadline(access.inspect(project, allowed, 'directory'), budget);
+      return checked ? [{ path: checked.real, fixed: true }] : [];
+    } catch { return []; }
   }
-  const base = settings?.defaultWorkingDirectory || join(homedir(), 'Projects');
-  const canonicalBase = await access.rootDirectory(base).catch(() => null);
+  const base = resolve(settings?.defaultWorkingDirectory || join(homedir(), 'Projects'));
+  const canonicalBase = prepared.get(base)?.canonical;
   return [...new Set(allowed.map(r => r.canonical))].map(root => ({ path: root, fixed: root !== canonicalBase }));
 }
 
@@ -98,14 +135,18 @@ async function resolveRoots(access: ReadAccessContext, project?: string): Promis
 // newest-first. Bounded so a huge tree can't hang the request.
 export async function scanChangedPage(opts: { within?: string; project?: string } = {}): Promise<{ entries: ChangedEntry[]; partial: boolean }> {
   const cutoff = Date.now() - parseWithin(opts.within);
-  const access = await createReadAccessContext();
-  const roots = await resolveRoots(access, opts.project);
+  const request = scanBudget(20_000, REQUEST_MS);
+  const access = await scanBeforeDeadline(createReadAccessContext(), request);
+  if (!access) return { entries: [], partial: true };
+  const roots = await resolveRoots(access, request, opts.project);
   const out: ChangedEntry[] = [];
-  let partial = false;
+  let partial = request.partial;
+  const share = Math.max(0, request.deadline - performance.now()) / roots.length;
   for (const root of roots) {
-    // Fixed shares reserve both entries and time for every remaining project.
-    // Unused shares stay unused rather than letting an early root starve others.
-    const budget = scanBudget(Math.floor(20_000 / roots.length), 650 / roots.length);
+    // Preparation has already consumed part of the same request allowance.
+    // Fixed shares reserve the remaining time and entries for every project.
+    const budget = scanBudget(Math.floor(20_000 / roots.length), share);
+    budget.deadline = Math.min(budget.deadline, request.deadline);
     const descendants = roots.filter(other => other.path !== root.path && isPathWithin(root.path, other.path)).map(other => other.path);
     partial = (await walk(root.path, cutoff, out, budget, access, descendants, root.fixed ? basename(root.path) : undefined).catch(() => true)) || partial;
   }

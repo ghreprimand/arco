@@ -1,3 +1,4 @@
+import { scanBeforeDeadline } from './scanDeadline.js';
 import { parsePreviewPorts } from './previewProxy.js';
 import { hostTemporaryPortStart } from './previewPortConfiguration.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
@@ -1239,7 +1240,7 @@ export function updateRegisteredProjects(update: (projects: string[]) => string[
 
 // Listing requests share one settings read and async root resolution. All other
 // settings sanitizers and their defaults are the ordinary readSettings contract.
-export async function readListingSettings(access: import('./fileAccessPolicy.js').ReadAccessContext): Promise<ArcoSettings> {
+export async function readListingSettings(access: import('./fileAccessPolicy.js').ReadAccessContext, budget?: { deadline: number; partial: boolean }): Promise<ArcoSettings> {
   const raw = await readJsonFile(GLOBAL_SETTINGS_PATH, 'global');
   const candidates = new Set<string>([path.resolve(homedir())]);
   const configured = Array.isArray(raw.projectRoots) ? raw.projectRoots : [];
@@ -1249,6 +1250,19 @@ export async function readListingSettings(access: import('./fileAccessPolicy.js'
     if (value) candidates.add(path.resolve(value));
   }
   const resolved = new Map<string, string>();
-  await Promise.all([...candidates].map(async p => { try { resolved.set(p, await access.rootRealpath(p)); } catch { /* missing mounts retain spelling */ } }));
-  return mergeWithDefaults(raw, p => { const real = resolved.get(p); if (!real) throw new Error('unresolved listing root'); return real; });
+  const unavailable = new Set<string>();
+  await Promise.all([...candidates].map(async p => {
+    try {
+      const pending = access.rootRealpath(p);
+      const real = budget ? await scanBeforeDeadline(pending, budget) : await pending;
+      if (real === undefined) unavailable.add(p); else resolved.set(p, real);
+    } catch { /* missing mounts retain spelling */ }
+  }));
+  // An unresolved location cannot be checked against the canonical home/root
+  // exclusion. Omit it for this request rather than turning its alias into a grant.
+  const ready = budget && unavailable.size ? { ...raw, projectRoots: configured.filter(item => {
+    const value = item && typeof item === 'object' ? sanitizeDefaultWorkingDirectory(item.path) : undefined;
+    return value && !unavailable.has(path.resolve(value)) && !unavailable.has(path.resolve(homedir()));
+  }) } : raw;
+  return mergeWithDefaults(ready, p => { const real = resolved.get(p); if (!real) throw new Error('unresolved listing root'); return real; });
 }

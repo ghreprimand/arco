@@ -43,18 +43,30 @@ async function readKnownCwdsRegistry(): Promise<string[]> {
 // the crash-recovery registry, and the explorer window's default root
 // (settings.defaultWorkingDirectory || ~/Projects — what /api/list-dirs hands
 // ExplorerApp as its FileExplorer cwd).
-export async function knownRoots(access?: ReadAccessContext, settingsSnapshot?: Awaited<ReturnType<typeof readSettings>> | null): Promise<Set<string>> {
+export async function knownRoots(access?: ReadAccessContext, settingsSnapshot?: Awaited<ReturnType<typeof readSettings>> | null, onRoot?: (root: string) => void): Promise<Set<string>> {
   const out = new Set<string>();
-  for (const cwd of workflowCwds.values()) if (cwd) out.add(path.resolve(cwd));
+  const add = (root: string) => { if (!out.has(root)) { out.add(root); onRoot?.(root); } };
+  for (const cwd of workflowCwds.values()) if (cwd) add(path.resolve(cwd));
   for (const wf of workflows.values()) {
     const cwd = wf.config.workingDirectory;
-    if (cwd) out.add(path.resolve(cwd));
+    if (cwd) add(path.resolve(cwd));
   }
   for (const id of clusterStore.listKnownClusterIds()) {
     const cwd = clusterStore.getClusterCached(id)?.cwd;
-    if (cwd) out.add(path.resolve(cwd));
+    if (cwd) add(path.resolve(cwd));
   }
-  for (const cwd of await readKnownCwdsRegistry()) out.add(path.resolve(cwd));
+  // A discovery caller validates published candidates independently. Ordinary
+  // callers retain the complete Set contract and its existing source order.
+  if (access && onRoot) {
+    const settings = settingsSnapshot === undefined ? await readSettings().catch(() => null) : settingsSnapshot;
+    add(path.resolve(settings?.defaultWorkingDirectory || path.join(os.homedir(), 'Projects')));
+    await Promise.all([
+      readKnownCwdsRegistry().then(roots => roots.forEach(root => add(path.resolve(root)))),
+      projectRoots(access, settings, root => add(root)),
+    ]);
+    return out;
+  }
+  for (const cwd of await readKnownCwdsRegistry()) add(path.resolve(cwd));
   const settings = settingsSnapshot === undefined ? await readSettings().catch(() => null) : settingsSnapshot;
   out.add(path.resolve(settings?.defaultWorkingDirectory || path.join(os.homedir(), 'Projects')));
   for (const root of await projectRoots(access, settings)) out.add(root);
