@@ -35,6 +35,7 @@ export interface CheckpointCreatedMessage {
   // marker is honest about what a revert covers. Absent when nothing was
   // skipped or on repo-backed checkpoints.
   skippedLargeFiles?: number;
+  limitation?: string;
 }
 
 // Persisted after a turn with a complete, trustworthy checkpoint pair.
@@ -180,7 +181,7 @@ export interface CheckpointRevertedMessage {
   safetySnapshotSeq: number;
   // Which store backed the restore.
   backend: 'git' | 'tar';
-  // Set on a legacy tar restore when full faithfulness wasn't achievable.
+  // Scope limitations from shadow exclusions or legacy tar restoration.
   limitation?: string;
   // What the restore changed, counted before it ran. Absent on legacy tar
   // restores and on events written before counts existed.
@@ -213,7 +214,7 @@ export const CHECKPOINT_CHANGE_PATHS_MAX = 50;
 // HTTP (not WS): GET /api/workflows/checkpoint-preview?wfid&seq answers what
 // REVERT TO HERE would change, without changing anything.
 export type CheckpointRevertPreview =
-  | { ok: true; changes: CheckpointRestoreChanges }
+  | { ok: true; changes: CheckpointRestoreChanges; limitation?: string }
   | { ok: false; error: string };
 
 // ── Local ↔ remote comparison (Workbench Expansion I2) ──

@@ -1394,6 +1394,7 @@ async function restoreAdmittedCheckpoint(
     label: safety.label,
     ts: safety.ts,
     fileCount: safety.fileCount,
+    ...(safety.limitation ? { limitation: safety.limitation } : {}),
   });
 
   // 2) Restore the working tree to the chosen checkpoint.

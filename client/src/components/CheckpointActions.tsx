@@ -79,6 +79,7 @@ export function CheckpointActions({ entry, workflowId, cwd, busy, turn }: Props)
           title={revertDiff ? undefined : 'This revert was recorded before Arco kept its diff'}>
           VIEW CHANGES
         </ActionBtn>
+        {entry.checkpointLimitation && <span style={{ color: 'var(--color-fg-muted)', fontSize: '11px' }}>{entry.checkpointLimitation}</span>}
         {resultDiffOpen && revertDiff && <DiffOverlay title="DIFF: WHAT THE REVERT CHANGED" onClose={() => setResultDiffOpen(false)}
           wfid={workflowId} cwd={cwd} from={revertDiff.from} to={revertDiff.to} emptyText="The revert changed no file." />}
       </div>
@@ -110,6 +111,7 @@ export function CheckpointActions({ entry, workflowId, cwd, busy, turn }: Props)
         wfid={workflowId} cwd={cwd} from={result.revertDiff.from} to={result.revertDiff.to} emptyText="The revert changed no file." />}
       {undone && <span data-testid="turn-undone" className="display-font" style={{ color: 'var(--color-accent-secondary)', fontSize: '10px', letterSpacing: '1.5px' }}>Undone</span>}
 
+      {(result?.checkpointLimitation ?? entry.checkpointLimitation) && <span data-testid="checkpoint-scope" style={{ color: 'var(--color-fg-muted)', fontSize: '11px' }}>{result?.checkpointLimitation ?? entry.checkpointLimitation}</span>}
       {turn?.otherWriters && <span style={{ color: 'var(--color-fg-muted)', fontSize: '11px' }}>{turn.fileCount} {turn.fileCount === 1 ? 'file' : 'files'} changed in this folder during this turn (other agents were also working here).</span>}
       {turn && <span style={{ color: 'var(--color-fg-muted)', fontSize: '11px' }}>{turn.paths.join(', ')}{turn.pathsTruncated ? ' ...' : ''}{turn.skippedLargeFiles ? ` (at least ${turn.skippedLargeFiles} large ${turn.skippedLargeFiles === 1 ? 'file' : 'files'} skipped)` : ''}</span>}
 
@@ -141,6 +143,7 @@ export function CheckpointActions({ entry, workflowId, cwd, busy, turn }: Props)
                 : restoreChangesNothing(preview.changes) ? `Nothing would change: the folder already matches this checkpoint (${describeRestoreChanges(preview.changes)}).`
                 : <>This would change: <strong>{describeRestoreChanges(preview.changes)}</strong>.</>}
             </p>
+            {preview?.ok && preview.limitation && <p data-testid="revert-scope" style={{ color: 'var(--color-fg-muted)', fontSize: '12px' }}>{preview.limitation}</p>}
             {preview?.ok && preview.changes.paths.length > 0 && (
               <ul style={{ margin: '0 0 10px', paddingLeft: '18px', fontSize: '11px', color: 'var(--color-fg-muted)', maxHeight: '120px', overflow: 'auto' }}>
                 {preview.changes.paths.map((p) => <li key={p.path}>{p.change === 'changed' ? 'changed back' : p.change === 'removed' ? 'removed' : 'restored'}: {p.path}</li>)}

@@ -172,10 +172,11 @@ export function narrativeEventFromMessage(msg: ServerMessage): HistoryEventEntry
         seq,
         category: 'checkpoint',
         label: 'CHECKPOINT ●',
-        summary: `${msg.label} · ${msg.fileCount} file${msg.fileCount === 1 ? '' : 's'}`,
+        summary: `${msg.label} · ${msg.fileCount} file${msg.fileCount === 1 ? '' : 's'}` + (typeof msg.limitation === 'string' ? `; ${msg.limitation}` : ''),
         at: msg.ts ?? fallbackAt,
         ...(guardSeq != null ? { checkpointSeq: guardSeq } : {}),
         checkpointRef: msg.ref,
+        ...(typeof msg.limitation === 'string' ? { checkpointLimitation: msg.limitation } : {}),
       };
     }
     // docs/PERSISTENCE.md - REWIND CONVERSATION marker. The head was moved to
@@ -207,6 +208,7 @@ export function narrativeEventFromMessage(msg: ServerMessage): HistoryEventEntry
           + (msg.limitation ? ` · ${trim80(msg.limitation)}` : ''),
         at: msg.ts ?? fallbackAt,
         reverted: true,
+        ...(typeof msg.limitation === 'string' ? { checkpointLimitation: msg.limitation } : {}),
         ...(typeof msg.restoredSeq === 'number' ? { revertedCheckpointSeq: msg.restoredSeq } : {}),
         ...(msg.changes ? { revertChanges: msg.changes } : {}),
         // Before -> after of the restore: the safety snapshot to the restored checkpoint.

@@ -732,6 +732,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'CHECKPOINT REVERT',
     body: (
       <>
+        <p>Shadow checkpoints exclude nested Git repositories and worktrees. Their names are shown on the checkpoint, in the confirmation and after a revert. Only included files count or change. Recorded exclusions remain protected if a Git marker moves. Older checkpoints without scope metadata preserve unrecorded folders and explain that limitation; Git-backed behavior is unchanged.</p>
         <p>In non-Git folders, checkpoint discovery has entry and time budgets. Exceeding a byte or scan budget skips the whole checkpoint and shows one notice; no partial checkpoint is published. A budget-limited comparison or REVERT TO HERE changes nothing. The scan limits are ARCO_CHECKPOINT_SCAN_ENTRIES and ARCO_CHECKPOINT_SCAN_MS; the included-byte limit is ARCO_CHECKPOINT_TOTAL_CAP_BYTES. Git-backed checkpoints keep their existing behavior.</p>
         <p>
           Each <C>CHECKPOINT ●</C> row is a working-tree snapshot Arco took
@@ -740,7 +741,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           checkpoint, in Git and non-Git folders alike.
         </p>
         <p>
-          <C>REVERT TO HERE</C> restores the working tree to that checkpoint:
+          <C>REVERT TO HERE</C> restores the included files to that checkpoint:
           faithfully, so files created after it are removed. Before anything
           changes, the confirm dialog counts the files it would change back,
           remove and restore, or says that nothing would change. It is safe: Arco

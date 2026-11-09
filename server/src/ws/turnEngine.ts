@@ -2588,6 +2588,7 @@ export async function handleUserMessage(
           type: 'checkpoint_created', workflowId, checkpointSeq: checkpointGuardSeq,
           ref: checkpoint.ref, label: checkpoint.label, ts: checkpoint.ts, fileCount: checkpoint.fileCount,
           ...(checkpoint.skippedLargeFiles ? { skippedLargeFiles: checkpoint.skippedLargeFiles } : {}),
+          ...(checkpoint.limitation ? { limitation: checkpoint.limitation } : {}),
         });
       }
 

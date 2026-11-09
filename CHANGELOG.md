@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Make shadow-checkpoint scope explicit: exclude and name nested repositories, report captured-file counts, and preserve excluded or older unrecorded folders during revert.
+
 - Align file-search tool tables and the TUNE MD reference with bounded discovery and incomplete scan results.
 
 - Bound non-Git architecture and Genesis discovery, omit nested checkouts, and explain incomplete file assessments.

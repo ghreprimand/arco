@@ -70,6 +70,7 @@ export interface CheckpointResult {
   // fallback repo under ~/.arco/checkpoints/<cwd-hash>/git.
   backend: 'git' | 'shadow-git';
   label: string;
+  limitation?: string;
   // Shadow backend only: regular files excluded from the snapshot for
   // exceeding the per-file size cap (models/videos — out of checkpoint scope).
   skippedLargeFiles?: number;
@@ -314,13 +315,11 @@ interface SnapshotWalk {
   // `files` is partial and must not be snapshotted).
   exceededTotal: boolean;
   exceededScan?: boolean;
+  skippedNestedPaths?: string[];
 }
 
-// Enumerate what a shadow snapshot covers. Skips the top-level .arco (our
-// own workflow-state dir) and every `.git` at ANY depth — git refuses .git
-// pathspecs, and a nested repo's internals aren't operator content (its
-// working files ARE included). Symlinks are included (git stores the link
-// itself, so they cost nothing and never count against the caps).
+// Shadow snapshots exclude nested Git repositories as whole directories. The
+// scope manifest preserves those folders even if their Git marker later moves.
 async function collectSnapshotFiles(
   root: string,
   fileCap: number,
@@ -328,6 +327,7 @@ async function collectSnapshotFiles(
 ): Promise<SnapshotWalk> {
   const files: string[] = [];
   const skippedLargePaths: string[] = [];
+  const skippedNestedPaths: string[] = [];
   let total = 0;
   const stack = [''];
   let remaining = Math.max(1, Math.floor(scanLimit('ARCO_CHECKPOINT_SCAN_ENTRIES', 20_000)));
@@ -337,6 +337,7 @@ async function collectSnapshotFiles(
     await setImmediate();
     const rel = stack.pop()!;
     const abs = rel ? path.join(root, rel) : root;
+    if (rel && await fs.lstat(path.join(abs, '.git')).then(() => true, () => false)) { skippedNestedPaths.push(rel); continue; }
     const directory = await fs.opendir(abs).catch(() => null);
     if (!directory) continue;
     for await (const ent of directory) {
@@ -365,7 +366,7 @@ async function collectSnapshotFiles(
   }
   files.sort();
   skippedLargePaths.sort();
-  return { files, skippedLargePaths, exceededTotal: false };
+  return { files, skippedLargePaths, skippedNestedPaths: skippedNestedPaths.sort(), exceededTotal: false };
 }
 
 // Init the shadow repo on first use. Bare — it must never have its own
@@ -438,9 +439,24 @@ async function stagePathspecs(
   }
 }
 
+function namedScope(paths: string[]): string {
+  const names = [...new Set(paths)].sort();
+  return names.slice(0, 3).map(name => JSON.stringify(name.slice(0, 120))).join(', ') + (names.length > 3 ? ` and ${names.length - 3} more` : '');
+}
+function nestedScopeNotice(paths: string[]): string {
+  return paths.length ? `Nested repositories not included: ${namedScope(paths)}.` : '';
+}
+function capturedDirectory(paths: string[], prefix: string): boolean {
+  let lo = 0, hi = paths.length;
+  while (lo < hi) { const mid = (lo + hi) >>> 1; if (paths[mid] < prefix) lo = mid + 1; else hi = mid; }
+  return lo < paths.length && paths[lo].startsWith(prefix);
+}
+
 interface SkippedManifest {
   version: 1;
   paths: string[];
+  // Presence, including an empty array, marks explicit nested-repository scope.
+  nestedRepositories?: string[];
 }
 
 function skippedManifestPath(cwd: string, workflowId: string, seq: number): string {
@@ -455,25 +471,29 @@ async function writeSkippedManifest(
   workflowId: string,
   seq: number,
   paths: string[],
+  nestedRepositories: string[] = [],
 ): Promise<void> {
-  const manifest: SkippedManifest = { version: 1, paths };
+  const manifest: SkippedManifest = { version: 1, paths, nestedRepositories };
   await atomicWriteFile(skippedManifestPath(cwd, workflowId, seq), JSON.stringify(manifest));
 }
 
-async function readSkippedManifest(cwd: string, workflowId: string, seq: number): Promise<string[] | null> {
+async function readSkippedManifest(cwd: string, workflowId: string, seq: number): Promise<SkippedManifest | null> {
   let raw: string;
   try {
     raw = await fs.readFile(skippedManifestPath(cwd, workflowId, seq), 'utf8');
   } catch (err) {
     // Legacy shadow refs predate manifests. Other read failures are unsafe to
     // guess through because the file defines what rewind must preserve.
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { version: 1, paths: [] };
     return null;
   }
   try {
     const parsed = JSON.parse(raw) as Partial<SkippedManifest>;
     if (parsed.version !== 1 || !Array.isArray(parsed.paths)) return null;
-    return parsed.paths.filter((item): item is string => typeof item === 'string');
+    if (parsed.nestedRepositories !== undefined && !Array.isArray(parsed.nestedRepositories)) return null;
+    return { version: 1, paths: parsed.paths.filter((item): item is string => typeof item === 'string'),
+      ...(parsed.nestedRepositories ? { nestedRepositories: parsed.nestedRepositories.filter((item): item is string => typeof item === 'string') } : {}),
+    };
   } catch {
     return null;
   }
@@ -546,7 +566,7 @@ async function createShadowGitCheckpoint(args: CreateCheckpointArgs): Promise<Ch
     if (!sha) return null;
 
     const ref = refFor(workflowId, seq);
-    await writeSkippedManifest(cwd, workflowId, seq, walk.skippedLargePaths);
+    await writeSkippedManifest(cwd, workflowId, seq, [...walk.skippedLargePaths, ...(walk.skippedNestedPaths ?? [])], walk.skippedNestedPaths ?? []);
     const update = await runGit(cwd, ['--git-dir', gitDir, 'update-ref', ref, sha]);
     if (update.code !== 0) {
       await fs.rm(skippedManifestPath(cwd, workflowId, seq), { force: true }).catch(() => {});
@@ -560,10 +580,11 @@ async function createShadowGitCheckpoint(args: CreateCheckpointArgs): Promise<Ch
 
     return {
       ref,
-      fileCount: walk.files.length,
+      fileCount: await countTreeFiles(cwd, gitDir, tree),
       ts,
       backend: 'shadow-git',
       label,
+      ...(walk.skippedNestedPaths?.length ? { limitation: nestedScopeNotice(walk.skippedNestedPaths) } : {}),
       ...(walk.skippedLargePaths.length > 0 ? { skippedLargeFiles: walk.skippedLargePaths.length } : {}),
     };
   } finally {
@@ -687,9 +708,10 @@ interface PreparedRestore {
   tree: string;
   env: NodeJS.ProcessEnv;
   index: string;
+  limitation?: string;
 }
 
-type PrepareOutcome = PreparedRestore | { problem: 'missing' | 'legacy' | 'failed' | 'too-large' | 'capped-overlap' };
+type PrepareOutcome = PreparedRestore | { problem: 'missing' | 'legacy' | 'failed' | 'too-large' | 'capped-overlap' | 'nested-overlap'; limitation?: string };
 
 function scratchIndex(cwd: string, workflowId: string, seq: number): string {
   // CRUCIAL: OUTSIDE the working tree. `read-tree -u --reset` sweeps
@@ -779,6 +801,8 @@ async function prepareShadowRestore(cwd: string, workflowId: string, seq: number
   }
   const targetPaths = await listTreePaths(cwd, gitDir, tree);
   if (!targetPaths) return { problem: 'failed' };
+  const nestedOverlap = (walk.skippedNestedPaths ?? []).filter(folder => targetPaths.some(file => pathsOverlap(folder, file)));
+  if (nestedOverlap.length) return { problem: 'nested-overlap', limitation: nestedScopeNotice(nestedOverlap) };
   // Never overwrite a file that is currently over cap. If the target tree
   // contains that path, the safe action is to abort: neither the target nor
   // the handler's safety snapshot can recover the current large bytes.
@@ -798,15 +822,25 @@ async function prepareShadowRestore(cwd: string, workflowId: string, seq: number
     console.error('[arco] gitSnapshots shadow revert aborted: skipped-path manifest is unreadable');
     return { problem: 'failed' };
   }
-  const seedFiles = walk.files.filter((file) =>
-    !targetSkipped.some((skipped) => pathsOverlap(file, skipped)));
+  const sortedTargetPaths = [...targetPaths].sort();
+  const legacyFolders = new Set<string>();
+  const seedFiles = walk.files.filter(file => {
+    if (targetSkipped.paths.some(skipped => pathsOverlap(file, skipped))) return false;
+    if (targetSkipped.nestedRepositories === undefined && file.includes('/')) {
+      const prefix = file.slice(0, file.lastIndexOf('/') + 1);
+      if (!capturedDirectory(sortedTargetPaths, prefix)) { legacyFolders.add(prefix.slice(0, -1)); return false; }
+    }
+    return true;
+  });
+  const limitation = [nestedScopeNotice([...(targetSkipped.nestedRepositories ?? []), ...(walk.skippedNestedPaths ?? [])]),
+    legacyFolders.size ? `Older checkpoint left unrecorded folders unchanged: ${namedScope([...legacyFolders])}.` : ''].filter(Boolean).join(' ');
   const index = scratchIndex(cwd, workflowId, seq);
   await fs.rm(index, { force: true }).catch(() => {});
   if (!(await stagePathspecs(cwd, gitDir, index, seedFiles))) {
     await fs.rm(index, { force: true }).catch(() => {});
     return { problem: 'failed' };
   }
-  return { gitDir, workTree: ['--work-tree', cwd], ref, tree, env: { GIT_INDEX_FILE: index }, index };
+  return { gitDir, workTree: ['--work-tree', cwd], ref, tree, env: { GIT_INDEX_FILE: index }, index, ...(limitation ? { limitation } : {}) };
 }
 
 async function prepareRestore(cwd: string, workflowId: string, seq: number): Promise<PrepareOutcome> {
@@ -848,6 +882,7 @@ const PREVIEW_PROBLEMS: Record<Exclude<PrepareOutcome, PreparedRestore>['problem
   legacy: 'This older checkpoint cannot be previewed. REVERT still restores its files but does not remove files created after it.',
   failed: 'The working tree could not be read for a comparison.',
   'too-large': `${CHECKPOINT_SKIP_NOTICE} No files were changed.`,
+  'nested-overlap': 'A nested repository overlaps this checkpoint. Those files are not included, so nothing was changed.',
   'capped-overlap': 'A file now over the per-file checkpoint size limit is part of this checkpoint, so a revert would be refused.',
 };
 
@@ -857,10 +892,10 @@ export async function previewCheckpointRevert(args: RevertCheckpointArgs): Promi
   validateWfid(workflowId);
   if (!cwd || !Number.isSafeInteger(seq) || seq < 0) return { ok: false, error: 'Unknown checkpoint.' };
   const p = await prepareRestore(cwd, workflowId, seq);
-  if ('problem' in p) return { ok: false, error: PREVIEW_PROBLEMS[p.problem] };
+  if ('problem' in p) return { ok: false, error: [PREVIEW_PROBLEMS[p.problem], p.limitation].filter(Boolean).join(' ') };
   try {
     const changes = await countRestoreChanges(cwd, p);
-    return changes ? { ok: true, changes } : { ok: false, error: PREVIEW_PROBLEMS.failed };
+    return changes ? { ok: true, changes, ...(p.limitation ? { limitation: p.limitation } : {}) } : { ok: false, error: PREVIEW_PROBLEMS.failed };
   } finally {
     await fs.rm(p.index, { force: true }).catch(() => {});
   }
@@ -900,7 +935,7 @@ async function revertPrepared(cwd: string, p: PreparedRestore): Promise<RevertRe
       return null;
     }
     const fileCount = await countTreeFiles(cwd, p.gitDir, p.tree);
-    return { fileCount, backend: 'git', restoredFrom: p.ref, ...(changes ? { changes } : {}) };
+    return { fileCount, backend: 'git', restoredFrom: p.ref, ...(changes ? { changes } : {}), ...(p.limitation ? { limitation: p.limitation } : {}) };
   } finally {
     await fs.rm(p.index, { force: true }).catch(() => {});
   }

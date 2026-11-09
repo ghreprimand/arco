@@ -506,6 +506,7 @@ export interface HistoryEventEntry {
   // skip offering "revert to here" on a revert-event row.
   checkpointSeq?: number;
   checkpointRef?: string;
+  checkpointLimitation?: string;
   reverted?: boolean;
   // On a `reverted` row: the guard seq of the checkpoint that was restored.
   revertedCheckpointSeq?: number;

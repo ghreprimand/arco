@@ -23,7 +23,7 @@ operator can undo what an agent did independent of their own git history. The mo
    with `--git-dir`/`--work-tree` (the dotfiles pattern) so nothing ever lands in the user's directory, it
    stays non-git from their point of view. Refs use the same `refs/arco/<wfid>/<seq>` format. Staging is
    an explicit file list from our own walk (`--pathspec-from-file`, NUL-separated, `add -f` so nested
-   `.gitignore`s can't abort it), skipping the top-level `.arco` and every `.git` at any depth.
+   `.gitignore`s can't abort it), skipping the top-level `.arco`, every `.git` at any depth, and nested Git repositories or worktrees as whole folders.
 
    **Size caps (load-bearing scope rule).** Regular files over the **32 MiB per-file cap** are SKIPPED and
    counted (`skippedLargeFiles` on the broadcast), agents mutate configs/scripts/text; multi-GB models and
@@ -34,6 +34,10 @@ operator can undo what an agent did independent of their own git history. The mo
    `<wfid>.<seq>.skipped.json` sidecar recording the exact out-of-scope paths: a target-skipped file remains
    untouched even if it later shrinks, and revert aborts before writing when a currently over-cap path
    overlaps the target tree. The safety snapshot cannot recover those bytes, so abort is the only safe path.
+
+   **Explicit nested scope.** Shadow checkpoints do not include nested Git repositories or worktrees. The captured file count comes from the stored Git tree. The checkpoint, preview and revert result name up to three omitted folders and count any remainder. The version-1 skipped-path manifest now also records optional `nestedRepositories`, including an empty array when scope is known; `paths` includes these directory exclusions so older readers preserve them too. Excluded folders stay untouched even if their Git marker later disappears. A revert refuses when an included target path has since become part of a nested repository.
+
+   Older manifests without this scope field remain readable. Folders not represented in their target tree are preserved instead of risking deletion of formerly excluded nested files, and the preview/result explains the limitation. New files inside folders represented by the target still follow ordinary revert semantics. No old checkpoint is rewritten or deleted.
 
    **Traversal budgets.** Non-Git discovery visits at most 20,000 entries or 5,000 milliseconds and yields between directories. Set positive `ARCO_CHECKPOINT_SCAN_ENTRIES` and `ARCO_CHECKPOINT_SCAN_MS` values to adjust those limits; invalid or nonpositive values use the defaults. Hitting either limit refuses the whole snapshot, so no partial ref is published. The tab shows one skip notice naming these controls and `ARCO_CHECKPOINT_TOTAL_CAP_BYTES`. A comparison or shadow revert that exceeds a budget stops before changing project files. Git-backed snapshots keep their existing Git-ignore behavior and do not use these traversal limits.
 
