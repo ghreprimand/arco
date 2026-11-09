@@ -1,3 +1,4 @@
+import { scanBeforeDeadline } from './scanDeadline.js';
 // Bounded project discovery. State-store readers use their own exhaustive paths.
 import { opendir, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -20,26 +21,45 @@ export async function* projectFiles(root: string, options: {
   allowTopLevelCheckouts?: boolean; respectGitIgnore?: boolean; includeDirectories?: boolean; includeLinks?: boolean;
 }): AsyncGenerator<{ path: string; name: string; segments: string[]; directory: boolean }> {
   // An explicitly selected ignored root is a deliberate request to search it.
-  const applyIgnore = options.respectGitIgnore && !(await ignoredProjectPaths(root, [root], options.budget.deadline - performance.now())).has(root);
+  const rootIgnored = options.respectGitIgnore ? await scanBeforeDeadline(ignoredProjectPaths(root, [root], options.budget.deadline - performance.now()), options.budget) : new Set<string>();
+  if (!rootIgnored) return;
+  const applyIgnore = options.respectGitIgnore && !rootIgnored.has(root);
   const queue = [{ dir: root, segments: [] as string[] }];
   for (let index = 0; index < queue.length && !exhausted(options.budget); index++) {
     const { dir, segments } = queue[index];
     await setImmediate();
+    if (exhausted(options.budget)) return;
     if (segments.length && !(options.allowTopLevelCheckouts && segments.length === 1)) {
-      if (await lstat(join(dir, '.git')).then(() => true, () => false)) continue;
+      const nested = await scanBeforeDeadline(lstat(join(dir, '.git')).then(() => true, () => false), options.budget);
+      if (nested === undefined) return;
+      if (nested) continue;
     }
     if (segments.length && options.includeDirectories) yield { path: dir, name: segments[segments.length - 1], segments, directory: true };
     let directory;
-    try { directory = await opendir(dir); } catch { continue; }
+    try { directory = await scanBeforeDeadline(opendir(dir), options.budget, handle => handle.close()); } catch { continue; }
+    if (!directory) return;
     try {
       const candidates = [];
-      for await (const entry of directory) {
-        if (exhausted(options.budget)) break;
-        options.budget.entries--;
-        candidates.push(entry);
+      let lateRead = false;
+      try {
+        while (!exhausted(options.budget)) {
+          const pendingRead = directory.read();
+          const entry = await scanBeforeDeadline(pendingRead, options.budget, () => directory.close());
+          if (entry === undefined) {
+            lateRead = true;
+            void pendingRead.catch(() => directory.close()).catch(() => {});
+            return;
+          }
+          if (entry === null) break;
+          options.budget.entries--;
+          candidates.push(entry);
+        }
+      } finally {
+        if (!lateRead) await scanBeforeDeadline(directory.close().catch(() => {}), options.budget);
       }
       const ignored = applyIgnore
-        ? await ignoredProjectPaths(root, candidates.filter(entry => entry.isDirectory()).map(entry => join(dir, entry.name)), options.budget.deadline - performance.now()) : new Set<string>();
+        ? await scanBeforeDeadline(ignoredProjectPaths(root, candidates.filter(entry => entry.isDirectory()).map(entry => join(dir, entry.name)), options.budget.deadline - performance.now()), options.budget) : new Set<string>();
+      if (!ignored) return;
       for (const entry of candidates) {
         if (performance.now() >= options.budget.deadline) { options.budget.partial = true; return; }
         const path = join(dir, entry.name), child = [...segments, entry.name];

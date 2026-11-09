@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 export function ignoredProjectPaths(root: string, paths: string[], milliseconds: number): Promise<Set<string>> {
   if (!paths.length || milliseconds <= 0) return Promise.resolve(new Set());
   return new Promise(resolve => {
-    const child = spawn('git', ['check-ignore', '--no-index', '-z', '--stdin'], { cwd: root, stdio: ['pipe', 'pipe', 'ignore'], timeout: Math.max(1, Math.min(100, milliseconds)) });
+    const child = spawn('git', ['check-ignore', '--no-index', '-z', '--stdin'], { cwd: root, stdio: ['pipe', 'pipe', 'ignore'], timeout: Math.ceil(Math.max(1, Math.min(100, milliseconds))) });
     const chunks: Buffer[] = [];
     let bytes = 0;
     child.stdout.on('data', (chunk: Buffer) => {

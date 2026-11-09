@@ -17,7 +17,7 @@ export const maintenance: Section[] = [
   <strong>ARTIFACTS</strong> starts with project cards and recent artifacts
   across projects; open a project to drill into its documents. Artifacts appear without waiting for documents. Protected file paths are omitted. Linked or unavailable workflow metadata uses an identifier instead of a title.
   </li>
-  <li>Project documents skip hidden folders, build and dependency folders, and nested Git checkouts or worktrees. Entry and time budgets keep discovery responsive. A partial list says "Showing the newest N; open a project for more". Opening a project searches it separately. Workflow artifacts stay listed in full, with their own loading state.</li>
+  <li>Project documents skip hidden folders, build and dependency folders, and nested Git checkouts or worktrees. Entry and time budgets keep discovery responsive. Slow or stalled folders return an incomplete list when the scan budget ends; available results remain usable. A partial list says "Showing the newest N; open a project for more". Opening a project searches it separately. Workflow artifacts stay listed in full, with their own loading state.</li>
   <li>
   <strong>RECENTS</strong> separates attributed agent writes from the
   broader recently-modified scan. Concurrent agent writes survive retention cleanup. The scan uses entry and time budgets through depth eight, skips Git-ignored directories and nested checkouts, and retains up to 500 newest matches from the visited folders. Results truncated marks an incomplete list. Useful hidden project folders and workflow artifacts remain eligible.

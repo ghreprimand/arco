@@ -1381,3 +1381,5 @@ body and shows `Rerun requested.` It sends one request per click.
 When CREATE AND ATTACH is pending in the plan chooser, later title or body edits stay in the form. Cancelling and opening a new form also keeps that new draft. The submitted version is saved, but attachment waits for another choice when the form has changed.
 
 RECENTS > RECENTLY MODIFIED uses a bounded project-tree scan: at most 20,000 entries or 650 milliseconds, through depth eight. It skips Git-ignored directories and nested checkouts or worktrees, while keeping useful hidden project folders and the Arco workflow-artifact carve-out. A project collection can still contain its own first-level repositories. Results truncated identifies a partial sample or a list capped at the newest 500 matches. AGENT WRITES remains a separate attributed ledger.
+
+Project-discovery budgets also bound pending directory operations. A stalled open or read returns partial results at the deadline; late directory handles are closed and late rejections are handled. Root resolution and document metadata reads share the same document-scan deadline.
