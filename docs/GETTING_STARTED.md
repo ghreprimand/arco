@@ -57,11 +57,11 @@ also sets the folder browser's starting location.
 
 ## Manage locations and one-off folders
 
-Larger browsing and work dialogs offer **Maximize** and **Restore**. Drag
-**Resize**, or focus it and use arrow keys to adjust the dialog (Shift makes
-larger steps). The chosen size is remembered for that kind of dialog in this
-browser; **Reset size** or Home restores the default. Dialog sizes do not
-change the saved interface text size.
+Larger browsing and work dialogs offer **Maximize** and **Restore**. Drag the
+bottom-right corner grip, or focus it and use arrow keys to adjust the dialog
+(Shift makes larger steps). The chosen size is remembered for that kind of
+dialog in this browser; **Reset size** or Home restores the default. Dialog
+sizes do not change the saved interface text size.
 
 ### Settings > Projects
 
