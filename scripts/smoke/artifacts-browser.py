@@ -18,6 +18,8 @@ async def main():
             if path == '/api/explorer/docs':
                 await ready.wait()
                 await route.fulfill(json={'entries': [], 'partial': True})
+            elif path == '/api/explorer/changed':
+                await route.fulfill(json={'entries': [], 'partial': True})
             elif path == '/api/explorer/artifacts':
                 await route.fulfill(json={'entries': [{'path': '/projects/fixture/.arco/workflows/fixture/artifacts/review.md', 'name': 'review.md', 'size': 10, 'mtime': 1, 'workflowId': 'fixture', 'tabTitle': 'Fixture', 'provider': 'fixture', 'project': 'Fixture', 'cwd': '/projects/fixture'}]})
             else:
@@ -31,7 +33,10 @@ async def main():
             ready.set()
             await expect(page.get_by_text('Showing the newest 0; open a project for more.', exact=True)).to_be_visible()
             await expect(page.get_by_text('Loading project documents...', exact=True)).to_have_count(0)
-            print('artifacts: independent loading and partial result notice passed')
+            await page.goto('http://127.0.0.1:' + os.environ.get('ARCO_CLIENT_PORT', '5255') + '/?app=explorer&lens=recents')
+            await page.get_by_role('button', name='RECENTLY MODIFIED', exact=True).click()
+            await expect(page.get_by_text('Results truncated: showing the newest files found within the scan budget.', exact=True)).to_be_visible()
+            print('artifacts: independent loading and artifact/recents partial notices passed')
         finally:
             ready.set()
             await browser.close()

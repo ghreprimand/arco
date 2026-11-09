@@ -1,6 +1,7 @@
+import { projectFiles, scanBudget } from './projectScan.js';
 import { confinedPath } from './fileAccessPolicy.js';
 // ARCHIVE (docs/CLIENT.md) - the RECENTLY MODIFIED scan. The
-// exhaustive, UNATTRIBUTED catch-all: an on-demand walk that surfaces files the
+// bounded, UNATTRIBUTED catch-all: an on-demand walk that surfaces files the
 // agent-writes ledger never saw (Bash redirects, generated images, ffmpeg /
 // demucs output — anything created outside a tracked tool event). Together with
 // the ledger it covers the hole either has alone (§9).
@@ -11,7 +12,7 @@ import { confinedPath } from './fileAccessPolicy.js';
 // newest-first) so a pathological tree can't hang the request. $HOME-jailed via
 // realpathWithinHome.
 
-import { readdir, stat } from 'fs/promises';
+import { readdir, stat, lstat } from 'fs/promises';
 import { basename, join } from 'path';
 import { homedir } from 'os';
 import { realpathWithinHome } from './explorerArtifacts.js';
@@ -60,40 +61,29 @@ export function underArcoAllowed(segs: string[], isDir: boolean): boolean {
 // `fixedProject` is set for a single-project scan (every file belongs to that
 // project). For a global scan over ~/Projects it stays undefined and each file's
 // project is derived from its top-level dir under the base root.
-async function walk(root: string, cutoff: number, out: ChangedEntry[], fixedProject?: string): Promise<void> {
+async function walk(root: string, cutoff: number, out: ChangedEntry[], fixedProject?: string): Promise<boolean> {
   const rootName = basename(root);
-  const stack: Array<{ dir: string; segs: string[]; depth: number }> = [{ dir: root, segs: [], depth: 0 }];
-  while (stack.length > 0) {
-    const { dir, segs, depth } = stack.pop()!;
-    let entries;
+  const budget = scanBudget(20_000, 650);
+  let partial = false;
+  const rootIsCheckout = await lstat(join(root, '.git')).then(() => true, () => false);
+  for await (const file of projectFiles(root, { budget, skip: PRUNE_DIRS, maxDepth: MAX_DEPTH,
+    respectGitIgnore: true, allowTopLevelCheckouts: !fixedProject && !rootIsCheckout,
+    allowDirectory: segments => underArcoAllowed(segments, true),
+    allowIgnored: (segments, directory) => segments.includes('.arco') && underArcoAllowed(segments, directory),
+  })) {
+    if (!underArcoAllowed(file.segments, false)) continue;
     try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      continue; // unreadable dir — skip
-    }
-    for (const e of entries) {
-      const childSegs = [...segs, e.name];
-      const abs = join(dir, e.name);
-      try { confinedPath(abs, [root], 'either'); } catch { continue; }
-      if (e.isDirectory()) {
-        if (depth + 1 > MAX_DEPTH) continue;
-        if (PRUNE_DIRS.has(e.name)) continue;
-        if (!underArcoAllowed(childSegs, true)) continue;
-        stack.push({ dir: abs, segs: childSegs, depth: depth + 1 });
-      } else if (e.isFile()) {
-        if (!underArcoAllowed(childSegs, false)) continue;
-        let st;
-        try { st = await stat(abs); } catch { continue; }
-        if (st.mtimeMs < cutoff) continue;
-        const project = fixedProject ?? (childSegs.length >= 2 ? childSegs[0] : rootName);
-        const entry = { path: abs, name: e.name, size: st.size, mtime: st.mtimeMs, project };
-        // Retain only the globally newest results while visiting every allowed subtree.
-        const at = out.findIndex((v) => v.mtime < entry.mtime || (v.mtime === entry.mtime && v.path > entry.path));
-        out.splice(at < 0 ? out.length : at, 0, entry);
-        if (out.length > MAX_ENTRIES) out.pop();
-      }
-    }
+      confinedPath(file.path, [root], 'file');
+      const st = await stat(file.path);
+      if (st.mtimeMs < cutoff) continue;
+      const project = fixedProject ?? (file.segments.length >= 2 ? file.segments[0] : rootName);
+      const entry = { path: file.path, name: file.name, size: st.size, mtime: st.mtimeMs, project };
+      const at = out.findIndex(v => v.mtime < entry.mtime || (v.mtime === entry.mtime && v.path > entry.path));
+      out.splice(at < 0 ? out.length : at, 0, entry);
+      if (out.length > MAX_ENTRIES) { out.pop(); partial = true; }
+    } catch { /* vanished, unreadable or confined */ }
   }
+  return partial || budget.partial;
 }
 
 // Resolve the scan root(s): one explicit project, or the operator's default
@@ -116,14 +106,18 @@ async function resolveRoots(project?: string): Promise<string[]> {
 
 // Public entry. Returns the newest MAX_ENTRIES files modified within the window,
 // newest-first. Bounded so a huge tree can't hang the request.
-export async function scanChanged(opts: { within?: string; project?: string } = {}): Promise<ChangedEntry[]> {
+export async function scanChangedPage(opts: { within?: string; project?: string } = {}): Promise<{ entries: ChangedEntry[]; partial: boolean }> {
   const cutoff = Date.now() - parseWithin(opts.within);
   const roots = await resolveRoots(opts.project);
   const out: ChangedEntry[] = [];
+  let partial = false;
   for (const root of roots) {
     // Explicit project → attribute every file to it; global base → derive per file.
-    await walk(root, cutoff, out, opts.project ? basename(root) : undefined).catch(() => { /* best-effort */ });
+    partial = (await walk(root, cutoff, out, opts.project ? basename(root) : undefined).catch(() => true)) || partial;
   }
   out.sort((a, b) => b.mtime - a.mtime);
-  return out.slice(0, MAX_ENTRIES);
+  return { entries: out.slice(0, MAX_ENTRIES), partial };
+}
+export async function scanChanged(opts: { within?: string; project?: string } = {}): Promise<ChangedEntry[]> {
+  return (await scanChangedPage(opts)).entries;
 }

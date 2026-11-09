@@ -13,7 +13,7 @@ import { launchExplorerWindow } from '../explorerLaunch.js';
 import { collectArtifacts } from '../explorerArtifacts.js';
 import { collectDocsPage } from '../explorerDocs.js';
 import { readRecent } from '../recentFilesLedger.js';
-import { scanChanged } from '../explorerChanged.js';
+import { scanChangedPage } from '../explorerChanged.js';
 import { collectPlanLibrary } from '../explorerPlans.js';
 import * as clusterStore from '../clusterStore.js';
 import { attachExistingPlan } from '../clusterPlanBridge.js';
@@ -165,8 +165,8 @@ export async function tryHandleExplorerRoutes(
       const q = new URL(url, `http://localhost:${PORT}`).searchParams;
       const within = q.get('within') || undefined;
       const project = q.get('project') || undefined;
-      const entries = await scanChanged({ within, project });
-      return sendJson(res, 200, { entries });
+      const result = await scanChangedPage({ within, project });
+      return sendJson(res, 200, result);
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       return sendJson(res, 200, { entries: [], error });

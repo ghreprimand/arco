@@ -1370,12 +1370,14 @@ Rough-theme panels attach the generated SVG border and replace it on size or act
 
 ### Recent-file scan and accepted reruns
 
-RECENTLY MODIFIED scans every allowed subtree through depth eight while keeping
-the newest 500 matches. Earlier folders cannot fill the result cap before a
-later folder is visited. AGENT WRITES append and retention cleanup share one
+RECENTLY MODIFIED searches through depth eight within entry and time budgets,
+keeping up to 500 newest matches from visited folders. The result-count cap
+alone does not stop traversal; the traversal budgets can stop it first. AGENT WRITES append and retention cleanup share one
 lock so accepted recent records survive concurrent notifications.
 
 RERUN in the GitHub Actions run view accepts a successful response with no JSON
 body and shows `Rerun requested.` It sends one request per click.
 
 When CREATE AND ATTACH is pending in the plan chooser, later title or body edits stay in the form. Cancelling and opening a new form also keeps that new draft. The submitted version is saved, but attachment waits for another choice when the form has changed.
+
+RECENTS > RECENTLY MODIFIED uses a bounded project-tree scan: at most 20,000 entries or 650 milliseconds, through depth eight. It skips Git-ignored directories and nested checkouts or worktrees, while keeping useful hidden project folders and the Arco workflow-artifact carve-out. A project collection can still contain its own first-level repositories. Results truncated identifies a partial sample or a list capped at the newest 500 matches. AGENT WRITES remains a separate attributed ledger.

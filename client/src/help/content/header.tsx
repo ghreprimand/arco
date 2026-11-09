@@ -484,7 +484,7 @@ export const headerHelp: Record<string, HelpEntry> = {
           actions that each ask first) and <C>TREE</C> (the raw file tree).
           Only PLANS (plan edits, MARK DONE) and STORAGE change anything;
           each STORAGE action asks first.
-         RECENTLY MODIFIED retains the newest 500 matches across all allowed folders through depth eight. AGENT WRITES keeps new records during retention cleanup. Windows paths show filenames in RECENTS; files inside the Arco state folder have no OPEN IN TREE action.</p>
+         RECENTLY MODIFIED searches through depth eight within entry and time budgets, skipping ignored directories and nested checkouts. It retains up to 500 newest matches from visited folders and marks incomplete lists as Results truncated. Useful hidden project folders and workflow artifacts remain eligible. AGENT WRITES keeps new records during retention cleanup. Windows paths show filenames in RECENTS; files inside the Arco state folder have no OPEN IN TREE action.</p>
         <p>ARTIFACTS omits protected file paths. Linked or unavailable workflow metadata uses an identifier instead of a title.</p>
         <p>TREE starts at the first readable location: the configured working folder, Projects in the home folder, then the home folder. Folder listings and file previews use that same root.</p>
         <p>

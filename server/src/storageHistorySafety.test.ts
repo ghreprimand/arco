@@ -75,7 +75,9 @@ test('B11: disposal suppresses an already admitted asynchronous read', async (t)
   await started; stop(); release(); await pause(); assert.equal(seen.length, 0);
 });
 
-test('B25: later subtrees can displace 500 older recent files', async () => {
+test('B25: later subtrees can displace 500 older recent files', async t => {
+  // Ranking is independent of the separately tested wall-clock scan budget.
+  t.mock.method(performance, 'now', () => 0);
   const cwd = join(process.env.HOME!, 'recent-project');
   await fs.mkdir(join(cwd, 'a-new'), { recursive: true }); await fs.mkdir(join(cwd, 'z-old'));
   for (let i = 0; i < 505; i++) { const file = join(cwd, 'z-old', `old-${i}`); await fs.writeFile(file, 'old'); await fs.utimes(file, new Date(), new Date(Date.now() - 60000)); }

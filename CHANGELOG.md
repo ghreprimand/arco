@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Bound RECENTLY MODIFIED discovery, skip ignored trees and nested checkouts, preserve workflow artifacts, and mark partial samples.
+
 - Restore leading-dot and directory Glob patterns and safe in-project link entries for Native and local-model tools.
 
 - Keep PLAN FIRST available when a coding role permits edits under stated conditions.

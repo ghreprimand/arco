@@ -7,7 +7,7 @@ import { fileKind, type FileKind, type ChangedEntry, type RecentRecord } from '.
 //   AGENT WRITES     — the attributed ledger (which tab wrote what). Complete
 //                      for Native writes / Review / media; best-effort for
 //                      CLI/Codex/Cursor.
-//   RECENTLY MODIFIED — the exhaustive, unattributed changed-within scan. The
+//   RECENTLY MODIFIED — the bounded, unattributed changed-within scan. The
 //                      catch-all for Bash-created / generated files the ledger
 //                      never saw. Either alone has a hole; together they cover.
 //
@@ -42,6 +42,7 @@ export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
   const [sub, setSub] = useState<SubTab>('writes');
   const [writes, setWrites] = useState<RecentRecord[] | null>(null);
   const [changed, setChanged] = useState<ChangedEntry[] | null>(null);
+  const [partial, setPartial] = useState(false);
   const [chip, setChip] = useState<Chip>('all');
   const [project, setProject] = useState<string>('all');
 
@@ -59,10 +60,10 @@ export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
   useEffect(() => {
     if (sub !== 'changed') return;
     let cancelled = false;
-    setChanged(null);
+    setChanged(null); setPartial(false);
     fetch('/api/explorer/changed?within=48h')
-      .then((r) => r.json() as Promise<{ entries?: ChangedEntry[] }>)
-      .then((d) => { if (!cancelled) setChanged(d.entries ?? []); })
+      .then((r) => r.json() as Promise<{ entries?: ChangedEntry[]; partial?: boolean }>)
+      .then((d) => { if (!cancelled) { setChanged(d.entries ?? []); setPartial(Boolean(d.partial)); } })
       .catch(() => { if (!cancelled) setChanged([]); });
     return () => { cancelled = true; };
   }, [sub, focusTick]);
@@ -98,6 +99,7 @@ export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '16px 18px', overflow: 'hidden' }}>
+      {sub === 'changed' && partial && <div data-help="header.archive" role="status" style={{ fontSize: '12px', color: 'var(--color-fg-muted)', marginBottom: '8px' }}>Results truncated: showing the newest files found within the scan budget.</div>}
       {/* Sub-tab bar */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
         <button onClick={() => setSub('writes')} className="display-font" style={subTabStyle(sub === 'writes')}>AGENT WRITES</button>
@@ -106,7 +108,7 @@ export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
       <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)', marginBottom: '10px' }}>
         {sub === 'writes'
           ? 'Files agents wrote, attributed to the tab that wrote them: newest first.'
-          : 'Every file changed in the last 48h under your projects: the complete, unattributed catch-all.'}
+          : 'Recently changed files found in a bounded project scan: newest first.'}
       </div>
 
       {/* Filters */}

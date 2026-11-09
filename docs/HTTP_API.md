@@ -718,11 +718,11 @@ The server-side artifacts join - "what have agents produced for me?" Globs `<cwd
 
 ### `GET /api/explorer/docs[?project=<abs cwd>]`
 
-Project-tree **documents** - the docs written FOR a project in its real tree (`Reports/*.md`, root `*.md`, `docs/*.md`), the half the `.arco` artifacts join can't see. This is what makes ARTIFACTS a project-artifact tool rather than a `.arco`-only view. Portable pruned walk (`server/src/explorerDocs.ts` `collectDocs`) over the doc-extension allowlist (`md`/`markdown`/`mdx`/`txt`/`rst`/`adoc`/`org`/`pdf`/`csv`), pruning the usual build/VCS dirs plus **all** of `.arco` (the artifacts join owns it - the client merges both). `$HOME`-jailed, depth-capped (8).
+Project-tree **documents** - the docs written FOR a project in its real tree (`Reports/*.md`, root `*.md`, `docs/*.md`), the half the `.arco` artifacts join can't see. This is what makes ARTIFACTS a project-artifact tool rather than a `.arco`-only view. Portable pruned walk (`server/src/explorerDocs.ts` `collectDocsPage`) over the doc-extension allowlist (`md`/`markdown`/`mdx`/`txt`/`rst`/`adoc`/`org`/`pdf`/`csv`), skipping every hidden directory, build/dependency directories and nested Git checkouts or worktrees, including **all** of `.arco` (the artifacts join owns it - the client merges both). `$HOME`-jailed, depth-capped (8).
 
-- `project` -> one project (up to 1000 docs). Omitted -> global across `~/.arco/known-cwds.json`, **bounded per-project** (150 each, 600 overall) so a home load over dozens of projects stays responsive (~0.7 s observed).
-- Always **200** with `{ entries }` (newest-first); a scan error degrades to `{ entries: [], error }`.
-- `DocEntry`: `{ path, name, size, mtime, project, cwd, rel }` - `rel` is the path relative to the project root (surfaces the subdir, e.g. `Codex/Reports/...`). The client merges these with `/artifacts` into one newest-first list per project.
+- `project` -> one project (up to 1000 docs). Omitted -> global across `~/.arco/known-cwds.json`, **bounded per-project** (150 each, 600 overall) within per-project entry/time limits (20,000 entries, 250 milliseconds) and an overall 50,000-entry, 650-millisecond budget.
+- Always **200** with `{ entries, partial }` (newest-first); `partial` marks traversal or result limits; a scan error degrades to `{ entries: [], error }`.
+- `DocEntry`: `{ path, name, size, mtime, project, cwd, rel }` - `rel` is the path relative to the project root (surfaces the subdir, e.g. `Reports/...`). The client merges these with `/artifacts` into one newest-first list per project.
 
 ### `GET /api/explorer/recents[?limit=100]`
 
@@ -733,10 +733,12 @@ The AGENT WRITES ledger read - the attributed global record of agent-produced fi
 
 ### `GET /api/explorer/changed[?within=48h][&project=<abs>]`
 
-The exhaustive, unattributed changed-within scan - the catch-all for Bash-created / generated files the ledger never saw. Portable Node `fs` walk (no `fd`) over the default working dir (or one `project`), pruning `node_modules`/`.git`/`dist`/`.venv`/`__pycache__`/... and `.arco` internals **except** `.arco/workflows/*/artifacts/`, depth-capped (8) and count-capped (500, newest-first). Engine: `server/src/explorerChanged.ts` (`scanChanged`). `within` accepts `<n>h|d|m` (default/garbage -> 48h, floored at 1m).
+The bounded, unattributed changed-within scan - the catch-all for Bash-created / generated files the ledger never saw. Portable Node `fs` walk (no `fd`) over the default working dir (or one `project`), pruning `node_modules`/`.git`/`dist`/`.venv`/`__pycache__`/... and `.arco` internals **except** `.arco/workflows/*/artifacts/`, depth-capped (8) and count-capped (500, newest-first). Engine: `server/src/explorerChanged.ts` (`scanChangedPage`). `within` accepts `<n>h|d|m` (default/garbage -> 48h, floored at 1m).
 
 - Always **200** with `{ entries }` (newest-first, ≤500); a scan error degrades to `{ entries: [], error }`.
 - `ChangedEntry`: `{ path, name, size, mtime, project }` - `project` is the top-level dir under the base root (or the explicit project's basename).
+
+Directory discovery skips Git-ignored folders and nested checkouts below a project root. Useful hidden project folders and the workflow-artifact carve-out remain eligible. The entry/time budget is 20,000 entries or 650 milliseconds. A global collection may contain first-level repositories; a selected Git project excludes its nested repositories.
 
 ### `GET /api/explorer/plans`
 
