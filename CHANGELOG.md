@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Explain directory-alias Glob results in the provider guide, manual and tool-call help.
+
 - Refuse older checkpoint restores when a stored file would overwrite an unrecorded folder, preserving all current files.
 
 - Confine Genesis Creative metadata to bounded regular files inside the project, including safe aliases.

@@ -2099,3 +2099,5 @@ Claude Native file guards use the same resolved file identity as Read, Write and
 ### Bounded file discovery
 
 Claude Native and local-model Glob, and JavaScript Grep when used instead of ripgrep, skip Git-ignored directories and nested Git checkouts or worktrees below the search root. Each walk has an entry and time budget; a limited response says "results truncated" and asks for a narrower path or pattern. Individually ignored files and explicitly selected ignored folders stay searchable. Useful hidden folders remain searchable, including explicit `.github/**` patterns. Grep can also target a single file. Selecting a nested checkout itself as the search root searches that checkout normally. Ripgrep keeps its existing Git-ignore behavior and execution limit.
+
+Claude Native and local-model Glob can return a directory alias for a directory-only pattern such as `src-link/`. The alias must resolve within the project and pass the path checks. Glob does not walk through directory aliases.

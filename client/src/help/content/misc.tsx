@@ -224,11 +224,14 @@ export const miscHelp: Record<string, HelpEntry> = {
   'chat.tool-pill': {
     title: 'Tool call',
     body: (
+      <>
       <p>
         The agent invoked a tool (Bash / Read / Edit / etc.). Expand the pill
         to see its JSON input. When a file path is shown as a button, select it
         to open the viewer. A filtered-output chip can copy the raw output path.
       </p>
+      <p>Claude Native and local-model Glob can return a directory alias for a directory-only pattern such as <C>src-link/</C>. The alias must resolve within the project and pass the path checks. Glob does not walk through directory aliases.</p>
+      </>
     ),
     manualSection: 'tool-pills',
   },
