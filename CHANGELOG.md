@@ -6,6 +6,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ## Unreleased
 
 - Keep resize grips visible and usable while dialog contents scroll, and prevent the Connections window from overflowing.
+- Show the current turn duration beside NORTH STAR and local times on single-tab ACTIVITY rows.
 
 - Return available CHANGED FILES results when another project's preparation stalls, with an incomplete-list notice and one shared preparation and scan deadline.
 

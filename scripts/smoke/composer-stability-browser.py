@@ -56,8 +56,8 @@ async def main():
           s.getState().beginPrimaryTurn('interrupt-ui', Date.now());
           s.setState({connected:true,connectionState:'online',focusMode:true});
         }''')
-        for width in [1366, 1920]:
-            await page.set_viewport_size({'width': width, 'height': 768 if width == 1366 else 1080})
+        for width in [1280, 1366, 1920]:
+            await page.set_viewport_size({'width': width, 'height': 800 if width == 1280 else 768 if width == 1366 else 1080})
             for mode in ['standard', 'compact', 'narrow']:
                 await page.evaluate("mode => localStorage.setItem('arco.layoutMode', mode)", mode)
                 await page.reload()
@@ -65,7 +65,7 @@ async def main():
                 await page.evaluate('''async () => {
                   const {useAppStore:s}=await import('/src/stores/appStore.ts'); window.testStore=s;
                   s.getState().createJob('interrupt-ui',{kind:'workflow',name:'Fixture',primaryProvider:'codex',primaryModel:'gpt-5.5',primaryEffort:'high',codexTransport:'appserver',workingDirectory:'/demo',skipPermissions:false});
-                  s.getState().beginPrimaryTurn('interrupt-ui',Date.now());
+                  s.getState().beginPrimaryTurn('interrupt-ui',Date.now()-1620000);
                   s.setState({connected:true,connectionState:'online',focusMode:true});
                 }''')
                 toolbar = page.get_by_test_id('composer-toolbar')
@@ -100,18 +100,53 @@ async def main():
                     unique = sorted({tuple(round(v, 2) for v in row) for row in samples})
                     print(width, mode, theme, len(samples), unique, flush=True)
                     assert len(unique) == 1, (width, mode, theme, unique)
+                    timer = page.get_by_test_id('turn-timer')
+                    await expect(timer).to_be_visible()
+                    assert (await timer.text_content()).startswith('TURN 27m ')
+                    timer_box = await timer.bounding_box()
+                    north_box = await page.locator('[data-help="composer.north-star"]').bounding_box()
+                    line_box = await page.get_by_test_id('composer-status-line').bounding_box()
+                    assert timer_box['y'] < north_box['y'] + north_box['height'], (timer_box, north_box)
+                    assert timer_box['x'] >= north_box['x'] + north_box['width'] - 1, (timer_box, north_box)
+                    assert timer_box['x'] + timer_box['width'] <= line_box['x'] + line_box['width'] + 1, (timer_box, line_box)
                     status = page.locator('[data-help="composer.turn-step"]')
                     await expect(status).to_be_visible()
                     assert await status.get_attribute('title')
                     step_box = await status.bounding_box()
                     counter_box = await page.locator('[data-help="worker.header.ctx"]').bounding_box()
                     assert step_box['x'] + step_box['width'] <= counter_box['x'] + 1, (step_box, counter_box)
+        # Native tabs keep PLAN FIRST and the turn time on the same line, including Narrow.
+        await page.evaluate("""() => {
+          const s=window.testStore, id='interrupt-ui';
+          s.setState(st=>({jobs:{...st.jobs,[id]:{...st.jobs[id],busy:true,turnStartedAt:Date.now()-1620000,config:{...st.jobs[id].config,primaryProvider:'claude',claudeTransport:'native'}}}}));
+        }""")
+        for width, height in [(1280, 800), (1920, 1080)]:
+            await page.set_viewport_size({'width':width,'height':height})
+            for mode in ['standard', 'narrow']:
+                await page.evaluate("mode => localStorage.setItem('arco.layoutMode', mode)", mode)
+                await page.reload()
+                await page.wait_for_timeout(300)
+                await page.evaluate("""async () => {
+                  const {useAppStore:s}=await import('/src/stores/appStore.ts'); window.testStore=s;
+                  s.getState().createJob('interrupt-ui',{kind:'workflow',name:'Fixture',primaryProvider:'claude',claudeTransport:'native',primaryModel:'sonnet',workingDirectory:'/demo',skipPermissions:false});
+                  s.getState().beginPrimaryTurn('interrupt-ui',Date.now()-1620000);
+                  s.setState({connected:true,connectionState:'online',focusMode:true});
+                }""")
+                timer = page.get_by_test_id('turn-timer')
+                plan = page.locator('[data-help="composer.plan-first"]')
+                await expect(timer).to_be_visible(); await expect(plan).to_be_visible()
+                tb = await timer.bounding_box(); pb = await plan.bounding_box(); nb = await page.locator('[data-help="composer.north-star"]').bounding_box()
+                assert pb['x'] + pb['width'] <= tb['x'] + 1 and abs(pb['y'] - tb['y']) < 15, (pb, tb)
+                assert nb['x'] + nb['width'] <= pb['x'] + 1, (nb, pb)
+                if mode == 'standard' and os.environ.get('ARCO_TURN_SCREENSHOT_DIR'):
+                    await page.screenshot(path=os.path.join(os.environ['ARCO_TURN_SCREENSHOT_DIR'], f'rc7-turn-timer-{width}.png'))
         # A member opened in WorkflowView keeps its cluster role restrictions.
         await page.evaluate("""() => {
           const s=window.testStore, id='interrupt-ui';
           s.setState(st=>({jobs:{...st.jobs,[id]:{...st.jobs[id],busy:false,config:{...st.jobs[id].config,primaryProvider:'claude',claudeTransport:'native'}}}}));
           s.getState().setActiveJob(id);
         }""")
+        await expect(page.get_by_test_id('turn-timer')).to_have_count(0)
         plan_first = page.locator('[data-help="composer.plan-first"]')
         await expect(plan_first).to_be_visible()
         await page.evaluate("""() => {
@@ -121,6 +156,15 @@ async def main():
         await expect(plan_first).to_have_count(0)
         await page.evaluate("window.testStore.getState().clearCluster('role-fixture')")
         await expect(plan_first).to_be_visible()
+        await page.evaluate("""async () => {
+          const React=(await import('/node_modules/.vite/deps/react.js')).default;
+          const {createRoot}=(await import('/node_modules/.vite/deps/react-dom_client.js')).default;
+          const {ActivityTab} = await import('/src/components/RightPanel/ActivityTab.tsx');
+          const host=document.createElement('div'); host.id='activity-fixture'; document.body.appendChild(host);
+          const job={...window.testStore.getState().jobs['interrupt-ui'], activity:[{id:'one',kind:'tool_use',tool:'Read',input:'{}',at:1730000000000}]};
+          createRoot(host).render(React.createElement(ActivityTab,{job}));
+        }""")
+        await expect(page.locator('#activity-fixture [data-testid="activity-time"]')).to_have_text(await page.evaluate('new Date(1730000000000).toLocaleTimeString()'))
         assert not errors, errors
         await browser.close()
         print('PASS: composer remains stable during changing turn steps')

@@ -1,3 +1,4 @@
+import { formatActivityTime } from '../activityTime';
 import { promptTokenCounts } from '../../utils/format';
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import type { JobState, ActivityEntry, HistoryEventEntry } from '../../stores/appStore';
@@ -619,6 +620,10 @@ function BackgroundJobRow({ job }: { job: PrimaryBackgroundJob }) {
   );
 }
 
+function ActivityTimestamp({ at }: { at: number }) {
+  return <span data-testid="activity-time" style={{ marginLeft: 'auto', flexShrink: 0, color: 'var(--color-fg-muted)', fontStyle: 'normal', whiteSpace: 'nowrap' }}>{formatActivityTime(at)}</span>;
+}
+
 function ActivityRow({ entry }: { entry: ActivityEntry }) {
   if (entry.kind === 'native_event') {
     return (
@@ -649,6 +654,7 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
         <span style={{ flex: 1, color: 'var(--color-fg-muted)', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
           {entry.text}
         </span>
+        <ActivityTimestamp at={entry.at} />
       </div>
     );
   }
@@ -687,6 +693,7 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
           {typeof entry.exitCode === 'number' && entry.exitCode !== 0 ? ` · exit ${entry.exitCode}` : ''}
           {entry.output ? `\n↳ ${truncate(entry.output.replace(/\s+/g, ' ').trim(), 240)}` : ''}
         </span>
+        <ActivityTimestamp at={entry.at} />
       </div>
     );
   }
@@ -705,9 +712,11 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
         lineHeight: 1.45,
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
+        display: 'flex',
+        gap: '8px',
       }}
     >
-      {snippet}
+      <span style={{ flex: 1, minWidth: 0 }}>{snippet}</span><ActivityTimestamp at={entry.at} />
     </div>
   );
 }

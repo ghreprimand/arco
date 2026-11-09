@@ -255,6 +255,11 @@ export const composerHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'plan-creation',
   },
+  'composer.turn-timer': {
+    title: 'Turn time',
+    body: <p>TURN shows the elapsed time of the current turn while this worker is busy. It is separate from the time for the current step in the conversation header. After a browser reload, it starts from the reconnect state.</p>,
+    manualSection: 'composer',
+  },
   'composer.north-star': {
     title: 'North star',
     body: (

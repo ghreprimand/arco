@@ -248,3 +248,20 @@ test('B155: a repository link fetches its decoded pathname and scrolls to its se
     for (const [n, desc] of before) { if (desc) Object.defineProperty(g, n, desc); else delete g[n]; }
   }
 });
+
+
+test('single-tab activity rows use the cluster local clock format', async () => {
+  const f = await fixture();
+  try {
+    const { ActivityTab } = await component('./RightPanel/ActivityTab.tsx');
+    const at = 1730000000000;
+    const job = { id: 'fixture', busy: true, config: { workingDirectory: '/fixture' }, activity: [
+      { id: 'one', kind: 'tool_use', tool: 'Read', input: '{}', at },
+      { id: 'two', kind: 'thinking', text: 'Thinking', at: at + 1000 },
+      { id: 'three', kind: 'native_event', text: 'Notice', at: at + 2000 },
+    ] };
+    await f.render(ActivityTab, { job });
+    assert.deepEqual([...document.querySelectorAll('[data-testid="activity-time"]')].map(e => e.textContent),
+      [at, at + 1000, at + 2000].map(ts => new Date(ts).toLocaleTimeString()));
+  } finally { await f.close(); }
+});

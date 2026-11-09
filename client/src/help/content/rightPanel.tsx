@@ -171,7 +171,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Live stream of tool-use, thinking, and long-running activity from this
-        workflow. Capped at 500 entries. The feed resets at the start of each
+        workflow. Each activity row shows its local clock time. Capped at 500 entries. The feed resets at the start of each
         turn and isn't persisted across reloads; the sticky sections above it
         (fleet / diagnostics / checkpoints / token usage / background jobs)
         survive. <C>CHECKPOINTS</C> scrolls inside a short fixed-height box so it

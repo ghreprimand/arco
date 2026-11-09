@@ -738,6 +738,8 @@ Drafts (`draftStore`) and attachments (`appStore`) are keyed by `workflowId` so 
 
 **`/goal` command** - `/goal <objective>` sets, bare `/goal` queries, `/goal clear|none` clears the standing north-star (regex won't match `/goalkeeper`); pushes a local system row, never sends a turn.
 
+While a turn is busy, `TURN` at the right of the NORTH STAR row shows elapsed turn time in single tabs and cluster member panes. The conversation header continues to show the current step time. After a browser reload during a turn, the timer starts from the existing reconnection seed. Idle tabs hide it. Single-tab ACTIVITY rows show local clock times, matching the cluster feed.
+
 ### PLAN FIRST (Claude Native only)
 
 `PLAN FIRST (next turn)` sits beside NORTH STAR above the composer. It arms the next Native Claude turn to plan before editing and is separate from the attached project plan. It is hidden for director, coordinator, reviewer, researcher and documenter cluster members, and members whose roles prohibit code changes and for other providers or transports. The local-only toggle clears after sending or leaving the tab. When armed, the placeholder reads `Type your task: plan mode armed for next turn`.

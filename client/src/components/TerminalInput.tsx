@@ -1,3 +1,4 @@
+import { TurnTimer } from './TurnTimer';
 import { BriefControl } from './BriefControl';
 import { ClusterComposerButtons, type ClusterComposerControls } from './ClusterComposerButtons';
 import type { SpawnMemberIdentity } from '@arco/shared';
@@ -828,7 +829,8 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         style={{ display: 'none' }}
       />
 
-      <div data-testid="composer-status-line" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '6px', minWidth: 0, minHeight: isBusy ? '24px' : undefined }}>
+      <div data-testid="composer-status-line" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '6px', minWidth: 0, minHeight: isBusy ? '24px' : undefined, position: 'relative', paddingRight: job.busy && job.turnStartedAt !== undefined ? '96px' : 0 }}>
+        <TurnTimer busy={job.busy === true} startedAt={job.turnStartedAt} />
         <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />
         {planModeToggleVisible && <button type="button" data-help="composer.plan-first" aria-pressed={planModeArmed} onClick={() => setPlanModeArmed((v) => !v)} title="Plan before editing on the next turn. This is separate from the attached project plan." className="display-font" style={{ marginLeft: 'auto', flexShrink: 0, padding: '3px 8px', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', background: 'transparent', color: planModeArmed ? 'var(--color-warning)' : 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '10px', whiteSpace: 'nowrap' }}>PLAN FIRST (next turn)</button>}
         {job.compactedResume && !isCompacting && (

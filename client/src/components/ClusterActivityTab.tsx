@@ -1,3 +1,4 @@
+import { formatActivityTime } from './activityTime';
 // docs/PROTOCOL_CLUSTER.md - unified cluster-scoped event feed,
 // extended with per-member tool activity so an operator can
 // see READ / BASH / TodoWrite etc. without drilling into each member tab.
@@ -657,7 +658,7 @@ function ActivityRowView({
             color: 'var(--color-fg-muted)',
           }}
         >
-          {new Date(it.ts).toLocaleTimeString()}
+          {formatActivityTime(it.ts)}
         </span>
       </div>
       <div style={{ color: 'var(--color-fg)', whiteSpace: 'pre-wrap' }}>
@@ -706,7 +707,7 @@ function ActivityRowView({
               }}
             >
               <span style={{ marginRight: '6px' }}>
-                {new Date(hidden.ts).toLocaleTimeString()}
+                {formatActivityTime(hidden.ts)}
               </span>
               {hidden.summary}
             </div>
