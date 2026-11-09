@@ -255,3 +255,11 @@ export const state = {
   // follow-up persist after the current one finishes.
   persistDirty: false,
 };
+
+// ARCO VENDOR PATCH: global input handlers belong only to the live editor.
+export function isEditorActive(container = state.container) {
+  if (!state.editorOpen || !container || state.container !== container || !container.isConnected) return false;
+  if (!container.getClientRects().length) return false;
+  const visibility = window.getComputedStyle(container).visibility;
+  return visibility !== 'hidden' && visibility !== 'collapse';
+}

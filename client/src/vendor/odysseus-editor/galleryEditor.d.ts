@@ -21,7 +21,7 @@ export function openEditor(
 ): void;
 
 /** Tear down the editor and free its canvases/listeners. */
-export function closeEditor(): void;
+export function closeEditor(force?: boolean): boolean;
 
 /** Whether the editor is currently mounted/open. */
 export function isEditorOpen(): boolean;

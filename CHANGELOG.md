@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Restore image attachments and composer shortcuts after closing the image editor.
+
 - Preserve the current turn timer across a browser reload while the worker stays busy.
 
 - Keep resize grips visible and usable while dialog contents scroll, and prevent the Connections window from overflowing.

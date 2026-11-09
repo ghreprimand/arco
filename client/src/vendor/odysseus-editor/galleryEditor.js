@@ -73,7 +73,7 @@ import {
   historyPanelHTML as _historyPanelHTMLImpl,
   canvasSizePromptHTML as _canvasSizePromptHTML,
 } from './editor/build/popups.js';
-import { state } from './editor/state.js';
+import { state, isEditorActive } from './editor/state.js';
 import { createMoveTool } from './editor/tools/move.js';
 import { createCropTool } from './editor/tools/crop.js';
 import { createLassoTool } from './editor/tools/lasso.js';
@@ -152,7 +152,7 @@ if (!window.__galleryEditEscHardGuardInstalled) {
   window.__galleryEditEscHardGuardInstalled = true;
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    if (window.__galleryEditLive || _galleryEditMounted()) {
+    if (isEditorActive()) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
@@ -2943,7 +2943,7 @@ function _buildEditor(container) {
   // crop / lasso / transform inside the editor can't ever bubble up and
   // accidentally close the gallery modal.
   document.addEventListener('keydown', (e) => {
-    if (!state.editorOpen) return;
+    if (!isEditorActive() || !state.container.contains(toolbar)) return;
     // Esc on the shortcuts overlay closes it; takes priority over the
     // other modal cancels so the cheatsheet feels responsive AND so the
     // gallery's own Esc handler doesn't fire and close gallery instead.
@@ -3784,9 +3784,9 @@ function _setEditTabLabel(name) {
   tab.classList.add('has-edit');
 }
 
-export function closeEditor() {
+export function closeEditor(force = false) {
   const editorMounted = _galleryEditMounted();
-  if ((state.editorOpen || editorMounted) && !window.__galleryAllowCloseEditor) {
+  if ((state.editorOpen || editorMounted) && !force && !window.__galleryAllowCloseEditor) {
     try { uiModule.showToast('Close the edit tab first'); } catch {}
     return false;
   }

@@ -96,7 +96,7 @@ async function main(): Promise<void> {
     const src = readFileSync(GALLERY, 'utf8');
     assert(/export function exportPNG\(\)/.test(src), 'exportPNG() must remain exported (the wrapper saves through it)');
     assert(/export function openEditor\(/.test(src), 'openEditor() must remain exported');
-    assert(/export function closeEditor\(\)/.test(src), 'closeEditor() must remain exported');
+    assert(/export function closeEditor\(force = false\)/.test(src), 'closeEditor() must remain exported');
   });
 
   summary('image-editor-vendor');

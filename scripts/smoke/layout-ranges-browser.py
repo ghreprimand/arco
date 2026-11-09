@@ -289,6 +289,7 @@ async def run(base):
             await expect_range(page, 'medium', 1920)
             assert await page.evaluate("() => localStorage.getItem('arco.layoutMode')") == 'compact'
             assert not errors, errors
+            await context.unroute_all(behavior='wait')
             await context.close()
 
             # The interface scale counts at both thresholds.
@@ -297,6 +298,7 @@ async def run(base):
             for width, name in [(2249, 'narrow'), (2250, 'medium'), (2999, 'medium'), (3000, 'standard')]:
                 await expect_range(page, name, width)
             assert not errors, errors
+            await context.unroute_all(behavior='wait')
             await context.close()
             # The top-bar chip cycles and settings track the same saved choice.
             context, page, errors = await open_page(browser, base, 1920, no_director=True)
@@ -324,6 +326,7 @@ async def run(base):
             await expect(chip).to_have_text('NARROW')
             await page.keyboard.press('Escape')
             assert not errors, errors
+            await context.unroute_all(behavior='wait')
             await context.close()
             # Inspect five-member layouts and the whole top bar at representative sizes.
             for width, height, scale in [(1280, 800, 1.0), (1280, 800, 1.5), (1366, 768, 1.0), (1920, 1080, 1.0), (1920, 1080, 1.2), (1920, 1080, 1.5), (2560, 1440, 1.0), (3840, 2160, 1.5), (1499, 800, 1.0), (1500, 800, 1.0), (1999, 800, 1.0), (2000, 800, 1.0)]:
@@ -344,6 +347,7 @@ async def run(base):
                 art = os.environ.get('ARCO_LAYOUT_ARTIFACTS')
                 if art: await page.screenshot(path=str(Path(art) / f'layout-{width}x{height}-{round(scale*100)}.png'), animations='disabled')
                 assert not errors, errors
+                await context.unroute_all(behavior='wait')
                 await context.close()
             # A single tab under 1100 px: the right panel is a strip; FILES opens it over the chat.
             context, page, errors = await open_page(browser, base, 1024, single=True)
@@ -357,6 +361,7 @@ async def run(base):
             await page.set_viewport_size({'width': 1500, 'height': 800})
             await expect(strip).to_have_count(0)
             assert not errors, errors
+            await context.unroute_all(behavior='wait')
             await context.close()
             print('PASS: Automatic boundaries and scale, fixed modes, MORE, splitters and panels')
         finally:

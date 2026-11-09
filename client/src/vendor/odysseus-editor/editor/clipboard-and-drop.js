@@ -26,7 +26,7 @@
  *   uiModule:             object,
  * }} deps
  */
-import { state } from './state.js';
+import { state, isEditorActive } from './state.js';
 
 export function wireClipboardAndDrop({
   container, saveState, createLayer, renderLayerPanel, composite,
@@ -34,10 +34,10 @@ export function wireClipboardAndDrop({
 }) {
   // ── Paste ──
   window.addEventListener('paste', (e) => {
-    if (!state.editorOpen) return;
+    if (!isEditorActive(container)) return;
 
     function pasteAsLayer(imgSource, label) {
-      if (!state.editorOpen) return; // user closed mid-paste
+      if (!isEditorActive(container)) return; // user closed mid-paste
       saveState();
       const layer = createLayer(label || 'Pasted', imgSource.width, imgSource.height);
       layer.ctx.drawImage(imgSource, 0, 0);
@@ -84,7 +84,7 @@ export function wireClipboardAndDrop({
   let dragDepth = 0;
   const hasFileType = (dt) => dt && Array.from(dt.types || []).some(t => t === 'Files');
   const showOverlay = () => {
-    if (!state.editorOpen) return;
+    if (!isEditorActive(container)) return;
     let ov = dropZone.querySelector('.ge-drop-overlay');
     if (!ov) {
       ov = document.createElement('div');
@@ -99,23 +99,23 @@ export function wireClipboardAndDrop({
     if (ov) ov.style.display = 'none';
   };
   dropZone.addEventListener('dragenter', (e) => {
-    if (!state.editorOpen || !hasFileType(e.dataTransfer)) return;
+    if (!isEditorActive(container) || !hasFileType(e.dataTransfer)) return;
     e.preventDefault();
     dragDepth++;
     showOverlay();
   });
   dropZone.addEventListener('dragover', (e) => {
-    if (!state.editorOpen || !hasFileType(e.dataTransfer)) return;
+    if (!isEditorActive(container) || !hasFileType(e.dataTransfer)) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
   });
   dropZone.addEventListener('dragleave', () => {
-    if (!state.editorOpen) return;
+    if (!isEditorActive(container)) return;
     dragDepth = Math.max(0, dragDepth - 1);
     if (dragDepth === 0) hideOverlay();
   });
   dropZone.addEventListener('drop', (e) => {
-    if (!state.editorOpen) return;
+    if (!isEditorActive(container)) return;
     dragDepth = 0;
     hideOverlay();
     const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'));
@@ -125,7 +125,7 @@ export function wireClipboardAndDrop({
     for (const f of files) {
       const url = URL.createObjectURL(f);
       const img = new Image();
-      img.onload = () => { handleImportedImage(img); URL.revokeObjectURL(url); };
+      img.onload = () => { if (isEditorActive(container)) handleImportedImage(img); URL.revokeObjectURL(url); };
       img.onerror = () => URL.revokeObjectURL(url);
       img.src = url;
     }

@@ -26,7 +26,7 @@ type WriteResult =
 
 interface VendoredEditor {
   openEditor: (imageUrl?: string, imageId?: string, presetSize?: unknown, displayName?: string, draftId?: string) => void;
-  closeEditor: () => void;
+  closeEditor: (force?: boolean) => void;
   isEditorOpen: () => boolean;
   exportPNG: () => string;
   downloadPNG: () => void;
@@ -115,7 +115,7 @@ export function ImageEditor({ src, filename, diskPath, fileContext, onRevealInFi
       });
     return () => {
       disposed = true;
-      try { editorRef.current?.closeEditor(); } catch { /* best-effort teardown */ }
+      try { editorRef.current?.closeEditor(true); } catch { /* best-effort teardown */ }
       editorRef.current = null;
     };
     // src/filename are captured at open; re-opening on prop change isn't needed

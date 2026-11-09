@@ -124,7 +124,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
         Switch from the viewer to the <strong>raster editor</strong> (vendored
         from the MIT-licensed Odysseus editor): layers, brush / eraser / clone,
         crop, transform, lasso / wand selection, filters, undo-redo and history.
-        Click again (<C>VIEW</C>) to return to the zoom/pan viewer. The AI tools
+        Paste an image to add a layer while editing. Click again (<C>VIEW</C>) to return to the zoom/pan viewer and release editor shortcuts and paste handling. The AI tools
         (background-remove / inpaint) are deferred: they degrade to no-ops.
       </p>
     ),
@@ -464,6 +464,6 @@ export const mediaHelp: Record<string, HelpEntry> = {
   },
   'media.close': {
     title: 'Close Media studio',
-    body: <p>Closing cancels active conversion and stem-separation jobs. Closes Media studio. Files already saved stay where they were written; an unsaved edit is discarded.</p>,
+    body: <p>Closing releases image-editor paste and keyboard shortcuts, so images pasted into a message box attach there. Closing cancels active conversion and stem-separation jobs. Closes Media studio. Files already saved stay where they were written; an unsaved edit is discarded.</p>,
   },
 };

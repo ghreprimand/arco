@@ -64,6 +64,7 @@ export const media: Section[] = [
             filters and undo/redo. <strong>SAVE</strong> targets the original path for an image opened from FILES and asks before overwriting it. An imported image asks for a new filename. Saving requires a workflow context.
           </li>
         </ul>
+        <p>Paste an image while editing to add a layer. After returning to VIEW or closing Media studio, pasting into a message box attaches the image. Editor shortcuts stop when the editor closes. SAVE keeps its existing behavior; closing discards unsaved edits.</p>
         <p>EXIF metadata is not shown yet.</p>
 
         <Sub>Audio editor</Sub>
