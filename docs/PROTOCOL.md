@@ -112,6 +112,7 @@ The server's authoritative state at this moment. Sent after replay completes (or
   workflowId: string,
   workers: Record<string, WorkerState>,
   busy: boolean,
+  turnStartedAt?: number,    // active live turn start in epoch milliseconds, when known
   transcriptTail: ChatMessage[],
   lastSeq?: number,           // server's head seq
   snapshotOnly?: boolean,     // true -> events rotated, force-set lastSeq

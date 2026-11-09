@@ -1415,7 +1415,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   // client doesn't already have by a content signature. Signature-dedup
   // rather than id-dedup because server-loaded JSONL rows use synthetic ids
   // (`hist-N`) that don't match the client's crypto UUIDs.
-  applyWorkflowSnapshot: (jobId, workers, busy, transcriptTail) =>
+  applyWorkflowSnapshot: (jobId, workers, busy, transcriptTail, turnStartedAt) =>
     set((s) => {
       const job = s.jobs[jobId];
       if (!job) return {};
@@ -1436,10 +1436,8 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
             // composer indicator on if the server was still mid-turn when
             // the client dropped.
             busy,
-            // If we reconnected into an in-flight turn but have no local
-            // turnStartedAt (browser reloaded), seed it with now so the
-            // elapsed counter resumes from 0 rather than spiking negative.
-            ...(busy && !job.turnStartedAt ? { turnStartedAt: Date.now() } : {}),
+            // A live server start wins over a reconnect seed or a stale client value.
+            ...(busy ? { turnStartedAt: typeof turnStartedAt === 'number' && Number.isFinite(turnStartedAt) ? turnStartedAt : job.turnStartedAt ?? Date.now() } : {}),
             ...(!busy ? { turnStartedAt: undefined, turnMessages: {} } : {}),
           },
         },

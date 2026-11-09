@@ -738,7 +738,7 @@ Drafts (`draftStore`) and attachments (`appStore`) are keyed by `workflowId` so 
 
 **`/goal` command** - `/goal <objective>` sets, bare `/goal` queries, `/goal clear|none` clears the standing north-star (regex won't match `/goalkeeper`); pushes a local system row, never sends a turn.
 
-While a turn is busy, `TURN` at the right of the NORTH STAR row shows elapsed turn time in single tabs and cluster member panes. The conversation header continues to show the current step time. After a browser reload during a turn, the timer starts from the existing reconnection seed. Idle tabs hide it. Single-tab ACTIVITY rows show local clock times, matching the cluster feed.
+While a turn is busy, `TURN` at the right of the NORTH STAR row shows elapsed turn time in single tabs and cluster member panes. The conversation header continues to show the current step time. After a browser reload during a turn, the server restores the original start when known; an older server or a turn with no known start uses the reconnect time. Idle tabs hide it. Single-tab ACTIVITY rows show local clock times, matching the cluster feed.
 
 ### PLAN FIRST (Claude Native only)
 

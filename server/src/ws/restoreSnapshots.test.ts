@@ -77,3 +77,28 @@ test('a failed branch-mode write cannot publish a rewind head move',async(t)=>{
  await handleRevertToPointRequest(f.ws,{type:'revert_to_point_request',workflowId:f.id,targetSeq:3});assert.equal(blocked,true);assert.equal(f.messages.some(m=>m.type==='leaf_move'),false);assert.equal(f.wf.busy,false);
  }finally{t.mock.restoreAll();await f.close();}
 });
+
+test('busy reconnect sends the current turn start even when the client has seen every event', async () => {
+ const f=await fixture('cursor');
+ const {send,broadcastTransient,broadcastWorkflow}=await import('../server/broadcast.js');
+ const {getHeadSeq}=await import('../workflowStore.js');
+ try {
+  const startedAt=Date.now()-1620000; f.wf.busy=true;
+  send(f.ws,{type:'primary_turn_started',workflowId:f.id,startedAt});
+  send(f.ws,{type:'primary_text',workflowId:f.id,text:'Synthetic work',phase:'passthrough'});
+  await flushAll();const head=await getHeadSeq(f.cwd,f.id);f.messages.length=0;
+  await rehydrateOneWorkflow(f.ws,f.id,f.wf,head);
+  assert.equal(f.messages.find(m=>m.type==='workflow_state_snapshot')?.turnStartedAt,startedAt);
+  assert.equal(f.messages.some(m=>m.type==='primary_turn_started'||m.events?.some((e:any)=>e.type==='primary_turn_started')),false);
+  const transientStart=startedAt+1000;
+  broadcastTransient(f.id,{type:'primary_turn_started',workflowId:f.id,startedAt:transientStart});
+  f.messages.length=0;await rehydrateOneWorkflow(f.ws,f.id,f.wf,head);
+  assert.equal(f.messages.find(m=>m.type==='workflow_state_snapshot')?.turnStartedAt,transientStart);
+  const broadcastStart=startedAt+2000;
+  broadcastWorkflow(f.id,{type:'primary_turn_started',workflowId:f.id,startedAt:broadcastStart});
+  f.messages.length=0;await rehydrateOneWorkflow(f.ws,f.id,f.wf,head);
+  assert.equal(f.messages.find(m=>m.type==='workflow_state_snapshot')?.turnStartedAt,broadcastStart);
+  f.wf.busy=false;f.messages.length=0;await rehydrateOneWorkflow(f.ws,f.id,f.wf,head);
+  assert.equal(f.messages.find(m=>m.type==='workflow_state_snapshot')?.turnStartedAt,undefined);
+ } finally {await f.close();}
+});

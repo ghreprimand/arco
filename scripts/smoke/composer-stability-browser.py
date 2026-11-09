@@ -156,6 +156,23 @@ async def main():
         await expect(plan_first).to_have_count(0)
         await page.evaluate("window.testStore.getState().clearCluster('role-fixture')")
         await expect(plan_first).to_be_visible()
+        # A real page reload retains the server's original start even when the
+        # browser has already seen the last persisted turn event.
+        started = await page.evaluate("""() => {
+          const s=window.testStore, started=Date.now()-1620000;
+          s.getState().beginPrimaryTurn('interrupt-ui',started);
+          s.getState().updateLastSeq('interrupt-ui',10);
+          return started;
+        }""")
+        await page.wait_for_function("""() => JSON.parse(localStorage.getItem('arco-jobs') || '{}').state?.jobs?.['interrupt-ui']?.lastSeq === 10""")
+        await page.reload(); await page.wait_for_timeout(300)
+        await page.evaluate("""async started => {
+          const {useAppStore:s}=await import('/src/stores/appStore.ts'); window.testStore=s;
+          const {handleServerMessage}=await import('/src/ws/handleServerMessage.ts');
+          handleServerMessage({type:'workflow_state_snapshot',workflowId:'interrupt-ui',workers:{},busy:true,turnStartedAt:started,transcriptTail:[],lastSeq:10},{wsRef:{current:null},scheduleReconnect:()=>{}});
+        }""", started)
+        await expect(page.get_by_test_id('turn-timer')).to_contain_text('TURN 27m')
+        assert await page.evaluate("window.testStore.getState().jobs['interrupt-ui'].turnStartedAt") == started
         await page.evaluate("""async () => {
           const React=(await import('/node_modules/.vite/deps/react.js')).default;
           const {createRoot}=(await import('/node_modules/.vite/deps/react-dom_client.js')).default;

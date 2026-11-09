@@ -117,3 +117,16 @@ test('isStarvedChat flags only long chats without user or assistant rows', () =>
   assert.equal(isStarvedChat(sys(20)), false);
   assert.equal(isStarvedChat([...sys(120), msg('a', 999)]), false);
 });
+
+test('a busy snapshot restores its authoritative turn start and falls back for older servers', async () => {
+  const { useAppStore } = await import('./appStore.js');
+  const id='snapshot-timer-fixture';
+  useAppStore.getState().createJob(id,{name:'Fixture',workingDirectory:'/fixture',primaryProvider:'claude',primaryModel:'sonnet'} as any);
+  const started=Date.now()-1620000;
+  (useAppStore.getState().applyWorkflowSnapshot as any)(id,{},true,[],started);
+  assert.equal(useAppStore.getState().jobs[id].turnStartedAt,started);
+  (useAppStore.getState().applyWorkflowSnapshot as any)(id,{},false,[],started);
+  assert.equal(useAppStore.getState().jobs[id].turnStartedAt,undefined);
+  const before=Date.now();useAppStore.getState().applyWorkflowSnapshot(id,{},true,[]);
+  assert.ok(useAppStore.getState().jobs[id].turnStartedAt! >= before);
+});

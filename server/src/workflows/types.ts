@@ -33,6 +33,8 @@ export interface Session {
 export interface WorkflowState {
   config: WorkflowConfig;
   busy: boolean;
+  // Start of the current live primary turn, never persisted as workflow state.
+  turnStartedAt?: number;
   manager: WorkerManager;
   primary: PrimaryConfig;
   primarySessionId?: string;

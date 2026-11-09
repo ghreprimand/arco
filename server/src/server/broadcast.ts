@@ -159,6 +159,11 @@ export function recordContextUsage(workflowId: string, message: ServerMessage): 
   };
 }
 
+// Track only live starts. The busy owner clears the timestamp on release or STOP.
+function recordLiveTurnStart(wf: WorkflowState | undefined, message: ServerMessage): void {
+  if (wf?.busy && message.type === 'primary_turn_started' && Number.isFinite(message.startedAt)) wf.turnStartedAt = message.startedAt;
+}
+
 export function send(ws: WebSocket, message: ServerMessage): void {
   // Persist workflow-scoped messages BEFORE checking ws state. events.jsonl
   // is the authoritative log; a closed socket must not lose events (replay
@@ -169,6 +174,7 @@ export function send(ws: WebSocket, message: ServerMessage): void {
   let stamped = message;
   if (typeof wfid === 'string') {
     const source = workflows.get(wfid);
+    recordLiveTurnStart(source, message);
     if (source && !source.config.incognito && !source.config.voiceOperator) observeConditionMessage(wfid, clusterStore.getClusterIdForWorkflow(wfid), message);
     recordIncognitoEvent(wfid, message);
     recordContextUsage(wfid, message);
@@ -238,6 +244,7 @@ export function send(ws: WebSocket, message: ServerMessage): void {
 export function broadcastTransient(workflowId: string, message: ServerMessage): void {
   const wf = workflows.get(workflowId);
   if (!wf) return;
+  recordLiveTurnStart(wf, message);
   if (!wf.config.incognito && !wf.config.voiceOperator) observeConditionMessage(workflowId, clusterStore.getClusterIdForWorkflow(workflowId), message);
   recordContextUsage(workflowId, message);
   const payload = JSON.stringify(message);
@@ -489,6 +496,7 @@ function onTurnEnded(workflowId: string, wf: WorkflowState): void {
 export function broadcastWorkflow(workflowId: string, message: ServerMessage): void {
   const wf = workflows.get(workflowId);
   if (!wf) return;
+  recordLiveTurnStart(wf, message);
   if (!wf.config.incognito && !wf.config.voiceOperator) observeConditionMessage(workflowId, clusterStore.getClusterIdForWorkflow(workflowId), message);
   // docs/PROTOCOL_CLUSTER.md - stamp chainDepth on outbound
   // peer_message_sent BEFORE persistAndStampSeq runs. The marker is set by

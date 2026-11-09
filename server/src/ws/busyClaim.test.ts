@@ -18,15 +18,20 @@ test('a revoked claim cannot release a newer claim', () => {
   const wf = { busy: false } as WorkflowState;
   const turn1 = claimBusy(wf);
   assert.equal(wf.busy, true);
+  wf.turnStartedAt = 1000;
   revokeBusy(wf); // STOP
   assert.equal(wf.busy, false);
+  assert.equal(wf.turnStartedAt, undefined);
   assert.equal(ownsBusy(wf, turn1), false);
   const turn2 = claimBusy(wf); // quick resend
+  wf.turnStartedAt = 2000;
   assert.equal(releaseBusy(wf, turn1), false, 'stale loop release is a no-op');
   assert.equal(wf.busy, true, "turn 2's busy survives turn 1's finally");
+  assert.equal(wf.turnStartedAt, 2000);
   assert.equal(ownsBusy(wf, turn2), true);
   assert.equal(releaseBusy(wf, turn2), true);
   assert.equal(wf.busy, false);
+  assert.equal(wf.turnStartedAt, undefined);
   assert.equal(releaseBusy(wf, turn2), false, 'double release is a no-op');
 });
 

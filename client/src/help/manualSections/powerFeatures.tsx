@@ -195,7 +195,7 @@ export const powerFeatures: Section[] = [
   button beside NORTH STAR that arms it for that one turn. It is separate from the attached project plan.
   </p>
   <p>
-  While a worker is busy, TURN at the right of the NORTH STAR row shows the current turn duration. The conversation header shows the current step time. After a browser reload, TURN starts from the reconnect state.
+  While a worker is busy, TURN at the right of the NORTH STAR row shows the current turn duration. The conversation header shows the current step time. After a browser reload, the server restores the original start when known; otherwise TURN starts at reconnection.
   </p>
   <p>
   The control reads <Code>PLAN FIRST (next turn)</Code>.

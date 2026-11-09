@@ -556,6 +556,7 @@ export function claimBusy(wf: WorkflowState, workerActivity = true): number {
   lastBusyClaim.set(wf, token);
   watchClaimed(wf, token);
   wf.busy = true;
+  wf.turnStartedAt = undefined;
   if (wfid && workerActivity) void notifyClusterStateForWorkflow(wfid);
   if(wf.config?.voiceOperator)wf.computerSettled=false;
   if (workerActivity) publishWorkerActivity(wf, 'worker_started');
@@ -589,6 +590,7 @@ export function releaseBusy(wf: WorkflowState, token: number, outcome: 'finished
   busyOwners.delete(wf);
   busyCheckoutLeases.get(wf)?.(); busyCheckoutLeases.delete(wf);
   wf.busy = false;
+  wf.turnStartedAt = undefined;
   clearComputerBackgroundClaim([...workflows].find(([, current]) => current === wf)?.[0] ?? '', token);
   if (wf.config?.voiceOperator) computerProjectionChanged();
   // Compaction publishes its own operation outcome after refresh/queue drain;
@@ -612,6 +614,7 @@ export function revokeBusy(wf: WorkflowState): void {
   busyOwners.delete(wf);
   busyCheckoutLeases.get(wf)?.(); busyCheckoutLeases.delete(wf);
   wf.busy = storageMigrations.has(wf);
+  wf.turnStartedAt = undefined;
   if (token !== undefined) clearComputerBackgroundClaim([...workflows].find(([, current]) => current === wf)?.[0] ?? '', token);
   if (wf.config?.voiceOperator) computerProjectionChanged();
   if(token !== undefined)publishWorkerActivity(wf, 'worker_interrupted');

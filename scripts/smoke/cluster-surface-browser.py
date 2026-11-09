@@ -117,6 +117,12 @@ async def main():
         await expect(plan_first).to_be_visible()
         await page.evaluate("s.getState().beginPrimaryTurn('worker-a', Date.now()-1620000)")
         await expect(page.get_by_test_id('turn-timer')).to_contain_text('TURN 27m')
+        await page.evaluate("""() => {
+          const started=Date.now()-1620000;
+          s.setState(st=>({jobs:{...st.jobs,'worker-a':{...st.jobs['worker-a'],busy:false,turnStartedAt:undefined}}}));
+          receive({type:'workflow_state_snapshot',workflowId:'worker-a',workers:{},busy:true,turnStartedAt:started,transcriptTail:[],lastSeq:10},{wsRef:{current:null},scheduleReconnect:()=>{}});
+        }""")
+        await expect(page.get_by_test_id('turn-timer')).to_contain_text('TURN 27m')
         await page.evaluate("s.getState().endPrimaryTurn('worker-a')")
         await expect(page.get_by_test_id('turn-timer')).to_have_count(0)
         await plan_first.click()

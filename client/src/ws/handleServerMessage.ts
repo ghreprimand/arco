@@ -1353,7 +1353,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // Slot 1 — server is telling us what's actually running. Clear any
           // ghost workers and unstick the cancel button by finalizing
           // streaming messages when the server isn't busy.
-          store.applyWorkflowSnapshot(msg.workflowId, msg.workers, msg.busy, msg.transcriptTail);
+          store.applyWorkflowSnapshot(msg.workflowId, msg.workers, msg.busy, msg.transcriptTail, msg.turnStartedAt);
           // Slot 2 — snapshot arrival is the signal that dismisses the
           // per-job SYNCING gate; no-op until a disconnect resets it.
           store.markSnapshotReceived(msg.workflowId);

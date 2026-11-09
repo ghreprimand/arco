@@ -940,7 +940,7 @@ export interface AppState {
   completeWorker: (jobId: string, workerId: string, costUsd: number, durationMs: number, tokens?: TokenUsage, permissionDenials?: Array<{ tool: string; input: string }>) => void;
   failWorker: (jobId: string, workerId: string) => void;
   setWorkerActivity: (jobId: string, workerId: string, activity: { alive: boolean; cpuActive: boolean; descendantCount: number; rssBytes: number }) => void;
-  applyWorkflowSnapshot: (jobId: string, workers: Record<string, WorkerState>, busy: boolean, transcriptTail: ChatMessage[]) => void;
+  applyWorkflowSnapshot: (jobId: string, workers: Record<string, WorkerState>, busy: boolean, transcriptTail: ChatMessage[], turnStartedAt?: number) => void;
   // Phase 5 — insert or patch a review entry (keyed by reviewId). Called
   // from both `review_started` (initial insert with reviewer config) and
   // `review_artifact_ready` (patch with artifactName/verdict/error). An

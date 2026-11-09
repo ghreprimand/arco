@@ -1862,6 +1862,7 @@ export async function rehydrateOneWorkflow(
     workflowId,
     workers: {},
     busy: wf.busy,
+    ...(wf.busy && Number.isFinite(wf.turnStartedAt) ? { turnStartedAt: wf.turnStartedAt } : {}),
     transcriptTail: [],
     operatorQuestions: pendingOperatorQuestions(workflowId),
     claudeNativePendingQuestionIds: [getClaudeNativePendingInteractions(workflowId)?.question?.questionId].filter((id): id is string => !!id),

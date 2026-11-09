@@ -928,6 +928,8 @@ export interface WorkflowStateSnapshotMessage {
   workflowId: string;
   workers: Record<string, WorkerState>;
   busy: boolean;
+  /** Original start of the active live turn, when known. */
+  turnStartedAt?: number;
   transcriptTail: ChatMessage[];
   operatorQuestions?: OperatorQuestionState[];
   claudeNativePendingQuestionIds?: string[];
