@@ -2,7 +2,9 @@
 // files, never for provider credentials, server state, or operating-system
 // pseudo-files. Check both the spelling and realpath: aliases cannot turn a
 // protected directory into a project, and in-project links cannot escape it.
-import { realpathSync, statSync } from 'node:fs';
+import { realpathSync, statSync, realpath } from 'node:fs';
+import { stat } from 'node:fs/promises';
+import { promisify } from 'node:util';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { arcoHome as runtimeHome } from './arcoHome.js';
@@ -135,4 +137,73 @@ export function confinedPath(target: string, roots: readonly string[], kind: 'fi
   const st = statSync(real);
   if (!(kind !== 'directory' && st.isFile()) && !(kind !== 'file' && st.isDirectory())) throw new FileAccessError();
   return real;
+}
+
+// Use the callback resolver's async walk, not fs.promises.realpath's native
+// resolver: the synchronous policy retains Windows short-name spellings.
+const realpathAsync = promisify(realpath);
+export interface ReadAccessContext {
+  assertSafePath(target: string): void;
+  realpath(target: string): Promise<string>;
+  rootRealpath(target: string): Promise<string>;
+  safeDirectory(target: string): Promise<string>;
+  rootDirectory(target: string): Promise<string>;
+  prepareRoots(roots: readonly string[]): Promise<Array<{ root: string; canonical: string }>>;
+  inspect(target: string, roots?: readonly { root: string; canonical: string }[], kind?: 'file' | 'directory' | 'either'): Promise<{ real: string; isDirectory: boolean }>;
+  confinedPath(target: string, roots: readonly string[], kind?: 'file' | 'directory' | 'either'): Promise<string>;
+}
+
+/** A fresh request snapshot of authority; targets themselves are never cached. */
+export async function createReadAccessContext(): Promise<ReadAccessContext> {
+  const rootPaths = new Map<string, Promise<string>>();
+  const rootRealpath = (target: string) => {
+    let result = rootPaths.get(target);
+    if (!result) { result = realpathAsync(target); rootPaths.set(target, result); }
+    return result;
+  };
+  const runtimeRoots = [path.join(homedir(), '.arco'), runtimeHome()];
+  const protectedPaths = protectedRoots();
+  const canonical = await Promise.all([...runtimeRoots, ...protectedPaths.map(p => p.root)]
+    .map(root => rootRealpath(root).catch(() => undefined)));
+  runtimeRoots.push(...canonical.slice(0, runtimeRoots.length).filter((p): p is string => p !== undefined));
+  const protectedCanonical = canonical.slice(2);
+  const assert = (target: string) => {
+    assertSpellingSafe(target);
+    for (const root of runtimeRoots) {
+      if (isPathWithin(root, target) && !runtimePathAllowed(path.relative(root, target).split(path.sep).map(p => p.toLowerCase()))) throw new FileAccessError();
+    }
+    protectedPaths.forEach(({ root, temporaryRoot }, index) => {
+      if (isProtectedRoot(root, target, temporaryRoot)) throw new FileAccessError();
+      const real = protectedCanonical[index];
+      const temporary = real && temporaryRoot ? path.join(real, path.relative(root, temporaryRoot)) : undefined;
+      if (real && isProtectedRoot(real, target, temporary)) throw new FileAccessError();
+    });
+  };
+  const check = async (target: string, roots: readonly { root: string; canonical: string }[] | undefined, kind: 'file' | 'directory' | 'either', resolve: (target: string) => Promise<string> = realpathAsync) => {
+    if (!roots && !path.isAbsolute(target)) throw new FileAccessError();
+    assert(target);
+    const real = await resolve(target);
+    assert(real);
+    if (roots && !roots.some(({ root, canonical }) =>
+      (isPathWithin(root, target) || isPathWithin(canonical, target)) && isPathWithin(canonical, real))) throw new FileAccessError();
+    const broadRoot = real === path.parse(real).root
+      && (process.platform !== 'win32' || real.toLowerCase() === path.parse(homedir()).root.toLowerCase());
+    if (!roots && broadRoot) throw new FileAccessError();
+    const st = await stat(real);
+    if ((!(kind !== 'directory' && st.isFile()) && !(kind !== 'file' && st.isDirectory()))) throw new FileAccessError();
+    return { real, isDirectory: st.isDirectory() };
+  };
+  const inspect: ReadAccessContext['inspect'] = (target, roots, kind = 'either') => check(target, roots, kind);
+  const safe = async (target: string) => (await inspect(target, undefined, 'directory')).real;
+  const rootCache = new Map<string, Promise<string>>();
+  const rootDirectory = (target: string) => {
+    let result = rootCache.get(target);
+    if (!result) { result = check(target, undefined, 'directory', rootRealpath).then(p => p.real); rootCache.set(target, result); }
+    return result;
+  };
+  const prepareRoots: ReadAccessContext['prepareRoots'] = async roots => (await Promise.all(roots.map(async root => {
+    try { return { root, canonical: await rootDirectory(root) }; } catch { return null; }
+  }))).filter((p): p is { root: string; canonical: string } => p !== null);
+  return { assertSafePath: assert, realpath: realpathAsync, rootRealpath, safeDirectory: safe, rootDirectory, prepareRoots, inspect,
+    confinedPath: async (target, roots, kind = 'file') => (await inspect(target, await prepareRoots(roots), kind)).real };
 }

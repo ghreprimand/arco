@@ -21,7 +21,7 @@ import path from 'path';
 import { workflowCwds, workflows } from '../server/state.js';
 import * as clusterStore from '../clusterStore.js';
 import { readSettings } from '../settings.js';
-import { safeDirectory, assertSafePath } from '../fileAccessPolicy.js';
+import { safeDirectory, assertSafePath, type ReadAccessContext } from '../fileAccessPolicy.js';
 import { resolveWithinCwd } from '../providers/ollamaTools.js';
 import { projectRoots } from '../projects.js';
 import { arcoHome } from '../arcoHome.js';
@@ -43,7 +43,7 @@ async function readKnownCwdsRegistry(): Promise<string[]> {
 // the crash-recovery registry, and the explorer window's default root
 // (settings.defaultWorkingDirectory || ~/Projects — what /api/list-dirs hands
 // ExplorerApp as its FileExplorer cwd).
-export async function knownRoots(): Promise<Set<string>> {
+export async function knownRoots(access?: ReadAccessContext, settingsSnapshot?: Awaited<ReturnType<typeof readSettings>> | null): Promise<Set<string>> {
   const out = new Set<string>();
   for (const cwd of workflowCwds.values()) if (cwd) out.add(path.resolve(cwd));
   for (const wf of workflows.values()) {
@@ -55,9 +55,9 @@ export async function knownRoots(): Promise<Set<string>> {
     if (cwd) out.add(path.resolve(cwd));
   }
   for (const cwd of await readKnownCwdsRegistry()) out.add(path.resolve(cwd));
-  const settings = await readSettings().catch(() => null);
+  const settings = settingsSnapshot === undefined ? await readSettings().catch(() => null) : settingsSnapshot;
   out.add(path.resolve(settings?.defaultWorkingDirectory || path.join(os.homedir(), 'Projects')));
-  for (const root of await projectRoots()) out.add(root);
+  for (const root of await projectRoots(access, settings)) out.add(root);
   return out;
 }
 

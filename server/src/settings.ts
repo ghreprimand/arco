@@ -217,7 +217,7 @@ export function sanitizeProjects(raw: unknown): string[] | undefined {
 
 // Named discovery roots use the same absolute-path policy as projects. Existing
 // aliases collapse to their real path; missing mounts retain their normalized path.
-export function sanitizeProjectRoots(raw: unknown): NonNullable<ArcoSettings['projectRoots']> | undefined {
+export function sanitizeProjectRoots(raw: unknown, resolveRoot: (p: string) => string = realpathSync): NonNullable<ArcoSettings['projectRoots']> | undefined {
   if (!Array.isArray(raw)) return undefined;
   const roots: NonNullable<ArcoSettings['projectRoots']> = [];
   const seen = new Set<string>();
@@ -226,9 +226,9 @@ export function sanitizeProjectRoots(raw: unknown): NonNullable<ArcoSettings['pr
     const clean = sanitizeDefaultWorkingDirectory(item.path);
     if (!clean) continue;
     let folder = path.resolve(clean);
-    try { folder = realpathSync(folder); } catch { /* retain missing mounts */ }
+    try { folder = resolveRoot(folder); } catch { /* retain missing mounts */ }
     let homeFolder = path.resolve(homedir());
-    try { homeFolder = realpathSync(homeFolder); } catch { /* retain missing home */ }
+    try { homeFolder = resolveRoot(homeFolder); } catch { /* retain missing home */ }
     if (folder === path.parse(folder).root || folder === homeFolder) continue;
     const key = process.platform === 'win32' ? folder.toLowerCase() : folder;
     if (seen.has(key)) continue;
@@ -614,7 +614,7 @@ function projectSettingsPath(cwd: string): string {
   return path.join(cwd, PROJECT_SETTINGS_DIRNAME, PROJECT_SETTINGS_BASENAME);
 }
 
-function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
+function mergeWithDefaults(partial: Record<string, unknown>, resolveRoot: (p: string) => string = realpathSync): ArcoSettings {
   const base = defaults();
   const enabled: ArcoSettings['enabledProviders'] = { ...base.enabledProviders };
   const ep = partial.enabledProviders;
@@ -651,9 +651,9 @@ function mergeWithDefaults(partial: Record<string, unknown>): ArcoSettings {
   if (defaultWd) result.defaultWorkingDirectory = defaultWd;
   const appBrowser = sanitizeAppWindowBrowser(partial.appWindowBrowser);
   if (appBrowser) result.appWindowBrowser = appBrowser;
-  const roots = sanitizeProjectRoots(partial.projectRoots);
+  const roots = sanitizeProjectRoots(partial.projectRoots, resolveRoot);
   if (roots !== undefined) result.projectRoots = roots;
-  else if (defaultWd) result.projectRoots = sanitizeProjectRoots([{ name: path.basename(defaultWd), path: defaultWd }]);
+  else if (defaultWd) result.projectRoots = sanitizeProjectRoots([{ name: path.basename(defaultWd), path: defaultWd }], resolveRoot);
   const fontPack = sanitizeFontPackId(partial.fontPackOverride);
   if (partial.fontPackOverride === null) result.fontPackOverride = null;
   else if (fontPack !== undefined) result.fontPackOverride = fontPack;
@@ -1235,4 +1235,20 @@ export function updateRegisteredProjects(update: (projects: string[]) => string[
     const current = await readSettings();
     return patchSettingsUnlocked({ projects: update(current.projects ?? []) });
   });
+}
+
+// Listing requests share one settings read and async root resolution. All other
+// settings sanitizers and their defaults are the ordinary readSettings contract.
+export async function readListingSettings(access: import('./fileAccessPolicy.js').ReadAccessContext): Promise<ArcoSettings> {
+  const raw = await readJsonFile(GLOBAL_SETTINGS_PATH, 'global');
+  const candidates = new Set<string>([path.resolve(homedir())]);
+  const configured = Array.isArray(raw.projectRoots) ? raw.projectRoots : [];
+  for (const item of [...configured, { path: raw.defaultWorkingDirectory }]) {
+    if (!item || typeof item !== 'object') continue;
+    const value = sanitizeDefaultWorkingDirectory(item.path);
+    if (value) candidates.add(path.resolve(value));
+  }
+  const resolved = new Map<string, string>();
+  await Promise.all([...candidates].map(async p => { try { resolved.set(p, await access.rootRealpath(p)); } catch { /* missing mounts retain spelling */ } }));
+  return mergeWithDefaults(raw, p => { const real = resolved.get(p); if (!real) throw new Error('unresolved listing root'); return real; });
 }

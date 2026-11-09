@@ -1,7 +1,8 @@
+import { readListingSettings } from '../settings.js';
 import path from 'node:path';
 import { explorerRoot } from './explorerRoot.js';
 import { readdir } from 'node:fs/promises';
-import { FileAccessError, assertSafePath, confinedPath, safeDirectory } from '../fileAccessPolicy.js';
+import { FileAccessError, assertSafePath, confinedPath, createReadAccessContext, type ReadAccessContext } from '../fileAccessPolicy.js';
 import { knownRoots, resolveBoundCwd } from './writeConfinement.js';
 import { UPLOADS_DIR } from '../server/constants.js';
 import { SCRATCH_ROOT } from '../media/scratch.js';
@@ -41,19 +42,24 @@ export async function resolveBrowserRead(p: string, cwd?: string | null, workflo
 // The project picker grants directory names only, not file content. Ordinary
 // absolute locations may be navigated without pre-registering every ancestor
 // (mounts, network shares, Windows drives); protected roots are never listed.
-export async function listBrowserDirectory(dir: string, directoriesOnly: boolean) {
-  const root = directoriesOnly ? safeDirectory(dir) : await resolveBrowserRead(dir, undefined, undefined, 'directory');
-  const roots = directoriesOnly ? [] : await readRoots();
+export async function listBrowserDirectory(dir: string, directoriesOnly: boolean, access?: ReadAccessContext) {
+  if (!dir || !path.isAbsolute(dir)) throw new FileAccessError();
+  access ??= await createReadAccessContext();
+  const settings = directoriesOnly ? null : await readListingSettings(access).catch(() => null);
+  // No binding is supplied for directory listings. Build the unbound roots
+  // once instead of resolving the directory through a second root snapshot.
+  const roots = directoriesOnly ? [] : await access.prepareRoots([
+    ...await knownRoots(access, settings), await explorerRoot(access, settings), UPLOADS_DIR, SCRATCH_ROOT,
+  ]);
+  const root = directoriesOnly ? await access.safeDirectory(dir) : (await access.inspect(dir, roots, 'directory')).real;
   const entries = await readdir(root, { withFileTypes: true });
   const out: Array<{ name: string; path: string; isDirectory: boolean }> = [];
   for (const e of entries) {
     if (e.name.startsWith('.')) continue;
     const target = path.join(root, e.name);
     try {
-      const real = directoriesOnly ? safeDirectory(target) : confinedPath(target, roots, 'either');
-      // Content links must stay in an authorized project, including links
-      // from a nested folder to a sibling inside that project.
-      const isDirectory = (() => { try { safeDirectory(real); return true; } catch { return false; } })();
+      // Entry resolution and type checks stay live, including inward links.
+      const { isDirectory } = await access.inspect(target, directoriesOnly ? undefined : roots, directoriesOnly ? 'directory' : 'either');
       if (!directoriesOnly || isDirectory) out.push({ name: e.name, path: target, isDirectory });
     } catch { /* protected, non-regular, dangling or escaping entry */ }
   }

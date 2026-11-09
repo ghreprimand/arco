@@ -16,7 +16,7 @@ import path from 'path';
 import { readKnownCwds } from './crashRecovery.js';
 import { chatRootDir } from './chatMode.js';
 import { readSettings, updateRegisteredProjects, sanitizeProjects } from './settings.js';
-import { assertSafePath, confinedPath, isPathWithin, safeDirectory } from './fileAccessPolicy.js';
+import { assertSafePath, confinedPath, isPathWithin, safeDirectory, type ReadAccessContext } from './fileAccessPolicy.js';
 import {
   applyOrganize, parseOrganizePatch, recordsFor, relocateStored, withRecords, type ProjectRecord,
 } from './projectRecords.js';
@@ -63,13 +63,13 @@ interface ProjectInputs {
 }
 
 // Pure merge: first source wins per path; order within a source is kept.
-export function mergeProjects(inputs: ProjectInputs, exists: (p: string) => boolean, nameOf: (p: string) => string = (p) => path.basename(p) || p): ProjectList {
+export function mergeProjects(inputs: ProjectInputs, exists: (p: string) => boolean, nameOf: (p: string) => string = (p) => path.basename(p) || p, canonicalOf = canonicalProjectPath): ProjectList {
   const seen = new Set<string>();
   const projects: ProjectEntry[] = [];
   const add = (list: string[], source: ProjectSource) => {
     for (const raw of list) {
       const resolved = path.resolve(raw);
-      const key = canonicalProjectPath(resolved);
+      const key = canonicalOf(resolved);
       if (seen.has(key)) continue;
       seen.add(key);
       projects.push({ path: resolved, name: nameOf(resolved), source, exists: exists(resolved) });
@@ -93,33 +93,39 @@ export function projectRootFor(folder: string, roots: ProjectRoot[]): ProjectRoo
     .sort((a, b) => canonicalProjectPath(b.path).length - canonicalProjectPath(a.path).length || a.path.localeCompare(b.path))[0];
 }
 
+async function canonicalReadPath(folder: string, access: ReadAccessContext): Promise<string> {
+  let resolved = path.resolve(folder);
+  try { resolved = await access.rootRealpath(resolved); } catch { /* missing folders keep identity */ }
+  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+}
+
 async function isDirectory(p: string): Promise<boolean> {
   try { return (await stat(p)).isDirectory(); } catch { return false; }
 }
 
-async function resolveScanFolder(configured: string | undefined): Promise<string | null> {
+async function resolveScanFolder(configured: string | undefined, access?: ReadAccessContext): Promise<string | null> {
   if (configured) {
-    try { return safeDirectory(path.resolve(configured)); } catch { return null; }
+    try { return access ? await access.rootDirectory(path.resolve(configured)) : safeDirectory(path.resolve(configured)); } catch { return null; }
   }
   return null;
 }
 
 // A repository location is itself a project and may also contain projects.
 // Docker's default single-repository mount is kept as one project.
-export async function scanFolderProjects(folder: string | null, options?: { dockerProjectRoot?: string }): Promise<string[]> {
+export async function scanFolderProjects(folder: string | null, options?: { dockerProjectRoot?: string; access?: ReadAccessContext }): Promise<string[]> {
   if (!folder) return [];
-  try { safeDirectory(folder); } catch { return []; }
+  try { if (options?.access) await options.access.rootDirectory(folder); else safeDirectory(folder); } catch { return []; }
   let repository = false;
   try { const marker = await stat(path.join(folder, '.git')); repository = marker.isDirectory() || marker.isFile(); } catch { /* not a repository */ }
   const dockerProjectRoot = options?.dockerProjectRoot ?? (process.env.ARCO_DEPLOYMENT === 'docker' ? '/projects' : undefined);
-  if (repository && dockerProjectRoot && canonicalProjectPath(folder) === canonicalProjectPath(dockerProjectRoot)) return [folder];
+  const canonical = async (p: string) => options?.access ? canonicalReadPath(p, options.access) : canonicalProjectPath(p);
+  if (repository && dockerProjectRoot && await canonical(folder) === await canonical(dockerProjectRoot)) return [folder];
   try {
     const entries = await readdir(folder, { withFileTypes: true });
-    const children = entries
-      .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
-      .map((e) => path.join(folder, e.name))
-      .filter((p) => { try { safeDirectory(p); return true; } catch { return false; } })
-      .sort((a, b) => a.localeCompare(b));
+    const candidates = entries.filter(e => e.isDirectory() && !e.name.startsWith('.')).map(e => path.join(folder, e.name));
+    const children = (await Promise.all(candidates.map(async p => {
+      try { if (options?.access) await options.access.rootDirectory(p); else safeDirectory(p); return p; } catch { return null; }
+    }))).filter((p): p is string => p !== null).sort((a, b) => a.localeCompare(b));
     return repository ? [folder, ...children] : children;
   } catch {
     return repository ? [folder] : [];
@@ -129,17 +135,18 @@ export async function scanFolderProjects(folder: string | null, options?: { dock
 // A project's display name. The folder name is usually right, but a Docker
 // mount target such as /projects says nothing, so prefer the package name or
 // the Git remote's repository name when the folder carries one.
-export async function projectDisplayName(folder: string): Promise<string> {
+export async function projectDisplayName(folder: string, access?: ReadAccessContext): Promise<string> {
   const fallback = path.basename(folder) || folder;
   try {
-    const pkg = JSON.parse(await readFile(confinedPath(path.join(folder, 'package.json'), [folder]), 'utf8')) as { name?: unknown };
+    const packagePath = access ? await access.confinedPath(path.join(folder, 'package.json'), [folder]) : confinedPath(path.join(folder, 'package.json'), [folder]);
+    const pkg = JSON.parse(await readFile(packagePath, 'utf8')) as { name?: unknown };
     if (typeof pkg.name === 'string' && pkg.name.trim()) return pkg.name.trim().replace(/^@[^/]+\//, '');
   } catch { /* no package.json */ }
   try {
-    const realRoot = safeDirectory(folder);
+    const realRoot = access ? await access.rootDirectory(folder) : safeDirectory(folder);
     // Match safeDirectory's resolver: native realpath expands Windows short
     // names differently and can make an in-root config look like an escape.
-    const configPath = realpathSync(path.join(folder, '.git', 'config'));
+    const configPath = access ? await access.realpath(path.join(folder, '.git', 'config')) : realpathSync(path.join(folder, '.git', 'config'));
     if (!isPathWithin(path.join(realRoot, '.git'), configPath) || !(await stat(configPath)).isFile()) return fallback;
     const config = await readFile(configPath, 'utf8');
     const url = /^\s*url\s*=\s*(\S+)/m.exec(config)?.[1];
@@ -159,22 +166,28 @@ export function isChatStorage(p: string, root = chatRootDir()): boolean {
 // The merged folder list without organization records. Containment uses this
 // (only existing folders count), so file access never reads or writes the
 // record store.
-async function listFolders(): Promise<ProjectList> {
-  const settings = await readSettings().catch(() => null);
+async function listFolders(access?: ReadAccessContext, settingsSnapshot?: Awaited<ReturnType<typeof readSettings>> | null): Promise<ProjectList> {
+  const settings = settingsSnapshot === undefined ? await readSettings().catch(() => null) : settingsSnapshot;
   const roots: ProjectRoot[] = await Promise.all((settings?.projectRoots ?? []).map(async root => ({
-    ...root, exists: !!(await resolveScanFolder(root.path)),
+    ...root, exists: !!(await resolveScanFolder(root.path, access)),
   })));
   // Compatibility only: browsing/create defaults remain independent of roots.
-  const scanFolder = await resolveScanFolder(settings?.defaultWorkingDirectory);
-  const safe = (p: string) => {
-    try { assertSafePath(p); } catch { return false; }
-    try { safeDirectory(p); return true; } catch (err) { return (err as NodeJS.ErrnoException).code === 'ENOENT'; }
+  const scanFolder = await resolveScanFolder(settings?.defaultWorkingDirectory, access);
+  const safe = async (p: string) => {
+    try { if (access) access.assertSafePath(p); else assertSafePath(p); } catch { return false; }
+    try { if (access) await access.rootDirectory(p); else safeDirectory(p); return true; } catch (err) { return (err as NodeJS.ErrnoException).code === 'ENOENT'; }
   };
-  const registered = (settings?.projects ?? []).filter(safe);
-  const [scans, allRecent] = await Promise.all([Promise.all(roots.map(root => scanFolderProjects(root.exists ? root.path : null))), readKnownCwds()]);
-  const recent = allRecent.filter((p) => safe(p) && !isChatStorage(p));
-  const recentPaths = new Set(recent.map(canonicalProjectPath));
-  const scanned = scans.flat().filter(p => !recentPaths.has(canonicalProjectPath(p)));
+  const filterSafe = async (paths: string[]) => (await Promise.all(paths.map(async p => await safe(p) ? p : null))).filter((p): p is string => p !== null);
+  const registered = await filterSafe(settings?.projects ?? []);
+  const [scans, allRecent] = await Promise.all([Promise.all(roots.map(root => scanFolderProjects(root.exists ? root.path : null, { access }))), readKnownCwds()]);
+  const recent = (await filterSafe(allRecent)).filter(p => !isChatStorage(p));
+  const identities = new Map<string, string>();
+  for (const p of [...registered, ...scans.flat(), ...recent]) {
+    if (!identities.has(path.resolve(p))) identities.set(path.resolve(p), access ? await canonicalReadPath(p, access) : canonicalProjectPath(p));
+  }
+  const identity = (p: string) => identities.get(path.resolve(p))!;
+  const recentPaths = new Set(recent.map(identity));
+  const scanned = scans.flat().filter(p => !recentPaths.has(identity(p)));
   const existence = new Map<string, boolean>();
   const names = new Map<string, string>();
   for (const p of [...registered, ...scanned, ...recent]) {
@@ -182,10 +195,10 @@ async function listFolders(): Promise<ProjectList> {
     if (existence.has(resolved)) continue;
     const exists = await isDirectory(resolved);
     existence.set(resolved, exists);
-    names.set(resolved, exists ? await projectDisplayName(resolved) : path.basename(resolved) || resolved);
+    names.set(resolved, exists ? await projectDisplayName(resolved, access) : path.basename(resolved) || resolved);
   }
-  const list = mergeProjects({ registered, scanFolder, scanned, recent }, (p) => existence.get(p) ?? false, (p) => names.get(p) ?? path.basename(p));
-  return { ...list, roots, projects: list.projects.map(project => ({ ...project, rootPath: projectRootFor(project.path, roots)?.path })) };
+  const list = mergeProjects({ registered, scanFolder, scanned, recent }, (p) => existence.get(p) ?? false, (p) => names.get(p) ?? path.basename(p), identity);
+  return { ...list, roots, projects: access ? list.projects : list.projects.map(project => ({ ...project, rootPath: projectRootFor(project.path, roots)?.path })) };
 }
 
 export async function listProjects(): Promise<ProjectList> {
@@ -377,8 +390,8 @@ export async function createProject(body: Record<string, unknown>): Promise<Proj
 // list plus explicitly configured discovery roots. Browsing is independent.
 // Deliberately excludes $HOME; write confinement must not widen to the whole
 // home directory just because projects may live outside it.
-export async function projectRoots(): Promise<string[]> {
-  const list = await listFolders();
+export async function projectRoots(access?: ReadAccessContext, settingsSnapshot?: Awaited<ReturnType<typeof readSettings>> | null): Promise<string[]> {
+  const list = await listFolders(access, settingsSnapshot);
   const roots = list.projects.filter((p) => p.exists).map((p) => p.path);
   roots.push(...(list.roots ?? []).filter(root => root.exists).map(root => root.path));
   return [...new Set(roots)];
