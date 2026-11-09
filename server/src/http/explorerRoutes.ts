@@ -11,7 +11,7 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { realpath } from 'fs/promises';
 import { launchExplorerWindow } from '../explorerLaunch.js';
 import { collectArtifacts } from '../explorerArtifacts.js';
-import { collectDocs } from '../explorerDocs.js';
+import { collectDocsPage } from '../explorerDocs.js';
 import { readRecent } from '../recentFilesLedger.js';
 import { scanChanged } from '../explorerChanged.js';
 import { collectPlanLibrary } from '../explorerPlans.js';
@@ -134,8 +134,8 @@ export async function tryHandleExplorerRoutes(
   if (url.startsWith('/api/explorer/docs') && req.method === 'GET') {
     try {
       const project = new URL(url, `http://localhost:${PORT}`).searchParams.get('project') || undefined;
-      const entries = await collectDocs(project ? { project } : {});
-      return sendJson(res, 200, { entries });
+      const result = await collectDocsPage(project ? { project } : {});
+      return sendJson(res, 200, result);
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       return sendJson(res, 200, { entries: [], error });

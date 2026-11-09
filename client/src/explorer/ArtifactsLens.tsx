@@ -32,21 +32,39 @@ function subdirOf(rel: string): string {
 function revealable(path: string): boolean { return !path.split(/[\\/]/).includes('.arco'); }
 
 export function ArtifactsLens({ focusTick, onOpen, onRevealInTree }: Props) {
-  const [items, setItems] = useState<ProjectItem[] | null>(null);
+  const [docs, setDocs] = useState<{ entries: DocEntry[]; partial?: boolean } | null>(null);
+  const [artifacts, setArtifacts] = useState<ArtifactEntry[] | null>(null);
+  const [projectDocs, setProjectDocs] = useState<{ entries: DocEntry[]; partial?: boolean } | null>(null);
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      fetch('/api/explorer/docs').then((r) => r.json() as Promise<{ entries?: DocEntry[] }>).catch(() => ({ entries: [] })),
-      fetch('/api/explorer/artifacts').then((r) => r.json() as Promise<{ entries?: ArtifactEntry[] }>).catch(() => ({ entries: [] })),
-    ]).then(([docs, arts]) => {
-      if (cancelled) return;
-      setItems(mergeItems(arts.entries ?? [], docs.entries ?? []));
-    });
+    setDocs(null); setArtifacts(null);
+    fetch('/api/explorer/docs').then(r => r.json()).catch(() => ({ entries: [] }))
+      .then(result => { if (!cancelled) setDocs(result); });
+    fetch('/api/explorer/artifacts').then(r => r.json()).catch(() => ({ entries: [] }))
+      .then(result => { if (!cancelled) setArtifacts(result.entries ?? []); });
     return () => { cancelled = true; };
   }, [focusTick]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setProjectDocs(null);
+    if (selectedCwd) fetch(`/api/explorer/docs?project=${encodeURIComponent(selectedCwd)}`)
+      .then(r => r.json()).catch(() => ({ entries: [] }))
+      .then(result => { if (!cancelled) setProjectDocs(result); });
+    return () => { cancelled = true; };
+  }, [selectedCwd, focusTick]);
+  const items = useMemo(() => mergeItems(artifacts ?? [], selectedCwd && projectDocs
+    ? [...(docs?.entries ?? []).filter(doc => doc.cwd !== selectedCwd), ...projectDocs.entries]
+    : docs?.entries ?? []), [artifacts, docs, selectedCwd, projectDocs]);
+  const status = <div data-help="header.archive" style={{ fontSize: '12px', color: 'var(--color-fg-muted)', marginBottom: '10px' }}>
+    {artifacts === null ? <div>Loading artifacts...</div> : artifacts.length === 0 ? <div>No artifacts found.</div> : null}
+    {(selectedCwd ? projectDocs === null : docs === null) ? <div>Loading project documents...</div>
+      : (selectedCwd ? projectDocs : docs)?.entries.length === 0 ? <div>No project documents found.</div> : null}
+    {(selectedCwd ? projectDocs : docs)?.partial && <div>Showing the newest {(selectedCwd ? projectDocs : docs)?.entries.length}; open a project for more.</div>}
+  </div>;
 
   const projects = useMemo<ProjectSummary[]>(() => rollupProjects(items ?? []), [items]);
   const recent = useMemo(() => (items ?? []).slice(0, RECENT_STRIP), [items]);
@@ -59,12 +77,12 @@ export function ArtifactsLens({ focusTick, onOpen, onRevealInTree }: Props) {
       .filter((it) => !q || it.name.toLowerCase().includes(q) || (it.rel ?? '').toLowerCase().includes(q) || (it.tabTitle ?? '').toLowerCase().includes(q));
   }, [items, selectedCwd, filter]);
 
-  if (items === null) return <Centered text="Loading project documents…" />;
 
   // ── PROJECT view ──────────────────────────────────────────────────────────
   if (selected) {
     return (
       <div style={colStyle}>
+        {status}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
           <button onClick={() => { setSelectedCwd(null); setFilter(''); }} className="display-font" style={backBtnStyle}>← ALL PROJECTS</button>
           <div style={{ overflow: 'hidden' }}>
@@ -89,6 +107,7 @@ export function ArtifactsLens({ focusTick, onOpen, onRevealInTree }: Props) {
   // ── HOME view ─────────────────────────────────────────────────────────────
   return (
     <div style={colStyle}>
+        {status}
       {recent.length > 0 && (
         <section style={{ marginBottom: '22px' }}>
           <SectionLabel>RECENT · ALL PROJECTS</SectionLabel>
@@ -100,7 +119,7 @@ export function ArtifactsLens({ focusTick, onOpen, onRevealInTree }: Props) {
 
       <section style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <SectionLabel>PROJECTS ({projects.length})</SectionLabel>
-        {projects.length === 0 ? (
+        {projects.length === 0 && docs !== null && artifacts !== null ? (
           <Centered text="No documents or artifacts found yet. Write a doc, run a Review, or generate a file in a project: it'll appear here after a refresh." />
         ) : (
           <div style={cardGridStyle}>

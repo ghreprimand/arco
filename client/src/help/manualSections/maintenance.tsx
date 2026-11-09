@@ -15,8 +15,9 @@ export const maintenance: Section[] = [
   <ul>
   <li>
   <strong>ARTIFACTS</strong> starts with project cards and recent artifacts
-  across projects; open a project to drill into its documents. Protected file paths are omitted. Linked or unavailable workflow metadata uses an identifier instead of a title.
+  across projects; open a project to drill into its documents. Artifacts appear without waiting for documents. Protected file paths are omitted. Linked or unavailable workflow metadata uses an identifier instead of a title.
   </li>
+  <li>Project documents skip hidden folders, build and dependency folders, and nested Git checkouts or worktrees. Entry and time budgets keep discovery responsive. A partial list says "Showing the newest N; open a project for more". Opening a project searches it separately. Workflow artifacts stay listed in full, with their own loading state.</li>
   <li>
   <strong>RECENTS</strong> separates attributed agent writes from the
   broader recently-modified scan. Concurrent agent writes survive retention cleanup. The scan visits every allowed subtree through depth eight and retains the newest 500 matches across them.

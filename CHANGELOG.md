@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Load artifacts independently from bounded project-document discovery; skip hidden folders and nested checkouts, show partial results, and retain every workflow artifact.
+
 - Match saved clusters by their resolved project folder, including folder links and distinct names ending in spaces.
 
 - Unlock CREATE CLUSTER after rejected settings, a failed send, a disconnect or a missing response.

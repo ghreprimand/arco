@@ -1,3 +1,4 @@
+import { projectFiles, scanBudget, exhausted, type ScanBudget } from './projectScan.js';
 import { confinedPath } from './fileAccessPolicy.js';
 // ARCHIVE (docs/CLIENT.md) - project-DOCUMENT scan. The ARTIFACTS
 // lens is a project-artifact tool, and the documents an operator most wants to
@@ -43,32 +44,28 @@ function isDoc(name: string): boolean {
 }
 
 // Walk one project tree for document files, newest-first, capped.
-export async function collectProjectDocs(project: string, limit = 1000): Promise<DocEntry[]> {
+export async function collectProjectDocsPage(project: string, limit = 1000, global?: ScanBudget): Promise<{ entries: DocEntry[]; partial: boolean }> {
   const root = await realpathWithinHome(project);
-  if (!root) return [];
-  const projectName = basename(root);
+  if (!root) return { entries: [], partial: false };
+  const budget = scanBudget();
+  if (global) budget.deadline = Math.min(budget.deadline, global.deadline);
+  if (global) budget.entries = Math.min(budget.entries, global.entries);
+  const starting = budget.entries;
   const out: DocEntry[] = [];
-  const stack: Array<{ dir: string; depth: number }> = [{ dir: root, depth: 0 }];
-  while (stack.length > 0) {
-    const { dir, depth } = stack.pop()!;
-    let entries;
-    try { entries = await readdir(dir, { withFileTypes: true }); } catch { continue; }
-    for (const e of entries) {
-      const abs = join(dir, e.name);
-      try { confinedPath(abs, [root], 'either'); } catch { continue; }
-      if (e.isDirectory()) {
-        if (depth + 1 > MAX_DEPTH) continue;
-        if (PRUNE_DIRS.has(e.name)) continue;
-        stack.push({ dir: abs, depth: depth + 1 });
-      } else if (e.isFile() && isDoc(e.name)) {
-        let st;
-        try { st = await stat(abs); } catch { continue; }
-        out.push({ path: abs, name: e.name, size: st.size, mtime: st.mtimeMs, project: projectName, cwd: root, rel: relative(root, abs) });
-      }
-    }
+  for await (const file of projectFiles(root, { budget, skip: PRUNE_DIRS, hidden: true, maxDepth: MAX_DEPTH })) {
+    if (!isDoc(file.name)) continue;
+    try {
+      confinedPath(file.path, [root], 'file');
+      const st = await stat(file.path);
+      out.push({ path: file.path, name: file.name, size: st.size, mtime: st.mtimeMs, project: basename(root), cwd: root, rel: relative(root, file.path) });
+    } catch { /* unreadable or outside the project */ }
   }
+  if (global) global.entries -= starting - budget.entries;
   out.sort((a, b) => b.mtime - a.mtime);
-  return out.slice(0, limit);
+  return { entries: out.slice(0, limit), partial: budget.partial || out.length > limit };
+}
+export async function collectProjectDocs(project: string, limit = 1000): Promise<DocEntry[]> {
+  return (await collectProjectDocsPage(project, limit)).entries;
 }
 
 const KNOWN_CWDS = join(arcoHome(), 'known-cwds.json');
@@ -86,16 +83,21 @@ async function readKnownCwds(): Promise<string[]> {
 
 // Global doc scan across known projects, bounded per-project so a home load over
 // dozens of projects stays responsive. `project` scopes to one (full limit).
-export async function collectDocs(opts: { project?: string } = {}): Promise<DocEntry[]> {
-  if (opts.project) return collectProjectDocs(opts.project, 1000);
-  const cwds = await readKnownCwds();
-  const perProject = 150;
-  const overall = 600;
+export async function collectDocsPage(opts: { project?: string } = {}): Promise<{ entries: DocEntry[]; partial: boolean }> {
+  if (opts.project) return collectProjectDocsPage(opts.project);
+  const cwds = [...new Set(await readKnownCwds())];
+  const global = scanBudget(50_000, 650);
   const all: DocEntry[] = [];
+  let partial = false;
   for (const cwd of cwds) {
-    const docs = await collectProjectDocs(cwd, perProject).catch(() => []);
-    all.push(...docs);
+    if (exhausted(global)) { partial = true; break; }
+    const page = await collectProjectDocsPage(cwd, 150, global).catch(() => ({ entries: [], partial: true }));
+    all.push(...page.entries);
+    partial ||= page.partial;
   }
   all.sort((a, b) => b.mtime - a.mtime);
-  return all.slice(0, overall);
+  return { entries: all.slice(0, 600), partial: partial || all.length > 600 };
+}
+export async function collectDocs(opts: { project?: string } = {}): Promise<DocEntry[]> {
+  return (await collectDocsPage(opts)).entries;
 }

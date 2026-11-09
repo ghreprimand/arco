@@ -1353,6 +1353,8 @@ MEASURE ARCO FOLDER measures Arco's own folder under the same rules, with headin
 
 ## Plans library
 
+ARTIFACTS loads workflow artifacts independently from project documents. Documents include readable files at the project root and under folders such as `docs/` and `Reports/`. The document scan skips hidden folders, build and dependency folders, and nested Git checkouts or worktrees. It visits at most 20,000 entries or 250 milliseconds per project, and at most 50,000 entries or 650 milliseconds across known projects. A partial list says "Showing the newest N; open a project for more". Opening a project performs its own bounded document scan. Workflow artifacts under `.arco/workflows/<id>/artifacts` remain listed separately without a result-count cap; the document skips do not apply to them. Each list has its own loading and empty state.
+
 ARTIFACTS > PLANS groups plans by project, remembers expanded projects and opens search matches. The current project opens by default. Repeated titles expand into versions. A group with an attached version stays in the normal list, where its unattached versions offer MARK DONE. In-use labels name attached tabs or clusters. Unattached plans with all checkboxes checked or no edits for 30 days appear under Probably finished; MARK DONE moves a selected plan to Completed. Nothing is marked done automatically. The counts follow the current filter.
 
 When ALL PLANS opens from a PLAN tab, the library remembers the tab or cluster. ATTACH TO connects a selected plan from the same project to that target. A plan from another project cannot be attached. Opening the library from the header has no target.

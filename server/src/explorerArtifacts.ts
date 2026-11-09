@@ -34,10 +34,7 @@ export interface ArtifactEntry {
 }
 
 const KNOWN_CWDS = join(arcoHome(), 'known-cwds.json');
-// Defensive caps — artifact trees are shallow + small in practice, but a
-// pathological or symlink-looped tree must not hang the request.
-const MAX_DEPTH = 8;
-const MAX_ENTRIES = 2000;
+
 
 // Post-resolution $HOME jail. Resolves symlinks (realpath) so a symlinked path
 // can't escape the home dir after the join, then confirms containment. Returns
@@ -98,9 +95,9 @@ async function readWorkflowMeta(cwd: string, wfid: string): Promise<{ tabTitle: 
 }
 
 // Recursively collect files under an artifacts dir, skipping `raw-tools/` at any
-// depth and stopping at MAX_DEPTH. Pushes into `out` (bounded by MAX_ENTRIES).
+// depth. Directory reads yield between folders; no result cap hides artifacts.
 async function walkArtifactFiles(dir: string, depth: number, out: string[]): Promise<void> {
-  if (depth > MAX_DEPTH || out.length >= MAX_ENTRIES) return;
+  await new Promise<void>(resolve => setImmediate(resolve));
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -108,7 +105,6 @@ async function walkArtifactFiles(dir: string, depth: number, out: string[]): Pro
     return; // missing / unreadable artifacts dir — treated as empty
   }
   for (const e of entries) {
-    if (out.length >= MAX_ENTRIES) return;
     if (e.isDirectory()) {
       if (e.name === 'raw-tools') continue; // recovery spill, not review material
       await walkArtifactFiles(join(dir, e.name), depth + 1, out);

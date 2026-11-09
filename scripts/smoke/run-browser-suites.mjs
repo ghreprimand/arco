@@ -138,6 +138,7 @@ const SUITES = [
   { name: 'artifact-copy', script: 'artifact-copy-browser.py', isolatedServer: true },
   { name: 'architecture-review', script: 'architecture-review-browser.py', isolatedServer: true },
   { name: 'skill-management', script: 'skill-management-browser.py', isolatedServer: true },
+  { name: 'artifacts', script: 'artifacts-browser.py', port: 5255 },
   { name: 'plans-library', script: 'plans-library-browser.py', port: 5247 },
   { name: 'storage-view', script: 'storage-view-browser.py', isolatedServer: true },
   { name: 'layout-ranges', script: 'layout-ranges-browser.py', isolatedServer: true },
