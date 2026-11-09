@@ -31,39 +31,54 @@ function subdirOf(rel: string): string {
 }
 function revealable(path: string): boolean { return !path.split(/[\\/]/).includes('.arco'); }
 
+interface LoadedEntries<T> { entries: T[]; partial?: boolean; error?: string }
+
+async function loadEntries<T>(url: string, label: string): Promise<LoadedEntries<T>> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('List unavailable');
+    const body = await response.json();
+    if (!Array.isArray(body?.entries)) throw new Error('Invalid list response');
+    return { entries: body.entries, partial: body.partial === true };
+  } catch {
+    return { entries: [], error: `${label} could not be loaded. Refocus this window to retry.` };
+  }
+}
+
 export function ArtifactsLens({ focusTick, onOpen, onRevealInTree }: Props) {
-  const [docs, setDocs] = useState<{ entries: DocEntry[]; partial?: boolean } | null>(null);
-  const [artifacts, setArtifacts] = useState<ArtifactEntry[] | null>(null);
-  const [projectDocs, setProjectDocs] = useState<{ entries: DocEntry[]; partial?: boolean } | null>(null);
+  const [docs, setDocs] = useState<LoadedEntries<DocEntry> | null>(null);
+  const [artifacts, setArtifacts] = useState<LoadedEntries<ArtifactEntry> | null>(null);
+  const [projectDocs, setProjectDocs] = useState<LoadedEntries<DocEntry> | null>(null);
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
 
   useEffect(() => {
     let cancelled = false;
     setDocs(null); setArtifacts(null);
-    fetch('/api/explorer/docs').then(r => r.json()).catch(() => ({ entries: [] }))
+    loadEntries<DocEntry>('/api/explorer/docs', 'Project documents')
       .then(result => { if (!cancelled) setDocs(result); });
-    fetch('/api/explorer/artifacts').then(r => r.json()).catch(() => ({ entries: [] }))
-      .then(result => { if (!cancelled) setArtifacts(result.entries ?? []); });
+    loadEntries<ArtifactEntry>('/api/explorer/artifacts', 'Workflow artifacts')
+      .then(result => { if (!cancelled) setArtifacts(result); });
     return () => { cancelled = true; };
   }, [focusTick]);
 
   useEffect(() => {
     let cancelled = false;
     setProjectDocs(null);
-    if (selectedCwd) fetch(`/api/explorer/docs?project=${encodeURIComponent(selectedCwd)}`)
-      .then(r => r.json()).catch(() => ({ entries: [] }))
+    if (selectedCwd) loadEntries<DocEntry>(`/api/explorer/docs?project=${encodeURIComponent(selectedCwd)}`, 'Project documents')
       .then(result => { if (!cancelled) setProjectDocs(result); });
     return () => { cancelled = true; };
   }, [selectedCwd, focusTick]);
-  const items = useMemo(() => mergeItems(artifacts ?? [], selectedCwd && projectDocs
+  const items = useMemo(() => mergeItems(artifacts?.entries ?? [], selectedCwd && projectDocs
     ? [...(docs?.entries ?? []).filter(doc => doc.cwd !== selectedCwd), ...projectDocs.entries]
     : docs?.entries ?? []), [artifacts, docs, selectedCwd, projectDocs]);
+  const currentDocs = selectedCwd ? projectDocs : docs;
   const status = <div data-help="header.archive" style={{ fontSize: '12px', color: 'var(--color-fg-muted)', marginBottom: '10px' }}>
-    {artifacts === null ? <div>Loading artifacts...</div> : artifacts.length === 0 ? <div>No artifacts found.</div> : null}
-    {(selectedCwd ? projectDocs === null : docs === null) ? <div>Loading project documents...</div>
-      : (selectedCwd ? projectDocs : docs)?.entries.length === 0 ? <div>No project documents found.</div> : null}
-    {(selectedCwd ? projectDocs : docs)?.partial && <div>Showing the newest {(selectedCwd ? projectDocs : docs)?.entries.length}; open a project for more.</div>}
+    {artifacts === null ? <div>Loading artifacts...</div> : artifacts.error
+      ? <div role="status">{artifacts.error}</div> : artifacts.entries.length === 0 ? <div>No artifacts found.</div> : null}
+    {currentDocs === null ? <div>Loading project documents...</div> : currentDocs.error
+      ? <div role="status">{currentDocs.error}</div> : currentDocs.entries.length === 0 ? <div>No project documents found.</div> : null}
+    {currentDocs?.partial && <div>Showing the newest {currentDocs.entries.length}; open a project for more.</div>}
   </div>;
 
   const projects = useMemo<ProjectSummary[]>(() => rollupProjects(items ?? []), [items]);

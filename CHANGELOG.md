@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep ARTIFACTS usable when a document or artifact list fails, show which list failed, and retry when the window regains focus.
+
 - Keep folder listings responsive in FILES, folder pickers and the command palette while retaining the same entries and access boundaries.
 
 - Explain directory-alias Glob results in the provider guide, manual and tool-call help.

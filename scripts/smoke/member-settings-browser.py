@@ -2,7 +2,7 @@
 import asyncio
 import os
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
 
@@ -33,6 +33,11 @@ async def main():
                 await route.fulfill(status=200, content_type='text/css', body='')
                 return
             if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and route.request.method == 'GET':
+                if url.path == '/api/cluster-snapshots':
+                    # MEMBERS resolves saved folders through the server, even for an empty list.
+                    assert parse_qs(url.query) == {'cwd': ['/projects/fixture']}, url.query
+                    await route.fulfill(json={'snapshots': []})
+                    return
                 if url.path == '/api/outputs':
                     await route.fulfill(json={'outputs': []})
                     return

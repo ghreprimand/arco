@@ -11,7 +11,7 @@ import json
 import os
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
 
 install_navigation_defaults()
@@ -115,6 +115,12 @@ async def main(theme, viewport):
                     data = {'measuredAt': 2000000000000, 'totalBytes': 1000, 'home': {'stateBytes': 100, 'buckets': {}, 'biggest': None}, 'projects': [{'path': '/demo/alpha', 'kind': 'project', 'stateBytes': 900, 'buckets': {'events': 900}, 'biggest': None, 'conversations': 1, 'openConversations': 0, 'archives': [], 'errors': 0}], 'budget': {'enabled': False, 'limitBytes': 1000000, 'over': False}}
                 else:
                     data = {'measuredAt': 2000000000000, 'workflows': [{'id': 'fixture-closed', 'name': 'Fixture conversation', 'open': False, 'busy': False, 'lastActive': 2000000000000, 'eventBytes': 900, 'artifactBytes': 0, 'handoffBytes': 0, 'checkpointBytes': 0, 'keep': {'readable': True, 'whole': False, 'items': 0}}], 'archives': []}
+            elif path == '/api/cluster-snapshots':
+                assert parse_qs(urlparse(route.request.url).query) == {'cwd': ['/demo/alpha']}, route.request.url
+                data = {'snapshots': [
+                    {'id': 'cov-snap', 'sameFolder': True},
+                    {'id': 'cov-other-snap', 'sameFolder': False},
+                ]}
             elif path == '/api/explorer/plans':
                 data = {'projects': [{'cwd': '/demo/alpha', 'name': 'Fixture project', 'plans': [{'id': 'fixture-plan', 'title': 'Fixture plan', 'createdAt': 2000000000000, 'updatedAt': 2000000000000, 'refCount': 0, 'attached': False, 'clusters': [], 'checkboxTotal': 1, 'checkboxDone': 0}]}]}
             elif path == '/api/plans/body':
@@ -243,6 +249,7 @@ async def main(theme, viewport):
               const {getTheme}=await import('/src/themes/registry.ts');
               applyTheme(getTheme(theme));
             }''', theme)
+            await expect(page.locator('nav')).to_be_visible(timeout=5000)
             for lens in ['ARTIFACTS', 'RECENTS', 'PLANS', 'STORAGE', 'TREE']:
                 await page.locator('nav button').filter(has_text=lens).click()
                 await probe('explorer:' + lens.lower())
@@ -356,13 +363,22 @@ async def walk_cluster_panel(page, probe, tap):
         await tap(f'{panel} [data-testid="cluster-settings-toggle"]')
     await step('efficiency-note', f'{panel} button:text-matches("^NOTE")', key='Escape')
 
+    await show('workspace', 'cluster.right-panel.members')
     await page.evaluate('''async () => {
       const {useClusterSnapshotsStore:snap} = await import('/src/stores/clusterSnapshotsStore.ts');
       const {useHubLinkStore:hub} = await import('/src/stores/hubLinkStore.ts');
       window.__hub = hub;
-      snap.setState({snapshots:[{id:'cov-snap',name:'Coverage snapshot',createdAt:'2026-01-01T00:00:00.000Z',memberCount:2,sourceCwd:'/demo/alpha'}]});
+      snap.setState({snapshots:[
+        {id:'cov-snap',name:'Coverage snapshot',createdAt:'2026-01-01T00:00:00.000Z',memberCount:2,sourceCwd:'/demo/alpha'},
+        {id:'cov-other-snap',name:'Other project snapshot',createdAt:'2026-01-01T00:00:00.000Z',memberCount:2,sourceCwd:'/demo/beta'},
+      ]});
       hub.getState().setStatus({connected:true});
     }''')
+    # Wait for the canonical-scope response before visiting RESTORE, and retain
+    # the project filter rather than bypassing it to reach the coverage state.
+    saved = page.locator(f'{panel} [data-help="cluster.saved-snapshots"]')
+    await expect(saved.get_by_text('Coverage snapshot', exact=True)).to_be_visible()
+    await expect(saved.get_by_text('Other project snapshot', exact=True)).to_have_count(0)
     await probe('cluster:saved-snapshots')
     await step('snapshot-restore', f'{panel} [data-help="cluster.saved-snapshots"] button:text-is("RESTORE")')
     await step('snapshot-cloud', f'{panel} [data-help="cluster.saved-snapshots"] button:text-is("CLOUD")')
