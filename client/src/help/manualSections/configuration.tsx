@@ -766,7 +766,7 @@ export const configuration: Section[] = [
   rows={[
   [<Code key="o">omitted</Code>, 'Default, Claude Code parity. No thinking streamed; quieter transcript.'],
   [<Code key="s">summarized</Code>, "Streams the model's summarized thinking into Activity during long reasoning stretches, so a multi-minute Fable/Opus think isn't total silence."],
-  [<Code key="u">updates</Code>, 'Fable 5 / 5.1 and Opus 5.5 only. Requests short progress notes with hidden reasoning. Not guaranteed: a Fable 5.1 acceptance run emitted no notes. Other models treat it as omitted.'],
+  [<Code key="u">updates</Code>, 'Fable 5 / 5.1 / 5.2, Mythos 5.1 / 5.2 and Opus 5.5 only. Requests short progress notes with hidden reasoning. Not guaranteed: a Fable 5.1 acceptance run emitted no notes. Other models treat it as omitted.'],
   ]}
   />
   <p>
@@ -1057,6 +1057,7 @@ export const configuration: Section[] = [
   title: 'Utility agent',
   body: (
   <>
+  <p>Short Claude utility jobs use low effort on Fable 5.2 and Mythos 5.2, with extra response space for reasoning. The visible answer limit stays the same.</p>
   <p>Switching to another workflow or cluster closes its catch-up dialog and cancels the pending request. CATCH ME UP in the new tab starts ready for a new summary.</p>
   <p>
   The <strong>utility agent</strong> is one provider and model for short side

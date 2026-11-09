@@ -71,7 +71,7 @@ export function buildThinkingParams(
   // Adaptive-model thinking display. 'omitted' (default) is the Claude-Code-
   // parity choice; 'summarized' is the operator's CONFIG-tab opt-in so a long
   // Fable/Opus think streams into the Activity tab instead of reading as a
-  // stuck worker; 'updates' (Fable 5 / 5.1 / Mythos 5.1 only, beta) returns
+  // stuck worker; 'updates' (Fable 5 / 5.1 / 5.2 and Mythos 5.1 / 5.2, beta) returns
   // the model's between-tool-call progress notes as non-empty thinking blocks
   // while reasoning stays hidden — degrades to 'omitted' elsewhere. Budget-
   // thinking models ignore this (always summarized).
@@ -152,6 +152,8 @@ const KNOWN_CTX: ContextWindowMap = {
   // Family aliases resolve to the newest opus (1M window).
   opus: 1_000_000,
   'opus[1m]': 1_000_000,
+  'claude-fable-5-2': 1_000_000,
+  'claude-mythos-5-2': 1_000_000,
   'claude-fable-5-1': 1_000_000,
   'claude-mythos-5-1': 1_000_000,
   'claude-fable-5': 1_000_000,
@@ -178,4 +180,17 @@ export function lookupCtx(model: string): number | undefined {
   if (model.includes('sonnet-4')) return 1_000_000;
   if (model.includes('haiku-4')) return 200_000;
   return undefined;
+}
+
+// Fable/Mythos 5.2+ can spend a small response cap entirely on reasoning.
+// Short, tool-free jobs use low effort and separate reasoning headroom; their
+// utility callers still enforce the original visible-answer limit. Never change a
+// conversation round's selected effort through this helper.
+export function shortTextRequestParams(modelId: string, maxOutputTokens: number): {
+  max_tokens: number;
+  output_config?: { effort: 'low' };
+} {
+  return /(?:fable|mythos)-5-(?:[2-9]|[1-9]\d+)(?:-|$)/.test(modelId)
+    ? { max_tokens: maxOutputTokens + 8192, output_config: { effort: 'low' } }
+    : { max_tokens: maxOutputTokens };
 }

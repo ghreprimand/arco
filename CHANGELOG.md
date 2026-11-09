@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Support Fable 5.2 and Mythos 5.2 in Claude Native, with FABLE 5.2 in the model picker, preserved thinking, progress notes and room for short utility answers.
+
 - Restore image attachments and composer shortcuts after closing the image editor.
 
 - Preserve the current turn timer across a browser reload while the worker stays busy.

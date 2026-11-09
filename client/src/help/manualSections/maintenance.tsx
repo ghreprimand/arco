@@ -251,6 +251,7 @@ export const maintenance: Section[] = [
   quiet Claude Native thinking, and old Native binding errors.
   </p>
   <p>STOP during Native compaction cancels the current request and any remaining summary parts. A cancelled compaction keeps the prior history; a later explicit COMPACT can start afresh.</p>
+  <p>Native text compaction on Fable 5.2 and Mythos 5.2 uses low effort and reserves extra response space for reasoning. Large histories split around that larger response cap.</p>
   <Sub>Codex compaction</Sub>
   <p>A large thread can take several minutes to compact. Arco waits for the
   compact turn's completion, not just its summary event. Keep the tab open
@@ -265,7 +266,7 @@ export const maintenance: Section[] = [
   silently replayed.</p>
   <Sub>Claude Native is quiet</Sub>
   <p>THINKING VISIBILITY controls what the provider streams, not whether
-  thinking is retained. Fable/Mythos 5.1 and Opus 5.5 keep thinking and an
+  thinking is retained. Fable/Mythos 5.2 / 5.1 and Opus 5.5 keep thinking and an
   append-only request prefix.</p>
   <p><Code>updates</Code> is a request for short progress notes, not a
   guarantee: a Fable 5.1 acceptance run emitted none. Check

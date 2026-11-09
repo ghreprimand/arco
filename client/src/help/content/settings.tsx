@@ -447,6 +447,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Utility agent',
     body: (
       <>
+        <p>Fable 5.2 and Mythos 5.2 utility jobs use low effort and extra response space for reasoning. Visible answer limits still apply.</p>
         <p>
           One provider and model for short side jobs outside your workflows, such as summaries. A utility job is
           started by a button you click, has no tools, reads only facts Arco collects, can be cancelled, and shows

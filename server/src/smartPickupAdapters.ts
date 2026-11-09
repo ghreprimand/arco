@@ -35,6 +35,7 @@ import { JsonRpcClient } from './providers/codex-appserver/jsonRpc.js';
 import { getOllamaBase } from './providers/ollama.js';
 import { ensureLiveTokens } from './providers/claude-native/oauth.js';
 import { loadTokens } from './providers/claude-native/auth.js';
+import { shortTextRequestParams } from './providers/claude-native/modelParams.js';
 import { CLAUDE_CLI_USER_AGENT } from './providers/claude-native/wireFingerprint.js';
 import { resolveClaudeAliasFromCatalog } from './providers/claude-native/catalog.js';
 import { getLmstudioBase, probeLmstudio } from './providers/lmstudio.js';
@@ -174,9 +175,10 @@ export function claudeAdapter(opts: { fetchImpl?: typeof fetch; tokens?: () => P
           defaultHeaders: { 'anthropic-beta': 'claude-code-20250219,oauth-2025-04-20', 'anthropic-dangerous-direct-browser-access': 'true', 'user-agent': CLAUDE_CLI_USER_AGENT, 'x-app': 'cli' },
           ...(opts.fetchImpl ? { fetch: opts.fetchImpl } : {}),
         } as ConstructorParameters<typeof Anthropic>[0]);
+        const model = resolveClaudeAliasFromCatalog(req.model);
         const resp = await client.messages.create({
-          model: resolveClaudeAliasFromCatalog(req.model),
-          max_tokens: req.maxOutputTokens,
+          model,
+          ...shortTextRequestParams(model, req.maxOutputTokens),
           system: [{ type: 'text', text: CLAUDE_IDENTITY }, { type: 'text', text: req.instructions }],
           messages: [{ role: 'user', content: req.prompt }],
         }, { signal });

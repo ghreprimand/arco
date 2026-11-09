@@ -7,7 +7,7 @@
 // (docs/PROVIDERS.md risk #3). Bump only on an observed Anthropic-side
 // rejection, and re-validate a Native turn afterwards.
 //
-// Fable 5.1 requires CLI version 2.1.251 or newer. Keep the pinned version
+// Fable 5.2 requires CLI version 2.1.290 or newer. Keep the pinned version
 // compatible with the supported models and validate changes across call sites.
-export const CLAUDE_CLI_VERSION = '2.1.280';
+export const CLAUDE_CLI_VERSION = '2.1.319';
 export const CLAUDE_CLI_USER_AGENT = `claude-cli/${CLAUDE_CLI_VERSION}`;

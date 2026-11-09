@@ -129,7 +129,7 @@ codex exec resume <thread-id> "next prompt"
   <Sub>Claude Native</Sub>
   <p>
   Arco counts tokens on the retained next-turn prompt using Anthropic's token
-  counter, with model-specific retention rules. Fable/Mythos 5.1 and Opus 5.5
+  counter, with model-specific retention rules. Fable/Mythos 5.2 / 5.1 and Opus 5.5
   retain thinking and a frozen request prefix. On all models, the latest assistant
   message and referenced server-tool calls are protected from end-of-turn pruning.
   </p>

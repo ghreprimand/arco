@@ -1,3 +1,4 @@
+import { shortTextRequestParams } from './modelParams.js';
 import { nativeOAuthBaseUrl } from './apiEndpoint.js';
 import { createHash } from 'node:crypto';
 import { ensureProjectStateIgnore } from '../../projectStateIgnore.js';
@@ -1178,7 +1179,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       return summary;
     };
     const win = lookupCtx(this.capModel()) ?? 200_000;
-    const budget = win - COMPACT_SUMMARY_MAX_TOKENS - COMPACT_SUMMARY_REQUEST_OVERHEAD_TOKENS;
+    const budget = win - shortTextRequestParams(this.capModel(), COMPACT_SUMMARY_MAX_TOKENS).max_tokens - COMPACT_SUMMARY_REQUEST_OVERHEAD_TOKENS;
     const pending = [prefix as unknown as Parameters<typeof splitSummaryParts>[0]];
     let running = '';
     while (pending.length > 0) {
@@ -1356,7 +1357,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     try {
       const resp = await this.client!.messages.create({
         model: this.requestModel(),
-        max_tokens: COMPACT_SUMMARY_MAX_TOKENS,
+        ...shortTextRequestParams(this.capModel(), COMPACT_SUMMARY_MAX_TOKENS),
         system: system as unknown as string,
         messages: messages as unknown as Parameters<Anthropic['messages']['create']>[0]['messages'],
         stream: true,
@@ -1995,7 +1996,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         'if your final paragraph describes work you have not done, do that work now instead of ending the turn. ' +
         'Finishing the request does not mean waiting for it: do not sleep or poll for more than 60 seconds at a time for builds, test suites or CI; report what is running and end the turn. ' +
         'If a delegated Task child fails or returns an error or nonsense (e.g. a login error), say so explicitly in your reply and adapt openly — never silently work around a failed delegation. ' +
-        // Fable 5.1 rewrites whole files where a targeted edit would do
+        // Fable 5.1 / 5.2 can rewrite whole files where a targeted edit would do
         // (docs/PROVIDERS.md); Anthropic's documented one-liner.
         'The number of tokens used to edit files is best minimized, all else being equal. Therefore, when it will not affect the end result, try to surgically edit a file rather than rewrite the entire thing.',
     });

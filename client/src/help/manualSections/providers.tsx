@@ -99,14 +99,15 @@ export const providers: Section[] = [
   <p>
   The picker carries the family aliases (<Code>haiku</Code>,{' '}
   <Code>sonnet</Code>, <Code>opus</Code> = OPUS LATEST) plus pinned versions:
-  Fable 5.1 / 5, Sonnet 5, Opus 5.5 / 5 / 4.8 / 4.7 / 4.6 and OPUS 1M.
+  Fable 5.2 / 5.1 / 5, Sonnet 5, Opus 5.5 / 5 / 4.8 / 4.7 / 4.6 and OPUS 1M.
   </p>
   <p>
-  Opus 5.5 (1M context, five effort levels) and Fable 5.1 use preserved
+  Opus 5.5 (1M context, five effort levels) and Fable 5.2 / 5.1 use preserved
   thinking on Native. The request prefix is frozen per worker, and config
   changes are appended as system notes rather than rebuilding it. Effort is
   always sent explicitly.
   </p>
+  <p>Fable 5.2 and Mythos 5.2 have 1M context and five effort levels. Switching a tab from 5.2 to another model drops its earlier reasoning; the request still works.</p>
   <p>Claude Native token-count telemetry stops after five seconds or when STOP is clicked. The context display then uses response usage, so a stalled count cannot delay turn completion.</p>
   <p>Native reconnects failed or closed MCP sessions at the next turn. Changed server commands, arguments or environment settings replace the old connection then; healthy unchanged sessions stay open.</p>
   <p>Claude CLI reconnects and handoffs retain only the current session watcher. A delayed load of an older session cannot mix its rows into the conversation.</p>
@@ -338,7 +339,7 @@ export const providers: Section[] = [
   those calls inside the Messages API.
   </p>
   <p>
-  Retention is model-dependent. Fable/Mythos 5.1 and Opus 5.5 keep thinking
+  Retention is model-dependent. Fable/Mythos 5.2 / 5.1 and Opus 5.5 keep thinking
   and the frozen request prefix. Other models can prune completed evidence,
   but never mutate the latest assistant message or remove a server-tool call
   referenced by its protected result.

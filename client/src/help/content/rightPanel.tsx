@@ -61,7 +61,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Thinking visibility', manualSection: 'provider-recovery',
     body: <p>Native-only display preference, effective next turn. Omitted hides
       thinking; summarized requests a visible summary; updates requests short
-      progress notes on supported models (Fable 5.x, Mythos 5.1, Opus 5.5). Notes are not guaranteed. This
+      progress notes on supported models (Fable 5.x, Mythos 5.1 / 5.2, Opus 5.5). Notes are not guaranteed. This
       does not delete retained thinking or change the model's reasoning budget.</p>,
   },
   // ----------------------------------------------------------- RIGHT PANEL
@@ -312,6 +312,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Model (live swap)',
     body: (
       <>
+        <p>Fable 5.2 has five effort levels and 1M context. Switching from 5.2 to another model drops its earlier reasoning; the request still works.</p>
         <p>If metadata cannot be saved, a notice identifies the change as temporary for this running tab; retry after storage is available.
           Switch the model for the next turn. Same-provider swaps don't rotate the
           session: they take effect immediately on the following turn. The list
@@ -354,7 +355,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.config.auto-compaction': {
     title: 'Auto-compaction',
-    body: <p>Choose a worker override or inherit its cluster default. Enabled policies use a 30-95% threshold separately for each worker. Claude Native and Codex app-server compact between turns; Ollama compacts before dispatch. Other transports are unavailable for this policy. Ollama summarizes verified completed executions before the next turn and reuses saved summaries. Legacy or partial history defers safely; raw events remain available. Auto-handoff counts these compactions. Explicit Off stops automatic compaction, and auto-handoff then shows that it needs auto-compaction. Provider uses Arco compaction near 90% for Claude Native and Ollama; Claude CLI and Codex compact themselves. Claude Native also compacts inside a long turn: when a request reaches the threshold (70% under Provider) it summarizes the earlier history, keeps the tool call in progress, and the same turn continues; chat shows Compacting automatically and then Compacted, continuing. Large summaries split into requests that reserve room for the summary so far. The retained round's narration also survives a later worker rebuild once. STOP cancels later summary parts as well as the current request. Off turns this off too, and so does Claude API compaction. Fold is deterministic, while handoff starts a fresh session.</p>,
+    body: <p>Choose a worker override or inherit its cluster default. Enabled policies use a 30-95% threshold separately for each worker. Claude Native and Codex app-server compact between turns; Ollama compacts before dispatch. Other transports are unavailable for this policy. Ollama summarizes verified completed executions before the next turn and reuses saved summaries. Legacy or partial history defers safely; raw events remain available. Auto-handoff counts these compactions. Explicit Off stops automatic compaction, and auto-handoff then shows that it needs auto-compaction. Provider uses Arco compaction near 90% for Claude Native and Ollama; Claude CLI and Codex compact themselves. Claude Native also compacts inside a long turn: when a request reaches the threshold (70% under Provider) it summarizes the earlier history, keeps the tool call in progress, and the same turn continues; chat shows Compacting automatically and then Compacted, continuing. Large summaries split into requests that reserve room for the summary so far. Fable/Mythos 5.2 summaries use low effort and extra reasoning headroom. The retained round's narration also survives a later worker rebuild once. STOP cancels later summary parts as well as the current request. Off turns this off too, and so does Claude API compaction. Fold is deterministic, while handoff starts a fresh session.</p>,
     manualSection: 'auto-handoff',
   },
   'rightpanel.config.claude-api-compaction': {

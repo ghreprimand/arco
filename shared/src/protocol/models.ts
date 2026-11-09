@@ -9,6 +9,7 @@ export const CLAUDE_MODELS = [
   'haiku',
   'sonnet',
   'opus',
+  'claude-fable-5-2',
   'claude-fable-5-1',
   'claude-fable-5',
   'claude-sonnet-5',
@@ -24,6 +25,7 @@ export const CLAUDE_MODEL_LABELS: Record<string, string> = {
   haiku: 'HAIKU',
   sonnet: 'SONNET',
   opus: 'OPUS LATEST',
+  'claude-fable-5-2': 'FABLE 5.2',
   'claude-fable-5-1': 'FABLE 5.1',
   'claude-fable-5': 'FABLE 5',
   'claude-sonnet-5': 'SONNET 5',
@@ -537,22 +539,23 @@ export function supportsClaudeAdaptiveThinking(modelId: string): boolean {
     || modelId.includes('sonnet-5');
 }
 
-// -- Fable 5.1 / append-only prefix capabilities (docs/PROVIDERS.md) --
+// -- Fable 5.x / append-only prefix capabilities (docs/PROVIDERS.md) --
 // All keyed on the CONCRETE served id (Native resolves aliases before asking).
-// Kept as substring checks like supportsClaudeAdaptiveThinking so a dated
-// variant (`claude-fable-5-1-20260901`) lands on the right branch.
+// Match family/version segments so dated variants land on the right branch
+// without enabling binding for the bare 5 ids. Fable/Mythos 5.2 enforces the
+// prefix check on every account.
 
 // Which models bind thinking-block signatures to the conversation prefix and
 // (on enforced accounts) 400 when an earlier turn was edited. Also the models
 // that accept `thinking.block_binding` + the binding-controls beta. Opus 5.5
-// ships the same preserved-thinking mechanism as Fable 5.1. Note `opus-5-5`,
+// ships the same preserved-thinking mechanism as Fable 5.1 / 5.2. Note `opus-5-5`,
 // not `opus-5`: Opus 5 does not bind and would 400 on block_binding.
 export function enforcesPreservedThinking(modelId: string): boolean {
-  return modelId.includes('fable-5-1') || modelId.includes('mythos-5-1') || modelId.includes('opus-5-5');
+  return /(?:fable|mythos)-5-[1-9]\d*(?:-|$)/.test(modelId) || modelId.includes('opus-5-5');
 }
 
 // `{role: 'system'}` messages inside `messages[]` (GA, no header). Opus 4.8,
-// Opus 5, Fable 5 / 5.1, Mythos 5 / 5.1. NOT Sonnet 5 (docs pages omit it;
+// Opus 5, Fable 5 / 5.1 / 5.2, Mythos 5 / 5.1 / 5.2. NOT Sonnet 5 (docs pages omit it;
 // treat as unsupported), not Opus 4.7 or older, not Haiku. The alias `opus`
 // resolves to Opus 5 today, but the worker keys on the served concrete id.
 export function supportsMidConversationSystemMessages(modelId: string): boolean {
@@ -572,11 +575,11 @@ export function supportsMidConversationToolChanges(modelId: string): boolean {
 }
 
 // `thinking.display: 'updates'` (between-tool-call progress notes) under beta
-// `thinking-display-updates-2026-08-18` — Fable 5, Fable 5.1, Mythos 5.1,
+// `thinking-display-updates-2026-08-18` — Fable 5 / 5.1 / 5.2, Mythos 5.1 / 5.2,
 // Opus 5.5. On Opus 5.5 the between-tool-call notes that Opus 5 returned as
 // `text` come back as thinking blocks, empty under 'omitted'.
 export function supportsThinkingDisplayUpdates(modelId: string): boolean {
-  return modelId.includes('fable-5') || modelId.includes('mythos-5-1') || modelId.includes('opus-5-5');
+  return modelId.includes('fable-5') || /mythos-5-[1-9]\d*(?:-|$)/.test(modelId) || modelId.includes('opus-5-5');
 }
 
 // Adaptive-thinking display modes the Native worker can request. 'updates' is
@@ -617,6 +620,8 @@ export const CLAUDE_ALIAS_FALLBACK: Record<'opus' | 'sonnet' | 'haiku', string> 
 // Per-Claude-model effort sets. Static fallback and doc override for cases
 // where /v1/models is cold or lags the published model behavior.
 export const CLAUDE_MODEL_EFFORTS: Record<string, EffortLevel[]> = {
+  'claude-fable-5-2': ['low', 'medium', 'high', 'xhigh', 'max'],
+  'claude-mythos-5-2': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-fable-5-1': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-mythos-5-1': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-fable-5': ['low', 'medium', 'high', 'xhigh', 'max'],

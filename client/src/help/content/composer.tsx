@@ -26,7 +26,7 @@ export const composerHelp: Record<string, HelpEntry> = {
 
   'composer.tidy': {
     title: 'Tidy draft',
-    body: <p>Ask the chosen utility agent to propose a clearer draft. The original stays in the composer until ACCEPT; KEEP ORIGINAL, the close button in the dialog header or Escape closes the dialog without changing it. REFINE adds instructions, BACK revisits earlier proposals, and the proposal can be edited. UNDO TIDY restores the original until the draft changes. The draft and directives are sent to the chosen provider; nothing is sent to the worker automatically.</p>,
+    body: <p>Ask the chosen utility agent to propose a clearer draft. The original stays in the composer until ACCEPT; KEEP ORIGINAL, the close button in the dialog header or Escape closes the dialog without changing it. REFINE adds instructions, BACK revisits earlier proposals, and the proposal can be edited. UNDO TIDY restores the original until the draft changes. Fable/Mythos 5.2 uses low effort and extra reasoning headroom for this short job. The draft and directives are sent to the chosen provider; nothing is sent to the worker automatically.</p>,
     manualSection: 'utility-agent',
   },
   // ---------------------------------------------------------------- COMPOSER
@@ -155,6 +155,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Native compact',
     body: (
       <>
+        <p>Fable 5.2 and Mythos 5.2 summaries use low effort and extra response space for reasoning.</p>
         <p>
           <C>⊟ COMPACT</C> is the in-Arco equivalent of the provider CLI's{' '}
           <C>/compact</C>: it summarizes the conversation so the next turn
@@ -454,7 +455,7 @@ export const composerHelp: Record<string, HelpEntry> = {
         you sent and whether it is queued, delivered or answered, recent events, any pending question, unread peer
         mail, the assigned board task and the uncommitted file count. Anything Arco cannot see is shown as not
         visible. The facts are listed under the answer. BRIEF sends nothing to the worker and stores nothing. Needs a
-        utility agent in Settings &gt; Agents and clusters.
+        utility agent in Settings &gt; Agents and clusters. Fable/Mythos 5.2 uses low effort and extra reasoning headroom for short jobs.
       </p>
     ),
     manualSection: 'utility-agent',
@@ -537,6 +538,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Current model & effort',
     body: (
       <>
+        <p>FABLE 5.2 offers low, medium, high, xhigh and max effort. Switching a tab from 5.2 to another model drops its earlier reasoning; the request still works.</p>
         <p>
           The model + effort used for the next turn. Live-editable from the
           CONFIG tab on the right pane <em>or</em> by clicking the chip
@@ -621,7 +623,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           <C>⊞ S-FOLD</C> sends <strong>one</strong> Anthropic on-demand
           compaction call: older turns are replaced by a signed server-written
           summary and the last two turns stay verbatim: thinking included, so
-          Opus 5.5 / Fable 5.1 keep their reasoning. Seconds, not the 5-10
+          Opus 5.5 / Fable 5.2 / 5.1 keep their reasoning. Seconds, not the 5-10
           minutes of a Handoff; richer than the deterministic <C>⊞ FOLD</C>.
         </p>
         <p>

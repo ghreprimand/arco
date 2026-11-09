@@ -14,6 +14,8 @@ const MODEL_WINDOWS: Record<string, number> = {
 const DEFAULT_WINDOW = 200_000;
 
 const KNOWN_MODEL_WINDOWS: Record<string, number> = {
+  'claude-fable-5-2': 1_000_000,
+  'claude-mythos-5-2': 1_000_000,
   'claude-fable-5-1': 1_000_000,
   'claude-mythos-5-1': 1_000_000,
   'claude-fable-5': 1_000_000,
