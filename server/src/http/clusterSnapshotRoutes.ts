@@ -1,3 +1,5 @@
+import { requireProjectBinding } from './projectBinding.js';
+import { FileAccessError } from '../fileAccessPolicy.js';
 // Portable cluster snapshot file + encrypted cloud-vault HTTP surface.
 // Large binary payloads stay off the WebSocket protocol.
 
@@ -102,7 +104,9 @@ export async function tryHandleClusterSnapshotRoutes(
 
   try {
     if (req.method === 'GET' && url.pathname === '/api/cluster-snapshots') {
-      return json(res, 200, { snapshots: await listSnapshots() });
+      const requestedCwd = url.searchParams.get('cwd');
+      const scopeCwd = requestedCwd === null ? undefined : await requireProjectBinding(requestedCwd);
+      return json(res, 200, { snapshots: await listSnapshots(scopeCwd) });
     }
 
     if (req.method === 'GET' && url.pathname === '/api/cluster-snapshots/vault/status') {
@@ -235,7 +239,7 @@ export async function tryHandleClusterSnapshotRoutes(
     return json(res, 404, { error: 'not found' });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    const status = err instanceof SnapshotValidationError ? 400 : 500;
+    const status = err instanceof FileAccessError ? 403 : err instanceof SnapshotValidationError ? 400 : 500;
     return json(res, status, { error: message });
   }
 }

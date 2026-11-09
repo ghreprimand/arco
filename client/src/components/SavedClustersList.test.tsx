@@ -13,17 +13,24 @@ test('saved clusters default to this folder, expose all projects, and retain res
   for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
   const snapshotsBefore = useClusterSnapshotsStore.getState(), hubBefore = useHubLinkStore.getState();
   const snapshots = [
-    { id: 'own', name: 'Own snapshot', sourceCwd: '/projects/fixture', createdAt: '2026-01-01', memberCount: 1 },
+    { id: 'own', name: 'Own snapshot', sourceCwd: '/aliases/fixture', createdAt: '2026-01-01', memberCount: 1 },
     { id: 'other', name: 'Other snapshot', sourceCwd: '/projects/fixture-other', createdAt: '2026-01-01', memberCount: 1 },
+    { id: 'space', name: 'Spaced snapshot', sourceCwd: '/projects/fixture ', createdAt: '2026-01-01', memberCount: 1 },
   ];
   const sent: any[] = [];
   registerClusterSnapshotSender(message => sent.push(message));
   useClusterSnapshotsStore.setState({ snapshots, restoringId: null, error: null });
   useHubLinkStore.setState({ known: true, connected: true });
-  globalThis.fetch = async () => Response.json({ snapshots: [
+  globalThis.fetch = async (url) => {
+    const parsed = new URL(String(url), 'http://localhost');
+    if (parsed.pathname === '/api/cluster-snapshots') {
+      const scope = parsed.searchParams.get('cwd');
+      return Response.json({ snapshots: snapshots.map(row => ({ ...row, sameFolder: scope === '/projects/fixture' ? row.id === 'own' : row.id === 'other' })) });
+    }
+    return Response.json({ snapshots: [
     { id: 'own', name: 'Own cloud', createdAt: '2026-01-01', bytes: 1 },
     { id: 'unknown', name: 'Unknown cloud', createdAt: '2026-01-01', bytes: 1 },
-  ] });
+  ] }); };
   const { createRoot } = await import('react-dom/client');
   const { SavedClustersList } = await import('./SavedClustersList');
   const root = createRoot(document.getElementById('root')!);
@@ -34,11 +41,11 @@ test('saved clusters default to this folder, expose all projects, and retain res
   });
   try {
     await act(async () => root.render(React.createElement(SavedClustersList, { scopeCwd: '/projects/fixture' } as any)));
-    assert.match(text(), /Own snapshot/); assert.doesNotMatch(text(), /Other snapshot/);
+    assert.doesNotMatch(text(), /Spaced snapshot/); assert.match(text(), /Own snapshot/); assert.doesNotMatch(text(), /Other snapshot/);
     await click('RESTORE'); await click('RESTORE');
     const restored = sent.find(message => message.type === 'cluster_snapshot_restore');
     assert.deepEqual(restored, { type: 'cluster_snapshot_restore', snapshotId: 'own', turnsPerMember: 25 });
-    await click('Show all projects (2)'); assert.match(text(), /Other snapshot/);
+    await click('Show all projects (3)'); assert.match(text(), /Other snapshot/); assert.match(text(), /Spaced snapshot/);
     await click('This project only'); assert.doesNotMatch(text(), /Other snapshot/);
     await click('CLOUD'); assert.match(text(), /Own cloud/); assert.doesNotMatch(text(), /Unknown cloud/);
     await click('Show all projects (2)'); assert.match(text(), /Unknown cloud/);

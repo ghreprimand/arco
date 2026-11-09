@@ -2,7 +2,6 @@
 // server before they leave the workstation; hub-host never receives the key.
 
 import { useEffect, useRef, useState } from 'react';
-import { pathWithin } from '../utils/homeModel';
 import { useHubLinkStore } from '../stores/hubLinkStore';
 import {
   useClusterSnapshotsStore,
@@ -47,6 +46,7 @@ export function SavedClustersList({ targetCwd, scopeCwd, heading = 'SAVED CLUSTE
   const [filter, setFilter] = useState('');
   const [scopeChoice, setScopeChoice] = useState<{ cwd?: string; all: boolean }>({ cwd: scopeCwd, all: false });
   const showAll = scopeChoice.cwd === scopeCwd && scopeChoice.all;
+  const [folderMatches, setFolderMatches] = useState<{ cwd: string; ids: Set<string> } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const openConfirm = (id: string) => {
@@ -74,6 +74,19 @@ export function SavedClustersList({ targetCwd, scopeCwd, heading = 'SAVED CLUSTE
       setCloudLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!scopeCwd) return;
+    let cancelled = false;
+    setFolderMatches(null);
+    setError(null);
+    void fetch(`/api/cluster-snapshots?${new URLSearchParams({ cwd: scopeCwd })}`).then(async response => {
+      if (!response.ok) throw new Error('Could not check saved-cluster project folders. Use Show all projects to see every saved cluster.');
+      const body = await response.json() as { snapshots?: Array<{ id: string; sameFolder?: boolean }> };
+      if (!cancelled) setFolderMatches({ cwd: scopeCwd, ids: new Set((body.snapshots ?? []).filter(row => row.sameFolder).map(row => row.id)) });
+    }).catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : String(err)); });
+    return () => { cancelled = true; };
+  }, [scopeCwd, snapshots]);
 
   useEffect(() => { requestClusterSnapshotList(); }, []);
   useEffect(() => { if (!hubConnected) { setSource('local'); setError(null); setConfirmId(null); } }, [hubConnected]);
@@ -181,13 +194,10 @@ export function SavedClustersList({ targetCwd, scopeCwd, heading = 'SAVED CLUSTE
 
   const activeSource = hubConnected ? source : 'local';
   const allRows = activeSource === 'local' ? snapshots : cloud;
-  // Cloud metadata deliberately omits project paths. Match it to an available
-  // local summary, and leave unmatched cloud entries behind SHOW ALL.
-  const sourceFolders = new Map(snapshots.map(snapshot => [snapshot.id, snapshot.sourceCwd]));
-  const projectRows = scopeCwd ? allRows.filter(row => {
-    const cwd = sourceFolders.get(row.id);
-    return !!cwd && pathWithin(cwd, scopeCwd) && pathWithin(scopeCwd, cwd);
-  }) : allRows;
+  // Cloud entries without a locally known folder remain available through
+  // SHOW ALL. The browser never infers folder identity from path spelling.
+  const projectRows = scopeCwd ? allRows.filter(row =>
+    folderMatches?.cwd === scopeCwd && folderMatches.ids.has(row.id)) : allRows;
   const rows = scopeCwd && !showAll ? projectRows : allRows;
   const needle = filter.trim().toLowerCase();
   const visibleRows = needle ? rows.filter((r) => r.name.toLowerCase().includes(needle)) : rows;

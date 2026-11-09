@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Match saved clusters by their resolved project folder, including folder links and distinct names ending in spaces.
+
 - Unlock CREATE CLUSTER after rejected settings, a failed send, a disconnect or a missing response.
 
 - Keep plan task counts inside the checked project storage folder when its path changes during a list request.

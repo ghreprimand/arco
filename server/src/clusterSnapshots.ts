@@ -289,11 +289,25 @@ async function readAllManifests(): Promise<SnapshotManifest[]> {
 
 // ── List ──────────────────────────────────────────────────────────────────
 
-export async function listSnapshots(): Promise<ClusterSnapshotSummary[]> {
+export async function listSnapshots(scopeCwd?: string): Promise<ClusterSnapshotSummary[]> {
   const manifests = await readAllManifests();
   // Newest-first, matching the preset list convention.
   manifests.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
-  return manifests.map(toSummary);
+  const summaries = manifests.map(toSummary);
+  if (scopeCwd === undefined) return summaries;
+  // Resolve both sides through the same filesystem API. path.relative uses
+  // native Windows case/separator rules and preserves POSIX whitespace.
+  const scope = await fs.realpath(scopeCwd);
+  const canonical = new Map<string, Promise<string | null>>();
+  return Promise.all(summaries.map(async summary => {
+    let target = canonical.get(summary.sourceCwd);
+    if (!target) {
+      target = fs.realpath(summary.sourceCwd).catch(() => null);
+      canonical.set(summary.sourceCwd, target);
+    }
+    const source = await target;
+    return { ...summary, sameFolder: source !== null && path.relative(scope, source) === '' };
+  }));
 }
 
 // ── Save ──────────────────────────────────────────────────────────────────

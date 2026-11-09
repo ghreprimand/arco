@@ -37,6 +37,8 @@ async def main():
             if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and route.request.method == 'GET':
                 if url.path == '/fixture':
                     await route.fulfill(status=200, content_type='text/html', body=HTML); return
+                if url.path == '/api/cluster-snapshots':
+                    await route.fulfill(json={'snapshots': [{'id': 'own', 'sameFolder': True}, {'id': 'other', 'sameFolder': False}]}); return
                 if url.path == '/api/files':
                     await route.fulfill(json={'files': [{'name': 'notes.txt', 'path': '/projects/fixture/notes.txt', 'isDirectory': False}]}); return
                 if url.path == '/api/file-content':
@@ -186,8 +188,8 @@ async def main():
           const {ClusterRightPanel} = await import('/src/components/ClusterRightPanel/index.tsx');
           const {useClusterSnapshotsStore} = await import('/src/stores/clusterSnapshotsStore.ts');
           useClusterSnapshotsStore.getState().onList([
-            {id:'own',name:'Own snapshot',sourceCwd:'/projects/fixture',createdAt:'2026-01-01',memberCount:1},
-            {id:'other',name:'Other snapshot',sourceCwd:'/projects/elsewhere',createdAt:'2026-01-01',memberCount:1},
+            {id:'own',name:'Own snapshot',sourceCwd:'/aliases/fixture',createdAt:'2026-01-01',memberCount:1},
+            {id:'other',name:'Other snapshot',sourceCwd:'/projects/fixture ',createdAt:'2026-01-01',memberCount:1},
           ]);
           localStorage.setItem('arco.clusterSidePanelTab.byCluster', JSON.stringify({c1:'members'}));
           fixtureRoot.render(React.createElement(ClusterRightPanel, {cluster:s.getState().clusters.c1}));

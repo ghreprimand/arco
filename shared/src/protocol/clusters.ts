@@ -529,6 +529,7 @@ export interface ClusterSnapshotSummary {
   createdAt: string;   // ISO timestamp
   memberCount: number; // number of members captured
   sourceCwd: string;   // cwd of the cluster at save time (restore default target)
+  sameFolder?: boolean; // only on an HTTP list scoped to a server-verified cwd
 }
 
 // Client → server: save the live cluster identified by `clusterId` under the

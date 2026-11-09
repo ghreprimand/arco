@@ -1115,7 +1115,7 @@ Remove a preset by `id`. Returns **204** (no body) on success, or `{ error: 'pre
 Large snapshot artifacts use HTTP so multi-megabyte histories never ride the
 control WebSocket.
 
-- `GET /api/cluster-snapshots` - local snapshot summaries.
+- `GET /api/cluster-snapshots` - local snapshot summaries. Optional `cwd` must name a registered project or live workflow or cluster folder; an unrecognized folder returns 403. Scoped summaries add `sameFolder`, computed from resolved folder paths without trimming. Missing saved folders do not match. `sourceCwd` remains unchanged for RESTORE; resolved paths are not added to the response.
 - `GET /api/cluster-snapshots/:id/export` - download a verified
   `.arcocluster` bundle.
 - `POST /api/cluster-snapshots/import` - verify and import a raw bundle; returns
