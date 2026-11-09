@@ -48,7 +48,7 @@ for (const [provider, execute] of Object.entries(executors)) {
       else if (process.platform === 'win32' && (error as NodeJS.ErrnoException).code === 'EPERM') { t.skip('File links need Windows permission'); return; }
       else throw error;
     }
-    for (const pattern of ['guide-link.md', 'src-link', '*.md', '**/*.md', 'outside-link.md', 'dangling.md']) {
+    for (const pattern of ['guide-link.md', 'src-link', 'src-link/', '*.md', '**/*.md', 'outside-link.md', 'dangling.md']) {
       await t.test(pattern, async () => {
         const result = await execute(pattern);
         assert.deepEqual(result === '(no matches)' ? [] : result.split('\n').sort(), await previous(pattern));

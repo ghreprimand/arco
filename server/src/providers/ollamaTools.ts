@@ -229,8 +229,13 @@ const GlobTool: OllamaToolEntry = {
     const budget = scanBudget(20_000, 1000);
     for await (const file of projectFiles(baseAbs, { budget, skip: SKIP_DIRS, respectGitIgnore: true, includeDirectories: true, includeLinks: true, maxDepth: 64 })) {
       const entry = relative(baseAbs, file.path);
-      if (!matchesProjectGlob(entry, pattern, file.directory)) continue;
-      try { resolveToolPath(ctx.cwd, file.path); } catch { continue; }
+      const matches = matchesProjectGlob(entry, pattern, file.directory);
+      if (!matches && !matchesProjectGlob(entry, pattern, true)) continue;
+      try {
+        const canonical = resolveToolPath(ctx.cwd, file.path);
+        // A confined directory alias can match a trailing slash without being walked.
+        if (!matches && !(await fs.lstat(canonical)).isDirectory()) continue;
+      } catch { continue; }
       out.push(entry);
       if (out.length >= 1000) { budget.partial = true; break; }
     }

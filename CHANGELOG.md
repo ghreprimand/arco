@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Return safe in-project directory aliases for directory-only Glob patterns without traversing them.
+
 - Return partial discovery results on time when directory I/O stalls, close late handles, and handle late read failures without unhandled rejections.
 
 - Make shadow-checkpoint scope explicit: exclude and name nested repositories, report captured-file counts, and preserve excluded or older unrecorded folders during revert.
