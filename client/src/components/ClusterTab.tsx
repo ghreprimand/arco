@@ -951,7 +951,7 @@ export function ClusterTab({
                   >
                     {orderMembers(cluster.members, operatorReordered).map((m) => (
                       <MemberCard
-                        key={m.workflowId}
+                        key={`${m.workflowId}:${jobs[m.workflowId]?.currentSessionId ?? ''}`}
                         job={jobs[m.workflowId]}
                         displayName={m.displayName}
                         status={m.status}
@@ -1064,6 +1064,7 @@ export function ClusterTab({
                       job={focusedJob}
                       displayName={focusedMember.displayName}
                       status={focusedMember.status}
+                      role={focusedMember.role}
                       focused={true}
                       onSend={(content, attachments, kind, primitive, pickedSkills) =>
                         sendFromComposer(focusedMember.workflowId, content, attachments, kind, primitive, pickedSkills)

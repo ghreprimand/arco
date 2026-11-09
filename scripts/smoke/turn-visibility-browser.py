@@ -68,11 +68,12 @@ async def main():
           const {MemberCard} = await import('/src/components/MemberCard.tsx');
           const {useAppStore:s} = await import('/src/stores/appStore.ts');
           const node = document.createElement('div'); node.id = 'card-fixture'; node.style.width = '280px'; document.body.appendChild(node);
-          createRoot(node).render(React.createElement(MemberCard,{job:s.getState().jobs.fixture, displayName:'Worker',status:'busy',focused:false,onClick:()=>{}}));
+          function CardFixture(){const job=s(st=>st.jobs.fixture);return React.createElement(MemberCard,{job, displayName:'Worker',status:'busy',focused:false,onClick:()=>{}});}
+          createRoot(node).render(React.createElement(CardFixture));
         }''')
+        await expect(page.locator('#card-fixture')).to_contain_text('[no turns]')
+        await page.evaluate("sendFixture('primary_tool_use',{tool:'Bash',input:JSON.stringify({command:'npm test'}),status:'completed',itemId:'call'})")
         await expect(page.locator('#card-fixture')).to_contain_text('Bash: npm test')
-        await expect(page.locator('#card-fixture')).to_contain_text('1m 1s')
-        await expect(page.locator('#card-fixture')).to_contain_text('LONG-RUNNING')
         await page.evaluate("sendFixture('primary_text',{text:'Understood'})")
         await expect(indicator).to_have_count(0)
         assert not errors, errors

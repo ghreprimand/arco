@@ -1,4 +1,5 @@
 import { ContextMeter } from './ContextMeter';
+import { PrimaryStatus } from './PrimaryStatus';
 // docs/PROTOCOL_CLUSTER.md - one cluster member's chat + composer.
 //
 // Wraps the existing ChatPanel + TerminalInput so per-member rendering reuses
@@ -33,6 +34,7 @@ interface Props {
   // Identity strip
   displayName: string;
   status: 'idle' | 'busy';
+  role?: string;
   // Slice 6a — focused-pane visual highlight. The bottom-row member tab
   // click sets clusterFocusedMember; we mirror the same id here so the
   // pane border/header brighten when the operator targets it.
@@ -81,6 +83,7 @@ export function MemberPane({
   job,
   displayName,
   status,
+  role,
   focused,
   onSend,
   onAttachPlan,
@@ -131,7 +134,7 @@ export function MemberPane({
           borderBottom: '1px solid var(--color-border-hairline)',
           display: 'flex',
           alignItems: 'center',
-          flexWrap: 'wrap',
+          flexWrap: 'nowrap',
           minWidth: 0,
           gap: '4px 8px',
           fontSize: '11px',
@@ -156,18 +159,17 @@ export function MemberPane({
           style={{
             color: focused ? 'var(--color-accent-primary)' : 'var(--color-fg)',
             fontWeight: focused ? 600 : 400,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0,
           }}
         >
           {displayName}
         </span>
         {accountBadge && <AccountBadge label={accountBadge} />}
         <span style={{ color: status === 'busy' ? 'var(--color-warning)' : 'var(--color-fg-muted)', fontSize: '10px' }}>
-          {status.toUpperCase()}
+          {status === 'busy' ? 'WORKING' : 'IDLE'}
         </span>
-        <span data-help="worker.header.ctx" style={{ marginLeft: 'auto', minWidth: 0, overflowX: 'auto', fontSize: '10px' }}><ContextMeter job={job} onRecalibrate={onRecalibrate} /></span>
-        <span style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>
-          {job.config.name.toUpperCase()}
-        </span>
+        {status === 'busy' && <PrimaryStatus job={job} />}
+        <span data-help="worker.header.ctx" style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '10px' }}><ContextMeter job={job} onRecalibrate={onRecalibrate} /></span>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
@@ -193,6 +195,7 @@ export function MemberPane({
           onArmPlanMode={onArmPlanMode}
           clusterContext={clusterContext}
           clusterControls={clusterControls}
+          memberRole={role}
           onTranscriptSend={onTranscriptSend}
           onReviewViaMember={onReviewViaMember}
         />

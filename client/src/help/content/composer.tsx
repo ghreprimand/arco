@@ -61,9 +61,14 @@ export const composerHelp: Record<string, HelpEntry> = {
     body: <><p>Select PENDING to inspect, preview, edit or cancel queued messages. EDIT waits for removal and appends to the current draft with the original kind, attachments and selected skills; already-delivered messages cannot be taken back. Queued means Arco has accepted the message but has not confirmed delivery. Delivered means the provider acknowledged it or its input boundary was reached. The delivered label clears on the next agent text or turn end. Follow-ups remain queued for the next turn. Selected one-shot skills accompany steering as well as messages delivered after the turn.</p><p>Restored context and reviews associate each follow-up with its actual execution. Steering stays at its delivery boundary, including acknowledgements received later. STOP prevents a failed old steer from returning to the queue.</p></>,
     manualSection: 'composer',
   },
+  'composer.plan-first': {
+    title: 'Plan first on the next turn',
+    body: <p>Arms Claude Native to plan before editing on the next turn. This switch is separate from the attached project plan. It clears when sent and is hidden for director and reviewer members.</p>,
+    manualSection: 'plan-mode-arming',
+  },
   'composer.turn-step': {
     title: 'Current step',
-    body: <p>The running tool and elapsed step time appear while the agent works. Shell commands show their first line. A step over 60 seconds is marked long-running. Hover over a shortened step to see its full name.</p>,
+    body: <p>The current step and elapsed time appear in the conversation header while the agent works. Each step stays visible briefly. A step over 60 seconds is marked long-running. Hover over a shortened step to read it in full.</p>,
     manualSection: 'composer',
   },
   'composer.send': {
@@ -255,7 +260,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          A standing, always-visible objective for this tab. Click the strip to
+          A standing, always-visible objective for this tab, beside PLAN FIRST when available. Click the strip to
           edit in place: <C>Enter</C> saves, <C>Esc</C> cancels. Empty shows a
           muted <C>set a north-star…</C> affordance. You can also set it from the
           CONFIG tab's <C>NORTH STAR</C> field or with <C>/goal &lt;text&gt;</C> in

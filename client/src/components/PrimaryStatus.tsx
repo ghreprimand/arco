@@ -1,83 +1,27 @@
 import { useEffect, useState } from 'react';
-import { turnStep } from '../utils/turnStep';
+import { activeActivity } from '../utils/activityPresentation';
 import type { JobState } from '../stores/appStore';
-import { contextTokens } from '../utils/format';
-import { parseCursorModelId, cursorEffortKey, CURSOR_EFFORT_LABELS } from '@arco/shared';
 
-// The honest effort label for a Cursor model id: the effort parsed OUT of the
-// id (never `config.primaryEffort`, which the Cursor worker ignores). `auto`
-// and bare-default ids carry no effort → null (chip hidden).
-function cursorEffortDisplay(modelId: string): string | null {
-  const parsed = parseCursorModelId(modelId);
-  if (parsed.family === 'auto' || parsed.effort === null) return null;
-  return CURSOR_EFFORT_LABELS[cursorEffortKey(parsed.effort)] ?? parsed.effort;
-}
-
-// Keep each spinner frame inside a fixed box even when the glyph uses a fallback font.
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-const SPINNER_INTERVAL_MS = 90;
-
-interface Props {
-  job: JobState;
-}
-
-export function PrimaryStatus({ job }: Props) {
-  const [frame, setFrame] = useState(0);
-  const [now, setNow] = useState(Date.now());
+// Hold the visible step long enough to read; newer events replace it after
+// the hold expires. The tooltip retains the complete, untruncated text.
+export function PrimaryStatus({ job }: { job: JobState }) {
+  const next = activeActivity(job.activity ?? [], job.turnStartedAt);
+  const [shown, setShown] = useState(() => ({ ...next, displayedAt: Date.now() }));
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setFrame((f) => (f + 1) % SPINNER_FRAMES.length), SPINNER_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, []);
+    if (shown.key === next.key && shown.label === next.label) return;
+    const delay = Math.max(0, 1500 - (Date.now() - shown.displayedAt));
+    const timer = setTimeout(() => setShown({ key: next.key, label: next.label, at: next.at, displayedAt: Date.now() }), delay);
+    return () => clearTimeout(timer);
+  }, [next.key, next.label, next.at, shown.key, shown.label, shown.displayedAt]);
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
   }, []);
-  const step = turnStep(job.activity ?? [], job.turnStartedAt, now);
-  // Cursor bakes effort into the model id — `config.primaryEffort` is a stored
-  // default the Cursor worker ignores, so showing it here would be a lie (the
-  // "am I secretly on xhigh?" ambiguity). Read the TRUE effort back out of the
-  // resolved id instead; `auto` has no effort (Cursor's router picks it).
-  const effort = job.config.primaryProvider === 'cursor'
-    ? cursorEffortDisplay(String(job.config.primaryModel))
-    : job.config.primaryEffort;
-  const lastCtx = job.lastTurnTokens ? contextTokens(job.lastTurnTokens, job.config.primaryProvider) : 0;
-  const lastOut = job.lastTurnTokens?.output ?? 0;
-
-  return (
-    <span
-      className="display-font"
-      style={{
-        fontSize: '11px',
-        color: 'var(--color-warning)',
-        letterSpacing: '1px',
-        marginTop: '3px',
-        marginLeft: '8px',
-        flex: '1 1 0',
-        minWidth: 0,
-        lineHeight: '16px',
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '8px',
-      }}
-    >
-      <span aria-hidden="true" style={{ fontSize: '13px', width: '13px', height: '16px', lineHeight: '16px', flex: '0 0 13px', textAlign: 'center', overflow: 'hidden' }}>
-        {SPINNER_FRAMES[frame]}
-      </span>
-      <span data-help="composer.turn-step" title={`${step.label} · ${step.time}${step.longRunning ? ' · LONG-RUNNING' : ''}`} style={{ minWidth: 0, flex: '1 1 auto', overflow: 'hidden', display: 'inline-flex', gap: '4px', alignItems: 'center' }}><span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{step.label}</span><span style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>· {step.time}{step.longRunning ? ' · LONG-RUNNING' : ''}</span></span>
-      {effort && <span style={{ opacity: 0.7, flexShrink: 0 }}>· {String(effort).toUpperCase()}</span>}
-      {lastCtx > 0 && (
-        <span style={{ opacity: 0.55, flexShrink: 0 }} title={`Last turn: ${lastCtx.toLocaleString()} ctx · ${lastOut.toLocaleString()} out`}>
-          · last {formatCompact(lastCtx)} ctx
-        </span>
-      )}
-    </span>
-  );
-}
-
-function formatCompact(n: number): string {
-  if (n < 1000) return String(n);
-  if (n < 10000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
-  return Math.round(n / 1000) + 'k';
+  const seconds = Math.max(0, Math.floor((now - shown.at) / 1000));
+  const time = seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  const text = `${shown.label} (${time})${seconds > 60 ? ' · LONG-RUNNING' : ''}`;
+  return <span data-help="composer.turn-step" data-testid="header-turn-step" title={text} className="display-font" style={{ color: 'var(--color-warning)', fontSize: '11px', minWidth: 0, flex: '1 1 0', display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+    <span aria-hidden="true" style={{ flexShrink: 0 }}>◦</span><span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text}</span>
+  </span>;
 }

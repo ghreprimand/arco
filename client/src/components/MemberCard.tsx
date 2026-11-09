@@ -8,13 +8,11 @@
 // invariant from slice 6a).
 
 import { useEffect, useRef, useState, type CSSProperties, type HTMLAttributes } from 'react';
-import { turnStep } from '../utils/turnStep';
+import { settledCardItem } from '../utils/activityPresentation';
 import type { JobState } from '../stores/appStore';
 import { hasWaitingQuestion } from '../questions/waitingQuestion';
 import { presetForText } from '@arco/shared';
 import { BriefControl } from './BriefControl';
-
-const CARD_PREVIEW_CHARS = 1200;
 
 interface Props {
   job: JobState | undefined;
@@ -47,18 +45,19 @@ interface Props {
   density?: 'standard' | 'compact';
 }
 
-function lastAssistantText(job: JobState | undefined): string | null {
-  if (!job) return null;
-  for (let i = job.messages.length - 1; i >= 0; i--) {
-    const m = job.messages[i];
-    if (m.role === 'assistant' && !m.toolUse && m.content && m.content.trim().length > 0) {
-      const text = m.content.trim();
-      return text.length > CARD_PREVIEW_CHARS
-        ? `${text.slice(0, CARD_PREVIEW_CHARS).trimEnd()}\n[preview truncated]`
-        : text;
-    }
-  }
-  return null;
+function useSettledPreview(job: JobState | undefined): string {
+  const candidate = settledCardItem(job);
+  const [shown, setShown] = useState(() => candidate?.text ?? '[no turns]');
+  const lastUpdate = useRef(Date.now());
+  const latestAt = useRef(candidate?.at ?? 0);
+  useEffect(() => {
+    if (!candidate || candidate.at < latestAt.current) return;
+    if (candidate.text === shown) { latestAt.current = candidate.at; return; }
+    const delay = Math.max(0, 1000 - (Date.now() - lastUpdate.current));
+    const timer = setTimeout(() => { lastUpdate.current = Date.now(); latestAt.current = candidate.at; setShown(candidate.text); }, delay);
+    return () => clearTimeout(timer);
+  }, [candidate?.at, candidate?.text, shown]);
+  return shown;
 }
 
 export function MemberCard({ job, displayName, status, role, pendingMail = 0, onNudge, nudged = false, newReply = false, focused, onClick, dragProps, dragOver, density = 'standard' }: Props) {
@@ -67,16 +66,8 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
   const wfidShort = wfid.slice(0, 8);
   const busy = status === 'busy';
   const waitingQuestion = hasWaitingQuestion(job);
-  const assistantPreview = lastAssistantText(job);
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    if (!busy) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [busy]);
-  const step = turnStep(job?.activity ?? [], job?.turnStartedAt, now);
-  const bodyText = busy ? `${step.label} · ${step.time}${step.longRunning ? ' · LONG-RUNNING' : ''}` : (assistantPreview ?? '[no turns]');
-  const bodyDim = !busy && assistantPreview === null;
+  const bodyText = useSettledPreview(job);
+  const bodyDim = bodyText === '[no turns]';
 
   // Role chip label: matching preset → its short label; non-empty free-form
   // text → "CUSTOM" (avoids 120-char overflow on the card); empty → null
@@ -88,8 +79,7 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
     return preset ? preset.label.toUpperCase() : 'CUSTOM';
   })();
 
-  // Auto-stick to bottom: as the body grows (assistant streams tokens, or
-  // activity ticks while busy), keep the latest line visible. Card is small
+  // Auto-stick to bottom when the settled summary changes. Card is small
   // enough that "always tail" matches operator intent — no manual-scroll
   // detection. Resets to 0 on focus swap because the new card mounts fresh.
   const bodyRef = useRef<HTMLDivElement | null>(null);
@@ -182,7 +172,7 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
         })()}
         {density === 'compact' && roleChipLabel && <span data-help="cluster.member-card.role-chip" title={trimmedRole} style={{ padding: '0 4px', border: '1px solid var(--color-accent-secondary-a40, var(--color-accent-secondary-dim))', color: 'var(--color-accent-secondary)', fontSize: '9px', letterSpacing: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, flex: '0 1 auto' }}>{roleChipLabel}</span>}
         <span style={{ marginLeft: 'auto', color: busy ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)', fontSize: '10px', flexShrink: 0 }}>
-          {status.toUpperCase()}
+          {status === 'busy' ? 'WORKING' : 'IDLE'}
         </span>
         {wfid && <BriefControl scope="worker" targetId={wfid} label="BRIEF" data-help="cluster.member-brief" testId="member-brief" title="A short synopsis of this member from facts Arco can see. Read-only; sends nothing." style={{ padding: '1px 5px', fontSize: '9px', flexShrink: 0 }} />}
       </div>
@@ -230,14 +220,14 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
           color: bodyDim ? 'var(--color-fg-muted)' : 'var(--color-fg)',
           overflowY: clamp ? 'hidden' : 'auto',
           overflowX: 'hidden',
-          whiteSpace: busy ? 'nowrap' : 'pre-wrap',
-          ...(clamp && !busy ? { display: '-webkit-box', WebkitBoxOrient: 'vertical' as const, WebkitLineClamp: clamp, flex: '0 0 auto' } : {}),
-          textOverflow: busy ? 'ellipsis' : undefined,
+          whiteSpace: density === 'compact' ? 'nowrap' : 'pre-wrap',
+          ...(clamp ? { display: '-webkit-box', WebkitBoxOrient: 'vertical' as const, WebkitLineClamp: clamp, flex: '0 0 auto' } : {}),
+          textOverflow: clamp ? 'ellipsis' : undefined,
           wordBreak: 'break-word',
-          fontStyle: busy ? 'italic' : 'normal',
+          fontStyle: 'normal',
         }}
       >
-        {busy ? <span style={{ display: 'flex', gap: '4px', minWidth: 0 }}><span title={step.label} style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{step.label}</span><span style={{ flexShrink: 0 }}>· {step.time}{step.longRunning ? ' · LONG-RUNNING' : ''}</span></span> : bodyText}
+        {bodyText}
       </div>
     </div>
   );

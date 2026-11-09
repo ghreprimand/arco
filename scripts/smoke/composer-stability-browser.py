@@ -89,7 +89,7 @@ async def main():
                             const names=['Read','A very long tool name with many words that keeps changing while a turn is running and should never force a line to wrap','Bash','Search'];
                             const entry={id:'fixture',kind:'tool_use',tool:names[phase%names.length],status:'started',at:Date.now()-phase*1000,input:JSON.stringify({command:'Inspect synthetic files'})};
                             const queued=phase%2 ? [{content:'Synthetic queued message',clientMessageId:'fixture'}] : [];
-                            s.setState({jobs:{...s.getState().jobs,[jobId]:{...j,activity:[entry],queue:{steering:queued,followUp:[]}}}});
+                            s.setState({jobs:{...s.getState().jobs,[jobId]:{...j,busy:true,activity:[entry],queue:{steering:queued,followUp:[]}}}});
                           }
                           const r=el.getBoundingClientRect(); samples.push([r.x,r.y,r.width,r.height]);
                           if (t-start<1800) requestAnimationFrame(frame); else resolve(samples);
@@ -103,6 +103,9 @@ async def main():
                     status = page.locator('[data-help="composer.turn-step"]')
                     await expect(status).to_be_visible()
                     assert await status.get_attribute('title')
+                    step_box = await status.bounding_box()
+                    counter_box = await page.locator('[data-help="worker.header.ctx"]').bounding_box()
+                    assert step_box['x'] + step_box['width'] <= counter_box['x'] + 1, (step_box, counter_box)
         assert not errors, errors
         await browser.close()
         print('PASS: composer remains stable during changing turn steps')

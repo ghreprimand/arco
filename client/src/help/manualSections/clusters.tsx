@@ -286,11 +286,11 @@ export const clusters: Section[] = [
   <ul>
   <li>
   <strong>Status dot</strong> - solid + pulsing while the member is
-  busy; outlined while idle. A turn is busy from acceptance until it settles, including when its first activity is a tool call.
+  busy; outlined while idle. A turn is working from acceptance until it settles, including when its first activity is a tool call.
   </li>
   <li>
   <strong>Friendly name</strong> in bold (operator-set rename, or
-  <Code>wfid</Code> prefix as fallback) plus IDLE/BUSY tag. A{' '}
+  <Code>wfid</Code> prefix as fallback) plus IDLE/WORKING tag. A{' '}
   mail mark with a count shows the messages waiting for the
   member; they are delivered at its next turn. It is muted while the
   member is busy. When the member is idle with mail it is highlighted
@@ -305,9 +305,8 @@ export const clusters: Section[] = [
   free-form roles).
   </li>
   <li>
-  <strong>Body</strong> - the latest assistant text, or the current
-  tool/thinking activity if the member is busy. Auto-scrolls to the
-  bottom as tokens arrive.
+  <strong>Body</strong> - the last settled assistant reply or tool step.
+  It updates at most once a second and never shows reasoning fragments.
   </li>
   </ul>
   </>
@@ -539,7 +538,7 @@ export const clusters: Section[] = [
   <p>
   With no tier, the member appears in <Code>peer_list</Code> without a{' '}
   <Code>tier</Code> field - "no opinion." The row also shows a small
-  badge next to the IDLE / BUSY status when a tier is set.
+  badge next to the IDLE / WORKING status when a tier is set.
   </p>
   <h4 className="manual-sub">What the director sees</h4>
   <p>

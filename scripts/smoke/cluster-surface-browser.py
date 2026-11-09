@@ -47,6 +47,9 @@ async def main():
                 await route.fulfill(json={'ok': True})
                 return
             if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and route.request.method == 'GET':
+                if url.path == '/api/cluster-snapshots':
+                    await route.fulfill(json={'snapshots': [{'id':'snapshot-a','sameFolder':True}]})
+                    return
                 if url.path == '/api/cluster-snapshots/cloud':
                     await route.fulfill(json={'snapshots': []})
                     return
@@ -103,9 +106,22 @@ async def main():
           receive({type:'cluster_state',clusterId:'cluster-a',state:{clusterId:'cluster-a',cwd:'/projects/fixture',createdAt:'',taskBoardMode:'none',taskBoardAttached:false,mailboxDepth:{'worker-a':2},members:window.members,idleNudgerEnabled:false,remoteEnabled:true}},{wsRef:{current:null},scheduleReconnect:()=>{}});
           const root=createRoot(document.getElementById('fixture'));
           window.root=root;
-          window.show=(clusterId='cluster-a')=>root.render(React.createElement('div',{style:{display:'flex',width:'100%',height:'850px'}},React.createElement(ClusterTab,{key:clusterId,clusterId,onSendToMember:(...a)=>{sent.push(a);return true},onBroadcast:(...a)=>{if(window.broadcastConnected===false)return false;broadcasts.push(a);return true},onSetClusterPlan:(...a)=>planWrites.push(a),onAttachClusterPlan:()=>{},onAttachPlanToMember:()=>{},onRecalibrateMember:(id)=>recalibrated.push(id),onCancelMember:()=>{},onCancelQueuedForMember:()=>{},onUpload:async()=>null,onSetRemote:()=>{},onSetGates:()=>{},onUpdateMemberPrimary:()=>{}})));
+          window.show=(clusterId='cluster-a')=>root.render(React.createElement('div',{style:{display:'flex',width:'100%',height:'850px'}},React.createElement(ClusterTab,{key:clusterId,clusterId,onSendToMember:(...a)=>{sent.push(a);return true},onBroadcast:(...a)=>{if(window.broadcastConnected===false)return false;broadcasts.push(a);return true},onSetClusterPlan:(...a)=>planWrites.push(a),onAttachClusterPlan:()=>{},onAttachPlanToMember:()=>{},onRecalibrateMember:(id)=>recalibrated.push(id),onCancelMember:()=>{},onCancelQueuedForMember:()=>{},onUpload:async()=>null,onSetRemote:()=>{},onSetGates:()=>{},onUpdateMemberPrimary:()=>{},onArmPlanModeMember:()=>{}})));
           show();
         }""")
+        # PLAN FIRST is shown for a coding member, but hidden for director and reviewer roles.
+        await page.evaluate("s.setState(st=>({jobs:Object.fromEntries(Object.entries(st.jobs).map(([id,j])=>[id,{...j,config:{...j.config,claudeTransport:'native'}}]))}))")
+        await expect(page.locator('[data-help="composer.plan-first"]')).to_have_count(0)
+        await page.evaluate("s.getState().setClusterFocusedMember('cluster-a','worker-a')")
+        plan_first = page.locator('[data-help="composer.plan-first"]')
+        await expect(plan_first).to_be_visible()
+        await plan_first.click()
+        await expect(plan_first).to_have_attribute('aria-pressed','true')
+        await page.evaluate("s.setState(st=>({clusters:{...st.clusters,'cluster-a':{...st.clusters['cluster-a'],members:st.clusters['cluster-a'].members.map(m=>m.workflowId==='worker-a'?{...m,role:'Reviewer role. Read'}:m)}}}))")
+        await expect(plan_first).to_have_count(0)
+        await page.evaluate("s.setState(st=>({clusters:{...st.clusters,'cluster-a':{...st.clusters['cluster-a'],members:st.clusters['cluster-a'].members.map(m=>m.workflowId==='worker-a'?{...m,role:'Builder'}:m)}}}))")
+        await expect(plan_first).to_have_attribute('aria-pressed','false')
+        await page.evaluate("s.getState().setClusterFocusedMember('cluster-a','worker-b')")
         # Context is in the focused member header and calibration stays available.
         meter=page.locator('[data-help="worker.header.ctx"]')
         await expect(meter).to_have_count(1)

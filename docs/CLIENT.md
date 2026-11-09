@@ -403,9 +403,9 @@ App
 │       │       ├── LongUserMessage (auto-collapsed wall of text)
 │       │       ├── GateApprovalNotice (DEBAG inline approve/reject card for a parked sensitive Native tool call)
 │       │       └── AuthReloginNotice
-│       ├── TerminalInput   (composer + REVIEW/HANDOFF/SPAWN/DOCS/GIT/SECOND OPINION/RESEARCH/TUNEUP/REMOTE/COMPACT buttons + inline plan-mode checkbox + FOLD/posture/project-trust pills)
+│       ├── TerminalInput   (composer + REVIEW/HANDOFF/SPAWN/DOCS/GIT/SECOND OPINION/RESEARCH/TUNEUP/REMOTE/COMPACT buttons + inline PLAN FIRST button + FOLD/posture/project-trust pills)
 │       │   ├── NorthStarBar   (inline-editable north-star chip; GOAL_MAX_BYTES=2048)
-│       │   ├── PrimaryStatus   (busy: model · effort · elapsed)
+│       ├── PrimaryStatus   (current step in the conversation header)
 │       │   ├── QueuedMessagesIndicator
 │       │   ├── DragOverlay     (file drop hint)
 │       │   ├── ToolboxMenu     (slash-command picker)
@@ -738,13 +738,11 @@ Drafts (`draftStore`) and attachments (`appStore`) are keyed by `workflowId` so 
 
 **`/goal` command** - `/goal <objective>` sets, bare `/goal` queries, `/goal clear|none` clears the standing north-star (regex won't match `/goalkeeper`); pushes a local system row, never sends a turn.
 
-### Inline plan-mode toggle (Claude Native only)
+### PLAN FIRST (Claude Native only)
 
-Above the textarea, `TerminalInput.tsx` renders a `⛔ PLAN MODE: GATE WRITE TOOLS FOR NEXT TURN` checkbox. Visibility is gated on `job.config.primaryProvider === 'claude'` AND the resolved transport (`job.config.claudeTransport ?? settings.claude.transport ?? 'cli'`) being `'native'`; on every other provider/transport the row renders nothing (no reserved space). Local-only state (`planModeArmed: boolean`) - not persisted to the store, not in localStorage, so a reload or tab swap clears it. The placeholder text shifts to `Type your task - plan mode armed for next turn` when armed; no banner.
+`PLAN FIRST (next turn)` sits beside NORTH STAR above the composer. It arms the next Native Claude turn to plan before editing and is separate from the attached project plan. It is hidden for director and reviewer cluster members and for other providers or transports. The local-only toggle clears after sending or leaving the tab. When armed, the placeholder reads `Type your task: plan mode armed for next turn`.
 
-Send-time-fire: when the operator hits send with the box checked, `handleSubmit` first calls `onArmPlanMode` (dispatches `enter_plan_mode_request` over the WS) and then the regular `onSend`. Server processes them in order: `pendingPlanModeEntry` is set, then the upcoming turn dispatch picks it up and arms the worker. Auto-clears on every send - single-turn arming. If the operator unchecks before sending, no WS message fires (toggle state is the source of truth).
-
-Wire path through the rest of the app: `useWebSocket.armPlanMode` -> `App.tsx` -> `WorkflowView` -> `TerminalInput` (`onArmPlanMode` prop). Callback chain mirrors `onSpawn` / `onHandoff` for symmetry.
+Sending while armed dispatches `enter_plan_mode_request` before the normal message. The server gates Write and Edit until the worker exits plan mode. Bash is not gated.
 
 ### Fold / posture / project-trust pills (Claude Native)
 
@@ -1076,7 +1074,7 @@ See [`CONTRIBUTING.md`](../CONTRIBUTING.md) for the full dev workflow.
 
 ## Cluster tab rendering
 
-Member status shows WORKING when a turn is accepted, including when its first activity is a tool call, and returns to IDLE when the turn settles.
+Member status shows WORKING when a turn is accepted, including when its first activity is a tool call, and returns to IDLE when the turn settles. The header shares its row with the current step and CTX / OUT counters; each step stays visible briefly. Member cards keep the last settled reply or tool step without displaying reasoning fragments.
 
 Automatic nudges and pickup reminders appear as folded mailbox lines in chat, pending PREVIEW and HISTORY. Use + to read the full text and - to fold it. The member receives the full message; typed messages are not folded by their wording.
 
@@ -1135,7 +1133,7 @@ ClusterTab (App.tsx routes here when activeClusterId set)
 
 **Per-member primitive bar.** `MemberPane.tsx` now renders `TerminalInput` with `onReview / onHandoff / onSpawn / onUpdatePrimary / onArmPlanMode` threaded App -> ClusterTab -> MemberPane. The header ContextMeter receives `onRecalibrate`; each handler closes over the member's `workflowId` at the App level (mirrors how `WorkflowView` keys primitives on `activeJob.id`). Behavior is unchanged from the standalone primitive bar - the cluster-aware shape (HANDOFF preserves cluster membership, SPAWN-into-this-cluster as a default option, REVIEW understands peer rows) is described in the cluster primitive reference and now shipped.
 
-**`MemberCard` two-line header.** Line 1 = busy/idle dot + friendly name + `IDLE` / `BUSY` tag. Line 2 = wfid 8-char prefix + optional role chip. Friendly name resolves to `wf.config.name?.trim || workflowId.slice(0, 8)` - operator-renamed members surface the rename here, the rest fall back to the wfid prefix. The role chip uses `presetForText` from [`shared/src/clusterRolePresets.ts`](../shared/src/clusterRolePresets.ts) to label known preset bodies (DIRECTOR / BUILDER / REVIEWER / RESEARCHER / TESTER); free-form text labels as `CUSTOM`; an empty role hides the chip entirely. Auto-scroll-to-bottom on `bodyText` change is unchanged from the cluster grid pass.
+**`MemberCard` two-line header.** Line 1 = busy/idle dot + friendly name + `IDLE` / `WORKING` tag. Line 2 = wfid 8-char prefix + optional role chip. Friendly name resolves to `wf.config.name?.trim || workflowId.slice(0, 8)` - operator-renamed members surface the rename here, the rest fall back to the wfid prefix. The role chip uses `presetForText` from [`shared/src/clusterRolePresets.ts`](../shared/src/clusterRolePresets.ts) to label known preset bodies (DIRECTOR / BUILDER / REVIEWER / RESEARCHER / TESTER); free-form text labels as `CUSTOM`; an empty role hides the chip entirely. Auto-scroll-to-bottom on `bodyText` change is unchanged from the cluster grid pass.
 
 **MEMBERS sub-tab - role preset popover.** Replaces the inline role editor that used to mount under each `MemberRow`. The popover is anchored to the row's `SET` button; renders the six preset rows + `CLEAR` + `Custom...`. The Custom... branch falls back to the inline editor (same textarea + commit semantics as before). Click-outside + Esc close the popover; both listeners attach only while open (no global leak). On commit the row shows `ROLE <preset.label>` for a preset or truncated text for custom; the button flips to `EDIT`. `EDIT` reopens the popover with the matching preset highlighted via `presetForText` (returns undefined for free-form text -> Custom... is highlighted instead).
 

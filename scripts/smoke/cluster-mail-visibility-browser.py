@@ -91,7 +91,7 @@ async def main():
         await expect(nudge).to_have_accessible_name('NUDGE: 4 pending messages across 2 members')
         assert await nudge.evaluate('el=>getComputedStyle(el).backgroundColor') != empty_background
         await expect(cards.nth(0).get_by_text('IDLE', exact=True)).to_be_visible()
-        await expect(cards.nth(1).get_by_text('BUSY', exact=True)).to_be_visible()
+        await expect(cards.nth(1).get_by_text('WORKING', exact=True)).to_be_visible()
         assert await page.evaluate('sent.length') == 0
         await idle_mail.click()
         assert await page.evaluate('sent.map(x=>[x[0],x[3]])') == [['worker-a','steer']]

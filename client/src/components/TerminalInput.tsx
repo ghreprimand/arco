@@ -33,7 +33,7 @@ import { beginPlanReview, planDraftPrompt } from './terminalInput/planDraft';
 import { rememberPublicChoice } from '../utils/publicProject';
 import { DialogPortal } from './DialogShell';
 import { openCompareDialog } from './terminalInput/compare';
-import { PrimaryStatus } from './PrimaryStatus';
+import { canPlanFirst } from '../utils/activityPresentation';
 import { QueuedMessagesIndicator } from './QueuedMessagesIndicator';
 import { NorthStarBar } from './NorthStarBar';
 import { CLAUDE_MODELS as CLAUDE_MODEL_VALUES, CLAUDE_MODEL_LABELS, CODEX_PICKER_MODELS, CODEX_MODEL_INFO} from '@arco/shared';
@@ -117,6 +117,7 @@ export interface Props {
   onBackToCluster?: () => void;
   // Cluster tab only: recipient chip, NUDGE and the BRIEF choice live in the composer.
   clusterControls?: ClusterComposerControls;
+  memberRole?: string;
   // Operator-driven peer_send. Only wired for cluster members; the SEND
   // TRANSCRIPT button gates on this prop being defined AND the workflow
   // belonging to a cluster. Fires operator_peer_send via useWebSocket.
@@ -315,7 +316,7 @@ function ComposerSendButtons({ jobId, blocked, hasAttachments, busy, canInterrup
   </>;
 }
 
-export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload, onReview, onHandoff, onSpawn, onUpdatePrimary, onCompact, onFold, onSetToolPosture, onSetProjectTrust, onArmPlanMode, onBackToCluster, clusterControls, clusterContext, onTranscriptSend, onReviewViaMember, onResearch }: Props) {
+export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload, onReview, onHandoff, onSpawn, onUpdatePrimary, onCompact, onFold, onSetToolPosture, onSetProjectTrust, onArmPlanMode, onBackToCluster, clusterControls, clusterContext, memberRole, onTranscriptSend, onReviewViaMember, onResearch }: Props) {
   // Composer text lives in the store keyed by job.id so each tab keeps its
   // own draft across tab switches. Empty tab reads back as ''.
   // NOT a subscription — see the ComposerTextarea note above. Handlers read the
@@ -510,7 +511,9 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   const planModeToggleVisible =
     !!onArmPlanMode
     && (job.config.primaryProvider ?? 'claude') === 'claude'
-    && resolvedClaudeTransport === 'native';
+    && resolvedClaudeTransport === 'native'
+    && (!clusterContext || canPlanFirst(memberRole));
+  useEffect(() => { if (!planModeToggleVisible) setPlanModeArmed(false); }, [planModeToggleVisible]);
   // REMOTE_MANAGEMENT.md §1.4 — per-workflow hub opt-in toggle. Only shown when
   // this instance is actually hub-linked (otherwise there's nothing to opt into).
   const hubLinked = useHubLinkStore((s) => s.known && s.connected);
@@ -817,6 +820,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
 
       <div data-testid="composer-status-line" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '6px', minWidth: 0, minHeight: isBusy ? '24px' : undefined }}>
         <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />
+        {planModeToggleVisible && <button type="button" data-help="composer.plan-first" aria-pressed={planModeArmed} onClick={() => setPlanModeArmed((v) => !v)} title="Plan before editing on the next turn. This is separate from the attached project plan." className="display-font" style={{ marginLeft: 'auto', flexShrink: 0, padding: '3px 8px', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', background: 'transparent', color: planModeArmed ? 'var(--color-warning)' : 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '10px', whiteSpace: 'nowrap' }}>PLAN FIRST (next turn)</button>}
         {job.compactedResume && !isCompacting && (
           <span data-help="composer.compact-continue" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <button type="button" disabled={isBusy} title={typeof job.compactedResume.foldedTurns === 'number' ? `Compacted ${job.compactedResume.foldedTurns} turns into a summary. Continue the parked conversation.` : 'Earlier history was folded into a summary. Continue the parked conversation.'} onClick={() => { if (isBusy || isCompacting) return; clearCompacting(job.id); onSend(COMPACT_CONTINUE_PROMPT); }}>COMPACTED: CONTINUE</button>
@@ -1057,43 +1061,6 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
               </button>
             </span>
           ))}
-        </div>
-      )}
-
-      {/* Plan-mode arming row — operator-controlled entry into plan mode.
-          Mirrors the worker's EnterPlanMode tool call but starts the next
-          turn already gated, regardless of model behavior. Only rendered
-          for Claude Native (toggle is meaningless on CLI / other
-          providers). Auto-clears on send. */}
-      {planModeToggleVisible && (
-        <div
-          className="display-font"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginBottom: '6px',
-            padding: '4px 8px',
-            border: '1px solid var(--color-border-hairline)',
-            borderRadius: '3px',
-            fontSize: '10px',
-            letterSpacing: '1px',
-            color: planModeArmed ? 'var(--color-warning)' : 'var(--color-accent-secondary-dim)',
-            cursor: 'pointer',
-            userSelect: 'none',
-            width: 'fit-content',
-          }}
-          title="Arm plan mode for the next turn: Write/Edit tools stay disabled until the model calls ExitPlanMode. Auto-clears on send."
-          onClick={() => setPlanModeArmed((v) => !v)}
-        >
-          <input
-            type="checkbox"
-            checked={planModeArmed}
-            onChange={(e) => setPlanModeArmed(e.target.checked)}
-            style={{ margin: 0, cursor: 'pointer', accentColor: 'var(--color-warning)' }}
-            onClick={(e) => e.stopPropagation()}
-          />
-          <span>⛔ PLAN MODE: GATE WRITE TOOLS FOR NEXT TURN</span>
         </div>
       )}
 
@@ -1621,7 +1588,6 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         {toolbarOneLine && <ToolbarMore row={toolbarRef} hidden={toolbarHidden} />}
         {!isBusy && <div style={{ flex: 1 }} />}
 
-        {isBusy && <PrimaryStatus job={job} />}
         <PendingQuestionsButton workflowId={job.id} />
       </div>
 

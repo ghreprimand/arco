@@ -200,14 +200,14 @@ making it reachable elsewhere.
 - **Provider choice:** Claude, Codex, Cursor, Ollama, LM Studio, and llama.cpp. [Providers](docs/PROVIDERS.md)
 - **Optional external services:** Strata and DeepSeek through Xolotl require separately installed services that Arco does not distribute. [Provider guide](docs/PROVIDERS.md)
 - **Utility agent:** one operator-chosen provider and model for short side jobs such as **BRIEF**, **CATCH ME UP**, and **TIDY**. Accepts Claude with Native sign-in, Codex, Cursor, Ollama, LM Studio, llama.cpp, and Strata or DeepSeek through Xolotl; never chosen silently. [Settings](docs/SETTINGS.md#utility-agent) | [Feature reference](docs/FEATURES.md)
-- **Conversation control:** interrupt an active Claude or Codex turn and send a correction next, preserving queued follow-ups. Mid-turn sends show Queued or Delivered; the working indicator names the current step and its elapsed time. [Interrupt and send](docs/PROVIDERS.md#interrupt-and-send)
+- **Conversation control:** interrupt an active Claude or Codex turn and send a correction next, preserving queued follow-ups. Mid-turn sends show Queued or Delivered; the conversation header names the current step and its elapsed time. PLAN FIRST arms a Native Claude turn to plan before editing, separately from the project plan. [Interrupt and send](docs/PROVIDERS.md#interrupt-and-send)
 - **Operator actions:** Review, SECOND OPINION, Research, Handoff, and Spawn keep results visible and actions explicit. [Operator actions](docs/OPERATOR_ACTIONS.md)
 - **Clusters and plans:** size-ordered templates, at most one director, shared
   task boards, peer messages, plans, and optional operator-armed AUTO-PICKUP
   (Rule-based recommended; Smart modes need an evaluator from the same
   providers as the utility agent). A plan gives a workflow or cluster its
   shared direction; the board tracks who is doing each task. Member status shows
-  when a turn starts and remains working until it settles. Describe a
+  when a turn starts and remains working until it settles; cards keep the last settled reply or tool step. Describe a
   cluster's purpose during creation to request a director's draft, then review
   it before attaching.
   [Task ledger](docs/TASK_LEDGER.md) | [Plan or board?](docs/PLAN_OR_BOARD.md) | [Getting started](docs/GETTING_STARTED.md)

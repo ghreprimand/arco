@@ -1,4 +1,5 @@
 import { ContextMeter } from './ContextMeter';
+import { PrimaryStatus } from './PrimaryStatus';
 import { useEffect, useRef, useState } from 'react';
 import { ChatPanel } from './ChatPanel';
 import { TerminalInput } from './TerminalInput';
@@ -214,7 +215,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
             minHeight: 0,
           }}
         >
-          <div data-help="worker.header.ctx" className="display-font" style={{ display: 'flex', justifyContent: 'flex-end', padding: '8px 12px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: '10px', overflowX: 'auto' }}><ContextMeter job={job} onRecalibrate={onRecalibrate} /></div>
+          <div className="display-font" data-testid="conversation-header" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, padding: '8px 12px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: '10px' }}>{job.busy && <PrimaryStatus job={job} />}<span data-help="worker.header.ctx" style={{ marginLeft: 'auto', flexShrink: 0 }}><ContextMeter job={job} onRecalibrate={onRecalibrate} /></span></div>
           {/* `no-frost`: the chat column is a transparent transcript scaffold,
               not a glass content panel. Under frosted-glass mode the generic
               `.arco-panel` backdrop-filter blur would soften the ambient

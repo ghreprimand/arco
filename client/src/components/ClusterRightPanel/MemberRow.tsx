@@ -188,7 +188,7 @@ export function MemberRow({
             )}
             {!renameOpen && (
               <span style={{ color: member.status === 'busy' ? 'var(--color-warning)' : 'var(--color-accent-primary)', fontSize: '10px' }}>
-                {member.status.toUpperCase()}
+                {member.status === 'busy' ? 'WORKING' : 'IDLE'}
               </span>
             )}
             {!renameOpen && member.tier && !isClusterDirector(member.role) && (

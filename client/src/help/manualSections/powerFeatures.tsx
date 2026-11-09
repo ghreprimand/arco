@@ -190,11 +190,11 @@ export const powerFeatures: Section[] = [
   <>
   <p>
   Plan mode makes the next turn plan before it edits. Native Claude tabs show a
-  checkbox above the composer that arms it for that one turn.
+  button beside NORTH STAR that arms it for that one turn. It is separate from the attached project plan.
   </p>
   <p>
-  The control reads <Code>⛔ PLAN MODE: GATE WRITE TOOLS FOR NEXT TURN</Code>.
-  Tick it, and the next turn runs with <Code>Write</Code> and <Code>Edit</Code>{' '}
+  The control reads <Code>PLAN FIRST (next turn)</Code>.
+  Select it, and the next turn runs with <Code>Write</Code> and <Code>Edit</Code>{' '}
   blocked (they return <Code>[error] write tools disabled until ExitPlanMode</Code>).
   The system prompt also nudges the model to call <Code>EnterPlanMode</Code> for
   your task. While armed, the composer placeholder reads{' '}
@@ -203,7 +203,7 @@ export const powerFeatures: Section[] = [
   <Sub>Rules</Sub>
   <ul>
   <li><strong>One turn only.</strong> The next send uses and clears it. A reload, tab swap or cancelled send also clears it without firing.</li>
-  <li><strong>Visibility.</strong> The checkbox appears only on Claude tabs using the Native transport. Elsewhere the row takes no space.</li>
+  <li><strong>Visibility.</strong> The button appears only on Claude tabs using Native transport. It is hidden for director and reviewer cluster members.</li>
   <li><strong>What is gated.</strong> Only <Code>Write</Code> and <Code>Edit</Code>. <Code>Bash</Code> is deliberately not gated, because recognizing write intent in arbitrary shell commands (<Code>sed -i</Code>, redirection, <Code>rm</Code> pipelines, in-place git) would be unreliable.</li>
   </ul>
   <p>
