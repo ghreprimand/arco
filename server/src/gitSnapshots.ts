@@ -711,7 +711,7 @@ interface PreparedRestore {
   limitation?: string;
 }
 
-type PrepareOutcome = PreparedRestore | { problem: 'missing' | 'legacy' | 'failed' | 'too-large' | 'capped-overlap' | 'nested-overlap'; limitation?: string };
+type PrepareOutcome = PreparedRestore | { problem: 'missing' | 'legacy' | 'failed' | 'too-large' | 'capped-overlap' | 'nested-overlap' | 'legacy-overlap'; limitation?: string };
 
 function scratchIndex(cwd: string, workflowId: string, seq: number): string {
   // CRUCIAL: OUTSIDE the working tree. `read-tree -u --reset` sweeps
@@ -832,6 +832,9 @@ async function prepareShadowRestore(cwd: string, workflowId: string, seq: number
     }
     return true;
   });
+  if ([...legacyFolders].some(folder => targetPaths.some(file => pathsOverlap(folder, file)))) {
+    return { problem: 'legacy-overlap', limitation: `Unrecorded folders overlap this checkpoint: ${namedScope([...legacyFolders])}.` };
+  }
   const limitation = [nestedScopeNotice([...(targetSkipped.nestedRepositories ?? []), ...(walk.skippedNestedPaths ?? [])]),
     legacyFolders.size ? `Older checkpoint left unrecorded folders unchanged: ${namedScope([...legacyFolders])}.` : ''].filter(Boolean).join(' ');
   const index = scratchIndex(cwd, workflowId, seq);
@@ -883,6 +886,7 @@ const PREVIEW_PROBLEMS: Record<Exclude<PrepareOutcome, PreparedRestore>['problem
   failed: 'The working tree could not be read for a comparison.',
   'too-large': `${CHECKPOINT_SKIP_NOTICE} No files were changed.`,
   'nested-overlap': 'A nested repository overlaps this checkpoint. Those files are not included, so nothing was changed.',
+  'legacy-overlap': 'An unrecorded folder overlaps this older checkpoint. Nothing was changed.',
   'capped-overlap': 'A file now over the per-file checkpoint size limit is part of this checkpoint, so a revert would be refused.',
 };
 

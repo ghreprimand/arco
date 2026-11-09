@@ -102,7 +102,7 @@ export const powerFeatures: Section[] = [
   faithfully: files created after it are removed, not just overwritten.
   </li>
   </ul>
-  <p>Shadow checkpoints exclude nested Git repositories and worktrees. Their names are shown on the checkpoint, in the confirmation and after a revert. Only included files count or change. Recorded exclusions remain protected if a Git marker moves. Older checkpoints without scope metadata preserve unrecorded folders and explain that limitation; Git-backed behavior is unchanged.</p>
+  <p>Shadow checkpoints exclude nested Git repositories and worktrees. Their names are shown on the checkpoint, in the confirmation and after a revert. Only included files count or change. Recorded exclusions remain protected if a Git marker moves. Older checkpoints without scope metadata preserve unrecorded folders and explain that limitation. If restoring a file would overwrite a preserved folder, the comparison and revert refuse without changing files. Git-backed behavior is unchanged.</p>
   <p>In non-Git folders, checkpoint discovery has entry and time budgets. Exceeding a byte or scan budget skips the whole checkpoint and shows one notice; no partial checkpoint is published. A budget-limited comparison or REVERT TO HERE changes nothing. The scan limits are ARCO_CHECKPOINT_SCAN_ENTRIES and ARCO_CHECKPOINT_SCAN_MS; the included-byte limit is ARCO_CHECKPOINT_TOTAL_CAP_BYTES. Git-backed checkpoints keep their existing behavior.</p>
   <p>
   Older tar checkpoints keep files created after the checkpoint. On POSIX systems,

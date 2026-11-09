@@ -95,3 +95,24 @@ test('nested scope disclosure names at most three folders and reports the remain
   assert.match(checkpoint.limitation!, /repository-0.*repository-1.*repository-2.*2 more/);
   assert.doesNotMatch(checkpoint.limitation!, /repository-3|repository-4/);
 });
+
+for (const manifest of ['legacy', 'missing'] as const) test(`${manifest} checkpoint refuses a target file that would replace a preserved folder`, async () => {
+  const { cwd } = fixture(`ancestor-overlap-${manifest}`, false);
+  writeFileSync(join(cwd, 'switch'), 'checkpoint file');
+  assert.ok(await snapshots.createCheckpoint({ cwd, workflowId, seq: 7 }));
+  const store = join(process.env.ARCO_HOME!, 'checkpoints', createHash('sha256').update(cwd).digest('hex').slice(0, 16));
+  const manifestPath = join(store, `${workflowId}.7.skipped.json`);
+  if (manifest === 'legacy') writeFileSync(manifestPath, JSON.stringify({ version: 1, paths: [] }));
+  else rmSync(manifestPath);
+  rmSync(join(cwd, 'switch'));
+  mkdirSync(join(cwd, 'switch', 'unrecorded'), { recursive: true });
+  const protectedFile = join(cwd, 'switch', 'unrecorded', 'keep.txt');
+  writeFileSync(protectedFile, 'keep unrecorded');
+  writeFileSync(join(cwd, 'root.txt'), 'keep root edit');
+  const preview = await snapshots.previewCheckpointRevert({ cwd, workflowId, seq: 7 });
+  assert.equal(preview.ok, false);
+  if (!preview.ok) assert.match(preview.error, /unrecorded folder.*overlap|overlap.*unrecorded folder/i);
+  assert.equal(await snapshots.revertToCheckpoint({ cwd, workflowId, seq: 7 }), null);
+  assert.equal(readFileSync(protectedFile, 'utf8'), 'keep unrecorded');
+  assert.equal(readFileSync(join(cwd, 'root.txt'), 'utf8'), 'keep root edit');
+});
