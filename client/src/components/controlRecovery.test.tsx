@@ -44,7 +44,7 @@ test('B70: switching classic themes removes optional colors from the previous th
 for (const lens of ['recents', 'artifacts']) test(`B72: ${lens} hides tree reveal for native Windows state paths`, async () => {
   const f = await fixture();
   const path = String.raw`C:\projects\fixture\.arco\workflows\run\artifacts\notes.md`;
-  globalThis.fetch = async () => Response.json(lens === 'recents' ? { records: [{ path, ts: 1, tabTitle: 'Fixture', provider: 'claude', tool: 'write' }] } : { entries: [{ path, name: 'notes.md', cwd: String.raw`C:\projects\fixture`, project: 'Fixture', mtime: 1, size: 20, workflowId: 'run' }] });
+  globalThis.fetch = async (input) => Response.json(lens === 'recents' ? (String(input).includes('/changed?') ? { entries: [{ path, name: 'notes.md', project: 'Fixture', mtime: 1, size: 20 }] } : { records: [] }) : { entries: [{ path, name: 'notes.md', cwd: String.raw`C:\projects\fixture`, project: 'Fixture', mtime: 1, size: 20, workflowId: 'run' }] });
   try {
     await f.render(createElement(lens === 'recents' ? RecentsLens : ArtifactsLens, { focusTick: 1, onOpen() {}, onRevealInTree() {} }));
     if (lens === 'recents') assert.ok([...document.querySelectorAll('span, div')].some(e => e.textContent === 'notes.md'), document.body.textContent!);

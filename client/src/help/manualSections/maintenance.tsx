@@ -3,12 +3,12 @@ import { Code, Note, Table, Sub} from '../../components/UserManual/components';
 
 export const maintenance: Section[] = [
   {
-  id: 'archive-explorer', group: 'The workspace', title: 'Artifacts - artifacts, recents, plans, storage and file tree',
+  id: 'archive-explorer', group: 'The workspace', title: 'Artifacts - artifacts, changed files, plans, storage and file tree',
   body: <>
-  <p>RECENTS shows filenames for both Windows and slash-separated paths. Files inside an Arco state folder open in the viewer; OPEN IN TREE is offered only for project files outside that folder.</p>
+  <p>CHANGED FILES shows filenames for both Windows and slash-separated paths. Files inside an Arco state folder open in the viewer; OPEN IN TREE is offered only for project files outside that folder.</p>
   <p>
   <strong>ARTIFACTS</strong> (in the KNOWLEDGE menu) is a file browser for artifacts,
-  recents, plans, storage and the raw tree - not a workflow or an agent. Only PLANS
+  changed files, plans, storage and the raw tree - not a workflow or an agent. Only PLANS
   and STORAGE change anything; each STORAGE action asks first.
   </p>
   <p>If an output changes during Move, both files stay and a conflict is reported. The entry keeps its source location. Review the destination copy before retrying.</p>
@@ -19,8 +19,7 @@ export const maintenance: Section[] = [
   </li>
   <li>Project documents skip hidden folders, build and dependency folders, and nested Git checkouts or worktrees. Entry and time budgets keep discovery responsive. Slow or stalled folders return an incomplete list when the scan budget ends; available results remain usable. A partial list says "Showing the newest N; open a project for more". Opening a project searches it separately. Workflow artifacts stay listed in full, with their own loading state. A failed list shows a notice while the other results remain usable. Switch away from the window and return to retry.</li>
   <li>
-  <strong>RECENTS</strong> separates attributed agent writes from the
-  broader recently-modified scan. Concurrent agent writes survive retention cleanup. The scan uses entry and time budgets through depth eight, skips Git-ignored directories and nested checkouts, and retains up to 500 newest matches from the visited folders. Results truncated marks an incomplete list. Useful hidden project folders and workflow artifacts remain eligible.
+  <strong>CHANGED FILES</strong> lists files changed in the last 48 hours by any program. The tab and provider appear only when a matching ledger record is current. Artifacts and documents are under ARTIFACTS. The scan uses entry and time budgets through depth eight, skips Git-ignored directories and nested checkouts, and retains up to 500 newest matches from the visited folders. Results truncated marks an incomplete list. Useful hidden project folders and workflow artifacts remain eligible.
   </li>
   <li>
   <strong>PLANS</strong> is the plans library - every plan across projects,
@@ -83,7 +82,7 @@ export const maintenance: Section[] = [
   mark on the whole conversation. No file is changed.
   </p>
   <p>
-  Use ALL/DOCS/IMAGES to filter recents, refresh to update listings, and
+  Use ALL/DOCS/IMAGES to filter changed files, refresh to update listings, and
   <strong> A− / A+</strong> for the Artifacts window's own saved zoom. A changed
   file is not necessarily an agent write, and an empty scan is not proof that
   a project has no files. Listings can fail softly.

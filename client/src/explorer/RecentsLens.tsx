@@ -1,19 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatRelativeTime } from '../components/RightPanel/format';
+import { changedAttribution } from './changedAttribution';
 import { fileKind, type FileKind, type ChangedEntry, type RecentRecord } from './types';
 
-// ARCHIVE (docs/CLIENT.md) - the RECENTS lens, two sub-tabs:
-//
-//   AGENT WRITES     — the attributed ledger (which tab wrote what). Complete
-//                      for Native writes / Review / media; best-effort for
-//                      CLI/Codex/Cursor.
-//   RECENTLY MODIFIED — the bounded, unattributed changed-within scan. The
-//                      catch-all for Bash-created / generated files the ledger
-//                      never saw. Either alone has a hole; together they cover.
-//
-// Shared filter chips (ALL/DOCS/IMAGES) + per-project dropdown. Clicking a row
-// opens the viewer; real project files also expose OPEN IN TREE (reveal). Pure
-// HTTP; refetches on `focusTick` (poll-on-focus, §5).
+// The changed-files lens joins a bounded scan with current ledger attribution.
 
 interface Props {
   focusTick: number;
@@ -21,10 +11,9 @@ interface Props {
   onRevealInTree: (path: string) => void;
 }
 
-type SubTab = 'writes' | 'changed';
 type Chip = 'all' | 'doc' | 'image';
 
-// One normalized row shape both sub-tabs render.
+// One row per file in the changed-within scan.
 interface Row {
   path: string;
   name: string;
@@ -39,7 +28,6 @@ function basename(p: string): string { return p.split(/[\\/]/).filter(Boolean).p
 function revealable(path: string): boolean { return !path.split(/[\\/]/).includes('.arco'); }
 
 export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
-  const [sub, setSub] = useState<SubTab>('writes');
   const [writes, setWrites] = useState<RecentRecord[] | null>(null);
   const [changed, setChanged] = useState<ChangedEntry[] | null>(null);
   const [partial, setPartial] = useState(false);
@@ -48,17 +36,14 @@ export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/explorer/recents?limit=200')
+    fetch('/api/explorer/recents?limit=1000')
       .then((r) => r.json() as Promise<{ records?: RecentRecord[] }>)
       .then((d) => { if (!cancelled) setWrites(d.records ?? []); })
       .catch(() => { if (!cancelled) setWrites([]); });
     return () => { cancelled = true; };
   }, [focusTick]);
 
-  // The changed scan is heavier — fetch it lazily on first entry to that sub-tab
-  // (and on focus while it's the active sub-tab).
   useEffect(() => {
-    if (sub !== 'changed') return;
     let cancelled = false;
     setChanged(null); setPartial(false);
     fetch('/api/explorer/changed?within=48h')
@@ -66,22 +51,15 @@ export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
       .then((d) => { if (!cancelled) { setChanged(d.entries ?? []); setPartial(Boolean(d.partial)); } })
       .catch(() => { if (!cancelled) setChanged([]); });
     return () => { cancelled = true; };
-  }, [sub, focusTick]);
+  }, [focusTick]);
 
   const rows = useMemo<Row[] | null>(() => {
-    if (sub === 'writes') {
-      if (writes === null) return null;
-      return writes.map((r) => ({
-        path: r.path, name: basename(r.path), mtime: r.ts, project: r.project,
-        meta: `${r.tabTitle} · ${r.provider} · ${r.tool} · ${formatRelativeTime(r.ts)}`,
-      }));
-    }
     if (changed === null) return null;
     return changed.map((e) => ({
       path: e.path, name: e.name, mtime: e.mtime, project: e.project,
-      meta: `${formatSize(e.size)} · ${formatRelativeTime(e.mtime)}`,
-    }));
-  }, [sub, writes, changed]);
+      meta: [changedAttribution(e.path, e.mtime, writes ?? []), formatSize(e.size), formatRelativeTime(e.mtime)].filter(Boolean).join(' · '),
+    })).sort((a, b) => b.mtime - a.mtime);
+  }, [writes, changed]);
 
   const projects = useMemo(() => {
     const set = new Set<string>();
@@ -99,16 +77,9 @@ export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '16px 18px', overflow: 'hidden' }}>
-      {sub === 'changed' && partial && <div data-help="header.archive" role="status" style={{ fontSize: '12px', color: 'var(--color-fg-muted)', marginBottom: '8px' }}>Results truncated: showing the newest files found within the scan budget.</div>}
-      {/* Sub-tab bar */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
-        <button onClick={() => setSub('writes')} className="display-font" style={subTabStyle(sub === 'writes')}>AGENT WRITES</button>
-        <button onClick={() => setSub('changed')} className="display-font" style={subTabStyle(sub === 'changed')}>RECENTLY MODIFIED</button>
-      </div>
+      {partial && <div data-help="header.archive" role="status" style={{ fontSize: '12px', color: 'var(--color-fg-muted)', marginBottom: '8px' }}>Results truncated: showing the newest files found within the scan budget. Open one project for a fuller list.</div>}
       <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)', marginBottom: '10px' }}>
-        {sub === 'writes'
-          ? 'Files agents wrote, attributed to the tab that wrote them: newest first.'
-          : 'Recently changed files found in a bounded project scan: newest first.'}
+        Files changed in your projects in the last 48 hours, by any program. Artifacts and documents are under ARTIFACTS.
       </div>
 
       {/* Filters */}
@@ -130,9 +101,9 @@ export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {rows === null ? (
-          <Centered text={sub === 'changed' ? 'Scanning for recently modified files…' : 'Loading recent writes…'} />
+          <Centered text="Scanning for changed files…" />
         ) : filtered.length === 0 ? (
-          <Centered text={emptyCopy(sub, rows.length)} />
+          <Centered text={rows.length ? 'Nothing matches this filter.' : 'No files changed in your projects in the last 48 hours.'} />
         ) : (
           filtered.map((r) => (
             <div key={`${r.mtime}-${r.path}`} className="archive-row" style={rowStyle} title={r.path}>
@@ -154,13 +125,6 @@ export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
   );
 }
 
-function emptyCopy(sub: SubTab, total: number): string {
-  if (total > 0) return 'Nothing matches this filter.';
-  return sub === 'writes'
-    ? 'No agent writes recorded yet. This ledger covers Claude Native Write/Edit, Review artifacts, media ops, and manual saves: CLI/Codex/Cursor tabs are best-effort, so use RECENTLY MODIFIED as the complete view.'
-    : 'No files changed in the last 48h under your projects.';
-}
-
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -175,12 +139,6 @@ function Centered({ text }: { text: string }) {
   );
 }
 
-const subTabStyle = (active: boolean): React.CSSProperties => ({
-  background: active ? 'var(--color-accent-primary-a10)' : 'transparent',
-  border: `1px solid ${active ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,
-  borderRadius: '3px', color: active ? 'var(--color-accent-primary)' : 'var(--color-accent-primary-dim)',
-  cursor: 'pointer', fontSize: '12px', letterSpacing: '1px', padding: '6px 12px',
-});
 const chipStyle = (active: boolean): React.CSSProperties => ({
   background: active ? 'var(--color-accent-primary-a10)' : 'transparent',
   border: `1px solid ${active ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,

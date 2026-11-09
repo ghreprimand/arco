@@ -726,14 +726,14 @@ Project-tree **documents** - the docs written FOR a project in its real tree (`R
 
 ### `GET /api/explorer/recents[?limit=100]`
 
-The AGENT WRITES ledger read - the attributed global record of agent-produced files. Reads `~/.arco/recent-files.jsonl` newest-first (engine: `server/src/recentFilesLedger.ts` `readRecent`). `limit` clamps to `[1, 1000]` (default 100).
+The attribution ledger read - a partial record of agent-produced files used by CHANGED FILES. Reads `~/.arco/recent-files.jsonl` newest-first (engine: `server/src/recentFilesLedger.ts` `readRecent`). `limit` clamps to `[1, 1000]` (default 100).
 
 - Always **200** with `{ records }`; a read error degrades to `{ records: [], error }`.
-- `LedgerRecord`: `{ ts, path, op: 'created'|'modified', workflowId, tabTitle, provider, tool, project? }`. Written server-side at the persisting broadcast chokepoints (`send` + `broadcastWorkflow`) plus `POST /api/files/write`; coverage is per-provider event shape (v1 = Claude Native Write/Edit/NotebookEdit, Review artifact, media-op/stems results, manual write). Filtering (DOCS/IMAGES/ALL, per-project) is client-side.
+- `LedgerRecord`: `{ ts, path, op: 'created'|'modified', workflowId, tabTitle, provider, tool, project? }`. Written server-side at the persisting broadcast chokepoints (`send` + `broadcastWorkflow`) plus `POST /api/files/write`; coverage is per-provider event shape (v1 = Claude Native Write/Edit/NotebookEdit, Review artifact, media-op/stems results, manual write). The client matches the newest record to a changed file only when it is no more than two seconds older than the file modification time.
 
 ### `GET /api/explorer/changed[?within=48h][&project=<abs>]`
 
-The bounded, unattributed changed-within scan - the catch-all for Bash-created / generated files the ledger never saw. Portable Node `fs` walk (no `fd`) over the default working dir (or one `project`), pruning `node_modules`/`.git`/`dist`/`.venv`/`__pycache__`/... and `.arco` internals **except** `.arco/workflows/*/artifacts/`, depth-capped (8) and count-capped (500, newest-first). Engine: `server/src/explorerChanged.ts` (`scanChangedPage`). `within` accepts `<n>h|d|m` (default/garbage -> 48h, floored at 1m).
+The bounded changed-within scan used for the CHANGED FILES list. Portable Node `fs` walk (no `fd`) over the default working dir (or one `project`), pruning `node_modules`/`.git`/`dist`/`.venv`/`__pycache__`/... and `.arco` internals **except** `.arco/workflows/*/artifacts/`, depth-capped (8) and count-capped (500, newest-first). Engine: `server/src/explorerChanged.ts` (`scanChangedPage`). `within` accepts `<n>h|d|m` (default/garbage -> 48h, floored at 1m).
 
 - Always **200** with `{ entries, partial }` (newest-first, at most 500). `partial` is true when traversal or result limits stop the scan, so the list is an incomplete sample. A scan error degrades to `{ entries: [], error }`.
 - `ChangedEntry`: `{ path, name, size, mtime, project }` - `project` is the top-level dir under the base root (or the explicit project's basename).

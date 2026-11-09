@@ -678,7 +678,7 @@ Proposals are stored only while they are pending operator action (accept / apply
 ├── cluster-vault.key                # local-only 256-bit cloud-envelope key (0600; never uploaded)
 ├── templates.json                   # workflow templates (templates/store.ts)
 ├── skill-usage.json                 # skill-usage telemetry (skillUsage.ts)
-├── recent-files.jsonl              # agent file-writes ledger (recentFilesLedger.ts) - powers ARTIFACTS RECENTS
+├── recent-files.jsonl              # agent file-writes ledger (recentFilesLedger.ts) - adds attribution to ARTIFACTS CHANGED FILES
 ├── trust.json                       # DD7 project-trust decisions (projectTrust.ts)
 ├── prompts/                          # DD10 /prompt templates (global, ungated)
 │   └── <name>.md

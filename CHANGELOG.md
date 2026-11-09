@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Replace RECENTS with CHANGED FILES: one 48-hour list with tab and provider attribution when known.
+
 - Keep ARTIFACTS usable when a document or artifact list fails, show which list failed, and retry when the window regains focus.
 
 - Keep folder listings responsive in FILES, folder pickers and the command palette while retaining the same entries and access boundaries.

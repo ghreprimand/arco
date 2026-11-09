@@ -250,7 +250,7 @@ async def main(theme, viewport):
               applyTheme(getTheme(theme));
             }''', theme)
             await expect(page.locator('nav')).to_be_visible(timeout=5000)
-            for lens in ['ARTIFACTS', 'RECENTS', 'PLANS', 'STORAGE', 'TREE']:
+            for lens in ['ARTIFACTS', 'CHANGED FILES', 'PLANS', 'STORAGE', 'TREE']:
                 await page.locator('nav button').filter(has_text=lens).click()
                 await probe('explorer:' + lens.lower())
                 if lens == 'PLANS':

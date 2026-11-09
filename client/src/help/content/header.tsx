@@ -478,13 +478,12 @@ export const headerHelp: Record<string, HelpEntry> = {
           Opens the standalone <strong>ARTIFACTS</strong> window: a chromeless
           project-artifact explorer in its own browser window
           (<C>?app=explorer</C>). Five lenses: <C>ARTIFACTS</C> (project cards +
-          agent-produced artifacts, the landing home), <C>RECENTS</C> (recently
-          written / changed files), <C>PLANS</C> (every plan across projects:
+          agent-produced artifacts, the landing home), <C>CHANGED FILES</C> (files changed by any program in the last 48 hours), <C>PLANS</C> (every plan across projects:
           the plans library), <C>STORAGE</C> (disk use by project, with clean-up
           actions that each ask first) and <C>TREE</C> (the raw file tree).
           Only PLANS (plan edits, MARK DONE) and STORAGE change anything;
           each STORAGE action asks first.
-         RECENTLY MODIFIED searches through depth eight within entry and time budgets, skipping ignored directories and nested checkouts. It retains up to 500 newest matches from visited folders and marks incomplete lists as Results truncated. Useful hidden project folders and workflow artifacts remain eligible. AGENT WRITES keeps new records during retention cleanup. Windows paths show filenames in RECENTS; files inside the Arco state folder have no OPEN IN TREE action.</p>
+         CHANGED FILES searches through depth eight within entry and time budgets, skipping ignored directories and nested checkouts. It retains up to 500 newest matches from visited folders and marks incomplete lists as Results truncated. Useful hidden project folders and workflow artifacts remain eligible. A matching current ledger record adds the tab and provider. Windows paths show filenames in CHANGED FILES; files inside the Arco state folder have no OPEN IN TREE action.</p>
         <p>ARTIFACTS omits protected file paths. Linked or unavailable workflow metadata uses an identifier instead of a title.</p>
         <p>TREE starts at the first readable location: the configured working folder, Projects in the home folder, then the home folder. Folder listings and file previews use that same root.</p>
         <p>

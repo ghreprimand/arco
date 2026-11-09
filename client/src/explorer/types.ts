@@ -14,7 +14,7 @@ export interface ArtifactEntry {
   cwd: string;
 }
 
-// AGENT WRITES ledger record (mirror of the server LedgerRecord).
+// Attribution ledger record (mirror of the server LedgerRecord).
 export interface RecentRecord {
   ts: number;
   path: string;
@@ -52,7 +52,7 @@ export interface ProjectItem {
   provider?: string;   // artifact
 }
 
-// RECENTLY MODIFIED scan entry (mirror of the server ChangedEntry).
+// Changed-files scan entry (mirror of the server ChangedEntry).
 export interface ChangedEntry {
   path: string;
   name: string;
@@ -71,7 +71,7 @@ export interface ProjectSummary {
   lastMtime: number;
 }
 
-// Coarse file kind for the RECENTS filter chips (DOCS / IMAGES / ALL).
+// Coarse file kind for the CHANGED FILES filter chips (DOCS / IMAGES / ALL).
 export type FileKind = 'doc' | 'image' | 'other';
 const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico']);
 const DOC_EXT = new Set(['md', 'markdown', 'mdx']);
