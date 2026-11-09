@@ -50,6 +50,7 @@ async def main():
           const {PurgeConversationModal}=await import('/src/components/PurgeConversationModal.tsx');
           const {DirectoryBrowser}=await import('/src/components/media/DirectoryPicker.tsx');
           const {FileViewerModal}=await import('/src/components/FileViewerModal.tsx');
+          const {ClusterMemberPicker}=await import('/src/components/ClusterMemberPicker.tsx');
           const root=createRoot(document.getElementById('fixture'));
           window.showFixture=(size) => {
             const h=React.createElement;
@@ -60,6 +61,7 @@ async def main():
             else root.render(h(FileViewerModal,{path:'/fixture/report.md',onClose:close}));
           };
           window.closeFixture=()=>root.render(null);
+          window.showMemberPicker=(count=60)=>root.render(React.createElement(ClusterMemberPicker,{title:'Choose a synthetic member',cluster:{members:Array.from({length:count},(_,i)=>({workflowId:'member-'+i,displayName:'Member '+(i+1),status:'idle',role:'builder'}))},onPick:m=>{window.pickedMember=m.workflowId},onCancel:()=>root.render(null)}));
           window.showFile=path=>root.render(React.createElement(FileViewerModal,{key:path,path,onClose:()=>root.render(null)}));
           window.showForward=()=>root.render(React.createElement(ForwardDialog,{cluster:{members:[{workflowId:'fixture-a',displayName:'Worker A'},{workflowId:'fixture-b',displayName:'Worker B'}]},fromWorkflowId:'fixture-a',messages:[],onConfirm:()=>{},onCancel:()=>root.render(null)}));
         }""")
@@ -135,6 +137,56 @@ async def main():
         assert abs((await box.bounding_box())['width']-dragged['width'])<2
         await box.get_by_role('button',name='Resize dialog').focus(); await page.keyboard.press('Home')
         assert abs((await box.bounding_box())['width']-natural['width'])<2
+        await page.evaluate('window.closeFixture()')
+        # RC6-13: the actual picker scrolls as a whole, unlike the inner-body fixtures.
+        await page.set_viewport_size({'width':1280,'height':800})
+        await page.evaluate("document.documentElement.style.zoom='1';document.documentElement.style.setProperty('--ui-scale','1');localStorage.clear();window.showMemberPicker()")
+        surface=page.locator('.work-surface-resizable')
+        await expect(surface.get_by_text('Member 60',exact=True)).to_have_count(1)
+        await expect(surface.get_by_role('button',name='Resize dialog')).to_be_visible()
+        initial=await surface.get_by_role('button',name='Resize dialog').bounding_box(); outer=await surface.bounding_box()
+        assert abs(initial['y']+initial['height']-(outer['y']+outer['height']))<3
+        scroll_height=await surface.evaluate('el=>el.scrollHeight')
+        await surface.evaluate('el=>{el.scrollTop=800}')
+        await page.wait_for_function("()=>{const s=document.querySelector('.work-surface-scroll-frame'),r=s.getBoundingClientRect(),g=s.querySelector('.work-surface-resize').getBoundingClientRect();return Math.abs(g.bottom-(r.top+s.clientTop+s.clientHeight))<3}")
+        assert await surface.evaluate('el=>el.scrollHeight') == scroll_height
+        assert await surface.evaluate('el=>el.scrollTop') == 800
+        grip=surface.get_by_role('button',name='Resize dialog')
+        frame=await surface.bounding_box(); handle=await grip.bounding_box()
+        await page.screenshot(path=str(ART/'member-picker-scrolled.png'))
+        assert abs(handle['y']+handle['height']-(frame['y']+frame['height']))<3, (frame,handle)
+        assert await grip.evaluate('el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}')
+        assert await surface.evaluate("el=>{const h=el.querySelector('.work-surface-resize').getBoundingClientRect(),r=el.getBoundingClientRect();return h.right<=r.left+el.clientLeft+el.clientWidth+1}")
+        await grip.hover(); await page.mouse.down(); await page.mouse.move(handle['x']+handle['width']/2+35,handle['y']+handle['height']/2+20,steps=5); await page.mouse.up()
+        resized=await surface.bounding_box()
+        assert resized['width']>frame['width']+50 and resized['height']>frame['height']+20
+        assert await surface.evaluate('el=>el.scrollTop') >= 800
+        await grip.focus(); await page.keyboard.press('ArrowLeft')
+        assert abs((await surface.bounding_box())['width']-(resized['width']-20))<2
+        await surface.evaluate("el=>{el.querySelector('button.display-font').style.minWidth='1600px';el.scrollLeft=300}")
+        await page.wait_for_function("()=>{const s=document.querySelector('.work-surface-scroll-frame'),r=s.getBoundingClientRect(),g=s.querySelector('.work-surface-resize').getBoundingClientRect();return s.scrollLeft>0&&Math.abs(g.right-(r.left+s.clientLeft+s.clientWidth))<3}")
+        assert await grip.evaluate('el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}')
+        await surface.evaluate("el=>{el.querySelector('button.display-font').style.minWidth='';el.scrollLeft=0}")
+        scroll_height=await surface.evaluate('el=>el.scrollHeight')
+        await surface.evaluate('el=>{el.scrollTop=el.scrollHeight}')
+        await page.wait_for_function("()=>{const s=document.querySelector('.work-surface-scroll-frame'),r=s.getBoundingClientRect(),g=s.querySelector('.work-surface-resize').getBoundingClientRect();return Math.abs(g.bottom-(r.top+s.clientTop+s.clientHeight))<3}")
+        assert await surface.evaluate('el=>el.scrollHeight') == scroll_height
+        last=surface.get_by_role('button').filter(has_text='Member 60')
+        last_rect=await last.bounding_box(); handle=await grip.bounding_box()
+        assert last_rect['x']+last_rect['width'] <= handle['x']+1 or last_rect['y']+last_rect['height'] <= handle['y']+1, (last_rect,handle)
+        await last.click(); assert await page.evaluate('window.pickedMember') == 'member-59'
+        await grip.focus(); await page.keyboard.press('Home')
+        assert abs((await surface.bounding_box())['width']-frame['width'])<2
+        await page.evaluate('window.closeFixture()')
+        await expect(surface).to_have_count(0)
+        await page.evaluate('window.showMemberPicker(3)')
+        surface=page.locator('.work-surface-resizable')
+        await expect(surface.get_by_text('Member 3',exact=True)).to_have_count(1)
+        await expect(surface.get_by_text('Member 4',exact=True)).to_have_count(0)
+        await page.wait_for_function("()=>{const s=document.querySelector('.work-surface-scroll-frame'),r=s.getBoundingClientRect(),g=s.querySelector('.work-surface-resize').getBoundingClientRect();return Math.abs(g.bottom-(r.top+s.clientTop+s.clientHeight))<3}")
+        short=await surface.bounding_box(); handle=await surface.get_by_role('button',name='Resize dialog').bounding_box()
+        assert await surface.evaluate('el=>el.scrollHeight<=el.clientHeight+1')
+        assert abs(handle['y']+handle['height']-(short['y']+short['height']))<3
         await page.evaluate('window.closeFixture()')
         await page.set_viewport_size({'width':1280,'height':800}); await page.evaluate("document.documentElement.style.zoom='1';document.documentElement.style.setProperty('--ui-scale','1');localStorage.clear();window.showFixture('form')")
         dialog=page.locator('[data-dialog-surface="form"]'); box=dialog

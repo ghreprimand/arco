@@ -388,7 +388,7 @@ async def claude_native_signin(playwright,server):
         await expect(claude.get_by_text('Native and CLI are separate sign-ins',exact=False)).to_be_visible()
         for width in (1280,390):
             await page.set_viewport_size({'width':width,'height':800})
-            assert await dialog.evaluate("el => el.scrollWidth <= el.clientWidth + 1"), f'overflow at {width}'
+            assert await dialog.evaluate("el => el.scrollWidth <= el.clientWidth + 1"), f'overflow at {width}: '+str(await dialog.evaluate("el=>{const r=el.getBoundingClientRect();return {frame:{x:r.x,width:r.width,client:el.clientWidth,scroll:el.scrollWidth},overflow:[...el.querySelectorAll('*')].filter(c=>c.getBoundingClientRect().right>r.right+1).slice(0,12).map(c=>({tag:c.tagName,cls:c.className,right:c.getBoundingClientRect().right,width:c.getBoundingClientRect().width}))}}"))
             await expect(claude.get_by_test_id('claude-native-signin')).to_be_visible()
             await expect(claude.get_by_test_id('claude-use-cli')).to_be_visible()
         await page.set_viewport_size({'width':1280,'height':720})

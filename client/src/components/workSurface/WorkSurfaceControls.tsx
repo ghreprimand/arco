@@ -50,6 +50,22 @@ export function WorkSurfaceControls({ surface, storageKey }: { surface: RefObjec
     if (!el) return;
     initial.current = { width: el.style.width, height: el.style.height };
     if (window.getComputedStyle(el).position === 'static' || !window.getComputedStyle(el).position) el.style.position = 'relative';
+    const computed = window.getComputedStyle(el);
+    const outerScroll = /(auto|scroll)/.test(computed.overflowX + computed.overflowY);
+    const originalRightPadding = el.style.paddingRight;
+    if (outerScroll) {
+      // Keep the frame grip outside scrolling controls and native scrollbars.
+      el.style.paddingRight = `${Math.max(26, Number.parseFloat(computed.paddingRight) || 0)}px`;
+      el.classList.add('work-surface-scroll-frame');
+    }
+    const followScroll = () => {
+      // Absolute children scroll with their container. Cancel that movement
+      // so the grip stays at the visible frame corner, even in short dialogs.
+      el.style.setProperty('--work-surface-scroll-left', `${el.scrollLeft}px`);
+      el.style.setProperty('--work-surface-scroll-top', `${el.scrollTop}px`);
+    };
+    followScroll();
+    el.addEventListener('scroll', followScroll, { passive: true });
     el.classList.add('work-surface-resizable');
     setGripSurface(el);
     try {
@@ -87,7 +103,7 @@ export function WorkSurfaceControls({ surface, storageKey }: { surface: RefObjec
     el.addEventListener('pointerdown', down);
     window.addEventListener('pointerup', up);
     window.addEventListener('click', click, true);
-    return () => { el.removeEventListener('pointerdown', down); window.removeEventListener('pointerup', up); window.removeEventListener('click', click, true); };
+    return () => { el.removeEventListener('scroll', followScroll); if (outerScroll) { el.style.paddingRight = originalRightPadding; el.classList.remove('work-surface-scroll-frame'); } el.removeEventListener('pointerdown', down); window.removeEventListener('pointerup', up); window.removeEventListener('click', click, true); };
   }, [surface, key]);
   const drag = useRef<{ x: number; y: number; width: number; height: number; scale: number } | null>(null);
   const scale = () => Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 1;

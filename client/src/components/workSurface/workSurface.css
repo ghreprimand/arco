@@ -2,7 +2,7 @@
 .work-surface-controls button{font:12px var(--font-body);color:var(--color-accent-primary);background:var(--color-bg-input);border:1px solid var(--color-border-hairline);border-radius:3px;padding:6px 9px;cursor:pointer}
 .work-surface-controls button:focus-visible{outline:2px solid var(--color-accent-primary);outline-offset:2px}
 .work-surface-resizable{resize:none!important}
-.work-surface-resize{position:absolute;right:0;bottom:0;width:26px;height:26px;display:grid;place-items:center;padding:0;border:0;border-radius:0 0 5px 0;background:var(--color-bg);color:var(--color-accent-primary);touch-action:none;cursor:nwse-resize!important;z-index:2}
+.work-surface-resize.work-surface-resize{position:absolute;right:0;bottom:0;box-sizing:border-box;transform:translate(var(--work-surface-scroll-left,0px),var(--work-surface-scroll-top,0px));width:26px;height:26px;display:grid;place-items:center;padding:0;border:0;border-radius:0 0 5px 0;background:var(--color-bg);color:var(--color-accent-primary);touch-action:none;cursor:nwse-resize!important;z-index:2}
 .work-surface-resize:focus-visible{outline:2px solid var(--color-accent-primary);outline-offset:-3px}
 [data-help="header.computer"] .work-surface-controls button{font-family:var(--font-display)}
 

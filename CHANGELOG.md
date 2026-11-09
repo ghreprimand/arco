@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep resize grips visible and usable while dialog contents scroll, and prevent the Connections window from overflowing.
+
 - Return available CHANGED FILES results when another project's preparation stalls, with an incomplete-list notice and one shared preparation and scan deadline.
 
 - Rendered document viewers fit their reading width while wide content keeps the larger view. Dialogs have a bottom-right resize grip with pointer and keyboard controls.

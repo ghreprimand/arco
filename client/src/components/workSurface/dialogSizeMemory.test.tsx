@@ -15,11 +15,12 @@ function rectFor(el: HTMLElement): DOMRect {
   return { x: 0, y: 0, left: 0, top: 0, width: width * scale, height: height * scale, right: width * scale, bottom: height * scale, toJSON() { return this; } } as DOMRect;
 }
 
-async function mount(storageKey: string | undefined, scale = 1): Promise<{ root: Root; el: HTMLDivElement; host: HTMLDivElement }> {
+async function mount(storageKey: string | undefined, scale = 1, outerScroll = false): Promise<{ root: Root; el: HTMLDivElement; host: HTMLDivElement }> {
   document.documentElement.style.setProperty('--ui-scale', String(scale));
   const el = document.createElement('div');
   el.style.width = '400px';
   el.style.height = '240px';
+  if (outerScroll) { el.style.overflowY = 'auto'; el.style.padding = '18px 22px'; el.style.rowGap = '6px'; }
   el.getBoundingClientRect = () => rectFor(el);
   document.body.append(el);
   const surface = createRef<HTMLDivElement>();
@@ -57,7 +58,7 @@ test('dialog kinds remember their own size, ignore a bad or path-like key, and s
     assert.equal(confirm.el.style.width, '400px', 'an out-of-range saved width is ignored');
     const resize = button(confirm.host, 'Resize dialog');
     assert.equal(resize.textContent?.trim(), '', 'the corner grip has no misleading text button');
-    assert.equal(resize.parentElement, confirm.el, 'the grip belongs to the surface, outside its header');
+    assert.equal(resize.parentElement, confirm.el, 'the grip belongs to the frame, outside its header');
     assert.match(resize.title, /Drag to resize/);
     resize.setPointerCapture = () => {};
     await act(async () => {
@@ -77,6 +78,19 @@ test('dialog kinds remember their own size, ignore a bad or path-like key, and s
     assert.equal(confirm.el.style.width, '400px');
     assert.equal(localStorage.getItem('arco.dialog-size.confirm'), null);
     await act(async () => confirm.root.unmount());
+
+    const scrolling = await mount('scroll-picker', 1, true);
+    assert.equal(scrolling.el.style.paddingBottom, '18px');
+    assert.equal(scrolling.el.style.paddingRight, '26px');
+    assert.equal(scrolling.el.classList.contains('work-surface-scroll-frame'), true);
+    scrolling.el.scrollLeft = 120;
+    scrolling.el.scrollTop = 800;
+    scrolling.el.dispatchEvent(new dom.window.Event('scroll'));
+    assert.equal(scrolling.el.style.getPropertyValue('--work-surface-scroll-left'), '120px');
+    assert.equal(scrolling.el.style.getPropertyValue('--work-surface-scroll-top'), '800px');
+    await act(async () => scrolling.root.unmount());
+    assert.equal(scrolling.el.style.paddingBottom, '18px');
+    assert.equal(scrolling.el.style.paddingRight, '22px');
 
     const wide = await mount('viewer', 1.5);
     await act(async () => { button(wide.host, 'Resize dialog').dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })); });
