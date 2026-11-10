@@ -541,6 +541,7 @@ export function runPrimaryTurn(
           ...(ev.itemType ? { itemType: ev.itemType } : {}),
           ...(ev.itemId ? { itemId: ev.itemId } : {}),
           ...(ev.output ? { output: ev.output } : {}),
+          ...(ev.mediaReceipt ? { mediaReceipt: ev.mediaReceipt } : {}),
           ...(typeof ev.exitCode === 'number' ? { exitCode: ev.exitCode } : {}),
           ...(ev.outputHash ? { outputHash: ev.outputHash } : {}),
         });

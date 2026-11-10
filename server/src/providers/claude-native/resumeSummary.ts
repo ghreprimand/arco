@@ -65,6 +65,7 @@ type ReplayEvent = {
   name?: string;
   input?: string;
   output?: string;
+  mediaReceipt?: string;
   status?: string;
   // Carried by a `native_compacted` event — the operator-triggered in-place
   // compaction's summary. Replay resets to this point (like a handoff) and
@@ -421,6 +422,9 @@ export function buildMessagesFromReplayEvents(
       const content = [entry.content, ...(entry.attachments ?? []).map(path => `[attached file: ${path}; use Read to inspect again]`)].filter(Boolean).join('\n');
       if (entry.kind === 'steer' && userBuf && !assistantBuf) userBuf += '\n\n' + content;
       else { flushPair(); userBuf = content; }
+    } else if (t === 'primary_tool_use' && entry.status === 'completed' && entry.mediaReceipt && userBuf) {
+      const tool = entry.tool ?? entry.name ?? 'unknown tool';
+      assistantBuf += `\n\n[${tool} media receipt: ${entry.mediaReceipt}; source input: ${entry.input ?? '{}'}; re-run ${tool} with that input to inspect again.]\n\n`;
     } else if (t === 'primary_tool_use' && (entry.tool ?? entry.name) === 'Read' && entry.status === 'completed' && (entry.output?.startsWith('image: ') || entry.output?.startsWith('document: ')) && userBuf) {
       assistantBuf += `\n\n[Read image receipt: ${entry.output}; use Read to inspect again.]\n\n`;
     } else if (t === 'primary_text' && typeof entry.text === 'string' && userBuf) {

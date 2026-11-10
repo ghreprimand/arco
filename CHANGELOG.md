@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Claude Native reloads retain named tool receipts for MCP images and documents, including image-only results, without storing encoded media in activity events.
+
 - File reads and attachments report binary content when NUL bytes occur after a text-only header, instead of sending those bytes as text.
 
 - Clarify decoded attachment content and retained path labels in Chat, provider guides, the manual and Composer help.

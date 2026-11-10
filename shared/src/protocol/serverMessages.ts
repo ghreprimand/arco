@@ -722,6 +722,8 @@ export interface PrimaryToolUseMessage {
   itemType?: string;
   itemId?: string;
   output?: string;
+  /** Server-generated receipt for typed media; encoded bytes are never persisted here. */
+  mediaReceipt?: string;
   exitCode?: number;
   // Watchdog instrumentation — stable, normalized hash of `output` (see
   // server/src/providers/outputSignature.ts). Lets the (not-yet-shipped) worker
@@ -804,6 +806,8 @@ export interface WorkerToolUseMessage {
   itemType?: string;
   itemId?: string;
   output?: string;
+  /** Server-generated receipt for typed media; encoded bytes are never persisted here. */
+  mediaReceipt?: string;
   exitCode?: number;
   // Watchdog instrumentation — normalized hash of `output`; see
   // PrimaryToolUseMessage.outputHash. Forwarded verbatim into that event.

@@ -381,6 +381,7 @@ export class WorkerManager {
       itemType?: string;
       itemId?: string;
       output?: string;
+      mediaReceipt?: string;
       exitCode?: number;
       outputHash?: string;
     }) => {
@@ -396,6 +397,7 @@ export class WorkerManager {
         ...(data.itemType ? { itemType: data.itemType } : {}),
         ...(data.itemId ? { itemId: data.itemId } : {}),
         ...(data.output ? { output: data.output } : {}),
+        ...(data.mediaReceipt ? { mediaReceipt: data.mediaReceipt } : {}),
         ...(typeof data.exitCode === 'number' ? { exitCode: data.exitCode } : {}),
         ...(data.outputHash ? { outputHash: data.outputHash } : {}),
       });

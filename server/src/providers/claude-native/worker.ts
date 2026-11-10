@@ -641,6 +641,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     input: unknown,
     status: 'started' | 'completed' | 'failed',
     output?: string,
+    mediaReceipt?: string,
   ): void {
     const payload: {
       id: string;
@@ -649,6 +650,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       status: 'started' | 'completed' | 'failed';
       provider: 'claude';
       output?: string;
+      mediaReceipt?: string;
       outputHash?: string;
     } = {
       id: block.id,
@@ -665,6 +667,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       // preview) so error-persistence detection compares the whole result.
       payload.outputHash = outputHash(output);
     }
+    if (mediaReceipt) payload.mediaReceipt = mediaReceipt;
     this.emit('tool_use', payload);
   }
 
@@ -3882,7 +3885,9 @@ export class ClaudeNativeWorker extends EventEmitter {
       preContext,
     }), { text: resultText, isError });
     if (done.stop !== undefined) this.hookStopRequested = done.stop;
-    this.emitToolActivity(block, input, done.isError ? 'failed' : 'completed', done.text);
+    const media = !done.isError ? toolOutcome?.content?.filter(b => b.type === 'image' || b.type === 'document') : undefined;
+    const mediaReceipt = media?.length ? media.map(b => b.type === 'document' ? `document: ${b.title ?? 'tool document'} (${b.arcoPages ?? 'unknown'} pages)` : `image: ${b.source.media_type}`).join('; ') : undefined;
+    this.emitToolActivity(block, input, done.isError ? 'failed' : 'completed', done.text, mediaReceipt);
     return { text: done.text, isError: done.isError, ...(toolOutcome?.content && !done.isError ? { content: [{ type: 'text' as const, text: done.text }, ...toolOutcome.content.filter(b => b.type !== 'text')] } : {}) };
   }
 
