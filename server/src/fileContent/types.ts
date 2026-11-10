@@ -31,3 +31,9 @@ export function textResult(kind: string, text: string, options: FileContentOptio
 export function binaryResult(name: string, size: number, kind: string, options: FileContentOptions): FileContentResult {
   return textResult('binary', `file: ${name}, ${kind === 'invalid-utf8' ? 'invalid UTF-8' : kind + ' binary'}, ${size} bytes; not sent as text.`, { limits: options.limits });
 }
+
+export function legacyTextResult(text: string, options: FileContentOptions, truncated = false): FileContentResult {
+  const result = textResult('text', text, options, undefined, truncated);
+  const marked = '[decoded as Windows-1252]\n' + result.text;
+  return { ...result, text: marked, blocks: [{ type: 'text', text: marked }] };
+}

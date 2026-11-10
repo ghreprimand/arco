@@ -124,13 +124,17 @@ export async function* regularFileLines(path: string, cap: number, signal?: Abor
   } finally { await handle.close(); }
 }
 
-export async function readRegularRange(path: string, cap: number, offset: number, limit?: number, signal?: AbortSignal, chunkSize = 16384) {
+export async function readRegularRange(path: string, cap: number, offset: number, limit?: number, signal?: AbortSignal, chunkSize = 16384, fallbackDecoder?: (bytes: Uint8Array) => string | null) {
   const { handle } = await openRegular(path);
   const output = Buffer.alloc(cap);
   let used = 0, line = 1;
   const result = (truncated: boolean) => {
     try { return { text: new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(output.subarray(0, used), { stream: truncated }), truncated, invalidUtf8: false }; }
-    catch { return { text: output.subarray(0, used).toString('utf8'), truncated, invalidUtf8: true }; }
+    catch {
+      const decoded = fallbackDecoder?.(output.subarray(0, used));
+      if (decoded != null) return { text: decoded, truncated, invalidUtf8: false, legacyDecoded: true };
+      return { text: output.subarray(0, used).toString('utf8'), truncated, invalidUtf8: true };
+    }
   };
   try {
     const chunk = Buffer.alloc(Math.max(1024, Math.min(16384, chunkSize)));

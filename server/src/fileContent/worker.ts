@@ -1,3 +1,4 @@
+import { decodeLegacyText } from './legacyText.js';
 import { svgResult } from './svg.js';
 import { fileHeaderKind } from './detect.js';
 import { officeResult, rtfResult } from './office.js';
@@ -6,7 +7,7 @@ import { parentPort } from 'node:worker_threads';
 import { isUtf8 } from 'node:buffer';
 import { imageType, imageResult } from './images.js';
 import { pdfResult } from './pdf.js';
-import { binaryResult, textResult, type FileContentOptions } from './types.js';
+import { binaryResult, legacyTextResult, textResult, type FileContentOptions } from './types.js';
 
 parentPort!.once('message', async ({ data, name, options }: { data: Uint8Array; name: string; options: FileContentOptions }) => {
   const bytes = Buffer.from(data);
@@ -20,6 +21,10 @@ parentPort!.once('message', async ({ data, name, options }: { data: Uint8Array; 
     if (kind === 'text/utf-16le' || kind === 'text/utf-16be') {
       const text = new TextDecoder(kind.slice(5), { fatal: true }).decode(bytes.subarray(2));
       parentPort!.postMessage(textResult('text', text, options)); return;
+    }
+    if (kind === 'invalid-utf8' && !isUtf8(bytes)) {
+      const decoded = decodeLegacyText(bytes);
+      if (decoded !== null) { parentPort!.postMessage(legacyTextResult(decoded, options)); return; }
     }
     if (!isUtf8(bytes) || bytes.includes(0) || (kind !== 'text/plain' && kind !== 'invalid-utf8')) {
       parentPort!.postMessage(binaryResult(name, bytes.length, kind, options)); return;

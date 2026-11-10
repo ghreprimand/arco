@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Read Windows-1252 text with a decoding notice and working line ranges across providers and attachments; NUL and control-heavy data remain binary receipts.
+
 - Notebook reads keep cell ranges when metadata comes first, render SVG outputs, and name unsupported rich outputs instead of dropping them.
 
 - Claude Native reloads retain named tool receipts for MCP images and documents, including image-only results, without storing encoded media in activity events.
