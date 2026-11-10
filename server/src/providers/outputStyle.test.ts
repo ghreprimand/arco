@@ -184,16 +184,16 @@ test('Ollama, llama.cpp, LM Studio, Strata and DeepSeek: the addendum closes the
   const modelDef = { id: 'm', capabilities: {} };
   const cases = [['ollama', OllamaProvider], ['llamacpp', LlamacppProvider], ['lmstudio', LmstudioProvider], ['strata', StrataProvider], ['deepseek', DeepSeekProvider]] as const;
   for (const [name, provider] of cases) {
-    const system = (extra: Partial<WorkerConfig>) => {
-      const w = provider.create(`w-${name}`, cfg(name, extra)) as unknown as { buildMessages(p: string, d?: unknown): Array<{ role: string; content: unknown }> };
-      return w.buildMessages('PROMPT-BODY', modelDef).find((m) => m.role === 'system')?.content;
+    const system = async (extra: Partial<WorkerConfig>) => {
+      const w = provider.create(`w-${name}`, cfg(name, extra)) as unknown as { buildMessages(p: string, d?: unknown): Promise<Array<{ role: string; content: unknown }>> };
+      return (await w.buildMessages('PROMPT-BODY', modelDef)).find((m) => m.role === 'system')?.content;
     };
-    assert.equal(system({ outputStyle: 'plain', goal: 'Ship the fix', systemPrompt: 'SYSTEM' }), `${goalBlock('Ship the fix')}\n\nSYSTEM\n\n${PLAIN}`, name);
-    assert.equal(system({ outputStyle: 'terse' }), TERSE, name);
-    assert.equal(system({ outputStyle: 'normal', systemPrompt: 'SYSTEM' }), 'SYSTEM', name);
-    assert.equal(system({}), undefined, `${name}: no style and no prompt means no system message`);
+    assert.equal(await system({ outputStyle: 'plain', goal: 'Ship the fix', systemPrompt: 'SYSTEM' }), `${goalBlock('Ship the fix')}\n\nSYSTEM\n\n${PLAIN}`, name);
+    assert.equal(await system({ outputStyle: 'terse' }), TERSE, name);
+    assert.equal(await system({ outputStyle: 'normal', systemPrompt: 'SYSTEM' }), 'SYSTEM', name);
+    assert.equal(await system({}), undefined, `${name}: no style and no prompt means no system message`);
     // Low effort keeps /no_think first; the addendum stays last.
-    if (name !== 'strata' && name !== 'deepseek') assert.equal(system({ outputStyle: 'terse', effort: 'low' }), `/no_think\n${TERSE}`, name);
+    if (name !== 'strata' && name !== 'deepseek') assert.equal(await system({ outputStyle: 'terse', effort: 'low' }), `/no_think\n${TERSE}`, name);
   }
 });
 

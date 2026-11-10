@@ -1,8 +1,9 @@
+import { LocalMcp } from './localMcp.js';
+import { prepareProviderAttachments, openAiImageMessage, openAiVisionMessages, type ProviderImage } from './providerFileContent.js';
 import { requestWithDeadline } from './requestDeadline.js';
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
-import { readFileSync, statSync } from 'fs';
-import { extname } from 'path';
+import { statSync } from 'fs';
 import { MAX_WORKER_OUTPUT_BYTES, OUTPUT_TRUNCATION_NOTICE } from '../workers/limits.js';
 import { markAvailable } from '../quota.js';
 import {
@@ -17,7 +18,6 @@ import { decideLocalToolCall, dispatchLocalToolCalls, localUnknownToolResult, pa
 import { LLAMACPP_NOT_FOUND, resolveLlamaServer } from './llamacppBinary.js';
 import { goalBlock } from './goalBlock.js';
 import { outputStyleAddendum } from './outputStyle.js';
-import { awaitModelImages, modelImagePath } from './attachments.js';
 import { readCatalog, findModel, defaultModel } from '../llamacppCatalog.js';
 import {
   defaultRecoveryConfig,
@@ -197,28 +197,6 @@ const THINKING_FLUSH_MS = (() => {
   }
   return 100;
 })();
-const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-const IMAGE_EXT: Record<string, true> = {
-  '.png': true,
-  '.jpg': true,
-  '.jpeg': true,
-  '.gif': true,
-  '.webp': true,
-};
-
-function classifyAttachment(p: string): 'image' | 'other' {
-  return IMAGE_EXT[extname(p).toLowerCase()] ? 'image' : 'other';
-}
-
-function mediaTypeFor(p: string): string {
-  const ext = extname(p).toLowerCase();
-  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
-  if (ext === '.png') return 'image/png';
-  if (ext === '.gif') return 'image/gif';
-  if (ext === '.webp') return 'image/webp';
-  return 'application/octet-stream';
-}
-
 // OpenAI chat-completion message shape. Content is either a string (the
 // common case) or an array of typed parts (multimodal). System / assistant
 // / tool messages are always strings; user messages are arrays when images
@@ -274,6 +252,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
     super();
     this.id = id;
     this.config = config;
+    this.registry = new LocalMcp(config);
   }
 
   // Coalesce reasoning-content deltas into ≤10 events/sec. Caller can
@@ -308,7 +287,9 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
 
   spawn(prompt: string): void {
     this.abortController = new AbortController();
-    void this.run(prompt);
+    void this.run(prompt).catch((error) => {
+      if (!this.abortController?.signal.aborted) this.fail(`llama.cpp: ${error instanceof Error ? error.message : String(error)}`);
+    }).finally(() => this.registry.close());
   }
 
   // Build OpenAI-shaped messages. Same byte-stability rules as the Ollama
@@ -318,7 +299,9 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
   // Effort handling mirrors Ollama (effort 'low' → /no_think prefix on the
   // system message). llama-server with --jinja respects the same Qwen-family
   // convention.
-  private buildMessages(userPrompt: string, modelDef: LlamacppModelDef): ChatMessage[] {
+  private visionCapable = false;
+
+  private async buildMessages(userPrompt: string, modelDef: LlamacppModelDef): Promise<ChatMessage[]> {
     const messages: ChatMessage[] = [];
     const noThink = this.config.effort === 'low';
     // docs/GOTCHAS.md - fold the operator's north-star at the top of the
@@ -341,35 +324,11 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
       }
     }
 
-    const visionCapable = modelDef.capabilities?.vision === true && !!modelDef.mmprojPath;
-    const imageParts: ContentPart[] = [];
-    const nonImagePaths: string[] = [];
-    const skippedImagePaths: string[] = [];
-    for (const p of this.config.attachments ?? []) {
-      if (classifyAttachment(p) !== 'image') { nonImagePaths.push(p); continue; }
-      if (!visionCapable) { skippedImagePaths.push(p); continue; }
-      try {
-        // Downscaled sibling when present; data-URI type follows its ext.
-        const src = modelImagePath(p);
-        const size = statSync(src).size;
-        if (size > IMAGE_MAX_BYTES) {
-          this.emit('system_notice', `attachment "${p}" exceeds ${Math.round(IMAGE_MAX_BYTES / 1024 / 1024)}MB image limit — skipped`);
-          continue;
-        }
-        const b64 = readFileSync(src).toString('base64');
-        imageParts.push({ type: 'image_url', image_url: { url: `data:${mediaTypeFor(src)};base64,${b64}` } });
-      } catch (err) {
-        this.emit('system_notice', `attachment "${p}" unreadable: ${err instanceof Error ? err.message : String(err)} — skipped`);
-      }
-    }
-    if (skippedImagePaths.length > 0) {
-      this.emit('system_notice', `model "${modelDef.alias}" has no mmproj configured — ${skippedImagePaths.length} image attachment(s) ignored`);
-    }
-
+    this.visionCapable = modelDef.capabilities?.vision === true && !!modelDef.mmprojPath;
+    const prepared = await prepareProviderAttachments(this.config.attachments, modelDef.capabilities?.vision === true && !!modelDef.mmprojPath, this.abortController?.signal);
+    const imageParts: ContentPart[] = prepared.images.map((image) => ({type: 'image_url', image_url: {url: `data:${image.mediaType};base64,${image.data}`}}));
     let text = userPrompt;
-    if (nonImagePaths.length > 0) {
-      text += '\n\n' + nonImagePaths.map((p) => `[attached file: ${p}]`).join('\n');
-    }
+    if (prepared.text) text += '\n\n' + prepared.text;
 
     if (imageParts.length > 0) {
       messages.push({ role: 'user', content: [{ type: 'text', text }, ...imageParts] });
@@ -425,7 +384,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
     const turnStart = Date.now();
     const body: ChatCompletionRequest = {
       model: modelName,
-      messages,
+      messages: openAiVisionMessages(messages, this.visionCapable),
       stream: true,
       stream_options: { include_usage: true },
       ...(tools && tools.length > 0 ? {
@@ -702,6 +661,8 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
   // instead of dispatching. Threshold defaults to coaching on the 3rd
   // attempt — tuned for local thinking models that get stuck in
   // read-and-narrate cycles.
+  private registry: LocalMcp;
+
   private async dispatchToolCalls(
     calls: ToolCall[],
     autoMode: boolean,
@@ -717,16 +678,18 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
       unknownTool: localUnknownToolResult,
       endTurnOnRepeat: true,
     };
+    const toolImages: ProviderImage[] = [];
     const rt: LocalToolRuntime = {
+      isKnownTool: (name) => this.registry.has(name),
       cwd: this.config.cwd,
       autoMode,
       computerChat: false,
       loop: loopDetector,
       runComputer: async () => '',
-      runTool: (name, args, cwd) => executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId }),
+      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, onImages: (images) => toolImages.push(...images) }),
       notice: (text) => this.emit('system_notice', text),
     };
-    return dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
+    const results = await dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
       const name = call.function.name;
       const parsed = parseToolArguments(call.function.arguments);
       this.emit('tool_use', { name, input: JSON.stringify(parsed.args), toolUseId: call.id });
@@ -739,6 +702,8 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
       const stored = truncateLocalToolResult(name, result, 'llama.cpp', TOOL_RESULT_HEAD_BYTES, TOOL_RESULT_TAIL_BYTES);
       return { role: 'tool', content: stored, tool_call_id: call.id } as ChatMessage;
     });
+    if (toolImages.length) results.push(openAiImageMessage(toolImages));
+    return results;
   }
 
   private async run(prompt: string): Promise<void> {
@@ -792,15 +757,14 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
     startedAt: number,
   ): Promise<void> {
 
+    const registryTools = await this.registry.open();
+    if (this.abortController?.signal.aborted) { this.registry.close(); return; }
     const baseUrl = llamacppBaseUrl(loaded);
-    // Bounded wait for the upload-time downscaled copies; buildMessages reads
-    // them synchronously via modelImagePath.
-    await awaitModelImages(this.config.attachments);
-    const messages = this.buildMessages(prompt, def);
+    const messages = await this.buildMessages(prompt, def);
 
     let tools: OllamaToolDefinition[] | undefined;
     if (this.config.cwd && this.config.interactionMode !== 'chat' && def.capabilities?.tools !== false) {
-      const all = getOllamaToolDefinitions({ clusterEnabled: !!this.config.clusterId && !!this.config.workflowId });
+      const all = [...registryTools, ...getOllamaToolDefinitions({ clusterEnabled: !!this.config.clusterId && !!this.config.workflowId })];
       tools = this.config.tools
         ? all.filter((t) => this.config.tools!.includes(t.function.name))
         : all;
@@ -1030,9 +994,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
       // while the tool calls were dispatching and append as user messages
       // so the next /v1/chat/completions call sees them. Server side
       // already broadcasts queue_update + queued_messages_drained; we just
-      // inject the text. Attachments fold to `[attached file: <path>]`
-      // text references (mid-turn image re-encoding into the OpenAI
-      // multimodal shape is out of scope for v1).
+      // inject decoded text and fitted images through the initial-message path.
       //
       // Placed BEFORE the recovery checks (tool-loop terminate, tool-cap
       // auto-continue) so a steer that arrives just as the loop is about
@@ -1049,11 +1011,9 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
       if (drainSteer) {
         const steerItems = drainSteer();
         for (const item of steerItems) {
-          let text = item.content;
-          if (item.attachments && item.attachments.length > 0) {
-            text += '\n\n' + item.attachments.map((p) => `[attached file: ${p}]`).join('\n');
-          }
-          messages.push({ role: 'user', content: text });
+          const prepared = await prepareProviderAttachments(item.attachments, this.visionCapable, this.abortController?.signal);
+          const text = [item.content,prepared.text].filter(Boolean).join('\n\n');
+          messages.push({role:'user',content:prepared.images.length ? [{type:'text',text},...prepared.images.map(image=>({type:'image_url' as const,image_url:{url:`data:${image.mediaType};base64,${image.data}`}}))] : text});
         }
       }
 
@@ -1112,6 +1072,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
   }
 
   kill(): void {
+    this.registry.close();
     const wasRunning = this._status === 'running' || this._status === 'spawning';
     const baseUrl = this.currentBaseUrl;
     if (this.abortController && this._status !== 'completed') {

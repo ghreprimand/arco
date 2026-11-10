@@ -51,7 +51,7 @@ export const chat: Section[] = [
   <p>
   The box grows with the message, then scrolls. Attach images or files with
   the <strong>+</strong> button, by pasting, or by dropping them anywhere on
-  the window. Incognito chats cannot attach files.
+  the window. Arco fits images and extracts text from PDFs, office documents and notebooks before sending. Text-only models receive an image note, and other binaries receive a file note. Incognito chats cannot attach files.
   </p>
   <p>
   While a response is running, the send button becomes{' '}

@@ -1,3 +1,4 @@
+import { prepareProviderAttachments, persistProviderImages, type PreparedAttachments } from './providerFileContent.js';
 // Codex CLI exec transport: each turn streams JSONL and can resume a session
 // by its stable UUID. The sandbox mode controls filesystem access: normal
 // workers use workspace-write or danger-full-access from the workflow setting;
@@ -6,8 +7,8 @@
 import { interruptProcess } from '../workers/interruptProcess.js';
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-import { statSync, readFileSync } from 'fs';
-import { extname, join } from 'path';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { homedir } from 'os';
 import { CodexStreamParser } from './codex-stream.js';
 import { killProcessTree } from '../workers/processKill.js';
@@ -15,7 +16,6 @@ import { isChildRunning } from '../workers/processStartTime.js';
 import { MAX_WORKER_OUTPUT_BYTES, OUTPUT_TRUNCATION_NOTICE } from '../workers/limits.js';
 import { getCachedCodexModelCapabilities } from './codex-appserver/catalog.js';
 import { markThrottled, markAvailable } from '../quota.js';
-import { modelImagePath } from './attachments.js';
 import { goalBlock } from './goalBlock.js';
 import { outputStyleAddendum } from './outputStyle.js';
 import { codexContextWindowOverride } from './codexContextWindow.js';
@@ -30,30 +30,7 @@ import { commandArgs } from '../windowsCommand.js';
 // observed window for ChatGPT-tier quota resets). Returns null when nothing
 // looks throttled.
 const CODEX_COOLDOWN_MS = 30 * 60 * 1000;
-const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
 
-function splitAttachments(paths: string[] | undefined): { images: string[]; nonImages: string[]; error?: string } {
-  const images: string[] = [];
-  const nonImages: string[] = [];
-  for (const p of paths ?? []) {
-    if (!IMAGE_EXT.has(extname(p).toLowerCase())) {
-      nonImages.push(p);
-      continue;
-    }
-    try {
-      const s = statSync(p);
-      if (!s.isFile()) return { images, nonImages, error: `image attachment "${p}" is not a file` };
-      images.push(p);
-    } catch (err) {
-      return {
-        images,
-        nonImages,
-        error: `image attachment "${p}" unreadable: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
-  }
-  return { images, nonImages };
-}
 
 export function parseCodexThrottle(text: string): { resetsAt?: number } | null {
   if (!text) return null;
@@ -101,26 +78,22 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
   }
 
   spawn(prompt: string): void {
-    const attachments = splitAttachments(this.config.attachments);
-    if (attachments.error) {
-      this._status = 'failed';
-      setImmediate(() => this.emit('error', attachments.error!));
-      return;
-    }
-    // `-i` gets the downscaled sibling when one exists (spawn is sync, so an
-    // unfinished derivation just sends the original this turn).
-    const args = this.buildArgs(attachments.images.map(modelImagePath));
+    if (!this.config.attachments?.length) { this.spawnPrepared(prompt); return; }
+    void prepareProviderAttachments(this.config.attachments).then(async (prepared) => {
+      const images = await persistProviderImages(prepared.images);
+      if (this._status === 'failed' || this._status === 'completed') return;
+      this.spawnPrepared(prompt, prepared, images);
+    }).catch(error => { this._status = 'failed'; this.emit('error', String(error)); });
+  }
+
+  private spawnPrepared(prompt: string, prepared?: PreparedAttachments, modelImages: string[] = []): void {
+    const args = this.buildArgs(modelImages);
     // Phase B — codex has no --system-prompt / --append-system-prompt flag.
     // Its prompt IS the stdin payload. A byte-stable transcript prefix can
     // be reused across invocations, like the prefix supplied through
     // --append-system-prompt. A trailing sentinel separates the cached prefix
     // from the per-spawn task so the prefix hash matches across turns.
-    const basePrompt = prompt.trim().length > 0 || attachments.images.length === 0
-      ? prompt
-      : 'Please inspect the attached image(s).';
-    const promptWithAttachmentRefs = attachments.nonImages.length > 0
-      ? `${basePrompt}\n\n${attachments.nonImages.map((p) => `[attached file: ${p}]`).join('\n')}`
-      : basePrompt;
+    const promptWithAttachmentRefs = [prompt, prepared?.text].filter(Boolean).join('\n\n');
     // docs/GOTCHAS.md - fold the operator's north-star into the
     // byte-stable prefix, above appendSystemPrompt, so it rides Codex's
     // prefix cache like the rest of the framing. Covers operator turns AND
@@ -231,6 +204,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     const args = isResume
       ? ['exec', 'resume', this.config.resumeSessionId!, '--json', '--skip-git-repo-check']
       : ['exec', '--json', '--color', 'never', '--skip-git-repo-check'];
+    args.push('-c', 'tools.view_image=true');
     // Both flags exist on `exec resume` too. First-turn-only let a saved
     // chat's turn 2+ load the operator's config.toml — their MCP servers
     // (project tools inside Chat) and sandbox defaults.

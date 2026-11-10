@@ -1,3 +1,5 @@
+import { prepareProviderAttachments, persistProviderImages, FILE_READ_GUIDANCE, type PreparedAttachments } from '../providerFileContent.js';
+import { createFilePlugin } from './filePlugin.js';
 // Stateless one-shot Cursor process for read-only primitives — Phase 5.
 //
 // Reviewer / fresh-summarizer / DOCS-doc-edit / research / compare all spawn a
@@ -52,7 +54,22 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
   get pid(): number | undefined { return this.proc?.pid; }
   get processRunning(): boolean { return isChildRunning(this.proc); }
 
+  private filePlugin: Awaited<ReturnType<typeof createFilePlugin>> | undefined;
+
   spawn(prompt: string): void {
+    if (!this.config.cwd && !this.config.attachments?.length) { this.spawnPrepared(prompt); return; }
+    void this.prepare(prompt).catch(error => this.fail(String(error)));
+  }
+
+  private async prepare(prompt:string):Promise<void> {
+    const prepared = await prepareProviderAttachments(this.config.attachments);
+    const imagePaths = await persistProviderImages(prepared.images);
+    if (this.config.cwd) this.filePlugin = await createFilePlugin(this.config.cwd);
+    if (this.settled) { await this.filePlugin?.close(); return; }
+    this.spawnPrepared(prompt,prepared,imagePaths);
+  }
+
+  private spawnPrepared(prompt: string, prepared?: PreparedAttachments, imagePaths:string[] = []): void {
     this.startedAt = Date.now();
     const model = resolveModelId(this.config.model);
 
@@ -72,17 +89,18 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     // upload dir joins the workspace roots — ask-mode's read tool is fenced to
     // them, and it opens images natively. Chat tabs route here, so without
     // this a pasted screenshot never reached a Cursor chat.
-    for (const dir of attachmentDirs(this.config.attachments)) args.push('--add-dir', dir);
+    for (const dir of attachmentDirs([...(this.config.attachments ?? []), ...imagePaths])) args.push('--add-dir', dir);
 
     // Fold the operator's north-star + appendSystemPrompt (cluster plan/role, when
     // a cluster primitive supplies it) as a leading block, same ordering as the
     // ACP worker's beginTurn. goalBlock is null-when-empty so the default primitive
     // path is byte-identical to a bare prompt.
     // The output-style addendum closes the prefix (null for normal).
-    const prefixParts = [goalBlock(this.config.goal), this.config.appendSystemPrompt, outputStyleAddendum(this.config.outputStyle)]
+    const prefixParts = [goalBlock(this.config.goal), this.config.appendSystemPrompt, this.filePlugin ? FILE_READ_GUIDANCE : undefined, outputStyleAddendum(this.config.outputStyle)]
       .filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
     const prefix = prefixParts.length > 0 ? prefixParts.join('\n\n') : undefined;
-    const body = withAttachmentRefs(prompt, this.config.attachments ?? []);
+    const body = [prompt, prepared?.text, withAttachmentRefs('', imagePaths)].filter(Boolean).join('\n\n');
+    if (this.filePlugin) args.push('--plugin-dir', this.filePlugin.path);
     const fullPrompt = prefix ? `${prefix}\n\n---\n\n${body}` : body;
 
     this.proc = spawn(...commandArgs('cursor-agent', args), {
@@ -130,6 +148,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
 
   private onExit(code: number | null, signal: NodeJS.Signals | null): void {
     if (this.settled) return;
+    void this.filePlugin?.close();
     const tail = this.stdoutDecoder.end();
     if (tail) { this._output += tail; this.emit('text', tail); }
     this.stderrBuf = (this.stderrBuf + this.stderrDecoder.end()).slice(-STDERR_CAP);
@@ -154,6 +173,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
   }
 
   private fail(reason: string): void {
+    void this.filePlugin?.close();
     if (this.settled) return;
     this.settled = true;
     this._status = 'failed';

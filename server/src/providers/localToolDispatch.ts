@@ -46,6 +46,7 @@ export interface LocalToolRules {
 
 export interface LocalToolRuntime {
   cwd: string | undefined;
+  isKnownTool?: (name: string) => boolean;
   autoMode: boolean;
   computerChat: boolean;
   loop: ToolLoopDetector;
@@ -68,7 +69,7 @@ export async function decideLocalToolCall(name: string, parsed: ParsedToolArgume
   // The tool runtime anchors paths to the workflow folder; a spawn without one
   // is refused rather than run relative to the server's own folder.
   if (!rt.cwd) return `[error] tool "${name}" requires a workflow cwd; this spawn has none.`;
-  if (!isKnownOllamaTool(name)) return rules.unknownTool(name);
+  if (!isKnownOllamaTool(name) && !rt.isKnownTool?.(name)) return rules.unknownTool(name);
   const { coach, terminate, previousCount } = rt.loop.shouldCoach(name, args);
   if (terminate && rules.endTurnOnRepeat) {
     rt.notice(`tool-loop terminating: "${name}" called ${previousCount + 1}x with identical args after coaching ignored — ending turn`);

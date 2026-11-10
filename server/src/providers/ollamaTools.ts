@@ -1,5 +1,6 @@
-import { readRegularRange, regularFileLines, readResponsePrefix } from '../boundedRead.js';
+import { regularFileLines } from '../boundedRead.js';
 import { writeCheckedFile } from '../checkedFile.js';
+import { readFileContent, fileContentFromBytes, fileHeaderKind, MAX_FILE_CONTENT_BYTES, type FileContentBlock } from '../fileContent.js';
 import { resolveToolPath } from '../toolPath.js';
 import { requestWithDeadline } from './requestDeadline.js';
 
@@ -78,6 +79,7 @@ export interface OllamaToolContext {
   abortSignal?: AbortSignal;
   workflowId?: string;
   clusterId?: string;
+  onImages?: (images: Extract<FileContentBlock, { type: 'image' }>[]) => void;
 }
 
 export interface OllamaToolDefinition {
@@ -151,7 +153,7 @@ const ReadTool: OllamaToolEntry = {
     function: {
       name: 'Read',
       description:
-        'Read a file inside the workflow cwd, or a built-in skill file listed in the skill manifest. Relative paths resolve against cwd. Default returns up to 32 KB; for larger files use `offset` + `limit` to read a specific line range. Don\'t fire many parallel Reads of large files — the local context window is finite and 5 large Reads will overflow it.',
+        'Read a file inside the workflow cwd, or a built-in skill file listed in the skill manifest. Relative paths resolve against cwd. Images are returned visually when the model supports vision; PDFs, office documents and notebooks are decoded as text, and other binaries return a note. Use pages for a document unit range. Default returns up to 32 KB; for larger files use `offset` + `limit` to read a specific line range. Don\'t fire many parallel Reads of large files — the local context window is finite and 5 large Reads will overflow it.',
       parameters: {
         type: 'object',
         properties: {
@@ -159,6 +161,7 @@ const ReadTool: OllamaToolEntry = {
             type: 'string',
             description: 'Path to the file. Relative paths resolve against cwd; built-in skill files use the absolute paths in their manifest.',
           },
+          pages: { type: 'string', description: '1-based PDF page, office sheet/slide or notebook cell range, for example 1-3,5.' },
           offset: {
             type: 'number',
             description: 'Optional 1-based starting line number. Default 1.',
@@ -184,9 +187,17 @@ const ReadTool: OllamaToolEntry = {
       : undefined;
     const builtin = readBuiltinVirtualFile(filePath);
     const abs = builtin === undefined ? resolveToolPath(ctx.cwd, filePath) : filePath;
-    const result = builtin === undefined
-      ? await readRegularRange(abs, READ_BYTE_CAP, offset, limit, ctx.abortSignal)
-      : { text: builtin.split('\n').slice(offset - 1, limit === undefined ? undefined : offset - 1 + limit).join('\n'), truncated: false };
+    if (builtin === undefined) {
+      const result = await readFileContent(abs, {
+        signal: ctx.abortSignal, offset, limit,
+        pages: typeof args.pages === 'string' ? args.pages : undefined,
+        limits: { images: !!ctx.onImages, documents: false, maxTextBytes: READ_BYTE_CAP },
+      });
+      const images = result.blocks.filter((b): b is Extract<FileContentBlock, {type:'image'}> => b.type === 'image');
+      if (images.length) ctx.onImages?.(images);
+      return result.isError ? `[error] ${result.text}` : result.text;
+    }
+    const result = { text: builtin.split('\n').slice(offset - 1, limit === undefined ? undefined : offset - 1 + limit).join('\n'), truncated: false };
     const truncated = result.truncated || Buffer.byteLength(result.text) > READ_BYTE_CAP;
     let body = Buffer.from(result.text).subarray(0, READ_BYTE_CAP).toString('utf8');
     if (truncated) body += `\n\n[truncated at ${READ_BYTE_CAP} bytes; use offset+limit to read a smaller range]`;
@@ -478,6 +489,8 @@ function isPrivateOrLoopbackHost(host: string): boolean {
 }
 
 interface FetchOutcome {
+  bytes?: Buffer;
+  fileLike?: boolean;
   truncated?: boolean;
   ok: boolean;
   status?: number;
@@ -504,10 +517,38 @@ async function fastFetch(targetUrl: string, signal: AbortSignal): Promise<FetchO
     return { ok: false, text: '', reason: err instanceof Error ? err.message : String(err) };
   }
   const contentType = res.headers.get('content-type') ?? '';
-  // Read up to 2x the cap so post-strip we still have a shot at filling
-  // the budget. Beyond that we truncate.
-  const result = await readResponsePrefix(res, TOOL_OUTPUT_CAP * 2);
-  return { ok: res.ok, status: res.status, contentType, text: result.text, truncated: result.truncated };
+  const result = await readFetchBytes(res);
+  let text = '';
+  if (!result.fileLike) { try { text = new TextDecoder('utf-8',{fatal:true}).decode(result.bytes); } catch { /* Decoder produces an encoding note below. */ } }
+  return { ok: res.ok, status: res.status, contentType, text, ...result };
+
+}
+
+// Text keeps the existing 128 KiB network budget. Known document/media
+// responses get a bounded 64 MiB decoding budget so fitting can happen before
+// payload limits are applied. Every truncated stream is cancelled.
+async function readFetchBytes(response:Response):Promise<{bytes:Buffer;truncated:boolean;fileLike:boolean}> {
+  const reader=response.body?.getReader();
+  if (!reader) return {bytes:Buffer.alloc(0),truncated:false,fileLike:false};
+  let fileLike=/image\/|application\/(pdf|msword|vnd\.)|(?:text|application)\/rtf/i.test(response.headers.get('content-type') ?? '');
+  let used=0,done=false;
+  const parts:Buffer[]=[];
+  try {
+    for (;;) {
+      const cap=fileLike ? MAX_FILE_CONTENT_BYTES : TOOL_OUTPUT_CAP*2;
+      if (used>=cap) break;
+      const next=await reader.read();
+      if(next.done){done=true;break;}
+      if (!fileLike && used < 4096) {
+        const prefix = Buffer.concat([...parts, Buffer.from(next.value.subarray(0, 4096 - used))], Math.min(4096, used + next.value.byteLength));
+        const kind = fileHeaderKind(prefix);
+        fileLike = kind.startsWith('image/') || ['application/pdf', 'application/zip', 'application/x-ole-storage', 'application/rtf'].includes(kind);
+      }
+      const keep=Math.min(next.value.byteLength,(fileLike?MAX_FILE_CONTENT_BYTES:TOOL_OUTPUT_CAP*2)-used);
+      parts.push(Buffer.from(next.value.subarray(0,keep)));used+=keep;
+    }
+    return {bytes:Buffer.concat(parts,used),truncated:!done,fileLike};
+  }finally{if(!done)await reader.cancel().catch(()=>{});reader.releaseLock();}
 }
 
 // Cheap HTML→text. Strips <script> and <style> blocks, replaces line-
@@ -538,6 +579,7 @@ function stripHtml(html: string): string {
 
 function looksBlocked(outcome: FetchOutcome): boolean {
   if (!outcome.ok) return true;
+  if (outcome.fileLike && outcome.bytes?.length) return false;
   if (outcome.text.length < 200) return true;
   const lc = outcome.text.toLowerCase().slice(0, 4096);
   if (lc.includes('cf-chl-bypass') || lc.includes('cloudflare') && lc.includes('challenge')) return true;
@@ -626,7 +668,7 @@ const WebFetchTool: OllamaToolEntry = {
     function: {
       name: 'WebFetch',
       description:
-        'Fetch a URL and return its text content. Default mode is "auto": tries a fast HTTP fetch first, falls back to a real browser (Camoufox) if the page returns 403, looks Cloudflare-blocked, or comes back empty. Use "fast" for sites you know respond to plain HTTP, "stealth" for sites you know are bot-protected. Output is capped at 64 KB. Loopback / private / link-local hosts are refused — those are operator-internal services, not fair game for the model.',
+        'Fetch a URL. Images are returned visually when supported; PDFs and office files become text, other binaries a note. Default mode is "auto": tries a fast HTTP fetch first, falls back to a real browser (Camoufox) if the page returns 403, looks Cloudflare-blocked, or comes back empty. Use "fast" for sites you know respond to plain HTTP, "stealth" for sites you know are bot-protected. Output is capped at 64 KB. Loopback / private / link-local hosts are refused — those are operator-internal services, not fair game for the model.',
       parameters: {
         type: 'object',
         properties: {
@@ -634,6 +676,7 @@ const WebFetchTool: OllamaToolEntry = {
             type: 'string',
             description: 'http:// or https:// URL to fetch.',
           },
+          pages: { type:'string', description:'Optional 1-based document page, sheet or slide range, such as 1-3.' },
           mode: {
             type: 'string',
             enum: ['auto', 'fast', 'stealth'],
@@ -703,13 +746,24 @@ const WebFetchTool: OllamaToolEntry = {
     if (!outcome) {
       return '[error] WebFetch produced no result (unreachable mode branch)';
     }
-    if (!outcome.ok && !outcome.text) {
+    if (!outcome.ok && !outcome.text && !outcome.bytes?.length) {
       return `[error] WebFetch (${usedMode}) failed: ${outcome.reason ?? `HTTP ${outcome.status ?? '?'}`}`;
     }
     // HTML strip only for fast-mode HTML responses; stealth's inner_text
     // is already plain text, and JSON / markdown bodies should pass
     // through verbatim.
     let body = outcome.text;
+    if (outcome.bytes) {
+      if (outcome.truncated && outcome.fileLike) body = '[File response exceeds the decoding budget; request a smaller file or page range.]';
+      else {
+        const decoded = await fileContentFromBytes(outcome.bytes, parsed.pathname.split('/').pop() || 'response', {
+          signal:ctx.abortSignal,pages:typeof args.pages === 'string'?args.pages:undefined,
+          limits:{images:!!ctx.onImages,documents:false,maxTextBytes:TOOL_OUTPUT_CAP*2},
+        });
+        ctx.onImages?.(decoded.blocks.filter((b):b is Extract<FileContentBlock,{type:'image'}>=>b.type==='image'));
+        body = decoded.text;
+      }
+    }
     if (usedMode === 'fast' && outcome.contentType && /html|xml/i.test(outcome.contentType)) {
       body = stripHtml(body);
     }

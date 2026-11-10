@@ -5,11 +5,14 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Decode local and CLI provider file reads and attachments as fitted images, document text or notebook cells; preserve MCP images and give clear notes for unsupported binaries and text-only models.
 - File reads and attachments decode AVIF images and ICO icons and provide SVG source with a fitted preview, without extra programs or external resource access.
 
 - Claude Native Read and attachments handle portable image fitting, PDF ranges, Office documents and notebook cells without extra programs. MCP media stays visible to the model; saved context retains file receipts.
 
+
 - Claude Native Read shows PNG, JPEG, GIF and WebP files to the model, including Task helpers. Large images are resized or explained with a text note; tool cards show image names and dimensions.
+
 
 - Show the measured context in ACTIVITY and avoid labelling Claude worker usage totals as context.
 

@@ -1,3 +1,6 @@
+import { LocalMcp, registerLocalMcpTools } from '../providers/localMcp.js';
+import type { OllamaToolDefinition } from '../providers/ollamaTools.js';
+import type { ResolvedMcpServer, WorkerConfig } from '@arco/shared';
 // docs/PROVIDERS.md - in-process loopback HTTP MCP server for
 // Cursor cluster members.
 //
@@ -28,6 +31,7 @@ import { randomBytes } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { registerClusterTools, type ClusterMcpToolCtx } from './clusterMcpTools.js';
+import { registerFileTools } from './fileMcpTools.js';
 import { registerPlanTools } from './planMcpTools.js';
 import type { ClusterMemberAccessMode } from '@arco/shared';
 
@@ -43,6 +47,8 @@ export interface ClusterLoopbackCtx {
   cwd?: string;
   taskBoardAttached: boolean;
   accessMode?: ClusterMemberAccessMode;
+  registryServers?: ResolvedMcpServer[];
+  readOnly?: boolean;
 }
 
 interface LoopbackEntry {
@@ -52,6 +58,9 @@ interface LoopbackEntry {
   // Mutable — refreshed each turn via ensureClusterLoopbackMcp so board
   // attach/detach and (defensively) clusterId changes land without a respawn.
   ctx: ClusterLoopbackCtx;
+  registry?: LocalMcp;
+  registryDefinitions?: OllamaToolDefinition[];
+  registryFingerprint?: string;
 }
 
 const servers = new Map<string, LoopbackEntry>();
@@ -82,8 +91,9 @@ async function handleMcpRequest(entry: LoopbackEntry, req: IncomingMessage, res:
     logErr: (...args: unknown[]) => console.error(tag(entry.ctx.workflowId), ...args),
   };
   const server = new McpServer({ name: 'arco-cluster', version: '1.0.0' });
-  registerClusterTools(server, toolCtx);
+  if (entry.ctx.clusterId) registerClusterTools(server, toolCtx);
   if (entry.ctx.cwd) {
+    registerFileTools(server, entry.ctx.cwd);
     registerPlanTools(server, {
       workflowId: entry.ctx.workflowId,
       cwd: entry.ctx.cwd,
@@ -91,6 +101,7 @@ async function handleMcpRequest(entry: LoopbackEntry, req: IncomingMessage, res:
       logErr: toolCtx.logErr,
     });
   }
+  if (entry.registry) await registerLocalMcpTools(server, entry.registry, entry.registryDefinitions ?? []);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   res.on('close', () => { void transport.close(); void server.close(); });
   await server.connect(transport);
@@ -112,6 +123,7 @@ export async function ensureClusterLoopbackMcp(
     // replaced: a refresh that omits it must not unregister the plan_* tools
     // (the per-turn Cursor refresh once did exactly that after turn one).
     existing.ctx = { ...ctx, cwd: ctx.cwd ?? existing.ctx.cwd };
+    await refreshRegistry(existing);
     return { name: 'arco-cluster', url: urlFor(existing) };
   }
 
@@ -126,6 +138,7 @@ export async function ensureClusterLoopbackMcp(
     });
   });
   entry.http = http;
+  await refreshRegistry(entry);
 
   await new Promise<void>((resolve, reject) => {
     http.once('error', reject);
@@ -150,6 +163,16 @@ export function closeClusterLoopbackMcp(workflowId: string): void {
   const entry = servers.get(workflowId);
   if (!entry) return;
   servers.delete(workflowId);
+  entry.registry?.close();
   try { entry.http.close(); } catch { /* already closing */ }
   console.log(`${tag(workflowId)} closed`);
+}
+
+async function refreshRegistry(entry:LoopbackEntry):Promise<void> {
+  const fingerprint = JSON.stringify([entry.ctx.registryServers ?? [],entry.ctx.readOnly]);
+  if (fingerprint === entry.registryFingerprint) return;
+  entry.registry?.close();
+  entry.registry = new LocalMcp({mcpRegistryServers:entry.ctx.registryServers,sandbox:entry.ctx.readOnly?'read-only':undefined,interactionMode:'agent'} as WorkerConfig);
+  entry.registryDefinitions = await entry.registry.open();
+  entry.registryFingerprint = fingerprint;
 }

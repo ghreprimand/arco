@@ -1,3 +1,4 @@
+import { prepareProviderAttachments, type PreparedAttachments } from './providerFileContent.js';
 import { interruptProcess } from '../workers/interruptProcess.js';
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
@@ -5,18 +6,15 @@ import {
   writeFileSync,
   unlinkSync,
   mkdirSync,
-  readFileSync,
-  statSync,
 } from 'fs';
 import { tmpdir } from 'os';
-import { join as joinPath, extname } from 'path';
+import { join as joinPath } from 'path';
 import { StreamParser } from '../workers/StreamParser.js';
 import { killProcessTree } from '../workers/processKill.js';
 import { isChildRunning } from '../workers/processStartTime.js';
 import { MAX_WORKER_OUTPUT_BYTES, OUTPUT_TRUNCATION_NOTICE } from '../workers/limits.js';
 import { markThrottled, markAvailable } from '../quota.js';
 import type { WorkerConfig, WorkerStatus } from '@arco/shared';
-import { modelImagePath } from './attachments.js';
 import { goalBlock } from './goalBlock.js';
 import { outputStyleAddendum } from './outputStyle.js';
 import { reportCompaction } from '../compactionReport.js';
@@ -42,19 +40,6 @@ export function builtinReadRule(root: string): string {
 const APPEND_SP_ARG_MAX = 64 * 1024;
 const APPEND_SP_TMPDIR = joinPath(tmpdir(), 'arco-prompts');
 
-// Per-attachment image cap. Claude API accepts up to 5MB base64 per image.
-// Going over this would get bounced at the API boundary with a 400, so we
-// reject early with a clear error.
-const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-
-const IMAGE_MEDIA_TYPE: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif',
-  '.webp': 'image/webp',
-};
-
 // North star first, then the appended prompt, then the output-style addendum
 // last (the order Claude Native uses). Each part is stable for the tab, so the
 // appended system prompt stays byte-identical from turn to turn.
@@ -62,11 +47,6 @@ function effectiveAppendSystemPrompt(config: WorkerConfig): string | undefined {
   const parts = [goalBlock(config.goal), config.appendSystemPrompt, outputStyleAddendum(config.outputStyle)]
     .filter((s): s is string => typeof s === 'string' && s.length > 0);
   return parts.length > 0 ? parts.join('\n\n') : undefined;
-}
-
-function classifyAttachment(path: string): { kind: 'image'; mediaType: string } | { kind: 'other' } {
-  const mt = IMAGE_MEDIA_TYPE[extname(path).toLowerCase()];
-  return mt ? { kind: 'image', mediaType: mt } : { kind: 'other' };
 }
 
 // Slot 4 — Claude CLI throttle detection. Stderr patterns observed in the
@@ -222,6 +202,15 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
   }
 
   private _launch(): void {
+    if (!this._resumeOnRetry && this.config.attachments?.length) {
+      void prepareProviderAttachments(this.config.attachments).then((prepared) => {
+        if (this._status === 'failed' || this._status === 'completed') return;
+        this._launchPrepared(prepared);
+      }).catch((error) => { this._status = 'failed'; this.emit('error', String(error)); });
+    } else this._launchPrepared();
+  }
+
+  private _launchPrepared(prepared?: PreparedAttachments): void {
     // docs/PROVIDERS.md - prepend the `ultracode` keyword so the CLI's
     // workflow keyword-trigger fires (the documented opt-in; equivalent to
     // typing "ultracode: …" in the interactive client). _prompt stays raw so
@@ -239,7 +228,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     const privatePrefix = this.config.incognito
       ? [this.config.systemPrompt, effectiveAppendSystemPrompt(this.config)].filter(Boolean).join('\n\n')
       : '';
-    const prompt = privatePrefix
+    let prompt = privatePrefix
       ? `${privatePrefix}\n\n--- Current operator message ---\n\n${rawPrompt}`
       : rawPrompt;
     // Build the stdin payload first. If the operator attached image files
@@ -249,43 +238,10 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     // their paths appended to the text so the operator's intent isn't
     // silently lost — Agent primaries have the full CLI toolset and can Read
     // them; Chat (--tools "" or web-only) at least sees the reference.
-    const images: Array<{ mediaType: string; data: string; path: string }> = [];
+    const images = prepared?.images ?? [];
     const nonImagePaths: string[] = [];
-    let attachmentError: string | null = null;
-
-    // A continuation retry resumes a session that already holds the images.
-    for (const p of this._resumeOnRetry ? [] : this.config.attachments ?? []) {
-      const cls = classifyAttachment(p);
-      if (cls.kind !== 'image') {
-        nonImagePaths.push(p);
-        continue;
-      }
-      try {
-        // Downscaled sibling when present; media type follows ITS extension
-        // (an over-cap PNG comes back as a .jpg re-encode).
-        const src = modelImagePath(p);
-        const size = statSync(src).size;
-        if (size > IMAGE_MAX_BYTES) {
-          attachmentError = `attachment "${p}" exceeds ${Math.round(IMAGE_MAX_BYTES / 1024 / 1024)}MB image limit`;
-          break;
-        }
-        const buf = readFileSync(src);
-        const srcCls = classifyAttachment(src);
-        images.push({ mediaType: srcCls.kind === 'image' ? srcCls.mediaType : cls.mediaType, data: buf.toString('base64'), path: p });
-      } catch (err) {
-        attachmentError = `attachment "${p}" unreadable: ${err instanceof Error ? err.message : String(err)}`;
-        break;
-      }
-    }
-
-    if (attachmentError) {
-      // Emit via the same error path subprocess failures use so the operator
-      // sees it in chat and the workflow busy flag drops.
-      this._status = 'failed';
-      setImmediate(() => this.emit('error', attachmentError!));
-      return;
-    }
-
+    const attachmentText = prepared?.text ?? '';
+    if (attachmentText) prompt += '\n\n' + attachmentText;
     const useStreamJson = images.length > 0;
     const args = this.buildArgs({ streamJsonInput: useStreamJson });
 

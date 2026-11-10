@@ -22,6 +22,7 @@ import '../envAliases.js'; // env fallback resolves before any module reads ARCO
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { registerFileTools } from './fileMcpTools.js';
 import { registerPlanTools } from './planMcpTools.js';
 
 const [, , WORKFLOW_ID_RAW, CWD_RAW, PORT_RAW] = process.argv;
@@ -41,6 +42,7 @@ function logErr(...args: unknown[]): void {
 
 async function main(): Promise<void> {
   const server = new McpServer({ name: 'arco', version: '1.0.0' });
+  registerFileTools(server, CWD);
   registerPlanTools(server, {
     workflowId: WORKFLOW_ID,
     cwd: CWD,

@@ -47,10 +47,12 @@ test('app-server thread config applies MAX and omits STANDARD', async () => {
   const home = homeWith([{ slug: 'gpt-6-astra', context_window: 272_000, max_context_window: 872_000 }]);
   assert.deepEqual(await buildThreadConfigOverrides(config(home)), {
     web_search: 'live',
+    tools: { view_image: true },
     model_context_window: 872_000,
   });
   assert.deepEqual(await buildThreadConfigOverrides(config(home, 'standard')), {
     web_search: 'live',
+    tools: { view_image: true },
   });
 });
 

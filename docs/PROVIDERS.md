@@ -2139,3 +2139,32 @@ Claude Native file guards use the same resolved file identity as Read, Write and
 Claude Native and local-model Glob, and JavaScript Grep when used instead of ripgrep, skip Git-ignored directories and nested Git checkouts or worktrees below the search root. Each walk has an entry and time budget; a limited response says "results truncated" and asks for a narrower path or pattern. Individually ignored files and explicitly selected ignored folders stay searchable. Useful hidden folders remain searchable, including explicit `.github/**` patterns. Grep can also target a single file. Selecting a nested checkout itself as the search root searches that checkout normally. Ripgrep keeps its existing Git-ignore behavior and execution limit.
 
 Claude Native and local-model Glob can return a directory alias for a directory-only pattern such as `src-link/`. The alias must resolve within the project and pass the path checks. Glob does not walk through directory aliases.
+
+## Reading files and attachments
+
+Arco decodes file contents before sending them to a model. Local providers use
+this reader for `Read`; Claude CLI, Codex and Cursor can use the read-only
+`read_file` MCP tool for files in their workflow folder. It fits images,
+extracts document text and reads notebook cells without extra software.
+Other binary files produce a named-file note instead of raw bytes.
+
+The same decoding applies to operator attachments, including Chat tabs that
+have no file tools. PDFs, Word, Excel, PowerPoint, OpenDocument and RTF files
+become text on local and CLI transports. Large documents are bounded; use
+`pages` on `Read` or `read_file` to select PDF pages, spreadsheet sheets,
+presentation slides or notebook cells, for example `1-3,5`. Text files retain
+line addressing through `offset` and `limit`.
+
+Images use the selected transport's native image input. Ollama checks the
+serving model's reported vision capability for every request. llama.cpp needs
+both a vision-capable catalog entry and its projector. LM Studio uses native
+model metadata when available; Strata and DeepSeek use their reported model
+capabilities. An unknown or text-only model receives a clear image note.
+MCP image results follow the same capability checks.
+
+Codex enables its local image tool on both transports. Cursor ACP exposes the
+file reader in solo and cluster tabs and avoids decoding binary bytes in its
+text-file callback. Cursor print uses a temporary read-only file-reader plugin,
+keeps ask mode and the original workflow folder, and removes the plugin when
+the subprocess ends. It does not change saved Cursor MCP configuration or
+approve unrelated MCP servers.

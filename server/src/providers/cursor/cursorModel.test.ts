@@ -227,6 +227,7 @@ test('ACP and print mode close the prompt prefix with the output-style addendum'
   const { outputStyleAddendum } = await import('../outputStyle.js');
   const { goalBlock } = await import('../goalBlock.js');
   const terse = outputStyleAddendum('terse')!;
+  const { FILE_READ_GUIDANCE } = await import('../providerFileContent.js');
   setFake({});
   const w = new worker.CursorAcpWorker('wf-style', { ...config('auto', 'wf-style'), outputStyle: 'terse', goal: 'Ship the fix' } as WorkerConfig, undefined);
   try {
@@ -235,11 +236,11 @@ test('ACP and print mode close the prompt prefix with the output-style addendum'
     await w.beginTurn('hello');
     await settled;
     const prompt = requests().find((r) => r.method === 'session/prompt')?.params?.prompt as Array<{ type: string; text?: string }>;
-    assert.equal(prompt[0].text, `${goalBlock('Ship the fix')}\n\n${terse}\n\n---\n\nhello`);
+    assert.equal(prompt[0].text, `${goalBlock('Ship the fix')}\n\n${FILE_READ_GUIDANCE}\n\n${terse}\n\n---\n\nhello`);
   } finally { await w.dispose(); }
 
   const { CursorPrintProvider } = await import('./print.js');
-  for (const [style, expected] of [['plain', `${outputStyleAddendum('plain')}\n\n---\n\nhello`], ['normal', 'hello']] as const) {
+  for (const [style, expected] of [['plain', `${FILE_READ_GUIDANCE}\n\n${outputStyleAddendum('plain')}\n\n---\n\nhello`], ['normal', `${FILE_READ_GUIDANCE}\n\n---\n\nhello`]] as const) {
     setFake({});
     const p = CursorPrintProvider.create(`p-style-${style}`, { ...config('auto'), outputStyle: style } as WorkerConfig);
     const done = new Promise<void>((res, rej) => { p.once('result', () => res()); p.once('error', (e: string) => rej(new Error(e))); });

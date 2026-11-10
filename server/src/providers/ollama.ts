@@ -1,11 +1,11 @@
+import { LocalMcp } from './localMcp.js';
+import { prepareProviderAttachments, ollamaVisionMessages, type ProviderImage } from './providerFileContent.js';
 import { TRANSCRIPT_JSON_HEADER } from './renderedTranscript.js';
 import { compactDurableOllama } from './ollamaDurableCompaction.js';
 import { parseComputerHistory } from '../voice/history.js';
 import { computerToolDefinitions, executeComputerTool } from '../voice/toolDefinitions.js';
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
-import { readFileSync, statSync } from 'fs';
-import { extname } from 'path';
 import { MAX_WORKER_OUTPUT_BYTES, OUTPUT_TRUNCATION_NOTICE } from '../workers/limits.js';
 import { markAvailable } from '../quota.js';
 import {
@@ -17,7 +17,6 @@ import {
 } from './ollamaTools.js';
 import { goalBlock } from './goalBlock.js';
 import { outputStyleAddendum } from './outputStyle.js';
-import { awaitModelImages, modelImagePath } from './attachments.js';
 import { applyOllamaParams, effectiveNumCtx, parseArchContextLength } from './ollamaParams.js';
 import { loadedContextLength } from './ollamaVram.js';
 import { subsetOllamaTools } from './ollamaToolSubset.js';
@@ -115,6 +114,7 @@ const OLLAMA_CHAT_WEB_TOOLS = new Set(['WebSearch', 'WebFetch']);
 
 export function ollamaToolCandidates(
   config: Pick<WorkerConfig, 'cwd' | 'interactionMode' | 'chatWebAccess' | 'tools' | 'clusterId' | 'workflowId' | 'clusterAccessMode' | 'voiceOperator'>,
+  registryTools: OllamaToolDefinition[] = [],
 ): OllamaToolDefinition[] | undefined {
   if (!config.cwd) return undefined;
   if (config.interactionMode === 'chat') {
@@ -122,10 +122,10 @@ export function ollamaToolCandidates(
     if (!config.chatWebAccess) return undefined;
     return getOllamaToolDefinitions().filter((tool) => OLLAMA_CHAT_WEB_TOOLS.has(tool.function.name));
   }
-  const all = getOllamaToolDefinitions({
+  const all = [...registryTools, ...getOllamaToolDefinitions({
     clusterEnabled: !!config.clusterId && !!config.workflowId,
     mailboxOnly: config.clusterAccessMode !== undefined && config.clusterAccessMode !== 'standard',
-  });
+  })];
   return config.tools
     ? all.filter((tool) => config.tools!.includes(tool.function.name))
     : all;
@@ -356,28 +356,6 @@ function shouldRequireClusterPeerReport(
   if (/\b(coordinator|director)\b/.test(role)) return false;
 
   return true;
-}
-
-// Image-attachment cap. Matches Claude's IMAGE_MAX_BYTES — Anthropic's API
-// rejects images >5 MB base64, and Ollama doesn't have a documented hard
-// cap but >5 MB images are usually a sign the operator screenshot a 4K
-// monitor; resize first if you genuinely need that resolution. Caught
-// here, not at /api/chat, so the operator gets a clear early error.
-const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-
-// Image media types Ollama's /api/chat understands (via the underlying
-// vision model's CLIP/projector). PNG/JPEG/WebP/GIF cover all common
-// screenshot/photo formats; HEIC/AVIF would need conversion first.
-const IMAGE_EXT: Record<string, true> = {
-  '.png': true,
-  '.jpg': true,
-  '.jpeg': true,
-  '.gif': true,
-  '.webp': true,
-};
-
-function classifyAttachment(path: string): { kind: 'image' } | { kind: 'other' } {
-  return IMAGE_EXT[extname(path).toLowerCase()] ? { kind: 'image' } : { kind: 'other' };
 }
 
 // Per-request keep_alive. The plan originally specified -1 (forever) for
@@ -725,6 +703,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     super();
     this.id = id;
     this.config = config;
+    this.registry = new LocalMcp(config);
   }
 
   // TEST-ONLY seam: pin the selection RNG so the offline integration smokes are
@@ -743,7 +722,9 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
 
   spawn(prompt: string): void {
     this.abortController = new AbortController();
-    void this.run(prompt);
+    void this.run(prompt).catch((error) => {
+      if (!this.abortController?.signal.aborted) this.fail(`Ollama: ${error instanceof Error ? error.message : String(error)}`);
+    }).finally(() => this.registry.close());
   }
 
   // Build the structured message stack from systemPrompt + appendSystemPrompt
@@ -764,7 +745,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
   // The prefix is byte-stable per-effort-value so the prefix cache hits
   // cleanly within a same-effort run; switching effort mid-workflow is an
   // explicit cache-invalidation event the operator opted into.
-  private buildMessages(userPrompt: string): OllamaChatMessage[] {
+  private async buildMessages(userPrompt: string): Promise<OllamaChatMessage[]> {
     const messages: OllamaChatMessage[] = [];
     const noThink = this.config.effort === 'low';
     // docs/GOTCHAS.md - fold the operator's north-star at the top of the
@@ -784,33 +765,12 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       messages.push(...(this.config.voiceOperator ? parseComputerHistory(this.config.appendSystemPrompt) : parseRenderedTranscript(this.config.appendSystemPrompt)));
     }
 
-    const images: string[] = [];
-    const nonImagePaths: string[] = [];
-    for (const p of this.config.attachments ?? []) {
-      const cls = classifyAttachment(p);
-      if (cls.kind !== 'image') {
-        nonImagePaths.push(p);
-        continue;
-      }
-      try {
-        const src = modelImagePath(p);
-        const size = statSync(src).size;
-        if (size > IMAGE_MAX_BYTES) {
-          this.emit('system_notice', `attachment "${p}" exceeds ${Math.round(IMAGE_MAX_BYTES / 1024 / 1024)}MB image limit — skipped`);
-          continue;
-        }
-        images.push(readFileSync(src).toString('base64'));
-      } catch (err) {
-        this.emit('system_notice', `attachment "${p}" unreadable: ${err instanceof Error ? err.message : String(err)} — skipped`);
-      }
-    }
-
+    const prepared = await prepareProviderAttachments(this.config.attachments, true, this.abortController?.signal);
+    const images = prepared.images.map((image) => image.data);
     let text = userPrompt;
     const chatWebReminder = ollamaChatWebReminder(this.config);
     if (chatWebReminder) text += `\n\n${chatWebReminder}`;
-    if (nonImagePaths.length > 0) {
-      text += '\n\n' + nonImagePaths.map((p) => `[attached file: ${p}]`).join('\n');
-    }
+    if (prepared.text) text += '\n\n' + prepared.text;
 
     const finalMessage: OllamaChatMessage = { role: 'user', content: text };
     if (images.length > 0) finalMessage.images = images;
@@ -859,7 +819,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     nativeThinking: NativeThinking,
     // The backend's /api/show probe — Modelfile num_ctx + arch max form the
     // trusted ceiling for the operator's num_ctx (ollamaParams.clampNumCtx).
-    ctxMeta: Pick<OllamaShowMetadata, 'numCtx' | 'archCtx'>,
+    ctxMeta: Pick<OllamaShowMetadata, 'numCtx' | 'archCtx'> & {capabilities?: string[]},
     // M5 — structured-output schema (or "json"). Honored ONLY when this turn
     // advertises no tools; format + tools are mutually exclusive on the wire.
     format?: 'json' | Record<string, unknown>,
@@ -902,7 +862,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
 
     const body: OllamaChatRequest = {
       model,
-      messages,
+      messages: ollamaVisionMessages(messages, ctxMeta.capabilities?.includes('vision') === true),
       stream: true,
       // keep_alive default; an operator preset overrides it (resolved below).
       // keep_alive is a ROOT field, never inside options — the daemon ignores
@@ -1177,22 +1137,26 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
   // refuse with a denial string the model sees (SAFE mode). Either way the
   // result is a string the caller appends to `messages` as a role:'tool'
   // entry, so the loop converges without a new operator-approval protocol.
+  private registry: LocalMcp;
+
   private async dispatchToolCalls(
     calls: OllamaToolCall[],
     autoMode: boolean,
     loopDetector: ToolLoopDetector,
     observedToolNames?: Set<string>,
   ): Promise<OllamaChatMessage[]> {
+    const toolImages: ProviderImage[] = [];
     const rt: LocalToolRuntime = {
+      isKnownTool: (name) => this.registry.has(name),
       cwd: this.config.cwd,
       autoMode,
       computerChat: this.config.interactionMode === 'chat' && this.config.voiceOperator === true,
       loop: loopDetector,
       runComputer: (name, args) => executeComputerTool(this.config.workflowId, name, args),
-      runTool: (name, args, cwd) => executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId }),
+      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, onImages: (images) => toolImages.push(...images) }),
       notice: (text) => this.emit('system_notice', text),
     };
-    return dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
+    const results = await dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
       const name = call.function.name;
       const args = call.function.arguments;
       observedToolNames?.add(name);
@@ -1205,6 +1169,8 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       if (this.config.voiceOperator) this.emit('tool_use', { name, input: JSON.stringify(args), toolUseId, status: result.startsWith('[error]') ? 'failed' : 'completed', output: result });
       return { role: 'tool', content: result } as OllamaChatMessage;
     });
+    if (toolImages.length) results.push({ role: 'user', content: 'Images returned by preceding tool calls: ' + toolImages.map(i => i.name).join(', '), images: toolImages.map(i => i.data) });
+    return results;
   }
 
   // M4 — emit a routing event onto the system_notice channel so it lands in
@@ -1896,11 +1862,10 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
 
   private async run(prompt: string): Promise<void> {
     const startedAt = Date.now();
+    const registryTools = await this.registry.open();
+    if (this.abortController?.signal.aborted) { this.registry.close(); return; }
 
-    // Bounded wait for the upload-time downscaled copies; buildMessages reads
-    // them synchronously via modelImagePath.
-    await awaitModelImages(this.config.attachments);
-    const messages = this.buildMessages(prompt);
+    const messages = await this.buildMessages(prompt);
 
     // Tool advertisement gating:
     //   - No cwd → no tools (one-shot/legacy review path; same as pre-§5.4).
@@ -1917,7 +1882,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     // subset either way ("subset first, then present" — M11 builds on M10).
     let tools: OllamaToolDefinition[] | undefined;
     let toolSubset: OllamaToolDefinition[] | undefined;
-    const gated = ollamaToolCandidates(this.config);
+    const gated = ollamaToolCandidates(this.config, registryTools);
     if (gated) {
       // M10 — trim the gated set to a relevant top-K for small local models.
       // CRITICAL: rank against the STABLE task context (system prompt +
@@ -2189,6 +2154,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
           // model can read inline (it has no tool-role channel). Same content,
           // different envelope — execution above was identical to native.
           for (let k = 0; k < toolResults.length; k++) {
+            if (toolResults[k].role === 'user') { messages.push(toolResults[k]); continue; }
             const name = fencedCalls[k]?.function.name ?? 'tool';
             messages.push({ role: 'user', content: formatFencedToolResult(name, toolResults[k].content) });
           }
@@ -2196,11 +2162,10 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
           const drainSteer = this.config.drainSteer;
           if (drainSteer) {
             for (const item of drainSteer()) {
-              let text = item.content;
-              if (item.attachments && item.attachments.length > 0) {
-                text += '\n\n' + item.attachments.map((p) => `[attached file: ${p}]`).join('\n');
-              }
-              messages.push({ role: 'user', content: text });
+              const prepared = await prepareProviderAttachments(item.attachments, true, this.abortController?.signal);
+              const text = [item.content,prepared.text].filter(Boolean).join('\n\n');
+              const images = prepared.images.map(i => i.data);
+              messages.push({role:'user',content:text,...(images.length?{images}:{})});
             }
           }
           continue;
@@ -2338,9 +2303,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       // while we were dispatching tools, append as user messages so the
       // next /api/chat call sees them, and let the model course-correct.
       // Server-side drain handles `queue_update` + `queued_messages_drained`
-      // broadcasts; we just inject the text. Attachments are folded as
-      // `[attached file: <path>]` text references — mid-turn re-encoding
-      // of binary images into the request body is out of scope for v1.
+      // broadcasts; decoded files and fitted images follow the initial-message path.
       // A steer that arrives DURING the next streamOneTurn call won't
       // appear here until the iteration after that — by design (we don't
       // abort in-flight calls; the operator's next API call carries it).
@@ -2348,11 +2311,10 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       if (drainSteer) {
         const steerItems = drainSteer();
         for (const item of steerItems) {
-          let text = item.content;
-          if (item.attachments && item.attachments.length > 0) {
-            text += '\n\n' + item.attachments.map((p) => `[attached file: ${p}]`).join('\n');
-          }
-          messages.push({ role: 'user', content: text });
+          const prepared = await prepareProviderAttachments(item.attachments, true, this.abortController?.signal);
+          const text = [item.content,prepared.text].filter(Boolean).join('\n\n');
+          const images = prepared.images.map(i => i.data);
+          messages.push({role:'user',content:text,...(images.length?{images}:{})});
         }
       }
     }
@@ -2375,6 +2337,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
   }
 
   kill(): void {
+    this.registry.close();
     const wasRunning = this._status === 'running' || this._status === 'spawning';
     if (this.abortController && this._status !== 'completed') {
       this.abortController.abort();

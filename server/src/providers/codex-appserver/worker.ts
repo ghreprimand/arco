@@ -1,3 +1,4 @@
+import { prepareProviderAttachments, persistProviderImages } from '../providerFileContent.js';
 // Long-lived Codex app-server worker, scoped to one workflow. Turns share one
 // JSON-RPC connection; notifications stream progress, `turn/interrupt` cancels
 // the active turn, and `turn/steer` adds input without waiting for a new turn.
@@ -7,9 +8,7 @@ import { CodexOperatorQuestions } from './operatorQuestions.js';
 
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-import { statSync } from 'fs';
 import { writeFile, access } from 'fs/promises';
-import { extname } from 'path';
 import {
   resolveGeneratedImageTarget,
   generatedImageRelPath,
@@ -30,7 +29,6 @@ import { VOICE_OPERATOR_PROMPT } from '../../voice/operatorPrompt.js';
 import { codexContextWindowOverride } from '../codexContextWindow.js';
 import { outputStyleAddendum } from '../outputStyle.js';
 import { goalBlock } from '../goalBlock.js';
-import { awaitModelImage } from '../attachments.js';
 import { codexClusterDeveloperInstructions } from '../codexCodeMode.js';
 import { type ProviderName, type SteerItem, type WorkerConfig } from '@arco/shared';
 import type { InitializeResponse } from './bindings/InitializeResponse.js';
@@ -101,7 +99,6 @@ type CompactOutcome = 'completed' | 'transport-ended' | 'timeout' | 'request-fai
 // header lie and stopped operator-armed Goal Runs unnecessarily.
 const CODEX_COOLDOWN_MS = 30 * 60 * 1000;
 
-const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
 
 // Phase 4 + Phase F9 — collapse the per-appserver MCP wiring (cluster +
 // codebase-memory) into a stable signature string the dispatcher compares
@@ -135,28 +132,6 @@ export function bootstrapSurfaceKey(config: WorkerConfig): string {
   return `${config.interactionMode === 'chat' ? 'chat' : 'agent'}:web-${webSearchMode(config)}${config.voiceOperator === true ? ':voice' : ''}${config.incognito ? ':private' : ''}${registry}`;
 }
 
-function splitAttachments(paths: string[] | undefined): { images: string[]; nonImages: string[]; error?: string } {
-  const images: string[] = [];
-  const nonImages: string[] = [];
-  for (const p of paths ?? []) {
-    if (!IMAGE_EXT.has(extname(p).toLowerCase())) {
-      nonImages.push(p);
-      continue;
-    }
-    try {
-      const s = statSync(p);
-      if (!s.isFile()) return { images, nonImages, error: `image attachment "${p}" is not a file` };
-      images.push(p);
-    } catch (err) {
-      return {
-        images,
-        nonImages,
-        error: `image attachment "${p}" unreadable: ${err instanceof Error ? err.message : String(err)}`,
-      };
-    }
-  }
-  return { images, nonImages };
-}
 
 // Translate Arco's effort to Codex's ReasoningEffort. The catalog
 // (getCachedCodexModelCapabilities) is consulted when available so we
@@ -244,6 +219,7 @@ export async function buildThreadConfigOverrides(config: WorkerConfig): Promise<
   const contextWindow = codexContextWindowOverride(config);
   return {
     web_search: webSearchMode(config),
+    tools: { view_image: true },
     ...(contextWindow ? { model_context_window: contextWindow } : {}),
   };
 }
@@ -458,6 +434,8 @@ export class CodexAppServerWorker extends EventEmitter {
   private bootstrapped = false;
   // Set when the child has been disposed; new turns refuse.
   private disposed = false;
+  // Cancellation invalidates attachment preparation before any provider request.
+  private preparationGeneration = 0;
   // Stderr buffer — fallback throttle sniffer for any signal the protocol
   // didn't surface as an `error` notification (paranoia per §8).
   private stderrBuf = '';
@@ -712,16 +690,14 @@ export class CodexAppServerWorker extends EventEmitter {
       throw new Error('codex app-server worker has a compaction in flight');
     }
 
-    const attachments = splitAttachments(this.config.attachments);
-    if (attachments.error) throw new Error(attachments.error);
-    // localImage items point at the downscaled sibling (bounded wait for an
-    // in-flight upload derivation); non-image refs keep the original paths.
-    // No-image turns stay tick-free.
-    const modelImages = attachments.images.length > 0
-      ? await Promise.all(attachments.images.map((p) => awaitModelImage(p)))
-      : [];
+    const preparationGeneration = this.preparationGeneration;
+    const prepared = await prepareProviderAttachments(this.config.attachments);
+    if (preparationGeneration !== this.preparationGeneration) throw new Error('Worker killed');
+    const modelImages = await persistProviderImages(prepared.images);
+    if (preparationGeneration !== this.preparationGeneration) throw new Error('Worker killed');
     if (this.disposed) throw new Error('codex app-server worker disposed');
-    const input = buildTurnInput(prompt, appServerProvider(this.config), appendSystemPrompt, this.config.outputStyle, this.config.goal, modelImages, attachments.nonImages);
+    const body = [prompt, prepared.text].filter(Boolean).join('\n\n');
+    const input = buildTurnInput(body, appServerProvider(this.config), appendSystemPrompt, this.config.outputStyle, this.config.goal, modelImages, []);
 
     this.current = emptyTurnState();
     this.current.startedAt = Date.now();
@@ -781,6 +757,7 @@ export class CodexAppServerWorker extends EventEmitter {
   }
 
   private async interruptCurrentTurn(): Promise<void> {
+    this.preparationGeneration++;
     this.operatorQuestions.cancel('The operator cancelled this turn.');
     if (!this.rpc || !this.threadId || !this.current.turnId) {
       // Nothing to interrupt — emit a synthetic settle so the wrapper
@@ -953,13 +930,24 @@ export class CodexAppServerWorker extends EventEmitter {
       this.requeueSteer(items, 'follow-up', 'turn ended before steer dispatched', config);
       return;
     }
-    const params: TurnSteerParams = {
-      threadId: this.threadId,
-      input: buildSteerInput(items),
-      responsesapiClientMetadata: null,
-      expectedTurnId: this.current.turnId,
-    };
     try {
+      let input: UserInput[];
+      if (items.some(item => item.attachments?.length)) {
+        input = [];
+        for (const item of items) {
+          const prepared = await prepareProviderAttachments(item.attachments);
+          const images = await persistProviderImages(prepared.images);
+          input.push(...images.map(path => ({type:'localImage' as const,path})));
+          input.push({type:'text',text:[item.content,prepared.text].filter(Boolean).join('\n\n'),text_elements:[]});
+        }
+        if (this.current !== turn || !this.rpc) throw new Error('turn ended while preparing steer attachments');
+      } else input = buildSteerInput(items);
+      const params: TurnSteerParams = {
+        threadId: this.threadId,
+        input,
+        responsesapiClientMetadata: null,
+        expectedTurnId: turn.turnId!,
+      };
       const res = await this.rpc.request<TurnSteerResponse>('turn/steer', params);
       config.onSteerDelivered?.(items);
       turn.steerCount += 1;

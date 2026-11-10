@@ -1,3 +1,5 @@
+import { readFileContent } from '../../fileContent.js';
+import { prepareProviderAttachments, FILE_READ_GUIDANCE } from '../providerFileContent.js';
 // Long-lived Cursor (ACP) worker, cached per workflowId. Spawns
 // `cursor-agent acp`, drives the Agent Client Protocol handshake, and adapts
 // its "streams forever" surface to the per-turn events the CursorAcpTurn
@@ -15,13 +17,12 @@
 
 import { spawn, type ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
-import { readFile, writeFile } from 'fs/promises';
+import { realpath, writeFile } from 'fs/promises';
 import { isAbsolute, resolve as resolvePath } from 'path';
 import type { WorkerConfig } from '@arco/shared';
 import { killProcessTree } from '../../workers/processKill.js';
 import { goalBlock } from '../goalBlock.js';
 import { outputStyleAddendum } from '../outputStyle.js';
-import { awaitModelImages, loadImages, splitAttachmentPaths, withAttachmentRefs } from '../attachments.js';
 import { ensureClusterLoopbackMcp, closeClusterLoopbackMcp } from '../../mcp/clusterMcpLoopback.js';
 import { AcpJsonRpcClient, AcpReplyError, JsonRpcRequestError, type JsonRpcNotification, type IncomingRequest } from './acpJsonRpc.js';
 import { commandArgs } from '../../windowsCommand.js';
@@ -165,7 +166,7 @@ export class CursorAcpWorker extends EventEmitter {
   // ACP advertises MCP over http/sse only (spike-8), so this is an HTTP descriptor
   // — not the stdio child Claude CLI / Codex members spawn. Non-members → [].
   private async resolveMcpServers(): Promise<Array<Record<string, unknown>>> {
-    if (!this.config.clusterId) {
+    if (!this.config.clusterId && !this.config.cwd) {
       // Left a cluster (or never joined) — drop any stale loopback server.
       if (this.clusterMcpDescriptor) {
         closeClusterLoopbackMcp(this.workflowId);
@@ -176,12 +177,14 @@ export class CursorAcpWorker extends EventEmitter {
     const arcoPort = parseInt(process.env.ARCO_PORT || '3001', 10);
     try {
       this.clusterMcpDescriptor = await ensureClusterLoopbackMcp({
-        clusterId: this.config.clusterId,
+        clusterId: this.config.clusterId ?? '',
         workflowId: this.workflowId,
         arcoPort,
         cwd: this.config.cwd,
         taskBoardAttached: this.config.clusterTaskBoardAttached === true,
         accessMode: this.config.clusterAccessMode,
+        registryServers: this.config.mcpRegistryServers,
+        readOnly: this.config.sandbox === 'read-only',
       });
       return [{ type: 'http', name: this.clusterMcpDescriptor.name, url: this.clusterMcpDescriptor.url, headers: [] }];
     } catch (err) {
@@ -331,6 +334,7 @@ export class CursorAcpWorker extends EventEmitter {
 
     this.turnActive = true;
     this.turnGeneration++;
+    const generation = this.turnGeneration;
     this.turnCancelRequested = false;
     this.turnText = '';
     this.segments.reset();
@@ -340,9 +344,9 @@ export class CursorAcpWorker extends EventEmitter {
     // attach/detach is reflected on the next peer/board tool call. Idempotent:
     // reuses the existing listener + URL, only updates its mutable ctx. The URL
     // was already handed to Cursor at session bootstrap, so nothing re-sends.
-    if (this.clusterMcpDescriptor && this.config.clusterId) {
+    if (this.clusterMcpDescriptor) {
       await ensureClusterLoopbackMcp({
-        clusterId: this.config.clusterId,
+        clusterId: this.config.clusterId ?? '',
         workflowId: this.workflowId,
         arcoPort: parseInt(process.env.ARCO_PORT || '3001', 10),
         // cwd carries the plan_* tools; omitting it here dropped them after
@@ -350,6 +354,8 @@ export class CursorAcpWorker extends EventEmitter {
         cwd: this.config.cwd,
         taskBoardAttached: this.config.clusterTaskBoardAttached === true,
         accessMode: this.config.clusterAccessMode,
+        registryServers: this.config.mcpRegistryServers,
+        readOnly: this.config.sandbox === 'read-only',
       }).catch(() => { /* refresh is best-effort; the turn proceeds regardless */ });
     }
 
@@ -357,9 +363,6 @@ export class CursorAcpWorker extends EventEmitter {
     // operator changed the CONFIG model since the last turn, BEFORE emitting
     // `init` so the UI reflects the model the turn actually runs on.
     await this.applyModelIfChanged();
-    // Bounded wait for upload-time downscaled copies (loadImages below reads
-    // them); inside the cancel/child-death checks that follow.
-    if (this.promptImages) await awaitModelImages(splitAttachmentPaths(this.config.attachments).imagePaths);
     if (!this.turnActive) return; // child died during the awaits above
     if (this.turnCancelRequested) {
       this.settleTurn({ error: 'Worker killed' });
@@ -377,7 +380,7 @@ export class CursorAcpWorker extends EventEmitter {
     // above appendSystemPrompt, both above the `---` prompt separator. goalBlock is
     // null-when-empty so the default path is byte-identical to pre-Phase-4.
     // The output-style addendum closes the prefix (null for normal).
-    const prefixParts = [goalBlock(this.config.goal), appendSystemPrompt, outputStyleAddendum(this.config.outputStyle)]
+    const prefixParts = [goalBlock(this.config.goal), appendSystemPrompt, this.clusterMcpDescriptor ? FILE_READ_GUIDANCE : undefined, outputStyleAddendum(this.config.outputStyle)]
       .filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
     const prefix = prefixParts.length > 0 ? prefixParts.join('\n\n') : undefined;
     // Operator attachments: images ride as ACP `image` content blocks when the
@@ -385,15 +388,17 @@ export class CursorAcpWorker extends EventEmitter {
     // an agent without the capability) folds to the `[attached file: …]` path
     // refs every other provider uses — the agent reads them via fs/read_text_file.
     // Before this, attachments never left the server on Cursor.
-    const { imagePaths, nonImagePaths } = splitAttachmentPaths(this.config.attachments);
-    const { images, skipped } = this.promptImages ? loadImages(imagePaths) : { images: [], skipped: [] };
-    for (const note of skipped) this.emit('system_notice', `Cursor: ${note}`);
-    const refPaths = this.promptImages ? nonImagePaths : [...imagePaths, ...nonImagePaths];
-    const body = withAttachmentRefs(prompt, refPaths);
+    const prepared = await prepareProviderAttachments(this.config.attachments, this.promptImages);
+    if (!this.turnActive || generation !== this.turnGeneration || this.disposed) return;
+    if (this.turnCancelRequested) {
+      this.settleTurn({ error: 'Worker killed' });
+      return;
+    }
+    const body = prepared.text ? `${prompt}\n\n${prepared.text}` : prompt;
     const text = prefix ? `${prefix}\n\n---\n\n${body}` : body;
     const promptBlocks: Array<Record<string, unknown>> = [
       { type: 'text', text },
-      ...images.map((img) => ({ type: 'image', mimeType: img.mimeType, data: img.data })),
+      ...prepared.images.map((img) => ({ type: 'image', mimeType: img.mediaType, data: img.data })),
     ];
 
     let res: AcpPromptResult;
@@ -611,8 +616,8 @@ export class CursorAcpWorker extends EventEmitter {
         return { outcome: { outcome: 'cancelled' } };
       }
       case 'fs/read_text_file': {
-        const content = await readFile(this.resolveAgentPath(p?.path), 'utf8');
-        return { content };
+        const result = await readFileContent(await realpath(this.resolveAgentPath(p?.path)), {offset: typeof p?.line === 'number' ? p.line : undefined, limit: typeof p?.limit === 'number' ? p.limit : undefined, limits: {images: false, documents: false, maxTextBytes: 32 * 1024}});
+        return { content: result.text + (result.kind === 'image' ? '\nUse the Arco read_file MCP tool to view this image.' : '') };
       }
       case 'fs/write_text_file': {
         await writeFile(this.resolveAgentPath(p?.path), typeof p?.content === 'string' ? p.content : '', 'utf8');

@@ -400,10 +400,14 @@ export const workspace: Section[] = [
         <p>
           <strong>Attachments:</strong> drop files anywhere on the window, paste
           an image or file from the clipboard, or click <Code>+ FILE</Code>.
-          Images are sent as native attachments where the provider supports them
-          (Claude, Codex, Cursor, and local models with vision); other files are
-          appended as <Code>[attached file: &lt;path&gt;]</Code> references in
-          the prompt.
+          Arco fits images and sends them visually when the model reports vision support.
+          PDFs, office documents and notebooks are decoded before sending, including
+          Chat tabs without file tools. Other binaries return a file note.
+        </p>
+        <p>Use
+          <Code>Read</Code> or the read-only <Code>read_file</Code> tool with
+          <Code>pages</Code> to select document pages, sheets, slides or cells.
+
         </p>
         <p>
           <strong>The worker header</strong> shows the context fill estimate and cumulative output. The footer below the composer shows other live state:

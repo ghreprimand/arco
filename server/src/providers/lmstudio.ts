@@ -1,10 +1,10 @@
+import { LocalMcp } from './localMcp.js';
+import { prepareProviderAttachments, openAiImageMessage, openAiVisionMessages, type ProviderImage } from './providerFileContent.js';
 import { requestWithDeadline } from './requestDeadline.js';
 import { parseComputerHistory } from '../voice/history.js';
 import { executeComputerTool } from '../voice/toolDefinitions.js';
 import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
-import { readFileSync, statSync } from 'fs';
-import { extname } from 'path';
 import { MAX_WORKER_OUTPUT_BYTES, OUTPUT_TRUNCATION_NOTICE } from '../workers/limits.js';
 import { markAvailable } from '../quota.js';
 import {
@@ -21,7 +21,6 @@ import { addGenSpeed } from './ollamaTokens.js';
 import { decideLocalToolCall, dispatchLocalToolCalls, localUnknownToolResult, parseToolArguments, toolNotEnabledResult, truncateLocalToolResult, type LocalToolRules, type LocalToolRuntime } from './localToolDispatch.js';
 import { goalBlock } from './goalBlock.js';
 import { outputStyleAddendum } from './outputStyle.js';
-import { awaitModelImages, modelImagePath } from './attachments.js';
 import {
   deterministicSummary,
   toolCapContinuationMessage,
@@ -124,30 +123,6 @@ const THINKING_FLUSH_MS = (() => {
   return 100;
 })();
 
-const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-const IMAGE_EXT: Record<string, true> = {
-  '.png': true, '.jpg': true, '.jpeg': true, '.gif': true, '.webp': true,
-};
-
-function classifyAttachment(p: string): 'image' | 'other' {
-  return IMAGE_EXT[extname(p).toLowerCase()] ? 'image' : 'other';
-}
-
-function mediaTypeFor(p: string): string {
-  const ext = extname(p).toLowerCase();
-  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
-  if (ext === '.png') return 'image/png';
-  if (ext === '.gif') return 'image/gif';
-  if (ext === '.webp') return 'image/webp';
-  return 'application/octet-stream';
-}
-
-// Stub throttle parser for symmetry with the subprocess providers. LM Studio
-// is a local/self-hosted runtime; no remote quota to throttle against.
-export function parseLmstudioThrottle(_text: string): { resetsAt?: number } | null {
-  return null;
-}
-
 // OpenAI chat-completion message shape (same as llama.cpp's). Content is a
 // string in the common case or an array of typed parts for multimodal.
 type ContentPart =
@@ -218,6 +193,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
     super();
     this.id = id;
     this.config = config;
+    this.registry = new LocalMcp(config);
   }
 
   private emitThinking(chunk: string, flush = false): void {
@@ -244,14 +220,16 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
     this.abortController = new AbortController();
     void this.run(prompt).catch((err) => {
       if (!this.isAborted(err)) this.fail(`${this.connection.label}: ${err instanceof Error ? err.message : String(err)}`);
-    });
+    }).finally(() => this.registry.close());
   }
 
   // Build OpenAI-shaped messages. Same byte-stability rules as the llama.cpp
   // path: system + prior turns unchanged across calls so the backend's prefix
   // cache (if any) hits; only the final user message grows. Effort 'low' →
   // /no_think prefix on the system message for Qwen-family models.
-  private buildMessages(userPrompt: string): ChatMessage[] {
+  private visionCapable = false;
+
+  private async buildMessages(userPrompt: string): Promise<ChatMessage[]> {
     const messages: ChatMessage[] = [];
     const noThink = this.connection.name === 'lmstudio' && this.config.effort === 'low';
     // docs/GOTCHAS.md - fold the operator's north-star at the top of the
@@ -276,39 +254,14 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       }
     }
 
-    // Vision: LM Studio honors the OpenAI multimodal shape for vision-capable
-    // models. We can't cheaply probe per-model vision capability over the
-    // OpenAI /v1/models surface (it omits that metadata — the gap the optional
-    // `lms` enrichment would close), so we forward attached images and let the
-    // backend reject/ignore them if the loaded model isn't multimodal. Non-
-    // image attachments fold to text path references, same as llama.cpp.
-    const imageParts: ContentPart[] = [];
-    const nonImagePaths: string[] = [];
-    for (const p of this.config.attachments ?? []) {
-      if (classifyAttachment(p) !== 'image') { nonImagePaths.push(p); continue; }
-      try {
-        // Downscaled sibling when present; data-URI type follows its ext.
-        const src = modelImagePath(p);
-        const size = statSync(src).size;
-        if (size > IMAGE_MAX_BYTES) {
-          this.emit('system_notice', `attachment "${p}" exceeds ${Math.round(IMAGE_MAX_BYTES / 1024 / 1024)}MB image limit — skipped`);
-          continue;
-        }
-        const b64 = readFileSync(src).toString('base64');
-        imageParts.push({ type: 'image_url', image_url: { url: `data:${mediaTypeFor(src)};base64,${b64}` } });
-      } catch (err) {
-        this.emit('system_notice', `attachment "${p}" unreadable: ${err instanceof Error ? err.message : String(err)} — skipped`);
-      }
-    }
-
+    const prepared = await prepareProviderAttachments(this.config.attachments, this.visionCapable, this.abortController?.signal);
+    const imageParts: ContentPart[] = prepared.images.map((image) => ({type: 'image_url', image_url: {url: `data:${image.mediaType};base64,${image.data}`}}));
     let text = userPrompt;
     if (this.connection.chatWeb) {
       const reminder = ollamaChatWebReminder(this.config);
       if (reminder) text += `\n\n${reminder}`;
     }
-    if (nonImagePaths.length > 0) {
-      text += '\n\n' + nonImagePaths.map((p) => `[attached file: ${p}]`).join('\n');
-    }
+    if (prepared.text) text += '\n\n' + prepared.text;
 
     if (imageParts.length > 0) {
       messages.push({ role: 'user', content: [{ type: 'text', text }, ...imageParts] });
@@ -352,7 +305,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
   } | null> {
     const body: ChatCompletionRequest = {
       model: modelName,
-      messages,
+      messages: openAiVisionMessages(messages, this.visionCapable),
       stream: true,
       ...(this.connection.name === 'deepseek' ? { max_tokens: 16384, reasoning_budget_tokens: 8192 } : {}),
       stream_options: { include_usage: true },
@@ -531,6 +484,8 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
   // SAFE mode refuses with a string the model treats as the tool result so the
   // loop converges without operator-approval ping-pong. Per-turn loop detector
   // intercepts identical (name, args) calls past the threshold.
+  private registry: LocalMcp;
+
   private async dispatchToolCalls(
     calls: ToolCall[],
     autoMode: boolean,
@@ -546,16 +501,18 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       unknownTool: localUnknownToolResult,
       endTurnOnRepeat: true,
     };
+    const toolImages: ProviderImage[] = [];
     const rt: LocalToolRuntime = {
+      isKnownTool: (name) => this.registry.has(name),
       cwd: this.config.cwd,
       autoMode,
       computerChat: this.config.interactionMode === 'chat' && this.config.voiceOperator === true,
       loop: loopDetector,
       runComputer: (name, args) => executeComputerTool(this.config.workflowId, name, args),
-      runTool: (name, args, cwd) => executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId }),
+      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, onImages: (images) => toolImages.push(...images) }),
       notice: (text) => this.emit('system_notice', text),
     };
-    return dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
+    const results = await dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
       const name = call.function.name;
       const parsed = parseToolArguments(call.function.arguments);
       const { args } = parsed;
@@ -575,10 +532,14 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       }
       return { role: 'tool', content: stored, tool_call_id: call.id } as ChatMessage;
     });
+    if (toolImages.length) results.push(openAiImageMessage(toolImages));
+    return results;
   }
 
   private async run(prompt: string): Promise<void> {
     const startedAt = Date.now();
+    const registryTools = await this.registry.open();
+    if (this.abortController?.signal.aborted) { this.registry.close(); return; }
 
     const baseUrl = await this.connection.base();
 
@@ -597,33 +558,25 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       return;
     }
 
-    if (this.connection.name === 'deepseek' && (this.config.attachments ?? []).some((p) => classifyAttachment(p) === 'image')) {
-      const prepared = await this.connection.probe();
-      if (!prepared.capabilities?.[modelName]?.vision) {
-        this.fail('The selected Xolotl profile is text-only; prepare its vision encoder before attaching images.'); return;
-      }
-    }
     if (this.abortController?.signal.aborted) return;
     await this.connection.prepare?.(baseUrl, modelName, this.abortController!.signal, (notice) => this.emit('system_notice', notice));
     if (this.abortController?.signal.aborted) return;
     this._status = 'running';
     markAvailable(this.connection.name);
+    const capabilities = await this.connection.probe();
     if (this.connection.name === 'strata' || this.connection.name === 'deepseek') {
-      const probe = await this.connection.probe();
-      this.modelContextWindow = probe.capabilities?.[modelName]?.numCtx;
+      this.modelContextWindow = capabilities.capabilities?.[modelName]?.numCtx;
     }
+    this.visionCapable = capabilities.capabilities?.[modelName]?.vision === true;
     this.emit('init', { model: modelName });
     if (this.abortController?.signal.aborted) return;
 
-    // Bounded wait for the upload-time downscaled copies; buildMessages reads
-    // them synchronously via modelImagePath.
-    await awaitModelImages(this.config.attachments);
     if (this.abortController?.signal.aborted) return;
-    const messages = this.buildMessages(prompt);
+    const messages = await this.buildMessages(prompt);
 
     let tools: OllamaToolDefinition[] | undefined;
     if (this.config.cwd && this.config.interactionMode !== 'chat') {
-      const all = getOllamaToolDefinitions({ clusterEnabled: !!this.config.clusterId && !!this.config.workflowId });
+      const all = [...registryTools, ...getOllamaToolDefinitions({ clusterEnabled: !!this.config.clusterId && !!this.config.workflowId })];
       tools = this.config.tools
         ? all.filter((t) => this.config.tools!.includes(t.function.name))
         : all;
@@ -697,11 +650,9 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       const drainSteer = this.config.drainSteer;
       if (drainSteer) {
         for (const item of drainSteer()) {
-          let text = item.content;
-          if (item.attachments && item.attachments.length > 0) {
-            text += '\n\n' + item.attachments.map((p) => `[attached file: ${p}]`).join('\n');
-          }
-          messages.push({ role: 'user', content: text });
+          const prepared = await prepareProviderAttachments(item.attachments, this.visionCapable, this.abortController?.signal);
+          const text = [item.content,prepared.text].filter(Boolean).join('\n\n');
+          messages.push({role:'user',content:prepared.images.length ? [{type:'text',text},...prepared.images.map(image=>({type:'image_url' as const,image_url:{url:`data:${image.mediaType};base64,${image.data}`}}))] : text});
         }
       }
 
@@ -739,6 +690,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
   }
 
   kill(): void {
+    this.registry.close();
     const wasRunning = this._status === 'running' || this._status === 'spawning';
     if (this.abortController && this._status !== 'completed') this.abortController.abort();
     // Drop buffered reasoning so the operator sees the last thing the model
@@ -772,14 +724,9 @@ export interface LmstudioModelCapabilities {
 // model dropdown (so M13 doesn't repeat the M1 empty-dropdown gap). `up` is
 // true iff the endpoint responds with a well-formed model list.
 //
-// Capability metadata: the OpenAI /v1/models surface omits tool/vision/ctx
-// flags (the gap LE-7 notes). Optional `lms` CLI enrichment is a documented
-// follow-up — NOT built in v1 (it would add a cross-platform shell-out for
-// metadata that doesn't gate functionality: the tool list is forwarded
-// regardless, and a non-tool model simply ignores the `tools` array). We
-// therefore report conservative capability flags (tools:true so the picker
-// offers them; vision/thinking unknown ⇒ false). The provider still works
-// fully off the HTTP API with `lms` entirely absent.
+// Native /api/v1/models supplies vision metadata when available; older servers
+// keep conservative flags. Loaded-instance ids and model keys both map to the
+// OpenAI model id so the selected instance receives the correct capability.
 export async function probeLmstudio(): Promise<{
   up: boolean;
   models: string[];
@@ -817,5 +764,19 @@ export async function probeLmstudio(): Promise<{
     // ignores it for non-tool models.
     capabilities[m] = { tools: true, vision: false, thinking: false };
   }
+  try {
+    const nativeUrl = baseUrl.replace(/\/v1\/?$/, '') + '/api/v1/models';
+    await requestWithDeadline(undefined, 3000, async (signal) => {
+      const response = await fetch(nativeUrl, {signal});
+      if (!response.ok) return;
+      const native = await response.json() as {models?: Array<{key?:string;capabilities?:{vision?:boolean};loaded_instances?:Array<{id?:string;config?:{context_length?:number}}>;max_context_length?:number}>};
+      for (const model of native.models ?? []) {
+        for (const id of [model.key, ...(model.loaded_instances ?? []).map(i => i.id)]) {
+          if (!id || !capabilities[id]) continue;
+          capabilities[id].vision = model.capabilities?.vision === true;
+        }
+      }
+    });
+  } catch { /* Optional metadata endpoint; unknown vision stays off. */ }
   return { up: true, models, capabilities };
 }
