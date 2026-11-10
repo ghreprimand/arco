@@ -871,7 +871,8 @@ export const configuration: Section[] = [
   <p>
   The request that started the turn is kept word for word, with its attachment
   references, before the note that the compaction was automatic. The summary
-  still covers everything earlier.
+  still covers everything earlier. A request over 125 KB is never cut: Arco
+  skips the in-turn compaction for that turn and says so once.
   </p>
   <p>
   Large summaries split into requests that reserve room for earlier summary text and stay within the input budget.

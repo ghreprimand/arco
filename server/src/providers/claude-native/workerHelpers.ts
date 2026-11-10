@@ -326,20 +326,20 @@ export function inTurnCompactedHistory(
 
 // The request that started the turn, kept word for word through an in-turn
 // compaction. `prompt` is the operator's text (for the duplicate check against
-// the kept tail); `text` adds attachment references and is cut at the byte cap.
-export interface KeptRequest { prompt: string; text: string }
-export const KEPT_REQUEST_MAX_BYTES = 64_000;
+// the kept tail); `text` adds attachment references. `bytes` is the UTF-8
+// size of `text`: a request over KEPT_REQUEST_MAX_BYTES is never cut; the
+// in-turn compaction is deferred instead (the operator is told once).
+export interface KeptRequest { prompt: string; text: string; bytes: number }
+export const KEPT_REQUEST_MAX_BYTES = 128_000;
 
-export function keptRequestText(prompt: string, attachments: readonly string[] | undefined, maxBytes = KEPT_REQUEST_MAX_BYTES): KeptRequest {
+export function keptRequestText(prompt: string, attachments: readonly string[] | undefined): KeptRequest {
   const refs = (attachments ?? []).map((p) => `[attached file: ${p}]`).join('\n');
-  const full = [prompt, refs].filter((part) => part.length > 0).join('\n\n');
-  if (Buffer.byteLength(full, 'utf8') <= maxBytes) return { prompt, text: full };
-  let cut = full.slice(0, maxBytes);
-  while (Buffer.byteLength(cut, 'utf8') > maxBytes) cut = cut.slice(0, -1);
-  const low = cut.charCodeAt(cut.length - 1);
-  if (low >= 0xd800 && low <= 0xdbff) cut = cut.slice(0, -1);
-  const text = `${cut}\n\n[The request was cut here to fit the compaction note; ${full.length - cut.length} more characters were in the original.]`;
-  return { prompt: prompt.slice(0, cut.length), text };
+  const text = [prompt, refs].filter((part) => part.length > 0).join('\n\n');
+  return { prompt, text, bytes: Buffer.byteLength(text, 'utf8') };
+}
+
+export function keptRequestFits(request: KeptRequest | null | undefined, maxBytes = KEPT_REQUEST_MAX_BYTES): boolean {
+  return !request || request.bytes <= maxBytes;
 }
 
 // The user text that follows the summary seed after an in-turn compaction:

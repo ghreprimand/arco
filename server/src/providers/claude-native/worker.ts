@@ -105,6 +105,8 @@ import {
   inTurnReplaySummary,
   inTurnContinueText,
   keptRequestText,
+  keptRequestFits,
+  KEPT_REQUEST_MAX_BYTES,
   type KeptRequest,
 } from './workerHelpers.js';
 import { billableRoundUsage, roundPromptTokens, type MeasurableRound, type RoundPromptMeasure } from './usageContext.js';
@@ -1240,6 +1242,15 @@ export class ClaudeNativeWorker extends EventEmitter {
     const percent = Math.min(100, Math.round(ratio));
     if (ratio < threshold) {
       this.inTurnCompact = { fired: false, warned: false };
+      return 'continue';
+    }
+    // The request that started the turn is kept word for word, never cut. A
+    // request over the cap defers the compaction for this turn, said once.
+    if (!keptRequestFits(this.turnOpeningRequest)) {
+      if (!this.inTurnCompact.warned) {
+        this.inTurnCompact.warned = true;
+        this.emit('system_notice', `[AUTO-COMPACT] Context is at ${percent}%, but the request that started this turn (${Math.round((this.turnOpeningRequest?.bytes ?? 0) / 1024)} KB) is larger than the ${Math.round(KEPT_REQUEST_MAX_BYTES / 1024)} KB Arco keeps word for word through an automatic compaction, so Arco will not compact in this turn. Fold or Handoff this tab if the context fills up.`);
+      }
       return 'continue';
     }
     if (this.inTurnCompact.fired) {
@@ -2665,6 +2676,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.messages.push({ role: 'user', content: buildUserMessageContent(prompt, this.config.attachments, skippedImages) });
     this.turnInputAccepted = true;
     this.turnOpeningRequest = keptRequestText(prompt, this.config.attachments);
+    this.inTurnCompact = { fired: false, warned: false };
     // UserPromptSubmit context and waiting async hook output ride with the
     // operator's message (never in `system`, so the cached prefix is kept).
     const promptHookText = [

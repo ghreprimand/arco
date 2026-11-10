@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { ClaudeNativeWorker } from './worker.js';
 import type { MessageParam } from './contentBlocks.js';
 import { buildMessagesFromReplayEvents } from './resumeSummary.js';
-import { splitSummaryParts, inTurnCompactedHistory, keptRequestText } from './workerHelpers.js';
+import { splitSummaryParts, inTurnCompactedHistory, keptRequestText, keptRequestFits } from './workerHelpers.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type W = {
@@ -520,7 +520,7 @@ test('in-turn compaction keeps the request that started the turn verbatim', asyn
   } finally { await s.done(); }
 });
 
-test('a kept request lists attachments as references; the text is cut at the byte cap', async () => {
+test('a kept request lists attachments as references', async () => {
   const quiet = (id: string, prompt: number) => tool(id, prompt, '');
   const s = setup([quiet('a', 300_000), quiet('b', 720_000), done(100_000)], {
     config: { attachments: ['notes.txt', 'shot.png'] },
@@ -538,15 +538,29 @@ test('a kept request lists attachments as references; the text is cut at the byt
     assert.ok(text.includes('[attached file: notes.txt]') && text.includes('[attached file: shot.png]'), 'attachments as references');
     assertPairsIntact(after);
   } finally { await s.done(); }
-  const long = 'L'.repeat(70_000);
-  const cut = keptRequestText(long, ['a.txt'], 64_000);
-  assert.ok(cut.text.length < 65_000 && cut.text.startsWith('L'.repeat(1_000)));
-  assert.match(cut.text, /cut here/);
-  assert.ok(!cut.text.includes('a.txt'), 'the cap applies to the whole kept text');
-  assert.equal(cut.prompt, long.slice(0, 64_000));
   const whole = keptRequestText('short', ['a.txt']);
   assert.equal(whole.text, 'short\n\n[attached file: a.txt]');
   assert.equal(whole.prompt, 'short');
+  assert.equal(whole.bytes, Buffer.byteLength(whole.text, 'utf8'));
+  assert.equal(keptRequestFits({ prompt: 'x', text: 'x', bytes: 128_000 }), true);
+  assert.equal(keptRequestFits({ prompt: 'x', text: 'x', bytes: 128_001 }), false);
+  assert.equal(keptRequestFits(null), true);
+});
+
+test('a request larger than the kept-request cap defers the in-turn compaction with one notice, never a cut', async () => {
+  const long = `BEGIN ${'L'.repeat(130_000)} END`;
+  const s = setup([tool('a', 300_000), tool('b', 720_000), tool('c', 730_000), done(100_000)]);
+  try {
+    await s.w.runTurn(long);
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.summaries.length, 0, 'no compaction while the opening request cannot be kept whole');
+    assert.ok(!s.events.some((e) => e.type === 'native_compacting'));
+    const deferrals = s.notices.filter((n) => n.includes('larger than the 125 KB Arco keeps word for word'));
+    assert.equal(deferrals.length, 1, 'said once per crossing');
+    assert.equal(s.results.length, 1);
+    const last = s.requests[3];
+    assert.equal(textOf(last[0]), long, 'the request is in the history untouched');
+  } finally { await s.done(); }
 });
 
 test('an in-turn compaction with no narration still keeps the request once when the tail already has it', async () => {
