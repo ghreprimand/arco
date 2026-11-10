@@ -180,7 +180,7 @@ async def check(browser, scale, scenario):
             panel_select = page.locator('select[data-help^="rightpanel.tab."]')
             if await panel_select.count(): await panel_select.select_option('config')
             else: await page.locator('button[data-help="rightpanel.tab.config"]').click()
-            await expect(page.get_by_text('Cluster default: on at 82%.')).to_be_visible()
+            await expect(page.get_by_text('No worker override. Using the cluster policy: on at 82%. Change the cluster policy in the cluster panel under AUTO-COMPACTION.', exact=True)).to_be_visible()
             await page.evaluate("async()=>{const{useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().clearCluster('fixture-cluster');}")
             await page.get_by_role('button',name='Home: projects, open work and saved sessions',exact=True).click()
         await expect(page.get_by_role('heading', name='Continue (1)', exact=False)).to_be_visible()
