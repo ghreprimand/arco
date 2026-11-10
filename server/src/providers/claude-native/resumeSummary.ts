@@ -71,6 +71,9 @@ type ReplayEvent = {
   // the live worker added after the seed.
   inTurn?: boolean;
   continueNote?: string;
+  // The request that started the compacted turn when the live worker kept it
+  // word for word ahead of the note (absent when the kept tail carried it).
+  keptRequest?: string;
   // NATIVE_COMPACTION_PLAN Phase 2 — keep-last-N verbatim tail. The live
   // `compactInPlace` keeps the last few user/assistant messages after the
   // seed so the active working set survives the fold. Those messages occur
@@ -237,6 +240,10 @@ function cloneMessages(messages: ClaudeResumeMessage[]): ClaudeResumeMessage[] {
 // (docs/GOTCHAS.md § Claude Native transport). The tail is appended AFTER the
 // seed (chronological: summary of older history, then the recent verbatim
 // turns), and is cloned so callers can't alias into the helper's output.
+// Heading the live worker and replay both put before the request that
+// started a turn when an in-turn compaction keeps it word for word.
+export const KEPT_REQUEST_HEADING = 'The request that started this turn, kept word for word through the compaction:';
+
 export function compactSummarySeed(summary: string, keptTail: ClaudeResumeMessage[] = []): ClaudeResumeMessage[] {
   const trimmed = summary.trim();
   if (!trimmed) return [];
@@ -395,13 +402,16 @@ export function buildMessagesFromReplayEvents(
       // one) and the turn's later text answered it. Rebuild that user side so
       // the rest of the turn pairs with it.
       if (t === 'native_compacted' && entry.inTurn === true && typeof entry.continueNote === 'string') {
+        const continueText = typeof entry.keptRequest === 'string' && entry.keptRequest.length > 0
+          ? `${KEPT_REQUEST_HEADING}\n\n${entry.keptRequest}\n\n${entry.continueNote}`
+          : entry.continueNote;
         const last = messages[messages.length - 1];
         if (last && last.role === 'user' && messages.length > 2) {
           messages.pop();
           const text = typeof last.content === 'string' ? last.content : last.content.map((b) => b.text).join('');
-          userBuf = `${text}\n\n${entry.continueNote}`;
+          userBuf = `${text}\n\n${continueText}`;
         } else {
-          userBuf = entry.continueNote;
+          userBuf = continueText;
         }
       }
     } else if (t === 'user_message_echo' && typeof entry.content === 'string') {

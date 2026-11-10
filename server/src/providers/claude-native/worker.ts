@@ -103,7 +103,11 @@ import {
   estimateSummaryTokens,
   inTurnCompactedHistory,
   inTurnReplaySummary,
+  inTurnContinueText,
+  keptRequestText,
+  type KeptRequest,
 } from './workerHelpers.js';
+import { billableRoundUsage, roundPromptTokens, type MeasurableRound, type RoundPromptMeasure } from './usageContext.js';
 import { buildFoldDigest } from './foldDigest.js';
 import { CLAUDE_CLI_USER_AGENT } from './wireFingerprint.js';
 // docs/PROVIDERS.md - frozen-prefix helpers (pure; unit-tested).
@@ -1215,14 +1219,23 @@ export class ClaudeNativeWorker extends EventEmitter {
   // once per crossing, compacts the history before the in-progress round and
   // continues the same turn. Returns 'cancelled' when the operator cancelled
   // the turn during the summary.
-  private async maybeCompactInTurn(roundUsage: Record<string, number> | undefined): Promise<'continue' | 'cancelled' | number> {
+  private async maybeCompactInTurn(round: MeasurableRound): Promise<'continue' | 'cancelled' | number> {
     const threshold = this.config.claudeNativeInTurnCompactPercent;
     if (typeof threshold !== 'number' || !(threshold > 0) || this.config.claudeNativeCompact === true || this.config.interactionMode === 'chat') return 'continue';
     const win = lookupCtx(this.capModel());
-    const prompt = roundUsage
-      ? (roundUsage.cache_read_input_tokens ?? 0) + (roundUsage.cache_creation_input_tokens ?? 0) + (roundUsage.input_tokens ?? 0)
-      : 0;
-    if (!win || !(prompt > 0)) return 'continue';
+    if (!win) return 'continue';
+    // The real prompt size, never the summed usage of a server-tool round:
+    // the last pass from usage.iterations, the top-level usage for a
+    // single-pass round, else count_tokens on the history as it stands (tool
+    // results appended, next request not sent). Unmeasured means no decision.
+    const measured = roundPromptTokens(round);
+    let prompt = measured.tokens;
+    if (prompt === undefined && measured.source === 'multi-pass') {
+      prompt = await this.countCurrentContextTokens();
+      console.log(`[claude-native:${this.workflowId.slice(0, 8)}] server-tool round without usage.iterations; context measured by count_tokens: ${prompt ?? 'unavailable'}`);
+      if (this.cancelRequested) return 'cancelled';
+    }
+    if (prompt === undefined || !(prompt > 0)) return 'continue';
     const ratio = (prompt / win) * 100;
     const percent = Math.min(100, Math.round(ratio));
     if (ratio < threshold) {
@@ -1305,7 +1318,10 @@ export class ClaudeNativeWorker extends EventEmitter {
       return { ok: false, error: 'history changed during the summary' };
     }
     const seed = compactSummarySeed(summary, tailForSeed);
-    this.messages = inTurnCompactedHistory(seed, IN_TURN_COMPACT_NOTE, inProgressRound);
+    const keptRequest = this.turnOpeningRequest ?? undefined;
+    this.messages = inTurnCompactedHistory(seed, IN_TURN_COMPACT_NOTE, inProgressRound, keptRequest);
+    // Persisted only when the history gained it (replay composes the same text).
+    const requestKept = keptRequest !== undefined && inTurnContinueText(IN_TURN_COMPACT_NOTE, keptRequest, tailForSeed) !== IN_TURN_COMPACT_NOTE;
     this.resetPrefixFreeze('compact');
     this.toolCallCountSinceCompact = 0;
     this.readSet.clear();
@@ -1321,6 +1337,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       ...reason,
       inTurn: true,
       continueNote: IN_TURN_COMPACT_NOTE,
+      ...(requestKept ? { keptRequest: keptRequest.text } : {}),
       ...(typeof after === 'number' && after > 0 ? { promptTokensAfter: after } : {}),
       ...(win ? { contextWindow: win } : {}),
     });
@@ -2488,6 +2505,12 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   // An interrupt during auth/hooks must not silently lose a queued correction.
   turnInputAccepted = false;
+  // The request that started the running turn (text plus attachment
+  // references, byte-capped). An in-turn compaction keeps it word for word:
+  // in a long turn the kept tail holds tool rounds, and a turn whose model
+  // wrote no text between tool calls would otherwise keep the request only
+  // inside the summary.
+  private turnOpeningRequest: KeptRequest | null = null;
 
   async runTurn(prompt: string): Promise<void> {
     this.turnRunning = true;
@@ -2641,6 +2664,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     const skippedImages: SkippedImage[] = [];
     this.messages.push({ role: 'user', content: buildUserMessageContent(prompt, this.config.attachments, skippedImages) });
     this.turnInputAccepted = true;
+    this.turnOpeningRequest = keptRequestText(prompt, this.config.attachments);
     // UserPromptSubmit context and waiting async hook output ride with the
     // operator's message (never in `system`, so the cached prefix is kept).
     const promptHookText = [
@@ -2669,11 +2693,12 @@ export class ClaudeNativeWorker extends EventEmitter {
     // H9 — fresh loop counters for this turn (primary_turn_started boundary).
     this.toolLoopGuard.reset();
     let totalUsage: Record<string, number> | undefined;
-    // Track the LATEST round's usage separately. mergeUsage sums across
-    // rounds, which is right for billing/output but wrong for context-fill —
-    // the size of the prompt the model saw in context is the LAST round's
-    // (cache_read + cache_creation + input), not the sum across rounds.
-    let lastRoundUsage: Record<string, number> | undefined;
+    // Track the LATEST round's prompt size separately. mergeUsage sums across
+    // rounds, which is right for billing/output but wrong for context-fill:
+    // the size of the prompt the model saw is the LAST round's, and for a
+    // round that ran server tools it is the last PASS of that round, never
+    // the round's summed usage (usageContext.ts).
+    let lastRoundPrompt: RoundPromptMeasure | undefined;
     let stopReason: string | null = null;
     let finalText = '';
     // Opus-5 plan Phase 3 — carry the LAST round's stop_details so the
@@ -2699,8 +2724,8 @@ export class ClaudeNativeWorker extends EventEmitter {
       stopReason = round.stopReason;
       finalText = round.text;
       stopDetails = round.stopDetails ?? null;
-      totalUsage = mergeUsage(totalUsage, round.usage);
-      if (round.usage) lastRoundUsage = round.usage;
+      totalUsage = mergeUsage(totalUsage, billableRoundUsage(round.usage, round.usageIterations));
+      if (round.usage) lastRoundPrompt = roundPromptTokens(round);
 
       // Re-emit init with the *echoed* model on the first round-trip so the
       // chat header upgrades from the requested ID to the canonical one
@@ -2866,7 +2891,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       // round has its result and the next request has not been sent. Runs
       // before the steer drain so a steer lands after the compacted history.
       if (toolResults.length > 0) {
-        const compacted = await this.maybeCompactInTurn(round.usage);
+        const compacted = await this.maybeCompactInTurn(round);
         if (compacted === 'cancelled') {
           this.emit('error', 'Worker killed');
           this.scrubServerToolEvidenceOnAbort(turnMessageStart);
@@ -3013,11 +3038,13 @@ export class ClaudeNativeWorker extends EventEmitter {
       }
     }
     const countedPromptTokens = await this.countCurrentContextTokens();
-    const usagePromptTokens = lastRoundUsage
-      ? (lastRoundUsage.cache_read_input_tokens ?? 0) +
-        (lastRoundUsage.cache_creation_input_tokens ?? 0) +
-        (lastRoundUsage.input_tokens ?? 0)
-      : undefined;
+    // Fallback only for a single-pass round (or a round whose iterations name
+    // the last pass). A server-tool round without iterations has no honest
+    // usage figure: better no CTX reading this turn than an inflated one.
+    const usagePromptTokens = lastRoundPrompt?.tokens;
+    if (countedPromptTokens === undefined && lastRoundPrompt?.source === 'multi-pass') {
+      console.log(`[claude-native:${this.workflowId.slice(0, 8)}] last round ran server tools and reported no usage.iterations; no context figure for this turn (count_tokens unavailable)`);
+    }
     const lastPromptTokens = countedPromptTokens ?? usagePromptTokens;
 
     this.emit('result', {
@@ -3122,6 +3149,11 @@ export class ClaudeNativeWorker extends EventEmitter {
     text: string;
     contentBlocks: AnyContentBlock[];
     usage?: Record<string, number>;
+    // Raw `usage.iterations` when the API sent it: one entry per sampling
+    // pass. The last message pass is the real prompt size of a server-tool
+    // round (usageContext.ts); a compaction pass is billed but absent from
+    // the top-level fields.
+    usageIterations?: unknown;
     echoedModel?: string;
     stopDetails?: StopDetails | null;
   }> {
@@ -3409,7 +3441,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     const dense: AnyContentBlock[] = [];
     for (const b of blocks) if (b) dense.push(b);
     this.noticeServerCompaction(dense, usageIterations);
-    return { stopReason, text: allText, contentBlocks: dense, usage, echoedModel, stopDetails };
+    return { stopReason, text: allText, contentBlocks: dense, usage, ...(usageIterations !== undefined ? { usageIterations } : {}), echoedModel, stopDetails };
   }
 
   // One cheap system_notice per compacting response so the operator can see

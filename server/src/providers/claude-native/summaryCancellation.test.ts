@@ -20,7 +20,7 @@ for(const mode of ['manual','in-turn'] as const)test(`${mode} compaction cancell
   if(mode==='in-turn')worker.messages.push({role:'assistant',content:[{type:'text',text:'Latest round'},{type:'tool_use',id:'fixture',name:'Read',input:{file_path:'fixture'}}]},{role:'user',content:[{type:'tool_result',tool_use_id:'fixture',content:'Synthetic result'}]});
   const original=worker.messages,snapshot=JSON.stringify(original);
   let calls=0;worker.generateCompactSummary=async()=>{calls++;if(calls===1){if(mode==='manual')worker.cancelCompaction();else worker.cancel();}return 'Synthetic summary';};
-  const result=mode==='manual'?await worker.compactInPlace():await worker.maybeCompactInTurn({input_tokens:150000});
+  const result=mode==='manual'?await worker.compactInPlace():await worker.maybeCompactInTurn({usage:{input_tokens:150000},contentBlocks:[]});
   assert.equal(calls,1,'no later summarizer call after STOP');
   if(mode==='manual'){assert.equal(result.ok,false);assert.match(result.error,/cancel/i);}else assert.equal(result,'cancelled');
   assert.equal(worker.messages,original);assert.equal(JSON.stringify(worker.messages),snapshot);

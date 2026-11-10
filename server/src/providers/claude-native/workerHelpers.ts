@@ -2,7 +2,7 @@
 // file under the 2000-line cap. Stateless tail helpers: event replay, usage
 // merging, tool-output truncation, plan-parser advisories, abortable sleep.
 
-import { replayMessagesWithResumePolicy, type ClaudeResumeMessage } from './resumeSummary.js';
+import { replayMessagesWithResumePolicy, KEPT_REQUEST_HEADING, type ClaudeResumeMessage } from './resumeSummary.js';
 import { MAX_TOOL_OUTPUT_BYTES } from './tools.js';
 import type { MessageParam, AnyContentBlock } from './contentBlocks.js';
 
@@ -311,15 +311,57 @@ export function inTurnCompactedHistory(
   seed: ClaudeResumeMessage[],
   note: string,
   inProgressRound: MessageParam[],
+  keptRequest?: KeptRequest,
 ): MessageParam[] {
   const out = seed.map((m) => ({ ...m })) as unknown as MessageParam[];
+  const text = inTurnContinueText(note, keptRequest, seed.slice(2));
   const last = out[out.length - 1] as unknown as ClaudeResumeMessage | undefined;
   if (last && last.role === 'user') {
-    setResumeMessageText(last, `${resumeMessageText(last)}\n\n${note}`);
+    setResumeMessageText(last, `${resumeMessageText(last)}\n\n${text}`);
   } else {
-    out.push({ role: 'user', content: note } as MessageParam);
+    out.push({ role: 'user', content: text } as MessageParam);
   }
   return [...out, ...inProgressRound];
+}
+
+// The request that started the turn, kept word for word through an in-turn
+// compaction. `prompt` is the operator's text (for the duplicate check against
+// the kept tail); `text` adds attachment references and is cut at the byte cap.
+export interface KeptRequest { prompt: string; text: string }
+export const KEPT_REQUEST_MAX_BYTES = 64_000;
+
+export function keptRequestText(prompt: string, attachments: readonly string[] | undefined, maxBytes = KEPT_REQUEST_MAX_BYTES): KeptRequest {
+  const refs = (attachments ?? []).map((p) => `[attached file: ${p}]`).join('\n');
+  const full = [prompt, refs].filter((part) => part.length > 0).join('\n\n');
+  if (Buffer.byteLength(full, 'utf8') <= maxBytes) return { prompt, text: full };
+  let cut = full.slice(0, maxBytes);
+  while (Buffer.byteLength(cut, 'utf8') > maxBytes) cut = cut.slice(0, -1);
+  const low = cut.charCodeAt(cut.length - 1);
+  if (low >= 0xd800 && low <= 0xdbff) cut = cut.slice(0, -1);
+  const text = `${cut}\n\n[The request was cut here to fit the compaction note; ${full.length - cut.length} more characters were in the original.]`;
+  return { prompt: prompt.slice(0, cut.length), text };
+}
+
+// The user text that follows the summary seed after an in-turn compaction:
+// the kept opening request (unless a kept-tail message already carries it)
+// and the note that the compaction was automatic. One helper for the live
+// worker and replay, so both land the same bytes.
+export function inTurnContinueText(
+  note: string,
+  keptRequest: KeptRequest | undefined,
+  keptTail: readonly ClaudeResumeMessage[],
+): string {
+  const prompt = keptRequest?.prompt.trim() ?? '';
+  if (!keptRequest || !prompt) return note;
+  // The tail's copy is the projected (trimmed) opening message, possibly with
+  // hook context or the per-turn notice appended after a blank line.
+  const inTail = keptTail.some((m) => {
+    if (m.role !== 'user') return false;
+    const text = resumeMessageText(m).trim();
+    return text === prompt || text.startsWith(`${prompt}\n`);
+  });
+  if (inTail) return note;
+  return `${KEPT_REQUEST_HEADING}\n\n${keptRequest.text}\n\n${note}`;
 }
 
 // Live keeps this round raw; replay deliberately projects tools away. Keep its

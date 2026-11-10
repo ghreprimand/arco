@@ -503,6 +503,11 @@ export const composerHelp: Record<string, HelpEntry> = {
           provider or calibrated locally), <C>○</C> = estimate. Automatic calibration starts only while the session remains idle and yields to a new turn.
         </p>
         <p>
+          Claude Native counts the context after each turn. When the count is unavailable it uses the
+          last request's prompt size, never the summed usage of a request that ran web search, web
+          fetch or code execution; such a request without a count leaves the reading unchanged.
+        </p>
+        <p>
           Click here to recalibrate on demand (Claude only: runs <C>/context</C>{' '}
           against the live session via a background pty).
         </p>

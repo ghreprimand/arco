@@ -530,6 +530,10 @@ export interface NativeCompactedMessage {
   percent?: number;
   thresholdPercent?: number;
   continueNote?: string;
+  // The request that started the turn, kept word for word ahead of the note
+  // (text and attachment references, byte-capped). Absent when the kept tail
+  // already carried it. Replay composes the same user text from it.
+  keptRequest?: string;
   promptTokensAfter?: number;
   contextWindow?: number;
 }

@@ -862,6 +862,18 @@ export const configuration: Section[] = [
   then Compacted, continuing; CTX updates at once.
   </p>
   <p>
+  The measured size is the real prompt of the last request. A request that ran
+  web search, web fetch or code execution is sampled several times, and its
+  summed usage is not a context size; Arco uses the last pass or counts the
+  context instead, and skips the check when neither is available. The same rule
+  feeds the CTX meter and the between-turn compaction and handoff readings.
+  </p>
+  <p>
+  The request that started the turn is kept word for word, with its attachment
+  references, before the note that the compaction was automatic. The summary
+  still covers everything earlier.
+  </p>
+  <p>
   Large summaries split into requests that reserve room for earlier summary text and stay within the input budget.
   </p>
   <p>

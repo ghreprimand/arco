@@ -1,4 +1,5 @@
 import { readFile, stat } from 'fs/promises';
+import { lastPassPromptTokens, promptTokensOf, roundUsedServerTools } from './providers/claude-native/usageContext.js';
 import { resolveSessionJsonlPath } from './sessionJsonl.js';
 
 // Context window sizes by model family / known model id (tokens). Keep this
@@ -133,6 +134,13 @@ export interface ContextEstimate {
 // content). This is ground truth: it's what Claude itself decided was in
 // context for the most recent turn, so no calibration is needed.
 //
+// One exception: a response that ran server tools (web search, web fetch,
+// code execution) was sampled several times and its top-level usage is the
+// SUM over those passes, not a prompt size. When the entry lists its passes
+// (`usage.iterations`) the last message pass is the prompt; when it does not,
+// no ground truth exists for that message and the caller falls back to the
+// byte estimate rather than reading the sum (usageContext.ts has the rule).
+//
 // Returns null if the file is missing or has no assistant entries with usage
 // (e.g. a brand-new session that hasn't received a turn yet).
 async function readLatestUsageTokens(
@@ -144,24 +152,65 @@ async function readLatestUsageTokens(
   } catch {
     return null;
   }
+  return latestUsageTokensFromJsonl(buf.toString('utf-8'));
+}
+
+type JsonlAssistantLine = {
+  type?: string;
+  timestamp?: string;
+  message?: { id?: string; usage?: Record<string, unknown>; content?: unknown };
+};
+
+function lineUsedServerTools(obj: JsonlAssistantLine): boolean {
+  const counts = obj.message?.usage?.server_tool_use;
+  if (counts && typeof counts === 'object') {
+    for (const v of Object.values(counts as Record<string, unknown>)) if (typeof v === 'number' && v > 0) return true;
+  }
+  const content = obj.message?.content;
+  return Array.isArray(content) && roundUsedServerTools(content as Array<{ type?: string }>);
+}
+
+// Pure core of readLatestUsageTokens, exported for tests.
+export function latestUsageTokensFromJsonl(text: string): { tokens: number; timestamp?: number } | null {
   // Scan backward — the latest assistant entry is near the end. JSONL is
   // line-delimited, so split and walk from the tail.
-  const lines = buf.toString('utf-8').split('\n');
-  for (let i = lines.length - 1; i >= 0; i--) {
+  const lines = text.split('\n');
+  const parsed = new Map<number, JsonlAssistantLine | null>();
+  const parse = (i: number): JsonlAssistantLine | null => {
+    const cached = parsed.get(i);
+    if (cached !== undefined) return cached;
     const line = lines[i];
-    if (!line || !line.includes('"type":"assistant"')) continue;
-    try {
-      const obj = JSON.parse(line);
-      const u = obj?.message?.usage;
-      if (!u) continue;
-      const tokens =
-        (u.cache_read_input_tokens ?? 0) +
-        (u.cache_creation_input_tokens ?? 0) +
-        (u.input_tokens ?? 0);
-      if (tokens <= 0) continue;
-      const ts = obj.timestamp ? Date.parse(obj.timestamp) : undefined;
-      return { tokens, timestamp: Number.isFinite(ts) ? (ts as number) : undefined };
-    } catch { /* skip malformed line */ }
+    let obj: JsonlAssistantLine | null = null;
+    if (line && line.includes('"type":"assistant"')) {
+      try { obj = JSON.parse(line) as JsonlAssistantLine; } catch { obj = null; }
+    }
+    parsed.set(i, obj);
+    return obj;
+  };
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const obj = parse(i);
+    const u = obj?.message?.usage;
+    if (!obj || !u) continue;
+    const ts = obj.timestamp ? Date.parse(obj.timestamp) : undefined;
+    const timestamp = Number.isFinite(ts) ? (ts as number) : undefined;
+    const fromIterations = lastPassPromptTokens(u.iterations);
+    if (fromIterations !== undefined) return { tokens: fromIterations, timestamp };
+    // Claude Code writes one line per content block of a response; the lines
+    // share `message.id`. A server tool call on any of them makes the usage
+    // a multi-pass sum.
+    const id = obj.message?.id;
+    let multiPass = lineUsedServerTools(obj);
+    if (!multiPass && typeof id === 'string') {
+      for (let j = i - 1; j >= 0 && !multiPass; j--) {
+        const other = parse(j);
+        if (!other || other.message?.id !== id) continue;
+        multiPass = lineUsedServerTools(other);
+      }
+    }
+    if (multiPass) return null;
+    const tokens = promptTokensOf(u);
+    if (tokens <= 0) continue;
+    return { tokens, timestamp };
   }
   return null;
 }

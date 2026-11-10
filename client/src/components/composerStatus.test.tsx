@@ -105,6 +105,20 @@ test('the north star and a running goal stay actionable, and the context gauge n
     assert.match(title, /FRESH SUMMARIZER/);
     assert.match(title, /ORIGINAL WORKER/);
     assert.equal(host.textContent?.includes('TOOL CALLS SINCE HANDOFF'), false);
+
+    // A Claude tab without a server context reading shows none: the turn's
+    // usage sums every request and pass, so it is not a context size.
+    await act(async () => {
+      root.render(createElement(ContextMeter, { job: { config: { primaryProvider: 'claude', claudeTransport: 'native' }, totalTokens: { output: 500 }, lastTurnTokens: { input: 900_000, output: 500, cacheRead: 0, cacheCreate: 50_000 } } as JobState }));
+    });
+    assert.match(host.textContent ?? '', /- CTX/);
+    assert.equal(host.textContent?.includes('950K'), false, 'the summed turn usage is not shown as context');
+    assert.match(host.querySelector('[title]')?.getAttribute('title') ?? '', /No context reading yet/);
+    // Other providers keep their last-turn figure.
+    await act(async () => {
+      root.render(createElement(ContextMeter, { job: { config: { primaryProvider: 'ollama' }, totalTokens: { output: 0 }, lastTurnTokens: { input: 12_000, output: 10, cacheRead: 0, cacheCreate: 0 } } as JobState }));
+    });
+    assert.match(host.textContent ?? '', /12k CTX/);
   } finally {
     await act(async () => { root.unmount(); });
   }

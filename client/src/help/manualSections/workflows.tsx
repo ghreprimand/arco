@@ -126,6 +126,11 @@ codex exec resume <thread-id> "next prompt"
   percentage is <Code>○</Code> (estimate) until the first calibration or snapshot
   runs, then <Code>●</Code>.
   </p>
+  <p>
+  A reply that ran web search, web fetch or code execution counts as a snapshot
+  only when it lists its passes; otherwise the size estimate is used, never the
+  reply's summed usage.
+  </p>
   <Sub>Claude Native</Sub>
   <p>
   Arco counts tokens on the retained next-turn prompt using Anthropic's token
@@ -137,6 +142,14 @@ codex exec resume <thread-id> "next prompt"
   Server web search and fetch turns may show very large Activity{' '}
   <Code>prompt</Code>, <Code>cache-read</Code> and <Code>cache-write</Code>{' '}
   figures. Those are per-turn processing telemetry, not retained context.
+  </p>
+  <p>
+  When the token count is unavailable, Arco falls back to the last request's
+  prompt size. A request that ran web search, web fetch or code execution was
+  sampled several times and its summed usage is not a context size: Arco takes
+  the last pass when the response lists its passes, and otherwise leaves the
+  CTX reading unchanged for that turn. No automatic compaction or handoff
+  decision reads the summed figure.
   </p>
   <Sub>Codex</Sub>
   <p>

@@ -213,11 +213,18 @@ export function ContextMeter({ job, onRecalibrate }: { job: JobState; onRecalibr
     );
   }
 
-  const ctx = last ? contextTokens(last, provider) : 0;
+  // A Claude turn's usage sums every request of the turn (and every pass of a
+  // request that ran server tools), so it is not a context size. Claude tabs
+  // get a context reading from the server (count_tokens or the CLI session)
+  // and show none until it arrives.
+  const ctx = last && provider !== 'claude' ? contextTokens(last, provider) : 0;
+  const hover = provider === 'claude'
+    ? `No context reading yet: Arco measures the context after each turn (turn usage totals are not a context size) · cumulative output across this tab: ${outCumulative.toLocaleString()}\n${HANDOFF_GUIDE}`
+    : `Last turn ctx (${provider === 'codex' ? 'input' : 'input + cacheCreate'}): ${ctx.toLocaleString()} · cumulative output across this tab: ${outCumulative.toLocaleString()}\n${HANDOFF_GUIDE}`;
   return (
     <span style={{ whiteSpace: 'nowrap', display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
       <span
-        title={`Last turn ctx (${provider === 'codex' ? 'input' : 'input + cacheCreate'}): ${ctx.toLocaleString()} · cumulative output across this tab: ${outCumulative.toLocaleString()}\n${HANDOFF_GUIDE}`}
+        title={hover}
         style={{ opacity: 0.7, whiteSpace: 'nowrap', color: 'var(--color-fg)' }}
       >
         ↓ {ctx > 0 ? compact(ctx) : '-'} CTX · ↑ {outCumulative > 0 ? compact(outCumulative) : '-'} OUT

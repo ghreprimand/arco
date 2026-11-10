@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { ClaudeNativeWorker } from './worker.js';
 import type { MessageParam } from './contentBlocks.js';
 import { buildMessagesFromReplayEvents } from './resumeSummary.js';
-import { splitSummaryParts, inTurnCompactedHistory } from './workerHelpers.js';
+import { splitSummaryParts, inTurnCompactedHistory, keptRequestText } from './workerHelpers.js';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type W = {
@@ -33,11 +33,29 @@ type Block = { type: 'text'; text: string } | { type: 'tool_use'; id: string; na
 const WINDOW = 1_000_000; // claude-opus-4-8
 
 // One streamed assistant message; `prompt` is the request's prompt size.
-function reply(blocks: Block[], prompt: number, model = 'claude-opus-4-8') {
+// `passes` makes it a server-tool response: the API sampled that many times
+// (web search, web fetch, code execution), the top-level usage is the SUM of
+// the passes' prompts, and `usage.iterations` (when `withIterations`) lists
+// each pass; `prompt` is then the last pass's prompt size.
+type ServerPasses = { passes: number[]; withIterations: boolean };
+function reply(blocks: Block[], prompt: number, model = 'claude-opus-4-8', server?: ServerPasses) {
   const stop = blocks.some((b) => b.type === 'tool_use') ? 'tool_use' : 'end_turn';
+  const passes = server ? [...server.passes, prompt] : [prompt];
+  const summed = passes.reduce((a, b) => a + b, 0);
+  const iterations = server?.withIterations ? passes.map((p) => ({ type: 'message', input_tokens: p, output_tokens: 20 })) : undefined;
+  const usage = (output: number) => ({ input_tokens: summed, output_tokens: output, ...(iterations ? { iterations } : {}) });
   return async function* (): AsyncGenerator<unknown> {
-    yield { type: 'message_start', message: { model, usage: { input_tokens: prompt, output_tokens: 1 } } };
-    for (const [index, b] of blocks.entries()) {
+    yield { type: 'message_start', message: { model, usage: usage(1) } };
+    let index = 0;
+    if (server) {
+      yield { type: 'content_block_start', index, content_block: { type: 'server_tool_use', id: 'srv-1', name: 'web_search', input: { query: 'x' } } };
+      yield { type: 'content_block_stop', index };
+      index++;
+      yield { type: 'content_block_start', index, content_block: { type: 'web_search_tool_result', tool_use_id: 'srv-1', content: [] } };
+      yield { type: 'content_block_stop', index };
+      index++;
+    }
+    for (const b of blocks) {
       if (b.type === 'text') {
         yield { type: 'content_block_start', index, content_block: { type: 'text', text: '' } };
         yield { type: 'content_block_delta', index, delta: { type: 'text_delta', text: b.text } };
@@ -46,11 +64,14 @@ function reply(blocks: Block[], prompt: number, model = 'claude-opus-4-8') {
         yield { type: 'content_block_delta', index, delta: { type: 'input_json_delta', partial_json: JSON.stringify(b.input) } };
       }
       yield { type: 'content_block_stop', index };
+      index++;
     }
-    yield { type: 'message_delta', delta: { stop_reason: stop }, usage: { input_tokens: prompt, output_tokens: 20 } };
+    yield { type: 'message_delta', delta: { stop_reason: stop }, usage: usage(20) };
     yield { type: 'message_stop' };
   };
 }
+const searchTool = (id: string, lastPass: number, server: ServerPasses, text = `step ${id}`) =>
+  reply([{ type: 'text', text }, { type: 'tool_use', id, name: 'Bash', input: { command: `echo ${id}` } }], lastPass, 'claude-opus-4-8', server);
 const tool = (id: string, prompt: number, text = `step ${id}`, model?: string) => reply([{ type: 'text', text }, { type: 'tool_use', id, name: 'Bash', input: { command: `echo ${id}` } }], prompt, model);
 const done = (prompt: number, model?: string) => reply([{ type: 'text', text: 'all done' }], prompt, model);
 function summaryStream(text: string) {
@@ -388,4 +409,153 @@ test('a preserved tool-only round adds no fabricated narration to the persisted 
     assert.deepEqual(s.errors,[]);
     assert.equal(s.events.find(event=>event.type==='native_compacted')?.summary,'Earlier task context.');
   } finally {await s.done();}
+});
+
+// The context size a decision reads is the real prompt size, never the sum
+// over a server-tool response's passes (the operator's rc.7 turn read 97%
+// while the prompt was under 30%).
+test('a server-tool round whose passes sum past the threshold does not compact when the last pass is small', async () => {
+  // Three passes of 300k, 310k, 200k: the sum (810k) is 81% of the window, the last pass is 20%.
+  const s = setup([tool('a', 100_000), searchTool('b', 200_000, { passes: [300_000, 310_000], withIterations: true }), done(210_000)]);
+  try {
+    await s.w.runTurn('research the question');
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.summaries.length, 0, 'no compaction from the summed usage');
+    assert.ok(!s.events.some((e) => e.type === 'native_compacting'));
+    assert.equal(s.results.length, 1);
+    const result = s.results[0] as { usage?: Record<string, number>; lastPromptTokens?: number };
+    // Billing keeps the sum; the context figure is the last pass.
+    assert.equal(result.usage?.input_tokens, 100_000 + 810_000 + 210_000);
+    assert.equal(result.lastPromptTokens, 210_000);
+  } finally { await s.done(); }
+});
+
+test('a server-tool round without usage.iterations falls back to the counted size and does not compact', async () => {
+  const s = setup([tool('a', 100_000), searchTool('b', 200_000, { passes: [300_000, 310_000], withIterations: false }), done(210_000)], { countTokens: 205_000 });
+  try {
+    await s.w.runTurn('research the question');
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.summaries.length, 0, 'the counted size (20%) decides, not the summed usage (81%)');
+    assert.equal(s.results.length, 1);
+  } finally { await s.done(); }
+});
+
+test('a server-tool round without usage.iterations and no token count skips the decision', async () => {
+  const s = setup([tool('a', 100_000), searchTool('b', 200_000, { passes: [300_000, 310_000], withIterations: false }), done(210_000)]);
+  try {
+    await s.w.runTurn('research the question');
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.summaries.length, 0, 'an unmeasured round never compacts');
+    const result = s.results[0] as { lastPromptTokens?: number };
+    assert.equal(result.lastPromptTokens, 210_000, 'the final single-pass round still reports its prompt size');
+  } finally { await s.done(); }
+});
+
+test('a server-tool round whose last pass is genuinely past the threshold compacts', async () => {
+  const s = setup([tool('a', 100_000), searchTool('b', 750_000, { passes: [100_000, 120_000], withIterations: true }), tool('c', 150_000), done(160_000)], { countTokens: 120_000 });
+  try {
+    await s.w.runTurn('research the question');
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.summaries.length, 1);
+    assert.equal(s.events.find((e) => e.type === 'native_compacting')?.percent, 75);
+  } finally { await s.done(); }
+});
+
+test('the operator case: eleven server-tool passes of about 90k each on a 1M window never compact', async () => {
+  const passes = Array.from({ length: 10 }, (_, i) => 88_000 + i * 1_000);
+  const s = setup([tool('a', 80_000), searchTool('b', 98_000, { passes, withIterations: true }), tool('c', 101_000), done(102_000)]);
+  try {
+    await s.w.runTurn('research the question');
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.summaries.length, 0);
+    assert.ok(!s.notices.some((n) => n.startsWith('Compacting automatically')));
+    const result = s.results[0] as { usage?: Record<string, number> };
+    assert.ok((result.usage?.input_tokens ?? 0) > 1_000_000, 'USAGE totals still sum every pass');
+  } finally { await s.done(); }
+});
+
+test('a final server-tool round without iterations and no count leaves the context figure out rather than inflating it', async () => {
+  const s = setup([tool('a', 100_000), reply([{ type: 'text', text: 'all done' }], 200_000, 'claude-opus-4-8', { passes: [300_000, 310_000], withIterations: false })], { config: { claudeNativeInTurnCompactPercent: undefined } });
+  try {
+    await s.w.runTurn('research the question');
+    assert.deepEqual(s.errors, []);
+    const result = s.results[0] as { lastPromptTokens?: number };
+    assert.equal(result.lastPromptTokens, undefined);
+  } finally { await s.done(); }
+});
+
+// The request that started the turn survives an in-turn compaction word for
+// word, even when the model wrote no text between its tool calls (so no
+// narration carried it into the kept tail).
+test('in-turn compaction keeps the request that started the turn verbatim', async () => {
+  const request = 'ASSIGNMENT rc.8: fix the compaction trigger.\n\nRules: one commit, tests first, report to the Director.';
+  const quiet = (id: string, prompt: number) => tool(id, prompt, '');
+  const s = setup([quiet('a', 300_000), quiet('b', 400_000), quiet('c', 720_000), tool('d', 150_000), done(160_000)], {
+    countTokens: 120_000,
+    steer: (() => { let n = 0; return () => (++n === 1 ? [{ content: 'also note the board id' }] : []); })(),
+    summary: async () => summaryStream('Summary: the operator gave an assignment; steps ran.')(),
+  });
+  try {
+    await s.w.runTurn(request);
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.summaries.length, 1);
+    const after = s.requests[3];
+    assert.match(textOf(after[0]), /Summary of the conversation so far/);
+    const kept = after.find((m) => m.role === 'user' && textOf(m).includes(request));
+    assert.ok(kept, 'the opening request is in the history sent next, word for word');
+    assert.ok(textOf(kept).includes('compacted automatically in the middle of this turn'), 'the note rides with it');
+    assert.equal(after.map(textOf).join('\n').split(request).length - 1, 1, 'kept once');
+    assertPairsIntact(after);
+    // Replay rebuilds the same request from the persisted marker.
+    const marker = s.events.find((e) => e.type === 'native_compacted') as Record<string, unknown>;
+    assert.equal(marker.keptRequest, request);
+    const replay = buildMessagesFromReplayEvents([
+      { type: 'user_message_echo', content: request },
+      marker,
+      { type: 'primary_text', text: 'all done' },
+      { type: 'primary_complete' },
+    ] as never);
+    assert.equal((replay as MessageParam[]).map(textOf).join('\n').split(request).length - 1, 1, 'replay keeps it once');
+    assertPairsIntact(replay as MessageParam[]);
+  } finally { await s.done(); }
+});
+
+test('a kept request lists attachments as references; the text is cut at the byte cap', async () => {
+  const quiet = (id: string, prompt: number) => tool(id, prompt, '');
+  const s = setup([quiet('a', 300_000), quiet('b', 720_000), done(100_000)], {
+    config: { attachments: ['notes.txt', 'shot.png'] },
+    steer: (() => { let n = 0; return () => (++n === 1 ? [{ content: 'carry on' }] : []); })(),
+    summary: async () => summaryStream('Summary.')(),
+  });
+  try {
+    await s.w.runTurn('check the attached notes');
+    assert.deepEqual(s.errors, []);
+    const after = s.requests[2];
+    const kept = after.find((m) => m.role === 'user' && textOf(m).includes('kept word for word'));
+    assert.ok(kept, 'the request is kept');
+    const text = textOf(kept);
+    assert.ok(text.includes('check the attached notes'));
+    assert.ok(text.includes('[attached file: notes.txt]') && text.includes('[attached file: shot.png]'), 'attachments as references');
+    assertPairsIntact(after);
+  } finally { await s.done(); }
+  const long = 'L'.repeat(70_000);
+  const cut = keptRequestText(long, ['a.txt'], 64_000);
+  assert.ok(cut.text.length < 65_000 && cut.text.startsWith('L'.repeat(1_000)));
+  assert.match(cut.text, /cut here/);
+  assert.ok(!cut.text.includes('a.txt'), 'the cap applies to the whole kept text');
+  assert.equal(cut.prompt, long.slice(0, 64_000));
+  const whole = keptRequestText('short', ['a.txt']);
+  assert.equal(whole.text, 'short\n\n[attached file: a.txt]');
+  assert.equal(whole.prompt, 'short');
+});
+
+test('an in-turn compaction with no narration still keeps the request once when the tail already has it', async () => {
+  const s = setup([tool('a', 300_000), tool('b', 720_000), tool('c', 150_000), done(160_000)], { countTokens: 120_000 });
+  try {
+    await s.w.runTurn('do the long task');
+    assert.deepEqual(s.errors, []);
+    const after = s.requests[2];
+    assert.equal(after.filter((m) => m.role === 'user' && textOf(m).includes('do the long task')).length, 1, 'the tail copy is not doubled');
+    assertPairsIntact(after);
+  } finally { await s.done(); }
 });
