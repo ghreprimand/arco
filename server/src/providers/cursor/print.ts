@@ -110,6 +110,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
       detached: true,
     });
 
+    this.proc.stdin?.on('error', () => { /* Early exit: process events report the failure. */ });
     this.proc.on('error', (err) => this.fail(`cursor-agent spawn error: ${err.message}`));
     this.proc.on('close', (code, signal) => this.onExit(code, signal));
 

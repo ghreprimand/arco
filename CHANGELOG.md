@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep Arco running when provider CLI, sign-in, language-server or MCP child processes close their input early.
+
 - Restore enabled MCP registry tools to Strata and DeepSeek Agent turns.
 
 - Restrict the cluster tools offered to BLIND llama.cpp and LM Studio members to mail.

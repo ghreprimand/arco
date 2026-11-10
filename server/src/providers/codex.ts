@@ -116,6 +116,8 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
       detached: true,
     });
 
+    this.process.stdin?.on('error', () => { /* Early exit: process events report the failure. */ });
+
     this.parser = new CodexStreamParser();
     this.wireEvents();
 

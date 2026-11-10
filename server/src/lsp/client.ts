@@ -264,6 +264,7 @@ class LspManager extends EventEmitter {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
+    child.stdin?.on('error', () => { /* Early exit: process events report the failure. */ });
     const reader = new FrameReader();
     let resolveReady!: () => void;
     let rejectReady!: (e: Error) => void;

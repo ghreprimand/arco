@@ -214,6 +214,7 @@ export async function probeServer(def: McpServerDef, opts: ProbeOptions = {}): P
       return;
     }
 
+    child.stdin.on('error', () => { /* Early exit: process events or timeout settle requests. */ });
     timer = setTimeout(() => {
       finish({ ok: false, tools: [], error: `timed out after ${timeoutMs}ms` });
     }, timeoutMs);
@@ -380,6 +381,8 @@ export async function connectServer(def: McpServerDef, opts: ConnectOptions = {}
   } catch (err) {
     return closedSession(`spawn failed: ${errMsg(err)}`);
   }
+
+  child.stdin.on('error', () => { /* Early exit: process events or timeout settle requests. */ });
 
   // Shared per-child JSON-RPC state. `pending` maps a request id to its
   // resolver; `nextId` mints request ids. stdout is line-buffered. Any line

@@ -9,6 +9,7 @@ export const providers: Section[] = [
   title: 'Choosing a provider',
   body: (
   <>
+  <p>If a provider CLI, sign-in process, language server or MCP server closes its input early, Arco stays running. Existing exit reporting and request timeouts still apply; failed requests are not automatically resent.</p>
   <p>Native and local-model file tools refuse links that leave the workflow folder, including links used as search folders. Links to files inside the same folder remain usable. New nested files can still be created.</p>
   <p>
   A provider is the model service behind a workflow tab. Use this table to

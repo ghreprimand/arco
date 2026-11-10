@@ -251,6 +251,8 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       detached: true,
     });
 
+    this.process.stdin?.on('error', () => { /* Early exit: process events report the failure. */ });
+
     this.parser = new StreamParser();
     this.wireEvents();
 

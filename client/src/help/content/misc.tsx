@@ -165,7 +165,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   'auth.endpoint': { title: 'Model server address', manualSection: 'settings-providers', body: <p>Set an http or https service address, then Save endpoint. Clear the field and save to restore the runtime default. Other Ollama options stay saved. Test connection checks the resulting address.</p> },
   'auth.login-flow': {
     title: 'Provider sign-in', manualSection: 'settings-providers',
-    body: <p>Open the provider sign-in link and follow its instructions. Enter a returned code only when requested. The provider CLI stores credentials in the server home. Cancel stops this login; the terminal command remains available as a fallback.</p>,
+    body: <p>Open the provider sign-in link and follow its instructions. Enter a returned code only when requested. The provider CLI stores credentials in the server home. Cancel stops this login; the terminal command remains available as a fallback. If the sign-in process closes its input early, Arco stays running and reports the process exit.</p>,
   },
   'auth.provider-outage': {
     title: 'Provider connection status', manualSection: 'settings-providers',

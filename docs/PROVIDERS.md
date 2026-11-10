@@ -12,6 +12,10 @@ For the abstract interface, see `server/src/providers/types.ts`. For when these 
 
 ---
 
+## Child process input failures
+
+If a provider CLI, sign-in process, language server or MCP server closes its input early, Arco handles the input-stream error and stays running. Existing exit reporting and request timeouts still apply; failed requests are not automatically resent.
+
 ## Diagnostic executable lookup
 
 Diagnostics uses platform PATH lookup, including Windows PATHEXT suffixes, to find optional tools and language servers. Model Health uses the runtime's `ARCO_LLAMACPP_BIN` override when configured; otherwise it searches PATH. An invalid configured override is reported missing. These checks do not launch a model.

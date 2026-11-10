@@ -87,6 +87,7 @@ export function startLoginSession(provider: AuthLoginTarget, command: string): A
     finish(entry, 'failed', err instanceof Error ? err.message : String(err));
     return snapshot(entry);
   }
+  child.stdin?.on('error', () => { /* Early exit: process events report the failure. */ });
   entry.child = child;
   const onData = (chunk: Buffer): void => {
     entry.output = (entry.output + chunk.toString('utf8')).slice(-OUTPUT_CAP);
