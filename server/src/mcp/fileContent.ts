@@ -15,9 +15,15 @@ export async function normalizeMcpFileContent(raw: unknown, signal?: AbortSignal
     const encoded = typeof entry.data === 'string' ? entry.data : typeof resource?.blob === 'string' ? resource.blob : source?.type === 'base64' && typeof source.data === 'string' ? source.data : undefined;
     const name = typeof resource?.uri === 'string' ? resource.uri.split('/').pop() || 'tool-result' : typeof entry.name === 'string' ? entry.name : 'tool-result';
     if (encoded && (entry.type === 'image' || entry.type === 'document' || resource)) {
-      if (++media > 20 || encoded.length > Math.ceil(MAX_FILE_CONTENT_BYTES / 3) * 4) { blocks.push({type:'text',text:'[Tool media exceeded the response decoding budget; request a smaller result.]'});continue; }
+      if (encoded.length > Math.ceil(MAX_FILE_CONTENT_BYTES / 3) * 4) { blocks.push({type:'text',text:'[Tool media exceeded the response decoding budget; request a smaller result.]'});continue; }
       const parsed = await fileContentFromBytes(Buffer.from(encoded,'base64'), name, { signal, limits:{images:true,documents:true,maxImages:20,maxDocumentPages:100} });
-      blocks.push(...parsed.blocks);continue;
+      for (const block of parsed.blocks) {
+        if (block.type === 'text') { blocks.push(block); continue; }
+        if (media >= 20) {
+          blocks.push({ type: 'text', text: '[Tool media exceeded the response decoding budget; request a smaller result.]' });
+        } else { blocks.push(block); media++; }
+      }
+      continue;
     }
     if (typeof resource?.text === 'string') { blocks.push({type:'text',text:resource.text.slice(0,256*1024)});continue; }
     blocks.push({type:'text',text:`[Tool ${String(entry.type ?? 'content')} result${typeof entry.mimeType === 'string' ? ` (${entry.mimeType})` : ''}: binary payload omitted or resource referenced${typeof entry.uri === 'string' ? ` at ${entry.uri.slice(0,1000)}` : ''}.]`});

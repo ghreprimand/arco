@@ -2245,3 +2245,7 @@ The BOARD mode takes effect on the next turn. Detached boards and BLIND members 
 Claude Native, Ollama, llama.cpp, LM Studio, Strata and DeepSeek offer `plan_create`, `plan_attach`, `plan_list`, `plan_ref_write`, `plan_ref_list` and `plan_ref_read` in Agent tabs with a workflow folder and identity. These are workflow plan tools, separate from cluster shared-plan tools and Native plan mode. Ordinary Chat tabs and ISOLATED Native members do not receive them. Local execution requires AUTO mode; explicit local tool allowlists still apply.
 
 The schemas, descriptions, structure checks, reference slug validation and REST operations live in `server/src/planTools.ts`. MCP, Native and local adapters share them. Creating a plan attaches it to the calling workflow; model-supplied arguments cannot replace that identity or its project folder. Replacing a plan body or deleting a plan remains outside this tool family. Ollama ranks these tools as ordinary relevance candidates by default. Plan-related task context or an explicit plan request keeps all six for that turn, adding their count to the normal cap.
+
+### MCP response media accounting
+
+The MCP reader retains up to 20 decoded image or PDF document blocks per tool response. Encoded text resources use the bounded text path and do not consume that media count. A PDF document block can contain several pages; provider request guards count its actual pages separately. Source decoding remains bounded to 100 response entries and the per-source byte limit.
