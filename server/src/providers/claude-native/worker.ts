@@ -1,3 +1,4 @@
+import { mediaRetirementNotice } from './mediaRetirementNotice.js';
 import { nativeMediaLimits } from './mediaLimits.js';
 import { retainNewestMedia } from './mediaRetention.js';
 import { PLAN_TOOL_NAMES, PLAN_TOOL_DEFINITIONS, executePlanTool } from '../../planTools.js';
@@ -2533,6 +2534,22 @@ export class ClaudeNativeWorker extends EventEmitter {
   // inside the summary.
   private turnOpeningRequest: KeptRequest | null = null;
 
+  private retiredImagesThisTurn = 0;
+  private retiredDocumentsThisTurn = 0;
+
+  private flushMediaRetirementNotice(): void {
+    const notice = mediaRetirementNotice(this.retiredImagesThisTurn, this.retiredDocumentsThisTurn);
+    this.retiredImagesThisTurn = 0;
+    this.retiredDocumentsThisTurn = 0;
+    if (notice) this.emit('system_notice', notice);
+  }
+
+  override emit(event: string | symbol, ...args: unknown[]): boolean {
+    // The adapter unwires on result/error, so deliver the aggregate first.
+    if (event === 'result' || event === 'error') this.flushMediaRetirementNotice();
+    return super.emit(event, ...args);
+  }
+
   private async admitMedia(pending: unknown, result: ImageReadResult, origin: 'tool' | 'attachment' = 'tool'): Promise<ImageReadResult> {
     const limits = nativeMediaLimits(lookupCtx(this.capModel()), this.client?.baseURL);
     // Attachment and tool preparation happen between API requests. Retirement
@@ -2550,13 +2567,14 @@ export class ClaudeNativeWorker extends EventEmitter {
       this.resetPrefixFreeze('media-retention');
     }
     if (retained.pending !== pending && Array.isArray(pending) && Array.isArray(retained.pending)) pending.splice(0, pending.length, ...retained.pending);
-    if (retained.imagesReplaced || retained.documentsReplaced) {
-      this.emit('system_notice', `Replaced ${retained.imagesReplaced} old images and ${retained.documentsReplaced} old PDF documents with text receipts to make room for new media. Attach or request a file again to bring it back.`);
-    }
+    this.retiredImagesThisTurn += retained.imagesReplaced;
+    this.retiredDocumentsThisTurn += retained.documentsReplaced;
     return admitImageResult(this.messages, pending, result, origin, limits);
   }
 
   async runTurn(prompt: string): Promise<void> {
+    this.retiredImagesThisTurn = 0;
+    this.retiredDocumentsThisTurn = 0;
     this.turnRunning = true;
     this.hookStopRequested = null;
     this.clearIdleNotification();
@@ -2564,6 +2582,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     try {
       await this.runTurnInner(prompt);
     } finally {
+      this.flushMediaRetirementNotice();
       this.turnRunning = false;
       this.subagentTurnPending = false;
       // idle_prompt: the turn finished and nothing was sent for a while. Not

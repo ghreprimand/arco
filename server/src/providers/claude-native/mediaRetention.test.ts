@@ -68,7 +68,8 @@ test('worker retirement resets prefix tracking and emits actionable visible coun
     assert.equal(worker.sentThrough, 0); assert.equal(worker.frozenSystem, undefined);
     assert.notEqual(worker.messages, original);
     assert.equal(original[0].content.filter((block: any) => block.type === 'image').length, 100);
-    assert.equal(notices.length, 1); assert.match(notices[0], /Replaced 1 old images/); assert.match(notices[0], /Attach or request a file again/); assert.doesNotMatch(notices[0], /COMPACT|HANDOFF/);
+    worker.flushMediaRetirementNotice();
+    assert.equal(notices.length, 1); assert.match(notices[0], /Replaced 1 old image with a text receipt/); assert.match(notices[0], /Attach or request a file again/); assert.doesNotMatch(notices[0], /COMPACT|HANDOFF/);
     const before = JSON.stringify(worker.messages), reference = worker.messages;
     await worker.admitMedia([], { ...result, content: [] }, 'attachment');
     assert.equal(worker.messages, reference); assert.equal(JSON.stringify(worker.messages), before);
@@ -133,4 +134,46 @@ test('pending Read results retire older images without changing the active assis
   assert.equal(retained.history[0], current);
   assert.ok((await admitImageResult(retained.history, (retained as any).pending, result, 'tool', limits)).content);
   assert.equal(pending[0].content.filter(block => block.type === 'image').length, 2, 'original pending objects are not edited by planning');
+});
+
+test('one turn totals repeated retirements in one grammatical notice and clears its tally', async () => {
+  const { mkdtemp, rm } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { ClaudeNativeWorker } = await import('./worker.js');
+  const home = await mkdtemp(join(tmpdir(), 'arco-retirement-tally-'));
+  const worker = new ClaudeNativeWorker({ workflowId: 'wf-retirement-tally', config: { cwd: home, model: 'unknown-fixture', effort: 'low' } as any }) as any;
+  const notices: string[] = []; worker.on('system_notice', (text: string) => notices.push(text));
+  worker.client = { baseURL: 'https://api.anthropic.com' };
+  worker.messages = [{ role: 'user', content: Array(100).fill(image) }];
+  try {
+    let noticesAtResult = -1;
+    worker.on('result', () => { noticesAtResult = notices.length; });
+    worker.runTurnInner = async () => {
+      for (let index = 0; index < 3; index++) {
+        const admitted = await worker.admitMedia([], result, 'attachment');
+        worker.messages.push({ role: 'user', content: admitted.content });
+      }
+      worker.emit('result', { text: 'fixture complete' });
+    };
+    await worker.runTurn('fixture');
+    assert.equal(notices.length, 1, 'retirements in one turn produce one notice');
+    assert.equal(noticesAtResult, 1, 'the adapter must receive the notice before result unwires it');
+    assert.equal(notices[0], 'Replaced 3 old images with text receipts to make room for new media. Attach or request a file again to bring it back.');
+    worker.runTurnInner = async () => {};
+    await worker.runTurn('no retirement');
+    assert.equal(notices.length, 1, 'later turns never repeat an old tally');
+    let noticesAtError = -1;
+    worker.on('error', () => { noticesAtError = notices.length; });
+    worker.messages = [{ role: 'user', content: Array(100).fill(image) }];
+    worker.runTurnInner = async () => {
+      await worker.admitMedia([], result, 'attachment');
+      worker.emit('error', 'fixture terminal error');
+    };
+    await worker.runTurn('terminal error');
+    assert.equal(noticesAtError, 2, 'the aggregate is delivered before terminal error unwires the adapter');
+    assert.equal(notices.length, 2, 'finally does not duplicate a terminal-error notice');
+    assert.match(notices[1], /Replaced 1 old image with a text receipt/);
+
+  } finally { worker.client = null; await worker.dispose(); await rm(home, { recursive: true, force: true }); }
 });
