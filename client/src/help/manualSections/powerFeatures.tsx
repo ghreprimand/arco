@@ -528,6 +528,10 @@ export const powerFeatures: Section[] = [
   <li><strong>Last turn</strong> - prompt, cache read, cache create and output tokens for the most recent turn, when the provider reports them.</li>
   <li><strong>Speed (Ollama and Strata)</strong> - the last turn's decode tokens per second and fresh-prefill speed, from engine timings. Hover for counts and durations. Tool, load and network time are excluded, as is any cached prefix. With no timings, no readout shows.</li>
   </ul>
+  <p>Before an Ollama request, the compaction estimate counts image dimensions.
+  Compressing an image with the same dimensions does not change that estimate.
+  Unknown image headers use a conservative bounded cost. After the request,
+  the daemon&apos;s prompt count supplies the measured context figure.</p>
   <Sub>Token Usage in the ACTIVITY tab</Sub>
   <p>
   Token Usage separates retained context from processing telemetry. Claude Native

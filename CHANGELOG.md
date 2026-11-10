@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Estimate Ollama image context from pixel dimensions so compression size does not trigger different compaction decisions.
+
 - Claude CLI receives attached PDFs as bounded document blocks, with extracted text or fitted scanned-page images as fallback.
 
 - Claude Native reads public image and document URLs through `read_url`, with page ranges, web access controls and per-turn limits.
@@ -12,6 +14,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Read public URL images and document ranges through the read-only `fetch_file` tool on CLI file servers, sharing guarded decoding with local WebFetch.
 
 - Read Windows-1252 text with a decoding notice and working line ranges across providers and attachments; NUL and control-heavy data remain binary receipts.
+
 
 - Notebook reads keep cell ranges when metadata comes first, render SVG outputs, and name unsupported rich outputs instead of dropping them.
 

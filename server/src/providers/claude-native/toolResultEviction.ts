@@ -1,4 +1,5 @@
-import { toolResultText, imagePixelSize, type ToolResultContent } from './imageRead.js';
+import { toolResultText, type ToolResultContent } from './imageRead.js';
+import { imageBase64TokenCost } from '../../imageTokens.js';
 // §2.2 — tool-result eviction (Claude Native).
 //
 // Two deterministic, LLM-free mechanisms for keeping tool output from
@@ -84,8 +85,7 @@ export function estimateResultTokens(content: ToolResultContent): number {
   return content.reduce((sum, block) => {
     if (block.type === 'text') return sum + Math.ceil(Buffer.byteLength(block.text, 'utf8') / 4);
     if (block.type === 'document') return sum + Math.max(1, block.arcoPages ?? 1) * 3000;
-    const size = imagePixelSize(Buffer.from(block.source.data, 'base64'));
-    return sum + (size ? Math.min(4784, Math.ceil(size.width / 28) * Math.ceil(size.height / 28)) : 4784);
+    return sum + imageBase64TokenCost(block.source.data);
   }, 0);
 }
 

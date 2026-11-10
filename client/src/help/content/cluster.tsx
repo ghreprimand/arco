@@ -479,7 +479,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.member.auto-compaction': {
     title: 'Auto-compaction',
-    body: <p>When the worker summarizes older context in place. CLUSTER DEFAULT follows the cluster&apos;s setting, shown in brackets. OFF and ON set the worker&apos;s own policy; ON shows the threshold slider. REPLACE starts from the current member&apos;s policy; ADD FRESH starts with the cluster default. On Claude Native the same threshold (70% under the default) also compacts inside a long turn, which then continues with the request that started it kept word for word (a request over 125 KB defers the compaction instead); the size measured is the real prompt, never the summed usage of a web search or web fetch request.</p>,
+    body: <><p>When the worker summarizes older context in place. CLUSTER DEFAULT follows the cluster&apos;s setting, shown in brackets. OFF and ON set the worker&apos;s own policy; ON shows the threshold slider. REPLACE starts from the current member&apos;s policy; ADD FRESH starts with the cluster default. On Claude Native the same threshold (70% under the default) also compacts inside a long turn, which then continues with the request that started it kept word for word (a request over 125 KB defers the compaction instead); the size measured is the real prompt, never the summed usage of a web search or web fetch request.</p><p>Ollama estimates image context from pixel dimensions before sending. Compression size does not change this estimate. After the request, the daemon supplies the measured prompt count.</p></>,
     manualSection: 'cluster-member-replacement',
   },
   'cluster.replace.provider': {

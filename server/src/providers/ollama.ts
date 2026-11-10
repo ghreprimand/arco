@@ -1677,16 +1677,17 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     // after the clamp, else Modelfile) — not the Modelfile value alone, which
     // over-states the room when the operator set a smaller num_ctx.
     const window = effectiveNumCtx(this.config.ollamaParams, showMeta);
+    const vision = showMeta.capabilities?.includes('vision') === true;
     if (this.config.ollamaReplay && this.config.workflowId) {
       await compactDurableOllama({ messages: messages as CompactMessage[], context: this.config.ollamaReplay,
         cwd: this.config.cwd, workflowId: this.config.workflowId, config, window,
         parse: (text) => parseRenderedTranscript(text) as CompactMessage[],
-        estimate: (stack) => estimatePromptTokens({ messages: stack as OllamaChatMessage[], tools }),
+        estimate: (stack) => estimatePromptTokens({ messages: ollamaVisionMessages(stack as OllamaChatMessage[], vision), tools }),
         summarize: (older) => this.produceCompactionSummary(older, config),
         emit: (notice) => this.emit('system_notice', notice), signal: this.abortController?.signal, forced });
       return;
     }
-    const estTokens = estimatePromptTokens({ messages, tools });
+    const estTokens = estimatePromptTokens({ messages: ollamaVisionMessages(messages, vision), tools });
 
     // WP3 — the forced (manual-button) path bypasses BOTH gates below: the
     // operator asked to compact now, so we don't emit the soft warning and we

@@ -1,3 +1,4 @@
+import { imageBase64TokenCost } from '../imageTokens.js';
 // Ollama token accounting (Hardening §5 / Master-plan M6).
 //
 // Two jobs, kept separate because they answer different questions:
@@ -53,9 +54,7 @@ export interface EstimableMessage {
   content?: string;
   thinking?: string;
   tool_calls?: Array<{ function: { name: string; arguments: unknown } }>;
-  // base64 image bytes — present on a vision turn. Counted as raw length / 4
-  // (base64 inflation) so an attached screenshot doesn't silently blow the
-  // estimate; vision tokenization is model-specific, this is a coarse guard.
+  // Encoded image payloads. Pixel dimensions determine the visual cost.
   images?: string[];
 }
 
@@ -96,11 +95,9 @@ export function estimateMessageTokens(msg: EstimableMessage): number {
     }
   }
   let tokens = tokensForChars(chars) + PER_MESSAGE_TOKENS;
-  // Images: base64 → ~0.75 bytes of real data per char; vision models burn a
-  // model-specific number of tokens per tile. We approximate at length/4 — a
-  // deliberate over-count so a screenshot can't sneak past the gate.
+  // Use the shared pixel estimate before the daemon's measured count arrives.
   if (Array.isArray(msg.images)) {
-    for (const b64 of msg.images) tokens += Math.ceil(b64.length / 4);
+    for (const b64 of msg.images) tokens += imageBase64TokenCost(b64);
   }
   return tokens;
 }

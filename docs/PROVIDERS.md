@@ -1340,6 +1340,7 @@ The applied `options` envelope is the **single insertion point** and is prefix-c
 
 - **Ground truth** is Ollama's `prompt_eval_count` on the `done:true` line (the actual prompt count the daemon saw) → carried on the result event as `lastPromptTokens`.
 - **`estimatePromptTokens`** is the forward-looking pre-turn estimate. It **counts tool-call arguments** (a tool-only assistant turn has `content:null` with the whole payload in `tool_calls[].function.arguments` - naïve counting undershoots ~20-30% and the compaction gate goes blind), plus tool results and the advertised tool schemas (sent every turn).
+- Compaction estimates first apply the serving model's vision support and request image budget. Admitted images use pixel dimensions through the same pure helper as Native context management. Compression size does not alter this visual estimate. Unknown or incomplete headers use a bounded conservative image cost. The daemon's later `prompt_eval_count` remains the measured context figure.
 - Reuses the existing `ContextUsageMessage` → CTX bar; the denominator is the per-backend probed `num_ctx` (`OLLAMA_DEFAULT_WINDOW` = 2048 fallback). Context compaction reads `context_usage.percentOfWindow` (post-turn) + `estimatePromptTokens()` (forward-looking) to decide whether to compact.
 
 ### Auto-compaction
