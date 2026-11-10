@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Restore enabled MCP registry tools to Strata and DeepSeek Agent turns.
+
 - Restrict the cluster tools offered to BLIND llama.cpp and LM Studio members to mail.
 - Keep keyboard focus inside the workspace rename dialog while it is open.
 

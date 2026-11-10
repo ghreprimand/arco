@@ -589,7 +589,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
         ? all.filter((t) => this.config.tools!.includes(t.function.name))
         : all;
     }
-    if (this.connection.chatWeb || this.config.voiceOperator) tools = ollamaToolCandidates(this.config);
+    if (this.connection.chatWeb || this.config.voiceOperator) tools = ollamaToolCandidates(this.config, registryTools);
     this.advertisedTools = new Set(tools?.map((t) => t.function.name) ?? []);
     const autoMode = this.connection.chatWeb ? ollamaToolsAutoExecute(this.config) : this.config.skipPermissions === true;
 

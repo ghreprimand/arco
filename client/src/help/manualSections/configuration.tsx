@@ -1016,6 +1016,9 @@ export const configuration: Section[] = [
   stay off until ticked per tab.
   </li>
   <li>
+  Strata and DeepSeek Agent turns receive enabled, allowed registry tools.
+  </li>
+  <li>
   On CLI Claude the denylist is real: unticked tools become{' '}
   <Code>--disallowedTools</Code>.
   </li>

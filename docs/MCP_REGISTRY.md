@@ -230,3 +230,5 @@ tools in the CLI `--disallowedTools` set while ticked ones are not; the Codex
 
 - [Feature reference](FEATURES.md)
 - [Documentation style](STYLE.md)
+
+Strata and DeepSeek Agent turns include enabled, allowed registry tools in the model request. Disabled and unticked dangerous tools remain excluded.

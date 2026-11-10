@@ -555,7 +555,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         flags the dangerous ones. On CLI Claude the denylist is enforced via{' '}
         <C>--disallowedTools</C> (composes with skip-permissions). Codex has no
         per-tool gate: an enabled server exposes <strong>all</strong> its
-        tools. No hidden, model-selected expansion: only servers you enable.
+        tools. Strata and DeepSeek Agent turns also receive enabled, allowed tools. No hidden, model-selected expansion: only servers you enable.
        Codex app-server receives enabled servers too; a changed launch definition recycles its child before the next turn.</p>
     ),
     manualSection: 'config-tab',
