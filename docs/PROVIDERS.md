@@ -1025,7 +1025,7 @@ Operator's `~/.codex/config.toml` is left untouched - `-c` overrides only set th
 
 ### Registry MCP
 
-Both Codex transports also register the operator-curated **MCP registry** servers a tab has enabled, via the same `-c mcp_servers.<key>.*` override form (`buildCodexMcpOverrides` extends to `McpConfigOptions.registryServers`; `env` rides through as a TOML inline table). **Known gap - Codex has NO per-tool allow/deny flag** ("No equivalent to Claude's `--tools` allow-list"), so enabling a server on a Codex tab exposes **all** of that server's tools. The dangerous-tool denylist is therefore **not enforceable on Codex** - Arco surfaces this honestly in the MCP CONFIG section (gap banner + per-tool "(not gated on Codex)" labels) rather than faking enforcement. Server-level enable/disable IS honored. Full detail: `docs/MCP_REGISTRY.md`.
+Both Codex transports register enabled MCP registry servers through `-c mcp_servers.<key>.*` overrides. Codex 0.167 and later receive `disabled_tools` for explicitly disabled tools and cached dangerous tools that were not ticked. Older or unknown versions keep server-level wiring and show a per-tool enforcement warning in CONFIG. Registry denylist changes recycle app-server before the next turn. See `docs/MCP_REGISTRY.md` for probe and compatibility limits.
 
 #### `exec` lifecycle
 

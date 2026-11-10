@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Apply MCP per-tool restrictions on supported Codex CLIs, retaining a warning for older versions.
 - Give Cursor read-only reviewers plan listing and reference readers without adding plan writers or board tools.
 
 - Add workflow plan creation, attachment, listing and reference tools to Claude Native and local-provider Agent tabs.

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { ProviderName } from '@arco/shared';
+import { supportsCodexMcpToolFilters, type ProviderName } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
 
 // docs/ARCHITECTURE.md - MCP registry management surface in the CONFIG tab.
@@ -16,8 +16,8 @@ import { useAppStore, type JobState } from '../../stores/appStore';
 //
 // Enforcement reality (LOCKED decisions): on CLI Claude the dangerous-tool
 // denylist is REAL (unticked dangerous tools become --disallowedTools, which
-// removes them from the model's set). On Codex there is NO per-tool gate, so
-// enabling a server exposes ALL its tools — surfaced here as a warning.
+// removes them from the model's set). Codex 0.167 and later receive per-server tool filters.
+// Older or unknown Codex versions retain the legacy warning.
 export interface McpSenders {
   list: (workflowId?: string) => void;
   create: (input: { name: string; command: string; args: string[]; env?: Record<string, string>; enabled?: boolean; overrideMalwareWarning?: boolean }) => void;
@@ -41,7 +41,8 @@ export function McpRegistrySection({ job, mcp }: { job: JobState; mcp: McpSender
     mcp.list(job.id);
   }, [job.id, mcp]);
 
-  const codexGap = provider === 'codex';
+  const codexVersion = useAppStore((s) => s.capabilities?.codexVersion);
+  const codexGap = provider === 'codex' && !supportsCodexMcpToolFilters(codexVersion);
 
   return (
     <div style={{ marginTop: '18px' }} data-help="rightpanel.config.mcp">
@@ -60,8 +61,8 @@ export function McpRegistrySection({ job, mcp }: { job: JobState; mcp: McpSender
             borderRadius: '2px', padding: '6px 8px',
           }}
         >
-          Codex exposes <strong>all</strong> tools of an enabled server: it has no per-tool deny
-          flag, so the dangerous-tool denylist is not enforced here. Enable only servers you trust
+          This Codex version does not have confirmed per-tool filter support. An enabled
+          server exposes <strong>all</strong> its tools, including disabled or unticked dangerous tools. Enable only servers you trust
           fully on a Codex tab.
         </div>
       )}

@@ -1,3 +1,5 @@
+import { supportsCodexMcpToolFilters } from '@arco/shared';
+import { installedCodexVersion } from '../providers/codexVersion.js';
 import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // docs/PROTOCOL_CLUSTER.md + docs/PROVIDERS.md - per-workflow
 // `mcp-config.json` writer.
@@ -110,6 +112,9 @@ import { atomicWriteFile } from '../atomicFile.js';
 export type RegistryMcpEntry = ResolvedMcpServer;
 
 export interface McpConfigOptions {
+  disallowedTools?: string[];
+  // Explicit version is also useful for offline compatibility tests.
+  codexVersion?: string;
   // When set, includes the arco-cluster MCP entry pointing at this cluster.
   clusterId?: string;
   // Cluster peer/plan tools follow clusterId; cluster_task_* tools are exposed
@@ -268,15 +273,22 @@ export function buildCodexMcpOverrides(
       '-c', `mcp_servers.codebase-memory.args=${JSON.stringify(entry.args)}`,
     );
   }
-  // §E1 — registry servers, same TOML dotted-key shape. Codex has NO per-tool
-  // allow/deny flag, so EVERY tool of an enabled server is exposed — the
-  // dangerous-tool denylist is NOT enforceable here (documented gap; surfaced
-  // in the UI). `env` rides through as a TOML inline table when present.
+  // Codex 0.167 accepts per-server disabled_tools. Older or unprobed
+  // versions retain server-level wiring without unsupported config keys.
+  const toolFilters = (opts.registryServers?.length ?? 0) > 0 && supportsCodexMcpToolFilters(opts.codexVersion ?? installedCodexVersion());
   for (const r of opts.registryServers ?? []) {
     out.push(
       '-c', `mcp_servers.${r.key}.command=${JSON.stringify(r.command)}`,
       '-c', `mcp_servers.${r.key}.args=${JSON.stringify(r.args)}`,
     );
+    if (toolFilters) {
+      const prefix = `mcp__${r.key}__`;
+      const denied = [...new Set([
+        ...(r.disabledTools ?? []),
+        ...(opts.disallowedTools ?? []).filter(name => name.startsWith(prefix)).map(name => name.slice(prefix.length)),
+      ])];
+      out.push('-c', `mcp_servers.${r.key}.disabled_tools=${JSON.stringify(denied)}`);
+    }
     if (r.env && Object.keys(r.env).length > 0) {
       // TOML inline-table: { "KEY" = "val", … }. JSON.stringify on each value
       // yields TOML-compatible quoted strings (same superset rationale as the

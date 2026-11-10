@@ -289,9 +289,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     // by index.ts handleUserMessage, then prepended to stdin by spawn()).
     // §E1 — operator-enabled registry servers ALSO layer on via the same
     // `-c mcp_servers.*` overrides. NOTE: Codex has no per-tool allow/deny
-    // flag, so EVERY tool of an enabled server is exposed — the dangerous-tool
-    // denylist is NOT enforceable on Codex (documented gap; surfaced in the
-    // UI/diagnostics). Server-level enable/disable IS honored.
+    // flag; supported CLIs receive per-server disabled_tools config instead.
     const registryServers = this.config.mcpRegistryServers ?? [];
     // The workflow-scoped `arco` plan entry applies to every workflow with a
     // cwd, so this is no longer gated on cluster / codebase-memory / registry.
@@ -308,6 +306,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
             ? this.config.codebaseMemoryIndexPath
             : undefined,
           registryServers,
+          disallowedTools: this.config.mcpDisallowedTools,
         }),
       );
     }

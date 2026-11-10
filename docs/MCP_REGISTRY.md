@@ -65,7 +65,7 @@ The registry exposes the **same servers** to every wired transport, but the
 | Transport | Server enable | Dangerous-tool denylist |
 |---|---|---|
 | **CLI Claude** | `mcp-config.json` merge | **ENFORCED** via `--disallowedTools` |
-| **Codex** (`exec` + `app-server`) | `-c mcp_servers.*` TOML overrides | **NOT ENFORCEABLE**, see gap below |
+| **Codex** (`exec` + `app-server`) | `-c mcp_servers.*` TOML overrides | **ENFORCED** on Codex 0.167 and later; legacy warning below |
 | **Claude Native** | open `McpSession` per allowed server | **ENFORCED** in-process by omission from tool defs |
 
 ### CLI Claude, `--disallowedTools` (verified)
@@ -83,17 +83,19 @@ no-op. The verification used a fake stdio MCP server exposing `read_thing` +
 `delete_thing`: with `--disallowedTools mcp__fake__delete_thing`, calling
 `delete_thing` was blocked and `read_thing` succeeded.
 
-### Codex, known gap (not faked)
+### Codex tool filters
 
-Codex's CLI has **no per-tool allow/deny flag** (`server/src/providers/codex.ts`:
-"No equivalent to Claude's `--tools` allow-list"). It can only register a server
-wholesale via `-c mcp_servers.<key>.*` TOML overrides, which exposes **all** of
-that server's tools. The dangerous-tool denylist therefore **cannot be enforced
-on Codex tabs**. Arco does not fake enforcement: it surfaces this honestly in
-the MCP CONFIG section with a banner ("Codex exposes all tools of an enabled
-server, it has no per-tool deny flag, so the dangerous-tool denylist is not
-enforced here") and per-tool "(not gated on Codex)" labels. Server-level
-enable/disable **is** honored on Codex.
+On Codex 0.167 and later, both transports send
+`mcp_servers.<key>.disabled_tools` with bare tool names. The list combines
+explicitly disabled tools and cached dangerous tools that were not ticked.
+Disabling a tool wins over ticking it. Safe tools remain available. Probe a
+server to refresh the cached list used for dangerous-tool classification.
+
+Older or unknown Codex versions retain server-level wiring without these
+configuration keys. Their CONFIG section shows the warning and per-tool
+"not gated on Codex" labels because per-tool enforcement is not confirmed.
+The installed version probe is cached for one minute. Changing a registry
+denylist recycles the app-server child before the next turn.
 
 ### Claude Native, denylist by omission (in-process)
 
@@ -211,7 +213,7 @@ tab for Claude (CLI + Native) and Codex tabs. It can:
   tools flagged `DANGEROUS` and individually tickable; safe tools listed
   read-only.
 - Run a `probe` (diagnostics: connected? N tools? error?).
-- On a Codex tab, the gap banner + per-tool "(not gated on Codex)" labels.
+- On older or unknown Codex versions, a warning and per-tool "not gated on Codex" labels.
 
 Help entry: `rightpanel.config.mcp` (run `npm run docs:check`).
 

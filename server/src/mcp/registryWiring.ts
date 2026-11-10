@@ -13,8 +13,7 @@
 //   - disallowedTools: `mcp__<key>__<tool>` names for dangerous-and-UNticked
 //     tools of those servers — passed to CLI Claude as `--disallowedTools`,
 //     which (verified) composes with `--dangerously-skip-permissions` and
-//     removes the tool from the model's set entirely. Codex has no equivalent;
-//     these are advisory-only there (documented gap).
+//     removes the tool from the model's set entirely. supported Codex versions translate these into per-server disabled_tools.
 
 import type { McpServerDef, McpWorkflowAllow, McpToolInfo } from '@arco/shared';
 import type { RegistryMcpEntry } from './mcpConfigWriter.js';
@@ -47,8 +46,8 @@ export function registryKey(serverId: string): string {
 //     server was enabled but never probed (no cached tools), it is still wired
 //     (server-level enable) but NO disallowed entries are computed — we can't
 //     deny tools we've never seen. The UI nudges the operator to probe; until
-//     then a never-probed server on CLI Claude behaves like Codex (all tools
-//     exposed). This is surfaced as a diagnostic, not hidden.
+//     then a never-probed server on CLI Claude or Codex has no cached dangerous names
+//     to deny. This is surfaced as a diagnostic, not hidden.
 export function computeRegistryWiring(
   defs: McpServerDef[],
   allow: McpWorkflowAllow[],
@@ -71,7 +70,7 @@ export function computeRegistryWiring(
       ...(def.env && Object.keys(def.env).length > 0 ? { env: def.env } : {}),
       // E1-Native — carry the operator's per-tab dangerous-tool ticks so the
       // in-process Native host can enforce the denylist by omission. CLI/Codex
-      // ignore this; they enforce via --disallowedTools / advisory instead.
+      // use the derived disallowedTools list for their transport-specific filters.
       ...(a.allowedDangerousTools.length > 0 ? { allowedDangerousTools: [...a.allowedDangerousTools] } : {}),
       // DD11b — carry the per-tab disable-list so the Native host omits those
       // tools too (disable wins over a dangerous tick).

@@ -553,9 +553,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
         dangerous ones (write / delete / exec / shell / post and similar), which stay OFF
         until you tick them per tab. <C>probe</C> connects, lists the tools, and
         flags the dangerous ones. On CLI Claude the denylist is enforced via{' '}
-        <C>--disallowedTools</C> (composes with skip-permissions). Codex has no
-        per-tool gate: an enabled server exposes <strong>all</strong> its
-        tools. Strata and DeepSeek Agent turns also receive enabled, allowed tools. No hidden, model-selected expansion: only servers you enable.
+        <C>--disallowedTools</C> (composes with skip-permissions). Codex 0.167 and later apply the per-tool denylist too. Older or unknown Codex versions expose all tools and show a warning. Probe to refresh cached dangerous-tool names. Strata and DeepSeek Agent turns also receive enabled, allowed tools. No hidden, model-selected expansion: only servers you enable.
        Codex app-server receives enabled servers too; a changed launch definition recycles its child before the next turn.</p>
     ),
     manualSection: 'config-tab',

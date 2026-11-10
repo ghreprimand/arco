@@ -1023,8 +1023,9 @@ export const configuration: Section[] = [
   <Code>--disallowedTools</Code>.
   </li>
   <li>
-  On Codex there is no per-tool gate, so enabling a server exposes all its
-  tools. This is surfaced as a warning.
+  Codex 0.167 and later apply disabled tools and cached, unticked dangerous
+  tools through server-level tool filters. Probe to refresh the tool list.
+  Older or unknown versions expose all tools and show a warning.
   </li>
   </ul>
   <Sub>Status</Sub>

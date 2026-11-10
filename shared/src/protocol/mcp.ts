@@ -20,10 +20,8 @@
 //     unticked tools are passed as `--disallowedTools mcp__<server>__<tool>`,
 //     which DOES compose with `--dangerously-skip-permissions` (verified —
 //     the tool is removed from the model's available set entirely).
-//   - Codex: server-level enable only (TOML `-c mcp_servers.*` overrides).
-//     Codex has no per-tool allow/deny flag, so the denylist CANNOT be
-//     enforced — enabling a server on a Codex tab exposes ALL its tools. This
-//     is surfaced as a known gap in the UI/diagnostics. Do not fake it.
+//   - Codex: server-level overrides plus disabled_tools on 0.167 and later.
+//     Older or unknown versions retain the UI warning and legacy behavior.
 //   - Claude Native: the in-process worker (E1-Native) is a first-class MCP
 //     host reusing the same dependency-free client. The denylist is enforced
 //     BY OMISSION — a dangerous-and-unticked tool never appears in the worker's
@@ -48,8 +46,8 @@ export interface McpServerDef {
 
 // One tool as reported by a server's `tools/list`, plus Arco's dangerous
 // classification (computed from the tool NAME via the denylist regex). The
-// classification is advisory transparency on Codex and load-bearing on CLI
-// Claude (drives the `--disallowedTools` set).
+// classification drives CLI Claude disallowedTools and supported Codex
+// disabled_tools settings.
 export interface McpToolInfo {
   name: string;
   description?: string;
@@ -91,7 +89,7 @@ export interface ResolvedMcpServer {
   env?: Record<string, string>;
   // E1-Native — the bare names of dangerous tools the operator ticked back ON
   // for this workflow. The CLI/Codex paths express the denylist as
-  // `--disallowedTools` / advisory; the in-process Native host instead enforces
+  // `--disallowedTools` / supported disabled_tools; the in-process Native host instead enforces
   // it BY OMISSION at buildToolDefs() — it includes a tool iff the tool is not
   // dangerous OR its name is in this set. Empty/absent ⇒ only safe tools.
   // Ignored by mcpConfigWriter (CLI/Codex don't read it).
@@ -201,4 +199,11 @@ export interface McpMalwareWarningMessage {
   type: 'mcp_malware_warning';
   pending: McpRegistryCreateMessage;
   packages: Array<{ name: string; ecosystem: string; ids: string[] }>;
+}
+
+// Config filter support established against Codex 0.167. Older/unknown
+// installations keep the legacy server-level behavior without unknown keys.
+export function supportsCodexMcpToolFilters(version: string | null | undefined): boolean {
+  const match = version?.match(/^(\d+)\.(\d+)\.(\d+)(?:$|[-.])/);
+  return !!match && (Number(match[1]) > 0 || Number(match[2]) >= 167);
 }

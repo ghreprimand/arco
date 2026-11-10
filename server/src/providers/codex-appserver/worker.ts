@@ -128,7 +128,7 @@ export function computeMcpSignature(
 // chip off left web search live on the running Codex app-server child.
 export function bootstrapSurfaceKey(config: WorkerConfig): string {
   const registry = config.interactionMode !== 'chat' && config.mcpRegistryServers?.length
-    ? ':registry-' + createHash('sha256').update(JSON.stringify(config.mcpRegistryServers)).digest('hex')
+    ? ':registry-' + createHash('sha256').update(JSON.stringify([config.mcpRegistryServers, config.mcpDisallowedTools ?? []])).digest('hex')
     : '';
   return `${config.interactionMode === 'chat' ? 'chat' : 'agent'}:web-${webSearchMode(config)}${config.voiceOperator === true ? ':voice' : ''}${config.incognito ? ':private' : ''}${registry}`;
 }
@@ -525,6 +525,7 @@ export class CodexAppServerWorker extends EventEmitter {
           port,
           codebaseMemoryIndexPath,
           registryServers,
+          disallowedTools: this.config.mcpDisallowedTools,
         }),
       );
       this.bootstrappedSignature = computeMcpSignature(this.config.clusterId, this.config.clusterTaskBoardAttached === true, codebaseMemoryIndexPath, this.config.providerAccountRef, this.config.codexHome, this.config.clusterAccessMode, this.config.clusterRole, this.config.model, this.config.codexContextPolicy, codexContextWindowOverride(this.config), bootstrapSurfaceKey(this.config));
