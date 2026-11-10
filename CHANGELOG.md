@@ -5,12 +5,15 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Clarify unset worker and cluster auto-compaction policies in member CONFIG.
+
 - Tell Codex and Claude CLI to use attached Arco file readers; limit Cursor guidance to connections with file tools.
 - Stop terminal shells that defer hangup during startup, including fish, and retain their cleanup records until exit.
 
 - Select the Codex image-tool setting supported by the installed CLI on both transports.
 
 - Repeated local-model file reads reuse identical saved snapshots instead of adding duplicate conversation files.
+
 
 - Preserve local-provider attachment and tool-file context across turns and reload, with bounded recent media, named receipts and missing-file notices.
 

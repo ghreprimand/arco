@@ -576,11 +576,11 @@ function AutoCompactionSection({ job, onUpdatePrimary }: {
     <p>Compaction summarizes older context in place. Fold creates a deterministic digest; handoff starts a fresh session. Codex needs an existing app-server thread. Ollama compacts before the next turn using its configured context window; completed executions are summarized durably. Legacy or partial history without a safe boundary defers compaction. Auto-handoff below counts these compactions and hands off after the number set there; manual handoff remains available. Unknown usage does not trigger this policy.</p>
     {!supported && <p>Automatic compaction is unavailable for this provider or transport. Handoff remains available.</p>}
     <label className="arco-field-label">Policy <select title="Provider: Claude CLI and Codex compact themselves; Claude Native and Ollama compact automatically near the limit." className="arco-field" aria-label="Worker auto-compaction" value={own ? own.enabled ? 'on' : 'off' : 'inherit'} onChange={(e) => onUpdatePrimary({ autoCompaction: e.target.value === 'inherit' ? null : { enabled: e.target.value === 'on', thresholdPercent: effective?.thresholdPercent ?? 80 } })}>
-      <option value="inherit">{cluster ? 'Inherit cluster default' : 'Provider'}</option>
+      <option value="inherit">{cluster ? 'No worker override' : 'Provider'}</option>
       <option value="off">Off</option><option value="on" disabled={!supported}>On</option>
     </select></label>
     {own && <label> Threshold <AutoCompactionThreshold key={`${job.id}:${own.enabled}`} label="Worker auto-compaction threshold percent" value={own.thresholdPercent} onCommit={(thresholdPercent) => onUpdatePrimary({ autoCompaction: { ...own, thresholdPercent } })} /></label>}
-    {!own && cluster && <p>{effective ? `Cluster default: ${effective.enabled ? `on at ${effective.thresholdPercent}%` : 'off'}.` : 'Cluster uses Provider behavior.'}</p>}
+    {!own && cluster && <p>{effective ? `No worker override. Using the cluster policy: ${effective.enabled ? `on at ${effective.thresholdPercent}%` : 'off'}.` : 'No worker or cluster policy is set. Claude CLI and Codex compact themselves; Claude Native and Ollama use Arco compaction near the context limit.'} Change the cluster policy in the cluster panel under AUTO-COMPACTION.</p>}
   </section>;
 }
 

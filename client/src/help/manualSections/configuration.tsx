@@ -850,6 +850,9 @@ export const configuration: Section[] = [
   on or off state with 5 compactions.
   </p>
   <p>
+  For cluster members, No worker override means no policy is set on the tab. If the cluster also has no policy, Claude CLI and Codex compact themselves; Claude Native and Ollama use Arco compaction near the context limit. Set a shared policy in the cluster panel under AUTO-COMPACTION.
+  </p>
+  <p>
   <strong>AUTO-COMPACTION</strong> - Provider uses Arco compaction near 90% for
   Claude Native and Ollama, leaving room for a summary. Claude CLI and Codex
   compact themselves.
