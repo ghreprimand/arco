@@ -139,3 +139,17 @@ test('UTF-16 byte-order marks take precedence over MPEG frame signatures',async(
   const be=Buffer.concat([Buffer.from([254,255]),Buffer.from('Example text','utf16le').swap16()]);
   for(const data of [le,be]){const result=await fileContentFromBytes(data,'unicode.txt');assert.equal(result.kind,'text');assert.equal(result.text,'Example text');}
 });
+
+test('selected text containing a NUL after the header gets the same binary receipt as bytes', async () => {
+  const root=realpathSync(await fs.mkdtemp(join(tmpdir(),'arco-late-binary-')));
+  try {
+    const path=join(root,'sample.txt'),data=Buffer.from('a'.repeat(5000)+'\0tail');
+    await fs.writeFile(path,data);
+    const fromFile=await readFileContent(path),fromBytes=await fileContentFromBytes(data,'sample.txt');
+    assert.equal(fromFile.kind,'binary');assert.deepEqual(fromFile,fromBytes);assert.ok(!fromFile.text.includes('\0'));
+    await fs.writeFile(path,'a'.repeat(5000)+'\nsecond\0binary\nclean');
+    const selected=await readFileContent(path,{offset:2,limit:1});
+    assert.equal(selected.kind,'binary');assert.match(selected.text,/not sent as text/);assert.ok(!selected.text.includes('\0'));
+    assert.equal((await readFileContent(path,{offset:3,limit:1})).text,'clean');
+  } finally {await fs.rm(root,{recursive:true,force:true});}
+});

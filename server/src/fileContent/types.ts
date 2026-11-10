@@ -26,3 +26,8 @@ export function textResult(kind: string, text: string, options: FileContentOptio
   const bounded = new TextDecoder().decode(data.subarray(0, cap)) + (truncated ? '\n[Output truncated; use pages, offset or limit for another range.]' : '');
   return { text: bounded, blocks: blocks ?? [{ type: 'text', text: bounded }], kind, truncated, isError: false };
 }
+
+/** Binary receipts describe the file, not a requested range of text lines. */
+export function binaryResult(name: string, size: number, kind: string, options: FileContentOptions): FileContentResult {
+  return textResult('binary', `file: ${name}, ${kind === 'invalid-utf8' ? 'invalid UTF-8' : kind + ' binary'}, ${size} bytes; not sent as text.`, { limits: options.limits });
+}

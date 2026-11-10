@@ -1,3 +1,4 @@
+import { binaryResult } from './fileContent/types.js';
 import { withFileDecodeSlot } from './fileContent/decodeSlots.js';
 import { fileHeaderKind } from './fileContent/detect.js';
 export { fileHeaderKind } from './fileContent/detect.js';
@@ -50,7 +51,7 @@ export async function readFileContent(path: string, options: FileContentOptions 
   const structured = /\.svg$/i.test(path) || /<\?xml[\s>]/i.test(prefix.buffer.toString('utf8')) || /<svg[\s>]/i.test(prefix.buffer.toString('utf8')) || /"(?:cells|nbformat)"\s*:/.test(prefix.buffer.toString('utf8'));
   if (kind === 'text/plain' && !structured) {
     const r = await readRegularRange(path, Math.min(options.limits?.maxTextBytes ?? 256 * 1024, 1024 * 1024), Math.max(1, options.offset ?? 1), options.limit, options.signal, 8192);
-    if (r.invalidUtf8) return note(path, prefix.size, 'invalid UTF-8 in the selected text range; not sent as text.');
+    if (r.invalidUtf8 || r.text.includes('\0')) return binaryResult(basename(path), prefix.size, r.invalidUtf8 ? 'invalid-utf8' : 'application/octet-stream', options);
     const text = r.text + (r.truncated ? '\n[Text truncated; use offset and limit for another range.]' : '');
     return { text, blocks: [{ type: 'text', text }], kind: 'text', truncated: r.truncated, isError: false };
   }

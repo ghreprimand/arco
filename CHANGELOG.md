@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- File reads and attachments report binary content when NUL bytes occur after a text-only header, instead of sending those bytes as text.
+
 - Clarify decoded attachment content and retained path labels in Chat, provider guides, the manual and Composer help.
 
 - Decode local and CLI provider file reads and attachments as fitted images, document text or notebook cells; preserve MCP images and give clear notes for unsupported binaries and text-only models.

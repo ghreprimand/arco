@@ -6,7 +6,7 @@ import { parentPort } from 'node:worker_threads';
 import { isUtf8 } from 'node:buffer';
 import { imageType, imageResult } from './images.js';
 import { pdfResult } from './pdf.js';
-import { textResult, type FileContentOptions } from './types.js';
+import { binaryResult, textResult, type FileContentOptions } from './types.js';
 
 parentPort!.once('message', async ({ data, name, options }: { data: Uint8Array; name: string; options: FileContentOptions }) => {
   const bytes = Buffer.from(data);
@@ -22,7 +22,7 @@ parentPort!.once('message', async ({ data, name, options }: { data: Uint8Array; 
       parentPort!.postMessage(textResult('text', text, options)); return;
     }
     if (!isUtf8(bytes) || bytes.includes(0) || (kind !== 'text/plain' && kind !== 'invalid-utf8')) {
-      parentPort!.postMessage(textResult('binary', `file: ${name}, ${kind === 'invalid-utf8' ? 'invalid UTF-8' : kind + ' binary'}, ${bytes.length} bytes; not sent as text.`, options)); return;
+      parentPort!.postMessage(binaryResult(name, bytes.length, kind, options)); return;
     }
     const text = bytes.toString('utf8');
     if (text.trimStart().startsWith('{')) {
