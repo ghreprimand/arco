@@ -41,9 +41,16 @@ function call(kind: Kind, name: string, args: Record<string, unknown> | string, 
   return { id, type: 'function', function: { name, arguments: typeof args === 'string' ? args : JSON.stringify(args) } };
 }
 
-// Ollama tool_use ids are random; replace them so events compare exactly.
+// Normalize call ids only after checking the bridge id matches the receipt id.
 function plain(events: Array<[string, unknown]>) {
-  return events.map(([e, p]) => [e, typeof p === 'object' && p ? { ...(p as Record<string, unknown>), ...('toolUseId' in (p as object) ? { toolUseId: 'id' } : {}) } : p]);
+  return events.map(([e, p]) => {
+    if (e !== 'tool_use' || typeof p !== 'object' || !p) return [e, p];
+    const payload = p as Record<string, unknown>;
+    assert.equal(typeof payload.id, 'string');
+    assert.ok(payload.id);
+    assert.equal(payload.id, payload.toolUseId, 'the worker bridge and media receipt use the same call id');
+    return [e, { ...payload, id: 'id', toolUseId: 'id' }];
+  });
 }
 
 async function run(kind: Kind, extra: Partial<WorkerConfig>, calls: unknown[], opts: { auto?: boolean; advertised?: string[]; loop?: ToolLoopDetector } = {}) {
@@ -85,7 +92,7 @@ test('Chat turns refuse tools, each provider with its own wording and order', as
   const voice = { ...chat, voiceOperator: true };
   const ollamaVoice = await run('ollama', voice, [call('ollama', 'Bash', {})]);
   assert.equal(ollamaVoice.out[0].content, '[error] Tool is not available in Computer.');
-  assert.deepEqual(ollamaVoice.events, [['tool_use', { name: 'Bash', input: '{}', toolUseId: 'id' }], ['tool_use', { name: 'Bash', input: '{}', toolUseId: 'id', status: 'failed', output: '[error] Tool is not available in Computer.' }]]);
+  assert.deepEqual(ollamaVoice.events, [['tool_use', { name: 'Bash', input: '{}', id: 'id', toolUseId: 'id' }], ['tool_use', { name: 'Bash', input: '{}', id: 'id', toolUseId: 'id', status: 'failed', output: '[error] Tool is not available in Computer.' }]]);
   assert.equal((await run('lmstudio', voice, [call('lmstudio', 'Bash', {})], { advertised: [] })).out[0].content, '[error] tool "Bash" is not enabled for this turn.');
   assert.equal((await run('lmstudio', voice, [call('lmstudio', 'Bash', {})], { advertised: ['Bash'] })).out[0].content, '[error] tool "Bash" is not enabled for this turn.');
 });
@@ -135,17 +142,17 @@ test('AUTO runs the tool; events and stored results per provider', async () => {
   // Ollama keeps the whole result and has no tool_call_id.
   const o = results.ollama.out as Array<{ role: string; content: string; tool_call_id?: string }>;
   assert.equal(o[0].role, 'tool'); assert.equal(o[0].tool_call_id, undefined); assert.ok(o[0].content.includes('a'.repeat(9000)));
-  assert.deepEqual(results.ollama.events, [['tool_use', { name: 'Bash', input: JSON.stringify({ command: big }), toolUseId: 'id' }]]);
+  assert.deepEqual(results.ollama.events, [['tool_use', { name: 'Bash', input: JSON.stringify({ command: big }), id: 'id', toolUseId: 'id' }]]);
   // llama.cpp and LM Studio trim with their own label; Strata keeps the runtime result and reports both phases.
   for (const [kind, label] of [['llamacpp', 'llama.cpp'], ['lmstudio', 'LM Studio']] as const) {
     const out = results[kind].out as Array<{ content: string; tool_call_id: string }>;
     assert.equal(out[0].tool_call_id, 'c1');
     assert.match(out[0].content, new RegExp(`bytes of tool output elided by Arco to keep ${label.replace('.', '\\.')} context lean`), kind);
-    assert.deepEqual(results[kind].events, [['tool_use', { name: 'Bash', input: JSON.stringify({ command: big }), toolUseId: 'id' }]], kind);
+    assert.deepEqual(results[kind].events, [['tool_use', { name: 'Bash', input: JSON.stringify({ command: big }), id: 'id', toolUseId: 'id' }]], kind);
   }
   const s = results.strata.out as Array<{ content: string }>;
   assert.ok(s[0].content.includes('a'.repeat(9000)));
-  assert.deepEqual((results.strata.events as Array<[string, Record<string, unknown>]>).map(([e, p]) => [e, p.status, p.provider]), [['tool_use', 'started', 'strata'], ['tool_use', 'completed', 'strata']]);
+  assert.deepEqual(results.strata.events, [['tool_use', { name: 'Bash', input: JSON.stringify({ command: big }), id: 'id', toolUseId: 'id', status: 'started', provider: 'strata' }], ['tool_use', { name: 'Bash', input: JSON.stringify({ command: big }), id: 'id', toolUseId: 'id', status: 'completed', provider: 'strata', output: s[0].content }]]);
 });
 
 test('a cancelled batch stops before the next call', async () => {
