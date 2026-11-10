@@ -521,13 +521,12 @@ function formatToolByteSummary(localBytes: number, serverBytes: number, known: b
   return localBytes >= 0 ? formatBytes(localBytes) : '-';
 }
 
-// Long-running children the primary spawned (Bash with run_in_background, or
-// any descendant that outlived its turn). Persists across turns until the
+// Agent shell commands and their known children, attributed by the server. Persists across turns until the
 // process exits + a short linger window. Rendered above the per-turn feed
 // so the operator notices it without scrolling.
 function BackgroundJobsSection({ jobs }: { jobs: PrimaryBackgroundJob[] }) {
   return (
-    <div style={{ marginBottom: '10px' }}>
+    <div data-help="rightpanel.activity.background" style={{ marginBottom: '10px' }}>
       <div
         className="display-font"
         style={{

@@ -557,6 +557,7 @@ export class CursorAcpWorker extends EventEmitter {
         this.emit('tool_use', {
           id: u.toolCallId,
           name: u.title || u.kind || 'tool',
+          ...(u.kind === 'execute' ? { itemType: 'command_execution' } : {}),
           input: stringifyValue(u.rawInput),
           status: mapToolStatus(u.status) ?? 'started',
         } satisfies ToolUseEvent);
@@ -567,6 +568,7 @@ export class CursorAcpWorker extends EventEmitter {
         this.emit('tool_use', {
           id: u.toolCallId,
           name: u.title || u.kind || 'tool',
+          ...(u.kind === 'execute' ? { itemType: 'command_execution' } : {}),
           input: stringifyValue(u.rawInput),
           status: mapToolStatus(u.status),
           ...(u.rawOutput !== undefined ? { output: stringifyValue(u.rawOutput) } : {}),

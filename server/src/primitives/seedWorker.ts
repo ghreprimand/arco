@@ -14,7 +14,7 @@
 
 import { randomUUID } from 'crypto';
 import { WorkerManager } from '../workers/WorkerManager.js';
-import type { PrimaryBackgroundTracker } from '../primaryBackgroundTracker.js';
+import { backgroundShellInput, type PrimaryBackgroundTracker } from '../primaryBackgroundTracker.js';
 import type {
   ServerMessage,
   ProviderName,
@@ -569,16 +569,14 @@ export function runPrimaryTurn(
           const target = extractReadPath(ev.input);
           if (target) void recordSkillRead(target, Date.now());
         }
-        if (isShellToolName(ev.tool)) {
-          // The Bash input shape is {command, description?, run_in_background?, ...}.
-          // A malformed/non-JSON input (shouldn't happen from Claude, but cheap
-          // to guard) silently skips both the bg-tracker hint and the
-          // preview auto-detect probe.
+        if (isShellToolName(ev.tool) || ev.itemType === 'command_execution') {
+          // Normalize shell inputs across CLI and ACP transports. Commands
+          // without run_in_background still identify long-running children.
           try {
-            const parsed = JSON.parse(ev.input) as { command?: string; run_in_background?: boolean };
+            const parsed = backgroundShellInput(ev.input);
             const cmd = typeof parsed.command === 'string' ? parsed.command : '';
-            if (ctx.bgTracker && parsed.run_in_background === true) {
-              ctx.bgTracker.noteBgHint(toolUseId, cmd || '(bash background)');
+            if (ctx.bgTracker && cmd && ev.status !== 'completed' && ev.status !== 'failed') {
+              ctx.bgTracker.noteBgHint(toolUseId, cmd);
             }
             // Probe on every Bash, not just bg ones — most dev servers run in
             // bg, but the regex inside notePotentialDevServerStart filters so
@@ -747,7 +745,7 @@ export function runPrimaryTurn(
     const tryAttach = (tries: number): void => {
       const pid = ctx.manager.getWorkerPid(workerId);
       if (pid !== undefined) {
-        ctx.bgTracker!.attachParent(pid);
+        ctx.bgTracker!.attachParent(pid, mcpRegistryServers);
         return;
       }
       if (tries <= 0) return;

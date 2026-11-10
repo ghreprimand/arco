@@ -76,6 +76,27 @@ async def main():
         await expect(page.locator('#card-fixture')).to_contain_text('Bash: npm test')
         await page.evaluate("sendFixture('primary_text',{text:'Understood'})")
         await expect(indicator).to_have_count(0)
+        await page.evaluate('''async () => {
+          const React = (await import('/node_modules/.vite/deps/react.js')).default;
+          const {createRoot} = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;
+          const {ActivityTab} = await import('/src/components/RightPanel/ActivityTab.tsx');
+          const {useAppStore:s} = await import('/src/stores/appStore.ts');
+          const node = document.createElement('div'); node.id = 'activity-fixture'; document.body.appendChild(node);
+          function ActivityFixture(){const job=s(st=>st.jobs.fixture);return React.createElement(ActivityTab,{job});}
+          createRoot(node).render(React.createElement(ActivityFixture));
+          window.bgFixture = {id:'agent-job',pid:123,command:'npm run dev',toolUseId:'shell-1',startedAt:window.clock,alive:true,cpuActive:false,rssBytes:1024,ageMs:0};
+          sendFixture('primary_activity',{jobs:[window.bgFixture]});
+        }''')
+        background = page.locator('#activity-fixture [data-help="rightpanel.activity.background"]')
+        await expect(background).to_contain_text('BACKGROUND · 1')
+        await expect(background).to_contain_text('npm run dev')
+        await expect(background).to_contain_text('LIVE')
+        await page.evaluate("sendFixture('primary_turn_ended',{endedAt:window.clock})")
+        await expect(background).to_contain_text('npm run dev')
+        await page.evaluate("sendFixture('primary_activity',{jobs:[{...window.bgFixture,alive:false,ageMs:3000}]})")
+        await expect(background).to_contain_text('DONE')
+        await page.evaluate("sendFixture('primary_activity',{jobs:[]})")
+        await expect(background).to_have_count(0)
         assert not errors, errors
         await browser.close()
         print('PASS: queued, delivered, reply, timed step and narrow viewport')

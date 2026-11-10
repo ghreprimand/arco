@@ -64,6 +64,12 @@ See [Settings: Utility agent](SETTINGS.md#utility-agent) and
 
 Auth is per-service: browser OAuth for Claude (CLI login, plus a separate OAuth flow for Native); terminal-launched TUI for Codex; `gh auth token` for GitHub; Ollama / LM Studio / Strata probe their HTTP endpoints (prepared local Strata profiles can also start on demand); llama.cpp probes for the binary + reads `~/.arco/llamacpp.json`; Cursor uses its own `cursor-agent login`. The auth overlay blocks app use only when no primary-capable provider is authed.
 
+### Background programs
+
+ACTIVITY > BACKGROUND lists programs the agent started through a shell tool and left running, such as a dev server or long build. Arco helpers, configured MCP servers and provider programs are excluded. Jobs remain visible across turns and briefly show completion after exiting. Process discovery currently requires Linux.
+
+The tracker matches shell-tool commands to process arguments and follows their children. Claude CLI, Codex exec and app-server, and Cursor ACP supply these events. Providers without a discoverable child-process id do not feed this process tracker. Native and local tool execution keep their existing task reporting.
+
 ## The provider abstraction
 
 Every provider implements `ProviderProcess` from `server/src/providers/types.ts`:

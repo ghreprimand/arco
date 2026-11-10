@@ -490,6 +490,12 @@ export const workspace: Section[] = [
           On a narrow split the second-level row collapses into
           a grouped <Code>&lt;select&gt;</Code> so every tab stays reachable.
         </p>
+        <p>
+          ACTIVITY&apos;s BACKGROUND list shows programs the agent started through a shell tool
+          and left running, such as a dev server or long build. Jobs remain across turns
+          and briefly show completion after exiting. Arco helpers, configured MCP servers
+          and provider programs are excluded. Process discovery currently requires Linux.
+        </p>
         <Table
           headers={['Tab', 'What it shows']}
           rows={[

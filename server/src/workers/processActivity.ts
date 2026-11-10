@@ -190,3 +190,17 @@ export async function snapshotDescendantPids(parentPid: number): Promise<number[
   const snapshot = await snapshotAllPids();
   return findDescendants(parentPid, snapshot).map((r) => r.pid);
 }
+
+// Keep argv boundaries and ancestry for background-job attribution. Display
+// strings deliberately truncate arguments and cannot identify a shell command.
+export interface DescendantProcess { pid: number; ppid: number; argv: string[] }
+export async function snapshotDescendantProcesses(parentPid: number): Promise<DescendantProcess[]> {
+  if (!existsSync('/proc') || !existsSync(`/proc/${parentPid}`)) return [];
+  const rows = findDescendants(parentPid, await snapshotAllPids());
+  return Promise.all(rows.map(async ({ pid, ppid }) => {
+    let argv: string[] = [];
+    try { argv = (await fs.readFile(`/proc/${pid}/cmdline`, 'utf8')).split('\0').filter(Boolean); }
+    catch { /* Exited between the snapshot and argv read. */ }
+    return { pid, ppid, argv };
+  }));
+}
