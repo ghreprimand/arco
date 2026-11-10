@@ -22,6 +22,8 @@ export interface FileContentLimits {
   maxTextBytes?: number;
 }
 export interface FileContentOptions {
+  /** Internal codec verification can bypass optional installed converters. */
+  externalPrograms?: boolean;
   signal?: AbortSignal;
   /** One-based pages, sheets, slides or cells: "1-3,5". */
   pages?: string;

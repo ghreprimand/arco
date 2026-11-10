@@ -154,9 +154,6 @@ test('deriveModelImage: failure paths return null, never throw', async () => {
     assert.equal(await deriveModelImage(bogus), null);
     assert.equal(await deriveModelImage(join(dir, 'missing.png')), null);
     assert.equal(modelImagePath(bogus), bogus);
-    // No binary available.
-    __resetModelImageStateForTests({ disableTool: true });
-    assert.equal(await deriveModelImage(bogus), null);
     // Outside ./uploads: no on-demand derivation, original comes back.
     assert.equal(await awaitModelImage(bogus, 100), bogus);
     assert.deepEqual(readdirSync(dir).sort(), ['bogus.png']);

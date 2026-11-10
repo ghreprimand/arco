@@ -29,7 +29,7 @@ import { realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { deflateSync } from 'node:zlib';
 import { imagePixelSize, imageReceipts, admitImageResult } from './imageRead.js';
-import { __resetModelImageStateForTests } from '../attachments.js';
+import { readFileContent } from '../../fileContent.js';
 import { planTurnSpill } from './toolResultEviction.js';
 import { buildFoldDigest } from './foldDigest.js';
 import { projectCompactSummaryMessages } from './workerHelpers.js';
@@ -51,13 +51,12 @@ function tallPng(): Buffer {
 
 test('tall screenshot is decoded without a system converter; no project siblings', async () => {
   const cwd = realpathSync(await mkdtemp(join(tmpdir(), 'arco-image-tall-')));
-  __resetModelImageStateForTests({ disableTool: true });
   try {
     const file = join(cwd, 'page.png'), original = tallPng(); await writeFile(file, original);
-    const result = await executeNativeToolResult('Read', { file_path: file }, imageReadContext(cwd));
-    assert.ok(result.content?.some(b => b.type === 'image')); assert.match(result.text, /20x2000/);
+    const result = await readFileContent(file, { externalPrograms: false });
+    assert.ok(result.blocks.some(b => b.type === 'image')); assert.match(result.text, /20x2000/);
     assert.deepEqual(await readFile(file), original); assert.deepEqual(await readdir(cwd), ['page.png']);
-  } finally { __resetModelImageStateForTests(); await rm(cwd, { recursive: true, force: true }); }
+  } finally { await rm(cwd, { recursive: true, force: true }); }
 });
 
 test('tall full-page screenshot scales down in a private copy when a converter is available', async t => {

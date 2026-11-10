@@ -132,7 +132,7 @@ export async function imageResult(bytes: Buffer, name: string, options: FileCont
   const type = imageType(bytes)!;
   if (options.limits?.images === false) return textResult('image', `image: ${name}, ${type}, ${bytes.length} bytes; this model does not accept images.`, options);
   const edge = positive(options.limits?.maxImageEdge, 2000, 2000);
-  const original = (type === 'image/x-icon' ? null : await externalImage(bytes, type, edge)) ?? await decodeImage(bytes, type, edge);
+  const original = (type === 'image/x-icon' ? null : await externalImage(bytes, type, edge, options.externalPrograms !== false)) ?? await decodeImage(bytes, type, edge);
   const originalWidth = original.originalWidth ?? original.width, originalHeight = original.originalHeight ?? original.height;
   const image = fittedImage(original, name, options);
   const text = `image: ${name}, ${image.width}x${image.height} (${image.mediaType}, ${bytes.length} source bytes)${image.width !== originalWidth || image.height !== originalHeight ? `; scaled from ${originalWidth}x${originalHeight}, original unchanged` : ''}`;

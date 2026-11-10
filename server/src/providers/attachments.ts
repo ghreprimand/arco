@@ -194,9 +194,8 @@ export async function awaitModelImages(paths: readonly string[] | undefined, tim
   await Promise.all((paths ?? []).map((p) => awaitModelImage(p, timeoutMs)));
 }
 
-// Test seam: clear per-path memory; legacy disableTool is intentionally inert.
-export function __resetModelImageStateForTests(opts: { disableTool?: boolean } = {}): void {
-  void opts; // The portable decoder does not depend on an external tool.
+// Test seam: clear per-path memory. Codec verification uses externalPrograms:false.
+export function __resetModelImageStateForTests(): void {
   inflight.clear();
   settled.clear();
 }

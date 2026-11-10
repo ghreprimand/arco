@@ -7,7 +7,8 @@ import { PNG } from 'pngjs';
 import type { Pixels } from './images.js';
 const run=promisify(execFile);
 /** Optional acceleration only; portable codecs always remain the fallback. */
-export async function externalImage(bytes:Buffer,media:string,edge:number):Promise<Pixels|null>{
+export async function externalImage(bytes:Buffer,media:string,edge:number,enabled=true):Promise<Pixels|null>{
+  if(!enabled)return null;
   let directory:string|undefined;
   try {
     for(const tool of ['magick','convert',...(process.platform==='darwin'?['/usr/bin/sips']:[])]){
