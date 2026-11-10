@@ -1,10 +1,10 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { lstat, mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import type { FileContextMessage, FileContextReference, WorkerConfig } from '@arco/shared';
 import { readFileContent } from '../fileContent.js';
 import { ensureStorageRoot } from '../storageRoot.js';
-import { writeCheckedFile } from '../checkedFile.js';
+import { openCheckedFile, writeCheckedFile } from '../checkedFile.js';
 import { UPLOADS_DIR } from '../server/constants.js';
 import { resolveToolPath } from '../toolPath.js';
 import { clipFileText, fileLabel, fileReferenceKey, FILE_CONTEXT_CACHE_DIR, MAX_FILE_REFERENCES, validFileReference } from '../fileContextReceipts.js';
@@ -51,6 +51,18 @@ function briefInput(input: unknown): string {
   try { text = JSON.stringify(input); } catch { return '(input unavailable)'; }
   return clipFileText(text.replace(/[A-Za-z0-9+/]{200,}={0,2}/g, '[data]'), 700);
 }
+async function saveContent(root: string, content: Buffer, extension: string): Promise<string> {
+  const cacheName = `${createHash('sha256').update(content).digest('hex')}.${extension}`;
+  const target = path.join(root, cacheName);
+  try {
+    const existing = await openCheckedFile(target);
+    await existing.close();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    await writeCheckedFile(target, content, false, 0o600);
+  }
+  return cacheName;
+}
 async function saveSnapshot(config: WorkerConfig, name: string, snapshot: Snapshot, signal?: AbortSignal): Promise<FileContextReference[]> {
   signal?.throwIfAborted();
   if (config.incognito) return [{ kind: 'memory', name, key: rememberMemory(config, snapshot), media: snapshot.images.length ? 'image' : 'text' }];
@@ -59,16 +71,14 @@ async function saveSnapshot(config: WorkerConfig, name: string, snapshot: Snapsh
   // These immutable saved inputs belong to conversation retention. They are
   // never automatically deleted; archive and purge include the entire folder.
   if (snapshot.text.trim()) {
-    const cacheName = `${randomUUID()}.txt`;
     const clipped = clipFileText(snapshot.text, 32 * 1024);
-    await writeCheckedFile(path.join(root, cacheName), clipped, false, 0o600);
+    const cacheName = await saveContent(root, Buffer.from(clipped), 'txt');
     refs.push({ kind: 'cached', cacheName, ownerWorkflowId: config.workflowId!, name: `${name} text`, media: 'text' });
   }
   for (const image of snapshot.images.slice(-2)) {
     signal?.throwIfAborted();
     if (image.data.length > 5 * 1024 * 1024) continue;
-    const cacheName = `${randomUUID()}.${image.mediaType === 'image/jpeg' ? 'jpg' : 'png'}`;
-    await writeCheckedFile(path.join(root, cacheName), Buffer.from(image.data, 'base64'), false, 0o600);
+    const cacheName = await saveContent(root, Buffer.from(image.data, 'base64'), image.mediaType === 'image/jpeg' ? 'jpg' : 'png');
     refs.push({ kind: 'cached', cacheName, ownerWorkflowId: config.workflowId!, name: fileLabel(image.name), media: 'image' });
   }
   return refs;

@@ -1074,7 +1074,7 @@ For `native_compacted` markers with `inTurn: true`, the saved `summary` also car
 
 ## Local provider file snapshots
 
-Local primary turns append additive `file_context` events containing receipts and validated source references, never base64 payloads. Fitted image files and bounded decoded-text snapshots are stored under `.arco/workflows/<workflowId>/file-context/`. The browser advances the event sequence without adding a chat row. Delivery tracking excludes metadata attached to pending or withdrawn inputs, and a completed handoff starts a fresh file-context window.
+Local primary turns append additive `file_context` events containing receipts and validated source references, never base64 payloads. Fitted image files and bounded decoded-text snapshots are stored under `.arco/workflows/<workflowId>/file-context/`. Repeated reads reuse snapshots with identical saved content. Older snapshots remain readable. The browser advances the event sequence without adding a chat row. Delivery tracking excludes metadata attached to pending or withdrawn inputs, and a completed handoff starts a fresh file-context window.
 
 Old logs without metadata retain named attachment references from their message echoes. New readers can decode those existing sources; unavailable files produce a notice. Older readers ignore the new event and folder and continue reading ordinary messages. Downgrading loses automatic snapshot restoration while leaving the saved files intact. Native summary caches use a new derived-cache version and rebuild from the unchanged append-only history. No event-log format migration is required.
 

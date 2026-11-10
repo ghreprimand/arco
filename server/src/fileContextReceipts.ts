@@ -35,7 +35,7 @@ export function validFileReference(value: unknown): value is FileContextReferenc
   const ref = value as FileContextReference;
   if (typeof ref.name !== 'string' || ref.name.length > 400) return false;
   if (ref.kind === 'source') return typeof ref.path === 'string' && ref.path.length <= 32768;
-  if (ref.kind === 'cached') return typeof ref.ownerWorkflowId === 'string' && typeof ref.cacheName === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(ref.ownerWorkflowId) && /^[0-9a-f-]{36}\.(?:png|jpg|txt)$/.test(ref.cacheName);
+  if (ref.kind === 'cached') return typeof ref.ownerWorkflowId === 'string' && typeof ref.cacheName === 'string' && /^[A-Za-z0-9_-]{1,128}$/.test(ref.ownerWorkflowId) && /^(?:[0-9a-f-]{36}|[0-9a-f]{64})\.(?:png|jpg|txt)$/.test(ref.cacheName);
   if (ref.kind === 'memory') return typeof ref.key === 'string' && /^[0-9a-f-]{36}$/.test(ref.key);
   return false;
 }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile, access, realpath } from 'node:fs/promises';
+import { mkdtemp, mkdir, readdir, rename, readFile, rm, symlink, writeFile, access, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
@@ -131,7 +131,13 @@ test('only two recent visuals are restored while earlier snapshots remain on dis
   try {
     await initWorkflowStore(cwd, workflowId);
     const config = { cwd, workflowId, priorFiles: [] } as any;
-    for (let index = 0; index < 4; index++) await rememberLocalToolMedia(config, 'fixture_media', { index }, String(index), [{ ...image, name: `image-${index}.png` }], [], () => {}, () => {});
+    const { PNG } = await import('pngjs');
+    for (let index = 0; index < 4; index++) {
+      const pixels = new PNG({ width: 1, height: 1 });
+      pixels.data.set([index * 50, 0, 0, 255]);
+      const data = PNG.sync.write(pixels).toString('base64');
+      await rememberLocalToolMedia(config, 'fixture_media', { index }, String(index), [{ ...image, data, name: `image-${index}.png` }], [], () => {}, () => {});
+    }
     const all = [...config.priorFiles];
     const restored = await prepareLocalFileContext(config, true);
     assert.deepEqual(restored.images.map(value => value.name), ['image-2.png', 'image-3.png']);
@@ -139,4 +145,28 @@ test('only two recent visuals are restored while earlier snapshots remain on dis
     for (const ref of all) await access(join(cwd, '.arco', 'workflows', workflowId, 'file-context', ref.cacheName));
     assert.equal(await resolveLocalContextRead(config, join('.arco', 'workflows', workflowId, 'file-context', all[0].cacheName)), join(cwd, '.arco', 'workflows', workflowId, 'file-context', all[0].cacheName));
   } finally { forgetWorkflowBuffer(cwd, workflowId); await rm(cwd, { recursive: true, force: true }); }
+});
+
+
+test('repeated tool reads reuse content snapshots and legacy snapshots still replay', async () => {
+  const cwd = await realpath(await mkdtemp(join(tmpdir(), 'arco-context-dedup-'))), workflowId = 'wf-dedup';
+  try {
+    await initWorkflowStore(cwd, workflowId);
+    const config = { cwd, workflowId, priorFiles: [] } as any;
+    const save = (images: typeof image[], text: string) => rememberLocalToolMedia(config, 'Read', {}, 'read', images, text ? [{ name: 'note', text }] : [], () => {}, () => {});
+    const root = join(cwd, '.arco', 'workflows', workflowId, 'file-context');
+    await save([image], ''); await save([image], '');
+    assert.equal((await readdir(root)).length, 1, 'two reads of the same image leave one snapshot');
+    await save([], 'first fact'); await save([], 'first fact');
+    assert.equal((await readdir(root)).length, 2, 'two reads of the same document leave one text snapshot');
+    await save([], 'changed fact');
+    assert.equal((await readdir(root)).length, 3, 'changed content keeps a distinct snapshot');
+    const restored = await prepareLocalFileContext(config, true);
+    assert.equal(restored.images.length, 1); assert.match(restored.text, /first fact/); assert.match(restored.text, /changed fact/);
+    const ref = config.priorFiles.find((value: any) => value.media === 'image');
+    const legacy = '12345678-1234-1234-1234-123456789abc.png';
+    await rename(join(root, ref.cacheName), join(root, legacy));
+    const reloaded = await prepareLocalFileContext({ ...config, priorFiles: [{ ...ref, cacheName: legacy }] }, true);
+    assert.equal(reloaded.images.length, 1, 'legacy random filenames remain readable');
+  } finally { await rm(cwd, { recursive: true, force: true }); }
 });

@@ -1450,7 +1450,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'storage.project': {
     title: 'Project row',
-    body: <p>A project's saved state and its size. Open it to list its conversations and archives with ARCHIVE, RESTORE, DELETE and EMPTY SCRATCH. Worktrees and caches are shown but have no clean-up action here.</p>,
+    body: <p>A project's saved state and its size. Open it to list its conversations and archives with ARCHIVE, RESTORE, DELETE and EMPTY SCRATCH. Worktrees and caches are shown but have no clean-up action here. Local-model file snapshots count as conversation files. Repeated reads reuse identical saved content; older snapshots remain readable.</p>,
     manualSection: 'storage-view',
   },
   'storage.home': {
