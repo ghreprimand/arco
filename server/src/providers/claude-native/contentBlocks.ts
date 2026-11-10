@@ -1,3 +1,4 @@
+import { nativeMediaLimits, type NativeMediaLimits } from './mediaLimits.js';
 // Phase P0 (WORKBENCH_EXPANSION_PLAN) — extracted from worker.ts to keep that
 // file under the 2000-line cap. Content-block types and the pure helpers that
 // build/transform them: image blocks, user-message assembly, server-tool defs,
@@ -225,12 +226,12 @@ function buildImageBlock(path: string, skipped?: SkippedImage[]): ImageBlock | n
 // API would 400 it on every later request); a media_type that disagrees with
 // the payload's magic bytes → retyped in place. Payloads whose magic isn't
 // recognized are left alone — only a positive sniff overrides the declared type.
-export function repairImageBlock(block: Record<string, unknown>): { action: 'keep' } | { action: 'retyped' } | { action: 'replace'; text: string } {
+export function repairImageBlock(block: Record<string, unknown>, limits: NativeMediaLimits = nativeMediaLimits()): { action: 'keep' } | { action: 'retyped' } | { action: 'replace'; text: string } {
   if (block.type === 'document' && isRecord(block.source) && block.source.type === 'base64') {
     const data = block.source.data;
-    if (typeof data !== 'string' || !data || data.length > 20 * 1024 * 1024
+    if (typeof data !== 'string' || !data || data.length > limits.encodedBytes
       || Buffer.from(data.slice(0, 16), 'base64').subarray(0,5).toString() !== '%PDF-'
-      || (typeof block.arcoPages === 'number' && block.arcoPages > 100)) {
+      || (typeof block.arcoPages === 'number' && block.arcoPages > limits.pdfPages)) {
       return { action: 'replace', text: '[PDF omitted: invalid or oversized document data; use Read with a smaller page range.]' };
     }
     return { action: 'keep' };

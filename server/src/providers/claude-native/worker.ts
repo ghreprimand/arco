@@ -1,7 +1,9 @@
+import { nativeMediaLimits } from './mediaLimits.js';
+import { retainNewestMedia } from './mediaRetention.js';
 import { PLAN_TOOL_NAMES, PLAN_TOOL_DEFINITIONS, executePlanTool } from '../../planTools.js';
 import { fetchFileContent } from '../../fileFetch.js';
 import { nativeAttachmentContent, nativeFileOutcome } from './fileContent.js';
-import { admitImageResult, imageReceipts, type ToolResultContent } from './imageRead.js';
+import { admitImageResult, imageReceipts, type ImageReadResult, type ToolResultContent } from './imageRead.js';
 import { shortTextRequestParams } from './modelParams.js';
 import { nativeOAuthBaseUrl } from './apiEndpoint.js';
 import { createHash } from 'node:crypto';
@@ -2411,7 +2413,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // Returns a replacement text block for an over-cap image, else null
     // (retyping happens in place).
     const repairImage = (b: Record<string, unknown>): AnyContentBlock | null => {
-      const r = repairImageBlock(b);
+      const r = repairImageBlock(b, nativeMediaLimits(lookupCtx(this.capModel()), this.client?.baseURL));
       if (r.action === 'retyped') retypedImages++;
       if (r.action !== 'replace') return null;
       replacedOversizedImages++;
@@ -2530,6 +2532,29 @@ export class ClaudeNativeWorker extends EventEmitter {
   // wrote no text between tool calls would otherwise keep the request only
   // inside the summary.
   private turnOpeningRequest: KeptRequest | null = null;
+
+  private async admitMedia(pending: unknown, result: ImageReadResult, origin: 'tool' | 'attachment' = 'tool'): Promise<ImageReadResult> {
+    const limits = nativeMediaLimits(lookupCtx(this.capModel()), this.client?.baseURL);
+    // Attachment and tool preparation happen between API requests. Retirement
+    // builds new objects; the previous request's history is never edited.
+    let protectedRoundStart = this.messages.length;
+    for (let index = this.messages.length - 1; index >= 0; index--) {
+      const message = this.messages[index];
+      if (message.role !== 'assistant') continue;
+      if (Array.isArray(message.content) && message.content.some(block => block.type === 'tool_use')) protectedRoundStart = index;
+      break;
+    }
+    const retained = await retainNewestMedia(this.messages, pending, result, limits, protectedRoundStart);
+    if (retained.history !== this.messages) {
+      this.messages = retained.history;
+      this.resetPrefixFreeze('media-retention');
+    }
+    if (retained.pending !== pending && Array.isArray(pending) && Array.isArray(retained.pending)) pending.splice(0, pending.length, ...retained.pending);
+    if (retained.imagesReplaced || retained.documentsReplaced) {
+      this.emit('system_notice', `Replaced ${retained.imagesReplaced} old images and ${retained.documentsReplaced} old PDF documents with text receipts to make room for new media. Attach or request a file again to bring it back.`);
+    }
+    return admitImageResult(this.messages, pending, result, origin, limits);
+  }
 
   async runTurn(prompt: string): Promise<void> {
     this.turnRunning = true;
@@ -2681,7 +2706,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // bound to them, and the prefix diff re-appends whatever they carried.
     const poppedSystem = popTrailingSystemMessages(this.messages);
     if (poppedSystem > 0) console.log(`[claude-native:${this.workflowId.slice(0, 8)}] popped ${poppedSystem} trailing role:system message(s) before operator turn`);
-    const attached = await nativeAttachmentContent(prompt, this.config.attachments, this.messages, this.inFlight?.signal);
+    const attached = await nativeAttachmentContent(prompt, this.config.attachments, this.messages, this.inFlight?.signal, (pending, result, origin) => this.admitMedia(pending, result, origin));
     for (const notice of attached.notices) this.emit('system_notice', notice);
     this.messages.push({ role: 'user', content: attached.content });
     this.turnInputAccepted = true;
@@ -2937,7 +2962,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       if (toolResults.length === 0) continue;
       const steer = this.config.drainSteer?.() ?? [];
       for (const item of steer) {
-        const attached = await nativeAttachmentContent(item.content, item.attachments, this.messages, this.inFlight?.signal);
+        const attached = await nativeAttachmentContent(item.content, item.attachments, this.messages, this.inFlight?.signal, (pending, result, origin) => this.admitMedia(pending, result, origin));
         for (const notice of attached.notices) this.emit('system_notice', notice);
         this.messages.push({ role: 'user', content: attached.content });
       }
@@ -3811,7 +3836,7 @@ export class ClaudeNativeWorker extends EventEmitter {
           limit: typeof input.limit === 'number' ? input.limit : undefined,
           limits: { images: true, documents: true },
         });
-        toolOutcome = await admitImageResult(this.messages, pendingResults, nativeFileOutcome(result));
+        toolOutcome = await this.admitMedia(pendingResults, nativeFileOutcome(result));
         resultText = toolOutcome.text;
         isError = toolOutcome.isError;
       } catch (err) {
@@ -3868,7 +3893,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       } else {
         try {
           const r = await session.callTool(registryTool.tool, input);
-          toolOutcome = r.blocks ? await admitImageResult(this.messages, pendingResults, nativeFileOutcome({ text: r.text, blocks: r.blocks, kind: 'tool', truncated: false, isError: r.isError })) : undefined;
+          toolOutcome = r.blocks ? await this.admitMedia(pendingResults, nativeFileOutcome({ text: r.text, blocks: r.blocks, kind: 'tool', truncated: false, isError: r.isError })) : undefined;
           resultText = toolOutcome?.text ?? r.text;
           isError = toolOutcome?.isError ?? r.isError;
         } catch (err) {
@@ -3903,7 +3928,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       }
     } else {
       try {
-        toolOutcome = await admitImageResult(this.messages, pendingResults, await executeNativeToolResult(block.name, input, ctx));
+        toolOutcome = await this.admitMedia(pendingResults, await executeNativeToolResult(block.name, input, ctx));
         resultText = toolOutcome.text;
         isError = toolOutcome.isError;
       } catch (err) {

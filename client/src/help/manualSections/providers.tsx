@@ -64,7 +64,9 @@ export const providers: Section[] = [
   for a selected range. Text downloads stop at 128 KiB; media sources have
   a 512 MiB cap. Private addresses and unsafe redirects are refused.</p>
   <p>MCP tool responses retain up to 20 decoded image or PDF document blocks. Encoded text resources do not consume that count. Provider request guards count PDF pages separately.</p>
-  <p>Native media counts include images and base64 PDF pages, not web-fetch results or text documents. Missing PDF page counts are measured from the bytes. A refusal shows the limit and image, PDF-page and encoded-size totals. Compact or start a new conversation, then reattach an omitted pasted file. Its upload path does not grant Read access outside the workflow.</p>
+  <p>Native request limits follow the model window: 100 images at 200k and 600 above; 100 PDF pages below 1M and 600 at 1M or above. Unknown models use 100 each. Encoded media uses 128 MiB on the first-party API and a conservative 20 MiB on custom endpoints. Fetched text and tool inputs do not count as media. Fetched base64 PDFs count their real pages.</p>
+  <p>When needed, Native replaces older media with text receipts between requests and reports the counts. Attach or request a file again to bring it back. An in-progress tool round retains its signed reasoning.</p>
+  <p>New media that alone exceeds a limit gets a notice with the limit and totals. Use COMPACT or HANDOFF, then attach or request the file again. Upload paths do not grant Read access outside the workflow. Unaffected histories stay unchanged.</p>
   <p>Claude Native Read, Task helpers and operator attachments use Arco&apos;s own file decoder. PNG, JPEG, GIF, WebP, AVIF, HEIC, TIFF, BMP and ICO are fitted without installing a converter. Images keep their full frame, within 2,000 pixels per side and 5 MB base64. ICO uses its largest embedded image.</p>
   <p>SVG provides bounded source text and a fitted preview. Rendering uses no scripts, external resources or system fonts. Text requiring a font may be absent from the preview; the source remains available.</p>
   <p>Claude CLI sends attached PDFs as documents, up to 100 pages and 20 MiB

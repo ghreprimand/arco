@@ -79,8 +79,8 @@ test('wire PDFs without page metadata use measured pages and saved receipts cons
   const image = { type: 'image' as const, source: { type: 'base64' as const, media_type: 'image/png' as const, data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC' } };
   const result = { text: 'image: current.png', content: [image], isError: false };
   assert.ok((await admitImageResult([document, textDocument, ...Array(97).fill(image)], [], result)).content);
-  const rejected = await admitImageResult([document, ...Array(98).fill(image)], [], result);
-  assert.equal(rejected.content, undefined); assert.match(rejected.text, /99 images, 2 PDF pages/);
+  const rejected = await admitImageResult(Array(50).fill(document), [], { text: 'document: current.pdf', content: [document] as any, isError: false });
+  assert.equal(rejected.content, undefined); assert.match(rejected.text, /0 images, 102 PDF pages/);
   const internal = [{ role: 'user', content: [{ ...document, arcoPages: 2 }] }];
   const wire = toWireMessages(internal);
   assert.equal(internal[0].content[0].arcoPages, 2);

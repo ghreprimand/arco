@@ -1,6 +1,6 @@
 import { realpath } from 'node:fs/promises';
 import { readFileContent, type FileContentBlock, type FileContentResult } from '../../fileContent.js';
-import { admitImageResult, type ToolResultContent } from './imageRead.js';
+import { admitImageResult, type ImageReadResult, type ToolResultContent } from './imageRead.js';
 import type { AnyContentBlock, DocumentBlock, ImageBlock } from './contentBlocks.js';
 
 export function nativeFileBlocks(blocks: readonly FileContentBlock[]): Exclude<ToolResultContent, string> {
@@ -17,7 +17,7 @@ export function nativeFileOutcome(result: FileContentResult): { text: string; co
   return { text, ...(content ? { content } : {}), isError: result.isError };
 }
 
-export async function nativeAttachmentContent(prompt: string, paths: readonly string[] | undefined, history: unknown, signal?: AbortSignal): Promise<{ content: string | AnyContentBlock[]; notices: string[] }> {
+export async function nativeAttachmentContent(prompt: string, paths: readonly string[] | undefined, history: unknown, signal?: AbortSignal, admit?: (pending: unknown, result: ImageReadResult, origin: 'attachment') => Promise<ImageReadResult>): Promise<{ content: string | AnyContentBlock[]; notices: string[] }> {
   if (!paths?.length) return { content: prompt || '[empty message]', notices: [] };
   const blocks: AnyContentBlock[] = []; const notices: string[] = [];
   if (prompt) blocks.push({ type: 'text', text: prompt });
@@ -25,7 +25,7 @@ export async function nativeAttachmentContent(prompt: string, paths: readonly st
     signal?.throwIfAborted();
     try {
       const result = nativeFileOutcome(await readFileContent(await realpath(path), { signal, limits: { images: true, documents: true } }));
-      const admitted = await admitImageResult(history, blocks, result, 'attachment');
+      const admitted = admit ? await admit(blocks, result, 'attachment') : await admitImageResult(history, blocks, result, 'attachment');
       blocks.push(...(admitted.content ?? [{ type: 'text' as const, text: admitted.text }]));
       blocks.push({ type: 'text', text: `[attached file: ${path}]` });
       if (admitted.isError || admitted.text !== result.text) notices.push(admitted.text);

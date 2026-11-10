@@ -1,3 +1,4 @@
+import { nativeMediaLimits, type NativeMediaLimits } from './mediaLimits.js';
 import { PDFDocument } from 'pdf-lib';
 import { imagePixelSize } from '../../imageTokens.js';
 export { imagePixelSize } from '../../imageTokens.js';
@@ -40,7 +41,7 @@ const measuredPdfPages = new WeakMap<object, Promise<number>>();
 
 // Budget only newly produced images. Accepted history remains byte-identical
 // for thinking/cache bindings. Count operator images and nested tool images.
-export async function admitImageResult(history: unknown, pending: unknown, result: ImageReadResult, origin: 'tool' | 'attachment' = 'tool'): Promise<ImageReadResult> {
+export async function admitImageResult(history: unknown, pending: unknown, result: ImageReadResult, origin: 'tool' | 'attachment' = 'tool', limits: NativeMediaLimits = nativeMediaLimits()): Promise<ImageReadResult> {
   if (!result.content?.some(b => b.type === 'image' || b.type === 'document')) return result;
   let count = 0, bytes = 0, large = false, pages = 0;
   const unmeasured: Array<{ block: object; data: string }> = [];
@@ -48,7 +49,7 @@ export async function admitImageResult(history: unknown, pending: unknown, resul
     if (Array.isArray(v)) { v.forEach(visit); return; }
     if (!v || typeof v !== 'object') return;
     const b = v as Record<string, unknown>;
-    if (b.type === 'web_fetch_tool_result') return;
+    if (b.type === 'tool_use' || b.type === 'server_tool_use') return;
     if (b.type === 'document') {
       const src = b.source as { type?: string; media_type?: string; data?: unknown } | undefined;
       if (src?.type !== 'base64' || src.media_type !== 'application/pdf' || typeof src.data !== 'string') return;
@@ -80,11 +81,11 @@ export async function admitImageResult(history: unknown, pending: unknown, resul
     }
     pages += await measured; // Invalid PDF: leave format rejection to the API.
   }
-  // 100 is safe on both 200k and larger windows. The aggregate byte budget
-  // leaves room for text/tools below the API's 32 MB request-body limit.
-  if (count + pages > 100 || bytes > 20 * 1024 * 1024 || (count > 20 && large)) {
-    const limit = count + pages > 100 ? '100 combined images/PDF pages' : bytes > 20 * 1024 * 1024 ? '20 MiB encoded media' : '2000 px per image above 20 images';
-    const action = origin === 'attachment' ? 'Compact or start a new conversation, then attach the file again.' : 'Compact or start a new conversation, then request the file again.';
+  // The selected model controls image and PDF-page limits independently.
+  // Unknown/custom endpoints keep the documented conservative app byte cap.
+  if (count > limits.images || pages > limits.pdfPages || bytes > limits.encodedBytes || (count > 20 && large)) {
+    const limit = count > limits.images ? `${limits.images} images` : pages > limits.pdfPages ? `${limits.pdfPages} PDF pages` : bytes > limits.encodedBytes ? `${limits.encodedBytes / 1024 / 1024} MiB encoded media` : '2000 px per image above 20 images';
+    const action = origin === 'attachment' ? 'Use COMPACT or HANDOFF, then attach the file again.' : 'Use COMPACT or HANDOFF, then request the file again.';
     return { text: `${result.text}; image/document not sent: conversation image/document budget reached (${limit}; ${count} images, ${pages} PDF pages, ${(bytes / 1024 / 1024).toFixed(2)} MiB encoded media). ${action}`, isError: false };
   }
   return result;

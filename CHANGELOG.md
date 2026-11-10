@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Apply model-aware Native media limits and replace oldest media with text receipts to admit new files, with visible counts and COMPACT or HANDOFF recovery advice.
+
 - Drain active local-provider shell cleanup and pipe closure on tab close.
 - Preserve MCP images after encoded text resources by counting decoded media instead of encoded entries.
 
