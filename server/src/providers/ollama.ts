@@ -114,7 +114,7 @@ const DEFAULT_BASE = 'http://localhost:11434';
 const OLLAMA_CHAT_WEB_TOOLS = new Set(['WebSearch', 'WebFetch']);
 
 export function ollamaToolCandidates(
-  config: Pick<WorkerConfig, 'cwd' | 'interactionMode' | 'chatWebAccess' | 'tools' | 'clusterId' | 'workflowId' | 'clusterAccessMode' | 'voiceOperator'>,
+  config: Pick<WorkerConfig, 'cwd' | 'interactionMode' | 'chatWebAccess' | 'tools' | 'clusterId' | 'workflowId' | 'clusterAccessMode' | 'clusterTaskBoardAttached' | 'voiceOperator'>,
   registryTools: OllamaToolDefinition[] = [],
 ): OllamaToolDefinition[] | undefined {
   if (!config.cwd) return undefined;
@@ -125,6 +125,7 @@ export function ollamaToolCandidates(
   }
   const all = [...registryTools, ...getOllamaToolDefinitions({
     clusterEnabled: !!config.clusterId && !!config.workflowId,
+    taskBoardAttached: config.clusterTaskBoardAttached,
     mailboxOnly: config.clusterAccessMode !== undefined && config.clusterAccessMode !== 'standard',
   })];
   return config.tools
@@ -1159,7 +1160,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       computerChat: this.config.interactionMode === 'chat' && this.config.voiceOperator === true,
       loop: loopDetector,
       runComputer: (name, args) => executeComputerTool(this.config.workflowId, name, args),
-      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages, toolDocuments) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, onImages: (images) => toolImages.push(...images), readPathResolver: value => resolveLocalContextRead(this.config, value), onFileContent: result => { if (!['text', 'image', 'binary', 'error'].includes(result.kind)) toolDocuments.push({ name: String(args.file_path ?? name), text: result.text }); } }),
+      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages, toolDocuments) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, taskBoardAttached: this.config.clusterTaskBoardAttached, accessMode: this.config.clusterAccessMode, onImages: (images) => toolImages.push(...images), readPathResolver: value => resolveLocalContextRead(this.config, value), onFileContent: result => { if (!['text', 'image', 'binary', 'error'].includes(result.kind)) toolDocuments.push({ name: String(args.file_path ?? name), text: result.text }); } }),
       notice: (text) => this.emit('system_notice', text),
     };
     const results = await dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {

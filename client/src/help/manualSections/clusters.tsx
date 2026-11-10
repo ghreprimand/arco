@@ -1420,6 +1420,7 @@ export const clusters: Section[] = [
   selected task&apos;s ledger fields visible immediately and reads full
   detail through <Code>cluster_task_show</Code>.
   </p>
+  <p>Standard-access members using Ollama, llama.cpp, LM Studio, Strata or DeepSeek can use all eleven board tools when a board is attached. AUTO mode is required to execute them. Ollama keeps these tools available during tool subsetting. BLIND members have no board tools, and completion reports move tasks to review for operator acceptance.</p>
   <h4 className="manual-sub">Three board modes</h4>
   <p>
     Set from the <Code>BOARD</Code>{' '}

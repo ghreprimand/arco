@@ -1,3 +1,5 @@
+import type { ClusterMemberAccessMode } from '@arco/shared';
+import { CLUSTER_TASK_TOOL_DEFINITIONS } from './clusterTaskToolDefinitions.js';
 import { FileScanDeadlineExceeded, regularFileLines } from '../boundedRead.js';
 import { isSearchableTextFile } from '../searchText.js';
 import { writeCheckedFile } from '../checkedFile.js';
@@ -82,6 +84,8 @@ export interface OllamaToolContext {
   abortSignal?: AbortSignal;
   workflowId?: string;
   clusterId?: string;
+  taskBoardAttached?: boolean;
+  accessMode?: ClusterMemberAccessMode;
   onImages?: (images: Extract<FileContentBlock, { type: 'image' }>[]) => void;
 }
 
@@ -107,6 +111,7 @@ interface OllamaToolEntry {
   def: OllamaToolDefinition;
   execute: OllamaToolExecutor;
   clusterOnly?: boolean;
+  boardOnly?: boolean;
 }
 
 // Resolve `p` against `cwd` and refuse anything that escapes. Both relative
@@ -1030,9 +1035,39 @@ const ClusterPlanWriteTool: OllamaToolEntry = {
   }),
 };
 
+// Board schemas match Native. Calls use the same server routes as MCP, so
+// ownership checks, attached-board state and operator-only completion remain
+// authoritative on the server even if a worker has an older config snapshot.
+const boardTools: Record<string, OllamaToolEntry> = Object.fromEntries(
+  CLUSTER_TASK_TOOL_DEFINITIONS.map(tool => [tool.name, {
+    clusterOnly: true,
+    boardOnly: true,
+    def: { type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.input_schema } },
+    execute: async (args: Record<string, unknown>, ctx: OllamaToolContext) => {
+      if (ctx.accessMode && ctx.accessMode !== 'standard') return '[error] access_denied: board tools require standard cluster access.';
+      if (!ctx.taskBoardAttached) return '[error] board_detached: the project task board is not attached to this cluster.';
+      // Validate required string arguments before issuing a request. Select
+      // only declared properties; identity always comes from worker context.
+      for (const key of tool.input_schema.required ?? []) asString(args[key], key);
+      const op = tool.name.replace('cluster_', '').replaceAll('_', '-');
+      if (tool.name === 'cluster_task_list' || tool.name === 'cluster_task_show') {
+        const query = new URLSearchParams({ workflowId: ctx.workflowId ?? '' });
+        if (tool.name === 'cluster_task_show') query.set('id', asString(args.id, 'id'));
+        return clusterFetch(ctx, `${op}?${query}`, { method: 'GET' });
+      }
+      const payload = Object.fromEntries(Object.keys(tool.input_schema.properties).filter(key => args[key] !== undefined).map(key => [key, args[key]]));
+      return clusterFetch(ctx, op, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...payload, workflowId: ctx.workflowId }),
+      });
+    },
+  }]),
+);
+
 // ── Registry ──────────────────────────────────────────────────────────────
 
 const REGISTRY: Record<string, OllamaToolEntry> = {
+  ...boardTools,
   Read: ReadTool,
   Glob: GlobTool,
   Grep: GrepTool,
@@ -1048,9 +1083,10 @@ const REGISTRY: Record<string, OllamaToolEntry> = {
   cluster_plan_write: ClusterPlanWriteTool,
 };
 
-export function getOllamaToolDefinitions(opts?: { clusterEnabled?: boolean; mailboxOnly?: boolean }): OllamaToolDefinition[] {
+export function getOllamaToolDefinitions(opts?: { clusterEnabled?: boolean; mailboxOnly?: boolean; taskBoardAttached?: boolean }): OllamaToolDefinition[] {
   return Object.values(REGISTRY)
     .filter((entry) => !entry.clusterOnly || opts?.clusterEnabled === true)
+    .filter((entry) => !entry.boardOnly || opts?.taskBoardAttached === true)
     .filter((entry) => !opts?.mailboxOnly || !entry.clusterOnly || entry.def.function.name === 'peer_send' || entry.def.function.name === 'peer_read')
     .map((entry) => (entry === BashTool ? bashToolDef(entry.def) : entry.def));
 }

@@ -692,7 +692,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
       computerChat: false,
       loop: loopDetector,
       runComputer: async () => '',
-      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages, toolDocuments) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, onImages: (images) => toolImages.push(...images), readPathResolver: value => resolveLocalContextRead(this.config, value), onFileContent: result => { if (!['text', 'image', 'binary', 'error'].includes(result.kind)) toolDocuments.push({ name: String(args.file_path ?? name), text: result.text }); } }),
+      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages, toolDocuments) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, taskBoardAttached: this.config.clusterTaskBoardAttached, accessMode: this.config.clusterAccessMode, onImages: (images) => toolImages.push(...images), readPathResolver: value => resolveLocalContextRead(this.config, value), onFileContent: result => { if (!['text', 'image', 'binary', 'error'].includes(result.kind)) toolDocuments.push({ name: String(args.file_path ?? name), text: result.text }); } }),
       notice: (text) => this.emit('system_notice', text),
     };
     const results = await dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
@@ -772,7 +772,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
 
     let tools: OllamaToolDefinition[] | undefined;
     if (this.config.cwd && this.config.interactionMode !== 'chat' && def.capabilities?.tools !== false) {
-      const all = [...registryTools, ...getOllamaToolDefinitions({ clusterEnabled: !!this.config.clusterId && !!this.config.workflowId, mailboxOnly: this.config.clusterAccessMode !== undefined && this.config.clusterAccessMode !== 'standard' })];
+      const all = [...registryTools, ...getOllamaToolDefinitions({ clusterEnabled: !!this.config.clusterId && !!this.config.workflowId, taskBoardAttached: this.config.clusterTaskBoardAttached, mailboxOnly: this.config.clusterAccessMode !== undefined && this.config.clusterAccessMode !== 'standard' })];
       tools = this.config.tools
         ? all.filter((t) => this.config.tools!.includes(t.function.name))
         : all;

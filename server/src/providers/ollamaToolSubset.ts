@@ -38,6 +38,7 @@
 // always widen via the explicit allowlist or by disabling subsetting.
 
 import type { OllamaToolDefinition } from './ollamaTools.js';
+import { CLUSTER_TASK_TOOL_NAMES } from './clusterTaskToolDefinitions.js';
 
 // ── Always-available CORE set (Hardening §7, odysseus ALWAYS_AVAILABLE) ──────
 // These are cheap and near-universally needed by a coding agent, so they are
@@ -58,6 +59,7 @@ const OLLAMA_CLUSTER_CORE: readonly string[] = [
   'cluster_plan_read',
   'cluster_plan_tick',
   'cluster_plan_write',
+  ...CLUSTER_TASK_TOOL_NAMES,
 ];
 
 // Total advertised-set cap. Hardening §7 specifies ~8–10; we default to 9 (mid

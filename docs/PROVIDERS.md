@@ -2229,3 +2229,9 @@ Chat web access and the agent tool posture. WEB LOOKUPS / TURN also sets its
 separate per-turn call cap, including failed attempts; the default is 15.
 Its image and document results share Native context media limits. Reload keeps
 the source URL and a receipt so the model can call `read_url` again.
+
+### Local cluster board tools
+
+Ollama, llama.cpp, LM Studio, Strata and DeepSeek expose all eleven `cluster_task_*` tools to standard-access cluster members with an attached task board. These tools list, show, create, claim, update, heartbeat, comment, link, unlink, block and submit completion reports through the existing cluster board API. Completion submits to review; done and archived remain operator-only.
+
+The BOARD mode takes effect on the next turn. Detached boards and BLIND members receive no board tools, and execution repeats those checks. Local execution still requires AUTO mode and a workflow folder. Explicit tool allowlists still apply. Ollama keeps attached board tools in its coordination core, outside relevance trimming; its tool cap grows by the attached coordination-tool count. Native and local providers share the board descriptions and argument schemas.

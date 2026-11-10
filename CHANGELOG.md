@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Give local-provider cluster members the eleven board tools when standard access and an attached board allow them.
+
 - Preserve Cursor file, workflow-plan and configured tools when BLIND access limits cluster coordination.
 - Hide OPEN IN TREE for files outside the current TREE root.
 - Keep Arco running when provider CLI, sign-in, language-server or MCP child processes close their input early.

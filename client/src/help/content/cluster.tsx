@@ -688,6 +688,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
       <>
         <p>Chooses the task board for this cluster. <C>NONE</C> turns board use off, and members get no board tools. <C>PROJECT</C> uses the project folder&apos;s shared board, the same tasks ordinary tabs in that folder see. <C>CLUSTER</C> gives this cluster its own private board. New clusters start on <C>CLUSTER</C>.</p>
         <p>Changes apply on each member&apos;s next turn and can be switched back. Existing boards are never moved or merged.</p>
+        <p>Standard-access local-model members also receive all eleven board tools when a board is attached. They require AUTO mode to run; BLIND members have no board tools. Completion reports go to review for operator acceptance.</p>
       </>
     ),
     manualSection: 'cluster-board',
