@@ -16,7 +16,7 @@ export const workspace: Section[] = [
           Dialogs open at sizes suited to their content. Drag the bottom-right
           corner grip or focus it and use arrow keys to resize. Maximize fills the window; Restore
           returns to the previous size. Arco remembers the size for that kind
-          of dialog in this browser. Reset size or Home on the grip restores the default.
+          of dialog in this browser. Resizable dialogs reserve a right-side gutter so footer actions stay clear of the grip. Reset size or Home on the grip restores the default.
         </p>
         <p>
           Rendered Markdown and plain text open at their reading width plus

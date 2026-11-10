@@ -7,6 +7,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Keep streamed replies together when an existing tool call completes or fails mid-sentence.
 - Send Claude PDF attachments and reads as text and scanned-page images by default, with selected visual pages on request.
+- Keep dialog footer actions clear of the bottom-right resize grip.
 
 - Apply model-aware Native media limits and replace oldest media with text receipts to admit new files, with visible counts and COMPACT or HANDOFF recovery advice.
 

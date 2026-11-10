@@ -53,9 +53,10 @@ export function WorkSurfaceControls({ surface, storageKey }: { surface: RefObjec
     const computed = window.getComputedStyle(el);
     const outerScroll = /(auto|scroll)/.test(computed.overflowX + computed.overflowY);
     const originalRightPadding = el.style.paddingRight;
+    // Every surface reserves a grip-width gutter, including fixed footers.
+    el.style.paddingRight = `${Math.max(26, Number.parseFloat(computed.paddingRight) || 0)}px`;
     if (outerScroll) {
       // Keep the frame grip outside scrolling controls and native scrollbars.
-      el.style.paddingRight = `${Math.max(26, Number.parseFloat(computed.paddingRight) || 0)}px`;
       el.classList.add('work-surface-scroll-frame');
     }
     const followScroll = () => {
@@ -103,7 +104,7 @@ export function WorkSurfaceControls({ surface, storageKey }: { surface: RefObjec
     el.addEventListener('pointerdown', down);
     window.addEventListener('pointerup', up);
     window.addEventListener('click', click, true);
-    return () => { el.removeEventListener('scroll', followScroll); if (outerScroll) { el.style.paddingRight = originalRightPadding; el.classList.remove('work-surface-scroll-frame'); } el.removeEventListener('pointerdown', down); window.removeEventListener('pointerup', up); window.removeEventListener('click', click, true); };
+    return () => { el.removeEventListener('scroll', followScroll); el.style.paddingRight = originalRightPadding; if (outerScroll) { el.classList.remove('work-surface-scroll-frame'); } el.removeEventListener('pointerdown', down); window.removeEventListener('pointerup', up); window.removeEventListener('click', click, true); };
   }, [surface, key]);
   const drag = useRef<{ x: number; y: number; width: number; height: number; scale: number } | null>(null);
   const scale = () => Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 1;

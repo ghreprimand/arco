@@ -2167,7 +2167,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'dialog.size': {
     title: 'Dialog size',
-    body: <><p>Maximize fills the window and Restore returns to the previous size. Drag the bottom-right corner grip or focus it and use arrow keys to resize. Reset size or Home on the grip restores the default.</p><p>Rendered Markdown and plain text fit their reading column; RAW, code, overflowing tables and media use the larger viewer. Arco remembers the size for this kind of dialog in this browser, without saving project details.</p></>,
+    body: <><p>Maximize fills the window and Restore returns to the previous size. Drag the bottom-right corner grip or focus it and use arrow keys to resize. Reset size or Home on the grip restores the default. Resizable dialogs reserve a right-side gutter so footer actions stay clear of the grip.</p><p>Rendered Markdown and plain text fit their reading column; RAW, code, overflowing tables and media use the larger viewer. Arco remembers the size for this kind of dialog in this browser, without saving project details.</p></>,
   },
   'dialog.save-destination': {
     title: 'Destination folder and filename',

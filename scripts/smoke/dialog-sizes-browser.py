@@ -15,6 +15,14 @@ ROOT = Path(__file__).resolve().parents[2]
 ART = Path(os.environ['ARCO_DIALOG_SIZE_ARTIFACTS']) if os.environ.get('ARCO_DIALOG_SIZE_ARTIFACTS') else None
 HTML = """<!doctype html><html><head><link rel="stylesheet" href="/src/styles/global.css"><link rel="stylesheet" href="/src/components/workSurface/workSurface.css"></head><body><div id="fixture"></div><script type="module">import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window); window.$RefreshReg$=()=>{}; window.$RefreshSig$=()=>type=>type; window.__vite_plugin_react_preamble_installed__=true; window.fixtureReady=true;</script></body></html>"""
 
+async def no_footer_overlap(box, context):
+    grip_rect=await box.get_by_role('button',name='Resize dialog').bounding_box()
+    actions=box.locator('button:not(.work-surface-resize):not(.work-surface-controls button)')
+    if await actions.count():
+        action_rect=await actions.last.bounding_box()
+        assert action_rect and grip_rect
+        assert (action_rect['x']+action_rect['width'] <= grip_rect['x'] or grip_rect['x']+grip_rect['width'] <= action_rect['x'] or action_rect['y']+action_rect['height'] <= grip_rect['y'] or grip_rect['y']+grip_rect['height'] <= action_rect['y']), ('footer action overlaps resize grip',context,action_rect,grip_rect)
+
 async def main():
     ART.mkdir(parents=True, exist_ok=True)
     rows = []
@@ -46,6 +54,7 @@ async def main():
           const React=(await import('/node_modules/.vite/deps/react.js')).default;
           const {createRoot}=(await import('/node_modules/.vite/deps/react-dom_client.js')).default;
           const {DialogShell}=await import('/src/components/DialogShell.tsx');
+          const {SpawnDialog}=await import('/src/components/SpawnDialog.tsx');
           const {ForwardDialog}=await import('/src/components/ForwardMessages.tsx');
           const {PurgeConversationModal}=await import('/src/components/PurgeConversationModal.tsx');
           const {DirectoryBrowser}=await import('/src/components/media/DirectoryPicker.tsx');
@@ -60,6 +69,7 @@ async def main():
             else if(size==='picker') root.render(h(DirectoryBrowser,{initialPath:'/fixture',title:'Choose a folder',onDone:close}));
             else root.render(h(FileViewerModal,{path:'/fixture/report.md',onClose:close}));
           };
+          window.showSpawn=()=>root.render(React.createElement(SpawnDialog,{parentConfig:{name:'Fixture',workingDirectory:'/fixture',primaryProvider:'claude',primaryModel:'sonnet'},onConfirm:()=>{},onCancel:()=>root.render(null)}));
           window.closeFixture=()=>root.render(null);
           window.showMemberPicker=(count=60)=>root.render(React.createElement(ClusterMemberPicker,{title:'Choose a synthetic member',cluster:{members:Array.from({length:count},(_,i)=>({workflowId:'member-'+i,displayName:'Member '+(i+1),status:'idle',role:'builder'}))},onPick:m=>{window.pickedMember=m.workflowId},onCancel:()=>root.render(null)}));
           window.showFile=path=>root.render(React.createElement(FileViewerModal,{key:path,path,onClose:()=>root.render(null)}));
@@ -90,10 +100,23 @@ async def main():
                     if kind in ['confirm','form']: assert rect['height'] < min(height*.9, 40*font)
                     if kind == 'picker': assert abs(rect['height']-min(height*.94,max(24*font,min(height*.75,60*font))))<4
                     if kind == 'viewer': assert abs(rect['height']-height*.85)<4
+                    await no_footer_overlap(box,(kind,width,height,scale))
                     filename=f'{kind}-{width}x{height}-{round(scale*100)}.png'
                     await page.screenshot(path=str(ART/filename))
                     rows.append((filename,rect['width'],rect['height']))
+                    await box.evaluate("el=>{el.style.width='280px';el.style.height='260px'}")
+                    await no_footer_overlap(box,('minimum',kind,width,height,scale))
                     await page.evaluate('window.closeFixture()'); await expect(dialog).to_have_count(0)
+        for width,height in [(1280,800),(1920,1080),(1920,1200),(2560,1440),(3840,2160)]:
+            await page.set_viewport_size({'width':width,'height':height})
+            for scale in [1,1.5]:
+                await page.evaluate('s=>{document.documentElement.style.zoom=String(s);document.documentElement.style.setProperty("--ui-scale",String(s));localStorage.clear();window.showSpawn()}',scale)
+                box=page.locator('[data-dialog-surface="form"]')
+                await expect(box.get_by_role('button',name='SPAWN',exact=True)).to_be_visible()
+                await no_footer_overlap(box,('spawn',width,height,scale))
+                await box.evaluate("el=>{el.style.width='280px';el.style.height='260px'}")
+                await no_footer_overlap(box,('minimum','spawn',width,height,scale))
+                await page.evaluate('window.closeFixture()')
         # Formatted text defaults, wide content, saved dimensions and current reset target.
         await page.set_viewport_size({'width':1920,'height':1080})
         await page.evaluate("document.documentElement.style.zoom='1';document.documentElement.style.setProperty('--ui-scale','1');localStorage.clear()")
