@@ -100,7 +100,7 @@ test('read_file MCP returns real image content, confines paths and supports docu
   try{
     await writeFile(join(cwd,'image.png'),png);
     let name='';let spec:any;let read:any;
-    registerFileTools({registerTool:(n:string,s:any,handler:any)=>{name=n;spec=s;read=handler;}} as any,cwd);
+    registerFileTools({registerTool:(n:string,s:any,handler:any)=>{if(n==='read_file'){name=n;spec=s;read=handler;}}} as any,cwd);
     assert.equal(name,'read_file'); assert.equal(spec.annotations.readOnlyHint,true);
     const result=await read({file_path:'image.png'});
     assert.equal(result.isError,false);
@@ -203,7 +203,7 @@ test('PDF attachment text and selected Read pages reach local and portable CLI t
     assert.match(read, /Second transport page/);
     assert.doesNotMatch(read, /First transport page/);
     let handler: any;
-    registerFileTools({ registerTool: (_n: string, _s: unknown, callback: any) => { handler = callback; } } as any, cwd);
+    registerFileTools({ registerTool: (_n: string, _s: unknown, callback: any) => { if (_n === 'read_file') handler = callback; } } as any, cwd);
     const cli = await handler({ file_path: path, pages: '1' });
     const text = cli.content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n');
     assert.match(text, /First transport page/);

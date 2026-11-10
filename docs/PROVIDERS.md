@@ -164,7 +164,7 @@ Native Read and local Read keep their 256 KiB and 32 KiB output caps while readi
 
 Grep skips binary files and searches UTF-8, UTF-16 and Windows-1252 text. A legacy text chunk with at least one percent disallowed control characters is treated as binary. JavaScript search reports shortened long lines. Native ripgrep decodes legacy text output and also checks legacy text for non-ASCII search terms.
 
-Local WebFetch in fast mode stops and cancels the response after 128 KiB before stripping HTML, with a truncation notice. Native web tools run on the provider service.
+Local WebFetch and the read-only CLI `fetch_file` tool use `fileFetch.ts`. Text downloads stop at 128 KiB; recognized images and documents have the shared 512 MiB source budget before decoding and provider limits apply. The reader checks public HTTP(S) hosts, resolved addresses and every direct HTTP redirect. Source-size and deadline refusals return a note. Native server web tools run on the provider service.
 
 Native Read keeps the partial-read warning when its output is capped, until a later complete read covers the file. Native Grep reports invalid patterns and search failures as errors; a successful search with no matches remains empty. Native Bash keeps its newest output tail even if saving the full output fails, and reports that full output is unavailable. Native and local-model Write create nested parent directories on Windows.
 
@@ -2174,3 +2174,19 @@ text-file callback. Cursor print uses a temporary read-only file-reader plugin,
 keeps ask mode and the original workflow folder, and removes the plugin when
 the subprocess ends. It does not change saved Cursor MCP configuration or
 approve unrelated MCP servers.
+
+
+### Public URL files
+
+Local `WebFetch` and the read-only `fetch_file` tool in the Claude CLI, Codex and
+Cursor file servers share the public URL reader. Fetched images become fitted
+image blocks. PDFs provide selected page text or scanned-page images on these
+transports. `pages`, such as `2-4`, also selects supported document ranges.
+The range selects decoded content; the downloaded source still has a byte cap.
+
+The direct reader accepts HTTP(S), checks every resolved address and rechecks
+each redirect before following it. Loopback, private and link-local targets are
+refused. Text downloads have a 128 KiB budget; media and document sources have
+the shared 512 MiB limit. The direct request and decoding deadline is 10,000 ms.
+Cancellation releases the response reader. Local WebFetch can use its existing
+browser fallback for bot-protected text pages.

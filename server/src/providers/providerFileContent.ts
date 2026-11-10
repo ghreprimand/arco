@@ -45,7 +45,7 @@ export function openAiImageMessage(images: ProviderImage[]) {
   ] };
 }
 
-export const FILE_READ_GUIDANCE = 'Use Arco read_file for images, PDFs, Word, Excel, PowerPoint, OpenDocument, RTF and notebooks when available. It fits images and decodes documents without extra software. Use its pages range for large documents. Never decode a binary file as text.';
+export const FILE_READ_GUIDANCE = 'Use Arco read_file for local files and fetch_file for public URLs containing images, PDFs, Word, Excel, PowerPoint, OpenDocument, RTF or notebooks when available. It fits images and decodes documents without extra software. Use its pages range for large documents. Never decode a binary file as text.';
 
 export function ollamaVisionMessages<T extends {content:string;images?:string[]}>(messages: T[], vision: boolean): T[] {
   let count=0,bytes=0;

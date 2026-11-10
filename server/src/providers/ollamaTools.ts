@@ -1,7 +1,8 @@
 import { FileScanDeadlineExceeded, regularFileLines } from '../boundedRead.js';
 import { isSearchableTextFile } from '../searchText.js';
 import { writeCheckedFile } from '../checkedFile.js';
-import { readFileContent, fileContentFromBytes, fileHeaderKind, MAX_FILE_CONTENT_BYTES, type FileContentBlock } from '../fileContent.js';
+import { readFileContent, type FileContentBlock } from '../fileContent.js';
+import { fetchFileContent, assertPublicFileFetchUrl } from '../fileFetch.js';
 import { resolveToolPath } from '../toolPath.js';
 import { requestWithDeadline } from './requestDeadline.js';
 
@@ -12,7 +13,6 @@ import { resolve, relative, isAbsolute, join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { commandShell, shellInvocation, shellToolLabel } from '../commandShell.js';
 import { signalChildTree, spawnShellChild } from '../workers/processKill.js';
-import dns from 'node:dns/promises';
 import { readBuiltinVirtualFile } from '../skills.js';
 
 // Server-side tool runtime for local Ollama workers. File access is resolved
@@ -475,30 +475,10 @@ const WebSearchTool: OllamaToolEntry = {
 // data have no business reaching internal services. Operators who *want*
 // to fetch a localhost URL can do it via Bash + curl in AUTO mode (their
 // own choice, explicitly).
-function isPrivateOrLoopbackHost(host: string): boolean {
-  const lc = host.toLowerCase();
-  if (lc === 'localhost' || lc.endsWith('.localhost')) return true;
-  // IPv4 literal
-  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(lc);
-  if (v4) {
-    const [a, b] = [parseInt(v4[1], 10), parseInt(v4[2], 10)];
-    if (a === 127) return true;                                   // 127/8 loopback
-    if (a === 10) return true;                                    // 10/8 private
-    if (a === 172 && b >= 16 && b <= 31) return true;             // 172.16/12 private
-    if (a === 192 && b === 168) return true;                      // 192.168/16 private
-    if (a === 169 && b === 254) return true;                      // 169.254/16 link-local (incl. cloud metadata)
-    if (a === 0) return true;                                     // 0/8 unspecified
-    return false;
-  }
-  // IPv6 literal — quick checks for the most common private forms.
-  if (lc === '::1' || lc.startsWith('::1')) return true;          // loopback
-  if (lc.startsWith('fc') || lc.startsWith('fd')) return true;    // fc00::/7 unique-local
-  if (lc.startsWith('fe80')) return true;                         // fe80::/10 link-local
-  return false;
-}
 
 interface FetchOutcome {
-  bytes?: Buffer;
+  blocks?: FileContentBlock[];
+  refused?: boolean;
   fileLike?: boolean;
   truncated?: boolean;
   ok: boolean;
@@ -508,56 +488,15 @@ interface FetchOutcome {
   reason?: string;
 }
 
-async function fastFetch(targetUrl: string, signal: AbortSignal): Promise<FetchOutcome> {
-  let res: Response;
-  try {
-    res = await fetch(targetUrl, {
-      signal,
-      redirect: 'follow',
-      headers: {
-        // Pretend to be a normal browser for sites that 403 on default
-        // node fetch UA. Stealth path covers the harder cases.
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-      },
-    });
-  } catch (err) {
-    return { ok: false, text: '', reason: err instanceof Error ? err.message : String(err) };
-  }
-  const contentType = res.headers.get('content-type') ?? '';
-  const result = await readFetchBytes(res);
-  let text = '';
-  if (!result.fileLike) { try { text = new TextDecoder('utf-8',{fatal:true}).decode(result.bytes); } catch { /* Decoder produces an encoding note below. */ } }
-  return { ok: res.ok, status: res.status, contentType, text, ...result };
-
-}
-
-// Text keeps the existing 128 KiB network budget. Known document/media
-// responses get a bounded 64 MiB decoding budget so fitting can happen before
-// payload limits are applied. Every truncated stream is cancelled.
-async function readFetchBytes(response:Response):Promise<{bytes:Buffer;truncated:boolean;fileLike:boolean}> {
-  const reader=response.body?.getReader();
-  if (!reader) return {bytes:Buffer.alloc(0),truncated:false,fileLike:false};
-  let fileLike=/image\/|application\/(pdf|msword|vnd\.)|(?:text|application)\/rtf/i.test(response.headers.get('content-type') ?? '');
-  let used=0,done=false;
-  const parts:Buffer[]=[];
-  try {
-    for (;;) {
-      const cap=fileLike ? MAX_FILE_CONTENT_BYTES : TOOL_OUTPUT_CAP*2;
-      if (used>=cap) break;
-      const next=await reader.read();
-      if(next.done){done=true;break;}
-      if (!fileLike && used < 4096) {
-        const prefix = Buffer.concat([...parts, Buffer.from(next.value.subarray(0, 4096 - used))], Math.min(4096, used + next.value.byteLength));
-        const kind = fileHeaderKind(prefix);
-        fileLike = kind.startsWith('image/') || ['application/pdf', 'application/zip', 'application/x-ole-storage', 'application/rtf'].includes(kind);
-      }
-      const keep=Math.min(next.value.byteLength,(fileLike?MAX_FILE_CONTENT_BYTES:TOOL_OUTPUT_CAP*2)-used);
-      parts.push(Buffer.from(next.value.subarray(0,keep)));used+=keep;
-    }
-    return {bytes:Buffer.concat(parts,used),truncated:!done,fileLike};
-  }finally{if(!done)await reader.cancel().catch(()=>{});reader.releaseLock();}
+async function fastFetch(targetUrl: string, signal: AbortSignal, pages: string | undefined, images: boolean): Promise<FetchOutcome> {
+  const result = await fetchFileContent(targetUrl, { signal, pages, limits: { images, documents: false, maxTextBytes: TOOL_OUTPUT_CAP * 2 } });
+  return {
+    ok: result.status !== undefined && result.status >= 200 && result.status < 300,
+    status: result.status, contentType: result.contentType, text: result.text,
+    blocks: result.blocks, refused: result.refused, truncated: result.truncated,
+    fileLike: result.kind !== 'text' && result.kind !== 'error',
+    ...(result.isError ? { reason: result.text } : {}),
+  };
 }
 
 // Cheap HTML→text. Strips <script> and <style> blocks, replaces line-
@@ -588,7 +527,7 @@ function stripHtml(html: string): string {
 
 function looksBlocked(outcome: FetchOutcome): boolean {
   if (!outcome.ok) return true;
-  if (outcome.fileLike && outcome.bytes?.length) return false;
+  if (outcome.fileLike) return false;
   if (outcome.text.length < 200) return true;
   const lc = outcome.text.toLowerCase().slice(0, 4096);
   if (lc.includes('cf-chl-bypass') || lc.includes('cloudflare') && lc.includes('challenge')) return true;
@@ -708,28 +647,6 @@ const WebFetchTool: OllamaToolEntry = {
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return `[error] WebFetch only supports http(s); got ${parsed.protocol}`;
     }
-    if (isPrivateOrLoopbackHost(parsed.hostname)) {
-      return `[error] WebFetch refuses loopback / private / link-local hosts ("${parsed.hostname}"). Use WebSearch for general web search; use Bash + curl if you genuinely need an internal URL (and the operator has AUTO on).`;
-    }
-    // Resolve the hostname ourselves and re-validate the resolved IPs.
-    // Without this, a DNS server returning a public IP to our hostname-
-    // string check and a loopback IP to fetch()'s lookup (DNS rebinding)
-    // would slip past the guard above. There's a residual TOCTOU window
-    // (the kernel resolver re-queries when fetch runs) but this catches
-    // the common case where DNS gives consistent stable answers.
-    if (!/^\[?[0-9a-f.:]+\]?$/i.test(parsed.hostname)) {
-      try {
-        const records = await dns.lookup(parsed.hostname, { all: true });
-        for (const r of records) {
-          if (isPrivateOrLoopbackHost(r.address)) {
-            return `[error] WebFetch refuses "${parsed.hostname}" — resolves to private/loopback IP ${r.address}.`;
-          }
-        }
-      } catch (err) {
-        return `[error] WebFetch could not resolve "${parsed.hostname}": ${err instanceof Error ? err.message : String(err)}`;
-      }
-    }
-
     const fastSignal = AbortSignal.any([
       AbortSignal.timeout(WEBFETCH_FAST_TIMEOUT_MS),
       ...(ctx.abortSignal ? [ctx.abortSignal] : []),
@@ -739,7 +656,8 @@ const WebFetchTool: OllamaToolEntry = {
     let usedMode = mode;
 
     if (mode === 'fast' || mode === 'auto') {
-      outcome = await fastFetch(parsed.toString(), fastSignal);
+      outcome = await fastFetch(parsed.toString(), fastSignal, typeof args.pages === 'string' ? args.pages : undefined, !!ctx.onImages);
+      if (outcome.refused || ctx.abortSignal?.aborted) return outcome.text;
       usedMode = 'fast';
       if (mode === 'auto' && looksBlocked(outcome)) {
         // Fall through to stealth.
@@ -748,6 +666,8 @@ const WebFetchTool: OllamaToolEntry = {
     }
 
     if (!outcome && (mode === 'stealth' || mode === 'auto')) {
+      try { await assertPublicFileFetchUrl(parsed.toString(), ctx.abortSignal); }
+      catch (error) { return `[error] WebFetch refused URL: ${error instanceof Error ? error.message : String(error)}`; }
       outcome = await stealthFetch(parsed.toString(), ctx.abortSignal);
       usedMode = 'stealth';
     }
@@ -755,25 +675,15 @@ const WebFetchTool: OllamaToolEntry = {
     if (!outcome) {
       return '[error] WebFetch produced no result (unreachable mode branch)';
     }
-    if (!outcome.ok && !outcome.text && !outcome.bytes?.length) {
+    if (!outcome.ok && !outcome.text) {
       return `[error] WebFetch (${usedMode}) failed: ${outcome.reason ?? `HTTP ${outcome.status ?? '?'}`}`;
     }
     // HTML strip only for fast-mode HTML responses; stealth's inner_text
     // is already plain text, and JSON / markdown bodies should pass
     // through verbatim.
     let body = outcome.text;
-    if (outcome.bytes) {
-      if (outcome.truncated && outcome.fileLike) body = '[File response exceeds the decoding budget; request a smaller file or page range.]';
-      else {
-        const decoded = await fileContentFromBytes(outcome.bytes, parsed.pathname.split('/').pop() || 'response', {
-          signal:ctx.abortSignal,pages:typeof args.pages === 'string'?args.pages:undefined,
-          limits:{images:!!ctx.onImages,documents:false,maxTextBytes:TOOL_OUTPUT_CAP*2},
-        });
-        ctx.onImages?.(decoded.blocks.filter((b):b is Extract<FileContentBlock,{type:'image'}>=>b.type==='image'));
-        body = decoded.text;
-      }
-    }
-    if (usedMode === 'fast' && outcome.contentType && /html|xml/i.test(outcome.contentType)) {
+    ctx.onImages?.((outcome.blocks ?? []).filter((block): block is Extract<FileContentBlock, { type: 'image' }> => block.type === 'image'));
+    if (usedMode === 'fast' && !outcome.fileLike && outcome.contentType && /html|xml/i.test(outcome.contentType)) {
       body = stripHtml(body);
     }
     const header = `[${usedMode}${outcome.status ? ` ${outcome.status}` : ''}] ${parsed.toString()}`;

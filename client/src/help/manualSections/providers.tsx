@@ -56,7 +56,12 @@ export const providers: Section[] = [
   <p>Spawn from HISTORY keeps the selected earlier conversation even when it falls outside the recent replay tail. Cancelled handoffs preserve prior context. Older derived summary caches are rebuilt automatically.</p>
   <p>Native and local Read use bounded chunks and refuse special files. Their text output caps remain 256 KiB and 32 KiB. Native also recognizes byte-order-marked UTF-16 text. Use offset and limit for later lines.</p>
   <p>Non-UTF-8 text without NUL bytes and with fewer than 1% unexpected control bytes per 16 KiB chunk is decoded as Windows-1252 with a short notice. Line ranges apply to the decoded text. Control-heavy data remains a binary-file note.</p>
-  <p>A selected range containing NUL bytes receives a binary-file note even after a text-only header. Grep skips binary files, including control-heavy legacy data, searches UTF-8, UTF-16 and Windows-1252 text, and reports shortened long lines; local fast WebFetch cancels downloads at 128 KiB before HTML extraction.</p>
+  <p>A selected range containing NUL bytes receives a binary-file note even after a text-only header. Grep skips binary files, including control-heavy legacy data, searches UTF-8, UTF-16 and Windows-1252 text, and reports shortened long lines.</p>
+  <p>Local WebFetch and the CLI file server&apos;s read-only <Code>fetch_file</Code>
+  tool share a public HTTP(S) reader. Images are fitted; documents provide
+  decoded text and scanned PDF pages provide images. Use <Code>pages</Code>
+  for a selected range. Text downloads stop at 128 KiB; media sources have
+  a 512 MiB cap. Private addresses and unsafe redirects are refused.</p>
   <p>Claude Native Read, Task helpers and operator attachments use Arco&apos;s own file decoder. PNG, JPEG, GIF, WebP, AVIF, HEIC, TIFF, BMP and ICO are fitted without installing a converter. Images keep their full frame, within 2,000 pixels per side and 5 MB base64. ICO uses its largest embedded image.</p>
   <p>SVG provides bounded source text and a fitted preview. Rendering uses no scripts, external resources or system fonts. Text requiring a font may be absent from the preview; the source remains available.</p>
   <p>Use Read&apos;s <Code>pages</Code> range, such as <Code>1-3,5</Code>, for PDFs, spreadsheet sheets, slides or notebook cells. PDFs become documents or extracted text; scanned pages become images. Word, Excel, PowerPoint, OpenDocument and RTF become readable text. Notebooks retain cells and outputs.</p>
@@ -719,7 +724,7 @@ export const providers: Section[] = [
   [<Code key="w">Write</Code>, 'mkdir -p parents. Refuses to clobber a directory.'],
   [<Code key="b">Bash</Code>, '/bin/sh -c in cwd (Git Bash on Windows; on Windows without Git Bash the PowerShell tool instead). 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB.'],
   [<Code key="ws">WebSearch</Code>, <>Hits operator&apos;s local SearXNG (<Code>ARCO_SEARXNG_URL</Code>, default <Code>http://127.0.0.1:8888</Code>). Bang syntax (<Code>!g foo</Code>) routes engines.</>],
-  [<Code key="wf">WebFetch</Code>, <>Native <Code>fetch()</Code> fast path, Camoufox stealth fallback for Cloudflare-gated pages. SSRF guard blocks loopback/RFC1918.</>],
+  [<Code key="wf">WebFetch</Code>, <>Shared public URL file decoder for images and document ranges; Camoufox fallback for bot-protected text. Private hosts and direct HTTP redirects are checked.</>],
   ]}
   />
   <Table

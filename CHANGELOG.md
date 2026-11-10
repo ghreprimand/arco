@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Read public URL images and document ranges through the read-only `fetch_file` tool on CLI file servers, sharing guarded decoding with local WebFetch.
+
 - Read Windows-1252 text with a decoding notice and working line ranges across providers and attachments; NUL and control-heavy data remain binary receipts.
 
 - Notebook reads keep cell ranges when metadata comes first, render SVG outputs, and name unsupported rich outputs instead of dropping them.
@@ -13,6 +15,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Grep skips control-heavy binary data while retaining Windows-1252 text search.
 
 - File reads and attachments report binary content when NUL bytes occur after a text-only header, instead of sending those bytes as text.
+
 
 - Clarify decoded attachment content and retained path labels in Chat, provider guides, the manual and Composer help.
 - SVG attachments and `@file:` references carry their source and a fitted preview to image-capable models.
