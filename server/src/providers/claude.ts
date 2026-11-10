@@ -203,7 +203,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
 
   private _launch(): void {
     if (!this._resumeOnRetry && this.config.attachments?.length) {
-      void prepareProviderAttachments(this.config.attachments).then((prepared) => {
+      void prepareProviderAttachments(this.config.attachments, true, undefined, true).then((prepared) => {
         if (this._status === 'failed' || this._status === 'completed') return;
         this._launchPrepared(prepared);
       }).catch((error) => { this._status = 'failed'; this.emit('error', String(error)); });
@@ -231,18 +231,13 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     let prompt = privatePrefix
       ? `${privatePrefix}\n\n--- Current operator message ---\n\n${rawPrompt}`
       : rawPrompt;
-    // Build the stdin payload first. If the operator attached image files
-    // we switch to Claude's stream-json input mode (same wire format the
-    // terminal uses for pasted images) and embed each image as a base64
-    // content block in a single user message. Non-image attachments get
-    // their paths appended to the text so the operator's intent isn't
-    // silently lost — Agent primaries have the full CLI toolset and can Read
-    // them; Chat (--tools "" or web-only) at least sees the reference.
+    // Claude's SDKUserMessage accepts images and PDF documents in message.content.
+    // The shared decoder bounds pages/bytes and falls back to extracted text.
     const images = prepared?.images ?? [];
-    const nonImagePaths: string[] = [];
+    const documents = prepared?.documents ?? [];
     const attachmentText = prepared?.text ?? '';
     if (attachmentText) prompt += '\n\n' + attachmentText;
-    const useStreamJson = images.length > 0;
+    const useStreamJson = images.length > 0 || documents.length > 0;
     const args = this.buildArgs({ streamJsonInput: useStreamJson });
 
     this.process = spawn(...commandArgs('claude', args), {
@@ -261,18 +256,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
 
     if (this.process.stdin) {
       if (useStreamJson) {
-        // Append any non-image attachment paths to the text so the model
-        // sees them. Agent primaries can Read them; Chat runs --tools ""
-        // (or web-only), so there they're informational only.
-        let text = prompt;
-        if (nonImagePaths.length > 0) {
-          if (this.config.interactionMode === 'chat') {
-            console.warn(
-              `[worker:${this.id}] ${nonImagePaths.length} non-image attachment(s) passed as paths only (Chat has no Read tool)`,
-            );
-          }
-          text += '\n\n' + nonImagePaths.map((p) => `[attached file: ${p}]`).join('\n');
-        }
+        const text = prompt;
         // Images before the text block — Anthropic's vision guidance (and
         // the Native transport) put the image first, the question after.
         const content: Array<Record<string, unknown>> = [];
@@ -282,16 +266,14 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
             source: { type: 'base64', media_type: img.mediaType, data: img.data },
           });
         }
+        for (const document of documents) {
+          content.push({ type: 'document', title: document.name, source: { type: 'base64', media_type: document.mediaType, data: document.data } });
+        }
         if (text.length > 0) content.push({ type: 'text', text });
         const envelope = { type: 'user', message: { role: 'user', content } };
         this.process.stdin.write(JSON.stringify(envelope) + '\n');
       } else {
-        // No images ⇒ plain-text stdin. The path refs must still ride along:
-        // this branch used to write the bare prompt, so a turn with only a
-        // .md / .pdf attached never told the model the file existed.
-        this.process.stdin.write(nonImagePaths.length > 0
-          ? `${prompt}\n\n${nonImagePaths.map((p) => `[attached file: ${p}]`).join('\n')}`
-          : prompt);
+        this.process.stdin.write(prompt);
       }
       this.process.stdin.end();
     }

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Claude CLI receives attached PDFs as bounded document blocks, with extracted text or fitted scanned-page images as fallback.
+
 - Claude Native reads public image and document URLs through `read_url`, with page ranges, web access controls and per-turn limits.
 
 - Read public URL images and document ranges through the read-only `fetch_file` tool on CLI file servers, sharing guarded decoding with local WebFetch.

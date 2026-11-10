@@ -7,24 +7,37 @@ import { writeCheckedFile } from '../checkedFile.js';
 import { readFileContent, type FileContentBlock } from '../fileContent.js';
 
 export type ProviderImage = Extract<FileContentBlock, { type: 'image' }>;
-export interface PreparedAttachments { text: string; images: ProviderImage[] }
+export type ProviderDocument = Extract<FileContentBlock, { type: 'document' }>;
+export interface PreparedAttachments { text: string; images: ProviderImage[]; documents: ProviderDocument[] }
+const MAX_REQUEST_DOCUMENT_PAGES = 100;
 const MAX_REQUEST_IMAGES = 16;
-const MAX_REQUEST_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_REQUEST_MEDIA_BYTES = 20 * 1024 * 1024;
 
 // Paths here come from the operator's already-authorized attachment list.
 // Tool reads authorize against the workflow separately before calling the decoder.
-export async function prepareProviderAttachments(paths: string[] | undefined, images = true, signal?: AbortSignal): Promise<PreparedAttachments> {
+export async function prepareProviderAttachments(paths: string[] | undefined, images = true, signal?: AbortSignal, documents = false): Promise<PreparedAttachments> {
   const texts: string[] = [];
   const media: ProviderImage[] = [];
   let imageBytes = 0;
+  const pendingDocuments: Array<{ document: ProviderDocument; textIndex: number; fallback: string }> = [];
+  let documentPages = 0, documentBytes = 0;
   for (const path of paths ?? []) {
     if (signal?.aborted) break;
     try {
-      const result = await readFileContent(await realpath(path), { signal, limits: { images, documents: false, maxTextBytes: 32 * 1024, maxImages: Math.max(1,MAX_REQUEST_IMAGES-media.length), maxImageBase64Bytes: 2 * 1024 * 1024 } });
-      texts.push(`[attached file: ${path}]\n${result.text}`);
+      const allowDocuments = documents && documentPages < MAX_REQUEST_DOCUMENT_PAGES && documentBytes < MAX_REQUEST_MEDIA_BYTES;
+      const result = await readFileContent(await realpath(path), { signal, limits: { images, documents: allowDocuments, maxDocumentPages: allowDocuments ? MAX_REQUEST_DOCUMENT_PAGES - documentPages : MAX_REQUEST_DOCUMENT_PAGES, maxDocumentBase64Bytes: MAX_REQUEST_MEDIA_BYTES - documentBytes, maxTextBytes: 32 * 1024, maxImages: Math.max(1,MAX_REQUEST_IMAGES-media.length), maxImageBase64Bytes: 2 * 1024 * 1024 } });
+      const decodedDocuments = result.blocks.filter((b): b is ProviderDocument => b.type === 'document');
+      for (const document of decodedDocuments) {
+        pendingDocuments.push({ document, textIndex: texts.length, fallback: `[attached file: ${path}]\n[Selected PDF exceeds the message media byte limit; extracted text is shown instead.]\n${result.text}` });
+        documentPages += document.pages; documentBytes += document.data.length;
+      }
+      const text = decodedDocuments.length
+        ? result.blocks.filter((b): b is Extract<FileContentBlock, { type: 'text' }> => b.type === 'text').map(b => b.text).join('\n')
+        : result.text;
+      texts.push(`[attached file: ${path}]\n${text}`);
       const decoded = result.blocks.filter((b): b is ProviderImage => b.type === 'image');
       for (const image of decoded) {
-        if (media.length >= MAX_REQUEST_IMAGES || imageBytes + image.data.length > MAX_REQUEST_IMAGE_BYTES) {
+        if (media.length >= MAX_REQUEST_IMAGES || imageBytes + image.data.length > MAX_REQUEST_MEDIA_BYTES) {
           texts.push(`[Image ${image.name} omitted: this message reached its image budget. Attach fewer files.]`);
         } else { media.push(image); imageBytes += image.data.length; }
       }
@@ -32,7 +45,16 @@ export async function prepareProviderAttachments(paths: string[] | undefined, im
       texts.push(`[attached file: ${path}]\n[error] ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  return { text: texts.join('\n\n'), images: media };
+  // Images have priority even when the PDF preceded them in the attachment list.
+  // Keep the decoder's bounded text fallback until the combined budget is known.
+  const pdfs: ProviderDocument[] = [];
+  let mediaBytes = imageBytes;
+  for (const pending of pendingDocuments) {
+    if (mediaBytes + pending.document.data.length <= MAX_REQUEST_MEDIA_BYTES) {
+      pdfs.push(pending.document); mediaBytes += pending.document.data.length;
+    } else texts[pending.textIndex] = pending.fallback;
+  }
+  return { text: texts.join('\n\n'), images: media, documents: pdfs };
 }
 
 export function openAiImageMessage(images: ProviderImage[]) {
@@ -52,7 +74,7 @@ export function ollamaVisionMessages<T extends {content:string;images?:string[]}
   return messages.map((message) => {
     if (!message.images?.length) return message;
     const accepted=vision ? message.images.filter(image=>{
-      if(count>=MAX_REQUEST_IMAGES||bytes+image.length>MAX_REQUEST_IMAGE_BYTES)return false;
+      if(count>=MAX_REQUEST_IMAGES||bytes+image.length>MAX_REQUEST_MEDIA_BYTES)return false;
       count++;bytes+=image.length;return true;
     }) : [];
     if(accepted.length===message.images.length)return message;
@@ -69,7 +91,7 @@ export function openAiVisionMessages<T extends {content:string | Array<{type:str
     const accepted=message.content.filter(part=>{
       if(part.type!=='image_url')return true;
       const url=(part as {type:string;image_url?:{url?:string}}).image_url?.url ?? '';
-      if(!vision||count>=MAX_REQUEST_IMAGES||bytes+url.length>MAX_REQUEST_IMAGE_BYTES){omitted=true;return false;}
+      if(!vision||count>=MAX_REQUEST_IMAGES||bytes+url.length>MAX_REQUEST_MEDIA_BYTES){omitted=true;return false;}
       count++;bytes+=url.length;return true;
     });
     if(!omitted)return message;

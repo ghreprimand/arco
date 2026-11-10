@@ -64,6 +64,13 @@ export const providers: Section[] = [
   a 512 MiB cap. Private addresses and unsafe redirects are refused.</p>
   <p>Claude Native Read, Task helpers and operator attachments use Arco&apos;s own file decoder. PNG, JPEG, GIF, WebP, AVIF, HEIC, TIFF, BMP and ICO are fitted without installing a converter. Images keep their full frame, within 2,000 pixels per side and 5 MB base64. ICO uses its largest embedded image.</p>
   <p>SVG provides bounded source text and a fitted preview. Rendering uses no scripts, external resources or system fonts. Text requiring a font may be absent from the preview; the source remains available.</p>
+  <p>Claude CLI sends attached PDFs as documents, up to 100 pages and 20 MiB
+  of base64 images and PDF data combined per message. Images take priority;
+  PDFs use the remaining bytes.</p>
+  <p>Larger PDFs send a bounded page range with
+  a notice. Use <Code>read_file</Code> with <Code>pages</Code> for another range.
+  PDFs over the byte budget provide extracted text; scanned pages provide
+  fitted images. Other office documents provide text.</p>
   <p>Use Read&apos;s <Code>pages</Code> range, such as <Code>1-3,5</Code>, for PDFs, spreadsheet sheets, slides or notebook cells. PDFs become documents or extracted text; scanned pages become images. Word, Excel, PowerPoint, OpenDocument and RTF become readable text. Notebooks retain cells and outputs.</p>
   <p>Notebook cell selection also works when metadata comes first. SVG outputs include source and a fitted image. Unsupported rich outputs leave a receipt with the cell number and media type. Macros, links and code are never executed.</p>
   <p>After reload, Native retains MCP media receipts with the original tool name and input. Re-run that tool to inspect its image or document again.</p>
@@ -337,8 +344,8 @@ export const providers: Section[] = [
   truncation notice appears and the worker is forced to settle.
   </li>
   <li>
-  <strong>Image attachments</strong> are sent as native stream-json content
-  blocks. Documents and notebooks provide decoded text, and other binaries
+  <strong>Image and PDF attachments</strong> are sent as native stream-json content
+  blocks. Other documents and notebooks provide decoded text, and other binaries
   provide a note. Path labels identify the source alongside its content.
   </li>
   <li>

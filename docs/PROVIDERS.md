@@ -273,7 +273,7 @@ claude
   --include-partial-messages
   --model <m>
   --effort <e>                        # forced xhigh under ultracode
-  [--input-format stream-json]        # only when image attachments are present
+  [--input-format stream-json]        # when image or PDF blocks are present
   [--session-id <uuid>]               # first turn (Arco pre-mints)
   [--resume <uuid>]                   # subsequent turns
   [--no-session-persistence]          # neither id set (workers, incognito)
@@ -297,7 +297,9 @@ Same base + `--no-session-persistence` (don't write a session JSONL) + optional 
 
 ### Stdin
 
-For text-only prompts, the prompt is the last positional argument. For attachments (images), the prompt is sent as a `stream-json` envelope on stdin so binary content rides cleanly.
+Text-only prompts use plain stdin. When prepared attachments contain images or
+PDF document blocks, stdin carries a single `stream-json` user envelope with
+media before the request text. Other documents provide decoded text.
 
 **GOTCHA - ARG_MAX overflow** (large-prompt handling): when an inline `--append-system-prompt` value would push the argv past Linux's `MAX_ARG_STRLEN` (~128 KB/arg), `execve` kills the spawn with `E2BIG`. Arco's mitigation: above that threshold it writes the appendSystemPrompt to a tmpfile (`append-sp-{id}-{pid}.txt`) and passes it via the **separate** `--append-system-prompt-file` flag (a documented peer of `--append-system-prompt` in the CLI's bare help) - not the same flag with a path. If the tmpfile write fails it falls back to the inline `--append-system-prompt` argv (which may then E2BIG, but the operator sees a real spawn error rather than a silently-dropped prompt). Tmpfiles are cleaned up on settle and on server exit.
 
@@ -2155,8 +2157,17 @@ extracts document text and reads notebook cells without extra software.
 Other binary files produce a named-file note instead of raw bytes.
 
 The same decoding applies to operator attachments, including Chat tabs that
-have no file tools. PDFs, Word, Excel, PowerPoint, OpenDocument and RTF files
-become text on local and CLI transports. Large documents are bounded; use
+have no file tools. Claude CLI sends attached PDFs as document blocks, with a
+shared limit of 100 PDF pages and 20 MiB of base64 images and PDF data
+combined per message. Images take priority; PDFs use the remaining bytes.
+
+Larger PDFs send the first bounded page range and a notice; use `read_file` with
+`pages` for another range. PDFs that exceed the byte budget provide extracted
+text; scanned pages provide fitted images. Word, Excel, PowerPoint,
+OpenDocument and RTF files become text. Other local and CLI transports
+receive extracted PDF text and fitted scanned-page images.
+
+Large documents are bounded; use
 `pages` on `Read` or `read_file` to select PDF pages, spreadsheet sheets,
 presentation slides or notebook cells, for example `1-3,5`. Text files retain
 line addressing through `offset` and `limit`.
@@ -2175,6 +2186,10 @@ keeps ask mode and the original workflow folder, and removes the plugin when
 the subprocess ends. It does not change saved Cursor MCP configuration or
 approve unrelated MCP servers.
 
+
+Claude CLI streaming input uses the documented `SDKUserMessage.message`
+content blocks. Images and PDFs precede the request text. See the
+[Claude SDK input schema](https://code.claude.com/docs/en/agent-sdk/typescript#sdkusermessage).
 
 ### Public URL files
 
