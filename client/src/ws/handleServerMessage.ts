@@ -1173,8 +1173,14 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
         }
 
-        case 'primary_tool_use':
-          splitPrimaryText(msg.workflowId);
+        case 'primary_tool_use': {
+          const existingTool = store.jobs[msg.workflowId]?.activity?.some(entry =>
+            entry.kind === 'tool_use' &&
+            ((msg.itemId && entry.itemId === msg.itemId) ||
+              (msg.toolUseId && entry.toolUseId === msg.toolUseId)));
+          // A new tool card is a text boundary. Updates to a card already in
+          // place must not cut a reply that is still streaming mid-sentence.
+          if (!existingTool) splitPrimaryText(msg.workflowId);
           // §C1 — tool activity is a primary signal; refresh the stuck clock.
           store.bumpPrimaryEvent(msg.workflowId, Date.now());
           // docs/PROVIDERS.md - count only settled tool calls.
@@ -1201,6 +1207,8 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             at: Date.now(),
           });
           break;
+
+        }
 
         case 'task_started':
           store.recordTaskStarted(msg.workflowId, {

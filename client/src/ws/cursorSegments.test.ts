@@ -6,7 +6,7 @@ import { useAppStore } from '../stores/appStore.js';
 import { streamingMsgs } from './streamState.js';
 
 // Cursor streams reasoning and tool updates between chunks of one reply.
-// Each such boundary must close the open segment: the next chunk starts a new
+// Reasoning and newly started tools close the open segment: the next chunk starts a new
 // message instead of running on ("fix.While"), and only the newest segment
 // shows the streaming cursor.
 
@@ -27,10 +27,10 @@ test('Cursor reasoning between chunks ends the segment; every earlier segment st
   const think = () => send({ type: 'primary_thinking', workflowId: wf, text: 'considering', seq: ++seq });
   const tool = (status: string) => send({ type: 'primary_tool_use', workflowId: wf, tool: 'Read', input: '{}', status, toolUseId: 't1', provider: 'cursor', seq: ++seq });
   send({ type: 'primary_turn_started', workflowId: wf, startedAt: 1000 });
-  text('I will fix.'); think(); text('While here'); tool('started'); text('Then'); tool('completed'); text('Done');
+  text('I will fix.'); think(); text('While here'); tool('started'); text('Then '); tool('completed'); text('Done');
   const rows = replies(wf);
-  assert.deepEqual(rows.map((m) => m.content), ['I will fix.', 'While here', 'Then', 'Done']);
-  assert.deepEqual(rows.map((m) => m.isStreaming), [false, false, false, true]);
+  assert.deepEqual(rows.map((m) => m.content), ['I will fix.', 'While here', 'Then Done']);
+  assert.deepEqual(rows.map((m) => m.isStreaming), [false, false, true]);
   send({ type: 'primary_complete', workflowId: wf, phase: 'passthrough', seq: ++seq });
   assert.equal(replies(wf).filter((m) => m.isStreaming).length, 0);
 });
@@ -55,4 +55,16 @@ test('a segment left streaming is closed when a newer one starts', () => {
   const rows = replies(wf);
   assert.equal(rows.filter((m) => m.isStreaming).length, 1);
   assert.equal(rows.find((m) => m.id === 'stale')?.isStreaming, false);
+});
+
+test('Cursor text before a tool stays separate from text after its completion', () => {
+  const wf = 'wf-cursor-seg-4';
+  fresh(wf, 'cursor');
+  send({ type: 'primary_turn_started', workflowId: wf, startedAt: 1000, seq: 1 });
+  send({ type: 'primary_text', workflowId: wf, phase: 'passthrough', text: 'I will fix.', seq: 2 });
+  send({ type: 'primary_tool_use', workflowId: wf, tool: 'Read', input: '{}', status: 'started', toolUseId: 'read', provider: 'cursor', seq: 3 });
+  send({ type: 'primary_tool_use', workflowId: wf, tool: 'Read', input: '{}', status: 'completed', toolUseId: 'read', provider: 'cursor', seq: 4 });
+  send({ type: 'primary_text', workflowId: wf, phase: 'passthrough', text: 'While here', seq: 5 });
+  assert.deepEqual(replies(wf).map(m => m.content), ['I will fix.', 'While here']);
+  assert.deepEqual(replies(wf).map(m => m.isStreaming), [false, true]);
 });

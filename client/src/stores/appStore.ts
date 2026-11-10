@@ -1549,6 +1549,8 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
           next[idx] = {
             ...next[idx],
             ...cappedEntry,
+            id: next[idx].id,
+            eventSeq: next[idx].eventSeq ?? cappedEntry.eventSeq,
             input: cappedEntry.input || next[idx].input,
             output: cappedEntry.output || next[idx].output,
             at: next[idx].at,

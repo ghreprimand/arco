@@ -905,6 +905,12 @@ API-key fallback: `OPENAI_API_KEY` env var.
 
 ### `app-server` transport
 
+A status update for an existing tool call updates its original Activity card
+without splitting an assistant reply that is still streaming. New tool calls
+still separate reply segments. The same ordering applies after reload or event
+replay; tool cards keep their starting position when they complete or fail.
+Cursor reasoning and operator steering still separate reply segments.
+
 Settled app-server results now carry the last token-usage notification's
 `lastPromptTokens` for ordinary workers as well as Incognito. Computer scripts
 read that final-request prompt and the reported window directly for context
