@@ -1,3 +1,4 @@
+import { clearLocalFileMedia } from '../providers/localFileMedia.js';
 import { rehydrateOneWorkflow } from './handoffHandlers.js';
 import { isAutoCompactionPolicy, normalizeAutoHandoff, normalizeOutputStyle, removedProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
 import { stopTurnSizes } from '../storageTurnWatch.js';
@@ -1036,6 +1037,7 @@ export function handleRemoveWorkflow(workflowId: string): void {
   stuckBreaker.dispose(workflowId);
   clearPrivateWatches(workflowId);
   stopTurnSizes(workflowId);
+  clearLocalFileMedia(workflowId);
   workflows.delete(workflowId);
   workflowCwds.delete(workflowId);
   if (cwd) releaseProjectSettingsWatcher(cwd);

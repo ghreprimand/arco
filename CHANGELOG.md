@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Preserve local-provider attachment and tool-file context across turns and reload, with bounded recent media, named receipts and missing-file notices.
+
 - Estimate Ollama image context from pixel dimensions so compression size does not trigger different compaction decisions.
 
 - Claude CLI receives attached PDFs as bounded document blocks, with extracted text or fitted scanned-page images as fallback.

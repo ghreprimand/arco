@@ -42,7 +42,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           attachments. Arco fits images, decodes documents and notebooks, and
           gives a note for other binaries. SVG includes source text; image-capable
           models receive a fitted preview when available, while text-only models
-          receive an image-omission note. Path labels identify the source alongside its content.
+          receive an image-omission note. Path labels identify the source alongside its content. Local providers retain named receipts and restore up to two recent images and 8 KiB of file text on later turns and reload; missing files produce a notice.
           <C>/goal …</C> sets the north star or arms a goal run without
           sending a turn.
         </p>

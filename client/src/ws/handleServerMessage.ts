@@ -210,6 +210,10 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
       }
 
       switch (msg.type) {
+        case 'file_context':
+        case 'worker_file_context':
+          // Durable source references are model context, not chat rows.
+          break;
         case 'storage_warning':
           useStorageWarningStore.getState().add(msg);
           break;

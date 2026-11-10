@@ -1,3 +1,4 @@
+import { prepareLocalFileContext, rememberLocalAttachments, rememberLocalToolMedia, resolveLocalContextRead, type SavedToolText } from './localFileMedia.js';
 import { LocalMcp } from './localMcp.js';
 import { prepareProviderAttachments, openAiImageMessage, openAiVisionMessages, type ProviderImage } from './providerFileContent.js';
 import { requestWithDeadline } from './requestDeadline.js';
@@ -325,10 +326,14 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
     }
 
     this.visionCapable = modelDef.capabilities?.vision === true && !!modelDef.mmprojPath;
+    const prior = await prepareLocalFileContext(this.config, this.visionCapable, this.abortController?.signal);
+    for (const notice of prior.notices) this.emit('system_notice', notice);
     const prepared = await prepareProviderAttachments(this.config.attachments, modelDef.capabilities?.vision === true && !!modelDef.mmprojPath, this.abortController?.signal);
-    const imageParts: ContentPart[] = prepared.images.map((image) => ({type: 'image_url', image_url: {url: `data:${image.mediaType};base64,${image.data}`}}));
+    await rememberLocalAttachments(this.config, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
+    const imageParts: ContentPart[] = [...prepared.images, ...prior.images].map((image) => ({type: 'image_url', image_url: {url: `data:${image.mediaType};base64,${image.data}`}}));
     let text = userPrompt;
     if (prepared.text) text += '\n\n' + prepared.text;
+    if (prior.text) text += '\n\n' + prior.text;
 
     if (imageParts.length > 0) {
       messages.push({ role: 'user', content: [{ type: 'text', text }, ...imageParts] });
@@ -679,6 +684,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
       endTurnOnRepeat: true,
     };
     const toolImages: ProviderImage[] = [];
+    const toolDocuments: SavedToolText[] = [];
     const rt: LocalToolRuntime = {
       isKnownTool: (name) => this.registry.has(name),
       cwd: this.config.cwd,
@@ -686,14 +692,16 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
       computerChat: false,
       loop: loopDetector,
       runComputer: async () => '',
-      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, onImages: (images) => toolImages.push(...images) }),
+      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages, toolDocuments) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, onImages: (images) => toolImages.push(...images), readPathResolver: value => resolveLocalContextRead(this.config, value), onFileContent: result => { if (!['text', 'image', 'binary', 'error'].includes(result.kind)) toolDocuments.push({ name: String(args.file_path ?? name), text: result.text }); } }),
       notice: (text) => this.emit('system_notice', text),
     };
     const results = await dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
+      const imageStart = toolImages.length, documentStart = toolDocuments.length;
       const name = call.function.name;
       const parsed = parseToolArguments(call.function.arguments);
-      this.emit('tool_use', { name, input: JSON.stringify(parsed.args), toolUseId: call.id });
+      this.emit('tool_use', { name, input: JSON.stringify(parsed.args), id: call.id, toolUseId: call.id });
       const result = await decideLocalToolCall(name, parsed, rules, rt);
+      await rememberLocalToolMedia(this.config, name, parsed.args, call.id, toolImages.slice(imageStart), toolDocuments.slice(documentStart), data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
       // Truncate large tool results before they enter the message stack.
       // Keeps llama.cpp's context lean across the multi-turn loop without
       // hiding anything from the operator (the truncated marker tells the
@@ -1012,6 +1020,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
         const steerItems = drainSteer();
         for (const item of steerItems) {
           const prepared = await prepareProviderAttachments(item.attachments, this.visionCapable, this.abortController?.signal);
+          await rememberLocalAttachments({ ...this.config, attachments: item.attachments, fileContextInputIds: item.clientMessageId ? [item.clientMessageId] : this.config.fileContextInputIds }, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
           const text = [item.content,prepared.text].filter(Boolean).join('\n\n');
           messages.push({role:'user',content:prepared.images.length ? [{type:'text',text},...prepared.images.map(image=>({type:'image_url' as const,image_url:{url:`data:${image.mediaType};base64,${image.data}`}}))] : text});
         }

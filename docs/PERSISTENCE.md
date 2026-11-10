@@ -1071,3 +1071,11 @@ independently of the optional model-update inbox.
 ### In-turn compaction narration
 
 For `native_compacted` markers with `inTurn: true`, the saved `summary` also carries the verbatim assistant narration from the round retained raw by the live worker. Replay therefore retains those facts once after the marker resets earlier rows. The live history keeps its original summary plus the raw round and does not append the narration twice. This uses the existing summary string and does not add structured tool replay or change older marker parsing.
+
+## Local provider file snapshots
+
+Local primary turns append additive `file_context` events containing receipts and validated source references, never base64 payloads. Fitted image files and bounded decoded-text snapshots are stored under `.arco/workflows/<workflowId>/file-context/`. The browser advances the event sequence without adding a chat row. Delivery tracking excludes metadata attached to pending or withdrawn inputs, and a completed handoff starts a fresh file-context window.
+
+Old logs without metadata retain named attachment references from their message echoes. New readers can decode those existing sources; unavailable files produce a notice. Older readers ignore the new event and folder and continue reading ordinary messages. Downgrading loses automatic snapshot restoration while leaving the saved files intact. Native summary caches use a new derived-cache version and rebuild from the unchanged append-only history. No event-log format migration is required.
+
+Snapshots are immutable conversation data. No automatic cleanup removes them. Storage measurement counts their bytes as Conversation files; operator archive, restore and purge include the entire conversation folder. Incognito records references in its in-memory history and stores media in bounded process memory, never on disk. Closing or resetting that conversation clears its memory snapshots.

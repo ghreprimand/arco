@@ -1,7 +1,7 @@
 import { FileScanDeadlineExceeded, regularFileLines } from '../boundedRead.js';
 import { isSearchableTextFile } from '../searchText.js';
 import { writeCheckedFile } from '../checkedFile.js';
-import { readFileContent, type FileContentBlock } from '../fileContent.js';
+import { readFileContent, type FileContentBlock, type FileContentResult } from '../fileContent.js';
 import { fetchFileContent, assertPublicFileFetchUrl } from '../fileFetch.js';
 import { resolveToolPath } from '../toolPath.js';
 import { requestWithDeadline } from './requestDeadline.js';
@@ -76,6 +76,8 @@ const SKIP_DIRS = new Set([
 ]);
 
 export interface OllamaToolContext {
+  readPathResolver?: (path: string) => Promise<string>;
+  onFileContent?: (result: FileContentResult) => void;
   cwd: string;
   abortSignal?: AbortSignal;
   workflowId?: string;
@@ -187,13 +189,14 @@ const ReadTool: OllamaToolEntry = {
       ? Math.floor(rawLimit)
       : undefined;
     const builtin = readBuiltinVirtualFile(filePath);
-    const abs = builtin === undefined ? resolveToolPath(ctx.cwd, filePath) : filePath;
+    const abs = builtin === undefined ? (ctx.readPathResolver ? await ctx.readPathResolver(filePath) : resolveToolPath(ctx.cwd, filePath)) : filePath;
     if (builtin === undefined) {
       const result = await readFileContent(abs, {
         signal: ctx.abortSignal, offset, limit,
         pages: typeof args.pages === 'string' ? args.pages : undefined,
         limits: { images: !!ctx.onImages, documents: false, maxTextBytes: READ_BYTE_CAP },
       });
+      ctx.onFileContent?.(result);
       const images = result.blocks.filter((b): b is Extract<FileContentBlock, {type:'image'}> => b.type === 'image');
       if (images.length) ctx.onImages?.(images);
       return result.isError ? `[error] ${result.text}` : result.text;
@@ -477,6 +480,7 @@ const WebSearchTool: OllamaToolEntry = {
 // own choice, explicitly).
 
 interface FetchOutcome {
+  fileContent?: FileContentResult;
   blocks?: FileContentBlock[];
   refused?: boolean;
   fileLike?: boolean;
@@ -493,7 +497,7 @@ async function fastFetch(targetUrl: string, signal: AbortSignal, pages: string |
   return {
     ok: result.status !== undefined && result.status >= 200 && result.status < 300,
     status: result.status, contentType: result.contentType, text: result.text,
-    blocks: result.blocks, refused: result.refused, truncated: result.truncated,
+    blocks: result.blocks, refused: result.refused, truncated: result.truncated, fileContent: result,
     fileLike: result.kind !== 'text' && result.kind !== 'error',
     ...(result.isError ? { reason: result.text } : {}),
   };
@@ -682,6 +686,7 @@ const WebFetchTool: OllamaToolEntry = {
     // is already plain text, and JSON / markdown bodies should pass
     // through verbatim.
     let body = outcome.text;
+    if (outcome.fileContent && !outcome.fileContent.isError) ctx.onFileContent?.(outcome.fileContent);
     ctx.onImages?.((outcome.blocks ?? []).filter((block): block is Extract<FileContentBlock, { type: 'image' }> => block.type === 'image'));
     if (usedMode === 'fast' && !outcome.fileLike && outcome.contentType && /html|xml/i.test(outcome.contentType)) {
       body = stripHtml(body);

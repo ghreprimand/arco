@@ -1,3 +1,4 @@
+import { clearLocalFileMedia } from '../providers/localFileMedia.js';
 import { computerProjectionChanged } from './activityBus.js';
 import { clearPrivateWatches } from './watches.js';
 import type { WebSocket } from 'ws';
@@ -71,7 +72,7 @@ export async function maybeFreshComputerContext(workflowId: string, allowAutomat
         meta.lastActiveAt = next.lastResetAt!;
       });
       if (!saved) throw new Error('Computer metadata is unavailable; context was kept.');
-      if (wf.config.incognito) { wf.incognitoEvents = []; clearPrivateWatches(workflowId); }
+      if (wf.config.incognito) { wf.incognitoEvents = []; clearPrivateWatches(workflowId); clearLocalFileMedia(workflowId); }
       wf.config.computerContext = next;
       wf.primarySessionId = undefined;
       delete wf.config.resumeSessionId;

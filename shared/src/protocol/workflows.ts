@@ -496,8 +496,7 @@ export interface SavedChatSummary {
 // to the worker. `clientMessageId` matches the optimistic chat row created
 // at enqueue time so the client can flip its QUEUED pill on
 // `queued_messages_drained`. `attachments` are folded into the injected
-// user-message text as `[attached file: <path>]` references — mid-turn image
-// re-encoding into provider-specific shapes is intentionally out of scope.
+// user-message content through the same decoder as initial attachments.
 export interface SteerItem {
   // Server-side delivery attempt identity; never part of model text.
   deliveryId?: string;
@@ -506,7 +505,17 @@ export interface SteerItem {
   attachments?: string[];
 }
 
+// Saved file-context references contain names and locations, never encoded media.
+export type FileContextReference =
+  | { kind: 'source'; name: string; path: string; restore?: boolean; media?: 'image' | 'text' }
+  | { kind: 'cached'; name: string; cacheName: string; ownerWorkflowId: string; media: 'image' | 'text'; originalPaths?: string[] }
+  | { kind: 'memory'; name: string; key: string; media: 'image' | 'text'; originalPaths?: string[] };
+
 export interface WorkerConfig {
+  // Server-local primary replay context. These fields are not worker settings.
+  priorFiles?: FileContextReference[];
+  fileContextCwd?: string;
+  fileContextInputIds?: string[];
   // Server-local replay context; never persisted in worker settings.
   ollamaReplay?: {
     events: import('./serverMessages.js').ServerMessage[];
@@ -544,9 +553,8 @@ export interface WorkerConfig {
   sessionId?: string;       // use --session-id <id> (enables persistence)
   resumeSessionId?: string; // use --resume <id>
   // Server-local filesystem paths for files the operator attached to this
-  // turn. Claude embeds image files (png/jpg/jpeg/gif/webp) as base64 content
-  // blocks; Codex passes them via `--image`; Ollama embeds base64 image bytes.
-  // Any other file has its path appended to the text prompt.
+  // turn. Provider adapters fit images, decode documents and notebooks, and
+  // retain named source labels alongside supported content.
   attachments?: string[];
   // Codex-only: explicit sandbox level. When set, wins over `skipPermissions`
   // (which only chooses between workspace-write / danger-full-access).

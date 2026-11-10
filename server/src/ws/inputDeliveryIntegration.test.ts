@@ -13,7 +13,7 @@ const {renderTranscript}=await import('../primitives/exportContext.js');const {p
 const {buildMessagesFromReplayEvents}=await import('../providers/claude-native/resumeSummary.js');const {buildReviewContent}=await import('../primitives/reviewContent.js');
 after(async()=>{await settleProjectWrites();await closeRecall();rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100});});
 engine.initTurnEngine({previewAutoDetect:{noteAgentText(){},notePotentialDevServerStart(){}} as any,handleCreateWorkflow:async()=>{},handleHandoffRequest:async()=>{},captureCheckpoint:async()=>null});
-async function fixture(provider:'claude'|'codex'){
+async function fixture(provider:'claude'|'codex'|'ollama'|'llamacpp'|'lmstudio'|'strata'|'deepseek'){
  const id=randomUUID(),cwd=join(root,id);mkdirSync(cwd,{recursive:true});const messages:any[]=[],pending:any[]=[];
  const ws={readyState:1,bufferedAmount:0,send:(raw:string)=>messages.push(JSON.parse(raw))} as any;const session={id:'fixture',workflowIds:new Set([id]),clusterIds:new Set(),clusterObserved:new Map()} as any;
  const manager={spawn:(spec:any,emit:any,options:any)=>new Promise(resolve=>{let finished=false;pending.push({spec,emit,options,finish:(text:string)=>{if(finished)return;finished=true;emit({type:'worker_complete',costUsd:0,durationMs:1});resolve({id:spec.id,text,costUsd:0,durationMs:1});}});}),getWorkerPid:()=>undefined};
@@ -179,4 +179,22 @@ test('an image context reference remains attached to a steered message',async()=
   const items=f.pending[0].options.drainSteer();assert.equal(items.length,1);assert.deepEqual(items[0].attachments,[realpathSync(image)]);
   f.pending[0].finish('answer');await run;
  }finally{if(f.wf.busy)engine.revokeBusy(f.wf);f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const pending of f.pending)pending.finish('fixture cleanup');await run;await f.close();}
+});
+
+for (const provider of ['ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as const) test(`${provider} primary dispatch restores named file references through seedWorker`, async () => {
+ const f = await fixture(provider); let run: Promise<void> | undefined;
+ try {
+  const { persistAndStampSeq } = await import('../workflowStore.js');
+  persistAndStampSeq(f.cwd, f.id, { type: 'user_message_echo', workflowId: f.id, content: 'Earlier input', attachments: [join(f.cwd, 'earlier.rtf')] } as any);
+  persistAndStampSeq(f.cwd, f.id, { type: 'primary_complete', workflowId: f.id } as any);
+  run = engine.handleUserMessage(f.ws, f.session, f.id, 'Continue', 'current', undefined, false, undefined, undefined);
+  await f.wait(1);
+  const options = f.pending[0].options;
+  assert.equal(options.fileContextCwd, f.cwd);
+  assert.deepEqual(options.fileContextInputIds, ['current']);
+  assert.ok(options.priorFiles.some((ref: any) => ref.kind === 'source' && ref.path === join(f.cwd, 'earlier.rtf')));
+  f.pending[0].emit({ type: 'worker_file_context', workerId: f.pending[0].spec.id, workflowId: f.id, origin: 'tool', receipt: 'Restorable named file', files: [] });
+  f.pending[0].finish('Done'); await run; await flushAll();
+  assert.ok((await replayEvents(f.cwd, f.id, 0)).some(event => event.type === 'file_context' && event.receipt === 'Restorable named file'));
+ } finally { for (const pending of f.pending) pending.finish('cleanup'); await run; await f.close(); }
 });

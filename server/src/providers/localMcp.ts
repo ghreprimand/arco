@@ -6,6 +6,7 @@ import { isRegistryToolAllowed, parseRegistryToolName, registryNamespace } from 
 import type { OllamaToolDefinition } from './ollamaTools.js';
 import { fileContentFromBytes, type FileContentBlock } from '../fileContent.js';
 import type { ProviderImage } from './providerFileContent.js';
+import type { SavedToolText } from './localFileMedia.js';
 
 // One short-lived set per local turn. The configured server list is the
 // operator's allowlist, and disabled/dangerous/plan-mode checks apply at both
@@ -36,11 +37,12 @@ export class LocalMcp {
     const tool = this.sessions.get(parsed.key)?.listTools().find(t=>t.name===parsed.tool);
     return !!tool && (this.config.sandbox !== 'read-only' || isMcpToolReadOnly(tool)) && (!this.config.tools || this.config.tools.includes(name));
   }
-  async call(name:string,args:Record<string,unknown>,images:ProviderImage[]):Promise<string> {
+  async call(name:string,args:Record<string,unknown>,images:ProviderImage[], documents?:SavedToolText[]):Promise<string> {
     const parsed = parseRegistryToolName(name);
     if (!parsed || !this.allowed(name)) return '[error] MCP tool is not enabled for this turn.';
     const result = await this.sessions.get(parsed.key)!.callTool(parsed.tool,args) as {text:string;isError:boolean;blocks?:FileContentBlock[]};
     const texts = [result.text];
+    let decodedDocuments = 0;
     for (const block of result.blocks ?? []) {
       if (block.type === 'image') images.push(block);
       if (block.type === 'document') {
@@ -48,9 +50,11 @@ export class LocalMcp {
           limits: { documents: false, images: true, maxImages: 8, maxImageBase64Bytes: 2 * 1024 * 1024, maxTextBytes: 32 * 1024 },
         });
         texts.push(decoded.text);
+        documents?.push({ name: block.name, text: decoded.text }); decodedDocuments++;
         images.push(...decoded.blocks.filter((part): part is ProviderImage => part.type === 'image'));
       }
     }
+    if (!decodedDocuments && !result.isError && result.text.trim()) documents?.push({ name: parsed.tool + ' result', text: result.text });
     const text = texts.filter(Boolean).join('\n');
     return result.isError ? `[error] ${text}` : text;
   }

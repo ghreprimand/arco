@@ -1,3 +1,4 @@
+import { prepareLocalFileContext, rememberLocalAttachments, rememberLocalToolMedia, resolveLocalContextRead, type SavedToolText } from './localFileMedia.js';
 import { LocalMcp } from './localMcp.js';
 import { prepareProviderAttachments, ollamaVisionMessages, type ProviderImage } from './providerFileContent.js';
 import { TRANSCRIPT_JSON_HEADER } from './renderedTranscript.js';
@@ -765,12 +766,16 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       messages.push(...(this.config.voiceOperator ? parseComputerHistory(this.config.appendSystemPrompt) : parseRenderedTranscript(this.config.appendSystemPrompt)));
     }
 
+    const prior = await prepareLocalFileContext(this.config, true, this.abortController?.signal);
+    for (const notice of prior.notices) this.emit('system_notice', notice);
     const prepared = await prepareProviderAttachments(this.config.attachments, true, this.abortController?.signal);
-    const images = prepared.images.map((image) => image.data);
+    await rememberLocalAttachments(this.config, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
+    const images = [...prepared.images, ...prior.images].map((image) => image.data);
     let text = userPrompt;
     const chatWebReminder = ollamaChatWebReminder(this.config);
     if (chatWebReminder) text += `\n\n${chatWebReminder}`;
     if (prepared.text) text += '\n\n' + prepared.text;
+    if (prior.text) text += '\n\n' + prior.text;
 
     const finalMessage: OllamaChatMessage = { role: 'user', content: text };
     if (images.length > 0) finalMessage.images = images;
@@ -1146,6 +1151,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     observedToolNames?: Set<string>,
   ): Promise<OllamaChatMessage[]> {
     const toolImages: ProviderImage[] = [];
+    const toolDocuments: SavedToolText[] = [];
     const rt: LocalToolRuntime = {
       isKnownTool: (name) => this.registry.has(name),
       cwd: this.config.cwd,
@@ -1153,20 +1159,22 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       computerChat: this.config.interactionMode === 'chat' && this.config.voiceOperator === true,
       loop: loopDetector,
       runComputer: (name, args) => executeComputerTool(this.config.workflowId, name, args),
-      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, onImages: (images) => toolImages.push(...images) }),
+      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages, toolDocuments) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, onImages: (images) => toolImages.push(...images), readPathResolver: value => resolveLocalContextRead(this.config, value), onFileContent: result => { if (!['text', 'image', 'binary', 'error'].includes(result.kind)) toolDocuments.push({ name: String(args.file_path ?? name), text: result.text }); } }),
       notice: (text) => this.emit('system_notice', text),
     };
     const results = await dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
+      const imageStart = toolImages.length, documentStart = toolDocuments.length;
       const name = call.function.name;
       const args = call.function.arguments;
       observedToolNames?.add(name);
       // UI surfacing — same shape as the Claude path's tool_use event so the
       // existing chat renderer + activity tab light up unchanged.
       const toolUseId = randomUUID();
-      this.emit('tool_use', { name, input: JSON.stringify(args), toolUseId });
+      this.emit('tool_use', { name, input: JSON.stringify(args), toolUseId, id: toolUseId });
       // Malformed-JSON arguments arrive as argError from the stream parser.
       const result = await decideLocalToolCall(name, { args, argError: call.argError }, OLLAMA_TOOL_RULES(this.config), rt);
-      if (this.config.voiceOperator) this.emit('tool_use', { name, input: JSON.stringify(args), toolUseId, status: result.startsWith('[error]') ? 'failed' : 'completed', output: result });
+      const mediaReceipt = await rememberLocalToolMedia(this.config, name, args, toolUseId, toolImages.slice(imageStart), toolDocuments.slice(documentStart), data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
+      if (this.config.voiceOperator) this.emit('tool_use', { name, input: JSON.stringify(args), id: toolUseId, toolUseId, status: result.startsWith('[error]') ? 'failed' : 'completed', output: this.config.voiceOperator ? result : mediaReceipt, ...(mediaReceipt ? { mediaReceipt } : {}) });
       return { role: 'tool', content: result } as OllamaChatMessage;
     });
     if (toolImages.length) results.push({ role: 'user', content: 'Images returned by preceding tool calls: ' + toolImages.map(i => i.name).join(', '), images: toolImages.map(i => i.data) });
@@ -2164,6 +2172,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
           if (drainSteer) {
             for (const item of drainSteer()) {
               const prepared = await prepareProviderAttachments(item.attachments, true, this.abortController?.signal);
+              await rememberLocalAttachments({ ...this.config, attachments: item.attachments, fileContextInputIds: item.clientMessageId ? [item.clientMessageId] : this.config.fileContextInputIds }, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
               const text = [item.content,prepared.text].filter(Boolean).join('\n\n');
               const images = prepared.images.map(i => i.data);
               messages.push({role:'user',content:text,...(images.length?{images}:{})});
@@ -2313,6 +2322,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
         const steerItems = drainSteer();
         for (const item of steerItems) {
           const prepared = await prepareProviderAttachments(item.attachments, true, this.abortController?.signal);
+          await rememberLocalAttachments({ ...this.config, attachments: item.attachments, fileContextInputIds: item.clientMessageId ? [item.clientMessageId] : this.config.fileContextInputIds }, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
           const text = [item.content,prepared.text].filter(Boolean).join('\n\n');
           const images = prepared.images.map(i => i.data);
           messages.push({role:'user',content:text,...(images.length?{images}:{})});

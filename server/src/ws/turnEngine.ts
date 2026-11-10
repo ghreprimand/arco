@@ -1,3 +1,4 @@
+import { projectLocalFileReferences } from '../primitives/localFileContext.js';
 import { getEffectivePublicProjectChoice } from '../publicProjectChoice.js';
 import { buildMessageGuardPolicy, storedOutputStyle } from '@arco/shared';
 import * as attention from '../attention.js';
@@ -2063,6 +2064,8 @@ export async function handleUserMessage(
       // pending). Static text — no timestamps or random ids — so the prefix
       // cache hits cleanly across turns.
       let ollamaReplay: import('@arco/shared').WorkerConfig['ollamaReplay'];
+      const retainLocalFiles = ['ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'].includes(wf.primary.provider);
+      let priorFiles: import('@arco/shared').WorkerConfig['priorFiles'] = retainLocalFiles ? [] : undefined;
       let primaryAppendSystemPrompt: string | undefined;
       let primarySystemPrompt: string | undefined;
       // The current user echo was just recorded above. Stateless providers
@@ -2127,6 +2130,7 @@ export async function handleUserMessage(
             } };
             replayEvents = projectOllamaHistory(events, workflowId, activeOllamaInputSeqs).events;
           }
+          priorFiles = projectLocalFileReferences(events, cwd);
           const rendered = (wf.config.voiceOperator ? renderComputerHistory(replayEvents) : renderTranscript(replayEvents, { preserveThinking: !chatMode })).trim();
           if (rendered) primaryAppendSystemPrompt = rendered;
         } catch (err) {
@@ -2158,6 +2162,7 @@ export async function handleUserMessage(
           const events = priorIncognitoEvents ?? (wf.config.voiceOperator
             ? await computerReplayEvents(cwd, workflowId, wf.config.computerContext?.lastResetAt, wf.config.computerContext?.lastResetSeq)
             : await replayWorkflowEvents(cwd, workflowId, 0));
+          if (retainLocalFiles) priorFiles = projectLocalFileReferences(events, cwd);
           const summary = chatMode ? '' : summarizePriorTurns(events);
           const rendered = (wf.config.voiceOperator ? renderComputerHistory(events) : renderTranscript(events, { preserveThinking: false })).trim();
           const parts: string[] = [];
@@ -2689,6 +2694,9 @@ export async function handleUserMessage(
           mcpDisallowedTools: turnMcpDisallowedTools,
           ollamaParams,
           ollamaReplay,
+          priorFiles,
+          fileContextCwd: retainLocalFiles ? cwd : undefined,
+          fileContextInputIds: retainLocalFiles ? [...activeInputClientIds] : undefined,
           // Per-tab Claude Native web budget (Anthropic server-tool max_uses).
           // Native-only; the worker falls back to the server default when unset.
           webSearchMaxUses: wf.config.webSearchMaxUses,

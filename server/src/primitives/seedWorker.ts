@@ -193,8 +193,7 @@ export function runPrimaryTurn(
     prompt: string;
     resumeSessionId?: string;
     // Server-local paths of operator-attached files for this turn. Providers
-    // decide how to encode them (Claude content blocks, Codex --image,
-    // Ollama /api/chat images, or path references for non-image files).
+    // fit images and decode supported documents with named source references.
     attachments?: string[];
     // Mirrors WorkflowMeta.disableRssGuard. When true, the WorkerManager
     // activity poll skips the tree-RSS kill for this primary turn. Operator
@@ -204,6 +203,9 @@ export function runPrimaryTurn(
     // can also use this field to carry the rendered workflow transcript.
     appendSystemPrompt?: string;
     ollamaReplay?: WorkerConfig['ollamaReplay'];
+    priorFiles?: WorkerConfig['priorFiles'];
+    fileContextCwd?: string;
+    fileContextInputIds?: string[];
     // Provider-side system prompt. Today only the Ollama path consumes it
     // (sets behavior + tool-availability framing for local models). Pass
     // byte-stable text — anything dynamic invalidates the prefix cache.
@@ -436,6 +438,9 @@ export function runPrimaryTurn(
     mcpDisallowedTools,
     ollamaParams,
     ollamaReplay: args.ollamaReplay,
+    priorFiles: args.priorFiles,
+    fileContextCwd: args.fileContextCwd,
+    fileContextInputIds: args.fileContextInputIds,
     webSearchMaxUses,
   };
   if (primary.provider === 'claude' && !incognito) {
@@ -525,6 +530,11 @@ export function runPrimaryTurn(
           text: ev.text,
         });
         return;
+      case 'worker_file_context': {
+        const { type: _type, workerId: _workerId, ...snapshot } = ev;
+        ctx.broadcast({ ...snapshot, type: 'file_context', workflowId: ctx.workflowId });
+        return;
+      }
       case 'worker_tool_use': {
         // Preserve the provider's tool-use id when supplied so chat-side
         // action cards can correlate with the corresponding assistant block.

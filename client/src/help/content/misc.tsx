@@ -237,7 +237,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       or scanned-page images. Use <C>pages</C> for a
       range. Private addresses, unsafe redirects, oversized sources and expired
       requests produce a note.</p>
-      <p>Attachments and MCP file results use the same decoder. After reload or compaction, use Read for a saved file or re-run the original MCP tool for its result; saved context keeps receipts rather than pixels.</p>
+      <p>Attachments and MCP file results use the same decoder. Local providers restore up to two recent fitted images and 8 KiB of decoded text on later turns and reload. Older receipts name saved files or the original tool and input. Use Read or re-run the tool for detail; missing files produce a notice. Saved events keep references rather than encoded media.</p>
 
       <p>Claude Native and local-model Glob can return a directory alias for a directory-only pattern such as <C>src-link/</C>. The alias must resolve within the project and pass the path checks. Glob does not walk through directory aliases.</p>
       <p>JavaScript Grep searches UTF-8, UTF-16 and Windows-1252 text, skipping binary and control-heavy data. Native ripgrep omits output lines that cannot be decoded safely.</p>

@@ -132,6 +132,12 @@ turn. Existing edits remain in place; this action disarms an armed Goal Run.
 Tests: `npm run test:interrupt-send`, `npm run smoke:interrupt-send` (isolated fake
 CLIs plus real Native loop over mocked Anthropic streaming; zero model spend).
 
+### Local file context across turns
+
+Ollama, llama.cpp, LM Studio, Strata and DeepSeek keep named attachment and tool-file receipts across turns and reload. Each request restores up to two recent fitted images and 8 KiB of decoded text. Current attachments take priority in the request's media budget. Text-only models receive descriptions instead of image inputs. Older receipts name saved files or the original tool and input so the agent can use Read or request another range. Missing files produce an explicit notice.
+
+Snapshots live in the conversation's `file-context/` folder, outside ARTIFACTS. Each saved result retains at most two images and 32 KiB of decoded text; request preparation considers up to 64 references. Disk snapshots are immutable and are not automatically deleted. Storage measurement includes them in Conversation files, and operator ARCHIVE, RESTORE and DELETE include the folder. Incognito keeps tool-file context in bounded memory only and clears it on close or reset. Switching to Native retains readable receipts; it does not restore local snapshots as native image blocks.
+
 ## Claude
 
 ### Native file reads and attachments

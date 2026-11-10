@@ -94,6 +94,7 @@ function recordIncognitoEvent(workflowId: string, message: ServerMessage): void 
       && message.type !== 'primary_text'
       && message.type !== 'primary_thinking'
       && message.type !== 'primary_complete'
+      && message.type !== 'file_context'
       && message.type !== 'primary_turn_started'
       && message.type !== 'turn_messages_delivered'
       && message.type !== 'queued_messages_drained') return;

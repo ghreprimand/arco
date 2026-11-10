@@ -888,6 +888,25 @@ export interface FileUploadedMessage {
 
 // Popup-style artifacts emitted inline. Ask-type responses come back as
 // `[artifact:<id>] <answer>` follow-up user messages.
+// Metadata only: clients advance seq but do not add a chat row.
+export interface FileContextMessage {
+  type: 'file_context';
+  workflowId: string;
+  origin: 'attachment' | 'tool';
+  receipt: string;
+  files: import('./workflows.js').FileContextReference[];
+  sourcePaths?: string[];
+  inputClientMessageIds?: string[];
+  tool?: string;
+  toolInput?: string;
+  toolUseId?: string;
+}
+export interface WorkerFileContextMessage extends Omit<FileContextMessage, 'type' | 'workflowId'> {
+  type: 'worker_file_context';
+  workerId: string;
+  workflowId: string;
+}
+
 export type ArtifactKind = 'image' | 'code' | 'text' | 'diff' | 'confirm' | 'choice';
 
 export interface PrimaryArtifactMessage {
@@ -1515,6 +1534,8 @@ export type ServerMessage =
   | WorkerTextMessage
   | WorkerThinkingMessage
   | WorkerToolUseMessage
+  | WorkerFileContextMessage
+  | FileContextMessage
   | WorkerCompleteMessage
   | WorkerActivityMessage
   | WorkerModelMessage

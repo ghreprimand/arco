@@ -1,3 +1,4 @@
+import { receiptPlan } from '../fileContextReceipts.js';
 import { projectDeliveredInputs } from '../inputDeliveryHistory.js';
 import { revokedHandoffIds } from '../handoffReplay.js';
 import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
@@ -620,7 +621,7 @@ function runFreshSummarizer(
   });
 }
 
-function currentHandoffEvents(events: ServerMessage[]): ServerMessage[] {
+export function currentHandoffEvents(events: ServerMessage[]): ServerMessage[] {
   const revoked = revokedHandoffIds(events);
   for (let end = events.length - 1; end >= 0; end--) {
     const complete = events[end];
@@ -647,6 +648,8 @@ export function renderTranscript(
   opts?: { preserveThinking?: boolean },
 ): string {
   events = currentHandoffEvents(projectDeliveredInputs(events));
+  const receipts = receiptPlan(events);
+  const attachmentParts = new Map<string, number>();
   const parts: Array<{ role: 'USER' | 'AGENT'; content: string }> = [];
   let thinkBuf: string[] = [];
   let replyBuf: string[] = [];
@@ -662,10 +665,18 @@ export function renderTranscript(
     thinkBuf = [];
     replyBuf = [];
   };
-  for (const ev of events) {
+  for (const [eventIndex, ev] of events.entries()) {
+    const receipt = receipts.get(eventIndex);
     if (ev.type === 'user_message_echo') {
       flushReply();
-      parts.push({ role: 'USER', content: ev.content });
+      parts.push({ role: 'USER', content: ev.content + (receipt ? `\n\n${receipt}` : '') });
+      for (const path of ev.attachments ?? []) attachmentParts.set(path, parts.length - 1);
+    } else if (ev.type === 'file_context' || (ev.type === 'primary_tool_use' && ev.mediaReceipt)) {
+      if (receipt) {
+        const index = ev.type === 'file_context' && ev.origin === 'attachment' ? (ev.sourcePaths ?? []).map(path => attachmentParts.get(path)).find(value => value !== undefined) : undefined;
+        if (index !== undefined) parts[index].content += `\n\n${receipt}`;
+        else replyBuf.push(`\n\n${receipt}\n\n`);
+      }
     } else if (ev.type === 'primary_text' && ev.phase === 'passthrough') {
       replyBuf.push(ev.text);
     } else if (ev.type === 'primary_thinking') {
@@ -684,7 +695,7 @@ export function renderTranscript(
 // events.jsonl-shaped event list and groups tool usage between
 // user_message_echo boundaries, producing one block per prior operator
 // turn. Used by the llama.cpp provider (Layer 2) to give cross-turn memory
-// to local thinking models — renderTranscript drops tool history entirely,
+// to local thinking models — renderTranscript retains bounded file receipts,
 // so without this the next turn's worker only sees the operator's text and
 // the model's final reply (which is why Qwen3.6 said "no conversation
 // history" when asked about work it had just done).
@@ -769,7 +780,7 @@ export function summarizePriorTurns(events: ServerMessage[]): string {
 }
 
 // WP2 — "Actions taken" digest for the fresh-summarizer. renderTranscript
-// drops every tool call (only USER/AGENT text survives), so a fresh agent
+// omits ordinary tool details while retaining file receipts, so a fresh agent
 // reading just the conversation can't see the file edits / Bash commands / git
 // ops that are the actual substance of a coding session — and the worker that
 // *would* have that context is the degraded one we're deliberately routing

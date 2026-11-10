@@ -1,3 +1,4 @@
+import { fileContextVisible } from '../../fileContextReceipts.js';
 import { projectDeliveredInputs, referencedInputRecords } from '../../inputDeliveryHistory.js';
 import { revokedHandoffIds } from '../../handoffReplay.js';
 import { ensureProjectStateIgnore } from '../../projectStateIgnore.js';
@@ -8,7 +9,7 @@ import { listSegments, readLogText, readLogLines } from '../../eventLog.js';
 import { serverFoldSeed, type ServerCompactionBlock } from './serverFold.js';
 import { isShellToolName } from '@arco/shared';
 
-const SUMMARY_CACHE_VERSION = 3;
+const SUMMARY_CACHE_VERSION = 4;
 const SUMMARY_CACHE_KIND = 'claude-native-resume-summary';
 const DEFAULT_REPLAY_BYTES = 1 * 1024 * 1024;
 const TAIL_LINE_BACKTRACK_BYTES = 1 * 1024 * 1024;
@@ -66,6 +67,8 @@ type ReplayEvent = {
   input?: string;
   output?: string;
   mediaReceipt?: string;
+  receipt?: string;
+  origin?: 'attachment' | 'tool';
   status?: string;
   // Carried by a `native_compacted` event — the operator-triggered in-place
   // compaction's summary. Replay resets to this point (like a handoff) and
@@ -374,6 +377,8 @@ export function buildMessagesFromReplayEvents(
     assistantBuf = '';
   };
 
+  const receiptInputs = new Set(scoped.filter(event => event.type === 'user_message_echo').flatMap(event => event.clientMessageId ? [event.clientMessageId] : []));
+  const seenMediaReceipts = new Set<string>();
   for (const entry of scoped) {
     if (typeof maxSeq === 'number' && typeof entry.seq === 'number' && entry.seq > maxSeq) break;
     const t = entry.type ?? '';
@@ -422,9 +427,19 @@ export function buildMessagesFromReplayEvents(
       const content = [entry.content, ...(entry.attachments ?? []).map(path => `[attached file: ${path}; use Read to inspect again]`)].filter(Boolean).join('\n');
       if (entry.kind === 'steer' && userBuf && !assistantBuf) userBuf += '\n\n' + content;
       else { flushPair(); userBuf = content; }
+    } else if (t === 'file_context' && typeof entry.receipt === 'string' && userBuf && fileContextVisible(entry, receiptInputs)) {
+      if (!seenMediaReceipts.has(entry.receipt)) {
+        seenMediaReceipts.add(entry.receipt);
+        const receipt = entry.receipt.slice(0, 4096);
+        if (entry.origin === 'attachment') userBuf += `\n\n${receipt}`;
+        else assistantBuf += `\n\n${receipt}\n\n`;
+      }
     } else if (t === 'primary_tool_use' && entry.status === 'completed' && entry.mediaReceipt && userBuf) {
-      const tool = entry.tool ?? entry.name ?? 'unknown tool';
-      assistantBuf += `\n\n[${tool} media receipt: ${entry.mediaReceipt}; source input: ${entry.input ?? '{}'}; re-run ${tool} with that input to inspect again.]\n\n`;
+      if (!seenMediaReceipts.has(entry.mediaReceipt)) {
+        seenMediaReceipts.add(entry.mediaReceipt);
+        const tool = entry.tool ?? entry.name ?? 'unknown tool';
+        assistantBuf += `\n\n[${tool} media receipt: ${entry.mediaReceipt}; source input: ${entry.input ?? '{}'}; re-run ${tool} with that input to inspect again.]\n\n`;
+      }
     } else if (t === 'primary_tool_use' && (entry.tool ?? entry.name) === 'Read' && entry.status === 'completed' && (entry.output?.startsWith('image: ') || entry.output?.startsWith('document: ')) && userBuf) {
       assistantBuf += `\n\n[Read image receipt: ${entry.output}; use Read to inspect again.]\n\n`;
     } else if (t === 'primary_text' && typeof entry.text === 'string' && userBuf) {
@@ -446,6 +461,7 @@ export function summarizeClaudeNativePriorTurns(events: ReplayEvent[], laterEven
     filesWritten: Set<string>;
     bashCmds: string[];
     finalReply: string;
+    mediaReceipts: string[];
   }
 
   const turns: Turn[] = [];
@@ -461,7 +477,9 @@ export function summarizeClaudeNativePriorTurns(events: ReplayEvent[], laterEven
   // verbatim turns to vanish from the operator-visible summary).
   let compactTail: string | null = null;
 
-  for (const ev of projectDeliveredInputs(events, [...events, ...laterEvents])) {
+  const projected = projectDeliveredInputs(events, [...events, ...laterEvents]);
+  const receiptInputs = new Set(projected.filter(event => event.type === 'user_message_echo').flatMap(event => event.clientMessageId ? [event.clientMessageId] : []));
+  for (const ev of projected) {
     if (typeof ev.seq === 'number') throughSeq = ev.seq;
     if (ev.type === 'handoff_artifact_ready' && !ev.error && !ev.cancelled && !revoked.has(ev.handoffId ?? '')) {
       turns.length = 0;
@@ -493,12 +511,15 @@ export function summarizeClaudeNativePriorTurns(events: ReplayEvent[], laterEven
         filesWritten: new Set<string>(),
         bashCmds: [],
         finalReply: '',
+        mediaReceipts: [],
       });
       continue;
     }
     const cur = turns[turns.length - 1];
     if (!cur) continue;
-    if (ev.type === 'primary_text' && typeof ev.text === 'string') {
+    if (ev.type === 'file_context' && typeof ev.receipt === 'string' && fileContextVisible(ev, receiptInputs)) {
+      if (!cur.mediaReceipts.includes(ev.receipt)) cur.mediaReceipts.push(ev.receipt.slice(0, 2048));
+    } else if (ev.type === 'primary_text' && typeof ev.text === 'string') {
       cur.finalReply += ev.text;
     } else if (ev.type === 'primary_tool_use') {
       const name = ev.tool ?? ev.name ?? 'unknown';
@@ -548,6 +569,7 @@ export function summarizeClaudeNativePriorTurns(events: ReplayEvent[], laterEven
     if (t.filesWritten.size > 0) {
       lines.push(`- Files written: ${[...t.filesWritten].join(', ')}`);
     }
+    for (const receipt of t.mediaReceipts.slice(-4)) lines.push(`  Saved file context: ${receipt.replace(/\s+/g, ' ')}`);
     if (t.filesRead.size > 0) {
       const reads = [...t.filesRead];
       const shown = reads.slice(0, 8);

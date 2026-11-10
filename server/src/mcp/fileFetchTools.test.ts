@@ -62,7 +62,10 @@ test('URL PDFs provide selected document blocks or text and scanned-page images'
   assert.ok(native.blocks.some(block => block.type === 'document' && block.pages === 1));
   assert.match(native.text, /Second URL page/);
   assert.doesNotMatch(native.text, /First URL page/);
-  const local = await executeOllamaTool('WebFetch', { url: 'https://example.com/paper.pdf', mode: 'fast', pages: '2' }, { cwd: home });
+  const documents: any[] = [];
+  const local = await executeOllamaTool('WebFetch', { url: 'https://example.com/paper.pdf', mode: 'fast', pages: '2' }, { cwd: home, onFileContent: result => documents.push(result) });
+  assert.equal(documents.length, 1, 'decoded URL documents must reach the replay snapshot collector');
+  assert.match(documents[0].text, /Second URL page/);
   assert.match(local, /Second URL page/); assert.doesNotMatch(local, /First URL page/);
   const tool = portableTools().get('fetch_file')!;
   const cli = await tool({ url: 'https://example.com/paper.pdf', pages: '2' });

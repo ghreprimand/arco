@@ -1,3 +1,4 @@
+import { prepareLocalFileContext, rememberLocalAttachments, rememberLocalToolMedia, resolveLocalContextRead, type SavedToolText } from './localFileMedia.js';
 import { LocalMcp } from './localMcp.js';
 import { prepareProviderAttachments, openAiImageMessage, openAiVisionMessages, type ProviderImage } from './providerFileContent.js';
 import { requestWithDeadline } from './requestDeadline.js';
@@ -254,14 +255,18 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       }
     }
 
+    const prior = await prepareLocalFileContext(this.config, this.visionCapable, this.abortController?.signal);
+    for (const notice of prior.notices) this.emit('system_notice', notice);
     const prepared = await prepareProviderAttachments(this.config.attachments, this.visionCapable, this.abortController?.signal);
-    const imageParts: ContentPart[] = prepared.images.map((image) => ({type: 'image_url', image_url: {url: `data:${image.mediaType};base64,${image.data}`}}));
+    await rememberLocalAttachments(this.config, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
+    const imageParts: ContentPart[] = [...prepared.images, ...prior.images].map((image) => ({type: 'image_url', image_url: {url: `data:${image.mediaType};base64,${image.data}`}}));
     let text = userPrompt;
     if (this.connection.chatWeb) {
       const reminder = ollamaChatWebReminder(this.config);
       if (reminder) text += `\n\n${reminder}`;
     }
     if (prepared.text) text += '\n\n' + prepared.text;
+    if (prior.text) text += '\n\n' + prior.text;
 
     if (imageParts.length > 0) {
       messages.push({ role: 'user', content: [{ type: 'text', text }, ...imageParts] });
@@ -502,6 +507,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       endTurnOnRepeat: true,
     };
     const toolImages: ProviderImage[] = [];
+    const toolDocuments: SavedToolText[] = [];
     const rt: LocalToolRuntime = {
       isKnownTool: (name) => this.registry.has(name),
       cwd: this.config.cwd,
@@ -509,17 +515,19 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       computerChat: this.config.interactionMode === 'chat' && this.config.voiceOperator === true,
       loop: loopDetector,
       runComputer: (name, args) => executeComputerTool(this.config.workflowId, name, args),
-      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, onImages: (images) => toolImages.push(...images) }),
+      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages, toolDocuments) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, onImages: (images) => toolImages.push(...images), readPathResolver: value => resolveLocalContextRead(this.config, value), onFileContent: result => { if (!['text', 'image', 'binary', 'error'].includes(result.kind)) toolDocuments.push({ name: String(args.file_path ?? name), text: result.text }); } }),
       notice: (text) => this.emit('system_notice', text),
     };
     const results = await dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
+      const imageStart = toolImages.length, documentStart = toolDocuments.length;
       const name = call.function.name;
       const parsed = parseToolArguments(call.function.arguments);
       const { args } = parsed;
-      this.emit('tool_use', { name, input: JSON.stringify(args), toolUseId: call.id,
+      this.emit('tool_use', { name, input: JSON.stringify(args), id: call.id, toolUseId: call.id,
         ...(runtimeEvents ? { id: call.id, status: 'started', provider: this.connection.name } : {}) });
       const result = await decideLocalToolCall(name, parsed, rules, rt);
-      if (this.config.voiceOperator) this.emit('tool_use', { name, input: JSON.stringify(args), toolUseId: call.id, status: result.startsWith('[error]') ? 'failed' : 'completed', output: result });
+      const mediaReceipt = await rememberLocalToolMedia(this.config, name, args, call.id, toolImages.slice(imageStart), toolDocuments.slice(documentStart), data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
+      if (this.config.voiceOperator) this.emit('tool_use', { name, input: JSON.stringify(args), id: call.id, toolUseId: call.id, status: result.startsWith('[error]') ? 'failed' : 'completed', output: this.config.voiceOperator ? result : mediaReceipt, ...(mediaReceipt ? { mediaReceipt } : {}) });
       const stored = this.connection.toolResultPolicy === 'runtime'
         ? result
         : truncateLocalToolResult(name, result, 'LM Studio', TOOL_RESULT_HEAD_BYTES, TOOL_RESULT_TAIL_BYTES);
@@ -528,7 +536,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       }
       if (runtimeEvents) {
         this.emit('tool_use', { name, input: JSON.stringify(args), id: call.id, toolUseId: call.id, provider: this.connection.name,
-          status: result.startsWith('[error]') ? 'failed' : 'completed', output: stored });
+          status: result.startsWith('[error]') ? 'failed' : 'completed', output: stored, ...(mediaReceipt ? { mediaReceipt } : {}) });
       }
       return { role: 'tool', content: stored, tool_call_id: call.id } as ChatMessage;
     });
@@ -651,6 +659,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       if (drainSteer) {
         for (const item of drainSteer()) {
           const prepared = await prepareProviderAttachments(item.attachments, this.visionCapable, this.abortController?.signal);
+          await rememberLocalAttachments({ ...this.config, attachments: item.attachments, fileContextInputIds: item.clientMessageId ? [item.clientMessageId] : this.config.fileContextInputIds }, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
           const text = [item.content,prepared.text].filter(Boolean).join('\n\n');
           messages.push({role:'user',content:prepared.images.length ? [{type:'text',text},...prepared.images.map(image=>({type:'image_url' as const,image_url:{url:`data:${image.mediaType};base64,${image.data}`}}))] : text});
         }

@@ -14,6 +14,8 @@ import type {
   WorkerTextMessage,
   WorkerThinkingMessage,
   WorkerToolUseMessage,
+  WorkerFileContextMessage,
+  FileContextMessage,
   WorkerCompleteMessage,
   WorkerActivityMessage,
   WorkerModelMessage,
@@ -62,6 +64,7 @@ export type WorkerManagerEvent =
   | Omit<WorkerTextMessage, 'workflowId'>
   | Omit<WorkerThinkingMessage, 'workflowId'>
   | Omit<WorkerToolUseMessage, 'workflowId'>
+  | Omit<WorkerFileContextMessage, 'workflowId'>
   | Omit<WorkerCompleteMessage, 'workflowId'>
   | Omit<WorkerActivityMessage, 'workflowId'>
   | Omit<WorkerModelMessage, 'workflowId'>
@@ -239,6 +242,9 @@ export class WorkerManager {
       // ignore it.
       ollamaParams?: WorkerConfig['ollamaParams'];
       ollamaReplay?: WorkerConfig['ollamaReplay'];
+      priorFiles?: WorkerConfig['priorFiles'];
+      fileContextCwd?: string;
+      fileContextInputIds?: string[];
       // docs/PROVIDERS.md - Ollama top-level `format` (structured
       // output). Set by structured primitives (Review verdict) so the Ollama
       // model is grammar-constrained to a JSON schema. Other providers ignore
@@ -326,6 +332,9 @@ export class WorkerManager {
       webSearchMaxUses: options?.webSearchMaxUses,
       ollamaParams: options?.ollamaParams,
       ollamaReplay: options?.ollamaReplay,
+      priorFiles: options?.priorFiles,
+      fileContextCwd: options?.fileContextCwd,
+      fileContextInputIds: options?.fileContextInputIds,
       ollamaFormat: options?.ollamaFormat,
     };
 
@@ -371,6 +380,10 @@ export class WorkerManager {
     worker.on('thinking', (text: string) => {
       bump();
       onEvent({ type: 'worker_thinking', workerId: spec.id, text });
+    });
+    worker.on('file_context', (data: Omit<FileContextMessage, 'type' | 'workflowId'>) => {
+      bump();
+      onEvent({ ...data, type: 'worker_file_context', workerId: spec.id });
     });
     worker.on('tool_use', (data: {
       id?: string;
