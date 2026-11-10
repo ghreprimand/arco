@@ -68,20 +68,22 @@ async def main():
                 await expect(page.get_by_text('Opened synthetic project file', exact=True)).to_be_visible()
                 assert opened[-1] == fullpath
                 await page.keyboard.press('Escape')
-                await page.locator('.archive-row').filter(has=page.get_by_text(filename, exact=True)).get_by_title('Reveal in the file tree').click()
+                reveal_action = page.locator('.archive-row').filter(has=page.get_by_text(filename, exact=True)).get_by_title('Reveal in the file tree')
+                if project == 'external':
+                    await expect(reveal_action).to_have_count(0)
+                    continue
+                await expect(reveal_action).to_be_visible()
+                await reveal_action.click()
                 await expect(page.get_by_role('button', name='⊞ TREE', exact=True)).to_be_visible()
-                # Expansion outside TREE's default root is a separate client limit.
-                # Check the in-root reveal and the outside-root lens switch here.
-                if project == 'beta':
-                    for _ in range(30):
-                        if any(fullpath.rsplit('/', 1)[0] in str(query) for query in revealed):
-                            break
-                        await page.wait_for_timeout(20)
-                    assert any(fullpath.rsplit('/', 1)[0] in str(query) for query in revealed), revealed
-                    await expect(page.get_by_text('Opened synthetic project file', exact=True)).to_be_visible()
-                    await page.keyboard.press('Escape')
+                for _ in range(30):
+                    if any(fullpath.rsplit('/', 1)[0] in str(query) for query in revealed):
+                        break
+                    await page.wait_for_timeout(20)
+                assert any(fullpath.rsplit('/', 1)[0] in str(query) for query in revealed), revealed
+                await expect(page.get_by_text('Opened synthetic project file', exact=True)).to_be_visible()
+                await page.keyboard.press('Escape')
                 await page.get_by_role('button', name='⌁ CHANGED FILES', exact=True).click()
-            print('artifacts: independent loading, partial notices and cross-project filter/open and in-root reveal passed')
+            print('artifacts: independent loading, partial notices and cross-project filter/open, in-root reveal and outside-root action exclusion passed')
         finally:
             ready.set()
             await browser.close()
