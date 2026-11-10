@@ -156,6 +156,13 @@ For spreadsheets, presentations and notebooks, `pages` selects sheets, slides or
 
 Sources can be up to 512 MB. PNG scanline decoding supports 512 megapixels; other raster decoders allow 250 megapixels. Oversized or malformed files produce a note explaining how to supply a smaller file or range. Claude Native uses independent request image and PDF-page caps from the selected context window: 100 images at 200k, 600 above it; 100 PDF pages below 1M, 600 at 1M or above. Unknown windows use 100 for each. Encoded media is capped at 128 MiB for the first-party API and conservatively at 20 MiB for custom or unknown endpoints, whose upstream request limits may be smaller. Text, tools and other request fields still contribute to the provider's total request size.
 
+Native context and media limits use 200,000 tokens for Sonnet 4, Sonnet 4.5,
+Opus 4, Opus 4.1 and Opus 4.5, including their dated IDs. Sonnet 4.5 therefore
+shows 50% context fill at 100,000 retained prompt tokens and admits 100 images
+and 100 visual PDF pages. Its former 1M beta is retired. Sonnet 4.6 and newer
+1M families retain their larger windows; Haiku 5.5 also uses 1M. Haiku 4.5
+remains at 200K. See [Anthropic's context-window reference](https://platform.claude.com/docs/en/build-with-claude/context-windows).
+
 Only real image blocks and base64 PDF documents consume media counts. Fetched text and ordinary text documents do not; a fetched base64 PDF counts its real pages. Tool input JSON is not media. Missing PDF page counts are measured from the bytes. Above 20 images, Arco retains its 2,000-pixel per-side rule.
 
 Between API requests, older media becomes text receipts when needed to admit new media. The notice states how many old images and PDF documents were replaced; attach or request a file again to bring it back. Tool pairing remains intact; older signed reasoning is omitted and prompt-prefix bookkeeping restarts. An in-progress assistant/tool-result round keeps its original signed thinking and tool identifiers, matching in-turn compaction. Unaffected histories stay unchanged. If the new media alone exceeds the guard, a notice names the limit and image, page and encoded-size totals. Use COMPACT or HANDOFF, then attach or request the file again. A managed upload path does not grant Read access outside the workflow.

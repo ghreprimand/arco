@@ -28,7 +28,8 @@ const KNOWN_MODEL_WINDOWS: Record<string, number> = {
   'claude-opus-4-6': 1_000_000,
   'claude-sonnet-5': 1_000_000,
   'claude-sonnet-4-6': 1_000_000,
-  'claude-sonnet-4-5': 1_000_000,
+  'claude-sonnet-4-5': 200_000,
+  'claude-haiku-5-5': 1_000_000,
   'claude-haiku-4-5-20251001': 200_000,
 };
 
@@ -43,6 +44,9 @@ export const OVERHEAD_TOKENS_OPUS = 30_000;
 function windowForModel(model: string): number {
   const lower = model.toLowerCase();
   if (lower in KNOWN_MODEL_WINDOWS) return KNOWN_MODEL_WINDOWS[lower];
+  // Older Sonnet/Opus 4 releases use 200K; do not catch 4.6+ or future IDs.
+  if (/^claude-(?:sonnet-4(?:-[05])?|opus-4(?:-[015])?)(?:-\d{8})?$/.test(lower)) return 200_000;
+  if (/^claude-haiku-5-5(?:-\d{8})?$/.test(lower)) return 1_000_000;
   if (lower.includes('fable')) return MODEL_WINDOWS.fable ?? DEFAULT_WINDOW;
   if (lower.includes('mythos')) return MODEL_WINDOWS.mythos ?? DEFAULT_WINDOW;
   if (lower.includes('opus')) return MODEL_WINDOWS.opus ?? DEFAULT_WINDOW;

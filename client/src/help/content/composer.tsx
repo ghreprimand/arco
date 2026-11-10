@@ -510,6 +510,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           Claude Native counts the context after each turn. When the count is unavailable it uses the
           last request's prompt size, never the summed usage of a request that ran web search, web
           fetch or code execution; such a request without a count leaves the reading unchanged.
+          Native uses 200K for Sonnet 4/4.5 and Opus 4/4.1/4.5, including dated IDs; 100K retained prompt tokens means 50%. Their visual limits are 100 images and 100 PDF pages. Sonnet 4.6 and newer 1M families keep their larger windows. Haiku 5.5 uses 1M; Haiku 4.5 stays at 200K.
         </p>
         <p>
           Click here to recalibrate on demand (Claude only: runs <C>/context</C>{' '}

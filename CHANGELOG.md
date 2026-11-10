@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Correct Claude Native context meters and media limits for older Sonnet/Opus releases and Haiku 5.5.
+
 - Replace oversized managed JPEG and PNG uploads with verified smaller images at the same path; keep project files untouched.
 
 

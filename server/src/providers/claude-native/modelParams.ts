@@ -167,11 +167,15 @@ const KNOWN_CTX: ContextWindowMap = {
   'claude-sonnet-4-6': 1_000_000,
   'claude-haiku-4-5-20251001': 200_000,
   'claude-opus-4-6': 1_000_000,
-  'claude-sonnet-4-5': 1_000_000,
+  'claude-sonnet-4-5': 200_000,
+  'claude-haiku-5-5': 1_000_000,
 };
 
 export function lookupCtx(model: string): number | undefined {
   if (model in KNOWN_CTX) return KNOWN_CTX[model];
+  // Older Sonnet/Opus 4 releases use 200K; do not catch 4.6+ or future IDs.
+  if (/^claude-(?:sonnet-4(?:-[05])?|opus-4(?:-[015])?)(?:-\d{8})?$/.test(model)) return 200_000;
+  if (/^claude-haiku-5-5(?:-\d{8})?$/.test(model)) return 1_000_000;
   // Fall back on family heuristic when an unknown variant lands.
   if (model.includes('fable-5')) return 1_000_000;
   if (model.includes('mythos-5')) return 1_000_000;
