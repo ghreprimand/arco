@@ -664,7 +664,7 @@ export const clusters: Section[] = [
   <strong>BLIND</strong> - project files remain available, but the
   worker receives no cluster plan, board, roster, role, focus,
   efficiency, or progress context. Its only cluster tools are{' '}
-  <Code>peer_send</Code> and <Code>peer_read</Code>. Use this for an
+  <Code>peer_send</Code> and <Code>peer_read</Code>, including with llama.cpp and LM Studio. Use this for an
   independent auditor that may inspect the project but should not be
   primed by the cluster&apos;s conclusions. It cannot claim or
   transition board tasks itself: when substantive work is complete,

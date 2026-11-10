@@ -416,7 +416,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Fresh access',
     body: (
       <>
-        <p>Chooses what the new worker may see, before it is created. <C>STANDARD</C> gets the usual project and cluster context. <C>BLIND</C> can read the project but gets no plan, board, roster, role, focus or coordination settings; it can only send and read mail.</p>
+        <p>Chooses what the new worker may see, before it is created. <C>STANDARD</C> gets the usual project and cluster context. <C>BLIND</C> can read the project but gets no plan, board, roster, role, focus or coordination settings; it can only send and read mail, including with llama.cpp and LM Studio.</p>
         <p><C>ISOLATED</C> needs Claude. It works in its own private folder outside the project and cannot read project files, project instructions, knowledge or attachments, and has no shell, hooks or extra tool servers. It talks to the cluster only by mail and can attach small files from its folder to a message.</p>
       </>
     ),

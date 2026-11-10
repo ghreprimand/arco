@@ -584,7 +584,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
 
     let tools: OllamaToolDefinition[] | undefined;
     if (this.config.cwd && this.config.interactionMode !== 'chat') {
-      const all = [...registryTools, ...getOllamaToolDefinitions({ clusterEnabled: !!this.config.clusterId && !!this.config.workflowId })];
+      const all = [...registryTools, ...getOllamaToolDefinitions({ clusterEnabled: !!this.config.clusterId && !!this.config.workflowId, mailboxOnly: this.config.clusterAccessMode !== undefined && this.config.clusterAccessMode !== 'standard' })];
       tools = this.config.tools
         ? all.filter((t) => this.config.tools!.includes(t.function.name))
         : all;
