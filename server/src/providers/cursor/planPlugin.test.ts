@@ -80,13 +80,15 @@ test('Cursor print passes workflow identity to the plugin only outside Chat', as
       worker.spawn('Read the plan');
       for (let n = 0; !captured && n < 100; n++) await new Promise(resolve => setTimeout(resolve, 10));
       assert.ok(captured);
-      const path = captured[captured.indexOf('--plugin-dir') + 1];
-      const plugin = JSON.parse(await readFile(join(path, 'mcp.json'), 'utf8'));
-      assert.equal(!!plugin.mcpServers.arco, interactionMode !== 'chat');
-      if (plugin.mcpServers.arco) assert.ok(plugin.mcpServers.arco.args.includes('member'));
+      assert.equal(captured.includes('--plugin-dir'), interactionMode !== 'chat');
+      const path = interactionMode === 'chat' ? undefined : captured[captured.indexOf('--plugin-dir') + 1];
+      if (path) {
+        const plugin = JSON.parse(await readFile(join(path, 'mcp.json'), 'utf8'));
+        assert.ok(plugin.mcpServers.arco.args.includes('member'));
+      }
       child.emit('close', 0, null);
       child.emit('exit', 0, null);
-      await rm(path, { recursive: true, force: true });
+      if (path) await rm(path, { recursive: true, force: true });
       t.mock.restoreAll(); syncBuiltinESMExports();
     }
   } finally { t.mock.restoreAll(); syncBuiltinESMExports(); await rm(home, { recursive: true, force: true }); }

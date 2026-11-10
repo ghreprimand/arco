@@ -162,7 +162,7 @@ test('Claude CLI, Codex exec and Cursor print receive decoded document text and 
      const image=captured.args[captured.args.indexOf('-i')+1];assert.notEqual(image,join(cwd,'picture.data'));assert.ok((await readFile(image)).length);
     }else{
      assert.equal(captured.args[captured.args.indexOf('--mode')+1],'ask');assert.equal(captured.options.cwd,cwd);
-     assert.ok(captured.args.includes('--plugin-dir'));assert.ok(!captured.args.includes('--approve-mcps'));
+     assert.ok(!captured.args.includes('--plugin-dir'), 'Chat must not attach project file tools');assert.ok(!input.includes('Use Arco read_file'));assert.ok(!captured.args.includes('--approve-mcps'));
      const roots=captured.args.flatMap((arg:string,index:number)=>arg==='--add-dir'?[captured.args[index+1]]:[]);
      assert.ok(roots.includes(await realpath(join(storage,'uploads'))),'fitted image upload directory must be readable by Cursor');
     }

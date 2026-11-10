@@ -64,7 +64,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
   private async prepare(prompt:string):Promise<void> {
     const prepared = await prepareProviderAttachments(this.config.attachments);
     const imagePaths = await persistProviderImages(prepared.images);
-    if (this.config.cwd) this.filePlugin = await createFilePlugin(this.config.cwd, this.config.interactionMode === 'chat' ? undefined : this.config.workflowId);
+    if (this.config.cwd && this.config.interactionMode !== 'chat') this.filePlugin = await createFilePlugin(this.config.cwd, this.config.workflowId);
     if (this.settled) { await this.filePlugin?.close(); return; }
     this.spawnPrepared(prompt,prepared,imagePaths);
   }
