@@ -1,4 +1,5 @@
 import { readRegularPrefix } from './boundedRead.js';
+import { fileHeaderKind, readFileContent } from './fileContent.js';
 // Server-side expansion for the composer's `@`-context-refs
 // (docs/ARCHITECTURE.md). The client parses `@file:`, `@diff`,
 // `@staged`, `@git:N`, `@url:` into chips; at send time the server expands
@@ -105,13 +106,14 @@ export interface ContextExpansion {
   notices: string[];
   // Count of refs that produced a context block (for the notice header).
   expandedCount: number;
+  attachments?: string[];
 }
 
 // Confine + read a `@file:` target. Two-layer check: resolveWithinCwd catches
 // lexical `../` and absolute-outside paths; the realpath re-check catches a
 // symlink whose target escapes cwd (resolveWithinCwd validates the link path,
 // not its destination). Bounded read with an explicit truncation notice.
-async function expandFile(cwd: string, arg: string | undefined): Promise<{ body: string; notice: string }> {
+async function expandFile(cwd: string, arg: string | undefined): Promise<{ body: string; notice: string; attachment?: string; mediaTokens?: number }> {
   if (!arg) {
     return { body: '', notice: '@file: ignored — no path given' };
   }
@@ -156,15 +158,35 @@ async function expandFile(cwd: string, arg: string | undefined): Promise<{ body:
   } catch (err) {
     return { body: '', notice: `@file:${arg} failed — ${(err as Error).message}` };
   }
+  const header = fileHeaderKind(buf);
+  const prefix = buf.toString('utf8');
+  const notebook = header === 'text/plain' && (arg.toLowerCase().endsWith('.ipynb')
+    || (/"nbformat"\s*:/.test(prefix) && /"cells"\s*:/.test(prefix)));
+  let validText = true;
+  if (header === 'text/plain' && !notebook) {
+    try { new TextDecoder('utf8', {fatal: true}).decode(buf, {stream: size > MAX_CONTEXT_REF_BYTES}); } catch { validText = false; }
+  }
+  if (header !== 'text/plain' || notebook || !validText) {
+    const decoded = await readFileContent(real, { limits: { maxTextBytes: MAX_CONTEXT_REF_BYTES } });
+    const media = decoded.blocks.filter(block => block.type === 'image' || block.type === 'document');
+    const mediaTokens = media.reduce((sum, block) => sum + (block.type === 'image'
+      ? Math.ceil(block.width * block.height / 750)
+      : block.type === 'document' ? block.pages * 1600 : 0), 0);
+    return {
+      body: `--- Context (@file:${arg}) ---\n${decoded.text}`,
+      notice: `@file:${arg} ${decoded.isError ? 'failed' : 'expanded'} (${decoded.kind})`,
+      ...(media.length ? { attachment: real, mediaTokens } : {}),
+    };
+  }
   let text: string;
   let notice: string;
   if (size > MAX_CONTEXT_REF_BYTES) {
     const dropped = size - MAX_CONTEXT_REF_BYTES;
-    text = buf.subarray(0, MAX_CONTEXT_REF_BYTES).toString('utf8') +
+    text = new TextDecoder('utf8', { fatal: true }).decode(buf, { stream: true }) +
       `\n\n… [truncated ${dropped} bytes]`;
     notice = `@file:${arg} expanded (truncated — ${dropped} bytes over the ${MAX_CONTEXT_REF_BYTES}-byte cap)`;
   } else {
-    text = buf.toString('utf8');
+    text = new TextDecoder('utf8', { fatal: true }).decode(buf);
     notice = `@file:${arg} expanded (${buf.byteLength} bytes)`;
   }
   return { body: `--- Context (@file:${arg}) ---\n${text}`, notice };
@@ -237,11 +259,12 @@ export async function expandContextRefs(
 
   const blocks: string[] = [];
   const notices: string[] = [];
+  const attachments: string[] = [];
   let expandedCount = 0;
   let accumTokens = 0;
   let softWarned = false;
   for (const ref of refs) {
-    let result: { body: string; notice: string };
+    let result: { body: string; notice: string; attachment?: string; mediaTokens?: number };
     try {
       switch (ref.kind) {
         case 'file':
@@ -270,7 +293,7 @@ export async function expandContextRefs(
       // past the hard ceiling is refused (and so is everything after it, since
       // we're already over budget) — the operator's actual instruction must not
       // be buried under stacked pastes.
-      const refTokens = estimateRefTokens(result.body);
+      const refTokens = estimateRefTokens(result.body) + (result.mediaTokens ?? 0);
       if (accumTokens + refTokens > hardRefuseAt) {
         notices.push(
           `${ref.raw} refused — would push @-ref context to ${pct(accumTokens + refTokens)}% of the ${window.toLocaleString()}-token window ` +
@@ -279,6 +302,7 @@ export async function expandContextRefs(
         continue;
       }
       blocks.push(result.body);
+      if (result.attachment) attachments.push(result.attachment);
       accumTokens += refTokens;
       expandedCount++;
       if (!softWarned && accumTokens > softWarnAt) {
@@ -298,5 +322,6 @@ export async function expandContextRefs(
     block: blocks.length > 0 ? '\n\n' + blocks.join('\n\n') : '',
     notices,
     expandedCount,
+    ...(attachments.length ? { attachments } : {}),
   };
 }

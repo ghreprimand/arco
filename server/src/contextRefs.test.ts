@@ -15,6 +15,8 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { zipSync, strToU8 } from 'fflate';
 import {
   expandContextRefs,
   estimateRefTokens,
@@ -100,4 +102,79 @@ test('no refs: empty expansion, no gate', async () => {
   const r = await expandContextRefs(dir, 'plain message, no refs', { windowSize: 1000 });
   assert.equal(r.expandedCount, 0);
   assert.equal(r.notices.length, 0);
+});
+
+test('@file references deliver an image separately and explain binary data', async () => {
+  const dir = await tmpProject({});
+  try {
+    await fs.writeFile(join(dir, 'image.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64'));
+    await fs.writeFile(join(dir, 'data.bin'), Buffer.from([0xff, 0x00, 0xfe]));
+    const image = await expandContextRefs(dir, '@file:image.png', {windowSize: 200000}) as any;
+    assert.deepEqual(image.attachments, [await fs.realpath(join(dir, 'image.png'))]);
+    assert.doesNotMatch(image.block, /\uFFFD|\x00/);
+    const binary = await expandContextRefs(dir, '@file:data.bin', {windowSize: 200000});
+    assert.match(binary.block, /binary|unsupported/i);
+    assert.doesNotMatch(binary.block, /\uFFFD|\x00/);
+  } finally { await fs.rm(dir, {recursive:true, force:true}); }
+});
+
+test('context references extract notebooks by content and preserve media budgets', async () => {
+  const dir = await tmpProject({});
+  try {
+    const notebook = {nbformat:4,cells:[{cell_type:'code',source:['print("fixture")'],outputs:[{text:'fixture output'}]}]};
+    await fs.writeFile(join(dir,'notebook.data'), JSON.stringify(notebook));
+    const decoded = await expandContextRefs(dir, '@file:notebook.data', {windowSize:200000});
+    assert.match(decoded.block, /Cell 1 \(code\)/);
+    assert.match(decoded.block, /fixture output/);
+    await fs.writeFile(join(dir,'image.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64'));
+    const refused = await expandContextRefs(dir, '@file:image.png', {windowSize:10});
+    assert.equal(refused.attachments, undefined);
+    assert.equal(refused.expandedCount, 0);
+    assert.match(refused.notices.join(' '), /refused/);
+  } finally { await fs.rm(dir,{recursive:true,force:true}); }
+});
+
+test('context references extract and attach PDFs identified by content', async () => {
+  const dir = await tmpProject({});
+  try {
+    const pdf = await PDFDocument.create();
+    const font = await pdf.embedFont(StandardFonts.Helvetica);
+    pdf.addPage([200, 200]).drawText('Document fixture', {x:10,y:100,font});
+    await fs.writeFile(join(dir,'document.data'), await pdf.save());
+    const result = await expandContextRefs(dir, '@file:document.data', {windowSize:200000});
+    assert.match(result.block, /Document fixture/);
+    assert.deepEqual(result.attachments, [await fs.realpath(join(dir,'document.data'))]);
+  } finally { await fs.rm(dir,{recursive:true,force:true}); }
+});
+
+test('context references decode UTF-16 without replacement characters', async () => {
+  const dir = await tmpProject({});
+  try {
+    await fs.writeFile(join(dir,'unicode.txt'), Buffer.concat([Buffer.from([0xff,0xfe]),Buffer.from('Example text','utf16le')]));
+    const result = await expandContextRefs(dir, '@file:unicode.txt', {windowSize:200000});
+    assert.match(result.block, /Example text/);
+    assert.doesNotMatch(result.block, /\uFFFD|\x00/);
+  } finally { await fs.rm(dir,{recursive:true,force:true}); }
+});
+
+test('context references extract office documents by bytes', async () => {
+  const dir = await tmpProject({});
+  try {
+    const xml = '<w:document xmlns:w="urn:word"><w:body><w:p><w:r><w:t>Synthetic heading</w:t></w:r></w:p></w:body></w:document>';
+    await fs.writeFile(join(dir,'document.txt'), zipSync({'word/document.xml':strToU8(xml)}));
+    const result = await expandContextRefs(dir, '@file:document.txt', {windowSize:200000});
+    assert.match(result.block, /Synthetic heading/);
+    assert.doesNotMatch(result.block, /PK\u0003|\uFFFD/);
+  } finally { await fs.rm(dir,{recursive:true,force:true}); }
+});
+
+
+test('context references handle incomplete UTF-8 at the end of a file', async () => {
+  const dir = await tmpProject({});
+  try {
+    await fs.writeFile(join(dir, 'incomplete.txt'), Buffer.concat([Buffer.from('Readable prefix '), Buffer.from([0xc3])]));
+    const result = await expandContextRefs(dir, '@file:incomplete.txt', {windowSize:200000});
+    assert.match(result.block + result.notices.join(' '), /invalid|binary|unsupported|Readable prefix/i);
+    assert.doesNotMatch(result.block, /\uFFFD|\x00/);
+  } finally { await fs.rm(dir, {recursive:true, force:true}); }
 });

@@ -1,5 +1,6 @@
 import { openCheckedFile } from './checkedFile.js';
 import { constants, promises as fs } from 'node:fs';
+import { StringDecoder } from 'node:string_decoder';
 
 // Nonblocking open also closes the stat/open race for pipes on POSIX. Verify
 // the opened handle, rather than trusting an earlier path lookup.
@@ -30,15 +31,74 @@ export async function readRegularPrefix(path: string, cap: number) {
 
 // Keep at most a prefix of each line, even for a file with no newlines.
 // Continue scanning so line-addressed reads and later Grep hits still work.
-export async function* regularFileLines(path: string, cap: number, signal?: AbortSignal) {
+export class FileScanDeadlineExceeded extends Error {}
+
+async function* searchableFileLines(path: string, cap: number, signal?: AbortSignal, deadline?: number) {
+  const { handle } = await openRegular(path);
+  const check = () => { signal?.throwIfAborted(); if (deadline !== undefined && performance.now() >= deadline) throw new FileScanDeadlineExceeded(); };
+  try {
+    const chunk = Buffer.alloc(16384);
+    let position = 0, encoding = 'utf-8', invalid = false, first = true;
+    const validator = new TextDecoder('utf-8', { fatal: true });
+    for (;;) {
+      check();
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, position);
+      if (!bytesRead) break;
+      position += bytesRead;
+      const bytes = chunk.subarray(0, bytesRead);
+      if (first) {
+        if (bytes[0] === 0xff && bytes[1] === 0xfe) encoding = 'utf-16le';
+        else if (bytes[0] === 0xfe && bytes[1] === 0xff) encoding = 'utf-16be';
+        first = false;
+      }
+      if (encoding === 'utf-8') {
+        if (bytes.includes(0)) throw new Error('binary file');
+        if (!invalid) try { validator.decode(bytes, {stream:true}); } catch { invalid = true; }
+      }
+    }
+    if (encoding === 'utf-8' && !invalid) try { validator.decode(); } catch { invalid = true; }
+    if (invalid) encoding = 'windows-1252';
+    const decoder = new TextDecoder(encoding, {fatal:true});
+    let current = '', truncated = false, number = 1;
+    const append = (value: string) => {
+      const room = Math.max(0, cap - current.length);
+      current += value.slice(0, room);
+      if (value.length > room) truncated = true;
+    };
+    position = 0;
+    for (;;) {
+      check();
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, position);
+      position += bytesRead;
+      const text = decoder.decode(chunk.subarray(0, bytesRead), {stream: bytesRead > 0});
+      const lines = text.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        append(lines[i]);
+        if (i < lines.length - 1) { yield {text:current, number:number++, truncated}; current = ''; truncated = false; }
+      }
+      if (!bytesRead) break;
+    }
+    yield {text:current, number, truncated};
+  } finally { await handle.close(); }
+}
+
+export async function* regularFileLines(path: string, cap: number, signal?: AbortSignal, validateText = false, deadline?: number) {
+  if (validateText) { yield* searchableFileLines(path, cap, signal, deadline); return; }
   const { handle } = await openRegular(path);
   try {
     const chunk = Buffer.alloc(16384);
+    const decoder = validateText ? new TextDecoder('utf-8', { fatal: true }) : undefined;
     let parts: Buffer[] = [], used = 0, truncated = false, number = 1;
     for (;;) {
       signal?.throwIfAborted();
+      if (deadline !== undefined && performance.now() >= deadline) throw new FileScanDeadlineExceeded();
       const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);
-      if (!bytesRead) break;
+      if (!bytesRead) { decoder?.decode(); break; }
+      if (decoder) {
+        const bytes = chunk.subarray(0, bytesRead);
+        if (bytes.includes(0)) throw new Error('binary file');
+        decoder.decode(bytes, { stream: true });
+      }
       let start = 0;
       for (let i = 0; i <= bytesRead; i++) {
         if (i < bytesRead && chunk[i] !== 10) continue;
@@ -47,13 +107,15 @@ export async function* regularFileLines(path: string, cap: number, signal?: Abor
         if (keep) { parts.push(Buffer.from(chunk.subarray(start, start + keep))); used += keep; }
         if (keep < length) truncated = true;
         if (i < bytesRead) {
-          yield { text: Buffer.concat(parts, used).toString('utf8'), number: number++, truncated };
+          const data = Buffer.concat(parts, used);
+          yield { text: truncated ? new StringDecoder('utf8').write(data) : data.toString('utf8'), number: number++, truncated };
           parts = []; used = 0; truncated = false;
         }
         start = i + 1;
       }
     }
-    yield { text: Buffer.concat(parts, used).toString('utf8'), number, truncated };
+    const data = Buffer.concat(parts, used);
+    yield { text: truncated ? new StringDecoder('utf8').write(data) : data.toString('utf8'), number, truncated };
   } finally { await handle.close(); }
 }
 

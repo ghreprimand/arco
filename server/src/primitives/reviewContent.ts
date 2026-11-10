@@ -10,6 +10,9 @@ import type { ServerMessage, ReviewContextRef, PlanReviewMode } from '@arco/shar
 import { readPlan } from '../planStore.js';
 import { renderLinkedRefsForReview } from '../planRefContext.js';
 import { artifactsDir } from '../workers/limits.js';
+import { readFileContent } from '../fileContent.js';
+import { readCheckedText } from '../checkedFile.js';
+import { tmpdir } from 'node:os';
 
 // A completed operator-agent exchange. `isHandoffSeed` flags the seed
 // prompt Arco injects after a Handoff primitive — the "current session"
@@ -772,27 +775,52 @@ export async function buildPreviewCaptureReviewContent(
   cwd: string,
   workflowId: string,
   reportName: string,
-): Promise<{ content: string; label: string; rejectReason: string | null }> {
+): Promise<{ content: string; label: string; rejectReason: string | null; attachments?: string[]; cleanup?: () => Promise<void> }> {
   const baseName = path.basename(reportName);
   if (baseName !== reportName || !baseName.endsWith('.md')) {
     return { content: '', label: 'preview capture', rejectReason: 'Invalid preview-capture report name.' };
   }
   let report: string;
+  let parent: string;
   try {
-    report = await fsPromises.readFile(path.join(artifactsDir(cwd, workflowId), baseName), 'utf8');
+    parent = await fsPromises.realpath(artifactsDir(cwd, workflowId));
+    const expected = path.join(await fsPromises.realpath(cwd), '.arco', 'workflows', workflowId, 'artifacts');
+    if (parent !== expected) throw new Error('Invalid capture directory');
+    report = await readCheckedText(path.join(parent, baseName));
   } catch {
     return { content: '', label: `preview capture (${baseName})`, rejectReason: 'That preview-capture report no longer exists — capture the preview again.' };
+  }
+  // Only the sibling created for this capture is eligible. A report cannot
+  // name another artifact or a symbolic link as a reviewer attachment.
+  const imageName = /^preview-capture-\d+\.md$/.test(baseName) ? baseName.replace(/\.md$/, '.jpg') : '';
+  let attachments: string[] | undefined;
+  let cleanup: (() => Promise<void>) | undefined;
+  if (imageName && report.includes(`Screenshot saved as \`${imageName}\`.`)) {
+    try {
+      const result = await readFileContent(path.join(parent, imageName), { limits: { images: true, documents: false, maxImages: 1 } });
+      const image = result.blocks.find(block => block.type === 'image');
+      if (!image || image.type !== 'image') throw new Error('Capture is not a readable image');
+      const suffix = image.mediaType === 'image/png' ? '.png' : image.mediaType === 'image/jpeg' ? '.jpg' : '';
+      if (!suffix) throw new Error('Unsupported capture image');
+      const dir = await fsPromises.mkdtemp(path.join(await fsPromises.realpath(tmpdir()), 'arco-review-'));
+      cleanup = () => fsPromises.rm(dir, { recursive: true, force: true });
+      try {
+        const imagePath = path.join(dir, `capture${suffix}`);
+        await fsPromises.writeFile(imagePath, Buffer.from(image.data, 'base64'), { flag: 'wx', mode: 0o600 });
+        attachments = [imagePath];
+      } catch (error) { await cleanup(); cleanup = undefined; throw error; }
+    } catch { /* missing or unsafe capture; the report is still reviewable */ }
   }
   const content = [
     'You are reviewing a **preview verification capture** of the running app — not a transcript or a diff.',
     'Arco rendered the dev-server preview in a headless browser and recorded the page title/URL, console',
     'errors, failed network requests, and basic layout/accessibility signals. Judge the UI from this evidence:',
     'call out real problems (errors, failed requests, overflow, missing labels) and note what looks healthy.',
-    'The screenshot is referenced by filename — you cannot see the image, so reason from the structured notes.',
+    attachments ? 'A screenshot is attached. Use it if your model supports images; otherwise rely on the structured notes.' : 'No screenshot is attached; rely on the structured notes.',
     '',
     '---',
     '',
     report,
   ].join('\n');
-  return { content, label: `preview capture (${baseName})`, rejectReason: null };
+  return { content, label: `preview capture (${baseName})`, rejectReason: null, attachments, cleanup };
 }

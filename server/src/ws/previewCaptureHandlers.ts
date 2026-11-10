@@ -99,10 +99,7 @@ function renderReport(
   if (captures.includes('screenshot')) {
     lines.push('## Screenshot');
     lines.push('');
-    // Reference the image artifact by name rather than embedding it. Embedding a
-    // base64 data URI would bloat the report (and, when this report is attached
-    // to a Review in G2, cost a fortune in tokens for an image the reviewer
-    // can't read). The UI shows the actual screenshot via the raw-artifact route.
+    // Keep the report text-only. Review sends the matching image separately.
     if (imageName) lines.push(`Screenshot saved as \`${imageName}\`.`);
     else lines.push('_No screenshot captured._');
     lines.push('');

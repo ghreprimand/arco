@@ -1,4 +1,5 @@
-import { regularFileLines } from '../boundedRead.js';
+import { FileScanDeadlineExceeded, regularFileLines } from '../boundedRead.js';
+import { isSearchableTextFile } from '../searchText.js';
 import { writeCheckedFile } from '../checkedFile.js';
 import { readFileContent, fileContentFromBytes, fileHeaderKind, MAX_FILE_CONTENT_BYTES, type FileContentBlock } from '../fileContent.js';
 import { resolveToolPath } from '../toolPath.js';
@@ -319,17 +320,25 @@ const GrepTool: OllamaToolEntry = {
       try { resolveToolPath(ctx.cwd, filePath); } catch { continue; }
       const rel = relative(ctx.cwd, filePath);
       try {
-        for await (const line of regularFileLines(filePath, TOOL_OUTPUT_CAP, ctx.abortSignal)) {
-          if (line.number === 1 && line.text.slice(0, 1024).includes('\0')) break;
-          if (line.truncated) shortened = true;
+        if (!(await isSearchableTextFile(filePath))) continue;
+        const fileOut: string[] = [];
+        let fileBytes = 0, fileShortened = false;
+        for await (const line of regularFileLines(filePath, TOOL_OUTPUT_CAP, ctx.abortSignal, true, budget.deadline)) {
+          if (line.truncated) fileShortened = true;
+          if ((filesOnly && fileOut.length) || bytes + fileBytes >= TOOL_OUTPUT_CAP) continue;
           if (regex.test(line.text)) {
             const entry = filesOnly ? rel : `${rel}:${line.number}: ${line.text}`;
-            out.push(entry);
-            bytes += Buffer.byteLength(entry) + 1;
-            if (filesOnly || bytes >= TOOL_OUTPUT_CAP) break;
+            fileOut.push(entry);
+            fileBytes += Buffer.byteLength(entry) + 1;
           }
         }
-      } catch (error) { if (ctx.abortSignal?.aborted) throw error; }
+        out.push(...fileOut);
+        bytes += fileBytes;
+        shortened ||= fileShortened;
+      } catch (error) {
+        if (ctx.abortSignal?.aborted) throw error;
+        if (error instanceof FileScanDeadlineExceeded) { budget.partial = true; break; }
+      }
       if (bytes >= TOOL_OUTPUT_CAP) break;
     }
     if (out.length === 0 && !shortened && !budget.partial) return '(no matches)';

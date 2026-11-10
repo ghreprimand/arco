@@ -9,6 +9,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - File reads and attachments decode AVIF images and ICO icons and provide SVG source with a fitted preview, without extra programs or external resource access.
 
 - Claude Native Read and attachments handle portable image fitting, PDF ranges, Office documents and notebook cells without extra programs. MCP media stays visible to the model; saved context retains file receipts.
+- Send supported `@file:` images and preview capture screenshots to image-capable models; extract supported documents and notebooks, and search UTF-16 and Windows-1252 text without exposing binary files in Grep.
 
 
 - Claude Native Read shows PNG, JPEG, GIF and WebP files to the model, including Task helpers. Large images are resized or explained with a text note; tool cards show image names and dimensions.

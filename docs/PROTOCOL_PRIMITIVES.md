@@ -112,7 +112,7 @@ For plan-scoped variants:
 
 For the preview-capture variant:
 
-- **`preview-capture`** - no transcript. The reviewer sees the markdown report produced by a Preview verification capture (screenshot reference + console/network errors + layout/a11y notes; see [`PREVIEW_VERIFY.md`](PREVIEW_VERIFY.md)) and evaluates the running UI from that evidence. `reportName` is the artifact basename under the workflow's artifacts dir. Triggered by the ATTACH TO REVIEW button on the Preview tab's capture result strip (Preview-verification integration).
+- **`preview-capture`** - no transcript. The reviewer receives the markdown report and matching screenshot when available. Image-capable models can inspect the screenshot; other models use the console, network and layout notes. See [`PREVIEW_VERIFY.md`](PREVIEW_VERIFY.md). `reportName` is the artifact basename under the workflow's artifacts dir. Triggered by ATTACH TO REVIEW on the Preview tab's capture result strip.
 
 Mode semantics:
 

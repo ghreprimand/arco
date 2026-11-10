@@ -114,11 +114,10 @@ tied to the render as a whole (the viewport preset), not to one facet button, an
 it's the part the ATTACH TO REVIEW reviewer leans on most. `preview_capture_started`
 and the `summary` echo the `viewport`; the summary also carries `layoutFlags`.
 
-**The report is text-only.** It references the screenshot by *filename*, it does
-**not** embed a base64 data URI. Embedding would bloat the report and, when G2
-attaches it to a Review, would ship a huge, unreadable-to-the-reviewer image and
-cost a fortune in tokens. The UI renders the actual screenshot via the raw-bytes
-route instead.
+**The report is text-only.** It references the screenshot by filename and does
+not embed image bytes. The UI renders the screenshot through the raw-artifact
+route. ATTACH TO REVIEW sends the matching screenshot as an image attachment
+when it is available.
 
 ### Raw-artifact route
 
@@ -167,9 +166,10 @@ since-event kinds. `handleReviewRequest` dispatches it before the transcript/pla
 branches to `buildPreviewCaptureReviewContent` (`reviewContent.ts`), which
 **path-confines** the read to the workflow's artifacts dir (`path.basename` +
 `.md` suffix check, a crafted name can't escape), prepends framing that tells the
-reviewer it's judging a running UI from captured evidence (and that it can't see
-the screenshot, so it must reason from the structured notes), and returns the
-report body as the review content. The preview-capture scope is **only** reachable
+reviewer it is judging a running UI from captured evidence, and returns the
+report body as the review content. The matching screenshot is attached when it
+exists; a reviewer with image support can inspect it. Otherwise the reviewer
+uses the structured notes. The preview-capture scope is **only** reachable
 from this button, the normal Review dialog still offers the transcript / plan /
 diff scopes.
 

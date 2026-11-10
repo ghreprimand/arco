@@ -1696,13 +1696,15 @@ export async function handleReviewRequest(
   const refKind = msg.contextRef.kind;
   const isPlanRef = refKind === 'plan-whole' || refKind === 'plan-phase' || refKind === 'plan-items';
   const isClusterPlanRef = refKind === 'cluster-plan-whole' || refKind === 'cluster-plan-phase';
-  let builtContent: string; let builtLabel: string;
+  let builtContent: string; let builtLabel: string; let reviewAttachments: string[] | undefined; let cleanupReviewAttachments: (() => Promise<void>) | undefined;
   if (refKind === 'preview-capture') {
     // §G2 — review a preview-capture report artifact (read + framing + path-confinement in reviewContent.ts).
     const r = msg.contextRef as Extract<import('@arco/shared').ReviewContextRef, { kind: 'preview-capture' }>;
     const built = await buildPreviewCaptureReviewContent(cwd, msg.workflowId, r.reportName);
     if (built.rejectReason) { send(ws, { type: 'error', message: built.rejectReason }); return; }
     builtContent = built.content; builtLabel = built.label;
+    reviewAttachments = built.attachments;
+    cleanupReviewAttachments = built.cleanup;
   } else if (isPlanRef) {
     const planBuilt = await buildPlanReviewContent(
       cwd,
@@ -1751,60 +1753,66 @@ export async function handleReviewRequest(
     builtLabel = built.label;
   }
 
-  const reviewerAccount = msg.reviewer.provider === 'codex'
-    ? await resolveProviderAccount('codex', msg.reviewer.providerAccountRef ?? wf.config.providerAccountRef, cwd).catch(() => null)
-    : null;
-  const reviewer = reviewerAccount
-    ? { ...msg.reviewer, providerAccountRef: reviewerAccount.profile.id, codexHome: reviewerAccount.codexHome }
-    : msg.reviewer;
+  try {
+    const reviewerAccount = msg.reviewer.provider === 'codex'
+      ? await resolveProviderAccount('codex', msg.reviewer.providerAccountRef ?? wf.config.providerAccountRef, cwd).catch(() => null)
+      : null;
+    const reviewer = reviewerAccount
+      ? { ...msg.reviewer, providerAccountRef: reviewerAccount.profile.id, codexHome: reviewerAccount.codexHome }
+      : msg.reviewer;
 
-  // §5.1 — drift guard. Re-resolve the operator-selected reviewer model against
-  // the live catalog at dispatch; flag (don't block) if it drifted out.
-  const reviewDrift = await checkModelDrift(reviewer.provider, reviewer.model, catalogDriftProbe);
-  if (reviewDrift.drifted) {
-    broadcastWorkflow(msg.workflowId, {
-      type: 'system_notice',
-      workflowId: msg.workflowId,
-      content: driftFlag('review', reviewer.provider, reviewer.model, reviewDrift.reason ?? 'model drifted'),
+    // §5.1 — drift guard. Re-resolve the operator-selected reviewer model against
+    // the live catalog at dispatch; flag (don't block) if it drifted out.
+    const reviewDrift = await checkModelDrift(reviewer.provider, reviewer.model, catalogDriftProbe);
+    if (reviewDrift.drifted) {
+      broadcastWorkflow(msg.workflowId, {
+        type: 'system_notice',
+        workflowId: msg.workflowId,
+        content: driftFlag('review', reviewer.provider, reviewer.model, reviewDrift.reason ?? 'model drifted'),
+      });
+    }
+
+    // §C2 — resolve the operator-configured reviewer fallback chain (bounded-job
+    // only). Read from settings.fallbackChains.reviewer (cwd-layered cascade);
+    // each Codex leg gets its account resolved like the primary reviewer above.
+    // Unset ⇒ undefined ⇒ runReviewer runs a single-leg chain (today's behavior).
+    const settings = await readSettings(cwd).catch(() => null);
+    const reviewerFallbacks = await resolveFallbackLegs(settings?.fallbackChains?.reviewer, wf.config.providerAccountRef, cwd);
+
+    const handle = runReviewer(
+      {
+        workflowId: msg.workflowId,
+        cwd,
+        manager: wf.manager,
+        broadcast: (m) => send(ws, m),
+      },
+      {
+        reviewer,
+        reviewerFallbacks,
+        primary: { provider: wf.primary.provider, model: wf.primary.model, effort: wf.primary.effort },
+        contextRef: msg.contextRef,
+        contextLabel: builtLabel,
+        content: builtContent,
+        attachments: reviewAttachments,
+        // docs/GOTCHAS.md - inherit the source tab's north-star so the
+        // reviewer judges against the standing objective (diverges from
+        // outputStyle, which reviewers force to 'normal').
+        goal: wf.config.goal,
+      },
+    );
+
+    console.log(`[arco] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} started (reviewer=${msg.reviewer.provider}:${msg.reviewer.model}@${msg.reviewer.effort}, scope=${builtLabel})`);
+
+    handle.settled.finally(() => cleanupReviewAttachments?.().catch(() => {})).then((r) => {
+      if (r.error) console.log(`[arco] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} failed: ${r.error}`);
+      else console.log(`[arco] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} settled${r.verdict ? ` verdict=${r.verdict}` : ''}`);
+    }).catch((err) => {
+      console.error(`[arco] review ${handle.reviewId} settle error:`, err);
     });
+  } catch (error) {
+    await cleanupReviewAttachments?.().catch(() => {});
+    throw error;
   }
-
-  // §C2 — resolve the operator-configured reviewer fallback chain (bounded-job
-  // only). Read from settings.fallbackChains.reviewer (cwd-layered cascade);
-  // each Codex leg gets its account resolved like the primary reviewer above.
-  // Unset ⇒ undefined ⇒ runReviewer runs a single-leg chain (today's behavior).
-  const settings = await readSettings(cwd).catch(() => null);
-  const reviewerFallbacks = await resolveFallbackLegs(settings?.fallbackChains?.reviewer, wf.config.providerAccountRef, cwd);
-
-  const handle = runReviewer(
-    {
-      workflowId: msg.workflowId,
-      cwd,
-      manager: wf.manager,
-      broadcast: (m) => send(ws, m),
-    },
-    {
-      reviewer,
-      reviewerFallbacks,
-      primary: { provider: wf.primary.provider, model: wf.primary.model, effort: wf.primary.effort },
-      contextRef: msg.contextRef,
-      contextLabel: builtLabel,
-      content: builtContent,
-      // docs/GOTCHAS.md - inherit the source tab's north-star so the
-      // reviewer judges against the standing objective (diverges from
-      // outputStyle, which reviewers force to 'normal').
-      goal: wf.config.goal,
-    },
-  );
-
-  console.log(`[arco] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} started (reviewer=${msg.reviewer.provider}:${msg.reviewer.model}@${msg.reviewer.effort}, scope=${builtLabel})`);
-
-  handle.settled.then((r) => {
-    if (r.error) console.log(`[arco] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} failed: ${r.error}`);
-    else console.log(`[arco] [${msg.workflowId.slice(0, 8)}] review ${handle.reviewId} settled${r.verdict ? ` verdict=${r.verdict}` : ''}`);
-  }).catch((err) => {
-    console.error(`[arco] review ${handle.reviewId} settle error:`, err);
-  });
 }
 
 // docs/ARCHITECTURE.md - the Deep Research primitive's WS handler.

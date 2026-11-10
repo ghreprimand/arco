@@ -1,7 +1,8 @@
 import { type ToolResultContent } from './imageRead.js';
 import { readFileContent } from '../../fileContent.js';
 import { nativeFileOutcome } from './fileContent.js';
-import { readRegularRange, regularFileLines } from '../../boundedRead.js';
+import { FileScanDeadlineExceeded, readRegularRange, regularFileLines } from '../../boundedRead.js';
+import { isSearchableTextFile } from '../../searchText.js';
 import { writeCheckedFile, readCheckedText } from '../../checkedFile.js';
 // Phase 7a — core tool surface for Claude Native transport.
 //
@@ -462,7 +463,7 @@ async function runRipgrep(
   const args: string[] = ['--no-heading'];
   if (opts.ci) args.push('-i');
   if (opts.filesOnly) args.push('-l');
-  else args.push('-n', '-H');
+  else args.push('-n', '-H', '--null');
   args.push('-e', pattern, baseAbs);
 
   return new Promise((resolveP, rejectP) => {
@@ -486,12 +487,39 @@ async function runRipgrep(
       }
     });
     child.on('error', rejectP);
-    child.on('close', (code, signal) => {
+    child.on('close', async (code, signal) => {
       if (!capped && code !== 0 && code !== 1) {
         rejectP(new Error(`rg failed (${code ?? signal ?? 'unknown'}): ${stderr.trim() || 'no diagnostic output'}`));
         return;
       }
-      const raw = Buffer.concat(chunks).toString('utf8');
+      // Decode legacy Windows text without exposing replacement glyphs.
+      const output = Buffer.concat(chunks);
+      const safeLines: string[] = [];
+      const decoder = new TextDecoder('utf-8', { fatal: true });
+      const searchable = new Map<string, boolean>();
+      let start = 0;
+      while (start < output.length) {
+        const separator = output.indexOf(opts.filesOnly ? 10 : 0, start);
+        if (separator < 0) break;
+        const end = opts.filesOnly ? separator : output.indexOf(10, separator + 1);
+        if (end < 0) break;
+        try {
+          const file = decoder.decode(output.subarray(start, separator));
+          let rest = '';
+          if (!opts.filesOnly) {
+            const data = output.subarray(separator + 1, end);
+            try { rest = decoder.decode(data); } catch { rest = new TextDecoder('windows-1252').decode(data); }
+          }
+          if (!opts.filesOnly && !searchable.has(file)) {
+            let allowed = false;
+            try { allowed = await isSearchableTextFile(resolveToolPath(cwd, file), true); } catch { /* skip unreadable or unsafe file */ }
+            searchable.set(file, allowed);
+          }
+          if (opts.filesOnly || searchable.get(file)) safeLines.push(opts.filesOnly ? file : `${file}:${rest}`);
+        } catch { /* invalid UTF-8 output */ }
+        start = end + 1;
+      }
+      const raw = safeLines.join('\n');
       // Rewrite absolute paths to cwd-relative for parity with JS walker.
       const rel = raw.split('\n').map((line) => {
         if (!line) return line;
@@ -533,16 +561,16 @@ const GrepTool: Entry = {
 
     const baseStat = await fs.stat(baseAbs);
     if (!baseStat.isFile() && !baseStat.isDirectory()) throw new Error('not a regular file or directory');
-    if (RIPGREP_BIN) {
-      return runRipgrep(RIPGREP_BIN, pattern, baseAbs, ctx.cwd, { ci, filesOnly });
-    }
+    const rgResult = RIPGREP_BIN ? await runRipgrep(RIPGREP_BIN, pattern, baseAbs, ctx.cwd, { ci, filesOnly }) : undefined;
+    if (rgResult !== undefined && !/[^\x00-\x7f]/.test(pattern)) return rgResult;
 
     // Fallback: JS walker (capped). Validate regex up-front so we surface a
     // sane error instead of silently no-op'ing on bad input.
     let regex: RegExp;
     try { regex = new RegExp(pattern, ci ? 'i' : ''); }
-    catch (err) { throw new Error(`invalid regex: ${err instanceof Error ? err.message : String(err)}`); }
-    const out: string[] = [];
+    catch (err) { if (rgResult !== undefined) return rgResult; throw new Error(`invalid regex: ${err instanceof Error ? err.message : String(err)}`); }
+    const out: string[] = rgResult && rgResult !== '(no matches)' ? rgResult.split('\n') : [];
+    const existing = new Set(out.map(line => line.replace(/^(.*?:\d+:) /, '$1')));
     let bytes = 0;
     let shortened = false;
     const budget = scanBudget(20_000, 1000);
@@ -553,17 +581,25 @@ const GrepTool: Entry = {
       try { resolveToolPath(ctx.cwd, filePath); } catch { continue; }
       const rel = relative(ctx.cwd, filePath);
       try {
-        for await (const line of regularFileLines(filePath, MAX_TOOL_OUTPUT_BYTES, ctx.abortSignal)) {
-          if (line.number === 1 && line.text.slice(0, 1024).includes('\0')) break;
-          if (line.truncated) shortened = true;
+        if (!(await isSearchableTextFile(filePath))) continue;
+        const fileOut: string[] = [];
+        let fileBytes = 0, fileShortened = false;
+        for await (const line of regularFileLines(filePath, MAX_TOOL_OUTPUT_BYTES, ctx.abortSignal, true, budget.deadline)) {
+          if (line.truncated) fileShortened = true;
+          if ((filesOnly && fileOut.length) || bytes + fileBytes >= MAX_TOOL_OUTPUT_BYTES) continue;
           if (regex.test(line.text)) {
             const entry = filesOnly ? rel : `${rel}:${line.number}: ${line.text}`;
-            out.push(entry);
-            bytes += Buffer.byteLength(entry) + 1;
-            if (filesOnly || bytes >= MAX_TOOL_OUTPUT_BYTES) break;
+            const key = entry.replace(/^(.*?:\d+:) /, '$1');
+            if (!existing.has(key)) { fileOut.push(entry); existing.add(key); fileBytes += Buffer.byteLength(entry) + 1; }
           }
         }
-      } catch (error) { if (ctx.abortSignal?.aborted) throw error; }
+        out.push(...fileOut);
+        bytes += fileBytes;
+        shortened ||= fileShortened;
+      } catch (error) {
+        if (ctx.abortSignal?.aborted) throw error;
+        if (error instanceof FileScanDeadlineExceeded) { budget.partial = true; break; }
+      }
       if (bytes >= MAX_TOOL_OUTPUT_BYTES) break;
     }
     if (out.length === 0 && !shortened && !budget.partial) return '(no matches)';

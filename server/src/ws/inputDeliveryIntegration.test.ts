@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after,test } from 'node:test';
-import { mkdtempSync,mkdirSync,rmSync } from 'node:fs';
+import { mkdtempSync,mkdirSync,rmSync,writeFileSync,realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -154,4 +154,29 @@ test('a native turn beginning with a tool publishes working before output',async
   for(let i=0;i<100&&!updates.some(u=>u.type==='cluster_state'&&u.state.members.find((m:any)=>m.workflowId===f.id)?.status==='busy');i++)await new Promise(resolve=>setTimeout(resolve,10));
   assert.ok(updates.some(u=>u.type==='cluster_state'&&u.state.members.find((m:any)=>m.workflowId===f.id)?.status==='busy'),'cluster must see the accepted turn before any text or thinking');
  }finally{for(const pending of f.pending)pending.finish('cleanup');await run;sessions.delete(observer);await clusters.deleteCluster(cluster.clusterId);await f.close();}
+});
+
+test('image context references reach immediate and queued provider turns',async()=>{
+ const f=await fixture('claude');let run:Promise<void>|undefined;
+ try{
+  const image=join(f.cwd,'fixture.png');
+  writeFileSync(image,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64'));
+  run=engine.handleUserMessage(f.ws,f.session,f.id,'Inspect @file:fixture.png','first',undefined,false,undefined,undefined);
+  await f.wait(1);assert.deepEqual(f.pending[0].options.attachments,[realpathSync(image)]);
+  await engine.handleUserMessage(f.ws,f.session,f.id,'Inspect again @file:fixture.png','next',undefined,true,'follow-up',undefined);
+  f.pending[0].finish('first answer');await f.wait(2);assert.deepEqual(f.pending[1].options.attachments,[realpathSync(image)]);
+  f.pending[1].finish('second answer');await run;
+ }finally{if(f.wf.busy)engine.revokeBusy(f.wf);f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const pending of f.pending)pending.finish('fixture cleanup');await run;await f.close();}
+});
+
+test('an image context reference remains attached to a steered message',async()=>{
+ const f=await fixture('claude');let run:Promise<void>|undefined;
+ try{
+  const image=join(f.cwd,'fixture.png');
+  writeFileSync(image,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64'));
+  run=engine.handleUserMessage(f.ws,f.session,f.id,'FIRST','first',undefined,false,undefined,undefined);await f.wait(1);
+  await engine.handleUserMessage(f.ws,f.session,f.id,'Inspect @file:fixture.png','steer',undefined,true,'steer',undefined);
+  const items=f.pending[0].options.drainSteer();assert.equal(items.length,1);assert.deepEqual(items[0].attachments,[realpathSync(image)]);
+  f.pending[0].finish('answer');await run;
+ }finally{if(f.wf.busy)engine.revokeBusy(f.wf);f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const pending of f.pending)pending.finish('fixture cleanup');await run;await f.close();}
 });

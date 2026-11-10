@@ -222,7 +222,8 @@ export const composerHelp: Record<string, HelpEntry> = {
         <p>
           Type an <C>@</C>-ref inline and Arco expands it into the turn's
           context at send time (server-side): <C>@file:src/x.ts</C> (file
-          contents from regular files only, read up to 64 KiB with a truncation notice),{' '}
+          regular files; text up to 64 KiB, supported documents and notebook cells as text,
+          and supported media as attachments),{' '}
           <C>@diff</C> / <C>@staged</C> (<C>git diff [--cached]</C>),{' '}
           <C>@git:3</C> (last N commits, capped at 50).
         </p>
@@ -230,7 +231,8 @@ export const composerHelp: Record<string, HelpEntry> = {
           Each ref shows a chip with a <C>×</C> to remove it. Your chat message
           stays compact (the raw <C>@file:…</C> text); the expanded blocks ride
           the model prompt under a <C>--- Context (…) ---</C> header and are
-          logged to the event stream. <C>@url:…</C> is recognized but{' '}
+          logged to the event stream. Media counts toward the aggregate context budget.
+          Unsupported binary files produce a note. <C>@url:…</C> is recognized but{' '}
           <strong>not yet supported</strong> (it expands to a deferral notice:
           a safe SSRF-guarded fetch is a separate sub-phase).
         </p>
@@ -655,7 +657,7 @@ export const composerHelp: Record<string, HelpEntry> = {
         <p>
           Session-local and reversible: reverts to <C>full</C> on reload.
           Claude-native only. Read refuses special files and reads in bounded chunks.
-          Use offset and limit for later text lines. Native Read shows fitted images and PDFs, extracts Office and notebook content, and explains unsupported files. Use pages for document ranges. AVIF is fitted like other images. ICO uses its largest image; SVG provides source text and a fitted preview without scripts, external resources or system fonts. JavaScript Grep reports shortened long lines.
+          Use offset and limit for later text lines. Native Read shows fitted images and PDFs, extracts Office and notebook content, and explains unsupported files. Use pages for document ranges. AVIF is fitted like other images. ICO uses its largest image; SVG provides source text and a fitted preview without scripts, external resources or system fonts. Grep skips binary files, searches UTF-8, UTF-16 and Windows-1252 text, and reports shortened long lines.
         </p>
       </>
     ),

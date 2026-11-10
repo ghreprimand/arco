@@ -298,6 +298,7 @@ export const powerFeatures: Section[] = [
   body: (
   <>
   <p>The fitted view stays inside the panel when interface text size changes. Cluster capture controls target the member in view and use the selected capture viewport. Capture controls are disabled when no sender is available.</p>
+  <p>ATTACH TO REVIEW sends the capture report and available screenshot to a read-only reviewer. An image-capable model can inspect the screenshot; other models use the report.</p>
   <p>
   The <strong>PREVIEW</strong> tab shows the workflow's dev server (Vite, Next,
   Astro, Nuxt, plain Node and so on) inside Arco, so the agent's output is

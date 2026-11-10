@@ -393,9 +393,12 @@ export const workspace: Section[] = [
           <Code>/compress</Code> runs Cursor&apos;s native compaction. Claude
           Code terminal-only commands (<Code>/login</Code>,{' '}
           <Code>/clear</Code>, <Code>/model</Code>, ...) are intercepted with a
-          hint instead of wasting a turn. Context references such as{' '}
+          hint instead of wasting a turn.
+        </p>
+        <p>
+          Context references such as{' '}
           <Code>@file:src/x.ts</Code>, <Code>@diff</Code>, <Code>@staged</Code>{' '}
-          and <Code>@git:N</Code> expand into the prompt. File references read at most 64 KiB and refuse special files. Larger files show a truncation notice.
+          and <Code>@git:N</Code> expand into the prompt. File references refuse special files and cap text at 64 KiB. Supported documents and notebook cells become text; supported media uses the attachment path. Unsupported binary files produce a note. Text and media share the aggregate reference budget.
         </p>
         <p>
           <strong>Attachments:</strong> drop files anywhere on the window, paste

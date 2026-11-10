@@ -179,6 +179,7 @@ export function runReviewer(
     // input below "## Content to review". Caller is responsible for the
     // turn layout, code fences, and any git-diff block layering.
     content: string;
+    attachments?: string[];
     // docs/GOTCHAS.md - the source tab's north-star, inherited so the
     // reviewer judges the work against the session's standing objective. Unlike
     // outputStyle (forced 'normal' below), the north-star is deliberately passed
@@ -263,6 +264,7 @@ export function runReviewer(
       },
       {
         cwd: ctx.cwd,
+        attachments: args.attachments,
         workflowId: ctx.workflowId,
         // Reviewer is read-only. Claude gates via the `tools` allow-list set
         // above; Codex gates via `-s read-only` (sandbox); Ollama gates via the

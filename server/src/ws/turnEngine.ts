@@ -23,7 +23,7 @@ import { compactionsThisConversation } from '../compactionCounter.js';
 import { WebSocket } from 'ws';
 import { discoverClaudeMdFiles } from '../claudeMdDiscovery.js';
 import { buildKnowledgeBlock } from '../knowledge/store.js';
-import { expandContextRefs } from '../contextRefs.js';
+import { expandContextRefs, type ContextExpansion } from '../contextRefs.js';
 import { refsDoctrine } from '../planRefContext.js';
 import { createCheckpoint } from '../gitSnapshots.js';
 import { summarizeTurnChanges, timelyCheckpoint, shouldCaptureTurn } from '../turnChanges.js';
@@ -1552,7 +1552,7 @@ export async function handleUserMessage(
   // for queued). A system_notice summarizes the expansion so it's visible +
   // reviewable in events.jsonl (the four-question test). Never throws — the
   // expander converts every failure to a notice.
-  const contextExpansion = !projectContextEnabled || fromQueue
+  const contextExpansion: ContextExpansion = !projectContextEnabled || fromQueue
     ? { block: '', notices: [], expandedCount: 0 }
     : await expandContextRefs(cwd, content, { windowSize: lookupCtx(wf.primary.model) }).catch((err) => {
     console.error(`[arco] [${workflowId.slice(0, 8)}] context-ref expansion failed:`, err);
@@ -1569,6 +1569,7 @@ export async function handleUserMessage(
     });
   }
   let expandedContext = contextExpansion.block || undefined;
+  const contextAttachments = contextExpansion.attachments ?? [];
 
   const editPickedSkills = Array.isArray(pickedSkills)
     ? pickedSkills.filter(p => p && ['project', 'global', 'builtin'].includes(p.scope) && typeof p.slug === 'string' && p.slug.length > 0)
@@ -1625,7 +1626,8 @@ export async function handleUserMessage(
       content: '[INTERRUPT & SEND] No interruptible Claude or Codex primary turn is running. Your message is queued as a follow-up.',
     });
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
-    const queuedItem = { automaticKind: opts?.automaticKind, content, attachments: isolatedMember ? undefined : attachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
+    const queuedAttachments = [...new Set([...(attachments ?? []), ...contextAttachments])];
+    const queuedItem = { automaticKind: opts?.automaticKind, content, attachments: isolatedMember || !queuedAttachments.length ? undefined : queuedAttachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
     arr.push(queuedItem);
     opts?.onBusyQueued?.();
     send(ws, {
@@ -1754,7 +1756,8 @@ export async function handleUserMessage(
   if (opts?.backgroundEvent) setComputerBackgroundClaim(workflowId, busyToken);
   let prompt: string = content;
   let promptPickedSkills = pickedSkills;
-  let promptAttachments: string[] | undefined = isolatedMember ? undefined : attachments;
+  const initialAttachments = [...new Set([...(attachments ?? []), ...contextAttachments])];
+  let promptAttachments: string[] | undefined = isolatedMember || !initialAttachments.length ? undefined : initialAttachments;
   let promptClientMessageId: string | undefined = clientMessageId;
   // §D1 — expanded `@`-context-refs for the current iteration's prompt. First
   // iteration uses the immediate-send expansion; drain iterations rebuild it

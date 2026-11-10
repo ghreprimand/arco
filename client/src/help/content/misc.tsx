@@ -233,6 +233,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>Claude Native Read shows fitted images and document ranges, including in Task helpers. The card names the file, type, dimensions or pages. Use <C>pages</C> for PDF pages, sheets, slides, notebook cells or Word sections. Office files become text, scanned pages become images, and unsupported binaries receive a note. No converter installation is needed. UTF-8 and byte-order-marked UTF-16 text are recognized.</p><p>AVIF is fitted like other images. ICO uses its largest image. SVG supplies source text and a fitted preview without scripts, external resources or system fonts. Text requiring a font may be absent from the preview.</p>
       <p>Attachments and MCP file results use the same decoder. After reload or compaction, use Read again for exact file detail; saved context keeps receipts rather than pixels.</p>
       <p>Claude Native and local-model Glob can return a directory alias for a directory-only pattern such as <C>src-link/</C>. The alias must resolve within the project and pass the path checks. Glob does not walk through directory aliases.</p>
+      <p>JavaScript Grep skips binary files and invalid UTF-8. Native ripgrep omits output lines that cannot be decoded safely.</p>
       </>
     ),
     manualSection: 'tool-pills',
@@ -383,8 +384,9 @@ export const miscHelp: Record<string, HelpEntry> = {
         the capture report plus a framing line: the current agent reads the
         actual report when you send. <C>ATTACH TO REVIEW</C> fires a Review over
         the report (reusing this tab's primary provider/model/effort): a
-        read-only reviewer judges the running UI from the captured evidence and
-        files a verdict in the REVIEW tab.
+        read-only reviewer receives the report and screenshot, if available,
+        and files a verdict in the REVIEW tab. A model with image support can
+        inspect the screenshot; other models use the report.
       </p>
     ),
     manualSection: 'preview-tab',
