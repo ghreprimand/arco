@@ -2186,7 +2186,9 @@ model metadata when available; Strata and DeepSeek use their reported model
 capabilities. An unknown or text-only model receives a clear image note.
 MCP image results follow the same capability checks.
 
-Codex enables its local image tool on both transports. Cursor ACP exposes the
+Codex enables its local image tool on both transports. Arco inspects `codex
+features list`: CLIs advertising `view_image` receive `features.view_image=true`;
+older CLIs retain `tools.view_image=true`. The probe is cached for one minute. Cursor ACP exposes the
 file reader in solo and cluster tabs and avoids decoding binary bytes in its
 text-file callback. Cursor print uses a temporary read-only file-reader plugin,
 keeps ask mode and the original workflow folder, and removes the plugin when

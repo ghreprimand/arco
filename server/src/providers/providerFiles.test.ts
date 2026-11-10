@@ -1,3 +1,4 @@
+import { codexImageToolConfig, installedCodexImageToolKey } from './codexImageTool.js';
 import assert from 'node:assert/strict';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -157,7 +158,7 @@ test('Claude CLI, Codex exec and Cursor print receive decoded document text and 
     if(kind==='claude'){
      const payload=JSON.parse(input);assert.ok(payload.message.content.some((b:any)=>b.type==='image'&&b.source.data.length));
     }else if(kind==='codex'){
-     assert.ok(captured.args.includes('tools.view_image=true'));
+     assert.ok(captured.args.includes(`${installedCodexImageToolKey()}=true`));
      const image=captured.args[captured.args.indexOf('-i')+1];assert.notEqual(image,join(cwd,'picture.data'));assert.ok((await readFile(image)).length);
     }else{
      assert.equal(captured.args[captured.args.indexOf('--mode')+1],'ask');assert.equal(captured.options.cwd,cwd);
@@ -180,7 +181,7 @@ test('Codex app-server uses fitted localImage and decoded document attachment in
   await worker.beginTurn('Inspect');
   assert.match(request.p.input.find((i:any)=>i.type==='text').text,/Appserver document/);
   assert.ok((await readFile(request.p.input.find((i:any)=>i.type==='localImage').path)).length);
-  assert.deepEqual((await buildThreadConfigOverrides(config)).tools,{view_image:true});
+  assert.deepEqual((await buildThreadConfigOverrides(config))[installedCodexImageToolKey().split('.')[0]],{view_image:true});
  }finally{await rm(cwd,{recursive:true,force:true});}
 });
 

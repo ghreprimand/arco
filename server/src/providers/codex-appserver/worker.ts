@@ -1,3 +1,4 @@
+import { codexImageToolConfig } from '../codexImageTool.js';
 import { prepareProviderAttachments, persistProviderImages } from '../providerFileContent.js';
 // Long-lived Codex app-server worker, scoped to one workflow. Turns share one
 // JSON-RPC connection; notifications stream progress, `turn/interrupt` cancels
@@ -219,7 +220,7 @@ export async function buildThreadConfigOverrides(config: WorkerConfig): Promise<
   const contextWindow = codexContextWindowOverride(config);
   return {
     web_search: webSearchMode(config),
-    tools: { view_image: true },
+    ...codexImageToolConfig(),
     ...(contextWindow ? { model_context_window: contextWindow } : {}),
   };
 }

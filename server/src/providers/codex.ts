@@ -1,3 +1,4 @@
+import { installedCodexImageToolKey } from './codexImageTool.js';
 import { prepareProviderAttachments, persistProviderImages, type PreparedAttachments } from './providerFileContent.js';
 // Codex CLI exec transport: each turn streams JSONL and can resume a session
 // by its stable UUID. The sandbox mode controls filesystem access: normal
@@ -204,7 +205,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     const args = isResume
       ? ['exec', 'resume', this.config.resumeSessionId!, '--json', '--skip-git-repo-check']
       : ['exec', '--json', '--color', 'never', '--skip-git-repo-check'];
-    args.push('-c', 'tools.view_image=true');
+    args.push('-c', `${installedCodexImageToolKey()}=true`);
     // Both flags exist on `exec resume` too. First-turn-only let a saved
     // chat's turn 2+ load the operator's config.toml — their MCP servers
     // (project tools inside Chat) and sandbox defaults.

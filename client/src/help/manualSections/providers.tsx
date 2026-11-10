@@ -454,7 +454,8 @@ export const providers: Section[] = [
   <ul>
   <li>Structured <Code>turn/interrupt</Code> cancel.</li>
   <li>Non-destructive <Code>turn/steer</Code> mid-turn input.</li>
-  <li>Local image attachments.</li>
+  <li>Local image attachments. Arco enables the image tool using the setting
+  advertised by the installed Codex CLI, with a fallback for older versions.</li>
   <li>A crash-recovery circuit breaker.</li>
   <li>Capture of blocking and async agent questions (below).</li>
   </ul>
