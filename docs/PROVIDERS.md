@@ -2199,8 +2199,10 @@ Codex enables its local image tool on both transports. Arco inspects `codex
 features list`: CLIs advertising `view_image` receive `features.view_image=true`;
 older CLIs retain `tools.view_image=true`. The probe is cached for one minute. Cursor ACP exposes the
 file reader in solo and cluster tabs and avoids decoding binary bytes in its
-text-file callback. Cursor print uses a temporary read-only file-reader plugin,
-keeps ask mode and the original workflow folder, and removes the plugin when
+text-file callback. Cursor print uses a temporary read-only plugin. Outside Chat,
+when a workflow identity is supplied, it also exposes only `plan_list`,
+`plan_ref_list` and `plan_ref_read` through a separate plan server. It receives
+no plan writers, cluster board tools or configured registry tools. It keeps ask mode and the original workflow folder, and removes the plugin when
 the subprocess ends. It does not change saved Cursor MCP configuration or
 approve unrelated MCP servers.
 

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Give Cursor read-only reviewers plan listing and reference readers without adding plan writers or board tools.
+
 - Add workflow plan creation, attachment, listing and reference tools to Claude Native and local-provider Agent tabs.
 
 - Give local-provider cluster members the eleven board tools when standard access and an attached board allow them.

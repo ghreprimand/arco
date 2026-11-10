@@ -1359,7 +1359,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         <C> + REF</C> adds one; the viewer edits or deletes it. Agents write refs
         with <C>plan_ref_write</C>, and are told to read the refs a task links
         before working it. Reference deletion through HTTP requires the operator browser session; agent reference reads and writes remain available.
-       Lists follow the selected plan. Opening a link checks the saved document before offering creation; creating a ref never replaces an existing one. Fields and Cancel wait while a save is pending.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p><p>Claude Native and local-provider Agent tabs can list, read and write references through the same plan tools. Local tools require AUTO mode.</p></>
+       Lists follow the selected plan. Opening a link checks the saved document before offering creation; creating a ref never replaces an existing one. Fields and Cancel wait while a save is pending.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p><p>Claude Native and local-provider Agent tabs can list, read and write references through the same plan tools. Local tools require AUTO mode.</p><p>Cursor read-only reviewers with a workflow folder can list plans and list or read references. They cannot write plans or references through these tools.</p></>
     ),
     manualSection: 'plan-refs',
   },

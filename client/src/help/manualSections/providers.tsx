@@ -649,6 +649,9 @@ export const providers: Section[] = [
   <p>
   It can read the codebase to ground its answer but cannot write or run
   shell, and it never touches the transcript of the tab that launched it.
+  With a workflow folder and identity, it can list plans and list or read
+  their reference docs. It receives no plan writers, cluster board tools or
+  configured tool-server tools.
   </p>
   <p>Cursor COMPACT from the remote console reaches the same native compression handler as the desktop. A running turn or a missing saved session still prevents compression.</p>
   <Sub>Usage and context</Sub>
