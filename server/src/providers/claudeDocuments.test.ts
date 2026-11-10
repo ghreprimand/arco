@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import childProcess from 'node:child_process';
@@ -76,7 +76,7 @@ test('PDF attachment preparation shares the page budget and keeps text fallback 
     assert.equal(textOnly.documents.length, 0);
     assert.match(textOnly.text, /Fixture page 1/);
     const { readFileContent } = await import('../fileContent.js');
-    const limited = await readFileContent(paths[2], { limits: { documents: true, maxDocumentBase64Bytes: 1 } });
+    const limited = await readFileContent(await realpath(paths[2]), { limits: { documents: true, maxDocumentBase64Bytes: 1 } });
     assert.ok(!limited.blocks.some(block => block.type === 'document'));
     assert.match(limited.text, /document byte limit/);
     assert.match(limited.text, /Fixture page 1/);
@@ -120,4 +120,28 @@ test('images and PDFs share one message byte budget regardless of attachment ord
       assert.match(prepared.text, /Fixture budget fallback text/);
     }
   } finally { await rm(cwd, { recursive: true, force: true }); }
+});
+
+test('PDF attachments work through linked project and home upload parents', async () => {
+  const { prepareProviderAttachments } = await import('./providerFileContent.js');
+  const { ensureStorageRoot } = await import('../storageRoot.js');
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'arco-linked-pdf-')));
+  try {
+    const home = join(root, 'home'), linkedHome = join(root, 'linked-home');
+    await mkdir(join(home, 'project'), { recursive: true });
+    await mkdir(join(home, '.arco'), { recursive: true });
+    await symlink(home, linkedHome, process.platform === 'win32' ? 'junction' : 'dir');
+    const uploads = await ensureStorageRoot(join(linkedHome, '.arco', 'uploads'));
+    const projectPdf = join(linkedHome, 'project', 'report.pdf');
+    const uploadPdf = join(linkedHome, '.arco', 'uploads', 'report.pdf');
+    const bytes = await pdf(1);
+    await writeFile(projectPdf, bytes);
+    await writeFile(join(uploads, 'report.pdf'), bytes);
+    for (const path of [projectPdf, uploadPdf]) {
+      const prepared = await prepareProviderAttachments([path], true, undefined, true);
+      assert.equal(prepared.documents.length, 1, 'linked attachment must reach the model as a PDF');
+      assert.equal(prepared.documents[0].pages, 1);
+      assert.doesNotMatch(prepared.text, /\[error\]|outside the permitted roots/);
+    }
+  } finally { await rm(root, { recursive: true, force: true }); }
 });
