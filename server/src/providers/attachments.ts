@@ -1,3 +1,4 @@
+import { managedUploadPath } from '../uploadImages.js';
 import { readFileContent, fileHeaderKind, isSvgPrefix } from '../fileContent.js';
 import { readRegularPrefix } from '../boundedRead.js';
 // Shared operator-attachment helpers for providers that don't carry their own
@@ -95,7 +96,8 @@ export function attachmentDirs(paths: string[] | undefined): string[] {
 }
 
 // Model-side image fitting uses the shared portable decoder. Original uploads
-// remain intact; compatible derived siblings serve model input on every OS.
+// are optimized at upload time; compatible derived siblings serve model input
+// on every OS without further changes to the retained upload.
 export const MODEL_IMAGE_MAX_EDGE = 2000;
 // Anthropic's 5 MB cap is on the base64 string: 3.75 MB raw.
 export const MODEL_IMAGE_MAX_RAW_BYTES = Math.floor((5 * 1024 * 1024) / 4) * 3;
@@ -113,7 +115,7 @@ function siblingPaths(path: string): string[] {
 // The upload caller owns the directory; on-demand callers are still fenced
 // to uploads below. Read tools never call this sibling-writing adapter.
 export async function deriveModelImage(path: string): Promise<string | null> {
-  if (!isDerivable(path)) return null;
+  if (!isDerivable(path) || !managedUploadPath(path)) return null;
   let tmp: string | undefined;
   try {
     const canonical = realpathSync(path);
@@ -130,11 +132,13 @@ export async function deriveModelImage(path: string): Promise<string | null> {
     const suffix = image.mediaType === 'image/jpeg' ? '.jpg' : '.png';
     const out = `${path}${MODEL_TAG}${suffix}`;
     tmp = `${out}.tmp-${process.pid}-${Math.random().toString(36).slice(2,8)}`;
+    if (!managedUploadPath(path)) return null;
     await writeFile(tmp, Buffer.from(image.data,'base64'), {flag:'wx',mode:0o600});
+    if (!managedUploadPath(path) || !managedUploadPath(tmp)) return null;
     await rename(tmp,out);
     return out;
   } catch { return null; }
-  finally { if(tmp) await unlink(tmp).catch(()=>{}); }
+  finally { if(tmp && managedUploadPath(tmp)) await unlink(tmp).catch(()=>{}); }
 }
 
 const inflight = new Map<string, Promise<string | null>>();

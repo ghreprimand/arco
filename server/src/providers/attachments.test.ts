@@ -1,14 +1,20 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'child_process';
-import { existsSync, mkdtempSync, readdirSync, statSync, writeFileSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, mkdirSync, realpathSync, readdirSync, statSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { homedir, tmpdir } from 'os';
-import {
+import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
+const home = realpathSync(mkdtempSync(join(tmpdir(), 'arco-attachments-')));
+installIsolatedTestHome(home);
+const uploadRoot = join(home, 'uploads'); mkdirSync(uploadRoot);
+process.env.ARCO_UPLOADS_DIR = uploadRoot;
+after(() => rmSync(home, { recursive: true, force: true }));
+const {
   attachmentDirs, loadImages, splitAttachmentPaths, withAttachmentRefs, IMAGE_MAX_BYTES,
   deriveModelImage, modelImagePath, awaitModelImage, queueModelImage, __resetModelImageStateForTests,
   MODEL_IMAGE_MAX_EDGE, MODEL_IMAGE_MAX_RAW_BYTES,
-} from './attachments.js';
+} = await import('./attachments.js');
 
 test('split + refs: images by extension, refs fold in the shared shape', () => {
   const s = splitAttachmentPaths(['/u/a.PNG', '/u/b.md', '/u/c.jpeg']);
@@ -19,7 +25,7 @@ test('split + refs: images by extension, refs fold in the shared shape', () => {
 });
 
 test('loadImages: base64 + mime; empty, oversized and missing files skipped with a reason', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
+  const dir = mkdtempSync(join(uploadRoot, 'arco-att-'));
   try {
     const ok = join(dir, 'ok.png');
     const empty = join(dir, 'empty.png');
@@ -66,7 +72,7 @@ function dims(path: string): [number, number] {
 
 test('deriveModelImage: 3000x1000 PNG -> .model.png sibling fitted to 2000px; original untouched', { skip: skipNoMagick }, async () => {
   __resetModelImageStateForTests();
-  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
+  const dir = mkdtempSync(join(uploadRoot, 'arco-att-'));
   try {
     // ':' in the name — ImageMagick must not read it as a format prefix.
     // Windows forbids ':' in file names (it names an NTFS stream), so there
@@ -93,7 +99,7 @@ test('deriveModelImage: 3000x1000 PNG -> .model.png sibling fitted to 2000px; or
 
 test('deriveModelImage: small PNG needs no copy; modelImagePath falls back to the original', { skip: skipNoMagick }, async () => {
   __resetModelImageStateForTests();
-  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
+  const dir = mkdtempSync(join(uploadRoot, 'arco-att-'));
   try {
     const src = join(dir, 'small.png');
     gen(src, ['-size', '400x300', 'xc:white']);
@@ -114,7 +120,7 @@ test('deriveModelImage: small PNG needs no copy; modelImagePath falls back to th
 
 test('deriveModelImage: over-cap PNG within 2000px re-encodes to JPEG; loadImages sends it as image/jpeg', { skip: skipNoMagick }, async () => {
   __resetModelImageStateForTests();
-  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
+  const dir = mkdtempSync(join(uploadRoot, 'arco-att-'));
   try {
     const src = join(dir, 'noisy.png');
     gen(src, ['-size', '1900x1900', 'xc:', '+noise', 'Random']);
@@ -133,7 +139,7 @@ test('deriveModelImage: over-cap PNG within 2000px re-encodes to JPEG; loadImage
 
 test('queueModelImage + awaitModelImage: awaits the in-flight derivation', { skip: skipNoMagick }, async () => {
   __resetModelImageStateForTests();
-  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
+  const dir = mkdtempSync(join(uploadRoot, 'arco-att-'));
   try {
     const src = join(dir, 'tall.jpg');
     gen(src, ['-size', '800x2600', 'gradient:white-black']);
@@ -145,7 +151,7 @@ test('queueModelImage + awaitModelImage: awaits the in-flight derivation', { ski
 });
 
 test('deriveModelImage: failure paths return null, never throw', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'arco-att-'));
+  const dir = mkdtempSync(join(uploadRoot, 'arco-att-'));
   try {
     __resetModelImageStateForTests();
     // Not an image by content / missing file.
@@ -165,7 +171,7 @@ test('deriveModelImage: failure paths return null, never throw', async () => {
 
 
 test('deriveModelImage renders an SVG attachment identified by content', async () => {
-  const dir = mkdtempSync(join(tmpdir(), 'arco-att-svg-'));
+  const dir = mkdtempSync(join(uploadRoot, 'arco-att-svg-'));
   try {
     const src = join(dir, 'diagram.data');
     writeFileSync(src, '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="red"/></svg>');

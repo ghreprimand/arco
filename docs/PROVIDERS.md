@@ -1296,8 +1296,9 @@ Stateless local replay keeps the brief and later exchanges after a completed han
 **Image fitting.** `providers/attachments.ts` uses the shared portable decoder
 for upload copies. It fits images within 2,000 pixels per side and 5 MB base64,
 including large GIFs. ImageMagick and macOS sips are optional accelerators.
-Original files and their text references remain unchanged; derived copies use
-PNG or JPEG as needed. Path-based adapters select a copy through
+Project files and their text references remain unchanged; derived model copies use
+PNG or JPEG as needed. Managed JPEG and PNG uploads follow the replacement
+policy below before model fitting. Path-based adapters select a copy through
 `modelImagePath` or `awaitModelImage`. Claude Native prepares typed attachment
 content through `readFileContent` directly. See
 [Native file reads and attachments](#native-file-reads-and-attachments) for
@@ -2256,3 +2257,13 @@ The schemas, descriptions, structure checks, reference slug validation and REST 
 ### MCP response media accounting
 
 The MCP reader retains up to 20 decoded image blocks per tool response; PDF resources are decoded to text and scanned-page images. Encoded text resources use the bounded text path and do not consume that media count. A PDF document block can contain several pages; provider request guards count its actual pages separately. Source decoding remains bounded to 100 response entries and the per-source byte limit.
+
+### Uploaded image storage
+
+Uploaded JPEG and PNG files over 1 MiB (1,048,576 bytes) or 2,000 pixels on their long edge are optimized inside Arco's managed uploads folder. A successfully written, decoded and dimension-checked smaller file replaces the larger upload at the same path. The larger uploaded copy is deleted by that replacement; messages, event logs, saved file context and handoff/replay references continue to resolve. Arco does not keep a full-size upload backup.
+
+Source format determines encoding: JPEG photos stay JPEG at quality 90, retaining EXIF orientation metadata; PNG screenshots stay PNG. PNG pixels are reduced only above the 2,000-pixel edge limit. Images are never enlarged. Files at or below both thresholds stay byte-identical. A failed write, verification or replacement, or an encoded result that is not smaller, leaves the upload untouched.
+
+Only regular files beneath the managed uploads folder qualify. Symlinked files, linked folders, escaping realpaths and files outside that folder are refused. Project images read through Read, file references or a request to inspect a path are never rewritten, replaced or deleted, and no copy is written beside them. PDF, Word and other non-image uploads are unchanged. Other image formats retain the existing model-copy behavior without replacing their uploaded originals.
+
+Animated and 16-bit PNG uploads remain unchanged. The smaller copy keeps the picture, but PNG text chunks and colour profiles, and JPEG metadata other than EXIF, are not carried over. When the uploads folder is reached through a linked folder, nothing is shrunk and uploads stay as sent.

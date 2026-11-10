@@ -1,3 +1,4 @@
+import { shrinkUploadedImage } from '../uploadImages.js';
 import { ensureStorageRoot, UnsafeStorageRootError } from '../storageRoot.js';
 import { requireProjectBinding } from './projectBinding.js';
 import { tryHandleStorageRoutes } from './storageRoutes.js';
@@ -399,8 +400,10 @@ export async function handleHttpRequest(
       const savePath = join(uploadRoot, `${fileId}-${filename}`);
       await writeFile(savePath, body, { flag: 'wx' });
       console.log(`[arco] File uploaded: ${filename} -> ${savePath}`);
-      // Model-side downscale runs in the background; providers await it
-      // (bounded) at turn start. The original stays byte-for-byte as sent.
+      // Finish upload-only replacement before publishing the stable path.
+      // Failure retains the original; project files never enter this path.
+      await shrinkUploadedImage(savePath);
+      // Other formats still use a separate model-compatible copy.
       queueModelImage(savePath);
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ fileId, filename, path: savePath }));

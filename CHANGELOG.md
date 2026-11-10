@@ -5,6 +5,9 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Replace oversized managed JPEG and PNG uploads with verified smaller images at the same path; keep project files untouched.
+
+
 - Keep streamed replies together when an existing tool call completes or fails mid-sentence.
 - Send Claude PDF attachments and reads as text and scanned-page images by default, with selected visual pages on request.
 - Keep dialog footer actions clear of the bottom-right resize grip.

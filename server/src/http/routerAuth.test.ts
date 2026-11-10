@@ -1,6 +1,7 @@
+import { PNG } from 'pngjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -14,15 +15,16 @@ import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
 
 const root = mkdtempSync(path.join(tmpdir(), 'arco-router-auth-'));
 installIsolatedTestHome(root);
+process.env.ARCO_UPLOADS_DIR = path.join(root, 'uploads');
 delete process.env.ARCO_WS_AUTH;
 
 interface Reply { status: number; body: string; headers: Record<string, string> }
-function request(method: string, url: string, body = '', headers: Record<string, string> = {}): IncomingMessage {
+function request(method: string, url: string, body: string | Buffer = '', headers: Record<string, string> = {}): IncomingMessage {
   const req = Readable.from(body ? [Buffer.from(body)] : []) as unknown as IncomingMessage;
   Object.assign(req, { method, url, headers: { host: '127.0.0.1:3001', ...headers }, socket: { remoteAddress: '127.0.0.1', remotePort: 1 } });
   return req;
 }
-async function send(method: string, url: string, body = '', headers: Record<string, string> = {}, transport: { encrypted?: boolean; remoteAddress?: string } = {}): Promise<Reply> {
+async function send(method: string, url: string, body: string | Buffer = '', headers: Record<string, string> = {}, transport: { encrypted?: boolean; remoteAddress?: string } = {}): Promise<Reply> {
   const { handleHttpRequest } = await import('./router.js');
   let status = 200, out = '';
   const replyHeaders: Record<string, string> = {};
@@ -134,4 +136,23 @@ test.after(() => { rmSync(root, { recursive: true, force: true }); setImmediate(
   }
   const http = await send('POST', '/api/session', '', { ...metadata, host: 'localhost:3001', origin: 'http://localhost:3001', 'x-forwarded-proto': 'https' });
   assert.equal(http.status, 204); assert.doesNotMatch(http.headers['set-cookie'], /; Secure(?:;|$)/);
+});
+
+
+test('upload returns a stable reference after verified image replacement', async () => {
+  const { mintToken, SESSION_COOKIE } = await import('./wsAuth.js');
+  const { awaitModelImage } = await import('../providers/attachments.js');
+  const image = new PNG({ width: 3000, height: 100 }); image.data.fill(255);
+  const original = PNG.sync.write(image);
+  const reply = await send('POST', '/upload', original, {
+    cookie: `${SESSION_COOKIE}=${mintToken()}`, 'x-filename': 'wide.png', 'content-type': 'image/png',
+  });
+  assert.equal(reply.status, 200, reply.body);
+  const saved = JSON.parse(reply.body);
+  assert.equal(saved.filename, 'wide.png');
+  const bytes = readFileSync(saved.path);
+  assert.ok(bytes.length < original.length);
+  const decoded = PNG.sync.read(bytes);
+  assert.deepEqual([decoded.width, decoded.height], [2000, 67]);
+  assert.equal(await awaitModelImage(saved.path, 10000), saved.path);
 });
