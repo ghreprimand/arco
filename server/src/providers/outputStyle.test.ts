@@ -13,6 +13,7 @@ import { delimiter, join } from 'node:path';
 import type { WorkerConfig } from '@arco/shared';
 import { outputStyleAddendum } from './outputStyle.js';
 import { goalBlock } from './goalBlock.js';
+import { FILE_READ_GUIDANCE } from './providerFileContent.js';
 
 const PLAIN = outputStyleAddendum('plain')!;
 const TERSE = outputStyleAddendum('terse')!;
@@ -152,10 +153,12 @@ test('Claude SAFE grants only built-in reads and retains configured tools', { ti
 test('Codex exec: the addendum closes the prompt prefix before the separator', { timeout: 30_000 }, async () => {
   const { CodexProvider } = await import('./codex.js');
   const run = await cliRun(CodexProvider.create, cfg('codex', { outputStyle: 'plain', appendSystemPrompt: 'APPENDED' }));
-  assert.ok(run.stdin.startsWith(`APPENDED\n\n${PLAIN}\n\n---\n\n`), run.stdin);
+  assert.ok(run.stdin.startsWith(`APPENDED\n\n${FILE_READ_GUIDANCE}\n\n${PLAIN}\n\n---\n\n`), run.stdin);
   assert.ok(run.stdin.endsWith('PROMPT-BODY'));
   const none = await cliRun(CodexProvider.create, cfg('codex', {}));
-  assert.equal(none.stdin, 'PROMPT-BODY');
+  assert.equal(none.stdin, `${FILE_READ_GUIDANCE}\n\n---\n\nPROMPT-BODY`);
+  const chat = await cliRun(CodexProvider.create, cfg('codex', { interactionMode: 'chat' }));
+  assert.equal(chat.stdin, 'PROMPT-BODY');
 });
 
 test('Codex app-server: the addendum closes the prefix of the turn input', async () => {
