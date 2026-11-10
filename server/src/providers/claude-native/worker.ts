@@ -3818,6 +3818,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
     let resultText: string;
     let toolOutcome: NativeToolOutcome | undefined;
+    let decodedPdfReceipt: string | undefined;
     let isError = false;
     // §E1 (E1-Native) — decoded once; the registry branch below uses it.
     const registryTool = parseRegistryToolName(block.name);
@@ -3834,7 +3835,8 @@ export class ClaudeNativeWorker extends EventEmitter {
           pages: typeof input.pages === 'string' ? input.pages : undefined,
           offset: typeof input.offset === 'number' ? input.offset : undefined,
           limit: typeof input.limit === 'number' ? input.limit : undefined,
-          limits: { images: true, documents: true },
+          pdfMode: input.pdf_mode === 'visual' ? 'visual' : undefined,
+          limits: { images: true, documents: input.pdf_mode === 'visual' },
         });
         toolOutcome = await this.admitMedia(pendingResults, nativeFileOutcome(result));
         resultText = toolOutcome.text;
@@ -3893,6 +3895,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       } else {
         try {
           const r = await session.callTool(registryTool.tool, input);
+          decodedPdfReceipt = r.pdfReceipt;
           toolOutcome = r.blocks ? await this.admitMedia(pendingResults, nativeFileOutcome({ text: r.text, blocks: r.blocks, kind: 'tool', truncated: false, isError: r.isError })) : undefined;
           resultText = toolOutcome?.text ?? r.text;
           isError = toolOutcome?.isError ?? r.isError;
@@ -3952,7 +3955,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     }), { text: resultText, isError });
     if (done.stop !== undefined) this.hookStopRequested = done.stop;
     const media = !done.isError ? toolOutcome?.content?.filter(b => b.type === 'image' || b.type === 'document') : undefined;
-    const mediaReceipt = media?.length ? media.map(b => b.type === 'document' ? `document: ${b.title ?? 'tool document'} (${b.arcoPages ?? 'unknown'} pages)` : `image: ${b.source.media_type}`).join('; ') : undefined;
+    const mediaReceipt = media?.length ? media.map(b => b.type === 'document' ? `document: ${b.title ?? 'tool document'} (${b.arcoPages ?? 'unknown'} pages)` : `image: ${b.source.media_type}`).join('; ') : decodedPdfReceipt;
     this.emitToolActivity(block, input, done.isError ? 'failed' : 'completed', done.text, mediaReceipt);
     return { text: done.text, isError: done.isError, ...(toolOutcome?.content && !done.isError ? { content: [{ type: 'text' as const, text: done.text }, ...toolOutcome.content.filter(b => b.type !== 'text')] } : {}) };
   }

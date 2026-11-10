@@ -136,10 +136,11 @@ export function buildClaudeServerTools(webSearchMaxUses?: number): ClaudeNativeT
   return [
     {
       name: 'read_url',
-      description: 'Read a public HTTP(S) file URL. Images are fitted for vision; PDFs are returned as documents; office files and notebooks become text. Use pages for a page, sheet, slide or cell range, and offset/limit for text lines. Use web_fetch for web pages and citations.',
+      description: 'Read a public HTTP(S) file URL. Images are fitted for vision; PDFs return text and scanned-page images; office files and notebooks become text. Use pages for a page, sheet, slide or cell range; use pdf_mode="visual" with pages for PDF layout, charts, figures or forms. Use offset/limit for text lines. Use web_fetch for web pages and citations.',
       input_schema: { type: 'object', properties: {
         url: { type: 'string', description: 'Public HTTP(S) file URL.' },
         pages: { type: 'string', description: 'One-based page, sheet, slide or cell range, for example 2-4.' },
+        pdf_mode: { type: 'string', enum: ['text', 'visual'], description: 'Visual PDF pages for layout, figures or forms; specify pages.' },
         offset: { type: 'number', description: 'One-based first text line.' },
         limit: { type: 'number', description: 'Maximum text lines.' },
       }, required: ['url'] },

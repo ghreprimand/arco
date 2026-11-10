@@ -203,7 +203,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
 
   private _launch(): void {
     if (!this._resumeOnRetry && this.config.attachments?.length) {
-      void prepareProviderAttachments(this.config.attachments, true, undefined, true).then((prepared) => {
+      void prepareProviderAttachments(this.config.attachments, true, undefined, false).then((prepared) => {
         if (this._status === 'failed' || this._status === 'completed') return;
         this._launchPrepared(prepared);
       }).catch((error) => { this._status = 'failed'; this.emit('error', String(error)); });

@@ -7,17 +7,18 @@ import { fetchFileContent } from '../fileFetch.js';
 export function registerFileTools(server: McpServer, cwd: string): void {
   server.registerTool('read_file', {
     title: 'Read an image or document',
-    description: 'Read a workflow file. Images are fitted and returned as images; PDFs, Word, Excel, PowerPoint, OpenDocument, RTF and notebooks become text. Other binaries return a note. No extra software is required. Use pages to select PDF pages, spreadsheet sheets, presentation slides or notebook cells.',
+    description: 'Read a workflow file. Images are fitted and returned as images; PDFs, Word, Excel, PowerPoint, OpenDocument, RTF and notebooks become text. Other binaries return a note. No extra software is required. Use pages to select PDF pages, spreadsheet sheets, presentation slides or notebook cells. For PDF layout, charts, figures or forms set pdf_mode to visual and provide pages.',
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: {
       file_path: z.string().min(1),
       pages: z.string().optional().describe('1-based unit range, for example 1-3,5.'),
+      pdf_mode: z.enum(['text', 'visual']).optional().describe('Use visual with pages to inspect PDF layout, figures or forms.'),
       offset: z.number().int().positive().optional(),
       limit: z.number().int().positive().optional(),
     },
-  }, async ({ file_path, pages, offset, limit }) => {
+  }, async ({ file_path, pages, pdf_mode, offset, limit }) => {
     try {
-      const result = await readFileContent(resolveToolPath(cwd, file_path), { pages, offset, limit, limits: { images: true, documents: false, maxTextBytes: 32 * 1024, maxImages: 8, maxImageBase64Bytes: 2 * 1024 * 1024 } });
+      const result = await readFileContent(resolveToolPath(cwd, file_path), { pages, pdfMode: pdf_mode === 'visual' ? 'images' : undefined, offset, limit, limits: { images: true, documents: false, maxTextBytes: 32 * 1024, maxImages: 8, maxImageBase64Bytes: 2 * 1024 * 1024 } });
       const content: Array<{type:'text';text:string}|{type:'image';data:string;mimeType:string}> = [];
       for (const block of result.blocks) {
         if (block.type === 'image') content.push({type:'image',data:block.data,mimeType:block.mediaType});
@@ -30,14 +31,15 @@ export function registerFileTools(server: McpServer, cwd: string): void {
   });
   server.registerTool('fetch_file', {
     title: 'Fetch a public image or document',
-    description: 'Fetch an http(s) URL through Arco. Images are fitted and returned visually; PDF pages, Office documents and notebooks provide decoded text. Scanned PDF pages become images. Other binaries return a note. Public hosts only; redirects, resolved addresses, bytes and time are checked. Use pages for a selected range.',
+    description: 'Fetch an http(s) URL through Arco. Images are fitted and returned visually; PDF pages, Office documents and notebooks provide decoded text. Scanned PDF pages become images. Other binaries return a note. Public hosts only; redirects, resolved addresses, bytes and time are checked. Use pages for a selected range; set pdf_mode to visual with pages to inspect PDF layout, figures or forms.',
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: {
       url: z.string().min(1),
       pages: z.string().optional().describe('1-based document range, for example 1-3,5.'),
+      pdf_mode: z.enum(['text', 'visual']).optional().describe('Use visual with pages to inspect PDF layout, figures or forms.'),
     },
-  }, async ({ url, pages }) => {
-    const result = await fetchFileContent(url, { pages, limits: { images: true, documents: false, maxTextBytes: 32 * 1024, maxImages: 8, maxImageBase64Bytes: 2 * 1024 * 1024 } });
+  }, async ({ url, pages, pdf_mode }) => {
+    const result = await fetchFileContent(url, { pages, pdfMode: pdf_mode === 'visual' ? 'images' : undefined, limits: { images: true, documents: false, maxTextBytes: 32 * 1024, maxImages: 8, maxImageBase64Bytes: 2 * 1024 * 1024 } });
     const content: Array<{ type: 'text'; text: string } | { type: 'image'; data: string; mimeType: string }> = [{ type: 'text', text: `Source: ${result.url}` }];
     for (const block of result.blocks) {
       if (block.type === 'image') content.push({ type: 'image', data: block.data, mimeType: block.mediaType });

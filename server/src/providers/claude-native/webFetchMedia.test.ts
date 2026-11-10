@@ -29,9 +29,9 @@ for(const kind of ['image','document'] as const)test(`Native URL ${kind} reaches
  const worker=fixture(),events:any[]=[];worker.on('tool_use',(event:any)=>events.push(event));
  const pdf=await PDFDocument.create();for(const text of ['First page','Second page'])pdf.addPage().drawText(text);
  const bytes=kind==='image'?png:Buffer.from(await pdf.save()),url='https://example.invalid/'+(kind==='image'?'capture.png':'report.pdf');
- let called=0;worker.fetchUrlContent=async(inputUrl:string,options:any)=>{called++;assert.equal(inputUrl,url);assert.equal(options.limits.images,true);assert.equal(options.limits.documents,true);assert.ok(options.signal instanceof AbortSignal);return {...await fileContentFromBytes(bytes,kind==='image'?'capture.png':'report.pdf',options),url};};
+ let called=0;worker.fetchUrlContent=async(inputUrl:string,options:any)=>{called++;assert.equal(inputUrl,url);assert.equal(options.limits.images,true);assert.equal(options.limits.documents,kind==='document');assert.ok(options.signal instanceof AbortSignal);return {...await fileContentFromBytes(bytes,kind==='image'?'capture.png':'report.pdf',options),url};};
  try {
-  const input={url,...(kind==='document'?{pages:'2'}:{})},result=await worker.dispatchTool({id:'url-call',name:'read_url',input});
+  const input={url,...(kind==='document'?{pages:'2',pdf_mode:'visual'}:{})},result=await worker.dispatchTool({id:'url-call',name:'read_url',input});
   assert.equal(called,1);assert.equal(result.isError,false,result.text);assert.ok(result.content?.some((b:any)=>b.type===kind));if(kind==='document'){
    const doc=result.content.find((b:any)=>b.type==='document');
    const selected=Buffer.from(doc.source.data,'base64');assert.equal((await PDFDocument.load(selected)).getPageCount(),1);
@@ -49,4 +49,10 @@ test('Native portable URL reader obeys web permission, posture and per-turn call
  const worker=fixture({interactionMode:'chat',chatWebAccess:true,webSearchMaxUses:1});let calls=0;
  worker.fetchUrlContent=async(url:string)=>{calls++;return {text:'fixture',blocks:[{type:'text',text:'fixture'}],kind:'text',truncated:false,isError:false,url};};
  try{assert.ok(worker.buildToolDefs().some((t:any)=>t.name==='read_url'));assert.equal((await worker.dispatchTool({id:'first',name:'read_url',input:{url:'https://example.invalid/page'}})).isError,false);const second=await worker.dispatchTool({id:'second',name:'read_url',input:{url:'https://example.invalid/page'}});assert.equal(second.isError,true);assert.match(second.text,/budget|limit/);assert.equal(calls,1);}finally{await worker.dispose();}
+});
+test('Native URL PDF defaults to extracted text without document media',async()=>{
+ const worker=fixture();const pdf=await PDFDocument.create();pdf.addPage().drawText('URL text fixture');const bytes=await pdf.save();
+ worker.fetchUrlContent=async(url:string,options:any)=>({...await fileContentFromBytes(bytes,'fixture.pdf',options),url});
+ try { const result=await worker.dispatchTool({id:'url-text',name:'read_url',input:{url:'https://example.invalid/fixture.pdf'}});assert.equal(result.isError,false,result.text);assert.match(result.text,/URL text fixture/);assert.ok(!result.content?.some((block:any)=>block.type==='document')); }
+ finally {await worker.dispose();}
 });

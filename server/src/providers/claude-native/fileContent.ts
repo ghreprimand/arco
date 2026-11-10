@@ -24,10 +24,11 @@ export async function nativeAttachmentContent(prompt: string, paths: readonly st
   for (const path of paths) {
     signal?.throwIfAborted();
     try {
-      const result = nativeFileOutcome(await readFileContent(await realpath(path), { signal, limits: { images: true, documents: true } }));
+      const decoded = await readFileContent(await realpath(path), { signal, limits: { images: true, documents: false } });
+      const result = nativeFileOutcome(decoded);
       const admitted = admit ? await admit(blocks, result, 'attachment') : await admitImageResult(history, blocks, result, 'attachment');
       blocks.push(...(admitted.content ?? [{ type: 'text' as const, text: admitted.text }]));
-      blocks.push({ type: 'text', text: `[attached file: ${path}]` });
+      blocks.push({ type: 'text', text: `[attached file: ${path}]${decoded.kind === 'pdf' ? ' PDF sent as text and scanned pages as images; use Read with pages and pdf_mode=visual for layout or figures.' : ''}` });
       if (admitted.isError || admitted.text !== result.text) notices.push(admitted.text);
     } catch (error) {
       signal?.throwIfAborted();

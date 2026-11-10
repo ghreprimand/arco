@@ -63,20 +63,14 @@ export const providers: Section[] = [
   decoded text and scanned PDF pages provide images. Use <Code>pages</Code>
   for a selected range. Text downloads stop at 128 KiB; media sources have
   a 512 MiB cap. Private addresses and unsafe redirects are refused.</p>
-  <p>MCP tool responses retain up to 20 decoded image or PDF document blocks. Encoded text resources do not consume that count. Provider request guards count PDF pages separately.</p>
+  <p>MCP tool responses retain up to 20 decoded image blocks; PDF resources are decoded to text and scanned-page images. Encoded text resources do not consume that count. Provider request guards count PDF pages separately.</p>
   <p>Native request limits follow the model window: 100 images at 200k and 600 above; 100 PDF pages below 1M and 600 at 1M or above. Unknown models use 100 each. Encoded media uses 128 MiB on the first-party API and a conservative 20 MiB on custom endpoints. Fetched text and tool inputs do not count as media. Fetched base64 PDFs count their real pages.</p>
   <p>When needed, Native replaces older media with text receipts between requests and reports the counts. Attach or request a file again to bring it back. An in-progress tool round retains its signed reasoning.</p>
   <p>New media that alone exceeds a limit gets a notice with the limit and totals. Use COMPACT or HANDOFF, then attach or request the file again. Upload paths do not grant Read access outside the workflow. Unaffected histories stay unchanged.</p>
   <p>Claude Native Read, Task helpers and operator attachments use Arco&apos;s own file decoder. PNG, JPEG, GIF, WebP, AVIF, HEIC, TIFF, BMP and ICO are fitted without installing a converter. Images keep their full frame, within 2,000 pixels per side and 5 MB base64. ICO uses its largest embedded image.</p>
   <p>SVG provides bounded source text and a fitted preview. Rendering uses no scripts, external resources or system fonts. Text requiring a font may be absent from the preview; the source remains available.</p>
-  <p>Claude CLI sends attached PDFs as documents, up to 100 pages and 20 MiB
-  of base64 images and PDF data combined per message. Images take priority;
-  PDFs use the remaining bytes.</p>
-  <p>Larger PDFs send a bounded page range with
-  a notice. Use <Code>read_file</Code> with <Code>pages</Code> for another range.
-  PDFs over the byte budget provide extracted text; scanned pages provide
-  fitted images. Other office documents provide text.</p>
-  <p>Use Read&apos;s <Code>pages</Code> range, such as <Code>1-3,5</Code>, for PDFs, spreadsheet sheets, slides or notebook cells. PDFs become documents or extracted text; scanned pages become images. Word, Excel, PowerPoint, OpenDocument and RTF become readable text. Notebooks retain cells and outputs.</p>
+  <p>Claude Native and Claude CLI send PDF text by default. Scanned pages provide fitted images. Larger PDFs use a bounded range and a notice.</p>
+  <p>Use <Code>pages</Code> to select document ranges. For PDF layout, charts or figures, use <Code>pdf_mode=visual</Code> with an explicit page range. Word, Excel, PowerPoint, OpenDocument and RTF become readable text. Notebooks retain cells and outputs.</p>
   <p>Notebook cell selection also works when metadata comes first. SVG outputs include source and a fitted image. Unsupported rich outputs leave a receipt with the cell number and media type. Macros, links and code are never executed.</p>
   <p>After reload, Native retains MCP media receipts with the original tool name and input. Re-run that tool to inspect its image or document again.</p>
   <p>Word ranges use page breaks and bounded sections, not printed-layout pages. Legacy embedded images without section mappings are available in whole-document reads. Source files have a 512 MB safety limit. Oversized or malformed files explain how to supply a smaller range or image.</p>
@@ -370,7 +364,7 @@ export const providers: Section[] = [
   </p>
   <p>
   <Code>read_url</Code> reads public file links through Arco. Images arrive as
-  fitted image blocks, PDFs as selected document pages, and office files as text.
+  fitted image blocks, PDFs as text or scanned-page images, and office files as text. Use pdf_mode=visual with pages for selected PDF pages.
   It follows Chat web access and agent tool posture. WEB LOOKUPS / TURN sets
   its separate per-turn call cap, including failures; the default is 15.
   Reload keeps a source receipt for reading the URL again.

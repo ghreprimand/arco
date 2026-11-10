@@ -150,7 +150,7 @@ Claude Native Read, Task helpers and operator attachments use Arco's portable fi
 
 PNG, JPEG, GIF, WebP, AVIF, HEIC, TIFF, BMP and ICO are fitted with bundled codecs. No image converter installation is required. Available ImageMagick or macOS sips can accelerate decoding. Images fit within 2,000 pixels per side and 5 MB base64. The entire image is scaled without cropping; animated or multipage images use their first frame. ICO uses its largest embedded PNG or bitmap. SVG supplies bounded source text and a fitted preview. Its isolated WebAssembly renderer executes no scripts and resolves no external resources or system fonts. Text requiring a font may be absent from the preview; the source remains available.
 
-Read accepts `pages`, such as `"1-3,5"`. PDFs become document blocks when they fit; oversized selections fall back to extracted text. Scanned pages become images. Word (`.doc`, `.docx`), Excel (`.xls`, `.xlsx`), PowerPoint (`.ppt`, `.pptx`), OpenDocument and RTF become text with headings, table rows, sheet names or slide labels. Notebook cells retain source and outputs, including images. Files ending in `.ipynb` retain cell selection even when metadata precedes the cell list. SVG outputs include source and a fitted image; other unsupported rich outputs leave a cell-numbered receipt naming their media type.
+Read accepts `pages`, such as `"1-3,5"`. PDFs provide extracted text and scanned-page images by default. Use `pdf_mode: "visual"` with `pages` to request selected PDF pages for layout, charts or figures. Word (`.doc`, `.docx`), Excel (`.xls`, `.xlsx`), PowerPoint (`.ppt`, `.pptx`), OpenDocument and RTF become text with headings, table rows, sheet names or slide labels. Notebook cells retain source and outputs, including images. Files ending in `.ipynb` retain cell selection even when metadata precedes the cell list. SVG outputs include source and a fitted image; other unsupported rich outputs leave a cell-numbered receipt naming their media type.
 
 For spreadsheets, presentations and notebooks, `pages` selects sheets, slides or cells. Word-processing ranges select explicit page breaks and bounded sections, not printed-layout pages. Embedded images follow supported document relationships; legacy images without section mappings are available when reading the whole document. Macros, external links and notebook code are never executed.
 
@@ -313,9 +313,7 @@ Same base + `--no-session-persistence` (don't write a session JSONL) + optional 
 
 ### Stdin
 
-Text-only prompts use plain stdin. When prepared attachments contain images or
-PDF document blocks, stdin carries a single `stream-json` user envelope with
-media before the request text. Other documents provide decoded text.
+Text-only prompts use plain stdin. When prepared attachments contain images, stdin carries a single `stream-json` user envelope with media before the request text. Documents provide decoded text, with scanned PDF pages sent as images.
 
 **GOTCHA - ARG_MAX overflow** (large-prompt handling): when an inline `--append-system-prompt` value would push the argv past Linux's `MAX_ARG_STRLEN` (~128 KB/arg), `execve` kills the spawn with `E2BIG`. Arco's mitigation: above that threshold it writes the appendSystemPrompt to a tmpfile (`append-sp-{id}-{pid}.txt`) and passes it via the **separate** `--append-system-prompt-file` flag (a documented peer of `--append-system-prompt` in the CLI's bare help) - not the same flag with a path. If the tmpfile write fails it falls back to the inline `--append-system-prompt` argv (which may then E2BIG, but the operator sees a real spawn error rather than a silently-dropped prompt). Tmpfiles are cleaned up on settle and on server exit.
 
@@ -2176,13 +2174,9 @@ extracts document text and reads notebook cells without extra software.
 Other binary files produce a named-file note instead of raw bytes.
 
 The same decoding applies to operator attachments, including Chat tabs that
-have no file tools. Claude CLI sends attached PDFs as document blocks, with a
-shared limit of 100 PDF pages and 20 MiB of base64 images and PDF data
-combined per message. Images take priority; PDFs use the remaining bytes.
+have no file tools. Claude Native and Claude CLI send PDF text by default; scanned pages provide fitted images. The attachment receipt explains how to request visual pages.
 
-Larger PDFs send the first bounded page range and a notice; use `read_file` with
-`pages` for another range. PDFs that exceed the byte budget provide extracted
-text; scanned pages provide fitted images. Word, Excel, PowerPoint,
+Larger PDFs send a bounded range and a notice; use `read_file` with `pages` for another range. For layout, charts or figures, use `pdf_mode: "visual"` with an explicit `pages` range. Word, Excel, PowerPoint,
 OpenDocument and RTF files become text. Other local and CLI transports
 receive extracted PDF text and fitted scanned-page images.
 
@@ -2225,8 +2219,7 @@ content blocks. Images and PDFs precede the request text. See the
 
 Native `read_url`, local `WebFetch` and the read-only `fetch_file` tool in the Claude CLI, Codex and
 Cursor file servers share the public URL reader. Fetched images become fitted
-image blocks. Native returns selected PDFs as document blocks; the other
-transports receive selected page text or scanned-page images. `pages`, such as `2-4`, also selects supported document ranges.
+image blocks. PDFs provide selected page text or scanned-page images; Native `read_url` and `fetch_file` accept `pdf_mode: "visual"` with `pages` for selected visual pages. MCP tools return fitted images for visual pages. `pages`, such as `2-4`, also selects supported document ranges.
 The range selects decoded content; the downloaded source still has a byte cap.
 
 The direct reader accepts HTTP(S), checks every resolved address and rechecks
@@ -2236,7 +2229,7 @@ the shared 512 MiB limit. The direct request and decoding deadline is 10,000 ms.
 Cancellation releases the response reader. Local WebFetch can use its existing
 browser fallback for bot-protected text pages.
 
-Native `read_url` returns selected PDF pages as native document blocks. It follows
+Native `read_url` returns PDF text and scanned-page images by default. Use `pdf_mode: "visual"` with `pages` for selected native PDF pages. It follows
 Chat web access and the agent tool posture. WEB LOOKUPS / TURN also sets its
 separate per-turn call cap, including failed attempts; the default is 15.
 Its image and document results share Native context media limits. Reload keeps
@@ -2256,4 +2249,4 @@ The schemas, descriptions, structure checks, reference slug validation and REST 
 
 ### MCP response media accounting
 
-The MCP reader retains up to 20 decoded image or PDF document blocks per tool response. Encoded text resources use the bounded text path and do not consume that media count. A PDF document block can contain several pages; provider request guards count its actual pages separately. Source decoding remains bounded to 100 response entries and the per-source byte limit.
+The MCP reader retains up to 20 decoded image blocks per tool response; PDF resources are decoded to text and scanned-page images. Encoded text resources use the bounded text path and do not consume that media count. A PDF document block can contain several pages; provider request guards count its actual pages separately. Source decoding remains bounded to 100 response entries and the per-source byte limit.

@@ -28,6 +28,7 @@ export interface FileContentOptions {
   signal?: AbortSignal;
   /** One-based pages, sheets, slides or cells: "1-3,5". */
   pages?: string;
+  pdfMode?: 'visual' | 'images';
   offset?: number;
   limit?: number;
   limits?: FileContentLimits;

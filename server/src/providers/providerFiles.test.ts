@@ -210,6 +210,10 @@ test('PDF attachment text and selected Read pages reach local and portable CLI t
     assert.match(text, /First transport page/);
     assert.doesNotMatch(text, /Second transport page/);
     assert.ok(cli.content.every((b: any) => b.type === 'text'));
+    const visual = await handler({ file_path: path, pages: '2', pdf_mode: 'visual' });
+    assert.equal(visual.content.filter((b: any) => b.type === 'image').length, 1);
+    const missing = await handler({ file_path: path, pdf_mode: 'visual' });
+    assert.equal(missing.isError, true);
   } finally { await rm(cwd, { recursive: true, force: true }); }
 });
 

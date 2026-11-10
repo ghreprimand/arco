@@ -271,12 +271,13 @@ function runUnderMutationLock<T>(
 const ReadTool: Entry = {
   def: {
     name: 'Read',
-    description: 'Read a file inside the workflow cwd, or a built-in skill file listed in the skill manifest. Read images visually (Arco resizes them), PDFs by pages, office documents as paragraphs/tables/sheets/slides, and notebooks as cells with outputs. Use pages for document ranges such as "1-3,5". Other binaries receive a type/size note. Text defaults to up to 256 KB; pass `offset` (1-based line) + `limit` to chunk larger files.',
+    description: 'Read a file inside the workflow cwd, or a built-in skill file listed in the skill manifest. Read images visually (Arco resizes them), PDFs by pages, office documents as paragraphs/tables/sheets/slides, and notebooks as cells with outputs. Use pages for document ranges such as "1-3,5". PDFs default to text and scanned-page images; use pdf_mode="visual" with pages for layout, charts, figures or forms. Other binaries receive a type/size note. Text defaults to up to 256 KB; pass `offset` (1-based line) + `limit` to chunk larger files.',
     input_schema: {
       type: 'object',
       properties: {
         file_path: { type: 'string', description: 'Path to the file. Relative paths resolve against cwd.' },
         pages: { type: 'string', description: 'Optional one-based page, sheet, slide, section or notebook cell range, for example 1-3,5.' },
+        pdf_mode: { type: 'string', enum: ['text', 'visual'], description: 'For PDFs, visual returns selected pages as PDF for layout, figures or forms; specify pages.' },
         offset: { type: 'number', description: 'Optional 1-based starting line number.' },
         limit: { type: 'number', description: 'Optional max lines to return.' },
       },
@@ -291,7 +292,7 @@ const ReadTool: Entry = {
     const builtin = readBuiltinVirtualFile(filePath);
     const abs = builtin === undefined ? resolveToolPath(ctx.cwd, filePath) : filePath;
     if (builtin === undefined) {
-      const result = await readFileContent(abs, { signal: ctx.abortSignal, pages: typeof args.pages === 'string' ? args.pages : undefined, offset, limit, limits: { images: true, documents: true, maxTextBytes: READ_BYTE_CAP } });
+      const result = await readFileContent(abs, { signal: ctx.abortSignal, pages: typeof args.pages === 'string' ? args.pages : undefined, pdfMode: args.pdf_mode === 'visual' ? 'visual' : undefined, offset, limit, limits: { images: true, documents: args.pdf_mode === 'visual', maxTextBytes: READ_BYTE_CAP } });
       ctx.readSet.add(abs);
       if (result.kind !== 'text' || result.truncated || offset > 1 || limit !== undefined) ctx.partialReadSet?.add(abs);
       else ctx.partialReadSet?.delete(abs);

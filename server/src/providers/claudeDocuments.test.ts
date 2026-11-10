@@ -18,7 +18,7 @@ async function pdf(pages: number) {
   return document.save();
 }
 
-test('Claude CLI stream input carries bounded PDF document blocks and keeps other document text', async t => {
+test('Claude CLI sends attached PDF text and keeps other document text', async t => {
   const cwd = await mkdtemp(join(tmpdir(), 'arco-cli-pdf-'));
   const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough() });
   let input = '', args: string[] = [];
@@ -38,19 +38,12 @@ test('Claude CLI stream input carries bounded PDF document blocks and keeps othe
     worker.spawn('Inspect the report');
     await started;
     await new Promise(resolve => setImmediate(resolve));
-    assert.ok(args.includes('--input-format'), 'PDF-only attachment must select stream-json');
-    const content = JSON.parse(input).message.content;
-    const block = content.find((b: any) => b.type === 'document');
-    assert.ok(block, 'PDF must reach Claude as a document');
-    assert.equal(block.source.type, 'base64');
-    assert.equal(block.source.media_type, 'application/pdf');
-    const sent = await PDFDocument.load(Buffer.from(block.source.data, 'base64'));
-    assert.equal(sent.getPageCount(), 100);
-    const text = content.filter((b: any) => b.type === 'text').map((b: any) => b.text).join('\n');
-    assert.match(text, /Inspect the report/);
-    assert.match(text, /Fixture memo/);
-    assert.match(text, /Other pages omitted/);
-    assert.doesNotMatch(text, /Fixture page 1\b/, 'native PDF is not duplicated as extracted text');
+    assert.ok(!args.includes('--input-format'), 'text-only PDF uses plain input');
+    assert.match(input, /Inspect the report/);
+    assert.match(input, /Fixture memo/);
+    assert.match(input, /Fixture page 1/);
+    assert.match(input, /PDF sent as text/);
+    assert.match(input, /pages/);
     child.emit('close', 0, null);
     child.emit('exit', 0, null);
   } finally {

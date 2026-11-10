@@ -21,9 +21,11 @@ for(const scenario of ['mixed','image-only','pdf'] as const)test(`registry MCP $
  worker.mcpSessions.set('reg-fixture',{callTool:async()=>normalized,close:async()=>{},listTools:()=>[]});
  try {
   const name='mcp__reg-fixture__capture',input={target:'https://example.invalid/report',page:2};
-  const result=await worker.dispatchTool({id:'capture-call',name,input});assert.equal(result.isError,false);assert.ok(result.content.some((b:any)=>b.type==='image'||b.type==='document'));
+  const result=await worker.dispatchTool({id:'capture-call',name,input});assert.equal(result.isError,false);
+  if(scenario==='pdf') { assert.match(result.text,/PDF fixture/); assert.ok(!result.content?.some((b:any)=>b.type==='document')); }
+  else assert.ok(result.content.some((b:any)=>b.type==='image'));
   const event=events.at(-1);assert.ok(event.mediaReceipt,'receipt is independent of truncated output text');
   const replay=buildMessagesFromReplayEvents([{type:'user_message_echo',content:'Inspect the report',seq:1},{...event,type:'primary_tool_use',tool:event.name,seq:2},{type:'primary_complete',seq:3}]);
-  const text=JSON.stringify(replay);assert.match(text,/mcp__reg-fixture__capture/);assert.match(text,/https:\/\/example.invalid\/report/);assert.match(text,scenario==='pdf'?/document/:/image/);assert.doesNotMatch(text,/use Read to inspect again/);assert.ok(!text.includes(png));assert.ok(!text.includes(pdf));
+  const text=JSON.stringify(replay);assert.match(text,/mcp__reg-fixture__capture/);assert.match(text,/https:\/\/example.invalid\/report/);assert.match(text,scenario==='pdf'?/PDF capture.pdf decoded to text/:/image/);assert.doesNotMatch(text,/use Read to inspect again/);assert.ok(!text.includes(png));assert.ok(!text.includes(pdf));
  }finally{await worker.dispose();}
 });
