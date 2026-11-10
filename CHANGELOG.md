@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Give Codex exec and app-server the same explicit Agent and Chat web-search policy.
 - Keep Cursor Chat free of the project-file plugin while preserving message attachments.
 - Apply MCP per-tool restrictions on supported Codex CLIs, retaining a warning for older versions.
 - Give Cursor read-only reviewers plan listing and reference readers without adding plan writers or board tools.

@@ -1,3 +1,4 @@
+import { codexWebSearchMode } from './codexWebSearch.js';
 import { installedCodexImageToolKey } from './codexImageTool.js';
 import { cliFileReadGuidance, prepareProviderAttachments, persistProviderImages, type PreparedAttachments } from './providerFileContent.js';
 // Codex CLI exec transport: each turn streams JSONL and can resume a session
@@ -214,15 +215,9 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     if (this.config.interactionMode === 'chat') {
       args.push('--ignore-user-config', '--ignore-rules');
     }
-    if (this.config.interactionMode === 'chat') {
-      // Chat's first turn drops the operator's config.toml, so web search has
-      // to be stated outright rather than inherited — same knob (and same
-      // vocabulary) the app-server transport sends. Stated on BOTH sides so a
-      // disarmed chat can't pick web search up from a codex-side default, and
-      // pushed on resume turns too (`-c` is one of the few flags `exec resume`
-      // shares with `exec`, and resume DOES read the user config).
-      args.push('-c', `web_search="${this.config.chatWebAccess ? 'live' : 'disabled'}"`);
-    }
+    // State the same policy on exec and resume as app-server: Agent search
+    // is live; Chat follows its web toggle instead of vendor defaults.
+    args.push('-c', `web_search="${codexWebSearchMode(this.config)}"`);
     const contextWindow = codexContextWindowOverride(this.config);
     if (contextWindow) args.push('-c', `model_context_window=${contextWindow}`);
     if (!isResume && this.config.incognito) args.push('--ephemeral');

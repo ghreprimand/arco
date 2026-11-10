@@ -447,6 +447,8 @@ export const providers: Section[] = [
   <li><Code>danger-full-access</Code> - no provider sandbox. Use only when the implications are understood.</li>
   </ul>
   <p>These are Codex sandbox modes, separate from Arco&apos;s browser file views and built-in file-tool path checks. Shell commands and provider CLI tools follow their own execution, approval and sandbox settings; Arco&apos;s allowed-root policy does not constrain them.</p>
+  <p>Both Codex transports explicitly enable live web search in Agent tabs.
+  Chat follows its web-access toggle, including resumed exec turns.</p>
   <Sub>App-server features</Sub>
   <p>
   CONFIG can switch a tab from <Code>exec</Code> to <Code>app-server</Code>.

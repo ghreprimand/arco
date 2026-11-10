@@ -1,3 +1,4 @@
+import { codexWebSearchMode } from '../codexWebSearch.js';
 import { codexImageToolConfig } from '../codexImageTool.js';
 import { cliFileReadGuidance, prepareProviderAttachments, persistProviderImages } from '../providerFileContent.js';
 // Long-lived Codex app-server worker, scoped to one workflow. Turns share one
@@ -130,7 +131,7 @@ export function bootstrapSurfaceKey(config: WorkerConfig): string {
   const registry = config.interactionMode !== 'chat' && config.mcpRegistryServers?.length
     ? ':registry-' + createHash('sha256').update(JSON.stringify([config.mcpRegistryServers, config.mcpDisallowedTools ?? []])).digest('hex')
     : '';
-  return `${config.interactionMode === 'chat' ? 'chat' : 'agent'}:web-${webSearchMode(config)}${config.voiceOperator === true ? ':voice' : ''}${config.incognito ? ':private' : ''}${registry}`;
+  return `${config.interactionMode === 'chat' ? 'chat' : 'agent'}:web-${codexWebSearchMode(config)}${config.voiceOperator === true ? ':voice' : ''}${config.incognito ? ':private' : ''}${registry}`;
 }
 
 
@@ -182,13 +183,6 @@ function appServerNoticeTag(config: WorkerConfig): string {
   return appServerProvider(config);
 }
 
-// Chat exposes no project tools, but the operator can arm web search per tab
-// (WorkflowConfig.chatWebAccess). Agent mode is unchanged: always live.
-function webSearchMode(config: WorkerConfig): 'live' | 'disabled' {
-  if (config.interactionMode !== 'chat') return 'live';
-  return config.chatWebAccess ? 'live' : 'disabled';
-}
-
 // The `thread/start` request for a workflow worker. Pure so a test can pin it:
 // the one-shot evaluator (smartPickupAdapters.ts) has its own locked-down
 // request and must never change what a workflow worker sends.
@@ -219,7 +213,7 @@ export function buildThreadStartParams(config: WorkerConfig, threadConfig: Recor
 export async function buildThreadConfigOverrides(config: WorkerConfig): Promise<Record<string, JsonValue>> {
   const contextWindow = codexContextWindowOverride(config);
   return {
-    web_search: webSearchMode(config),
+    web_search: codexWebSearchMode(config),
     ...codexImageToolConfig(),
     ...(contextWindow ? { model_context_window: contextWindow } : {}),
   };

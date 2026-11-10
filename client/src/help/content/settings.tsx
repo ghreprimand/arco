@@ -430,7 +430,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
             <strong>Codex</strong>: <C>exec</C> per-turn spawn vs{' '}
             <C>app-server</C> long-lived per-tab process (structured{' '}
             <C>turn/interrupt</C> cancel and non-destructive{' '}
-            <C>turn/steer</C> mid-turn input).
+            <C>turn/steer</C> mid-turn input). Both explicitly enable live web search in Agent tabs; Chat follows its web toggle.
           </li>
         </ul>
         <p>
