@@ -1,3 +1,4 @@
+import { toolResultText, type ToolResultContent } from './imageRead.js';
 // §2.1 — deterministic Fold digest (Claude Native).
 //
 // The Fold replaces a mid-history prefix with a single compact summary while
@@ -51,6 +52,7 @@ export function buildFoldDigest(prefix: FoldMessage[], activeTodos: FoldDigestTo
   let originalTask = '';
   const filesWritten = new Set<string>();
   const filesRead = new Set<string>();
+  const imagesRead = new Set<string>();
   const bashCmds: string[] = [];
   const searches: string[] = [];
   let errorCount = 0;
@@ -63,7 +65,10 @@ export function buildFoldDigest(prefix: FoldMessage[], activeTodos: FoldDigestTo
       const bs = blocks(msg.content);
       const isToolResultBatch = bs.length > 0 && bs.every((b) => b.type === 'tool_result');
       if (isToolResultBatch) {
-        for (const b of bs) if (b.is_error === true) errorCount++;
+        for (const b of bs) {
+          if (b.is_error === true) errorCount++;
+          if (Array.isArray(b.content) && b.content.some(c => c?.type === 'image')) imagesRead.add(toolResultText(b.content as ToolResultContent));
+        }
       } else {
         const text = flattenText(msg.content).trim();
         if (text) {
@@ -102,6 +107,7 @@ export function buildFoldDigest(prefix: FoldMessage[], activeTodos: FoldDigestTo
     const reads = [...filesRead];
     lines.push('', `**Files read (${reads.length}):** ${reads.slice(0, 20).join(', ')}${reads.length > 20 ? ` (+${reads.length - 20} more)` : ''}`);
   }
+  if (imagesRead.size > 0) lines.push('', '**Images read (use Read to inspect again):**', ...[...imagesRead].slice(-20).map(s => `- ${shorten(s, 200)}`));
   if (bashCmds.length > 0) {
     const shown = bashCmds.slice(-15);
     lines.push('', '**Commands run:**', ...shown.map((c) => `- \`${c}\``));

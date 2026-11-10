@@ -63,6 +63,8 @@ type ReplayEvent = {
   tool?: string;
   name?: string;
   input?: string;
+  output?: string;
+  status?: string;
   // Carried by a `native_compacted` event — the operator-triggered in-place
   // compaction's summary. Replay resets to this point (like a handoff) and
   // seeds the summary, so a compact survives restart.
@@ -417,6 +419,8 @@ export function buildMessagesFromReplayEvents(
     } else if (t === 'user_message_echo' && typeof entry.content === 'string') {
       if (entry.kind === 'steer' && userBuf && !assistantBuf) userBuf += '\n\n' + entry.content;
       else { flushPair(); userBuf = entry.content; }
+    } else if (t === 'primary_tool_use' && (entry.tool ?? entry.name) === 'Read' && entry.status === 'completed' && entry.output?.startsWith('image: ') && userBuf) {
+      assistantBuf += `\n\n[Read image receipt: ${entry.output}; use Read to inspect again.]\n\n`;
     } else if (t === 'primary_text' && typeof entry.text === 'string' && userBuf) {
       assistantBuf += entry.text;
     } else if ((t === 'primary_complete' || t === 'worker_complete') && userBuf) {

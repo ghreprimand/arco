@@ -1,3 +1,4 @@
+import { admitImageResult, imageReceipts, type ToolResultContent } from './imageRead.js';
 import { shortTextRequestParams } from './modelParams.js';
 import { nativeOAuthBaseUrl } from './apiEndpoint.js';
 import { createHash } from 'node:crypto';
@@ -587,7 +588,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // toolResultEviction module for the cross-turn tail eviction.
   private async maybeSpillTurnResults(
     contentBlocks: AnyContentBlock[],
-    toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }>,
+    toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: ToolResultContent; is_error?: boolean }>,
   ): Promise<void> {
     if (!toolEvictEnabled()) return;
     if (toolResults.length === 0) return;
@@ -613,10 +614,10 @@ export class ClaudeNativeWorker extends EventEmitter {
     for (const d of plan.spill) {
       const tr = byId.get(d.toolUseId);
       if (!tr) continue;
-      const originalBytes = Buffer.byteLength(tr.content, 'utf8');
+      const originalBytes = Buffer.byteLength(typeof tr.content === 'string' ? tr.content : JSON.stringify(tr.content), 'utf8');
       let rawArtifactPath: string | undefined;
       try {
-        rawArtifactPath = await this.persistRawArtifact(d.toolUseId, tr.content);
+        rawArtifactPath = await this.persistRawArtifact(d.toolUseId, typeof tr.content === 'string' ? tr.content : JSON.stringify(tr.content));
       } catch (err) {
         console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] tool-evict raw artifact write failed:`, err);
       }
@@ -915,7 +916,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       workflowId: this.workflowId,
       summary,
       foldedTurns,
-      ...(tailForSeed.length > 0 ? { keptTail: tailForSeed } : {}),
+      ...(tailForSeed.length > 0 ? { keptTail: imageReceipts(tailForSeed) } : {}),
     });
     this.workflowEventBroadcast({
       type: 'primary_tool_counter',
@@ -1016,7 +1017,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       originalBytes,
       foldedBytes,
       byteDelta,
-      ...(tailForSeed.length > 0 ? { keptTail: tailForSeed } : {}),
+      ...(tailForSeed.length > 0 ? { keptTail: imageReceipts(tailForSeed) } : {}),
     });
     this.workflowEventBroadcast({
       type: 'primary_tool_counter',
@@ -1149,7 +1150,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       engine: 'server',
       summary: result.block.content,
       compactionBlock: result.block,
-      ...(kept.length > 0 ? { keptMessages: kept } : {}),
+      ...(kept.length > 0 ? { keptMessages: imageReceipts(kept) } : {}),
       keptTurns: cut.keptTurns,
       foldedTurns,
       trigger: 'operator',
@@ -1344,7 +1345,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       workflowId: this.workflowId,
       summary: inTurnReplaySummary(summary, inProgressRound),
       foldedTurns,
-      ...(tailForSeed.length > 0 ? { keptTail: tailForSeed } : {}),
+      ...(tailForSeed.length > 0 ? { keptTail: imageReceipts(tailForSeed) } : {}),
       ...reason,
       inTurn: true,
       continueNote: IN_TURN_COMPACT_NOTE,
@@ -2806,7 +2807,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
       // ── Tool-use round-trip ──
       this.toolAbort = new AbortController();
-      const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }> = [];
+      const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: ToolResultContent; is_error?: boolean }> = [];
       // Task children run in isolated child workflows with no shared
       // filesystem/process state, so concurrent dispatch is safe and
       // turns "write four docs in parallel" into actual parallelism.
@@ -2831,11 +2832,11 @@ export class ClaudeNativeWorker extends EventEmitter {
           toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: 'Not run: a hook stopped processing.', is_error: true });
           continue;
         }
-        const result = await this.dispatchTool(block);
+        const result = await this.dispatchTool(block, toolResults);
         toolResults.push({
           type: 'tool_result',
           tool_use_id: block.id,
-          content: truncateOutput(result.text),
+          content: result.content ?? truncateOutput(result.text),
           ...(result.isError ? { is_error: true } : {}),
         });
         if (this.checkToolLoop(block, result)) loopStopRequested = true;
@@ -2852,7 +2853,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         toolResults.push({
           type: 'tool_result',
           tool_use_id: block.id,
-          content: truncateOutput(result.text),
+          content: result.content ?? truncateOutput(result.text),
           ...(result.isError ? { is_error: true } : {}),
         });
         if (this.checkToolLoop(block, result)) loopStopRequested = true;
@@ -3471,7 +3472,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.emit('system_notice', `Server compaction ${detail}; the summary replaces that history on later requests.`);
   }
 
-  private async dispatchTool(block: ToolUseBlock): Promise<{ text: string; isError: boolean }> {
+  private async dispatchTool(block: ToolUseBlock, pendingResults: unknown = []): Promise<NativeToolOutcome> {
     if (this.config.interactionMode === 'chat' && this.config.voiceOperator) {
       const text = await executeComputerTool(this.workflowId, block.name, block.input);
       return { text, isError: text.startsWith('[error]') };
@@ -3860,7 +3861,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       }
     } else {
       try {
-        toolOutcome = await executeNativeToolResult(block.name, input, ctx);
+        toolOutcome = admitImageResult(this.messages, pendingResults, await executeNativeToolResult(block.name, input, ctx));
         resultText = toolOutcome.text;
         isError = toolOutcome.isError;
       } catch (err) {
@@ -3884,7 +3885,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     }), { text: resultText, isError });
     if (done.stop !== undefined) this.hookStopRequested = done.stop;
     this.emitToolActivity(block, input, done.isError ? 'failed' : 'completed', done.text);
-    return { text: done.text, isError: done.isError };
+    return { text: done.text, isError: done.isError, ...(toolOutcome?.content && !done.isError ? { content: [{ type: 'text' as const, text: done.text }, ...toolOutcome.content.filter(b => b.type !== 'text')] } : {}) };
   }
 
   // docs/PROVIDERS.md - Native-side tool-result filter. Runs on

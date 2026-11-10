@@ -51,6 +51,7 @@ export type AnyContentBlock =
   | { type: 'redacted_thinking'; data: string }
   | ImageBlock
   | ToolUseBlock
+  | { type: 'tool_result'; tool_use_id: string; content: string | Array<{ type: 'text'; text: string } | ImageBlock>; is_error?: boolean }
   | ServerToolUseBlock
   | ServerToolResultBlock
   | CompactionBlock;

@@ -1,3 +1,4 @@
+import { readImageResult, type ToolResultContent } from './imageRead.js';
 import { readRegularRange, regularFileLines } from '../../boundedRead.js';
 import { writeCheckedFile, readCheckedText } from '../../checkedFile.js';
 // Phase 7a — core tool surface for Claude Native transport.
@@ -145,6 +146,7 @@ export interface ClaudeToolDef {
 
 export interface NativeToolOutcome {
   text: string;
+  content?: Exclude<ToolResultContent, string>;
   isError: boolean;
   exitCode?: number | null;
   signal?: string | null;
@@ -266,7 +268,7 @@ function runUnderMutationLock<T>(
 const ReadTool: Entry = {
   def: {
     name: 'Read',
-    description: 'Read a file inside the workflow cwd, or a built-in skill file listed in the skill manifest. Default returns up to 256 KB; pass `offset` (1-based line) + `limit` to chunk larger files.',
+    description: 'Read a file inside the workflow cwd, or a built-in skill file listed in the skill manifest. PNG, JPEG, GIF and WebP are shown as images (resized if needed; a text note explains unavailable images). Text defaults to up to 256 KB; pass `offset` (1-based line) + `limit` to chunk larger files.',
     input_schema: {
       type: 'object',
       properties: {
@@ -284,6 +286,10 @@ const ReadTool: Entry = {
     const limit = rawLimit !== undefined && rawLimit >= 1 ? Math.floor(rawLimit) : undefined;
     const builtin = readBuiltinVirtualFile(filePath);
     const abs = builtin === undefined ? resolveToolPath(ctx.cwd, filePath) : filePath;
+    if (builtin === undefined) {
+      const image = await readImageResult(abs, ctx.abortSignal);
+      if (image) { ctx.readSet.add(abs); ctx.partialReadSet?.add(abs); return image; }
+    }
     const result = builtin === undefined
       ? await readRegularRange(abs, READ_BYTE_CAP, offset, limit, ctx.abortSignal)
       : { text: builtin.split('\n').slice(offset - 1, limit === undefined ? undefined : offset - 1 + limit).join('\n'), truncated: false };

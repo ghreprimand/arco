@@ -1,3 +1,4 @@
+import { toolResultText, type ToolResultContent } from './imageRead.js';
 // Phase P0 (WORKBENCH_EXPANSION_PLAN) — extracted from worker.ts to keep that
 // file under the 2000-line cap. Stateless tail helpers: event replay, usage
 // merging, tool-output truncation, plan-parser advisories, abortable sleep.
@@ -75,8 +76,12 @@ export function truncateOutput(text: string): string {
 function flattenConversationalText(content: string | AnyContentBlock[]): string {
   if (typeof content === 'string') return content;
   return content
-    .filter((b): b is { type: 'text'; text: string } => isTextBlock(b))
-    .map((b) => b.text)
+    .flatMap((b) => {
+      if (isTextBlock(b)) return [b.text];
+      const r = b as unknown as { type: string; content?: ToolResultContent };
+      if (r.type === 'tool_result' && Array.isArray(r.content) && r.content.some(c => c.type === 'image')) return [`[Read image receipt: ${toolResultText(r.content)}; inspect with Read again if needed.]`];
+      return [];
+    })
     .join('');
 }
 
@@ -368,8 +373,8 @@ export function inTurnContinueText(
 // assistant narration in the persisted summary so both representations retain
 // it once, without introducing structured tool replay or changing the schema.
 export function inTurnReplaySummary(summary: string, inProgressRound: MessageParam[]): string {
-  const narration = inProgressRound.filter((message) => message.role === 'assistant')
-    .map((message) => flattenConversationalText(message.content)).join('\n\n');
+  const narration = inProgressRound
+    .map((message) => flattenConversationalText(message.content)).filter(Boolean).join('\n\n');
   return narration.trim()
     ? `${summary}\n\nVerbatim narration from the retained in-progress round:\n\n${narration}`
     : summary;

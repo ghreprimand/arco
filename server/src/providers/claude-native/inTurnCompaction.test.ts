@@ -6,7 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { ClaudeNativeWorker } from './worker.js';
@@ -81,7 +81,7 @@ function summaryStream(text: string) {
 }
 
 interface Setup {
-  w: W; cwd: string; requests: MessageParam[][]; summaries: MessageParam[][];
+  w: W; cwd: string; requests: MessageParam[][]; counts: MessageParam[][]; summaries: MessageParam[][];
   events: Array<Record<string, unknown>>; notices: string[]; errors: string[]; results: unknown[];
   done(): Promise<void>;
 }
@@ -98,6 +98,7 @@ function setup(replies: Array<() => AsyncGenerator<unknown>>, opts: {
     config: { model: 'claude-opus-4-8', effort: 'high', cwd, skipPermissions: true, claudeNativeInTurnCompactPercent: 70, ...(opts.steer ? { drainSteer: opts.steer } : {}), ...opts.config },
   }) as unknown as W;
   const requests: MessageParam[][] = [];
+  const counts: MessageParam[][] = [];
   const summaries: MessageParam[][] = [];
   const client = {
     messages: {
@@ -110,7 +111,7 @@ function setup(replies: Array<() => AsyncGenerator<unknown>>, opts: {
         requests.push(JSON.parse(JSON.stringify(body.messages)));
         return replies[Math.min(requests.length - 1, replies.length - 1)]();
       },
-      ...(opts.countTokens ? { countTokens: async () => ({ input_tokens: opts.countTokens }) } : {}),
+      ...(opts.countTokens ? { countTokens: async (body: { messages: MessageParam[] }) => { counts.push(JSON.parse(JSON.stringify(body.messages))); return { input_tokens: opts.countTokens }; } } : {}),
     },
   };
   w.hooksLoaded = true;
@@ -123,7 +124,7 @@ function setup(replies: Array<() => AsyncGenerator<unknown>>, opts: {
   w.on('system_notice', (n: string) => notices.push(n));
   w.on('error', (e: string) => errors.push(e));
   w.on('result', (r: unknown) => results.push(r));
-  return { w, cwd, requests, summaries, events, notices, errors, results, done: async () => { await w.dispose(); rmSync(cwd, { recursive: true, force: true }); } };
+  return { w, cwd, requests, counts, summaries, events, notices, errors, results, done: async () => { await w.dispose(); rmSync(cwd, { recursive: true, force: true }); } };
 }
 
 // Every tool_use in a request has its tool_result in the following message.
@@ -571,5 +572,35 @@ test('an in-turn compaction with no narration still keeps the request once when 
     const after = s.requests[2];
     assert.equal(after.filter((m) => m.role === 'user' && textOf(m).includes('do the long task')).length, 1, 'the tail copy is not doubled');
     assertPairsIntact(after);
+  } finally { await s.done(); }
+});
+
+for (const helper of [false, true]) test(`image Read reaches the next request, counter and compaction receipt (helper=${helper})`, async () => {
+  const s = setup([
+    reply([{ type: 'text', text: 'Inspecting the screenshot.' }, { type: 'tool_use', id: 'image1', name: 'Read', input: { file_path: 'shot.png' } }], 100_000),
+    reply([{ type: 'tool_use', id: 'image2', name: 'Read', input: { file_path: 'shot.png' } }], 800_000),
+    done(20_000),
+  ], { countTokens: 800_000 });
+  const data = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+  const activities: unknown[] = [];
+  const w = s.w as unknown as { taskDisabled: boolean; countContextTokens: () => Promise<unknown> };
+  w.taskDisabled = helper;
+  s.w.on('tool_use', value => activities.push(value));
+  try {
+    writeFileSync(join(s.cwd, 'shot.png'), Buffer.from(data, 'base64'));
+    await s.w.runTurn('Inspect the screenshot and describe it.');
+    assert.deepEqual(s.errors, []);
+    assert.ok(JSON.stringify(s.requests[1]).includes(data), 'the model receives the pixels inside tool_result');
+    assert.match(JSON.stringify(activities), /image: shot.png, 1x1/);
+    assert.ok(JSON.stringify(s.counts).includes(data), 'count_tokens receives image blocks, not base64 text');
+    assert.ok(!JSON.stringify(activities).includes(data), 'tool activity never stores pixels');
+    assert.ok(s.summaries.length > 0);
+    assert.match(JSON.stringify(s.summaries), /shot.png/);
+    assert.ok(!JSON.stringify(s.events).includes(data), 'compaction markers never store pixels');
+    const marker = s.events.find(e => e.type === 'native_compacted');
+    assert.ok(marker);
+    const replay = buildMessagesFromReplayEvents([{ ...marker, seq: 1 }] as never);
+    assert.match(JSON.stringify(replay), /shot.png/);
+    assert.ok(!JSON.stringify(replay).includes(data), 'reload carries the image receipt');
   } finally { await s.done(); }
 });

@@ -134,6 +134,18 @@ CLIs plus real Native loop over mocked Anthropic streaming; zero model spend).
 
 ## Claude
 
+### Native image reads
+
+Claude Native's Read tool and Task helpers show PNG, JPEG, GIF and WebP files as images, detected from their contents. Tool cards show `image: name, WxH` and the media type. Text reads retain the 256 KiB limit and line-range controls.
+
+Image reads use at most 2,000 pixels per side and 5 MB of base64 data. Larger images are resized with ImageMagick or macOS sips in a private temporary copy. The project file is unchanged. Missing converters, conversion failures, malformed headers and source files above 32 MB produce a text explanation instead of image bytes.
+
+New image results stop at 100 images or 20 MB of encoded image data across the conversation. A request above 20 images also requires every retained image to fit within 2,000 pixels per side. The note asks for compaction or a new conversation when that budget is reached.
+
+Live requests and token counting receive image blocks. Text summaries, folded context and saved events retain image receipts rather than base64 data. After reload or compaction, use Read again for exact visual detail. Older evicted results can be recovered from their raw artifact.
+
+[Anthropic's vision limits](https://platform.claude.com/docs/en/build-with-claude/vision) vary by endpoint and model. Arco keeps the stricter existing attachment limits for Read. This applies to Native; other providers keep their existing file tools.
+
 Native shell results carry exit, signal, timeout and cancellation status separately from output text. Failed commands show failed activity, run PostToolUseFailure hooks and select failure filters. Compiler, configuration and test-collection diagnostics remain visible when a test-result filter cannot safely summarize them.
 
 Native Task model overrides are applied to the child workflow configuration before deriving its primary. The live child, emitted tab configuration and saved metadata therefore name the same requested model, including after promotion or reopen.

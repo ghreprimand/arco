@@ -1,3 +1,4 @@
+import { toolResultText, type ToolResultContent } from './imageRead.js';
 // §2.2 — tool-result eviction (Claude Native).
 //
 // Two deterministic, LLM-free mechanisms for keeping tool output from
@@ -33,7 +34,7 @@ export interface EvictableResult {
   // pattern). Optional; the summary degrades gracefully without it.
   inputJson?: string;
   // The tool_result text content as it currently sits in messages[].
-  content: string;
+  content: ToolResultContent;
   isError?: boolean;
 }
 
@@ -78,8 +79,8 @@ export function turnToolTokenBudget(): number {
 // relative ordering + a budget comparison, so an approximation that slightly
 // over-counts large blobs is the right tradeoff (matches the codebase's other
 // "coarse over-count so it can't sneak past the gate" estimators).
-export function estimateResultTokens(content: string): number {
-  return Math.ceil(Buffer.byteLength(content ?? '', 'utf8') / 4);
+export function estimateResultTokens(content: ToolResultContent): number {
+  return Math.ceil(Buffer.byteLength(typeof content === 'string' ? content : JSON.stringify(content), 'utf8') / 4);
 }
 
 function countLines(s: string): number {
@@ -119,11 +120,12 @@ function shorten(s: string, max: number): string {
 export function summarizeToolResultLine(
   toolName: string,
   inputJson: string | undefined,
-  content: string,
+  content: ToolResultContent,
   isError?: boolean,
 ): string {
-  const lines = countLines(content);
-  const bytes = Buffer.byteLength(content ?? '', 'utf8');
+  const text = toolResultText(content);
+  const lines = countLines(text);
+  const bytes = Buffer.byteLength(typeof content === 'string' ? content : JSON.stringify(content), 'utf8');
   const label = toolName || 'Tool';
   let head: string;
   switch (toolName) {
@@ -137,6 +139,7 @@ export function summarizeToolResultLine(
     case 'Read': {
       const f = firstField(inputJson, ['file_path', 'path']);
       head = f ? `[Read] ${f}` : '[Read]';
+      if (Array.isArray(content)) head += `: ${shorten(text, 160)}`;
       break;
     }
     case 'Write':

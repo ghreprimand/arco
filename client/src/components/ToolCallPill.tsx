@@ -6,6 +6,7 @@ interface Props {
   tool: string;
   input: unknown;
   filePath?: string;
+  output?: string;
   // docs/PROVIDERS.md - when present, render a filter chip showing
   // the original→filtered byte counts and the pack name. `rawArtifactPath`
   // (workspace-relative) opens the gzipped raw output for operator recovery.
@@ -68,10 +69,10 @@ function shortenPath(p: string): string {
   return home ? '~/' + p.slice(home[0].length) : p;
 }
 
-export function ToolCallPill({ tool, input, filePath, filtered }: Props) {
+export function ToolCallPill({ tool, input, filePath, filtered, output }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
-  const summary = summarizeInput(tool, input, filePath);
+  const summary = tool === 'Read' && output?.startsWith('image: ') ? oneLine(output, 240) : summarizeInput(tool, input, filePath);
   const clickable = Boolean(filePath);
 
   const prettyInput = useMemo(() => {

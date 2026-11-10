@@ -830,7 +830,8 @@ function ToolCallPillWithFilter({
   filePath?: string;
 }) {
   const filtered = useAppStore((s) => (jobId ? s.jobs[jobId]?.toolFiltered?.[toolUseId] : undefined));
-  return <ToolCallPill tool={tool} input={input} filePath={filePath} filtered={filtered} />;
+  const output = useAppStore((s) => jobId ? s.jobs[jobId]?.activity?.find(a => a.toolUseId === toolUseId)?.output : undefined);
+  return <ToolCallPill tool={tool} input={input} filePath={filePath} filtered={filtered} output={output} />;
 }
 
 // docs/PROTOCOL_CLUSTER.md - peer-message block. Colored by stable

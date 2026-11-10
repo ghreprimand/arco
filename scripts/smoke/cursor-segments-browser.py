@@ -62,6 +62,7 @@ async def main():
           const root=createRoot(document.getElementById('fixture'));
           window.renderMessages=(width)=>root.render(React.createElement('div',{id:'col',style:{width:width+'px',padding:'0'}},
             s.getState().jobs['wf-cursor'].messages.filter(m=>m.role==='assistant'&&!m.toolUse).map(m=>React.createElement(ChatMessage,{key:m.id,jobId:'wf-cursor',message:m}))));
+          window.renderImageCard=()=>root.render(React.createElement('div',{id:'image-card'},React.createElement(ChatMessage,{jobId:'wf-cursor',message:{id:'image-read',role:'system',content:'',timestamp:1,toolUse:{tool:'Read',toolUseId:'image-read',input:{file_path:'shot.png'}}}})));
           window.layout=(text,streaming,width)=>{
             root.render(React.createElement('div',{id:'col',style:{width:width+'px'}},React.createElement(ChatMessage,{key:'x',jobId:'wf-cursor',message:{id:'x',role:'assistant',content:text,isStreaming:streaming,timestamp:1,phase:'passthrough'}})));
           };
@@ -101,6 +102,12 @@ async def main():
             if abs(plain - live) > 0.5:
                 shifts.append((width, plain, live))
         assert not shifts, shifts
+        # A completed Native image Read shows its receipt in the chat tool card.
+        await page.evaluate("""() => {
+          send({type:'primary_tool_use',workflowId:'wf-cursor',tool:'Read',input:JSON.stringify({file_path:'shot.png'}),status:'completed',toolUseId:'image-read',provider:'claude',output:'image: shot.png, 20x2000 (image/png)',seq:100});
+          renderImageCard();
+        }""")
+        await expect(page.locator('#image-card')).to_contain_text('image: shot.png, 20x2000')
         assert not errors, errors
         assert not blocked, blocked
         await browser.close()

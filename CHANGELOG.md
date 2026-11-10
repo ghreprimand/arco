@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Claude Native Read shows PNG, JPEG, GIF and WebP files to the model, including Task helpers. Large images are resized or explained with a text note; tool cards show image names and dimensions.
+
 - Show the measured context in ACTIVITY and avoid labelling Claude worker usage totals as context.
 
 - ACTIVITY > BACKGROUND shows agent-started shell jobs and their known children, excluding Arco helpers, MCP servers and provider programs.

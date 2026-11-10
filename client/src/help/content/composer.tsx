@@ -657,7 +657,7 @@ export const composerHelp: Record<string, HelpEntry> = {
         <p>
           Session-local and reversible: reverts to <C>full</C> on reload.
           Claude-native only. Read refuses special files and reads in bounded chunks.
-          Use offset and limit for later lines. JavaScript Grep reports shortened long lines.
+          Use offset and limit for later text lines. Native Read shows supported image files as images, or explains why an image was not sent. JavaScript Grep reports shortened long lines.
         </p>
       </>
     ),
