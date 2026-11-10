@@ -749,7 +749,7 @@ export const providers: Section[] = [
   [<Code key="g">Glob</Code>, 'Cwd-rooted matching with entry and time budgets. Skips ignored folders and nested checkouts; reports results truncated. Individually ignored files and explicit ignored-folder scopes remain searchable.'],
   [<Code key="gr">Grep</Code>, 'JavaScript search over one file or a folder. Skips ignored folders and nested checkouts; 5,000-file and entry/time walk limits, 64 KB output cap. Reports truncation.'],
   [<Code key="w">Write</Code>, 'mkdir -p parents. Refuses to clobber a directory.'],
-  [<Code key="b">Bash</Code>, '/bin/sh -c in cwd (Git Bash on Windows; on Windows without Git Bash the PowerShell tool instead). 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB.'],
+  [<Code key="b">Bash</Code>, '/bin/sh -c in cwd (Git Bash on Windows; on Windows without Git Bash the PowerShell tool instead). 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB. STOP ends the active tree; tab close drains active shell cleanup for up to 15s. A fully redirected background job whose command already returned is outside this tracking.'],
   [<Code key="ws">WebSearch</Code>, <>Hits operator&apos;s local SearXNG (<Code>ARCO_SEARXNG_URL</Code>, default <Code>http://127.0.0.1:8888</Code>). Bang syntax (<Code>!g foo</Code>) routes engines.</>],
   [<Code key="wf">WebFetch</Code>, <>Shared public URL file decoder for images and document ranges; Camoufox fallback for bot-protected text. Private hosts and direct HTTP redirects are checked.</>],
   ]}

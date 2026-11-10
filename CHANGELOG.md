@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Drain active local-provider shell cleanup and pipe closure on tab close.
 - Preserve MCP images after encoded text resources by counting decoded media instead of encoded entries.
 
 - Keep Claude Native pasted images and Read images available after web fetches; count only real image/PDF media and report refusal limits with reattachment advice.

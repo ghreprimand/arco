@@ -15,6 +15,7 @@ import { StrataProvider } from './strata.js';
 import { LmstudioProvider } from './lmstudio.js';
 import { CursorProvider, disposeCursorWorker } from './cursor/index.js';
 import { CursorPrintProvider } from './cursor/print.js';
+import { disposeLocalShells } from './localShellLifecycle.js';
 
 export type { Provider, ProviderProcess } from './types.js';
 
@@ -151,15 +152,15 @@ export function createProviderProcess(id: string, config: WorkerConfig): Provide
   return provider.create(id, config);
 }
 
-// Workflow tab close — tear down the long-lived `codex app-server` child
-// or Claude Native worker if one was spawned for this tab. Both are
-// no-ops when the tab never used the corresponding transport. Also
+// Workflow tab close — tear down cached provider workers and active local
+// Bash trees. Each is a no-op when the tab never used that surface. Also
 // invoked from `handleHandoffRequest` after `handoff_complete` so the
 // next operator turn rebuilds against the fresh post-handoff transcript.
-export function disposeProviderResources(workflowId: string): void {
+export function disposeProviderResources(workflowId: string): Promise<void> {
   disposeCodexAppServerWorker(workflowId);
   disposeClaudeNativeWorker(workflowId);
   disposeCursorWorker(workflowId);
+  return disposeLocalShells(workflowId);
 }
 
 export function isKnownProvider(name: string): name is ProviderName {

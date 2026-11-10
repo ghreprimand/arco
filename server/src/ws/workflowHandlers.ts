@@ -973,12 +973,10 @@ export function handleRemoveWorkflow(workflowId: string): void {
   // only), so a busy-gated killAll() previously leaked in-flight reviewer
   // subprocesses when the operator closed the tab mid-review.
   wf.manager.killAll();
-  // Phase 6 — tear down any per-workflow long-lived provider resources.
-  // Today this only affects the Codex app-server transport (the cached
-  // long-lived `codex app-server` child). Other providers' worker
-  // lifetimes are per-turn and `manager.killAll()` above already settled
-  // them. No-op when this tab never used a per-workflow-lifetime provider.
-  disposeProviderResources(workflowId);
+  // Tear down cached provider workers and drain active local shell trees.
+  // Each transport owns its bounded async cleanup; the workspace can close
+  // immediately while that cleanup finishes.
+  void disposeProviderResources(workflowId);
   // WORKBENCH_EXPANSION §K1 — reap any operator PTY sessions owned by this
   // tab. Sessions outlive windows but NOT the workflow; tab close ends them.
   // broadcastWorkflow still persists the lifecycle event (the tab is gone but

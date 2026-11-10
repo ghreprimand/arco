@@ -16,6 +16,7 @@ import { resolve, relative, isAbsolute, join, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { commandShell, shellInvocation, shellToolLabel } from '../commandShell.js';
 import { signalChildTree, spawnShellChild } from '../workers/processKill.js';
+import { trackLocalShell } from './localShellLifecycle.js';
 import { readBuiltinVirtualFile } from '../skills.js';
 
 // Server-side tool runtime for local Ollama workers. File access is resolved
@@ -744,7 +745,11 @@ async function runBashCommand(
     });
     child.once('close', run.cleanup);
 
-    const killTree = (): void => { void signalChildTree(child, 'SIGKILL'); };
+    let stopping: Promise<void> | undefined;
+    const killTree = (): Promise<void> => stopping ??= signalChildTree(child, 'SIGKILL');
+    let markEnded!: () => void;
+    const ended = new Promise<void>(resolve => { markEnded = resolve; });
+    const untrack = trackLocalShell(ctx.workflowId, { stop: killTree, ended });
 
     const timer = setTimeout(() => {
       timedOut = true;
@@ -788,9 +793,10 @@ async function runBashCommand(
     child.stdout?.on('data', (b: Buffer) => append('stdout', b));
     child.stderr?.on('data', (b: Buffer) => append('stderr', b));
 
-    const finish = (exitDescription: string): void => {
+    const finish = async (exitDescription: string): Promise<void> => {
       clearTimeout(timer);
       if (onAbort && ctx.abortSignal) ctx.abortSignal.removeEventListener('abort', onAbort);
+      await stopping;
       const parts: string[] = [];
       if (timedOut) parts.push(`[timed out after ${timeoutMs}ms]`);
       if (aborted) parts.push('[aborted]');
@@ -801,18 +807,19 @@ async function runBashCommand(
       if (trimmedStdout) parts.push('--- stdout ---', trimmedStdout);
       if (trimmedStderr) parts.push('--- stderr ---', trimmedStderr);
       if (!trimmedStdout && !trimmedStderr) parts.push('(no output)');
+      untrack();
+      markEnded();
       resolveResult(parts.join('\n'));
     };
 
-    child.on('error', (err) => {
-      finish(`[error] failed to spawn shell: ${err.message}`);
-    });
+    let spawnError: Error | undefined;
+    child.once('error', (err) => { spawnError = err; });
 
     child.on('close', (code, signal) => {
       const exitDesc = code === null
         ? `exit signal: ${signal ?? 'unknown'}`
         : `exit code: ${code}`;
-      finish(exitDesc);
+      void finish(spawnError ? `[error] failed to spawn shell: ${spawnError.message}` : exitDesc);
     });
   });
 }
@@ -823,7 +830,7 @@ const BashTool: OllamaToolEntry = {
     function: {
       name: 'Bash',
       description:
-        'Run a shell command in the workflow cwd via sh -c. Captures stdout + stderr (combined cap 64 KB) and an exit code. Default timeout 60s; max 600s. Stdin is closed — commands that read stdin will not hang. Honor the safety reminders in your prompt: cap unknown-size output, no `find /` without `-maxdepth`, no unbounded journalctl, etc.',
+        'Run a shell command in the workflow cwd via sh -c. Captures stdout + stderr (combined cap 64 KB) and an exit code. Default timeout 60s; max 600s. Active shell trees end on tab close. Stdin is closed — commands that read stdin will not hang. Honor the safety reminders in your prompt: cap unknown-size output, no `find /` without `-maxdepth`, no unbounded journalctl, etc.',
       parameters: {
         type: 'object',
         properties: {
