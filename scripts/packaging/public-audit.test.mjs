@@ -63,7 +63,7 @@ test('package exceptions require the exact vendor path and token and keep other 
   const shader=join(assets,'ThemedBackgroundShaderImpl-DgyOd5hb.js');
   const runShader=()=>spawnSync(process.execPath,[audit,'--package',dir],{cwd:root,env,encoding:'utf8'});
   writeFileSync(shader,'const value='+['13','070'].join('')+';');assert.equal(runShader().status,0);
-  writeFileSync(shader,'const value='+['13','070','1'].join('')+';');assert.match(runShader().stderr,/local-private-pattern/);
+  writeFileSync(shader,'const value='+['13','070','1'].join('')+';');assert.equal(runShader().status,0);
   writeFileSync(shader,'const value='+['13','070'].join('')+'; const ip="'+[10,20,30,40].join('.')+'";');assert.match(runShader().stderr,/private-network-example/);
   rmSync(shader);
   const otherDir=join(dir,'client/dist/other');mkdirSync(otherDir,{recursive:true});
@@ -79,4 +79,15 @@ test('package exceptions require the exact vendor path and token and keep other 
     assert.match(runShader().stderr,/local-private-pattern/,`exception must not apply to ${path}`);
     rmSync(path);
   }
+});
+
+test('numeric private patterns require digit boundaries', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'arco-numeric-audit-'));
+  const patterns = mkdtempSync(join(tmpdir(), 'arco-numeric-patterns-'));
+  t.after(() => { rmSync(dir, { recursive: true, force: true }); rmSync(patterns, { recursive: true, force: true }); });
+  const pattern = ['83', '741'].join('');
+  const patternFile = join(patterns, 'patterns'); writeFileSync(patternFile, pattern + '\nwordfixture');
+  const run = value => { writeFileSync(join(dir, 'fixture.txt'), value); return spawnSync(process.execPath, [audit, '--package', dir], { cwd: root, env: { ...process.env, ARCO_PRIVATE_PATTERNS_FILE: patternFile }, encoding: 'utf8' }); };
+  for (const value of ['1' + pattern, pattern + '2', '1' + pattern + '2']) assert.equal(run(value).status, 0);
+  for (const value of [pattern, 'a' + pattern + 'b', '1' + pattern + '2 ' + pattern, 'prewordfixturepost']) assert.match(run(value).stderr, /local-private-pattern/);
 });

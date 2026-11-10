@@ -117,7 +117,12 @@ function inspect(label, buffer, currentContent = false) {
     inspectPrivateWords(safeLabel, buffer);
   }
   for (const pattern of currentContent ? [...privatePatterns, ...treePatterns] : privatePatterns) {
-    const offset = decoded.indexOf(pattern);
+    let offset = decoded.indexOf(pattern);
+    if (/^\d+$/.test(pattern)) {
+      while (offset >= 0 && (/\d/.test(decoded[offset - 1] ?? '') || /\d/.test(decoded[offset + pattern.length] ?? ''))) {
+        offset = decoded.indexOf(pattern, offset + 1);
+      }
+    }
     if (offset >= 0) report(label, decoded.slice(0, offset).split('\n').length, 'local-private-pattern');
   }
   value.split('\n').forEach((line, index) => {
