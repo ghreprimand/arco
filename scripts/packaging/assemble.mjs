@@ -5,7 +5,7 @@ import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rm
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { runtimeDependencySpec, archiveRuntimeDependencies } from './runtime-dependencies.mjs';
+import { runtimeDependencySpec, archiveRuntimeDependencies, copyArchiveRuntimeDependency } from './runtime-dependencies.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const [output, nativeInput, mode] = process.argv.slice(2);
@@ -63,7 +63,7 @@ try {
   delete ptyManifest.scripts; delete ptyManifest.devDependencies; delete ptyManifest.files;
   writeFileSync(join(pty, 'package.json'), JSON.stringify(ptyManifest, null, 2) + '\n');
   for (const name of archiveRuntimeDependencies(server.dependencies)) {
-    cpSync(join(root, 'node_modules', name), join(destination, 'node_modules', name), { recursive: true, filter: safeRuntimeFile });
+    copyArchiveRuntimeDependency(name, join(root, 'node_modules', name), join(destination, 'node_modules', name), safeRuntimeFile);
   }
   writeFileSync(join(destination, 'server/package.json'), JSON.stringify({ name: '@arco/server', version: source.version, private: true, type: 'module' }, null, 2));
   for (const [platform, arch] of targets) {

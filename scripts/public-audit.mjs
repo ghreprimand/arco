@@ -81,6 +81,23 @@ const reviewedSqliteArtifact = '9253f70cab8a046f1bc9fa58650fd03089f7ef67bdf44b55
 // email-like instruction bytes in .text; the new artifact is separately pinned.
 const reviewedSqliteNapiArtifact = 'c4f93917c9791af6bf6dbd30a7eae0877840f1a776b2ab140691afd5f52f16b4';
 const reviewedSqliteEmails = new Set(['2657a6941a3c36e66b21e528b3f2b5c167159c481d98b65e81a9ef8f0b9808e9']);
+// Director-reviewed package-only false matches. Exact paths and exact tokens
+// are masked individually; source/history scans and neighboring bytes stay intact.
+function reviewedPackageText(label, value) {
+  if (!args.has('--package')) return value;
+  if (label === 'node_modules/xlsx/xlsx.js' || label === 'node_modules/xlsx/xlsx.mjs') {
+    // ODF specification section number, not a network address.
+    const comment = '// ' + [10, 4, 6, 2].join('.') + ' <draw:object>';
+    value = value.replaceAll(comment, ' '.repeat(comment.length));
+  }
+  if (['client/dist/assets/ThemedBackgroundShaderImpl-Cw4_ZBZ9.js', 'client/dist/assets/ThemedBackgroundShaderImpl-C_FbwbS7.js'].includes(label)) {
+    // Reviewed shader integer. Hashing avoids retaining a local-pattern fragment.
+    value = value.replace(/(?<![\w.])\d+(?![\w.])/g, token =>
+      createHash('sha256').update(token).digest('hex') === '4ad6a246a2834e522d110e17b99d09b28492a48dc628b138d94e381d18c89890'
+        ? ' '.repeat(token.length) : token);
+  }
+  return value;
+}
 function inspect(label, buffer, currentContent = false) {
   let reviewedEmailHashes;
   if (args.has('--package') && /^client\/dist\/assets\/index-[A-Za-z0-9_-]+\.js$/.test(label)) reviewedEmailHashes = reviewedClientEmails;
@@ -88,7 +105,7 @@ function inspect(label, buffer, currentContent = false) {
   else if (args.has('--package') && /^(?:native\/)?win32-x64\/better_sqlite3\.node$/.test(label) && createHash('sha256').update(buffer).digest('hex') === reviewedSqliteNapiArtifact) reviewedEmailHashes = reviewedSqliteEmails;
   // NULs may occur in source literals or UTF-16 metadata. They must not hide
   // a credential or turn a text source file into an unscanned binary.
-  const value = buffer.toString('utf8').replaceAll('\0', '');
+  const value = reviewedPackageText(label, buffer.toString('utf8').replaceAll('\0', ''));
   // Known private terms are also checked inside binary metadata.
   // The complete public project identity is the only exempt form; a local term
   // contained in it is still reported anywhere else, including on its own.

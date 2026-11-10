@@ -1,3 +1,4 @@
+import { svgResult } from './svg.js';
 import { fileHeaderKind } from './detect.js';
 import { officeResult, rtfResult } from './office.js';
 import { notebookResult } from './notebook.js';
@@ -28,7 +29,7 @@ parentPort!.once('message', async ({ data, name, options }: { data: Uint8Array; 
       let value: unknown; try { value = JSON.parse(text); } catch { /* ordinary text */ }
       if (value && typeof value === 'object' && 'nbformat' in value && 'cells' in value && Array.isArray(value.cells)) { parentPort!.postMessage(await notebookResult(value as Record<string, unknown>, name, options)); return; }
     }
-    parentPort!.postMessage(textResult(/<(?:svg|\?xml)/i.test(text.slice(0, 256)) && /<svg[\s>]/i.test(text) ? 'svg' : 'text', text, options));
+    parentPort!.postMessage(/<svg[\s>]/i.test(text) ? await svgResult(text,name,options) : textResult('text',text,options));
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'Decoding failed';
     const text = `file: ${name}, ${bytes.length} bytes; unable to decode binary or text content: ${reason.slice(0, 300)}`;

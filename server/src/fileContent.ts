@@ -47,7 +47,7 @@ export async function readFileContent(path: string, options: FileContentOptions 
   options.signal?.throwIfAborted();
   const prefix = await readRegularPrefix(path, 4096);
   const kind = fileHeaderKind(prefix.buffer);
-  const structured = /"(?:cells|nbformat)"\s*:/.test(prefix.buffer.toString('utf8'));
+  const structured = /\.svg$/i.test(path) || /<\?xml[\s>]/i.test(prefix.buffer.toString('utf8')) || /<svg[\s>]/i.test(prefix.buffer.toString('utf8')) || /"(?:cells|nbformat)"\s*:/.test(prefix.buffer.toString('utf8'));
   if (kind === 'text/plain' && !structured) {
     const r = await readRegularRange(path, Math.min(options.limits?.maxTextBytes ?? 256 * 1024, 1024 * 1024), Math.max(1, options.offset ?? 1), options.limit, options.signal, 8192);
     if (r.invalidUtf8) return note(path, prefix.size, 'invalid UTF-8 in the selected text range; not sent as text.');

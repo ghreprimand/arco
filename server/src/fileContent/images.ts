@@ -1,3 +1,5 @@
+import decodeAvif, { init as initAvif } from '@jsquash/avif/decode.js';
+import { iconPayload, iconBitmap } from './icons.js';
 import { externalImage } from './externalImage.js';
 import { decodePngRows } from './pngRows.js';
 import { createRequire } from 'node:module';
@@ -15,12 +17,14 @@ export interface Pixels { width: number; height: number; originalWidth?: number;
 
 export function imageType(b: Uint8Array): string | null {
   const p = Buffer.from(b.buffer, b.byteOffset, Math.min(b.byteLength, 256));
+  if (p.length >= 6 && p.readUInt32LE(0) === 65536 && p.readUInt16LE(4) > 0) return 'image/x-icon';
   if (p.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return 'image/png';
   if (p[0] === 255 && p[1] === 216 && p[2] === 255) return 'image/jpeg';
   if (/^GIF8[79]a/.test(p.toString('ascii', 0, 6))) return 'image/gif';
   if (p.toString('ascii', 0, 4) === 'RIFF' && p.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
   if (p[0] === 66 && p[1] === 77 && p.length >= 26 && [12,40,52,56,108,124].includes(p.readUInt32LE(14))) return 'image/bmp';
   if (p.subarray(0, 4).equals(Buffer.from([73,73,42,0])) || p.subarray(0, 4).equals(Buffer.from([77,77,0,42]))) return 'image/tiff';
+  if (p.toString('ascii', 4, 8) === 'ftyp' && /avif|avis/.test(p.toString('ascii', 8))) return 'image/avif';
   if (p.toString('ascii', 4, 8) === 'ftyp' && /heic|heix|hevc|hevx|mif1|msf1/.test(p.toString('ascii', 8))) return 'image/heic';
   return null;
 }
@@ -29,7 +33,10 @@ function checkSize(width: number, height: number): void {
 }
 export async function decodeImage(bytes: Buffer, type = imageType(bytes), edge = 2000): Promise<Pixels> {
   let pixels: Pixels;
-  if (type === 'image/png') {
+  if (type === 'image/x-icon') {
+    const payload=iconPayload(bytes);
+    return imageType(payload)==='image/png'?decodeImage(payload,'image/png',edge):iconBitmap(payload);
+  } else if (type === 'image/png') {
     if (bytes.length < 24) throw new Error('Incomplete PNG');
     const streamed = await decodePngRows(bytes, edge);
     if (streamed) return streamed;
@@ -50,6 +57,11 @@ export async function decodeImage(bytes: Buffer, type = imageType(bytes), edge =
       if (width > 0) data.set(decoded.patch!.subarray(y * decoded.dims.width * 4, (y * decoded.dims.width + width) * 4), ((y + decoded.dims.top) * gif.lsd.width + decoded.dims.left) * 4);
     }
     pixels = { width: gif.lsd.width, height: gif.lsd.height, data };
+  } else if (type === 'image/avif') {
+    await initAvif({ wasmBinary: Uint8Array.from(readFileSync(require.resolve('@jsquash/avif/codec/dec/avif_dec.wasm'))).buffer });
+    const decoded = await decodeAvif(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
+    if (!decoded) throw new Error('Invalid AVIF pixels');
+    pixels = decoded;
   } else if (type === 'image/webp') {
     const module = await WebAssembly.compile(readFileSync(require.resolve('@jsquash/webp/codec/dec/webp_dec.wasm')));
     await initWebp(module);
@@ -120,7 +132,7 @@ export async function imageResult(bytes: Buffer, name: string, options: FileCont
   const type = imageType(bytes)!;
   if (options.limits?.images === false) return textResult('image', `image: ${name}, ${type}, ${bytes.length} bytes; this model does not accept images.`, options);
   const edge = positive(options.limits?.maxImageEdge, 2000, 2000);
-  const original = await externalImage(bytes, type, edge) ?? await decodeImage(bytes, type, edge);
+  const original = (type === 'image/x-icon' ? null : await externalImage(bytes, type, edge)) ?? await decodeImage(bytes, type, edge);
   const originalWidth = original.originalWidth ?? original.width, originalHeight = original.originalHeight ?? original.height;
   const image = fittedImage(original, name, options);
   const text = `image: ${name}, ${image.width}x${image.height} (${image.mediaType}, ${bytes.length} source bytes)${image.width !== originalWidth || image.height !== originalHeight ? `; scaled from ${originalWidth}x${originalHeight}, original unchanged` : ''}`;

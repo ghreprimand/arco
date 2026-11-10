@@ -138,7 +138,7 @@ CLIs plus real Native loop over mocked Anthropic streaming; zero model spend).
 
 Claude Native Read, Task helpers and operator attachments use Arco's portable file decoder. Initial, queued, follow-up and steered attachments use the same preparation. Tool cards show the file name, type, dimensions or selected document range instead of binary bytes. Text reads retain the 256 KiB cap and line controls. UTF-8 and byte-order-marked UTF-16 text are recognized.
 
-PNG, JPEG, GIF, WebP, HEIC, TIFF and BMP are fitted with bundled codecs. No image converter installation is required. Available ImageMagick or macOS sips can accelerate decoding. Images fit within 2,000 pixels per side and 5 MB base64. The entire image is scaled without cropping; animated or multipage images use their first frame. SVG is read as source text without executing scripts or fetching resources.
+PNG, JPEG, GIF, WebP, AVIF, HEIC, TIFF, BMP and ICO are fitted with bundled codecs. No image converter installation is required. Available ImageMagick or macOS sips can accelerate decoding. Images fit within 2,000 pixels per side and 5 MB base64. The entire image is scaled without cropping; animated or multipage images use their first frame. ICO uses its largest embedded PNG or bitmap. SVG supplies bounded source text and a fitted preview. Its isolated WebAssembly renderer executes no scripts and resolves no external resources or system fonts. Text requiring a font may be absent from the preview; the source remains available.
 
 Read accepts `pages`, such as `"1-3,5"`. PDFs become document blocks when they fit; oversized selections fall back to extracted text. Scanned pages become images. Word (`.doc`, `.docx`), Excel (`.xls`, `.xlsx`), PowerPoint (`.ppt`, `.pptx`), OpenDocument and RTF become text with headings, table rows, sheet names or slide labels. Notebook cells retain source and outputs, including images.
 
@@ -1265,7 +1265,15 @@ Stateless local replay keeps the brief and later exchanges after a completed han
 
 `fetch(\`${OLLAMA_URL_BASE}/api/chat\`, { method: 'POST', body: JSON.stringify({ model, messages, stream: true, keep_alive: '10m', tools }) })`. No subprocess; the response is an NDJSON stream. Image attachments ride the final user message's `images` field (base64, 5 MB each; vision-capable models only); non-images fold as `[attached file: <path>]`.
 
-**Image downscaling (all providers).** Every image upload gets a background-derived sibling `<path>.model.<ext>` (≤2000px long edge, ≤3.75 MB raw, JPEG q85 fallback; ImageMagick `magick`/`convert`, macOS `sips`) in `providers/attachments.ts`. Models receive that copy: `modelImagePath` (sync - Claude CLI, Native `buildImageBlock`, Codex exec `-i`) or `awaitModelImage` (≤5 s - Codex app-server `localImage`, Cursor ACP, Ollama, llama.cpp, LM Studio staging); `turnEngine` also awaits before spawning so a send right after a paste gets the copy. Media type follows the derived file; text refs keep the original path; the original file is never modified. No image tool ⇒ original, as before.
+**Image fitting.** `providers/attachments.ts` uses the shared portable decoder
+for upload copies. It fits images within 2,000 pixels per side and 5 MB base64,
+including large GIFs. ImageMagick and macOS sips are optional accelerators.
+Original files and their text references remain unchanged; derived copies use
+PNG or JPEG as needed. Path-based adapters select a copy through
+`modelImagePath` or `awaitModelImage`. Claude Native prepares typed attachment
+content through `readFileContent` directly. See
+[Native file reads and attachments](#native-file-reads-and-attachments) for
+formats, document ranges and decoder limits.
 
 `OLLAMA_URL_BASE` defaults to `http://localhost:11434`. Override it with the env var. `settings.ollama.baseUrl` supports DD12 config-value interpolation (`!cmd ...` runs a command; `${ENV}` reads an env var) through `resolveConfigValue`, so the endpoint can be derived at resolve time. `keep_alive` is per request (`'10m'`), long enough for consecutive turns and short enough to return VRAM when a tab is idle; see Quirks.
 

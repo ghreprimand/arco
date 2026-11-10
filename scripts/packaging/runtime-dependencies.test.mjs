@@ -31,3 +31,15 @@ test('archive dependencies install from the packed bundle with an empty offline 
   const install=run(['install','--prefix',join(root,'installed'),'--offline','--ignore-scripts','--no-audit','--no-fund','--registry','https://registry.invalid',archive]);assert.equal(install.status,0,install.stderr);
   assert.match(readFileSync(join(root,'installed/node_modules/arco-bundle-fixture/node_modules/xlsx/index.js'),'utf8'),/bundled fixture/);
 });
+
+test('SheetJS bundle retains unmodified imported code and license without unused command shims', async t => {
+  const { copyArchiveRuntimeDependency }=await import('./runtime-dependencies.mjs');
+  const root=mkdtempSync(join(tmpdir(),'arco-sheet-runtime-'));t.after(()=>rmSync(root,{recursive:true,force:true}));
+  const source=join(root,'source'),dest=join(root,'dest');mkdirSync(join(source,'bin'),{recursive:true});mkdirSync(join(source,'dist'));
+  for(const file of ['xlsx.js','xlsx.mjs','LICENSE','bin/xlsx.njs','dist/xlsx.extendscript.js','dist/cpexcel.js'])writeFileSync(join(source,file),file);
+  writeFileSync(join(source,'package.json'),JSON.stringify({name:'xlsx',version:'0.20.3',main:'xlsx.js',module:'xlsx.mjs',bin:{xlsx:'bin/xlsx.njs'},unpkg:'dist/xlsx.full.min.js',types:'types/index.d.ts',exports:{'.':{import:'./xlsx.mjs',require:'./xlsx.js'}}}));
+  copyArchiveRuntimeDependency('xlsx',source,dest);
+  for(const file of ['xlsx.js','xlsx.mjs','dist/cpexcel.js','LICENSE'])assert.equal(readFileSync(join(dest,file),'utf8'),file);
+  assert.equal(existsSync(join(dest,'bin')),false);assert.equal(existsSync(join(dest,'dist/xlsx.extendscript.js')),false);
+  const manifest=JSON.parse(readFileSync(join(dest,'package.json'),'utf8'));assert.equal(manifest.bin,undefined);assert.equal(manifest.unpkg,undefined);assert.equal(manifest.types,undefined);assert.equal(manifest.main,'xlsx.js');
+});

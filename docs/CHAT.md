@@ -84,9 +84,10 @@ Incognito hides the control, a paste/drop shows "attachments are off", and the
 server fences attachments for incognito workflows (an upload would touch disk).
 RETRY resends the prompt's attachments and EDIT re-stages them.
 
-How an attached image reaches the model depends on the provider. Non-image files
-always fold as `[attached file: <path>]` text references. Images cap at 5 MB on
-every transport (`server/src/providers/attachments.ts` for the newer ones):
+How an attached image reaches the model depends on the provider. Claude Native
+also prepares PDFs, Office documents and notebooks through the shared file
+decoder. File references retain the original attachment name. Images use a
+5 MB base64 limit:
 
 | Provider | Images |
 |---|---|
@@ -102,20 +103,20 @@ Before 2026-09-25 Cursor dropped attachments
 outright. Most chats have no file tools, so a model that only receives a path
 reference cannot open it - Cursor's ask mode is the exception.
 
-**Image downscaling.** `/upload` fires `queueModelImage` after the write (the
-response doesn't wait). A PNG/JPEG/WEBP over 2000px on the long edge or over
-3.75 MB raw (the 5 MB base64 API cap) gets a sibling `<path>.model.<ext>`
-fitted to 2000x2000; still over the cap => JPEG q85 with alpha flattened onto
-white (`.model.jpg`). GIFs are left alone. The original is never modified, and
-`[attached file: ...]` refs and `path` fields keep naming it - only the bytes
-the model receives change. Async turn starts (Codex app-server, Cursor ACP,
-Ollama, llama.cpp, LM Studio) `awaitModelImage` (<=5 s; an
-upload that predates this, in `./uploads`, derives on demand); sync ones
-(Claude CLI / Native, Codex exec) take `modelImagePath` - the sibling if it's
-on disk. Media type follows the derived file. Tooling is detected once:
-ImageMagick `magick` -> `convert` (absolute fallbacks, since the systemd PATH
-lacks `~/.local/bin`), then macOS `sips`; none, or any failure, => the
-original goes through as before.
+**Image fitting.** Arco uses bundled image codecs to fit supported images within
+2,000 pixels per side and 5 MB base64. Large GIFs are fitted too. The original
+upload stays unchanged; file references keep its name. ImageMagick or macOS
+sips can accelerate decoding, but neither is required.
+
+`POST /upload` starts `queueModelImage` without delaying the upload response.
+When needed, `providers/attachments.ts` writes a fitted `.model.png` or
+`.model.jpg` sibling. Existing path-based transports use `modelImagePath` or
+`awaitModelImage` to select that copy. Claude Native prepares attachments
+through `readFileContent` directly, retaining typed image and document blocks.
+Malformed or unsupported content receives a readable note from the decoder.
+
+Supported formats and document ranges are described in
+[Native file reads and attachments](PROVIDERS.md#native-file-reads-and-attachments).
 
 ## Persistence and privacy boundaries
 
