@@ -7,6 +7,7 @@ import { applyTheme } from '../themes/apply';
 import { getTheme } from '../themes/registry';
 import { RecentsLens } from '../explorer/RecentsLens';
 import { ArtifactsLens } from '../explorer/ArtifactsLens';
+import { canRevealInTree, treeRevealDirectories } from '../explorer/treeReveal';
 import { parseAskNotice } from './AskUserQuestionNotice';
 import { CatchMeUp } from './CatchMeUp';
 import { openSetupMic } from '../voice/setupAudio';
@@ -90,4 +91,31 @@ test('B140: switching scope while catch-up is pending leaves the new scope ready
     assert.ok([...document.querySelectorAll('button')].some(b => b.textContent === 'SUMMARIZE'));
     assert.ok(!document.body.textContent?.includes('Collecting and summarizing'));
   } finally { await f.close(); }
+});
+
+for (const lens of ['recents', 'artifacts']) test(`tree reveal in ${lens} stays within the current tree root`, async () => {
+  const f = await fixture();
+  const paths = ['/projects/fixture/in.md', '/elsewhere/out.md', '/projects/fixture-other/sibling.md'];
+  const entries = paths.map((path, i) => ({ path, name: path.split('/').at(-1), cwd: '/projects/fixture', project: 'Fixture', rel: path.split('/').at(-1), mtime: i + 1, size: 20 }));
+  globalThis.fetch = async (input) => Response.json(String(input).includes('/artifacts') ? { entries: [] } : String(input).includes('/recents?') ? { records: [] } : { entries });
+  const revealed: string[] = [];
+  try {
+    await f.render(createElement(lens === 'recents' ? RecentsLens : ArtifactsLens, { focusTick: 1, treeRoot: '/projects/fixture', onOpen() {}, onRevealInTree(path: string) { revealed.push(path); } }));
+    const actions = [...document.querySelectorAll<HTMLButtonElement>('button[title="Reveal in the file tree"]')];
+    assert.equal(actions.length, 1);
+    await act(async () => actions[0].click());
+    assert.deepEqual(revealed, [paths[0]]);
+  } finally { await f.close(); }
+});
+
+
+test('Windows tree reveal normalizes separators and retains drive and directory boundaries', () => {
+  const root = String.raw`C:\projects\fixture`;
+  assert.equal(canRevealInTree(String.raw`C:\projects\fixture\notes.md`, root), true);
+  assert.deepEqual(treeRevealDirectories(String.raw`C:\projects\fixture\docs\notes.md`, root), [root, root + String.raw`\docs`]);
+  assert.equal(canRevealInTree('C:/projects/fixture/notes.md', root), true);
+  assert.equal(canRevealInTree(String.raw`C:\projects\fixture\notes.md`, 'C:/projects/fixture/'), true);
+  assert.equal(canRevealInTree(String.raw`C:\projects\fixture-other\notes.md`, root), false);
+  assert.equal(canRevealInTree(String.raw`D:\projects\fixture\notes.md`, root), false);
+  assert.equal(canRevealInTree(String.raw`C:\projects\fixture\.arco\notes.md`, root), false);
 });

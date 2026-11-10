@@ -1,3 +1,4 @@
+import { canRevealInTree } from './treeReveal';
 import { useEffect, useMemo, useState } from 'react';
 import { formatRelativeTime } from '../components/RightPanel/format';
 import { mergeItems, rollupProjects, type ArtifactEntry, type DocEntry, type ProjectItem, type ProjectSummary } from './types';
@@ -18,6 +19,7 @@ import { mergeItems, rollupProjects, type ArtifactEntry, type DocEntry, type Pro
 
 interface Props {
   focusTick: number;
+  treeRoot?: string | null;
   onOpen: (path: string) => void;
   onRevealInTree: (path: string) => void;
 }
@@ -29,7 +31,6 @@ function subdirOf(rel: string): string {
   const i = rel.lastIndexOf('/');
   return i === -1 ? '·' : rel.slice(0, i) + '/';
 }
-function revealable(path: string): boolean { return !path.split(/[\\/]/).includes('.arco'); }
 
 interface LoadedEntries<T> { entries: T[]; partial?: boolean; error?: string }
 
@@ -45,7 +46,7 @@ async function loadEntries<T>(url: string, label: string): Promise<LoadedEntries
   }
 }
 
-export function ArtifactsLens({ focusTick, onOpen, onRevealInTree }: Props) {
+export function ArtifactsLens({ focusTick, treeRoot, onOpen, onRevealInTree }: Props) {
   const [docs, setDocs] = useState<LoadedEntries<DocEntry> | null>(null);
   const [artifacts, setArtifacts] = useState<LoadedEntries<ArtifactEntry> | null>(null);
   const [projectDocs, setProjectDocs] = useState<LoadedEntries<DocEntry> | null>(null);
@@ -112,7 +113,7 @@ export function ArtifactsLens({ focusTick, onOpen, onRevealInTree }: Props) {
           {projectItems.length === 0 ? (
             <Centered text={filter ? 'Nothing matches that filter.' : 'No documents or artifacts in this project.'} />
           ) : (
-            projectItems.map((it) => <ItemRow key={it.path} item={it} onOpen={onOpen} onRevealInTree={onRevealInTree} />)
+            projectItems.map((it) => <ItemRow key={it.path} item={it} treeRoot={treeRoot} onOpen={onOpen} onRevealInTree={onRevealInTree} />)
           )}
         </div>
       </div>
@@ -127,7 +128,7 @@ export function ArtifactsLens({ focusTick, onOpen, onRevealInTree }: Props) {
         <section style={{ marginBottom: '22px' }}>
           <SectionLabel>RECENT · ALL PROJECTS</SectionLabel>
           <div style={{ marginTop: '8px' }}>
-            {recent.map((it) => <ItemRow key={it.path} item={it} onOpen={onOpen} onRevealInTree={onRevealInTree} showProject />)}
+            {recent.map((it) => <ItemRow key={it.path} item={it} treeRoot={treeRoot} onOpen={onOpen} onRevealInTree={onRevealInTree} showProject />)}
           </div>
         </section>
       )}
@@ -161,7 +162,7 @@ function countLabel(p: ProjectSummary): string {
   return parts.join(' · ') || '0 files';
 }
 
-function ItemRow({ item, onOpen, onRevealInTree, showProject }: { item: ProjectItem; onOpen: (p: string) => void; onRevealInTree: (p: string) => void; showProject?: boolean }) {
+function ItemRow({ item, treeRoot, onOpen, onRevealInTree, showProject }: { item: ProjectItem; treeRoot?: string | null; onOpen: (p: string) => void; onRevealInTree: (p: string) => void; showProject?: boolean }) {
   const meta = item.kind === 'doc'
     ? `${showProject ? '' : subdirOf(item.rel ?? '') + ' · '}${formatRelativeTime(item.mtime)}`
     : `${item.tabTitle} · ${item.provider} · ${formatRelativeTime(item.mtime)}`;
@@ -177,7 +178,7 @@ function ItemRow({ item, onOpen, onRevealInTree, showProject }: { item: ProjectI
           {meta}
         </span>
       </button>
-      {revealable(item.path) && (
+      {canRevealInTree(item.path, treeRoot) && (
         <button data-help="header.archive" onClick={() => onRevealInTree(item.path)} className="display-font" title="Reveal in the file tree" style={revealBtn}>⊞</button>
       )}
     </div>

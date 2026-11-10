@@ -1,3 +1,4 @@
+import { treeRevealDirectories } from '../explorer/treeReveal';
 import { layoutPoint } from '../utils/pointer';
 import { useEffect, useState, useCallback } from 'react';
 import { FileViewerModal } from './FileViewerModal';
@@ -74,16 +75,10 @@ export function FileExplorer({ cwd, onClose, workflowId, revealPath, revealNonce
   // only pass paths that live in the visible tree (real project files).
   useEffect(() => {
     if (!revealPath) return;
-    const root = cwd.replace(/\/$/, '');
-    if (revealPath !== root && !revealPath.startsWith(root + '/')) return;
+    const dirs = treeRevealDirectories(revealPath, cwd);
+    if (!dirs) return;
     let cancelled = false;
     (async () => {
-      const rel = revealPath.slice(root.length + 1);
-      const segs = rel.split('/').filter(Boolean);
-      // Ancestor dirs: root, root/a, root/a/b … (exclude the file itself).
-      const dirs: string[] = [root];
-      let acc = root;
-      for (let i = 0; i < segs.length - 1; i++) { acc = `${acc}/${segs[i]}`; dirs.push(acc); }
       for (const dir of dirs) {
         if (cancelled) return;
         if (!tree[dir]) {

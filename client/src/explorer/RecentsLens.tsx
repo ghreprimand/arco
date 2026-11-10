@@ -1,3 +1,4 @@
+import { canRevealInTree } from './treeReveal';
 import { useEffect, useMemo, useState } from 'react';
 import { formatRelativeTime } from '../components/RightPanel/format';
 import { changedAttribution } from './changedAttribution';
@@ -7,6 +8,7 @@ import { fileKind, type FileKind, type ChangedEntry, type RecentRecord } from '.
 
 interface Props {
   focusTick: number;
+  treeRoot?: string | null;
   onOpen: (path: string) => void;
   onRevealInTree: (path: string) => void;
 }
@@ -25,9 +27,8 @@ interface Row {
 function basename(p: string): string { return p.split(/[\\/]/).filter(Boolean).pop() || p; }
 // Under `.arco` (artifacts) the tree can't reveal it (dotdirs are hidden
 // server-side); only real project files get OPEN IN TREE.
-function revealable(path: string): boolean { return !path.split(/[\\/]/).includes('.arco'); }
 
-export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
+export function RecentsLens({ focusTick, treeRoot, onOpen, onRevealInTree }: Props) {
   const [writes, setWrites] = useState<RecentRecord[] | null>(null);
   const [changed, setChanged] = useState<ChangedEntry[] | null>(null);
   const [partial, setPartial] = useState(false);
@@ -114,7 +115,7 @@ export function RecentsLens({ focusTick, onOpen, onRevealInTree }: Props) {
                   {r.meta}
                 </span>
               </button>
-              {revealable(r.path) && (
+              {canRevealInTree(r.path, treeRoot) && (
                 <button data-help="header.archive" onClick={() => onRevealInTree(r.path)} className="display-font" title="Reveal in the file tree" style={revealBtn}>⊞</button>
               )}
             </div>

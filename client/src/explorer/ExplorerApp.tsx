@@ -1,3 +1,4 @@
+import { canRevealInTree } from './treeReveal';
 import { useEffect, useMemo, useState } from 'react';
 import { FileExplorer } from '../components/FileExplorer';
 import { FileViewerModal } from '../components/FileViewerModal';
@@ -82,6 +83,7 @@ export function ExplorerApp() {
   const activeLens = useMemo(() => LENSES.find((l) => l.id === lens) ?? LENSES[0], [lens]);
 
   const revealInTree = (path: string) => {
+    if (!canRevealInTree(path, root)) return;
     setReveal({ path, nonce: Date.now() });
     setLens('tree');
   };
@@ -142,10 +144,10 @@ export function ExplorerApp() {
 
         <main style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
           {activeLens.id === 'artifacts' && (
-            <ArtifactsLens focusTick={focusTick} onOpen={setViewerPath} onRevealInTree={revealInTree} />
+            <ArtifactsLens focusTick={focusTick} treeRoot={root} onOpen={setViewerPath} onRevealInTree={revealInTree} />
           )}
           {activeLens.id === 'recents' && (
-            <RecentsLens focusTick={focusTick} onOpen={setViewerPath} onRevealInTree={revealInTree} />
+            <RecentsLens focusTick={focusTick} treeRoot={root} onOpen={setViewerPath} onRevealInTree={revealInTree} />
           )}
           {activeLens.id === 'plans' && <PlansLens focusTick={focusTick} />}
           {activeLens.id === 'storage' && <StorageLens focusTick={focusTick} />}

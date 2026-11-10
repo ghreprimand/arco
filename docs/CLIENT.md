@@ -1398,3 +1398,5 @@ Project-discovery budgets also bound pending directory operations. A stalled ope
 ### Background jobs in ACTIVITY
 
 The BACKGROUND list receives server-attributed agent shell commands and their known children. It keeps jobs across turns and briefly shows completion after exit. Arco helpers, configured MCP servers and provider programs are excluded. Linux process discovery identifies these jobs; the browser does not classify command text.
+
+OPEN IN TREE is offered only for project files inside the current TREE root; files outside it remain available in the viewer.

@@ -5,7 +5,7 @@ export const maintenance: Section[] = [
   {
   id: 'archive-explorer', group: 'The workspace', title: 'Artifacts - artifacts, changed files, plans, storage and file tree',
   body: <>
-  <p>CHANGED FILES shows filenames for both Windows and slash-separated paths. Files inside an Arco state folder open in the viewer; OPEN IN TREE is offered only for project files outside that folder.</p>
+  <p>CHANGED FILES shows filenames for both Windows and slash-separated paths. Files inside an Arco state folder open in the viewer; OPEN IN TREE is offered only for project files inside the current TREE root; files outside it remain available in the viewer.  OPEN IN TREE is offered only for project files outside that folder.</p>
   <p>
   <strong>ARTIFACTS</strong> (in the KNOWLEDGE menu) is a file browser for artifacts,
   changed files, plans, storage and the raw tree - not a workflow or an agent. Only PLANS
