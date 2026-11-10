@@ -118,3 +118,9 @@ test('savedTokens accounting is consistent (original = kept + saved)', () => {
   const plan = planTurnSpill(items, 5_000);
   assert.equal(plan.keptTokens, plan.originalTokens - plan.savedTokens);
 });
+
+test('media token estimates use pixel/page costs instead of base64 text length',()=>{
+  const png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC';
+  assert.ok(estimateResultTokens([{type:'image',source:{type:'base64',media_type:'image/png',data:png}}])<20);
+  assert.equal(estimateResultTokens([{type:'document',arcoPages:2,source:{type:'base64',media_type:'application/pdf',data:'JVBERi0='}}]),6000);
+});

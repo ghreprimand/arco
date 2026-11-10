@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Claude Native Read and attachments handle portable image fitting, PDF ranges, Office documents and notebook cells without extra programs. MCP media stays visible to the model; saved context retains file receipts.
+
 - Claude Native Read shows PNG, JPEG, GIF and WebP files to the model, including Task helpers. Large images are resized or explained with a text note; tool cards show image names and dimensions.
 
 - Show the measured context in ACTIVITY and avoid labelling Claude worker usage totals as context.

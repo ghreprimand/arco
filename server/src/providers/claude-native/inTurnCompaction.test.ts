@@ -590,17 +590,20 @@ for (const helper of [false, true]) test(`image Read reaches the next request, c
     writeFileSync(join(s.cwd, 'shot.png'), Buffer.from(data, 'base64'));
     await s.w.runTurn('Inspect the screenshot and describe it.');
     assert.deepEqual(s.errors, []);
-    assert.ok(JSON.stringify(s.requests[1]).includes(data), 'the model receives the pixels inside tool_result');
+    const result = (s.requests[1].at(-1)!.content as any[]).find(b => b.type === 'tool_result');
+    const sentImage = result.content.find((b: any) => b.type === 'image');
+    assert.ok(sentImage?.source.data, 'the model receives fitted pixels inside tool_result');
+    const sentData = sentImage.source.data as string;
     assert.match(JSON.stringify(activities), /image: shot.png, 1x1/);
-    assert.ok(JSON.stringify(s.counts).includes(data), 'count_tokens receives image blocks, not base64 text');
-    assert.ok(!JSON.stringify(activities).includes(data), 'tool activity never stores pixels');
+    assert.ok(JSON.stringify(s.counts).includes(sentData), 'count_tokens receives image blocks, not base64 text');
+    assert.ok(!JSON.stringify(activities).includes(sentData), 'tool activity never stores pixels');
     assert.ok(s.summaries.length > 0);
     assert.match(JSON.stringify(s.summaries), /shot.png/);
-    assert.ok(!JSON.stringify(s.events).includes(data), 'compaction markers never store pixels');
+    assert.ok(!JSON.stringify(s.events).includes(sentData), 'compaction markers never store pixels');
     const marker = s.events.find(e => e.type === 'native_compacted');
     assert.ok(marker);
     const replay = buildMessagesFromReplayEvents([{ ...marker, seq: 1 }] as never);
     assert.match(JSON.stringify(replay), /shot.png/);
-    assert.ok(!JSON.stringify(replay).includes(data), 'reload carries the image receipt');
+    assert.ok(!JSON.stringify(replay).includes(sentData), 'reload carries the image receipt');
   } finally { await s.done(); }
 });

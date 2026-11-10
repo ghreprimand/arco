@@ -1,3 +1,4 @@
+import { withFileDecodeSlot } from './fileContent/decodeSlots.js';
 import { fileHeaderKind } from './fileContent/detect.js';
 export { fileHeaderKind } from './fileContent/detect.js';
 import { Worker } from 'node:worker_threads';
@@ -35,9 +36,6 @@ export interface FileContentResult {
   isError: boolean;
 }
 export const MAX_FILE_CONTENT_BYTES = 512 * 1024 * 1024;
-const MAX_ACTIVE = 2;
-let active = 0;
-const waiters: Array<() => void> = [];
 
 function note(name: string, size: number, reason: string, isError = false): FileContentResult {
   const text = `file: ${basename(name).replace(/[\r\n\0]/g, ' ')}, ${size} bytes; ${reason}`;
@@ -57,17 +55,20 @@ export async function readFileContent(path: string, options: FileContentOptions 
     return { text, blocks: [{ type: 'text', text }], kind: 'text', truncated: r.truncated, isError: false };
   }
   if (prefix.size > MAX_FILE_CONTENT_BYTES) return note(path, prefix.size, 'too large to decode safely (512 MB source limit); crop an image or export selected document pages.');
-  const data = prefix.size <= prefix.buffer.length ? prefix.buffer : (await readRegularPrefix(path, MAX_FILE_CONTENT_BYTES + 1)).buffer;
-  return fileContentFromBytes(data, basename(path), options);
+  return withFileDecodeSlot(async () => {
+    const data = prefix.size <= prefix.buffer.length ? prefix.buffer : (await readRegularPrefix(path, MAX_FILE_CONTENT_BYTES + 1)).buffer;
+    return decodeContentBytes(data, basename(path), options);
+  }, options.signal);
 }
 
 /** Decode untrusted bounded bytes without fetching URLs or reading external resources. */
 export async function fileContentFromBytes(bytes: Uint8Array, name: string, options: FileContentOptions = {}): Promise<FileContentResult> {
+  return withFileDecodeSlot(() => decodeContentBytes(bytes,name,options), options.signal);
+}
+async function decodeContentBytes(bytes: Uint8Array, name: string, options: FileContentOptions): Promise<FileContentResult> {
   options.signal?.throwIfAborted();
   if (bytes.byteLength > MAX_FILE_CONTENT_BYTES) return note(name, bytes.byteLength, 'too large to decode safely (512 MB source limit); crop an image or export selected document pages.');
-  if (active >= MAX_ACTIVE) await new Promise<void>(resolve => waiters.push(resolve));
-  active++;
-  try {
+  {
     options.signal?.throwIfAborted();
     const js = new URL('./fileContent/worker.js', import.meta.url);
     const source = !existsSync(js);
@@ -90,5 +91,5 @@ export async function fileContentFromBytes(bytes: Uint8Array, name: string, opti
         worker.postMessage({ data, name: basename(name), options: wireOptions }, [data.buffer]);
       });
     } finally { await worker.terminate(); }
-  } finally { active--; waiters.shift()?.(); }
+  }
 }

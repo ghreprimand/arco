@@ -1,3 +1,5 @@
+import { MAX_FILE_CONTENT_BYTES } from '../fileContent.js';
+import { normalizeMcpFileContent, type McpToolResult } from './fileContent.js';
 // docs/ARCHITECTURE.md - minimal MCP stdio client.
 //
 // Speaks newline-delimited JSON-RPC 2.0 over a spawned stdio child (the same
@@ -328,12 +330,14 @@ export interface McpSession {
   // Repeated tool calls. Resolves (never rejects) — a closed/errored session
   // or a timed-out call returns `{ text: '[error] …', isError: true }` so a
   // hung child can never wedge the worker's turn loop.
-  callTool(name: string, args: Record<string, unknown>): Promise<{ text: string; isError: boolean }>;
+  callTool(name: string, args: Record<string, unknown>): Promise<McpToolResult>;
   // Force-kill the child. Idempotent — safe to call from dispose AND cancel.
   close(): void;
 }
 
 export interface ConnectOptions {
+  // Bounded JSON-RPC envelope, including base64 overhead.
+  maxResponseBytes?: number;
   // Spawn/initialize ceiling. A child that never completes the handshake within
   // this window resolves to a closed session that reports the timeout.
   initTimeoutMs?: number;
@@ -365,6 +369,7 @@ function closedSession(error: string): McpSession {
 export async function connectServer(def: McpServerDef, opts: ConnectOptions = {}): Promise<McpSession> {
   const initTimeoutMs = opts.initTimeoutMs ?? DEFAULT_INIT_TIMEOUT_MS;
   const callTimeoutMs = opts.callTimeoutMs ?? DEFAULT_CALL_TIMEOUT_MS;
+  const responseLimit = Math.max(1024, Math.min(opts.maxResponseBytes ?? Infinity, Math.ceil(MAX_FILE_CONTENT_BYTES / 3) * 4 + 2 * 1024 * 1024));
 
   let child: ChildProcessWithoutNullStreams;
   try {
@@ -380,6 +385,7 @@ export async function connectServer(def: McpServerDef, opts: ConnectOptions = {}
   // resolver; `nextId` mints request ids. stdout is line-buffered. Any line
   // without a matching id (server notification/request) is ignored.
   let stdoutBuf = '';
+  let stdoutBytes = 0;
   let nextId = 1;
   let closed = false;
   const pending = new Map<number, (resp: JsonRpcResponse) => void>();
@@ -390,10 +396,18 @@ export async function connectServer(def: McpServerDef, opts: ConnectOptions = {}
 
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (chunk: string) => {
+    stdoutBytes += Buffer.byteLength(chunk);
+    if (stdoutBytes > responseLimit) {
+      stdoutBuf = ''; stdoutBytes = 0;
+      onGone('MCP response exceeded its byte limit; request a smaller result.');
+      killChild(); return;
+    }
     stdoutBuf += chunk;
     let idx: number;
     while ((idx = stdoutBuf.indexOf('\n')) >= 0) {
-      const line = stdoutBuf.slice(0, idx).trim();
+      const rawLine = stdoutBuf.slice(0, idx);
+      stdoutBytes -= Buffer.byteLength(rawLine) + 1;
+      const line = rawLine.trim();
       stdoutBuf = stdoutBuf.slice(idx + 1);
       if (!line) continue;
       let resp: JsonRpcResponse;
@@ -485,14 +499,11 @@ export async function connectServer(def: McpServerDef, opts: ConnectOptions = {}
       if (closed) return { text: '[error] mcp session closed', isError: true };
       const resp = await request('tools/call', { name, arguments: args ?? {} }, callTimeoutMs);
       if (resp.error) return { text: `[error] ${resp.error.message}`, isError: true };
-      // MCP tools/call result: { content: [{type:'text', text}], isError? }.
-      const result = resp.result as { content?: Array<{ type?: string; text?: string }>; isError?: boolean } | undefined;
-      const parts = Array.isArray(result?.content)
-        ? result!.content.filter((c) => c && c.type === 'text' && typeof c.text === 'string').map((c) => c.text as string)
-        : [];
-      const text = parts.length > 0 ? parts.join('\n') : JSON.stringify(result?.content ?? result ?? {});
-      const isError = result?.isError === true;
-      return { text, isError };
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), Math.min(callTimeoutMs, 30_000));
+      try { return await normalizeMcpFileContent(resp.result, controller.signal); }
+      catch { return { text: '[error] MCP file content decoding was cancelled or exceeded its limit.', isError: true }; }
+      finally { clearTimeout(timer); }
     },
     close: () => {
       if (closed) { killChild(); return; }

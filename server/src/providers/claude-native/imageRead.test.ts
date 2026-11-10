@@ -1,3 +1,4 @@
+import { PNG } from 'pngjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
@@ -15,7 +16,9 @@ test('Native Read returns PNG bytes as an image even with a misleading extension
     await writeFile(join(cwd, 'picture.txt'), png);
     const result = await executeNativeToolResult('Read', { file_path: 'picture.txt' }, imageReadContext(cwd));
     const blocks = (result as unknown as { content?: Array<{ type: string; source?: { data: string; media_type: string } }> }).content;
-    assert.equal(blocks?.find(b => b.type === 'image')?.source?.data, png.toString('base64'));
+    const data = blocks?.find(b => b.type === 'image')?.source?.data;
+    assert.ok(data);
+    assert.deepEqual(PNG.sync.read(Buffer.from(data,'base64')).data, PNG.sync.read(png).data);
     assert.match(result.text, /image: picture.txt, 1x1/);
     assert.doesNotMatch(result.text, /IHDR|IDAT/);
   } finally { await rm(cwd, { recursive: true, force: true }); }
@@ -46,13 +49,13 @@ function tallPng(): Buffer {
   return Buffer.concat([png.subarray(0, 8), chunk('IHDR', header), chunk('IDAT', deflateSync(Buffer.alloc(301 * 10000))), chunk('IEND', Buffer.alloc(0))]);
 }
 
-test('tall screenshot is safely omitted without a converter; no raw bytes or project siblings', async () => {
+test('tall screenshot is decoded without a system converter; no project siblings', async () => {
   const cwd = realpathSync(await mkdtemp(join(tmpdir(), 'arco-image-tall-')));
   __resetModelImageStateForTests({ disableTool: true });
   try {
     const file = join(cwd, 'page.png'), original = tallPng(); await writeFile(file, original);
     const result = await executeNativeToolResult('Read', { file_path: file }, imageReadContext(cwd));
-    assert.equal(result.content, undefined); assert.match(result.text, /not sent:.*resiz/);
+    assert.ok(result.content?.some(b => b.type === 'image')); assert.match(result.text, /20x2000/);
     assert.deepEqual(await readFile(file), original); assert.deepEqual(await readdir(cwd), ['page.png']);
   } finally { __resetModelImageStateForTests(); await rm(cwd, { recursive: true, force: true }); }
 });
@@ -74,7 +77,7 @@ test('invalid image headers produce an explanation and text reads retain line sl
   try {
     await writeFile(join(cwd, 'bad.png'), png.subarray(0, 12));
     const bad = await executeNativeToolResult('Read', { file_path: 'bad.png' }, imageReadContext(cwd));
-    assert.equal(bad.content, undefined); assert.match(bad.text, /not sent/);
+    assert.equal(bad.content, undefined); assert.match(bad.text, /unable to decode|not sent/);
     await writeFile(join(cwd, 'text.txt'), 'first\nsecond\nthird');
     assert.equal((await executeNativeToolResult('Read', { file_path: 'text.txt', offset: 2, limit: 1 }, imageReadContext(cwd))).text, 'second');
   } finally { await rm(cwd, { recursive: true, force: true }); }
@@ -94,7 +97,7 @@ test('image results survive wire serialization and become receipts in summaries 
     assert.equal(spill.spill.length, 1); assert.match(spill.spill[0].summary, /image: picture.png/);
     const many = Array.from({ length: 100 }, () => result.content);
     assert.equal(admitImageResult(many, [], result).content, undefined);
-    assert.match(admitImageResult(many, [], result).text, /image budget/);
+    assert.match(admitImageResult(many, [], result).text, /image.*budget/);
     assert.deepEqual(admitImageResult([], [], result), result);
   } finally { await rm(cwd, { recursive: true, force: true }); }
 });
@@ -116,12 +119,12 @@ test('oversized source and malformed extension produce bounded notes, never byte
   const cwd = realpathSync(await mkdtemp(join(tmpdir(), 'arco-image-bounds-')));
   try {
     const file = join(cwd, 'huge.png'); await writeFile(file, png);
-    const h = await open(file, 'r+'); try { await h.truncate(32 * 1024 * 1024 + 1); } finally { await h.close(); }
+    const h = await open(file, 'r+'); try { await h.truncate(512 * 1024 * 1024 + 1); } finally { await h.close(); }
     const big = await executeNativeToolResult('Read', { file_path: file }, imageReadContext(cwd));
-    assert.equal(big.content, undefined); assert.match(big.text, /32 MB/); assert.ok(big.text.length < 300);
+    assert.equal(big.content, undefined); assert.match(big.text, /512 MB/); assert.ok(big.text.length < 300);
     await writeFile(file, Buffer.from([0, 1, 2, 3]));
     const bad = await executeNativeToolResult('Read', { file_path: file }, imageReadContext(cwd));
-    assert.equal(bad.content, undefined); assert.match(bad.text, /unrecognized image data/);
+    assert.equal(bad.content, undefined); assert.match(bad.text, /binary|unrecognized/);
   } finally { await rm(cwd, { recursive: true, force: true }); }
 });
 
@@ -138,7 +141,7 @@ test('JPEG, GIF and WebP are identified from bytes and reach structured results'
       await writeFile(file, Buffer.from(encoded, 'base64'));
       const result = await executeNativeToolResult('Read', { file_path: file }, imageReadContext(cwd));
       const image = result.content?.find(b => b.type === 'image'); assert.ok(image?.type === 'image');
-      assert.equal(image.source.media_type, media); assert.match(result.text, /2x3/);
+      assert.equal(image.source.media_type, 'image/png', `normalized ${media}`); assert.match(result.text, /2x3/);
     }
   } finally { await rm(cwd, { recursive: true, force: true }); }
 });

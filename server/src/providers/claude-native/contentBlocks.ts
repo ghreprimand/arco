@@ -22,6 +22,11 @@ export type ImageBlock = {
   source: { type: 'base64'; media_type: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string };
 };
 
+export type DocumentBlock = {
+  type: 'document'; title?: string; arcoPages?: number;
+  source: { type: 'base64'; media_type: 'application/pdf'; data: string };
+};
+
 export type ServerToolUseBlock = {
   type: 'server_tool_use';
   id: string;
@@ -50,8 +55,9 @@ export type AnyContentBlock =
   | { type: 'thinking'; thinking: string; signature?: string }
   | { type: 'redacted_thinking'; data: string }
   | ImageBlock
+  | DocumentBlock
   | ToolUseBlock
-  | { type: 'tool_result'; tool_use_id: string; content: string | Array<{ type: 'text'; text: string } | ImageBlock>; is_error?: boolean }
+  | { type: 'tool_result'; tool_use_id: string; content: string | Array<{ type: 'text'; text: string } | ImageBlock | DocumentBlock>; is_error?: boolean }
   | ServerToolUseBlock
   | ServerToolResultBlock
   | CompactionBlock;
@@ -207,6 +213,15 @@ function buildImageBlock(path: string, skipped?: SkippedImage[]): ImageBlock | n
 // the payload's magic bytes → retyped in place. Payloads whose magic isn't
 // recognized are left alone — only a positive sniff overrides the declared type.
 export function repairImageBlock(block: Record<string, unknown>): { action: 'keep' } | { action: 'retyped' } | { action: 'replace'; text: string } {
+  if (block.type === 'document' && isRecord(block.source) && block.source.type === 'base64') {
+    const data = block.source.data;
+    if (typeof data !== 'string' || !data || data.length > 20 * 1024 * 1024
+      || Buffer.from(data.slice(0, 16), 'base64').subarray(0,5).toString() !== '%PDF-'
+      || (typeof block.arcoPages === 'number' && block.arcoPages > 100)) {
+      return { action: 'replace', text: '[PDF omitted: invalid or oversized document data; use Read with a smaller page range.]' };
+    }
+    return { action: 'keep' };
+  }
   if (block.type !== 'image' || !isRecord(block.source) || block.source.type !== 'base64') return { action: 'keep' };
   const src = block.source as { data?: unknown; media_type?: unknown };
   if (typeof src.data !== 'string') return { action: 'keep' };

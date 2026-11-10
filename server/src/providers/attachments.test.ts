@@ -100,11 +100,13 @@ test('deriveModelImage: small PNG needs no copy; modelImagePath falls back to th
     assert.equal(await deriveModelImage(src), null);
     assert.equal(modelImagePath(src), src);
     assert.equal(existsSync(`${src}.model.png`), false);
-    // GIFs are left alone regardless of size.
+    // Large GIFs now use a fitted first-frame copy.
     const gif = join(dir, 'wide.gif');
     gen(gif, ['-size', '3000x100', 'xc:white']);
-    assert.equal(await deriveModelImage(gif), null);
-    assert.equal(modelImagePath(gif), gif);
+    const gifCopy = await deriveModelImage(gif);
+    assert.ok(gifCopy);
+    assert.ok(Math.max(...dims(gifCopy)) <= 2000);
+    assert.equal(modelImagePath(gif), gifCopy);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -118,7 +120,7 @@ test('deriveModelImage: over-cap PNG within 2000px re-encodes to JPEG; loadImage
     gen(src, ['-size', '1900x1900', 'xc:', '+noise', 'Random']);
     assert.ok(statSync(src).size > MODEL_IMAGE_MAX_RAW_BYTES, 'fixture must be over the raw cap');
     const out = await deriveModelImage(src);
-    assert.equal(out, `${src}.model.jpg`);
+    assert.ok(out === `${src}.model.jpg` || out === `${src}.model.png`);
     assert.ok(statSync(out!).size <= MODEL_IMAGE_MAX_RAW_BYTES);
     const { images, skipped } = loadImages([src]);
     assert.equal(skipped.length, 0);
@@ -136,7 +138,7 @@ test('queueModelImage + awaitModelImage: awaits the in-flight derivation', { ski
     const src = join(dir, 'tall.jpg');
     gen(src, ['-size', '800x2600', 'gradient:white-black']);
     queueModelImage(src);
-    assert.equal(await awaitModelImage(src, 20_000), `${src}.model.jpg`);
+    assert.ok([`${src}.model.jpg`, `${src}.model.png`].includes(await awaitModelImage(src, 20_000)));
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

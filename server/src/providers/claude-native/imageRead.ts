@@ -1,14 +1,8 @@
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
-import { realpathSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { basename, extname, join } from 'node:path';
-import { readRegularPrefix } from '../../boundedRead.js';
-import { deriveModelImage, MODEL_IMAGE_MAX_EDGE } from '../attachments.js';
-import { sniffImageMediaType, MAX_IMAGE_RAW_BYTES, type ImageBlock } from './contentBlocks.js';
+import { MODEL_IMAGE_MAX_EDGE } from '../attachments.js';
+import { sniffImageMediaType, type ImageBlock, type DocumentBlock } from './contentBlocks.js';
 
-export type ToolResultContent = string | Array<{ type: 'text'; text: string } | ImageBlock>;
+export type ToolResultContent = string | Array<{ type: 'text'; text: string } | ImageBlock | DocumentBlock>;
 export type ImageReadResult = { text: string; content?: Exclude<ToolResultContent, string>; isError: boolean };
-const SOURCE_CAP = 32 * 1024 * 1024;
 
 // Header parsing does not need an external converter. Unknown or incomplete
 // headers fail closed rather than submitting a block with unknown dimensions.
@@ -51,70 +45,49 @@ export function imagePixelSize(b: Buffer): { width: number; height: number } | n
   return width > 0 && height > 0 ? { width, height } : null;
 }
 
-// Only private temporary copies are resized. Never create a sibling beside a
-// project file, trust an existing sibling, or overwrite the original on Read.
-export async function readImageResult(path: string, signal: AbortSignal): Promise<ImageReadResult | null> {
-  signal.throwIfAborted();
-  const prefix = await readRegularPrefix(path, 64 * 1024);
-  const media = sniffImageMediaType(prefix.buffer);
-  if (!media) {
-    if (['.png', '.jpg', '.jpeg', '.gif', '.webp'].includes(extname(path).toLowerCase())) return { text: `image: ${basename(path).replace(/[\r\n\0]/g, ' ')}; not sent: empty or unrecognized image data.`, isError: false };
-    return null;
-  }
-  const name = basename(path).replace(/[\r\n\0]/g, ' ');
-  const omitted = (reason: string): ImageReadResult => ({ text: `image: ${name} (${media}); not sent: ${reason}.`, isError: false });
-  if (prefix.size > SOURCE_CAP) return omitted('source exceeds the 32 MB local image-read limit; resize the file first');
-  let bytes = prefix.size <= prefix.buffer.length ? prefix.buffer : (await readRegularPrefix(path, SOURCE_CAP + 1)).buffer;
-  if (bytes.length > SOURCE_CAP || sniffImageMediaType(bytes) !== media) return omitted('file changed while reading; retry');
-  const complete = media === 'image/png' ? bytes.length >= 45 && bytes.subarray(-8, -4).toString('ascii') === 'IEND'
-    : media === 'image/jpeg' ? bytes.length >= 4 && bytes[bytes.length - 2] === 255 && bytes[bytes.length - 1] === 217
-    : media === 'image/gif' ? bytes.length >= 14 && bytes[bytes.length - 1] === 59
-    : bytes.length >= 20 && bytes.readUInt32LE(4) + 8 === bytes.length;
-  if (!complete) return omitted('image is incomplete or malformed');
-  let dims = imagePixelSize(bytes);
-  if (!dims) return omitted('image dimensions could not be verified; use a valid PNG, JPEG, GIF or WebP');
-  let scratch: string | undefined;
-  try {
-    if (Math.max(dims.width, dims.height) > MODEL_IMAGE_MAX_EDGE || bytes.length > MAX_IMAGE_RAW_BYTES) {
-      scratch = realpathSync(await mkdtemp(join(tmpdir(), 'arco-read-image-')));
-      const input = join(scratch, `image.${media.split('/')[1] === 'jpeg' ? 'jpg' : media.split('/')[1]}`);
-      await writeFile(input, bytes, { flag: 'wx', mode: 0o600 });
-      const resized = await deriveModelImage(input);
-      signal.throwIfAborted();
-      if (!resized) return omitted('image needs resizing but ImageMagick/sips is unavailable or conversion failed; resize it to at most 2000 pixels per side and 5 MB base64');
-      bytes = (await readRegularPrefix(resized, MAX_IMAGE_RAW_BYTES + 1)).buffer;
-      dims = imagePixelSize(bytes);
-    }
-    const actualMedia = sniffImageMediaType(bytes);
-    if (!dims || !actualMedia || Math.max(dims.width, dims.height) > MODEL_IMAGE_MAX_EDGE || bytes.length > MAX_IMAGE_RAW_BYTES) return omitted('converted image exceeds the supported size or dimensions');
-    signal.throwIfAborted();
-    const text = `image: ${name}, ${dims.width}x${dims.height} (${actualMedia})`;
-    return { text, isError: false, content: [{ type: 'text', text }, { type: 'image', source: { type: 'base64', media_type: actualMedia, data: bytes.toString('base64') } }] };
-  } finally { if (scratch) await rm(scratch, { recursive: true, force: true }); }
-}
-
 export function toolResultText(content: ToolResultContent): string {
   return typeof content === 'string' ? content : content.filter(b => b.type === 'text').map(b => b.text).join('\n');
 }
 
 // Event logs and text-only summaries retain receipts, never encoded pixels.
 export function imageReceipts<T>(value: T): T {
-  if (Array.isArray(value)) return value.map(imageReceipts) as T;
-  if (!value || typeof value !== 'object') return value;
-  const obj = value as Record<string, unknown>;
-  if (obj.type === 'image') return { type: 'text', text: '[Image omitted from saved context; use Read to inspect it again.]' } as T;
-  return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, imageReceipts(v)])) as T;
+  let media = false;
+  const scan = (v: unknown): void => {
+    if (Array.isArray(v)) { v.forEach(scan); return; }
+    if (!v || typeof v !== 'object') return;
+    const b = v as Record<string, unknown>;
+    if ((b.type === 'image' || b.type === 'document') && b.source) media = true;
+    Object.values(b).forEach(scan);
+  };
+  scan(value);
+  if (!media) return value;
+  const walk = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.filter(b => !b || typeof b !== 'object' || !['thinking','redacted_thinking'].includes((b as {type?: string}).type ?? '')).map(walk);
+    if (!v || typeof v !== 'object') return v;
+    const obj = v as Record<string, unknown>;
+    if ((obj.type === 'image' || obj.type === 'document') && obj.source) return { type: 'text', text: '[File media omitted from saved context; use Read with the same range to inspect it again.]' };
+    const next = Object.fromEntries(Object.entries(obj).map(([key, child]) => [key, walk(child)]));
+    if (next.role === 'assistant' && Array.isArray(next.content) && next.content.length === 0) next.content = [{type:'text',text:'[Prior reasoning omitted from saved file context.]'}];
+    return next;
+  };
+  return walk(value) as T;
 }
 
 // Budget only newly produced images. Accepted history remains byte-identical
 // for thinking/cache bindings. Count operator images and nested tool images.
 export function admitImageResult(history: unknown, pending: unknown, result: ImageReadResult): ImageReadResult {
-  if (!result.content?.some(b => b.type === 'image')) return result;
-  let count = 0, bytes = 0, large = false;
+  if (!result.content?.some(b => b.type === 'image' || b.type === 'document')) return result;
+  let count = 0, bytes = 0, large = false, pages = 0;
   const visit = (v: unknown): void => {
     if (Array.isArray(v)) { v.forEach(visit); return; }
     if (!v || typeof v !== 'object') return;
     const b = v as Record<string, unknown>;
+    if (b.type === 'document') {
+      pages += typeof b.arcoPages === 'number' ? b.arcoPages : 100;
+      const src = b.source as { data?: unknown } | undefined;
+      if (typeof src?.data === 'string') bytes += src.data.length;
+      return;
+    }
     if (b.type === 'image') {
       count++;
       const src = b.source as { data?: unknown } | undefined;
@@ -130,8 +103,8 @@ export function admitImageResult(history: unknown, pending: unknown, result: Ima
   visit(history); visit(pending); visit(result.content);
   // 100 is safe on both 200k and larger windows. The aggregate byte budget
   // leaves room for text/tools below the API's 32 MB request-body limit.
-  if (count > 100 || bytes > 20 * 1024 * 1024 || (count > 20 && large)) {
-    return { text: `${result.text}; not sent: conversation image budget reached. Compact or start a new conversation, then Read again.`, isError: false };
+  if (count + pages > 100 || bytes > 20 * 1024 * 1024 || (count > 20 && large)) {
+    return { text: `${result.text}; not sent: conversation image/document budget reached. Compact or start a new conversation, then Read again.`, isError: false };
   }
   return result;
 }

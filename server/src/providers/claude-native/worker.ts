@@ -1,3 +1,4 @@
+import { nativeAttachmentContent, nativeFileOutcome } from './fileContent.js';
 import { admitImageResult, imageReceipts, type ToolResultContent } from './imageRead.js';
 import { shortTextRequestParams } from './modelParams.js';
 import { nativeOAuthBaseUrl } from './apiEndpoint.js';
@@ -80,10 +81,7 @@ import {
   stripTrailingThinkingFromContent,
   orphanToolUseIds,
   fullListOrphanToolUseIds,
-  buildUserMessageContent,
-  describeSkippedImages,
   repairImageBlock,
-  type SkippedImage,
   type ToolUseBlock,
   type AnyContentBlock,
   type ClaudeNativeToolDef,
@@ -2673,8 +2671,9 @@ export class ClaudeNativeWorker extends EventEmitter {
     // bound to them, and the prefix diff re-appends whatever they carried.
     const poppedSystem = popTrailingSystemMessages(this.messages);
     if (poppedSystem > 0) console.log(`[claude-native:${this.workflowId.slice(0, 8)}] popped ${poppedSystem} trailing role:system message(s) before operator turn`);
-    const skippedImages: SkippedImage[] = [];
-    this.messages.push({ role: 'user', content: buildUserMessageContent(prompt, this.config.attachments, skippedImages) });
+    const attached = await nativeAttachmentContent(prompt, this.config.attachments, this.messages, this.inFlight?.signal);
+    for (const notice of attached.notices) this.emit('system_notice', notice);
+    this.messages.push({ role: 'user', content: attached.content });
     this.turnInputAccepted = true;
     this.turnOpeningRequest = keptRequestText(prompt, this.config.attachments);
     this.inTurnCompact = { fired: false, warned: false };
@@ -2685,8 +2684,6 @@ export class ClaudeNativeWorker extends EventEmitter {
       ...(() => { const t = this.takeHookContext(); return t ? [t] : []; })(),
     ].join('\n\n');
     if (promptHookText) appendTextToLastUserMessage(this.messages, promptHookText);
-    const skippedNotice = describeSkippedImages(skippedImages);
-    if (skippedNotice) this.emit('system_notice', skippedNotice);
     // docs/PROVIDERS.md - per-turn operator notice (mailbox
     // depth, plan-mode arm). Lives on the user turn, never in `system`, and is
     // never removed: rebuilding it next turn would be a prefix edit.
@@ -2930,10 +2927,9 @@ export class ClaudeNativeWorker extends EventEmitter {
       if (toolResults.length === 0) continue;
       const steer = this.config.drainSteer?.() ?? [];
       for (const item of steer) {
-        const skippedSteer: SkippedImage[] = [];
-        this.messages.push({ role: 'user', content: buildUserMessageContent(item.content, item.attachments, skippedSteer) });
-        const steerNotice = describeSkippedImages(skippedSteer);
-        if (steerNotice) this.emit('system_notice', steerNotice);
+        const attached = await nativeAttachmentContent(item.content, item.attachments, this.messages, this.inFlight?.signal);
+        for (const notice of attached.notices) this.emit('system_notice', notice);
+        this.messages.push({ role: 'user', content: attached.content });
       }
     }
 
@@ -3024,6 +3020,7 @@ export class ClaudeNativeWorker extends EventEmitter {
             for (const sub of c as Array<Record<string, unknown>>) {
               const txt = typeof sub.text === 'string' ? sub.text : '';
               toolResultBytes += Buffer.byteLength(txt, 'utf8');
+              if ((sub.type === 'image' || sub.type === 'document') && isRecord(sub.source) && typeof sub.source.data === 'string') toolResultBytes += Buffer.byteLength(sub.source.data, 'utf8');
             }
           }
         } else if (typeof t === 'string' && isServerToolResultType(t)) {
@@ -3827,8 +3824,9 @@ export class ClaudeNativeWorker extends EventEmitter {
       } else {
         try {
           const r = await session.callTool(registryTool.tool, input);
-          resultText = r.text;
-          isError = r.isError;
+          toolOutcome = r.blocks ? admitImageResult(this.messages, pendingResults, nativeFileOutcome({ text: r.text, blocks: r.blocks, kind: 'tool', truncated: false, isError: r.isError })) : undefined;
+          resultText = toolOutcome?.text ?? r.text;
+          isError = toolOutcome?.isError ?? r.isError;
         } catch (err) {
           resultText = `[error] ${err instanceof Error ? err.message : String(err)}`;
           isError = true;

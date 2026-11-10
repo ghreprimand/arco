@@ -1,3 +1,4 @@
+import { syncBuiltinESMExports } from 'node:module';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fileContentFromBytes } from './fileContent.js';
@@ -79,10 +80,11 @@ test('shared text reads preserve capped I/O and exact later-line output', async 
   await fs.writeFile(path,'first\n'+'x'.repeat(300000)+'\nlast');
   const open=fs.open.bind(fs);let readBytes=0;
   t.mock.method(fs,'open',async (...args:any[])=>{const h=await (open as any)(...args);const read=h.read.bind(h);h.read=async(...a:any[])=>{const r=await read(...a);if(args[0]===path)readBytes+=r.bytesRead;return r;};return h;});
+  syncBuiltinESMExports();
   try {
-    const result=await readFileContent(path,{limits:{maxTextBytes:32768}});assert.match(result.text,/truncated/);assert.ok(readBytes<=49152,`read ${readBytes}`);
+    const result=await readFileContent(path,{limits:{maxTextBytes:32768}});assert.match(result.text,/truncated/);assert.ok(readBytes>0,'the read observer must see real I/O');assert.ok(readBytes<=49152,`read ${readBytes}`);t.diagnostic(`bounded reader observed ${readBytes} bytes`);
     assert.equal((await readFileContent(path,{offset:3,limits:{maxTextBytes:32768}})).text,'last');
-  } finally {t.mock.restoreAll();await fs.rm(cwd,{recursive:true,force:true});}
+  } finally {t.mock.restoreAll();syncBuiltinESMExports();await fs.rm(cwd,{recursive:true,force:true});}
 });
 
 import { createDeflate } from 'node:zlib';
@@ -120,4 +122,20 @@ test('ordinary source identifiers do not masquerade as ZIP or BMP headers',async
   for(const text of ['PKG_VERSION=1\n','BMP_HEADER = "example"\n']) {
     const result=await fileContentFromBytes(Buffer.from(text),'source.txt');assert.equal(result.kind,'text');assert.equal(result.text,text);
   }
+});
+
+test('a cancelled decode waiting for a worker slot settles without waiting for other files',async()=>{
+  const bytes=await solidPng(20000,20000),first=fileContentFromBytes(bytes,'first.png'),second=fileContentFromBytes(bytes,'second.png');
+  const controller=new AbortController();
+  const queued=fileContentFromBytes(bytes,'cancelled.png',{signal:controller.signal});controller.abort(new Error('fixture cancelled'));
+  try {
+    const settled=await Promise.race([queued.then(()=>false,()=>true),new Promise<boolean>(resolve=>setTimeout(()=>resolve(false),500))]);
+    assert.equal(settled,true,'cancellation must not wait for the active decoders');
+  }finally{await Promise.allSettled([first,second,queued]);}
+});
+
+test('UTF-16 byte-order marks take precedence over MPEG frame signatures',async()=>{
+  const le=Buffer.concat([Buffer.from([255,254]),Buffer.from('Example text','utf16le')]);
+  const be=Buffer.concat([Buffer.from([254,255]),Buffer.from('Example text','utf16le').swap16()]);
+  for(const data of [le,be]){const result=await fileContentFromBytes(data,'unicode.txt');assert.equal(result.kind,'text');assert.equal(result.text,'Example text');}
 });

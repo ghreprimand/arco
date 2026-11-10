@@ -67,7 +67,7 @@ export function buildFoldDigest(prefix: FoldMessage[], activeTodos: FoldDigestTo
       if (isToolResultBatch) {
         for (const b of bs) {
           if (b.is_error === true) errorCount++;
-          if (Array.isArray(b.content) && b.content.some(c => c?.type === 'image')) imagesRead.add(toolResultText(b.content as ToolResultContent));
+          if (Array.isArray(b.content) && b.content.some(c => (c?.type === 'image' || c?.type === 'document'))) imagesRead.add(toolResultText(b.content as ToolResultContent));
         }
       } else {
         const text = flattenText(msg.content).trim();

@@ -79,7 +79,7 @@ function flattenConversationalText(content: string | AnyContentBlock[]): string 
     .flatMap((b) => {
       if (isTextBlock(b)) return [b.text];
       const r = b as unknown as { type: string; content?: ToolResultContent };
-      if (r.type === 'tool_result' && Array.isArray(r.content) && r.content.some(c => c.type === 'image')) return [`[Read image receipt: ${toolResultText(r.content)}; inspect with Read again if needed.]`];
+      if (r.type === 'tool_result' && Array.isArray(r.content) && r.content.some(c => (c.type === 'image' || c.type === 'document'))) return [`[Read image receipt: ${toolResultText(r.content)}; inspect with Read again if needed.]`];
       return [];
     })
     .join('');

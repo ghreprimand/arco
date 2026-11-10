@@ -1,4 +1,4 @@
-import { toolResultText, type ToolResultContent } from './imageRead.js';
+import { toolResultText, imagePixelSize, type ToolResultContent } from './imageRead.js';
 // §2.2 — tool-result eviction (Claude Native).
 //
 // Two deterministic, LLM-free mechanisms for keeping tool output from
@@ -80,7 +80,13 @@ export function turnToolTokenBudget(): number {
 // over-counts large blobs is the right tradeoff (matches the codebase's other
 // "coarse over-count so it can't sneak past the gate" estimators).
 export function estimateResultTokens(content: ToolResultContent): number {
-  return Math.ceil(Buffer.byteLength(typeof content === 'string' ? content : JSON.stringify(content), 'utf8') / 4);
+  if (typeof content === 'string') return Math.ceil(Buffer.byteLength(content, 'utf8') / 4);
+  return content.reduce((sum, block) => {
+    if (block.type === 'text') return sum + Math.ceil(Buffer.byteLength(block.text, 'utf8') / 4);
+    if (block.type === 'document') return sum + Math.max(1, block.arcoPages ?? 1) * 3000;
+    const size = imagePixelSize(Buffer.from(block.source.data, 'base64'));
+    return sum + (size ? Math.min(4784, Math.ceil(size.width / 28) * Math.ceil(size.height / 28)) : 4784);
+  }, 0);
 }
 
 function countLines(s: string): number {

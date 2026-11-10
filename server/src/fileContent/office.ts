@@ -53,7 +53,7 @@ function zipParts(bytes: Buffer): Record<string, Uint8Array> {
     },
   });
 }
-function referencedImages(root: Xml, part: string, parts: Record<string, Uint8Array>): string[] {
+function relationships(part: string, parts: Record<string, Uint8Array>): Map<string,string> {
   const rel = posix.join(posix.dirname(part), '_rels', posix.basename(part) + '.rels');
   const links = new Map<string, string>();
   if (parts[rel]) for (const r of nodes(xml(parts[rel]), 'Relationship')) {
@@ -61,6 +61,11 @@ function referencedImages(root: Xml, part: string, parts: Record<string, Uint8Ar
     const target = r.getAttribute?.('Target'); const id = r.getAttribute?.('Id');
     if (target && id) links.set(id, posix.normalize(posix.join(posix.dirname(part), target)));
   }
+  return links;
+}
+function referencedImages(root: Xml, part: string, parts: Record<string, Uint8Array>, depth = 0): string[] {
+  if (depth > 4) return [];
+  const links = relationships(part, parts);
   const out = new Set<string>();
   for (const n of [...nodes(root, 'blip'), ...nodes(root, 'imagedata')]) {
     const id = n.getAttribute?.('r:embed') ?? n.getAttribute?.('r:id');
@@ -69,6 +74,10 @@ function referencedImages(root: Xml, part: string, parts: Record<string, Uint8Ar
   for (const n of nodes(root, 'image')) {
     const target = n.getAttribute?.('xlink:href');
     if (target && !target.includes(':')) out.add(posix.normalize(target.replace(/^\.\//, '')));
+  }
+  for (const drawing of nodes(root, 'drawing')) {
+    const id = drawing.getAttribute?.('r:id'), target = id ? links.get(id) : undefined;
+    if (target && target in parts) for (const image of referencedImages(xml(parts[target]), target, parts, depth + 1)) out.add(image);
   }
   return [...out].filter(p => p in parts);
 }
@@ -121,6 +130,27 @@ function powerpointText(bytes: Buffer): Unit[] {
   return units.length ? units : [{ label: 'Slide 1', text: '[No extractable slide text.]', images: [] }];
 }
 
+function compoundImages(container: CFB.CFB$Container): Record<string,Uint8Array> {
+  const parts: Record<string,Uint8Array> = {}; let count=0;
+  for (const entry of container.FileIndex) {
+    if (!entry.content || count>=20) continue;
+    const data=Buffer.from(entry.content);
+    for (let at=0;at<data.length-12&&count<20;at++) {
+      let end=0;
+      if (data[at]===137 && data.subarray(at,at+8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) {
+        for(let p=at+8;p+12<=data.length;){const n=data.readUInt32BE(p);if(p+12+n>data.length)break;if(data.toString('ascii',p+4,p+8)==='IEND'){end=p+12+n;break;}p+=12+n;}
+      } else if(data[at]===255&&data[at+1]===216&&data[at+2]===255){const stop=data.indexOf(Buffer.from([255,217]),at+3);if(stop>=0)end=stop+2;}
+      if(end>at){parts[`embedded-${++count}`]=data.subarray(at,end);at=end-1;}
+    }
+  }
+  return parts;
+}
+function attachCompoundImages(units:Unit[],parts:Record<string,Uint8Array>,options:FileContentOptions):void {
+  if(!units[0])return;
+  if(!options.pages||units.length===1)units[0].images=Object.keys(parts);
+  else if(Object.keys(parts).length)units[0].text+='\n[Document-wide embedded images have no section mapping; omit pages to inspect them.]';
+}
+
 export async function officeResult(bytes: Buffer, name: string, options: FileContentOptions): Promise<FileContentResult> {
   if (bytes[0] === 0x50 && bytes[1] === 0x4b) {
     const parts = zipParts(bytes);
@@ -133,9 +163,16 @@ export async function officeResult(bytes: Buffer, name: string, options: FileCon
     if ('xl/workbook.xml' in parts || Buffer.from(parts.mimetype ?? []).toString().includes('spreadsheet')) {
       const names = XLSX.read(bytes, { type: 'buffer', bookSheets: true }).SheetNames;
       const book = XLSX.read(bytes, { type: 'buffer', sheets: selection(options.pages, names.length, 100), cellFormula: false, cellHTML: false, bookVBA: false });
-      const units = book.SheetNames.map(label => ({ label: `Sheet: ${label}`, text: book.Sheets[label] ? XLSX.utils.sheet_to_csv(book.Sheets[label], { FS: '\t', RS: '\n' }) : '', images: [] as string[] }));
-      // Drawings are independent zip parts; expose their media when reading the whole workbook.
-      if (!options.pages && units[0]) units[0].images = Object.keys(parts).filter(p => p.startsWith('xl/media/') || p.startsWith('Pictures/'));
+      const workbook = 'xl/workbook.xml' in parts ? xml(parts['xl/workbook.xml']) : undefined;
+      const links = workbook ? relationships('xl/workbook.xml', parts) : undefined;
+      const units = book.SheetNames.map(label => ({ label: `Sheet: ${label}`, text: book.Sheets[label] ? XLSX.utils.sheet_to_csv(book.Sheets[label], { FS: '\t', RS: '\n' }) : '', get images(): string[] {
+        if (workbook) {
+          const sheet = nodes(workbook,'sheet').find(n=>n.getAttribute?.('name')===label), id=sheet?.getAttribute?.('r:id'), part=id?links?.get(id):undefined;
+          return part && part in parts ? referencedImages(xml(parts[part]),part,parts) : [];
+        }
+        const sheet=nodes(xml(parts['content.xml']),'table').find(n=>n.getAttribute?.('table:name')===label);
+        return sheet?referencedImages(sheet,'content.xml',parts):[];
+      } }));
       return finish(units, parts, name, parts['xl/workbook.xml'] ? 'xlsx' : 'ods', bytes.length, options);
     }
     if (parts['content.xml']) {
@@ -150,16 +187,18 @@ export async function officeResult(bytes: Buffer, name: string, options: FileCon
   if (entry('Workbook') || entry('Book')) {
     const names = XLSX.read(bytes, { type: 'buffer', bookSheets: true }).SheetNames;
       const book = XLSX.read(bytes, { type: 'buffer', sheets: selection(options.pages, names.length, 100), cellFormula: false, cellHTML: false, bookVBA: false });
-    return finish(book.SheetNames.map(label => ({ label: `Sheet: ${label}`, text: book.Sheets[label] ? XLSX.utils.sheet_to_csv(book.Sheets[label], { FS: '\t' }) : '', images: [] })),{},name,'xls',bytes.length,options);
+    const units=book.SheetNames.map(label => ({ label: `Sheet: ${label}`, text: book.Sheets[label] ? XLSX.utils.sheet_to_csv(book.Sheets[label], { FS: '\t' }) : '', images: [] as string[] })),parts=compoundImages(container);attachCompoundImages(units,parts,options);
+    return finish(units,parts,name,'xls',bytes.length,options);
   }
   const ppt = entry('PowerPoint Document');
-  if (ppt?.content) return finish(powerpointText(Buffer.from(ppt.content)),{},name,'ppt',bytes.length,options);
+  if (ppt?.content) { const units=powerpointText(Buffer.from(ppt.content)),parts=compoundImages(container);attachCompoundImages(units,parts,options);return finish(units,parts,name,'ppt',bytes.length,options); }
   if (entry('WordDocument')) {
     const Extractor = require('word-extractor') as new () => { extract: (b: Buffer) => Promise<{ getBody: () => string }> };
     const doc = await new Extractor().extract(bytes);
     const text = doc.getBody();
     const units = text.split('\f').map((text,i) => ({ label: `Section ${i+1}`, text, images: [] }));
-    return finish(units,{},name,'doc',bytes.length,options);
+    const parts=compoundImages(container);attachCompoundImages(units,parts,options);
+    return finish(units,parts,name,'doc',bytes.length,options);
   }
   return textResult('binary', `file: ${name}, compound binary document, ${bytes.length} bytes; unsupported content.`, options);
 }
@@ -189,7 +228,7 @@ export async function rtfResult(bytes: Buffer, name: string, options: FileConten
   const parts: Record<string,Uint8Array> = {};
   for (const [i, match] of [...input.matchAll(/\{\\pict\b([^{}]*)\}/g)].entries()) {
     const data = match[1].replace(/\\[a-z]+-?\d* ?/gi,'').replace(/\s/g,'');
-    if (/^[0-9a-f]+$/i.test(data) && data.length % 2 === 0) { const key=`embedded-${i}`; parts[key]=Buffer.from(data,'hex'); if (!options.pages) units[0].images.push(key); }
+    if (/^[0-9a-f]+$/i.test(data) && data.length % 2 === 0) { const key=`embedded-${i}`; parts[key]=Buffer.from(data,'hex'); if (!options.pages || units.length === 1) units[0].images.push(key); }
   }
   return finish(units,parts,name,'rtf',bytes.length,options);
 }

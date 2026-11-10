@@ -194,7 +194,23 @@ export function toWireMessages(messages: readonly unknown[]): unknown[] {
     if (msg.role !== 'system' || msg.arco === undefined) return m;
     const { arco: _arco, ...wire } = msg as Record<string, unknown>;
     return wire;
-  });
+  }).map(stripMediaMetadata);
+}
+
+function stripMediaMetadata(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    const result = value.map(stripMediaMetadata);
+    return result.some((v,i) => v !== value[i]) ? result : value;
+  }
+  if (!value || typeof value !== 'object') return value;
+  const obj = value as Record<string, unknown>;
+  let out = obj;
+  if (obj.type === 'document' && 'arcoPages' in obj) { const { arcoPages: _pages, ...wire } = obj; out = wire; }
+  if (Array.isArray(obj.content)) {
+    const content = stripMediaMetadata(obj.content);
+    if (content !== obj.content) out = { ...out, content };
+  }
+  return out;
 }
 
 export function isArcoSystemMessage(m: unknown): m is ArcoSystemMessage {

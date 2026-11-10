@@ -13,14 +13,14 @@ export function fileHeaderKind(bytes: Uint8Array): string {
   if (b[0] === 80 && b[1] === 75 && ((b[2] === 3 && b[3] === 4) || (b[2] === 5 && b[3] === 6) || (b[2] === 7 && b[3] === 8))) return 'application/zip';
   if (b.subarray(0,8).equals(Buffer.from([208,207,17,224,161,177,26,225]))) return 'application/x-ole-storage';
   if (ascii.startsWith('{\\rtf')) return 'application/rtf';
+  if (b[0] === 255 && b[1] === 254) return 'text/utf-16le';
+  if (b[0] === 254 && b[1] === 255) return 'text/utf-16be';
   if (ascii.startsWith('ID3') || (b[0] === 255 && (b[1] & 0xe0) === 0xe0)) return 'audio/mpeg';
   if (ascii.startsWith('RIFF') && ascii.slice(8,12) === 'WAVE') return 'audio/wav';
   if (ascii.startsWith('fLaC')) return 'audio/flac';
   if (ascii.startsWith('OggS')) return 'application/ogg';
   if (ascii.startsWith('SQLite format 3')) return 'application/vnd.sqlite3';
   if (ascii.startsWith('MZ') || ascii.startsWith('\x7fELF')) return 'application/x-executable';
-  if (b[0] === 255 && b[1] === 254) return 'text/utf-16le';
-  if (b[0] === 254 && b[1] === 255) return 'text/utf-16be';
   if (b.includes(0)) return 'application/octet-stream';
   try { new TextDecoder('utf-8',{fatal:true}).decode(b,{stream:true}); return 'text/plain'; }
   catch { return 'invalid-utf8'; }

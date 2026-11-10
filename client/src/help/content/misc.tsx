@@ -230,7 +230,8 @@ export const miscHelp: Record<string, HelpEntry> = {
         to see its JSON input. When a file path is shown as a button, select it
         to open the viewer. A filtered-output chip can copy the raw output path.
       </p>
-      <p>Claude Native Read shows PNG, JPEG, GIF and WebP images to the model, including Task helpers. The card names the image and its pixel size. Large files are resized in a private copy; missing converters or invalid images produce a note. Saved context keeps receipts, so use Read again after reload or compaction for visual detail.</p>
+      <p>Claude Native Read shows fitted images and document ranges, including in Task helpers. The card names the file, type, dimensions or pages. Use <C>pages</C> for PDF pages, sheets, slides, notebook cells or Word sections. Office files become text, scanned pages become images, and unsupported binaries receive a note. No converter installation is needed. UTF-8 and byte-order-marked UTF-16 text are recognized.</p>
+      <p>Attachments and MCP file results use the same decoder. After reload or compaction, use Read again for exact file detail; saved context keeps receipts rather than pixels.</p>
       <p>Claude Native and local-model Glob can return a directory alias for a directory-only pattern such as <C>src-link/</C>. The alias must resolve within the project and pass the path checks. Glob does not walk through directory aliases.</p>
       </>
     ),

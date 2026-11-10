@@ -134,17 +134,23 @@ CLIs plus real Native loop over mocked Anthropic streaming; zero model spend).
 
 ## Claude
 
-### Native image reads
+### Native file reads and attachments
 
-Claude Native's Read tool and Task helpers show PNG, JPEG, GIF and WebP files as images, detected from their contents. Tool cards show `image: name, WxH` and the media type. Text reads retain the 256 KiB limit and line-range controls.
+Claude Native Read, Task helpers and operator attachments use Arco's portable file decoder. Initial, queued, follow-up and steered attachments use the same preparation. Tool cards show the file name, type, dimensions or selected document range instead of binary bytes. Text reads retain the 256 KiB cap and line controls. UTF-8 and byte-order-marked UTF-16 text are recognized.
 
-Image reads use at most 2,000 pixels per side and 5 MB of base64 data. Larger images are resized with ImageMagick or macOS sips in a private temporary copy. The project file is unchanged. Missing converters, conversion failures, malformed headers and source files above 32 MB produce a text explanation instead of image bytes.
+PNG, JPEG, GIF, WebP, HEIC, TIFF and BMP are fitted with bundled codecs. No image converter installation is required. Available ImageMagick or macOS sips can accelerate decoding. Images fit within 2,000 pixels per side and 5 MB base64. The entire image is scaled without cropping; animated or multipage images use their first frame. SVG is read as source text without executing scripts or fetching resources.
 
-New image results stop at 100 images or 20 MB of encoded image data across the conversation. A request above 20 images also requires every retained image to fit within 2,000 pixels per side. The note asks for compaction or a new conversation when that budget is reached.
+Read accepts `pages`, such as `"1-3,5"`. PDFs become document blocks when they fit; oversized selections fall back to extracted text. Scanned pages become images. Word (`.doc`, `.docx`), Excel (`.xls`, `.xlsx`), PowerPoint (`.ppt`, `.pptx`), OpenDocument and RTF become text with headings, table rows, sheet names or slide labels. Notebook cells retain source and outputs, including images.
 
-Live requests and token counting receive image blocks. Text summaries, folded context and saved events retain image receipts rather than base64 data. After reload or compaction, use Read again for exact visual detail. Older evicted results can be recovered from their raw artifact.
+For spreadsheets, presentations and notebooks, `pages` selects sheets, slides or cells. Word-processing ranges select explicit page breaks and bounded sections, not printed-layout pages. Embedded images follow supported document relationships; legacy images without section mappings are available when reading the whole document. Macros, external links and notebook code are never executed.
 
-[Anthropic's vision limits](https://platform.claude.com/docs/en/build-with-claude/vision) vary by endpoint and model. Arco keeps the stricter existing attachment limits for Read. This applies to Native; other providers keep their existing file tools.
+Sources can be up to 512 MB. PNG scanline decoding supports 512 megapixels; other raster decoders allow 250 megapixels. Oversized or malformed files produce a note explaining how to supply a smaller file or range. Request budgets limit combined images and PDF pages to 100 and encoded media to 20 MB. Use compaction or a new conversation when that budget is reached.
+
+MCP image and embedded document results use the same decoder. Linked resources are described rather than fetched automatically. Anthropic's server-side `web_fetch` remains provider-owned; it is separate from Arco's local WebFetch implementation. Utility jobs remain bounded text-only tasks without file tools.
+
+Live requests and token counting receive typed media. Saved events and text summaries keep receipts and attachment references, never base64 payloads. Use Read again after reload or compaction for exact detail. Evicted raw results remain recoverable in local artifacts. Saved replay drops reasoning signatures when replacing their media with receipts.
+
+[Anthropic's vision limits](https://platform.claude.com/docs/en/build-with-claude/vision) and [PDF limits](https://platform.claude.com/docs/en/build-with-claude/pdf-support) vary by endpoint and model. Arco deliberately uses stricter limits.
 
 Native shell results carry exit, signal, timeout and cancellation status separately from output text. Failed commands show failed activity, run PostToolUseFailure hooks and select failure filters. Compiler, configuration and test-collection diagnostics remain visible when a test-result filter cannot safely summarize them.
 

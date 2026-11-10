@@ -1,4 +1,6 @@
-import { readImageResult, type ToolResultContent } from './imageRead.js';
+import { type ToolResultContent } from './imageRead.js';
+import { readFileContent } from '../../fileContent.js';
+import { nativeFileOutcome } from './fileContent.js';
 import { readRegularRange, regularFileLines } from '../../boundedRead.js';
 import { writeCheckedFile, readCheckedText } from '../../checkedFile.js';
 // Phase 7a — core tool surface for Claude Native transport.
@@ -268,11 +270,12 @@ function runUnderMutationLock<T>(
 const ReadTool: Entry = {
   def: {
     name: 'Read',
-    description: 'Read a file inside the workflow cwd, or a built-in skill file listed in the skill manifest. PNG, JPEG, GIF and WebP are shown as images (resized if needed; a text note explains unavailable images). Text defaults to up to 256 KB; pass `offset` (1-based line) + `limit` to chunk larger files.',
+    description: 'Read a file inside the workflow cwd, or a built-in skill file listed in the skill manifest. Read images visually (Arco resizes them), PDFs by pages, office documents as paragraphs/tables/sheets/slides, and notebooks as cells with outputs. Use pages for document ranges such as "1-3,5". Other binaries receive a type/size note. Text defaults to up to 256 KB; pass `offset` (1-based line) + `limit` to chunk larger files.',
     input_schema: {
       type: 'object',
       properties: {
         file_path: { type: 'string', description: 'Path to the file. Relative paths resolve against cwd.' },
+        pages: { type: 'string', description: 'Optional one-based page, sheet, slide, section or notebook cell range, for example 1-3,5.' },
         offset: { type: 'number', description: 'Optional 1-based starting line number.' },
         limit: { type: 'number', description: 'Optional max lines to return.' },
       },
@@ -287,8 +290,11 @@ const ReadTool: Entry = {
     const builtin = readBuiltinVirtualFile(filePath);
     const abs = builtin === undefined ? resolveToolPath(ctx.cwd, filePath) : filePath;
     if (builtin === undefined) {
-      const image = await readImageResult(abs, ctx.abortSignal);
-      if (image) { ctx.readSet.add(abs); ctx.partialReadSet?.add(abs); return image; }
+      const result = await readFileContent(abs, { signal: ctx.abortSignal, pages: typeof args.pages === 'string' ? args.pages : undefined, offset, limit, limits: { images: true, documents: true, maxTextBytes: READ_BYTE_CAP } });
+      ctx.readSet.add(abs);
+      if (result.kind !== 'text' || result.truncated || offset > 1 || limit !== undefined) ctx.partialReadSet?.add(abs);
+      else ctx.partialReadSet?.delete(abs);
+      return nativeFileOutcome(result);
     }
     const result = builtin === undefined
       ? await readRegularRange(abs, READ_BYTE_CAP, offset, limit, ctx.abortSignal)

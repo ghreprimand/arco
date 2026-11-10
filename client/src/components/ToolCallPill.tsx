@@ -72,7 +72,7 @@ function shortenPath(p: string): string {
 export function ToolCallPill({ tool, input, filePath, filtered, output }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
-  const summary = tool === 'Read' && output?.startsWith('image: ') ? oneLine(output, 240) : summarizeInput(tool, input, filePath);
+  const summary = tool === 'Read' && (output?.startsWith('image: ') || output?.startsWith('document: ') || output?.startsWith('file: ')) ? oneLine(output.split('\n')[0], 240) : summarizeInput(tool, input, filePath);
   const clickable = Boolean(filePath);
 
   const prettyInput = useMemo(() => {
