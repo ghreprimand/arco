@@ -68,6 +68,12 @@ provider default:
 | Strata | Same local web pair, with advertisement and dispatch allowlists | no tools |
 | Everything else | - (header shows `NO WEB`) | - |
 
+The shared direct URL reader accepts public HTTP(S) sources. Text downloads stop
+at 128 KiB; image and document sources have a 512 MiB limit before decoding.
+Private, loopback and link-local addresses, and unsafe redirects, are refused.
+The local WebFetch browser fallback remains available for bot-protected text
+pages.
+
 `chatSystemPrompt(armed)` moves the system prompt with the toolset. Ollama chat
 replay drops preserved hidden thinking and armed turns append a current-capability
 reminder, because an old offline turn otherwise talks the model out of using the

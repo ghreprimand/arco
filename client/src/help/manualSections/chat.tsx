@@ -42,6 +42,11 @@ export const chat: Section[] = [
   WEB is on by default for a saved Chat and off for Incognito. It is available
   on Claude, Codex, Ollama, Strata and DeepSeek.
   </p>
+  <p>
+  Arco&apos;s direct public-URL reader limits text downloads to 128 KiB and
+  image or document sources to 512 MiB before decoding. Private addresses and
+  unsafe redirects are refused.
+  </p>
 
   <Sub>Composer</Sub>
   <ul>
