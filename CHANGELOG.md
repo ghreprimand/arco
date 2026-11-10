@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Tell Codex and Claude CLI to use attached Arco file readers; limit Cursor guidance to connections with file tools.
 - Stop terminal shells that defer hangup during startup, including fish, and retain their cleanup records until exit.
 
 - Select the Codex image-tool setting supported by the installed CLI on both transports.

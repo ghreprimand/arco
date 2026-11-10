@@ -2186,6 +2186,11 @@ model metadata when available; Strata and DeepSeek use their reported model
 capabilities. An unknown or text-only model receives a clear image note.
 MCP image results follow the same capability checks.
 
+Codex exec, Codex app-server and Claude CLI receive file-reading guidance only
+when the workflow file server is attached. Chat omits that guidance. Cursor ACP
+uses its loopback file server in solo tabs too; cluster membership alone without
+a working folder does not advertise file tools.
+
 Codex enables its local image tool on both transports. Arco inspects `codex
 features list`: CLIs advertising `view_image` receive `features.view_image=true`;
 older CLIs retain `tools.view_image=true`. The probe is cached for one minute. Cursor ACP exposes the

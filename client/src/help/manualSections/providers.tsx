@@ -454,6 +454,8 @@ export const providers: Section[] = [
   <ul>
   <li>Structured <Code>turn/interrupt</Code> cancel.</li>
   <li>Non-destructive <Code>turn/steer</Code> mid-turn input.</li>
+  <li>File-reading guidance when Arco file tools are attached, also on exec and
+  Claude CLI. Chat does not receive this guidance.</li>
   <li>Local image attachments. Arco enables the image tool using the setting
   advertised by the installed Codex CLI, with a fallback for older versions.</li>
   <li>A crash-recovery circuit breaker.</li>

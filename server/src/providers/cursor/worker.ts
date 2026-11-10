@@ -380,7 +380,7 @@ export class CursorAcpWorker extends EventEmitter {
     // above appendSystemPrompt, both above the `---` prompt separator. goalBlock is
     // null-when-empty so the default path is byte-identical to pre-Phase-4.
     // The output-style addendum closes the prefix (null for normal).
-    const prefixParts = [goalBlock(this.config.goal), appendSystemPrompt, this.clusterMcpDescriptor ? FILE_READ_GUIDANCE : undefined, outputStyleAddendum(this.config.outputStyle)]
+    const prefixParts = [goalBlock(this.config.goal), appendSystemPrompt, this.clusterMcpDescriptor && this.config.cwd ? FILE_READ_GUIDANCE : undefined, outputStyleAddendum(this.config.outputStyle)]
       .filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
     const prefix = prefixParts.length > 0 ? prefixParts.join('\n\n') : undefined;
     // Operator attachments: images ride as ACP `image` content blocks when the

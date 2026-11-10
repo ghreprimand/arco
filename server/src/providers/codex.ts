@@ -1,5 +1,5 @@
 import { installedCodexImageToolKey } from './codexImageTool.js';
-import { prepareProviderAttachments, persistProviderImages, type PreparedAttachments } from './providerFileContent.js';
+import { cliFileReadGuidance, prepareProviderAttachments, persistProviderImages, type PreparedAttachments } from './providerFileContent.js';
 // Codex CLI exec transport: each turn streams JSONL and can resume a session
 // by its stable UUID. The sandbox mode controls filesystem access: normal
 // workers use workspace-write or danger-full-access from the workflow setting;
@@ -100,7 +100,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     // prefix cache like the rest of the framing. Covers operator turns AND
     // primitive seeds (both carry config.goal). Absent / blank ⇒ no change.
     // The output-style addendum closes the prefix, as on app-server.
-    const prefixParts = [goalBlock(this.config.goal), this.config.appendSystemPrompt, outputStyleAddendum(this.config.outputStyle)]
+    const prefixParts = [goalBlock(this.config.goal), this.config.appendSystemPrompt, cliFileReadGuidance(this.config), outputStyleAddendum(this.config.outputStyle)]
       .filter((s): s is string => typeof s === 'string' && s.length > 0);
     const prefixSp = prefixParts.length > 0 ? prefixParts.join('\n\n') : undefined;
     const fullPrompt = prefixSp

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import type { WorkerConfig } from '@arco/shared';
 import { randomUUID } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -113,4 +115,17 @@ export async function persistProviderImages(images:ProviderImage[]):Promise<stri
     paths.push(path);
   }
   return paths;
+}
+
+/** Guidance follows the MCP file server attached by each CLI transport. */
+export function cliFileReadGuidance(config: WorkerConfig, codexTransport: 'exec' | 'appserver' = 'exec'): string | undefined {
+  if (config.interactionMode === 'chat' || !config.cwd) return undefined;
+  if (config.provider === 'codex') return codexTransport === 'appserver' || config.workflowId ? FILE_READ_GUIDANCE : undefined;
+  if (config.provider === 'claude' && config.clusterMcpConfigPath) {
+    try {
+      const entries = JSON.parse(readFileSync(config.clusterMcpConfigPath, 'utf8')).mcpServers;
+      if (entries?.arco?.command) return FILE_READ_GUIDANCE;
+    } catch { /* Missing or invalid config has no attached file server. */ }
+  }
+  return undefined;
 }

@@ -1,5 +1,5 @@
 import { codexImageToolConfig } from '../codexImageTool.js';
-import { prepareProviderAttachments, persistProviderImages } from '../providerFileContent.js';
+import { cliFileReadGuidance, prepareProviderAttachments, persistProviderImages } from '../providerFileContent.js';
 // Long-lived Codex app-server worker, scoped to one workflow. Turns share one
 // JSON-RPC connection; notifications stream progress, `turn/interrupt` cancels
 // the active turn, and `turn/steer` adds input without waiting for a new turn.
@@ -698,7 +698,8 @@ export class CodexAppServerWorker extends EventEmitter {
     if (preparationGeneration !== this.preparationGeneration) throw new Error('Worker killed');
     if (this.disposed) throw new Error('codex app-server worker disposed');
     const body = [prompt, prepared.text].filter(Boolean).join('\n\n');
-    const input = buildTurnInput(body, appServerProvider(this.config), appendSystemPrompt, this.config.outputStyle, this.config.goal, modelImages, []);
+    const instructions = [appendSystemPrompt, cliFileReadGuidance(this.config, 'appserver')].filter(Boolean).join('\n\n');
+    const input = buildTurnInput(body, appServerProvider(this.config), instructions, this.config.outputStyle, this.config.goal, modelImages, []);
 
     this.current = emptyTurnState();
     this.current.startedAt = Date.now();

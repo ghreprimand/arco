@@ -1,4 +1,4 @@
-import { prepareProviderAttachments, type PreparedAttachments } from './providerFileContent.js';
+import { cliFileReadGuidance, prepareProviderAttachments, type PreparedAttachments } from './providerFileContent.js';
 import { interruptProcess } from '../workers/interruptProcess.js';
 import { spawn, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
@@ -44,7 +44,7 @@ const APPEND_SP_TMPDIR = joinPath(tmpdir(), 'arco-prompts');
 // last (the order Claude Native uses). Each part is stable for the tab, so the
 // appended system prompt stays byte-identical from turn to turn.
 function effectiveAppendSystemPrompt(config: WorkerConfig): string | undefined {
-  const parts = [goalBlock(config.goal), config.appendSystemPrompt, outputStyleAddendum(config.outputStyle)]
+  const parts = [goalBlock(config.goal), config.appendSystemPrompt, cliFileReadGuidance(config), outputStyleAddendum(config.outputStyle)]
     .filter((s): s is string => typeof s === 'string' && s.length > 0);
   return parts.length > 0 ? parts.join('\n\n') : undefined;
 }
