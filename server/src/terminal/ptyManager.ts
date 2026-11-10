@@ -66,6 +66,7 @@ export interface PtySession {
   dataDisposable: pty.IDisposable;
   exitDisposable: pty.IDisposable;
   exited: boolean;
+  killTimer?: ReturnType<typeof setTimeout>;
   lastCols: number;
   lastRows: number;
 }
@@ -91,6 +92,7 @@ function resolveShell(): string {
 export class PtyManager {
   private sessions = new Map<string, PtySession>();
   private idCounter = 0;
+  private terminating = new Set<PtySession>();
   // Per-workflow monotonic counter for the `shell N` label. Never decrements
   // (so killing `shell 2` then opening another gives `shell 3`, not a reused
   // `shell 2` — matches how operators expect tab numbering to behave).
@@ -153,6 +155,8 @@ export class PtyManager {
     });
     session.exitDisposable = proc.onExit(({ exitCode }) => {
       session.exited = true;
+      clearTimeout(session.killTimer);
+      this.terminating.delete(session);
       for (const l of [...session.listeners]) l.onExit?.(exitCode);
       // The shell is gone; drop the session so a stale id can't be re-attached,
       // and clear its durable pid record (clean exit — nothing to reap on boot).
@@ -245,20 +249,26 @@ export class PtyManager {
     try { s.proc.resize(c, r); } catch { /* race with exit — ignore */ }
   }
 
-  // Explicit operator Kill: reap the PTY child and drop the session. SIGHUP is
-  // node-pty's default and the right signal for a terminal hangup.
+  // Keep observing exit until the shell is reaped. Some shells defer SIGHUP
+  // while waiting for terminal startup replies, so bound the graceful hangup.
   kill(sessionId: string): void {
     const s = this.sessions.get(sessionId);
     if (!s) return;
     try { s.dataDisposable.dispose(); } catch { /* ignore */ }
-    try { s.exitDisposable.dispose(); } catch { /* ignore */ }
     s.listeners.clear();
-    try { if (!s.exited) s.proc.kill(); } catch { /* already gone */ }
-    // Clean kill — drop the durable pid record so the next boot sweep doesn't
-    // SIGKILL a (possibly recycled) pid. We disposed exitDisposable above, so
-    // onExit won't fire to do this for us.
-    unregisterTerminalPid(s.proc.pid);
     this.sessions.delete(sessionId);
+    if (!s.exited) {
+      this.terminating.add(s);
+      try { s.proc.kill(); } catch { /* already gone */ }
+      s.killTimer = setTimeout(() => {
+        if (!s.exited) {
+          try { s.proc.kill('SIGKILL'); } catch { /* already gone */ }
+        }
+      }, 1000);
+      s.killTimer.unref();
+    }
+    // onExit clears the durable record only after the child has exited. A
+    // server crash during the grace period leaves it available to the sweep.
   }
 
   // Teardown for workflow-close: reap every session owned by the workflow.
@@ -274,6 +284,14 @@ export class PtyManager {
   // `detached` so they die with us — this just makes it deterministic.
   killAll(): void {
     for (const id of [...this.sessions.keys()]) this.kill(id);
+    // Shutdown can exit before the grace timer. Include sessions already
+    // removed by Kill and force their pending termination before returning.
+    for (const s of this.terminating) {
+      clearTimeout(s.killTimer);
+      if (!s.exited) {
+        try { s.proc.kill('SIGKILL'); } catch { /* already gone */ }
+      }
+    }
   }
 
   private appendScrollback(session: PtySession, data: string): void {

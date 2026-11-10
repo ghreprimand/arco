@@ -1716,7 +1716,8 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         Ends the PTY session: the process tree, not just the window. This is
         the <em>only</em> action that stops a session (closing the window just
-        detaches; the shell keeps running). The terminal's <em>commands'</em>{' '}
+        detaches; the shell keeps running). A shell that does not respond to
+        the hangup is forcibly stopped. The terminal's <em>commands'</em>{' '}
         effects are yours, as in any shell: Arco does not sandbox the operator.
       </p>
     ),

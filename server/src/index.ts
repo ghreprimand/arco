@@ -1886,9 +1886,8 @@ function onSignal(signal: string): void {
   // WORKBENCH_EXPANSION §K1/§K2 — reap operator PTY sessions. They're spawned
   // without `detached`, so they'd die with us anyway, but be deterministic and
   // emit a `shutdown` lifecycle event per session for transcript visibility.
-  // ptyManager.kill (inside killAll) unregisters each pid from the durable
-  // terminal registry, so the next boot sweep is a no-op — we don't SIGKILL a
-  // freshly-spawned pid that happens to recycle a number.
+  // killAll forces pending shell termination before the short flush budget
+  // expires. Observed exits remove their durable terminal registry entries.
   try {
     for (const s of ptyManager.allSessions()) {
       broadcastWorkflow(s.workflowId, {

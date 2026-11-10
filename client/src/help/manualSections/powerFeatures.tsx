@@ -839,6 +839,7 @@ export const powerFeatures: Section[] = [
   detaches</strong>: a <Code>npm run dev</Code> or a <Code>sleep 30</Code> keeps
   running, and reopening re-attaches and repaints the scrollback. Only{' '}
   <Code>KILL</Code>, closing the tab or quitting Arco ends a session.
+  A shell that does not respond to the hangup is forcibly stopped.
   </p>
   <Sub>Run in terminal from chat</Sub>
   <p>

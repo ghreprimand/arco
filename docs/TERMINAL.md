@@ -17,7 +17,7 @@ the window or the WS connection. The floating terminal window is a **view**:
 - Reopening **re-attaches** and **repaints the scrollback** from a bounded
  server-side ring buffer.
 - Only an explicit **Kill** (or workflow-close / server-shutdown teardown) ends
- a session.
+ a session. A shell that does not respond to the hangup is forcibly stopped.
 
 This is THE acceptance criterion: a `sleep 30` survives a window close+reopen.
 
@@ -41,7 +41,9 @@ with their owning `workflowId`:
 - `detach(sessionId)` -> clears **all** listeners (belt-and-suspenders); the
  per-attach `dispose` is the precise path. Neither kills the shell.
 - `write` / `resize` / `kill` -> standard PTY ops; `kill` reaps the child, drops
- the session, and **unregisters its pid from the durable registry** (below).
+ the session, and **unregisters its pid from the durable registry after exit** (below).
+ A shell that defers SIGHUP is sent SIGKILL after a one-second grace period.
+ Server shutdown forces pending termination before its final flush.
 - `killForWorkflow(workflowId)` / `killAll()` -> teardown (workflow-close,
  server-shutdown). `allSessions()` lists every live session (shutdown events).
 - `infoForWorkflow(workflowId)` -> wire-facing `PtySessionInfo[]`
@@ -63,8 +65,8 @@ streaming the whole shell life.
  (`reason: 'workflow-close'`) per session.
 - **Server shutdown**, `onSignal` (`server/src/index.ts`) emits a
  `terminal_killed` (`reason: 'shutdown'`) per live session, then calls
- `ptyManager.killAll()`. `kill` unregisters each pid from the durable registry,
- so the next boot sweep is a no-op (it won't SIGKILL a recycled pid).
+ `ptyManager.killAll()`. Each pid stays in the durable registry until its exit
+ is observed; unfinished shutdown cleanup remains available to the boot sweep.
 - **Shell exit**, the `onExit` listener drops the session, unregisters its pid,
  and broadcasts `terminal_killed` (`reason: 'shell-exit'`).
 
@@ -78,15 +80,15 @@ the worker-safety pattern (`server/src/workers/pidRegistry.ts`):
 - **`server/src/terminal/ptyPidRegistry.ts`**, a **separate** durable JSON
  (`~/.arco/terminal-pids.json`, distinct from `worker-pids.json` so the two
  reap paths can't clobber each other). `registerTerminalPid` on spawn,
- `unregisterTerminalPid` on clean kill/exit.
+ `unregisterTerminalPid` after observed exit.
 - **Boot orphan sweep**, `reapOrphanTerminals()` (exported from `ptyManager.ts`)
  runs in `index.ts` **right after `reapOrphanWorkers()`, before `listen()`**. It
  SIGKILLs any pid still in the registry from a prior unclean run, then clears the
  file. It **reuses `forceKillPid`** from the worker registry (process-group
  SIGKILL with a bare-pid fallback, POSIX-portable; node-pty pids are real OS
  pids).
-- **Shutdown**, clears the registry (via per-session `kill`), so a clean restart
- finds nothing to reap.
+- **Shutdown** requests per-session `kill`; observed exits clear their registry
+ entries. A shell still exiting remains recorded for the next boot sweep.
 
 ## Session resource safety
 

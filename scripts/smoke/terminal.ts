@@ -55,6 +55,19 @@ async function main() {
   const mgr = new PtyManager();
   const wfid = 'wf-smoke';
 
+  // A real xterm viewer answers DA1. Without one, fish waits for startup
+  // negotiation and the test mistakes echoed input for executed commands.
+  function spawnWithViewer() {
+    const session = mgr.spawn(wfid, root);
+    let pending = '';
+    session.proc.onData((data) => {
+      pending += data;
+      if (pending.includes('\x1b[0c')) session.proc.write('\x1b[?1;2c');
+      pending = pending.slice(-3);
+    });
+    return session;
+  }
+
   let sessionId = '';
   let pid = 0;
 
@@ -96,28 +109,30 @@ async function main() {
   });
 
   await step('kill: child reaped', async () => {
+    // No viewer replies were sent: also covers Kill during fish startup.
     mgr.kill(sessionId);
     const dead = await waitUntil(() => !alive(pid));
     assert(dead, `child pid ${pid} should be reaped after kill`);
+    assert(!readRegisteredTerminalPids().includes(pid), 'reaped child must leave the registry');
     assert(mgr.get(sessionId) === undefined, 'session should be gone after kill');
   });
 
   // ── §K2 ──
 
   await step('multi-listener: two listeners on one session both get output', async () => {
-    const s = mgr.spawn(wfid, root);
+    const s = spawnWithViewer();
     let a = '';
     let b = '';
     const da = mgr.attach(s.id, (d) => { a += d; });
     const db = mgr.attach(s.id, (d) => { b += d; });
     assert(da !== null && db !== null, 'both attaches should succeed');
-    mgr.write(s.id, 'echo multi\n');
+    mgr.write(s.id, "printf '%s%s\\n' mul ti\n");
     const ok = await waitUntil(() => /multi/.test(a) && /multi/.test(b));
     assert(ok, `both listeners should receive "multi" — a=${JSON.stringify(a.slice(-60))} b=${JSON.stringify(b.slice(-60))}`);
     // Disposing ONE listener must leave the other receiving.
     da!.dispose();
     b = '';
-    mgr.write(s.id, 'echo again\n');
+    mgr.write(s.id, "printf '%s%s\\n' aga in\n");
     const ok2 = await waitUntil(() => /again/.test(b));
     assert(ok2, 'remaining listener should still receive after the other disposed');
     mgr.kill(s.id);
@@ -129,8 +144,8 @@ async function main() {
   let s2Id = '';
 
   await step('two sessions: distinct labels + independent output', async () => {
-    const s1 = mgr.spawn(wfid, root);
-    const s2 = mgr.spawn(wfid, root);
+    const s1 = spawnWithViewer();
+    const s2 = spawnWithViewer();
     s1Id = s1.id; s2Id = s2.id; s1Pid = s1.proc.pid; s2Pid = s2.proc.pid;
     assert(s1.id !== s2.id, 'two sessions must have distinct ids');
     assert(s1.label !== s2.label, `labels must differ, got ${s1.label} / ${s2.label}`);
@@ -161,6 +176,15 @@ async function main() {
     const dead = await waitUntil(() => !alive(s1Pid) && !alive(s2Pid));
     assert(dead, 'both children should be reaped after killForWorkflow');
     assert(mgr.listForWorkflow(wfid).length === 0, 'no sessions should remain for the workflow');
+  });
+
+  await step('shutdown: includes sessions already awaiting termination', async () => {
+    const closing = mgr.spawn(wfid, root);
+    const live = mgr.spawn(wfid, root);
+    mgr.kill(closing.id);
+    mgr.killAll();
+    assert(await waitUntil(() => closing.exited && live.exited), 'shutdown must reap pending and live shells');
+    assert(mgr.allSessions().length === 0, 'shutdown removes all sessions');
   });
 
   await step('orphan registry: boot sweep SIGKILLs a stale pid + clears file', async () => {
