@@ -12,7 +12,7 @@ from host_isolation import chrome_executable
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5250')
 ORIGIN = 'http://127.0.0.1:' + PORT
 ROOT = Path(__file__).resolve().parents[2]
-ART = Path(os.environ.get('ARCO_DIALOG_SIZE_ARTIFACTS', str(Path(tempfile.gettempdir()) / 'arco-dialog-sizes')))
+ART = Path(os.environ['ARCO_DIALOG_SIZE_ARTIFACTS']) if os.environ.get('ARCO_DIALOG_SIZE_ARTIFACTS') else None
 HTML = """<!doctype html><html><head><link rel="stylesheet" href="/src/styles/global.css"><link rel="stylesheet" href="/src/components/workSurface/workSurface.css"></head><body><div id="fixture"></div><script type="module">import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window); window.$RefreshReg$=()=>{}; window.$RefreshSig$=()=>type=>type; window.__vite_plugin_react_preamble_installed__=true; window.fixtureReady=true;</script></body></html>"""
 
 async def main():
@@ -228,4 +228,9 @@ async def main():
         await browser.close()
     print('PASS: four dialog classes at five sizes and two scales; remembered resize and reset')
 
-asyncio.run(main())
+if ART is not None:
+    asyncio.run(main())
+else:
+    with tempfile.TemporaryDirectory(prefix='arco-dialog-sizes-') as directory:
+        ART = Path(directory)
+        asyncio.run(main())
