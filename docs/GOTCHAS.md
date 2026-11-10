@@ -129,19 +129,17 @@ These guardrails bound worker memory use and prevent a runaway subprocess from d
   gets only `WebSearch` / `WebFetch`. Codex/Cursor must remain
   read-only and isolated. Removed providers remain rejected server-side even if a stale client crafts a create request.
 
-- **Web access is the ONE tool a Chat tab may hold, and it is per-tab operator
+- **Web access is the only tool category a Chat tab may hold, and it is per-tab operator
   state.** `chatWebArmed(config, provider)` in `server/src/chatMode.ts` is the
   single source of truth: unset `chatWebAccess` means armed for a saved Chat and
   disarmed for Incognito (the query leaves the machine), and only
-  `CHAT_WEB_PROVIDERS` (claude, codex, ollama, strata) can honor it. Every transport
-  states it
-  outright rather than inheriting a provider default - CLI Claude
-  `--tools WebSearch,WebFetch`, Native `buildChatWebTools()` (web_search +
-  web_fetch only; NOT `buildClaudeServerTools`, whose `code_execution` would
-  hand a projectless chat an interpreter nobody armed), Codex exec + app-server
-  `web_search="live"|"disabled"`; Ollama advertises only its local
-  SearXNG-backed `WebSearch` / `WebFetch` pair and auto-executes that narrowed
-  pair even though Chat has no Agent AUTO toggle. `ollamaToolCallAllowed()`
+  `CHAT_WEB_PROVIDERS` (claude, codex, ollama, strata, deepseek) can honor it.
+  Every transport states the mode explicitly: CLI Claude passes
+  `--tools WebSearch,WebFetch`; Native uses `buildChatWebTools()` (`web_search`,
+  `web_fetch` and `read_url`) without `code_execution`; Codex sets
+  `web_search="live"|"disabled"`; Ollama, Strata and DeepSeek use Arco's local
+  SearXNG-backed `WebSearch` / `WebFetch` pair. Ollama narrows and auto-executes
+  that pair even though Chat has no Agent AUTO toggle. `ollamaToolCallAllowed()`
   repeats the web-only check at dispatch because a model can invent a known but
   unadvertised tool name; never rely on `tools[]` alone as the Chat boundary.
   Ollama Chat transcript replay must use `preserveThinking:false`: hidden
