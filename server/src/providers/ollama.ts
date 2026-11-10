@@ -20,7 +20,7 @@ import { goalBlock } from './goalBlock.js';
 import { outputStyleAddendum } from './outputStyle.js';
 import { applyOllamaParams, effectiveNumCtx, parseArchContextLength } from './ollamaParams.js';
 import { loadedContextLength } from './ollamaVram.js';
-import { subsetOllamaTools } from './ollamaToolSubset.js';
+import { subsetOllamaTools, isPlanToolTask } from './ollamaToolSubset.js';
 import { decideLocalToolCall, dispatchLocalToolCalls, type LocalToolRules, type LocalToolRuntime } from './localToolDispatch.js';
 import { addGenSpeed, estimatePromptTokens, genSpeedFromOllamaDone, OLLAMA_DEFAULT_WINDOW, type GenSpeedSample } from './ollamaTokens.js';
 import {
@@ -126,6 +126,7 @@ export function ollamaToolCandidates(
   const all = [...registryTools, ...getOllamaToolDefinitions({
     clusterEnabled: !!config.clusterId && !!config.workflowId,
     taskBoardAttached: config.clusterTaskBoardAttached,
+    workflowEnabled: !!config.cwd && !!config.workflowId,
     mailboxOnly: config.clusterAccessMode !== undefined && config.clusterAccessMode !== 'standard',
   })];
   return config.tools
@@ -1905,11 +1906,14 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       // cutting). Because the signal is the per-workflow system block, the
       // subset is byte-identical across turns and the cache survives. Only ever
       // narrows on top of the cwd/allowlist/cluster gating above (subsetting
-      // never widens). See ollamaToolSubset.ts for the full rationale.
+      // never widens). Explicit plan requests are the exception: keep plan
+      // tools for that turn, without reranking the ordinary candidates.
+      // See ollamaToolSubset.ts for the full rationale.
       const taskContext = `${this.config.systemPrompt ?? ''}\n${this.config.appendSystemPrompt ?? ''}`;
       const subset = this.config.voiceOperator ? { tools: gated, applied: false, kept: [], dropped: [], cap: gated.length, signalSource: 'Computer allowlist' } : subsetOllamaTools({
         tools: gated,
         taskContext,
+        planAuthoring: isPlanToolTask(prompt),
         clusterMember: !!this.config.clusterId && !!this.config.workflowId,
       });
       tools = subset.tools;

@@ -1,3 +1,4 @@
+import { PLAN_TOOL_NAMES } from '../planTools.js';
 // M10 (LOCAL_AI_MASTER_PLAN Stage 4 / OLLAMA_HARDENING_PLAN §7) —
 // relevant-tool subsetting for the Ollama primary path.
 //
@@ -148,6 +149,10 @@ export interface SubsetResult {
   reason: 'disabled' | 'under-cap' | 'subset';
 }
 
+export function isPlanToolTask(text: string): boolean {
+  return /\b(?:plans?|planning|plan_(?:create|attach|list|ref_write|ref_list|ref_read))\b/i.test(text);
+}
+
 export interface SubsetInput {
   // The full candidate list (already cluster-gated + allowlist-filtered by the
   // caller — subsetting only ever NARROWS what the caller already decided to
@@ -160,6 +165,8 @@ export interface SubsetInput {
   // Whether this workflow is a cluster member (promotes the cluster tools into
   // the core set so they're never trimmed).
   clusterMember?: boolean;
+  // Explicit plan work may widen this family for the current turn only.
+  planAuthoring?: boolean;
 }
 
 // Compute the advertised tool subset for a turn. PURE — no I/O, no clock; the
@@ -169,9 +176,11 @@ export interface SubsetInput {
 export function subsetOllamaTools(input: SubsetInput): SubsetResult {
   const { tools, taskContext } = input;
   const coordinationCount = input.clusterMember ? tools.filter(t => OLLAMA_CLUSTER_CORE.includes(t.function.name)).length : 0;
-  const cap = resolveCap() + coordinationCount;
+  const guaranteePlans = input.planAuthoring || isPlanToolTask(taskContext);
+  const planCount = guaranteePlans ? tools.filter(t => PLAN_TOOL_NAMES.includes(t.function.name)).length : 0;
+  const cap = resolveCap() + coordinationCount + planCount;
 
-  const coreNames = new Set<string>(OLLAMA_CORE_TOOLS);
+  const coreNames = new Set<string>([...OLLAMA_CORE_TOOLS, ...(guaranteePlans ? PLAN_TOOL_NAMES : [])]);
   if (input.clusterMember) {
     for (const n of OLLAMA_CLUSTER_CORE) coreNames.add(n);
   }

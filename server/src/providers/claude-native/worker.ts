@@ -1,3 +1,4 @@
+import { PLAN_TOOL_NAMES, PLAN_TOOL_DEFINITIONS, executePlanTool } from '../../planTools.js';
 import { fetchFileContent } from '../../fileFetch.js';
 import { nativeAttachmentContent, nativeFileOutcome } from './fileContent.js';
 import { admitImageResult, imageReceipts, type ToolResultContent } from './imageRead.js';
@@ -1846,6 +1847,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     const isolated = this.config.clusterAccessMode === 'isolated';
     const base = getNativeToolDefinitions({ taskDisabled: this.taskDisabled || inCluster, isolated });
     const extras: ReturnType<typeof getNativeToolDefinitions> = [];
+    if (!isolated && this.config.cwd && this.workflowId) extras.push(...PLAN_TOOL_DEFINITIONS);
     if (inCluster) {
       extras.push(...getPeerToolDefinitions({
         taskBoardAttached: this.config.clusterTaskBoardAttached === true,
@@ -3816,6 +3818,16 @@ export class ClaudeNativeWorker extends EventEmitter {
         resultText = `[error] ${err instanceof Error ? err.message : String(err)}`;
         isError = true;
       }
+    } else if (PLAN_TOOL_NAMES.includes(block.name)) {
+      if (!this.buildToolDefs().some(tool => tool.name === block.name)) {
+        resultText = '[error] Plan tool is not available for this workflow.';
+      } else {
+        resultText = await executePlanTool(block.name, input, {
+          cwd: this.config.cwd ?? '', workflowId: this.workflowId,
+          arcoPort: parseInt(process.env.ARCO_PORT ?? '3001', 10),
+        });
+      }
+      isError = resultText.startsWith('[error]');
     } else if (this.config.clusterId !== undefined && isPeerTool(block.name)) {
       try {
         resultText = await executePeerTool(block.name, input, {

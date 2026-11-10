@@ -772,7 +772,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
 
     let tools: OllamaToolDefinition[] | undefined;
     if (this.config.cwd && this.config.interactionMode !== 'chat' && def.capabilities?.tools !== false) {
-      const all = [...registryTools, ...getOllamaToolDefinitions({ clusterEnabled: !!this.config.clusterId && !!this.config.workflowId, taskBoardAttached: this.config.clusterTaskBoardAttached, mailboxOnly: this.config.clusterAccessMode !== undefined && this.config.clusterAccessMode !== 'standard' })];
+      const all = [...registryTools, ...getOllamaToolDefinitions({ workflowEnabled: !!this.config.cwd && !!this.config.workflowId, clusterEnabled: !!this.config.clusterId && !!this.config.workflowId, taskBoardAttached: this.config.clusterTaskBoardAttached, mailboxOnly: this.config.clusterAccessMode !== undefined && this.config.clusterAccessMode !== 'standard' })];
       tools = this.config.tools
         ? all.filter((t) => this.config.tools!.includes(t.function.name))
         : all;

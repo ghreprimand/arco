@@ -1286,7 +1286,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Open the inline plan editor: type a title and body, then click{' '}
         <C>CREATE & ATTACH</C> to save and attach in one step. Bypasses the
         agent draft flow.
-       Plan fields and changes to the draft wait while its save is pending.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
+       Plan fields and changes to the draft wait while its save is pending.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p><p>Claude Native and local-provider Agent tabs with a workflow folder can also create and attach plans through their plan tools. Local tools require AUTO mode.</p></>
     ),
   },
   'plan.edit': {
@@ -1359,7 +1359,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         <C> + REF</C> adds one; the viewer edits or deletes it. Agents write refs
         with <C>plan_ref_write</C>, and are told to read the refs a task links
         before working it. Reference deletion through HTTP requires the operator browser session; agent reference reads and writes remain available.
-       Lists follow the selected plan. Opening a link checks the saved document before offering creation; creating a ref never replaces an existing one. Fields and Cancel wait while a save is pending.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
+       Lists follow the selected plan. Opening a link checks the saved document before offering creation; creating a ref never replaces an existing one. Fields and Cancel wait while a save is pending.</p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p><p>Claude Native and local-provider Agent tabs can list, read and write references through the same plan tools. Local tools require AUTO mode.</p></>
     ),
     manualSection: 'plan-refs',
   },

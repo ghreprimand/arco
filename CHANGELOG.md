@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Add workflow plan creation, attachment, listing and reference tools to Claude Native and local-provider Agent tabs.
+
 - Give local-provider cluster members the eleven board tools when standard access and an attached board allow them.
 
 - Preserve Cursor file, workflow-plan and configured tools when BLIND access limits cluster coordination.

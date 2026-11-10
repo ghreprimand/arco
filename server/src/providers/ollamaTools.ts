@@ -1,5 +1,6 @@
 import type { ClusterMemberAccessMode } from '@arco/shared';
 import { CLUSTER_TASK_TOOL_DEFINITIONS } from './clusterTaskToolDefinitions.js';
+import { PLAN_TOOL_DEFINITIONS, executePlanTool } from '../planTools.js';
 import { FileScanDeadlineExceeded, regularFileLines } from '../boundedRead.js';
 import { isSearchableTextFile } from '../searchText.js';
 import { writeCheckedFile } from '../checkedFile.js';
@@ -112,6 +113,7 @@ interface OllamaToolEntry {
   execute: OllamaToolExecutor;
   clusterOnly?: boolean;
   boardOnly?: boolean;
+  workflowOnly?: boolean;
 }
 
 // Resolve `p` against `cwd` and refuse anything that escapes. Both relative
@@ -1068,6 +1070,13 @@ const boardTools: Record<string, OllamaToolEntry> = Object.fromEntries(
 
 const REGISTRY: Record<string, OllamaToolEntry> = {
   ...boardTools,
+  ...Object.fromEntries(PLAN_TOOL_DEFINITIONS.map(tool => [tool.name, {
+    workflowOnly: true,
+    def: { type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.input_schema } },
+    execute: (args: Record<string, unknown>, ctx: OllamaToolContext) => executePlanTool(tool.name, args, {
+      cwd: ctx.cwd, workflowId: ctx.workflowId ?? '', arcoPort: parseInt(process.env.ARCO_PORT ?? '3001', 10),
+    }),
+  }])),
   Read: ReadTool,
   Glob: GlobTool,
   Grep: GrepTool,
@@ -1083,8 +1092,9 @@ const REGISTRY: Record<string, OllamaToolEntry> = {
   cluster_plan_write: ClusterPlanWriteTool,
 };
 
-export function getOllamaToolDefinitions(opts?: { clusterEnabled?: boolean; mailboxOnly?: boolean; taskBoardAttached?: boolean }): OllamaToolDefinition[] {
+export function getOllamaToolDefinitions(opts?: { clusterEnabled?: boolean; mailboxOnly?: boolean; taskBoardAttached?: boolean; workflowEnabled?: boolean }): OllamaToolDefinition[] {
   return Object.values(REGISTRY)
+    .filter((entry) => !entry.workflowOnly || opts?.workflowEnabled === true)
     .filter((entry) => !entry.clusterOnly || opts?.clusterEnabled === true)
     .filter((entry) => !entry.boardOnly || opts?.taskBoardAttached === true)
     .filter((entry) => !opts?.mailboxOnly || !entry.clusterOnly || entry.def.function.name === 'peer_send' || entry.def.function.name === 'peer_read')

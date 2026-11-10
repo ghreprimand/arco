@@ -160,9 +160,9 @@ export const plans: Section[] = [
           turn with no plan attached carries a short note telling the agent how.
         </p>
         <ul>
-          <li>On Codex and CLI Claude tabs, and on Cursor cluster members, a real tool does it: <Code>plan_create</Code> takes a title and body, creates the plan and attaches it in one call. It rejects a body with no sections or checkboxes and says why, so a malformed plan is caught as it is written.</li>
+          <li>On Claude Native, Claude CLI, Codex, Cursor worker and local-provider Agent tabs with a workflow folder, a tool does it: <Code>plan_create</Code> takes a title and body, creates the plan and attaches it in one call. It rejects a body with no sections or checkboxes and says why, so a malformed plan is caught as it is written.</li>
           <li>Elsewhere, the note gives the equivalent API call and the body shape Arco actually parses.</li>
-          <li>Claude Native tabs use their <Code>EnterPlanMode</Code> tool, which attaches for real.</li>
+          <li>Claude Native also retains <Code>EnterPlanMode</Code>. Native and local-provider Agent tabs can list and attach plans and read or write their reference docs. Local tools require AUTO mode; Ollama guarantees workflow plan tools for plan tasks and explicit plan requests; other tasks use normal relevance selection. ISOLATED Native members do not receive these tools.</li>
         </ul>
         <p>
           A plan only exists once it is registered in the project's plan index, so a
