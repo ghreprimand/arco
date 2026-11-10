@@ -666,7 +666,9 @@ export const clusters: Section[] = [
   efficiency, or progress context. Its only cluster tools are{' '}
   <Code>peer_send</Code> and <Code>peer_read</Code>, including with llama.cpp and LM Studio. Use this for an
   independent auditor that may inspect the project but should not be
-  primed by the cluster&apos;s conclusions. It cannot claim or
+  primed by the cluster&apos;s conclusions. Cursor keeps separately attached
+  file readers, workflow-plan tools and configured tool servers under their
+  own access checks. It cannot claim or
   transition board tasks itself: when substantive work is complete,
   it reports the result by peer mail and asks a STANDARD member or
   the operator to update the board. It must not probe Arco&apos;s

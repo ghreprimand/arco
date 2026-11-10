@@ -62,13 +62,12 @@ function textResult(payload: unknown, isError = false) {
 // the BASE_URL / WORKFLOW_ID / logErr are now closed over ctx instead of
 // module-level argv globals.
 export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx): void {
-  if (ctx.accessMode && ctx.accessMode !== 'standard') {
-    const original = server.registerTool.bind(server);
-    server.registerTool = ((name: string, ...args: unknown[]) => {
-      if (name !== 'peer_send' && name !== 'peer_read') return undefined;
-      return (original as (...xs: unknown[]) => unknown)(name, ...args);
-    }) as typeof server.registerTool;
-  }
+  // Scope the cluster restriction to these registrations. Cursor registers
+  // workflow files, plans and registry tools on the same server afterwards.
+  const registerTool = ((name: string, ...args: unknown[]) => {
+    if (ctx.accessMode && ctx.accessMode !== 'standard' && name !== 'peer_send' && name !== 'peer_read') return undefined;
+    return (server.registerTool.bind(server) as (...xs: unknown[]) => unknown)(name, ...args);
+  }) as typeof server.registerTool;
   const { clusterId, workflowId, arcoPort, taskBoardAttached } = ctx;
   const logErr = ctx.logErr ?? ((...args: unknown[]) => console.error('[arco-cluster-mcp]', ...args));
   const BASE_URL = `http://127.0.0.1:${arcoPort}/api/clusters/${encodeURIComponent(clusterId)}/peer`;
@@ -279,7 +278,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     return { ok: true, body };
   }
 
-  server.registerTool(
+  registerTool(
     'peer_list',
     {
       description:
@@ -298,7 +297,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'peer_send',
     {
       description:
@@ -327,7 +326,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_plan_read',
     {
       description:
@@ -346,7 +345,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_plan_tick',
     {
       description:
@@ -372,7 +371,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_plan_write',
     {
       description:
@@ -397,7 +396,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'peer_read',
     {
       description:
@@ -418,7 +417,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
 
   if (!taskBoardAttached) return;
 
-  server.registerTool(
+  registerTool(
     'cluster_task_list',
     {
       description:
@@ -437,7 +436,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_task_claim',
     {
       description:
@@ -462,7 +461,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_task_create',
     {
       description:
@@ -513,7 +512,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_task_show',
     {
       description:
@@ -534,7 +533,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_task_heartbeat',
     {
       description:
@@ -560,7 +559,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_task_update',
     {
       description:
@@ -592,7 +591,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_task_comment',
     {
       description:
@@ -618,7 +617,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_task_link',
     {
       description:
@@ -644,7 +643,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_task_unlink',
     {
       description:
@@ -670,7 +669,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_task_block',
     {
       description:
@@ -696,7 +695,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
   );
 
-  server.registerTool(
+  registerTool(
     'cluster_task_complete',
     {
       description:

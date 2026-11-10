@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Preserve Cursor file, workflow-plan and configured tools when BLIND access limits cluster coordination.
 - Hide OPEN IN TREE for files outside the current TREE root.
 - Keep Arco running when provider CLI, sign-in, language-server or MCP child processes close their input early.
 
