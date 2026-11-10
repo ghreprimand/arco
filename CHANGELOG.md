@@ -8,6 +8,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Notebook reads keep cell ranges when metadata comes first, render SVG outputs, and name unsupported rich outputs instead of dropping them.
 
 - Claude Native reloads retain named tool receipts for MCP images and documents, including image-only results, without storing encoded media in activity events.
+- Grep skips control-heavy binary data while retaining Windows-1252 text search.
 
 - File reads and attachments report binary content when NUL bytes occur after a text-only header, instead of sending those bytes as text.
 

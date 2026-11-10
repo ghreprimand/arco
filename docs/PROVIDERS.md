@@ -162,7 +162,7 @@ Context `@file:` references expand supported documents and notebook cells as tex
 
 Native Read and local Read keep their 256 KiB and 32 KiB output caps while reading in chunks; `offset` and `limit` still select later lines. Special files are refused.
 
-Grep skips binary files and searches UTF-8, UTF-16 and Windows-1252 text. JavaScript search reports shortened long lines. Native ripgrep decodes legacy text output and also checks legacy text for non-ASCII search terms.
+Grep skips binary files and searches UTF-8, UTF-16 and Windows-1252 text. A legacy text chunk with at least one percent disallowed control characters is treated as binary. JavaScript search reports shortened long lines. Native ripgrep decodes legacy text output and also checks legacy text for non-ASCII search terms.
 
 Local WebFetch in fast mode stops and cancels the response after 128 KiB before stripping HTML, with a truncation notice. Native web tools run on the provider service.
 

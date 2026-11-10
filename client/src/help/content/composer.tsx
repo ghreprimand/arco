@@ -659,7 +659,7 @@ export const composerHelp: Record<string, HelpEntry> = {
         <p>
           Session-local and reversible: reverts to <C>full</C> on reload.
           Claude-native only. Read refuses special files and reads in bounded chunks.
-          Use offset and limit for later text lines. Native Read shows fitted images and PDFs, extracts Office and notebook content, and explains unsupported files. Use pages for document ranges. AVIF is fitted like other images. ICO uses its largest image; SVG provides source text and a fitted preview without scripts, external resources or system fonts. Grep skips binary files, searches UTF-8, UTF-16 and Windows-1252 text, and reports shortened long lines.
+          Use offset and limit for later text lines. Native Read shows fitted images and PDFs, extracts Office and notebook content, and explains unsupported files. Use pages for document ranges. AVIF is fitted like other images. ICO uses its largest image; SVG provides source text and a fitted preview without scripts, external resources or system fonts. Grep skips binary files, including control-heavy legacy data, searches UTF-8, UTF-16 and Windows-1252 text, and reports shortened long lines.
         </p>
       </>
     ),

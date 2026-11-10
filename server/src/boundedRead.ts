@@ -1,3 +1,4 @@
+import { isLegacyTextChunk } from './fileContent/legacyText.js';
 import { openCheckedFile } from './checkedFile.js';
 import { constants, promises as fs } from 'node:fs';
 import { StringDecoder } from 'node:string_decoder';
@@ -38,7 +39,7 @@ async function* searchableFileLines(path: string, cap: number, signal?: AbortSig
   const check = () => { signal?.throwIfAborted(); if (deadline !== undefined && performance.now() >= deadline) throw new FileScanDeadlineExceeded(); };
   try {
     const chunk = Buffer.alloc(16384);
-    let position = 0, encoding = 'utf-8', invalid = false, first = true;
+    let position = 0, encoding = 'utf-8', invalid = false, first = true, legacyText = true;
     const validator = new TextDecoder('utf-8', { fatal: true });
     for (;;) {
       check();
@@ -53,11 +54,15 @@ async function* searchableFileLines(path: string, cap: number, signal?: AbortSig
       }
       if (encoding === 'utf-8') {
         if (bytes.includes(0)) throw new Error('binary file');
+        if (!isLegacyTextChunk(bytes)) legacyText = false;
         if (!invalid) try { validator.decode(bytes, {stream:true}); } catch { invalid = true; }
       }
     }
     if (encoding === 'utf-8' && !invalid) try { validator.decode(); } catch { invalid = true; }
-    if (invalid) encoding = 'windows-1252';
+    if (invalid) {
+      if (!legacyText) throw new Error('binary file');
+      encoding = 'windows-1252';
+    }
     const decoder = new TextDecoder(encoding, {fatal:true});
     let current = '', truncated = false, number = 1;
     const append = (value: string) => {

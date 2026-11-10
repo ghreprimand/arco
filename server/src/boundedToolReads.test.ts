@@ -112,6 +112,7 @@ for (const kind of ['local', 'native', 'native-rg'] as const) test(`${kind} Grep
   const cwd = await fs.mkdtemp(join(tmpdir(), 'arco-grep-encoding-'));
   try {
     await fs.writeFile(join(cwd, 'good.txt'), 'needle in text\n');
+    await fs.writeFile(join(cwd, 'control-heavy.bin'), Buffer.concat([Buffer.from('needle binary\n'), Buffer.from([0x81, 1, 2, 3, 4, 5, 6, 7])]));
     await fs.writeFile(join(cwd, 'binary.pdf'), '%PDF-1.7\nneedle printable binary\n');
     await fs.writeFile(join(cwd, 'legacy.txt'), Buffer.concat([Buffer.from('first\nsecond\nneedle caf'), Buffer.from([0xe9]), Buffer.from('\n')]));
     await fs.writeFile(join(cwd, 'utf16le.txt'), Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('first\nsecond\nneedle café\n', 'utf16le')]));
@@ -131,7 +132,7 @@ for (const kind of ['local', 'native', 'native-rg'] as const) test(`${kind} Grep
     assert.match(result.stdout, /good.txt:1: ?needle in text/);
     assert.match(result.stdout, /unicode.txt:1: ?needle café/);
     for (const name of ['legacy.txt', 'utf16le.txt', 'utf16be.txt']) assert.match(result.stdout, new RegExp(`${name.replace('.', '\\.')} :3: ?needle café`.replace(' :', ':')));
-    assert.doesNotMatch(result.stdout, /binary.pdf|image.png|archive.zip|nul.dat|\uFFFD/);
+    assert.doesNotMatch(result.stdout, /binary.pdf|image.png|archive.zip|nul.dat|control-heavy.bin|\uFFFD/);
     const accentedScript = script.replaceAll("pattern:'needle'", "pattern:'café'");
     const accented = spawnSync(process.execPath, ['--conditions','development','--import','tsx','--input-type','module','-e',accentedScript,cwd,kind], {env:{...process.env,PATH:kind === 'native-rg' ? process.env.PATH : ''},timeout:4000,encoding:'utf8'});
     assert.equal(accented.status, 0, accented.stderr);
