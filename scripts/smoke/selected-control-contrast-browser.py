@@ -1,4 +1,7 @@
 """Render real worker controls with isolated APIs and every shipped theme."""
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import json
 import os
@@ -13,7 +16,7 @@ install_navigation_defaults()
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5205')
 ORIGIN = 'http://127.0.0.1:' + PORT
 ROOT = Path(__file__).resolve().parents[2]
-ART = Path('/tmp/arco-selected-contrast')
+ART = Path(_artifact_os.path.join(_artifact_root.name, 'arco-selected-contrast'))
 ART.mkdir(exist_ok=True)
 HTML = """<!doctype html><html><body><main style="position:relative;z-index:1;padding:18px;display:flex;gap:20px;align-items:start">
 <div id="native" style="width:580px;padding:18px;background:var(--color-bg-panel)"></div>

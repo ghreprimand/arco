@@ -1,6 +1,9 @@
 """Real App + real SettingsPanel, fixture-only network. Run against Vite :5179.
 No workflow server, production preferences or real WebSocket are accessed.
 """
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio, json, os
 from pathlib import Path
 from urllib.parse import urlparse
@@ -10,7 +13,7 @@ from host_isolation import chrome_executable
 
 install_navigation_defaults()
 
-ART = Path('/tmp/arco-phosphor-production'); ART.mkdir(exist_ok=True)
+ART = Path(_artifact_os.path.join(_artifact_root.name, 'arco-phosphor-production')); ART.mkdir(exist_ok=True)
 CHROME = chrome_executable()
 async def main():
  async with async_playwright() as p:

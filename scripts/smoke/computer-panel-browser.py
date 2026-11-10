@@ -1,6 +1,9 @@
 """Computer's dedicated header surface against Vite; APIs/WS isolated, no mic or provider calls.
 Run with ARCO_CLIENT_PORT=5193 npm run dev:client, then python3 this file.
 """
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import json
 import os
@@ -17,7 +20,7 @@ install_navigation_defaults()
 
 URL = os.environ.get('ARCO_COMPUTER_PREVIEW_URL', 'http://127.0.0.1:5193/')
 CHROME = chrome_executable()
-ART = Path('/tmp/arco-computer-panel-review')
+ART = Path(_artifact_os.path.join(_artifact_root.name, 'arco-computer-panel-review'))
 
 
 async def open_computer(page):

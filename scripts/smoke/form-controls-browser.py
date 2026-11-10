@@ -4,6 +4,9 @@ Synthetic stores and APIs only; no provider calls. Every visible select and
 text/number input must use theme typography instead of the browser default,
 help lines must stay inside their containers, and values must still save.
 """
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import os
 from pathlib import Path
@@ -18,7 +21,7 @@ from host_isolation import chrome_executable
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5207')
 ORIGIN = 'http://127.0.0.1:' + PORT
 ROOT = Path(__file__).resolve().parents[2]
-ART = Path('/tmp/arco-form-controls')
+ART = Path(_artifact_os.path.join(_artifact_root.name, 'arco-form-controls'))
 ART.mkdir(parents=True, exist_ok=True)
 CWD = '/projects/fixture'
 HTML = """<!doctype html><html><body><main style="display:flex;flex-wrap:wrap;gap:16px;padding:12px;align-items:flex-start">

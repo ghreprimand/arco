@@ -30,6 +30,7 @@ async def main():
         file_reads.append(u.path); data={'type':'text','content':'UNSTAGED insertion\nheading\nWORKTREE version\n','size':45}
       await route.fulfill(json=data)
     await page.route('**/api/**',api)
+    await page.route('**/healthz', lambda route: route.fulfill(json={'status':'live'}))
     await page.goto(URL)
     await page.evaluate("""async()=>{
       const React=(await import('/node_modules/.vite/deps/react.js')).default;

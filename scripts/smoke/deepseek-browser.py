@@ -1,6 +1,9 @@
 """Real provider controls/version rows against Vite, all APIs/WS intercepted.
 Run with ARCO_CLIENT_PORT=5197 ARCO_PORT=6197 npm run dev:client.
 """
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import json
 import os
@@ -13,7 +16,7 @@ from host_isolation import chrome_executable
 install_navigation_defaults()
 
 async def main():
-    artifact = Path('/tmp/arco-deepseek-browser')
+    artifact = Path(_artifact_os.path.join(_artifact_root.name, 'arco-deepseek-browser'))
     artifact.mkdir(exist_ok=True)
     profiles = [dict(id=i, model=f'deepseek-v4.1-flash-1017-{i}', label=f'DeepSeek {i.title()} · Xolotl · 262K',
                      serviceState='inactive', loaded=False, capabilities={'vision': True}) for i in ['exact', 'light']]

@@ -1,4 +1,7 @@
 """Browser acceptance against isolated Vite; every API/WS request is stubbed."""
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio, os
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright
@@ -94,7 +97,7 @@ async def main():
   await page.evaluate("dispatchQuestion({type:'operator_question',workflowId:'question-ui',question:{...window.question,requestId:'cluster-question',status:'answered' ,answers:{color:['Blue']},questions:[{id:'color',header:'Color',question:'Which color?',options:[{label:'Blue',description:''}],allowOther:true,secret:false}]}})")
   await page.locator('[data-help="cluster.member-question"]').wait_for(state='detached');await mark.wait_for(state='detached')
   assert not errors,errors
-  await page.screenshot(path='/tmp/arco-questions-browser.png')
+  await page.screenshot(path=_artifact_os.path.join(_artifact_root.name, 'arco-questions-browser.png'))
   print('PASS: pending question button/modal, options and descriptions, multiple replies, password input, explicit submit, validation retry, authoritative answered state, disconnect disable and stale snapshot closure. No page errors.')
   await browser.close()
 asyncio.run(main())

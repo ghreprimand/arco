@@ -1,10 +1,15 @@
 """Workspace Outputs with synthetic events/files and existing viewers; no providers."""
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import base64
 import io
 import json
 import os
 import wave
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from playwright.async_api import async_playwright, expect
@@ -13,10 +18,37 @@ from host_isolation import chrome_executable
 
 install_navigation_defaults()
 URL = 'http://127.0.0.1:' + os.environ.get('ARCO_CLIENT_PORT', '5201') + '/'
-ART = Path(os.environ.get('ARCO_OUTPUT_VISUAL_ARTIFACTS', '/tmp/arco-outputs-browser'))
+ART = Path(os.environ.get('ARCO_OUTPUT_VISUAL_ARTIFACTS', _artifact_os.path.join(_artifact_root.name, 'arco-outputs-browser')))
 A, B = '11111111-2222-4333-8444-555555555555', '22222222-3333-4444-8555-666666666666'
 CWD = '/projects/harbor'
 PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=')
+
+class DownloadBackend:
+    def __init__(self):
+        port = int(os.environ['ARCO_TEST_FIXTURE_PORT'])
+        assert os.environ.get('ARCO_PORT') == str(port), 'Vite must use the fixture backend port'
+        self.requests = []
+        requests = self.requests
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *args): pass
+            def do_GET(self):
+                parsed = urlparse(self.path)
+                if parsed.path != '/api/outputs/file' or parse_qs(parsed.query).get('download') != ['1']:
+                    self.send_error(404); return
+                requests.append(self.path)
+                self.send_response(200)
+                self.send_header('Content-Type', 'image/png')
+                self.send_header('Content-Disposition', 'attachment; filename="generated.png"')
+                self.send_header('Content-Length', str(len(PNG)))
+                self.end_headers()
+                self.wfile.write(PNG)
+        self.server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+    def close(self):
+        self.server.shutdown()
+        self.thread.join()
+        self.server.server_close()
 
 def output(id, name, category, title=None, **extra):
     return {'id': id * 32, 'name': name, 'title': title or name, 'path': CWD + '/' + name, 'originPath': CWD + '/' + name, 'category': category, 'workflowId': A, 'cwd': CWD, 'producer': 'Producer A', 'createdAt': 1793210000000, 'updatedAt': 1793210000000, 'size': 32, 'missing': False, 'source': 'artifact event', **extra}
@@ -183,7 +215,11 @@ async def main():
         await expect(image).to_contain_text('/exports/moved.png')
         async with page.expect_download() as download:
             await image.get_by_role('button', name='Download', exact=True).click()
-        assert (await download.value).suggested_filename == 'generated.png'
+        received = await download.value
+        assert received.suggested_filename == 'generated.png'
+        assert await received.failure() is None
+        assert Path(await received.path()).read_bytes() == PNG
+        assert download_backend.requests, 'download must reach the fixture backend'
         for scale in [1.1,1.5]:
             await page.evaluate('value => {document.documentElement.style.zoom=String(value);document.documentElement.style.setProperty("--ui-scale",String(value));}',scale)
             await panel.get_by_label('Search outputs', exact=True).focus()
@@ -215,4 +251,8 @@ async def main():
         await context.close(); await browser.close()
         print('PASS: modal close/reopen, View in Outputs, reload, filters/search, wrong-active-tab context, existing text/image viewers, copy/move/collision, keyboard and narrow110/150%, cluster attribution/exclusion, Kept and UNKEEP; no provider calls')
 
-asyncio.run(main())
+download_backend = DownloadBackend()
+try:
+    asyncio.run(main())
+finally:
+    download_backend.close()

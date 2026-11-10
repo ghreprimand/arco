@@ -1,6 +1,9 @@
 """Composer coverage against isolated Vite APIs/WS; no provider calls.
 Run ARCO_CLIENT_PORT=5194 npm run dev:client, then python3 this file.
 """
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import json
 import os
@@ -185,8 +188,8 @@ async def main():
                 await expect(control).to_be_visible()
                 rect = await control.bounding_box()
                 assert rect and rect['x'] >= 0 and rect['x'] + rect['width'] <= width, rect
-        Path('/tmp/arco-interrupt-ui').mkdir(exist_ok=True)
-        await page.screenshot(path='/tmp/arco-interrupt-ui/composer.png')
+        Path(_artifact_os.path.join(_artifact_root.name, 'arco-interrupt-ui')).mkdir(exist_ok=True)
+        await page.screenshot(path=_artifact_os.path.join(_artifact_root.name, 'arco-interrupt-ui/composer.png'))
         assert not errors, errors
         print('PASS: pending EDIT, preview, append, kind/attachment restore, change/resend in single and cluster tabs, delivery race; visible normal SEND and INTERRUPT & SEND, normal send payload, button/draft updates, Ctrl+Enter, ordinary steer/follow-up, newline, disconnected draft retention, provider/idle visibility and narrow layout.')
         await browser.close()

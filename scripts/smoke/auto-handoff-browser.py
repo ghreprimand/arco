@@ -2,6 +2,9 @@
 
 Synthetic stores and APIs only; no provider calls.
 """
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import os
 from pathlib import Path
@@ -85,7 +88,7 @@ async def main():
         await count.fill('40'); await count.blur()
         await expect(count).to_have_value('20')
         assert (await updates())[-1]['afterCompactions'] == 20
-        await page.screenshot(path='/tmp/arco-auto-handoff-native.png', full_page=True)
+        await page.screenshot(path=_artifact_os.path.join(_artifact_root.name, 'arco-auto-handoff-native.png'), full_page=True)
         print('PASS Claude Native: off by default, tick and N saved, N capped at 20')
 
         # Auto-compaction off: the control needs it.

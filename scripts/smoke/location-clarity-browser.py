@@ -1,4 +1,7 @@
 """Location duplicate/rename feedback and clarity against an isolated real server."""
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import importlib.util
 import os
@@ -19,7 +22,7 @@ def card_for(page, folder):
     return page.locator('.home-project-card').filter(has=page.get_by_title(os.path.realpath(folder), exact=True))
 spec=importlib.util.spec_from_file_location('clarity_harness',Path(__file__).with_name('connections-browser.py'))
 h=importlib.util.module_from_spec(spec);spec.loader.exec_module(h)
-ART=Path(os.environ.get('ARCO_LOCATION_VISUAL_ARTIFACTS','/tmp/arco-location-clarity-settings'))
+ART=Path(os.environ.get('ARCO_LOCATION_VISUAL_ARTIFACTS',_artifact_os.path.join(_artifact_root.name, 'arco-location-clarity-settings')))
 class Server(h.IsolatedServer):
     def extra_settings(self):
         work=self.root/'work'; personal=self.root/'personal'

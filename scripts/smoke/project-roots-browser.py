@@ -1,4 +1,7 @@
 """Named roots across Settings, Home, creator and setup. Isolated fixture server only."""
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import importlib.util
 import json
@@ -35,7 +38,7 @@ async def select_folder(locator, folder):
 spec = importlib.util.spec_from_file_location('root_harness', Path(__file__).with_name('connections-browser.py'))
 h = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(h)
-ART = Path(os.environ.get('ARCO_ROOT_VISUAL_ARTIFACTS', '/tmp/arco-project-roots'))
+ART = Path(os.environ.get('ARCO_ROOT_VISUAL_ARTIFACTS', _artifact_os.path.join(_artifact_root.name, 'arco-project-roots')))
 
 class Server(h.IsolatedServer):
     def extra_settings(self):

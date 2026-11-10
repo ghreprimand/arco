@@ -1,4 +1,7 @@
 """Real creator and existing-cluster controls with synthetic APIs and no provider calls."""
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import os
 from pathlib import Path
@@ -13,7 +16,7 @@ from host_isolation import chrome_executable
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5206')
 ORIGIN = 'http://127.0.0.1:' + PORT
 ROOT = Path(__file__).resolve().parents[2]
-ART = Path('/tmp/arco-coordination-browser')
+ART = Path(_artifact_os.path.join(_artifact_root.name, 'arco-coordination-browser'))
 ART.mkdir(parents=True, exist_ok=True)
 HTML = '''<!doctype html><html><head><link rel="stylesheet" href="/src/styles/global.css"><link rel="stylesheet" href="/src/styles/matrix.css"></head><body><div id="fixture"></div><script type="module">import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window); window.$RefreshReg$=()=>{}; window.$RefreshSig$=()=>type=>type; window.__vite_plugin_react_preamble_installed__=true; window.fixtureReady=true;</script></body></html>'''
 

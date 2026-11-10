@@ -2,6 +2,9 @@
 Run: python3 scripts/smoke/phosphor-demo-browser.py
 Artifacts: /tmp/arco-phosphor-review (override PHOSPHOR_ARTIFACT_DIR).
 """
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio, json, os
 from pathlib import Path
 from playwright.async_api import async_playwright
@@ -11,7 +14,7 @@ from host_isolation import chrome_executable
 install_navigation_defaults()
 
 BASE = 'http://127.0.0.1:5178/phosphor-demo.html'
-ART = Path(os.environ.get('PHOSPHOR_ARTIFACT_DIR', '/tmp/arco-phosphor-review'))
+ART = Path(os.environ.get('PHOSPHOR_ARTIFACT_DIR', _artifact_os.path.join(_artifact_root.name, 'arco-phosphor-review')))
 ART.mkdir(parents=True, exist_ok=True)
 CHROME = chrome_executable()
 

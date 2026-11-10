@@ -1,6 +1,9 @@
 """Actual App/manual/contextual help against Vite :5179; all APIs/WS isolated.
 No provider execution, production settings writes or workflow operations.
 """
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import os
 import re
@@ -14,7 +17,7 @@ install_navigation_defaults()
 
 URL = os.environ.get('ARCO_HELP_PREVIEW_URL', f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5179')}/")
 CHROME = chrome_executable()
-ART = Path('/tmp/arco-help-docs-review')
+ART = Path(_artifact_os.path.join(_artifact_root.name, 'arco-help-docs-review'))
 
 async def main():
     ART.mkdir(exist_ok=True)

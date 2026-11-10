@@ -1,4 +1,7 @@
 """Home start-page fixtures and visual acceptance. No server or provider access."""
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio
 import json
 import os
@@ -12,7 +15,7 @@ from home_controls import open_saved_project_form
 from host_isolation import chrome_executable
 
 URL = 'http://127.0.0.1:' + os.environ.get('ARCO_CLIENT_PORT', '5196') + '/'
-ART = Path(os.environ.get('ARCO_HOME_VISUAL_ARTIFACTS', '/tmp/arco-home-start-page'))
+ART = Path(os.environ.get('ARCO_HOME_VISUAL_ARTIFACTS', _artifact_os.path.join(_artifact_root.name, 'arco-home-start-page')))
 IDS = ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']
 
 

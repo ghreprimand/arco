@@ -12,6 +12,7 @@ import { existsSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { outputTail, runWithCiRetry } from './browser-suite-retry.mjs';
+import { outputsFixtureEnvironment } from './outputs-fixture-port.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -190,6 +191,7 @@ const viteBin = join(root, 'node_modules/vite/bin/vite.js');
 const hostedCi = process.env.CI === 'true';
 const harnessTests = [
   [process.execPath, ['--test', join(root, 'scripts/smoke/browser-suite-retry.test.mjs')]],
+  [process.execPath, ['--test', join(root, 'scripts/smoke/outputs-fixture-port.test.mjs')]],
   [process.execPath, ['--test', join(root, 'scripts/smoke/browser-suite-isolation.test.mjs')]],
   ['python3', [join(root, 'scripts/smoke/browser_navigation.test.py')]],
 ];
@@ -258,7 +260,7 @@ for (const suite of selected) {
     continue;
   }
   const port = suite.port === 5179 ? Number(process.env.ARCO_BROWSER_ALT_PORT || suite.port) : suite.port;
-  const env = { ...process.env, ARCO_CLIENT_PORT: String(port) };
+  const env = await outputsFixtureEnvironment(suite.name, { ...process.env, ARCO_CLIENT_PORT: String(port) }, port);
   if (env.ARCO_TEST_CHROME) env.CHROMIUM_PATH = env.ARCO_TEST_CHROME;
   if (!(await portFree(port))) {
     console.error(`${suite.name}: port ${port} is already in use by another process; stop it and rerun`);

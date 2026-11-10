@@ -1,3 +1,6 @@
+import os as _artifact_os
+import tempfile as _artifact_tempfile
+_artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import re
 """Real browser/microphone lifecycle; API/WS isolated, no provider calls."""
 import asyncio
@@ -279,7 +282,7 @@ async def main():
   await page.get_by_role('button',name='DISABLE · MIC OFF',exact=True).click()
   await page.evaluate('window.releaseMic()')
   await page.wait_for_function("micStreams.every(s=>s.getTracks().every(t=>t.readyState==='ended'))")
-  await page.screenshot(path='/tmp/arco-voice-browser.png')
+  await page.screenshot(path=_artifact_os.path.join(_artifact_root.name, 'arco-voice-browser.png'))
   assert not errors,errors
   await page.reload(); await page.wait_for_timeout(600)
   assert await page.evaluate('window.micCalls') == 0
