@@ -970,7 +970,8 @@ export const configuration: Section[] = [
   <p>
   <strong>WEB LOOKUPS / TURN</strong> (Claude Native) - per-tab cap on the{' '}
   <Code>web_search</Code> + <Code>web_fetch</Code> server tools (the Anthropic{' '}
-  <Code>max_uses</Code> parameter). Default <Code>15</Code> (presets 10 / 15 /
+  <Code>max_uses</Code> parameter). The same setting separately caps{' '}
+  <Code>read_url</Code> file lookups, including failed attempts. Default <Code>15</Code> (presets 10 / 15 /
   25 / 50); raise it for research-heavy tabs.
   </p>
   <ul>

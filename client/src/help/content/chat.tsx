@@ -41,8 +41,8 @@ export const chatHelp: Record<string, HelpEntry> = {
   },
   'chat.web': {
     title: 'Chat web access', manualSection: 'chat-mode',
-    body: <p>Arms web search and fetch for this chat: the only tools a Chat tab ever gets.
-      No files, no shell, no project. On by default for a saved Chat, off for Incognito
+    body: <p>Arms web search and fetch for this chat, including Native <C>read_url</C> for public file links.
+      No local file tools, no shell, no project. On by default for a saved Chat, off for Incognito
       (a search query leaves the machine). Available on Claude, Codex, Ollama, Strata and DeepSeek; other Chat providers have
       no web tool to arm. Takes effect on the next message. Local fast fetch reads up
       to 128 KiB before HTML extraction, cancels the remaining download and reports truncation.</p>,

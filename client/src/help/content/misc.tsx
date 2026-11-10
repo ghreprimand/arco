@@ -231,15 +231,16 @@ export const miscHelp: Record<string, HelpEntry> = {
         to open the viewer. A filtered-output chip can copy the raw output path.
       </p>
       <p>Claude Native Read shows fitted images and document ranges, including in Task helpers. The card names the file, type, dimensions or pages. After reload, Native retains MCP media receipts with the original tool name and input for requesting the result again. Use <C>pages</C> for PDF pages, sheets, slides, notebook cells or Word sections. Notebook SVG outputs include source and a fitted image; unsupported rich outputs leave a cell-numbered receipt. Office files become text, scanned pages become images, and unsupported binaries receive a note. No converter installation is needed. UTF-8 and byte-order-marked UTF-16 text are recognized. Non-UTF-8 text without NUL bytes and with fewer than 1% unexpected control bytes per 16 KiB chunk is decoded as Windows-1252 and marked. Line ranges apply to the decoded text. A selected text range containing NUL bytes receives a binary-file note, including when those bytes occur after the initial header.</p><p>AVIF is fitted like other images. ICO uses its largest image. SVG supplies source text and a fitted preview without scripts, external resources or system fonts. Text requiring a font may be absent from the preview.</p>
-      <p>Local <C>WebFetch</C> and the CLI file server&apos;s read-only <C>fetch_file</C>
+      <p>Native <C>read_url</C>, local <C>WebFetch</C> and the CLI file server&apos;s read-only <C>fetch_file</C>
       read public HTTP(S) images and documents through Arco. Images are fitted;
-      PDFs provide selected text or scanned-page images. Use <C>pages</C> for a
+      Native PDFs arrive as document blocks; other transports receive selected text
+      or scanned-page images. Use <C>pages</C> for a
       range. Private addresses, unsafe redirects, oversized sources and expired
       requests produce a note.</p>
       <p>Attachments and MCP file results use the same decoder. After reload or compaction, use Read for a saved file or re-run the original MCP tool for its result; saved context keeps receipts rather than pixels.</p>
 
       <p>Claude Native and local-model Glob can return a directory alias for a directory-only pattern such as <C>src-link/</C>. The alias must resolve within the project and pass the path checks. Glob does not walk through directory aliases.</p>
-      <p>JavaScript Grep skips binary files and invalid UTF-8. Native ripgrep omits output lines that cannot be decoded safely.</p>
+      <p>JavaScript Grep searches UTF-8, UTF-16 and Windows-1252 text, skipping binary and control-heavy data. Native ripgrep omits output lines that cannot be decoded safely.</p>
       </>
     ),
     manualSection: 'tool-pills',

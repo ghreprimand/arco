@@ -146,7 +146,7 @@ For spreadsheets, presentations and notebooks, `pages` selects sheets, slides or
 
 Sources can be up to 512 MB. PNG scanline decoding supports 512 megapixels; other raster decoders allow 250 megapixels. Oversized or malformed files produce a note explaining how to supply a smaller file or range. Request budgets limit combined images and PDF pages to 100 and encoded media to 20 MB. Use compaction or a new conversation when that budget is reached.
 
-MCP image and embedded document results use the same decoder. Linked resources are described rather than fetched automatically. Anthropic's server-side `web_fetch` remains provider-owned; it is separate from Arco's local WebFetch implementation. Utility jobs remain bounded text-only tasks without file tools.
+MCP image and embedded document results use the same decoder. Linked resources are described rather than fetched automatically. Native `read_url` uses the shared public URL decoder for file links. Anthropic's server-side `web_fetch` remains available for web pages and citations. Utility jobs remain bounded text-only tasks without file tools.
 
 Live requests and token counting receive typed media. Saved events and text summaries keep receipts and attachment references, never base64 payloads. Use Read again after reload or compaction for exact detail. Evicted raw results remain recoverable in local artifacts. Saved replay drops reasoning signatures when replacing their media with receipts.
 
@@ -164,7 +164,7 @@ Native Read and local Read keep their 256 KiB and 32 KiB output caps while readi
 
 Grep skips binary files and searches UTF-8, UTF-16 and Windows-1252 text. A legacy text chunk with at least one percent disallowed control characters is treated as binary. JavaScript search reports shortened long lines. Native ripgrep decodes legacy text output and also checks legacy text for non-ASCII search terms.
 
-Local WebFetch and the read-only CLI `fetch_file` tool use `fileFetch.ts`. Text downloads stop at 128 KiB; recognized images and documents have the shared 512 MiB source budget before decoding and provider limits apply. The reader checks public HTTP(S) hosts, resolved addresses and every direct HTTP redirect. Source-size and deadline refusals return a note. Native server web tools run on the provider service.
+Native `read_url`, local WebFetch and the read-only CLI `fetch_file` tool use `fileFetch.ts`. Text downloads stop at 128 KiB; recognized images and documents have the shared 512 MiB source budget before decoding and provider limits apply. The reader checks public HTTP(S) hosts, resolved addresses and every direct HTTP redirect. Source-size and deadline refusals return a note. Native server web tools run on the provider service.
 
 Native Read keeps the partial-read warning when its output is capped, until a later complete read covers the file. Native Grep reports invalid patterns and search failures as errors; a successful search with no matches remains empty. Native Bash keeps its newest output tail even if saving the full output fails, and reports that full output is unavailable. Native and local-model Write create nested parent directories on Windows.
 
@@ -178,8 +178,8 @@ first). The one exception is the per-tab web toggle - `chatWebArmed()` in
 `server/src/chatMode.ts` decides, and every transport states the mode
 explicitly instead of inheriting a provider default:
 
-- **Claude Native** - empty `tools`, or `buildChatWebTools()` (Anthropic
-  `web_search` + `web_fetch` only, deliberately no `code_execution`) when armed;
+- **Claude Native** - empty `tools`, or `buildChatWebTools()` (server
+  `web_search` + `web_fetch` and portable `read_url`, deliberately no `code_execution`) when armed;
   only the chat system block.
 - **Claude CLI** - `--tools ""`, or `--tools WebSearch,WebFetch` when armed,
   plus `--strict-mcp-config`.
@@ -477,7 +477,7 @@ The Native worker is a first-class MCP host for the operator's enabled-and-allow
 
 After a successful `Write`/`Edit`, the tool calls a **fire-and-forget** `ctx.onFileWritten?.(abs)` hook (wrapped in `try/catch` - a diagnostics failure must NEVER break the write; the write path is P0). The worker wires it to the `lspManager` subsystem (`server/src/lsp/`), which lazy-spawns the project's language server (`typescript-language-server` / `pyright` / `gopls` / `rust-analyzer`, whichever is on PATH), opens the changed file, and forwards the server's `publishDiagnostics` to the client as a workflow-scoped `diagnostics {file, items[]}` message (rendered as a count badge + list on the Activity tab). Absent server ⇒ silent no-op (operator installs the LSP server themselves - bring-your-own-upstream). Lifecycle mirrors `llamacppManager` (one server per `(cwd, languageId)`, dedup, idle-reap, shutdown-kill). **Full detail: `docs/LSP.md`.**
 
-** (WebFetch / WebSearch) - server-side.** The plan-doc spec called for ~150 LOC of local WebFetch + WebSearch with SSRF guard, Camoufox stealth fallback, and pluggable Brave/Tavily/Kagi/SearXNG providers. Not needed: Native authenticates as Claude Code (OAuth + the pinned `claude-cli/<version>` user-agent from `wireFingerprint.ts`) and advertises Anthropic's server-side web tools. Anthropic executes calls server-side. No local web implementation is used.
+** (WebFetch / WebSearch) - server-side.** The plan-doc spec called for ~150 LOC of local WebFetch + WebSearch with SSRF guard, Camoufox stealth fallback, and pluggable Brave/Tavily/Kagi/SearXNG providers. Not needed: Native authenticates as Claude Code (OAuth + the pinned `claude-cli/<version>` user-agent from `wireFingerprint.ts`) and advertises Anthropic's server-side web tools. Anthropic executes calls server-side. The separate `read_url` companion uses Arco's public URL reader for file links.
 
 #### Tool surface (7b - Arco-integrated)
 
@@ -2178,10 +2178,10 @@ approve unrelated MCP servers.
 
 ### Public URL files
 
-Local `WebFetch` and the read-only `fetch_file` tool in the Claude CLI, Codex and
+Native `read_url`, local `WebFetch` and the read-only `fetch_file` tool in the Claude CLI, Codex and
 Cursor file servers share the public URL reader. Fetched images become fitted
-image blocks. PDFs provide selected page text or scanned-page images on these
-transports. `pages`, such as `2-4`, also selects supported document ranges.
+image blocks. Native returns selected PDFs as document blocks; the other
+transports receive selected page text or scanned-page images. `pages`, such as `2-4`, also selects supported document ranges.
 The range selects decoded content; the downloaded source still has a byte cap.
 
 The direct reader accepts HTTP(S), checks every resolved address and rechecks
@@ -2190,3 +2190,9 @@ refused. Text downloads have a 128 KiB budget; media and document sources have
 the shared 512 MiB limit. The direct request and decoding deadline is 10,000 ms.
 Cancellation releases the response reader. Local WebFetch can use its existing
 browser fallback for bot-protected text pages.
+
+Native `read_url` returns selected PDF pages as native document blocks. It follows
+Chat web access and the agent tool posture. WEB LOOKUPS / TURN also sets its
+separate per-turn call cap, including failed attempts; the default is 15.
+Its image and document results share Native context media limits. Reload keeps
+the source URL and a receipt so the model can call `read_url` again.

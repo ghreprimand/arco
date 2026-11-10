@@ -33,8 +33,9 @@ export const chat: Section[] = [
   message on the same provider. The history carries over.
   </li>
   <li>
-  <strong>WEB</strong> turns on web search and fetch. It is the only tool a
-  Chat tab can have.
+  <strong>WEB</strong> turns on web search and fetch, including Native
+  <Code>read_url</Code> for public image and document links. Chat has no local
+  file or shell tools.
   </li>
   </ul>
   <p>

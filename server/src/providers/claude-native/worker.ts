@@ -1,3 +1,4 @@
+import { fetchFileContent } from '../../fileFetch.js';
 import { nativeAttachmentContent, nativeFileOutcome } from './fileContent.js';
 import { admitImageResult, imageReceipts, type ToolResultContent } from './imageRead.js';
 import { shortTextRequestParams } from './modelParams.js';
@@ -74,6 +75,7 @@ import {
   CLAUDE_CODE_SERVER_TOOLS,
   buildChatWebTools,
   buildClaudeServerTools,
+  webToolMaxUses,
   buildContextManagementEditsForRequest,
   shouldSendCompactBeta,
   summarizeCompactionIterations,
@@ -425,6 +427,8 @@ export class ClaudeNativeWorker extends EventEmitter {
   // first streamOneRound then made a fresh, un-aborted controller, so a turn
   // cancelled during startup still ran (spent tokens, could edit files).
   private cancelRequested = false;
+  private urlReadsThisTurn = 0;
+  private fetchUrlContent = fetchFileContent;
   private toolAbort: AbortController | null = null;
   private shells: ShellRegistry = {
     byId: new Map(),
@@ -1832,7 +1836,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   private buildToolDefs(): ClaudeNativeToolDef[] {
     // Chat has no project toolset. When the operator arms web access the tab
-    // gets exactly web_search + web_fetch — no filesystem, no shell, no MCP,
+    // gets web_search + web_fetch + read_url - no filesystem, no shell, no MCP,
     // no posture filter (there is nothing left for it to filter).
     if (this.config.interactionMode === 'chat') {
       if (this.config.voiceOperator) return computerToolDefinitions().map(({ function: f }) => ({ name: f.name, description: f.description, input_schema: f.parameters })) as ClaudeNativeToolDef[];
@@ -1866,7 +1870,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     if (!isolated && (this.config.efficiencySandbox ?? 'off') === 'on') extras.push(...getSandboxToolDefinitions());
     // docs/ARCHITECTURE.md - Deep Research threads its `maxRounds`
     // through as `webSearchMaxUses` so the web_search / web_fetch budget is a
-    // MECHANICAL hard ceiling, not just a prompt-stated cap. Unset ⇒ default 10.
+    // MECHANICAL hard ceiling, not just a prompt-stated cap. Unset uses the default of 15.
     const serverTools = this.config.webSearchMaxUses !== undefined
       ? buildClaudeServerTools(this.config.webSearchMaxUses)
       : CLAUDE_CODE_SERVER_TOOLS;
@@ -2558,6 +2562,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // Reset synchronously, before the first await: the adapter calls runTurn
     // from spawn() and any kill() can only land after this line.
     this.cancelRequested = false;
+    this.urlReadsThisTurn = 0;
     this.turnInputAccepted = false;
     try {
       await this.ensureStarted();
@@ -3479,7 +3484,15 @@ export class ClaudeNativeWorker extends EventEmitter {
     }
     // A frozen tool prefix can outlive a switch into chat mode. Never execute
     // a local tool from that older prefix after the switch.
-    if (this.config.interactionMode === 'chat') return { text: '[error] tools are unavailable in chat mode', isError: true };
+    if (block.name === 'read_url') {
+      if (!this.buildToolDefs().some(tool => tool.name === 'read_url')) {
+        return { text: '[error] URL reading is unavailable with the current web access or tool posture.', isError: true };
+      }
+      if (this.urlReadsThisTurn >= webToolMaxUses(this.config.webSearchMaxUses)) {
+        return { text: '[error] URL reading reached its per-turn web lookup limit.', isError: true };
+      }
+      this.urlReadsThisTurn++;
+    } else if (this.config.interactionMode === 'chat') return { text: '[error] tools are unavailable in chat mode', isError: true };
     const matcher = block.name;
     // One shell tool is offered (Bash, or PowerShell on Windows without Git
     // Bash). The other name is an unknown tool, as in Claude Code: refused
@@ -3787,7 +3800,23 @@ export class ClaudeNativeWorker extends EventEmitter {
     // worker will never have advertised the tool, so a model attempting to
     // call peer_send without a clusterId gets the standard "unknown tool"
     // path through executeNativeTool.
-    if (this.config.clusterId !== undefined && isPeerTool(block.name)) {
+    if (block.name === 'read_url') {
+      try {
+        const result = await this.fetchUrlContent(typeof input.url === 'string' ? input.url : '', {
+          signal: ctx.abortSignal,
+          pages: typeof input.pages === 'string' ? input.pages : undefined,
+          offset: typeof input.offset === 'number' ? input.offset : undefined,
+          limit: typeof input.limit === 'number' ? input.limit : undefined,
+          limits: { images: true, documents: true },
+        });
+        toolOutcome = admitImageResult(this.messages, pendingResults, nativeFileOutcome(result));
+        resultText = toolOutcome.text;
+        isError = toolOutcome.isError;
+      } catch (err) {
+        resultText = `[error] ${err instanceof Error ? err.message : String(err)}`;
+        isError = true;
+      }
+    } else if (this.config.clusterId !== undefined && isPeerTool(block.name)) {
       try {
         resultText = await executePeerTool(block.name, input, {
           workflowId: this.workflowId,

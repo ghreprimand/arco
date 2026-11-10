@@ -52,8 +52,8 @@ Strata saved Chats use the same SearXNG `WebSearch` / `WebFetch` pair as Ollama.
 The header toggle defaults on; switching it off removes tools. Dispatch also
 rejects all project tools, even if the model invents an unadvertised tool call.
 
-A per-tab toggle (`WorkflowConfig.chatWebAccess`) arms web search + fetch and
-nothing else - no files, shell, MCP or project. Absent means **on for a saved
+A per-tab toggle (`WorkflowConfig.chatWebAccess`) arms web search + fetch, including Native `read_url` for public file links, and
+nothing else - no local file tools, shell, MCP or project. Absent means **on for a saved
 chat, off for Incognito** (a search query leaves the machine, so Incognito opts
 in explicitly). `chatWebArmed()` in `server/src/chatMode.ts` is the single
 decider; every transport states the mode outright rather than inheriting a
@@ -62,7 +62,7 @@ provider default:
 | Provider | Armed | Disarmed |
 |---|---|---|
 | Claude CLI | `--tools WebSearch,WebFetch` + `--strict-mcp-config` | `--tools ""` |
-| Claude Native | `buildChatWebTools()` - Anthropic `web_search` + `web_fetch` only (no `code_execution`) | empty `tools` |
+| Claude Native | `buildChatWebTools()` - server `web_search` + `web_fetch` and portable `read_url` (no `code_execution`) | empty `tools` |
 | Codex exec / app-server | `web_search="live"` | `web_search="disabled"` |
 | Ollama | Arco's local SearXNG-backed `WebSearch` / `WebFetch` pair, re-checked at dispatch (`ollamaToolCallAllowed`) | no tools |
 | Strata | Same local web pair, with advertisement and dispatch allowlists | no tools |

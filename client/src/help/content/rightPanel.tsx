@@ -445,7 +445,8 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Native-only. A per-turn cap on the Claude Native <C>web_search</C> +{' '}
-        <C>web_fetch</C> server tools (the Anthropic <C>max_uses</C> parameter).
+        <C>web_fetch</C> server tools (the Anthropic <C>max_uses</C> parameter). The same setting
+        separately caps <C>read_url</C> file lookups, including failed attempts.
         This is an <strong>Arco-set ceiling, not an Anthropic account limit</strong>:
         it resets every turn, and when a turn exhausts it the model reports web
         access ran out. Default <C>15</C>; raise it for research-heavy tabs.

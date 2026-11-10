@@ -355,6 +355,13 @@ export const providers: Section[] = [
   those calls inside the Messages API.
   </p>
   <p>
+  <Code>read_url</Code> reads public file links through Arco. Images arrive as
+  fitted image blocks, PDFs as selected document pages, and office files as text.
+  It follows Chat web access and agent tool posture. WEB LOOKUPS / TURN sets
+  its separate per-turn call cap, including failures; the default is 15.
+  Reload keeps a source receipt for reading the URL again.
+  </p>
+  <p>
   Retention is model-dependent. Fable/Mythos 5.2 / 5.1 and Opus 5.5 keep thinking
   and the frozen request prefix. Other models can prune completed evidence,
   but never mutate the latest assistant message or remove a server-tool call

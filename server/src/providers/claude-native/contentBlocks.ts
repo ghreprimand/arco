@@ -119,30 +119,43 @@ export type ClaudeNativeToolDef =
 // default: each turn rebuilds the server-tool defs with this `max_uses`.
 const DEFAULT_WEB_TOOL_MAX_USES = 15;
 
+export function webToolMaxUses(value?: number): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value : DEFAULT_WEB_TOOL_MAX_USES;
+}
+
 export const CLAUDE_CODE_SERVER_TOOLS: ClaudeNativeToolDef[] = buildClaudeServerTools();
 
 // Build the Anthropic server-tool defs. `webSearchMaxUses`, when provided,
 // overrides the web_search / web_fetch `max_uses` budget (Deep Research uses
 // this to enforce its round cap mechanically server-side, not just by prompt).
-// Unset ⇒ the historical default of 10 so ordinary turns are unchanged.
+// Unset uses the default of 15.
 export function buildClaudeServerTools(webSearchMaxUses?: number): ClaudeNativeToolDef[] {
-  const maxUses = typeof webSearchMaxUses === 'number' && webSearchMaxUses > 0
-    ? webSearchMaxUses
-    : DEFAULT_WEB_TOOL_MAX_USES;
+  const maxUses = webToolMaxUses(webSearchMaxUses);
   return [
+    {
+      name: 'read_url',
+      description: 'Read a public HTTP(S) file URL. Images are fitted for vision; PDFs are returned as documents; office files and notebooks become text. Use pages for a page, sheet, slide or cell range, and offset/limit for text lines. Use web_fetch for web pages and citations.',
+      input_schema: { type: 'object', properties: {
+        url: { type: 'string', description: 'Public HTTP(S) file URL.' },
+        pages: { type: 'string', description: 'One-based page, sheet, slide or cell range, for example 2-4.' },
+        offset: { type: 'number', description: 'One-based first text line.' },
+        limit: { type: 'number', description: 'Maximum text lines.' },
+      }, required: ['url'] },
+    },
     { type: 'web_search_20260209', name: 'web_search', allowed_callers: ['direct'], max_uses: maxUses },
     { type: 'web_fetch_20260309', name: 'web_fetch', allowed_callers: ['direct'], max_uses: maxUses },
     { type: 'code_execution_20260120', name: 'code_execution' },
   ];
 }
 
-// Chat-mode web tools. Deliberately NOT buildClaudeServerTools(): a Chat tab
-// gets web_search + web_fetch and nothing else, so `code_execution` (which
+// Chat-mode web tools. A Chat tab gets search, fetch and the portable URL
+// reader only, so `code_execution` (which
 // would hand a projectless chat a sandboxed interpreter the operator never
 // armed) stays out of the set.
 export function buildChatWebTools(webSearchMaxUses?: number): ClaudeNativeToolDef[] {
   return buildClaudeServerTools(webSearchMaxUses).filter(
-    (t) => t.name === 'web_search' || t.name === 'web_fetch',
+    (t) => t.name === 'web_search' || t.name === 'web_fetch' || t.name === 'read_url',
   );
 }
 

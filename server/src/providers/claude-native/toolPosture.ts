@@ -32,7 +32,7 @@ import { TOOL_POSTURE_DEFAULT, type ToolPosture } from '@arco/shared';
 // PowerShell is the shell tool's name on Windows without Git Bash; it is kept
 // and dropped exactly where Bash is.
 const KNOWN_CORE = new Set([
-  'Read', 'Write', 'Edit', 'Bash', 'PowerShell', 'Grep', 'Glob', 'Task', 'TaskOutput',
+  'read_url', 'Read', 'Write', 'Edit', 'Bash', 'PowerShell', 'Grep', 'Glob', 'Task', 'TaskOutput',
   'TodoWrite', 'KillShell', 'AskUserQuestion', 'EnterPlanMode', 'ExitPlanMode',
 ]);
 const KNOWN_SERVER = new Set(['web_search', 'web_fetch', 'code_execution']);

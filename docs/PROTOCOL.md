@@ -280,7 +280,7 @@ Live model/effort swap. Same-provider only - provider swaps require Handoff.
   codexContextPolicy?: 'max' | 'standard',           // per-tab window policy; absent means MAX
   claudeTransport?: 'cli' | 'native', // per-tab Claude transport override
   ultracode?: boolean,                               // - sticky ultracode; forces CLI + Workflow tool + xhigh (Claude only). Does NOT mutate stored claudeTransport
-  webSearchMaxUses?: number,                         // per-tab Native web_search/web_fetch per-turn budget (clamped 1..50); default 15
+  webSearchMaxUses?: number,                         // per-tab Native web_search/web_fetch and separate read_url per-turn budgets (clamped 1..50); default 15
   chatWebAccess?: boolean,                           // Chat-only web toggle (Claude/Codex/Ollama); chatWebArmed in server/src/chatMode.ts decides
   claudeNativeCompact?: boolean, // followup - Anthropic server-managed compaction
   claudeNativeForceInterleavedThinkingBeta?: boolean, // Native A/B debug - force interleaved-thinking beta next turn
