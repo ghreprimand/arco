@@ -151,18 +151,12 @@ Building or updating the index **never mutates a provider's own session files**
 (`~/.claude`, `~/.codex`, ...). It only reads Arco-owned state (`meta.json` +
 `events.jsonl`) and only writes `<cwd>/.arco/session-index.json`.
 
-## Resume picker
+## Session index projection
 
-The resume picker (`client/src/components/ConversationMenu.tsx`, the `RESUME
-SESSION...` view) is the consumer of everything above. On open it fetches
-`/api/sessions` (discovery, the authoritative list of what exists on disk) and
-`/api/session-index` (the projection), then **merges** them by the
-`(provider, sessionId)` key so each discovered row is enriched with its index
-entry: the layered title, the subtitle, pin/archive state. Rows sort
-**pinned-first, then last-active**, and a filter box matches title / subtitle /
-provider tag. The merge is safe because `(provider, sessionId)` is identical
-between `SessionInfo` and `SessionIndexEntry` for both native and arco-internal
-sessions (the latter both key on the workflow id).
+The session index remains available through `/api/session-index` and its
+mutation routes. The unused conversation-menu picker and its client store
+have been removed. The active resume controls use session discovery; the
+index projection does not supply pin, rename or archive controls there.
 
 ### Server ops (`server/src/workflows/sessionIndex.ts`)
 
@@ -184,7 +178,7 @@ Each is an operator-initiated, reversible read-modify-write selected by the
   backfill).
 - `POST /api/session-index/{rename,pin,archive}`, body `{ provider, sessionId,
   ... }`, returns `{ entry }` (the client folds it back; the server is the source
-  of truth). Client store: `client/src/stores/sessionIndexStore.ts`.
+  of truth). There is no dedicated client store.
 
 ### Deferred behavior
 

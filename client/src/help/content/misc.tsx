@@ -1622,35 +1622,6 @@ export const miscHelp: Record<string, HelpEntry> = {
       </p>
     ),
   },
-  'chat.conversation-menu': {
-    title: 'Conversation menu',
-    body: (
-      <>
-        <p>Per-tab actions:</p>
-        <ul style={{ margin: '4px 0', paddingLeft: '18px' }}>
-          <li><strong>NEW CONVERSATION</strong>: start a fresh session in this tab (current archived to history).</li>
-          <li><strong>COMPACT CONTEXT</strong>: after a confirmation, the agent summarizes the conversation and a fresh session starts from the summary.</li>
-          <li><strong>RESUME SESSION</strong>: pick a different session for this cwd. Rows show the
-            session title, subtitle (where it left off), provider/account tag and last-active.
-            Each row can be <strong>pinned</strong> (★, sorts to top), <strong>renamed</strong> (✎,
-            a manual title that wins over the auto-generated one and survives refreshes), or
-            <strong>archived</strong> (⊘, hidden behind the ARCH toggle).</li>
-          <li><strong>EXPORT TRANSCRIPT</strong>: download the rendered transcript as a markdown file.</li>
-        </ul>
-        <p>Disabled while a turn is in flight: cancel first.</p>
-      </>
-    ),
-  },
-  'chat.resume-filter': {
-    title: 'Filter sessions',
-    body: (
-      <p>
-        Live-filters the resume list by title, subtitle, or provider tag. Pinned
-        sessions still sort to the top of the matches. Archived sessions stay hidden
-        unless the <C>ARCH</C> toggle is on.
-      </p>
-    ),
-  },
   // -------------------------------------------------------- GIT DIALOG
   'gitdialog.diff-preview': {
     title: 'Working-tree diff preview',
