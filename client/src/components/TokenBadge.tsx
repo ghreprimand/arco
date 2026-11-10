@@ -10,6 +10,10 @@ import {
 interface Props {
   // Provider usage for this worker. Claude turn totals are not a context reading.
   turnTokens?: TokenUsage;
+  // Claude: the measured context (count_tokens or the last pass of the last
+  // turn), the same figure the CTX footer shows. Without it a Claude badge
+  // shows "-" for context. Ignored for providers whose usage is the reading.
+  measuredContext?: number;
   // Cumulative output across the whole workflow / worker. Used for the `out`
   // half of the pair. Falls back to turnTokens.output if omitted.
   cumulativeOutput?: number;
@@ -31,9 +35,11 @@ interface Props {
 }
 
 // Output remains available as usage. Claude worker usage does not carry a
-// retained-context reading, so the badge shows an unknown context.
+// retained-context reading, so the badge shows the separately measured
+// context when it has one and an unknown context otherwise.
 export function TokenBadge({
   turnTokens,
+  measuredContext,
   cumulativeOutput,
   cumulativeTokens,
   threshold,
@@ -44,7 +50,9 @@ export function TokenBadge({
 }: Props) {
   if (!turnTokens) return null;
   const effectiveProvider = provider ?? 'claude';
-  const ctx = effectiveProvider === 'claude' ? undefined : contextTokens(turnTokens, effectiveProvider);
+  const ctx = effectiveProvider === 'claude'
+    ? (typeof measuredContext === 'number' && measuredContext > 0 ? measuredContext : undefined)
+    : contextTokens(turnTokens, effectiveProvider);
   if (ctx === 0 && !cumulativeOutput && !turnTokens.output) return null;
 
   const out = cumulativeOutput ?? turnTokens.output ?? 0;
@@ -52,12 +60,13 @@ export function TokenBadge({
   const fraction = ctx === undefined ? 0 : Math.min(1, ctx / effectiveThreshold);
   const barColor = contextFillColor(fraction);
 
-  const ctxFormula = provider === 'codex' ? 'input' : 'input+cacheCreate';
+  const ctxFormula = effectiveProvider === 'claude' ? 'measured' : provider === 'codex' ? 'input' : 'input+cacheCreate';
   const hoverSource = cumulativeTokens ?? turnTokens;
   const hoverTitle = tokenHoverTitle(hoverSource, cumulativeTokens
     ? `cumulative (all turns + workers):`
     : `last turn:`, effectiveProvider)
-    + (ctx === undefined ? '\n\nContext reading unavailable for this worker.' : cumulativeTokens ? `\n\nctx (last turn ${ctxFormula}): ${ctx.toLocaleString()} / ${effectiveThreshold.toLocaleString()} (${Math.round(fraction * 100)}%)` : '');
+    + (ctx === undefined ? '\n\nContext reading unavailable for this worker.'
+      : cumulativeTokens || effectiveProvider === 'claude' ? `\n\nctx (last turn ${ctxFormula}): ${ctx.toLocaleString()} / ${effectiveThreshold.toLocaleString()} (${Math.round(fraction * 100)}%)` : '');
 
   return (
     <span

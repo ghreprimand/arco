@@ -235,6 +235,7 @@ export function WorkerCard({ jobId, worker }: Props) {
         {worker.tokens && totalTokens(worker.tokens, worker.provider) > 0 && (
           <TokenBadge
             turnTokens={worker.tokens}
+            measuredContext={worker.lastPromptTokens}
             threshold={autoCompactThreshold}
             provider={worker.provider}
             style={{ fontSize: '9px', letterSpacing: '0.8px' }}

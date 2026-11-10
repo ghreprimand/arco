@@ -1280,7 +1280,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'worker_complete':
-          store.completeWorker(msg.workflowId, msg.workerId, msg.costUsd, msg.durationMs, msg.tokens, msg.permissionDenials);
+          store.completeWorker(msg.workflowId, msg.workerId, msg.costUsd, msg.durationMs, msg.tokens, msg.permissionDenials, msg.lastPromptTokens);
           if (msg.permissionDenials && msg.permissionDenials.length > 0) {
             const tools = Array.from(new Set(msg.permissionDenials.map((d) => d.tool))).join(', ');
             store.addMessage(msg.workflowId, {

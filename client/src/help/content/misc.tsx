@@ -1878,8 +1878,9 @@ export const miscHelp: Record<string, HelpEntry> = {
         handoff summarizer, primary turn). Shows status, last tool, model.
         A worker on another provider than Claude shows its letter: C Codex,
         X Cursor, O Ollama, L llama.cpp. Click to open the detailed view with
-        full output and event log. The token badge shows output usage. Claude
-        worker context shows - when no separate measurement is available.
+        full output and event log. The token badge shows output usage and the
+        worker's own measured context, updated after each of its turns; a
+        Claude worker shows - until it has a reading.
       </p>
     ),
   },

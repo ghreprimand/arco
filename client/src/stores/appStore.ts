@@ -1342,10 +1342,14 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       };
     }),
 
-  completeWorker: (jobId, workerId, costUsd, durationMs, tokens, permissionDenials) =>
+  completeWorker: (jobId, workerId, costUsd, durationMs, tokens, permissionDenials, lastPromptTokens) =>
     set((s) => {
       const job = s.jobs[jobId];
       if (!job) return {};
+      // A turn that ends with a measured context replaces the helper's
+      // reading; a turn without one keeps the previous reading.
+      const measured = typeof lastPromptTokens === 'number' && lastPromptTokens > 0
+        ? { lastPromptTokens } : {};
       const workers = {
         ...job.workers,
         [workerId]: {
@@ -1355,6 +1359,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
           durationMs,
           tokens,
           permissionDenials,
+          ...measured,
           lastActivityAt: Date.now(),
         },
       };

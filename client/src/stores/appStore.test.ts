@@ -130,3 +130,20 @@ test('a busy snapshot restores its authoritative turn start and falls back for o
   const before=Date.now();useAppStore.getState().applyWorkflowSnapshot(id,{},true,[]);
   assert.ok(useAppStore.getState().jobs[id].turnStartedAt! >= before);
 });
+
+test('a Claude helper keeps its own measured context across turns, never a usage sum', async () => {
+  const { useAppStore } = await import('./appStore.js');
+  const id = 'worker-context-fixture';
+  useAppStore.getState().createJob(id, { name: 'Fixture', workingDirectory: '/fixture', primaryProvider: 'claude', primaryModel: 'sonnet' } as any);
+  const store = useAppStore.getState();
+  const summed = { input: 900_000, output: 100, cacheRead: 100_000, cacheCreate: 200_000 };
+  store.spawnWorker(id, 'w1', 'sonnet' as any, 'high' as any, 'Review', 'claude');
+  store.completeWorker(id, 'w1', 0.1, 1000, summed, undefined);
+  assert.equal(useAppStore.getState().jobs[id].workers.w1.lastPromptTokens, undefined);
+  store.completeWorker(id, 'w1', 0.1, 1000, summed, undefined, 120_000);
+  assert.equal(useAppStore.getState().jobs[id].workers.w1.lastPromptTokens, 120_000);
+  store.completeWorker(id, 'w1', 0.1, 1000, summed, undefined, 140_000);
+  assert.equal(useAppStore.getState().jobs[id].workers.w1.lastPromptTokens, 140_000);
+  store.completeWorker(id, 'w1', 0.1, 1000, summed, undefined, 0);
+  assert.equal(useAppStore.getState().jobs[id].workers.w1.lastPromptTokens, 140_000);
+});

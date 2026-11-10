@@ -533,7 +533,12 @@ export const powerFeatures: Section[] = [
   web tools can produce large cache-read, cache-write or server-tool byte counts
   during a turn without inflating the next-turn CTX readout. The session CTX
   matches the current context reading; turn rows show the reading at that
-  turn's end. Claude spawned-worker cards show - when no measurement is available.
+  turn's end.
+  </p>
+  <p>
+  Claude spawned-worker cards and the worker detail view show the helper's own
+  measured context, updated after each of its turns, and - until it has a
+  reading.
   </p>
   <p>
   The per-turn breakdown is collapsed by default. Click the{' '}

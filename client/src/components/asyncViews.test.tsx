@@ -309,3 +309,29 @@ test('Claude spawned-worker card and detail show unknown context without a measu
     assert.doesNotMatch(document.body.innerHTML, /1\.1M ctx/i);
   } finally { await f.close(); }
 });
+
+test('Claude spawned-worker card and detail show the helper\'s own measured context', async () => {
+  const f = await fixture();
+  try {
+    const tokens = { input: 900_000, output: 100, cacheRead: 100_000, cacheCreate: 200_000 };
+    const worker = { id: 'fixture', model: 'fable', effort: 'high', provider: 'claude', status: 'completed', task: 'Review', output: '', thinking: '', toolCalls: [], spawnedAt: 1, lastActivityAt: 1, tokens, lastPromptTokens: 120_000 };
+    f.state.setDetailWorker = () => {};
+    f.state.detailWorker = { jobId: 'job', workerId: 'fixture' };
+    f.state.jobs = { job: { workers: { fixture: worker } } };
+    const { WorkerCard } = await component('./WorkerCard.tsx');
+    await f.render(WorkerCard, { jobId: 'job', worker });
+    assert.match(document.body.textContent ?? '', /120k\s*ctx/i);
+    assert.doesNotMatch(document.body.innerHTML, /1\.1M ctx/i);
+    await f.render(WorkerCard, { jobId: 'job', worker: { ...worker, lastPromptTokens: 140_000 } });
+    assert.match(document.body.textContent ?? '', /140k\s*ctx/i);
+    await f.render(WorkerCard, { jobId: 'job', worker: { ...worker, lastPromptTokens: undefined } });
+    assert.match(document.body.textContent ?? '', /-\s*ctx/i);
+    const { WorkerDetailModal } = await component('./WorkerDetailModal.tsx');
+    await f.render(WorkerDetailModal);
+    assert.match(document.body.textContent ?? '', /120k\s*ctx/i);
+    f.state.jobs = { job: { workers: { fixture: { ...worker, lastPromptTokens: 140_000 } } } };
+    await f.render(WorkerDetailModal, { key: 'second' });
+    assert.match(document.body.textContent ?? '', /140k\s*ctx/i);
+    assert.doesNotMatch(document.body.innerHTML, /1\.1M ctx/i);
+  } finally { await f.close(); }
+});

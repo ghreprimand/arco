@@ -937,7 +937,7 @@ export interface AppState {
   appendWorkerOutput: (jobId: string, workerId: string, text: string) => void;
   appendWorkerThinking: (jobId: string, workerId: string, text: string) => void;
   recordWorkerToolCall: (jobId: string, workerId: string, tool: string, input: string) => void;
-  completeWorker: (jobId: string, workerId: string, costUsd: number, durationMs: number, tokens?: TokenUsage, permissionDenials?: Array<{ tool: string; input: string }>) => void;
+  completeWorker: (jobId: string, workerId: string, costUsd: number, durationMs: number, tokens?: TokenUsage, permissionDenials?: Array<{ tool: string; input: string }>, lastPromptTokens?: number) => void;
   failWorker: (jobId: string, workerId: string) => void;
   setWorkerActivity: (jobId: string, workerId: string, activity: { alive: boolean; cpuActive: boolean; descendantCount: number; rssBytes: number }) => void;
   applyWorkflowSnapshot: (jobId: string, workers: Record<string, WorkerState>, busy: boolean, transcriptTail: ChatMessage[], turnStartedAt?: number) => void;

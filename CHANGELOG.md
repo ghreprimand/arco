@@ -6,6 +6,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ## Unreleased
 
 - Show the measured context in ACTIVITY and avoid labelling Claude worker usage totals as context.
+- Claude spawned-worker cards and the worker detail view show the helper's own measured context after each of its turns instead of `-`.
 
 - ACTIVITY > BACKGROUND shows agent-started shell jobs and their children, excluding Arco helpers, MCP servers and provider programs.
 - Measure Claude Native context from the real prompt size: a request that ran web search, web fetch or code execution no longer triggers compaction or moves the CTX meter by its summed usage, and in-turn compaction keeps the request that started the turn word for word (deferred, never cut, when the request exceeds 125 KB).

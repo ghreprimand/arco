@@ -47,6 +47,11 @@ export interface WorkerState {
   costUsd?: number;
   durationMs?: number;
   tokens?: TokenUsage;
+  // Claude Native helpers: the helper's own measured context after its last
+  // turn (count_tokens or the last pass of that turn), the same figure its
+  // own CTX footer would show. Never a sum of usage across passes. Absent
+  // until the helper has finished a turn with a reading.
+  lastPromptTokens?: number;
   provider?: ProviderName;
   permissionDenials?: PermissionDenial[];
   activity?: {

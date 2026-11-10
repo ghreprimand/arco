@@ -288,6 +288,7 @@ function WorkerDetailBody({ worker, onClose }: { worker: WorkerState; onClose: (
           {worker.tokens && totalTokens(worker.tokens, worker.provider) > 0 && (
             <TokenBadge
               turnTokens={worker.tokens}
+              measuredContext={worker.lastPromptTokens}
               threshold={autoCompactThreshold}
               provider={worker.provider}
               showBar
