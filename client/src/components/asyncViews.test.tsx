@@ -265,3 +265,47 @@ test('single-tab activity rows use the cluster local clock format', async () => 
       [at, at + 1000, at + 2000].map(ts => new Date(ts).toLocaleTimeString()));
   } finally { await f.close(); }
 });
+
+test('context displays distinguish measured prompt from accumulated Claude usage', async () => {
+  const f = await fixture();
+  try {
+    const { ActivityTab } = await component('./RightPanel/ActivityTab.tsx');
+    const usage = [1, 2].map((turnStartedAt) => ({ provider: 'claude', input: 500_000, output: 100, cacheRead: 100_000, cacheCreate: 0, lastPromptTokens: 165_000, turnStartedAt, thinkingBytes: 0, toolResultBytes: -1 }));
+    const job = { id: 'fixture', config: { primaryProvider: 'claude', workingDirectory: '/fixture' }, activity: [], turnTokenUsage: usage, contextUsage: { estimatedTokens: 165_000, windowSize: 1_000_000, percentOfWindow: 17 } };
+    await f.render(ActivityTab, { job });
+    assert.match(document.body.textContent ?? '', /165k ctx.*17%/i);
+    assert.doesNotMatch(document.body.textContent ?? '', /330k ctx/i);
+    await f.render(ActivityTab, { job: { ...job, contextUsage: undefined } });
+    assert.match(document.body.textContent ?? '', /- ctx/i);
+  } finally { await f.close(); }
+});
+
+test('worker badge does not call a Claude usage sum context', async () => {
+  const f = await fixture();
+  try {
+    const { TokenBadge } = await component('./TokenBadge.tsx');
+    const turnTokens = { input: 900_000, output: 100, cacheRead: 100_000, cacheCreate: 200_000 };
+    await f.render(TokenBadge, { turnTokens, provider: 'claude' });
+    assert.match(document.body.textContent ?? '', /-\s*ctx/i);
+    assert.doesNotMatch(document.body.innerHTML, /1\.1M ctx/i);
+    await f.render(TokenBadge, { turnTokens });
+    assert.match(document.body.textContent ?? '', /-\s*ctx/i);
+  } finally { await f.close(); }
+});
+
+test('Claude spawned-worker card and detail show unknown context without a measurement', async () => {
+  const f = await fixture();
+  try {
+    const worker = { id: 'fixture', model: 'fable', effort: 'high', provider: 'claude', status: 'completed', task: 'Review', output: '', thinking: '', toolCalls: [], spawnedAt: 1, lastActivityAt: 1, tokens: { input: 900_000, output: 100, cacheRead: 100_000, cacheCreate: 200_000 } };
+    f.state.setDetailWorker = () => {};
+    f.state.detailWorker = { jobId: 'job', workerId: 'fixture' };
+    f.state.jobs = { job: { workers: { fixture: worker } } };
+    const { WorkerCard } = await component('./WorkerCard.tsx');
+    await f.render(WorkerCard, { jobId: 'job', worker });
+    assert.match(document.body.textContent ?? '', /-\s*ctx/i);
+    const { WorkerDetailModal } = await component('./WorkerDetailModal.tsx');
+    await f.render(WorkerDetailModal);
+    assert.match(document.body.textContent ?? '', /-\s*ctx/i);
+    assert.doesNotMatch(document.body.innerHTML, /1\.1M ctx/i);
+  } finally { await f.close(); }
+});

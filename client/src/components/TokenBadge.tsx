@@ -8,9 +8,7 @@ import {
 } from '../utils/format';
 
 interface Props {
-  // The authoritative source for the `ctx` number — typically the last
-  // completed turn for the orchestrator, or the per-worker snapshot for a
-  // worker. Undefined = nothing to render.
+  // Provider usage for this worker. Claude turn totals are not a context reading.
   turnTokens?: TokenUsage;
   // Cumulative output across the whole workflow / worker. Used for the `out`
   // half of the pair. Falls back to turnTokens.output if omitted.
@@ -32,13 +30,8 @@ interface Props {
   style?: React.CSSProperties;
 }
 
-// 1.1.5 — replaces the single "140K TOK" badge with a pair that actually
-// tracks the operator's two distinct questions:
-//   out = work produced (cumulative output tokens)
-//   ctx = how full is the effective context window right now (last-turn
-//         input + cacheCreate, same metric maybeAutoCompact uses)
-// The fill bar colorizes against the auto-compact threshold so operators can
-// see at a glance when they're about to trigger a compaction.
+// Output remains available as usage. Claude worker usage does not carry a
+// retained-context reading, so the badge shows an unknown context.
 export function TokenBadge({
   turnTokens,
   cumulativeOutput,
@@ -50,20 +43,21 @@ export function TokenBadge({
   style,
 }: Props) {
   if (!turnTokens) return null;
-  const ctx = contextTokens(turnTokens, provider);
+  const effectiveProvider = provider ?? 'claude';
+  const ctx = effectiveProvider === 'claude' ? undefined : contextTokens(turnTokens, effectiveProvider);
   if (ctx === 0 && !cumulativeOutput && !turnTokens.output) return null;
 
   const out = cumulativeOutput ?? turnTokens.output ?? 0;
   const effectiveThreshold = threshold && threshold > 0 ? threshold : DEFAULT_AUTO_COMPACT_THRESHOLD;
-  const fraction = Math.min(1, ctx / effectiveThreshold);
+  const fraction = ctx === undefined ? 0 : Math.min(1, ctx / effectiveThreshold);
   const barColor = contextFillColor(fraction);
 
   const ctxFormula = provider === 'codex' ? 'input' : 'input+cacheCreate';
   const hoverSource = cumulativeTokens ?? turnTokens;
   const hoverTitle = tokenHoverTitle(hoverSource, cumulativeTokens
     ? `cumulative (all turns + workers):`
-    : `last turn:`, provider)
-    + (cumulativeTokens ? `\n\nctx (last turn ${ctxFormula}): ${ctx.toLocaleString()} / ${effectiveThreshold.toLocaleString()} (${Math.round(fraction * 100)}%)` : '');
+    : `last turn:`, effectiveProvider)
+    + (ctx === undefined ? '\n\nContext reading unavailable for this worker.' : cumulativeTokens ? `\n\nctx (last turn ${ctxFormula}): ${ctx.toLocaleString()} / ${effectiveThreshold.toLocaleString()} (${Math.round(fraction * 100)}%)` : '');
 
   return (
     <span
@@ -86,10 +80,10 @@ export function TokenBadge({
           <span style={{ color: 'var(--color-fg-muted)', opacity: 0.5 }}>·</span>
         )}
         <span style={{ color: barColor }}>
-          {formatTokenCount(ctx)} <span style={{ opacity: 0.7 }}>ctx</span>
+          {ctx === undefined ? '-' : formatTokenCount(ctx)} <span style={{ opacity: 0.7 }}>ctx</span>
         </span>
       </span>
-      {showBar && (
+      {showBar && ctx !== undefined && (
         <span
           aria-hidden
           style={{

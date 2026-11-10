@@ -12,7 +12,7 @@ This doc covers the store, components, render pipeline, theme + shader system, a
 
 In Connections, clear **Model server address** and choose **Save endpoint** to restore the runtime default. The request sends `baseUrl: null`; clearing an Ollama address keeps its other saved options.
 
-**ACTIVITY > TOKEN USAGE** counts Codex cached input within its prompt total. Fresh input excludes cache hits. Claude's fresh, cache-read and cache-write counts are separate. Session totals normalize each turn before adding them.
+**ACTIVITY > TOKEN USAGE** counts Codex cached input within its prompt total. Fresh input excludes cache hits. Claude's fresh, cache-read and cache-write counts are separate. Session totals normalize each turn before adding them. The session CTX uses the current context reading, while turn rows name the context at the end of that turn. A Claude spawned-worker badge shows `-` for context when no separate reading is available.
 
 A terminal reconnect replaces the old display with the server's bounded scrollback replay. It keeps the live shell and avoids duplicate output. **CREATE WITH FRESH** uses the provider shown in its picker, including when the anchor uses Ollama or llama.cpp.
 

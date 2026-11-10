@@ -531,7 +531,9 @@ export const powerFeatures: Section[] = [
   <p>
   Token Usage separates retained context from processing telemetry. Claude Native
   web tools can produce large cache-read, cache-write or server-tool byte counts
-  during a turn without inflating the next-turn CTX readout.
+  during a turn without inflating the next-turn CTX readout. The session CTX
+  matches the current context reading; turn rows show the reading at that
+  turn's end. Claude spawned-worker cards show - when no measurement is available.
   </p>
   <p>
   The per-turn breakdown is collapsed by default. Click the{' '}

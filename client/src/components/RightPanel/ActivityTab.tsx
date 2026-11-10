@@ -1,5 +1,5 @@
 import { formatActivityTime } from '../activityTime';
-import { promptTokenCounts } from '../../utils/format';
+import { contextTokens, promptTokenCounts } from '../../utils/format';
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import type { JobState, ActivityEntry, HistoryEventEntry } from '../../stores/appStore';
 import type { PrimaryBackgroundJob, PrimaryTurnTokenUsageMessage, DiagnosticItem } from '@arco/shared';
@@ -108,7 +108,7 @@ export function ActivityTab({ job }: { job: JobState }) {
         />
       )}
       {checkpoints.length > 0 && <CheckpointsSection checkpoints={checkpoints} />}
-      {turnUsage.length > 0 && <TokenUsageSection usage={turnUsage} />}
+      {turnUsage.length > 0 && <TokenUsageSection usage={turnUsage} job={job} />}
       {bgJobs.length > 0 && <BackgroundJobsSection jobs={bgJobs} />}
       {coalesced.map((e) => (
         <ActivityRow key={e.id} entry={e} />
@@ -139,10 +139,10 @@ const TOKEN_ROWS_MAX_PX = 260;
 // (deliberately labeled "B" / "KB" not "tk" to avoid claiming false token-
 // precision). CLI/Codex transports report toolResultBytes=-1 (unknown);
 // we render those as "—".
-function TokenUsageSection({ usage }: { usage: PrimaryTurnTokenUsageMessage[] }) {
+function TokenUsageSection({ usage, job }: { usage: PrimaryTurnTokenUsageMessage[]; job?: JobState }) {
   const [expanded, setExpanded] = useState(loadTokenRowsExpanded);
   const session = useMemo(() => {
-    let prompt = 0, input = 0, output = 0, cacheRead = 0, cacheCreate = 0, lastPromptTokens = 0, thinkingBytes = 0, toolBytes = 0, serverToolBytes = 0, anyToolKnown = false;
+    let prompt = 0, input = 0, output = 0, cacheRead = 0, cacheCreate = 0, thinkingBytes = 0, toolBytes = 0, serverToolBytes = 0, anyToolKnown = false;
     for (const u of usage) {
       const counts = promptTokenCounts(u, u.provider);
       input += counts.fresh;
@@ -150,14 +150,18 @@ function TokenUsageSection({ usage }: { usage: PrimaryTurnTokenUsageMessage[] })
       output += u.output;
       cacheRead += u.cacheRead;
       cacheCreate += u.cacheCreate;
-      lastPromptTokens += u.lastPromptTokens ?? 0;
       thinkingBytes += u.thinkingBytes;
       if (u.toolResultBytes >= 0) { toolBytes += u.toolResultBytes; anyToolKnown = true; }
       if ((u.serverToolResultBytes ?? 0) > 0) { serverToolBytes += u.serverToolResultBytes ?? 0; anyToolKnown = true; }
     }
-    return { prompt, input, output, cacheRead, cacheCreate, lastPromptTokens, thinkingBytes, toolBytes, serverToolBytes, anyToolKnown };
+    return { prompt, input, output, cacheRead, cacheCreate, thinkingBytes, toolBytes, serverToolBytes, anyToolKnown };
   }, [usage]);
 
+  const measured = job?.contextUsage;
+  const fallback = job?.config?.primaryProvider !== 'claude' && job?.config?.primaryProvider !== 'cursor' && job?.lastTurnTokens
+    ? contextTokens(job.lastTurnTokens, job.config.primaryProvider) : undefined;
+  const context = measured?.estimatedTokens ?? fallback;
+  const percent = measured?.percentOfWindow;
   const promptProcessed = session.prompt;
   const cachedShare = promptProcessed > 0 ? Math.round((session.cacheRead / promptProcessed) * 100) : 0;
   const toolLine = formatToolByteSummary(session.toolBytes, session.serverToolBytes, session.anyToolKnown);
@@ -195,7 +199,7 @@ function TokenUsageSection({ usage }: { usage: PrimaryTurnTokenUsageMessage[] })
         <div>
           Session · {formatTokens(promptProcessed)} prompt
           {session.cacheRead > 0 ? ` (${cachedShare}% cached)` : ''}
-          {session.lastPromptTokens > 0 ? ` · ${formatTokens(session.lastPromptTokens)} ctx` : ''}
+          {' · '}{context !== undefined ? formatTokens(context) : '-'} ctx{percent !== undefined ? ` (${percent}%)` : ''}
           {' · '}{formatTokens(session.output)} out
         </div>
         <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px', marginTop: '2px' }}>
@@ -494,7 +498,7 @@ function TokenUsageRow({ usage, index }: { usage: PrimaryTurnTokenUsageMessage; 
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
         <span style={{ color: 'var(--color-fg-muted)', fontVariantNumeric: 'tabular-nums' }}>#{index}</span>
         <span style={{ flex: 1, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-          {usage.lastPromptTokens ? `${formatTokens(usage.lastPromptTokens)} ctx · ` : ''}
+          {usage.lastPromptTokens ? `${formatTokens(usage.lastPromptTokens)} ctx at turn end · ` : ''}
           {formatTokens(promptProcessed)} prompt
           {usage.cacheRead > 0 ? ` · ${cachedShare}% cached` : ''}
           {' · '}{formatTokens(usage.output)} out

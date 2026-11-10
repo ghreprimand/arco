@@ -237,16 +237,14 @@ export function contextPercentColor(percent: number): string {
 
 // Human-readable hover-title for the token badge. Shows every component of
 // the raw TokenUsage so operators who want the full arithmetic can see it.
-// Provider-aware ctx label — for Codex the input field IS the full prompt
-// (cacheRead is a subset shown for visibility), for Claude the three input
-// flavours are disjoint and the ctx is input+cacheCreate.
+// Codex input is the full prompt; Claude usage is reported as a total only.
 export function tokenHoverTitle(t: TokenUsage, labelPrefix?: string, provider?: ProviderName): string {
   const total = totalTokens(t, provider);
   const ctx = contextTokens(t, provider);
   const ctxFormula = provider === 'codex' ? 'input (cacheRead is a subset)' : 'input+cacheCreate';
   const lines: string[] = [];
   if (labelPrefix) lines.push(labelPrefix);
-  lines.push(`${total.toLocaleString()} total · ${ctx.toLocaleString()} ctx (${ctxFormula})`);
+  lines.push(provider === 'claude' ? `${total.toLocaleString()} total usage` : `${total.toLocaleString()} total · ${ctx.toLocaleString()} ctx (${ctxFormula})`);
   lines.push(`${t.input.toLocaleString()} input · ${t.output.toLocaleString()} output`);
   if (t.cacheRead) lines.push(`${t.cacheRead.toLocaleString()} cache-read`);
   if (t.cacheCreate) lines.push(`${t.cacheCreate.toLocaleString()} cache-create`);

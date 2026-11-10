@@ -184,7 +184,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'BACKGROUND', manualSection: 'right-panel',
     body: <p>Programs started by the agent through a shell tool and still running, such as a dev server or long build. A job stays visible across turns and briefly shows completion after it exits. Arco helpers, configured MCP servers and provider programs are excluded. Process discovery currently requires Linux.</p>,
   },
-  'rightpanel.activity.tokens': { title: 'Token usage', manualSection: 'token-tracking', body: <p>Expand TOKEN USAGE for per-turn counts. Codex prompt totals include cache hits; fresh input excludes them. Claude reports fresh, cache-read and cache-write counts separately. Session totals normalize each turn before adding it.</p> },
+  'rightpanel.activity.tokens': { title: 'Token usage', manualSection: 'token-tracking', body: <p>Expand TOKEN USAGE for per-turn counts. Codex prompt totals include cache hits; fresh input excludes them. Claude reports fresh, cache-read and cache-write counts separately. Session totals normalize each turn before adding it. The session CTX uses the current measured context and shows - when unavailable; a turn row shows the context measured at that turn's end.</p> },
   'rightpanel.activity.diagnostics': {
     title: 'DIAGNOSTICS',
     body: (
