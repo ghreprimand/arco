@@ -1,6 +1,6 @@
-// ARCHIVE (docs/CLIENT.md) - the AGENT WRITES ledger. A global,
-// append-only record of agent-produced files, so the RECENTS lens can answer
-// "what did an agent just write for me, and in which tab?" WITH attribution
+// ARCHIVE (docs/CLIENT.md) - the file-write attribution ledger. A global,
+// append-only record of agent-produced files, so CHANGED FILES can show
+// which tab and provider wrote a file at its current modification time
 // (the exhaustive changed-within scan is the unattributed catch-all — §4.2).
 //
 // Written server-side at the persisting broadcast chokepoints (send() +
@@ -39,7 +39,7 @@ export interface LedgerRecord {
   tabTitle: string;
   provider: string;
   tool: string;
-  // Owning project (basename of the cwd) — powers the RECENTS per-project
+  // Owning project (basename of the cwd) — powers the CHANGED FILES per-project
   // filter. Optional for back-compat with any pre-field lines on disk.
   project?: string;
 }

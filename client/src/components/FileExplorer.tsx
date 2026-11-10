@@ -22,7 +22,7 @@ interface Props {
   // against this wfid's cwd, path-escape guarded server-side).
   workflowId?: string;
   // ARCHIVE (docs/CLIENT.md) - reveal + select a file when the
-  // operator clicks an ARTIFACTS/RECENTS entry. Best-effort: expands every
+  // operator clicks an ARTIFACTS/CHANGED FILES entry. Best-effort: expands every
   // ancestor dir between cwd and the file, then selects it (opens the viewer).
   // Opt-in; the workspace FILES panel never passes it, so its behavior is
   // unchanged. `revealNonce` forces a re-reveal even when the same path is

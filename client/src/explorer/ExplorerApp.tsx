@@ -38,7 +38,7 @@ export function ExplorerApp() {
   const [root, setRoot] = useState<string | null>(null);
   const [viewerPath, setViewerPath] = useState<string | null>(null);
   // Reveal-in-tree (§4.3): switch to TREE with a target path. `.arco`
-  // artifacts are hidden, so only real project files (RECENTS) trigger this.
+  // artifacts are hidden, so only real project files (CHANGED FILES) trigger this.
   const [reveal, setReveal] = useState<{ path: string; nonce: number } | null>(null);
   // Poll-on-focus (§5): bump on window focus so the active lens refetches when
   // the operator flips back to the window ("agent said it wrote the doc").
@@ -159,7 +159,7 @@ export function ExplorerApp() {
         </main>
       </div>
 
-      {/* Shared viewer for the ARTIFACTS/RECENTS lenses. The TREE lens
+      {/* Shared viewer for the ARTIFACTS/CHANGED FILES lenses. The TREE lens
           (FileExplorer) opens its own modal internally. */}
       {viewerPath && <FileViewerModal path={viewerPath} onClose={() => setViewerPath(null)} />}
     </div>

@@ -142,7 +142,7 @@ export async function tryHandleExplorerRoutes(
     }
   }
 
-  // GET /api/explorer/recents[?limit=100] — the AGENT WRITES ledger read
+  // GET /api/explorer/recents[?limit=100] — the file-write attribution ledger read
   // (§4.2), newest-first. Always 200; degrades to [] on error. Filtering (DOCS
   // / IMAGES / ALL, per-project) is client-side.
   if (url.startsWith('/api/explorer/recents') && req.method === 'GET') {
