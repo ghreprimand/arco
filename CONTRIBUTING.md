@@ -182,7 +182,7 @@ Anything failing `tsc` fails the workspace's `build`. The `ClientMessage` / `Ser
 ### Unit tests
 
 `npm run test:unit` supplies a temporary `HOME` and a separate temporary
-`ARCO_HOME`. Single-file tests must do the same before importing runtime
+`ARCO_HOME`. It also checks its dedicated temporary directory for new `arco-*` folders after the tests, even on failure. Leftovers fail the run and are retained with their names for inspection. `node scripts/smoke/run-browser-suites.mjs` applies the same check in a fresh temporary directory. Single-file tests must do the same before importing runtime
 modules. `installIsolatedTestHome(root)` in `server/src/testSupport/isolatedHome.ts`
 sets both for fixtures. Tests refuse the default home, paths inside it and
 symlink aliases, even when `ARCO_HOME` explicitly names them. Node's test-runner

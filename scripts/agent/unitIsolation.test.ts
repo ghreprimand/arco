@@ -9,6 +9,7 @@ test('B199: every per-file test process uses the selected namespace wrapper', ()
   const calls: Array<{ command: string; args: string[] }> = [];
   const source = readFileSync(new URL('../test-unit.mjs', import.meta.url), 'utf8').replace(/^import .*;\n/gm, '').replaceAll('import.meta.url', JSON.stringify(new URL('../test-unit.mjs', import.meta.url).href));
   runInNewContext(source, {
+    snapshotTempFolders: () => new Set(), remainingTempFolders: () => [],
     dirname, join, resolve, delimiter, fileURLToPath, tmpdir: () => '/fixture',
     mkdirSync() {}, mkdtempSync: () => '/fixture/temp', rmSync() {}, writeFileSync() {},
     readdirSync: () => [{ name: 'fixture.test.ts', isDirectory: () => false, isFile: () => true }],

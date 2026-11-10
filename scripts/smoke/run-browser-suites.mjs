@@ -15,6 +15,12 @@ import { outputTail, runWithCiRetry } from './browser-suite-retry.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
+if (process.env.ARCO_BROWSER_TEMP_ROOT_ACTIVE !== '1') {
+  const result = spawnSync(process.execPath, [join(root, 'scripts/temp-folder-runner.mjs'), process.execPath, ...process.argv.slice(1)], { cwd: root, stdio: 'inherit' });
+  if (result.error) console.error(result.error.message);
+  process.exit(result.status ?? 1);
+}
+
 function networkWrapper() {
   if (process.env.ARCO_TEST_NETNS === '0' || process.platform !== 'linux') return undefined;
   const uid = process.getuid?.() ?? 1000;

@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { snapshotTempFolders, remainingTempFolders } from './temp-folder-gate.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 function testsIn(directory) {
@@ -17,9 +18,12 @@ function testsIn(directory) {
 const files = ['shared/src', 'server/src', 'client/src', 'scripts/release', 'scripts/updater', 'scripts/packaging', 'scripts/agent', 'scripts/backup', 'scripts/management'].flatMap(path => testsIn(join(root, path))).concat(join(root, 'scripts/public-audit.test.mjs'), join(root, 'scripts/smoke/onboarding-ui.test.tsx')).sort();
 if (!files.length) throw new Error('No unit tests discovered.');
 const sandbox = mkdtempSync(join(tmpdir(), 'arco-unit-'));
+const temporary = join(sandbox, 'tmp');
+let before;
 try {
-  const home = join(sandbox, 'home'), temporary = join(sandbox, 'tmp'), binaries = join(sandbox, 'bin');
+  const home = join(sandbox, 'home'), binaries = join(sandbox, 'bin');
   for (const directory of [home, temporary, binaries]) mkdirSync(directory);
+  before = snapshotTempFolders(temporary);
   // A test may prepend its own fake executable. Otherwise an accidental real
   // provider subprocess fails before it can make a paid call or use host auth.
   const windows = process.platform === 'win32';
@@ -96,5 +100,11 @@ try {
     process.exitCode = result.status ?? 1;
   }
 } finally {
-  rmSync(sandbox, { recursive: true, force: true });
+  const leftovers = before ? remainingTempFolders(temporary, before) : [];
+  if (leftovers.length) {
+    console.error(`Temporary folders left by unit tests (${leftovers.length}): ${leftovers.join(', ')}\nRetained in ${temporary}`);
+    process.exitCode = 1;
+  } else {
+    rmSync(sandbox, { recursive: true, force: true });
+  }
 }
