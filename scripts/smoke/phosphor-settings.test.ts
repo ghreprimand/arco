@@ -1,19 +1,16 @@
 import { strict as assert } from 'node:assert';
-import { test, mock } from 'node:test';
+import { test } from 'node:test';
 import os from 'node:os';
-import { syncBuiltinESMExports } from 'node:module';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 test('Phosphor settings persist, validate and preserve Classic/operator preferences in an isolated directory', async () => {
   // Never point the settings module at the operator's real home. No server is
   // started, so worker orphan recovery and settings broadcasts cannot run.
   const fixture = await mkdtemp(join(os.tmpdir(), 'arco-phosphor-settings-'));
-  mock.method(os, 'homedir', () => fixture);
-  syncBuiltinESMExports();
   // An exported ARCO_HOME would otherwise send these writes to that home.
   const previousHome = process.env.ARCO_HOME;
-  delete process.env.ARCO_HOME;
+  process.env.ARCO_HOME = join(fixture, '.arco');
   try {
     const { patchSettings, readSettings } = await import('../../server/src/settings');
     const { VALID_THEME_IDS, PHOSPHOR_PALETTE_IDS } = await import('../../shared/src/protocol/themes');
@@ -42,5 +39,5 @@ test('Phosphor settings persist, validate and preserve Classic/operator preferen
     assert.equal((await readSettings()).phosphorEffects, undefined);
     assert.equal((await readSettings()).phosphorSoftness, undefined);
   } finally {
-    if (previousHome !== undefined) process.env.ARCO_HOME = previousHome; mock.restoreAll(); syncBuiltinESMExports(); }
+    if (previousHome !== undefined) process.env.ARCO_HOME = previousHome; else delete process.env.ARCO_HOME; await rm(fixture, { recursive: true, force: true }); }
 });

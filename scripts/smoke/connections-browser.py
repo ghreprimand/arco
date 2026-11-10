@@ -64,27 +64,34 @@ class IsolatedServer:
     def extra_settings(self): return {}
     def __init__(self, model_url):
         self.root=Path(tempfile.mkdtemp(prefix='arco-connections-'));self.home=self.root/'home';self.projects=self.root/'projects';self.tmp=self.root/'tmp'
-        for directory in (self.home/'.arco',self.projects/'app',self.tmp): directory.mkdir(parents=True)
-        (self.home/'.arco/settings.json').write_text(json.dumps({'ollama':{'baseUrl':model_url},'enabledProviders':{'llamacpp':False},'defaultWorkingDirectory':str(self.projects/'app'),**self.extra_settings()}))
-        (self.home/'.arco/known-cwds.json').write_text(json.dumps([str(self.projects/'app')]))
-        self.port=host_isolation.closed_port();self.base=f'http://127.0.0.1:{self.port}'
-        self.env=host_isolation.harden({'HOME':str(self.home),'ARCO_HOME':str(self.home/'.arco'),'TMPDIR':str(self.tmp),'ARCO_PORT':str(self.port),'ARCO_HOST':'127.0.0.1','ARCO_UPLOADS_DIR':str(self.root/'uploads'),**self.extra_env()},self.root)
-        self.env['ARCO_SERVE_CLIENT']='1'
-        self.log=(self.root/'server.log').open('w')
-        self.proc=subprocess.Popen(['node','--conditions','development','--import','tsx','server/src/index.ts'],cwd=REPO,env=self.env,stdout=self.log,stderr=self.log)
-        deadline=time.monotonic()+60
-        while time.monotonic()<deadline:
-            if self.proc.poll() is not None: raise RuntimeError('isolated Connections server exited')
-            try:
-                with urllib.request.urlopen(self.base+'/readyz',timeout=1) as response:
-                    if response.status==200: return
-            except Exception: time.sleep(.15)
-        raise RuntimeError('isolated Connections server not ready')
+        self.proc=None;self.log=None
+        try:
+            for directory in (self.home/'.arco',self.projects/'app',self.tmp): directory.mkdir(parents=True)
+            (self.home/'.arco/settings.json').write_text(json.dumps({'ollama':{'baseUrl':model_url},'enabledProviders':{'llamacpp':False},'defaultWorkingDirectory':str(self.projects/'app'),**self.extra_settings()}))
+            (self.home/'.arco/known-cwds.json').write_text(json.dumps([str(self.projects/'app')]))
+            self.port=host_isolation.closed_port();self.base=f'http://127.0.0.1:{self.port}'
+            self.env=host_isolation.harden({'HOME':str(self.home),'ARCO_HOME':str(self.home/'.arco'),'TMPDIR':str(self.tmp),'ARCO_PORT':str(self.port),'ARCO_HOST':'127.0.0.1','ARCO_UPLOADS_DIR':str(self.root/'uploads'),**self.extra_env()},self.root)
+            self.env['ARCO_SERVE_CLIENT']='1'
+            self.log=(self.root/'server.log').open('w')
+            self.proc=subprocess.Popen(['node','--conditions','development','--import','tsx','server/src/index.ts'],cwd=REPO,env=self.env,stdout=self.log,stderr=self.log)
+            deadline=time.monotonic()+60
+            while time.monotonic()<deadline:
+                if self.proc.poll() is not None: raise RuntimeError('isolated Connections server exited')
+                try:
+                    with urllib.request.urlopen(self.base+'/readyz',timeout=1) as response:
+                        if response.status==200: return
+                except Exception: time.sleep(.15)
+            raise RuntimeError('isolated Connections server not ready')
+        except BaseException:
+            self.close()
+            raise
     def close(self):
-        self.proc.terminate()
-        try: self.proc.wait(timeout=10)
-        except subprocess.TimeoutExpired: self.proc.kill();self.proc.wait(timeout=5)
-        self.log.close();shutil.rmtree(self.root)
+        if self.proc is not None:
+            self.proc.terminate()
+            try: self.proc.wait(timeout=10)
+            except subprocess.TimeoutExpired: self.proc.kill();self.proc.wait(timeout=5)
+        if self.log is not None: self.log.close()
+        shutil.rmtree(self.root)
 
 class Browser:
     def __init__(self, playwright, server): self.playwright=playwright;self.server=server

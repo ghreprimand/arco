@@ -3,7 +3,7 @@
 //
 // Run: npm run test:replay-tail -w server
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -11,8 +11,12 @@ import os from 'os';
 import { randomUUID } from 'crypto';
 import { replayTailEvents } from './workflowStore.js';
 
+const fixtureDirs: string[] = [];
+after(async () => { for (const dir of fixtureDirs) await fs.rm(dir, { recursive: true, force: true }); });
+
 async function seed(lines: object[]): Promise<{ cwd: string; wfid: string }> {
   const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-replay-tail-'));
+  fixtureDirs.push(cwd);
   const wfid = randomUUID();
   const dir = path.join(cwd, '.arco', 'workflows', wfid);
   await fs.mkdir(dir, { recursive: true });
@@ -51,6 +55,7 @@ test('big log: window starts at a turn boundary, never mid-turn', async () => {
 
 test('missing log: empty', async () => {
   const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-replay-tail-'));
+  fixtureDirs.push(cwd);
   const r = await replayTailEvents(cwd, randomUUID(), 1024);
   assert.deepEqual(r, { events: [], truncated: false });
 });

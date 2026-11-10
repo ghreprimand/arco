@@ -5,16 +5,17 @@
 //
 // Run: node --conditions development --import tsx --test src/recentFilesLedger.test.ts
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, existsSync } from 'fs';
+import { mkdtempSync, existsSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
-import { join, resolve } from 'path';
+import { join, resolve, dirname } from 'path';
 import type { ServerMessage } from '@arco/shared';
 
 // Point the ledger at a temp file BEFORE importing the module (the path is
 // captured at module load). Dynamic import so the env override is in effect.
 const LEDGER = join(mkdtempSync(join(tmpdir(), 'arco-ledger-')), 'recent-files.jsonl');
+after(() => rmSync(dirname(LEDGER), { recursive: true, force: true }));
 process.env.ARCO_RECENT_FILES_LEDGER = LEDGER;
 const { matchFileEvent, appendRecord, readRecent, resolveMatchPath, LEDGER_PATH } =
   await import('./recentFilesLedger.js');

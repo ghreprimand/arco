@@ -10,7 +10,7 @@
 //
 // Run: node --import tsx --test src/contextRefs.test.ts
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
@@ -25,8 +25,12 @@ import {
   CONTEXT_REF_HARD_REFUSE_FRACTION,
 } from './contextRefs.js';
 
+const fixtures: string[] = [];
+after(async () => { for (const dir of fixtures) { await fs.rm(`${dir}-link`, { force: true }); await fs.rm(dir, { recursive: true, force: true }); } });
+
 async function tmpProject(files: Record<string, string>): Promise<string> {
   const dir = await fs.mkdtemp(join(tmpdir(), 'arco-refs-'));
+  fixtures.push(dir);
   for (const [name, body] of Object.entries(files)) {
     await fs.writeFile(join(dir, name), body, 'utf8');
   }

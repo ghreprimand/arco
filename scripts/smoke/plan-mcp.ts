@@ -6,7 +6,7 @@
 // (`plan-attach`) proves the REST recipe works, this one proves the tool
 // wrapper a model actually calls does.
 //
-// Covers: tools/list advertises all three; plan_create rejects an unstructured
+// Covers: tools/list advertises all eight; plan_create rejects an unstructured
 // body with an actionable error; a structured body creates AND attaches (the
 // workflow gets a real plan_attached event); plan_list sees it; plan_attach
 // re-attaches after a detach; allowUnstructured is a genuine escape hatch.
@@ -124,10 +124,10 @@ async function main() {
     await mcp.handshake();
   });
 
-  await step('tools/list advertises plan_create, plan_attach, plan_list', async () => {
+  await step('tools/list advertises file and plan tools', async () => {
     const msg = await mcp!.request('tools/list', {});
     const tools = ((msg.result as { tools?: Array<{ name: string }> })?.tools ?? []).map((t) => t.name).sort();
-    assertEq(tools.join(','), 'plan_attach,plan_create,plan_list', `three plan tools exposed (got: ${tools.join(',')})`);
+    assertEq(tools.join(','), 'fetch_file,plan_attach,plan_create,plan_list,plan_ref_list,plan_ref_read,plan_ref_write,read_file', `eight tools exposed (got: ${tools.join(',')})`);
   });
 
   await step('plan_create REJECTS an unstructured body with an actionable error', async () => {

@@ -1,6 +1,6 @@
-import { test, beforeEach } from 'node:test';
+import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, parse } from 'node:path';
@@ -13,12 +13,14 @@ import {
 const sent: ServerMessage[] = [];
 const posts: Array<{ url: string; headers: Record<string, string>; body: string }> = [];
 let seq = 0;
+let fixtureDir: string;
 const info = { name: 'Fix login', incognito: false };
 const wf = () => `wf-attn-${seq++}`;
 
 beforeEach(async () => {
   sent.length = 0; posts.length = 0;
   const dir = await mkdtemp(join(tmpdir(), 'arco-attn-'));
+  fixtureDir = dir;
   _setChannelsPathForTest(join(dir, 'notification-channels.json'));
   _setMutesPathForTest(join(dir, 'notification-mutes.json'));
   _resetTransportsForTest();
@@ -26,6 +28,8 @@ beforeEach(async () => {
   await initNotifications((m) => { sent.push(m); });
   await loadChannels();
 });
+
+afterEach(async () => { if (fixtureDir) await rm(fixtureDir, { recursive: true, force: true }); });
 
 const question = (id: string) => ({ type: 'operator_question', workflowId: 'x', question: { requestId: id, status: 'pending', questions: [{ question: 'Which branch?' }] } }) as unknown as ServerMessage;
 
@@ -146,7 +150,7 @@ test('long turn reaches legacy transports without a second workbench notice', ()
 });
 
 test('a home inside the temporary folder ignores ARCO_NTFY_URL, keeps a saved address, and the override lifts the rule', async () => {
-  const tempHome = join(tmpdir(), `arco-attn-temp-home-${seq++}`, '.arco');
+  const tempHome = join(fixtureDir, 'temp-home', '.arco');
   mkdirSync(tempHome, { recursive: true });
   const inherited = { ARCO_HOME: tempHome, ARCO_NTFY_URL: 'https://hub.example.org/topic', ARCO_NTFY_TOKEN: 'envtok' } as NodeJS.ProcessEnv;
   const none = await saveChannels({ phone: { waiting: true } });

@@ -1,7 +1,7 @@
 // Saved-data regressions: mailbox reads and concurrent store mutations.
 import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import { promises as fsPromises } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { Readable } from 'node:stream';
@@ -10,8 +10,12 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
+const fixtureRoots = new Set<string>();
+after(() => { for (const root of fixtureRoots) rmSync(root, { recursive: true, force: true }); });
+
 function sandbox(name: string): { root: string; project: string } {
   const root = realpathSync(mkdtempSync(path.join(tmpdir(), `arco-bug-${name}-`)));
+  fixtureRoots.add(root);
   installIsolatedTestHome(root);
   const project = path.join(root, 'project');
   mkdirSync(project, { recursive: true });

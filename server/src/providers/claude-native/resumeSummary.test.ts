@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -147,8 +147,9 @@ test('compact summary projection drops tool protocol blocks before summarizer re
   assert.doesNotMatch(JSON.stringify(projected), /tool_use|tool_result|tu_orphan|tu_old/);
 });
 
-test('large resume uses cached older summary plus exact recent tail', async () => {
+test('large resume uses cached older summary plus exact recent tail', async (t) => {
   const cwd = await mkdtemp(join(tmpdir(), 'arco-resume-summary-'));
+  t.after(() => rm(cwd, { recursive: true, force: true }));
   const workflowId = 'wf-summary-test';
   const dir = join(cwd, '.arco', 'workflows', workflowId);
   await fs.mkdir(dir, { recursive: true });

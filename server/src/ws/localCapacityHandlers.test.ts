@@ -14,6 +14,7 @@ delete process.env.ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL;
 
 test('local capacity is enforced on from-scratch create, add, add fresh and replace', async () => {
   const cwd = mkdtempSync(join(tmpdir(), 'arco-local-capacity-project-'));
+  const scratch = mkdtempSync(join(tmpdir(), 'arco-local-capacity-scratch-'));
   const { workflows } = await import('../server/state.js');
   const clusterStore = await import('../clusterStore.js');
   const { patchSettings } = await import('../settings.js');
@@ -81,7 +82,7 @@ test('local capacity is enforced on from-scratch create, add, add fresh and repl
 
     // From scratch with three Ollama members passes the capacity check.
     const createdBefore = created.length;
-    await handlers.handleClusterCreateFromScratch(ws, session, { type: 'cluster_create_from_scratch', cwd: mkdtempSync(join(tmpdir(), 'arco-local-capacity-scratch-')), members: [{ provider: 'ollama', model: 'a' }, { provider: 'ollama', model: 'b' }, { provider: 'ollama', model: 'c' }] } as never);
+    await handlers.handleClusterCreateFromScratch(ws, session, { type: 'cluster_create_from_scratch', cwd: scratch, members: [{ provider: 'ollama', model: 'a' }, { provider: 'ollama', model: 'b' }, { provider: 'ollama', model: 'c' }] } as never);
     assert.equal(created.length - createdBefore, 3, errors.join('\n'));
 
     // Environment override lifts the limit.
@@ -91,6 +92,7 @@ test('local capacity is enforced on from-scratch create, add, add fresh and repl
   } finally {
     delete process.env.ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL;
     for (const id of clusters) await clusterStore.deleteCluster(id).catch(() => {});
+    rmSync(scratch, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     rmSync(cwd, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }

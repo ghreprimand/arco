@@ -8,7 +8,7 @@
 // the earlier field (a fire-and-forget setResolvedModelId clobbering a CONFIG
 // toggle, etc.). These pin that concurrent updateMeta calls all land.
 
-import { test, before } from 'node:test';
+import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -49,6 +49,8 @@ function seed(): WorkflowMeta {
 before(async () => {
   cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-meta-'));
 });
+
+after(async () => { if (cwd) await fs.rm(cwd, { recursive: true, force: true }); await fs.rm(fakeHome, { recursive: true, force: true }); });
 
 test('concurrent updateMeta calls each land (no lost update)', async () => {
   await writeMeta(cwd, seed());

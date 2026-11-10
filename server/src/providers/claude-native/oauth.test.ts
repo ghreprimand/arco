@@ -11,13 +11,14 @@
 // HOME is redirected to a tmpdir BEFORE the dynamic import so auth.ts computes
 // its ~/.arco/auth.json path inside the sandbox.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const sandbox = mkdtempSync(join(tmpdir(), 'arco-oauth-test-'));
+after(() => rmSync(sandbox, { recursive: true, force: true }));
 process.env.HOME = sandbox;
 // os.homedir() reads USERPROFILE on Windows, and an exported ARCO_HOME would
 // win over HOME; point the Arco home at the sandbox directly.

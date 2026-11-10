@@ -3,7 +3,7 @@
 //
 // Run: npm run test:plan-refs -w server
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -13,8 +13,13 @@ import {
   listPlanRefs, readPlanRef, writePlanRef, deletePlanRef, planRefsDir, REF_BODY_MAX,
 } from './planStore.js';
 
+const fixtureDirs: string[] = [];
+after(async () => { for (const dir of fixtureDirs) await fs.rm(dir, { recursive: true, force: true }); });
+
 async function tmpCwd(): Promise<string> {
-  return fs.mkdtemp(path.join(os.tmpdir(), 'arco-plan-refs-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-plan-refs-'));
+  fixtureDirs.push(dir);
+  return dir;
 }
 
 test('write / list / read / delete a ref', async () => {

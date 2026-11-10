@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseLeftRight, surveyOtherWork } from './gitOtherWork.js';
@@ -13,8 +13,9 @@ test('parseLeftRight reads behind then ahead', () => {
   assert.equal(parseLeftRight('nope'), null);
 });
 
-test('lists other worktrees and branches with ahead, behind and uncommitted counts, never the tab\'s own', async () => {
+test('lists other worktrees and branches with ahead, behind and uncommitted counts, never the tab\'s own', async (t) => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'arco-other-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
   const repo = join(root, 'repo');
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
   writeFileSync(join(repo, 'a.txt'), 'one\n');

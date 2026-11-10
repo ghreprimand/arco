@@ -9,7 +9,7 @@ import { workflows } from '../server/state.js';
 import { _setChannelsPathForTest, saveChannels, loadChannels } from '../attention.js';
 import { initNotifications } from '../notifications.js';
 import type { ServerMessage } from '@arco/shared';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { WorkflowState } from '../workflows/types.js';
@@ -35,9 +35,11 @@ test('a revoked claim cannot release a newer claim', () => {
   assert.equal(releaseBusy(wf, turn2), false, 'double release is a no-op');
 });
 
-test('a turn released as failed raises one failed alert, an interrupted one raises none', async () => {
+test('a turn released as failed raises one failed alert, an interrupted one raises none', async (t) => {
   const sent: ServerMessage[] = [];
-  _setChannelsPathForTest(join(await mkdtemp(join(tmpdir(), 'arco-busy-')), 'notification-channels.json'));
+  const dir = await mkdtemp(join(tmpdir(), 'arco-busy-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  _setChannelsPathForTest(join(dir, 'notification-channels.json'));
   await initNotifications((m) => { sent.push(m); });
   await loadChannels();
   await saveChannels({ desktop: { failed: true } });

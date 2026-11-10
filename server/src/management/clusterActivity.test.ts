@@ -3,17 +3,21 @@
 // calls fold into their turn's completion row, peer messages keep bounded
 // previews, and the merge is chronological + capped.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readMemberActivity, mergeActivity, ACTIVITY_MAX_ROWS } from './clusterActivity.js';
+
+const fixtureDirs: string[] = [];
+after(() => { for (const dir of fixtureDirs) rmSync(dir, { recursive: true, force: true }); });
 
 const WF = 'wf-activity-test-0001';
 
 function writeEvents(lines: object[]): string {
   const cwd = mkdtempSync(join(tmpdir(), 'arco-activity-test-'));
+  fixtureDirs.push(cwd);
   mkdirSync(join(cwd, '.arco', 'workflows', WF), { recursive: true });
   writeFileSync(
     join(cwd, '.arco', 'workflows', WF, 'events.jsonl'),
@@ -62,6 +66,7 @@ test('tool counter resets per turn', () => {
 
 test('missing log yields empty, never throws', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'arco-activity-empty-'));
+  fixtureDirs.push(cwd);
   assert.deepEqual(readMemberActivity(cwd, WF), []);
 });
 

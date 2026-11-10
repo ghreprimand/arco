@@ -1,15 +1,19 @@
 import { codexImageToolConfig, installedCodexImageToolKey } from './codexImageTool.js';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import type { WorkerConfig } from '@arco/shared';
 import { codexContextWindowOverride, readCodexContextMetadata } from './codexContextWindow.js';
 import { buildThreadConfigOverrides } from './codex-appserver/worker.js';
 
+const homes: string[] = [];
+after(() => { for (const home of homes) rmSync(home, { recursive: true, force: true }); });
+
 function homeWith(models: unknown[]): string {
   const home = mkdtempSync(join(tmpdir(), 'arco-codex-context-'));
+  homes.push(home);
   writeFileSync(join(home, 'models_cache.json'), JSON.stringify({ models }));
   return home;
 }
@@ -60,6 +64,7 @@ test('app-server thread config applies MAX and omits STANDARD', async () => {
 test('missing or malformed metadata fails safe to Codex default', () => {
   const home = homeWith([{ slug: 'gpt-5.6-sol', max_context_window: 872_000 }]);
   assert.equal(codexContextWindowOverride(config(home, 'max')), undefined);
+  homes.push(home);
   writeFileSync(join(home, 'models_cache.json'), '{bad json');
   assert.equal(codexContextWindowOverride(config(home, 'max')), undefined);
 });

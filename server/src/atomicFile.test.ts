@@ -6,7 +6,7 @@
 // Covers the three defects the per-store copies shared (see atomicFile.ts):
 // concurrent writers, orphaned temps on failure, and durability.
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'fs';
 import path from 'path';
@@ -14,8 +14,13 @@ import os from 'os';
 
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
 
+const fixtureDirs: string[] = [];
+after(async () => { for (const dir of fixtureDirs) await fs.rm(dir, { recursive: true, force: true }); });
+
 async function tmpDir(): Promise<string> {
-  return await fs.mkdtemp(path.join(os.tmpdir(), 'arco-atomic-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-atomic-'));
+  fixtureDirs.push(dir);
+  return dir;
 }
 
 async function leftoverTemps(dir: string): Promise<string[]> {

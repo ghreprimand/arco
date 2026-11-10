@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -110,7 +110,7 @@ test('a path with dot segments or another non-canonical form cannot reach a prot
   assert.equal((await send('GET', '/healthz')).status, 200);
 });
 
-test.after(() => { setImmediate(() => process.exit(process.exitCode ?? 0)); });
+test.after(() => { rmSync(root, { recursive: true, force: true }); setImmediate(() => process.exit(process.exitCode ?? 0)); });
 
  test('L01: wrong origins stop preflight and credentialed HTTP before route work', async () => {
   const { mintToken, SESSION_COOKIE } = await import('./wsAuth.js');

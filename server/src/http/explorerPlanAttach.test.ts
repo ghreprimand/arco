@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { settleProjectWrites } from '../testSupport/projectWrites.js';
 import { linkFolder } from '../testSupport/links.js';
 
 const root = await mkdtemp(join(tmpdir(), 'arco-plan-attach-'));
+process.once('exit', () => rmSync(root, { recursive: true, force: true }));
 process.env.ARCO_HOME = join(root, 'home');
 const clusters = await import('../clusterStore.js');
 const plans = await import('../planStore.js');
@@ -58,6 +61,7 @@ test('plan library attaches to the selected cluster only in the same project', a
     assert.equal(await attach(alias, own.id), 200);
     assert.equal((await clusters.readCluster(cluster.clusterId))?.planId, own.id);
   } finally {
+    await settleProjectWrites();
     await rm(root, { recursive: true, force: true });
   }
 });

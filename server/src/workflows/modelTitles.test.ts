@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
@@ -7,6 +7,9 @@ import type { WorkflowMeta } from '../workflowMeta.js';
 import { cleanModelTitle, maybeGenerateModelTitle, type ModelTitleDeps } from './modelTitles.js';
 import { readSessionIndex, readTitleEvents, renameSession, upsertSessionIndexFromMeta } from './sessionIndex.js';
 import { resolveUtilityConfig } from '../providers/ollamaUtility.js';
+
+const fixtureDirs: string[] = [];
+after(async () => { for (const dir of fixtureDirs) await fs.rm(dir, { recursive: true, force: true }); });
 
 function makeMeta(cwd: string, workflowId: string): WorkflowMeta {
   return {
@@ -28,6 +31,7 @@ function makeMeta(cwd: string, workflowId: string): WorkflowMeta {
 
 async function seeded(messages: string[]): Promise<{ cwd: string; meta: WorkflowMeta }> {
   const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-model-titles-'));
+  fixtureDirs.push(cwd);
   const meta = makeMeta(cwd, 'wf-title001');
   const dir = path.join(cwd, '.arco', 'workflows', meta.workflowId);
   await fs.mkdir(dir, { recursive: true });

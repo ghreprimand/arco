@@ -5,11 +5,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
-const root=mkdtempSync(join(tmpdir(),'arco-local-cluster-prompt-'));installIsolatedTestHome(root);process.env.PATH=root;
+const root=mkdtempSync(join(tmpdir(),'arco-local-cluster-prompt-'));process.once('exit',()=>rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100}));installIsolatedTestHome(root);process.env.PATH=root;
 const engine=await import('./turnEngine.js');const {workflows,workflowCwds}=await import('../server/state.js');
 const store=await import('../clusterStore.js');const {createPlan}=await import('../planStore.js');const {initWorkflowStore}=await import('../workflowStore.js');
 const {settleProjectWrites}=await import('../testSupport/projectWrites.js');const {trackRecallFixture}=await import('../testSupport/recallFixture.test-support.js');const closeRecall=trackRecallFixture();
-after(async()=>{await settleProjectWrites();await closeRecall();rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100});});
+after(async()=>{await settleProjectWrites();await closeRecall();await settleProjectWrites();rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100});});
 engine.initTurnEngine({previewAutoDetect:{noteAgentText(){},notePotentialDevServerStart(){}} as any,handleCreateWorkflow:async()=>{},handleHandoffRequest:async()=>{},captureCheckpoint:async()=>null});
 for(const {provider,blind} of [...(['ollama','llamacpp','lmstudio','strata','deepseek'] as const).map(provider=>({provider,blind:false})),...(['lmstudio','strata','deepseek'] as const).map(provider=>({provider,blind:true}))])test(`${provider} ${blind?'keeps the shared plan hidden in blind mode':'receives cluster context exactly once'}`,async(t)=>{
  t.mock.method(globalThis,'fetch',async()=>Response.json({models:[{name:'fixture',model:'fixture'}],data:[{id:'fixture'}],status:'ok'}));
