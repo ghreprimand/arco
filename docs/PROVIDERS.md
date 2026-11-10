@@ -337,7 +337,7 @@ API-key fallback: if `ANTHROPIC_API_KEY` is set in the spawned process env, the 
 - **API overload retry loop** - `overloaded_error` and `{"type":"error"}` envelopes from the CLI are caught, surfaced as `system_notice`, and retried with 15s/30s/60s backoff up to 3 attempts. Same session id, so retries are idempotent. Implemented in the result path inside `claude.ts`.
 - **Throttle detection** - stderr regexes catch "usage limit reached", "try again at HH:MM", "resets at <ISO>". Translated to `quota.markThrottled('claude', errorText, resetsAt)`.
 - **Output cap** - accumulated text is capped at `MAX_WORKER_OUTPUT_BYTES = 50 MB` (override via `ARCO_MAX_WORKER_OUTPUT_BYTES` env). Beyond that, Arco emits a truncation notice and forces the worker to settle. The 32 GB tree-RSS guard handles actual memory runaways; the text cap is the secondary safety net for "model went berserk printing forever."
-- **Image attachments** - sent as stream-json `content` blocks (5 MB per image). Non-image attachments are appended as `[attached file: <path>]` references in the prompt text.
+- **Attachments** - fitted images use stream-json `content` blocks. Documents and notebooks provide decoded text, while other binaries provide a note. `[attached file: <path>]` labels identify the source alongside its decoded content.
 - **Concurrent-writer guard** - the JSONL watcher inspects new entries' `entrypoint` field. If a foreign (`!= 'sdk-cli'`) entrypoint appears, Arco fires `[WARN] Concurrent writer detected on session <uuid>...` and refuses new turns for 60 seconds. Operator must Handoff to recover.
 
 ### Ultracode (sticky, CLI-only)
@@ -911,7 +911,7 @@ before announcing the boundary; the next request uses `thread/start` with no
 summary or old transcript. KEEP CONTEXT/OFF pause automatic resets. This is
 separate from Codex compaction, which remains the fallback within a long turn.
 
-The child is long-lived, but `WorkerConfig` is per-turn. The per-turn wrapper refreshes the cached worker with the current config before `ensureStarted()` / `beginTurn()`, then `beginTurn()` converts image attachments into `localImage` input items and folds non-images into `[attached file: <path>]` lines in the trailing text item. This is what makes images attached to a cluster member/broadcast arrive in Codex app-server as actual image inputs instead of merely persisting on the Arco chat echo.
+The child is long-lived, but `WorkerConfig` is per-turn. The per-turn wrapper refreshes the cached worker with the current config before `ensureStarted()` / `beginTurn()`, then `beginTurn()` converts fitted images into `localImage` input items. Documents and notebooks provide decoded text alongside `[attached file: <path>]` labels; other binaries provide a note. This is what makes images attached to a cluster member/broadcast arrive in Codex app-server as actual image inputs instead of merely persisting on the Arco chat echo.
 
 Arco passes a minimal thread config override on both `thread/start` and `thread/resume`: `web_search: "live"` (Chat tabs send `"live"` or `"disabled"` per the web toggle). This mirrors the native Codex CLI expectation that web search is available when the model chooses to look online, without changing approvals, sandboxing, model, profile, or MCP wiring. Do not set `tools.web_search` from the vendored 0.128 bindings without revalidating against the installed Codex CLI; Codex 0.131 rejects the stale generated shape during thread bootstrap.
 
@@ -928,7 +928,7 @@ Implemented in `jsonRpc.ts`. Message names locked in vendored bindings - methods
 
 #### Mid-turn steer
 
-The `WorkerConfig.drainSteer` callback fires on every `item/completed` notification while a turn is in flight (any item type - `commandExecution`, `fileChange`, `mcpToolCall`, etc.). When the bucket is non-empty, the worker sends `turn/steer` with `expectedTurnId: currentTurnId` and a single text-folded `UserInput`. Codex's protocol enforces the precondition - if the turn ended in the round-trip window the steer fails loudly rather than landing in the next turn.
+The `WorkerConfig.drainSteer` callback fires on every `item/completed` notification while a turn is in flight (any item type - `commandExecution`, `fileChange`, `mcpToolCall`, etc.). When the bucket is non-empty, the worker sends `turn/steer` with `expectedTurnId: currentTurnId` and text plus any fitted `localImage` input items. Codex's protocol enforces the precondition - if the turn ended in the round-trip window the steer fails loudly rather than landing in the next turn.
 
 The drain is destructive (server-side `splice(0)`); the worker re-enqueues on three failure shapes via the new `WorkerConfig.requeueSteer` hook:
 
@@ -938,7 +938,7 @@ The drain is destructive (server-side `splice(0)`); the worker re-enqueues on th
 
 Re-broadcasts `queue_update` after the re-enqueue (the original drain emitted a snapshot showing the bucket empty). The originator's optimistic chat row stays cleared from the prior `queued_messages_drained`; PENDING is the source of truth for "items waiting" until the next drain succeeds.
 
-Steer attachments fold to `[attached file: <path>]` text references (parity with Ollama / llama.cpp - mid-turn image re-encoding deferred until a real ask).
+Steer attachments use the same decoder as initial attachments: fitted images become `localImage` items, documents and notebooks provide text, and other binaries provide a note. Path labels identify each attachment. Local providers likewise prepare steering attachments and check vision support before sending images.
 
 #### Cancel
 
@@ -1269,7 +1269,7 @@ Stateless local replay keeps the brief and later exchanges after a completed han
 
 ### Spawn
 
-`fetch(\`${OLLAMA_URL_BASE}/api/chat\`, { method: 'POST', body: JSON.stringify({ model, messages, stream: true, keep_alive: '10m', tools }) })`. No subprocess; the response is an NDJSON stream. Image attachments ride the final user message's `images` field (base64, 5 MB each; vision-capable models only); non-images fold as `[attached file: <path>]`.
+`fetch(\`${OLLAMA_URL_BASE}/api/chat\`, { method: 'POST', body: JSON.stringify({ model, messages, stream: true, keep_alive: '10m', tools }) })`. No subprocess; the response is an NDJSON stream. Fitted image attachments ride the final user message's `images` field when the model reports vision support; otherwise the message contains an image note. Documents and notebooks provide decoded text alongside `[attached file: <path>]` labels, while other binaries provide a note.
 
 **Image fitting.** `providers/attachments.ts` uses the shared portable decoder
 for upload copies. It fits images within 2,000 pixels per side and 5 MB base64,

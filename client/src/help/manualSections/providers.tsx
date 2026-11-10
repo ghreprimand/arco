@@ -329,7 +329,8 @@ export const providers: Section[] = [
   </li>
   <li>
   <strong>Image attachments</strong> are sent as native stream-json content
-  blocks. Other files are referenced by path in the prompt text.
+  blocks. Documents and notebooks provide decoded text, and other binaries
+  provide a note. Path labels identify the source alongside its content.
   </li>
   <li>
   <strong>Concurrent-writer guard</strong> - see <em>Native sessions &amp;
@@ -432,6 +433,9 @@ export const providers: Section[] = [
   <li>A crash-recovery circuit breaker.</li>
   <li>Capture of blocking and async agent questions (below).</li>
   </ul>
+  <p>Initial and steered attachments use the same decoder. Fitted images become
+  local image inputs; documents and notebooks provide text, and other binaries
+  provide a note. Path labels identify the attachment alongside its content.</p>
   <p>
   <strong>Agent questions.</strong> Answer inline or open the composer&apos;s{' '}
   <strong>? QUESTIONS</strong> button. Options retain descriptions, and a
@@ -1052,8 +1056,10 @@ export const providers: Section[] = [
   </li>
   <li>
   <strong>Vision</strong> follows the OpenAI multimodal shape: attached
-  images are forwarded as <Code>image_url</Code> data-URI parts and the
-  model decides. Non-image files are referenced by path.
+  images are forwarded as <Code>image_url</Code> data-URI parts when native
+  model metadata confirms vision. Otherwise, the model receives an image note.
+  Documents and notebooks provide decoded text; other binaries provide a note.
+  Path labels identify the source alongside its content.
   </li>
   <li>
   <strong>No native session resume.</strong> Transcript is replayed each

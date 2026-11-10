@@ -84,24 +84,23 @@ Incognito hides the control, a paste/drop shows "attachments are off", and the
 server fences attachments for incognito workflows (an upload would touch disk).
 RETRY resends the prompt's attachments and EDIT re-stages them.
 
-How an attached image reaches the model depends on the provider. Claude Native
-also prepares PDFs, Office documents and notebooks through the shared file
-decoder. File references retain the original attachment name. Images use a
-5 MB base64 limit:
+Arco prepares attachments before sending, including Chat tabs without file
+tools. PDFs, Office documents and notebooks provide decoded content; other
+binaries provide a readable note. Path labels retain the original attachment
+name and accompany the content. Images are fitted to the transport's limits:
 
 | Provider | Images |
 |---|---|
 | Claude CLI / Native | native image content blocks |
 | Codex exec / app-server | native (`-i <path>` / `localImage` input) |
 | Ollama | base64 `images` on vision-capable models |
-| llama.cpp | OpenAI `image_url` parts when the loadout declares vision + `mmprojPath`; otherwise skipped with a notice |
-| LM Studio | OpenAI `image_url` parts (the backend rejects/ignores them on a non-vision model) |
+| llama.cpp | OpenAI `image_url` parts when the loadout declares vision + `mmprojPath`; otherwise an image note |
+| LM Studio | OpenAI `image_url` parts when native model metadata confirms vision; otherwise an image note |
 | Cursor (Chat -> `print`) | path reference + `--add-dir <upload dir>`; `--mode ask`'s read tool opens the image (verified with a live turn) |
-| Cursor (Agent -> ACP) | native ACP `image` blocks when `initialize` advertises `promptCapabilities.image` (cursor-agent 2026.09 does); path reference otherwise |
+| Cursor (Agent -> ACP) | native ACP `image` blocks when `initialize` advertises `promptCapabilities.image`; otherwise an image note |
 
-Before 2026-09-25 Cursor dropped attachments
-outright. Most chats have no file tools, so a model that only receives a path
-reference cannot open it - Cursor's ask mode is the exception.
+Chat does not need a file tool to receive decoded attachment content. Cursor
+print uses a fitted local image path and read-only access to its upload folder.
 
 **Image fitting.** Arco uses bundled image codecs to fit supported images within
 2,000 pixels per side and 5 MB base64. Large GIFs are fitted too. The original
@@ -110,9 +109,10 @@ sips can accelerate decoding, but neither is required.
 
 `POST /upload` starts `queueModelImage` without delaying the upload response.
 When needed, `providers/attachments.ts` writes a fitted `.model.png` or
-`.model.jpg` sibling. Existing path-based transports use `modelImagePath` or
-`awaitModelImage` to select that copy. Claude Native prepares attachments
-through `readFileContent` directly, retaining typed image and document blocks.
+`.model.jpg` sibling. Claude Native prepares attachments through `readFileContent`, retaining typed
+image and document blocks. Local and CLI adapters use
+`prepareProviderAttachments` for fitted images and decoded document text.
+Codex and Cursor print retain managed fitted-image paths for their image tools.
 Malformed or unsupported content receives a readable note from the decoder.
 
 Supported formats and document ranges are described in
