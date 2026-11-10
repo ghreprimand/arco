@@ -536,9 +536,9 @@ export const powerFeatures: Section[] = [
   turn's end.
   </p>
   <p>
-  Claude spawned-worker cards and the worker detail view show the helper's own
-  measured context, updated after each of its turns, and - until it has a
-  reading.
+  Claude spawned-worker usage totals remain output usage; they are not
+  context readings. The worker context badge shows - until a separate reading
+  is available.
   </p>
   <p>
   The per-turn breakdown is collapsed by default. Click the{' '}
