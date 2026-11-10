@@ -95,9 +95,9 @@ test('image results survive wire serialization and become receipts in summaries 
     const spill = planTurnSpill([{ toolUseId: 'read1', toolName: 'Read', content: [...result.content!, { type: 'text', text: 'x'.repeat(10000) }] }], 100);
     assert.equal(spill.spill.length, 1); assert.match(spill.spill[0].summary, /image: picture.png/);
     const many = Array.from({ length: 100 }, () => result.content);
-    assert.equal(admitImageResult(many, [], result).content, undefined);
-    assert.match(admitImageResult(many, [], result).text, /image.*budget/);
-    assert.deepEqual(admitImageResult([], [], result), result);
+    assert.equal((await admitImageResult(many, [], result)).content, undefined);
+    assert.match((await admitImageResult(many, [], result)).text, /image.*budget/);
+    assert.deepEqual((await admitImageResult([], [], result)), result);
   } finally { await rm(cwd, { recursive: true, force: true }); }
 });
 
@@ -145,12 +145,12 @@ test('JPEG, GIF and WebP are identified from bytes and reach structured results'
   } finally { await rm(cwd, { recursive: true, force: true }); }
 });
 
-test('aggregate image bytes and older large attachments prevent an invalid many-image request', () => {
+test('aggregate image bytes and older large attachments prevent an invalid many-image request', async () => {
   const image = { type: 'image' as const, source: { type: 'base64' as const, media_type: 'image/png' as const, data: png.toString('base64') } };
   const result = { text: 'image: current.png, 1x1', content: [{ type: 'text' as const, text: 'image: current.png, 1x1' }, image], isError: false };
   const large = { ...image, source: { ...image.source, data: tallPng().toString('base64') } };
-  assert.equal(admitImageResult([large, ...Array(19).fill(image)], [], result).content, undefined);
-  assert.ok(admitImageResult(Array(19).fill(image), [], result).content);
+  assert.equal((await admitImageResult([large, ...Array(19).fill(image)], [], result)).content, undefined);
+  assert.ok((await admitImageResult(Array(19).fill(image), [], result)).content);
   const heavy = { ...image, source: { ...image.source, data: png.toString('base64').padEnd(5 * 1024 * 1024, 'A') } };
-  assert.equal(admitImageResult(Array(4).fill(heavy), [], result).content, undefined);
+  assert.equal((await admitImageResult(Array(4).fill(heavy), [], result)).content, undefined);
 });

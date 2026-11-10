@@ -3811,7 +3811,7 @@ export class ClaudeNativeWorker extends EventEmitter {
           limit: typeof input.limit === 'number' ? input.limit : undefined,
           limits: { images: true, documents: true },
         });
-        toolOutcome = admitImageResult(this.messages, pendingResults, nativeFileOutcome(result));
+        toolOutcome = await admitImageResult(this.messages, pendingResults, nativeFileOutcome(result));
         resultText = toolOutcome.text;
         isError = toolOutcome.isError;
       } catch (err) {
@@ -3868,7 +3868,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       } else {
         try {
           const r = await session.callTool(registryTool.tool, input);
-          toolOutcome = r.blocks ? admitImageResult(this.messages, pendingResults, nativeFileOutcome({ text: r.text, blocks: r.blocks, kind: 'tool', truncated: false, isError: r.isError })) : undefined;
+          toolOutcome = r.blocks ? await admitImageResult(this.messages, pendingResults, nativeFileOutcome({ text: r.text, blocks: r.blocks, kind: 'tool', truncated: false, isError: r.isError })) : undefined;
           resultText = toolOutcome?.text ?? r.text;
           isError = toolOutcome?.isError ?? r.isError;
         } catch (err) {
@@ -3903,7 +3903,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       }
     } else {
       try {
-        toolOutcome = admitImageResult(this.messages, pendingResults, await executeNativeToolResult(block.name, input, ctx));
+        toolOutcome = await admitImageResult(this.messages, pendingResults, await executeNativeToolResult(block.name, input, ctx));
         resultText = toolOutcome.text;
         isError = toolOutcome.isError;
       } catch (err) {

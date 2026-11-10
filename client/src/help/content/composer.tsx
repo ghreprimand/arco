@@ -103,7 +103,7 @@ export const composerHelp: Record<string, HelpEntry> = {
       <><p>
         Add a file to your next message. Images go as native image input on
         Claude, Codex, Cursor and local models with confirmed vision. Codex image tools use the setting supported by the installed CLI. Agent tabs on Codex, Claude CLI and Cursor are told to use Arco file readers when those tools are attached. Arco fits images and decodes PDFs, office documents and notebooks before sending them. Other binaries return a note instead of raw bytes. A text-only model receives an image note.
-      </p><p>Claude CLI sends PDFs as documents, up to 100 pages and 20 MiB of base64 images and PDF data combined per message. Images take priority; PDFs use the remaining bytes.</p><p>Larger files send a bounded page range with a notice; use read_file with pages for another range. PDFs over the byte budget provide extracted text. Scanned pages provide fitted images.</p>
+      </p><p>Claude Native counts only images and base64 PDF pages toward its media guard, not web-fetch text. Refusal notices show the limit and counts. Compact or start a new conversation, then reattach an omitted pasted file; its upload path may be outside Read access.</p><p>Claude CLI sends PDFs as documents, up to 100 pages and 20 MiB of base64 images and PDF data combined per message. Images take priority; PDFs use the remaining bytes.</p><p>Larger files send a bounded page range with a notice; use read_file with pages for another range. PDFs over the byte budget provide extracted text. Scanned pages provide fitted images.</p>
       <p>SEND waits for every pending upload batch, including another paste or drop started while uploading. The upload folder must be a real folder, not a link.</p></>
     ),
   },

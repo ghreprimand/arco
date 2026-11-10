@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep Claude Native pasted images and Read images available after web fetches; count only real image/PDF media and report refusal limits with reattachment advice.
+
 - Give Codex exec and app-server the same explicit Agent and Chat web-search policy.
 - Keep Cursor Chat free of the project-file plugin while preserving message attachments.
 - Apply MCP per-tool restrictions on supported Codex CLIs, retaining a warning for older versions.

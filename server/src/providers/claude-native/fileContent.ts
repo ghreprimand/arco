@@ -25,7 +25,7 @@ export async function nativeAttachmentContent(prompt: string, paths: readonly st
     signal?.throwIfAborted();
     try {
       const result = nativeFileOutcome(await readFileContent(await realpath(path), { signal, limits: { images: true, documents: true } }));
-      const admitted = admitImageResult(history, blocks, result);
+      const admitted = await admitImageResult(history, blocks, result, 'attachment');
       blocks.push(...(admitted.content ?? [{ type: 'text' as const, text: admitted.text }]));
       blocks.push({ type: 'text', text: `[attached file: ${path}]` });
       if (admitted.isError || admitted.text !== result.text) notices.push(admitted.text);

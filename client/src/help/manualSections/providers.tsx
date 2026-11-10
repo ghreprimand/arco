@@ -63,6 +63,7 @@ export const providers: Section[] = [
   decoded text and scanned PDF pages provide images. Use <Code>pages</Code>
   for a selected range. Text downloads stop at 128 KiB; media sources have
   a 512 MiB cap. Private addresses and unsafe redirects are refused.</p>
+  <p>Native media counts include images and base64 PDF pages, not web-fetch results or text documents. Missing PDF page counts are measured from the bytes. A refusal shows the limit and image, PDF-page and encoded-size totals. Compact or start a new conversation, then reattach an omitted pasted file. Its upload path does not grant Read access outside the workflow.</p>
   <p>Claude Native Read, Task helpers and operator attachments use Arco&apos;s own file decoder. PNG, JPEG, GIF, WebP, AVIF, HEIC, TIFF, BMP and ICO are fitted without installing a converter. Images keep their full frame, within 2,000 pixels per side and 5 MB base64. ICO uses its largest embedded image.</p>
   <p>SVG provides bounded source text and a fitted preview. Rendering uses no scripts, external resources or system fonts. Text requiring a font may be absent from the preview; the source remains available.</p>
   <p>Claude CLI sends attached PDFs as documents, up to 100 pages and 20 MiB
