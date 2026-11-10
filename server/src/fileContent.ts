@@ -55,7 +55,7 @@ export async function readFileContent(path: string, options: FileContentOptions 
   options.signal?.throwIfAborted();
   const prefix = await readRegularPrefix(path, 4096);
   const kind = fileHeaderKind(prefix.buffer);
-  const structured = /\.svg$/i.test(path) || isSvgPrefix(prefix.buffer) || /"(?:cells|nbformat)"\s*:/.test(prefix.buffer.toString('utf8'));
+  const structured = /\.(?:svg|ipynb)$/i.test(path) || isSvgPrefix(prefix.buffer) || /"(?:cells|nbformat)"\s*:/.test(prefix.buffer.toString('utf8'));
   if (kind === 'text/plain' && !structured) {
     const r = await readRegularRange(path, Math.min(options.limits?.maxTextBytes ?? 256 * 1024, 1024 * 1024), Math.max(1, options.offset ?? 1), options.limit, options.signal, 8192);
     if (r.invalidUtf8 || r.text.includes('\0')) return binaryResult(basename(path), prefix.size, r.invalidUtf8 ? 'invalid-utf8' : 'application/octet-stream', options);

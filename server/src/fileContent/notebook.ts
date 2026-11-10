@@ -1,3 +1,4 @@
+import { svgResult } from './svg.js';
 import { imageResult } from './images.js';
 import { positive, selection, textResult, type FileContentOptions, type FileContentResult, type FileContentBlock } from './types.js';
 const string = (v: unknown): string => typeof v === 'string' ? v : Array.isArray(v) ? v.filter(x => typeof x === 'string').join('') : '';
@@ -10,16 +11,24 @@ export async function notebookResult(value: Record<string, unknown>, name: strin
     const cell = cells[index]; lines.push(`\nCell ${index + 1} (${String(cell.cell_type ?? 'unknown')})`, string(cell.source));
     for (const output of Array.isArray(cell.outputs) ? cell.outputs : []) {
       if (!output || typeof output !== 'object') continue;
-      const o = output as Record<string, unknown>; const data = (o.data ?? {}) as Record<string, unknown>;
+      const o = output as Record<string, unknown>; const data = o.data && typeof o.data === 'object' && !Array.isArray(o.data) ? o.data as Record<string, unknown> : {};
       const text = string(o.text) || string(data['text/plain']) || string(o.evalue);
       if (text) lines.push(`Output: ${text}`);
       for (const media of ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']) {
         const encoded = string(data[media]); if (!encoded) continue;
-        if (media === 'image/svg+xml') { lines.push(`SVG output (text only):\n${encoded}`); continue; }
         if (count++ >= cap) { lines.push('[More image outputs omitted; select fewer cells with pages.]'); continue; }
         if (encoded.length > 32 * 1024 * 1024) { lines.push('[Image output exceeds the decoding limit.]'); continue; }
-        try { images.push(...(await imageResult(Buffer.from(encoded, 'base64'), `${name} cell ${index + 1}`, options)).blocks); }
+        try {
+          const result = media === 'image/svg+xml'
+            ? await svgResult(encoded, `${name} cell ${index + 1}`, options)
+            : await imageResult(Buffer.from(encoded, 'base64'), `${name} cell ${index + 1}`, options);
+          images.push(...result.blocks);
+        }
         catch { lines.push(`[Cell ${index + 1} image output could not be decoded.]`); }
+      }
+      const handled = new Set(['text/plain', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']);
+      for (const media of Object.keys(data)) if (!handled.has(media)) {
+        lines.push(`[Cell ${index + 1} rich output: ${media}; content not rendered. Read ${name} with pages="${index + 1}" to locate this output.]`);
       }
     }
   }
