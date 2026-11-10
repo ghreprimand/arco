@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep keyboard focus inside the workspace rename dialog while it is open.
+
 - Clarify unset worker and cluster auto-compaction policies in member CONFIG.
 
 - Tell Codex and Claude CLI to use attached Arco file readers; limit Cursor guidance to connections with file tools.

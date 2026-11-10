@@ -20,6 +20,10 @@ layout for workflow and cluster tabs. Deep contracts:
 | **CATCH ME UP** | Summarize workflow or cluster activity from the earlier of the last visit or last operator message. An empty range makes no model call and offers SINCE LAST TURN, LAST HOUR and TODAY. A failed summary stays in the dialog, not in chat. Needs a utility agent. |
 | **TIDY** | Ask the utility agent to propose a clearer composer draft. **ACCEPT** replaces the draft only; TIDY never sends. Needs a utility agent. |
 
+## Workspace name
+
+The workspace RENAME dialog keeps Tab and Shift+Tab inside its controls, including while SAVE is pending. Closing the dialog returns focus to RENAME.
+
 ## Right-panel tabs
 
 The right pane groups its tabs into four sections:

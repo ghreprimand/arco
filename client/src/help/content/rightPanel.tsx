@@ -968,7 +968,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.workspace-rename': {
     title: 'Workspace name',
-    body: <p>Shows this workspace's name. <C>RENAME</C> opens a dialog: enter up to 64 characters and <C>SAVE</C>, or leave the field blank to reset to the default name. The rename keeps the workflow's identity, saved work and any running turn.</p>,
+    body: <p>Shows this workspace's name. Tab and Shift+Tab stay inside the rename dialog, including while saving; closing returns focus to RENAME. <C>RENAME</C> opens a dialog: enter up to 64 characters and <C>SAVE</C>, or leave the field blank to reset to the default name. The rename keeps the workflow's identity, saved work and any running turn.</p>,
   },
   'rightpanel.files.blast-radius': {
     title: 'BLAST RADIUS',

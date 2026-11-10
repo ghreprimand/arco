@@ -574,7 +574,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="c">CONFIG</strong>,
-              <>Live-editable model, effort, transport (plus ultracode), Codex context window, sandbox, tool allowlist, output style, north star and goal run, project trust, context controls, auto-compaction, auto-handoff after N compactions, auto-fold FOLD AT, and the review-safe-mode HITL gate toggle. Changes take effect on the next turn - no rotation needed for same-provider swaps.</>,
+              <>The workspace RENAME dialog keeps Tab and Shift+Tab inside its controls, including while SAVE is pending. Closing the dialog returns focus to RENAME. Live-editable model, effort, transport (plus ultracode), Codex context window, sandbox, tool allowlist, output style, north star and goal run, project trust, context controls, auto-compaction, auto-handoff after N compactions, auto-fold FOLD AT, and the review-safe-mode HITL gate toggle. Changes take effect on the next turn - no rotation needed for same-provider swaps.</>,
             ],
             [
               <strong key="g">GITHUB</strong>,

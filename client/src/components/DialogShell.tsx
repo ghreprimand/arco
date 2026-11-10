@@ -47,6 +47,15 @@ interface Props {
 
 const FOCUSABLE = 'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), summary, a[href]';
 
+export function containDialogTab(event: KeyboardEvent, surface: HTMLElement | null): void {
+  if (event.key !== 'Tab' || !surface) return;
+  const controls = [...surface.querySelectorAll<HTMLElement>(FOCUSABLE)];
+  if (!controls.length) { event.preventDefault(); surface.focus(); return; }
+  const index = controls.indexOf(document.activeElement as HTMLElement);
+  if (event.shiftKey && index <= 0) { event.preventDefault(); controls[controls.length - 1]?.focus(); }
+  else if (!event.shiftKey && (index < 0 || index === controls.length - 1)) { event.preventDefault(); controls[0]?.focus(); }
+}
+
 export function DialogShell({ title, onClose, children, actions, status, width = 0, size = 'form', ariaLabel, testId, dataHelp, zIndex = 2000, closeOnBackdrop = false, closeLabel = 'Close', closeTestId, onKeyDown, bodyRef, onBodyScroll }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
@@ -56,12 +65,7 @@ export function DialogShell({ title, onClose, children, actions, status, width =
     box.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeRef.current(); return; }
-      if (event.key !== 'Tab' || !box.current) return;
-      const controls = [...box.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
-      if (!controls.length) { event.preventDefault(); box.current.focus(); return; }
-      const index = controls.indexOf(document.activeElement as HTMLElement);
-      if (event.shiftKey && index <= 0) { event.preventDefault(); controls[controls.length - 1]?.focus(); }
-      else if (!event.shiftKey && (index < 0 || index === controls.length - 1)) { event.preventDefault(); controls[0]?.focus(); }
+      containDialogTab(event, box.current);
     };
     document.addEventListener('keydown', onKey, true);
     return () => { document.removeEventListener('keydown', onKey, true); previous?.focus(); };

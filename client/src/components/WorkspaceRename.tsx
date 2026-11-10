@@ -1,3 +1,4 @@
+import { containDialogTab } from './DialogShell';
 import { formSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import { useEffect, useRef, useState } from 'react';
 
@@ -23,6 +24,12 @@ export function WorkspaceRename({ workflowId, name, onRename }: Props) {
     window.addEventListener('arco:workflow-rename-result', receive);
     return () => { window.removeEventListener('arco:workflow-rename-result', receive); if (timer.current) clearTimeout(timer.current); };
   }, [workflowId]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => containDialogTab(event, surface.current);
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [open]);
   const cancel = () => { if (pending) return; if (timer.current) clearTimeout(timer.current); request.current = null; setPending(false); setOpen(false); trigger.current?.focus(); };
   const submit = () => {
     if (pending) return;
