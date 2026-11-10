@@ -1028,3 +1028,13 @@ See [VOICE.md](VOICE.md) for grammar, observations, bounds and examples.
 - [WebSocket protocol](PROTOCOL.md)
 - [Gotchas](GOTCHAS.md)
 - [Documentation style](STYLE.md)
+
+### Portable file-content decoder
+
+`server/src/fileContent.ts` exposes `readFileContent` for already-authorized canonical paths and `fileContentFromBytes` for bounded byte inputs. The result separates bounded display text from typed text, image and PDF blocks. Provider adapters decide whether their selected model accepts images or documents; decoding never grants file access.
+
+`server/src/fileContent/` contains pure JavaScript image codecs, bundled WebAssembly for WebP, HEIC and PDFium, and document parsers. Disposable worker threads bound decoding time and JavaScript memory, with at most two active decodes. Sources are limited to 512 MB. PNG decoding retains scanlines rather than a full bitmap up to 512 megapixels; other raster decoders allow up to 250 megapixels. Optional system converters accelerate large images, with bundled codecs as the fallback. The decoder never invokes office programs, evaluates macros, follows XML entities or fetches linked document resources.
+
+The `pages` option selects one-based PDF pages, spreadsheet sheets, slides, notebook cells or word-processing sections. Word sections follow explicit page breaks and bounded text groups; they are not a layout engine's printed pages. SVG stays editable text, so external SVG resources and scripts are never rendered. Images are fitted without cropping; unusually tall screenshots may need a smaller source region for readable fine detail.
+
+The interface is shared infrastructure. Each provider's adapter determines its active file-handling behavior; the provider guide documents those integrations. Runtime package assembly bundles dependencies supplied by HTTPS archives, including SheetJS, and records their locked versions. Installed packages do not contact the archive host.

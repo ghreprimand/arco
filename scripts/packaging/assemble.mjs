@@ -5,6 +5,7 @@ import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rm
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { runtimeDependencySpec, archiveRuntimeDependencies } from './runtime-dependencies.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const [output, nativeInput, mode] = process.argv.slice(2);
@@ -36,7 +37,7 @@ for (const path of ['server/dist/index.js', 'client/dist/index.html', 'shared/di
 const source = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const server = JSON.parse(readFileSync(join(root, 'server/package.json'), 'utf8'));
 const packageName = JSON.parse(readFileSync(join(root, 'scripts/packaging/package-name.json'), 'utf8')).name;
-const production = Object.fromEntries(Object.keys(server.dependencies).filter((name) => name !== '@arco/shared' && !name.startsWith('@types/')).map((name) => [name, lock.packages[`node_modules/${name}`].version]));
+const production = Object.fromEntries(Object.keys(server.dependencies).filter((name) => name !== '@arco/shared' && !name.startsWith('@types/')).map((name) => [name, runtimeDependencySpec(name, server.dependencies[name], lock)]));
 try {
   mkdirSync(destination, { recursive: true });
   const safeRuntimeFile = (path) => {
@@ -61,6 +62,9 @@ try {
   const ptyManifest = JSON.parse(readFileSync(join(ptySource, 'package.json'), 'utf8'));
   delete ptyManifest.scripts; delete ptyManifest.devDependencies; delete ptyManifest.files;
   writeFileSync(join(pty, 'package.json'), JSON.stringify(ptyManifest, null, 2) + '\n');
+  for (const name of archiveRuntimeDependencies(server.dependencies)) {
+    cpSync(join(root, 'node_modules', name), join(destination, 'node_modules', name), { recursive: true, filter: safeRuntimeFile });
+  }
   writeFileSync(join(destination, 'server/package.json'), JSON.stringify({ name: '@arco/server', version: source.version, private: true, type: 'module' }, null, 2));
   for (const [platform, arch] of targets) {
     const artifact = join(native, `${platform}-${arch}`);
@@ -70,7 +74,7 @@ try {
   for (const [name, sourceFile] of [['node-pty.txt', 'node_modules/node-pty/LICENSE'], ['winpty.txt', 'node_modules/node-pty/deps/winpty/LICENSE'], ['better-sqlite3.txt', 'node_modules/better-sqlite3/LICENSE'], ['node-addon-api.txt', 'node_modules/node-addon-api/LICENSE.md']]) cpSync(join(root, sourceFile), join(licenses, name));
   writeFileSync(join(licenses, 'NOTICE.md'), '# Bundled native components\n\nThe native bindings include node-pty, WinPTY, node-addon-api and better-sqlite3 under their respective MIT licenses in this directory. SQLite is public domain: https://sqlite.org/copyright.html. Windows diagnostic paths and macOS debug metadata are sanitized in the packaged copies.\n');
   const dependencies = { ...production, '@arco/shared': source.version };
-  const manifest = { ...(mode === '--host-only' ? { private: true } : {}), arcoNativeDependencies: nativeDependencies, name: packageName, version: source.version, repository: { type: 'git', url: 'git+https://github.com/ghreprimand/arco.git' }, license: source.license, type: 'module', engines: { node: '^24.0.0 || ^26.0.0' }, bin: { arco: './scripts/packaging/arco.mjs' }, files: ['server/dist', 'server/package.json', 'client/dist', 'shared/dist', 'server/src', 'shared/src', 'client/src', 'docs', 'README.md', 'CONTRIBUTING.md', 'THIRD_PARTY_NOTICES', 'scripts/voice', 'scripts/start.mjs', 'scripts/packaging/arco.mjs', 'scripts/packaging/services.mjs', 'scripts/packaging/launch.mjs', 'scripts/packaging/browsers.mjs', 'scripts/packaging/ports.mjs', 'scripts/packaging/service-logs.mjs', 'scripts/packaging/native-repair.mjs', 'scripts/packaging/update.mjs', 'scripts/packaging/storage.mjs', 'native', 'LICENSE'], dependencies, bundleDependencies: ['@arco/shared', 'node-pty'] };
+  const manifest = { ...(mode === '--host-only' ? { private: true } : {}), arcoNativeDependencies: nativeDependencies, name: packageName, version: source.version, repository: { type: 'git', url: 'git+https://github.com/ghreprimand/arco.git' }, license: source.license, type: 'module', engines: { node: '^24.0.0 || ^26.0.0' }, bin: { arco: './scripts/packaging/arco.mjs' }, files: ['server/dist', 'server/package.json', 'client/dist', 'shared/dist', 'server/src', 'shared/src', 'client/src', 'docs', 'README.md', 'CONTRIBUTING.md', 'THIRD_PARTY_NOTICES', 'scripts/voice', 'scripts/start.mjs', 'scripts/packaging/arco.mjs', 'scripts/packaging/services.mjs', 'scripts/packaging/launch.mjs', 'scripts/packaging/browsers.mjs', 'scripts/packaging/ports.mjs', 'scripts/packaging/service-logs.mjs', 'scripts/packaging/native-repair.mjs', 'scripts/packaging/update.mjs', 'scripts/packaging/storage.mjs', 'native', 'LICENSE'], dependencies, bundleDependencies: ['@arco/shared', 'node-pty', ...archiveRuntimeDependencies(server.dependencies)] };
   writeFileSync(join(destination, 'package.json'), JSON.stringify(manifest, null, 2) + '\n');
   console.log(`Package assembled in ${destination}`);
 } catch (error) { rmSync(destination, { recursive: true, force: true }); throw error; }

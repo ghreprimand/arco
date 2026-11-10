@@ -57,13 +57,16 @@ export async function* regularFileLines(path: string, cap: number, signal?: Abor
   } finally { await handle.close(); }
 }
 
-export async function readRegularRange(path: string, cap: number, offset: number, limit?: number, signal?: AbortSignal) {
+export async function readRegularRange(path: string, cap: number, offset: number, limit?: number, signal?: AbortSignal, chunkSize = 16384) {
   const { handle } = await openRegular(path);
   const output = Buffer.alloc(cap);
   let used = 0, line = 1;
-  const result = (truncated: boolean) => ({ text: output.subarray(0, used).toString('utf8'), truncated });
+  const result = (truncated: boolean) => {
+    try { return { text: new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(output.subarray(0, used), { stream: truncated }), truncated, invalidUtf8: false }; }
+    catch { return { text: output.subarray(0, used).toString('utf8'), truncated, invalidUtf8: true }; }
+  };
   try {
-    const chunk = Buffer.alloc(16384);
+    const chunk = Buffer.alloc(Math.max(1024, Math.min(16384, chunkSize)));
     for (;;) {
       signal?.throwIfAborted();
       const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);

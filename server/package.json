@@ -73,16 +73,33 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
     "@arco/shared": "*",
+    "@hyzyla/pdfium": "3.0.0",
+    "@jsquash/webp": "1.5.0",
     "@modelcontextprotocol/sdk": "^1.18.0",
     "@types/better-sqlite3": "^7.6.13",
+    "@xmldom/xmldom": "0.9.12",
     "better-sqlite3": "13.0.3",
+    "bmp-js": "0.1.0",
+    "cfb": "1.2.2",
+    "fflate": "0.8.3",
+    "gifuct-js": "2.1.2",
+    "heic-decode": "2.1.0",
+    "jpeg-js": "0.4.4",
     "node-pty": "^1.0.0",
+    "pdf-lib": "1.17.1",
+    "pngjs": "7.0.0",
     "proper-lockfile": "^4.1.2",
-    "ws": "^8.18.0"
+    "utif": "3.1.0",
+    "word-extractor": "1.0.4",
+    "ws": "^8.18.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@types/bmp-js": "0.1.2",
     "@types/node": "^22.0.0",
+    "@types/pngjs": "6.0.5",
     "@types/proper-lockfile": "^4.1.4",
+    "@types/utif": "3.0.6",
     "@types/ws": "^8.5.0",
     "tsx": "^4.19.0"
   }
