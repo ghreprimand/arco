@@ -60,10 +60,23 @@ test('package exceptions require the exact vendor path and token and keep other 
   // Keep the private-pattern fixture outside the scanned package.
   const patterns=mkdtempSync(join(tmpdir(),'arco-audit-patterns-'));t.after(()=>rmSync(patterns,{recursive:true,force:true}));
   env.ARCO_PRIVATE_PATTERNS_FILE=join(patterns,'patterns');writeFileSync(env.ARCO_PRIVATE_PATTERNS_FILE,readFileSync(patternFile));rmSync(patternFile);
-  const shader=join(assets,'ThemedBackgroundShaderImpl-Cw4_ZBZ9.js');
+  const shader=join(assets,'ThemedBackgroundShaderImpl-DgyOd5hb.js');
   const runShader=()=>spawnSync(process.execPath,[audit,'--package',dir],{cwd:root,env,encoding:'utf8'});
   writeFileSync(shader,'const value='+['13','070'].join('')+';');assert.equal(runShader().status,0);
   writeFileSync(shader,'const value='+['13','070','1'].join('')+';');assert.match(runShader().stderr,/local-private-pattern/);
   writeFileSync(shader,'const value='+['13','070'].join('')+'; const ip="'+[10,20,30,40].join('.')+'";');assert.match(runShader().stderr,/private-network-example/);
-  rmSync(shader);writeFileSync(join(assets,'other.js'),['13','070'].join(''));assert.match(runShader().stderr,/local-private-pattern/);
+  rmSync(shader);
+  const otherDir=join(dir,'client/dist/other');mkdirSync(otherDir,{recursive:true});
+  for (const path of [
+    join(assets,'other.js'),
+    join(otherDir,'ThemedBackgroundShaderImpl-DgyOd5hb.js'),
+    join(assets,'prefixThemedBackgroundShaderImpl-DgyOd5hb.js'),
+    join(assets,'ThemedBackgroundShaderImpl-DgyOd5hb.js.extra'),
+    join(assets,'ThemedBackgroundShaderImpl-.js'),
+    join(assets,'ThemedBackgroundShaderImpl-bad.hash.js'),
+  ]) {
+    writeFileSync(path,['13','070'].join(''));
+    assert.match(runShader().stderr,/local-private-pattern/,`exception must not apply to ${path}`);
+    rmSync(path);
+  }
 });

@@ -90,7 +90,7 @@ function reviewedPackageText(label, value) {
     const comment = '// ' + [10, 4, 6, 2].join('.') + ' <draw:object>';
     value = value.replaceAll(comment, ' '.repeat(comment.length));
   }
-  if (['client/dist/assets/ThemedBackgroundShaderImpl-Cw4_ZBZ9.js', 'client/dist/assets/ThemedBackgroundShaderImpl-C_FbwbS7.js'].includes(label)) {
+  if (/^client\/dist\/assets\/ThemedBackgroundShaderImpl-[A-Za-z0-9_-]+\.js$/.test(label)) {
     // Reviewed shader integer. Hashing avoids retaining a local-pattern fragment.
     value = value.replace(/(?<![\w.])\d+(?![\w.])/g, token =>
       createHash('sha256').update(token).digest('hex') === '4ad6a246a2834e522d110e17b99d09b28492a48dc628b138d94e381d18c89890'
