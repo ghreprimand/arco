@@ -1,5 +1,5 @@
 import { readRegularPrefix } from './boundedRead.js';
-import { fileHeaderKind, readFileContent } from './fileContent.js';
+import { fileHeaderKind, isSvgPrefix, readFileContent } from './fileContent.js';
 // Server-side expansion for the composer's `@`-context-refs
 // (docs/ARCHITECTURE.md). The client parses `@file:`, `@diff`,
 // `@staged`, `@git:N`, `@url:` into chips; at send time the server expands
@@ -160,13 +160,14 @@ async function expandFile(cwd: string, arg: string | undefined): Promise<{ body:
   }
   const header = fileHeaderKind(buf);
   const prefix = buf.toString('utf8');
+  const svg = header === 'text/plain' && (arg.toLowerCase().endsWith('.svg') || isSvgPrefix(buf.subarray(0, 4096)));
   const notebook = header === 'text/plain' && (arg.toLowerCase().endsWith('.ipynb')
     || (/"nbformat"\s*:/.test(prefix) && /"cells"\s*:/.test(prefix)));
   let validText = true;
-  if (header === 'text/plain' && !notebook) {
+  if (header === 'text/plain' && !notebook && !svg) {
     try { new TextDecoder('utf8', {fatal: true}).decode(buf, {stream: size > MAX_CONTEXT_REF_BYTES}); } catch { validText = false; }
   }
-  if (header !== 'text/plain' || notebook || !validText) {
+  if (header !== 'text/plain' || notebook || svg || !validText) {
     const decoded = await readFileContent(real, { limits: { maxTextBytes: MAX_CONTEXT_REF_BYTES } });
     const media = decoded.blocks.filter(block => block.type === 'image' || block.type === 'document');
     const mediaTokens = media.reduce((sum, block) => sum + (block.type === 'image'

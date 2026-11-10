@@ -1,4 +1,4 @@
-import { readFileContent, fileHeaderKind } from '../fileContent.js';
+import { readFileContent, fileHeaderKind, isSvgPrefix } from '../fileContent.js';
 import { readRegularPrefix } from '../boundedRead.js';
 // Shared operator-attachment helpers for providers that don't carry their own
 
@@ -117,9 +117,9 @@ export async function deriveModelImage(path: string): Promise<string | null> {
   let tmp: string | undefined;
   try {
     const canonical = realpathSync(path);
-    const prefix = await readRegularPrefix(canonical, 256);
+    const prefix = await readRegularPrefix(canonical, 4096);
     const originalType = fileHeaderKind(prefix.buffer);
-    if (!originalType.startsWith('image/')) return null;
+    if (!originalType.startsWith('image/') && !(originalType === 'text/plain' && (/\.svg$/i.test(path) || isSvgPrefix(prefix.buffer)))) return null;
     const result = await readFileContent(canonical, { limits: { images: true, documents: false, maxImageEdge: MODEL_IMAGE_MAX_EDGE, maxImageBase64Bytes: 5 * 1024 * 1024 } });
     const image = result.blocks.find(b => b.type === 'image');
     if (!image || image.type !== 'image') return null;

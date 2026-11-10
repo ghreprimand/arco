@@ -165,3 +165,16 @@ test('deriveModelImage: failure paths return null, never throw', async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+
+test('deriveModelImage renders an SVG attachment identified by content', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arco-att-svg-'));
+  try {
+    const src = join(dir, 'diagram.data');
+    writeFileSync(src, '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="red"/></svg>');
+    const out = await deriveModelImage(src);
+    assert.equal(out, `${src}.model.png`);
+    assert.equal(modelImagePath(src), out);
+    assert.ok(statSync(out!).size > 0);
+  } finally { rmSync(dir, {recursive:true, force:true}); }
+});

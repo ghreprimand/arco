@@ -17,6 +17,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { zipSync, strToU8 } from 'fflate';
+import { prepareProviderAttachments } from './providers/providerFileContent.js';
+import { nativeAttachmentContent } from './providers/claude-native/fileContent.js';
 import {
   expandContextRefs,
   estimateRefTokens,
@@ -176,5 +178,25 @@ test('context references handle incomplete UTF-8 at the end of a file', async ()
     const result = await expandContextRefs(dir, '@file:incomplete.txt', {windowSize:200000});
     assert.match(result.block + result.notices.join(' '), /invalid|binary|unsupported|Readable prefix/i);
     assert.doesNotMatch(result.block, /\uFFFD|\x00/);
+  } finally { await fs.rm(dir, {recursive:true, force:true}); }
+});
+
+
+test('SVG context references retain source and attach the rendered image by content', async () => {
+  const dir = await tmpProject({});
+  try {
+    await fs.writeFile(join(dir, 'diagram.data'), '<?xml version="1.0"?>' + ' '.repeat(5000) + '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12"><rect width="12" height="12" fill="red"/></svg>');
+    const result = await expandContextRefs(dir, '@file:diagram.data', {windowSize:200000});
+    assert.match(result.block, /<svg/);
+    assert.deepEqual(result.attachments, [await fs.realpath(join(dir, 'diagram.data'))]);
+    const local = await prepareProviderAttachments(result.attachments);
+    assert.match(local.text, /<svg/);
+    assert.equal(local.images.length, 1);
+    const native = await nativeAttachmentContent('Inspect', result.attachments, []);
+    assert.ok(Array.isArray(native.content));
+    assert.ok(native.content.some(block => block.type === 'image'));
+    const refused = await expandContextRefs(dir, '@file:diagram.data', {windowSize:10});
+    assert.equal(refused.attachments, undefined);
+    assert.match(refused.notices.join(' '), /refused/);
   } finally { await fs.rm(dir, {recursive:true, force:true}); }
 });

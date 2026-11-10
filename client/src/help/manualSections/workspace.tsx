@@ -398,12 +398,12 @@ export const workspace: Section[] = [
         <p>
           Context references such as{' '}
           <Code>@file:src/x.ts</Code>, <Code>@diff</Code>, <Code>@staged</Code>{' '}
-          and <Code>@git:N</Code> expand into the prompt. File references refuse special files and cap text at 64 KiB. Supported documents and notebook cells become text; supported media uses the attachment path. Unsupported binary files produce a note. Text and media share the aggregate reference budget.
+          and <Code>@git:N</Code> expand into the prompt. File references refuse special files and cap text at 64 KiB. Supported documents and notebook cells become text; supported media uses the attachment path. SVG references include source text and a fitted preview when rendering succeeds. Unsupported binary files produce a note. Text and media share the aggregate reference budget.
         </p>
         <p>
           <strong>Attachments:</strong> drop files anywhere on the window, paste
           an image or file from the clipboard, or click <Code>+ FILE</Code>.
-          Arco fits images and sends them visually when the model reports vision support.
+          Arco fits images and sends them visually when the model reports vision support. SVG attachments include source text and a fitted preview when rendering succeeds.
           PDFs, office documents and notebooks are decoded before sending, including
           Chat tabs without file tools. Other binaries return a file note.
         </p>
