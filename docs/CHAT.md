@@ -103,7 +103,7 @@ Chat does not need a file tool to receive decoded attachment content. Cursor
 print uses a fitted local image path and read-only access to its upload folder.
 
 **Image fitting.** Arco uses bundled image codecs to fit supported images within
-2,000 pixels per side and 5 MB base64. Large GIFs are fitted too. SVG attachments include source text and a fitted preview when rendering succeeds. The original
+2,000 pixels per side and 5 MB base64. Large GIFs are fitted too. SVG attachments include source text. Image-capable models also receive a fitted preview when rendering succeeds; text-only models receive an image-omission note. The original
 upload stays unchanged; file references keep its name. ImageMagick or macOS
 sips can accelerate decoding, but neither is required.
 

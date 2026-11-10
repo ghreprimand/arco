@@ -40,8 +40,9 @@ export const composerHelp: Record<string, HelpEntry> = {
           Type your prompt and click <strong>SEND</strong> or press <C>Enter</C> to send. <C>Shift+Enter</C> for
           a newline, <C>Ctrl+K</C> to kill to end of line. Drop or paste
           attachments. Arco fits images, decodes documents and notebooks, and
-          gives a note for other binaries. SVG includes source and a fitted preview
-          when available. Path labels identify the source alongside its content.
+          gives a note for other binaries. SVG includes source text; image-capable
+          models receive a fitted preview when available, while text-only models
+          receive an image-omission note. Path labels identify the source alongside its content.
           <C>/goal …</C> sets the north star or arms a goal run without
           sending a turn.
         </p>
@@ -225,7 +226,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           Type an <C>@</C>-ref inline and Arco expands it into the turn's
           context at send time (server-side): <C>@file:src/x.ts</C> (file
           regular files; text up to 64 KiB, supported documents and notebook cells as text,
-          supported media as attachments, and SVG as source plus a fitted preview when available),{' '}
+          supported media as attachments, and SVG as source text plus a fitted preview for image-capable models or an omission note for text-only models),{' '}
           <C>@diff</C> / <C>@staged</C> (<C>git diff [--cached]</C>),{' '}
           <C>@git:3</C> (last N commits, capped at 50).
         </p>
