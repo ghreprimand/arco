@@ -5,7 +5,7 @@
 // `./appStore` or `./memoryTrim` (avoid an import cycle).
 import type {
   ChatMessage, WorkerState, WorkflowConfig, ModelName, EffortLevel, Capabilities, UsageInfo,
-  CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, TokenUsage, GenerationSpeed, AuthStatusByProvider,
+  CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, LocalRuntimeSnapshot, TokenUsage, GenerationSpeed, AuthStatusByProvider,
   ProviderName, PrimaryArtifactMessage, ArcoSettings, QuotaStatusMessage,
   CliChangeEntry, PrimaryBackgroundJob, PreviewHistoryEntry, ClaudeCatalogSnapshot,
   CodexCatalogSnapshot,  CursorCatalogSnapshot, PrimaryTurnTokenUsageMessage, ClusterStatePayload,
@@ -578,14 +578,10 @@ export interface AppState {
   shutdown: boolean;
   shutdownReason: string | null;
   authStatus: AuthStatusByProvider | null;
-  // Live Ollama daemon snapshot — null when polling is disabled (provider
-  // off in settings, or daemon last seen down). The header indicator reads
-  // both this and authStatus.ollama: authStatus tells us the daemon is up
-  // at all; ollamaLive tells us whether a model is currently loaded.
+  // Enabled-only local metadata. The combined snapshot also feeds the
+  // existing version rows; null means no current successful status read.
+  localRuntimeStatus: LocalRuntimeSnapshot | null;
   ollamaLive: OllamaLiveStatus | null;
-  // Same shape as ollamaLive but for llama.cpp. Populated only when
-  // enabledProviders.llamacpp AND the auth probe sees the binary; cleared
-  // otherwise so the header chip drops out cleanly.
   llamacppLive: LlamacppLiveStatus | null;
   // Live Claude model catalog — server-fetched from Anthropic's /v1/models
   // (cached for an hour server-side, refreshed at boot + on reconnect).
@@ -772,6 +768,7 @@ export interface AppState {
   setCursorUsage: (u: CursorUsageInfo) => void;
   setShutdown: (v: boolean, reason?: string | null) => void;
   setAuthStatus: (s: AuthStatusByProvider) => void;
+  setLocalRuntimeStatus: (s: LocalRuntimeSnapshot | null) => void;
   setOllamaLive: (s: OllamaLiveStatus | null) => void;
   setLlamacppLive: (s: LlamacppLiveStatus | null) => void;
   setClaudeNativeCatalog: (snap: ClaudeCatalogSnapshot | null) => void;

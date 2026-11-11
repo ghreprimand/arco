@@ -1,3 +1,4 @@
+import { LocalRuntimeRows, enabledLocalRows } from './LocalRuntimeStatus';
 import { compareLlamacppBuild } from '@arco/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
@@ -45,6 +46,7 @@ const USAGE_PAGES: Array<{ provider: 'claude' | 'codex' | 'cursor'; label: strin
 ];
 
 export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?: boolean; onOpenChange?: (open: boolean) => void } = {}) {
+  const localSnapshot = useAppStore(s => s.localRuntimeStatus);
   const authStatus = useAppStore((s) => s.authStatus);
   const capabilities = useAppStore((s) => s.capabilities);
   const settings = useAppStore((s) => s.settings);
@@ -364,6 +366,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
             {usagePages.map(({ provider, label, url }) => <a key={provider} href={url} target="_blank" rel="noopener noreferrer" className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-accent-primary-dim)' }}>{label}</a>)}
           </div>}
           {localRuntime && <div data-testid="providers-free-vram" style={{ paddingTop: '4px' }}><FreeVramButton /></div>}
+          {enabledLocalRows(settings, localSnapshot, capabilities).length > 0 && <section aria-label="Local runtime status"><div className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', marginBottom: '6px' }}>LOCAL STATUS</div><LocalRuntimeRows rows={enabledLocalRows(settings, localSnapshot, capabilities)} /></section>}
           <div style={{ paddingTop: '4px' }}><button type="button" className="display-font" data-help="auth.connections" onClick={() => { setOpen(false); useStartupStore.getState().openConnections(); }} style={{ background: 'transparent', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-accent-primary-dim)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px', padding: '3px 8px' }}>CONNECTIONS</button></div>
         </div>, document.body
       )}

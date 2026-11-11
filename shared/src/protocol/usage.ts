@@ -60,9 +60,8 @@ export interface UsageInfo {
 }
 
 // Live Ollama daemon snapshot. Sourced from /api/ps (currently-loaded
-// models with their VRAM expiry). Polled by the client only while
-// `enabledProviders.ollama` is true and the auth probe says the daemon is
-// reachable — we don't burn polls on a disabled or unreachable daemon.
+// models with their VRAM expiry). The enabled-only local status snapshot
+// supplies this and the version panel; disabled daemons are never polled.
 export interface OllamaLoadedModel {
   name: string;
   expiresAt: string | null;
@@ -261,6 +260,7 @@ export interface LlamacppModelDef {
 // auth probe success.
 export interface LlamacppLiveStatus {
   up: boolean;
+  state?: 'idle' | 'loading' | 'ready' | 'failed';
   // llama-server --version output, e.g. "9037 (bbeb89d76)".
   version?: string;
   // Alias of the currently-loaded model, or null if no model is in VRAM

@@ -9,6 +9,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Disable sub-agent creation, goals and patch tools in Codex Chat while keeping its WEB host available.
 - Explain when cluster tools reach a tab that joins while working, and keep premature coordination reminders out of its running turn.
 - Restore earlier Chat uploads as content after restart and identify attachments by name.
+- Group enabled local programs into one LOCAL status dot, with read-only per-runtime details and stopped-on-demand states.
 - Default fresh installs to 110% interface text size while preserving every existing installation's size.
 - Clear stale provider throttling from the header, recheck Codex/Claude usage without a model turn (headroom clears the notice), and remove expired warnings without refreshing.
 - Open provider versions from a dedicated VERSIONS button without hover-card interference; retain llama.cpp build identities.

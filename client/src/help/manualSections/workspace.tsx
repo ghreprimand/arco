@@ -83,12 +83,16 @@ export const workspace: Section[] = [
             numbers, not semantic versions; missing build metadata is not guessed.
           </li>
           <li>
-            <strong>Live-status dots</strong> - when at least one provider is
-            authed, a compact dot per provider (<Code>A</Code> Claude,{' '}
-            <Code>C</Code> Codex, <Code>X</Code> Cursor, <Code>O</Code> Ollama):
-            green ● live, hollow ○ idle, red ● down. Remote dots link to provider usage pages. Hover or focus a dot for its usage detail - Claude&apos;s 5-hour and weekly burn (polled every 3
-            minutes), Codex usage, Cursor&apos;s included-plan and Other Models
-            bars, or Ollama&apos;s loaded models.
+            <strong>Live-status dots</strong> - remote letters are <Code>A</Code> Claude,
+            <Code>C</Code> Codex and <Code>X</Code> Cursor. One <Code>LOCAL</Code> dot
+            groups enabled Ollama, llama.cpp, Strata and Xolotl; LM Studio is excluded. Strata and Xolotl appear only with an installed-version signal, and llama.cpp requires its binary. Ollama retains unload times and daemon-start guidance.
+            Hover, focus or tap lists each state. A confirmed fault is red; otherwise
+            any loaded model is green, unknown status is neutral, and idle or stopped
+            programs use a hollow dot. Deliberately stopped managed services and idle
+            llama.cpp say "stopped - starts on demand". Catalog names alone never mean
+            a model is loaded. Escape or an outside click closes the card. VERSIONS
+            suppresses hover cards and provides the same LOCAL STATUS list, including
+            in focus mode. These status reads never load models or control services.
           </li>
           <li>
             <strong>Auth chip</strong> - at-a-glance status of Claude auth.

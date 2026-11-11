@@ -10,7 +10,7 @@ URL = f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5203')}/"
 SHOTS = os.environ.get('ARCO_SHOT_DIR')
 
 def fixture(local):
-    return {'settings': {'themeId': 'arch', 'enabledProviders': {'claude': True, 'codex': True, 'cursor': True, 'ollama': local}, 'onboardingComplete': True, 'updateCheck': False},
+    return {'settings': {'themeId': 'arch', 'enabledProviders': {'claude': True, 'codex': True, 'cursor': True, 'ollama': local, 'llamacpp': local, 'strata': local, 'deepseek': local, 'lmstudio': False}, 'onboardingComplete': True, 'updateCheck': False},
             'auth': {n: {'loggedIn': n in (['claude', 'codex', 'cursor'] + (['ollama'] if local else [])), 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}}
 
 async def run(p, width, local, voice_ready, shots):
@@ -24,6 +24,7 @@ async def run(p, width, local, voice_ready, shots):
         if path == '/api/settings': data = fx['settings']
         elif path == '/api/auth-status': data = fx['auth']
         elif path == '/api/capabilities': data = {'efforts': ['low'], 'models': ['m'], 'cliVersion': '2.1.0', 'codexVersion': '0.9.0', 'strataVersion':'1.2.3', 'xolotlRevision':'a'*40, 'cursorVersion':'2026.11.10-fixture', 'latestVersions': {'claude': '2.1.0', 'codex': '0.9.0'}}
+        elif path == '/api/local-runtime-status': data = {'fetchedAt': 1, 'rows': [{'provider':'ollama','state':'idle','models':[]},{'provider':'llamacpp','state':'stopped','models':[]},{'provider':'strata','state':'loaded','models':['fixture-model']},{'provider':'deepseek','state':'unknown','models':[]}], 'ollama':{'up':True,'version':'1.2.3','loadedModels':[],'fetchedAt':1}, 'llamacpp':{'up':True,'state':'idle','version':'0.9.0-dev (build 12110, commit cd959bae9)','loadedModel':None,'fetchedAt':1}}
         elif path == '/api/ollama-live': data = {'up':True,'version':'1.2.3','loadedModels':[],'fetchedAt':0}
         elif path == '/api/llamacpp-live': data = {'up':True,'version':'0.1.2-dev (build 10549, commit b2e5e9b28)','loadedModel':None}
         elif path == '/api/voice/setup': data = {'ready': voice_ready, 'install': {'running': False}}
@@ -102,12 +103,20 @@ async def run(p, width, local, voice_ready, shots):
                         await page.evaluate('f=>window.testStore.setState({focusMode:f})',focus)
                         await page.evaluate('on=>window.testStore.setState({quotaState:on?{claude:{throttled:true,resetsAt:Date.now()+60000}}:null})',panel_width==900)
                         if not focus:
-                            await header.get_by_test_id('provider-dot').first.hover()
+                            await page.mouse.move(0,0)
+                            local_dot=header.get_by_role('button',name='Local runtime status',exact=True)
+                            await local_dot.hover()
+                            card=header.get_by_role('tooltip',name='Local runtime details',exact=True)
+                            await expect(card).to_be_visible()
+                            await expect(card.locator('[data-local-runtime]')).to_have_count(4)
+                            card_rect=await card.bounding_box()
+                            assert card_rect['x']>=-1 and card_rect['x']+card_rect['width']<=panel_width+1 and card_rect['y']+card_rect['height']<=701,(mode,scale,panel_width,card_rect)
                         await versions.click()
                         if not focus:
                             await header.get_by_test_id('provider-dot').first.hover()
                         panel=page.locator('[data-help="header.cli-versions"][role="dialog"]')
                         await expect(panel).to_be_visible()
+                        await expect(panel.get_by_role('region',name='Local runtime status',exact=True).locator('[data-local-runtime]')).to_have_count(4)
                         await expect(header.get_by_role('tooltip')).to_have_count(0)
                         rect=await panel.bounding_box();bar=await header.bounding_box()
                         assert rect['x']>=-1 and rect['x']+rect['width']<=panel_width+1 and rect['y']>=bar['y']+bar['height']-1 and rect['y']+rect['height']<=701,(mode,scale,panel_width,focus,rect,bar)
@@ -120,6 +129,14 @@ async def run(p, width, local, voice_ready, shots):
         await page.set_viewport_size({'width':700,'height':700})
         for theme in theme_ids:
             await page.evaluate("async id=>{const {getTheme}=await import('/src/themes/registry.ts');(await import('/src/themes/apply.ts')).applyTheme(getTheme(id));}",theme)
+            await page.evaluate('async()=>{await document.fonts.ready;await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))}')
+            local_dot=header.get_by_role('button',name='Local runtime status',exact=True)
+            await local_dot.focus()
+            card=header.get_by_role('tooltip',name='Local runtime details',exact=True)
+            await expect(card).to_be_visible()
+            await page.evaluate('()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))')
+            card_rect=await card.bounding_box();assert card_rect['x']>=-1 and card_rect['x']+card_rect['width']<=701 and card_rect['y']+card_rect['height']<=701,(theme,card_rect)
+            await page.keyboard.press('Escape');await expect(card).to_have_count(0)
             await versions.click()
             panel=page.get_by_role('dialog',name='Provider versions',exact=True)
             await expect(panel).to_be_visible()

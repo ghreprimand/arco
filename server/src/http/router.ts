@@ -1,3 +1,4 @@
+import { localRuntimeStatusService } from '../localRuntimeStatus.js';
 import { tryHandleHandoffHistoryRoute } from './handoffHistoryRoutes.js';
 import { shrinkUploadedImage } from '../uploadImages.js';
 import { ensureStorageRoot, UnsafeStorageRootError } from '../storageRoot.js';
@@ -1375,10 +1376,15 @@ export async function handleHttpRequest(
     return;
   }
 
-  // Live Ollama daemon snapshot for the header indicator (LIVE/READY/DOWN
-  // + currently-loaded model). Client polls only while the operator has
-  // ollama enabled in settings AND the auth probe last reported the
-  // daemon up — disabled or unreachable Ollama means no polling at all.
+  // Header metadata is aggregated with server-side enablement and caching.
+  // Existing direct live-status endpoints remain available to other callers.
+  if (req.url === '/api/local-runtime-status' && req.method === 'GET') {
+    const snapshot = await localRuntimeStatusService.snapshot(deps.getCapabilities());
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(snapshot));
+    return;
+  }
+
   if (req.url === '/api/ollama-live' && req.method === 'GET') {
     const live = await probeOllamaLive();
     const body = { ...live, fetchedAt: Date.now() };
@@ -1511,11 +1517,7 @@ export async function handleHttpRequest(
     return;
   }
 
-  // Live llama-server snapshot. Same gating discipline as the Ollama
-  // endpoint: client polls only when enabledProviders.llamacpp is true and
-  // the auth probe last reported llama-server present. The lifecycle
-  // manager owns the spawned process; this just reports its current state
-  // (idle / loading / ready) plus the binary version chip needs.
+  // Legacy direct llama.cpp metadata endpoint, with no lifecycle mutations.
   if (req.url === '/api/llamacpp-live' && req.method === 'GET') {
     const live = await probeLlamacppLive();
     const body = { ...live, fetchedAt: Date.now() };

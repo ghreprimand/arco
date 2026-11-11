@@ -61,7 +61,8 @@ import { useTabSingleton } from './hooks/useTabSingleton';
 import { useTensionDriver } from './hooks/useTension';
 import { installThemeScramble } from './utils/themeScramble';
 import { useAppStore } from './stores/appStore';
-import type { Capabilities, UsageInfo, CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, LlamacppLiveStatus, AuthStatusByProvider, ArcoSettings } from '@arco/shared';
+import { enabledLocalStatusProviders } from '@arco/shared';
+import type { Capabilities, UsageInfo, CodexUsageInfo, CursorUsageInfo, LocalRuntimeSnapshot, AuthStatusByProvider, ArcoSettings } from '@arco/shared';
 import { RESEARCH_DEFAULT_ROUNDS } from '@arco/shared';
 import { refreshClaudeAllowance } from './utils/claudeAllowance';
 
@@ -121,8 +122,7 @@ function AppBody() {
   const setCursorUsage = useAppStore((s) => s.setCursorUsage);
   const authStatus = useAppStore((s) => s.authStatus);
   const setAuthStatus = useAppStore((s) => s.setAuthStatus);
-  const setOllamaLive = useAppStore((s) => s.setOllamaLive);
-  const setLlamacppLive = useAppStore((s) => s.setLlamacppLive);
+  const setLocalRuntimeStatus = useAppStore(s => s.setLocalRuntimeStatus);
   const setClaudeNativeCatalog = useAppStore((s) => s.setClaudeNativeCatalog);
   const setCodexCatalog = useAppStore((s) => s.setCodexCatalog);
   const setCodexCatalogForAccount = useAppStore((s) => s.setCodexCatalogForAccount);
@@ -236,56 +236,29 @@ function AppBody() {
       .catch(() => { /* fail-open: components treat null settings as all-enabled */ });
   }, [setSettings, connected]);
 
-  // Ollama live-status poll — gated on the operator having ollama enabled
-  // in settings AND the auth probe last reporting the daemon up. Either
-  // gate fails: clear ollamaLive (so the indicator drops back to DOWN /
-  // hidden) and don't fetch. We deliberately don't poll a disabled or
-  // unreachable daemon — the user called this out as wasted work.
-  const ollamaEnabled = settings?.enabledProviders?.ollama !== false;
-  const ollamaDaemonUp = authStatus?.ollama?.loggedIn ?? false;
   const codexEnabled = settings?.enabledProviders?.codex !== false;
   const codexLoggedIn = authStatus?.codex?.loggedIn ?? false;
   const cursorEnabled = settings?.enabledProviders?.cursor !== false;
   const cursorLoggedIn = authStatus?.cursor?.loggedIn ?? false;
+  const capabilities = useAppStore(s => s.capabilities);
+  // One read-only, server-gated snapshot replaces separate local header polls.
+  const localStatusKey = JSON.stringify(settings ? [settings.enabledProviders, settings.ollama, settings.strata, settings.deepseek, capabilities?.strataVersion, capabilities?.xolotlRevision] : null);
   useEffect(() => {
-    if (!ollamaEnabled || !ollamaDaemonUp) {
-      setOllamaLive(null);
+    if (!connected || !settings || !enabledLocalStatusProviders(settings, capabilities).length) {
+      setLocalRuntimeStatus(null);
       return;
     }
     let cancelled = false;
     const run = () => {
-      fetch('/api/ollama-live')
-        .then((r) => r.json() as Promise<OllamaLiveStatus>)
-        .then((d) => { if (!cancelled) setOllamaLive(d); })
-        .catch(() => { /* leave previous value */ });
+      fetch('/api/local-runtime-status')
+        .then(response => { if (!response.ok) throw new Error('Local status unavailable'); return response.json() as Promise<LocalRuntimeSnapshot>; })
+        .then(snapshot => { if (!Array.isArray(snapshot.rows)) throw new Error('Invalid local status'); if (!cancelled) setLocalRuntimeStatus(snapshot); })
+        .catch(() => { if (!cancelled) setLocalRuntimeStatus(null); });
     };
     run();
     const id = setInterval(run, OLLAMA_LIVE_POLL_MS);
     return () => { cancelled = true; clearInterval(id); };
-  }, [ollamaEnabled, ollamaDaemonUp, setOllamaLive]);
-
-  // llama.cpp live-status poll. Same gating discipline as Ollama: only
-  // poll when the operator has it enabled AND the auth probe last saw the
-  // binary on disk. The lifecycle manager ticks the loaded-model state on
-  // its own; this just gives the UI a 15s refresh on idle eviction events.
-  const llamacppEnabled = settings?.enabledProviders?.llamacpp !== false;
-  const llamacppBinaryUp = authStatus?.llamacpp?.loggedIn ?? false;
-  useEffect(() => {
-    if (!llamacppEnabled || !llamacppBinaryUp) {
-      setLlamacppLive(null);
-      return;
-    }
-    let cancelled = false;
-    const run = () => {
-      fetch('/api/llamacpp-live')
-        .then((r) => r.json() as Promise<LlamacppLiveStatus>)
-        .then((d) => { if (!cancelled) setLlamacppLive(d); })
-        .catch(() => { /* leave previous value */ });
-    };
-    run();
-    const id = setInterval(run, OLLAMA_LIVE_POLL_MS);
-    return () => { cancelled = true; clearInterval(id); };
-  }, [llamacppEnabled, llamacppBinaryUp, setLlamacppLive]);
+  }, [connected, localStatusKey, setLocalRuntimeStatus]);
 
   useEffect(() => {
     if (!connected) return;

@@ -455,18 +455,10 @@ export const headerHelp: Record<string, HelpEntry> = {
     title: 'Live provider status',
     body: (
       <>
-        <p>
-          Compact provider dots show live, ready or down status. <C>A</C> is
-          Claude (Anthropic), <C>C</C> Codex, <C>X</C> Cursor and <C>O</C>{' '}
-          Ollama; worker cards and terminal sessions use the same letters, with{' '}
-          <C>L</C> for llama.cpp.
-        </p>
-        <p>
-          Hover or keyboard-focus a dot for the full detail it used to show as a boxed pill:
-          Claude's 5-hour + weekly burn (polled every 3 minutes), Codex subscription quota from its app-server, Cursor's included-plan gauge plus its separate Other Models
-          quota bar, or Ollama's loaded-model list with unload times. Hidden when no
-          enabled provider is signed in. Providers disabled in Settings show no dot or popover.
-        </p>
+        <p>Remote dots use <C>A</C> Claude, <C>C</C> Codex and <C>X</C> Cursor. Hover or focus for usage; remote links open the existing usage pages. Worker cards and terminal sessions retain <C>O</C> Ollama and <C>L</C> llama.cpp.</p>
+        <p>One <C>LOCAL</C> dot groups enabled Ollama, llama.cpp, Strata and Xolotl. Hover, focus or tap lists each state. LM Studio is excluded. Strata and Xolotl appear only with an installed-version signal, and llama.cpp requires its binary. Ollama retains unload times and daemon-start guidance. Confirmed faults are red; otherwise a loaded model is green, unknown status is neutral, and idle or deliberately stopped programs use a hollow dot. "stopped - starts on demand" is ready for a later turn.</p>
+        <p>Escape or an outside click closes the local card. VERSIONS suppresses it and offers the same LOCAL STATUS list, including in focus mode. These read-only checks never load, unload or control services. Registered models alone are never counted as loaded.</p>
+        <p>Remote usage detail includes Claude's 5-hour and weekly burn (polled every 3 minutes), Codex subscription quota from its app-server, and Cursor's included-plan and Other Models bars. Disabled providers show no dot or card; signed-out remote providers are hidden.</p>
         <p>Claude and Codex include a refresh button beside the provider name. Sign-in and account detail is in Connections and Settings.</p>
         <p>If Cursor event pages are incomplete, monthly totals are unavailable and the error points to the dashboard.</p>
         <p>The Claude dot itself still shows the selected transport's sign-in state. Usage-limits errors describe the meter and do not invalidate execution authentication. Recovery follows the selected Claude transport.</p>

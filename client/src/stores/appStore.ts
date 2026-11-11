@@ -137,6 +137,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   shutdown: false,
   shutdownReason: null,
   authStatus: null,
+  localRuntimeStatus: null,
   ollamaLive: null,
   llamacppLive: null,
   claudeNativeCatalog: null,
@@ -298,6 +299,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
     });
   },
 
+  setLocalRuntimeStatus: (snapshot) => set({ localRuntimeStatus: snapshot, ollamaLive: snapshot?.ollama ?? null, llamacppLive: snapshot?.llamacpp ?? null }),
   setOllamaLive: (ollamaLive) => set({ ollamaLive }),
 
   setLlamacppLive: (llamacppLive) => set({ llamacppLive }),

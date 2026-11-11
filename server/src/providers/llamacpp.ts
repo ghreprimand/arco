@@ -1203,6 +1203,7 @@ async function probeBinaryVersion(): Promise<string | undefined> {
 
 export async function probeLlamacppLive(): Promise<{
   up: boolean;
+  state?: 'idle' | 'loading' | 'ready' | 'failed';
   version?: string;
   loadedModel: string | null;
   port?: number;
@@ -1215,7 +1216,9 @@ export async function probeLlamacppLive(): Promise<{
   return {
     up: true,
     ...(version ? { version } : {}),
-    loadedModel: status.alias ?? null,
+    state: status.state,
+    loadedModel: status.state === 'ready' ? status.alias ?? null : null,
+    ...(status.state === 'failed' ? { error: status.error } : {}),
     ...(typeof status.port === 'number' ? { port: status.port } : {}),
     ...(typeof status.pid === 'number' ? { pid: status.pid } : {}),
   };

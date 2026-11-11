@@ -1,9 +1,10 @@
+import { LocalRuntimeIndicator } from './LocalRuntimeStatus';
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { formatTokens } from './RightPanel/format';
 import { CursorIncludedGauge } from './CursorIncludedGauge';
 import { formatResetLabel, formatResetText } from '../utils/usageFormat';
-import type { CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, UsageInfo} from '@arco/shared';
+import type { CodexUsageInfo, CursorUsageInfo, UsageInfo} from '@arco/shared';
 import { claudeAuthPresentation, selectedClaudeTransport } from '../utils/claudeAuth';
 import { refreshClaudeAllowance } from '../utils/claudeAllowance';
 import { dismissProviderHovers, useProviderHover } from './providerPanelState';
@@ -24,23 +25,18 @@ export function UsageBar({ usage }: Props) {
   const authStatus = useAppStore((s) => s.authStatus);
   const codexUsage = useAppStore((s) => s.codexUsage);
   const cursorUsage = useAppStore((s) => s.cursorUsage);
-  const ollamaLive = useAppStore((s) => s.ollamaLive);
   const enabledProviders = useAppStore((s) => s.settings?.enabledProviders);
   const isProviderEnabled = (provider: keyof NonNullable<typeof enabledProviders>) => enabledProviders?.[provider] !== false;
   const claudeAuthed = !!(authStatus?.claude.loggedIn || authStatus?.claude.native?.credentialsPresent || authStatus?.claude.cli?.loggedIn);
   const codexAuthed = authStatus?.codex.loggedIn ?? false;
   const cursorAuthed = authStatus?.cursor?.loggedIn ?? false;
-  // Ollama dot appears whenever the provider is enabled — even if the daemon is
-  // down — so the operator sees a clear red DOWN dot rather than it vanishing.
-  const ollamaShown = isProviderEnabled('ollama');
-  const ollamaDaemonUp = authStatus?.ollama.loggedIn ?? false;
 
   return (
     <div data-help="header.live-status" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       {isProviderEnabled('claude') && claudeAuthed && <ClaudeStatus usage={usage} />}
       {isProviderEnabled('codex') && codexAuthed && <CodexStatus usage={codexUsage} />}
       {isProviderEnabled('cursor') && cursorAuthed && <CursorStatus usage={cursorUsage} />}
-      {ollamaShown && <OllamaStatus daemonUp={ollamaDaemonUp} live={ollamaLive} />}
+      <LocalRuntimeIndicator />
     </div>
   );
 }
@@ -424,93 +420,7 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
   );
 }
 
-// Ollama is local — its dot is genuinely dynamic. Three states:
-//   live  — daemon up + at least one model resident in VRAM (filled green)
-//   ready — daemon up but idle, no model loaded (hollow ring)
-//   down  — daemon unreachable (filled red); authStatus.ollama.loggedIn is the
-//           source of truth. Hover surfaces the loaded model + unload time.
-function OllamaStatus({ daemonUp, live }: { daemonUp: boolean; live: OllamaLiveStatus | null }) {
-  const [open, setOpen] = useProviderHover();
-  const placeRef = useKeepInWindow();
-  const loaded = daemonUp ? (live?.loadedModels ?? []) : [];
-  const state: DotState = !daemonUp ? 'down' : loaded.length > 0 ? 'live' : 'ready';
-  const title = state === 'down'
-    ? 'Ollama: DOWN (daemon unreachable)'
-    : state === 'ready'
-      ? 'Ollama: READY (daemon up, idle)'
-      : 'Ollama: LIVE (model in VRAM, hover for detail)';
-  return (
-    <div
-      style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-    >
-      <StatusDot letter="O" name="Ollama" state={state} title={title} />
-      {open && (
-        <div
-          ref={placeRef}
-          role="tooltip"
-          style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            right: 0,
-            minWidth: '280px',
-            padding: '10px 14px',
-            background: 'var(--color-bg-panel)',
-            border: '1px solid var(--color-border-hairline)',
-            borderRadius: '4px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
-            fontFamily: 'var(--font-content)',
-            zIndex: 30,
-          }}
-        >
-          {state === 'down' && (
-            <span style={{ fontSize: '11px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
-              Daemon not reachable. Run <code style={{ fontFamily: 'var(--font-mono)' }}>ollama serve</code> on this machine, or set <code style={{ fontFamily: 'var(--font-mono)' }}>OLLAMA_URL_BASE</code> to point elsewhere.
-            </span>
-          )}
-          {state === 'ready' && (
-            <span style={{ fontSize: '11px', color: 'var(--color-fg-muted)' }}>
-              Daemon up, no model currently loaded into VRAM.
-            </span>
-          )}
-          {state === 'live' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <span className="display-font" style={{ fontSize: '10px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)' }}>
-                LOADED IN VRAM
-              </span>
-              {loaded.map((m) => (
-                <div key={m.name} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '11px' }}>
-                  <span style={{ color: 'var(--color-fg-default)' }}>{m.name}</span>
-                  {m.expiresAt && (
-                    <span style={{ color: 'var(--color-fg-muted)', whiteSpace: 'nowrap' }}>
-                      unloads {formatExpiry(m.expiresAt)}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
-function formatExpiry(iso: string): string {
-  const d = new Date(iso).getTime();
-  const now = Date.now();
-  const deltaMs = d - now;
-  if (deltaMs <= 0) return 'any moment';
-  const mins = Math.round(deltaMs / 60_000);
-  if (mins < 1) return 'in <1m';
-  if (mins < 60) return `in ${mins}m`;
-  const hours = Math.floor(mins / 60);
-  const rem = mins % 60;
-  return rem > 0 ? `in ${hours}h ${rem}m` : `in ${hours}h`;
-}
 
 interface UsageRowProps {
   label: string;

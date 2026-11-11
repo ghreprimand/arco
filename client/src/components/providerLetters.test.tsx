@@ -77,8 +77,8 @@ test('dots, worker cards and terminal sessions show A C X O L', async () => {
   const root = createRoot(dom.window.document.getElementById('root')!);
   try {
     await act(async () => root.render(createElement(UsageBar, { usage: null })));
-    const dots = [...dom.window.document.querySelectorAll('[data-testid="provider-dot"], [aria-label$="status details"]')].map((el) => el.textContent?.trim());
-    assert.deepEqual(dots, ['A', 'C', 'X', 'O']);
+    const dots = [...dom.window.document.querySelectorAll('[data-testid="provider-dot"], [aria-label$="status details"], [aria-label="Local runtime status"]')].map((el) => el.textContent?.trim());
+    assert.deepEqual(dots, ['A', 'C', 'X', 'LOCAL']);
     const remote = dom.window.document.querySelector('[aria-label="Cursor usage page"]') as HTMLAnchorElement;
     assert.equal(remote.href, 'https://cursor.com/dashboard?tab=usage');
     await act(async () => remote.dispatchEvent(new dom.window.MouseEvent('mouseover', { bubbles: true })));
