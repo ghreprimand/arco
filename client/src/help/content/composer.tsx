@@ -90,7 +90,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Cancel turn',
     body: (
       <p>
-        Stops the active turn, including pending Claude Native token-count telemetry. It also revokes messages still preparing prompt or file context before dispatch or queueing. While Genesis moves conversation storage, STOP is refused until the move finishes. For an active turn the server fires{' '}
+        Stops the active turn, including pending Claude Native token-count telemetry. Claude Native also stops during startup, before its first provider request. It also revokes messages still preparing prompt or file context before dispatch or queueing. While Genesis moves conversation storage, STOP is refused until the move finishes. For an active turn the server fires{' '}
         <C>turn_cancelled</C> + <C>primary_turn_ended</C>, which unsticks the UI
         even if the worker has gone "ghost" (silently exited mid-turn). Cancellation ends the active local-provider shell tree. Closing the tab drains active shell cleanup for up to 15 seconds. Fully redirected background jobs whose command already returned are outside that tracking.
       </p>

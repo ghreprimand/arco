@@ -139,6 +139,7 @@ export const providers: Section[] = [
   <p>Claude CLI reconnects and handoffs retain only the current session watcher. A delayed load of an older session cannot mix its rows into the conversation.</p>
   <p>Automatic Claude CLI context calibration waits for an idle session. Starting a new turn cancels pending calibration admission, so the probe cannot run alongside that turn.</p>
   <p>STOP also cancels a message still preparing prompt or file context, before it starts a provider turn or enters a queue.</p>
+  <p>Claude Native can also be cancelled while startup loads handoff history and sub-agent settings. An interrupted correction that has not entered history is kept for the next prompt.</p>
   <p>Selected one-shot skills also accompany mid-turn steering. Busy messages keep the same skill context whether consumed during the turn or delivered afterward.</p>
   <Sub>Sign-in</Sub>
   <ul>

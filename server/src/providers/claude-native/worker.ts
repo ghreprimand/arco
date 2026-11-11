@@ -2657,14 +2657,14 @@ export class ClaudeNativeWorker extends EventEmitter {
     // Reset synchronously, before the first await: the adapter calls runTurn
     // from spawn() and any kill() can only land after this line.
     this.cancelRequested = false;
-    const taskDefaults = await readSettings(this.config.cwd).catch(() => undefined);
-    if (this.cancelledDuringStartup()) return;
-    this.taskPolicy = resolveNativeSubagents(taskDefaults?.nativeSubagents, this.config.nativeSubagents);
     this.urlReadsThisTurn = 0;
     this.turnInputAccepted = false;
     try {
       await this.refreshHandoffHistory();
       if (this.cancelledDuringStartup()) return;
+      const taskDefaults = await readSettings(this.config.cwd).catch(() => undefined);
+      if (this.cancelledDuringStartup()) return;
+      this.taskPolicy = resolveNativeSubagents(taskDefaults?.nativeSubagents, this.config.nativeSubagents);
       await this.ensureStarted();
     } catch (err) {
       try { this.authRecovery = { transport: 'native', binding: nativeCredentialBinding(await loadTokens()) }; } catch { this.authRecovery = { transport: 'native' }; }

@@ -125,7 +125,7 @@ interrupted; unavailable requests visibly queue as follow-ups.
   waits for the actual child `exit` (10-second ceiling) before session resume.
 - Claude Native cancels its stream/tools and awaits the actual `runTurn` promise.
   If another correction cancels startup before its prompt entered history,
-  `turnInputAccepted:false` carries that unsubmitted correction into the next prompt.
+  `turnInputAccepted:false` carries that unsubmitted correction into the next prompt. This also applies while Native startup loads handoff history and sub-agent settings.
 - Codex app-server uses `turn/interrupt` and waits for matching interrupted
   completion. Concurrent STOP/interrupt requests share one cancellation waiter.
 
