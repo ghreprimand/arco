@@ -128,6 +128,7 @@ test('deriveModelImage: over-cap PNG within 2000px re-encodes to JPEG; loadImage
     const out = await deriveModelImage(src);
     assert.ok(out === `${src}.model.jpg` || out === `${src}.model.png`);
     assert.ok(statSync(out!).size <= MODEL_IMAGE_MAX_RAW_BYTES);
+    assert.ok(dims(out!)[0] <= 1900 && dims(out!)[1] <= 1900, 'model copy must not upscale the source');
     const { images, skipped } = loadImages([src]);
     assert.equal(skipped.length, 0);
     assert.equal(images[0].path, src);
@@ -180,4 +181,30 @@ test('deriveModelImage renders an SVG attachment identified by content', async (
     assert.equal(modelImagePath(src), out);
     assert.ok(statSync(out!).size > 0);
   } finally { rmSync(dir, {recursive:true, force:true}); }
+});
+
+
+test('deriveModelImage: JPEG within both model limits creates no copy', { skip: skipNoMagick }, async () => {
+  const dir = mkdtempSync(join(uploadRoot, 'arco-att-'));
+  try {
+    const src = join(dir, 'fits.jpg');
+    gen(src, ['-size', '1600x1200', 'gradient:red-blue']);
+    assert.ok(statSync(src).size < MODEL_IMAGE_MAX_RAW_BYTES);
+    assert.equal(await deriveModelImage(src), null);
+    assert.deepEqual(readdirSync(dir), ['fits.jpg']);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+
+test('model fitting never enlarges JPEG pixels through the optional accelerator', { skip: skipNoMagick }, async () => {
+  const { externalImage } = await import('../fileContent/externalImage.js');
+  const { readFileSync } = await import('node:fs');
+  const dir = mkdtempSync(join(uploadRoot, 'arco-att-'));
+  try {
+    const src = join(dir, 'fits.jpg');
+    gen(src, ['-size', '1600x1200', 'gradient:red-blue']);
+    const pixels = await externalImage(readFileSync(src), 'image/jpeg', 2000);
+    assert.ok(pixels);
+    assert.ok(pixels.width <= 1600 && pixels.height <= 1200, `${pixels.width}x${pixels.height}`);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

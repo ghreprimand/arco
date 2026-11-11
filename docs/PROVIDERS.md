@@ -2274,3 +2274,5 @@ Source format determines encoding: JPEG photos stay JPEG at quality 90, retainin
 Only regular files beneath the managed uploads folder qualify. Symlinked files, linked folders, escaping realpaths and files outside that folder are refused. Project images read through Read, file references or a request to inspect a path are never rewritten, replaced or deleted, and no copy is written beside them. PDF, Word and other non-image uploads are unchanged. Other image formats retain the existing model-copy behavior without replacing their uploaded originals.
 
 Animated and 16-bit PNG uploads remain unchanged. The smaller copy keeps the picture, but PNG text chunks and colour profiles, and JPEG metadata other than EXIF, are not carried over. When the uploads folder is reached through a linked folder, nothing is shrunk and uploads stay as sent.
+
+Model fitting does not enlarge images. JPEG, PNG, GIF and WebP uploads that already fit the 2,000-pixel edge and 3.75 MiB model byte limits need no model-copy sibling; optional image converters are checked against the source dimensions.

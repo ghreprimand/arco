@@ -8,6 +8,7 @@ export const chat: Section[] = [
   body: <>
   <p>JPEG and PNG uploads over 1 MiB or 2,000 pixels on the long edge may replace the larger uploaded copy with a verified smaller image at the same path. The larger upload is deleted; Arco keeps no full-size backup.</p>
   <p>JPEG stays JPEG, and PNG stays PNG with pixels reduced only above 2,000. Smaller images, non-image files and failed or non-saving conversions stay unchanged. Other image formats keep their originals. Animated and 16-bit PNG uploads remain unchanged.</p>
+  <p>Model fitting does not enlarge images. JPEG, PNG, GIF and WebP uploads that already fit the 2,000-pixel edge and 3.75 MiB model byte limits need no model-copy sibling; optional image converters are checked against the source dimensions.</p>
   <p>The smaller copy keeps the picture, but PNG text chunks and colour profiles, and JPEG metadata other than EXIF, are not carried over.</p>
   <p>When the uploads folder is reached through a linked folder, nothing is shrunk and uploads stay as sent.</p>
   <p>This affects only regular files in Arco&apos;s uploads folder: links and escaping paths are refused. Project images read through tools or file references are never rewritten, replaced or deleted.</p>

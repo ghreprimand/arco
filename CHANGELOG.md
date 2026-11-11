@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Prevent optional image converters from enlarging model attachments or creating unnecessary model copies of fitted JPEG uploads.
+
 - Combine Native media-retirement counts into one notice per turn, with correct singular wording and no empty categories.
 
 - Correct Claude Native context meters and media limits for older Sonnet/Opus releases and Haiku 5.5.
