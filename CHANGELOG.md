@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Wrap top-bar controls before provider dots can overlap the layout switch.
 - Cursor Chat starts without combining plain-text output with the JSON-only partial-output flag.
 - Keep built-in agent tool servers available when a built server starts with `NODE_ENV` unset or set to development.
 - Prevent optional image converters from enlarging model attachments or creating unnecessary model copies of fitted JPEG uploads.

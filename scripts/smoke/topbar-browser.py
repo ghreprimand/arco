@@ -10,8 +10,8 @@ URL = f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5203')}/"
 SHOTS = os.environ.get('ARCO_SHOT_DIR')
 
 def fixture(local):
-    return {'settings': {'themeId': 'arch', 'enabledProviders': {'claude': True, 'codex': True, 'ollama': local}, 'onboardingComplete': True, 'updateCheck': False},
-            'auth': {n: {'loggedIn': n in (['claude', 'codex'] + (['ollama'] if local else [])), 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}}
+    return {'settings': {'themeId': 'arch', 'enabledProviders': {'claude': True, 'codex': True, 'cursor': True, 'ollama': local}, 'onboardingComplete': True, 'updateCheck': False},
+            'auth': {n: {'loggedIn': n in (['claude', 'codex', 'cursor'] + (['ollama'] if local else [])), 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}}
 
 async def run(p, width, local, voice_ready, shots):
     fx = fixture(local)
@@ -25,7 +25,7 @@ async def run(p, width, local, voice_ready, shots):
         elif path == '/api/auth-status': data = fx['auth']
         elif path == '/api/capabilities': data = {'efforts': ['low'], 'models': ['m'], 'cliVersion': '2.1.0', 'codexVersion': '0.9.0', 'latestVersions': {'claude': '2.1.0', 'codex': '0.9.0'}}
         elif path == '/api/voice/setup': data = {'ready': voice_ready, 'install': {'running': False}}
-        elif path == '/api/update-check': data = {'current': '0.1.3', 'latest': None, 'enabled': False, 'updateAvailable': False}
+        elif path == '/api/update-check': data = {'current': '0.1.5-rc.9', 'latest': None, 'url': None, 'publishedAt': None, 'checkedAt': None, 'enabled': False, 'updateAvailable': False}
         elif path == '/api/usage': data = {'available': False}
         elif path.endswith('/catalog'): data = {'models': []}
         await route.fulfill(json=data)
@@ -43,10 +43,48 @@ async def run(p, width, local, voice_ready, shots):
     await page.wait_for_function("() => !!window.testStore.getState().settings")
     await page.evaluate("() => window.testStore.setState({ connected: true, connectionState: 'online', capabilities: { cliVersion: '2.1.0', codexVersion: '0.9.0', latestVersions: { claude: '2.1.0', codex: '0.9.0' } }, authStatus: " + json.dumps(fx['auth']) + " })")
     header = page.locator('header').first
+    await expect(header.get_by_test_id('header-version-box')).to_have_text('v0.1.5-rc.9')
     tag = f"{width}-{'local' if local else 'nolocal'}"
     async def shot(name):
         if shots:
             await page.screenshot(path=os.path.join(shots, f'topbar-{tag}-{name}.png'), clip={'x': 0, 'y': 0, 'width': width, 'height': 330})
+    if width == 1440 and local and voice_ready:
+        await page.evaluate("""async () => {
+          const {useNotificationStore}=await import('/src/stores/notificationStore.ts');
+          useNotificationStore.setState({notices:[{id:'fixture',ts:Date.now(),category:'agent',title:'Fixture notice'}],lastSeenTs:0});
+        }""")
+        for scale in [1, 1.5, 2]:
+            await page.evaluate('s => {document.documentElement.style.zoom=String(s);document.documentElement.style.setProperty("--ui-scale",String(s));window.dispatchEvent(new Event("resize"))}',scale)
+            for mode in ['auto', 'standard', 'compact', 'narrow']:
+                await page.evaluate("async mode => (await import('/src/layout/layoutRange.ts')).setLayoutMode(mode)", mode)
+                for hide_voice in [False, True]:
+                    await page.locator('[data-help="voice.hands-free"]').evaluate('(el, hidden) => el.style.display=hidden ? "none" : "inline-flex"', hide_voice)
+                    for sweep_width in range(2000, 699, -20):
+                        await page.set_viewport_size({'width':sweep_width,'height':700})
+                        await page.evaluate('() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))')
+                        failure=await header.evaluate("""el => {
+                          const bar=el.getBoundingClientRect();
+                          const controls=[...el.querySelectorAll('button, [role="button"], h1, [data-testid="connection-light"]')].filter(n=>n.getBoundingClientRect().width>0);
+                          const name=n=>n.dataset.help || n.dataset.testid || n.textContent;
+                          for(let i=0;i<controls.length;i++) {
+                            const a=controls[i].getBoundingClientRect();
+                            if(a.left<bar.left-.5 || a.right>bar.right+.5 || a.top<bar.top-.5 || a.bottom>bar.bottom+.5) return ['clipped',name(controls[i]),a.toJSON()];
+                            for(let j=i+1;j<controls.length;j++) {
+                              const b=controls[j].getBoundingClientRect();
+                              if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>.5 && Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>.5) return ['overlap',name(controls[i]),name(controls[j]),a.toJSON(),b.toJSON()];
+                            }
+                          }
+                          return null;
+                        }""")
+                        if failure and shots:
+                            await page.screenshot(path=os.path.join(shots,'topbar-overlap.png'))
+                        if shots and scale == 1 and mode == 'auto' and not hide_voice and sweep_width == 900:
+                            await page.screenshot(path=os.path.join(shots,'topbar-after.png'))
+                        assert not failure, (scale,mode,hide_voice,sweep_width,failure)
+        await page.evaluate('() => {document.documentElement.style.zoom="1";document.documentElement.style.setProperty("--ui-scale","1");window.dispatchEvent(new Event("resize"))}')
+        await page.evaluate("async () => (await import('/src/layout/layoutRange.ts')).setLayoutMode('auto')")
+        await page.locator('[data-help="voice.hands-free"]').evaluate('el => el.style.display="inline-flex"')
+        await page.set_viewport_size({'width':width,'height':700})
     # Removed controls are gone; the new ones are present.
     for gone in ['COMPUTER', 'MANUAL', 'ARTIFACTS', 'PLANS', 'CONNECTIONS', 'FREE VRAM', 'PROVIDERS']:
         await expect(header.get_by_role('button', name=gone, exact=True)).to_have_count(0)

@@ -10,7 +10,7 @@ export const workspace: Section[] = [
       <>
         <p>
           The header is the persistent chrome at the top of every screen. Left
-          to right:
+          to right (the controls wrap onto more rows when space runs short):
         </p>
         <p>
           Dialogs open at sizes suited to their content. Drag the bottom-right

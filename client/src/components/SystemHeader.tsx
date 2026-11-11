@@ -159,7 +159,7 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
       }}
     >
       {/* Row 1: ARCO title + grouped controls */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: tightHeader ? '5px 8px' : '5px 20px', gap: tightHeader ? '4px' : '8px', minHeight: '36px', flexWrap: layout.interfaceWidth < 800 ? 'wrap' : 'nowrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: tightHeader ? '5px 8px' : '5px 20px', gap: tightHeader ? '4px' : '8px', minHeight: '36px', flexWrap: 'wrap' }}>
         {/* Left group: wordmark + the hub-link chip pinned right beside it.
             Moved here from the right status cluster (it was crowded there): the
             link state is identity-level, so it reads cleanly next to the mark.
@@ -178,7 +178,7 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
           <HubLinkChip onToggle={onHubLinkToggle} />
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: tightHeader ? '3px' : '8px', fontSize: '11px', fontFamily: 'var(--font-display)', letterSpacing: tightHeader ? '0px' : '1px', flexWrap: layout.interfaceWidth < 800 ? 'wrap' : 'nowrap', justifyContent: 'flex-end', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: tightHeader ? '3px' : '8px', fontSize: '11px', fontFamily: 'var(--font-display)', letterSpacing: tightHeader ? '0px' : '1px', flexWrap: 'wrap', justifyContent: 'flex-end', minWidth: 0, flexShrink: 0, maxWidth: '100%' }}>
           {/* Status cluster — urgent runtime state, always visible: provider
               versions (folded into a popover), the provider throttling warning, and the Claude auth chip. */}
           {/* Provider throttling stays visible in focus mode —
