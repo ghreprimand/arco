@@ -19,13 +19,21 @@ Arco-owned browser profile. The profile retains its own microphone permission.
 `arco open --tab` opens the default browser instead. If no supported Chromium
 browser is found, `arco open` reports the fallback and opens a normal tab.
 
-Automatic search order for the app window:
+Automatic retains this compatibility order for the app window:
 
 | System | Browsers, first found wins |
 | --- | --- |
 | Windows | Edge, Chrome, Brave, Vivaldi, Chromium (App Paths registrations, then Program Files, Program Files (x86) and the per-user `%LOCALAPPDATA%` installs) |
 | macOS | Chrome, Edge, Brave, Chromium, Vivaldi (`/Applications`, then `~/Applications`) |
 | Linux | `google-chrome`, `microsoft-edge`, `brave-browser` or `brave`, `chromium`, `vivaldi` on `PATH` (with their `-stable` and `-browser` names), then Flatpak installs of Chrome, Edge, Brave, Chromium and Vivaldi |
+
+Additional detected installations and channels follow that existing preference.
+The list includes beta/dev/nightly/canary builds, Brave Origin, ungoogled Chromium
+and Thorium. Linux also reads standard desktop entries and Snap wrappers; macOS
+reads application bundle identifiers and actual executable names; Windows also
+reads registered browser clients and both registry views. Separate installations
+have separate choices; duplicate names include their paths locally. Additional
+builds are ordered by channel stability, then system before user installation.
 
 A Flatpak browser is found through its exported launcher in
 `/var/lib/flatpak/exports/bin` or `~/.local/share/flatpak/exports/bin` and runs

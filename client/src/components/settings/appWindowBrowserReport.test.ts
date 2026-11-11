@@ -19,3 +19,9 @@ test('malformed entries are dropped', () => {
   const r = toReport({ browsers: [chrome, { id: 1 }, null], using: { id: 'x' }, choice: '' });
   assert.deepEqual(r, { platform: '', choice: null, browsers: [chrome], using: null, missing: false });
 });
+
+
+test('a malformed version cannot reach the Settings renderer', () => {
+  const report = toReport({ browsers: [{ id: 'b', name: 'Browser', path: '/bin/b', version: {} }], using: { id: 'b', name: 'Browser', path: '/bin/b', version: {} } });
+  assert.deepEqual(report?.browsers, []); assert.equal(report?.using, null);
+});

@@ -3,12 +3,12 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { appBrowserReport } from '../appBrowsers.js';
 
-export async function tryHandleAppBrowserRoutes(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
+export async function tryHandleAppBrowserRoutes(req: IncomingMessage, res: ServerResponse, report = appBrowserReport): Promise<boolean> {
   if (req.url !== '/api/app-browsers' || req.method !== 'GET') return false;
   try {
-    const report = await appBrowserReport();
+    const value = await report();
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify(report));
+    res.end(JSON.stringify(value));
   } catch (err) {
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));

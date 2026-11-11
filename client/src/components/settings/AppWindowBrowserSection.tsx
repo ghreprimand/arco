@@ -26,8 +26,8 @@ export function AppWindowBrowserSection() {
       const next = toReport(await res.json());
       if (!next) throw new Error('unexpected reply');
       setReport(next);
-      const known = next.choice && next.browsers.some((b) => b.id === next.choice);
-      setSelected(!next.choice ? '' : known ? next.choice : OTHER);
+      const known = next.choice && !next.missing && next.using && next.browsers.some((b) => b.id === next.using?.id);
+      setSelected(!next.choice ? '' : known ? next.using!.id : OTHER);
       setOther(next.choice && !known ? next.choice : '');
       setError('');
     } catch { setError('Browser list unavailable.'); }
@@ -75,12 +75,12 @@ export function AppWindowBrowserSection() {
       </div>
       <div style={{ ...note, marginTop: '8px' }} role="status">
         {report && (report.using
-          ? <>Opens in: <strong style={{ color: 'var(--color-fg-muted)' }}>{report.using.name}</strong> <span style={{ wordBreak: 'break-all' }}>({report.using.path})</span></>
+          ? <>Opens in: <strong style={{ color: 'var(--color-fg-muted)' }}>{report.using.name}{report.using.version ? ` ${report.using.version}` : ''}</strong> <span style={{ wordBreak: 'break-all' }}>({report.using.path})</span></>
           : <>No Chromium browser found. <code>arco open</code> opens a normal browser tab.</>)}
         {report?.missing && <div role="alert">The chosen browser &quot;{report.choice}&quot; {report.unsupported ? 'has no app window (not a Chromium-family browser)' : 'was not found'}, so Automatic is used.</div>}
       </div>
       <div style={{ ...note, marginTop: '4px' }}>
-        Used by <code>arco open</code>, the Arco shortcut and the explorer window. Automatic uses the first browser in the list. <code>arco open --browser &lt;name-or-path&gt;</code> overrides the choice once.
+        Used by <code>arco open</code>, the Arco shortcut and the explorer window. Automatic picks the first found; other installed builds can be chosen from the list. <code>arco open --browser &lt;name-or-path&gt;</code> overrides the choice once.
       </div>
       {error && <div role="alert" style={{ ...note, color: 'var(--color-warning)' }}>{error}</div>}
     </div>

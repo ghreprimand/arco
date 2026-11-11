@@ -198,9 +198,23 @@ export const gettingStarted: Section[] = [
   Flatpak installs.
   </p>
   <p>
+  Additional builds appear separately: stable, beta, dev,
+  nightly, Brave Origin, ungoogled Chromium and Thorium where detected. Linux also
+  reads standard desktop entries and Snap wrappers, macOS reads application bundle
+  identifiers, and Windows reads registered browser clients and channel folders.
+  Automatic keeps the previous first-found preference while it remains installed;
+  additional builds follow in stability order, then system before user installs.
+  </p>
+  <p>
   To pick one, open <Code>⚙ SETTINGS &gt; Advanced &gt; App window browser</Code>.
   Choose a detected browser, or Another program for a program name or full path.
-  The line below the list shows what the window opens in now.
+  </p>
+  <p>
+  The line below the list shows what the window opens in now and its version when
+  safely available. Other installed builds can be chosen from the list. Distinct
+  installations have separate choices; duplicate names include a path. Detection
+  never opens a browser window. AppImages and unproven wrapper scripts are not
+  version-probed; a proven native wrapper target may supply a version.
   </p>
   <p>
   <Code>arco open --browser &lt;name-or-path&gt;</Code> uses a browser once, for

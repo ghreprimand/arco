@@ -82,7 +82,7 @@ Sections: 28.
 | `media-access` | Files and media | Media folder access | Global | Outside-folder access switch, allowed folders, revoke all |
 | `preview-ports` | Advanced | Preview ports and remote access | Global, for new previews | PREVIEW PORTS, normally 4300-4309; ARCO_PREVIEW_PORTS override, lazy port use, firewall and forwarding guidance; the field waits for SAVE to finish before further editing |
 | `transport-defaults` | Advanced | Transport defaults | Global, for new workflows | Codex (default app-server) and Claude (default native) transport defaults for new workflows |
-| `app-window-browser` | Advanced | App window browser | Global | Automatic (first detected Chromium-family browser), a detected browser, or another program name or path; used by `arco open`, the Arco shortcut and the explorer window; a missing choice falls back to Automatic |
+| `app-window-browser` | Advanced | App window browser | Global | Automatic (first found, preserving the existing preference), a detected installation/channel, or another program name or path; used by `arco open`, the Arco shortcut and the explorer window; a missing choice falls back to Automatic |
 | `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release and date, CHECK NOW, update action or copyable command, Check for new releases, Updating Arco link; Claude, Codex CLI and Ollama daemon versions |
 
 ## Appearance and browser rendering
@@ -214,3 +214,19 @@ A refused or incomplete global settings response leaves the previous settings an
 Workflow CONFIG reports a metadata write failure as a temporary change in the running tab. The change may be lost after restart; retry the save after storage is available. Auto-compaction retains its previous policy if its save fails.
 
 A combined north-star and goal-run update validates the new goal before changing settings. Clearing the goal while arming a run is refused. Fresh workers, replacements and Native Task children keep the standing goal but start without an armed run.
+
+
+App window browser lists separate supported builds, including stable, beta, dev,
+nightly, Brave Origin, ungoogled Chromium and Thorium where detected. Linux reads
+known PATH commands, standard desktop entries, Flatpak exports/metadata and Snap
+wrappers. macOS reads standard application bundles by identifier and executable;
+Windows reads App Paths, registered browser clients and known install folders.
+Duplicate names include the program path in the local list. Saved installations
+remain selected while present; old family-name choices remain supported.
+Automatic preserves the previous first-found browser when it is still installed.
+New discoveries follow it, ordered by stable, beta, dev/snapshot and nightly/canary,
+then system before user installations. Other installed builds can be chosen from
+the list. Opens in includes a version when a safe native executable is known.
+A proven wrapper target can supply that version; scripts and AppImages are never
+run to detect a version. Failed version reads remain unknown for ten minutes.
+No browser window opens while discovering programs or versions.

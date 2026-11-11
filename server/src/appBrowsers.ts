@@ -4,6 +4,9 @@
 // package or the source checkout (server/src and server/dist sit two levels
 // below the root).
 
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { stat } from 'node:fs/promises';
 import { readSettings } from './settings.js';
 
 export interface AppBrowser {
@@ -13,10 +16,13 @@ export interface AppBrowser {
   path: string;
   command: string;
   flatpak?: string;
+  installationId?: string;
+  version?: string;
 }
 interface BrowsersModule {
   findBrowsers(platform: string, env?: NodeJS.ProcessEnv): AppBrowser[];
-  resolveBrowser(choice: string | undefined, platform: string, env?: NodeJS.ProcessEnv): { browser: AppBrowser | null; missing: boolean; unsupported?: boolean };
+  resolveBrowser(choice: string | undefined, platform: string, env?: NodeJS.ProcessEnv, deps?: { browsers: AppBrowser[] }): { browser: AppBrowser | null; missing: boolean; unsupported?: boolean };
+  browserVersionTarget(browser: AppBrowser, platform?: string): string | null;
   launchCommand(browser: AppBrowser, url: string, profile?: string): [string, string[]];
 }
 
@@ -32,22 +38,49 @@ export interface AppBrowserReport {
   // The saved choice; null means Automatic.
   choice: string | null;
   // Installed browsers in search order (the first is the Automatic choice).
-  browsers: Array<Pick<AppBrowser, 'id' | 'name' | 'path'>>;
+  browsers: Array<Pick<AppBrowser, 'id' | 'name' | 'path' | 'version'>>;
   // What a window would open in now, or null for a normal browser tab.
-  using: Pick<AppBrowser, 'id' | 'name' | 'path'> | null;
+  using: Pick<AppBrowser, 'id' | 'name' | 'path' | 'version'> | null;
   // The saved choice was not found; Automatic is used instead.
   missing: boolean;
   // The saved choice names a browser without an app window (Firefox, Safari).
   unsupported: boolean;
 }
 
-const view = (b: AppBrowser) => ({ id: b.id, name: b.name, path: b.path });
+const view = (b: AppBrowser) => ({ id: b.installationId || b.id, name: b.name, path: b.path });
+const exec = promisify(execFile);
+// Failures share the cache too: opening Settings must not repeatedly probe an
+// unsupported or stuck build. No scripts, AppImages or browser windows run.
+export class BrowserVersionCache {
+  private values = new Map<string, { expires: number; value: Promise<string | undefined> }>();
+  constructor(private read: (target: string, platform: string, env: NodeJS.ProcessEnv) => Promise<string | undefined> = async (target, platform, env) => {
+    const options = { env, timeout: 1000, killSignal: 'SIGKILL' as const, windowsHide: true, maxBuffer: 16 * 1024 };
+    const { stdout } = platform === 'win32'
+      ? await exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '(Get-Item -LiteralPath $env:ARCO_BROWSER_VERSION_FILE).VersionInfo.ProductVersion'], { ...options, env: { ...env, ARCO_BROWSER_VERSION_FILE: target } })
+      : await exec(target, ['--version'], options);
+    return stdout.match(/\b\d+(?:\.\d+){1,4}(?:[-.][a-z0-9]+)?\b/i)?.[0];
+  }) {}
+  async get(target: string, platform: string, env: NodeJS.ProcessEnv): Promise<string | undefined> {
+    let key = target;
+    try { const file = await stat(target); key += `:${file.size}:${file.mtimeMs}`; } catch { return undefined; }
+    const previous = this.values.get(key);
+    if (previous && previous.expires > Date.now()) return previous.value;
+    if (this.values.size >= 64) this.values.delete(this.values.keys().next().value!);
+    const value = this.read(target, platform, env).catch(() => undefined);
+    this.values.set(key, { expires: Date.now() + 10 * 60_000, value });
+    return value;
+  }
+}
+const versions = new BrowserVersionCache();
 
 export async function appBrowserReport(platform: string = process.platform, env: NodeJS.ProcessEnv = process.env): Promise<AppBrowserReport> {
   const mod = await browsersModule();
   const choice = (await readSettings()).appWindowBrowser ?? null;
-  const { browser, missing, unsupported } = mod.resolveBrowser(choice ?? undefined, platform, env);
-  return { platform, choice, browsers: mod.findBrowsers(platform, env).map(view), using: browser ? view(browser) : null, missing, unsupported: unsupported === true };
+  const installed = mod.findBrowsers(platform, env);
+  const { browser, missing, unsupported } = mod.resolveBrowser(choice ?? undefined, platform, env, { browsers: installed });
+  const target = browser && mod.browserVersionTarget(browser, platform);
+  const version = target ? await versions.get(target, platform, env) : undefined;
+  return { platform, choice, browsers: installed.map(view), using: browser ? { ...view(browser), ...(version ? { version } : {}) } : null, missing, unsupported: unsupported === true };
 }
 
 // The saved choice for a server-opened window, when one is set and found.

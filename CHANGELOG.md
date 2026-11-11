@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- List separate app-window browser installations and channels, including Brave Origin Beta, while preserving existing browser choices.
+
 - Recognize SDK streaming aborts after a Task card CANCEL as cancellation.
 - Claude CLI Chat can use enabled web search and fetch without an unavailable permission prompt.
 

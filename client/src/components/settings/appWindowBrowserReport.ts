@@ -1,10 +1,10 @@
 // The GET /api/app-browsers reply for Settings > Advanced > App window browser.
-export interface BrowserView { id: string; name: string; path: string }
+export interface BrowserView { id: string; name: string; path: string; version?: string }
 export interface Report { platform: string; choice: string | null; browsers: BrowserView[]; using: BrowserView | null; missing: boolean; unsupported?: boolean }
 
 function isBrowser(value: unknown): value is BrowserView {
   const b = value as BrowserView | null;
-  return !!b && typeof b.id === 'string' && typeof b.name === 'string' && typeof b.path === 'string';
+  return !!b && typeof b.id === 'string' && typeof b.name === 'string' && typeof b.path === 'string' && (b.version === undefined || typeof b.version === 'string');
 }
 
 // The reply as a Report, or null when it does not have that shape (an older

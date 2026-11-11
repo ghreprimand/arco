@@ -542,7 +542,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   'settings.app-window-browser': {
     title: 'App window browser',
     manualSection: 'app-window-browser',
-    body: <p>Chooses the browser for <code>arco open</code>, the Arco shortcut and the explorer window. Automatic uses the first Chromium-family browser found on this computer. Pick a detected browser, or Another program for a program name or full path, then SAVE. The status line shows what the window opens in now. A chosen browser that is not found, or that has no app window (Firefox, Safari), falls back to Automatic. <code>arco open --browser &lt;name-or-path&gt;</code> overrides the choice once.</p>,
+    body: <p>Chooses the browser for <code>arco open</code>, the Arco shortcut and the explorer window. Automatic uses the first Chromium-family browser found on this computer. Other installed builds can be chosen from the list, including channels and Brave Origin. Separate installations have separate choices; Automatic preserves the existing first-found preference. Pick a detected browser, or Another program for a program name or full path, then SAVE. The status line shows what the window opens in now and its version when safely available. Discovery never opens a browser window; AppImages and unproven wrappers are not version-probed. A chosen browser that is not found, or that has no app window (Firefox, Safari), falls back to Automatic. <code>arco open --browser &lt;name-or-path&gt;</code> overrides the choice once.</p>,
   },
   'settings.cli-versions': {
     title: 'CLI versions',

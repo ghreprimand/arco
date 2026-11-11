@@ -166,7 +166,7 @@ notice. `arco open` and shortcuts follow the saved address; `arco doctor` shows
 its status.
 
 `arco open` and the shortcut open Arco in an app window of Chrome, Edge, Brave,
-Vivaldi or Chromium, including Flatpak installs on Linux. Choose which one in
+Vivaldi or Chromium, including supported channel builds, Brave Origin, ungoogled Chromium, Thorium and Flatpak/Snap installs on Linux. Choose which one in
 **Settings > Advanced > App window browser**, or once with
 `arco open --browser <name-or-path>`. Firefox and Safari work as normal tabs;
 Arco shows a one-time notice there because it runs lighter in a Chromium-family
