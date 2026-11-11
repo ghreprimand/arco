@@ -82,7 +82,8 @@ releaseLiveChangesForSocket
 } from './liveChanges.js';
 import {
 wireSnapshot as quotaWireSnapshot,
-setChangeListener as setQuotaListener
+setChangeListener as setQuotaListener,
+announcesRecovery
 } from './quota.js';
 import {
 acquirePlansWatcher,
@@ -578,9 +579,8 @@ setQuotaListener((provider, next) => {
   for (const ws of sessions.keys()) {
     try { send(ws, msg); } catch { /* socket may already be torn down */ }
   }
-  // §J1 — markAvailable only fires the listener on a real throttled→available
-  // flip, so a non-throttled state here IS a recovery worth a notice.
-  if (!next.throttled) notifyQuotaRecovered(provider);
+  // Clear and Recheck usage forget the error; they do not verify recovery.
+  if (announcesRecovery(next)) notifyQuotaRecovered(provider);
 });
 
 

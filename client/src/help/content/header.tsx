@@ -284,8 +284,14 @@ export const headerHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         This warning appears when a provider is throttled. Open it to see the
-        affected providers and their known reset times. It remains visible in
-        focus mode. Context usage remains in each worker header.
+        affected providers and their known reset times. Clear forgets a remembered
+        limit and restores future eligibility, but does not re-arm a stopped goal
+        run. A limit still in force returns on the next turn. Recheck usage reads
+        Codex or Claude allowance without a model turn; when usage shows headroom
+        it clears the notice, and the next turn shows the limit again if the
+        provider is still limiting requests.
+        The server clears known resets automatically; the browser also hides expired
+        rows after a two-second clock grace period. The chip stays in focus mode.
       </p>
     ),
   },

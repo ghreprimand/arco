@@ -186,7 +186,7 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Local-reviewer addendum** - Extra prompt addendum (`LOCAL_REVIEWER_ADDENDUM` in `runReviewer.ts`) appended to the base review framing when the reviewer's provider is `ollama` or `llamacpp`. Tells the local reviewer to use its read-only tools (Read, Grep, Glob, WebSearch, WebFetch) to verify diff claims against the live tree, not just opine on the diff text. Verdict rule: PASS only if tools were used and nothing came back wrong. See [`PRIMITIVES.md section Local-reviewer addendum`](PRIMITIVES.md).
 
-**Quota** - Per-provider throttle state tracked in `server/src/quota.ts`. Surfaced as `quota_status` events and the QuotaBadge in the UI. Detected from rate-limit responses; recovers automatically when `resetsAt` passes.
+**Quota** - Per-provider throttle state tracked in `server/src/quota.ts`. Surfaced as `quota_status` events and `WorkflowStatusChip` in the UI. Detected from rate-limit responses; recovers through a scheduled broadcast when `resetsAt` passes, an explicit Clear, or a Codex/Claude usage recheck showing headroom in the throttling panel.
 
 **Ready task** - A task in the `ready` status: all dependency parents are `done`, and no open run exists. The dispatcher treats `ready` as the only eligible status for automatic dispatch. A task at `blocked` (explicit operator block) or with unfinished parents is not eligible regardless of other fields.
 

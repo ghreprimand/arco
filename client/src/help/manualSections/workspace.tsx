@@ -41,8 +41,15 @@ export const workspace: Section[] = [
           <li>
             <strong>Provider throttling</strong> - appears only when a provider
             is throttled. Open it for affected providers and known reset times.
-            The warning stays visible in focus mode. Context usage stays in
-            each worker header.
+            Clear forgets a remembered limit and restores future eligibility;
+            it does not re-arm a stopped goal run. If the limit still applies,
+            the next turn shows it again. Recheck usage refreshes Codex or Claude
+            allowance without a model turn. When usage shows headroom it clears
+            the notice; the meter cannot verify the account or model that was
+            limited, so the next turn shows the limit again if it still applies.
+            Exhausted or unavailable usage leaves the notice. Known reset times clear
+            automatically, with a two-second browser clock grace period. The
+            warning stays visible in focus mode.
           </li>
           <li>
             <strong>Providers panel</strong> - click <Code>VERSIONS</Code> beside the

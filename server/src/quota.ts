@@ -2,13 +2,10 @@
 // disk per §6.2); server restart resets every provider to `available` and
 // observed errors re-flip them as needed.
 //
-// API: providers call markThrottled on detected throttle, markAvailable on
-// successful init/completion. Orchestrator consults buildQuotaInjection at
-// first-turn context build to route away from throttled providers. Review
-// layer consults isAvailable to pick a reviewer.
-//
-// No active probing (§6.5) — recovery is detected passively: lazy scheduled
-// clear at resetsAt when known, observed-success clear regardless.
+// Providers mark observed limits and successful recovery. Goal-run continuation
+// consults isAvailable; manual turns, queues and cluster routing do not.
+// Known resets have unref'ed timers; lazy reads remain a fallback. Operators
+// can explicitly clear a remembered limit without claiming provider recovery.
 //
 // Broadcasts: state mutations fire the change listener; index.ts wires it up
 // to send a QuotaStatusMessage to all connected sessions (§6.6). The listener
@@ -16,7 +13,7 @@
 
 import type { ProviderName } from '@arco/shared';
 
-export type ThrottleSource = 'observed-error' | 'parsed-header' | 'manual-probe' | 'default-available';
+export type ThrottleSource = 'observed-error' | 'parsed-header' | 'manual-probe' | 'manual-clear' | 'default-available';
 
 export interface QuotaState {
   throttled: boolean;
@@ -26,7 +23,7 @@ export interface QuotaState {
   sourceOfTruth: ThrottleSource;
 }
 
-const PROVIDERS: ProviderName[] = ['claude',  'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek'];
+const PROVIDERS: ProviderName[] = ['claude', 'cursor', 'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek'];
 
 function defaultState(): QuotaState {
   return { throttled: false, sourceOfTruth: 'default-available' };
@@ -34,6 +31,29 @@ function defaultState(): QuotaState {
 
 const state = new Map<ProviderName, QuotaState>();
 for (const p of PROVIDERS) state.set(p, defaultState());
+
+const resetTimers = new Map<ProviderName, ReturnType<typeof setTimeout>>();
+const MAX_TIMER_MS = 2_147_483_647;
+function cancelReset(provider: ProviderName): void {
+  const timer = resetTimers.get(provider);
+  if (timer) clearTimeout(timer);
+  resetTimers.delete(provider);
+}
+function scheduleReset(provider: ProviderName): void {
+  cancelReset(provider);
+  const current = state.get(provider);
+  if (!current?.throttled || current.resetsAt === undefined || !Number.isFinite(current.resetsAt)) return;
+  const delay = Math.max(0, Math.min(MAX_TIMER_MS, current.resetsAt - Date.now()));
+  const timer = setTimeout(() => {
+    resetTimers.delete(provider);
+    const latest = state.get(provider);
+    if (!latest?.throttled || latest.resetsAt === undefined) return;
+    if (latest.resetsAt <= Date.now()) markAvailable(provider, 'parsed-header');
+    else scheduleReset(provider); // chunk dates beyond the platform timer limit
+  }, delay);
+  timer.unref();
+  resetTimers.set(provider, timer);
+}
 
 type ChangeListener = (provider: ProviderName, state: QuotaState) => void;
 let listener: ChangeListener | null = null;
@@ -45,8 +65,7 @@ export function setChangeListener(fn: ChangeListener | null): void {
 
 export function markThrottled(provider: ProviderName, errorText: string, resetsAt?: number): void {
   const prev = state.get(provider) ?? defaultState();
-  // Debounce: if already throttled with the same reset time, skip the broadcast
-  // churn. Fresh observed error always updates lastError/lastErrorAt though.
+  // Each observation updates the error, replaces its reset timer and broadcasts.
   const next: QuotaState = {
     throttled: true,
     resetsAt: resetsAt ?? prev.resetsAt,
@@ -55,6 +74,7 @@ export function markThrottled(provider: ProviderName, errorText: string, resetsA
     sourceOfTruth: resetsAt !== undefined ? 'parsed-header' : 'observed-error',
   };
   state.set(provider, next);
+  scheduleReset(provider);
   const resetTag = next.resetsAt ? ` (resets ${new Date(next.resetsAt).toISOString()})` : '';
   if (!prev.throttled) {
     console.log(`[arco] quota: ${provider} → throttled${resetTag}`);
@@ -64,23 +84,31 @@ export function markThrottled(provider: ProviderName, errorText: string, resetsA
   listener?.(provider, next);
 }
 
-export function markAvailable(provider: ProviderName): void {
+export function markAvailable(provider: ProviderName, source: ThrottleSource = 'observed-error'): void {
+  cancelReset(provider);
   const prev = state.get(provider);
   if (prev && !prev.throttled) return;
-  const next: QuotaState = { throttled: false, sourceOfTruth: 'observed-error' };
+  const next: QuotaState = { throttled: false, sourceOfTruth: source };
   state.set(provider, next);
   console.log(`[arco] quota: ${provider} → available`);
   listener?.(provider, next);
 }
 
+/**
+ * Whether a state change is a recovery worth a "quota recovered" notice.
+ * Manual Clear and a usage recheck only forget the remembered limit; the
+ * meter does not prove the limited account or model recovered.
+ */
+export function announcesRecovery(next: Pick<QuotaState, 'throttled' | 'sourceOfTruth'>): boolean {
+  return !next.throttled && next.sourceOfTruth !== 'manual-clear' && next.sourceOfTruth !== 'manual-probe';
+}
+
 export function isAvailable(provider: ProviderName): boolean {
   const s = state.get(provider);
   if (!s || !s.throttled) return true;
-  // Lazy scheduled clear: if we know when the throttle expires and we're past
-  // it, flip to available. Broadcasts via markAvailable so UI + injection
-  // catch up on next state change.
-  if (s.resetsAt && Date.now() >= s.resetsAt) {
-    markAvailable(provider);
+  // Lazy fallback for reads racing the scheduled reset callback.
+  if (s.resetsAt !== undefined && Date.now() >= s.resetsAt) {
+    markAvailable(provider, 'parsed-header');
     return true;
   }
   return false;
@@ -111,8 +139,7 @@ export function wireSnapshot(): Record<ProviderName, { throttled: boolean; reset
 }
 
 /**
- * First-turn PROVIDER STATUS block injected into the orchestrator context
- * alongside memory + build-log + catalog. Returns empty string when every
+ * Legacy PROVIDER STATUS formatter, currently without live callers. Returns empty string when every
  * provider is available — no need to clutter the prompt when routing is
  * unconstrained. See §6.4 for the format.
  */
@@ -142,9 +169,7 @@ export function buildQuotaInjection(): string {
  * reviewer used when the preferred reviewer's provider is throttled. Returns
  * null for models that intentionally skip review (ollama / heretic).
  *
- * Used by modes/review.ts when a preferred reviewer is unavailable. Keep the
- * table next to quota-state so the fallback logic sits with the throttle
- * surface it's reacting to.
+ * Legacy helper, currently without live callers. Kept for a separate cleanup.
  */
 export interface ReviewerFallback {
   model: string;

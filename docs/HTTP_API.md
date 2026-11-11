@@ -1926,6 +1926,28 @@ button); `source`, account uncertainty, freshness and timestamps stay in the res
 ordering; newer auth binding observations invalidate obsolete displayed snapshots. Subscription
 allowance remains separate from request-token usage and context occupancy.
 
+### `POST /api/provider-throttle`
+
+Authenticated, same-origin operator control. Accepts a bounded JSON body
+`{ "provider": "codex", "action": "clear" }` or `"action": "recheck"`.
+Clear supports every provider and returns `{ ok: true, providers }`, removing
+its remembered error/reset and broadcasting the updated snapshot to all browsers.
+It restores future eligibility without re-arming a stopped goal run. An actual
+limit still in force is observed again on the next turn.
+
+Recheck supports Codex and Claude only. It refreshes their existing model-free
+usage meter and returns `{ ok: true, usage: { status, message, cleared }, providers }`,
+with status `headroom`, `exhausted` or `unavailable` and the current snapshot.
+On `headroom` it clears the remembered limit through the same central state
+change as Clear (source `manual-probe`, broadcast to all browsers, no recovery
+notice) and sets `cleared: true`. A newer limit recorded while the meter was
+being read is kept (`cleared: false`). `exhausted` and `unavailable` never change
+throttle state. The meter cannot certify recovery for the account/model that
+originally failed; a limit still in force is observed again on the next turn. It starts
+no model turn or login browser. Invalid inputs return 400, oversized bodies 413,
+and other methods 405. Requests without a session or from a forbidden origin
+are rejected by the common API guards.
+
 ### `POST /api/debug/throttle?provider=<claude|codex|ollama>[&resets=<epochMs>][&clear=1]`
 
 Test and acceptance helper for provider quota indicators. The provider value marks that provider throttled until `resets` (default: 30 minutes from the request); `clear=1` clears the throttle. Returns `{ ok: true, providers }` with the current quota snapshot, or `400` for an unsupported provider. This endpoint changes in-memory quota state only and does not call a provider.

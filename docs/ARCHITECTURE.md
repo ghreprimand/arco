@@ -482,7 +482,11 @@ Opening a repo Arco hasn't seen before suppresses its project-local `CLAUDE.md`,
 
 ### Quotas
 
-`server/src/quota.ts` tracks per-provider throttle state. Providers detect throttling from stderr / API responses (Claude rate-limit text; Codex 429 + Retry-After) and call `markThrottled(provider, errorText, resetsAt?)`. The state listener broadcasts `quota_status` on every change and on every WS connect. UI's `QuotaBadge` reflects this. Lazy recovery: once `resetsAt` passes, `isAvailable` flips automatically.
+`server/src/quota.ts` tracks per-provider throttle state. Providers detect throttling from stderr / API responses (Claude rate-limit text; Codex 429 + Retry-After) and call `markThrottled(provider, errorText, resetsAt?)`. The state listener broadcasts `quota_status` on every change and on every WS connect. `WorkflowStatusChip` reflects it. Each known `resetsAt` schedules one unreferenced timer; updates replace it and clears cancel it. Long deadlines are chunked below the platform timer limit, and past deadlines expire on the next timer tick. Lazy reads remain a fallback.
+
+`POST /api/provider-throttle` clears an explicitly chosen provider through the central state, immediately broadcasting to connected browsers. Codex and Claude usage rechecks use existing model-free meters; a fresh headroom result clears the remembered limit through `markAvailable(provider, 'manual-probe')` unless a newer limit arrived during the read. Exhausted or unavailable results change nothing. Because provider state lacks account/model identity, neither Clear nor a recheck emits the quota-recovered notice (`announcesRecovery`); a limit still in force returns on the next turn. The browser independently hides expired rows on a one-second clock tick with two seconds of grace and accepts a fresh snapshot on reconnect.
+
+The active execution consumer is goal-run continuation eligibility. Clearing restores future eligibility, never re-arms an already stopped run, and does not enqueue a model request. Manual turns, queues, cluster pickup and reviewer choice do not currently consult this state. `buildQuotaInjection` and `crossFamilyFallback` remain legacy helpers without live callers.
 
 ### System notices
 
@@ -857,7 +861,7 @@ Plans are explicitly attached, not auto-bound - the same plan can be attached to
 | `contextCalibrator.ts` | Ground-truth calibration via `claude --resume <sid> --print "/context"`. Parses Claude's markdown report, computes per-session `ratio`/`overhead`, persists to `meta.calibration`. Zone-gated (zones E/A/B/C); idle-only. |
 | `usage.ts` | Probes Claude's 5-hour and weekly usage from the OAuth API (`https://api.anthropic.com/api/oauth/usage`). Caches at 2-minute TTL. Drives the `UsageBar` in the SystemHeader. |
 | `auth.ts` | Per-provider auth status + login triggers. Handles the terminal-spawn for Codex OAuth flows (with TERMINAL fallback chain). Wraps `gh auth status` for GitHub. |
-| `quota.ts` | Per-provider throttle state. Process-local (not persisted; restart re-flips on observed errors). `markThrottled(provider, error, resetsAt?)` and `markAvailable(provider)`. Lazy passive recovery via `resetsAt`. |
+| `quota.ts` | Per-provider throttle state. Process-local (not persisted; restart re-flips on observed errors). `markThrottled(provider, error, resetsAt?)` and `markAvailable(provider)`. Scheduled reset recovery, explicit operator clear and lazy-read fallback. |
 | `capabilities.ts` | Probes each provider CLI's `--version` and help output. Snapshots persist to `~/.arco/cli-snapshots/`. Computes `cliChanges[]` between boots. |
 | `crashRecovery.ts` | Boot-time scan of `~/.arco/known-cwds.json` for workflows active in the last 24h; pre-inits workflowStore so seq continuity holds across restart. |
 | `workers/pidRegistry.ts` | Tracks live worker PIDs in `~/.arco/worker-pids.json`. Each pid is stored with its process start time (`processStartTime.ts`, read off the server thread where that needs a process); `reapOrphanWorkers` SIGKILLs a listed pid on boot only when its live start time still matches (`durablePidRegistry.ts`). The terminal PTY pool has its own parallel registry at `terminal/ptyPidRegistry.ts`. |

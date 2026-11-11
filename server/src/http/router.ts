@@ -149,6 +149,7 @@ import { tryHandleFileWriteRoutes } from './fileWriteRoutes.js';
 import { tryHandleGithubRoutes } from './githubRoutes.js';
 import { tryHandleSearchRoutes } from './searchRoutes.js';
 import { tryHandleRecallRoutes } from './recallRoutes.js';
+import { tryHandleProviderThrottleRoutes } from './providerThrottleRoutes.js';
 import { tryHandleUsageStatsRoutes } from './usageStatsRoutes.js';
 import { tryHandleEndpointDiscoveryRoutes } from './endpointDiscoveryRoutes.js';
 import { tryHandleDiagnosticsRoutes } from './diagnosticsRoutes.js';
@@ -310,6 +311,7 @@ export async function handleHttpRequest(
 
   // Operator routes in their own modules: behind the session gate like every
   // other /api route (they read or change settings and can call providers).
+  if (await tryHandleProviderThrottleRoutes(req, res)) return;
   if (await tryHandleSmartPickupRoutes(req, res)) return;
   if (await tryHandleTidyRoutes(req, res)) return;
   if (await tryHandleUtilityAgentRoutes(req, res)) return;
