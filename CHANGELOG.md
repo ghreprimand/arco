@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Tell Claude Native parents when the operator cancels a sub-agent, including queued work, and ask them to count the cancellation without starting a replacement unless requested.
+
 - Claude Native sub-agents default to four running at once and eight starts per parent turn, including existing installs. Settings and per-tab controls adjust both limits and optionally override the agent's model choice. Queued tasks can be cancelled; task rows retain their model and the waiting strip counts pending children.
 
 - List separate app-window browser installations and channels, including Brave Origin Beta, while preserving existing browser choices.

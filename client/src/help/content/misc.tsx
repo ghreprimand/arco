@@ -273,7 +273,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   'chat.task-card': {
     title: 'Task sub-agent (Native)',
     body: (
-      <p>Native task rows show QUEUED before a child starts and retain the effective model after reload. CANCEL removes queued work or stops a running child. PROMOTE appears after a child exists.
+      <p>Native task rows show QUEUED before a child starts and retain the effective model after reload. CANCEL removes queued work or stops a running child. The parent is told the operator cancelled it, to count it as cancelled, and not to replace it unless requested; this is a model instruction. PROMOTE appears after a child exists.
         The Native worker called the <C>Task</C> tool: this card represents a
         first-class child workflow scoped to its parent. Status:{' '}
         <C>running</C> / <C>done</C> / <C>error</C> / <C>cancelled</C>; the{' '}

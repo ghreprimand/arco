@@ -4132,6 +4132,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     const request = new AbortController();
     const requestId = `task-${crypto.randomUUID()}`;
     this.taskRequests.set(requestId, request);
+    const operatorCancellation = () => `Task ${requestId}: the operator cancelled this sub-agent. Do not start a replacement unless the operator asks. Count this task as cancelled in your final reply.`;
     let queued = false;
     let chosenModel: string | undefined;
     let handle: TaskSpawnHandle;
@@ -4166,9 +4167,11 @@ export class ClaudeNativeWorker extends EventEmitter {
         this.emit('task_status', { taskId: requestId, toolUseId: args.toolUseId, phase: /AbortError/.test(text) ? 'cancelled' : 'error', elapsedMs: 0, summary: text.slice(0, 200) });
       }
       this.taskRequests.delete(requestId);
+      if (request.signal.aborted && !turn.signal.aborted) return operatorCancellation();
       throw err;
     }
     this.taskRequests.delete(requestId);
+    this.taskRequests.set(handle.taskId, request);
     this.unsettledTasks.delete(requestId);
     this.tasksByTaskId.set(handle.taskId, handle);
     const startedAt = Date.now();
@@ -4199,7 +4202,10 @@ export class ClaudeNativeWorker extends EventEmitter {
           summary: phase === 'cancelled' ? 'Cancelled.' : msg.slice(0, 200),
         });
       }
+      if (request.signal.aborted && !turn.signal.aborted) return operatorCancellation();
       return `[error] Task ${handle.taskId} failed: ${msg.slice(0, 500)}`;
+    } finally {
+      this.taskRequests.delete(handle.taskId);
     }
     if (!this.unsettledTasks.delete(handle.taskId)) return finalText;
     this.emit('task_status', {
@@ -4222,10 +4228,10 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   cancelTask(taskId: string): boolean {
     const request = this.taskRequests.get(taskId);
-    if (request) { request.abort(); return true; }
     const handle = this.tasksByTaskId.get(taskId);
-    if (handle) { handle.cancel(); return true; }
-    return false;
+    if (request) request.abort();
+    if (handle) handle.cancel();
+    return !!(request || handle);
   }
 
   private async handleReadTaskOutput(taskId: string): Promise<string> {

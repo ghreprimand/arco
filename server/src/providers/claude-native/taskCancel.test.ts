@@ -99,3 +99,28 @@ test('SDK abort reported as a plain Error after cancel is classified as Worker k
     assert.deepEqual(s.order, ['error Worker killed']);
   } finally { await s.done(); }
 });
+
+for (const phase of ['queued', 'running']) {
+  test(`row CANCEL gives the parent explicit operator cancellation instructions for ${phase} work`, async () => {
+    const worker: any = new ClaudeNativeWorker({ workflowId: 'fixture', config: { model: 'haiku', effort: 'low' } });
+    let taskId = ''; let reject!: (error: Error) => void;
+    worker.setTaskHandler(async (args: any) => {
+      taskId = args.taskId;
+      args.onQueued('haiku');
+      const finalText = new Promise<string>((_resolve, fail) => { reject = fail; });
+      if (phase === 'queued') {
+        args.signal.addEventListener('abort', () => reject(new Error('AbortError: Task cancelled')), { once: true });
+        return await finalText;
+      }
+      return { taskId, childWorkflowId: 'fixture-child', finalText, read: () => ({ output: '', settled: false }), cancel: () => reject(new Error('AbortError: child stopped')) };
+    });
+    try {
+      const pending = worker.handleSpawnTask({ description: 'Fixture', prompt: 'work', toolUseId: 'tool' });
+      await new Promise((resolve) => setImmediate(resolve));
+      assert.equal(worker.cancelTask(taskId), true);
+      const result = await pending;
+      assert.equal(result, `Task ${taskId}: the operator cancelled this sub-agent. Do not start a replacement unless the operator asks. Count this task as cancelled in your final reply.`);
+      assert.equal(worker.hasActiveTask(taskId), false);
+    } finally { await worker.dispose(); }
+  });
+}
