@@ -84,3 +84,47 @@ test('saved app-server Chat keeps its provider session when the next message run
   assert.equal(worker.config.resumeSessionId,session);
   assert.ok(args.includes('features.shell_tool=false'));
 });
+
+for (const web of [false,true]) for (const resume of [false,true]) test(`WEB ${web ? 'armed' : 'off'} ${resume ? 'resume' : 'start'} preserves the required host policy`,()=>{
+  const worker=CodexProvider.create('web-policy',{...base,chatWebAccess:web,...(resume?{resumeSessionId:'fixture-thread'}:{})}) as any;
+  worker.chatOverrides=codexChatOverrides(listedFeatures,web);
+  const args=worker.buildArgs();
+  assert.ok(args.includes(`features.code_mode_host=${web}`));
+  assert.ok(args.includes('features.code_mode=false'));
+  assert.ok(args.includes('features.shell_tool=false'));
+  assert.ok(args.includes('features.view_image=false'));
+  assert.ok(args.includes(`web_search="${web?'live':'disabled'}"`));
+});
+test('WEB capability checks require an enabled host and keep every other listed reader off',()=>{
+  const webProbe={...validProbe,features:validProbe.features.replace('code_mode_host stable false','code_mode_host stable true')};
+  assert.equal(supportsCodexChat(webProbe,true),true);
+  assert.equal(supportsCodexChat(validProbe,true),false);
+  assert.equal(supportsCodexChat({...webProbe,features:webProbe.features.replace('code_mode_host stable true','code_mode_host removed true')},true),false);
+  assert.equal(supportsCodexChat(webProbe,false),false);
+  assert.equal(supportsCodexChat({...webProbe,features:webProbe.features.replace('shell_tool stable false','shell_tool stable true')},true),false);
+  assert.equal(supportsCodexChat({...webProbe,listedFeatures:'shell_tool stable true\nview_image stable true'},true),false);
+});
+
+test('capability cache follows WEB changes and probes the matching overrides',async t=>{
+  const childProcess=(await import('node:child_process')).default;
+  const {syncBuiltinESMExports}=await import('node:module');
+  const {requireCodexChatCapabilities}=await import('./codexChatBoundary.js');
+  const probes:string[][]=[];
+  t.mock.method(childProcess,'spawnSync',((_command:string,args:string[])=>{
+    probes.push(args);
+    const stdout=args.includes('--version')?validProbe.version:args.includes('--help')?validProbe.execHelp:
+      args.includes('-c')?validProbe.features.replace('code_mode_host stable false',`code_mode_host stable ${args.includes('features.code_mode_host=true')}`):listedFeatures;
+    return {status:0,stdout};
+  }) as any);
+  syncBuiltinESMExports();
+  try {
+    const probeHome=join(home,'web-cache');
+    assert.ok(requireCodexChatCapabilities(probeHome,false).includes('features.code_mode_host=false'));
+    assert.ok(requireCodexChatCapabilities(probeHome,true).includes('features.code_mode_host=true'));
+    assert.equal(probes.length,10,'WEB change must invalidate a cached off policy');
+    requireCodexChatCapabilities(probeHome,true);
+    assert.equal(probes.length,10,'same WEB policy should reuse its cached capability result');
+    assert.ok(requireCodexChatCapabilities(probeHome,false).includes('features.code_mode_host=false'));
+    assert.equal(probes.length,10,'switching back within expiry should reuse the earlier policy');
+  }finally{t.mock.restoreAll();syncBuiltinESMExports();}
+});

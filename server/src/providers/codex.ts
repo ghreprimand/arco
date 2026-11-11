@@ -83,7 +83,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
 
   spawn(prompt: string): void {
     if (this.config.interactionMode === 'chat' && !this.config.voiceOperator) {
-      try { this.chatOverrides = requireCodexChatCapabilities(this.config.codexHome); }
+      try { this.chatOverrides = requireCodexChatCapabilities(this.config.codexHome, this.config.chatWebAccess === true); }
       catch (error) { this._status = 'failed'; this.emit('error', (error as Error).message); return; }
     }
     if (!this.config.attachments?.length) { this.spawnPrepared(prompt); return; }

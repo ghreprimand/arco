@@ -449,7 +449,7 @@ export const providers: Section[] = [
   <p>Both Codex transports explicitly enable live web search in Agent tabs.
   Chat follows its web-access toggle, including resumed exec turns.</p>
   <p>Ordinary Codex Chat always uses <Code>exec</Code>, even when settings or a saved tab select app-server. Saved app-server conversations resume the same Codex session ID on exec, preserving provider history. Its header shows EXEC.</p>
-  <p>Shell, local image readers, extensions, hooks, skills and project instructions are disabled on start and resume; user config and rules are excluded. Unsupported installations refuse the message before a model turn.</p>
+  <p>Shell, local image readers, extensions, hooks, skills and project instructions are disabled on start and resume; user config and rules are excluded. WEB enables the exec host for live web tools while the other restrictions stay in force; WEB off disables the host. Unsupported installations refuse the message before a model turn.</p>
   <p>Word and other documents arrive as text; attached images remain explicit image inputs. There is no mid-turn steering; send the next message after the reply. Native compaction and structured questions require an Agent tab on app-server. Computer mode keeps its separate privileged transport.</p>
   <Sub>App-server features</Sub>
   <p>
