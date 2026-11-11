@@ -28,3 +28,7 @@ a regenerated image must be reviewed again before its digest is changed.
 Images are captured at a device scale factor of 2 (a 1920x1080 layout saved at
 3840x2160) and encoded with `cwebp -q 85 -sharp_yuv -m 6`, which keeps
 full-resolution colour for small text and gradients at a few hundred KB each.
+
+The fixtures use the default theme and font, 110% interface text size, and a
+fixed synthetic clock in UTC. All project names, conversation text, account
+states and activity figures come from the fixture, not the capture host.

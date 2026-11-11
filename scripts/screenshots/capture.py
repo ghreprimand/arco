@@ -81,7 +81,7 @@ def api_data(path):
     roots = [{'name': 'Projects', 'path': '/projects', 'exists': True}]
     projects = [{'id': f'00000000-0000-4000-8000-{i:012}', 'name': name, 'path': f'/projects/{slug}', 'source': 'registered', 'exists': True, 'rootPath': '/projects', 'pinned': i == 1} for i, (name, slug) in enumerate([('Harbor', 'harbor'), ('Field notes', 'field-notes'), ('Studio', 'studio')], 1)]
     if path == '/api/settings':
-        return {'themeId': 'phosphor:arco:electric', 'fontPackOverride': 'victor-mono-uniform', 'textBrightness': 30, 'uiScale': 1.1, 'projectRoots': roots, 'onboardingComplete': True, 'enabledProviders': {'claude': True, 'codex': False}, 'updateCheck': False}
+        return {'themeId': 'phosphor:arco:electric', 'fontPackOverride': 'victor-mono-uniform', 'textBrightness': 25, 'uiScale': 1.1, 'projectRoots': roots, 'onboardingComplete': True, 'enabledProviders': {'claude': True, 'codex': False}, 'updateCheck': False}
     if path == '/api/auth-status':
         return {key: {'loggedIn': key == 'claude'} for key in ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}
     if path == '/api/installation-history': return {'used': True}
@@ -113,11 +113,17 @@ async def capture(base):
         browser = await playwright.chromium.launch(executable_path=os.environ.get('ARCO_TEST_CHROME') or None)
         try:
             for name in ['home', 'cluster']:
-                context = await browser.new_context(viewport={'width': 1920, 'height': 1080}, device_scale_factor=2)
+                context = await browser.new_context(viewport={'width': 1920, 'height': 1080}, device_scale_factor=2, timezone_id='UTC')
                 state = json.dumps(fixture_state(name == 'cluster'))
                 tasks = [{'id': f'task-{i}', 'title': title, 'status': status, 'links': [], 'notes': '', 'priority': 50, 'parentIds': [], 'blockedReason': '', 'reviewRequired': False, 'goalMode': False, 'createdAt': 1793400000000, 'updatedAt': 1793400000000} for i, (title, status) in enumerate([('Review the release checklist', 'review'), ('Verify the project list', 'in_progress'), ('Update setup guidance', 'todo')], 1)]
                 snapshot = json.dumps({'type': 'task_ledger_snapshot', 'workflowId': 'worker-0', 'cwd': '/projects/harbor', 'boardKey': 'demo', 'tasks': tasks})
-                await context.add_init_script(f"""localStorage.setItem('arco-jobs', {json.dumps(state)}); localStorage.setItem('arco_ui_scale', '1.1');
+                await context.add_init_script(f"""
+                  const RealDate = Date;
+                  window.Date = class extends RealDate {{
+                    constructor(...args) {{ super(...(args.length ? args : [1794004800000])); }}
+                    static now() {{ return 1794004800000; }}
+                  }};
+                  localStorage.setItem('arco-jobs', {json.dumps(state)}); localStorage.setItem('arco_ui_scale', '1.1');
                   localStorage.setItem('arco.clusterSidePanelTab.byCluster', JSON.stringify({{'demo-cluster':'board'}}));
                   class FixtureSocket {{
                     static CONNECTING=0; static OPEN=1; static CLOSING=2; static CLOSED=3;
