@@ -68,6 +68,14 @@ export function setClaudeNativeClusterEventBroadcast(fn: (clusterId: string, msg
   clusterEventBroadcast = fn;
 }
 
+export function isClaudeNativeTaskActive(workflowId: string, taskId: string): boolean {
+  return workersByWorkflow.get(workflowId)?.hasActiveTask(taskId) ?? false;
+}
+
+export function cancelClaudeNativeTask(workflowId: string, taskId: string): boolean {
+  return workersByWorkflow.get(workflowId)?.cancelTask(taskId) ?? false;
+}
+
 // Phase 7b — server-side AskUserQuestion reply routing.
 export function routeClaudeNativeQuestionReply(workflowId: string, questionId: string, reply: string): boolean {
   const worker = workersByWorkflow.get(workflowId);

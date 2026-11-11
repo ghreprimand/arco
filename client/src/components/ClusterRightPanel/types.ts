@@ -39,7 +39,7 @@ export type ClusterMemberPrimaryUpdate = {
   claudeTransport?: 'cli' | 'native';
   claudeNativeCompact?: boolean;
   claudeNativeForceInterleavedThinkingBeta?: boolean;
-  claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates';
+  claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeSubagents?: import('@arco/shared').NativeSubagentPolicy | null;
   nativeCompactAutoContinue?: boolean;
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
   efficiencyFactForce?: 'on' | 'off';

@@ -535,13 +535,14 @@ export function compareHistoryEntries(a: HistoryEventEntry, b: HistoryEventEntry
 
 export interface TaskChildEntry {
   taskId: string;
-  childWorkflowId: string;
+  childWorkflowId?: string;
+  model?: string;
   // Anthropic block.id from the parent assistant's tool_use block. Used as
   // the chat-side lookup key — the inline card matches its host tool_use
   // row by toolUseId. Stable across reconnects.
   toolUseId: string;
   description: string;
-  phase: 'running' | 'done' | 'error' | 'cancelled';
+  phase: 'queued' | 'running' | 'done' | 'error' | 'cancelled';
   startedAt: number;
   settledAt?: number;
   elapsedMs?: number;
@@ -870,7 +871,7 @@ export interface AppState {
   // Wholesale config replace from the server (workflow_config_synced /
   // workspace_snapshot) — mirrored browsers converge on the server's config.
   replaceJobConfig: (jobId: string, config: WorkflowConfig) => void;
-  updateJobPrimary: (jobId: string, update: { provider?: ProviderName; model?: ModelName; effort?: EffortLevel; providerAccountRef?: string; autoHandoff?: import('@arco/shared').AutoHandoffConfig; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; chatWebAccess?: boolean; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: import('@arco/shared').OutputStyle; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[]; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; ollamaParams?: Record<string, unknown> }) => void;
+  updateJobPrimary: (jobId: string, update: { provider?: ProviderName; model?: ModelName; effort?: EffortLevel; providerAccountRef?: string; autoHandoff?: import('@arco/shared').AutoHandoffConfig; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; chatWebAccess?: boolean; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeSubagents?: import('@arco/shared').NativeSubagentPolicy | null; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: import('@arco/shared').OutputStyle; goalRun?: { enabled: boolean; total?: number; tokenBudget?: number }; goal?: string; pinnedSkills?: ArcoSkillRef[]; remoteEnabled?: boolean; remoteGatesEnabled?: boolean; ollamaParams?: Record<string, unknown> }) => void;
   // docs/PROVIDERS.md - mirror of the server's
   // `codebase_memory_state` push onto `job.config.codebaseMemory` so the
   // CONFIG section + Files-tab Blast Radius sub-tab read from one source.
@@ -1026,7 +1027,9 @@ export interface AppState {
   // Claude JSONL → no sessionChat tool_use rows).
   recordTaskStarted: (jobId: string, payload: {
     taskId: string;
-    childWorkflowId: string;
+    childWorkflowId?: string;
+    phase?: 'queued' | 'running';
+    model?: string;
     toolUseId: string;
     description: string;
     startedAt: number;
@@ -1037,6 +1040,7 @@ export interface AppState {
     phase: 'running' | 'done' | 'error' | 'cancelled';
     elapsedMs: number;
     summary?: string;
+    model?: string;
   }) => void;
   // Operator clicked "promote to tab" on an inline Task card / TASKS row.
   // Flips `promoted` on the child JobState and switches the active tab

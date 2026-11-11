@@ -17,6 +17,7 @@ interface Props {
 
 function phaseGlyph(phase: TaskChildEntry['phase']): string {
   switch (phase) {
+    case 'queued': return '...';
     case 'running': return '⚡';
     case 'done':    return '✓';
     case 'error':   return '✕';
@@ -48,7 +49,7 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
     if (!job?.taskChildren) return undefined;
     return Object.values(job.taskChildren).find((t) => t.toolUseId === toolUseId);
   });
-  const childJob = useAppStore((s) => entry ? s.jobs[entry.childWorkflowId] : undefined);
+  const childJob = useAppStore((s) => entry?.childWorkflowId ? s.jobs[entry.childWorkflowId] : undefined);
   const promoteTaskChild = useAppStore((s) => s.promoteTaskChild);
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   const [expanded, setExpanded] = useState(false);
@@ -67,15 +68,15 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
     ? (entry.phase === 'running' ? Date.now() - entry.startedAt : (entry.elapsedMs ?? 0))
     : 0;
   const promoted = childJob?.promoted === true;
-  const canCancel = entry && phase === 'running';
+  const canCancel = entry && (phase === 'running' || phase === 'queued');
 
   const handleCancel = () => {
     if (!entry || !wsSendRaw) return;
-    wsSendRaw({ type: 'cancel', workflowId: entry.childWorkflowId });
+    wsSendRaw({ type: 'cancel', workflowId: parentJobId, taskId: entry.taskId });
   };
 
   const handlePromote = () => {
-    if (!entry) return;
+    if (!entry?.childWorkflowId) return;
     promoteTaskChild(entry.childWorkflowId);
   };
 
@@ -96,6 +97,7 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
+          flexWrap: 'wrap', minWidth: 0,
           padding: '6px 10px',
           fontSize: '12px',
           fontFamily: 'var(--font-body)',
@@ -113,7 +115,7 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
             cursor: 'pointer',
             fontSize: '10px',
             padding: 0,
-            width: '10px',
+            width: '44px', minHeight: '44px',
             textAlign: 'center',
           }}
         >
@@ -146,21 +148,24 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
           style={{ fontSize: '10px', letterSpacing: '0.5px', color: phaseColor(phase) }}
           title={`${phase}${entry?.summary ? `: ${entry.summary}` : ''}`}
         >
-          {fmtElapsed(elapsed)} {phaseGlyph(phase)} {phase.toUpperCase()}
+          {phase !== 'queued' ? fmtElapsed(elapsed) : ''} {phaseGlyph(phase)} {phase.toUpperCase()}
         </span>
+      </div>
+      <div style={{ padding: '0 10px 6px', overflowWrap: 'anywhere', fontSize: '11px', color: 'var(--color-fg-muted)' }}>
+        Model: {entry?.model ?? childJob?.resolvedPrimaryModel ?? childJob?.config.primaryModel ?? 'Model not recorded'}
       </div>
       {expanded && (
         <div
           style={{
             display: 'flex',
-            gap: '12px',
+            gap: '12px', flexWrap: 'wrap',
             padding: '4px 10px 8px 28px',
             borderTop: '1px solid var(--color-border-hairline)',
             fontSize: '11px',
             color: 'var(--color-fg-muted)',
           }}
         >
-          {entry && !promoted && (
+          {entry?.childWorkflowId && !promoted && (
             <button
               type="button"
               onClick={handlePromote}
@@ -172,7 +177,7 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
                 cursor: 'pointer',
                 fontSize: '10px',
                 letterSpacing: '1px',
-                padding: '2px 8px',
+                padding: '2px 8px', minHeight: '44px',
               }}
               title="Open this child workflow in the top tab strip"
             >
@@ -186,7 +191,7 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
                 fontSize: '10px',
                 letterSpacing: '1px',
                 color: 'var(--color-accent-secondary-dim)',
-                padding: '2px 8px',
+                padding: '2px 8px', minHeight: '44px',
                 border: '1px solid var(--color-border-hairline)',
               }}
             >
@@ -205,7 +210,7 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
                 cursor: 'pointer',
                 fontSize: '10px',
                 letterSpacing: '1px',
-                padding: '2px 8px',
+                padding: '2px 8px', minHeight: '44px',
               }}
               title="Cancel this child workflow"
             >

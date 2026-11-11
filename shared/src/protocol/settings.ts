@@ -6,6 +6,25 @@ export const TERMINAL_CODEX_ACCOUNT = '@terminal';
 import type { EffortLevel, ModelName, ProviderName } from './providers.js';
 import type { FallbackChainsConfig } from './fallback.js';
 
+export interface NativeSubagentPolicy {
+  maxRunning?: number;
+  maxStarts?: number;
+  // Empty string explicitly restores Agent's choice, including over defaults.
+  model?: string;
+}
+export function sanitizeNativeSubagents(value: unknown): NativeSubagentPolicy | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const v = value as Record<string, unknown>;
+  const out: NativeSubagentPolicy = {};
+  if (Number.isInteger(v.maxRunning) && Number(v.maxRunning) >= 1 && Number(v.maxRunning) <= 32) out.maxRunning = Number(v.maxRunning);
+  if (Number.isInteger(v.maxStarts) && Number(v.maxStarts) >= 1 && Number(v.maxStarts) <= 128) out.maxStarts = Number(v.maxStarts);
+  if (typeof v.model === 'string' && v.model.length <= 200) out.model = v.model.trim();
+  return out;
+}
+export function resolveNativeSubagents(defaults?: NativeSubagentPolicy, tab?: NativeSubagentPolicy): Required<NativeSubagentPolicy> {
+  return { maxRunning: 4, maxStarts: 8, model: '', ...sanitizeNativeSubagents(defaults), ...sanitizeNativeSubagents(tab) };
+}
+
 export const UI_SCALES = [0.9, 1, 1.1, 1.2, 1.3, 1.5] as const;
 export const DEFAULT_UI_SCALE = 1.1;
 export function normalizeUiScale(value: unknown): number {
@@ -169,6 +188,7 @@ export interface ArcoSettings {
   claude?: { transport?: 'cli' | 'native'; nativeWarningSeen?: boolean };
   // Global-file-only destination override for saved Native login credentials.
   claudeNative?: { baseUrl?: string };
+  nativeSubagents?: NativeSubagentPolicy;
   // Phase 6: per-project Codex transport pin. 'exec' = current per-turn
   // `codex exec --json` worker (default); 'appserver' = long-lived
   // `codex app-server` JSON-RPC worker that unlocks non-destructive

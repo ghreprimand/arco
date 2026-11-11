@@ -1350,6 +1350,8 @@ export async function persistInitialMeta(
     ...(typeof config.claudeNativeForceInterleavedThinkingBeta === 'boolean'
       ? { claudeNativeForceInterleavedThinkingBeta: config.claudeNativeForceInterleavedThinkingBeta }
       : {}),
+    nativeSubagents: config.nativeSubagents,
+    claudeNativeTaskDisabled: config.claudeNativeTaskDisabled,
     ...(config.claudeNativeThinkingDisplay === 'omitted' || config.claudeNativeThinkingDisplay === 'summarized' || config.claudeNativeThinkingDisplay === 'updates'
       ? { claudeNativeThinkingDisplay: config.claudeNativeThinkingDisplay }
       : {}),
@@ -1936,7 +1938,7 @@ export async function handleUserMessage(
   // choice, settings files, default; Native-only switches off elsewhere).
   const {
     codexTransport, ultracode, claudeTransport, claudeNativeCompact, claudeNativeForceInterleavedThinkingBeta,
-    claudeNativeThinkingDisplay, efficiencyToolFilter, efficiencyFactForce, efficiencyConfigProtection,
+    claudeNativeThinkingDisplay, nativeSubagents, efficiencyToolFilter, efficiencyFactForce, efficiencyConfigProtection,
     efficiencySandbox, reviewSafeMode, outputStyle, goal, ollamaParams,
   } = resolveTurnSettings({ provider: wf.primary.provider, config: wf.config, cascade, isolatedMember, primitive });
   // In-turn compaction follows the tab's or cluster's auto-compaction policy
@@ -2681,9 +2683,10 @@ export async function handleUserMessage(
           claudeTransport,
           ultracode,
           claudeNativeCompact,
+          claudeNativeTaskDisabled: wf.config.claudeNativeTaskDisabled,
           ...(claudeNativeInTurnCompactPercent !== undefined && !(firstIteration && primitive === 'plan-review') ? { claudeNativeInTurnCompactPercent } : {}),
           claudeNativeForceInterleavedThinkingBeta,
-          claudeNativeThinkingDisplay,
+          claudeNativeThinkingDisplay, nativeSubagents,
           claudeNativePlanModeArmed: armPlanMode,
           turnNotice: turnNoticeParts.length > 0 ? turnNoticeParts.join('\n\n') : undefined,
           efficiencyToolFilter,

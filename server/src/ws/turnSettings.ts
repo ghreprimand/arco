@@ -28,7 +28,7 @@ export interface TurnSettingsInput {
   provider: string;
   config: Pick<WorkflowConfig,
     'kind' | 'voiceOperator' | 'codexTransport' | 'claudeTransport' | 'ultracode' | 'claudeNativeCompact' | 'claudeNativeForceInterleavedThinkingBeta'
-    | 'claudeNativeThinkingDisplay' | 'efficiencyToolFilter' | 'efficiencyFactForce' | 'efficiencyConfigProtection'
+    | 'nativeSubagents' | 'claudeNativeThinkingDisplay' | 'efficiencyToolFilter' | 'efficiencyFactForce' | 'efficiencyConfigProtection'
     | 'efficiencySandbox' | 'reviewSafeMode' | 'outputStyle' | 'goal' | 'ollamaParams'>;
   // The merged settings files (null when they could not be read).
   cascade: { codex?: { transport?: string }; claude?: { transport?: string } } | null;
@@ -43,6 +43,7 @@ export interface TurnSettings {
   claudeNativeCompact: boolean;
   claudeNativeForceInterleavedThinkingBeta: boolean;
   claudeNativeThinkingDisplay: 'omitted' | 'summarized' | 'updates' | undefined;
+  nativeSubagents?: import('@arco/shared').NativeSubagentPolicy;
   efficiencyToolFilter: 'off' | 'conservative' | 'aggressive';
   efficiencyFactForce: 'on' | 'off';
   efficiencyConfigProtection: 'on' | 'off';
@@ -78,6 +79,7 @@ export function resolveTurnSettings({ provider, config, cascade, isolatedMember,
     claudeNativeCompact: native ? config.claudeNativeCompact === true : false,
     claudeNativeForceInterleavedThinkingBeta: native ? config.claudeNativeForceInterleavedThinkingBeta === true : false,
     claudeNativeThinkingDisplay: native ? config.claudeNativeThinkingDisplay : undefined,
+    nativeSubagents: native ? config.nativeSubagents : undefined,
     // The efficiency gates live in the Native worker; zero elsewhere.
     efficiencyToolFilter: native ? (config.efficiencyToolFilter ?? 'off') : 'off',
     efficiencyFactForce: native ? (config.efficiencyFactForce ?? 'off') : 'off',

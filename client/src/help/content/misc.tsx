@@ -2,6 +2,11 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const miscHelp: Record<string, HelpEntry> = {
+  'runtime.waiting-subagents': {
+    title: 'Waiting for sub-agents',
+    body: <p>The Native parent is awaiting Task replies. The strip counts running and queued children instead of labelling their wait as a stuck worker. CANCEL TURN stops the parent and its children; each queued or running task also has its own CANCEL. The parent resumes when its Task calls settle.</p>,
+    manualSection: 'settings-providers',
+  },
   'palette.results': {
     title: 'Command palette results',
     body: <p>Choose a file or content result to open the file viewer. Content search omits files protected from the file browser. The palette is hidden while viewing the file. Closing the viewer returns to the same query and selection.</p>,
@@ -268,7 +273,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   'chat.task-card': {
     title: 'Task sub-agent (Native)',
     body: (
-      <p>
+      <p>Native task rows show QUEUED before a child starts and retain the effective model after reload. CANCEL removes queued work or stops a running child. PROMOTE appears after a child exists.
         The Native worker called the <C>Task</C> tool: this card represents a
         first-class child workflow scoped to its parent. Status:{' '}
         <C>running</C> / <C>done</C> / <C>error</C> / <C>cancelled</C>; the{' '}

@@ -230,3 +230,10 @@ the list. Opens in includes a version when a safe native executable is known.
 A proven wrapper target can supply that version; scripts and AppImages are never
 run to detect a version. Failed version reads remain unknown for ten minutes.
 No browser window opens while discovering programs or versions.
+
+
+## Claude Native sub-agents
+
+The **Claude Native sub-agents** group in Settings - Agents and clusters controls existing and new Native Agent tabs. `nativeSubagents.maxRunning` defaults to 4 (1-32), `nativeSubagents.maxStarts` to 8 per parent turn (1-128), and `nativeSubagents.model` to Agent's choice. Per-tab CONFIG overrides individual fields. Blank tab limits inherit Settings; blank Settings limits use the defaults. The model picker offers Use Settings in a tab, explicit Agent's choice, or a catalog model. An empty saved model string means explicit Agent's choice even over a named Settings default.
+
+A selected model overrides agent requests. Agent's choice preserves parent inheritance unless the agent names another model. Admitted extra Tasks queue; calls beyond the turn budget are refused. Cancelling before start refunds a reserved place; started children keep counting. Settings apply next parent turn, including on existing installs. A running turn keeps its snapshot. These limits do not cap spending or add an ask-first prompt. CLI, Codex, Cursor and local providers do not use these Native settings; see [Providers](PROVIDERS.md#claude-native-sub-agent-controls).

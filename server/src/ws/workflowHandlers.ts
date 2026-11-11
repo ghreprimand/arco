@@ -493,6 +493,13 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
         const wf = workflows.get(workflowId);
         if (wf) wf.config.claudeNativeForceInterleavedThinkingBeta = savedMeta.claudeNativeForceInterleavedThinkingBeta;
       }
+      if (savedMeta) {
+        const wf = workflows.get(workflowId);
+        if (wf) {
+          wf.config.nativeSubagents = savedMeta.nativeSubagents;
+          if (savedMeta.claudeNativeTaskDisabled) wf.config.claudeNativeTaskDisabled = true;
+        }
+      }
       if (savedMeta?.claudeNativeThinkingDisplay === 'omitted' || savedMeta?.claudeNativeThinkingDisplay === 'summarized') {
         const wf = workflows.get(workflowId);
         if (wf) wf.config.claudeNativeThinkingDisplay = savedMeta.claudeNativeThinkingDisplay;

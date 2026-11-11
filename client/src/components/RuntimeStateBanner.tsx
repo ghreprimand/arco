@@ -49,6 +49,17 @@ export function RuntimeStateBanner({ job, onCancel }: Props) {
     return () => window.clearInterval(t);
   }, [ticking]);
 
+  const pendingTasks = Object.values(job.taskChildren ?? {}).filter((task) => task.phase === 'queued' || task.phase === 'running');
+  if (connectionState === 'online' && job.busy && pendingTasks.length && state !== 'replay-recovered') {
+    const queued = pendingTasks.filter((task) => task.phase === 'queued').length;
+    return (
+      <div role="status" data-help="runtime.waiting-subagents" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '4px 10px', minWidth: 0, fontSize: '11px', color: 'var(--color-fg-muted)', borderTop: '1px solid var(--color-border-hairline)' }}>
+        <span>Waiting for {pendingTasks.length} sub-agent{pendingTasks.length === 1 ? '' : 's'} ({pendingTasks.length - queued} running, {queued} queued)</span>
+        {onCancel && <button type="button" onClick={onCancel} data-help="runtime.cancel-turn" style={{ ...pillButtonStyle('var(--color-warning)'), minHeight: '44px' }}>CANCEL TURN</button>}
+      </div>
+    );
+  }
+
   if (state === 'stuck') {
     const anchor = job.lastPrimaryEventAt ?? job.recoveredAt ?? now;
     const silentSec = Math.max(0, Math.round((now - anchor) / 1000));

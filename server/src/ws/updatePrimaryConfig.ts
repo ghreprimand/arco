@@ -1,3 +1,4 @@
+import { sanitizeNativeSubagents } from '@arco/shared';
 // `update_primary_config` handler — live per-tab edits to the primary worker's
 // model / effort / account + the per-workflow toggles (transports, efficiency
 // knobs, output style, remote opt-in). Split out of workflowHandlers.ts to keep
@@ -195,6 +196,11 @@ export async function handleUpdatePrimaryConfig(
     wf.config.claudeNativeForceInterleavedThinkingBeta = msg.claudeNativeForceInterleavedThinkingBeta;
     console.log(`[arco] [${msg.workflowId.slice(0, 8)}] claude.native.force-interleaved-beta updated → ${msg.claudeNativeForceInterleavedThinkingBeta}`);
   }
+  // Native Task defaults are captured at the next parent turn.
+  if (msg.nativeSubagents !== undefined) {
+    if (msg.nativeSubagents === null) delete wf.config.nativeSubagents;
+    else wf.config.nativeSubagents = sanitizeNativeSubagents(msg.nativeSubagents);
+  }
   // Adaptive-thinking display. Stored unconditionally so a CLI→Native
   // transport flip picks up the operator's last pinned value; only the
   // Native worker's buildThinkingParams reads it. Takes effect next turn.
@@ -358,6 +364,10 @@ export async function handleUpdatePrimaryConfig(
           }
         }
         if (msg.claudeNativeForceInterleavedThinkingBeta !== undefined) meta.claudeNativeForceInterleavedThinkingBeta = msg.claudeNativeForceInterleavedThinkingBeta;
+        if (msg.nativeSubagents !== undefined) {
+          if (msg.nativeSubagents === null) delete meta.nativeSubagents;
+          else meta.nativeSubagents = wf.config.nativeSubagents;
+        }
         if (msg.claudeNativeThinkingDisplay !== undefined) meta.claudeNativeThinkingDisplay = msg.claudeNativeThinkingDisplay;
         if (msg.nativeCompactAutoContinue !== undefined) meta.nativeCompactAutoContinue = msg.nativeCompactAutoContinue;
         if (msg.efficiencyToolFilter !== undefined) meta.efficiencyToolFilter = msg.efficiencyToolFilter;

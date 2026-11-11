@@ -183,6 +183,7 @@ export class WorkerManager {
       claudeNativeForceInterleavedThinkingBeta?: WorkerConfig['claudeNativeForceInterleavedThinkingBeta'];
       // Adaptive-thinking display for the Native worker ('omitted' default).
       claudeNativeThinkingDisplay?: WorkerConfig['claudeNativeThinkingDisplay'];
+      nativeSubagents?: WorkerConfig['nativeSubagents'];
       // Operator-initiated plan-mode entry. Single-turn flag resolved by
       // handleUserMessage from WorkflowState.pendingPlanModeEntry; honoured
       // only when the resolved primary is Claude Native.
@@ -307,6 +308,7 @@ export class WorkerManager {
       claudeNativeInTurnCompactPercent: options?.claudeNativeInTurnCompactPercent,
       claudeNativeForceInterleavedThinkingBeta: options?.claudeNativeForceInterleavedThinkingBeta,
       claudeNativeThinkingDisplay: options?.claudeNativeThinkingDisplay,
+      nativeSubagents: options?.nativeSubagents,
       claudeNativePlanModeArmed: options?.claudeNativePlanModeArmed,
       turnNotice: options?.turnNotice,
       efficiencyToolFilter: options?.efficiencyToolFilter,
@@ -442,39 +444,11 @@ export class WorkerManager {
     // Phase 7b — Task lifecycle (Native only). The provider passes opaque
     // payloads through; we narrow + re-emit so the seedWorker layer can
     // wrap them with workflowId and broadcast.
-    worker.on('task_started', (data: {
-      taskId: string;
-      childWorkflowId: string;
-      toolUseId: string;
-      description: string;
-      startedAt: number;
-    }) => {
-      bump();
-      onEvent({
-        type: 'task_started',
-        taskId: data.taskId,
-        childWorkflowId: data.childWorkflowId,
-        toolUseId: data.toolUseId,
-        description: data.description,
-        startedAt: data.startedAt,
-      });
+    worker.on('task_started', (data: Omit<TaskStartedMessage, 'type' | 'workflowId'>) => {
+      bump(); onEvent({ type: 'task_started', ...data });
     });
-    worker.on('task_status', (data: {
-      taskId: string;
-      toolUseId: string;
-      phase: 'running' | 'done' | 'error' | 'cancelled';
-      elapsedMs: number;
-      summary?: string;
-    }) => {
-      bump();
-      onEvent({
-        type: 'task_status',
-        taskId: data.taskId,
-        toolUseId: data.toolUseId,
-        phase: data.phase,
-        elapsedMs: data.elapsedMs,
-        ...(data.summary ? { summary: data.summary } : {}),
-      });
+    worker.on('task_status', (data: Omit<TaskStatusMessage, 'type' | 'workflowId'>) => {
+      bump(); onEvent({ type: 'task_status', ...data });
     });
 
     const resultPromise = new Promise<WorkerResult>((resolve) => {

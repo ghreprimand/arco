@@ -7,6 +7,7 @@ interface Props {
 
 function phaseGlyph(phase: TaskChildEntry['phase']): string {
   switch (phase) {
+    case 'queued': return '...';
     case 'running': return '⚡';
     case 'done':    return '✓';
     case 'error':   return '✕';
@@ -82,7 +83,7 @@ export function TasksPanel({ job }: Props) {
         TASKS · {entries.length}
       </div>
       {sorted.map((entry) => {
-        const child = allChildren[entry.childWorkflowId];
+        const child = entry.childWorkflowId ? allChildren[entry.childWorkflowId] : undefined;
         const promoted = child?.promoted === true;
         const elapsed = entry.phase === 'running'
           ? Date.now() - entry.startedAt
@@ -98,7 +99,7 @@ export function TasksPanel({ job }: Props) {
               color: 'var(--color-fg-muted)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', minWidth: 0, alignItems: 'center', gap: '10px' }}>
               <span style={{ color: phaseColor(entry.phase), fontSize: '13px', minWidth: '14px' }}>
                 {phaseGlyph(entry.phase)}
               </span>
@@ -117,14 +118,15 @@ export function TasksPanel({ job }: Props) {
                 className="display-font"
                 style={{ fontSize: '10px', letterSpacing: '0.5px', color: phaseColor(entry.phase) }}
               >
-                {fmtElapsed(elapsed)}
+                {entry.phase !== 'queued' ? fmtElapsed(elapsed) : ''} {entry.phase.toUpperCase()}
               </span>
             </div>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-              {!promoted && (
+            <div style={{ marginTop: '6px', overflowWrap: 'anywhere' }}>Model: {entry.model ?? child?.resolvedPrimaryModel ?? child?.config.primaryModel ?? 'Model not recorded'}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
+              {entry.childWorkflowId && !promoted && (
                 <button
                   type="button"
-                  onClick={() => promoteTaskChild(entry.childWorkflowId)}
+                  onClick={() => entry.childWorkflowId && promoteTaskChild(entry.childWorkflowId)}
                   className="display-font"
                   style={{
                     background: 'transparent',
@@ -133,7 +135,7 @@ export function TasksPanel({ job }: Props) {
                     cursor: 'pointer',
                     fontSize: '10px',
                     letterSpacing: '1px',
-                    padding: '2px 8px',
+                    padding: '2px 8px', minHeight: '44px',
                   }}
                 >
                   PROMOTE
@@ -146,17 +148,17 @@ export function TasksPanel({ job }: Props) {
                     fontSize: '10px',
                     letterSpacing: '1px',
                     color: 'var(--color-accent-secondary-dim)',
-                    padding: '2px 8px',
+                    padding: '2px 8px', minHeight: '44px',
                     border: '1px solid var(--color-border-hairline)',
                   }}
                 >
                   PROMOTED
                 </span>
               )}
-              {entry.phase === 'running' && (
+              {(entry.phase === 'running' || entry.phase === 'queued') && (
                 <button
                   type="button"
-                  onClick={() => wsSendRaw && wsSendRaw({ type: 'cancel', workflowId: entry.childWorkflowId })}
+                  onClick={() => wsSendRaw && wsSendRaw({ type: 'cancel', workflowId: job.id, taskId: entry.taskId })}
                   className="display-font"
                   style={{
                     background: 'transparent',
@@ -165,7 +167,7 @@ export function TasksPanel({ job }: Props) {
                     cursor: 'pointer',
                     fontSize: '10px',
                     letterSpacing: '1px',
-                    padding: '2px 8px',
+                    padding: '2px 8px', minHeight: '44px',
                   }}
                 >
                   CANCEL

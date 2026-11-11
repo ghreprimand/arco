@@ -1,3 +1,4 @@
+import { isClaudeNativeTaskActive } from '../providers/claude-native/index.js';
 import { appendHandoffNotice } from '../handoffHistoryTool.js';
 import { unsettledTaskStatuses } from './taskLifecycle.js';
 import { captureHandoffHistory, saveHandoffHistory, historyAccessAllowed } from '../handoffHistory.js';
@@ -1865,7 +1866,7 @@ export async function rehydrateOneWorkflow(
   // before statuses were reported on STOP, or the server exited) settles in
   // this browser instead of showing RUNNING forever. Never written to the log.
   if (taskEvents) {
-    for (const status of unsettledTaskStatuses(workflowId, taskEvents, (child) => workflows.get(child)?.busy === true)) {
+    for (const status of unsettledTaskStatuses(workflowId, taskEvents, (child) => workflows.get(child)?.busy === true, (task) => isClaudeNativeTaskActive(workflowId, task))) {
       if (ws.readyState !== WebSocket.OPEN) break;
       ws.send(JSON.stringify(status));
     }

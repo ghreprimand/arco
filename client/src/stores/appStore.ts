@@ -912,6 +912,10 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
 
       if (update.claudeNativeCompact !== undefined) nextConfig.claudeNativeCompact = update.claudeNativeCompact;
       if (update.claudeNativeForceInterleavedThinkingBeta !== undefined) nextConfig.claudeNativeForceInterleavedThinkingBeta = update.claudeNativeForceInterleavedThinkingBeta;
+      if (update.nativeSubagents !== undefined) {
+        if (update.nativeSubagents === null) delete nextConfig.nativeSubagents;
+        else nextConfig.nativeSubagents = update.nativeSubagents;
+      }
       if (update.claudeNativeThinkingDisplay !== undefined) nextConfig.claudeNativeThinkingDisplay = update.claudeNativeThinkingDisplay;
       if (update.nativeCompactAutoContinue !== undefined) nextConfig.nativeCompactAutoContinue = update.nativeCompactAutoContinue;
       if (update.efficiencyToolFilter !== undefined) nextConfig.efficiencyToolFilter = update.efficiencyToolFilter;
@@ -1740,15 +1744,19 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         childWorkflowId: payload.childWorkflowId,
         toolUseId: payload.toolUseId,
         description: payload.description,
-        phase: 'running',
+        phase: payload.phase ?? 'running',
+        model: payload.model,
         startedAt: payload.startedAt,
       };
       return {
         taskChildren: {
           ...existing,
-          [payload.taskId]: { ...seed, ...(existing[payload.taskId] ?? {}) },
+          [payload.taskId]: existing[payload.taskId] && !['queued', 'running'].includes(existing[payload.taskId].phase)
+            ? existing[payload.taskId]
+            : { ...existing[payload.taskId], ...seed },
         },
         messages: nextMessages,
+        lastPrimaryEventAt: Date.now(),
       };
     })),
 
@@ -1762,11 +1770,13 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       // restore the full state.
       if (!prior) return {};
       return {
+        lastPrimaryEventAt: Date.now(),
         taskChildren: {
           ...existing,
           [payload.taskId]: {
             ...prior,
             phase: payload.phase,
+            ...(payload.model ? { model: payload.model } : {}),
             elapsedMs: payload.elapsedMs,
             ...(payload.phase !== 'running' ? { settledAt: prior.startedAt + payload.elapsedMs } : {}),
             ...(payload.summary !== undefined ? { summary: payload.summary } : {}),

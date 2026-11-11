@@ -1,3 +1,4 @@
+import { NativeSubagentControls } from '../NativeSubagentControls';
 import { queueSettingsPatch } from '../../utils/settingsRequests';
 import { confirmationSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
@@ -31,7 +32,7 @@ export function ConfigTab({
   mcp,
 }: {
   job: JobState;
-  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: import('@arco/shared').AutoHandoffConfig; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: import('@arco/shared').OutputStyle; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
+  onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: import('@arco/shared').AutoHandoffConfig; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeSubagents?: import('@arco/shared').NativeSubagentPolicy | null; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: import('@arco/shared').OutputStyle; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
   onAttachCodebaseMemory?: (workflowId: string, indexPath?: string) => void;
   onDetachCodebaseMemory?: (workflowId: string) => void;
   mcp?: McpSenders;
@@ -322,6 +323,10 @@ export function ConfigTab({
           <CodexTransportSection job={job} onUpdatePrimary={onUpdatePrimary!} />
           <CodexContextWindowSection job={job} onUpdatePrimary={onUpdatePrimary!} />
         </>
+      )}
+
+      {provider === 'claude' && canEdit && job.config.kind !== 'chat' && (
+        <NativeSubagentConfig job={job} onChange={(nativeSubagents) => onUpdatePrimary!({ nativeSubagents })} />
       )}
 
       {/* Phase 7a — Claude transport toggle (per-tab). Only on Claude tabs. */}
@@ -3019,4 +3024,10 @@ function CopyableRow({ k, v, copyValue }: { k: string; v: string; copyValue?: st
       </td>
     </tr>
   );
+}
+
+function NativeSubagentConfig({ job, onChange }: { job: JobState; onChange: (value: import('@arco/shared').NativeSubagentPolicy) => void }) {
+  const settings = useAppStore((s) => s.settings);
+  const native = !job.config.ultracode && (job.config.claudeTransport ?? settings?.claude?.transport ?? 'native') === 'native';
+  return native ? <NativeSubagentControls value={job.config.nativeSubagents} defaults={settings?.nativeSubagents} inherit onChange={onChange} /> : <p style={{ color: 'var(--color-fg-muted)', fontSize: '12px' }}>Sub-agent limits and model override apply to Claude Native only. Claude CLI manages its own sub-agents.</p>;
 }

@@ -1,3 +1,4 @@
+import { sanitizeNativeSubagents } from '@arco/shared';
 import { scanBeforeDeadline } from './scanDeadline.js';
 import { parsePreviewPorts } from './previewProxy.js';
 import { hostTemporaryPortStart } from './previewPortConfiguration.js';
@@ -700,6 +701,8 @@ function mergeWithDefaults(partial: Record<string, unknown>, resolveRoot: (p: st
   if (mediaUnconfined !== undefined) result.mediaUnconfined = mediaUnconfined;
   const mediaAllowedRoots = sanitizeMediaAllowedRoots(partial.mediaAllowedRoots);
   if (mediaAllowedRoots) result.mediaAllowedRoots = mediaAllowedRoots;
+  const nativeSubagents = sanitizeNativeSubagents(partial.nativeSubagents);
+  if (nativeSubagents) result.nativeSubagents = nativeSubagents;
   const claudeNative = sanitizeClaudeNativeConfig(partial.claudeNative);
   if (claudeNative) result.claudeNative = claudeNative;
   const claude = sanitizeClaudeConfig(partial.claude);
@@ -1023,6 +1026,9 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
   // pass through whatever's on disk so a UI-driven POST /api/settings doesn't
   // drop the operator's chains.
   if (current.fallbackChains) merged.fallbackChains = current.fallbackChains;
+  if ('nativeSubagents' in patch) {
+    merged.nativeSubagents = sanitizeNativeSubagents(patch.nativeSubagents);
+  } else if (current.nativeSubagents) merged.nativeSubagents = current.nativeSubagents;
   if ('claudeNative' in patch) {
     const endpoint = sanitizeClaudeNativeConfig(patch.claudeNative);
     if (endpoint) merged.claudeNative = endpoint;

@@ -181,6 +181,27 @@ Native shell results carry exit, signal, timeout and cancellation status separat
 
 Native Task model overrides are applied to the child workflow configuration before deriving its primary. The live child, emitted tab configuration and saved metadata therefore name the same requested model, including after promotion or reopen.
 
+### Claude Native sub-agent controls
+
+Settings - Agents and clusters supplies `nativeSubagents` defaults; a tab's CONFIG values override individual fields. `maxRunning` defaults to 4 (range 1-32), `maxStarts` to 8 per parent turn (range 1-128), and `model` to Agent's choice. Both finite limits apply to existing installs on the next parent turn. Blank limits inherit Settings in a tab or the defaults in Settings. Settings changes apply next turn.
+
+Agent's choice preserves the existing rule: use the parent's model unless the agent names another. A selected catalog model overrides the agent's requested model, including after hooks. An unavailable selection is refused instead of substituted. This does not bound token use or spending; no ask-first or pricing control is included.
+
+Each parent has a FIFO running limit and a cumulative start budget across all tool rounds. Admitted extra Tasks wait with a QUEUED row and no child workflow yet. Queued tasks reserve budget places; cancellation before start refunds the reservation. A started child counts even if it fails or is cancelled. Calls beyond the budget return a plain refusal telling the agent not to retry unless requested. A new parent turn resets the budget. Queued and running tasks can be cancelled individually; parent cancellation stops both. Chat, cluster members and depth-capped Task children are refused at dispatch and again before child creation.
+
+Inline and TASKS rows retain the effective model through event replay, including the concrete model when reported by the child. Older rows use saved child metadata or show Model not recorded. The silence strip says Waiting for N sub-agents while Tasks remain pending. The parent still waits for final Task replies; this is not background execution.
+
+| Provider | Sub-agent enforcement in this release |
+| --- | --- |
+| Claude Native | Arco enforces the running limit, per-turn start budget and selected model for ordinary Agent tabs outside clusters. |
+| Claude CLI | Provider-owned Agent and ultracode Workflow calls; Native limits/model do not apply. Existing `--tools`/`--disallowedTools` remove tools but do not impose these limits. No new switches are applied. |
+| Codex exec and app-server | Provider-owned harness; Native limits/model do not apply. Installed feature switches `multi_agent` and `multi_agent_v2` exist but alone do not prove all code-mode spawning routes absent. No new Agent switches are applied. |
+| Cursor ACP/print | Provider-owned Agent tools; no child count/model control established by installed help. Ordinary print Chat keeps its existing empty tool allowlist. |
+| Local providers | No built-in Arco Task/spawn tool. Peer messages address existing members. These limits do not cover shell-launched programs or third-party MCP tools. |
+
+Missing CLI, Codex or Cursor child-specific settings remain unconfirmed, not established as unsupported. Provider-owned children are not converted into Native task rows by these controls.
+
+
 Spawn from a HISTORY point reads the selected earlier prefix even when it is outside the recent replay tail. Cancelled handoffs leave prior Native context intact, including the older-history summary. A cancellation or failure during pre-warm revokes an earlier prepared artifact for replay; a successful fallback after a failed reflection remains valid. Derived summary caches from the earlier replay rule are rebuilt automatically; original events remain unchanged.
 
 Context `@file:` references expand supported documents and notebook cells as text, and send supported media through the provider attachment path. Unsupported binary content becomes a note. Text is limited to 64 KiB per reference; the aggregate context budget also applies to media.

@@ -266,6 +266,7 @@ export function runPrimaryTurn(
     // Adaptive-thinking display for Claude Native. Absent ⇒ 'omitted'.
     // Reviewers / handoff seeds leave it unset (like outputStyle's 'normal').
     claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates';
+    nativeSubagents?: import('@arco/shared').NativeSubagentPolicy;
     // Operator-initiated plan-mode entry. Resolved by handleUserMessage from
     // WorkflowState.pendingPlanModeEntry (single-turn). Only honoured by
     // Claude Native; other providers / transports ignore the flag.
@@ -357,7 +358,7 @@ export function runPrimaryTurn(
     webSearchMaxUses?: number;
   },
 ): TurnHandle {
-  const { primary, prompt, resumeSessionId, attachments, disableRssGuard, appendSystemPrompt, systemPrompt, interactionMode, disableProviderHooks, chatWebAccess, voiceOperator, incognito, drainSteer, requeueSteer, onSteerDelivered, codexTransport, codexContextPolicy, providerAccountRef, codexHome, claudeTransport, ultracode, claudeNativeTaskDisabled, claudeNativeSubagent, claudeNativeCompact, claudeNativeInTurnCompactPercent, claudeNativeForceInterleavedThinkingBeta, claudeNativeThinkingDisplay, claudeNativePlanModeArmed, turnNotice, efficiencyToolFilter, efficiencyFactForce, efficiencyConfigProtection, efficiencySandbox, reviewSafeMode, outputStyle, goal, toolPosture, clusterId, clusterAccessMode, executionCwd, persistenceCwd, clusterTaskBoardAttached, clusterPlan, clusterRole, clusterEfficiencyDoctrine, clusterProgressDoctrine, clusterMcpConfigPath, codebaseMemoryAttached, codebaseMemoryIndexPath, mcpRegistryServers, mcpDisallowedTools, ollamaParams, webSearchMaxUses } = args;
+  const { primary, prompt, resumeSessionId, attachments, disableRssGuard, appendSystemPrompt, systemPrompt, interactionMode, disableProviderHooks, chatWebAccess, voiceOperator, incognito, drainSteer, requeueSteer, onSteerDelivered, codexTransport, codexContextPolicy, providerAccountRef, codexHome, claudeTransport, ultracode, claudeNativeTaskDisabled, claudeNativeSubagent, claudeNativeCompact, claudeNativeInTurnCompactPercent, claudeNativeForceInterleavedThinkingBeta, claudeNativeThinkingDisplay, nativeSubagents, claudeNativePlanModeArmed, turnNotice, efficiencyToolFilter, efficiencyFactForce, efficiencyConfigProtection, efficiencySandbox, reviewSafeMode, outputStyle, goal, toolPosture, clusterId, clusterAccessMode, executionCwd, persistenceCwd, clusterTaskBoardAttached, clusterPlan, clusterRole, clusterEfficiencyDoctrine, clusterProgressDoctrine, clusterMcpConfigPath, codebaseMemoryAttached, codebaseMemoryIndexPath, mcpRegistryServers, mcpDisallowedTools, ollamaParams, webSearchMaxUses } = args;
 
   const workerId = `primary-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -413,7 +414,7 @@ export function runPrimaryTurn(
     claudeNativeCompact,
     claudeNativeInTurnCompactPercent,
     claudeNativeForceInterleavedThinkingBeta,
-    claudeNativeThinkingDisplay,
+    claudeNativeThinkingDisplay, nativeSubagents,
     claudeNativePlanModeArmed,
     turnNotice,
     efficiencyToolFilter,
@@ -729,6 +730,8 @@ export function runPrimaryTurn(
           workflowId: ctx.workflowId,
           taskId: ev.taskId,
           childWorkflowId: ev.childWorkflowId,
+          phase: ev.phase,
+          model: ev.model,
           toolUseId: ev.toolUseId,
           description: ev.description,
           startedAt: ev.startedAt,
@@ -741,6 +744,7 @@ export function runPrimaryTurn(
           taskId: ev.taskId,
           toolUseId: ev.toolUseId,
           phase: ev.phase,
+          model: ev.model,
           elapsedMs: ev.elapsedMs,
           ...(ev.summary ? { summary: ev.summary } : {}),
         });

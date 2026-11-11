@@ -1369,7 +1369,9 @@ export interface TaskStartedMessage {
   type: 'task_started';
   workflowId: string;          // parent
   taskId: string;
-  childWorkflowId: string;
+  childWorkflowId?: string;
+  phase?: 'queued' | 'running';
+  model?: string;
   toolUseId: string;
   description: string;
   startedAt: number;
@@ -1386,6 +1388,7 @@ export interface TaskStatusMessage {
   phase: 'running' | 'done' | 'error' | 'cancelled';
   elapsedMs: number;
   summary?: string;
+  model?: string;
 }
 
 // Phase 0 — reserved for Phase 9 (in-workflow forks). Marks the event-seq

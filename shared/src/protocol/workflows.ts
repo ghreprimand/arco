@@ -1,7 +1,7 @@
 // ── Workflow / worker config + session metadata types ──
 
 import type { EffortLevel, ModelName, ProviderName } from './providers.js';
-import type { AdvancedOptions } from './settings.js';
+import type { NativeSubagentPolicy, AdvancedOptions } from './settings.js';
 import type { ResolvedMcpServer } from './mcp.js';
 import type { GenesisSeed } from './genesis.js';
 
@@ -308,6 +308,9 @@ export interface WorkflowConfig {
   // and keep the stuck-detector clock fresh. Budget-thinking models already
   // stream summarized thinking and ignore this. Persisted to meta.json.
   claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates';
+  nativeSubagents?: NativeSubagentPolicy;
+  // Server-set marker retained when a Task child is restored.
+  claudeNativeTaskDisabled?: boolean;
   // NATIVE_COMPACTION_PLAN Phase 3 — opt-in auto-continue after a Native
   // compaction. Default false (MANUAL resume): the operator clicks "Continue"
   // in the composer to resume from the compacted seed. When true, the server
@@ -643,6 +646,7 @@ export interface WorkerConfig {
   // request. Absent ⇒ 'omitted'. Primitives (reviewers / handoff seeds) leave
   // it unset, like outputStyle's forced 'normal'. Other transports ignore.
   claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates';
+  nativeSubagents?: NativeSubagentPolicy;
   // docs/PROVIDERS.md - per-turn operator notice (peer-mailbox
   // depth, plan-mode arm nudge). The Native worker appends it to the
   // operator's user message and leaves it there for the life of the

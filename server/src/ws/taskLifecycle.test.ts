@@ -38,3 +38,11 @@ test('without a later turn end the elapsed time is left at zero', () => {
   assert.equal(unsettledTaskStatuses('p', events, () => false)[0].elapsedMs, 0);
   assert.deepEqual(unsettledTaskStatuses('p', [], () => false), []);
 });
+
+test('reload preserves a live queued Task and cancels an orphaned queue row', () => {
+  const events = [{ type: 'task_started', taskId: 'queued', toolUseId: 'uq', phase: 'queued', model: 'haiku', startedAt: 1000 }];
+  assert.deepEqual(unsettledTaskStatuses('p', events, () => false, (id) => id === 'queued'), []);
+  const orphaned = unsettledTaskStatuses('p', events, () => false, () => false);
+  assert.equal(orphaned.length, 1);
+  assert.equal(orphaned[0].phase, 'cancelled');
+});

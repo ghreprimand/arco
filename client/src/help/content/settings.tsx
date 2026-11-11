@@ -2,6 +2,21 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const settingsHelp: Record<string, HelpEntry> = {
+  'native-subagents.running': {
+    title: 'Maximum running at once',
+    body: <p>Claude Native runs up to this many Task children for one parent. Additional admitted tasks queue and can be cancelled. Default: 4, including existing tabs. Blank uses Settings in a tab, or 4 in Settings. Applies next turn; CLI, Codex, Cursor and local providers do not use this limit.</p>,
+    manualSection: 'settings-providers',
+  },
+  'native-subagents.starts': {
+    title: 'Maximum starts per turn',
+    body: <p>Claude Native starts at most this many sub-agents across all Task rounds in one parent turn. Default: 8, including existing tabs. Queued tasks reserve places; cancelling before start releases one. Excess calls are refused and told not to retry unless requested. A new parent turn resets the count. Blank inherits Settings or the default.</p>,
+    manualSection: 'settings-providers',
+  },
+  'native-subagents.model': {
+    title: 'Sub-agent model',
+    body: <p>Agent's choice preserves the existing Native rule: inherit the parent model unless the agent names another. A selected catalog model overrides the agent's request. A tab can inherit Settings or explicitly choose Agent's choice. Unavailable selected models are refused, never silently replaced. Applies next turn. This setting does not cap spending.</p>,
+    manualSection: 'settings-providers',
+  },
   'settings.preview-ports': {
     title: 'PREVIEW PORTS - remote access',
     body: <><p>One port per open preview, normally 4300-4309. The field and SAVE wait for a pending save to finish before further editing. SAVE changes new previews; ARCO_PREVIEW_PORTS overrides the saved range. Ports in use by other programs are skipped. Close previews to free ports. This range must stay below the host temporary-port range.</p><p>Previews listen on the same addresses as Arco and cannot use Arco controls. Remote access needs the preview range forwarded through SSH or a proxy. Allow inbound TCP 4300-4309 only from the intended network in firewalld, ufw, Windows Defender Firewall or the macOS firewall. Existing installations that allowed only Arco's port must add the preview range. See the manual's PREVIEW section for commands.</p><p>Tailscale Serve needs one HTTPS entry per preview port, in addition to the Arco control entry. Keep the same Tailscale hostname and matching port numbers. Configure every port in PREVIEW PORTS, normally 4300-4309, or narrow the range to the configured entries. A single control entry does not forward previews. The PREVIEW manual gives a Serve command example.</p></>,

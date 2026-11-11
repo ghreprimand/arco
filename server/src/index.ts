@@ -1,3 +1,8 @@
+import { releaseProjectSettingsWatcher } from './settings.js';
+import { NativeTaskAdmission, assertNativeTaskAllowed } from './providers/claude-native/taskAdmission.js';
+import { resolveNativeSubagents, CLAUDE_MODELS } from '@arco/shared';
+import { getCatalog as getNativeTaskCatalog } from './providers/claude-native/catalog.js';
+import { cancelClaudeNativeTask } from './providers/claude-native/index.js';
 import { clusterToolsPending } from './clusterTurnTools.js';
 import { cleanupChatSandboxesOnStartup } from './providers/cursor/chatSandbox.js';
 import { ensureStorageRoot } from './storageRoot.js';
@@ -771,6 +776,10 @@ wss.on('connection', (ws: WebSocket) => {
         );
         break;
       case 'cancel':
+        if (msg.taskId) {
+          if (workflows.get(msg.workflowId)?.observers.has(ws)) cancelClaudeNativeTask(msg.workflowId, msg.taskId);
+          break;
+        }
         (scopedIncognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() => handleCancel(ws, msg.workflowId));
         break;
       case 'computer_context_control':
@@ -2071,143 +2080,199 @@ setClaudeNativePlanBroadcast((workflowId): PlanBroadcast => ({
 // the prompt, and resolves the parent's awaiting tool result with the child's
 // final assistant text. Depth-1 only — the child carries `claudeNativeTaskDisabled`
 // so its tool registry drops `Task`.
-setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subagentType, model }): Promise<TaskSpawnHandle> => {
+const nativeTaskAdmissions = new WeakMap<object, NativeTaskAdmission>();
+setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subagentType, model, taskId: requestedTaskId, signal, turnSignal, policy: capturedPolicy, onQueued, onModel }): Promise<TaskSpawnHandle> => {
   const parent = workflows.get(parentWorkflowId);
   if (!parent) throw new Error(`Task: parent workflow ${parentWorkflowId.slice(0, 8)} not found`);
   const parentCwd = parent.config.workingDirectory;
   if (!parentCwd) throw new Error('Task: parent has no working directory');
-
-  const childWorkflowId = crypto.randomUUID();
-  const taskId = `task-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-
-  // Clone parent's WorkflowConfig with a new id + name; inherit transport.
-  const childName = description.length > 60 ? description.slice(0, 57) + '…' : description;
-  const childConfig: WorkflowConfig = {
-    ...parent.config,
-    ...(model ? { primaryModel: model as WorkflowConfig['primaryModel'] } : {}),
-    goalRun: undefined,
-    name: `Task: ${childName}`,
+  const assertActive = () => {
+    assertNativeTaskAllowed({ interactionMode: parent.config.kind === 'chat' ? 'chat' : 'agent', inCluster: !!clusterStore.getClusterIdForWorkflow(parentWorkflowId), taskDisabled: parent.config.claudeNativeTaskDisabled });
+    if (signal?.aborted || turnSignal?.aborted || workflows.get(parentWorkflowId) !== parent) throw new Error('AbortError: Task parent no longer active');
   };
-  const childPrimary = derivePrimaryConfig(childConfig);
-  const childManager = new WorkerManager();
-
-  workflows.set(childWorkflowId, {
-    config: childConfig,
-    busy: true,
-    manager: childManager,
-    primary: childPrimary,
-    queue: { steering: [], followUp: [] },
-    observers: new Set(parent.observers),
-    autoHandoff: deriveAutoHandoff(childConfig),
-    lastContextPercent: 0,
-    previewHistory: [],
-  });
-  workflowCwds.set(childWorkflowId, parentCwd);
-  acquireProjectSettingsWatcher(parentCwd);
-
+  assertActive();
+  const defaults = capturedPolicy ? undefined : await readSettings(parentCwd);
+  assertActive();
+  const policy = resolveNativeSubagents(defaults?.nativeSubagents, capturedPolicy ?? parent.config.nativeSubagents);
+  const effectiveModel = policy.model || model || parent.config.primaryModel;
+  if (policy.model) {
+    const catalog = await getNativeTaskCatalog();
+    assertActive();
+    const ids = catalog.models.length ? catalog.models.map((m) => m.id) : [...CLAUDE_MODELS];
+    if (!ids.includes(policy.model)) throw new Error(`Task not started: selected sub-agent model ${policy.model} is unavailable. Select a model in Settings or tab configuration.`);
+  }
+  let admission = nativeTaskAdmissions.get(parent);
+  if (!admission) { admission = new NativeTaskAdmission(); nativeTaskAdmissions.set(parent, admission); }
+  const turn = turnSignal ?? new AbortController().signal;
+  const acquiring = admission.acquire(turn, policy, signal ?? turn);
+  // Attach rejection immediately, before publishing the queued row.
+  acquiring.catch(() => {});
+  let permit: Awaited<typeof acquiring>;
+  try { onQueued?.(effectiveModel); permit = await acquiring; } catch (err) { acquiring.then((p) => p.release()).catch(() => {}); throw err; }
+  let allocatedChildId: string | undefined;
   try {
-    await initWorkflowStore(parentCwd, childWorkflowId);
-    await persistInitialMeta(parentCwd, childWorkflowId, childConfig, childPrimary, { parentWorkflowId });
-  } catch (err) {
-    workflows.delete(childWorkflowId);
-    workflowCwds.delete(childWorkflowId);
-    throw new Error(`Task: child init failed: ${err instanceof Error ? err.message : String(err)}`);
-  }
+    assertActive();
 
-  // Tell parent's observers a new workflow exists, and stamp childWorkflowId
-  // onto each observing Session.workflowIds so the close-handler cleanup +
-  // rehydrate path see the child as their own. The `parentWorkflowId` field
-  // tells the client to mint a JobState (so promote can flip it into the top
-  // tab strip without a server round-trip) but suppress the auto-tab + the
-  // active-tab switch — depth-1 Task children render scoped to the parent
-  // (inline chat card + TASKS sub-tab), not as siblings of the parent.
-  for (const obs of parent.observers) {
-    const sess = sessions.get(obs);
-    if (sess) sess.workflowIds.add(childWorkflowId);
-    if (obs.readyState === WebSocket.OPEN) {
-      send(obs, { type: 'workflow_created', workflowId: childWorkflowId, config: childConfig, parentWorkflowId });
-    }
-  }
-  // Persist + broadcast the seed prompt as the child's first user message so
-  // the operator sees it in the new tab's chat.
-  broadcastWorkflow(childWorkflowId, { type: 'user_message_echo', workflowId: childWorkflowId, content: prompt, timestamp: Date.now() });
+    const childWorkflowId = crypto.randomUUID();
+    allocatedChildId = childWorkflowId;
+    const taskId = requestedTaskId ?? `task-${crypto.randomUUID()}`;
 
-  // Capture the child's assistant text so finalText resolves with it on
-  // primary_complete. We also tee broadcasts to all observers via
-  // broadcastWorkflow (the runPrimaryTurn ctx.broadcast already targets the
-  // parent's WS via broadcastWorkflow indirectly through the workflow
-  // observer set we cloned above).
-  let accumulated = '';
-  let settled = false;
-  let resolveFinal: (text: string) => void;
-  let rejectFinal: (err: Error) => void;
-  const finalText = new Promise<string>((res, rej) => { resolveFinal = res; rejectFinal = rej; });
-
-  const childTurn = runPrimaryTurn(
-    {
-      workflowId: childWorkflowId,
-      cwd: parentCwd,
-      manager: childManager,
-      broadcast: (m) => {
-        broadcastWorkflow(childWorkflowId, m);
-        // Capture text deltas + completion locally so the parent's Task
-        // promise can resolve.
-        if (m.type === 'primary_text') accumulated += m.text;
-        if (m.type === 'primary_complete') {
-          settled = true;
-          resolveFinal(accumulated);
-        }
-        if (m.type === 'error' && !settled) {
-          settled = true;
-          // 'Worker killed' only follows a cancel (the card's own CANCEL):
-          // report it as cancelled, not as a failure.
-          rejectFinal(new Error(m.message === 'Worker killed' ? 'AbortError: task cancelled' : (m.message ?? 'child errored')));
-        }
-      },
-    },
-    {
-      primary: childPrimary,
-      prompt,
-      resumeSessionId: undefined,
-      // Task children use the Native transport, including inherited settings.
-      claudeTransport: 'native',
-      claudeNativeCompact: parent.config.claudeNativeCompact === true,
-      claudeNativeForceInterleavedThinkingBeta: parent.config.claudeNativeForceInterleavedThinkingBeta === true,
-      claudeNativeThinkingDisplay: parent.config.claudeNativeThinkingDisplay,
+    // Clone parent's WorkflowConfig with a new id + name; inherit transport.
+    const childName = description.length > 60 ? description.slice(0, 57) + '…' : description;
+    const childConfig: WorkflowConfig = {
+      ...parent.config,
+      primaryModel: effectiveModel as WorkflowConfig['primaryModel'],
       claudeNativeTaskDisabled: true,
-      claudeNativeSubagent: { agentType: subagentType?.trim() || 'general-purpose', parentWorkflowId },
-      // H30 — the child turn threads outputStyle the same way the normal turn
-      // does (a runPrimaryTurn arg, NOT derivePrimaryConfig, which drops it).
-      // Without this the child silently ran 'normal' regardless of the parent's
-      // OUTPUT STYLE pick. Inherit the parent's setting.
-      outputStyle: resolveOutputStyle(parent.config.outputStyle),
-      // docs/GOTCHAS.md - a Task child works in service of the parent's
-      // objective, so it inherits the parent's north-star (like the Review /
-      // Handoff / DOCS / GIT seeds do, and unlike outputStyle's forced normal
-      // in those seeds). derivePrimaryConfig drops it, so thread it explicitly.
-      goal: parent.config.goal,
-    },
-  );
+      goalRun: undefined,
+      name: `Task: ${childName}`,
+    };
+    const childPrimary = derivePrimaryConfig(childConfig);
+    const childManager = new WorkerManager();
 
-  // Drop busy on settle so the child tab is interactive afterward.
-  childTurn.settled.finally(() => {
-    const wf = workflows.get(childWorkflowId);
-    if (wf) wf.busy = false;
-  }).catch(() => { /* swallow */ });
+    workflows.set(childWorkflowId, {
+      config: childConfig,
+      busy: true,
+      manager: childManager,
+      primary: childPrimary,
+      queue: { steering: [], followUp: [] },
+      observers: new Set(parent.observers),
+      autoHandoff: deriveAutoHandoff(childConfig),
+      lastContextPercent: 0,
+      previewHistory: [],
+    });
+    workflowCwds.set(childWorkflowId, parentCwd);
+    acquireProjectSettingsWatcher(parentCwd);
 
-  return {
-    taskId,
-    childWorkflowId,
-    finalText,
-    read: () => ({ output: accumulated, settled }),
-    cancel: () => {
-      try { childManager.killAll(); } catch { /* gone */ }
+    try {
+      await initWorkflowStore(parentCwd, childWorkflowId);
+      assertActive();
+      await persistInitialMeta(parentCwd, childWorkflowId, childConfig, childPrimary, { parentWorkflowId });
+    } catch (err) {
+      throw new Error(`Task: child init failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    assertActive();
+
+    // Tell parent's observers a new workflow exists, and stamp childWorkflowId
+    // onto each observing Session.workflowIds so the close-handler cleanup +
+    // rehydrate path see the child as their own. The `parentWorkflowId` field
+    // tells the client to mint a JobState (so promote can flip it into the top
+    // tab strip without a server round-trip) but suppress the auto-tab + the
+    // active-tab switch — depth-1 Task children render scoped to the parent
+    // (inline chat card + TASKS sub-tab), not as siblings of the parent.
+    for (const obs of parent.observers) {
+      const sess = sessions.get(obs);
+      if (sess) sess.workflowIds.add(childWorkflowId);
+      if (obs.readyState === WebSocket.OPEN) {
+        send(obs, { type: 'workflow_created', workflowId: childWorkflowId, config: childConfig, parentWorkflowId });
+      }
+    }
+    // Persist + broadcast the seed prompt as the child's first user message so
+    // the operator sees it in the new tab's chat.
+    broadcastWorkflow(childWorkflowId, { type: 'user_message_echo', workflowId: childWorkflowId, content: prompt, timestamp: Date.now() });
+
+    // Capture the child's assistant text so finalText resolves with it on
+    // primary_complete. We also tee broadcasts to all observers via
+    // broadcastWorkflow (the runPrimaryTurn ctx.broadcast already targets the
+    // parent's WS via broadcastWorkflow indirectly through the workflow
+    // observer set we cloned above).
+    let accumulated = '';
+    let settled = false;
+    let resolveFinal: (text: string) => void;
+    let rejectFinal: (err: Error) => void;
+    const finalText = new Promise<string>((res, rej) => { resolveFinal = res; rejectFinal = rej; });
+
+    assertActive();
+    permit.started();
+    const childTurn = runPrimaryTurn(
+      {
+        workflowId: childWorkflowId,
+        cwd: parentCwd,
+        manager: childManager,
+        broadcast: (m) => {
+          broadcastWorkflow(childWorkflowId, m);
+          // Capture text deltas + completion locally so the parent's Task
+          // promise can resolve.
+          if (m.type === 'primary_model') onModel?.(m.resolvedModel);
+          if (m.type === 'primary_text') accumulated += m.text;
+          if (m.type === 'primary_complete') {
+            settled = true;
+            resolveFinal(accumulated);
+          }
+          if (m.type === 'error' && !settled) {
+            settled = true;
+            // 'Worker killed' only follows a cancel (the card's own CANCEL):
+            // report it as cancelled, not as a failure.
+            rejectFinal(new Error(m.message === 'Worker killed' ? 'AbortError: task cancelled' : (m.message ?? 'child errored')));
+          }
+        },
+      },
+      {
+        primary: childPrimary,
+        prompt,
+        resumeSessionId: undefined,
+        // Task children use the Native transport, including inherited settings.
+        claudeTransport: 'native',
+        claudeNativeCompact: parent.config.claudeNativeCompact === true,
+        claudeNativeForceInterleavedThinkingBeta: parent.config.claudeNativeForceInterleavedThinkingBeta === true,
+        claudeNativeThinkingDisplay: parent.config.claudeNativeThinkingDisplay,
+        claudeNativeTaskDisabled: true,
+        claudeNativeSubagent: { agentType: subagentType?.trim() || 'general-purpose', parentWorkflowId },
+        // H30 — the child turn threads outputStyle the same way the normal turn
+        // does (a runPrimaryTurn arg, NOT derivePrimaryConfig, which drops it).
+        // Without this the child silently ran 'normal' regardless of the parent's
+        // OUTPUT STYLE pick. Inherit the parent's setting.
+        outputStyle: resolveOutputStyle(parent.config.outputStyle),
+        // docs/GOTCHAS.md - a Task child works in service of the parent's
+        // objective, so it inherits the parent's north-star (like the Review /
+        // Handoff / DOCS / GIT seeds do, and unlike outputStyle's forced normal
+        // in those seeds). derivePrimaryConfig drops it, so thread it explicitly.
+        goal: parent.config.goal,
+      },
+    );
+
+    const cancelChild = () => {
+      if (settled) return;
+      try { childManager.killAll(); } catch { /* already gone */ }
+      if (!settled) { settled = true; rejectFinal(new Error('AbortError: task cancelled')); }
+    };
+    signal?.addEventListener('abort', cancelChild, { once: true });
+    turnSignal?.addEventListener('abort', cancelChild, { once: true });
+    if (signal?.aborted || turnSignal?.aborted) cancelChild();
+    // The cancellation result can arrive before the child finishes stopping.
+    // Keep capacity until WorkerManager's turn settlement, not finalText.
+    finalText.catch(() => {});
+    childTurn.settled.then((result) => {
       if (!settled) {
         settled = true;
-        rejectFinal(new Error('AbortError: parent cancelled'));
+        if (result.error) rejectFinal(new Error(result.error)); else resolveFinal(accumulated);
       }
-    },
-  };
+    }, (err) => {
+      if (!settled) { settled = true; rejectFinal(err instanceof Error ? err : new Error(String(err))); }
+    }).finally(() => {
+      signal?.removeEventListener('abort', cancelChild);
+      turnSignal?.removeEventListener('abort', cancelChild);
+      const wf = workflows.get(childWorkflowId);
+      if (wf) wf.busy = false;
+      permit.release();
+    }).catch(() => {});
+
+    return {
+      taskId, childWorkflowId, model: effectiveModel, finalText,
+      read: () => ({ output: accumulated, settled }),
+      cancel: cancelChild,
+    };
+  } catch (err) {
+    permit.release();
+    if (allocatedChildId) {
+      releaseProjectSettingsWatcher(parentCwd);
+      for (const obs of parent.observers) sessions.get(obs)?.workflowIds.delete(allocatedChildId);
+      workflows.get(allocatedChildId)?.manager.killAll();
+      workflows.delete(allocatedChildId);
+      workflowCwds.delete(allocatedChildId);
+    }
+    throw err;
+  }
 });
 
 function onListening() {

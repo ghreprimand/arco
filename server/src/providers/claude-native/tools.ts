@@ -944,13 +944,13 @@ const TaskTool: Entry = {
         description: { type: 'string', description: 'Short title shown on the child tab.' },
         prompt: { type: 'string', description: 'The seed prompt for the child agent.' },
         subagent_type: { type: 'string', description: 'Optional subagent label (informational; child still runs as the parent\'s configured provider).' },
-        model: { type: 'string', description: 'Optional model override for the child. Defaults to the parent\'s model.' },
+        model: { type: 'string', description: 'Optional child model. The operator\'s Sub-agent model setting overrides this when set; otherwise an omitted model inherits the parent.' },
       },
       required: ['description', 'prompt'],
     },
   },
   execute: async (args, ctx) => {
-    if (ctx.taskDisabled) return '[error] Task is depth-capped at 1; this child cannot spawn another Task.';
+    if (ctx.taskDisabled) return '[error] Task not available in Chat, cluster members or depth-capped children.';
     if (!ctx.spawnTask) return '[error] Task not available in this context';
     const description = asString(args.description, 'description');
     const prompt = asString(args.prompt, 'prompt');

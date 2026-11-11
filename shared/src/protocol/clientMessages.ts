@@ -150,6 +150,8 @@ export interface UserMessage {
 export interface CancelMessage {
   type: 'cancel';
   workflowId: string;
+  // Native queued/running Task cancellation, scoped to this parent.
+  taskId?: string;
 }
 
 // Operator-triggered in-place compaction. Provider-routed: Claude Native and
@@ -327,6 +329,7 @@ export interface UpdatePrimaryConfigMessage {
   // WorkflowConfig.claudeNativeThinkingDisplay. Native-only; takes effect
   // next turn. No effect on budget-thinking models (always summarized).
   claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates';
+  nativeSubagents?: import('@arco/shared').NativeSubagentPolicy | null;
   // NATIVE_COMPACTION_PLAN Phase 3 — opt-in auto-continue after a Native
   // compaction. Persists to meta.json + WorkflowConfig.nativeCompactAutoContinue.
   // Default false (manual resume); Native-only.

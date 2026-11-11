@@ -1,3 +1,4 @@
+import { NativeSubagentDefaults } from './NativeSubagentControls';
 import { ProvidersPopover } from './ProvidersPopover';
 import { PreviewPortsSection } from './settings/PreviewPortsSection';
 import { readSavedSettings } from '../utils/settingsRequests';
@@ -1150,6 +1151,7 @@ export function SettingsPanel({ onClose }: Props) {
             settings.autoHandoffDefaults via POST /api/settings; the server
             seeds config.autoHandoff on workflow create. Per-tab override on
             the CONFIG tab always wins. */}
+        <SettingsSection id="native-subagents"><NativeSubagentDefaults /></SettingsSection>
         <SettingsSection id="auto-handoff-defaults">
         <AutoHandoffDefaultsSection />
         </SettingsSection>

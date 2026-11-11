@@ -1,3 +1,7 @@
+import { setMaxListeners } from 'node:events';
+import { assertNativeTaskAllowed } from './taskAdmission.js';
+import { readSettings } from '../../settings.js';
+import { resolveNativeSubagents, type NativeSubagentPolicy } from '@arco/shared';
 import { availableHandoffSources, executeHandoffHistory, HANDOFF_HISTORY_TOOL, HANDOFF_HISTORY_CONTEXT } from '../../handoffHistoryTool.js';
 import { mediaRetirementNotice } from './mediaRetirementNotice.js';
 import { nativeMediaLimits } from './mediaLimits.js';
@@ -278,12 +282,19 @@ interface WorkerOpts {
 // the worker stays free of WorkflowState / WS knowledge.
 export interface TaskSpawnArgs {
   parentWorkflowId: string;
+  taskId?: string;
+  turnSignal?: AbortSignal;
+  signal?: AbortSignal;
+  policy?: NativeSubagentPolicy;
+  onQueued?: (model: string) => void;
+  onModel?: (model: string) => void;
   description: string;
   prompt: string;
   subagentType?: string;
   model?: string;
 }
 export interface TaskSpawnHandle {
+  model?: string;
   taskId: string;
   childWorkflowId: string;
   // Resolves with the child's final assistant text when the child settles.
@@ -491,6 +502,9 @@ export class ClaudeNativeWorker extends EventEmitter {
   // Phase 7b hooks. Wired by ClaudeNativeProvider after construction.
   private planBroadcast: PlanBroadcast | null = null;
   private taskHandler: TaskSpawnHandler | null = null;
+  private taskTurn = new AbortController();
+  private taskPolicy = resolveNativeSubagents();
+  private taskRequests = new Map<string, AbortController>();
   // docs/PROVIDERS.md - generic workflow-scoped event sink for
   // hook_rewrote_input / tool_gate_triggered / ctx_action. Wired by
   // ClaudeNativeProvider; no-op when absent (e.g. tests).
@@ -802,6 +816,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // appendSystemPrompt rotates per turn (skills manifest, transcript)
     // and effort/model can be live-edited.
     this.config = next;
+    this.taskDisabled = this.taskDisabled || next.claudeNativeTaskDisabled === true;
   }
 
   // Pre-seed the conversation history before the first runTurn fires.
@@ -2290,15 +2305,20 @@ export class ClaudeNativeWorker extends EventEmitter {
         try { g.reject(new Error('AbortError: turn cancelled')); } catch { /* ignore */ }
       }
     }
-    // Report every unsettled Task child as cancelled now, then cascade the
-    // cancel. handleSpawnTask skips its own status for these ids.
+    this.cancelPendingTasks();
+  }
+
+  private cancelPendingTasks(): void {
+    // Settle before the parent error/result unwires lifecycle forwarding.
+    const active = [...this.unsettledTasks.keys()];
     for (const [taskId, task] of this.unsettledTasks) {
       this.emit('task_status', { taskId, toolUseId: task.toolUseId, phase: 'cancelled', elapsedMs: Date.now() - task.startedAt, summary: 'Cancelled.' });
     }
     this.unsettledTasks.clear();
-    // Cascade cancel to any in-flight Task children.
-    for (const handle of this.tasksByTaskId.values()) {
-      try { handle.cancel(); } catch { /* already gone */ }
+    this.taskTurn.abort();
+    for (const request of this.taskRequests.values()) request.abort();
+    for (const id of active) {
+      try { this.tasksByTaskId.get(id)?.cancel(); } catch { /* already gone */ }
     }
   }
 
@@ -2571,7 +2591,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   override emit(event: string | symbol, ...args: unknown[]): boolean {
     // The adapter unwires on result/error, so deliver the aggregate first.
-    if (event === 'result' || event === 'error') this.flushMediaRetirementNotice();
+    if (event === 'result' || event === 'error') { this.cancelPendingTasks(); this.flushMediaRetirementNotice(); }
     return super.emit(event, ...args);
   }
 
@@ -2598,6 +2618,9 @@ export class ClaudeNativeWorker extends EventEmitter {
   }
 
   async runTurn(prompt: string): Promise<void> {
+    this.cancelPendingTasks();
+    this.taskTurn = new AbortController();
+    setMaxListeners(0, this.taskTurn.signal);
     this.retiredImagesThisTurn = 0;
     this.retiredDocumentsThisTurn = 0;
     this.turnRunning = true;
@@ -2607,6 +2630,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     try {
       await this.runTurnInner(prompt);
     } finally {
+      this.cancelPendingTasks();
       this.flushMediaRetirementNotice();
       this.turnRunning = false;
       this.subagentTurnPending = false;
@@ -2633,6 +2657,9 @@ export class ClaudeNativeWorker extends EventEmitter {
     // Reset synchronously, before the first await: the adapter calls runTurn
     // from spawn() and any kill() can only land after this line.
     this.cancelRequested = false;
+    const taskDefaults = await readSettings(this.config.cwd).catch(() => undefined);
+    if (this.cancelledDuringStartup()) return;
+    this.taskPolicy = resolveNativeSubagents(taskDefaults?.nativeSubagents, this.config.nativeSubagents);
     this.urlReadsThisTurn = 0;
     this.turnInputAccepted = false;
     try {
@@ -3582,7 +3609,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       readSet: this.readSet,
       partialReadSet: this.partialReadSet,
       planMode: this.planMode,
-      taskDisabled: this.taskDisabled,
+      taskDisabled: this.taskDisabled || this.config.clusterId !== undefined || this.config.interactionMode === 'chat',
       onTodos: (todos) => {
         this.todos = todos;
         this.todosBroadcast(todos);
@@ -4099,14 +4126,50 @@ export class ClaudeNativeWorker extends EventEmitter {
   }
 
   private async handleSpawnTask(args: { description: string; prompt: string; subagentType?: string; model?: string; toolUseId: string }): Promise<string> {
+    assertNativeTaskAllowed({ interactionMode: this.config.interactionMode, inCluster: this.config.clusterId !== undefined, taskDisabled: this.taskDisabled });
     if (!this.taskHandler) throw new Error('Task handler not registered');
-    const handle = await this.taskHandler({
-      parentWorkflowId: this.workflowId,
-      description: args.description,
-      prompt: args.prompt,
-      subagentType: args.subagentType,
-      model: args.model,
-    });
+    const turn = this.taskTurn;
+    const request = new AbortController();
+    const requestId = `task-${crypto.randomUUID()}`;
+    this.taskRequests.set(requestId, request);
+    let queued = false;
+    let chosenModel: string | undefined;
+    let handle: TaskSpawnHandle;
+    try {
+      handle = await this.taskHandler({
+        parentWorkflowId: this.workflowId,
+        taskId: requestId, turnSignal: turn.signal, signal: request.signal,
+        policy: this.taskPolicy,
+        description: args.description, prompt: args.prompt, subagentType: args.subagentType, model: args.model,
+        onQueued: (model) => {
+          if (turn.signal.aborted || request.signal.aborted) throw new Error('AbortError: Task cancelled');
+          chosenModel = model; queued = true;
+          const startedAt = Date.now();
+          this.unsettledTasks.set(requestId, { toolUseId: args.toolUseId, startedAt });
+          this.emit('task_started', { taskId: requestId, toolUseId: args.toolUseId, description: args.description, startedAt, phase: 'queued', model });
+        },
+        onModel: (model) => {
+          chosenModel = model;
+          if (this.tasksByTaskId.has(requestId) && this.unsettledTasks.has(requestId)) {
+            this.emit('task_status', { taskId: requestId, toolUseId: args.toolUseId, phase: 'running', elapsedMs: 0, model });
+          }
+        },
+      });
+      if (turn.signal.aborted || request.signal.aborted || this.taskTurn !== turn) {
+        handle.finalText.catch(() => {});
+        handle.cancel();
+        throw new Error('AbortError: Task cancelled during initialization');
+      }
+    } catch (err) {
+      if (queued && this.unsettledTasks.delete(requestId)) {
+        const text = String(err);
+        this.emit('task_status', { taskId: requestId, toolUseId: args.toolUseId, phase: /AbortError/.test(text) ? 'cancelled' : 'error', elapsedMs: 0, summary: text.slice(0, 200) });
+      }
+      this.taskRequests.delete(requestId);
+      throw err;
+    }
+    this.taskRequests.delete(requestId);
+    this.unsettledTasks.delete(requestId);
     this.tasksByTaskId.set(handle.taskId, handle);
     const startedAt = Date.now();
     this.unsettledTasks.set(handle.taskId, { toolUseId: args.toolUseId, startedAt });
@@ -4117,6 +4180,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       childWorkflowId: handle.childWorkflowId,
       toolUseId: args.toolUseId,
       description: args.description,
+      model: chosenModel ?? handle.model ?? args.model ?? this.config.model,
       startedAt,
     });
     let finalText: string;
@@ -4145,7 +4209,23 @@ export class ClaudeNativeWorker extends EventEmitter {
       elapsedMs: Date.now() - startedAt,
       summary: finalText.slice(0, 200),
     });
-    return finalText;
+    const overridden = this.taskPolicy.model && args.model
+      && resolveClaudeAliasFromCatalog(this.taskPolicy.model) !== resolveClaudeAliasFromCatalog(args.model);
+    return overridden
+      ? `${finalText}\n\nSub-agent used ${chosenModel ?? handle.model ?? this.taskPolicy.model}: the operator's model setting overrides the requested ${args.model}.`
+      : finalText;
+  }
+
+  hasActiveTask(taskId: string): boolean {
+    return this.taskRequests.has(taskId) || this.unsettledTasks.has(taskId);
+  }
+
+  cancelTask(taskId: string): boolean {
+    const request = this.taskRequests.get(taskId);
+    if (request) { request.abort(); return true; }
+    const handle = this.tasksByTaskId.get(taskId);
+    if (handle) { handle.cancel(); return true; }
+    return false;
   }
 
   private async handleReadTaskOutput(taskId: string): Promise<string> {

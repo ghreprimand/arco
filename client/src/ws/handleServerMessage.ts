@@ -1215,6 +1215,8 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           store.recordTaskStarted(msg.workflowId, {
             taskId: msg.taskId,
             childWorkflowId: msg.childWorkflowId,
+            model: msg.model,
+            phase: msg.phase,
             toolUseId: msg.toolUseId,
             description: msg.description,
             startedAt: msg.startedAt,
@@ -1228,6 +1230,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             phase: msg.phase,
             elapsedMs: msg.elapsedMs,
             summary: msg.summary,
+            model: msg.model,
           });
           break;
 

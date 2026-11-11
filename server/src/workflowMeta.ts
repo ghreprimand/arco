@@ -143,6 +143,8 @@ export interface WorkflowMeta {
   // Adaptive-thinking display for Claude Native ('omitted' default when
   // absent; 'summarized' streams thinking into the Activity tab).
   claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates';
+  nativeSubagents?: import('@arco/shared').NativeSubagentPolicy;
+  claudeNativeTaskDisabled?: boolean;
   // NATIVE_COMPACTION_PLAN Phase 3 — per-tab opt-in to auto-continue after a
   // Native compaction. Default false (manual resume). Persists across restart.
   nativeCompactAutoContinue?: boolean;
@@ -327,6 +329,8 @@ export function workflowConfigFromMeta(meta: WorkflowMeta, cwd: string): Workflo
     ...(meta.genesisSeed ? { genesisSeed: meta.genesisSeed } : {}),
     // — Native gates / toggles (Native-only; inert on other providers) —
     ...(meta.claudeNativeCompact !== undefined ? { claudeNativeCompact: meta.claudeNativeCompact } : {}),
+    nativeSubagents: meta.nativeSubagents,
+    ...(meta.claudeNativeTaskDisabled ? { claudeNativeTaskDisabled: true } : {}),
     ...(meta.claudeNativeThinkingDisplay ? { claudeNativeThinkingDisplay: meta.claudeNativeThinkingDisplay } : {}),
     ...(meta.claudeNativeForceInterleavedThinkingBeta ? { claudeNativeForceInterleavedThinkingBeta: true } : {}),
     ...(meta.nativeCompactAutoContinue ? { nativeCompactAutoContinue: true } : {}),
