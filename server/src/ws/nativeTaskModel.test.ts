@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process';
 
 // Exercise the callback registered by the real server entry point, with only
 // fixture workers and an ephemeral loopback listener in the child process.
-test('Native Task model override agrees across live state, UI config and metadata',()=>{
+test('Native Task model and separate goal-run budget agree across live state, UI config and metadata',()=>{
  const root=mkdtempSync(join(tmpdir(),'arco-task-model-'));const home=join(root,'home'),cwd=join(root,'project'),report=join(root,'report.json');mkdirSync(home);mkdirSync(cwd);
  const url=(relative:string)=>new URL(relative,import.meta.url).href;
  const code=`
@@ -27,7 +27,8 @@ test('Native Task model override agrees across live state, UI config and metadat
   const {settleProjectWrites}=await import(${JSON.stringify(url('../testSupport/projectWrites.ts'))});
   const id=randomUUID(),cwd=process.cwd(),messages=[];
   const ws={readyState:1,bufferedAmount:0,send:raw=>messages.push(JSON.parse(raw))};
-  const config={name:'Fixture parent',workingDirectory:cwd,primaryProvider:'claude',primaryModel:'haiku',primaryEffort:'low',claudeTransport:'native'};
+  const budget={enabled:true,total:4,remaining:2,tokensUsed:17};
+  const config={goal:'Fixture direction',goalRun:budget,name:'Fixture parent',workingDirectory:cwd,primaryProvider:'claude',primaryModel:'haiku',primaryEffort:'low',claudeTransport:'native'};
   const parent={config,primary:derivePrimaryConfig(config),manager:new WorkerManager(),busy:false,observers:new Set([ws]),queue:{steering:[],followUp:[]},previewHistory:[],lastContextPercent:0};
   workflows.set(id,parent);workflowCwds.set(id,cwd);sessions.set(ws,{id:'fixture',workflowIds:new Set([id]),clusterIds:new Set(),clusterObserved:new Map()});
   await initWorkflowStore(cwd,id);await persistInitialMeta(cwd,id,config,parent.primary);
@@ -35,12 +36,12 @@ test('Native Task model override agrees across live state, UI config and metadat
   const handle=await turn.worker.taskHandler({parentWorkflowId:id,description:'Fixture Task',prompt:'Fixture work',subagentType:'fixture',model:'sonnet'});
   await handle.finalText;await settleProjectWrites();
   const child=workflows.get(handle.childWorkflowId);const meta=await readMeta(cwd,handle.childWorkflowId);const emitted=messages.find(m=>m.type==='workflow_created'&&m.workflowId===handle.childWorkflowId);
-  fs.writeFileSync(process.env.ARCO_TASK_FIXTURE_REPORT,JSON.stringify({live:child.primary.model,config:child.config.primaryModel,emitted:emitted.config.primaryModel,persisted:meta.primaryModel}));process.exit(0);
+  fs.writeFileSync(process.env.ARCO_TASK_FIXTURE_REPORT,JSON.stringify({live:child.primary.model,config:child.config.primaryModel,emitted:emitted.config.primaryModel,persisted:meta.primaryModel,childGoal:child.config.goal,liveBudget:child.config.goalRun??null,emittedBudget:emitted.config.goalRun??null,persistedBudget:meta.goalRun??null,parentBudget:parent.config.goalRun}));process.exit(0);
  }catch(error){fs.writeFileSync(process.env.ARCO_TASK_FIXTURE_REPORT,JSON.stringify({error:String(error),stack:error?.stack}));process.exit(2);}
  `;
  const env:NodeJS.ProcessEnv={HOME:home,USERPROFILE:home,ARCO_HOME:join(home,'.arco'),CODEX_HOME:join(home,'.codex'),CLAUDE_CONFIG_DIR:join(home,'.claude'),XDG_CONFIG_HOME:join(home,'.config'),XDG_DATA_HOME:join(home,'.local','share'),XDG_CACHE_HOME:join(home,'.cache'),PATH:root,ARCO_PORT:'0',ARCO_HOST:'localhost',ARCO_UPDATE_CHECK:'0',ARCO_TEST:'1',ARCO_TEST_NO_AUTO_TURN_DISPATCH:'1',ARCO_TASK_FIXTURE_CWD:cwd,ARCO_TASK_FIXTURE_REPORT:report};
  for(const key of ['SystemRoot','SYSTEMROOT','windir','WINDIR','ComSpec','COMSPEC','PATHEXT'])if(process.env[key]!==undefined)env[key]=process.env[key];
  try{const result=spawnSync(process.execPath,['--conditions','development','--import','tsx','--input-type=module','-e',code],{cwd:process.cwd(),env,encoding:'utf8',timeout:30000,maxBuffer:128*1024});
- const value=JSON.parse(readFileSync(report,'utf8'));assert.equal(result.status,0,JSON.stringify(value));assert.deepEqual(value,{live:'sonnet',config:'sonnet',emitted:'sonnet',persisted:'sonnet'});
+ const value=JSON.parse(readFileSync(report,'utf8'));assert.equal(result.status,0,JSON.stringify(value));assert.deepEqual(value,{live:'sonnet',config:'sonnet',emitted:'sonnet',persisted:'sonnet',childGoal:'Fixture direction',liveBudget:null,emittedBudget:null,persistedBudget:null,parentBudget:{enabled:true,total:4,remaining:2,tokensUsed:17}});
  }finally{rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100});}
 });

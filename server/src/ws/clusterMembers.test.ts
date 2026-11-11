@@ -1,4 +1,5 @@
 import { transformSync } from 'esbuild';
+import ts from 'typescript';
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -135,10 +136,25 @@ test('B136 fresh and replacement members keep the north star but never inherit a
 
 test('B136 Native Task child does not reuse its parent run budget',()=>{
   const source=readFileSync(new URL('../index.ts',import.meta.url),'utf8');
-  const body=source.match(/const childConfig: WorkflowConfig = (\{[\s\S]*?\n  \});/)![1];
-  const parent={config:{goal:'direction',goalRun:{enabled:true,remaining:2}}};
+  const tree=ts.createSourceFile('index.ts',source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
+  const initializers: ts.ObjectLiteralExpression[]=[];
+  const visit=(node:ts.Node):void=>{
+    if(ts.isVariableDeclaration(node)&&ts.isIdentifier(node.name)&&node.name.text==='childConfig'
+      &&node.initializer&&ts.isObjectLiteralExpression(node.initializer)) initializers.push(node.initializer);
+    ts.forEachChild(node,visit);
+  };
+  visit(tree);
+  assert.equal(initializers.length,1,'one Native Task child configuration');
+  const body=initializers[0].getText(tree);
   const code=transformSync(`return (${body})`,{loader:'ts'}).code;
-  const child=new Function('parent','childName','model',code)(parent,'fixture','haiku');
-  assert.equal(child.primaryModel,'haiku');
-  assert.equal(child.goal,'direction');assert.equal(child.goalRun,undefined);
+  const makeChild=new Function('parent','childName','effectiveModel',code);
+  for(const goalRun of [undefined,{enabled:false,remaining:0},{enabled:true,total:4,remaining:2,tokensUsed:17}]) {
+    const parent={config:{primaryModel:'sonnet',goal:'direction',goalRun}};
+    const before=structuredClone(parent);
+    const child=makeChild(parent,'fixture','haiku');
+    assert.equal(child.primaryModel,'haiku');
+    assert.equal(child.goal,'direction');
+    assert.equal(child.goalRun,undefined,'a child never receives the parent run budget');
+    assert.deepEqual(parent,before,'creating a child preserves the parent budget');
+  }
 });
