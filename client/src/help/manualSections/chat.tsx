@@ -68,7 +68,7 @@ export const chat: Section[] = [
   the <strong>+</strong> button, by pasting, or by dropping them anywhere on
   the window. Arco fits images and extracts text from PDFs, office documents and notebooks before sending. Text-only models receive an image note, and other binaries receive a file note. Incognito chats cannot attach files.
   </p>
-  <p>Earlier uploads are restored within the same limits after a restart; attach them again if unavailable.</p>
+  <p>Chat labels each attachment before its content and marks the end so the model can associate it with the file. Earlier uploads are restored within the same limits after a restart; attach them again if unavailable.</p>
   <p>
   While a response is running, the send button becomes{' '}
   <strong>Stop response</strong>.

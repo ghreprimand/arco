@@ -1,3 +1,4 @@
+import { wrapAttachmentContent } from './attachmentLabels.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { lstat, mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
@@ -172,7 +173,7 @@ export async function prepareLocalFileContext(config: WorkerConfig, vision: bool
         if (media.length + images.length > 16 || mediaBytes + addedBytes > 20 * 1024 * 1024) throw new Error('Upload unavailable');
         mediaBytes += addedBytes; images.push(...media);
         const text = result.blocks.filter(block => block.type === 'text').map(block => block.text).join('\n');
-        entries.push(`[Earlier attachment: ${label}]\n${text}`);
+        entries.push(wrapAttachmentContent(label, text));
       } catch {
         const note = `Earlier attachment ${label} is no longer available; attach it again`;
         entries.push(`[${note}]`); notices.push(note);

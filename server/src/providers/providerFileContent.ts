@@ -1,3 +1,4 @@
+import { wrapAttachmentContent } from './attachmentLabels.js';
 import { readFileSync } from 'node:fs';
 import type { WorkerConfig } from '@arco/shared';
 import { randomUUID } from 'node:crypto';
@@ -37,7 +38,7 @@ export async function prepareProviderAttachments(paths: string[] | undefined, im
       const text = decodedDocuments.length || attachmentOnly
         ? result.blocks.filter((b): b is Extract<FileContentBlock, { type: 'text' }> => b.type === 'text').map(b => b.text).join('\n')
         : result.text;
-      texts.push(`[attached file: ${label}]\n${text}${!attachmentOnly && result.kind === 'pdf' && !decodedDocuments.length ? '\n[PDF sent as text and scanned pages as images. Use read_file with pages and pdf_mode=visual for layout or figures.]' : ''}`);
+      texts.push(attachmentOnly ? wrapAttachmentContent(label, text) : `[attached file: ${label}]\n${text}${result.kind === 'pdf' && !decodedDocuments.length ? '\n[PDF sent as text and scanned pages as images. Use read_file with pages and pdf_mode=visual for layout or figures.]' : ''}`);
       const decoded = result.blocks.filter((b): b is ProviderImage => b.type === 'image');
       for (const image of decoded) {
         if (media.length >= MAX_REQUEST_IMAGES || imageBytes + image.data.length > MAX_REQUEST_MEDIA_BYTES) {

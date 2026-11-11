@@ -1,3 +1,4 @@
+import { attachmentContentStart, ATTACHMENT_CONTENT_END } from '../attachmentLabels.js';
 import { lstat, realpath } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { MAX_FILE_CONTENT_BYTES, readFileContent, type FileContentBlock, type FileContentResult } from '../../fileContent.js';
@@ -28,8 +29,9 @@ export async function nativeAttachmentContent(prompt: string, paths: readonly st
       const decoded = await readFileContent(await realpath(path), { signal, attachmentOnly, limits: { images: true, documents: false } });
       const result = nativeFileOutcome(decoded);
       const admitted = admit ? await admit(blocks, result, 'attachment') : await admitImageResult(history, blocks, result, 'attachment');
+      if (attachmentOnly) blocks.push({ type: 'text', text: attachmentContentStart(basename(path).replace(/[\r\n\0]/g, ' ')) });
       blocks.push(...(admitted.content ?? [{ type: 'text' as const, text: admitted.text }]));
-      blocks.push({ type: 'text', text: `[attached file: ${attachmentOnly ? basename(path).replace(/[\r\n\0]/g, ' ') : path}]${!attachmentOnly && decoded.kind === 'pdf' ? ' PDF sent as text and scanned pages as images; use Read with pages and pdf_mode=visual for layout or figures.' : ''}` });
+      blocks.push({ type: 'text', text: attachmentOnly ? ATTACHMENT_CONTENT_END : `[attached file: ${path}]${decoded.kind === 'pdf' ? ' PDF sent as text and scanned pages as images; use Read with pages and pdf_mode=visual for layout or figures.' : ''}` });
       if (admitted.isError || admitted.text !== result.text) notices.push(admitted.text);
     } catch (error) {
       signal?.throwIfAborted();
@@ -86,7 +88,7 @@ export async function restoreChatAttachments(messages: import('./contentBlocks.j
           const outcome = nativeFileOutcome(decoded);
           const admitted = await admitImageResult(restored, chunks, outcome, 'attachment');
           if (admitted.isError || admitted.text !== outcome.text) throw new Error('Upload unavailable');
-          chunks.push({ type: 'text', text: `[Earlier attachment: ${name}]` }, ...(admitted.content ?? [{ type: 'text' as const, text: admitted.text }]));
+          chunks.push({ type: 'text', text: attachmentContentStart(name) }, ...(admitted.content ?? [{ type: 'text' as const, text: admitted.text }]), { type: 'text', text: ATTACHMENT_CONTENT_END });
         } catch { chunks.push({ type: 'text', text: `[Earlier attachment ${name} is no longer available; attach it again]` }); }
       }
     }

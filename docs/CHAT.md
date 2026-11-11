@@ -94,7 +94,7 @@ RETRY resends the prompt's attachments and EDIT re-stages them.
 
 Arco prepares attachments before sending, including Chat tabs without file
 tools. PDFs, Office documents and notebooks provide decoded content; other
-binaries provide a readable note. Labels use the attachment name and accompany the content.
+binaries provide a readable note. Chat labels each attachment before its content and marks the end, so the model can associate the content with its file.
 On later turns and after a restart, Arco restores earlier attachments from its
 uploads folder within the same limits. If an upload is missing or too large,
 the message asks for it to be attached again. Images are fitted to the transport's limits:

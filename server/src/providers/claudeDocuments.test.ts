@@ -18,7 +18,7 @@ async function pdf(pages: number) {
   return document.save();
 }
 
-test('Claude CLI sends attached PDF text and keeps other document text', async t => {
+for (const mode of ['chat', 'agent'] as const) test(`Claude CLI ${mode} sends attached PDF text and keeps other document text`, async t => {
   const cwd = await mkdtemp(join(tmpdir(), 'arco-cli-pdf-'));
   const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough() });
   let input = '', args: string[] = [];
@@ -31,7 +31,7 @@ test('Claude CLI sends attached PDF text and keeps other document text', async t
     await writeFile(join(cwd, 'report.data'), await pdf(101));
     await writeFile(join(cwd, 'memo.rtf'), '{\\rtf1\\ansi Fixture memo}');
     const worker = ClaudeProvider.create('fixture', {
-      provider: 'claude', cwd, model: 'fixture', effort: 'medium', interactionMode: 'chat', tools: [],
+      provider: 'claude', cwd, model: 'fixture', effort: 'medium', interactionMode: mode, tools: [],
       attachments: [join(cwd, 'report.data'), join(cwd, 'memo.rtf')],
     } as WorkerConfig);
     worker.on('error', () => {});
@@ -42,7 +42,13 @@ test('Claude CLI sends attached PDF text and keeps other document text', async t
     assert.match(input, /Inspect the report/);
     assert.match(input, /Fixture memo/);
     assert.match(input, /Fixture page 1/);
-    assert.match(input, /PDF sent as text/);
+    if (mode === 'chat') {
+      assert.match(input, /document: report\.data, application\/pdf/);
+      assert.doesNotMatch(input, /PDF sent as text|use read_file/i);
+    } else {
+      assert.match(input, /PDF sent as text/);
+      assert.match(input, /Use read_file with pages/);
+    }
     assert.match(input, /pages/);
     child.emit('close', 0, null);
     child.emit('exit', 0, null);

@@ -50,6 +50,8 @@ for (const [name, provider] of Object.entries({ ollama: OllamaProvider, llamacpp
       else if (name === 'llamacpp') await worker.streamOneTurn('http://127.0.0.1:9', 'fixture', messages, undefined, defaultRecoveryConfig());
       else await worker.streamOneTurn('http://127.0.0.1:9', 'fixture', messages, undefined);
       for (const marker of ['fixture marker', 'word fixture marker', 'sheet fixture marker', 'pdf fixture marker']) assert.ok(outbound.includes(marker), marker);
+      const wire = JSON.stringify(JSON.parse(outbound));
+      assert.match(wire, /\[Attached file: fixture\.txt\]\\n\[Begin attachment content\]\\nfixture marker\\n\[End attachment content\]/);
       assert.ok(!outbound.includes(path));
     } finally { t.mock.restoreAll(); await rm(dir, { recursive: true, force: true }); }
   });
@@ -92,7 +94,7 @@ for (const name of ['codex', 'cursor'] as const) test(`${name} Chat sends attach
     let launched!: () => void; const started = new Promise<void>(resolve => { launched = resolve; });
     t.mock.method(childProcess, 'spawn', (() => { launched(); return child; }) as any);
     t.mock.method(childProcess, 'execFile', ((_command: string, _args: string[], _options: unknown, callback: any) => { queueMicrotask(() => callback(Object.assign(new Error('probe'), { code: 1 }), '', "error: unknown option '--arco-chat-capability-probe'")); return child; }) as any);
-    t.mock.method(childProcess, 'spawnSync', ((_cmd: string, args: string[]) => ({ status: 0, stdout: args.includes('--version') ? 'codex-cli 0.167.0' : args.includes('--help') ? '--ignore-user-config --ignore-rules --strict-config' : `shell_tool stable ${args.includes('-c') ? 'false' : 'true'}\nview_image stable ${args.includes('-c') ? 'false' : 'true'}` })) as any);
+    t.mock.method(childProcess, 'spawnSync', ((_cmd: string, args: string[]) => ({ status: 0, stdout: args.includes('--version') ? 'codex-cli 0.167.0' : args.includes('--help') ? '--ignore-user-config --ignore-rules --strict-config' : args.includes('--print-startup-config') ? '{"appServerVersion":"0.167.0"}' : `shell_tool stable ${args.includes('-c') ? 'false' : 'true'}\nview_image stable ${args.includes('-c') ? 'false' : 'true'}\ngoals stable ${args.includes('-c') ? 'false' : 'true'}` })) as any);
     syncBuiltinESMExports();
     const worker = provider.create('fixture', { provider: name, cwd: dir, workflowId: 'fixture', model: 'fixture', effort: 'medium', interactionMode: 'chat', codexHome: join(dir, 'codex'), attachments: files } as any);
     let failure = ''; worker.on('error', value => { failure = String(value); }); worker.spawn('Inspect');
@@ -130,7 +132,7 @@ for (const [name, provider] of Object.entries({ ollama: OllamaProvider, llamacpp
       if (name === 'ollama') await worker.streamOneTurn('http://127.0.0.1:9', 'fixture', messages, undefined, false, {});
       else if (name === 'llamacpp') await worker.streamOneTurn('http://127.0.0.1:9', 'fixture', messages, undefined, defaultRecoveryConfig());
       else await worker.streamOneTurn('http://127.0.0.1:9', 'fixture', messages, undefined);
-      if (present) assert.equal((outbound.match(/older fixture marker/g) ?? []).length, 1); else assert.match(outbound, /attach it again/i);
+      if (present) { assert.equal((outbound.match(/older fixture marker/g) ?? []).length, 1); assert.match(outbound, /\[Attached file: [^\]]+-true\.txt\]\\n\[Begin attachment content\]\\nolder fixture marker\\n\[End attachment content\]/); } else assert.match(outbound, /attach it again/i);
       assert.ok(!outbound.includes(path));
     } finally { t.mock.restoreAll(); await rm(dir, { recursive: true, force: true }); await rm(path, { force: true }); }
   });
@@ -153,7 +155,7 @@ for (const name of ['claude', 'codex', 'cursor'] as const) for (const present of
     let launched!: () => void; const started = new Promise<void>(resolve => { launched = resolve; });
     t.mock.method(childProcess, 'spawn', (() => { launched(); return child; }) as any);
     t.mock.method(childProcess, 'execFile', ((_command: string, _args: string[], _options: unknown, callback: any) => { queueMicrotask(() => callback(Object.assign(new Error('probe'), { code: 1 }), '', "error: unknown option '--arco-chat-capability-probe'")); return child; }) as any);
-    t.mock.method(childProcess, 'spawnSync', ((_cmd: string, args: string[]) => ({ status: 0, stdout: args.includes('--version') ? 'codex-cli 0.167.0' : args.includes('--help') ? '--ignore-user-config --ignore-rules --strict-config' : `shell_tool stable ${args.includes('-c') ? 'false' : 'true'}\nview_image stable ${args.includes('-c') ? 'false' : 'true'}` })) as any);
+    t.mock.method(childProcess, 'spawnSync', ((_cmd: string, args: string[]) => ({ status: 0, stdout: args.includes('--version') ? 'codex-cli 0.167.0' : args.includes('--help') ? '--ignore-user-config --ignore-rules --strict-config' : args.includes('--print-startup-config') ? '{"appServerVersion":"0.167.0"}' : `shell_tool stable ${args.includes('-c') ? 'false' : 'true'}\nview_image stable ${args.includes('-c') ? 'false' : 'true'}\ngoals stable ${args.includes('-c') ? 'false' : 'true'}` })) as any);
     syncBuiltinESMExports();
     const worker = provider.create('fixture', { provider: name, cwd: dir, workflowId: 'fixture', model: 'fixture', effort: 'medium', interactionMode: 'chat', codexHome: join(dir, 'codex'), ...(resumed ? { resumeSessionId: 'fixture-thread', attachments: [currentPath] } : {}), priorFiles: [{ kind: 'source', path, name: 'prior.txt' }] } as any);
     worker.on('error', () => {}); worker.spawn('Continue'); await Promise.race([started, new Promise<void>(resolve => setTimeout(resolve, 5000))]); await new Promise(resolve => setImmediate(resolve));

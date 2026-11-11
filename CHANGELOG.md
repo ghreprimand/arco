@@ -6,6 +6,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ## Unreleased
 - Claude CLI Chat can use enabled web search and fetch without an unavailable permission prompt.
 
+- Identify each Chat attachment before its decoded content, including after restart.
 - Settle Claude Native Task cards as cancelled when the parent turn is stopped, in every browser and after a reload; a card's own CANCEL now shows cancelled instead of an error.
 - Disable sub-agent creation, goals and patch tools in Codex Chat while keeping its WEB host available.
 - Explain when cluster tools reach a tab that joins while working, and keep premature coordination reminders out of its running turn.

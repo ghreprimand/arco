@@ -37,6 +37,9 @@ test('Native Chat sends attached text as content without its local path', async 
     const request = JSON.stringify(outbound);
     assert.match(request, /fixture marker/);
     assert.match(request, /fixture\.txt/);
+    const blocks = (outbound as any).messages[0].content;
+    const content = blocks.map((block: any) => block.text ?? '').join('\n');
+    assert.match(content, /\[Attached file: fixture\.txt\]\n\[Begin attachment content\]\nfixture marker\n\[End attachment content\]/);
     assert.ok(!request.includes(path), 'Chat must not expose the attachment path');
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
@@ -65,7 +68,11 @@ for (const present of [true, false]) {
       worker.on('error', () => {});
       await worker.runTurn('What did I attach?');
       const request = JSON.stringify(outbound);
-      if (present) assert.match(request, /earlier fixture marker/);
+      if (present) {
+        assert.match(request, /earlier fixture marker/);
+        const content = (outbound as any).messages.flatMap((message: any) => typeof message.content === 'string' ? [message.content] : message.content.map((block: any) => block.text ?? '')).join('\n');
+        assert.match(content, /\[Attached file: replay-true\.txt\]\n\[Begin attachment content\]\nearlier fixture marker\n\[End attachment content\]/);
+      }
       else assert.match(request, /attach it again/i);
       assert.ok(!request.includes(upload));
       assert.doesNotMatch(request, /use Read to inspect again/);
