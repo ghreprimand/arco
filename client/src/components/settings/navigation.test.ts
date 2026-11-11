@@ -12,7 +12,7 @@ const LAYOUT_KEYS = new Set(['settings.navigation', 'settings.scope']);
 
 test('every Settings help entry belongs to exactly one section', () => {
   const keys = [...help.matchAll(/^ {2}'(settings\.[a-z-]+)':/gm)].map((m) => m[1]).filter((k) => !LAYOUT_KEYS.has(k));
-  assert.equal(keys.length, 39);
+  assert.equal(keys.length, 42);
   assert.ok(!keys.includes('settings.zai-api-key'));
   for (const key of keys) assert.equal(SETTINGS_SECTIONS.filter((s) => s.help.includes(key)).length, 1, key);
   for (const s of SETTINGS_SECTIONS) for (const key of s.help) assert.ok(keys.includes(key), `${s.id} help ${key} exists`);
@@ -43,7 +43,7 @@ test('docs/SETTINGS.md maps every section, with a count that matches', () => {
 });
 
 test('requests from Connections, the outage banner and old help keys resolve', () => {
-  for (const id of ['authentication', 'codex-profiles', 'ollama', 'lmstudio', 'strata-endpoint', 'llamacpp-catalog', 'deepseek', 'transport-defaults', 'enabled-providers', 'cli-versions', 'endpoint-discovery', 'media-unconfined', 'settings.voice-setup', 'phosphor-softness']) {
+  for (const id of ['settings.native-subagents-running', 'settings.native-subagents-starts', 'settings.native-subagents-model', 'authentication', 'codex-profiles', 'ollama', 'lmstudio', 'strata-endpoint', 'llamacpp-catalog', 'deepseek', 'transport-defaults', 'enabled-providers', 'cli-versions', 'endpoint-discovery', 'media-unconfined', 'settings.voice-setup', 'phosphor-softness']) {
     assert.ok(settingsSection(id), id);
   }
   assert.equal(settingsSection('ollama')?.id, 'authentication');

@@ -2,17 +2,17 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const settingsHelp: Record<string, HelpEntry> = {
-  'native-subagents.running': {
+  'settings.native-subagents-running': {
     title: 'Maximum running at once',
-    body: <p>Claude Native runs up to this many Task children for one parent. Additional admitted tasks queue and can be cancelled. Default: 4, including existing tabs. Blank uses Settings in a tab, or 4 in Settings. Applies next turn; CLI, Codex, Cursor and local providers do not use this limit.</p>,
+    body: <p>Settings - Agents and clusters - Claude Native sub-agents. Claude Native runs up to this many Task children for one parent. Additional admitted tasks queue and can be cancelled. Default: 4, including existing tabs. Blank uses Settings in a tab, or 4 in Settings. Applies next turn; CLI, Codex, Cursor and local providers do not use this limit.</p>,
     manualSection: 'settings-providers',
   },
-  'native-subagents.starts': {
+  'settings.native-subagents-starts': {
     title: 'Maximum starts per turn',
     body: <p>Claude Native starts at most this many sub-agents across all Task rounds in one parent turn. Default: 8, including existing tabs. Queued tasks reserve places; cancelling before start releases one. Excess calls are refused and told not to retry unless requested. A new parent turn resets the count. Blank inherits Settings or the default.</p>,
     manualSection: 'settings-providers',
   },
-  'native-subagents.model': {
+  'settings.native-subagents-model': {
     title: 'Sub-agent model',
     body: <p>Agent's choice preserves the existing Native rule: inherit the parent model unless the agent names another. A selected catalog model overrides the agent's request. A tab can inherit Settings or explicitly choose Agent's choice. Unavailable selected models are refused, never silently replaced. Applies next turn. This setting does not cap spending.</p>,
     manualSection: 'settings-providers',

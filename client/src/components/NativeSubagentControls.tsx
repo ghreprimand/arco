@@ -35,13 +35,13 @@ export function NativeSubagentControls({ value, defaults, onChange, inherit = fa
     <legend>Claude Native sub-agents</legend>
     <p style={{ margin: '0 0 10px', overflowWrap: 'anywhere' }}>Enforced for Native Agent tabs outside clusters. Applies next turn. Other providers keep their own sub-agent behavior.</p>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 14em), 1fr))', gap: '10px', minWidth: 0 }}>
-      <label data-help="native-subagents.running">Maximum running at once
+      <label data-help="settings.native-subagents-running">Maximum running at once
         <input aria-label="Maximum running at once" style={control} type="number" min={1} max={32} step={1} value={running} placeholder={String(inherited.maxRunning)} onChange={(e) => setRunning(e.target.value)} onBlur={() => commit('maxRunning', running)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }} />
       </label>
-      <label data-help="native-subagents.starts">Maximum starts per turn
+      <label data-help="settings.native-subagents-starts">Maximum starts per turn
         <input aria-label="Maximum starts per turn" style={control} type="number" min={1} max={128} step={1} value={starts} placeholder={String(inherited.maxStarts)} onChange={(e) => setStarts(e.target.value)} onBlur={() => commit('maxStarts', starts)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }} />
       </label>
-      <label data-help="native-subagents.model">Sub-agent model
+      <label data-help="settings.native-subagents-model">Sub-agent model
         <select aria-label="Sub-agent model" style={control} value={selected} onChange={(e) => {
           const next = { ...value };
           if (e.target.value === '__inherit__') delete next.model; else next.model = e.target.value;
