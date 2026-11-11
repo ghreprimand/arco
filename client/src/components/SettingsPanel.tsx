@@ -1,3 +1,4 @@
+import { ProvidersPopover } from './ProvidersPopover';
 import { PreviewPortsSection } from './settings/PreviewPortsSection';
 import { readSavedSettings } from '../utils/settingsRequests';
 import { NotificationChannelsSettings } from './NotificationChannelsSettings';
@@ -1312,6 +1313,7 @@ export function SettingsPanel({ onClose }: Props) {
 
         <SettingsSection id="cli-versions">
           <AppVersionSection />
+          <ProvidersPopover />
           {capabilities && (
           <div>
             <div data-help="settings.cli-versions" className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>

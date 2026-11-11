@@ -1,4 +1,5 @@
 import { prepareProviderHistory, historyBinding } from './handoffHistoryBinding.js';
+import { parseLlamacppVersion } from './llamacppVersion.js';
 import { prepareLocalFileContext, rememberLocalAttachments, rememberLocalToolMedia, resolveLocalContextRead, type SavedToolText } from './localFileMedia.js';
 import { LocalMcp } from './localMcp.js';
 import { prepareProviderAttachments, openAiImageMessage, openAiVisionMessages, type ProviderImage } from './providerFileContent.js';
@@ -1192,8 +1193,7 @@ async function probeBinaryVersion(): Promise<string | undefined> {
     const { stdout, stderr } = await exec(binPath, ['--version'], { timeout: 3000 });
     // llama-server prints "version: 9037 (bbeb89d76)" to stderr.
     const text = (stderr + stdout).trim();
-    const m = /version:\s*(\S+)/i.exec(text);
-    version = m ? m[1] : undefined;
+    version = parseLlamacppVersion(text);
   } catch {
     version = undefined;
   }

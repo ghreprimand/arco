@@ -185,14 +185,12 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
               it's urgent runtime state. Everything else is secondary chrome. */}
           <WorkflowStatusChip />
 
+          <div data-providers-cluster style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            {!focusMode && showUsage && <UsageBar usage={usage} />}
+            <ProvidersPopover open={providersOpen} onOpenChange={setProvidersOpen} />
+          </div>
           {!focusMode && (
           <>
-          <div data-providers-cluster data-help="header.providers" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-            {/* Provider dots keep their hover usage; a click opens the Providers
-                panel (versions, usage pages, FREE VRAM for local runtimes, CONNECTIONS). */}
-            {showUsage && <UsageBar usage={usage} onDotClick={() => setProvidersOpen((v) => !v)} />}
-            <ProvidersPopover open={providersOpen} onOpenChange={setProvidersOpen} hideTrigger={showUsage} />
-          </div>
           <span data-help="header.auth-chip" style={{ display: 'inline-flex' }}>
             <HeaderAuthChip />
           </span>

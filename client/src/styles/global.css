@@ -338,3 +338,5 @@ body {
 /* Window-size layout: composer tools that do not fit move into MORE
    (client/src/layout/ToolbarOverflow.tsx). */
 [data-overflowed="true"] { display: none !important; }
+
+.provider-status-link:focus-visible { outline: 2px solid var(--color-accent-primary); outline-offset: 3px; border-radius: 2px; }

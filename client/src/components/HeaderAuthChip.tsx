@@ -1,3 +1,4 @@
+import { useCloseHeaderPopover } from './headerPopoverState';
 import { useEffect, useRef, useState } from 'react';
 import type { AuthLoginResult, AuthStatusByProvider } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
@@ -23,6 +24,7 @@ export function HeaderAuthChip() {
     return (config?.primaryProvider ?? 'claude') === 'claude' && config?.ultracode === true;
   });
   const [open, setOpen] = useState(false);
+  useCloseHeaderPopover(setOpen);
   const placeRef = useKeepInWindow();
   const [state, setState] = useState<'idle' | 'pending' | 'sent' | 'error'>('idle');
   const [hint, setHint] = useState<string | null>(null);

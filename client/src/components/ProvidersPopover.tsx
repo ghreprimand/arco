@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { compareLlamacppBuild } from '@arco/shared';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { FreeVramButton } from './FreeVramButton';
 import { useStartupStore } from '../stores/startupStore';
 import { ProviderReleasesModal, type ReleaseRuntime } from './ProviderReleasesModal';
-import { useKeepInWindow } from '../layout/keepInWindow';
+import { createPortal } from 'react-dom';
+import { closeHeaderPopovers } from './headerPopoverState';
+import { setProviderPanelOpen } from './providerPanelState';
 
-// I1 — provider/version chips folded behind a single PROVIDERS trigger. The
+// Provider/version chips folded behind a dedicated VERSIONS trigger. The
 // strip used to live inline in SystemHeader's right cluster (one button per
 // CLI + Ollama + llama.cpp) and dominated the header's horizontal budget. It's
 // status, not an urgent action, so it belongs behind progressive disclosure:
@@ -41,8 +44,7 @@ const USAGE_PAGES: Array<{ provider: 'claude' | 'codex' | 'cursor'; label: strin
   { provider: 'cursor', label: 'CURSOR USAGE', url: 'https://cursor.com/dashboard?tab=usage' },
 ];
 
-/** With `hideTrigger`, the status dots beside this panel are the trigger: the parent owns `open`. */
-export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigger = false }: { open?: boolean; onOpenChange?: (open: boolean) => void; hideTrigger?: boolean } = {}) {
+export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?: boolean; onOpenChange?: (open: boolean) => void } = {}) {
   const authStatus = useAppStore((s) => s.authStatus);
   const capabilities = useAppStore((s) => s.capabilities);
   const settings = useAppStore((s) => s.settings);
@@ -64,7 +66,45 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigg
   // is only actionable if the operator can read the whole thing.
   const [checkDetail, setCheckDetail] = useState<Record<CliProvider, string | null>>({ claude: null,  codex: null });
   const rootRef = useRef<HTMLDivElement>(null);
-  const placeRef = useKeepInWindow();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelToken = useRef(Symbol());
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    setProviderPanelOpen(open, panelToken.current);
+    if (!open && wasOpen.current) buttonRef.current?.focus();
+    wasOpen.current = open;
+    return () => { if (open) setProviderPanelOpen(false, panelToken.current); };
+  }, [open]);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const panel = panelRef.current;
+    const button = buttonRef.current;
+    if (!panel || !button) return;
+    const anchor = button.closest('header') ?? button;
+    const position = () => {
+      const scale = Number.parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
+      const margin = 8 * scale;
+      const a = anchor.getBoundingClientRect();
+      const b = button.getBoundingClientRect();
+      const below = a.bottom + 6 * scale;
+      const top = anchor.tagName === 'HEADER' ? below
+        : Math.max(margin, Math.min(below, window.innerHeight - Math.min(panel.scrollHeight * scale, window.innerHeight - 2 * margin) - margin));
+      panel.style.maxWidth = `${Math.max(0, window.innerWidth - 2 * margin) / scale}px`;
+      panel.style.maxHeight = `${Math.max(0, window.innerHeight - top - margin) / scale}px`;
+      panel.style.top = `${top / scale}px`;
+      const width = panel.getBoundingClientRect().width;
+      panel.style.left = `${Math.max(margin, Math.min(b.right - width, window.innerWidth - width - margin)) / scale}px`;
+    };
+    position();
+    panel.querySelector<HTMLButtonElement>('button')?.focus();
+    const observer = new ResizeObserver(position);
+    observer.observe(anchor); observer.observe(panel);
+    window.addEventListener('resize', position);
+    window.addEventListener('arco:ui-scale', position);
+    window.addEventListener('scroll', position, true);
+    return () => { observer.disconnect(); window.removeEventListener('resize', position); window.removeEventListener('arco:ui-scale', position); window.removeEventListener('scroll', position, true); };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -80,11 +120,14 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigg
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
       // Entering help must leave version-chip targets mounted.
-      if (e.target instanceof Element && (e.target.closest('.help-system-ui') || e.target.closest('[data-providers-cluster]'))) return;
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      if (e.target instanceof Element && e.target.closest('.help-system-ui')) return;
+      if (!rootRef.current?.contains(e.target as Node) && !panelRef.current?.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('keydown', onKey);
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    document.addEventListener('click', onDoc);
+    return () => { document.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onDoc); document.removeEventListener('click', onDoc); };
   }, [open]);
 
   const checkForUpdates = async (provider: CliProvider) => {
@@ -162,13 +205,12 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigg
       // CLI has no parseable version either, so skip the compare rather than let
       // compareSemver read 'broken' as 0.0.0 and call it outdated.
       const latest = r.provider === 'cursor' || broken ? undefined : r.provider === 'deepseek' ? capabilities?.latestVersions?.xolotl : capabilities?.latestVersions?.[r.provider];
-      const outdated = !!latest && (r.provider === 'deepseek' ? r.version !== latest : compareSemver(r.version, latest) < 0);
+      const outdated = !!latest && (r.provider === 'deepseek' ? r.version !== latest : r.provider === 'llamacpp' ? (compareLlamacppBuild(r.version, latest) ?? 0) < 0 : compareSemver(r.version, latest) < 0);
       return { ...r, latest, outdated, broken };
     });
 
   const localRuntime = LOCAL_RUNTIMES.some((p) => settings?.enabledProviders?.[p] !== false && authStatus?.[p]?.loggedIn);
   const usagePages = USAGE_PAGES.filter(({ provider }) => settings?.enabledProviders?.[provider] !== false && authStatus?.[provider]?.loggedIn);
-  if (rows.length === 0 && !hideTrigger) return null;
 
   const anyOutdated = rows.some((r) => r.outdated);
   const anyBroken = rows.some((r) => r.broken);
@@ -176,9 +218,14 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigg
   const dotColor = anyBroken ? 'var(--color-danger)' : anyOutdated ? 'var(--color-warning)' : 'var(--color-accent-primary-dim)';
 
   return (
-    <div ref={rootRef} style={{ position: hideTrigger ? 'static' : 'relative', display: hideTrigger ? 'contents' : 'inline-flex' }}>
-      {!hideTrigger && <button
-        onClick={() => setOpen((v) => !v)}
+    <div ref={rootRef} style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label="Provider versions"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        onClick={() => { if (!open) closeHeaderPopovers(); setOpen(!open); }}
         data-help="header.providers"
         className="display-font"
         title={anyBroken ? 'Provider CLI versions: a CLI is installed but not running' : anyOutdated ? 'Provider CLI versions: an update is available' : 'Provider CLI versions'}
@@ -197,20 +244,24 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigg
         }}
       >
         <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-        PROVIDERS
+        VERSIONS
         <span style={{ fontSize: '8px', opacity: 0.7 }}>{open ? '▲' : '▼'}</span>
-      </button>}
+      </button>
 
-      {open && (
+      {open && createPortal(
         <div
-          ref={placeRef}
+          ref={panelRef}
           role="dialog"
+          aria-label="Provider versions"
           data-help="header.cli-versions"
           onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); setOpen(false); } }}
           style={{
-            position: 'absolute',
-            top: 'calc(100% + 6px)',
-            right: 0,
+            position: 'fixed',
+            overflowY: 'auto',
+            boxSizing: 'border-box',
+            fontFamily: 'var(--font-display)',
+            fontSize: '11px',
             minWidth: '220px',
             padding: '8px',
             // Elevated (not panel) so floating menus share one frosted opacity
@@ -219,7 +270,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigg
             border: '1px solid var(--color-border-hairline)',
             borderRadius: '4px',
             boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
-            zIndex: 20,
+            zIndex: 9700,
             display: 'flex',
             flexDirection: 'column',
             gap: '4px',
@@ -254,8 +305,8 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigg
                 : `Ollama daemon v${version} (latest: click for release notes)`
               : isLlamacpp
                 ? llamacppLoadedAlias
-                  ? `llama.cpp build b${version} · model "${llamacppLoadedAlias}" loaded (click to view upstream releases)`
-                  : `llama.cpp build b${version} · no model loaded (click to view upstream releases)`
+                  ? `llama.cpp ${version} · model "${llamacppLoadedAlias}" loaded (click to view upstream releases)`
+                  : `llama.cpp ${version} · no model loaded (click to view upstream releases)`
                 : isCursor
                   ? `cursor-agent ${version} (self-updating: click for changelog)`
                 : outdated
@@ -303,7 +354,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigg
                 }}
               >
                 <span style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', whiteSpace: 'nowrap' }}>{label}</span>
-                <span style={{ fontSize: '10px', color: versionColor, whiteSpace: 'nowrap' }}>{versionDisplay}</span>
+                <span style={{ fontSize: '10px', color: versionColor, overflowWrap: 'anywhere' }}>{versionDisplay}</span>
               </button>
               </span>
             );
@@ -314,7 +365,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange, hideTrigg
           </div>}
           {localRuntime && <div data-testid="providers-free-vram" style={{ paddingTop: '4px' }}><FreeVramButton /></div>}
           <div style={{ paddingTop: '4px' }}><button type="button" className="display-font" data-help="auth.connections" onClick={() => { setOpen(false); useStartupStore.getState().openConnections(); }} style={{ background: 'transparent', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-accent-primary-dim)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px', padding: '3px 8px' }}>CONNECTIONS</button></div>
-        </div>
+        </div>, document.body
       )}
 
       {releasesRuntime && capabilities && (

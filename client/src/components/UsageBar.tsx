@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { formatTokens } from './RightPanel/format';
 import { CursorIncludedGauge } from './CursorIncludedGauge';
@@ -6,14 +6,12 @@ import { formatResetLabel, formatResetText } from '../utils/usageFormat';
 import type { CodexUsageInfo, CursorUsageInfo, OllamaLiveStatus, UsageInfo} from '@arco/shared';
 import { claudeAuthPresentation, selectedClaudeTransport } from '../utils/claudeAuth';
 import { refreshClaudeAllowance } from '../utils/claudeAllowance';
+import { dismissProviderHovers, useProviderHover } from './providerPanelState';
 import { useKeepInWindow } from '../layout/keepInWindow';
 
 interface Props {
   usage: UsageInfo | null;
-  /** Clicking a provider dot opens the Providers panel (set by the top bar). */
-  onDotClick?: () => void;
 }
-const DotClickContext = createContext<(() => void) | undefined>(undefined);
 
 // I1-followup — live-provider status as a compact inline dot cluster, not a
 // dedicated second header row. Each authed/enabled provider is a single colored
@@ -22,7 +20,7 @@ const DotClickContext = createContext<(() => void) | undefined>(undefined);
 // Ollama loaded-model list) still opens on hover, unchanged — only the trigger
 // shrank. Lives in the header's row-1 status cluster now, freeing the vertical
 // row the boxed LABEL|LIVE pills used to occupy.
-export function UsageBar({ usage, onDotClick }: Props) {
+export function UsageBar({ usage }: Props) {
   const authStatus = useAppStore((s) => s.authStatus);
   const codexUsage = useAppStore((s) => s.codexUsage);
   const cursorUsage = useAppStore((s) => s.cursorUsage);
@@ -38,14 +36,12 @@ export function UsageBar({ usage, onDotClick }: Props) {
   const ollamaDaemonUp = authStatus?.ollama.loggedIn ?? false;
 
   return (
-    <DotClickContext.Provider value={onDotClick}>
     <div data-help="header.live-status" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
       {isProviderEnabled('claude') && claudeAuthed && <ClaudeStatus usage={usage} />}
       {isProviderEnabled('codex') && codexAuthed && <CodexStatus usage={codexUsage} />}
       {isProviderEnabled('cursor') && cursorAuthed && <CursorStatus usage={cursorUsage} />}
       {ollamaShown && <OllamaStatus daemonUp={ollamaDaemonUp} live={ollamaLive} />}
     </div>
-    </DotClickContext.Provider>
   );
 }
 
@@ -57,17 +53,15 @@ type DotState = 'live' | 'ready' | 'down';
 // (Anthropic), C Codex, X Cursor, O Ollama, L llama.cpp. Labels name the
 // provider in full.
 function StatusDot({ letter, name, state, title, href }: { letter: string; name: string; state: DotState; title?: string; href?: string }) {
-  const onDotClick = useContext(DotClickContext);
   const color = state === 'down'
     ? 'var(--color-danger)'
     : state === 'ready'
       ? 'var(--color-accent-primary-dim)'
       : 'var(--color-accent-secondary)';
-  const shownTitle = onDotClick ? title?.replace(/click for (dashboard|analytics)/, 'click for Providers') : title;
   const content = (
     <span
       className="display-font"
-      title={shownTitle}
+      title={title}
       style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', letterSpacing: '0.5px', color, cursor: href ? 'pointer' : 'default' }}
     >
       <span
@@ -83,21 +77,6 @@ function StatusDot({ letter, name, state, title, href }: { letter: string; name:
       {letter}
     </span>
   );
-  if (onDotClick) {
-    return (
-      <span
-        role="button"
-        tabIndex={0}
-        aria-label={`${name} status details; open Providers`}
-        data-testid="provider-dot"
-        onClick={(e) => { e.stopPropagation(); onDotClick(); }}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDotClick(); } }}
-        style={{ display: 'inline-flex', outline: 'none', cursor: 'pointer' }}
-      >
-        {content}
-      </span>
-    );
-  }
   if (!href) {
     // Local dots (Ollama) have no external page; keep them keyboard-focusable
     // so the same hover details open on focus as the linked provider dots.
@@ -105,6 +84,7 @@ function StatusDot({ letter, name, state, title, href }: { letter: string; name:
       <span
         role="button"
         tabIndex={0}
+        data-testid="provider-dot"
         aria-label={`${name} status details`}
         style={{ display: 'inline-flex', outline: 'none' }}
       >
@@ -114,12 +94,14 @@ function StatusDot({ letter, name, state, title, href }: { letter: string; name:
   }
   return (
     <a
+      className="provider-status-link"
       href={href}
       target="_blank"
       rel="noopener noreferrer"
+      data-testid="provider-dot"
       aria-label={`${name} usage page`}
       style={{ textDecoration: 'none', display: 'inline-flex' }}
-      onClick={(e) => e.stopPropagation()}
+      onClick={(e) => { e.stopPropagation(); dismissProviderHovers(); e.currentTarget.blur(); }}
     >
       {content}
     </a>
@@ -158,7 +140,7 @@ const CURSOR_USAGE_URL = 'https://cursor.com/dashboard?tab=usage';
 // `cursorUsage` the Usage-tab card reads), not a live-per-turn meter. Click →
 // dashboard. Mirrors CodexStatus.
 function CursorStatus({ usage }: { usage: CursorUsageInfo | null }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useProviderHover();
   const placeRef = useKeepInWindow();
   const cents = usage?.chargedCents ?? 0;
   const pct = usage?.available && typeof usage.totalTokens === 'number'
@@ -229,7 +211,7 @@ function CursorStatus({ usage }: { usage: CursorUsageInfo | null }) {
 }
 
 function CodexStatus({ usage }: { usage: CodexUsageInfo | null }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useProviderHover();
   const placeRef = useKeepInWindow();
   const accounts = useAppStore((s) => s.settings?.providerAccounts?.codex);
   const [account, setAccount] = useState('');
@@ -360,7 +342,7 @@ function parseCodexUsageValue(value: string): { usedPercent: number | null; rese
 // Claude's dot opens session + weekly utilization bars with reset times on
 // hover — same content the old boxed pill carried, now behind the compact dot.
 function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useProviderHover();
   const placeRef = useKeepInWindow();
   const [checking, setChecking] = useState(false);
   const checkingRef = useRef(false);
@@ -448,7 +430,7 @@ function ClaudeStatus({ usage }: { usage: UsageInfo | null }) {
 //   down  — daemon unreachable (filled red); authStatus.ollama.loggedIn is the
 //           source of truth. Hover surfaces the loaded model + unload time.
 function OllamaStatus({ daemonUp, live }: { daemonUp: boolean; live: OllamaLiveStatus | null }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useProviderHover();
   const placeRef = useKeepInWindow();
   const loaded = daemonUp ? (live?.loadedModels ?? []) : [];
   const state: DotState = !daemonUp ? 'down' : loaded.length > 0 ? 'live' : 'ready';

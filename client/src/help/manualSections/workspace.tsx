@@ -45,8 +45,11 @@ export const workspace: Section[] = [
             each worker header.
           </li>
           <li>
-            <strong>Providers panel</strong> - click a provider dot (see
-            Live-status dots) to open it. It folds the per-provider version
+            <strong>Providers panel</strong> - click <Code>VERSIONS</Code> beside the
+            provider dots, including in focus mode. Settings &gt; CLI VERSIONS
+            offers the same panel. Escape closes it and returns focus to the
+            button. Opening it closes dot hover cards; they stay closed while
+            the panel is open. It folds the per-provider version
             chips (Claude / Codex, plus Ollama when the daemon is reachable, a
             llama.cpp build chip, a Cursor chip, and XOLOTL / STRATA when
             installed or enabled) into one grid, and also holds links to
@@ -68,14 +71,15 @@ export const workspace: Section[] = [
             modal; Arco does not auto-update those runtimes.
             <br />
             Chips are hidden for providers disabled in Settings or for CLIs that
-            are not installed.
+            are not installed. The llama.cpp chip retains its build and commit,
+            even when its model server is stopped. Any update comparison uses build
+            numbers, not semantic versions; missing build metadata is not guessed.
           </li>
           <li>
             <strong>Live-status dots</strong> - when at least one provider is
             authed, a compact dot per provider (<Code>A</Code> Claude,{' '}
             <Code>C</Code> Codex, <Code>X</Code> Cursor, <Code>O</Code> Ollama):
-            green ● live, hollow ○ idle, red ● down. Click a dot to open the
-            Providers panel. Hover a dot for its usage detail - Claude&apos;s 5-hour and weekly burn (polled every 3
+            green ● live, hollow ○ idle, red ● down. Remote dots link to provider usage pages. Hover or focus a dot for its usage detail - Claude&apos;s 5-hour and weekly burn (polled every 3
             minutes), Codex usage, Cursor&apos;s included-plan and Other Models
             bars, or Ollama&apos;s loaded models.
           </li>

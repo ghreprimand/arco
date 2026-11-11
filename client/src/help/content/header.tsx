@@ -223,18 +223,17 @@ export const headerHelp: Record<string, HelpEntry> = {
       profiles and memory limits, and finish active Strata work before restarting.</p>,
   },
   'header.providers': {
-    title: 'Provider dots and Providers panel',
+    title: 'Provider versions',
     body: (
       <>
         <p>
-          The provider dots show live status; hover one for usage. Click a dot
-          to open the Providers panel: per-provider CLI and runtime versions,
+          The provider dots show live status; hover or focus one for usage. Remote dots link to usage pages. Click VERSIONS beside them, including in focus mode, or use Settings &gt; CLI VERSIONS to open the panel: per-provider CLI and runtime versions,
           links to the provider usage pages, <C>FREE VRAM</C> (only when a local
           runtime is enabled) and <C>CONNECTIONS</C>.
         </p>
         <p>
           Disabled and un-installed providers drop out of the panel. See the
-          panel rows' help for what clicking a version does.
+          panel rows' help for what clicking a version does. The panel stays inside the window below the full header and suppresses dot hover cards. Escape closes it and returns focus to its button. llama.cpp retains build and commit details and compares updates by build number only when that metadata is available.
         </p>
       </>
     ),

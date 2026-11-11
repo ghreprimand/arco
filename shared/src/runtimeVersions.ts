@@ -20,3 +20,18 @@ export function strataEngineReleaseVersion(feed: unknown, release: unknown): str
   const tag = typeof r?.tag_name === 'string' ? r.tag_name.replace(/^v/, '') : '';
   return /^0\.1\.\d+(?:\.\d+)?$/.test(tag) ? tag : undefined;
 }
+
+// llama.cpp changed its semantic-version format without resetting build order.
+// Release tags are bNNNNN; old binaries expose NNNNN (commit), newer ones
+// include an explicit build field. Never substitute semver for a missing build.
+export function llamacppBuild(version: string): number | undefined {
+  const value = /\bbuild[ \t]*[:=]?[ \t]*(\d+)\b/i.exec(version)?.[1]
+    ?? /^(?:b|v)?(\d+)(?:\s*\(|\s*$)/i.exec(version.trim())?.[1];
+  const build = value === undefined ? undefined : Number(value);
+  return build !== undefined && Number.isSafeInteger(build) ? build : undefined;
+}
+
+export function compareLlamacppBuild(a: string, b: string): number | undefined {
+  const aa = llamacppBuild(a), bb = llamacppBuild(b);
+  return aa === undefined || bb === undefined ? undefined : aa < bb ? -1 : aa > bb ? 1 : 0;
+}

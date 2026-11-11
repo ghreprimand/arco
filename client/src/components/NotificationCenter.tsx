@@ -1,3 +1,4 @@
+import { useCloseHeaderPopover } from './headerPopoverState';
 import { useEffect, useRef, useState } from 'react';
 import { useNotificationStore, unreadCount } from '../stores/notificationStore';
 import { WORKBENCH_NOTICE_CATEGORIES } from '@arco/shared';
@@ -48,6 +49,7 @@ export function NotificationCenter({ onSetMutes }: { onSetMutes: (muted: Workben
   const markAllSeen = useNotificationStore((s) => s.markAllSeen);
   const clearHistory = useNotificationStore((s) => s.clearHistory);
   const [open, setOpen] = useState(false);
+  useCloseHeaderPopover(setOpen);
   const rootRef = useRef<HTMLDivElement>(null);
   const placeRef = useKeepInWindow();
 

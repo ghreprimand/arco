@@ -1,3 +1,4 @@
+import { useCloseHeaderPopover } from './headerPopoverState';
 import { useEffect, useRef, useState } from 'react';
 import { useKeepInWindow } from '../layout/keepInWindow';
 
@@ -50,6 +51,7 @@ const triggerBtn: React.CSSProperties = {
 
 export function HeaderDropdown({ label, icon, items, dataHelp, title }: Props) {
   const [open, setOpen] = useState(false);
+  useCloseHeaderPopover(setOpen);
   const rootRef = useRef<HTMLDivElement>(null);
   const placeRef = useKeepInWindow();
 

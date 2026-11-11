@@ -7,6 +7,7 @@ import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { ArcoSettings, AuthStatusByProvider, ModelName, ProviderName, SessionInfo, WorkerState } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
+import { setProviderPanelOpen } from './providerPanelState';
 import { UsageBar } from './UsageBar';
 import { WorkerCard } from './WorkerCard';
 import { TerminalSessions } from './TerminalSessions';
@@ -75,9 +76,23 @@ test('dots, worker cards and terminal sessions show A C X O L', async () => {
   });
   const root = createRoot(dom.window.document.getElementById('root')!);
   try {
-    await act(async () => root.render(createElement(UsageBar, { usage: null, onDotClick: () => {} })));
+    await act(async () => root.render(createElement(UsageBar, { usage: null })));
     const dots = [...dom.window.document.querySelectorAll('[data-testid="provider-dot"], [aria-label$="status details"]')].map((el) => el.textContent?.trim());
     assert.deepEqual(dots, ['A', 'C', 'X', 'O']);
+    const remote = dom.window.document.querySelector('[aria-label="Cursor usage page"]') as HTMLAnchorElement;
+    assert.equal(remote.href, 'https://cursor.com/dashboard?tab=usage');
+    await act(async () => remote.dispatchEvent(new dom.window.MouseEvent('mouseover', { bubbles: true })));
+    assert.ok(dom.window.document.querySelector('[role="tooltip"]'), 'dot hover opens details');
+    await act(async () => remote.click());
+    assert.equal(dom.window.document.querySelector('[role="tooltip"]'), null, 'tapping a remote link dismisses its card');
+    await act(async () => remote.dispatchEvent(new dom.window.MouseEvent('mouseover', { bubbles: true })));
+    await act(async () => setProviderPanelOpen(true));
+    assert.equal(dom.window.document.querySelector('[role="tooltip"]'), null, 'versions closes hover details');
+    await act(async () => remote.dispatchEvent(new dom.window.MouseEvent('mouseover', { bubbles: true })));
+    assert.equal(dom.window.document.querySelector('[role="tooltip"]'), null, 'hover stays suppressed');
+    await act(async () => setProviderPanelOpen(false));
+    assert.equal(dom.window.document.querySelector('[role="tooltip"]'), null, 'dismissal does not restore a stale hover');
+
     assert.equal(dom.window.document.querySelector('[aria-label="Claude usage page"], [aria-label^="Claude status"]')?.textContent?.includes('R'), false);
 
     const titles = { codex: 'Codex (OpenAI)', cursor: 'Cursor (ACP · ~153 models)', ollama: 'Ollama (local)', llamacpp: 'llama.cpp (local)' } as const;
@@ -96,7 +111,7 @@ test('dots, worker cards and terminal sessions show A C X O L', async () => {
     const marks = [...dom.window.document.querySelectorAll('span[title]')].map((el) => `${el.getAttribute('title')}:${el.textContent?.trim()}`);
     assert.deepEqual(marks.sort(), ['Claude:A', 'Codex:C']);
   } finally {
-    await act(async () => root.unmount());
+    await act(async () => { setProviderPanelOpen(false); root.unmount(); });
     useAppStore.setState(before, true);
     useAppStore.persist.setOptions({ storage });
     for (const name of ['window', 'document', 'localStorage', 'fetch', 'IS_REACT_ACT_ENVIRONMENT']) {

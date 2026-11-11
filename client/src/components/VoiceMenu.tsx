@@ -1,3 +1,4 @@
+import { useCloseHeaderPopover } from './headerPopoverState';
 import { useEffect, useRef, useState } from 'react';
 import { useVoiceStore } from '../voice/store';
 import { useComputerStore } from '../stores/computerStore';
@@ -15,6 +16,7 @@ export function VoiceMenu() {
   const detailsOpen = useVoiceStore((s) => s.open);
   const computerOpen = useComputerStore((s) => s.open);
   const [open, setOpen] = useState(false);
+  useCloseHeaderPopover(setOpen);
   const [ready, setReady] = useState<boolean | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const placeRef = useKeepInWindow();

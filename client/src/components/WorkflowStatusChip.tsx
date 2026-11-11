@@ -1,3 +1,4 @@
+import { useCloseHeaderPopover } from './headerPopoverState';
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import type { ProviderName } from '@arco/shared';
@@ -33,6 +34,7 @@ function formatResetsAt(resetsAt: number | undefined): string {
 export function WorkflowStatusChip() {
   const quotaState = useAppStore((s) => s.quotaState);
   const [open, setOpen] = useState(false);
+  useCloseHeaderPopover(setOpen);
   const rootRef = useRef<HTMLDivElement>(null);
   const placeRef = useKeepInWindow();
 
