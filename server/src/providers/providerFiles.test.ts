@@ -325,3 +325,34 @@ test('WebFetch recognizes split TIFF magic without an image Content-Type', async
   const fitted = PNG.sync.read(Buffer.from(images[0].data, 'base64'));
   assert.deepEqual([...fitted.data.subarray(-4)], [127, 127, 127, 255], 'the final pixels must survive fetching');
 });
+
+test('Codex without attachments retains direct-launch argv and stdin; early kill spawns nothing', async t => {
+ const cwd = await mkdtemp(join(tmpdir(), 'arco-codex-launch-'));
+ const seen: Array<{ command: string; args: string[]; input: string }> = [];
+ t.mock.method(childProcess, 'spawn', ((command: string, args: string[]) => {
+  const row = { command, args, input: '' }; seen.push(row);
+  const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough() });
+  child.stdin.on('data', bytes => { row.input += String(bytes); }); return child;
+ }) as any); syncBuiltinESMExports();
+ const config = { cwd, provider: 'codex', model: 'fixture', effort: 'low', appendSystemPrompt: 'Exact fixture framing.', interactionMode: 'agent' } as WorkerConfig;
+ const workers: any[] = [];
+ try {
+  const direct = CodexProvider.create('direct', { ...config }) as any; workers.push(direct); direct.on('error', () => {});
+  direct.spawnPrepared('Exact fixture request.'); await tickUntil(() => seen.length === 1);
+  const normal = CodexProvider.create('normal', { ...config }) as any; workers.push(normal); normal.on('error', () => {});
+  normal.spawn('Exact fixture request.'); await tickUntil(() => seen.length === 2);
+  assert.deepEqual(seen[1], seen[0]);
+  const cancelled = CodexProvider.create('cancelled', { ...config }) as any; workers.push(cancelled); cancelled.on('error', () => {});
+  cancelled.spawn('Must never start.'); cancelled.kill(); await new Promise(resolve => setTimeout(resolve, 30));
+  assert.equal(seen.length, 2);
+ } finally { for (const worker of workers) worker.kill(); t.mock.restoreAll(); syncBuiltinESMExports(); await rm(cwd, { recursive: true, force: true }); }
+});
+test('LM Studio reports confirmed, unsupported and unknown tool training separately', async t => {
+ t.mock.method(globalThis, 'fetch', async (url: any) => Response.json(String(url).includes('/api/v1/models')
+  ? { models: [{ key: 'supported', capabilities: { trained_for_tool_use: true } }, { key: 'unsupported', capabilities: { trained_for_tool_use: false } }] }
+  : { data: [{ id: 'supported' }, { id: 'unsupported' }, { id: 'unknown' }] }));
+ const probe = await probeLmstudio();
+ assert.equal(probe.capabilities?.supported.trainedForToolUse, true);
+ assert.equal(probe.capabilities?.unsupported.trainedForToolUse, false);
+ assert.equal(probe.capabilities?.unknown.trainedForToolUse, undefined);
+});

@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Attach handoff-history retrieval to Claude CLI, Codex, Cursor and local Agent providers, with caller-bound access and matching guidance.
 - Keep historical file records separate from assistant prose when replaying Ollama, llama.cpp and LM Studio conversations.
 - Let Claude Native agents list, search and read their handoff history, and retain source controls after tail-only reloads.
 - Keep the Codex Chat exec host enabled while WEB is armed so live web tools can run; keep it disabled with WEB off.

@@ -180,7 +180,7 @@ export function subsetOllamaTools(input: SubsetInput): SubsetResult {
   const planCount = guaranteePlans ? tools.filter(t => PLAN_TOOL_NAMES.includes(t.function.name)).length : 0;
   const cap = resolveCap() + coordinationCount + planCount;
 
-  const coreNames = new Set<string>([...OLLAMA_CORE_TOOLS, ...(guaranteePlans ? PLAN_TOOL_NAMES : [])]);
+  const coreNames = new Set<string>([...OLLAMA_CORE_TOOLS, 'handoff_history', ...(guaranteePlans ? PLAN_TOOL_NAMES : [])]);
   if (input.clusterMember) {
     for (const n of OLLAMA_CLUSTER_CORE) coreNames.add(n);
   }

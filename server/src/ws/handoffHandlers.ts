@@ -1,4 +1,4 @@
-import { appendNativeHandoffNotice } from '../handoffHistoryTool.js';
+import { appendHandoffNotice } from '../handoffHistoryTool.js';
 import { captureHandoffHistory, saveHandoffHistory, historyAccessAllowed } from '../handoffHistory.js';
 import { disabledClusterProvider } from '../localCapacity.js';
 import { buildMessageGuardPolicy } from '@arco/shared';
@@ -491,26 +491,11 @@ export async function handleHandoffRequest(
   if (!handoffOwned()) return;
   wf.primarySessionId = undefined;
 
-  // Dispose the long-lived in-process Native worker (if any) BEFORE the
-  // pre-warm so the post-handoff turn comes up on a fresh worker that
-  // replays only the post-handoff_artifact_ready section of events.jsonl
-  // (i.e. just the seed turn). Originally gated on
-  // `effectiveMode === 'original-worker'` because only that path ran the
-  // reflection on the cached worker — fresh-summarizer mode runs the
-  // reflection in a separate CLI worker, so we assumed the cached Native
-  // worker was untouched. That assumption was wrong: any pre-handoff
-  // operator turn that was cancelled mid-tool-dispatch leaves the cached
-  // worker with a trailing orphan `assistant(tool_use)` in messages[],
-  // and pushing the seed prompt on top of that 400s with
-  // "tool_use ids were found without tool_result blocks immediately after".
-  // Always dispose for native handoff so the seed turn boots fresh from
-  // replay (which skips tool_use entries entirely; cf. replayMessagesFromEvents).
-  // No-op for CLI handoffs. Pair-flush in pruneOrphanToolUse is the
-  // defense-in-depth backstop for any other path that lands here without
-  // a prior dispose.
-  if (wf.primary.provider === 'claude' && claudeTransport === 'native') {
-    disposeClaudeNativeWorker(msg.workflowId);
-  }
+  // Retire every cached transport before the new seed, so Codex app-server
+  // and Cursor ACP bootstrap their MCP children with the new history grant.
+  // Await local teardown too, then recheck ownership before touching the seed.
+  await disposeProviderResources(msg.workflowId);
+  if (!handoffOwned()) return;
 
   // Optional: operator asked to swap the primary as part of the handoff.
   // Update in-memory state + persist to meta.json BEFORE the pre-warm spawn
@@ -570,7 +555,7 @@ export async function handleHandoffRequest(
   // operator can see exactly what the new session was fed). The primary
   // will reply, typically with a short ack.
   if (!handoffOwned()) return;
-  handoffBody = await appendNativeHandoffNotice(cwd, msg.workflowId, handle.artifactName, handoffBody, handoffSourceKey);
+  handoffBody = await appendHandoffNotice(cwd, msg.workflowId, handle.artifactName, handoffBody, handoffSourceKey);
   if (!handoffOwned()) return;
   const seedPrompt = `[HANDOFF — new session initialized for this tab. Read the document below carefully. Then in 2-3 sentences: (1) state where the project stands right now, and (2) what you believe the most useful next step is. Await the operator's instruction before beginning any work.]\n\n${handoffBody}`;
   send(ws, {
@@ -1237,7 +1222,7 @@ export async function handleSpawnFromHere(
   }
 
   if (!spawnOwned()) return;
-  handoffBody = await appendNativeHandoffNotice(newCwd, newWorkflowId, exp.artifactName, handoffBody, handoffSourceKey);
+  handoffBody = await appendHandoffNotice(newCwd, newWorkflowId, exp.artifactName, handoffBody, handoffSourceKey);
   if (!spawnOwned()) return;
   const seedPrompt = msg.newDirection && msg.newDirection.trim()
     ? `${handoffBody}\n\n---\n\nNew direction: ${msg.newDirection.trim()}`

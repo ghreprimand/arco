@@ -1,3 +1,4 @@
+import { mintHandoffHistoryCapability } from '../http/handoffHistoryRoutes.js';
 import { resolveClaudeTransport } from '../claudeTransport.js';
 import { projectLocalFileReferences } from '../primitives/localFileContext.js';
 import { getEffectivePublicProjectChoice } from '../publicProjectChoice.js';
@@ -2514,6 +2515,8 @@ export async function handleUserMessage(
           try {
             turnClusterMcpConfigPath = await mcpConfigWriter.writeFor(cwd, workflowId, {
               planToolsCwd: cwd,
+              handoffHistoryToken: !wf.primary.tools || wf.primary.tools.includes('handoff_history')
+                ? await mintHandoffHistoryCapability(workflowId) : undefined,
               clusterId: turnClusterId,
               taskBoardAttached: turnClusterTaskBoardAttached,
               accessMode: clusterAccessMode,

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 // Cursor's documented --plugin-dir avoids editing the project's or operator's
 // MCP configuration. This plugin exposes read-only files and optional plan readers.
-export async function createFilePlugin(cwd:string, workflowId?:string):Promise<{path:string;close:()=>Promise<void>}> {
+export async function createFilePlugin(cwd:string, workflowId?:string, handoffHistoryToken?:string):Promise<{path:string;close:()=>Promise<void>}> {
   const isSource = fileURLToPath(import.meta.url).endsWith('.ts');
   const parent = await mkdtemp(join(tmpdir(),'arco-files-'));
   // Cursor rejects plugin roots fewer than three path components deep.
@@ -15,11 +15,11 @@ export async function createFilePlugin(cwd:string, workflowId?:string):Promise<{
     await writeFile(join(path,'.cursor-plugin','plugin.json'),JSON.stringify({name:'arco-files',version:'1.0.0',description:'Read images and documents in the workflow folder.',mcpServers:'./mcp.json'}));
     const entry = resolve(dirname(fileURLToPath(import.meta.url)),'../../mcp/fileMcpServer.' + (isSource ? 'ts' : 'js'));
     const args = isSource ? ['--import',import.meta.resolve('tsx'),entry,cwd] : [entry,cwd];
-    const mcpServers: Record<string, { command: string; args: string[] }> = { 'arco-files': { command: process.execPath, args } };
+    const mcpServers: Record<string, { command: string; args: string[]; env?: Record<string, string> }> = { 'arco-files': { command: process.execPath, args } };
     if (workflowId) {
       const planEntry = resolve(dirname(fileURLToPath(import.meta.url)), '../../mcp/planReadMcpServer.' + (isSource ? 'ts' : 'js'));
       const planArgs = [planEntry, workflowId, cwd, process.env.ARCO_PORT ?? '3001'];
-      mcpServers.arco = { command: process.execPath, args: isSource ? ['--import', import.meta.resolve('tsx'), ...planArgs] : planArgs };
+      mcpServers.arco = { command: process.execPath, args: isSource ? ['--import', import.meta.resolve('tsx'), ...planArgs] : planArgs, ...(handoffHistoryToken ? { env: { ARCO_HANDOFF_HISTORY_TOKEN: handoffHistoryToken } } : {}) };
     }
     await writeFile(join(path,'mcp.json'),JSON.stringify({mcpServers}));
     return {path,close:()=>rm(parent,{recursive:true,force:true})};

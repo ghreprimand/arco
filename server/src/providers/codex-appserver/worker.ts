@@ -1,3 +1,4 @@
+import { historyBinding } from '../handoffHistoryBinding.js';
 import { codexWebSearchMode } from '../codexWebSearch.js';
 import { codexImageToolConfig } from '../codexImageTool.js';
 import { cliFileReadGuidance, prepareProviderAttachments, persistProviderImages } from '../providerFileContent.js';
@@ -513,6 +514,7 @@ export class CodexAppServerWorker extends EventEmitter {
       spawnArgs.push(
         ...buildCodexMcpOverrides(this.workflowId, {
           planToolsCwd: this.config.cwd,
+          handoffHistoryToken: historyBinding(this.config)?.token,
           clusterId: this.config.clusterId,
           taskBoardAttached: this.config.clusterTaskBoardAttached === true,
           accessMode: this.config.clusterAccessMode,

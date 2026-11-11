@@ -135,16 +135,16 @@ test('source deletion, symlinked event files and restricted modes revoke access'
  assert.deepEqual(await availableHandoffSources(f.caller), []);
 });
 test('the saved Native handoff and seed receive one deterministic availability line', async () => {
- const { appendNativeHandoffNotice, HANDOFF_HISTORY_NOTICE } = await import('./handoffHistoryTool.js');
+ const { appendHandoffNotice, HANDOFF_HISTORY_NOTICE } = await import('./handoffHistoryTool.js');
  const f = await fixture(); workflows.get(f.caller)!.config.claudeTransport = 'native';
  const dir = join(f.cwd, '.arco', 'workflows', f.caller, 'handoffs'); await mkdir(dir);
  const file = join(dir, 'brief.md'); await writeFile(file, 'brief');
- const text = await appendNativeHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key);
+ const text = await appendHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key);
  assert.ok(text.includes(HANDOFF_HISTORY_NOTICE));
- assert.equal(await appendNativeHandoffNotice(f.cwd, f.caller, 'brief.md', text, f.refs[0].key), text);
- assert.equal(await appendNativeHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief'), 'brief');
+ assert.equal(await appendHandoffNotice(f.cwd, f.caller, 'brief.md', text, f.refs[0].key), text);
+ assert.equal(await appendHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief'), 'brief');
  workflows.get(f.caller)!.config.claudeTransport = 'cli';
- assert.equal(await appendNativeHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key), 'brief');
+ assert.match(await appendHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key), /handoff_history/);
 });
 test('escaped source labels share the response byte cap and paginate', async () => {
  const { readFile } = await import('node:fs/promises');
@@ -158,26 +158,26 @@ test('escaped source labels share the response byte cap and paginate', async () 
  assert.ok(reply.sources!.length < 20);
 });
 
-test('unset Claude transport and ultracode never announce Native history', async () => {
- const { appendNativeHandoffNotice } = await import('./handoffHistoryTool.js');
+test('CLI and ultracode handoffs receive history guidance when their adapter attaches it', async () => {
+ const { appendHandoffNotice } = await import('./handoffHistoryTool.js');
  const f = await fixture(), dir = join(f.cwd, '.arco', 'workflows', f.caller, 'handoffs');
  await mkdir(dir); await writeFile(join(dir, 'brief.md'), 'brief');
  const { effectiveClaudeTransport } = await import('./claudeTransport.js');
  assert.equal(effectiveClaudeTransport(workflows.get(f.caller)!.config, undefined), 'cli');
  workflows.get(f.caller)!.config.claudeTransport = 'cli';
- assert.equal(await appendNativeHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key), 'brief');
+ assert.match(await appendHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key), /handoff_history/);
  workflows.get(f.caller)!.config.claudeTransport = 'native';
  workflows.get(f.caller)!.config.ultracode = true;
- assert.equal(await appendNativeHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key), 'brief');
+ assert.match(await appendHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key), /handoff_history/);
 });
 test('adding the notice preserves all existing artifact content', async () => {
- const { appendNativeHandoffNotice, HANDOFF_HISTORY_NOTICE } = await import('./handoffHistoryTool.js');
+ const { appendHandoffNotice, HANDOFF_HISTORY_NOTICE } = await import('./handoffHistoryTool.js');
  const { readFile } = await import('node:fs/promises');
  const f = await fixture(), dir = join(f.cwd, '.arco', 'workflows', f.caller, 'handoffs');
  workflows.get(f.caller)!.config.claudeTransport = 'native';
  await mkdir(dir); const file = join(dir, 'brief.md'); await writeFile(file, 'Additional original content.');
- await appendNativeHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key);
- await appendNativeHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key);
+ await appendHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key);
+ await appendHandoffNotice(f.cwd, f.caller, 'brief.md', 'brief', f.refs[0].key);
  const saved = await readFile(file, 'utf8');
  assert.ok(saved.startsWith('Additional original content.'));
  assert.equal(saved.split(HANDOFF_HISTORY_NOTICE).length, 2);

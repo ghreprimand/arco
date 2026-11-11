@@ -37,6 +37,27 @@ test('HANDOFFS shows the saved source after tail-only hydration with no seed loa
    root.render(<><ChatMessage message={older} jobId="reloaded" /><ChatMessage message={failed} jobId="reloaded" /></>);
   });
   assert.doesNotMatch(document.body.textContent!, /From Earlier tab/);
+  const { HandoffSource } = await import('../HandoffSource');
+  const { useVoicePanelOpener, useVoicePanelRequest } = await import('../../voice/panels');
+  useVoicePanelRequest.setState({ request: null });
+  globalThis.fetch = async input => Response.json(String(input).includes('&source=')
+   ? { workflowId: 'reloaded', config: job.config }
+   : { currentSourceKey: 'saved', sources: [{ key: 'saved', name: 'Earlier tab', available: true, throughSeq: 50 }] });
+  function NarrowContainer() {
+   const [open, setOpen] = React.useState(false);
+   useVoicePanelOpener('reloaded', true, () => setOpen(true));
+   return <><HandoffSource workflowId="reloaded" />{open && <div data-testid="history-drawer"><button onClick={() => setOpen(false)}>Close drawer</button>History boundary</div>}</>;
+  }
+  await act(async () => root.render(<NarrowContainer />));
+  for (let attempt = 0; attempt < 2; attempt++) {
+   const from = [...document.querySelectorAll('button')].find(button => button.textContent === 'From Earlier tab')!;
+   await act(async () => from.click());
+   assert.ok(document.querySelector('[data-testid="history-drawer"]'));
+   assert.equal(useVoicePanelRequest.getState().request?.throughSeq, 50);
+   await act(async () => [...document.querySelectorAll('button')].find(button => button.textContent === 'Close drawer')!.click());
+   assert.equal(document.querySelector('[data-testid="history-drawer"]'), null);
+  }
+
 
  } finally {
   styles.deregister(); await act(async () => root.unmount()); useAppStore.setState(old); dom.window.close();

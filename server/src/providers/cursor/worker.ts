@@ -1,3 +1,4 @@
+import { historyBinding } from '../handoffHistoryBinding.js';
 import { readFileContent } from '../../fileContent.js';
 import { prepareProviderAttachments, FILE_READ_GUIDANCE } from '../providerFileContent.js';
 // Long-lived Cursor (ACP) worker, cached per workflowId. Spawns
@@ -184,6 +185,7 @@ export class CursorAcpWorker extends EventEmitter {
         taskBoardAttached: this.config.clusterTaskBoardAttached === true,
         accessMode: this.config.clusterAccessMode,
         registryServers: this.config.mcpRegistryServers,
+        handoffHistoryToken: historyBinding(this.config)?.token,
         readOnly: this.config.sandbox === 'read-only',
       });
       return [{ type: 'http', name: this.clusterMcpDescriptor.name, url: this.clusterMcpDescriptor.url, headers: [] }];
@@ -355,6 +357,7 @@ export class CursorAcpWorker extends EventEmitter {
         taskBoardAttached: this.config.clusterTaskBoardAttached === true,
         accessMode: this.config.clusterAccessMode,
         registryServers: this.config.mcpRegistryServers,
+        handoffHistoryToken: historyBinding(this.config)?.token,
         readOnly: this.config.sandbox === 'read-only',
       }).catch(() => { /* refresh is best-effort; the turn proceeds regardless */ });
     }

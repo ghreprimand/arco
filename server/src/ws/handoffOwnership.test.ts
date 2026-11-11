@@ -108,3 +108,27 @@ for (const spawn of [false, true]) test(`link-write failure still completes ${sp
   assert.equal(seed.handoffSourceKey, undefined);
  } finally { t.mock.restoreAll(); await f.close(); }
 });
+for (const provider of ['cursor', 'codex'] as const) test(`${provider} cached pre-handoff worker is disposed before the linked seed starts`, async () => {
+ const f = await fixture();
+ const { CodexAppServerProvider } = await import('../providers/codex-appserver/index.js');
+ const { disposeProviderResources } = await import('../providers/index.js');
+ const { prepareProviderHistory, historyBinding } = await import('../providers/handoffHistoryBinding.js');
+ const factory = provider === 'cursor' ? CursorProvider : CodexAppServerProvider;
+ f.wf.config.primaryProvider = provider; f.wf.primary.provider = provider;
+ const config = { provider, model: 'auto', effort: 'low', workflowId: f.id, cwd: f.cwd, codexTransport: 'appserver' } as any;
+ const old = (factory.create('before', config) as any).worker;
+ let spawns = 0, disposedAtSeed = false, tokenAtSeed = false, freshAtSeed = false;
+ f.wf.manager.spawn = async (spec: any) => {
+  if (++spawns === 2) {
+   disposedAtSeed = old.disposed === true;
+   const next = { ...config }; await prepareProviderHistory(next);
+   tokenAtSeed = !!historyBinding(next);
+   freshAtSeed = (factory.create('seed', next) as any).worker !== old;
+  }
+  return result(spec.id, 'fixture brief');
+ };
+ try {
+  await handleHandoffRequest(f.ws, f.session, { type: 'handoff_request', workflowId: f.id, mode: 'fresh-summarizer', summarizer: { provider: 'cursor', model: 'auto', effort: 'low' } } as any);
+  assert.equal(spawns, 2); assert.equal(disposedAtSeed, true); assert.equal(tokenAtSeed, true); assert.equal(freshAtSeed, true);
+ } finally { await disposeProviderResources(f.id); await f.close(); }
+});

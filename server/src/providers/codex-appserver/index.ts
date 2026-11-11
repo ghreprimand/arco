@@ -1,3 +1,4 @@
+import { prepareProviderHistory } from '../handoffHistoryBinding.js';
 import { providerSessionScope } from '../sessionScope.js';
 // Phase 6a + 6b — Codex `app-server` transport entry.
 //
@@ -128,7 +129,9 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
     // anyway with nobody listening, and the operator's next send bounced
     // with "already has a turn in flight". Re-check `settled` after each await.
     awaitRetired(this.workflowId)
-      .then(() => {
+      .then(async () => {
+        if (this.settled) throw new Error('Worker killed');
+        await prepareProviderHistory(this.config);
         if (this.settled) return Promise.reject(new Error('Worker killed'));
         if (this.config.voiceOperator) allowVoiceTools(this.workflowId);
         return this.worker.ensureStarted();
@@ -136,7 +139,7 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
       .then(async () => {
         bootstrapped = true;
         if (this.settled) return;
-        await this.worker.beginTurn(prompt, this.appendSystemPrompt);
+        await this.worker.beginTurn(prompt, this.config.appendSystemPrompt);
         // Killed while turn/start was in flight: the synthetic settle already
         // cleared the worker's turn state, then turn/start landed a live
         // turnId. Interrupt that orphan so the thread goes idle.

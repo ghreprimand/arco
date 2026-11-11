@@ -1,3 +1,4 @@
+import { prepareProviderHistory } from './handoffHistoryBinding.js';
 import { cliFileReadGuidance, prepareProviderAttachments, type PreparedAttachments } from './providerFileContent.js';
 import { interruptProcess } from '../workers/interruptProcess.js';
 import { spawn, ChildProcess } from 'child_process';
@@ -198,10 +199,12 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     // session re-sends it verbatim (otherwise it continues — see
     // RETRY_CONTINUE_PROMPT), so the session holds one canonical user turn.
     this._prompt = prompt;
-    this._launch();
+    void this._launch().catch(error => { this._status = 'failed'; this.emit('error', String(error)); });
   }
 
-  private _launch(): void {
+  private async _launch(): Promise<void> {
+    await prepareProviderHistory(this.config);
+    if (this._status === 'failed' || this._status === 'completed') return;
     if (!this._resumeOnRetry && this.config.attachments?.length) {
       void prepareProviderAttachments(this.config.attachments, true, undefined, false).then((prepared) => {
         if (this._status === 'failed' || this._status === 'completed') return;
@@ -353,7 +356,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
           this._stdoutClosed = false;
           this.process = null;
           this.parser = null;
-          this._launch();
+          void this._launch().catch(error => { this._status = 'failed'; this.emit('error', String(error)); });
         }, backoff);
         return;
       }

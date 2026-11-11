@@ -1,3 +1,4 @@
+import { prepareProviderHistory, historyBinding } from './handoffHistoryBinding.js';
 import { prepareLocalFileContext, rememberLocalAttachments, rememberLocalToolMedia, resolveLocalContextRead, type SavedToolText } from './localFileMedia.js';
 import { LocalMcp } from './localMcp.js';
 import { prepareProviderAttachments, ollamaVisionMessages, type ProviderImage } from './providerFileContent.js';
@@ -124,6 +125,7 @@ export function ollamaToolCandidates(
     return getOllamaToolDefinitions().filter((tool) => OLLAMA_CHAT_WEB_TOOLS.has(tool.function.name));
   }
   const all = [...registryTools, ...getOllamaToolDefinitions({
+    historyEnabled: !!historyBinding(config),
     clusterEnabled: !!config.clusterId && !!config.workflowId,
     taskBoardAttached: config.clusterTaskBoardAttached,
     workflowEnabled: !!config.cwd && !!config.workflowId,
@@ -1161,7 +1163,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       computerChat: this.config.interactionMode === 'chat' && this.config.voiceOperator === true,
       loop: loopDetector,
       runComputer: (name, args) => executeComputerTool(this.config.workflowId, name, args),
-      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages, toolDocuments) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, taskBoardAttached: this.config.clusterTaskBoardAttached, accessMode: this.config.clusterAccessMode, onImages: (images) => toolImages.push(...images), readPathResolver: value => resolveLocalContextRead(this.config, value), onFileContent: result => { if (!['text', 'image', 'binary', 'error'].includes(result.kind)) toolDocuments.push({ name: String(args.file_path ?? name), text: result.text }); } }),
+      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages, toolDocuments) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, handoffHistoryToken: historyBinding(this.config)?.token, workflowId: this.config.workflowId, clusterId: this.config.clusterId, taskBoardAttached: this.config.clusterTaskBoardAttached, accessMode: this.config.clusterAccessMode, onImages: (images) => toolImages.push(...images), readPathResolver: value => resolveLocalContextRead(this.config, value), onFileContent: result => { if (!['text', 'image', 'binary', 'error'].includes(result.kind)) toolDocuments.push({ name: String(args.file_path ?? name), text: result.text }); } }),
       notice: (text) => this.emit('system_notice', text),
     };
     const results = await dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
@@ -1873,6 +1875,8 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
 
   private async run(prompt: string): Promise<void> {
     const startedAt = Date.now();
+    await prepareProviderHistory(this.config);
+    if (this.abortController?.signal.aborted) return;
     const registryTools = await this.registry.open();
     if (this.abortController?.signal.aborted) { this.registry.close(); return; }
 

@@ -1,3 +1,4 @@
+import { prepareProviderHistory, historyBinding } from './handoffHistoryBinding.js';
 import { codexChatOverrides, requireCodexChatCapabilities } from './codexChatBoundary.js';
 import { codexWebSearchMode } from './codexWebSearch.js';
 import { installedCodexImageToolKey } from './codexImageTool.js';
@@ -86,10 +87,11 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
       try { this.chatOverrides = requireCodexChatCapabilities(this.config.codexHome, this.config.chatWebAccess === true); }
       catch (error) { this._status = 'failed'; this.emit('error', (error as Error).message); return; }
     }
-    if (!this.config.attachments?.length) { this.spawnPrepared(prompt); return; }
-    void prepareProviderAttachments(this.config.attachments).then(async (prepared) => {
+    void prepareProviderHistory(this.config).then(async () => {
+      if (['failed', 'completed'].includes(this._status)) return;
+      const prepared = await prepareProviderAttachments(this.config.attachments);
       const images = await persistProviderImages(prepared.images);
-      if (this._status === 'failed' || this._status === 'completed') return;
+      if (['failed', 'completed'].includes(this._status)) return;
       this.spawnPrepared(prompt, prepared, images);
     }).catch(error => { this._status = 'failed'; this.emit('error', String(error)); });
   }
@@ -301,6 +303,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
       args.push(
         ...buildCodexMcpOverrides(this.config.workflowId ?? '', {
           planToolsCwd: this.config.workflowId ? this.config.cwd : undefined,
+          handoffHistoryToken: historyBinding(this.config)?.token,
           clusterId: this.config.clusterId,
           taskBoardAttached: this.config.clusterTaskBoardAttached === true,
           accessMode: this.config.clusterAccessMode,

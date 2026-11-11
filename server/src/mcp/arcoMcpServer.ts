@@ -1,3 +1,4 @@
+import { registerHandoffHistoryTool } from './handoffHistoryMcpTools.js';
 import '../envAliases.js'; // env fallback resolves before any module reads ARCO_* (see envAliases.ts)
 // Workflow-scoped `arco` stdio MCP server — per-spawn child.
 //
@@ -43,6 +44,7 @@ function logErr(...args: unknown[]): void {
 async function main(): Promise<void> {
   const server = new McpServer({ name: 'arco', version: '1.0.0' });
   registerFileTools(server, CWD);
+  registerHandoffHistoryTool(server, process.env.ARCO_HANDOFF_HISTORY_TOKEN, ARCO_PORT);
   registerPlanTools(server, {
     workflowId: WORKFLOW_ID,
     cwd: CWD,

@@ -1,3 +1,6 @@
+import { PORT } from '../server/constants.js';
+import { HANDOFF_HISTORY_TOOL } from '../handoffHistoryProtocol.js';
+import { callHandoffHistory } from '../mcp/handoffHistoryMcpTools.js';
 import type { ClusterMemberAccessMode } from '@arco/shared';
 import { CLUSTER_TASK_TOOL_DEFINITIONS } from './clusterTaskToolDefinitions.js';
 import { PLAN_TOOL_DEFINITIONS, executePlanTool } from '../planTools.js';
@@ -80,6 +83,7 @@ const SKIP_DIRS = new Set([
 ]);
 
 export interface OllamaToolContext {
+  handoffHistoryToken?: string;
   readPathResolver?: (path: string) => Promise<string>;
   onFileContent?: (result: FileContentResult) => void;
   cwd: string;
@@ -1076,6 +1080,14 @@ const boardTools: Record<string, OllamaToolEntry> = Object.fromEntries(
 // ── Registry ──────────────────────────────────────────────────────────────
 
 const REGISTRY: Record<string, OllamaToolEntry> = {
+  handoff_history: {
+    workflowOnly: true,
+    def: { type: 'function', function: { name: 'handoff_history', description: HANDOFF_HISTORY_TOOL.description, parameters: HANDOFF_HISTORY_TOOL.input_schema } },
+    execute: async (args, ctx) => {
+      if (!ctx.handoffHistoryToken) throw new Error('Earlier conversation history is unavailable.');
+      return callHandoffHistory(ctx.handoffHistoryToken, PORT, args);
+    },
+  },
   ...boardTools,
   ...Object.fromEntries(PLAN_TOOL_DEFINITIONS.map(tool => [tool.name, {
     workflowOnly: true,
@@ -1099,8 +1111,9 @@ const REGISTRY: Record<string, OllamaToolEntry> = {
   cluster_plan_write: ClusterPlanWriteTool,
 };
 
-export function getOllamaToolDefinitions(opts?: { clusterEnabled?: boolean; mailboxOnly?: boolean; taskBoardAttached?: boolean; workflowEnabled?: boolean }): OllamaToolDefinition[] {
+export function getOllamaToolDefinitions(opts?: { clusterEnabled?: boolean; mailboxOnly?: boolean; taskBoardAttached?: boolean; workflowEnabled?: boolean; historyEnabled?: boolean }): OllamaToolDefinition[] {
   return Object.values(REGISTRY)
+    .filter(entry => entry.def.function.name !== 'handoff_history' || opts?.historyEnabled === true)
     .filter((entry) => !entry.workflowOnly || opts?.workflowEnabled === true)
     .filter((entry) => !entry.clusterOnly || opts?.clusterEnabled === true)
     .filter((entry) => !entry.boardOnly || opts?.taskBoardAttached === true)

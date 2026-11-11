@@ -1,3 +1,4 @@
+import { prepareProviderHistory, historyBinding } from './handoffHistoryBinding.js';
 import { prepareLocalFileContext, rememberLocalAttachments, rememberLocalToolMedia, resolveLocalContextRead, type SavedToolText } from './localFileMedia.js';
 import { LocalMcp } from './localMcp.js';
 import { prepareProviderAttachments, openAiImageMessage, openAiVisionMessages, type ProviderImage } from './providerFileContent.js';
@@ -515,7 +516,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       computerChat: this.config.interactionMode === 'chat' && this.config.voiceOperator === true,
       loop: loopDetector,
       runComputer: (name, args) => executeComputerTool(this.config.workflowId, name, args),
-      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages, toolDocuments) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, workflowId: this.config.workflowId, clusterId: this.config.clusterId, taskBoardAttached: this.config.clusterTaskBoardAttached, accessMode: this.config.clusterAccessMode, onImages: (images) => toolImages.push(...images), readPathResolver: value => resolveLocalContextRead(this.config, value), onFileContent: result => { if (!['text', 'image', 'binary', 'error'].includes(result.kind)) toolDocuments.push({ name: String(args.file_path ?? name), text: result.text }); } }),
+      runTool: (name, args, cwd) => this.registry.has(name) ? this.registry.call(name, args, toolImages, toolDocuments) : executeOllamaTool(name, args, { cwd, abortSignal: this.abortController?.signal, handoffHistoryToken: historyBinding(this.config)?.token, workflowId: this.config.workflowId, clusterId: this.config.clusterId, taskBoardAttached: this.config.clusterTaskBoardAttached, accessMode: this.config.clusterAccessMode, onImages: (images) => toolImages.push(...images), readPathResolver: value => resolveLocalContextRead(this.config, value), onFileContent: result => { if (!['text', 'image', 'binary', 'error'].includes(result.kind)) toolDocuments.push({ name: String(args.file_path ?? name), text: result.text }); } }),
       notice: (text) => this.emit('system_notice', text),
     };
     const results = await dispatchLocalToolCalls(calls, () => this.abortController?.signal.aborted === true, async (call) => {
@@ -576,6 +577,10 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
       this.modelContextWindow = capabilities.capabilities?.[modelName]?.numCtx;
     }
     this.visionCapable = capabilities.capabilities?.[modelName]?.vision === true;
+    await prepareProviderHistory(this.config, { toolsSupported: this.connection.name === 'lmstudio'
+      ? capabilities.capabilities?.[modelName]?.trainedForToolUse === true
+      : capabilities.capabilities?.[modelName]?.tools === true });
+    if (this.abortController?.signal.aborted) return;
     this.emit('init', { model: modelName });
     if (this.abortController?.signal.aborted) return;
 
@@ -584,7 +589,7 @@ export class OpenAIHttpWorkerProcess extends EventEmitter implements ProviderPro
 
     let tools: OllamaToolDefinition[] | undefined;
     if (this.config.cwd && this.config.interactionMode !== 'chat') {
-      const all = [...registryTools, ...getOllamaToolDefinitions({ workflowEnabled: !!this.config.cwd && !!this.config.workflowId, clusterEnabled: !!this.config.clusterId && !!this.config.workflowId, taskBoardAttached: this.config.clusterTaskBoardAttached, mailboxOnly: this.config.clusterAccessMode !== undefined && this.config.clusterAccessMode !== 'standard' })];
+      const all = [...registryTools, ...getOllamaToolDefinitions({ historyEnabled: !!historyBinding(this.config), workflowEnabled: !!this.config.cwd && !!this.config.workflowId, clusterEnabled: !!this.config.clusterId && !!this.config.workflowId, taskBoardAttached: this.config.clusterTaskBoardAttached, mailboxOnly: this.config.clusterAccessMode !== undefined && this.config.clusterAccessMode !== 'standard' })];
       tools = this.config.tools
         ? all.filter((t) => this.config.tools!.includes(t.function.name))
         : all;
@@ -724,6 +729,7 @@ export const LmstudioProvider: Provider = {
 // auth path can splat it into AuthStatus without provider-specific branching.
 export interface LmstudioModelCapabilities {
   tools: boolean;
+  trainedForToolUse?: boolean;
   vision: boolean;
   thinking: boolean;
   numCtx?: number;
@@ -778,11 +784,12 @@ export async function probeLmstudio(): Promise<{
     await requestWithDeadline(undefined, 3000, async (signal) => {
       const response = await fetch(nativeUrl, {signal});
       if (!response.ok) return;
-      const native = await response.json() as {models?: Array<{key?:string;capabilities?:{vision?:boolean};loaded_instances?:Array<{id?:string;config?:{context_length?:number}}>;max_context_length?:number}>};
+      const native = await response.json() as {models?: Array<{key?:string;capabilities?:{vision?:boolean;trained_for_tool_use?:boolean};loaded_instances?:Array<{id?:string;config?:{context_length?:number}}>;max_context_length?:number}>};
       for (const model of native.models ?? []) {
         for (const id of [model.key, ...(model.loaded_instances ?? []).map(i => i.id)]) {
           if (!id || !capabilities[id]) continue;
           capabilities[id].vision = model.capabilities?.vision === true;
+          capabilities[id].trainedForToolUse = model.capabilities?.trained_for_tool_use;
         }
       }
     });

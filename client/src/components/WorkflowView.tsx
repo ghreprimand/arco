@@ -1,3 +1,4 @@
+import { useVoicePanelOpener } from '../voice/panels';
 import { ContextMeter } from './ContextMeter';
 import { PrimaryStatus } from './PrimaryStatus';
 import { useEffect, useRef, useState } from 'react';
@@ -147,6 +148,10 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
   const narrow = widthRange === 'narrow';
   // View in Outputs: the narrow layout opens the side panel slide-out first.
   useOutputNavigationOpener([job.id], narrow && !focusMode, () => setSlide('files'));
+  useVoicePanelOpener(job.id, narrow || focusMode, () => {
+    if (focusMode) useAppStore.getState().setFocusMode(false);
+    if (narrow) setSlide('files');
+  });
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const draggingRef = useRef(false);

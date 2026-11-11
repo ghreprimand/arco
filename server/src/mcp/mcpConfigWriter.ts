@@ -137,6 +137,7 @@ export interface McpConfigOptions {
   // plan REST routes are keyed by `?path=<cwd>`). Absent ⇒ omitted, which is
   // what keeps the existing "no entries ⇒ unlink the file" branch reachable.
   planToolsCwd?: string;
+  handoffHistoryToken?: string;
 }
 
 // Shared argv for the workflow-scoped `arco` MCP child, so the JSON-config
@@ -173,7 +174,8 @@ export async function writeFor(
     };
   }
   if (opts.planToolsCwd) {
-    entries['arco'] = arcoEntryArgs(workflowId, opts.planToolsCwd, opts.port);
+    entries['arco'] = { ...arcoEntryArgs(workflowId, opts.planToolsCwd, opts.port),
+      ...(opts.handoffHistoryToken ? { env: { ARCO_HANDOFF_HISTORY_TOKEN: opts.handoffHistoryToken } } : {}) };
   }
   if (opts.codebaseMemoryIndexPath) {
     entries['codebase-memory'] = buildCodebaseMemoryEntry(opts.codebaseMemoryIndexPath);
@@ -264,6 +266,7 @@ export function buildCodexMcpOverrides(
       '-c', `mcp_servers.arco.command=${JSON.stringify(entry.command)}`,
       '-c', `mcp_servers.arco.args=${JSON.stringify(entry.args)}`,
     );
+    if (opts.handoffHistoryToken) out.push('-c', `mcp_servers.arco.env.ARCO_HANDOFF_HISTORY_TOKEN=${JSON.stringify(opts.handoffHistoryToken)}`);
   }
   if (opts.codebaseMemoryIndexPath) {
     const entry = buildCodebaseMemoryEntry(opts.codebaseMemoryIndexPath);
@@ -299,4 +302,21 @@ export function buildCodexMcpOverrides(
     }
   }
   return out;
+}
+
+/** Preserve turn-engine registrations verbatim; pre-warm seeds have no turn-engine write. */
+export async function attachHandoffHistoryToken(cwd: string, workflowId: string, existingPath: string | undefined, opts: McpConfigOptions): Promise<string | undefined> {
+  const file = existingPath ?? configPath(cwd, workflowId);
+  let contents: { mcpServers: Record<string, { command: string; args: string[]; env?: Record<string, string> }> };
+  try { contents = JSON.parse(await fs.readFile(file, 'utf8')); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    return writeFor(cwd, workflowId, opts);
+  }
+  if (!contents.mcpServers || typeof contents.mcpServers !== 'object' || Array.isArray(contents.mcpServers)) throw new Error('Invalid workflow MCP configuration.');
+  const entry = contents.mcpServers.arco ?? arcoEntryArgs(workflowId, cwd, opts.port);
+  if (entry.env?.ARCO_HANDOFF_HISTORY_TOKEN === opts.handoffHistoryToken) return file;
+  contents.mcpServers.arco = { ...entry, env: { ...entry.env, ARCO_HANDOFF_HISTORY_TOKEN: opts.handoffHistoryToken! } };
+  await atomicWriteFile(file, JSON.stringify(contents, null, 2));
+  return file;
 }

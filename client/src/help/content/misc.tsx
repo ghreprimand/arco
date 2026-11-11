@@ -1580,7 +1580,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'chat.seed-pill.source': {
     title: 'Earlier conversation',
-    body: <p>From on the latest seed opens the saved source in HISTORY through the handoff boundary. HANDOFFS keeps the link after a reload, even when the seed is not loaded. Claude Native agents can retrieve earlier turns with handoff_history; tool content is opt-in. Earlier sources follow a chain of handoffs. Closing a tab keeps its history; deleting or archiving it makes the link unavailable. Show full history removes the display filter. Source links are absent in Chat, incognito, BLIND and ISOLATED conversations.</p>,
+    body: <p>From on the latest seed opens the side panel and saved source in HISTORY through the handoff boundary. HANDOFFS keeps the link after a reload, even when the seed is not loaded. Eligible Agent providers can retrieve earlier turns with handoff_history; tool content is opt-in. LM Studio requires confirmed model tool support. Earlier sources follow a chain of handoffs. Closing a tab keeps its history; deleting or archiving it makes the link unavailable. Show full history removes the display filter. Source links are absent in Chat, incognito, BLIND and ISOLATED conversations.</p>,
     manualSection: 'handoff-action',
   },
   'chat.seed-pill.handoff': {

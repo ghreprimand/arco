@@ -1,3 +1,4 @@
+import { prepareProviderHistory } from '../handoffHistoryBinding.js';
 // Cursor (ACP) transport entry - docs/PROVIDERS.md
 //
 // The long-lived `CursorAcpWorker` is cached per workflowId (the `cursor-agent
@@ -101,11 +102,14 @@ export class CursorAcpTurn extends EventEmitter implements ProviderProcess {
     // Subscribe up-front; ensureStarted() may resolve before we'd otherwise wire.
     this.wireListeners();
 
-    this.worker.ensureStarted()
+    prepareProviderHistory(this.config).then(() => {
+      if (this.cancelRequested || this.settled) throw new Error('Worker killed');
+      return this.worker.ensureStarted();
+    })
       .then(() => {
         // kill() during a cold start already settled this turn; don't run it.
         if (this.cancelRequested || this.settled) return;
-        return this.worker.beginTurn(prompt, this.appendSystemPrompt);
+        return this.worker.beginTurn(prompt, this.config.appendSystemPrompt);
       })
       .catch((err: unknown) => {
         if (this.settled) return;

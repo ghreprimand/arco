@@ -1,3 +1,4 @@
+import { registerHandoffHistoryTool } from './handoffHistoryMcpTools.js';
 import { LocalMcp, registerLocalMcpTools } from '../providers/localMcp.js';
 import type { OllamaToolDefinition } from '../providers/ollamaTools.js';
 import type { ResolvedMcpServer, WorkerConfig } from '@arco/shared';
@@ -49,6 +50,7 @@ export interface ClusterLoopbackCtx {
   accessMode?: ClusterMemberAccessMode;
   registryServers?: ResolvedMcpServer[];
   readOnly?: boolean;
+  handoffHistoryToken?: string;
 }
 
 interface LoopbackEntry {
@@ -101,6 +103,7 @@ async function handleMcpRequest(entry: LoopbackEntry, req: IncomingMessage, res:
       logErr: toolCtx.logErr,
     });
   }
+  registerHandoffHistoryTool(server, entry.ctx.handoffHistoryToken, entry.ctx.arcoPort);
   if (entry.registry) await registerLocalMcpTools(server, entry.registry, entry.registryDefinitions ?? []);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   res.on('close', () => { void transport.close(); void server.close(); });
