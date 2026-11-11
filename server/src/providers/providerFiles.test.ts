@@ -150,6 +150,11 @@ test('Claude CLI, Codex exec and Cursor print receive decoded document text and 
    let captured:any;
    const child=Object.assign(new EventEmitter(),{stdin:new PassThrough(),stdout:new PassThrough(),stderr:new PassThrough()});
    t.mock.method(childProcess,'spawn',((command:any,args:any,options:any)=>{captured={command,args,options};return child;}) as any);
+   // Chat validates the CLI before the attachment-bearing exec is spawned.
+   if(kind==='codex') t.mock.method(childProcess,'spawnSync',((_command:string,args:string[])=>({status:0,stdout:
+    args.includes('--version')?'codex-cli 0.167.0':args.includes('--help')?'--ignore-user-config --ignore-rules --strict-config':
+    args.includes('--print-startup-config')?'{"appServerVersion":"0.167.0"}':
+    ['shell_tool','view_image','goals'].map(name=>`${name} stable ${!args.includes('-c')}`).join('\n')})) as any);
    t.mock.method(childProcess,'execFile',((_command:any,_args:any,_options:any,callback:any)=>{queueMicrotask(()=>callback(Object.assign(new Error('probe'), {code: 1}), '', "error: unknown option '--arco-chat-capability-probe'"));return child;}) as any);syncBuiltinESMExports();
    try{
     let input='';child.stdin.on('data',b=>{input+=String(b);});

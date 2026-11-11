@@ -82,6 +82,16 @@ const bin = join(root, 'bin');
 const logFile = join(root, 'cli.log');
 const savedPath = process.env.PATH;
 const FAKE_CLI = `import { appendFileSync } from 'node:fs';
+// Chat checks the installed CLI before sending a prompt. Probes are not turns.
+const args = process.argv.slice(2);
+let probe;
+if (args.includes('--version')) probe = 'codex-cli 0.167.0';
+else if (args.includes('--print-startup-config')) probe = JSON.stringify({ appServerVersion: '0.167.0' });
+else if (args.includes('--help')) probe = '--ignore-user-config --ignore-rules --strict-config';
+else if (args.includes('features') && args.includes('list')) {
+  probe = ['shell_tool', 'view_image', 'goals'].map(name => name + ' stable ' + !args.includes('-c')).join('\\n');
+}
+if (probe !== undefined) { console.log(probe); process.exit(0); }
 let stdin = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (c) => { stdin += c; });
@@ -118,7 +128,7 @@ const cfg = (provider: string, extra: Partial<WorkerConfig> = {}): WorkerConfig 
 async function cliRun(create: (id: string, c: WorkerConfig) => import('./types.js').ProviderProcess, config: WorkerConfig): Promise<{ argv: string[]; stdin: string }> {
   writeFileSync(logFile, '');
   const p = create(`w-${Math.random().toString(16).slice(2)}`, config) as unknown as import('node:events').EventEmitter & { spawn(prompt: string): void };
-  const settled = new Promise<void>((res) => { p.once('result', () => res()); p.once('error', () => res()); });
+  const settled = new Promise<void>((res, reject) => { p.once('result', () => res()); p.once('error', (error) => reject(new Error(String(error)))); });
   p.spawn('PROMPT-BODY');
   await settled;
   for (let i = 0; i < 50 && !(existsSync(logFile) && readFileSync(logFile, 'utf8').trim()); i++) await new Promise((r) => setTimeout(r, 20));
