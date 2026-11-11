@@ -151,7 +151,7 @@ export function WorkflowStatusChip() {
             right: 0,
             width: '360px',
             minWidth: 0,
-            maxWidth: 'calc(100vw - 24px)',
+            maxWidth: 'calc(100vw / var(--ui-scale, 1) - 24px)',
             boxSizing: 'border-box',
             overflowWrap: 'anywhere',
             padding: '10px 12px',
