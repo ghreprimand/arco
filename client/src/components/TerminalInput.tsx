@@ -1,3 +1,4 @@
+import { effectiveCodexTransport } from '@arco/shared';
 import { TurnTimer } from './TurnTimer';
 import { BriefControl } from './BriefControl';
 import { ClusterComposerButtons, type ClusterComposerControls } from './ClusterComposerButtons';
@@ -538,8 +539,8 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   // ACP (`/compress`), or Claude native (in-place summarize-replace). Mirror
   // the transport precedence used for the Claude toggle above: per-tab override
   // first, then the cascade default. The server gates again + drives the lock.
-  const resolvedCodexTransport: 'exec' | 'appserver' = job.config.codexTransport
-    ?? (settings?.codex?.transport === 'appserver' ? 'appserver' : 'exec');
+  const resolvedCodexTransport = effectiveCodexTransport(job.config.codexTransport
+    ?? (settings?.codex?.transport === 'appserver' ? 'appserver' : 'exec'), job.config.kind === 'chat', job.config.voiceOperator);
   const provider = job.config.primaryProvider ?? 'claude';
   const interruptAvailable = (provider === 'claude' || provider === 'codex') && !job.config.voiceOperator;
   const compactVisible =
@@ -1890,7 +1891,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
                   transport={(job.config.primaryProvider ?? 'claude') === 'claude'
                     ? (job.config.claudeTransport ?? settings?.claude?.transport)
                     : job.config.primaryProvider === 'codex'
-                      ? (job.config.codexTransport ?? settings?.codex?.transport ?? 'exec')
+                      ? resolvedCodexTransport
                       : undefined}
                   cwd={job.config.workingDirectory}
                   providerAccountRef={job.config.providerAccountRef}

@@ -1,4 +1,4 @@
-import { removedProviderReason } from '@arco/shared';
+import { effectiveCodexTransport, removedProviderReason } from '@arco/shared';
 import type { ProviderName, WorkerConfig } from '@arco/shared';
 import { EventEmitter } from 'events';
 import type { Provider, ProviderProcess } from './types.js';
@@ -122,7 +122,7 @@ export function createProviderProcess(id: string, config: WorkerConfig): Provide
   // Phase 6 — Codex `app-server` transport. Opt-in per tab via the
   // `codex.transport` setting (cascade); reviewer paths never set
   // `codexTransport: 'appserver'` so they always fall through to exec.
-  if (name === 'codex' && config.codexTransport === 'appserver') {
+  if (name === 'codex' && effectiveCodexTransport(config.codexTransport ?? 'exec', config.interactionMode === 'chat', config.voiceOperator) === 'appserver') {
     return CodexAppServerProvider.create(id, config);
   }
   // Phase 7a — Claude Native transport. Per-tab opt-in via `claude.transport`

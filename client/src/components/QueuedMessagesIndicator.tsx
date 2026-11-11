@@ -67,7 +67,9 @@ export function QueuedMessagesIndicator({ job, onCancel }: Props) {
 
   if (items.length === 0) return null;
 
-  const steerTooltip = providerSteerTooltip(job.config.primaryProvider ?? 'claude', job.config.claudeTransport, job.config.codexTransport);
+  const steerTooltip = job.config.primaryProvider === 'codex' && job.config.kind === 'chat' && !job.config.voiceOperator
+    ? 'Codex Chat uses exec. Messages entered during a reply are delivered after the current turn.'
+    : providerSteerTooltip(job.config.primaryProvider ?? 'claude', job.config.claudeTransport, job.config.codexTransport);
   const tooltip = items.map((item) => `${item.kind.toUpperCase()} (${item.state?.toUpperCase()}): ${item.automaticKind ? `(${item.automaticKind}) Peer mail waiting` : item.content}`).join('\n') + `\n\n${steerTooltip}`;
   return (
     <span data-help="composer.turn-messages">

@@ -159,7 +159,7 @@ test('Claude CLI, Codex exec and Cursor print receive decoded document text and 
     if(kind==='claude'){
      const payload=JSON.parse(input);assert.ok(payload.message.content.some((b:any)=>b.type==='image'&&b.source.data.length));
     }else if(kind==='codex'){
-     assert.ok(captured.args.includes(`${installedCodexImageToolKey()}=true`));
+     assert.ok(captured.args.includes(`${installedCodexImageToolKey()}=false`));
      const image=captured.args[captured.args.indexOf('-i')+1];assert.notEqual(image,join(cwd,'picture.data'));assert.ok((await readFile(image)).length);
     }else{
      assert.equal(captured.args[captured.args.indexOf('--mode')+1],'ask');assert.notEqual(captured.options.cwd,cwd);

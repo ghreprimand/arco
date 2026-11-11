@@ -14,3 +14,5 @@ export * from './outputStyle.js';
 
 export * from './notificationTitle.js';
 export { newFolderNameError } from './folderName.js';
+
+export * from './codexChat.js';

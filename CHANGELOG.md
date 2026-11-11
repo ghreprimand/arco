@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Restrict ordinary Codex Chat to message attachments and always use exec; refuse unsupported installations before a model turn.
 - Restrict Cursor Chat to message attachments, with private turn folders, no file or tool fallback, and clear provider refusals.
 - Preserve handoff source links across restarts and handoff chains, with a From control that opens earlier conversation history.
 - Show configured tool-server controls on every Agent provider, excluding Chat and isolated members.

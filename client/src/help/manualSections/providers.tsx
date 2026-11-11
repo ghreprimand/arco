@@ -448,6 +448,9 @@ export const providers: Section[] = [
   <p>These are Codex sandbox modes, separate from Arco&apos;s browser file views and built-in file-tool path checks. Shell commands and provider CLI tools follow their own execution, approval and sandbox settings; Arco&apos;s allowed-root policy does not constrain them.</p>
   <p>Both Codex transports explicitly enable live web search in Agent tabs.
   Chat follows its web-access toggle, including resumed exec turns.</p>
+  <p>Ordinary Codex Chat always uses <Code>exec</Code>, even when settings or a saved tab select app-server. Saved app-server conversations resume the same Codex session ID on exec, preserving provider history. Its header shows EXEC.</p>
+  <p>Shell, local image readers, extensions, hooks, skills and project instructions are disabled on start and resume; user config and rules are excluded. Unsupported installations refuse the message before a model turn.</p>
+  <p>Word and other documents arrive as text; attached images remain explicit image inputs. There is no mid-turn steering; send the next message after the reply. Native compaction and structured questions require an Agent tab on app-server. Computer mode keeps its separate privileged transport.</p>
   <Sub>App-server features</Sub>
   <p>
   CONFIG can switch a tab from <Code>exec</Code> to <Code>app-server</Code>.

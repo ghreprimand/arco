@@ -1,3 +1,4 @@
+import { codexChatOverrides, requireCodexChatCapabilities } from './codexChatBoundary.js';
 import { codexWebSearchMode } from './codexWebSearch.js';
 import { installedCodexImageToolKey } from './codexImageTool.js';
 import { cliFileReadGuidance, prepareProviderAttachments, persistProviderImages, type PreparedAttachments } from './providerFileContent.js';
@@ -52,6 +53,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
   readonly config: WorkerConfig;
   private process: ChildProcess | null = null;
   private parser: CodexStreamParser | null = null;
+  private chatOverrides: readonly string[] = codexChatOverrides('');
   private _status: WorkerStatus = 'spawning';
   private _output = '';
   private outputCapped = false;
@@ -80,6 +82,10 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
   }
 
   spawn(prompt: string): void {
+    if (this.config.interactionMode === 'chat' && !this.config.voiceOperator) {
+      try { this.chatOverrides = requireCodexChatCapabilities(this.config.codexHome); }
+      catch (error) { this._status = 'failed'; this.emit('error', (error as Error).message); return; }
+    }
     if (!this.config.attachments?.length) { this.spawnPrepared(prompt); return; }
     void prepareProviderAttachments(this.config.attachments).then(async (prepared) => {
       const images = await persistProviderImages(prepared.images);
@@ -208,7 +214,9 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     const args = isResume
       ? ['exec', 'resume', this.config.resumeSessionId!, '--json', '--skip-git-repo-check']
       : ['exec', '--json', '--color', 'never', '--skip-git-repo-check'];
-    args.push('-c', `${installedCodexImageToolKey()}=true`);
+    const ordinaryChat = this.config.interactionMode === 'chat' && !this.config.voiceOperator;
+    args.push('-c', `${installedCodexImageToolKey()}=${!ordinaryChat}`);
+    if (ordinaryChat) args.push('--strict-config', ...this.chatOverrides.flatMap(value => ['-c', value]));
     // Both flags exist on `exec resume` too. First-turn-only let a saved
     // chat's turn 2+ load the operator's config.toml — their MCP servers
     // (project tools inside Chat) and sandbox defaults.

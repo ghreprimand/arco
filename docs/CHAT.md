@@ -63,7 +63,7 @@ provider default:
 |---|---|---|
 | Claude CLI | `--tools WebSearch,WebFetch` + `--strict-mcp-config` | `--tools ""` |
 | Claude Native | `buildChatWebTools()` - server `web_search` + `web_fetch` and portable `read_url` (no `code_execution`) | empty `tools` |
-| Codex exec / app-server | `web_search="live"` | `web_search="disabled"` |
+| Codex exec | `web_search="live"` | `web_search="disabled"` |
 | Ollama | Arco's local SearXNG-backed `WebSearch` / `WebFetch` pair, re-checked at dispatch (`ollamaToolCallAllowed`) | no tools |
 | Strata | Same local web pair, with advertisement and dispatch allowlists | no tools |
 | Everything else | - (header shows `NO WEB`) | - |
@@ -98,7 +98,7 @@ name and accompany the content. Images are fitted to the transport's limits:
 | Provider | Images |
 |---|---|
 | Claude CLI / Native | native image content blocks |
-| Codex exec / app-server | native (`-i <path>` / `localImage` input) |
+| Codex exec | explicit `-i <path>` image input |
 | Ollama | base64 `images` on vision-capable models |
 | llama.cpp | OpenAI `image_url` parts when the loadout declares vision + `mmprojPath`; otherwise an image note |
 | LM Studio | OpenAI `image_url` parts when native model metadata confirms vision; otherwise an image note |
@@ -118,7 +118,7 @@ When needed, `providers/attachments.ts` writes a fitted `.model.png` or
 `.model.jpg` sibling. Claude Native prepares attachments through `readFileContent`, retaining typed
 image and document blocks. Local and CLI adapters use
 `prepareProviderAttachments` for fitted images and decoded document text.
-Codex and Cursor print retain managed fitted-image paths for their image tools.
+Codex retains managed fitted-image paths for explicit image inputs; Cursor print retains them for its image tools.
 Malformed or unsupported content receives a readable note from the decoder.
 
 Supported formats and document ranges are described in
@@ -138,10 +138,7 @@ The existing store layout is nested beneath that:
 `kind:'chat'` reaches provider workers as `interactionMode:'chat'`. Native/local
 HTTP workers omit tools (except the armed web pair above); Claude CLI uses an
 explicit `--tools` allowlist plus strict MCP configuration. Cursor uses its
-stateless `-p --mode ask` transport with transcript replay. Codex runs a
-read-only sandbox in the isolated cwd, because its CLI has no universal tool
-allowlist. The conversation-only interface is not a claim that every provider
-implements an identical security sandbox.
+stateless `-p --mode ask` transport with transcript replay. Ordinary Codex Chat always uses exec, even if settings or a saved tab select app-server. Saved app-server conversations resume the same Codex session ID on exec, preserving provider history. The header shows EXEC. There is no mid-turn steering; send the next message after the reply. Native compaction and structured questions require an Agent tab on app-server. Command execution, arbitrary local image readers, extension tools, hooks, skills and project instructions are disabled on start and resume; user configuration and rules are excluded. Unsupported Codex installations refuse the message before a model turn. Explicit Word/PDF/document text and image attachments still arrive without a local reader. The read-only sandbox alone does not prevent disk reads.
 
 Incognito additionally suppresses Arco transcript/meta/index writes, operational
 logs, notifications, hub reporting, worker PID registration and browser-persisted

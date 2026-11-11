@@ -206,10 +206,7 @@ explicitly instead of inheriting a provider default:
   only the chat system block.
 - **Claude CLI** - `--tools ""`, or `--tools WebSearch,WebFetch` when armed,
   plus `--strict-mcp-config`.
-- **Codex** - read-only sandbox in the isolated chat cwd (its CLI has no
-  universal tool allowlist, so isolation + sandboxing are the defense);
-  `web_search="live"|"disabled"` on both `exec` (`-c`) and app-server (thread
-  config), plus chat `baseInstructions` on app-server.
+- **Codex** - ordinary Chat always runs on `exec`, including saved tabs configured for app-server. Saved app-server conversations resume the same Codex session ID on exec, preserving provider history. Start and resume disable command execution, local image reading, apps, plugins, remote plugins, subagents, image generation, memories and hooks, plus skills and project documents. `--ignore-user-config --ignore-rules` keep user tools and rules out. A cached installed-capability probe refuses unsupported versions before a model turn. The read-only sandbox is additional protection, not a disk-read boundary. Documents arrive as inline text and images through explicit `-i` inputs; `web_search="live"|"disabled"` follows WEB. The header shows EXEC. There is no mid-turn steering; send the next message after the reply. Native compaction and structured questions remain Agent app-server features. Computer mode keeps its separate privileged transport.
 - **Ollama** - no tools, or exactly `WebSearch` / `WebFetch` (local SearXNG +
   fetch) when armed, re-checked at dispatch by `ollamaToolCallAllowed()` so a
   hallucinated known tool name cannot cross the boundary.

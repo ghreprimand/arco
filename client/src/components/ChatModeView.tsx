@@ -192,6 +192,7 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
           }}
         >
           <span>CHAT · {provider === 'deepseek' ? 'XOLOTL' : provider.toUpperCase()}</span>
+          {provider === 'codex' && !job.config.voiceOperator && <span data-help="chat.codex-transport" title="Codex Chat uses exec with attachment-only access. There is no mid-turn steering; send the next message after the reply.">EXEC</span>}
           {onUpdatePrimary && modelOptions.length > 0 ? (
             <span data-help="chat.model" style={{ display: 'inline-flex' }}><select
               value={String(job.config.primaryModel)}

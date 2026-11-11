@@ -68,3 +68,10 @@ test('in-turn compaction follows the auto-compaction policy, 70% under Provider'
   assert.equal(resolveNativeInTurnCompactPercent({ ...base, chat: true }), undefined, 'Chat');
   assert.equal(resolveNativeInTurnCompactPercent({ ...base, native: false }), undefined, 'Claude CLI');
 });
+
+test('ordinary Chat always resolves exec; Computer and Agent keep their chosen transport',()=>{
+  assert.equal(resolveTurnSettings(input({config:{kind:'chat',codexTransport:'appserver'}})).codexTransport,'exec');
+  assert.equal(resolveTurnSettings(input({config:{kind:'chat'},cascade:{codex:{transport:'appserver'}}})).codexTransport,'exec');
+  assert.equal(resolveTurnSettings(input({config:{kind:'chat',voiceOperator:true,codexTransport:'appserver'}})).codexTransport,'appserver');
+  assert.equal(resolveTurnSettings(input({config:{codexTransport:'appserver'}})).codexTransport,'appserver');
+});

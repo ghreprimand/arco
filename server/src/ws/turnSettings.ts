@@ -4,7 +4,7 @@
 // every other transport. Pinned by turnSettings.test.ts; handleUserMessage in
 // turnEngine.ts reads the settings files and passes them in.
 
-import { resolveAutoCompactionPolicy, resolveOutputStyle, type AutoCompactionPolicy, type WorkflowConfig } from '@arco/shared';
+import { effectiveCodexTransport, resolveAutoCompactionPolicy, resolveOutputStyle, type AutoCompactionPolicy, type WorkflowConfig } from '@arco/shared';
 
 // Claude Native compacts inside a long turn at this share of the context
 // window when the tab and its cluster leave auto-compaction on Provider.
@@ -27,7 +27,7 @@ export function resolveNativeInTurnCompactPercent(input: {
 export interface TurnSettingsInput {
   provider: string;
   config: Pick<WorkflowConfig,
-    'codexTransport' | 'claudeTransport' | 'ultracode' | 'claudeNativeCompact' | 'claudeNativeForceInterleavedThinkingBeta'
+    'kind' | 'voiceOperator' | 'codexTransport' | 'claudeTransport' | 'ultracode' | 'claudeNativeCompact' | 'claudeNativeForceInterleavedThinkingBeta'
     | 'claudeNativeThinkingDisplay' | 'efficiencyToolFilter' | 'efficiencyFactForce' | 'efficiencyConfigProtection'
     | 'efficiencySandbox' | 'reviewSafeMode' | 'outputStyle' | 'goal' | 'ollamaParams'>;
   // The merged settings files (null when they could not be read).
@@ -55,9 +55,10 @@ export interface TurnSettings {
 
 export function resolveTurnSettings({ provider, config, cascade, isolatedMember, primitive }: TurnSettingsInput): TurnSettings {
   // The CONFIG tab's transport choice wins over settings.json.
-  const codexTransport = config.codexTransport === 'appserver' || config.codexTransport === 'exec'
+  const requestedCodexTransport = config.codexTransport === 'appserver' || config.codexTransport === 'exec'
     ? config.codexTransport
     : cascade?.codex?.transport === 'appserver' ? 'appserver' : 'exec';
+  const codexTransport = effectiveCodexTransport(requestedCodexTransport, config.kind === 'chat', config.voiceOperator);
   // Sticky ultracode forces the CLI transport (the harness WorkflowTool lives
   // only in the `claude` binary); the base transport is restored when it is off.
   const ultracode = provider === 'claude' && config.ultracode === true;
