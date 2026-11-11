@@ -98,3 +98,32 @@ for (const scenario of ['image-refused', 'cancelled-probe'] as const) {
     }
   });
 }
+
+test('Cursor backend Chat refusals become one plain sentence without changing reviewer errors', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'arco-cursor-refusal-message-'));
+  const oldHome = process.env.ARCO_HOME;
+  process.env.ARCO_HOME = join(root, 'state');
+  try {
+    for (const interactionMode of ['chat', 'agent'] as const) {
+      const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough() });
+      let spawned = false, error = '';
+      t.mock.method(childProcess, 'spawn', (() => { spawned = true; return child; }) as any);
+      t.mock.method(childProcess, 'execFile', ((_command: string, _args: string[], _options: any, callback: any) => { queueMicrotask(() => callback(Object.assign(new Error('probe'), { code: 1 }), '', "error: unknown option '--arco-chat-capability-probe'")); }) as any);
+      syncBuiltinESMExports();
+      const worker = CursorPrintProvider.create('fixture', { provider: 'cursor', model: 'fixture', effort: 'low', interactionMode });
+      worker.on('error', value => { error = String(value); });
+      worker.spawn('Fixture');
+      for (let i = 0; i < 200 && !spawned; i++) await new Promise(resolve => setTimeout(resolve, 5));
+      assert.ok(spawned);
+      child.stderr.write('Retry attempt 3...\nRetriableError: [invalid_argument] Workspace context exclusion is not allowed for this user, team, or selected model\n');
+      child.emit('close', 1, null);
+      if (interactionMode === 'chat') assert.equal(error, 'Cursor refused this Chat request: Workspace context exclusion is not allowed for this user, team, or selected model.');
+      else assert.match(error, /cursor-agent -p exited 1:.*Retry attempt/s);
+      t.mock.restoreAll(); syncBuiltinESMExports();
+    }
+  } finally {
+    t.mock.restoreAll(); syncBuiltinESMExports();
+    if (oldHome === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = oldHome;
+    await rm(root, { recursive: true, force: true });
+  }
+});

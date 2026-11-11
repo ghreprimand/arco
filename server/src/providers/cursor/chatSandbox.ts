@@ -10,7 +10,7 @@ export const CHAT_DENY = ['Read(**)', 'Read(/**)', 'Write(**)', 'Write(/**)', 'S
 // An empty tool allowlist also removes directory listing (which does not use
 // Cursor's Read permission check), subagents, browser and future tool families.
 // Read/MCP denies remain in force even when a server was previously approved.
-export const CHAT_FLAGS = ['--allowed-tools', '', '--exclude-workspace-context', '--disable-indexing', '--disable-codebase-ref'];
+export const CHAT_FLAGS = ['--allowed-tools', '', '--disable-indexing', '--disable-codebase-ref'];
 export const CHAT_GUIDANCE = 'This is a Chat tab. Only the text and attachments in this message are available. Do not read computer files, follow local paths or links, or call tools. If an attached image is unavailable, say "Cursor Chat could not receive this image. Please use another provider." Never try Read or another tool to recover it.';
 
 function accepts(args: string[], cwd: string, signal?: AbortSignal): Promise<boolean> {

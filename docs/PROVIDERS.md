@@ -227,7 +227,10 @@ explicitly instead of inheriting a provider default:
   plugin, additional read folders or `--force`. Explicit permissions deny all
   reads, writes, shell, web fetches and MCP tools, including previously approved
   servers. An empty `--allowed-tools` list excludes every built-in tool family;
-  workspace context, indexing, semantic search and lint context are disabled.
+  indexing, semantic search and lint context are disabled. Workspace context
+  comes from the private turn folder; the restricted workspace-exclusion flag
+  is not used. Account, team or model refusals appear as one plain sentence
+  naming Cursor, without the retry dump.
   Documents arrive as extracted text. Only fitted copies of the current
   message's images go through `--image`, never through a Read fallback.
   Arco checks required flags with a deliberate parser error before starting a turn.

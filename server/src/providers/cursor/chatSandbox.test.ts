@@ -29,6 +29,7 @@ for (const scenario of ['supported', 'unsupported-image', 'unsupported-controls'
         const first = await createChatSandbox(prepared);
         const second = await createChatSandbox();
         assert.notEqual(first.cwd, second.cwd, 'each turn has a fresh folder');
+        assert.equal(probes[0].includes('--exclude-workspace-context'), false, 'private cwd needs no privileged workspace-context flag');
         assert.deepEqual(probes[0], [...CHAT_FLAGS, '--arco-chat-capability-probe', 'help']);
         assert.ok(probes[1].includes('--image'));
         assert.equal(first.imagePaths.length, 1);

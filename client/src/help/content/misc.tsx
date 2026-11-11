@@ -192,7 +192,8 @@ export const miscHelp: Record<string, HelpEntry> = {
           computer files by path or link and has no web access. Abandoned turn folders
           are removed at server startup. Documents arrive as text and images
           use Cursor&apos;s image input; unsupported image inputs are refused.
-          A Cursor version missing the required Chat controls cannot run Chat.</p>
+          A Cursor version missing the required Chat controls cannot run Chat.
+          Account, team or model refusals name Cursor in a plain sentence.</p>
       </>
     ),
     manualSection: 'chat-panel',

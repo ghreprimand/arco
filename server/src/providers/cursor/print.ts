@@ -181,6 +181,10 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     }
     const reason = code !== null ? `exited ${code}` : `killed by ${signal ?? 'signal'}`;
     const errorTail = this.stderrBuf.trim().slice(-400);
+    const refusal = this.stderrBuf.match(/\[(?:invalid_argument|permission_denied|failed_precondition)\]\s+([^\r\n.!?]+)/i)?.[1]?.trim();
+    if (this.config.interactionMode === 'chat' && refusal && /not allowed|not enabled|not available|not supported|permission|access|account|team|model/i.test(refusal)) {
+      this.fail(`Cursor refused this Chat request: ${refusal}.`); return;
+    }
     this.fail(`cursor-agent -p ${reason}${errorTail ? `: ${errorTail}` : ''}`);
   }
 

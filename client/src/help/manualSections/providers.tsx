@@ -649,7 +649,8 @@ export const providers: Section[] = [
   Cursor&apos;s image input. Arco checks the installed version first and refuses
   unsupported image inputs without falling back to a file reader. A version
   missing the required Chat controls cannot run Chat. Agent tabs and reviews
-  keep their project access.</p>
+  keep their project access. Cursor account, team or model refusals appear
+  as a plain sentence naming Cursor.</p>
   <Sub>Review and other primitives</Sub>
   <p>
   <strong>Primitives are read-only.</strong> When Review (or a
