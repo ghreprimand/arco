@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep historical file records separate from assistant prose when replaying Ollama, llama.cpp and LM Studio conversations.
 - Let Claude Native agents list, search and read their handoff history, and retain source controls after tail-only reloads.
 - Keep the Codex Chat exec host enabled while WEB is armed so live web tools can run; keep it disabled with WEB off.
 - Restrict ordinary Codex Chat to message attachments and always use exec; refuse unsupported installations before a model turn.

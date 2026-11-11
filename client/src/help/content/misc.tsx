@@ -243,6 +243,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       range. Private addresses, unsafe redirects, oversized sources and expired
       requests produce a note.</p>
       <p>Attachments and MCP file results use the same decoder. Local providers restore up to two recent fitted images and 8 KiB of decoded text on later turns and reload. Older receipts name saved files or the original tool and input. Use Read or re-run the tool for detail; missing files produce a notice. Saved events keep references rather than encoded media.</p>
+      <p>Ollama, llama.cpp and LM Studio show earlier file records to the model as separate Arco historical file context, not user requests or assistant prose. Assistant-made receipts are not file records. Files not listed need a real Read call; saved references may need Read again for detail. Ollama compaction uses the same separation.</p>
 
       <p>Claude Native and local-model Glob can return a directory alias for a directory-only pattern such as <C>src-link/</C>. The alias must resolve within the project and pass the path checks. Glob does not walk through directory aliases.</p>
       <p>JavaScript Grep searches UTF-8, UTF-16 and Windows-1252 text, skipping binary and control-heavy data. Native ripgrep omits output lines that cannot be decoded safely.</p>

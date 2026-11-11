@@ -19,13 +19,13 @@ export async function compactDurableOllama(args: {
 }): Promise<void> {
   const { messages, context, config, cwd, workflowId, parse, emit } = args;
   if ((!context.policy.enabled && !args.forced) || !context.stillOwner() || args.signal?.aborted) return;
-  const history = projectOllamaHistory(context.events, workflowId, context.activeInputSeqs);
+  const history = projectOllamaHistory(context.events, workflowId, context.activeInputSeqs, true);
   if (!history.valid) { emit(`Ollama auto-compaction deferred: ${history.reason}; original history remains available.`); return; }
   const cuts = history.cuts;
   const parsed = new Map<number, Message[]>();
   const cutMessages = (cut: (typeof cuts)[number]): Message[] => {
     let value = parsed.get(cut.throughSeq);
-    if (!value) { value = parse(renderTranscript(cut.events, { preserveThinking: true }).trim()); parsed.set(cut.throughSeq, value); }
+    if (!value) { value = parse(renderTranscript(cut.events, { preserveThinking: true, separateFileContext: true }).trim()); parsed.set(cut.throughSeq, value); }
     return value;
   };
   const start = messages.findIndex(m => m.role !== 'system');
@@ -53,7 +53,7 @@ export async function compactDurableOllama(args: {
   }
   if (used / window < threshold - 0.05) cycle.fired = false;
   if (!args.forced && (used / window < threshold || cycle.fired)) return;
-  const historyCount = parse(renderTranscript(history.events, { preserveThinking: true }).trim()).length;
+  const historyCount = parse(renderTranscript(history.events, { preserveThinking: true, separateFileContext: true }).trim()).length;
   const available = cuts.filter(c => !prior || c.throughSeq > prior.throughSeq);
   const limit = Math.max(0, historyCount - config.keepLastMessages);
   let low = 0, high = available.length - 1;

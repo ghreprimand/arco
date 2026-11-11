@@ -35,12 +35,12 @@ const outputTypes = new Set(['primary_text', 'primary_thinking', 'primary_tool_u
 const historyTypes = new Set([...outputTypes, 'user_message_echo', 'primary_turn_started', 'primary_complete', 'primary_turn_ended', 'queued_message_cancelled', 'turn_messages_delivered', 'queued_messages_drained']);
 
 export function projectOllamaHistory(
-  source: OllamaHistoryEvent[], workflowId: string, activeInputSeqs: number[],
+  source: OllamaHistoryEvent[], workflowId: string, activeInputSeqs: number[], includeFileContext = false,
 ): OllamaHistoryProjection {
   const epoch = source.filter(e => e.type === 'handoff_complete').at(-1)?.seq ?? 0;
   // Unrelated events can have domain-specific positions (checkpoint guard seq),
   // so only replay inputs, execution events and cancellation define this prefix.
-  const relevant = source.filter(e => historyTypes.has(e.type) && (e.type !== 'queued_messages_drained' || !!e.deliveryId));
+  const relevant = source.filter(e => (historyTypes.has(e.type) || includeFileContext && e.type === 'file_context') && (e.type !== 'queued_messages_drained' || !!e.deliveryId));
   const events = relevant.filter(e => typeof e.seq === 'number' && e.seq > epoch);
   const active = new Set(activeInputSeqs);
   const deliveries = confirmedInputDeliveries(events);
@@ -67,6 +67,7 @@ export function projectOllamaHistory(
   }
   let activeExecution: Execution | undefined;
   const inputOwners = new Map<number, Execution>();
+  const fileOwners = new Map<number, Execution>();
   for (const e of events) {
     if (e.type === 'queued_message_cancelled') {
       const matches = clientIds.get(e.clientMessageId) ?? [];
@@ -88,6 +89,7 @@ export function projectOllamaHistory(
       else if (e.type === 'primary_turn_ended') turn.ended = e.seq!;
       if (e.type === 'primary_turn_ended' && activeExecution === turn) activeExecution = undefined;
     }
+    if (e.type === 'file_context' && activeExecution && !activeExecution.complete) fileOwners.set(e.seq!, activeExecution);
     const delivery = deliveries.get(e);
     if (delivery) {
       const inputs = delivery.inputs.flatMap(input => typeof input.seq === 'number' && !consumed.has(input.seq) ? [input.seq] : []);
@@ -110,6 +112,9 @@ export function projectOllamaHistory(
       if (event.type === 'user_message_echo') {
         const owner = inputOwners.get(event.seq!);
         if (owner && allowed.has(owner)) out.push({ ...event, deliveryTracked: false, ollamaReplayInput: false });
+      } else if (event.type === 'file_context') {
+        const owner = fileOwners.get(event.seq!);
+        if (owner && allowed.has(owner)) out.push(event);
       } else if (outputTypes.has(event.type) || event.type === 'primary_complete') {
         const owner = event.ollamaExecutionId ? executions.get(event.ollamaExecutionId) : undefined;
         if (owner && allowed.has(owner)) out.push(event);

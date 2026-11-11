@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { receiptPlan } from '../fileContextReceipts.js';
 import { projectOllamaHistory, type OllamaHistoryEvent } from './ollamaExecutionHistory.js';
 const wf = 'fixture';
 const echo = (content: string, clientMessageId = content) => ({ type: 'user_message_echo', workflowId: wf, content, clientMessageId, ollamaReplayInput: true });
@@ -82,4 +83,18 @@ test('unverifiable legacy replay excludes known waiting and current new inputs',
  const old={type:'user_message_echo',workflowId:wf,content:'legacy'};
  const source=rows([old,{type:'primary_text',workflowId:wf,phase:'passthrough',text:'old answer'},echo('waiting'),echo('current')]);
  const p=projectOllamaHistory(source,wf,[4]);assert.equal(p.valid,false);assert.deepEqual(users(p.events),['legacy']);assert.deepEqual(replies(p.events),['old answer']);
+});
+
+
+test('opt-in file records follow completed execution ownership and delivery visibility', () => {
+ const record=(receipt:string, inputClientMessageIds?:string[])=>({type:'file_context',workflowId:wf,origin:'tool',receipt,files:[],...(inputClientMessageIds?{inputClientMessageIds}:{})});
+ const source=rows([echo('A'),start('a',1),record('SAVED'),record('WAITING',['queued']),text('a','assistant imitation'),complete('a'),echo('queued'),echo('current'),start('current',8),record('CURRENT')]);
+ const before=JSON.stringify(source);
+ const legacy=projectOllamaHistory(source,wf,[8]);
+ assert.equal(legacy.events.some(event=>event.type==='file_context'),false);
+ const replay=projectOllamaHistory(source,wf,[8],true);
+ assert.equal(replay.valid,true);
+ assert.deepEqual([...receiptPlan(replay.events).values()],['SAVED']);
+ assert.deepEqual([...receiptPlan(replay.cuts[0].events).values()],['SAVED']);
+ assert.equal(JSON.stringify(source),before);
 });

@@ -2117,10 +2117,10 @@ export async function handleUserMessage(
               const current = resolveProviderAutoCompaction(wf.config.autoCompaction, cluster ? clusterStore.getAutoCompaction(cluster) : undefined, 'ollama', '', false, savedOllamaPolicy);
               return workflows.get(workflowId) === wf && ownsBusy(wf, busyToken) && wf.primary.provider === 'ollama' && JSON.stringify(current) === policyKey;
             } };
-            replayEvents = projectOllamaHistory(events, workflowId, activeOllamaInputSeqs).events;
+            replayEvents = projectOllamaHistory(events, workflowId, activeOllamaInputSeqs, true).events;
           }
           priorFiles = projectLocalFileReferences(events, cwd);
-          const rendered = (wf.config.voiceOperator ? renderComputerHistory(replayEvents) : renderTranscript(replayEvents, { preserveThinking: !chatMode })).trim();
+          const rendered = (wf.config.voiceOperator ? renderComputerHistory(replayEvents) : renderTranscript(replayEvents, { preserveThinking: !chatMode, separateFileContext: true })).trim();
           if (rendered) primaryAppendSystemPrompt = rendered;
         } catch (err) {
           console.error(`[arco] [${workflowId.slice(0, 8)}] ollama transcript build failed:`, err);
@@ -2153,7 +2153,7 @@ export async function handleUserMessage(
             : await replayWorkflowEvents(cwd, workflowId, 0));
           if (retainLocalFiles) priorFiles = projectLocalFileReferences(events, cwd);
           const summary = chatMode ? '' : summarizePriorTurns(events);
-          const rendered = (wf.config.voiceOperator ? renderComputerHistory(events) : renderTranscript(events, { preserveThinking: false })).trim();
+          const rendered = (wf.config.voiceOperator ? renderComputerHistory(events) : renderTranscript(events, { preserveThinking: false, separateFileContext: wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' })).trim();
           const parts: string[] = [];
           if (summary) {
             parts.push(`USER: [Workflow context]`);
