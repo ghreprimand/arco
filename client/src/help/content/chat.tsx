@@ -29,7 +29,7 @@ export const chatHelp: Record<string, HelpEntry> = {
   },
   'chat.codex-transport': {
     title: 'Codex Chat: exec', manualSection: 'chat-mode',
-    body: <p>Ordinary Codex Chat always runs on <C>exec</C>, including when settings select app-server. Saved app-server conversations resume the same Codex session ID on exec, preserving provider history. Only message attachments are supplied; shell, local file and image readers, extensions and project instructions are disabled. WEB enables the exec host for live web tools while the other restrictions stay in force; WEB off disables the host. If the installed Codex cannot enforce this, the message is refused before a model turn. There is no mid-turn steering; send the next message after the reply. Native compaction and structured questions require an Agent tab on app-server. Attached documents and images still work.</p>,
+    body: <p>Ordinary Codex Chat always runs on <C>exec</C>, including when settings select app-server. Saved app-server conversations resume the same Codex session ID on exec, preserving provider history. Only message attachments are supplied; shell, local file and image readers, extensions and project instructions are disabled. Sub-agent creation, goals and patch tools are disabled with WEB on or off. WEB enables the exec host for live web tools while the other restrictions stay in force; WEB off disables the host. If the installed Codex cannot enforce this, the message is refused before a model turn. There is no mid-turn steering; send the next message after the reply. Native compaction and structured questions require an Agent tab on app-server. Attached documents and images still work.</p>,
   },
   'chat.model': {
     title: 'Chat model', manualSection: 'chat-mode',

@@ -16,6 +16,9 @@ for (const resume of [false,true]) test(`Chat ${resume ? 'resume' : 'start'} can
   const args=worker.buildArgs(['/explicit-attachment.png']);
   assert.ok(args.includes('features.shell_tool=false'));
   assert.ok(args.includes('features.view_image=false'));
+  assert.ok(args.includes('features.goals=false'));
+  assert.ok(args.includes('agents.enabled=false'));
+  assert.ok(args.includes('features.code_mode.excluded_tool_namespaces=["functions"]'));
   assert.ok(!args.includes('features.view_image=true'));
   assert.ok(args.includes('--ignore-user-config'));
   assert.ok(args.includes('--ignore-rules'));
@@ -35,14 +38,17 @@ test('Agent keeps the image reader and does not get Chat feature restrictions',(
   const args=worker.buildArgs();
   assert.ok(!args.includes('features.shell_tool=false'));
   assert.ok(!args.includes('--ignore-user-config'));
+  assert.ok(!args.includes('agents.enabled=false'));
+  assert.ok(!args.includes('features.goals=false'));
+  assert.ok(!args.some((arg:string)=>arg.startsWith('features.code_mode.excluded_tool_namespaces=')));
   assert.ok(args.some((a:string)=>/^(?:features|tools)\.view_image=true$/.test(a)));
 });
 
 const { supportsCodexChat, codexChatOverrides }=await import('./codexChatBoundary.js');
-const listedFeatures=['shell_tool','view_image','apps','plugins','remote_plugin','multi_agent',
+const listedFeatures=['shell_tool','view_image','apps','plugins','remote_plugin','multi_agent','goals',
   'image_generation','memories','hooks','computer_use','code_mode','code_mode_host'].map(name=>`${name} stable true`).join('\n');
 const validProbe={listedFeatures, version:'codex-cli 0.167.0',features:listedFeatures.replaceAll('stable true','stable false'),
-  execHelp:'--ignore-user-config --ignore-rules --strict-config',resumeHelp:'--ignore-user-config --ignore-rules --strict-config'};
+  execHelp:'--ignore-user-config --ignore-rules --strict-config',resumeHelp:'--ignore-user-config --ignore-rules --strict-config',startupConfig:JSON.stringify({appServerVersion:'0.167.1'})};
 test('capability gate refuses missing, removed, ignored and re-enabled readers',()=>{
   assert.equal(supportsCodexChat(validProbe),true);
   assert.equal(supportsCodexChat({}),false);
@@ -90,6 +96,9 @@ for (const web of [false,true]) for (const resume of [false,true]) test(`WEB ${w
   worker.chatOverrides=codexChatOverrides(listedFeatures,web);
   const args=worker.buildArgs();
   assert.ok(args.includes(`features.code_mode_host=${web}`));
+  assert.ok(args.includes('features.goals=false'));
+  assert.ok(args.includes('agents.enabled=false'));
+  assert.ok(args.includes('features.code_mode.excluded_tool_namespaces=["functions"]'));
   assert.ok(args.includes('features.code_mode=false'));
   assert.ok(args.includes('features.shell_tool=false'));
   assert.ok(args.includes('features.view_image=false'));
@@ -112,7 +121,7 @@ test('capability cache follows WEB changes and probes the matching overrides',as
   const probes:string[][]=[];
   t.mock.method(childProcess,'spawnSync',((_command:string,args:string[])=>{
     probes.push(args);
-    const stdout=args.includes('--version')?validProbe.version:args.includes('--help')?validProbe.execHelp:
+    const stdout=args.includes('--print-startup-config')?validProbe.startupConfig:args.includes('--version')?validProbe.version:args.includes('--help')?validProbe.execHelp:
       args.includes('-c')?validProbe.features.replace('code_mode_host stable false',`code_mode_host stable ${args.includes('features.code_mode_host=true')}`):listedFeatures;
     return {status:0,stdout};
   }) as any);
@@ -120,11 +129,19 @@ test('capability cache follows WEB changes and probes the matching overrides',as
   try {
     const probeHome=join(home,'web-cache');
     assert.ok(requireCodexChatCapabilities(probeHome,false).includes('features.code_mode_host=false'));
+    assert.ok(probes.some(args=>args.includes('--print-startup-config')&&args.includes('--strict-config')&&args.includes('agents.enabled=false')&&args.includes('features.code_mode.excluded_tool_namespaces=["functions"]')));
     assert.ok(requireCodexChatCapabilities(probeHome,true).includes('features.code_mode_host=true'));
-    assert.equal(probes.length,10,'WEB change must invalidate a cached off policy');
+    assert.equal(probes.length,12,'WEB change must invalidate a cached off policy');
     requireCodexChatCapabilities(probeHome,true);
-    assert.equal(probes.length,10,'same WEB policy should reuse its cached capability result');
+    assert.equal(probes.length,12,'same WEB policy should reuse its cached capability result');
     assert.ok(requireCodexChatCapabilities(probeHome,false).includes('features.code_mode_host=false'));
-    assert.equal(probes.length,10,'switching back within expiry should reuse the earlier policy');
+    assert.equal(probes.length,12,'switching back within expiry should reuse the earlier policy');
   }finally{t.mock.restoreAll();syncBuiltinESMExports();}
+});
+
+test('Chat refuses an unsupported namespace or agent control before a model turn',()=>{
+ assert.equal(supportsCodexChat({...validProbe,startupConfig:undefined}),false);
+ assert.equal(supportsCodexChat({...validProbe,startupConfig:JSON.stringify({error:{message:'unknown configuration field agents.enabled'}})}),false);
+ assert.equal(supportsCodexChat({...validProbe,features:validProbe.features.replace('goals stable false','goals stable true')}),false);
+ assert.equal(supportsCodexChat({...validProbe,listedFeatures:validProbe.listedFeatures.replace(/goals[^\n]*\n/, '')}),false);
 });

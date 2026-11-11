@@ -59,6 +59,8 @@ in explicitly). `chatWebArmed()` in `server/src/chatMode.ts` is the single
 decider; every transport states the mode outright rather than inheriting a
 provider default:
 
+Codex Chat disables sub-agent creation, persisted goals and nested builtin patch tools with WEB on or off. Its installed-capability check requires both disabled feature state and successful strict validation of the agent and namespace controls. WEB retains the host and live web tools; Agent tabs keep their normal controls.
+
 | Provider | Armed | Disarmed |
 |---|---|---|
 | Claude CLI | `--tools WebSearch,WebFetch` + `--strict-mcp-config` | `--tools ""` |

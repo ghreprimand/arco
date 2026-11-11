@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Disable sub-agent creation, goals and patch tools in Codex Chat while keeping its WEB host available.
 - Explain when cluster tools reach a tab that joins while working, and keep premature coordination reminders out of its running turn.
 - Restore earlier Chat uploads as content after restart and identify attachments by name.
 - Default fresh installs to 110% interface text size while preserving every existing installation's size.
