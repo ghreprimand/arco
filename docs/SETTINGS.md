@@ -59,7 +59,7 @@ Sections: 28.
 | `themes` | Appearance | Theme | Global | Theme family and palette picker, search and categories; default Electric Blue |
 | `phosphor` | Appearance | Phosphor effects and softness | Global | Phosphor glow, effects and softness (shown with a Phosphor theme) |
 | `font-pack-override` | Appearance | Font pack override | Global | Font pack selector; default Victor Mono |
-| `interface-text-size` | Appearance | Interface text size | Global | 90% to 150%, default 100% |
+| `interface-text-size` | Appearance | Interface text size | Global | 90% to 150%; fresh installs default to 110%, existing installs keep their size |
 | `layout` | Appearance | Layout | Global (this browser) | Automatic (default: Narrow under 1500, Compact from 1500, Standard from 2000 interface pixels), Standard, Compact or Narrow. Fixed choices apply at every width. Top-bar switch and command palette make the same choice |
 | `message-box-size` | Appearance | Message box size | Global (this browser) | Small (default), Medium or Large starting height for every message box |
 | `theme-brightness` | Appearance | Background and text brightness | Global | Background brightness, text brightness (default +25) |

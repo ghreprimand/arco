@@ -522,7 +522,7 @@ export function SettingsPanel({ onClose }: Props) {
             <div className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>INTERFACE TEXT SIZE</div>
             <div role="group" aria-label="Interface text size" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '14px' }}>
               {UI_SCALES.map(scale => <button key={scale} type="button" style={{ padding: '5px 8px', color: 'var(--color-accent-primary)', background: 'var(--color-bg-sunken)', border: `1px solid ${(settings?.uiScale ?? DEFAULT_UI_SCALE) === scale ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`, cursor: 'pointer' }} aria-pressed={(settings?.uiScale ?? DEFAULT_UI_SCALE) === scale} onClick={() => void saveUiScale(scale)}>{Math.round(scale * 100)}%</button>)}
-              <button type="button" onClick={() => void saveUiScale(DEFAULT_UI_SCALE)}>Reset to default</button>
+              <button type="button" onClick={() => void saveUiScale(DEFAULT_UI_SCALE)}>Reset to default ({Math.round(DEFAULT_UI_SCALE * 100)}%)</button>
             </div>
           </div>
         </SettingsSection>

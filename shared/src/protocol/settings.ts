@@ -7,7 +7,7 @@ import type { EffortLevel, ModelName, ProviderName } from './providers.js';
 import type { FallbackChainsConfig } from './fallback.js';
 
 export const UI_SCALES = [0.9, 1, 1.1, 1.2, 1.3, 1.5] as const;
-export const DEFAULT_UI_SCALE = 1;
+export const DEFAULT_UI_SCALE = 1.1;
 export function normalizeUiScale(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_UI_SCALE;
   return UI_SCALES.reduce((best, step) => Math.abs(step - value) < Math.abs(best - value) ? step : best);

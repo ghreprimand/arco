@@ -117,8 +117,9 @@ export const configuration: Section[] = [
   <Sub>Families and defaults</Sub>
   <p>
   New homes ship Phosphor <strong>Electric Blue</strong> and the{' '}
-  <strong>Victor Mono</strong> font pack at 100% interface scale; a saved
-  theme or font pack is left alone. An upstream theme-id alias is accepted
+  <strong>Victor Mono</strong> font pack at 110% interface scale. Existing homes keep their scale,
+  including the former 100% default; a saved theme or font pack is left alone.
+  Reset to default in Appearance deliberately selects 110%. An upstream theme-id alias is accepted
   so a copied home keeps its Classic theme.
   </p>
   <ul>

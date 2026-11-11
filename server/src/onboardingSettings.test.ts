@@ -50,7 +50,7 @@ test('transport and text brightness defaults preserve explicit choices', async (
 
 test('interface scale defaults, snaps to allowed steps, and persists', async () => {
   const { readSettings, patchSettings } = await import('./settings.js');
-  assert.equal((await readSettings()).uiScale, 1);
+  assert.equal((await readSettings()).uiScale, 1.1);
   assert.equal((await patchSettings({ uiScale: 1.27 })).uiScale, 1.3);
   assert.equal((await patchSettings({ uiScale: 0.1 })).uiScale, 0.9);
   await patchSettings({ projects: [] });

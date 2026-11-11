@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Default fresh installs to 110% interface text size while preserving every existing installation's size.
 - Clear stale provider throttling from the header, recheck Codex/Claude usage without a model turn (headroom clears the notice), and remove expired warnings without refreshing.
 - Open provider versions from a dedicated VERSIONS button without hover-card interference; retain llama.cpp build identities.
 - Attach handoff-history retrieval to Claude CLI, Codex, Cursor and local Agent providers, with caller-bound access and matching guidance.

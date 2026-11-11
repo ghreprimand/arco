@@ -5,7 +5,7 @@ import { allowanceBindingChanged, invalidateClaudeAllowanceRequests } from '../u
 import { useDraftStore, dropDraftForJob } from './draftStore';
 import { useComputerStore } from './computerStore';
 import { persist } from 'zustand/middleware';
-import { isClusterDirector } from '@arco/shared';
+import { DEFAULT_UI_SCALE, isClusterDirector } from '@arco/shared';
 import type { ChatMessage, WorkflowConfig, ProviderName, ArcoSettings } from '@arco/shared';
 import { THEME_REGISTRY, DEFAULT_THEME_ID } from '../themes/registry';
 import { applyTheme, applyCrispText } from '../themes/apply';
@@ -314,8 +314,8 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       return;
     }
     applyPhosphorPreferences(settings, true);
-    applyUiScale(settings.uiScale ?? 1);
-    writeCachedUiScale(settings.uiScale ?? 1);
+    applyUiScale(settings.uiScale ?? DEFAULT_UI_SCALE);
+    writeCachedUiScale(settings.uiScale ?? DEFAULT_UI_SCALE);
     // Themes Phase 2 — every settings refresh re-applies the theme so external
     // patches (auto-compact, provider toggles, another tab) don't drop the
     // active theme. applyTheme is idempotent; cost is trivial. Also mirror

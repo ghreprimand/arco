@@ -611,6 +611,28 @@ async function readJsonFile(p: string, label: string): Promise<Record<string, un
   }
 }
 
+// Match first-run provider initialization: only durable prior settings/work
+// count, not uploads, locks or other directories created during this launch.
+async function hasSavedSettingsOrWork(): Promise<boolean> {
+  for (const file of [GLOBAL_SETTINGS_BASENAME, 'known-cwds.json', 'projects.json']) {
+    try { await fs.lstat(path.join(GLOBAL_SETTINGS_DIR, file)); return true; }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+  }
+  try { return (await fs.readdir(path.join(GLOBAL_SETTINGS_DIR, 'chats'))).length > 0; }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+  return false;
+}
+
+async function readGlobalSettings(): Promise<Record<string, unknown>> {
+  const global = await readJsonFile(GLOBAL_SETTINGS_PATH, 'global');
+  // A saved 100% choice is never inferred or migrated. Old files lacking a
+  // usable scale retain their former default; only a new home gets 110%.
+  if (typeof global.uiScale !== 'number' || !Number.isFinite(global.uiScale)) {
+    global.uiScale = await hasSavedSettingsOrWork() ? 1 : DEFAULT_UI_SCALE;
+  }
+  return global;
+}
+
 function projectSettingsPath(cwd: string): string {
   return path.join(cwd, PROJECT_SETTINGS_DIRNAME, PROJECT_SETTINGS_BASENAME);
 }
@@ -764,7 +786,7 @@ export async function readSettings(
   cwd?: string,
   opts?: { includeProject?: boolean },
 ): Promise<ArcoSettings> {
-  const global = await readJsonFile(GLOBAL_SETTINGS_PATH, 'global');
+  const global = await readGlobalSettings();
   if (!cwd) return mergeWithDefaults(global);
   // DD7 — turn-path callers pass `includeProject: false` for an untrusted repo
   // so a cloned `.arco/settings.json` can't pin transport /
@@ -784,14 +806,7 @@ export async function writeSettings(next: ArcoSettings): Promise<void> {
 // Existing settings or saved work retain legacy defaults until edited.
 export async function initializeProviderSettings(detect: () => Promise<ArcoSettings['enabledProviders']>): Promise<boolean> {
   return withFileLock(GLOBAL_SETTINGS_PATH, async () => {
-    try { await fs.lstat(GLOBAL_SETTINGS_PATH); return false; }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-    for (const file of ['known-cwds.json', 'projects.json']) {
-      try { await fs.lstat(path.join(GLOBAL_SETTINGS_DIR, file)); return false; }
-      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-    }
-    try { if ((await fs.readdir(path.join(GLOBAL_SETTINGS_DIR, 'chats'))).length > 0) return false; }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    if (await hasSavedSettingsOrWork()) return false;
     const enabledProviders = await detect();
     await writeSettings({ ...defaults(), enabledProviders });
     return true;
@@ -1241,7 +1256,7 @@ export function updateRegisteredProjects(update: (projects: string[]) => string[
 // Listing requests share one settings read and async root resolution. All other
 // settings sanitizers and their defaults are the ordinary readSettings contract.
 export async function readListingSettings(access: import('./fileAccessPolicy.js').ReadAccessContext, budget?: { deadline: number; partial: boolean }): Promise<ArcoSettings> {
-  const raw = await readJsonFile(GLOBAL_SETTINGS_PATH, 'global');
+  const raw = await readGlobalSettings();
   const candidates = new Set<string>([path.resolve(homedir())]);
   const configured = Array.isArray(raw.projectRoots) ? raw.projectRoots : [];
   for (const item of [...configured, { path: raw.defaultWorkingDirectory }]) {

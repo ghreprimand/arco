@@ -114,7 +114,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.interface-text-size': {
     title: 'Interface text size',
-    body: <p>Scale the interface from 90% to 150%. The default is 100%; the choice applies immediately and is cached for the next startup before the interface appears.</p>,
+    body: <p>Scale the interface from 90% to 150%. Fresh installs default to 110%. Existing installs keep their size, including the former 100% default. Reset to default selects 110%; a chosen size applies immediately and is cached for the next startup before the interface appears.</p>,
     manualSection: 'settings-themes',
   },
   'settings.layout': {
