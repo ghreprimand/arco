@@ -5,7 +5,7 @@ export const chatHelp: Record<string, HelpEntry> = {
   'creator.chat-mode': {
     title: 'Chat: no project', manualSection: 'chat-mode',
     body: <p>A conversation without project tools or the Agent workbench. Supports
-      Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata and DeepSeek. Choose a model
+      Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata and DeepSeek. On every provider it reads only message attachments; paths on the computer are refused. Choose a model
       here; use an Agent tab for project files, commands and project actions. Saved Chat supports image/file attachments.</p>,
   },
   'creator.incognito': {
@@ -56,7 +56,7 @@ export const chatHelp: Record<string, HelpEntry> = {
   'chat.attach': {
     title: 'Attach to chat', manualSection: 'chat-mode',
     body: <p>Attach images or files to the next message; you can also paste them straight
-      into the composer or drop them anywhere on the window. Arco fits images and extracts text from PDFs, office documents and notebooks, including chats without file tools. Cursor Chat attaches no Arco project-file server; message attachments still work. Text-only models receive an image note; other binaries receive a file note. Each attachment is named before its content and marked at the end. Earlier uploads are restored within the same limits after restart; attach them again if unavailable. Uploads are saved on disk (the <C>uploads</C> folder in the Arco home for a package install, in the checkout for a source run), so Incognito chats
+      into the composer or drop them anywhere on the window. Chat has no project file tool, so a path alone is refused; attach the file instead. Arco fits images and extracts text from PDFs, office documents and notebooks, including chats without file tools. Cursor Chat attaches no Arco project-file server; message attachments still work. Text-only models receive an image note; other binaries receive a file note. Each attachment is named before its content and marked at the end. Earlier uploads are restored within the same limits after restart; attach them again if unavailable. Uploads are saved on disk (the <C>uploads</C> folder in the Arco home for a package install, in the checkout for a source run), so Incognito chats
       have no attach button. SEND stays blocked until every overlapping upload batch finishes.</p>,
   },
   'chat.input': {

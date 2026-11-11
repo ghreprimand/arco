@@ -640,7 +640,7 @@ export const miscHelp: Record<string, HelpEntry> = {
           setting (Read/Grep/Glob only for Claude; <C>read-only</C> sandbox for
           Codex).
         </p>
-        <p>Browser file views use an allowed-root policy that refuses private folders. Built-in file tools stay inside the project folder but can read project content such as <C>.claude</C> or <C>.codex</C>. Claude Native has a separate prompt for writes to a small set of sensitive targets. These rules do not constrain Bash or replace provider CLI sandbox settings.</p>
+        <p>Browser file views use an allowed-root policy that refuses private folders. Built-in file tools stay inside the project folder but can read project content such as <C>.claude</C> or <C>.codex</C>. Files elsewhere are attached to the message instead of opened through the file tool. Claude Native has a separate prompt for writes to a small set of sensitive targets. These rules do not constrain Bash or replace provider CLI sandbox settings.</p>
       </>
     ),
     manualSection: 'safety-rails',

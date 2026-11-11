@@ -15,11 +15,16 @@ export const chat: Section[] = [
   <p>SEND waits for every pending attachment upload, including overlapping paste or drop batches. Completed files stay staged until the message is sent.</p>
   <p>EDIT replaces the draft text and attachments with the selected message. Editing a text-only message clears any staged attachments.</p>
   <p>
-  Chat is a plain conversation with a model, with no project attached. Use an
-  Agent tab instead when the work needs files, commands or project tools.
+  Chat is a plain conversation with a model, with no project attached. On every
+  provider it reads only what the user attaches to the message; relative and
+  absolute paths on the computer are refused. Use an Agent tab instead when the
+  work needs project files, commands or project tools.
+  </p>
+  <p>
   Cursor Chat does not attach Arco project-file tools; files attached to a
   message still use Arco&apos;s image and document decoder. Cursor Chat uses
-  the CLI&apos;s plain-text output mode so replies can start on current Cursor versions.
+  the CLI&apos;s plain-text output mode so replies can start on current Cursor
+  versions.
   </p>
   <p>
   Open <strong>+ NEW</strong>, choose <strong>CHAT</strong>, pick a name,

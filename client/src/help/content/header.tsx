@@ -281,6 +281,7 @@ export const headerHelp: Record<string, HelpEntry> = {
   },
   'header.workflow-status': {
     title: 'Provider throttling',
+    manualSection: 'header',
     body: (
       <p>
         This warning appears when a provider is throttled. Open it to see the
@@ -453,6 +454,7 @@ export const headerHelp: Record<string, HelpEntry> = {
   },
   'header.live-status': {
     title: 'Live provider status',
+    manualSection: 'header',
     body: (
       <>
         <p>Remote dots use <C>A</C> Claude, <C>C</C> Codex and <C>X</C> Cursor. Hover or focus for usage; remote links open the existing usage pages. Worker cards and terminal sessions retain <C>O</C> Ollama and <C>L</C> llama.cpp.</p>

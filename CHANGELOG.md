@@ -14,11 +14,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Recognize SDK streaming aborts after a Task card CANCEL as cancellation.
 - Claude CLI Chat can use enabled web search and fetch without an unavailable permission prompt.
 
-- Identify each Chat attachment before its decoded content, including after restart.
 - Settle Claude Native Task cards as cancelled when the parent turn is stopped, in every browser and after a reload; a card's own CANCEL now shows cancelled instead of an error.
 - Disable sub-agent creation, goals and patch tools in Codex Chat while keeping its WEB host available.
 - Explain when cluster tools reach a tab that joins while working, and keep premature coordination reminders out of its running turn.
-- Restore earlier Chat uploads as content after restart and identify attachments by name.
+- Restore Chat attachments as named content after restart, with begin and end labels around each file's decoded content.
 - Group enabled local programs into one LOCAL status dot, with read-only per-runtime details and stopped-on-demand states.
 - Default fresh installs to 110% interface text size while preserving every existing installation's size.
 - Clear stale provider throttling from the header, recheck Codex/Claude usage without a model turn (headroom clears the notice), and remove expired warnings without refreshing.
@@ -492,6 +491,17 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Real turns now reset the idle nudge count and mark the member idle for MAIL ALERTS, clear the AUTO-PICKUP chain depth when they end, get the end-of-turn artifact size check, and wake the member again when mail arrived during the turn. Before, only some internal turns did.
 - Mail stopped by the AUTO-PICKUP chain-depth limit stays in the mailbox. Before, the periodic re-check woke the member again as if the chain had started over. The same holds for mail that arrives just as the recipient's turn ends, before the message's chain depth is recorded.
 - Turn-finished BELL notices and desktop alerts now appear for real turns. Before, only test turns produced them, so no operator, auto-pickup or peer-mail turn on any provider raised one. In a cluster tab, members other than the one in view now count as another tab for BELL notices.
+
+### Tested with and known limits
+
+- llama.cpp was tested on build 12110 with an 8B vision model; small local models may skip a file read.
+- LM Studio was tested against a simulated server only.
+- Tested versions: Ollama 0.40.16, Strata engine 0.1.59.
+- Claude Native sub-agent limits (4 running at once, 8 starts per turn) apply to existing installs from the next turn; they do not apply to Claude CLI, Codex or Cursor, which run their own sub-agents.
+- Codex Chat's reduced tool set needs Codex 0.167.0 or newer.
+- App window browser detection on macOS and Windows was tested against fixtures only.
+- Arco's file tool reads inside the project folder; files elsewhere are attached.
+
 
 ## v0.1.4 - 2026-11-05
 

@@ -83,6 +83,8 @@ tools it now has.
 
 ## Attachments
 
+On every provider, a Chat tab reads only what the user attaches to the message. Relative and absolute paths on the computer are refused; there is no project file tool. Attach images and documents instead.
+
 Attach with **+**, paste, or drop anywhere on the view (the app-wide
 DragOverlay dispatches `arco:attach-files`; `ChatModeView` listens for it just
 as `TerminalInput` does on Agent tabs). Uploads go through `POST /upload`. A

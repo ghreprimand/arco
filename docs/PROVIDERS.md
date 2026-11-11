@@ -1,6 +1,6 @@
 # Providers
 
-Native and local-model file tools refuse links that leave the workflow folder, including links used as search folders. Links to files inside the same folder remain usable. New nested files can still be created.
+Native and local-model file tools read inside the project folder and refuse links that leave it, including links used as search folders. Links to files inside the same folder remain usable. New nested files can still be created. Files outside the project folder are attached to the message instead of opened through the file tool.
 
 **Status:** Guided first-run Connections setup and recovery remain in progress. See [Development status](DEVELOPMENT_STATUS.md).
 
@@ -1541,7 +1541,7 @@ STOP ends the active local Bash tree. Closing or handing off its tab also ends a
 
 The web tools are the only network-touching ones in v1. SSRF guard is intentional - operators who genuinely need to fetch a localhost URL can use `Bash + curl` in AUTO mode (their explicit choice).
 
-**Path validation.** Arco-managed file tools stay within the workflow folder and reject links that leave it. Browser file views use a separate allowed-root policy that refuses private folders. That private-folder list does not apply inside project folders, so agent file tools can read project content such as `.claude` or `.codex`. Claude Native also asks before writes to a small set of sensitive targets; that approval is not a read filter. These checks are not a shell sandbox. In AUTO, local-model Bash commands execute; SAFE returns a denial. Provider CLI tools follow their own sandbox and approval settings.
+**Path validation.** Arco-managed file tools stay within the project folder and reject links that leave it. Files elsewhere are attached to the message instead of opened through the file tool. Browser file views use a separate allowed-root policy that refuses private folders. That private-folder list does not apply inside project folders, so agent file tools can read project content such as `.claude` or `.codex`. Claude Native also asks before writes to a small set of sensitive targets; that approval is not a read filter. These checks are not a shell sandbox. In AUTO, local-model Bash commands execute; SAFE returns a denial. Provider CLI tools follow their own sandbox and approval settings.
 
 **AUTO vs SAFE.** AUTO mode (`WorkerConfig.skipPermissions = true`) executes tools server-side. SAFE mode (default) returns a denial string the model sees as the tool result, so the loop converges without a new operator-approval protocol surface - the operator can always cancel mid-turn. Per 5.4 design choice (a).
 
@@ -2216,6 +2216,8 @@ Claude Native and local-model Glob, and JavaScript Grep when used instead of rip
 Claude Native and local-model Glob can return a directory alias for a directory-only pattern such as `src-link/`. The alias must resolve within the project and pass the path checks. Glob does not walk through directory aliases.
 
 ## Reading files and attachments
+
+Arco's file tools read inside the project folder. Files elsewhere reach the model only when the operator attaches them to the message.
 
 Arco decodes file contents before sending them to a model. Local providers use
 this reader for `Read`; Claude CLI, Codex and Cursor can use the read-only

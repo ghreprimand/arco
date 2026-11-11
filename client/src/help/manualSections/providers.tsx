@@ -10,7 +10,7 @@ export const providers: Section[] = [
   body: (
   <>
   <p>If a provider CLI, sign-in process, language server or MCP server closes its input early, Arco stays running. Existing exit reporting and request timeouts still apply; failed requests are not automatically resent.</p>
-  <p>Native and local-model file tools refuse links that leave the workflow folder, including links used as search folders. Links to files inside the same folder remain usable. New nested files can still be created.</p>
+  <p>Native and local-model file tools read inside the project folder and refuse links that leave it, including links used as search folders. Links to files inside the same folder remain usable. New nested files can still be created. Files outside the project folder are attached to the message instead of opened through the file tool.</p>
   <p>
   A provider is the model service behind a workflow tab. Use this table to
   pick one by transport, session resume, tool use and reasoning controls.
@@ -777,7 +777,7 @@ export const providers: Section[] = [
   ['SAFE', 'Returns a denial string the model sees as the tool result. The loop converges without an operator-approval surface.'],
   ]}
   />
-  <p>Arco-managed file tools stay within the workflow folder, but the browser private-folder list is not applied inside projects. Agents can read project content such as <Code>.claude</Code> or <Code>.codex</Code>. Claude Native also asks before writes to a small set of sensitive targets. Browser file views use separate private-path checks.</p>
+  <p>Arco-managed file tools stay within the project folder, but the browser private-folder list is not applied inside projects. Agents can read project content such as <Code>.claude</Code> or <Code>.codex</Code>. Files outside the project folder are attached to the message instead of opened through the file tool. Claude Native also asks before writes to a small set of sensitive targets. Browser file views use separate private-path checks.</p>
   <p>These file checks are not a shell sandbox. AUTO runs local-model Bash commands, while SAFE returns a denial. Provider CLI tools follow their own sandbox and approval settings.</p>
   <p>Mid-turn cancel remains available at any time in either mode.</p>
   <Sub>Limitations to keep in mind</Sub>
