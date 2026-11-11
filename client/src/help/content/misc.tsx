@@ -274,7 +274,9 @@ export const miscHelp: Record<string, HelpEntry> = {
         <C>running</C> / <C>done</C> / <C>error</C> / <C>cancelled</C>; the{' '}
         <C>PROMOTE</C> button surfaces the child into the top tab strip.
         Depth-1 only (children can't call <C>Task</C> themselves). Parallel{' '}
-        <C>Task</C> calls within one turn dispatch concurrently.
+        <C>Task</C> calls within one turn dispatch concurrently. Stopping the
+        parent turn marks every unfinished card <C>cancelled</C> at once; the
+        card's own <C>CANCEL</C> stops just that child.
       </p>
     ),
     manualSection: 'tasks-tab',

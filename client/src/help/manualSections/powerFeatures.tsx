@@ -46,7 +46,16 @@ export const powerFeatures: Section[] = [
   </p>
   <p>
   Cancelling the parent cancels all of its children, and the parent's agent loop
-  sees a clean cancellation.
+  sees a clean cancellation. Every unfinished card shows <Code>cancelled</Code>{' '}
+  at once, in every open browser and after a reload.
+  </p>
+  <p>
+  A card's own{' '}
+  <strong>CANCEL</strong> stops that one child while the parent keeps working,
+  and the card shows <Code>cancelled</Code>. A card whose result was never
+  recorded, for example because the server stopped during the run, shows{' '}
+  <Code>cancelled</Code> with <Code>Ended without a recorded result.</Code>{' '}
+  after a reload instead of running on.
   </p>
   </>
   ),

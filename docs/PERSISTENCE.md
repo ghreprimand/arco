@@ -273,7 +273,7 @@ The transient set is derived state; if the client disconnects and reconnects, th
 
 ### Task children (special replay rule)
 
-Task lifecycle events are persisted on the parent workflow but the **client-side `taskChildren` map is rebuilt from those events**, not loaded from disk. To make refresh-after-settle work, the server re-broadcasts `task_started` and `task_status` events on rehydrate **regardless of `clientLastSeq`** - without that, a workflow whose only Task fan-out happened pre-refresh would come up showing `0s · RUNNING` forever (the lifecycle events sit below the seq cutoff). The client's `recordTaskStarted` / `recordTaskStatus` actions are idempotent so re-broadcast is safe; the same `taskChildren` map is also added to the Zustand store's `partialize` allow-list so settled state survives reload without depending on the replay path.
+Task lifecycle events are persisted on the parent workflow but the **client-side `taskChildren` map is rebuilt from those events**, not loaded from disk. To make refresh-after-settle work, the server re-broadcasts `task_started` and `task_status` events on rehydrate **regardless of `clientLastSeq`** (and, for a start with no recorded final status whose child is not running, sends that browser an unpersisted `cancelled` status) - without that, a workflow whose only Task fan-out happened pre-refresh would come up showing `0s · RUNNING` forever (the lifecycle events sit below the seq cutoff). The client's `recordTaskStarted` / `recordTaskStatus` actions are idempotent so re-broadcast is safe; the same `taskChildren` map is also added to the Zustand store's `partialize` allow-list so settled state survives reload without depending on the replay path.
 
 ---
 

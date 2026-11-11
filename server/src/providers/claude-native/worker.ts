@@ -530,6 +530,11 @@ export class ClaudeNativeWorker extends EventEmitter {
   // Active Task children. Map entry dropped on dispose; on parent cancel,
   // each child's cancel() runs.
   private tasksByTaskId = new Map<string, TaskSpawnHandle>();
+  // Task children whose card has not received a final status yet. cancel()
+  // reports them synchronously: a status emitted later, when the child's
+  // promise rejects, would arrive after the operator's STOP has revoked the
+  // turn and never reach a browser.
+  private unsettledTasks = new Map<string, { toolUseId: string; startedAt: number }>();
   // docs/ARCHITECTURE.md (E1-Native) - open MCP sessions for this worker's
   // operator-allowed registry servers, keyed by `ResolvedMcpServer.key`
   // (`reg-<id8>`). Opened lazily and reconciled at turn start
@@ -2285,6 +2290,12 @@ export class ClaudeNativeWorker extends EventEmitter {
         try { g.reject(new Error('AbortError: turn cancelled')); } catch { /* ignore */ }
       }
     }
+    // Report every unsettled Task child as cancelled now, then cascade the
+    // cancel. handleSpawnTask skips its own status for these ids.
+    for (const [taskId, task] of this.unsettledTasks) {
+      this.emit('task_status', { taskId, toolUseId: task.toolUseId, phase: 'cancelled', elapsedMs: Date.now() - task.startedAt, summary: 'Cancelled.' });
+    }
+    this.unsettledTasks.clear();
     // Cascade cancel to any in-flight Task children.
     for (const handle of this.tasksByTaskId.values()) {
       try { handle.cancel(); } catch { /* already gone */ }
@@ -4098,6 +4109,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     });
     this.tasksByTaskId.set(handle.taskId, handle);
     const startedAt = Date.now();
+    this.unsettledTasks.set(handle.taskId, { toolUseId: args.toolUseId, startedAt });
     // Lifecycle broadcast — picked up by ClaudeNativeTurn → WorkerManager →
     // seedWorker.ts which adds workflowId and forwards as `task_started`.
     this.emit('task_started', {
@@ -4113,15 +4125,19 @@ export class ClaudeNativeWorker extends EventEmitter {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const phase: 'cancelled' | 'error' = /AbortError/i.test(msg) ? 'cancelled' : 'error';
-      this.emit('task_status', {
-        taskId: handle.taskId,
-        toolUseId: args.toolUseId,
-        phase,
-        elapsedMs: Date.now() - startedAt,
-        summary: msg.slice(0, 200),
-      });
+      // Already reported by cancel().
+      if (this.unsettledTasks.delete(handle.taskId)) {
+        this.emit('task_status', {
+          taskId: handle.taskId,
+          toolUseId: args.toolUseId,
+          phase,
+          elapsedMs: Date.now() - startedAt,
+          summary: phase === 'cancelled' ? 'Cancelled.' : msg.slice(0, 200),
+        });
+      }
       return `[error] Task ${handle.taskId} failed: ${msg.slice(0, 500)}`;
     }
+    if (!this.unsettledTasks.delete(handle.taskId)) return finalText;
     this.emit('task_status', {
       taskId: handle.taskId,
       toolUseId: args.toolUseId,

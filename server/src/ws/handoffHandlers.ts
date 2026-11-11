@@ -1,4 +1,5 @@
 import { appendHandoffNotice } from '../handoffHistoryTool.js';
+import { unsettledTaskStatuses } from './taskLifecycle.js';
 import { captureHandoffHistory, saveHandoffHistory, historyAccessAllowed } from '../handoffHistory.js';
 import { disabledClusterProvider } from '../localCapacity.js';
 import { buildMessageGuardPolicy } from '@arco/shared';
@@ -1734,6 +1735,8 @@ export async function registerAllClusterMembersOnBoot(): Promise<number> {
 const TAIL_REPLAY_BYTES = 3 * 1024 * 1024;
 const MAX_GAP_REPLAY_EVENTS = 5000;
 const TASK_LIFECYCLE_TYPES = ['task_started', 'task_status'] as const;
+// Turn ends give a settled-on-reload Task card its elapsed time.
+const TASK_SCAN_TYPES = [...TASK_LIFECYCLE_TYPES, 'primary_turn_ended'] as const;
 
 // Above this, a reconnect replay streams per-event (matches live delivery and
 // every existing smoke expectation). At or beyond it, the whole gap ships as
@@ -1757,6 +1760,8 @@ export async function rehydrateOneWorkflow(
   };
   let snapshotOnly = false;
   let snapshotReason: string | undefined;
+  // Task lifecycle events of the whole log, for settling cards on reload.
+  let taskEvents: readonly unknown[] | undefined;
 
   if (cwd && (opts.tail || clientLastSeq === 0)) {
     // First sight of this workflow in this browser (mirrored tab, missing
@@ -1778,11 +1783,14 @@ export async function rehydrateOneWorkflow(
       if (filtered.length > 0) ws.send(JSON.stringify({ type: 'replay_batch', workflowId, events: filtered }));
     }
     console.log(`[arco] [${workflowId.slice(0, 8)}] tail-replayed ${filtered.length} events${truncated ? ' (truncated)' : ''}`);
+    if (!truncated) taskEvents = filtered;
     if (truncated) {
       // Phase 7b task lifecycle from before the window — see the full-replay
       // branch below for why these are always re-sent.
       const firstTailSeq = (filtered[0] as { seq?: number } | undefined)?.seq ?? Infinity;
-      for (const ev of await scanEventsOfTypes(cwd, workflowId, TASK_LIFECYCLE_TYPES).catch(() => [])) {
+      const scanned = await scanEventsOfTypes(cwd, workflowId, TASK_SCAN_TYPES).catch(() => undefined);
+      taskEvents = scanned;
+      for (const ev of scanned ?? []) {
         const t = (ev as { type?: string }).type;
         if (t !== 'task_started' && t !== 'task_status') continue;
         if (((ev as { seq?: number }).seq ?? 0) >= firstTailSeq) break;
@@ -1840,7 +1848,8 @@ export async function rehydrateOneWorkflow(
       // clientLastSeq; recordTaskStarted/recordTaskStatus on the client
       // are idempotent (start preserves the existing entry's settled
       // fields; status no-ops without a prior start, then overrides).
-      const allEvents = await scanEventsOfTypes(cwd, workflowId, TASK_LIFECYCLE_TYPES);
+      const allEvents = await scanEventsOfTypes(cwd, workflowId, TASK_SCAN_TYPES);
+      taskEvents = allEvents;
       for (const ev of allEvents) {
         const seq = (ev as { seq?: number }).seq;
         if (typeof seq === 'number' && seq > clientLastSeq) continue;
@@ -1849,6 +1858,16 @@ export async function rehydrateOneWorkflow(
         if (ws.readyState !== WebSocket.OPEN) break;
         ws.send(JSON.stringify(ev));
       }
+    }
+  }
+
+  // A card whose final status never reached the log (the parent was stopped
+  // before statuses were reported on STOP, or the server exited) settles in
+  // this browser instead of showing RUNNING forever. Never written to the log.
+  if (taskEvents) {
+    for (const status of unsettledTaskStatuses(workflowId, taskEvents, (child) => workflows.get(child)?.busy === true)) {
+      if (ws.readyState !== WebSocket.OPEN) break;
+      ws.send(JSON.stringify(status));
     }
   }
 

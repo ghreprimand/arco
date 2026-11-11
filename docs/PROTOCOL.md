@@ -1845,6 +1845,8 @@ Settle / error / cancelled signal for a Task child. v1 fires `started` + final-p
 
 Persisted on the parent. Re-broadcast on rehydrate **regardless of `clientLastSeq`** so a refresh-after-settle doesn't pin the TaskCard at `0s · RUNNING` forever; client `recordTaskStarted` / `recordTaskStatus` actions are idempotent.
 
+On STOP of the parent turn, `ClaudeNativeWorker.cancel()` emits `phase: 'cancelled'` (summary `Cancelled.`) for every unsettled child synchronously, before the server revokes the turn; the child's later rejection emits nothing more. The turn broadcast gate (`dispatchCurrent()` in `turnEngine.ts`) still passes `task_status` after a revoke (`deliverAfterTurnRevoked`, `server/src/ws/taskLifecycle.ts`). A child stopped by its own card CANCEL settles as `cancelled`, not `error`. On rehydrate, a `task_started` with no final status whose child is not busy gets a per-browser `task_status` `cancelled` with summary `Ended without a recorded result.` (`unsettledTaskStatuses`); it is sent to that browser only and never persisted.
+
 ### `queued_messages_drained` <-
 
 Server pulled queued mid-turn messages off the interjection queue and merged them into the next turn's prompt. The client flips `queued: false` on the matching optimistic chat entries (clearing the composer-adjacent QUEUED indicator) and rebases their timestamps to `drainedAt` so the sessionChat dedup window catches Claude's JSONL echo. Without this, non-Claude providers (no `session_entry` path) would leave the QUEUED pill stuck forever.

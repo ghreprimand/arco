@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Settle Claude Native Task cards as cancelled when the parent turn is stopped, in every browser and after a reload; a card's own CANCEL now shows cancelled instead of an error.
 - Disable sub-agent creation, goals and patch tools in Codex Chat while keeping its WEB host available.
 - Explain when cluster tools reach a tab that joins while working, and keep premature coordination reminders out of its running turn.
 - Restore earlier Chat uploads as content after restart and identify attachments by name.

@@ -1,4 +1,5 @@
 import { mintHandoffHistoryCapability } from '../http/handoffHistoryRoutes.js';
+import { deliverAfterTurnRevoked } from './taskLifecycle.js';
 import { resolveClaudeTransport } from '../claudeTransport.js';
 import { projectLocalFileReferences } from '../primitives/localFileContext.js';
 import { getEffectivePublicProjectChoice } from '../publicProjectChoice.js';
@@ -2639,7 +2640,8 @@ export async function handleUserMessage(
           cwd,
           manager: wf.manager,
           broadcast: (msg) => {
-            if (!dispatchCurrent()) return;
+            // A Task child's final status still belongs to the card after STOP.
+            if (!dispatchCurrent() && !deliverAfterTurnRevoked(msg)) return;
             const delivery = msg.type === 'primary_turn_started' && executionInputClientIds.length
               ? { ...msg, inputClientMessageIds: executionInputClientIds } : msg;
             send(ws, ollamaExecutionId ? stampOllamaExecution(delivery, ollamaExecutionId, executionInputSeqs) : delivery);

@@ -2159,7 +2159,9 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
         }
         if (m.type === 'error' && !settled) {
           settled = true;
-          rejectFinal(new Error(m.message ?? 'child errored'));
+          // 'Worker killed' only follows a cancel (the card's own CANCEL):
+          // report it as cancelled, not as a failure.
+          rejectFinal(new Error(m.message === 'Worker killed' ? 'AbortError: task cancelled' : (m.message ?? 'child errored')));
         }
       },
     },
