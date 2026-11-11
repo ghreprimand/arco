@@ -1,3 +1,4 @@
+import { effectiveClaudeTransport } from './claudeTransport.js';
 import { isChatWorkflow } from './chatMode.js';
 import * as clusterStore from './clusterStore.js';
 import { isManagedBakeoffWorktree } from './gitBakeoff.js';
@@ -21,7 +22,7 @@ export async function toolboxWorkflowRuntime(workflowId: string, workflow: Workf
     const gate = await (managed ? gateManagedWorktreeResources(cwd, source!) : gateProjectResources(cwd)).catch(() => ({ includeProject: false }));
     const settings = await readSettings(cwd, { includeProject: gate.includeProject }).catch(() => null);
     transport = provider === 'claude'
-      ? workflow.config.ultracode ? 'cli' : workflow.config.claudeTransport ?? (settings?.claude?.transport === 'native' ? 'native' : 'cli')
+      ? effectiveClaudeTransport(workflow.config, settings)
       : workflow.config.codexTransport ?? (settings?.codex?.transport === 'appserver' ? 'appserver' : 'exec');
   }
   return { provider, cwd, account, transport };

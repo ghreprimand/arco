@@ -1,3 +1,4 @@
+import { resolveClaudeTransport } from '../claudeTransport.js';
 import { projectLocalFileReferences } from '../primitives/localFileContext.js';
 import { getEffectivePublicProjectChoice } from '../publicProjectChoice.js';
 import { buildMessageGuardPolicy, storedOutputStyle } from '@arco/shared';
@@ -273,18 +274,7 @@ export function toSessionEntries(raw: SessionJsonlEntry): SessionEntryPayload[] 
   return out;
 }
 
-// Effective Claude transport for a workflow: sticky ultracode forces 'cli'
-// (the harness WorkflowTool lives only in the `claude` binary), else explicit
-// per-tab config wins, else the cwd's TRANSPORT DEFAULTS cascade, else 'cli'.
-// Same precedence as the turn dispatcher — keep the two in sync.
-export async function resolveClaudeTransport(wf: WorkflowState, cwd: string): Promise<'cli' | 'native'> {
-  if (wf.primary.provider === 'claude' && wf.config.ultracode === true) return 'cli';
-  if (wf.config.claudeTransport === 'native' || wf.config.claudeTransport === 'cli') {
-    return wf.config.claudeTransport;
-  }
-  const cascade = await readSettings(cwd).catch(() => null);
-  return cascade?.claude?.transport === 'native' ? 'native' : 'cli';
-}
+export { resolveClaudeTransport } from '../claudeTransport.js';
 
 // Start watching Claude's session JSONL for a workflow.
 // `initialWs` receives the historical entries; new entries go to all observers.
@@ -703,8 +693,7 @@ export async function maybeAutoFold(workflowId: string, wf: WorkflowState, cwd: 
   if ((st.foldIneffectiveCount ?? 0) >= MAX_INEFFECTIVE_FOLDS) return false;
 
   // Native transport required (CLI Claude has no in-process history to fold).
-  const cascade = await readSettings(cwd).catch(() => null);
-  const transport = wf.config.claudeTransport ?? (cascade?.claude?.transport === 'native' ? 'native' : 'cli');
+  const transport = await resolveClaudeTransport(wf, cwd);
   if (transport !== 'native') return false;
   // Re-check after the settings await: an operator message can have claimed
   // the tab meanwhile, and folding under a live turn corrupts its history.

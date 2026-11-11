@@ -1,3 +1,4 @@
+import { invalidateHandoffSeed, isHandoffSeed } from './handoffSeedCache.js';
 import { beginConversationWrite, noteConversationActivity } from './conversationActivity.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 // Slot 5 — Continuity Phase D. Per-workflow event log on disk.
@@ -342,6 +343,7 @@ export function persistAndStampSeq(
     ...(parentEventSeq !== undefined ? { parentEventSeq } : {}),
     ...body,
   }) + '\n';
+  if (message.type === 'user_message_echo' && isHandoffSeed(message.content)) invalidateHandoffSeed(cwd, wfid);
   buf.pending.push(line);
   buf.pendingBytes += line.length;
   scheduleFlush(buf);

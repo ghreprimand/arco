@@ -9,7 +9,7 @@ const sourceButtonStyle = { padding: '4px 10px', marginRight: 8, marginBottom: 4
 type Source = { key: string; name: string; throughSeq: number; available: boolean };
 
 /** Re-fetch durable, server-owned provenance; never trust client config lineage. */
-export function HandoffSource({ workflowId }: { workflowId?: string }) {
+export function HandoffSource({ workflowId, requireSeed = false }: { workflowId?: string; requireSeed?: boolean }) {
   const config = useAppStore(s => workflowId ? s.jobs[workflowId]?.config : undefined);
   const sourceKey = useAppStore(s => workflowId ? latestHandoffSeed(s.jobs[workflowId]?.messages ?? [])?.handoffSourceKey : undefined);
   const clusters = useAppStore(s => s.clusters);
@@ -18,16 +18,16 @@ export function HandoffSource({ workflowId }: { workflowId?: string }) {
   const [offset, setOffset] = useState(0);
   const [nextOffset, setNextOffset] = useState<number | null>(null);
   const [error, setError] = useState('');
-  const allowed = !!sourceKey && !!workflowId && !!config && config.kind !== 'chat' && !config.incognito && !restricted;
+  const allowed = !!workflowId && !!config && config.kind !== 'chat' && !config.incognito && !restricted && (!requireSeed || !!sourceKey);
   useEffect(() => {
     if (!allowed) { setSources([]); return; }
     const controller = new AbortController();
     fetch(`/api/handoff-sources?workflowId=${encodeURIComponent(workflowId!)}&offset=${offset}`, { signal: controller.signal })
       .then(r => r.ok ? r.json() : { sources: [] })
-      .then(data => { setSources(data.currentSourceKey === sourceKey ? data.sources ?? [] : []); setNextOffset(data.nextOffset ?? null); })
+      .then(data => { setSources(data.currentSourceKey && (!requireSeed || data.currentSourceKey === sourceKey) ? data.sources ?? [] : []); setNextOffset(data.nextOffset ?? null); })
       .catch(() => {});
     return () => controller.abort();
-  }, [workflowId, allowed, offset, sourceKey]);
+  }, [workflowId, allowed, offset, sourceKey, requireSeed]);
   if (!allowed || !sources.length) return null;
   async function open(source: Source) {
     try {

@@ -1,3 +1,4 @@
+import { availableHandoffSources } from '../handoffHistoryTool.js';
 import { historyAccessAllowed, safeHistoryMeta } from '../handoffHistory.js';
 import { requireProjectBinding } from './projectBinding.js';
 import { hasGuardrails } from '@arco/shared';
@@ -135,8 +136,7 @@ export async function tryHandleWorkflowDataRoutes(
       jsonReply(res, 403, { error: 'Handoff sources are unavailable.' });
       return true;
     }
-    const meta = await safeHistoryMeta(caller.config.workingDirectory, callerId);
-    const refs = meta?.handoffHistory ?? [];
+    const refs = await availableHandoffSources(callerId);
     const key = url.searchParams.get('source');
     if (key) {
       const ref = refs.find(r => r.key === key);

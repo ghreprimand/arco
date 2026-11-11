@@ -1,3 +1,4 @@
+import { availableHandoffSources, executeHandoffHistory, HANDOFF_HISTORY_TOOL, HANDOFF_HISTORY_CONTEXT } from '../../handoffHistoryTool.js';
 import { mediaRetirementNotice } from './mediaRetirementNotice.js';
 import { nativeMediaLimits } from './mediaLimits.js';
 import { retainNewestMedia } from './mediaRetention.js';
@@ -338,6 +339,14 @@ function stopHookBlockCap(): number {
 }
 
 export class ClaudeNativeWorker extends EventEmitter {
+  private handoffHistoryAvailable = false;
+
+  private async refreshHandoffHistory(): Promise<void> {
+    this.handoffHistoryAvailable = this.config.interactionMode !== 'chat'
+      && this.config.clusterAccessMode !== 'blind' && this.config.clusterAccessMode !== 'isolated'
+      && (await availableHandoffSources(this.workflowId).catch(() => [])).length > 0;
+  }
+
   readonly workflowId: string;
   private config: WorkerConfig;
   private client: Anthropic | null = null;
@@ -1851,6 +1860,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     const base = getNativeToolDefinitions({ taskDisabled: this.taskDisabled || inCluster, isolated });
     const extras: ReturnType<typeof getNativeToolDefinitions> = [];
     if (!isolated && this.config.cwd && this.workflowId) extras.push(...PLAN_TOOL_DEFINITIONS);
+    if (this.handoffHistoryAvailable && !isolated && this.config.clusterAccessMode !== 'blind') extras.push(HANDOFF_HISTORY_TOOL);
     if (inCluster) {
       extras.push(...getPeerToolDefinitions({
         taskBoardAttached: this.config.clusterTaskBoardAttached === true,
@@ -1935,6 +1945,9 @@ export class ClaudeNativeWorker extends EventEmitter {
       blocks.push({ type: 'text', text: goalText });
     }
 
+    if (this.handoffHistoryAvailable && this.buildToolDefs().some(tool => tool.name === 'handoff_history')) {
+      blocks.push({ type: 'text', text: HANDOFF_HISTORY_CONTEXT });
+    }
     let planIdx = -1;
     const planText = this.config.clusterPlan;
     if (planText && planText.trim().length > 0) {
@@ -2611,6 +2624,8 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.urlReadsThisTurn = 0;
     this.turnInputAccepted = false;
     try {
+      await this.refreshHandoffHistory();
+      if (this.cancelledDuringStartup()) return;
       await this.ensureStarted();
     } catch (err) {
       try { this.authRecovery = { transport: 'native', binding: nativeCredentialBinding(await loadTokens()) }; } catch { this.authRecovery = { transport: 'native' }; }
@@ -3862,6 +3877,14 @@ export class ClaudeNativeWorker extends EventEmitter {
         isError = toolOutcome.isError;
       } catch (err) {
         resultText = `[error] ${err instanceof Error ? err.message : String(err)}`;
+        isError = true;
+      }
+    } else if (block.name === 'handoff_history') {
+      try {
+        if (!this.buildToolDefs().some(tool => tool.name === block.name)) throw new Error('History tool is unavailable.');
+        resultText = JSON.stringify(await executeHandoffHistory(this.workflowId, input));
+      } catch (error) {
+        resultText = `[error] ${error instanceof Error ? error.message.slice(0, 2000) : 'History unavailable.'}`;
         isError = true;
       }
     } else if (PLAN_TOOL_NAMES.includes(block.name)) {

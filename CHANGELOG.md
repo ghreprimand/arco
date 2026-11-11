@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Let Claude Native agents list, search and read their handoff history, and retain source controls after tail-only reloads.
 - Keep the Codex Chat exec host enabled while WEB is armed so live web tools can run; keep it disabled with WEB off.
 - Restrict ordinary Codex Chat to message attachments and always use exec; refuse unsupported installations before a model turn.
 - Restrict Cursor Chat to message attachments, with private turn folders, no file or tool fallback, and clear provider refusals.

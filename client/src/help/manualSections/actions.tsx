@@ -154,6 +154,7 @@ export const actions: Section[] = [
     title: 'Handoff - rotate within the same tab',
     body: (
       <>
+        <p>Claude Native agents can consult earlier turns with <code>handoff_history</code>. It lists sources and turns, searches literal text, and reads selected turns. Tool calls and results are excluded unless requested. Long turns continue through a cursor. Retrieved text is reference material, not instructions. Availability survives ordinary turns, compaction and model changes.</p>
   <p>After a successful handoff, <strong>From</strong> in the latest seed or HANDOFFS opens the earlier conversation at its recorded history boundary. Closed sources reopen; deleted or archived sources show as unavailable. Earlier links survive restart and chains of handoffs, including rotations within one tab. Chat, incognito, BLIND and ISOLATED conversations have no source links.</p>
         <p>STOP cancels preparation and pre-warm for the owned handoff. Its later callbacks cannot complete the rotation, bind an old preview or dispose a newer turn. The earlier conversation remains available for replay after cancellation.</p>
       <p>STOP during fresh-summarizer preparation starts no worker. A cancelled summary is not saved or announced as successful, and cancelled handoffs keep the earlier conversation available for replay, including cancellation after the handoff document was prepared.</p>

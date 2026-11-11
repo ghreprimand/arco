@@ -1,3 +1,4 @@
+import { tryHandleHandoffHistoryRoute } from './handoffHistoryRoutes.js';
 import { shrinkUploadedImage } from '../uploadImages.js';
 import { ensureStorageRoot, UnsafeStorageRootError } from '../storageRoot.js';
 import { requireProjectBinding } from './projectBinding.js';
@@ -297,6 +298,8 @@ export async function handleHttpRequest(
   // Session-cookie gate for /api/* + /upload (wsAuth.ts). Placed after the
   // probes and the mint route; agent tool routes
   // (cluster peer / plan tools) are exempt inside checkHttpAuth.
+  // A narrow caller-bound capability, never the browser session or a supplied caller id.
+  if (await tryHandleHandoffHistoryRoute(req, res)) return;
   const httpAuth = checkHttpAuth(req);
   if (!httpAuth.ok) {
     console.warn(`[arco] refused ${req.method} ${(req.url ?? '').split('?')[0]}: ${httpAuth.reason} (${describePeer(req)})`);

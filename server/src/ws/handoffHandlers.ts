@@ -1,3 +1,4 @@
+import { appendNativeHandoffNotice } from '../handoffHistoryTool.js';
 import { captureHandoffHistory, saveHandoffHistory, historyAccessAllowed } from '../handoffHistory.js';
 import { disabledClusterProvider } from '../localCapacity.js';
 import { buildMessageGuardPolicy } from '@arco/shared';
@@ -568,6 +569,8 @@ export async function handleHandoffRequest(
   // the seed to events.jsonl so replay sees it as a normal user prompt (the
   // operator can see exactly what the new session was fed). The primary
   // will reply, typically with a short ack.
+  if (!handoffOwned()) return;
+  handoffBody = await appendNativeHandoffNotice(cwd, msg.workflowId, handle.artifactName, handoffBody, handoffSourceKey);
   if (!handoffOwned()) return;
   const seedPrompt = `[HANDOFF — new session initialized for this tab. Read the document below carefully. Then in 2-3 sentences: (1) state where the project stands right now, and (2) what you believe the most useful next step is. Await the operator's instruction before beginning any work.]\n\n${handoffBody}`;
   send(ws, {
@@ -1233,6 +1236,8 @@ export async function handleSpawnFromHere(
     return;
   }
 
+  if (!spawnOwned()) return;
+  handoffBody = await appendNativeHandoffNotice(newCwd, newWorkflowId, exp.artifactName, handoffBody, handoffSourceKey);
   if (!spawnOwned()) return;
   const seedPrompt = msg.newDirection && msg.newDirection.trim()
     ? `${handoffBody}\n\n---\n\nNew direction: ${msg.newDirection.trim()}`

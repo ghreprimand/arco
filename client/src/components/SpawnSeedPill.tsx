@@ -58,7 +58,7 @@ export function SpawnSeedPill({ content, workflowId }: Props) {
       >
         <span className="glow-text-cyan">&gt; {operatorLabel}</span>
       </div>
-      {workflowId && <HandoffSource workflowId={workflowId} />}
+      {workflowId && <HandoffSource workflowId={workflowId} requireSeed />}
       <div style={{ marginLeft: '4px' }}>
         <button
           type="button"

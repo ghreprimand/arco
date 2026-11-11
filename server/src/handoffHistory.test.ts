@@ -102,6 +102,7 @@ test('source UI resolves only saved opaque keys and refuses restricted callers',
   await fixture('ui-child');
   const refs = await captureHandoffHistory(cwd, 'ui-source');
   await saveHandoffHistory(cwd, 'ui-child', refs);
+  await writeFile(join(cwd, '.arco', 'workflows', 'ui-child', 'events.jsonl'), JSON.stringify({ seq: 13, type: 'user_message_echo', content: '[HANDOFF: new session initialized for this tab.]', handoffSourceKey: refs[0].key }) + '\n');
   workflows.set('ui-child', { config: { workingDirectory: cwd } } as never);
   async function request(query: string) {
     let code = 0, body = '';
