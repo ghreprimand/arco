@@ -22,9 +22,11 @@ const { useAppStore } = await import('../../stores/appStore');
 const { useRecallStore } = await import('../../stores/recallStore');
 css.deregister();
 const app = useAppStore.getState(), recall = useRecallStore.getState();
+const storage = useAppStore.persist.getOptions().storage;
+useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
 after(async () => {
   useAppStore.setState(app, true); useRecallStore.setState(recall, true);
-  await new Promise((resolve) => setTimeout(resolve, 1100)); dom.window.close();
+  useAppStore.persist.setOptions({ storage }); dom.window.close();
   clearInterval((dom.window as any).__ARCO_TRIM_MEMORY_TIMER__);
   for (const [key, descriptor] of previous) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); }
 });

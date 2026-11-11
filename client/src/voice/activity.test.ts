@@ -26,6 +26,8 @@ for (const scenario of ['before', 'after', 'retry']) test(`saved Computer activi
     window: { configurable: true, value: dom.window }, document: { configurable: true, value: dom.window.document },
     localStorage: { configurable: true, value: dom.window.localStorage }, IS_REACT_ACT_ENVIRONMENT: { configurable: true, value: true },
   });
+  const storage = useAppStore.persist.getOptions().storage;
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
   useAppStore.setState({ jobs: {}, connected: true, activeJobId: 'project-worker', activeClusterId: null });
   useComputerStore.setState({ activeId: null, selection, pending: null, contextEpoch: 0 });
   useComputerActivity.setState({ snapshot: null, error: null, ownerId: null, revision: 0 });
@@ -85,6 +87,7 @@ for (const scenario of ['before', 'after', 'retry']) test(`saved Computer activi
     assert.equal(select.disabled, false);
   } finally {
     await act(async () => root.unmount());
+    useAppStore.persist.setOptions({ storage });
     globalThis.fetch = originalFetch;
     for (const name of ['window', 'document', 'localStorage', 'IS_REACT_ACT_ENVIRONMENT']) {
       if (globals[name]) Object.defineProperty(globalThis, name, globals[name]);

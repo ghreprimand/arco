@@ -16,6 +16,8 @@ test('a page with unsaved work never auto-reloads', async () => {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/', pretendToBeVisual: true, virtualConsole });
   const globals = Object.getOwnPropertyDescriptors(globalThis);
   const before = useAppStore.getState();
+  const storage = useAppStore.persist.getOptions().storage;
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
   Object.defineProperties(globalThis, {
     window: { configurable: true, value: dom.window },
     document: { configurable: true, value: dom.window.document },
@@ -100,6 +102,7 @@ test('a page with unsaved work never auto-reloads', async () => {
     useAppStore.setState(before, true);
     useBuildStore.setState({ stale: false, reason: null });
     mock.timers.reset();
+    useAppStore.persist.setOptions({ storage });
     for (const name of ['window', 'document', 'sessionStorage', 'localStorage', 'Element', 'HTMLElement', 'IS_REACT_ACT_ENVIRONMENT']) {
       if (globals[name]) Object.defineProperty(globalThis, name, globals[name]);
       else Reflect.deleteProperty(globalThis, name);

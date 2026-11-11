@@ -19,9 +19,11 @@ const { createRoot } = await import('react-dom/client');
 const { SettingsPanel } = await import('./SettingsPanel');
 css.deregister();
 const initial = useAppStore.getState();
+const storage = useAppStore.persist.getOptions().storage;
+useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
 after(async () => {
   useAppStore.setState(initial, true);
-  await new Promise((resolve) => setTimeout(resolve, 1100));
+  useAppStore.persist.setOptions({ storage });
   dom.window.close();
   for (const [name, descriptor] of before) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); }
 });

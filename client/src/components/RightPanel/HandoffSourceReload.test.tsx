@@ -15,6 +15,8 @@ test('HANDOFFS shows the saved source after tail-only hydration with no seed loa
  const { useAppStore } = await import('../../stores/appStore');
  const { HandoffsTab } = await import('./HandoffsTab');
  const old = useAppStore.getState();
+ const storage = useAppStore.persist.getOptions().storage;
+ useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
  useAppStore.setState({ jobs: {}, clusters: {}, handoffLocksByCwd: {} });
  useAppStore.getState().createJob('reloaded', { workingDirectory: '/fixture', name: 'Reloaded', primaryModel: 'opus', primaryEffort: 'low' } as never);
  const job = { ...useAppStore.getState().jobs.reloaded, messages: [] };
@@ -60,7 +62,10 @@ test('HANDOFFS shows the saved source after tail-only hydration with no seed loa
 
 
  } finally {
-  styles.deregister(); await act(async () => root.unmount()); useAppStore.setState(old); dom.window.close();
+  styles.deregister(); await act(async () => root.unmount());
+  const timer = (dom.window as unknown as { __ARCO_TRIM_MEMORY_TIMER__?: ReturnType<typeof setInterval> }).__ARCO_TRIM_MEMORY_TIMER__;
+  if (timer) clearInterval(timer);
+  useAppStore.setState(old, true); useAppStore.persist.setOptions({ storage }); dom.window.close();
   for (const [key, descriptor] of previous) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else Reflect.deleteProperty(globalThis, key); }
  }
 });

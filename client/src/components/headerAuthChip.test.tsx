@@ -25,6 +25,8 @@ test('the auth chip panel closes on an outside click or Escape and keeps polling
     cancelAnimationFrame: { configurable: true, value: () => {} },
     IS_REACT_ACT_ENVIRONMENT: { configurable: true, value: true },
   });
+  const storage = useAppStore.persist.getOptions().storage;
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
   const calls: string[] = [];
   const fetchImpl = (async (url: string) => {
     calls.push(String(url));
@@ -67,6 +69,8 @@ test('the auth chip panel closes on an outside click or Escape and keeps polling
     assert.ok(calls.includes('/api/auth-status'), 'closing the panel does not stop the sign-in poll');
   } finally {
     await act(async () => { root.unmount(); });
+    useAppStore.persist.setOptions({ storage });
+    dom.window.close();
     globalThis.fetch = previousFetch;
     for (const name of names) {
       const descriptor = previous[name];
