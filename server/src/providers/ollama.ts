@@ -772,7 +772,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
 
     const prior = await prepareLocalFileContext(this.config, true, this.abortController?.signal);
     for (const notice of prior.notices) this.emit('system_notice', notice);
-    const prepared = await prepareProviderAttachments(this.config.attachments, true, this.abortController?.signal);
+    const prepared = await prepareProviderAttachments(this.config.attachments, true, this.abortController?.signal, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
     await rememberLocalAttachments(this.config, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
     const images = [...prepared.images, ...prior.images].map((image) => image.data);
     let text = userPrompt;
@@ -2180,7 +2180,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
           const drainSteer = this.config.drainSteer;
           if (drainSteer) {
             for (const item of drainSteer()) {
-              const prepared = await prepareProviderAttachments(item.attachments, true, this.abortController?.signal);
+              const prepared = await prepareProviderAttachments(item.attachments, true, this.abortController?.signal, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
               await rememberLocalAttachments({ ...this.config, attachments: item.attachments, fileContextInputIds: item.clientMessageId ? [item.clientMessageId] : this.config.fileContextInputIds }, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
               const text = [item.content,prepared.text].filter(Boolean).join('\n\n');
               const images = prepared.images.map(i => i.data);
@@ -2330,7 +2330,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       if (drainSteer) {
         const steerItems = drainSteer();
         for (const item of steerItems) {
-          const prepared = await prepareProviderAttachments(item.attachments, true, this.abortController?.signal);
+          const prepared = await prepareProviderAttachments(item.attachments, true, this.abortController?.signal, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
           await rememberLocalAttachments({ ...this.config, attachments: item.attachments, fileContextInputIds: item.clientMessageId ? [item.clientMessageId] : this.config.fileContextInputIds }, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
           const text = [item.content,prepared.text].filter(Boolean).join('\n\n');
           const images = prepared.images.map(i => i.data);

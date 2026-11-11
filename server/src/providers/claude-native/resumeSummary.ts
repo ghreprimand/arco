@@ -4,10 +4,13 @@ import { revokedHandoffIds } from '../../handoffReplay.js';
 import { ensureProjectStateIgnore } from '../../projectStateIgnore.js';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { atomicWriteFile } from '../../atomicFile.js';
 import { listSegments, readLogText, readLogLines } from '../../eventLog.js';
 import { serverFoldSeed, type ServerCompactionBlock } from './serverFold.js';
 import { isShellToolName } from '@arco/shared';
+
+const isFileRead = (name: string | undefined): boolean => !!name && /^(?:Read|(?:.*__)?(?:read_file|fetch_file))$/i.test(name);
 
 const SUMMARY_CACHE_VERSION = 4;
 const SUMMARY_CACHE_KIND = 'claude-native-resume-summary';
@@ -105,6 +108,7 @@ type ReplayOptions = {
   // tail/older boundary, so when set we bypass the byte-range summary path and
   // read the whole file (sub-phase 4 hardens the rotated-off-disk case).
   leafSeq?: number;
+  attachmentMarkers?: Map<string, string>;
 };
 
 export type ResumeReplayResult = {
@@ -361,18 +365,22 @@ export function buildMessagesFromReplayEvents(
   maxSeq?: number,
   leafSeq?: number,
   inputHistory: ReplayEvent[] = [],
+  attachmentMarkers?: Map<string, string>,
 ): ClaudeResumeMessage[] {
   const messages = cloneMessages(initialMessages);
   const selected = typeof leafSeq === 'number' ? filterEventsToBranch(events, leafSeq) : events;
-  const scoped = projectDeliveredInputs(selected, [...inputHistory, ...events], maxSeq);
+  const scoped = projectDeliveredInputs(selected, [...inputHistory, ...events], maxSeq, !!attachmentMarkers);
   const revoked = revokedHandoffIds(scoped, maxSeq);
   let userBuf = '';
   let assistantBuf = '';
+  const pendingMarkers = new Map<string, string>();
   const flushPair = (): void => {
     if (userBuf && assistantBuf) {
       messages.push({ role: 'user', content: userBuf });
       messages.push({ role: 'assistant', content: [{ type: 'text', text: assistantBuf }] });
+      for (const [marker, path] of pendingMarkers) attachmentMarkers?.set(marker, path);
     }
+    pendingMarkers.clear();
     userBuf = '';
     assistantBuf = '';
   };
@@ -386,6 +394,7 @@ export function buildMessagesFromReplayEvents(
       messages.length = 0;
       userBuf = '';
       assistantBuf = '';
+      pendingMarkers.clear(); attachmentMarkers?.clear();
     } else if ((t === 'native_compacted' || t === 'context_folded') && typeof entry.summary === 'string') {
       // Operator-triggered in-place compaction OR a §2.1 Fold — same reset
       // semantics as a handoff, but instead of discarding everything we re-seed
@@ -397,6 +406,8 @@ export function buildMessagesFromReplayEvents(
       messages.length = 0;
       userBuf = '';
       assistantBuf = '';
+      if (entry.inTurn === true) for (const [marker, path] of pendingMarkers) attachmentMarkers?.set(marker, path);
+      pendingMarkers.clear();
       if (t === 'context_folded' && entry.compactionBlock && typeof entry.compactionBlock.content === 'string') {
         // Server Fold: raw blocks (thinking/tool) in the kept turns — the
         // text-only ClaudeResumeMessage type can't express them, hence the cast.
@@ -424,23 +435,28 @@ export function buildMessagesFromReplayEvents(
         }
       }
     } else if (t === 'user_message_echo' && typeof entry.content === 'string') {
-      const content = [entry.content, ...(entry.attachments ?? []).map(path => `[attached file: ${path}; use Read to inspect again]`)].filter(Boolean).join('\n');
-      if (entry.kind === 'steer' && userBuf && !assistantBuf) userBuf += '\n\n' + content;
-      else { flushPair(); userBuf = content; }
-    } else if (t === 'file_context' && typeof entry.receipt === 'string' && userBuf && fileContextVisible(entry, receiptInputs)) {
+      const joinsCurrent = entry.kind === 'steer' && userBuf && !assistantBuf;
+      if (!joinsCurrent) flushPair();
+      const content = [entry.content, ...(entry.attachments ?? []).map(path => {
+        if (!attachmentMarkers) return `[attached file: ${path}; use Read to inspect again]`;
+        const marker = `[[arco-attachment-${randomUUID()}]]`; pendingMarkers.set(marker, path); return marker;
+      })].filter(Boolean).join('\n');
+      if (joinsCurrent) userBuf += '\n\n' + content;
+      else userBuf = content;
+    } else if (!attachmentMarkers && t === 'file_context' && typeof entry.receipt === 'string' && userBuf && fileContextVisible(entry, receiptInputs)) {
       if (!seenMediaReceipts.has(entry.receipt)) {
         seenMediaReceipts.add(entry.receipt);
         const receipt = entry.receipt.slice(0, 4096);
         if (entry.origin === 'attachment') userBuf += `\n\n${receipt}`;
         else assistantBuf += `\n\n${receipt}\n\n`;
       }
-    } else if (t === 'primary_tool_use' && entry.status === 'completed' && entry.mediaReceipt && userBuf) {
+    } else if ((!attachmentMarkers || !isFileRead(entry.tool ?? entry.name)) && t === 'primary_tool_use' && entry.status === 'completed' && entry.mediaReceipt && userBuf) {
       if (!seenMediaReceipts.has(entry.mediaReceipt)) {
         seenMediaReceipts.add(entry.mediaReceipt);
         const tool = entry.tool ?? entry.name ?? 'unknown tool';
         assistantBuf += `\n\n[${tool} media receipt: ${entry.mediaReceipt}; source input: ${entry.input ?? '{}'}; re-run ${tool} with that input to inspect again.]\n\n`;
       }
-    } else if (t === 'primary_tool_use' && (entry.tool ?? entry.name) === 'Read' && entry.status === 'completed' && (entry.output?.startsWith('image: ') || entry.output?.startsWith('document: ')) && userBuf) {
+    } else if (!attachmentMarkers && t === 'primary_tool_use' && (entry.tool ?? entry.name) === 'Read' && entry.status === 'completed' && (entry.output?.startsWith('image: ') || entry.output?.startsWith('document: ')) && userBuf) {
       assistantBuf += `\n\n[Read image receipt: ${entry.output}; use Read to inspect again.]\n\n`;
     } else if (t === 'primary_text' && typeof entry.text === 'string' && userBuf) {
       assistantBuf += entry.text;
@@ -452,7 +468,7 @@ export function buildMessagesFromReplayEvents(
   return messages;
 }
 
-export function summarizeClaudeNativePriorTurns(events: ReplayEvent[], laterEvents: ReplayEvent[] = []): SummaryBuild {
+export function summarizeClaudeNativePriorTurns(events: ReplayEvent[], laterEvents: ReplayEvent[] = [], attachmentOnly = false): SummaryBuild {
   const revoked = revokedHandoffIds([...events, ...laterEvents]);
   interface Turn {
     userText: string;
@@ -517,11 +533,11 @@ export function summarizeClaudeNativePriorTurns(events: ReplayEvent[], laterEven
     }
     const cur = turns[turns.length - 1];
     if (!cur) continue;
-    if (ev.type === 'file_context' && typeof ev.receipt === 'string' && fileContextVisible(ev, receiptInputs)) {
+    if (!attachmentOnly && ev.type === 'file_context' && typeof ev.receipt === 'string' && fileContextVisible(ev, receiptInputs)) {
       if (!cur.mediaReceipts.includes(ev.receipt)) cur.mediaReceipts.push(ev.receipt.slice(0, 2048));
     } else if (ev.type === 'primary_text' && typeof ev.text === 'string') {
       cur.finalReply += ev.text;
-    } else if (ev.type === 'primary_tool_use') {
+    } else if ((!attachmentOnly || !isFileRead(ev.tool ?? ev.name)) && ev.type === 'primary_tool_use') {
       const name = ev.tool ?? ev.name ?? 'unknown';
       cur.toolCounts.set(name, (cur.toolCounts.get(name) ?? 0) + 1);
       if (typeof ev.input !== 'string') continue;
@@ -657,7 +673,7 @@ export async function replayMessagesWithResumePolicy(
     const walkStart = tailSeq ?? opts.leafSeq;
     const { truncated } = walkBranchSeqs(events, walkStart);
     return {
-      messages: buildMessagesFromReplayEvents(events, [], maxSeq, walkStart),
+      messages: buildMessagesFromReplayEvents(events, [], maxSeq, walkStart, [], opts.attachmentMarkers),
       mode: 'exact',
       eventBytes: stat.size,
       ...(truncated ? { reconstructed: true } : {}),
@@ -668,7 +684,7 @@ export async function replayMessagesWithResumePolicy(
     const raw = await source.read(0, stat.size);
     const events = parseJsonl(raw);
     return {
-      messages: buildMessagesFromReplayEvents(events, [], maxSeq),
+      messages: buildMessagesFromReplayEvents(events, [], maxSeq, undefined, [], opts.attachmentMarkers),
       mode: 'exact',
       eventBytes: stat.size,
     };
@@ -685,7 +701,7 @@ export async function replayMessagesWithResumePolicy(
       events.push(event);
     }
     return {
-      messages: buildMessagesFromReplayEvents(events, [], maxSeq),
+      messages: buildMessagesFromReplayEvents(events, [], maxSeq, undefined, [], opts.attachmentMarkers),
       mode: 'exact',
       eventBytes: stat.size,
       tailEvents: events.length,
@@ -699,11 +715,21 @@ export async function replayMessagesWithResumePolicy(
   const tailEvents = parseJsonl(tailRaw, { dropFirstPartial: !tailStart.completeLine });
 
   const cachePath = summaryCachePath(cwd, workflowId);
-  let cache = await readSummaryCache(cachePath, workflowId, stat.size, tailStartByte);
+  let cache = opts.attachmentMarkers ? null : await readSummaryCache(cachePath, workflowId, stat.size, tailStartByte);
   if (!cache) {
     const olderRaw = tailStartByte > 0 ? await source.read(0, tailStartByte) : '';
     const olderEvents = parseJsonl(olderRaw, { dropLastPartial: !tailStart.completeLine });
-    const built = summarizeClaudeNativePriorTurns(olderEvents, tailEvents);
+    const built = summarizeClaudeNativePriorTurns(olderEvents, tailEvents, !!opts.attachmentMarkers);
+    if (opts.attachmentMarkers) {
+      const lastOlderSeq = olderEvents.reduce((max, event) => Math.max(max, event.seq ?? 0), 0);
+      const allEvents = [...olderEvents, ...tailEvents];
+      const earlier = projectDeliveredInputs(allEvents, allEvents, undefined, true)
+        .filter(event => event.type === 'user_message_echo' && typeof event.seq === 'number' && event.seq <= lastOlderSeq);
+      const tokens = earlier.flatMap(event => (event.attachments ?? []).map(path => {
+        const marker = `[[arco-attachment-${randomUUID()}]]`; opts.attachmentMarkers!.set(marker, path); return marker;
+      }));
+      if (tokens.length) built.summary += `\n\nEarlier attachments:\n${tokens.join('\n')}`;
+    }
     cache = {
       version: SUMMARY_CACHE_VERSION,
       kind: SUMMARY_CACHE_KIND,
@@ -716,12 +742,12 @@ export async function replayMessagesWithResumePolicy(
       inputHistory: referencedInputRecords(tailEvents, olderEvents),
       updatedAt: new Date().toISOString(),
     };
-    await writeSummaryCache(cwd, cachePath, cache);
+    if (!opts.attachmentMarkers) await writeSummaryCache(cwd, cachePath, cache);
   }
 
   const seed = summarySeedMessages(cache.summary);
   return {
-    messages: buildMessagesFromReplayEvents(tailEvents, seed, undefined, undefined, cache.inputHistory),
+    messages: buildMessagesFromReplayEvents(tailEvents, seed, undefined, undefined, cache.inputHistory, opts.attachmentMarkers),
     mode: 'summary_tail',
     eventBytes: stat.size,
     summaryThroughSeq: cache.throughSeq ?? undefined,

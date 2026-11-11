@@ -138,7 +138,7 @@ CLIs plus real Native loop over mocked Anthropic streaming; zero model spend).
 
 ### Local file context across turns
 
-Ollama, llama.cpp, LM Studio, Strata and DeepSeek keep named attachment and tool-file receipts across turns and reload. Each request restores up to two recent fitted images and 8 KiB of decoded text. Current attachments take priority in the request's media budget. Text-only models receive descriptions instead of image inputs. Older receipts name saved files or the original tool and input so the agent can use Read or request another range. Missing files produce an explicit notice.
+In Agent tabs, Ollama, llama.cpp, LM Studio, Strata and DeepSeek keep named attachment and tool-file receipts across turns and reload. Each request restores up to two recent fitted images and 8 KiB of decoded text. Current attachments take priority in the request's media budget. Text-only models receive descriptions instead of image inputs. Older receipts name saved files or the original tool and input so the agent can use Read or request another range. Missing files produce an explicit notice.
 
 Ollama, llama.cpp and LM Studio replay saved file records as separate chronological messages labelled `Arco historical file context`. These records come from Arco events, not assistant prose, and are not new user requests. Receipt-like assistant text stays assistant text. For a file not listed in the records, the agent must call Read before describing its contents; a saved reference alone does not supply its contents. Existing saved conversations use the same event projection without migration. Receipt text keeps its existing 16 KiB replay budget, with short labels added. New turns append records rather than rebuilding a growing leading system block. Ollama compaction uses the same labelled replay. The prior-turn auto-summary and Strata/DeepSeek replay format are unchanged. This separation does not guarantee model accuracy.
 
@@ -375,7 +375,7 @@ API-key fallback: if `ANTHROPIC_API_KEY` is set in the spawned process env, the 
 - **API overload retry loop** - `overloaded_error` and `{"type":"error"}` envelopes from the CLI are caught, surfaced as `system_notice`, and retried with 15s/30s/60s backoff up to 3 attempts. Same session id, so retries are idempotent. Implemented in the result path inside `claude.ts`.
 - **Throttle detection** - stderr regexes catch "usage limit reached", "try again at HH:MM", "resets at <ISO>". Translated to `quota.markThrottled('claude', errorText, resetsAt)`.
 - **Output cap** - accumulated text is capped at `MAX_WORKER_OUTPUT_BYTES = 50 MB` (override via `ARCO_MAX_WORKER_OUTPUT_BYTES` env). Beyond that, Arco emits a truncation notice and forces the worker to settle. The 32 GB tree-RSS guard handles actual memory runaways; the text cap is the secondary safety net for "model went berserk printing forever."
-- **Attachments** - fitted images use stream-json `content` blocks. Documents and notebooks provide decoded text, while other binaries provide a note. `[attached file: <path>]` labels identify the source alongside its decoded content.
+- **Attachments** - fitted images use stream-json `content` blocks. Documents and notebooks provide decoded text, while other binaries provide a note. Agent labels identify the source path alongside its decoded content; Chat labels use the attachment name.
 - **Concurrent-writer guard** - the JSONL watcher inspects new entries' `entrypoint` field. If a foreign (`!= 'sdk-cli'`) entrypoint appears, Arco fires `[WARN] Concurrent writer detected on session <uuid>...` and refuses new turns for 60 seconds. Operator must Handoff to recover.
 
 ### Ultracode (sticky, CLI-only)
@@ -982,7 +982,7 @@ The drain is destructive (server-side `splice(0)`); the worker re-enqueues on th
 
 Re-broadcasts `queue_update` after the re-enqueue (the original drain emitted a snapshot showing the bucket empty). The originator's optimistic chat row stays cleared from the prior `queued_messages_drained`; PENDING is the source of truth for "items waiting" until the next drain succeeds.
 
-Steer attachments use the same decoder as initial attachments: fitted images become `localImage` items, documents and notebooks provide text, and other binaries provide a note. Path labels identify each attachment. Local providers likewise prepare steering attachments and check vision support before sending images.
+Steer attachments use the same decoder as initial attachments: fitted images become `localImage` items, documents and notebooks provide text, and other binaries provide a note. Agent path labels and Chat name labels identify attachments. Local providers likewise prepare steering attachments and check vision support before sending images.
 
 #### Cancel
 
@@ -1313,7 +1313,7 @@ Stateless local replay keeps the brief and later exchanges after a completed han
 
 ### Spawn
 
-`fetch(\`${OLLAMA_URL_BASE}/api/chat\`, { method: 'POST', body: JSON.stringify({ model, messages, stream: true, keep_alive: '10m', tools }) })`. No subprocess; the response is an NDJSON stream. Fitted image attachments ride the final user message's `images` field when the model reports vision support; otherwise the message contains an image note. Documents and notebooks provide decoded text alongside `[attached file: <path>]` labels, while other binaries provide a note.
+`fetch(\`${OLLAMA_URL_BASE}/api/chat\`, { method: 'POST', body: JSON.stringify({ model, messages, stream: true, keep_alive: '10m', tools }) })`. No subprocess; the response is an NDJSON stream. Fitted image attachments ride the final user message's `images` field when the model reports vision support; otherwise the message contains an image note. Documents and notebooks provide decoded text with source-path labels in Agent tabs and name labels in Chat, while other binaries provide a note.
 
 **Image fitting.** `providers/attachments.ts` uses the shared portable decoder
 for upload copies. It fits images within 2,000 pixels per side and 5 MB base64,
@@ -2203,7 +2203,9 @@ extracts document text and reads notebook cells without extra software.
 Other binary files produce a named-file note instead of raw bytes.
 
 The same decoding applies to operator attachments, including Chat tabs that
-have no file tools. Claude Native and Claude CLI send PDF text by default; scanned pages provide fitted images. The attachment receipt explains how to request visual pages.
+have no file tools. Chat labels attachments by name and restores earlier uploads
+within the same limits after restart; unavailable uploads require reattachment.
+Claude Native and Claude CLI send PDF text by default; scanned pages provide fitted images. Agent attachment receipts explain how to request visual pages.
 
 Larger PDFs send a bounded range and a notice; use `read_file` with `pages` for another range. For layout, charts or figures, use `pdf_mode: "visual"` with an explicit `pages` range. Word, Excel, PowerPoint,
 OpenDocument and RTF files become text. Other local and CLI transports

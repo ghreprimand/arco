@@ -92,8 +92,10 @@ RETRY resends the prompt's attachments and EDIT re-stages them.
 
 Arco prepares attachments before sending, including Chat tabs without file
 tools. PDFs, Office documents and notebooks provide decoded content; other
-binaries provide a readable note. Path labels retain the original attachment
-name and accompany the content. Images are fitted to the transport's limits:
+binaries provide a readable note. Labels use the attachment name and accompany the content.
+On later turns and after a restart, Arco restores earlier attachments from its
+uploads folder within the same limits. If an upload is missing or too large,
+the message asks for it to be attached again. Images are fitted to the transport's limits:
 
 | Provider | Images |
 |---|---|
@@ -102,11 +104,11 @@ name and accompany the content. Images are fitted to the transport's limits:
 | Ollama | base64 `images` on vision-capable models |
 | llama.cpp | OpenAI `image_url` parts when the loadout declares vision + `mmprojPath`; otherwise an image note |
 | LM Studio | OpenAI `image_url` parts when native model metadata confirms vision; otherwise an image note |
-| Cursor (Chat -> `print`) | path reference + `--add-dir <upload dir>`; `--mode ask`'s read tool opens the image (verified with a live turn) |
+| Cursor (Chat -> `print`) | explicit fitted image input in a private turn folder |
 | Cursor (Agent -> ACP) | native ACP `image` blocks when `initialize` advertises `promptCapabilities.image`; otherwise an image note |
 
 Chat does not need a file tool to receive decoded attachment content. Cursor
-print uses a fitted local image path and read-only access to its upload folder.
+print supplies fitted images as explicit inputs in a private turn folder.
 
 **Image fitting.** Arco uses bundled image codecs to fit supported images within
 2,000 pixels per side and 5 MB base64. Large GIFs are fitted too. SVG attachments include source text. Image-capable models also receive a fitted preview when rendering succeeds; text-only models receive an image-omission note. The original
@@ -118,7 +120,7 @@ When needed, `providers/attachments.ts` writes a fitted `.model.png` or
 `.model.jpg` sibling. Claude Native prepares attachments through `readFileContent`, retaining typed
 image and document blocks. Local and CLI adapters use
 `prepareProviderAttachments` for fitted images and decoded document text.
-Codex retains managed fitted-image paths for explicit image inputs; Cursor print retains them for its image tools.
+Codex retains managed fitted-image paths for explicit image inputs; Cursor print supplies copies in its private turn folder.
 Malformed or unsupported content receives a readable note from the decoder.
 
 Supported formats and document ranges are described in

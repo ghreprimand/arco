@@ -25,6 +25,8 @@ export interface FileContentLimits {
 export interface FileContentOptions {
   /** Internal codec verification can bypass optional installed converters. */
   externalPrograms?: boolean;
+  /** Attachment-only Chat cannot ask the model to reopen files. */
+  attachmentOnly?: boolean;
   signal?: AbortSignal;
   /** One-based pages, sheets, slides or cells: "1-3,5". */
   pages?: string;
@@ -61,8 +63,8 @@ export async function readFileContent(path: string, options: FileContentOptions 
   if ((kind === 'text/plain' || kind === 'invalid-utf8') && !structured) {
     const r = await readRegularRange(path, Math.min(options.limits?.maxTextBytes ?? 256 * 1024, 1024 * 1024), Math.max(1, options.offset ?? 1), options.limit, options.signal, 8192, decodeLegacyText);
     if (r.invalidUtf8 || r.text.includes('\0')) return binaryResult(basename(path), prefix.size, r.text.includes('\0') ? 'application/octet-stream' : 'invalid-utf8', options);
-    if (r.legacyDecoded) return legacyTextResult(r.text, { limits: options.limits }, r.truncated);
-    const text = r.text + (r.truncated ? '\n[Text truncated; use offset and limit for another range.]' : '');
+    if (r.legacyDecoded) return legacyTextResult(r.text, { limits: options.limits, attachmentOnly: options.attachmentOnly }, r.truncated);
+    const text = r.text + (r.truncated ? (options.attachmentOnly ? '\n[Text truncated; attach a smaller file or selection.]' : '\n[Text truncated; use offset and limit for another range.]') : '');
     return { text, blocks: [{ type: 'text', text }], kind: 'text', truncated: r.truncated, isError: false };
   }
   if (prefix.size > MAX_FILE_CONTENT_BYTES) return note(path, prefix.size, 'too large to decode safely (512 MB source limit); crop an image or export selected document pages.');

@@ -23,7 +23,7 @@ export function textResult(kind: string, text: string, options: FileContentOptio
   const cap = positive(options.limits?.maxTextBytes, 256 * 1024, 1024 * 1024);
   const data = Buffer.from(ranged);
   truncated ||= data.length > cap || offset + limit < lines.length;
-  const bounded = new TextDecoder().decode(data.subarray(0, cap)) + (truncated ? '\n[Output truncated; use pages, offset or limit for another range.]' : '');
+  const bounded = new TextDecoder().decode(data.subarray(0, cap)) + (truncated ? (options.attachmentOnly ? '\n[Output truncated; attach a smaller file or selection.]' : '\n[Output truncated; use pages, offset or limit for another range.]') : '');
   return { text: bounded, blocks: blocks ?? [{ type: 'text', text: bounded }], kind, truncated, isError: false };
 }
 

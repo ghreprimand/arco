@@ -1,4 +1,5 @@
 import { prepareProviderHistory, historyBinding } from './handoffHistoryBinding.js';
+import { prepareLocalFileContext, combineChatAttachments } from './localFileMedia.js';
 import { codexChatOverrides, requireCodexChatCapabilities } from './codexChatBoundary.js';
 import { codexWebSearchMode } from './codexWebSearch.js';
 import { installedCodexImageToolKey } from './codexImageTool.js';
@@ -89,7 +90,8 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     }
     void prepareProviderHistory(this.config).then(async () => {
       if (['failed', 'completed'].includes(this._status)) return;
-      const prepared = await prepareProviderAttachments(this.config.attachments);
+      let prepared = await prepareProviderAttachments(this.config.attachments, true, undefined, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
+      if (this.config.interactionMode === 'chat' && !this.config.voiceOperator && !this.config.resumeSessionId) prepared = combineChatAttachments(prepared, await prepareLocalFileContext(this.config, true));
       const images = await persistProviderImages(prepared.images);
       if (['failed', 'completed'].includes(this._status)) return;
       this.spawnPrepared(prompt, prepared, images);

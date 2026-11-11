@@ -1,4 +1,5 @@
 import { prepareProviderHistory } from './handoffHistoryBinding.js';
+import { prepareLocalFileContext, combineChatAttachments } from './localFileMedia.js';
 import { cliFileReadGuidance, prepareProviderAttachments, type PreparedAttachments } from './providerFileContent.js';
 import { interruptProcess } from '../workers/interruptProcess.js';
 import { spawn, ChildProcess } from 'child_process';
@@ -205,8 +206,9 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
   private async _launch(): Promise<void> {
     await prepareProviderHistory(this.config);
     if (this._status === 'failed' || this._status === 'completed') return;
-    if (!this._resumeOnRetry && this.config.attachments?.length) {
-      void prepareProviderAttachments(this.config.attachments, true, undefined, false).then((prepared) => {
+    if (!this._resumeOnRetry && (this.config.attachments?.length || (this.config.interactionMode === 'chat' && !this.config.voiceOperator && !this.config.resumeSessionId && this.config.priorFiles?.length))) {
+      void prepareProviderAttachments(this.config.attachments, true, undefined, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator).then(async (prepared) => {
+        if (this.config.interactionMode === 'chat' && !this.config.voiceOperator && !this.config.resumeSessionId) prepared = combineChatAttachments(prepared, await prepareLocalFileContext(this.config, true));
         if (this._status === 'failed' || this._status === 'completed') return;
         this._launchPrepared(prepared);
       }).catch((error) => { this._status = 'failed'; this.emit('error', String(error)); });

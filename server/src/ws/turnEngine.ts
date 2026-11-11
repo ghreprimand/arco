@@ -2055,7 +2055,7 @@ export async function handleUserMessage(
       // cache hits cleanly across turns.
       let ollamaReplay: import('@arco/shared').WorkerConfig['ollamaReplay'];
       const retainLocalFiles = ['ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'].includes(wf.primary.provider);
-      let priorFiles: import('@arco/shared').WorkerConfig['priorFiles'] = retainLocalFiles ? [] : undefined;
+      let priorFiles: import('@arco/shared').WorkerConfig['priorFiles'] = retainLocalFiles || chatMode ? [] : undefined;
       let primaryAppendSystemPrompt: string | undefined;
       let primarySystemPrompt: string | undefined;
       // The current user echo was just recorded above. Stateless providers
@@ -2120,8 +2120,8 @@ export async function handleUserMessage(
             } };
             replayEvents = projectOllamaHistory(events, workflowId, activeOllamaInputSeqs, true).events;
           }
-          priorFiles = projectLocalFileReferences(events, cwd);
-          const rendered = (wf.config.voiceOperator ? renderComputerHistory(replayEvents) : renderTranscript(replayEvents, { preserveThinking: !chatMode, separateFileContext: true })).trim();
+          priorFiles = projectLocalFileReferences(events, cwd, chatMode);
+          const rendered = (wf.config.voiceOperator ? renderComputerHistory(replayEvents) : renderTranscript(replayEvents, { preserveThinking: !chatMode, separateFileContext: !chatMode, attachmentOnly: chatMode })).trim();
           if (rendered) primaryAppendSystemPrompt = rendered;
         } catch (err) {
           console.error(`[arco] [${workflowId.slice(0, 8)}] ollama transcript build failed:`, err);
@@ -2152,9 +2152,9 @@ export async function handleUserMessage(
           const events = priorIncognitoEvents ?? (wf.config.voiceOperator
             ? await computerReplayEvents(cwd, workflowId, wf.config.computerContext?.lastResetAt, wf.config.computerContext?.lastResetSeq)
             : await replayWorkflowEvents(cwd, workflowId, 0));
-          if (retainLocalFiles) priorFiles = projectLocalFileReferences(events, cwd);
+          if (retainLocalFiles || chatMode) priorFiles = projectLocalFileReferences(events, cwd, chatMode);
           const summary = chatMode ? '' : summarizePriorTurns(events);
-          const rendered = (wf.config.voiceOperator ? renderComputerHistory(events) : renderTranscript(events, { preserveThinking: false, separateFileContext: wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' })).trim();
+          const rendered = (wf.config.voiceOperator ? renderComputerHistory(events) : renderTranscript(events, { preserveThinking: false, separateFileContext: !chatMode && (wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio'), attachmentOnly: chatMode })).trim();
           const parts: string[] = [];
           if (summary) {
             parts.push(`USER: [Workflow context]`);
@@ -2173,6 +2173,15 @@ export async function handleUserMessage(
         // Replay the memory-only completed transcript into each one-shot call.
         const rendered = renderTranscript(priorIncognitoEvents ?? []).trim();
         if (rendered) primaryAppendSystemPrompt = `Conversation so far:\n\n${rendered}`;
+      }
+
+      if (chatMode && (incognito || !wf.primarySessionId) && (wf.primary.provider === 'codex' || (wf.primary.provider === 'claude' && claudeTransport !== 'native'))) {
+        try {
+          const events = priorIncognitoEvents ?? await replayWorkflowEvents(cwd, workflowId, 0);
+          priorFiles = projectLocalFileReferences(events, cwd, true);
+        } catch (err) {
+          console.error(`[arco] [${workflowId.slice(0, 8)}] chat attachment replay failed:`, err);
+        }
       }
 
       // Local HTTP transports receive stable tool instructions through the

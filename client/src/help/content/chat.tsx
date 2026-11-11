@@ -55,7 +55,7 @@ export const chatHelp: Record<string, HelpEntry> = {
   'chat.attach': {
     title: 'Attach to chat', manualSection: 'chat-mode',
     body: <p>Attach images or files to the next message; you can also paste them straight
-      into the composer or drop them anywhere on the window. Arco fits images and extracts text from PDFs, office documents and notebooks, including chats without file tools. Cursor Chat attaches no Arco project-file server; message attachments still work. Text-only models receive an image note; other binaries receive a file note. Uploads are saved on disk (the <C>uploads</C> folder in the Arco home for a package install, in the checkout for a source run), so Incognito chats
+      into the composer or drop them anywhere on the window. Arco fits images and extracts text from PDFs, office documents and notebooks, including chats without file tools. Cursor Chat attaches no Arco project-file server; message attachments still work. Text-only models receive an image note; other binaries receive a file note. Earlier uploads are restored within the same limits after restart; attach them again if unavailable. Uploads are saved on disk (the <C>uploads</C> folder in the Arco home for a package install, in the checkout for a source run), so Incognito chats
       have no attach button. SEND stays blocked until every overlapping upload batch finishes.</p>,
   },
   'chat.input': {

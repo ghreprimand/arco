@@ -16,7 +16,7 @@ export async function notebookResult(value: Record<string, unknown>, name: strin
       if (text) lines.push(`Output: ${text}`);
       for (const media of ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']) {
         const encoded = string(data[media]); if (!encoded) continue;
-        if (count++ >= cap) { lines.push('[More image outputs omitted; select fewer cells with pages.]'); continue; }
+        if (count++ >= cap) { lines.push(options.attachmentOnly ? '[More image outputs omitted; attach fewer cells.]' : '[More image outputs omitted; select fewer cells with pages.]'); continue; }
         if (encoded.length > 32 * 1024 * 1024) { lines.push('[Image output exceeds the decoding limit.]'); continue; }
         try {
           const result = media === 'image/svg+xml'
@@ -28,7 +28,7 @@ export async function notebookResult(value: Record<string, unknown>, name: strin
       }
       const handled = new Set(['text/plain', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']);
       for (const media of Object.keys(data)) if (!handled.has(media)) {
-        lines.push(`[Cell ${index + 1} rich output: ${media}; content not rendered. Read ${name} with pages="${index + 1}" to locate this output.]`);
+        lines.push(options.attachmentOnly ? `[Cell ${index + 1} rich output: ${media}; content not rendered. Attach it in a supported format.]` : `[Cell ${index + 1} rich output: ${media}; content not rendered. Read ${name} with pages="${index + 1}" to locate this output.]`);
       }
     }
   }

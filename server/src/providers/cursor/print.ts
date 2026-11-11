@@ -1,4 +1,5 @@
 import { prepareProviderHistory, historyBinding } from '../handoffHistoryBinding.js';
+import { prepareLocalFileContext, combineChatAttachments } from '../localFileMedia.js';
 import { createChatSandbox, CHAT_FLAGS, CHAT_GUIDANCE } from './chatSandbox.js';
 import { prepareProviderAttachments, persistProviderImages, FILE_READ_GUIDANCE, type PreparedAttachments } from '../providerFileContent.js';
 import { createFilePlugin } from './filePlugin.js';
@@ -70,7 +71,8 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
   private async prepare(prompt:string):Promise<void> {
     await prepareProviderHistory(this.config);
     if (this.settled) return;
-    const prepared = await prepareProviderAttachments(this.config.attachments, true, this.preparationAbort.signal);
+    let prepared = await prepareProviderAttachments(this.config.attachments, true, this.preparationAbort.signal, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
+    if (this.config.interactionMode === 'chat' && !this.config.voiceOperator) prepared = combineChatAttachments(prepared, await prepareLocalFileContext(this.config, true, this.preparationAbort.signal));
     if (this.settled) return;
     if (this.config.interactionMode === 'chat') this.chatSandbox = await createChatSandbox(prepared, this.preparationAbort.signal);
     const imagePaths = this.chatSandbox?.imagePaths ?? await persistProviderImages(prepared.images);

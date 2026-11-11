@@ -30,7 +30,7 @@ export async function pdfResult(bytes: Buffer, name: string, options: FileConten
         for (const page of await subset.copyPages(original, selected)) subset.addPage(page);
         const data = Buffer.from(await subset.save()).toString('base64');
         if (data.length <= positive(options.limits?.maxDocumentBase64Bytes, 20 * 1024 * 1024, 20 * 1024 * 1024)) {
-          const text = receipt + (truncated ? '\n[Other pages omitted; use pages to select another range.]' : '');
+          const text = receipt + (truncated ? (options.attachmentOnly ? '\n[Other pages omitted; attach a smaller selection.]' : '\n[Other pages omitted; use pages to select another range.]') : '');
           return textResult('pdf', receipt + '\n' + bodies.join('\n\n'), options,
             [{ type: 'text', text }, { type: 'document', mediaType: 'application/pdf', data, name, pages: selected.length }], truncated);
         }
@@ -51,7 +51,7 @@ export async function pdfResult(bytes: Buffer, name: string, options: FileConten
             blocks.push({ type: 'text', text: `${options.pdfMode === 'images' ? 'PDF page' : 'Scanned page'} ${index + 1}:` }, image);
           } finally { page.close(); }
         }
-        if (scanned.size > cap) blocks.push({ type: 'text', text: options.pdfMode === 'images' ? '[More PDF pages remain; use pages to read another range.]' : '[More scanned pages remain; use pages to read another range.]' });
+        if (scanned.size > cap) blocks.push({ type: 'text', text: options.attachmentOnly ? '[More scanned pages remain; attach a smaller selection.]' : options.pdfMode === 'images' ? '[More PDF pages remain; use pages to read another range.]' : '[More scanned pages remain; use pages to read another range.]' });
       } else if (scanned.size) blocks.push({ type: 'text', text: '[Scanned pages have no extractable text and this model does not accept images.]' });
       return { ...result, blocks };
     } finally { document.destroy(); }

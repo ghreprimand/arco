@@ -330,7 +330,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
     this.visionCapable = modelDef.capabilities?.vision === true && !!modelDef.mmprojPath;
     const prior = await prepareLocalFileContext(this.config, this.visionCapable, this.abortController?.signal);
     for (const notice of prior.notices) this.emit('system_notice', notice);
-    const prepared = await prepareProviderAttachments(this.config.attachments, modelDef.capabilities?.vision === true && !!modelDef.mmprojPath, this.abortController?.signal);
+    const prepared = await prepareProviderAttachments(this.config.attachments, modelDef.capabilities?.vision === true && !!modelDef.mmprojPath, this.abortController?.signal, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
     await rememberLocalAttachments(this.config, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
     const imageParts: ContentPart[] = [...prepared.images, ...prior.images].map((image) => ({type: 'image_url', image_url: {url: `data:${image.mediaType};base64,${image.data}`}}));
     let text = userPrompt;
@@ -1023,7 +1023,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
       if (drainSteer) {
         const steerItems = drainSteer();
         for (const item of steerItems) {
-          const prepared = await prepareProviderAttachments(item.attachments, this.visionCapable, this.abortController?.signal);
+          const prepared = await prepareProviderAttachments(item.attachments, this.visionCapable, this.abortController?.signal, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
           await rememberLocalAttachments({ ...this.config, attachments: item.attachments, fileContextInputIds: item.clientMessageId ? [item.clientMessageId] : this.config.fileContextInputIds }, prepared, data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
           const text = [item.content,prepared.text].filter(Boolean).join('\n\n');
           messages.push({role:'user',content:prepared.images.length ? [{type:'text',text},...prepared.images.map(image=>({type:'image_url' as const,image_url:{url:`data:${image.mediaType};base64,${image.data}`}}))] : text});

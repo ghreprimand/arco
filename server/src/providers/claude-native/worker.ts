@@ -4,7 +4,7 @@ import { nativeMediaLimits } from './mediaLimits.js';
 import { retainNewestMedia } from './mediaRetention.js';
 import { PLAN_TOOL_NAMES, PLAN_TOOL_DEFINITIONS, executePlanTool } from '../../planTools.js';
 import { fetchFileContent } from '../../fileFetch.js';
-import { nativeAttachmentContent, nativeFileOutcome } from './fileContent.js';
+import { nativeAttachmentContent, nativeFileOutcome, restoreChatAttachments } from './fileContent.js';
 import { admitImageResult, imageReceipts, type ImageReadResult, type ToolResultContent } from './imageRead.js';
 import { shortTextRequestParams } from './modelParams.js';
 import { nativeOAuthBaseUrl } from './apiEndpoint.js';
@@ -24,7 +24,7 @@ import { computerToolDefinitions, executeComputerTool } from '../../voice/toolDe
 
 import { EventEmitter } from 'events';
 import { promises as fs, readFileSync } from 'node:fs';
-import { join, extname } from 'node:path';
+import { basename, join, extname } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import type { WorkerConfig, ServerMessage } from '@arco/shared';
 import { supportsClaudeAdaptiveThinking, isClaudeModelAlias, enforcesPreservedThinking, supportsMidConversationSystemMessages, supportsMidConversationToolChanges } from '@arco/shared';
@@ -1441,14 +1441,15 @@ export class ClaudeNativeWorker extends EventEmitter {
             this.servedModel = meta.resolvedModelId;
             this.servedModelFor = this.config.model;
           }
+          const attachmentMarkers = this.config.interactionMode === 'chat' && !this.config.voiceOperator ? new Map<string, string>() : undefined;
           const replay = this.config.voiceOperator
             ? { messages: buildMessagesFromReplayEvents((await replayEventsWithTs(cwd, this.workflowId, 0))
                 .filter((e) => meta?.computerContext?.lastResetSeq !== undefined
                   ? (('seq' in e.message && typeof e.message.seq === 'number') ? e.message.seq : 0) > meta.computerContext.lastResetSeq
                   : e.ts > (meta?.computerContext?.lastResetAt ?? 0)).map((e) => e.message) as unknown as Parameters<typeof buildMessagesFromReplayEvents>[0]),
                 mode: 'exact', reconstructed: false, summaryThroughSeq: undefined, tailEvents: undefined }
-            : await replayMessagesWithResumePolicy(cwd, this.workflowId, undefined, { leafSeq: meta?.leafSeq });
-          this.messages = replay.messages as MessageParam[];
+            : await replayMessagesWithResumePolicy(cwd, this.workflowId, undefined, { leafSeq: meta?.leafSeq, attachmentMarkers });
+          this.messages = attachmentMarkers ? await restoreChatAttachments(replay.messages as MessageParam[], attachmentMarkers) : replay.messages as MessageParam[];
           this.resetPrefixFreeze('replay');
           if (replay.reconstructed) {
             // docs/PERSISTENCE.md - the rewound branch's ancestry
@@ -2740,11 +2741,11 @@ export class ClaudeNativeWorker extends EventEmitter {
     // bound to them, and the prefix diff re-appends whatever they carried.
     const poppedSystem = popTrailingSystemMessages(this.messages);
     if (poppedSystem > 0) console.log(`[claude-native:${this.workflowId.slice(0, 8)}] popped ${poppedSystem} trailing role:system message(s) before operator turn`);
-    const attached = await nativeAttachmentContent(prompt, this.config.attachments, this.messages, this.inFlight?.signal, (pending, result, origin) => this.admitMedia(pending, result, origin));
+    const attached = await nativeAttachmentContent(prompt, this.config.attachments, this.messages, this.inFlight?.signal, (pending, result, origin) => this.admitMedia(pending, result, origin), this.config.interactionMode === 'chat' && !this.config.voiceOperator);
     for (const notice of attached.notices) this.emit('system_notice', notice);
     this.messages.push({ role: 'user', content: attached.content });
     this.turnInputAccepted = true;
-    this.turnOpeningRequest = keptRequestText(prompt, this.config.attachments);
+    this.turnOpeningRequest = keptRequestText(prompt, this.config.interactionMode === 'chat' && !this.config.voiceOperator ? this.config.attachments?.map(path => basename(path)) : this.config.attachments);
     this.inTurnCompact = { fired: false, warned: false };
     // UserPromptSubmit context and waiting async hook output ride with the
     // operator's message (never in `system`, so the cached prefix is kept).
@@ -2996,7 +2997,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       if (toolResults.length === 0) continue;
       const steer = this.config.drainSteer?.() ?? [];
       for (const item of steer) {
-        const attached = await nativeAttachmentContent(item.content, item.attachments, this.messages, this.inFlight?.signal, (pending, result, origin) => this.admitMedia(pending, result, origin));
+        const attached = await nativeAttachmentContent(item.content, item.attachments, this.messages, this.inFlight?.signal, (pending, result, origin) => this.admitMedia(pending, result, origin), this.config.interactionMode === 'chat' && !this.config.voiceOperator);
         for (const notice of attached.notices) this.emit('system_notice', notice);
         this.messages.push({ role: 'user', content: attached.content });
       }

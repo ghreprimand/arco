@@ -2,10 +2,11 @@ import { createHash, randomUUID } from 'node:crypto';
 import { lstat, mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import type { FileContextMessage, FileContextReference, WorkerConfig } from '@arco/shared';
-import { readFileContent } from '../fileContent.js';
+import { MAX_FILE_CONTENT_BYTES, readFileContent } from '../fileContent.js';
 import { ensureStorageRoot } from '../storageRoot.js';
 import { openCheckedFile, writeCheckedFile } from '../checkedFile.js';
 import { UPLOADS_DIR } from '../server/constants.js';
+import { managedUploadPath } from '../uploadImages.js';
 import { resolveToolPath } from '../toolPath.js';
 import { clipFileText, fileLabel, fileReferenceKey, FILE_CONTEXT_CACHE_DIR, MAX_FILE_REFERENCES, validFileReference } from '../fileContextReceipts.js';
 import type { ProviderImage } from './providerFileContent.js';
@@ -107,7 +108,7 @@ async function retain(config: WorkerConfig, snapshot: Snapshot, options: { name:
   return receipt;
 }
 export async function rememberLocalAttachments(config: WorkerConfig, prepared: Snapshot, emit: ContextEmitter, notice: (text: string) => void, signal?: AbortSignal): Promise<void> {
-  if (!config.attachments?.length || config.incognito) return;
+  if (!config.attachments?.length || config.incognito || (config.interactionMode === 'chat' && !config.voiceOperator)) return;
   await retain(config, prepared, { name: 'Attachments', origin: 'attachment', sourcePaths: config.attachments, emit, notice, signal });
 }
 export async function rememberLocalToolMedia(config: WorkerConfig, tool: string, input: unknown, toolUseId: string, images: ProviderImage[], documents: SavedToolText[], emit: ContextEmitter, notice: (text: string) => void, signal?: AbortSignal): Promise<string | undefined> {
@@ -154,6 +155,31 @@ export async function resolveLocalContextRead(config: WorkerConfig, requested: s
   throw new Error('Read path is outside the workflow or its retained attached files.');
 }
 export async function prepareLocalFileContext(config: WorkerConfig, vision: boolean, signal?: AbortSignal): Promise<LocalContextPreparation> {
+  if (config.interactionMode === 'chat' && !config.voiceOperator) {
+    const current = new Set(config.attachments ?? []);
+    const entries: string[] = [], images: ProviderImage[] = [], notices: string[] = [];
+    let mediaBytes = 0;
+    for (const ref of config.priorFiles ?? []) {
+      if (ref.kind !== 'source' || current.has(ref.path) || signal?.aborted) continue;
+      const label = fileLabel(path.basename(ref.path));
+      try {
+        const candidate = managedUploadPath(ref.path);
+        if (!candidate || (await lstat(candidate)).size > MAX_FILE_CONTENT_BYTES) throw new Error('Upload unavailable');
+        const result = await readFileContent(candidate, { signal, attachmentOnly: true, limits: { images: vision, documents: false, maxTextBytes: 32 * 1024, maxImages: Math.max(1, 16 - images.length), maxImageBase64Bytes: 2 * 1024 * 1024 } });
+        if (result.truncated || result.isError) throw new Error('Upload unavailable');
+        const media = result.blocks.filter((block): block is ProviderImage => block.type === 'image');
+        const addedBytes = media.reduce((sum, image) => sum + image.data.length, 0);
+        if (media.length + images.length > 16 || mediaBytes + addedBytes > 20 * 1024 * 1024) throw new Error('Upload unavailable');
+        mediaBytes += addedBytes; images.push(...media);
+        const text = result.blocks.filter(block => block.type === 'text').map(block => block.text).join('\n');
+        entries.push(`[Earlier attachment: ${label}]\n${text}`);
+      } catch {
+        const note = `Earlier attachment ${label} is no longer available; attach it again`;
+        entries.push(`[${note}]`); notices.push(note);
+      }
+    }
+    return { text: entries.join('\n\n'), images, notices };
+  }
   const current = new Set((config.attachments ?? []).map(value => path.resolve(config.fileContextCwd ?? config.cwd ?? '.', value)));
   const refs = (config.priorFiles ?? []).filter(ref => ref.kind !== 'source' || !current.has(path.resolve(config.fileContextCwd ?? config.cwd ?? '.', ref.path)));
   const selected = new Set([
@@ -188,4 +214,15 @@ export async function prepareLocalFileContext(config: WorkerConfig, vision: bool
   }
   entries.reverse();
   return { text: entries.length ? '[Earlier file context]\n' + entries.map(entry => entry.text).join('\n\n') : '', images: entries.flatMap(entry => entry.images), notices };
+}
+
+/** Combine replayed upload content with this message while keeping current images first. */
+export function combineChatAttachments(prepared: import('./providerFileContent.js').PreparedAttachments, prior: LocalContextPreparation): import('./providerFileContent.js').PreparedAttachments {
+  const images = [...prepared.images];
+  let bytes = images.reduce((sum, image) => sum + image.data.length, 0), omitted = false;
+  for (const image of prior.images) {
+    if (images.length >= 16 || bytes + image.data.length > 20 * 1024 * 1024) { omitted = true; continue; }
+    images.push(image); bytes += image.data.length;
+  }
+  return { ...prepared, images, text: [prepared.text, prior.text, omitted ? '[Earlier images could not fit in this message; attach fewer images again.]' : ''].filter(Boolean).join('\n\n') };
 }

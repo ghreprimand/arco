@@ -689,7 +689,7 @@ export class CodexAppServerWorker extends EventEmitter {
     }
 
     const preparationGeneration = this.preparationGeneration;
-    const prepared = await prepareProviderAttachments(this.config.attachments);
+    const prepared = await prepareProviderAttachments(this.config.attachments, true, undefined, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
     if (preparationGeneration !== this.preparationGeneration) throw new Error('Worker killed');
     const modelImages = await persistProviderImages(prepared.images);
     if (preparationGeneration !== this.preparationGeneration) throw new Error('Worker killed');
@@ -934,7 +934,7 @@ export class CodexAppServerWorker extends EventEmitter {
       if (items.some(item => item.attachments?.length)) {
         input = [];
         for (const item of items) {
-          const prepared = await prepareProviderAttachments(item.attachments);
+          const prepared = await prepareProviderAttachments(item.attachments, true, undefined, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
           const images = await persistProviderImages(prepared.images);
           input.push(...images.map(path => ({type:'localImage' as const,path})));
           input.push({type:'text',text:[item.content,prepared.text].filter(Boolean).join('\n\n'),text_elements:[]});

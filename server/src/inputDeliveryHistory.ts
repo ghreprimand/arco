@@ -1,6 +1,7 @@
 interface InputEvent {
   type?: string;
   content?: unknown;
+  attachments?: readonly string[];
   seq?: number;
   clientMessageId?: string;
   clientMessageIds?: readonly string[];
@@ -63,7 +64,7 @@ export function confirmedInputDeliveries<T extends InputEvent>(source: readonly 
 // Echoes retain their original position in the audit/UI log. Model and review
 // readers place tracked input at actual dispatch, combining a queued batch in
 // the same order as the provider prompt. Legacy follow-ups use turn boundaries.
-export function projectDeliveredInputs<T extends InputEvent>(events: readonly T[], source: readonly T[] = events, maxSeq?: number): T[] {
+export function projectDeliveredInputs<T extends InputEvent>(events: readonly T[], source: readonly T[] = events, maxSeq?: number, combineAttachments = false): T[] {
   const scoped = events.filter(event => typeof maxSeq !== 'number' || typeof event.seq !== 'number' || event.seq <= maxSeq);
   const byId = new Map<string, T>(), bySeq = new Map<number, T>();
   const referencedIds = new Set<string>(), referencedSeqs = new Set<number>();
@@ -90,7 +91,7 @@ export function projectDeliveredInputs<T extends InputEvent>(events: readonly T[
     if (!unique.length) return;
     const ids = new Set(unique.map(key)); pending = pending.filter(input => !ids.has(key(input)));
     out.push({ ...unique[0], content: unique.map(input => input.content).join('\n\n'), kind: steer ? 'steer' : undefined,
-      deliveryTracked: false, ...(boundary.seq !== undefined ? { seq: boundary.seq } : {}) } as T);
+      deliveryTracked: false, ...(combineAttachments ? { attachments: unique.flatMap(input => strings(input.attachments)) } : {}), ...(boundary.seq !== undefined ? { seq: boundary.seq } : {}) } as T);
   };
   for (const event of scoped) {
     if (event.type === 'queued_message_cancelled' && event.clientMessageId) {

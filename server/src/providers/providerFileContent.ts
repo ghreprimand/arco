@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { WorkerConfig } from '@arco/shared';
 import { randomUUID } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { UPLOADS_DIR } from '../server/constants.js';
 import { ensureStorageRoot } from '../storageRoot.js';
 import { writeCheckedFile } from '../checkedFile.js';
@@ -17,7 +17,7 @@ const MAX_REQUEST_MEDIA_BYTES = 20 * 1024 * 1024;
 
 // Paths here come from the operator's already-authorized attachment list.
 // Tool reads authorize against the workflow separately before calling the decoder.
-export async function prepareProviderAttachments(paths: string[] | undefined, images = true, signal?: AbortSignal, documents = false): Promise<PreparedAttachments> {
+export async function prepareProviderAttachments(paths: string[] | undefined, images = true, signal?: AbortSignal, documents = false, attachmentOnly = false): Promise<PreparedAttachments> {
   const texts: string[] = [];
   const media: ProviderImage[] = [];
   let imageBytes = 0;
@@ -26,17 +26,18 @@ export async function prepareProviderAttachments(paths: string[] | undefined, im
   for (const path of paths ?? []) {
     if (signal?.aborted) break;
     try {
+      const label = attachmentOnly ? basename(path).replace(/[\r\n\0]/g, ' ') : path;
       const allowDocuments = documents && documentPages < MAX_REQUEST_DOCUMENT_PAGES && documentBytes < MAX_REQUEST_MEDIA_BYTES;
-      const result = await readFileContent(await realpath(path), { signal, limits: { images, documents: allowDocuments, maxDocumentPages: allowDocuments ? MAX_REQUEST_DOCUMENT_PAGES - documentPages : MAX_REQUEST_DOCUMENT_PAGES, maxDocumentBase64Bytes: MAX_REQUEST_MEDIA_BYTES - documentBytes, maxTextBytes: 32 * 1024, maxImages: Math.max(1,MAX_REQUEST_IMAGES-media.length), maxImageBase64Bytes: 2 * 1024 * 1024 } });
+      const result = await readFileContent(await realpath(path), { signal, attachmentOnly, limits: { images, documents: allowDocuments, maxDocumentPages: allowDocuments ? MAX_REQUEST_DOCUMENT_PAGES - documentPages : MAX_REQUEST_DOCUMENT_PAGES, maxDocumentBase64Bytes: MAX_REQUEST_MEDIA_BYTES - documentBytes, maxTextBytes: 32 * 1024, maxImages: Math.max(1,MAX_REQUEST_IMAGES-media.length), maxImageBase64Bytes: 2 * 1024 * 1024 } });
       const decodedDocuments = result.blocks.filter((b): b is ProviderDocument => b.type === 'document');
       for (const document of decodedDocuments) {
-        pendingDocuments.push({ document, textIndex: texts.length, fallback: `[attached file: ${path}]\n[Selected PDF exceeds the message media byte limit; extracted text is shown instead.]\n${result.text}` });
+        pendingDocuments.push({ document, textIndex: texts.length, fallback: `[attached file: ${label}]\n[Selected PDF exceeds the message media byte limit; extracted text is shown instead.]\n${result.text}` });
         documentPages += document.pages; documentBytes += document.data.length;
       }
-      const text = decodedDocuments.length
+      const text = decodedDocuments.length || attachmentOnly
         ? result.blocks.filter((b): b is Extract<FileContentBlock, { type: 'text' }> => b.type === 'text').map(b => b.text).join('\n')
         : result.text;
-      texts.push(`[attached file: ${path}]\n${text}${result.kind === 'pdf' && !decodedDocuments.length ? '\n[PDF sent as text and scanned pages as images. Use read_file with pages and pdf_mode=visual for layout or figures.]' : ''}`);
+      texts.push(`[attached file: ${label}]\n${text}${!attachmentOnly && result.kind === 'pdf' && !decodedDocuments.length ? '\n[PDF sent as text and scanned pages as images. Use read_file with pages and pdf_mode=visual for layout or figures.]' : ''}`);
       const decoded = result.blocks.filter((b): b is ProviderImage => b.type === 'image');
       for (const image of decoded) {
         if (media.length >= MAX_REQUEST_IMAGES || imageBytes + image.data.length > MAX_REQUEST_MEDIA_BYTES) {
@@ -44,7 +45,7 @@ export async function prepareProviderAttachments(paths: string[] | undefined, im
         } else { media.push(image); imageBytes += image.data.length; }
       }
     } catch (error) {
-      texts.push(`[attached file: ${path}]\n[error] ${error instanceof Error ? error.message : String(error)}`);
+      texts.push(attachmentOnly ? `[attached file: ${basename(path).replace(/[\r\n\0]/g, ' ')}]\n[Attachment could not be read. Attach it again or choose another file.]` : `[attached file: ${path}]\n[error] ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   // Images have priority even when the PDF preceded them in the attachment list.

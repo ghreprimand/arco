@@ -645,9 +645,9 @@ export function currentHandoffEvents(events: ServerMessage[]): ServerMessage[] {
 // preserves existing behavior for every other consumer.
 export function renderTranscript(
   events: ServerMessage[],
-  opts?: { preserveThinking?: boolean; separateFileContext?: boolean },
+  opts?: { preserveThinking?: boolean; separateFileContext?: boolean; attachmentOnly?: boolean },
 ): string {
-  events = currentHandoffEvents(projectDeliveredInputs(events));
+  events = currentHandoffEvents(projectDeliveredInputs(events, events, undefined, opts?.attachmentOnly));
   const receipts = receiptPlan(events);
   const attachmentParts = new Map<string, number>();
   const parts: Array<{ role: 'USER' | 'AGENT'; content: string }> = [];
@@ -673,7 +673,7 @@ export function renderTranscript(
       + 'A listed reference alone does not establish its contents; use Read again when needed.\n\n' + receipt });
   };
   for (const [eventIndex, ev] of events.entries()) {
-    const receipt = receipts.get(eventIndex);
+    const receipt = opts?.attachmentOnly ? undefined : receipts.get(eventIndex);
     if (ev.type === 'user_message_echo') {
       flushReply();
       parts.push({ role: 'USER', content: ev.content + (receipt && !opts?.separateFileContext ? `\n\n${receipt}` : '') });

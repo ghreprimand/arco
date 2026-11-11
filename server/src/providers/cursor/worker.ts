@@ -391,7 +391,7 @@ export class CursorAcpWorker extends EventEmitter {
     // an agent without the capability) folds to the `[attached file: …]` path
     // refs every other provider uses — the agent reads them via fs/read_text_file.
     // Before this, attachments never left the server on Cursor.
-    const prepared = await prepareProviderAttachments(this.config.attachments, this.promptImages);
+    const prepared = await prepareProviderAttachments(this.config.attachments, this.promptImages, undefined, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
     if (!this.turnActive || generation !== this.turnGeneration || this.disposed) return;
     if (this.turnCancelRequested) {
       this.settleTurn({ error: 'Worker killed' });
