@@ -18,7 +18,8 @@ export const chat: Section[] = [
   Chat is a plain conversation with a model, with no project attached. Use an
   Agent tab instead when the work needs files, commands or project tools.
   Cursor Chat does not attach Arco project-file tools; files attached to a
-  message still use Arco&apos;s image and document decoder.
+  message still use Arco&apos;s image and document decoder. Cursor Chat uses
+  the CLI&apos;s plain-text output mode so replies can start on current Cursor versions.
   </p>
   <p>
   Open <strong>+ NEW</strong>, choose <strong>CHAT</strong>, pick a name,

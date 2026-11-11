@@ -221,7 +221,9 @@ explicitly instead of inheriting a provider default:
   writes as text (llama.cpp's `<tool_call>` fallback) is refused in Chat and
   in plan-review turns, even with AUTO on.
 - **Cursor** - routed to the stateless `-p --mode ask` transport
-  (`--stream-partial-output` in chat) with deterministic transcript replay.
+  with plain-text output and deterministic transcript replay. Chat, read-only
+  reviewers and handoff summaries share this argument builder; the JSON-only
+  partial-output flag is not passed with text output.
 
 **Computer voice exception.** A `voiceOperator` Chat receives only the
 bounded `arco_*` tools from `server/src/voice/toolDefinitions.ts`, with

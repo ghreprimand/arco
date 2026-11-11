@@ -79,7 +79,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     // text` streams the plain assistant answer to stdout — no JSON envelope to
     // parse; incremental chunks map straight to `text` events.
     const args = ['-p', '--output-format', 'text', '--mode', 'ask', '--force', '--trust'];
-    if (this.config.interactionMode === 'chat') args.push('--stream-partial-output');
+    // Partial-output deltas require stream-json; this transport consumes text.
     // Always pass the catalog id, `auto` included: `cursor-agent models` lists
     // `auto`, and without `--model` the CLI runs the model saved as its own
     // default instead of the one chosen in Arco. In print mode the CLI takes

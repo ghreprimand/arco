@@ -25,7 +25,7 @@ export const chatHelp: Record<string, HelpEntry> = {
     title: 'Chat status', manualSection: 'chat-mode',
     body: <p>The provider, model, effort, web access and saved/incognito state for this
       projectless conversation. Model and effort swap live and apply to the next message;
-      the provider stays pinned. This is distinct from an Agent's limited <C>chat</C> tool posture.</p>,
+      the provider stays pinned. Cursor Chat receives plain-text CLI replies. This is distinct from an Agent's limited <C>chat</C> tool posture.</p>,
   },
   'chat.model': {
     title: 'Chat model', manualSection: 'chat-mode',

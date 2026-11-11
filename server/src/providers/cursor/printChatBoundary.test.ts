@@ -25,6 +25,8 @@ test('Cursor print attaches the project reader to Agent turns and never Chat', a
         worker.spawn('Answer briefly');
         for (let i = 0; i < 200 && !args.length; i++) await new Promise(resolve => setTimeout(resolve, 5));
         assert.ok(args.length);
+        assert.equal(args[args.indexOf('--output-format') + 1], 'text');
+        assert.equal(args.includes('--stream-partial-output'), false, 'text output must not request stream-json-only partial deltas');
         assert.equal(args.includes('--plugin-dir'), interactionMode === 'agent');
         assert.equal(input.includes(FILE_READ_GUIDANCE), interactionMode === 'agent');
         child.emit('close', 0, null);
