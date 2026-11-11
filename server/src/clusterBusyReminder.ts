@@ -8,6 +8,7 @@ const states = new Map<string, ReminderState>();
 const pending = new Set<string>();
 export interface BusyReminderDeps {
   isBusy: (workflowId: string) => boolean;
+  hasClusterTools?: (workflowId: string, clusterId: string) => boolean;
   // True only when the ordinary steering path accepted the reminder while busy.
   dispatch: (workflowId: string, content: string, allow?: () => boolean) => Promise<boolean>;
 }
@@ -19,8 +20,9 @@ function enabled(clusterId: string, workflowId: string, now: number): boolean {
 }
 
 export async function remindBusyMember(clusterId: string, workflowId: string, deps: BusyReminderDeps): Promise<void> {
+  const ready = () => deps.hasClusterTools?.(workflowId, clusterId) !== false;
   const key = `${clusterId}:${workflowId}`;
-  if (pending.has(key) || !enabled(clusterId,workflowId,Date.now()) || !deps.isBusy(workflowId)) return;
+  if (pending.has(key) || !enabled(clusterId,workflowId,Date.now()) || !deps.isBusy(workflowId) || !ready()) return;
   pending.add(key);
   try {
     const mail = await mailbox.peek(workflowId);
@@ -32,9 +34,9 @@ export async function remindBusyMember(clusterId: string, workflowId: string, de
     states.set(key,prior);
     const now = Date.now();
     if (!ids.size || ![...ids].some(id=>!prior.seen.has(id)) || (prior.at !== undefined && now-prior.at < BUSY_REMINDER_GAP_MS)) return;
-    if (!enabled(clusterId,workflowId,now) || !deps.isBusy(workflowId)) return;
+    if (!enabled(clusterId,workflowId,now) || !deps.isBusy(workflowId) || !ready()) return;
     const prompt = buildClusterNudge(store.getEfficiencyLevel(clusterId),true,store.getMemberRole(clusterId,workflowId));
-    if (await deps.dispatch(workflowId,prompt,() => enabled(clusterId,workflowId,Date.now()) && deps.isBusy(workflowId))) {
+    if (await deps.dispatch(workflowId,prompt,() => enabled(clusterId,workflowId,Date.now()) && deps.isBusy(workflowId) && ready())) {
       prior.at = Date.now();
       for (const id of ids) prior.seen.add(id);
     }

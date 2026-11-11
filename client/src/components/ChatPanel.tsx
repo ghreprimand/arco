@@ -34,6 +34,23 @@ interface Props {
 }
 
 export function ChatPanel({ job, onCancelQueued, onLoadEarlier, clusterContext, presentation = 'workbench', onEditMessage, onRetryMessage }: Props) {
+  const pendingToolsText = 'This tab is working. It gets its cluster tools when the current turn ends.';
+  const announcedTools = useRef({ id: job.id, seen: new Set(job.messages.map(message => message.id)) });
+  const [toolsAnnouncement, setToolsAnnouncement] = useState<{ id: string; text: string } | null>(null);
+  useEffect(() => {
+    const prior = announcedTools.current;
+    if (prior.id !== job.id) {
+      announcedTools.current = { id: job.id, seen: new Set(job.messages.map(message => message.id)) };
+      setToolsAnnouncement(null);
+      return;
+    }
+    for (const message of job.messages) {
+      if (!prior.seen.has(message.id) && message.role === 'system' && message.content === pendingToolsText) {
+        setToolsAnnouncement({ id: message.id, text: pendingToolsText });
+      }
+      prior.seen.add(message.id);
+    }
+  }, [job.id, job.messages]);
   // Debounce the pill click so a double-tap doesn't fire two pages.
   const [loadingEarlier, setLoadingEarlier] = useState(false);
   // Prior-sessions collapse state. Default collapsed so the chat window
@@ -421,6 +438,7 @@ export function ChatPanel({ job, onCancelQueued, onLoadEarlier, clusterContext, 
         flexDirection: 'column',
       }}
     >
+    <div role="status" aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)' }}>{toolsAnnouncement && <span key={toolsAnnouncement.id}>{toolsAnnouncement.text}</span>}</div>
     <div
       ref={scrollRef}
       onScroll={onScroll}

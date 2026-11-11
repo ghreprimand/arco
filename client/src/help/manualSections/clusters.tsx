@@ -107,6 +107,7 @@ export const clusters: Section[] = [
   menu says so. The context menu offers three modes:
   </p>
   <p>The server also refuses existing Cursor sessions in cluster creation and add-existing requests. Fresh Cursor members remain supported.</p>
+  <p>A compatible tab can join while working. The dialog identifies working tabs, and the conversation says: This tab is working. It gets its cluster tools when the current turn ends. The notice repeats when a steer or follow-up is sent into that turn.</p><p>A same-turn steer tells the agent to wait for the cluster tools and not read internal cluster state or call routes as a workaround. Claude CLI and Codex exec queue messages until the next turn instead. Existing Cursor tabs cannot join; use + ADD FRESH. LM Studio tabs cannot join clusters.</p>
   <ul>
   <li>
   <strong>CREATE WITH EXISTING</strong> - multi-pick other same-cwd

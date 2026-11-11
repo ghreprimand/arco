@@ -204,6 +204,10 @@ export class ClusterValidationError extends Error {
   }
 }
 
+// Installed by the primary-turn owner; applies equally to REST and WS joins.
+let memberJoined: ((clusterId: string, workflowId: string) => void) | undefined;
+export function setMemberJoinedListener(listener: (clusterId: string, workflowId: string) => void): void { memberJoined = listener; }
+
 export async function createCluster(opts: {
   cwd: string;
   memberWorkflowIds: string[];
@@ -252,6 +256,7 @@ export async function createCluster(opts: {
   await fs.mkdir(clusterMailboxRoot(clusterId), { recursive: true });
   await writeMetaAtomic(state);
   rebuildIndexFor(state);
+  for (const id of members) memberJoined?.(clusterId, id);
   return state;
 }
 
@@ -440,6 +445,7 @@ export async function addMember(
     const next: ClusterState = { ...state, members: [...state.members, workflowId] };
     await writeMetaAtomic(next);
     rebuildIndexFor(next);
+    memberJoined?.(clusterId, workflowId);
     return next;
   });
 }

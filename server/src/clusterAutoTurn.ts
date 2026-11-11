@@ -134,6 +134,7 @@ const pendingDepth = new Map<string, number>();
 
 let broadcastWorkflowFn: ((workflowId: string, msg: ServerMessage) => void) | undefined;
 let dispatchAutoTurnFn: ((workflowId: string, content: string) => void) | undefined;
+let hasClusterToolsFn: ((workflowId: string, clusterId: string) => boolean) | undefined;
 let dispatchBusyReminderFn: ((workflowId: string, content: string, allow?: () => boolean) => Promise<boolean>) | undefined;
 let isBusyFn: ((workflowId: string) => boolean) | undefined;
 let resolveMembersFn: (() => Map<string, { workflowId: string; busy: boolean }[]> | undefined) | undefined;
@@ -154,6 +155,7 @@ export function configure(opts: {
   broadcastWorkflow: (workflowId: string, msg: ServerMessage) => void;
   dispatchAutoTurn: (workflowId: string, content: string) => void;
   isBusy: (workflowId: string) => boolean;
+  hasClusterTools?: (workflowId: string, clusterId: string) => boolean;
   dispatchBusyReminder?: (workflowId: string, content: string, allow?: () => boolean) => Promise<boolean>;
   resolveMembers?: () => Map<string, { workflowId: string; busy: boolean }[]> | undefined;
 }): void {
@@ -161,6 +163,7 @@ export function configure(opts: {
   dispatchAutoTurnFn = opts.dispatchAutoTurn;
   isBusyFn = opts.isBusy;
   dispatchBusyReminderFn = opts.dispatchBusyReminder;
+  hasClusterToolsFn = opts.hasClusterTools;
   if (opts.resolveMembers) resolveMembersFn = opts.resolveMembers;
 }
 
@@ -199,7 +202,7 @@ async function sweep(): Promise<void> {
     if (!liveMembers || liveMembers.length === 0) continue;
     for (const m of liveMembers) {
       if (m.busy) {
-        if (dispatchBusyReminderFn) await remindBusyMember(clusterId,m.workflowId,{isBusy:isBusyFn,dispatch:dispatchBusyReminderFn});
+        if (dispatchBusyReminderFn) await remindBusyMember(clusterId,m.workflowId,{isBusy:isBusyFn,hasClusterTools:hasClusterToolsFn,dispatch:dispatchBusyReminderFn});
         continue;
       }
       if (!clusterStore.isAutoTurnOnMailboxEnabled(clusterId)) continue;
@@ -340,7 +343,7 @@ export function onPeerMessageSent(opts: {
   recipientWfid: string;
   incomingChainDepth: number;
 }): void {
-  if (isBusyFn && dispatchBusyReminderFn) void remindBusyMember(opts.clusterId,opts.recipientWfid,{isBusy:isBusyFn,dispatch:dispatchBusyReminderFn});
+  if (isBusyFn && dispatchBusyReminderFn) void remindBusyMember(opts.clusterId,opts.recipientWfid,{isBusy:isBusyFn,hasClusterTools:hasClusterToolsFn,dispatch:dispatchBusyReminderFn});
   if (!clusterStore.isAutoTurnOnMailboxEnabled(opts.clusterId)) return;
   if (opts.incomingChainDepth > pendingChainDepth(opts.recipientWfid)) pendingDepth.set(opts.recipientWfid, opts.incomingChainDepth);
   try { ruleGuard.mail(opts.clusterId, opts.senderWfid, opts.recipientWfid); } catch (error) { console.error('[arco] Rule-based pickup ledger unavailable:', error); return; }

@@ -1,3 +1,4 @@
+import { clusterToolsPending } from './clusterTurnTools.js';
 import { cleanupChatSandboxesOnStartup } from './providers/cursor/chatSandbox.js';
 import { ensureStorageRoot } from './storageRoot.js';
 import './envAliases.js'; // env fallback resolves before any module reads ARCO_* (see envAliases.ts)
@@ -2254,6 +2255,10 @@ function onListening() {
   clusterAutoTurn.configure({
     broadcastWorkflow,
     dispatchBusyReminder: enqueueBusyReminder,
+    hasClusterTools: (workflowId, clusterId) => {
+      const wf = workflows.get(workflowId);
+      return !!wf?.primaryTurn?.clusterDispatch && !clusterToolsPending(wf, clusterId) && wf.primaryTurn.clusterDispatch.clusterId === clusterId;
+    },
     isBusy: (wfid) => workflows.get(wfid)?.busy === true,
     resolveMembers: () => {
       const out = new Map<string, { workflowId: string; busy: boolean }[]>();

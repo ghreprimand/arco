@@ -1481,6 +1481,11 @@ export async function handleClusterCreateWithFreshWorkers(
     send(ws, { type: 'error', message: `Unknown source workflow ${msg.sourceWorkflowId.slice(0, 8)}` });
     return;
   }
+  const existingRefusal = existingClusterMemberRefusal([msg.sourceWorkflowId]);
+  if (existingRefusal) {
+    send(ws, { type: 'error', message: `cluster_create_with_fresh_workers rejected: ${existingRefusal}` });
+    return;
+  }
   const sourceCwd = source.config.workingDirectory;
   if (!sourceCwd) {
     send(ws, { type: 'error', message: 'Source workflow has no working directory configured.' });

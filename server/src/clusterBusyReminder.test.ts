@@ -66,3 +66,19 @@ test('the periodic sweep retries new mail held by the gap, without repeating the
  try{t.mock.timers.tick(5000);await settle();assert.equal(sends,1);now+=300000;t.mock.timers.tick(5000);await settle();assert.equal(sends,2);now+=300000;t.mock.timers.tick(5000);await settle();assert.equal(sends,2);}
  finally{auto.stop();}
 });
+
+test('a pre-cluster dispatch does not receive role/mail reminders or consume its reminder eligibility',async()=>{
+ const {remindBusyMember}=await import('./clusterBusyReminder.js');const {cluster,a,b}=await fixture();let tools=false,sent=0;
+ await store.setAutoPickup(cluster.clusterId,{mode:'rule',remindBusy:true} as any);await send(a,b);
+ const deps={isBusy:()=>true,hasClusterTools:()=>tools,dispatch:async()=>{sent++;return true;}};
+ await remindBusyMember(cluster.clusterId,b,deps);assert.equal(sent,0);
+ tools=true;await remindBusyMember(cluster.clusterId,b,deps);assert.equal(sent,1,'suppressed reminder did not consume seen or cooldown');
+});
+
+test('a reminder losing its tool configuration while dispatch waits is refused without consuming mail',async()=>{
+ const {remindBusyMember}=await import('./clusterBusyReminder.js');const {cluster,a,b}=await fixture();let tools=true,admitted=false;
+ await store.setAutoPickup(cluster.clusterId,{mode:'rule',remindBusy:true} as any);await send(a,b);
+ await remindBusyMember(cluster.clusterId,b,{isBusy:()=>true,hasClusterTools:()=>tools,dispatch:async(_id,_text,allow)=>{tools=false;admitted=allow!();return admitted;}});
+ assert.equal(admitted,false);let sends=0;tools=true;
+ await remindBusyMember(cluster.clusterId,b,{isBusy:()=>true,hasClusterTools:()=>tools,dispatch:async()=>{sends++;return true;}});assert.equal(sends,1);
+});

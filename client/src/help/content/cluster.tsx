@@ -8,7 +8,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>Local-model members retain action tools alongside coordination tools, and can confirm a guarded status message when requested. A cluster is a team of workers sharing one project folder. Member cards on the left show each worker at a glance, the focused member&apos;s chat sits beside them, and the right panel holds the shared tools: members, files, activity, reviews, handoffs, plan, board, mail, history, preview, settings and GitHub.</p>
-        <p>Start a cluster from New work or from a tab&apos;s right-click menu. The same menu offers <C>ADD TO EXISTING</C> to bring an open tab into a cluster that already uses its folder.</p>
+        <p>Start a cluster from New work or from a tab&apos;s right-click menu. The same menu offers <C>ADD TO EXISTING</C> to bring an open tab into a cluster that already uses its folder. A working compatible tab can join; the conversation explains that cluster tools arrive after its current turn, and same-turn steering tells the agent not to work around missing tools.</p>
       </>
     ),
     manualSection: 'cluster-tab',

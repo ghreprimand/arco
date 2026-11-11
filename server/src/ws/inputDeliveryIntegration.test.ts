@@ -198,3 +198,35 @@ for (const provider of ['ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] 
   assert.ok((await replayEvents(f.cwd, f.id, 0)).some(event => event.type === 'file_context' && event.receipt === 'Restorable named file'));
  } finally { for (const pending of f.pending) pending.finish('cleanup'); await run; await f.close(); }
 });
+
+const pendingNotice = 'This tab is working. It gets its cluster tools when the current turn ends.';
+for (const provider of ['claude','codex','ollama','llamacpp','lmstudio'] as const) test(`${provider} joining a dispatched turn warns both browsers and decorates only old-turn steering`, async()=>{
+ const f=await fixture(provider);let run:Promise<void>|undefined;
+ const store=await import('../clusterStore.js');const second:any[]=[];f.wf.observers.add({readyState:1,send:(raw:string)=>second.push(JSON.parse(raw))});
+ try {
+  run=engine.handleUserMessage(f.ws,f.session,f.id,'FIRST_TASK','first',undefined,false,undefined,undefined);await f.wait(1);
+  await engine.handleUserMessage(f.ws,f.session,f.id,'UNCHANGED_BYTES\nwith punctuation: []','before',undefined,true,'steer',undefined);
+  assert.equal(f.pending[0].options.drainSteer()[0].content,'UNCHANGED_BYTES\nwith punctuation: []');
+  const cluster=await store.createCluster({cwd:f.cwd,memberWorkflowIds:[f.id,randomUUID()]});
+  await store.setMemberRole(cluster.clusterId,f.id,'Director role. Delegate using peer_send.');
+  assert.equal(second.filter(m=>m.type==='system_notice'&&m.content===pendingNotice).length,1);
+  assert.equal(await engine.enqueueBusyReminder(f.id,'Read peer mail and delegate'),false,'pending turn refuses automatic reminder without another notice');
+  await engine.handleUserMessage(f.ws,f.session,f.id,'AUTOMATIC_PICKUP','automatic',undefined,true,'follow-up',undefined,undefined,{automaticKind:'auto-pickup'});
+  assert.equal(second.filter(m=>m.type==='system_notice'&&m.content===pendingNotice).length,1,'automatic pickup adds no operator notice');
+  await engine.handleUserMessage(f.ws,f.session,f.id,'BACKGROUND_EVENT','background',undefined,true,'follow-up',undefined,undefined,{backgroundEvent:true});
+  assert.equal(second.filter(m=>m.type==='system_notice'&&m.content===pendingNotice).length,1,'background event adds no operator notice');
+  await engine.handleUserMessage(f.ws,f.session,f.id,'OPERATOR_STEER','steer',undefined,true,'steer',undefined);
+  const items=f.pending[0].options.drainSteer();assert.match(items[0].content,/Arco cluster tools pending/);assert.match(items[0].content,/Do not work around/);assert.ok(items[0].content.endsWith('OPERATOR_STEER'));assert.ok(!items[0].content.includes('Delegate using'));
+  // A failed steer requeues the original input, never its transient warning.
+  f.pending[0].options.requeueSteer(items,'follow-up');
+  assert.equal(f.wf.queue.followUp.find((item:any)=>item.clientMessageId==='steer')?.content,'OPERATOR_STEER');
+  await engine.handleUserMessage(f.ws,f.session,f.id,'FOLLOW_UP','follow',undefined,true,'follow-up',undefined);
+  assert.equal(second.filter(m=>m.type==='system_notice'&&m.content===pendingNotice).length,3,'join plus two operator inputs, no drain/reminder spam');
+  f.pending[0].finish('first');await f.wait(2);
+  assert.equal(f.pending[1].options.clusterId,cluster.clusterId);assert.ok(!f.pending[1].spec.task.includes('Arco cluster tools pending'));assert.ok(f.pending[1].spec.task.includes('OPERATOR_STEER'));assert.ok(f.pending[1].spec.task.includes('FOLLOW_UP'));
+  await engine.handleUserMessage(f.ws,f.session,f.id,'READY_STEER\n[]','ready',undefined,true,'steer',undefined);
+  assert.equal(f.pending[1].options.drainSteer()[0].content,'READY_STEER\n[]');
+  f.pending[1].finish('second');await run;await flushAll();
+  const notices=(await replayEvents(f.cwd,f.id,0)).filter((e:any)=>e.type==='system_notice'&&e.content===pendingNotice);assert.equal(notices.length,3,'notices survive reconnect replay');
+ } finally {f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const item of f.pending)item.finish('cleanup');await run;await f.close();}
+});

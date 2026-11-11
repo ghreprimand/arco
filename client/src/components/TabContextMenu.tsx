@@ -28,7 +28,9 @@ import { modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
 type Mode = 'create-existing' | 'add-existing' | 'create-fresh';
 
 export const CLUSTER_PROVIDER_REFUSAL = 'This menu adds Claude, Codex, Ollama and llama.cpp tabs to a cluster. This tab uses another provider, which cannot receive the cluster peer tools.';
-export const CURSOR_TAB_REFUSAL = 'An open Cursor tab cannot join a cluster: its Cursor session started without the cluster peer tools, so it could not read or send cluster mail. Add Cursor members as new workers instead, with + ADD FRESH in the cluster panel.';
+export const CURSOR_TAB_REFUSAL = 'An open Cursor tab cannot join a cluster. Add a new Cursor member with + ADD FRESH in the cluster panel.';
+export const LMSTUDIO_TAB_REFUSAL = 'LM Studio tabs cannot join clusters. Cluster membership is supported for Claude, Codex, Ollama, llama.cpp and new Cursor workers.';
+const PENDING_TOOLS_NOTICE = 'This tab is working. It gets its cluster tools when the current turn ends.';
 
 interface Props {
   // The tab the operator right-clicked.
@@ -196,6 +198,9 @@ export function TabContextMenu({
     c.members.some((m) => m.workflowId === anchor.id),
   );
 
+  const joiningIds = mode === 'create-existing' ? [anchor.id, ...selected] : [anchor.id];
+  const workingTabs = anchorIsNative ? joiningIds.map(id => jobs[id]).filter(job => job?.busy) : [];
+
   const submit = () => {
     if (!anchorIsNative) return;
     if (mode === 'create-existing') {
@@ -252,6 +257,9 @@ export function TabContextMenu({
     >
       <div
         data-help="tabbar.context-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Cluster actions"
         onClick={(e) => e.stopPropagation()}
         className="display-font"
         style={{
@@ -260,12 +268,18 @@ export function TabContextMenu({
           background: 'var(--color-bg-elevated)',
           border: '1px solid var(--color-border-hairline)',
           padding: '20px 24px',
-          minWidth: '460px',
-          maxWidth: '640px',
+          width: 'min(640px, calc(100vw / var(--ui-scale, 1) - 24px))',
+          minWidth: 0,
+          maxHeight: 'calc(100dvh / var(--ui-scale, 1) - 24px)',
+          boxSizing: 'border-box',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
           color: 'var(--color-fg)',
           fontSize: '12px',
         }}
       >
+        <div style={{ minHeight: 0, overflowY: 'auto', overflowX: 'hidden', overflowWrap: 'anywhere' }}>
         <div style={{ fontSize: '11px', letterSpacing: '1px', color: 'var(--color-accent-primary)', marginBottom: '12px' }}>
           CLUSTER ACTIONS
         </div>
@@ -275,7 +289,7 @@ export function TabContextMenu({
         </div>
 
         {/* Mode picker */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
           <ModeChip active={mode === 'create-existing'} onClick={() => setMode('create-existing')}>
             CREATE WITH EXISTING
           </ModeChip>
@@ -291,9 +305,12 @@ export function TabContextMenu({
           </ModeChip>
         </div>
 
+        <div id="cluster-pending-tools" role="status" aria-live="polite" style={{ color: 'var(--color-warning)', overflowWrap: 'anywhere' }}>
+          {workingTabs.map(job => <p key={job.id} style={{ margin: '0 0 12px' }}><strong>{job.config.name}: </strong><span>{PENDING_TOOLS_NOTICE}</span></p>)}
+        </div>
         {!anchorIsNative ? (
           <div style={{ color: 'var(--color-warning)', padding: '12px 0' }}>
-            {(anchor.config.primaryProvider ?? 'claude') === 'cursor' ? CURSOR_TAB_REFUSAL : CLUSTER_PROVIDER_REFUSAL}
+            {(anchor.config.primaryProvider ?? 'claude') === 'cursor' ? CURSOR_TAB_REFUSAL : anchor.config.primaryProvider === 'lmstudio' ? LMSTUDIO_TAB_REFUSAL : CLUSTER_PROVIDER_REFUSAL}
           </div>
         ) : mode === 'create-existing' ? (
           existingCandidates.length === 0 ? (
@@ -540,7 +557,8 @@ export function TabContextMenu({
           </div>
         )}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+        </div>
+        <div style={{ display: 'flex', flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
           <button
             onClick={onClose}
             className="display-font"
@@ -558,6 +576,7 @@ export function TabContextMenu({
           </button>
           <button
             onClick={submit}
+            aria-describedby={workingTabs.length ? "cluster-pending-tools" : undefined}
             disabled={submitDisabled}
             className="display-font"
             style={{

@@ -47,6 +47,8 @@ test('each creation path builds the new member from its request', async () => {
   };
   const last = async (clusterId: string) => (await store.readCluster(clusterId))!.members.at(-1)!;
 
+  assert.deepEqual(await run(() => h.handleClusterCreateWithFreshWorkers(ws, session, { sourceWorkflowId: tab({ ...TEMPLATE, primaryProvider: 'cursor' }), additionalCount: 1 } as never)), { configs: [], errors: ['cluster_create_with_fresh_workers rejected: Existing Cursor tabs started without cluster peer tools; use + ADD FRESH to create a Cursor member.'] });
+
   // CREATE WITH FRESH WORKERS: the source's settings, a numbered name, no
   // resume, no auto-compaction; on a provider change the template's own account
   // is looked up (an unconfigured one falls back to the first configured).

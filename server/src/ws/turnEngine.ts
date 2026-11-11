@@ -33,6 +33,7 @@ import { summarizeTurnChanges, timelyCheckpoint, shouldCaptureTurn } from '../tu
 import { isManagedBakeoffWorktree } from '../gitBakeoff.js';
 import * as clusterMailbox from '../clusterMailbox.js';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
+import { clusterToolsPending, CLUSTER_TOOLS_PENDING_NOTICE, CLUSTER_TOOLS_PENDING_AGENT } from '../clusterTurnTools.js';
 import * as clusterStore from '../clusterStore.js';
 import * as clusterEfficiency from '../clusterEfficiency.js';
 import { BLIND_CLUSTER_DOCTRINE } from '../clusterAccessDoctrine.js';
@@ -150,7 +151,14 @@ export interface TurnEngineDeps {
   handleCompactWorkflow?: (ws: WebSocket, session: Session, msg: import('@arco/shared').CompactWorkflowMessage, guard?: (claim: () => number) => Promise<number | false>, autoDetail?: string) => Promise<void>;
 }
 let deps: TurnEngineDeps;
-export function initTurnEngine(d: TurnEngineDeps): void { deps = d; }
+export function initTurnEngine(d: TurnEngineDeps): void {
+  deps = d;
+  clusterStore.setMemberJoinedListener((clusterId, workflowId) => {
+    if (clusterToolsPending(workflows.get(workflowId), clusterId)) {
+      broadcastWorkflow(workflowId, { type: 'system_notice', workflowId, content: CLUSTER_TOOLS_PENDING_NOTICE });
+    }
+  });
+}
 
 
 // Extract renderable entries from a raw Claude session JSONL line. A single
@@ -1191,6 +1199,8 @@ export function broadcastQueueUpdate(workflowId: string): void {
 // results and the next streamOneTurn) cannot double-deliver. Recovery
 // paths in llamacpp.ts inject their own synthetic user messages and skip
 // past the hook — by design.
+const originalSteerItems = new WeakMap<SteerItem, QueueItem>();
+
 export function drainSteerForWorker(workflowId: string, ws: WebSocket, deliveryProvider?: WorkflowConfig['primaryProvider']): SteerItem[] {
   const wf = workflows.get(workflowId);
   if (!wf || wf.queue.steering.length === 0 || wf.primaryTurn?.holdSteer || wf.queue.steering.some((q) => q.interrupt)) return [];
@@ -1213,18 +1223,24 @@ export function drainSteerForWorker(workflowId: string, ws: WebSocket, deliveryP
     });
   }
   console.log(`[arco] [${workflowId.slice(0, 8)}] mid-turn steer drained (${drained.length} item${drained.length === 1 ? '' : 's'}; follow-up bucket untouched)`);
-  return drained.map((d) => ({
-    deliveryId,
-    // §D1 — mid-turn steer is delivered as a single `content` string through
-    // the provider steer APIs (SteerItem has no separate context block), so a
-    // steer message's expanded `@`-refs ride appended to its content. The echo
-    // already went out compact at enqueue; this only affects what the model
-    // sees mid-turn. Post-turn drain (the loop in handleUserMessage) uses the
-    // separate-block path instead.
-    content: d.expandedContext ? d.content + d.expandedContext : d.content,
-    ...(d.clientMessageId ? { clientMessageId: d.clientMessageId } : {}),
-    ...(d.attachments && d.attachments.length > 0 ? { attachments: d.attachments } : {}),
-  }));
+  return drained.map((d) => {
+    const pending = clusterToolsPending(wf, clusterStore.getClusterIdForWorkflow(workflowId));
+    const raw = d.expandedContext ? d.content + d.expandedContext : d.content;
+    const item: SteerItem = {
+      deliveryId,
+      // §D1 — mid-turn steer is delivered as a single `content` string through
+      // the provider steer APIs (SteerItem has no separate context block), so a
+      // steer message's expanded `@`-refs ride appended to its content. The echo
+      // already went out compact at enqueue; this only affects what the model
+      // sees mid-turn. Post-turn drain (the loop in handleUserMessage) uses the
+      // separate-block path instead.
+      content: pending ? (d.clusterBusyReminder ? CLUSTER_TOOLS_PENDING_AGENT : `${CLUSTER_TOOLS_PENDING_AGENT}\n\n${raw}`) : raw,
+      ...(d.clientMessageId ? { clientMessageId: d.clientMessageId } : {}),
+      ...(d.attachments && d.attachments.length > 0 ? { attachments: d.attachments } : {}),
+    };
+    originalSteerItems.set(item, d);
+    return item;
+  });
 }
 
 // Phase 6b — re-enqueue support for the Codex app-server worker. The worker
@@ -1250,7 +1266,7 @@ export function requeueSteerForWorker(
   if (!wf || items.length === 0) return;
   const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
   for (const item of items) {
-    arr.push({
+    arr.push(originalSteerItems.get(item) ?? {
       content: item.content,
       ...(item.clientMessageId ? { clientMessageId: item.clientMessageId } : {}),
       ...(item.attachments && item.attachments.length > 0 ? { attachments: item.attachments } : {}),
@@ -1408,7 +1424,7 @@ export async function enqueueBusyReminder(workflowId: string, content: string, a
   const ws = { readyState: WebSocket.CLOSED, send: () => undefined } as unknown as WebSocket;
   const session = { id: 'busy-reminder', workflowIds: new Set([workflowId]), clusterIds: new Set<string>(), clusterObserved: new Map() } as Session;
   await handleUserMessage(ws,session,workflowId,content,undefined,undefined,true,'steer',undefined,undefined,
-    { automaticKind: 'auto-pickup', busyOnly: true, busyOnlyGuard: allow, onBusyQueued: () => { accepted = true; } });
+    { automaticKind: 'auto-pickup', clusterBusyReminder: true, busyOnly: true, busyOnlyGuard: allow, onBusyQueued: () => { accepted = true; } });
   return accepted;
 }
 
@@ -1425,7 +1441,7 @@ export async function handleUserMessage(
   pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>,
   // drainQueueIfIdle only: take the prompt from wf.queue at claim time
   // instead of `content` (items were echoed + expanded at enqueue).
-  opts?: { automaticKind?: import('@arco/shared').AutomaticMessageKind; fromQueue?: boolean; busyOnly?: boolean; busyOnlyGuard?: () => boolean; onBusyQueued?: () => void; backgroundEvent?: boolean; onBackgroundSettled?: (error?: string) => void; claimGuard?: (claim: () => boolean) => Promise<boolean> },
+  opts?: { clusterBusyReminder?: boolean; automaticKind?: import('@arco/shared').AutomaticMessageKind; fromQueue?: boolean; busyOnly?: boolean; busyOnlyGuard?: () => boolean; onBusyQueued?: () => void; backgroundEvent?: boolean; onBackgroundSettled?: (error?: string) => void; claimGuard?: (claim: () => boolean) => Promise<boolean> },
 ): Promise<void> {
   const fromQueue = opts?.fromQueue === true;
   const wf = workflows.get(workflowId);
@@ -1607,6 +1623,11 @@ export async function handleUserMessage(
       // but we still queue rather than error — drops fewer operator messages.
       console.warn(`[arco] [${workflowId.slice(0, 8)}] user_message while busy without interjection flag — queuing anyway`);
     }
+    const toolsPending = clusterToolsPending(wf, clusterStore.getClusterIdForWorkflow(workflowId));
+    if (opts?.clusterBusyReminder && toolsPending) return;
+    if (toolsPending && !opts?.clusterBusyReminder && opts?.automaticKind !== 'auto-pickup' && !opts?.backgroundEvent) broadcastWorkflow(workflowId, {
+      type: 'system_notice', workflowId, content: CLUSTER_TOOLS_PENDING_NOTICE,
+    });
     const interrupt = kind === 'interrupt' && !wf.config.voiceOperator
       && (wf.primary.provider === 'claude' || wf.primary.provider === 'codex')
       && wf.primaryTurn !== undefined && ownsBusy(wf, wf.primaryTurn.token);
@@ -1618,7 +1639,7 @@ export async function handleUserMessage(
     });
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
     const queuedAttachments = [...new Set([...(attachments ?? []), ...contextAttachments])];
-    const queuedItem = { automaticKind: opts?.automaticKind, content, attachments: isolatedMember || !queuedAttachments.length ? undefined : queuedAttachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
+    const queuedItem = { clusterBusyReminder: opts?.clusterBusyReminder, automaticKind: opts?.automaticKind, content, attachments: isolatedMember || !queuedAttachments.length ? undefined : queuedAttachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
     arr.push(queuedItem);
     opts?.onBusyQueued?.();
     send(ws, {
@@ -1939,6 +1960,7 @@ export async function handleUserMessage(
   let activeTurnObservation: ReturnType<typeof observeCheckoutWriters> | undefined;
   try {
     while (true) {
+      primaryTurn.clusterDispatch = undefined;
       const pickedSkillsBlock = await resolvePickedSkillsBlock(promptPickedSkills);
       console.log(`[arco] [${workflowId.slice(0, 8)}] user_message received; starting primary turn (${wf.primary.provider}:${wf.primary.model}, resume=${wf.primarySessionId?.slice(0, 8) || 'none'})`);
 
@@ -2275,6 +2297,7 @@ export async function handleUserMessage(
       // the next turn's lookup returns undefined and the tools disappear
       // from the worker's tool list.
       const turnClusterId = clusterStore.getClusterIdForWorkflow(workflowId);
+      primaryTurn.clusterDispatch = { clusterId: turnClusterId };
 
       // Phase 2.6 — resolve the cluster's shared plan body + this member's
       // role hint at turn start. Both ride into WorkerConfig so the Native

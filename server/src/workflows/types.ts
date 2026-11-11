@@ -40,7 +40,7 @@ export interface WorkflowState {
   primarySessionId?: string;
   // Owned by the user-message loop; interrupt only its worker, never reviewers
   // or compaction. Keep the claim until cancellation has actually settled.
-  primaryTurn?: { token: number; workerId?: string; holdSteer: boolean; interruption?: Promise<boolean | void> };
+  primaryTurn?: { token: number; workerId?: string; holdSteer: boolean; clusterDispatch?: { clusterId?: string }; interruption?: Promise<boolean | void> };
   computerResetting?: boolean;
   // Background activity waits through the full Computer turn/reset boundary.
   computerSettled?: boolean;
@@ -203,6 +203,8 @@ export interface WorkflowState {
 // per-item cancel and queue-strip [×]). The wire `queue_update` snapshot
 // re-projects to QueueEntry (content + clientMessageId + interrupt intent).
 export interface QueueItem {
+  // Server-only provenance, never accepted from a browser message.
+  clusterBusyReminder?: boolean;
   automaticKind?: import('@arco/shared').AutomaticMessageKind;
   ollamaInputSeq?: number;
   interrupt?: boolean;
