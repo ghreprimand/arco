@@ -1571,6 +1571,11 @@ export const miscHelp: Record<string, HelpEntry> = {
       </p>
     ),
   },
+  'chat.seed-pill.source': {
+    title: 'Earlier conversation',
+    body: <p>From on the latest seed opens the saved source in HISTORY through the handoff boundary. Earlier sources follow a chain of handoffs. Closing a tab keeps its history; deleting or archiving it makes the link unavailable. Show full history removes the display filter. Source links are absent in Chat, incognito, BLIND and ISOLATED conversations.</p>,
+    manualSection: 'handoff-action',
+  },
   'chat.seed-pill.handoff': {
     title: 'Handoff seed',
     body: (

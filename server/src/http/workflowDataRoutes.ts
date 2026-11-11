@@ -1,3 +1,4 @@
+import { historyAccessAllowed, safeHistoryMeta } from '../handoffHistory.js';
 import { requireProjectBinding } from './projectBinding.js';
 import { hasGuardrails } from '@arco/shared';
 import { getEffectivePublicProjectChoice } from '../publicProjectChoice.js';
@@ -31,7 +32,7 @@ import {
   workflowCwds,
   workflows,
 } from '../server/state.js';
-import { listWorkflowMetas, readMeta, WFID_PATTERN } from '../workflowMeta.js';
+import { listWorkflowMetas, readMeta, workflowConfigFromMeta, WFID_PATTERN } from '../workflowMeta.js';
 import { purgeWorkflow } from '../workflows/purgeWorkflow.js';
 import { readEventsPageBefore as readWorkflowEventsPageBefore } from '../workflowStore.js';
 import { discoverSessions } from '../workflows/sessionDiscovery.js';
@@ -125,6 +126,38 @@ export async function tryHandleWorkflowDataRoutes(
   res: ServerResponse,
   deps: HttpDeps,
 ): Promise<boolean> {
+  // Cookie-authenticated operator UI; accepts only an opaque saved source key.
+  if (req.url?.match(/^\/api\/handoff-sources(?:\?|$)/) && req.method === 'GET') {
+    const url = new URL(req.url, 'http://localhost');
+    const callerId = url.searchParams.get('workflowId') ?? '';
+    const caller = workflows.get(callerId);
+    if (!caller || !historyAccessAllowed(callerId, caller.config)) {
+      jsonReply(res, 403, { error: 'Handoff sources are unavailable.' });
+      return true;
+    }
+    const meta = await safeHistoryMeta(caller.config.workingDirectory, callerId);
+    const refs = meta?.handoffHistory ?? [];
+    const key = url.searchParams.get('source');
+    if (key) {
+      const ref = refs.find(r => r.key === key);
+      const source = ref ? await safeHistoryMeta(ref.cwd, ref.workflowId) : null;
+      if (!ref || !source) {
+        jsonReply(res, 404, { error: 'Earlier conversation is unavailable. It may have been deleted or archived.' });
+      } else {
+        jsonReply(res, 200, { workflowId: ref.workflowId, throughSeq: ref.throughSeq,
+          config: { ...workflowConfigFromMeta(source, ref.cwd), resumeWorkflowId: ref.workflowId } });
+      }
+    } else {
+      const offset = Math.max(0, Number.parseInt(url.searchParams.get('offset') ?? '0', 10) || 0);
+      const sources = [];
+      for (const ref of refs.slice(offset, offset + 20)) {
+        const available = !!await safeHistoryMeta(ref.cwd, ref.workflowId);
+        sources.push({ key: ref.key, name: ref.name, throughSeq: ref.throughSeq, available });
+      }
+      jsonReply(res, 200, { sources, currentSourceKey: refs[0]?.key, nextOffset: offset + 20 < refs.length ? offset + 20 : null });
+    }
+    return true;
+  }
   if (req.url?.startsWith('/api/plans')) {
     const cwd = new URL(req.url, 'http://localhost').searchParams.get('path');
     try { await requireProjectBinding(cwd); }

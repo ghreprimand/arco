@@ -80,3 +80,31 @@ test('original-worker reflection abort targets its spawning manager',async()=>{
  try{await Promise.race([ready,handle.settled.then(()=>{throw new Error('reflection did not start');})]);handle.abort();assert.equal(kills.length,1);}
  finally{release?.({...result('reflection',''),error:'cancelled'});await handle.settled;}
 });
+
+for (const spawn of [false, true]) test(`link-write failure still completes ${spawn ? 'Spawn' : 'Handoff'} without a source key`, async (t) => {
+ const f = await fixture();
+ const { readMeta } = await import('../workflowMeta.js');
+ let calls = 0;
+ const worker = async (spec: any) => {
+  if (++calls === 1) {
+   const targetId = spawn ? [...f.session.workflowIds].find(id => id !== f.id)! : f.id;
+   rmSync(join(f.cwd, '.arco', 'workflows', targetId as string, 'meta.json'));
+  }
+  return result(spec.id, 'fixture brief');
+ };
+ if (spawn) t.mock.method(WorkerManager.prototype, 'spawn', worker);
+ else f.wf.manager.spawn = worker;
+ try {
+  if (spawn) await handleSpawnFromHere(f.ws, f.session, { type: 'spawn_from_here', parentWorkflowId: f.id, newConfig: { ...f.wf.config, name: 'Fixture child' }, mode: 'fresh-summarizer', summarizer: { provider: 'cursor', model: 'auto', effort: 'low' } } as any);
+  else await handleHandoffRequest(f.ws, f.session, { type: 'handoff_request', workflowId: f.id, mode: 'fresh-summarizer', summarizer: { provider: 'cursor', model: 'auto', effort: 'low' } } as any);
+  const complete = f.messages.filter(m => m.type === (spawn ? 'spawn_from_here_complete' : 'handoff_complete'));
+  assert.equal(complete.length, 1);
+  assert.equal(complete[0].error, undefined);
+  const targetId = spawn ? complete[0].newWorkflowId : f.id;
+  assert.equal(workflows.get(targetId)?.busy, false);
+  assert.equal((await readMeta(f.cwd, targetId))?.handoffHistory, undefined);
+  const seed = f.messages.find(m => m.type === 'user_message_echo' && m.workflowId === targetId);
+  assert.ok(seed);
+  assert.equal(seed.handoffSourceKey, undefined);
+ } finally { t.mock.restoreAll(); await f.close(); }
+});

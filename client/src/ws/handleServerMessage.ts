@@ -591,6 +591,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             id: msg.clientMessageId ?? crypto.randomUUID(),
             role: 'user',
             content: msg.content,
+            handoffSourceKey: msg.handoffSourceKey,
             ...(msg.automaticKind ? { automaticKind: msg.automaticKind } : {}),
             isStreaming: false,
             attachments: msg.attachments,

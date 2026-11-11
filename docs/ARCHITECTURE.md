@@ -1038,3 +1038,9 @@ See [VOICE.md](VOICE.md) for grammar, observations, bounds and examples.
 The `pages` option selects one-based PDF pages, spreadsheet sheets, slides, notebook cells or word-processing sections. Word sections follow explicit page breaks and bounded text groups; they are not a layout engine's printed pages. SVG stays editable text, so external SVG resources and scripts are never rendered. Images are fitted without cropping; unusually tall screenshots may need a smaller source region for readable fine detail.
 
 The interface is shared infrastructure. Each provider's adapter determines its active file-handling behavior; the provider guide documents those integrations. Runtime package assembly bundles dependencies supplied by HTTPS archives, including SheetJS, and records their locked versions. Installed packages do not contact the archive host.
+
+### Handoff source references
+
+`WorkflowMeta.handoffHistory` stores server-owned source keys, workflow locations, frozen event cutoffs and grant boundaries. It is distinct from Task `parentWorkflowId`. Handoff captures the boundary before reflection; successful export saves the flattened ancestry before the seed. Historical Spawn inherits only grants available at its selected boundary. Repeated in-place handoffs replace the same-workflow reference with the latest boundary.
+
+The cookie-authenticated `/api/handoff-sources` UI endpoint resolves opaque keys from the live caller's saved ancestry. It never accepts source paths or arbitrary source workflow ids. Restricted callers and sources are refused on each read. Symlinked state components are refused. Cancellation during persistence restores the previous grant; failed or cancelled export does not create a link. Link-write failures are logged without aborting the handoff. Each seed carries its successful source key, so a failed link never displays an older grant. Purging a source leaves an unavailable reference, not a transcript backup.

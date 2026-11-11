@@ -52,6 +52,7 @@ test('utility-agent, tidy, smart-pickup and notification routes need the session
     return new Response('', { status: 200 });
   }) as typeof fetch);
   const protectedRoutes: Array<[string, string, string?]> = [
+    ['GET', '/api/handoff-sources?workflowId=synthetic'],
     ['GET', '/api/notification-channels'],
     ['PUT', '/api/notification-channels', JSON.stringify({ ntfy: { server: 'https://example.org', topic: 'capture' } })],
     ['POST', '/api/notification-channels/test', JSON.stringify({ ntfy: { server: 'https://example.org', topic: 'capture' } })],

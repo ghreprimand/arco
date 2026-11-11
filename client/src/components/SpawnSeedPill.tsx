@@ -1,3 +1,4 @@
+import { HandoffSource } from './HandoffSource';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -11,9 +12,7 @@ import { useOperatorLabel } from '../utils/operatorLabel';
 const NEW_DIRECTION_SEP = '\n\n---\n\nNew direction: ';
 const READY_SEP = '\n\n---\n\nRead the handoff above. Acknowledge with "READY"';
 
-export function isSpawnSeed(content: string): boolean {
-  return content.includes(NEW_DIRECTION_SEP) || content.includes(READY_SEP);
-}
+export { isSpawnSeed } from '../utils/handoffSeeds';
 
 function splitSpawnSeed(content: string): { body: string; footer: string } {
   const directionIdx = content.lastIndexOf(NEW_DIRECTION_SEP);
@@ -35,9 +34,10 @@ function splitSpawnSeed(content: string): { body: string; footer: string } {
 
 interface Props {
   content: string;
+  workflowId?: string;
 }
 
-export function SpawnSeedPill({ content }: Props) {
+export function SpawnSeedPill({ content, workflowId }: Props) {
   const [expanded, setExpanded] = useState(false);
   const operatorLabel = useOperatorLabel();
   const { body, footer } = splitSpawnSeed(content);
@@ -58,6 +58,7 @@ export function SpawnSeedPill({ content }: Props) {
       >
         <span className="glow-text-cyan">&gt; {operatorLabel}</span>
       </div>
+      {workflowId && <HandoffSource workflowId={workflowId} />}
       <div style={{ marginLeft: '4px' }}>
         <button
           type="button"

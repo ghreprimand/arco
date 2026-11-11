@@ -2278,3 +2278,9 @@ Only regular files beneath the managed uploads folder qualify. Symlinked files, 
 Animated and 16-bit PNG uploads remain unchanged. The smaller copy keeps the picture, but PNG text chunks and colour profiles, and JPEG metadata other than EXIF, are not carried over. When the uploads folder is reached through a linked folder, nothing is shrunk and uploads stay as sent.
 
 Model fitting does not enlarge images. JPEG, PNG, GIF and WebP uploads that already fit the 2,000-pixel edge and 3.75 MiB model byte limits need no model-copy sibling; optional image converters are checked against the source dimensions.
+
+### Earlier conversations after a handoff
+
+Successful Handoff and Spawn operations save their source conversation and the event boundary used for the transfer. The latest seed and HANDOFFS panel show **From** and earlier sources. Opening one selects or reopens that conversation in HISTORY, limited to the recorded boundary; **Show full history** removes that display filter. Closing a tab preserves the source. Deleted or archived sources remain unavailable until a retained archive is restored through Storage.
+
+Source links survive restart and chains of handoffs, including a handoff within the same tab. Chat, incognito, BLIND and ISOLATED conversations do not receive these links. The links contain references, not copied transcripts. Agent retrieval through a dedicated tool is a separate integration; a source control alone does not give the agent that tool.

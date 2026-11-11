@@ -1,5 +1,6 @@
+import { useVoicePanelRequest, requestVoicePanel } from '../voice/panels';
 import { AutomaticMessage } from './AutomaticMessage';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAppStore, type JobState, type HistoryEventEntry } from '../stores/appStore';
 import type { ProviderName, ModelName, EffortLevel, ReviewContextRef, WorkflowConfig, ServerMessage } from '@arco/shared';
 import { ReviewDialog } from './ReviewDialog';
@@ -82,6 +83,8 @@ function formatTime(ms?: number): string {
 }
 
 export function HistoryTab({ job }: Props) {
+  const panelRequest = useVoicePanelRequest(s => s.request);
+  const throughSeq = panelRequest?.id === job.id ? panelRequest.throughSeq : undefined;
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   const flashChatMessage = useAppStore((s) => s.flashChatMessage);
   const [preset, setPreset] = useState<FilterPreset>(() => loadFilter(job.id));
@@ -97,6 +100,12 @@ export function HistoryTab({ job }: Props) {
   const [historyHasEarlier, setHistoryHasEarlier] = useState(true);
   const [earlierCursor, setEarlierCursor] = useState<number | undefined>();
   const [loadingEarlierHistory, setLoadingEarlierHistory] = useState(false);
+  useEffect(() => {
+    setPagedEvents([]);
+    setEarlierCursor(undefined);
+    setHistoryHasEarlier(true);
+    setSelectedSeq(null);
+  }, [job.id, throughSeq]);
   // Reviews live under .arco/workflows/<id>/artifacts/, handoffs under
   // .arco/workflows/<id>/handoffs/ — same modal, different subdir.
   const [viewerArtifactKind, setViewerArtifactKind] = useState<'review' | 'handoff'>('review');
@@ -105,8 +114,8 @@ export function HistoryTab({ job }: Props) {
     const bySeq = new Map<number, HistoryEventEntry>();
     for (const e of pagedEvents) bySeq.set(e.seq, e);
     for (const e of job.historyEvents ?? []) bySeq.set(e.seq, e);
-    return resolveHistoryLabelTimes([...bySeq.values()].sort(compareHistoryEntriesForUi));
-  }, [job.historyEvents, pagedEvents]);
+    return resolveHistoryLabelTimes([...bySeq.values()].filter(e => throughSeq === undefined || e.seq <= throughSeq).sort(compareHistoryEntriesForUi));
+  }, [job.historyEvents, pagedEvents, throughSeq]);
   const visible = useMemo(() => {
     const filt = FILTERS.find((f) => f.id === preset);
     if (!filt || !filt.categories) return events;
@@ -124,10 +133,10 @@ export function HistoryTab({ job }: Props) {
   };
 
   const loadEarlierHistory = async () => {
-    if (loadingEarlierHistory || events.length === 0) return;
+    if (loadingEarlierHistory || (events.length === 0 && throughSeq === undefined)) return;
     setLoadingEarlierHistory(true);
     try {
-      const beforeSeq = earlierCursor ?? Math.min(...events.map((e) => e.seq));
+      const beforeSeq = earlierCursor ?? Math.min(throughSeq === undefined ? Infinity : throughSeq + 1, ...events.map((e) => e.seq));
       const q = new URLSearchParams({
         path: job.config.workingDirectory,
         workflowId: job.id,
@@ -147,7 +156,7 @@ export function HistoryTab({ job }: Props) {
           const bySeq = new Map<number, HistoryEventEntry>();
           for (const e of rows) bySeq.set(e.seq, e);
           for (const e of prev) bySeq.set(e.seq, e);
-          return resolveHistoryLabelTimes([...bySeq.values()].sort(compareHistoryEntriesForUi));
+          return resolveHistoryLabelTimes([...bySeq.values()].filter(e => throughSeq === undefined || e.seq <= throughSeq).sort(compareHistoryEntriesForUi));
         });
       }
     } finally {
@@ -290,9 +299,12 @@ export function HistoryTab({ job }: Props) {
         })}
       </div>
 
+      {throughSeq !== undefined && <div role="status">
+        Showing the conversation up to the handoff. <button type="button" onClick={() => requestVoicePanel(job.id, 'history')}>Show full history</button>
+      </div>}
       {/* Timeline */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 0' }}>
-        {events.length > 0 && historyHasEarlier && (
+        {(events.length > 0 || throughSeq !== undefined) && historyHasEarlier && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 10px' }}>
             <button
               type="button"

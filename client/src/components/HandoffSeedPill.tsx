@@ -1,3 +1,4 @@
+import { HandoffSource } from './HandoffSource';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -7,17 +8,15 @@ import { useOperatorLabel } from '../utils/operatorLabel';
 // Server-side seed prompt from handleHandoffRequest in server/src/index.ts.
 // Stable exact-prefix match — the string lives at one site and hasn't changed
 // since Phase 4 of the Lite refactor.
-const HANDOFF_SEED_PREFIX = '[HANDOFF: new session initialized for this tab.';
 
-export function isHandoffSeed(content: string): boolean {
-  return content.startsWith(HANDOFF_SEED_PREFIX);
-}
+export { isHandoffSeed } from '../utils/handoffSeeds';
 
 interface Props {
   content: string;
+  workflowId?: string;
 }
 
-export function HandoffSeedPill({ content }: Props) {
+export function HandoffSeedPill({ content, workflowId }: Props) {
   const [expanded, setExpanded] = useState(false);
   const operatorLabel = useOperatorLabel();
 
@@ -43,6 +42,7 @@ export function HandoffSeedPill({ content }: Props) {
       >
         <span className="glow-text-cyan">&gt; {operatorLabel}</span>
       </div>
+      {workflowId && <HandoffSource workflowId={workflowId} />}
       <div style={{ marginLeft: '4px' }}>
         <button
           type="button"

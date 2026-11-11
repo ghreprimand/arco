@@ -1,3 +1,4 @@
+import { captureHandoffHistory, saveHandoffHistory, historyAccessAllowed } from '../handoffHistory.js';
 import { disabledClusterProvider } from '../localCapacity.js';
 import { buildMessageGuardPolicy } from '@arco/shared';
 import { pendingOperatorQuestions } from '../providers/codex-appserver/operatorQuestions.js';
@@ -227,6 +228,8 @@ export async function handleHandoffRequest(
 
   try {
 
+  const historySources = historyAccessAllowed(msg.workflowId, wf.config)
+    ? await captureHandoffHistory(cwd, msg.workflowId) : [];
   const transcript = await replayWorkflowEvents(cwd, msg.workflowId, 0);
   if (!handoffOwned()) return;
   if (myHandoffSlotRecord.cancelled) {
@@ -438,6 +441,7 @@ export async function handleHandoffRequest(
   console.log(`[arco] [${msg.workflowId.slice(0, 8)}] handoff ${handle.handoffId} started (mode=${effectiveMode}${effectiveMode === 'fresh-summarizer' ? `, summarizer=${translatedSummarizer.provider}:${translatedSummarizer.model}` : `, original=${wf.primary.provider}:${wf.primary.model}`})`);
 
   let handoffBody: string | null = null;
+  let handoffSourceKey: string | undefined;
   try {
     const r = await handle.settled;
     if (!handoffOwned()) return;
@@ -449,6 +453,8 @@ export async function handleHandoffRequest(
       releaseHandoffBusy();
       return;
     }
+    if (await saveHandoffHistory(cwd, msg.workflowId, historySources, handoffOwned)) handoffSourceKey = historySources[0]?.key;
+    if (!handoffOwned()) return;
     handoffBody = r.body;
   } catch (err) {
     console.error(`[arco] handoff ${handle.handoffId} settle error:`, err);
@@ -568,6 +574,7 @@ export async function handleHandoffRequest(
     type: 'user_message_echo',
     workflowId: msg.workflowId,
     content: seedPrompt,
+    handoffSourceKey,
     timestamp: Date.now(),
   });
 
@@ -829,6 +836,8 @@ export async function handleSpawnFromHere(
     return;
   }
 
+  const historySources = historyAccessAllowed(msg.parentWorkflowId, parent.config)
+    ? await captureHandoffHistory(parentCwd, msg.parentWorkflowId, msg.cutoffEventSeq) : [];
   const transcript = await replayWorkflowEvents(parentCwd, msg.parentWorkflowId, 0);
   if (transcript.length === 0) {
     send(ws, { type: 'error', message: 'Parent has no conversation to fork — chat first.' });
@@ -1178,6 +1187,7 @@ export async function handleSpawnFromHere(
   console.log(`[arco] spawn ${newWorkflowId.slice(0, 8)} started from parent ${msg.parentWorkflowId.slice(0, 8)} (mode=${effectiveMode})`);
 
   let handoffBody: string | null = null;
+  let handoffSourceKey: string | undefined;
   try {
     const r = await exp.settled;
     if (!spawnOwned()) return;
@@ -1194,6 +1204,10 @@ export async function handleSpawnFromHere(
       const wf = workflows.get(newWorkflowId);
       if (wf) releaseBusy(wf, newBusyToken);
       return;
+    }
+    if (historyAccessAllowed(newWorkflowId, msg.newConfig)) {
+      if (await saveHandoffHistory(newCwd, newWorkflowId, historySources, spawnOwned)) handoffSourceKey = historySources[0]?.key;
+      if (!spawnOwned()) return;
     }
     handoffBody = r.body;
     // Native + original-worker reflection ran on the child workflow's
@@ -1266,6 +1280,7 @@ export async function handleSpawnFromHere(
     type: 'user_message_echo',
     workflowId: newWorkflowId,
     content: seedPrompt,
+    handoffSourceKey,
     timestamp: Date.now(),
   });
 

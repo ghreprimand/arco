@@ -160,6 +160,8 @@ export interface WorkflowCreatedMessage {
 // seq-stamped and appended to events.jsonl. Makes user prompts durable on
 // reconnect / replay.
 export interface UserMessageEchoMessage {
+  /** Saved source key for this handoff seed; absent when linking failed. */
+  handoffSourceKey?: string;
   automaticKind?: AutomaticMessageKind;
   // Dispatch/delivery records establish the input position for replay.
   deliveryTracked?: boolean;

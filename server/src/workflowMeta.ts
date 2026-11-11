@@ -86,6 +86,8 @@ export interface WorkflowMeta {
   // artifact link + a turn-count snapshot so the Handoffs tab can show a
   // compact summary without rescanning events.jsonl.
   history?: SessionHistoryEntry[];
+  // Server-owned frozen handoff ancestry; deliberately separate from Task parentage.
+  handoffHistory?: import('./handoffHistory.js').HandoffHistorySource[];
   operator: string;
   lastEventSeq: number | null;
   lastTranscriptSeq: number | null;

@@ -1,3 +1,4 @@
+import { HandoffSource } from '../HandoffSource';
 import { useAppStore, type JobState, type HandoffLockEntry } from '../../stores/appStore';
 import { HandoffList } from '../HandoffList';
 
@@ -39,11 +40,14 @@ export function HandoffsTab({
       };
     });
   return (
+    <>
+    <HandoffSource workflowId={job.id} />
     <HandoffList
       rows={[...normalRows, ...lockRows]}
       emptyText="No handoffs yet. Use the HANDOFF button near the composer to rotate this session."
       onCancelHandoff={onCancelHandoff ? (_workflowId, handoffId) => onCancelHandoff(handoffId) : undefined}
       onClearLock={onClearHandoffLock}
     />
+    </>
   );
 }

@@ -1,3 +1,4 @@
+import { latestHandoffSeed } from '../utils/handoffSeeds';
 import { AutomaticMessage } from './AutomaticMessage';
 import { OperatorQuestionNotice } from './OperatorQuestionNotice';
 import { useMessageSelectionStore } from '../stores/messageSelectionStore';
@@ -261,6 +262,7 @@ interface Props {
 }
 
 function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued, onMakeTask, presentation = 'workbench', retryText, retryAttachments, onEditMessage, onRetryMessage }: Props) {
+  const latestSeedId = useAppStore(s => jobId ? latestHandoffSeed(s.jobs[jobId]?.messages ?? [])?.id : undefined);
   const selected = useMessageSelectionStore((s) => !!jobId && (s.selected[jobId]?.includes(message.id) ?? false));
   // Tool-use pills from the Claude session JSONL render as a compact row
   // rather than a chat bubble. Bypass the whole bubble pipeline — we don't
@@ -341,10 +343,10 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
   // differs: handoff has a stable `[HANDOFF — ...]` prefix; spawn has a stable
   // `\n\n---\n\n(New direction|Acknowledge with "READY")` suffix.
   if (message.role === 'user' && isHandoffSeed(message.content)) {
-    return <HandoffSeedPill content={message.content} />;
+    return <HandoffSeedPill content={message.content} workflowId={message.id === latestSeedId ? jobId : undefined} />;
   }
   if (message.role === 'user' && isSpawnSeed(message.content)) {
-    return <SpawnSeedPill content={message.content} />;
+    return <SpawnSeedPill content={message.content} workflowId={message.id === latestSeedId ? jobId : undefined} />;
   }
 
   // Long operator pastes auto-collapse into an expandable pill so a single

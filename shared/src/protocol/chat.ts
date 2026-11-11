@@ -8,6 +8,8 @@ import type { PrimaryPhase } from './providers.js';
 export type AutomaticMessageKind = 'nudge' | 'auto-pickup';
 
 export interface ChatMessage {
+  /** Saved source key for this handoff seed; absent when linking failed. */
+  handoffSourceKey?: string;
   id: string;
   // docs/PROTOCOL_CLUSTER.md - peer-sent / peer-received are synthetic
   // role variants the cluster code injects when the WS dispatcher sees a
