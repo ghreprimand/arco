@@ -39,6 +39,8 @@ export function ConfigTab({
   const c = job.config;
   const provider: ProviderName = c.primaryProvider ?? 'claude';
   const canEdit = Boolean(onUpdatePrimary);
+  const isolatedMember = useAppStore((s) => Object.values(s.clusters).some((cluster) =>
+    cluster.members.some((member) => member.workflowId === job.id && member.accessMode === 'isolated')));
 
   const settings = useAppStore((s) => s.settings);
 
@@ -423,12 +425,9 @@ export function ConfigTab({
         />
       )}
 
-      {/* docs/ARCHITECTURE.md - MCP registry per-tab enablement. Wired
-          transports: Claude CLI (--disallowedTools denylist), Claude Native
-          (in-process denylist by omission, E1-Native), and Codex (server-level
-          enable only - no per-tool deny flag). Provider-gated, so both Claude
-          transports show the same section. */}
-      {mcp && (provider === 'claude' || provider === 'codex') && (
+      {/* Global registry with per-tab enablement, on every Agent transport.
+          Chat and isolated members never receive configured tool servers. */}
+      {mcp && c.kind !== 'chat' && !isolatedMember && (
         <McpRegistrySection job={job} mcp={mcp} />
       )}
     </div>

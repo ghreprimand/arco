@@ -548,7 +548,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'MCP servers',
     body: (
       <p>
-        Claude Native retries failed or closed connections at the next turn and reconnects changed launch settings. Register external <C>MCP</C> servers once (machine-global) and enable
+        Available on all Agent providers, including Cursor and local models. The registry is shared across tabs; enablement is per tab. Chat tabs and isolated members do not receive these tools or show this section. Standard and BLIND members do. Claude Native retries failed or closed connections at the next turn and reconnects changed launch settings. Register external <C>MCP</C> servers once (machine-global) and enable
         them per tab. Enabling a server exposes all its tools <em>except</em>{' '}
         dangerous ones (write / delete / exec / shell / post and similar), which stay OFF
         until you tick them per tab. <C>probe</C> connects, lists the tools, and

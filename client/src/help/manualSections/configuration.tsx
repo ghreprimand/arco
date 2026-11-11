@@ -1010,6 +1010,13 @@ export const configuration: Section[] = [
   machine-wide MCP server defs by command/args/env with a master enable, and a
   per-tab toggle enables each globally-enabled server.
   </p>
+  <p>
+  CONFIG shows this section
+  on every Agent provider, including Cursor and the local providers. The list is
+  shared across tabs; enabling a server applies only to the selected tab.
+  Chat tabs and isolated cluster members do not receive configured servers
+  and do not show these controls. Standard and BLIND members do.
+  </p>
   <ul>
   <li>
   Non-dangerous tools expose automatically; dangerous tools (name denylist)

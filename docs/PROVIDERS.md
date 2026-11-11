@@ -1932,7 +1932,7 @@ The compaction path (context fill) does require a model call. The model summariz
 
 ## External MCP integrations
 
-External MCP servers that Arco surfaces as operator-attachable per-tab options. Unlike the in-process per-cluster MCP server (Cluster + scope), these are operator-installed binaries running on the same machine. Arco's job is the UX (toggle, status, re-index button) + persistence of intent + spawn-time wiring to inject the server entry into the worker's `--mcp-config`.
+External MCP servers that Arco surfaces as operator-attachable per-tab options. CONFIG > MCP SERVERS is available on Claude Native and CLI, Codex exec and app-server, Cursor Agent, Ollama, llama.cpp, LM Studio, Strata and DeepSeek Agent tabs. The registry list is shared across tabs; enablement and tool choices belong to each tab. Standard and BLIND cluster members have the same controls. Chat tabs and isolated members do not receive configured servers and do not show this section. Unlike the in-process per-cluster MCP server (Cluster + scope), these are operator-installed binaries running on the same machine. Arco's job is the UX (toggle, status, re-index button) + persistence of intent + spawn-time wiring to inject the server entry into the worker's `--mcp-config`.
 
 Each entry below follows the same shape: install path → operator surface → fences → persistence shape.
 

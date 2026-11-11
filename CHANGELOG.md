@@ -7,6 +7,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Restrict Cursor Chat to message attachments, with private turn folders and no file or tool fallback.
 - Preserve handoff source links across restarts and handoff chains, with a From control that opens earlier conversation history.
+- Show configured tool-server controls on every Agent provider, excluding Chat and isolated members.
 - Keep Cursor reviewer plugins in nested temporary folders so Cursor can load file and plan tools on Linux.
 - Wrap top-bar controls before provider dots can overlap the layout switch.
 - Cursor Chat starts without combining plain-text output with the JSON-only partial-output flag.
