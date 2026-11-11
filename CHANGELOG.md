@@ -4,6 +4,7 @@ User-visible changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 and semantic versioning. New entries go under Unreleased; releases appear newest first.
 
 ## Unreleased
+- Claude CLI Chat can use enabled web search and fetch without an unavailable permission prompt.
 
 - Settle Claude Native Task cards as cancelled when the parent turn is stopped, in every browser and after a reload; a card's own CANCEL now shows cancelled instead of an error.
 - Disable sub-agent creation, goals and patch tools in Codex Chat while keeping its WEB host available.

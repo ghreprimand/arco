@@ -54,6 +54,7 @@ export const providers: Section[] = [
   body: (
   <>
   <p>A Native Task child shows and saves the model requested by the Task call. Queued follow-ups keep their own replies in restored context and reviews. Steering before the first visible reply retains the original request as well as the new instruction.</p>
+  <p>In Claude CLI Chat, WEB permits web search and fetch without an extra permission prompt. WEB off removes that pair; local project tools remain unavailable.</p>
   <p>Spawn from HISTORY keeps the selected earlier conversation even when it falls outside the recent replay tail. Cancelled handoffs preserve prior context. Older derived summary caches are rebuilt automatically.</p>
   <p>Native and local Read use bounded chunks and refuse special files. Their text output caps remain 256 KiB and 32 KiB. Native also recognizes byte-order-marked UTF-16 text. Use offset and limit for later lines.</p>
   <p>Non-UTF-8 text without NUL bytes and with fewer than 1% unexpected control bytes per 16 KiB chunk is decoded as Windows-1252 with a short notice. Line ranges apply to the decoded text. Control-heavy data remains a binary-file note.</p>

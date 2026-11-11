@@ -82,6 +82,35 @@ test('chat web arming reaches each provider transport as an explicit flag', () =
   assert.equal(codexOff.buildArgs().includes('web_search="disabled"'), true);
 });
 
+for (const incognito of [false, true]) for (const resume of [false, true]) {
+  test(`Claude CLI WEB Chat permits only its web pair (incognito=${incognito}, resume=${resume})`, () => {
+    const worker = ClaudeProvider.create('chat-web-permission', {
+      model: 'test-model', effort: 'medium', provider: 'claude', cwd: '/tmp/arco-chat-test',
+      interactionMode: 'chat', chatWebAccess: true, skipPermissions: false, incognito,
+      ...(resume ? { resumeSessionId: 'chat-session' } : {}),
+    }) as unknown as { buildArgs(): string[] };
+    const args = worker.buildArgs();
+    const allowed = args.slice(args.indexOf('--allowedTools') + 1);
+    const end = allowed.findIndex(arg => arg.startsWith('--'));
+    assert.deepEqual(end < 0 ? allowed : allowed.slice(0, end), ['WebSearch', 'WebFetch']);
+    assert.equal(args[args.indexOf('--tools') + 1], 'WebSearch,WebFetch');
+    assert.equal(args.includes('--dangerously-skip-permissions'), false);
+    assert.equal(args.includes('--strict-mcp-config'), true);
+  });
+}
+
+test('Claude CLI WEB-off Chat and Agent do not preapprove web tools', () => {
+  for (const interactionMode of ['chat', 'agent'] as const) {
+    const worker = ClaudeProvider.create('chat-web-off-permission', {
+      model: 'test-model', effort: 'medium', provider: 'claude', cwd: '/tmp/arco-chat-test',
+      interactionMode, chatWebAccess: interactionMode === 'agent', skipPermissions: false,
+    }) as unknown as { buildArgs(): string[] };
+    const args = worker.buildArgs();
+    assert.equal(args.includes('WebSearch'), false);
+    assert.equal(args.includes('WebFetch'), false);
+  }
+});
+
 test('strict incognito suppresses async operational logs and delayed id-bearing logs', async () => {
   assert.equal(shouldSuppressOperationalLog('ordinary log'), false);
   await withoutOperationalLogging(async () => {

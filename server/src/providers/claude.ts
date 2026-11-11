@@ -452,7 +452,9 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     if (this.config.skipPermissions) {
       args.push('--dangerously-skip-permissions');
     } else {
-      args.push('--allowedTools', builtinReadRule(builtinSkillsRoot()));
+      // WEB Chat must permit its exposed pair in this non-interactive CLI.
+      args.push('--allowedTools', ...(this.config.interactionMode === 'chat' && this.config.chatWebAccess
+        ? ['WebSearch', 'WebFetch'] : [builtinReadRule(builtinSkillsRoot())]));
     }
 
     if (this.config.systemPrompt && !this.config.incognito) {
