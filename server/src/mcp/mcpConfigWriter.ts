@@ -28,7 +28,9 @@ import { promises as fs } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+const MODULE_PATH = fileURLToPath(import.meta.url);
+const HERE = dirname(MODULE_PATH);
+const IS_SOURCE = MODULE_PATH.endsWith('.ts');
 
 // Resolve the absolute path to the cluster MCP server entry point. In dev
 // (tsx watch) `import.meta.url` resolves to `.../server/src/mcp/mcpConfigWriter.ts`,
@@ -43,8 +45,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 // argv shape diverges from Claude's even though both spawn the same MCP
 // child via the same command line.
 export function resolveMcpServerEntry(): { command: string; args: string[] } {
-  const isDev = process.env.NODE_ENV !== 'production';
-  if (isDev) {
+  if (IS_SOURCE) {
     // Dev path: prefer the .ts source and run via npx tsx so the child
     // inherits the same transpile-on-import behavior the parent tsx-watch
     // process uses. The MCP child is short-lived (~per-claude-spawn) so the
@@ -59,8 +60,7 @@ export function resolveMcpServerEntry(): { command: string; args: string[] } {
 // Sibling resolver for the workflow-scoped `arco` server (plan tools). Same
 // dev/prod split as resolveMcpServerEntry above.
 export function resolveArcoMcpServerEntry(): { command: string; args: string[] } {
-  const isDev = process.env.NODE_ENV !== 'production';
-  if (isDev) {
+  if (IS_SOURCE) {
     return { command: 'npx', args: ['tsx', resolve(HERE, 'arcoMcpServer.ts')] };
   }
   return { command: 'node', args: [resolve(HERE, 'arcoMcpServer.js')] };
@@ -68,8 +68,7 @@ export function resolveArcoMcpServerEntry(): { command: string; args: string[] }
 
 // docs/VOICE.md - the arco-voice child for a `voiceOperator` Chat.
 export function resolveVoiceMcpServerEntry(): { command: string; args: string[] } {
-  const isDev = process.env.NODE_ENV !== 'production';
-  if (isDev) return { command: 'npx', args: ['tsx', resolve(HERE, 'voiceMcpServer.ts')] };
+  if (IS_SOURCE) return { command: 'npx', args: ['tsx', resolve(HERE, 'voiceMcpServer.ts')] };
   return { command: 'node', args: [resolve(HERE, 'voiceMcpServer.js')] };
 }
 export function buildVoiceMcpOverrides(workflowId: string, port: number): string[] {

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep built-in agent tool servers available when a built server starts with `NODE_ENV` unset or set to development.
+
 - Prevent optional image converters from enlarging model attachments or creating unnecessary model copies of fitted JPEG uploads.
 
 - Combine Native media-retirement counts into one notice per turn, with correct singular wording and no empty categories.

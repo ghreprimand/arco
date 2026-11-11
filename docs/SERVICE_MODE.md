@@ -338,7 +338,8 @@ This is verified by booting `node server/dist/index.js` in
 `scripts/smoke/service-cli.ts`'s sibling check and by `npm run build` plus a
 manual boot. If you change shared's packaging, re-run
 `ARCO_SERVE_CLIENT=1 node server/dist/index.js` and confirm it serves `/`
-before relying on service mode.
+before relying on service mode. Built servers select their JavaScript tool servers
+from the running build, regardless of `NODE_ENV`.
 
 ## Health and readiness
 
@@ -388,6 +389,7 @@ warn while still booting).
 If you would rather front Arco with nginx/Caddy and let it serve `client/dist`,
 you can: run `node server/dist/index.js` (no `ARCO_SERVE_CLIENT`) and point the
 proxy's static root at `client/dist`, proxying `/ws` and `/api/*` to the server.
+The built server uses its JavaScript tool servers even when `NODE_ENV` is unset.
 Service mode just bundles the common case (server serves its own client) into
 one durable unit.
 
