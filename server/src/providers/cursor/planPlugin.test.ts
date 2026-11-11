@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createServer } from 'node:http';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, sep } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { createFilePlugin } from './filePlugin.js';
@@ -92,4 +92,19 @@ test('Cursor print passes workflow identity to the plugin only outside Chat', as
       t.mock.restoreAll(); syncBuiltinESMExports();
     }
   } finally { t.mock.restoreAll(); syncBuiltinESMExports(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('Cursor plugin has a private parent and cleanup preserves other runs', async () => {
+  const first = await createFilePlugin(process.cwd(), 'fixture');
+  const second = await createFilePlugin(process.cwd());
+  try {
+    assert.ok((await realpath(first.path)).split(sep).filter(Boolean).length >= 3);
+    assert.notEqual(dirname(first.path), dirname(second.path));
+    await access(join(first.path, '.cursor-plugin', 'plugin.json'));
+    await access(join(first.path, 'mcp.json'));
+    await first.close();
+    await assert.rejects(access(dirname(first.path)), { code: 'ENOENT' });
+    await access(join(second.path, 'mcp.json'));
+  } finally { await first.close(); await second.close(); }
+  await assert.rejects(access(dirname(second.path)), { code: 'ENOENT' });
 });

@@ -2218,7 +2218,7 @@ features list`: CLIs advertising `view_image` receive `features.view_image=true`
 older CLIs retain `tools.view_image=true`. The probe is cached for one minute. Cursor ACP exposes the
 file reader in solo and cluster tabs and avoids decoding binary bytes in its
 text-file callback. Cursor print Agent turns use a temporary read-only file-reader
-plugin. When a workflow identity is supplied, it also exposes only `plan_list`,
+plugin in a private nested temporary folder, which meets Cursor's minimum plugin-path depth. When a workflow identity is supplied, it also exposes only `plan_list`,
 `plan_ref_list` and `plan_ref_read` through a separate plan server. It receives
 no plan writers, cluster board tools or configured registry tools. Chat turns
 omit the project plugin and file-tool guidance while retaining decoded operator

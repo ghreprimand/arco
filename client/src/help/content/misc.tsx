@@ -858,6 +858,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Spawns an ephemeral reviewer (any provider/model) over a slice of the
         conversation. Output is a read-only artifact in the REVIEW tab.
         Reviewer permissions are restrictive (read-only / sandbox).
+        Cursor reviewers receive read-only file and plan tools through a private temporary plugin folder.
       </p>
     ),
     manualSection: 'review-action',

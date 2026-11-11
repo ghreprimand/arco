@@ -654,6 +654,7 @@ export const providers: Section[] = [
   their reference docs. It receives no plan writers, cluster board tools or
   configured tool-server tools.
   </p>
+  <p>Arco gives each run a private nested temporary plugin folder and removes it when the run ends.</p>
   <p>Cursor COMPACT from the remote console reaches the same native compression handler as the desktop. A running turn or a missing saved session still prevents compression.</p>
   <Sub>Usage and context</Sub>
   <p>If Cursor usage pages are capped or end before their reported total, Arco shows an incomplete-usage error and withholds monthly totals. Open the dashboard for the complete period.</p>

@@ -7,9 +7,11 @@ import { fileURLToPath } from 'node:url';
 // MCP configuration. This plugin exposes read-only files and optional plan readers.
 export async function createFilePlugin(cwd:string, workflowId?:string):Promise<{path:string;close:()=>Promise<void>}> {
   const isSource = fileURLToPath(import.meta.url).endsWith('.ts');
-  const path = await mkdtemp(join(tmpdir(),'arco-files-'));
+  const parent = await mkdtemp(join(tmpdir(),'arco-files-'));
+  // Cursor rejects plugin roots fewer than three path components deep.
+  const path = join(parent, 'plugin');
   try {
-    await mkdir(join(path,'.cursor-plugin'));
+    await mkdir(join(path,'.cursor-plugin'), { recursive: true });
     await writeFile(join(path,'.cursor-plugin','plugin.json'),JSON.stringify({name:'arco-files',version:'1.0.0',description:'Read images and documents in the workflow folder.',mcpServers:'./mcp.json'}));
     const entry = resolve(dirname(fileURLToPath(import.meta.url)),'../../mcp/fileMcpServer.' + (isSource ? 'ts' : 'js'));
     const args = isSource ? ['--import',import.meta.resolve('tsx'),entry,cwd] : [entry,cwd];
@@ -20,6 +22,6 @@ export async function createFilePlugin(cwd:string, workflowId?:string):Promise<{
       mcpServers.arco = { command: process.execPath, args: isSource ? ['--import', import.meta.resolve('tsx'), ...planArgs] : planArgs };
     }
     await writeFile(join(path,'mcp.json'),JSON.stringify({mcpServers}));
-    return {path,close:()=>rm(path,{recursive:true,force:true})};
-  } catch (error) { await rm(path,{recursive:true,force:true}); throw error; }
+    return {path,close:()=>rm(parent,{recursive:true,force:true})};
+  } catch (error) { await rm(parent,{recursive:true,force:true}); throw error; }
 }
