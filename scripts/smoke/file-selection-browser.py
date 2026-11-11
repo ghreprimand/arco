@@ -12,12 +12,14 @@ PATCH='diff --git a/note.txt b/note.txt\nindex 1111111..2222222 100644\n--- a/no
 async def main():
   async with async_playwright() as p:
     browser=await p.chromium.launch(executable_path=chrome_executable() or None)
-    page=await browser.new_page(); errors=[]; file_reads=[]; pending=[]
+    context=await browser.new_context(service_workers='block')
+    page=await context.new_page(); errors=[]; file_reads=[]; pending=[]; sessions=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
     staged_only=True
     async def api(route):
       u=urlparse(route.request.url); q=parse_qs(u.query); data={}
-      if u.path=='/api/settings': data={'onboardingComplete':True}
+      if u.path=='/api/session': sessions.append(route.request.method)
+      elif u.path=='/api/settings': data={'onboardingComplete':True}
       elif u.path=='/api/list-dirs':
         folder=q.get('path',['/fixture'])[0] or '/fixture'
         if folder=='/waiting': pending.append(route); return
@@ -29,7 +31,7 @@ async def main():
       elif u.path=='/api/file-content':
         file_reads.append(u.path); data={'type':'text','content':'UNSTAGED insertion\nheading\nWORKTREE version\n','size':45}
       await route.fulfill(json=data)
-    await page.route('**/api/**',api)
+    await context.route('**/api/**',api)
     await page.route('**/healthz', lambda route: route.fulfill(json={'status':'live'}))
     await page.goto(URL)
     await page.evaluate("""async()=>{
@@ -63,6 +65,7 @@ async def main():
     staged_only=False
     await expect(page.get_by_text('WORKTREE version',exact=True)).to_be_visible()
     assert file_reads,'B183: unstaged inspection keeps working-tree source'
+    assert sessions and all(method == 'POST' for method in sessions), 'session requests must reach the fixture'
     assert not errors,errors
     await browser.close()
     print('PASS B184: draft/loading/error Enter refused; ready mouse and keyboard agree. B183: index patch and line positions shown.')

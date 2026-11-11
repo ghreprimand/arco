@@ -339,6 +339,8 @@ Treat these as separate checks; a green link checker does not prove accuracy:
    allowlist with a reason. `ARCO_HELP_COVERAGE_REPORT=<file>` writes the
    inventory as JSON.
 
+The browser smoke runner captures each fixture Vite server output and fails a suite if Vite reports a refused connection to the default backend. Fixture API requests, including session creation, must be handled by the browser fixture.
+
 Use `docs/INDEX.md` to locate maintained documentation.
 
 ---

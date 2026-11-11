@@ -12,3 +12,12 @@ export async function runWithCiRetry(runOnce, { ci }) {
 export function outputTail(run, limit = 4_000) {
   return `${run.stdout || ''}${run.stderr || ''}`.slice(-limit).trim();
 }
+
+// Vite can split an error over writes; inspect the collected output as a whole.
+export function hasDefaultBackendRefusal(output) {
+  return /ECONNREFUSED\s+(?:127\.0\.0\.1|::1):3001(?!\d)/.test(output);
+}
+
+export function suiteStatusWithVite(status, output) {
+  return hasDefaultBackendRefusal(output) ? 'fail' : status;
+}

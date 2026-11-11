@@ -8,10 +8,11 @@
 // Usage: node scripts/smoke/run-browser-suites.mjs [suite-name ...]   (default: every listed suite)
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:net';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync, openSync, closeSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { outputTail, runWithCiRetry } from './browser-suite-retry.mjs';
+import { outputTail, runWithCiRetry, suiteStatusWithVite } from './browser-suite-retry.mjs';
 import { outputsFixtureEnvironment } from './outputs-fixture-port.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -268,7 +269,12 @@ for (const suite of selected) {
     console.log(`browser suite ${suite.name}: fail (${elapsed()})`);
     continue;
   }
-  const vite = spawn(process.execPath, [viteBin, 'client', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: root, env, stdio: ['ignore', process.env.ARCO_BROWSER_VITE_LOG ? 'inherit' : 'ignore', 'inherit'] });
+  // A file avoids pipe backpressure while the synchronous Python suite runs.
+  const viteLogDir = mkdtempSync(join(tmpdir(), 'arco-vite-log-'));
+  const viteLogPath = join(viteLogDir, 'vite.log');
+  const viteLogFd = openSync(viteLogPath, 'w');
+  const vite = spawn(process.execPath, [viteBin, 'client', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: root, env, stdio: ['ignore', viteLogFd, viteLogFd] });
+  closeSync(viteLogFd);
   let ready = false;
   for (let i = 0; i < 60 && !ready; i++) {
     await new Promise((r) => setTimeout(r, 500));
@@ -282,6 +288,12 @@ for (const suite of selected) {
   }
   // Wait for the dev server to exit so the next suite on the same port starts its own.
   if (vite.exitCode === null && vite.signalCode === null) await new Promise((done) => { vite.once('exit', done); vite.kill(); });
+  const viteOutput = readFileSync(viteLogPath, 'utf8');
+  rmSync(viteLogDir, { recursive: true, force: true });
+  const checkedStatus = suiteStatusWithVite(status, viteOutput);
+  if (viteOutput) process.stderr.write(viteOutput);
+  if (checkedStatus !== status) console.error(`${suite.name}: Vite reported a refused connection to the default backend`);
+  status = checkedStatus;
   results.push({ ...suite, status });
   console.log(`browser suite ${suite.name}: ${status} (${elapsed()})`);
 }
