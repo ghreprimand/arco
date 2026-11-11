@@ -5,7 +5,7 @@ import React, { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CLUSTER_MEMBER_PROVIDERS } from '@arco/shared';
 import { useAppStore } from '../stores/appStore.js';
-import { CLUSTER_PROVIDER_REFUSAL, CURSOR_TAB_REFUSAL, TabContextMenu } from './TabContextMenu.js';
+import { CLUSTER_PROVIDER_REFUSAL, CURSOR_TAB_REFUSAL, LMSTUDIO_TAB_REFUSAL, TabContextMenu } from './TabContextMenu.js';
 
 async function render(jobs: Record<string, { provider: string }>, anchor: string, fresh?: (opts: unknown) => void): Promise<string> {
   const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: 'http://localhost/', pretendToBeVisual: true });
@@ -53,11 +53,11 @@ test('an open Cursor tab is neither an anchor nor a candidate: its session has n
   assert.ok(!candidate.includes('TAB B'), 'the Cursor tab is not offered');
 });
 
-test('a provider without peer tools is refused with the accurate provider list', async () => {
+test('LM Studio is refused with its supported cluster provider list', async () => {
   const text = await render({ a: { provider: 'lmstudio' }, b: { provider: 'claude' } }, 'a');
-  assert.ok(text.includes(CLUSTER_PROVIDER_REFUSAL));
-  for (const name of ['Claude', 'Codex', 'Ollama', 'llama.cpp']) assert.ok(CLUSTER_PROVIDER_REFUSAL.includes(name), name);
-  assert.ok(!CLUSTER_PROVIDER_REFUSAL.includes('Cursor'));
+  assert.ok(text.includes(LMSTUDIO_TAB_REFUSAL));
+  for (const name of ['Claude', 'Codex', 'Ollama', 'llama.cpp', 'new Cursor workers']) assert.ok(LMSTUDIO_TAB_REFUSAL.includes(name), name);
+  assert.match(text, /LM Studio tabs cannot join clusters/);
   assert.doesNotMatch(text, /only Claude or Codex|no MCP wiring/);
 });
 
