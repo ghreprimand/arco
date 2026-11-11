@@ -89,3 +89,13 @@ test('parent cancel reports each unsettled Task child as cancelled synchronously
     assert.equal(s.statuses.length, 3);
   } finally { await s.done(); }
 });
+
+test('SDK abort reported as a plain Error after cancel is classified as Worker killed', async () => {
+  const s = setup();
+  try {
+    s.w.cancel();
+    const result = await s.w.handleApiError(new Error('Request was aborted.'), 0);
+    assert.equal(result, 'fatal');
+    assert.deepEqual(s.order, ['error Worker killed']);
+  } finally { await s.done(); }
+});

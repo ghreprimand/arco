@@ -4,6 +4,8 @@ User-visible changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1
 and semantic versioning. New entries go under Unreleased; releases appear newest first.
 
 ## Unreleased
+
+- Recognize SDK streaming aborts after a Task card CANCEL as cancellation.
 - Claude CLI Chat can use enabled web search and fetch without an unavailable permission prompt.
 
 - Identify each Chat attachment before its decoded content, including after restart.

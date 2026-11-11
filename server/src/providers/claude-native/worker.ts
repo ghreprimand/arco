@@ -4184,7 +4184,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     const msg = e.error?.error?.message || e.error?.message || e.message || String(err);
     const errType = e.type ?? e.error?.type ?? '';
 
-    if (name === 'AbortError' || name === 'APIUserAbortError') {
+    if (this.cancelRequested || name === 'AbortError' || name === 'APIUserAbortError') {
       this.emit('error', 'Worker killed');
       return 'fatal';
     }
