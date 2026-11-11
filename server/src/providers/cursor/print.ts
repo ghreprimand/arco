@@ -1,3 +1,4 @@
+import { createChatSandbox, CHAT_FLAGS, CHAT_GUIDANCE } from './chatSandbox.js';
 import { prepareProviderAttachments, persistProviderImages, FILE_READ_GUIDANCE, type PreparedAttachments } from '../providerFileContent.js';
 import { createFilePlugin } from './filePlugin.js';
 // Stateless one-shot Cursor process for read-only primitives — Phase 5.
@@ -54,18 +55,24 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
   get pid(): number | undefined { return this.proc?.pid; }
   get processRunning(): boolean { return isChildRunning(this.proc); }
 
+  private chatSandbox: Awaited<ReturnType<typeof createChatSandbox>> | undefined;
+
+  private preparationAbort = new AbortController();
+
   private filePlugin: Awaited<ReturnType<typeof createFilePlugin>> | undefined;
 
   spawn(prompt: string): void {
-    if (!this.config.cwd && !this.config.attachments?.length) { this.spawnPrepared(prompt); return; }
+    if (this.config.interactionMode !== 'chat' && !this.config.cwd && !this.config.attachments?.length) { this.spawnPrepared(prompt); return; }
     void this.prepare(prompt).catch(error => this.fail(String(error)));
   }
 
   private async prepare(prompt:string):Promise<void> {
-    const prepared = await prepareProviderAttachments(this.config.attachments);
-    const imagePaths = await persistProviderImages(prepared.images);
+    const prepared = await prepareProviderAttachments(this.config.attachments, true, this.preparationAbort.signal);
+    if (this.settled) return;
+    if (this.config.interactionMode === 'chat') this.chatSandbox = await createChatSandbox(prepared, this.preparationAbort.signal);
+    const imagePaths = this.chatSandbox?.imagePaths ?? await persistProviderImages(prepared.images);
     if (this.config.cwd && this.config.interactionMode !== 'chat') this.filePlugin = await createFilePlugin(this.config.cwd, this.config.workflowId);
-    if (this.settled) { await this.filePlugin?.close(); return; }
+    if (this.settled) { await this.cleanup(); return; }
     this.spawnPrepared(prompt,prepared,imagePaths);
   }
 
@@ -74,39 +81,42 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     const model = resolveModelId(this.config.model);
 
     // `-p` = print/headless. `--mode ask` = read-only Q&A (the safety contract).
-    // `--force`+`--trust` avoid a headless hang on tool-permission / trust prompts
-    // (both no-ops for writes, which ask-mode forbids outright). `--output-format
-    // text` streams the plain assistant answer to stdout — no JSON envelope to
+    // Reviews retain --force; Chat has an empty tool allowlist and explicit
+    // deny rules instead. `--output-format text` streams the assistant answer
+    // to stdout — no JSON envelope to
     // parse; incremental chunks map straight to `text` events.
-    const args = ['-p', '--output-format', 'text', '--mode', 'ask', '--force', '--trust'];
+    const chat = this.config.interactionMode === 'chat';
+    const args = ['-p', '--output-format', 'text', '--mode', 'ask', '--trust'];
+    if (chat) args.push(...CHAT_FLAGS);
+    else args.push('--force');
     // Partial-output deltas require stream-json; this transport consumes text.
     // Always pass the catalog id, `auto` included: `cursor-agent models` lists
     // `auto`, and without `--model` the CLI runs the model saved as its own
     // default instead of the one chosen in Arco. In print mode the CLI takes
     // catalog variant ids (`grok-4.7-medium`) directly.
     args.push('--model', model);
-    // `-p` has no image-input flag, so attachments go in as path refs and the
-    // upload dir joins the workspace roots — ask-mode's read tool is fenced to
-    // them, and it opens images natively. Chat tabs route here, so without
-    // this a pasted screenshot never reached a Cursor chat.
-    for (const dir of attachmentDirs([...(this.config.attachments ?? []), ...imagePaths])) args.push('--add-dir', dir);
+    if (chat) {
+      for (const path of imagePaths) args.push('--image', path);
+    } else {
+      for (const dir of attachmentDirs([...(this.config.attachments ?? []), ...imagePaths])) args.push('--add-dir', dir);
+    }
 
     // Fold the operator's north-star + appendSystemPrompt (cluster plan/role, when
     // a cluster primitive supplies it) as a leading block, same ordering as the
     // ACP worker's beginTurn. goalBlock is null-when-empty so the default primitive
     // path is byte-identical to a bare prompt.
     // The output-style addendum closes the prefix (null for normal).
-    const prefixParts = [goalBlock(this.config.goal), this.config.appendSystemPrompt, this.filePlugin ? FILE_READ_GUIDANCE : undefined, outputStyleAddendum(this.config.outputStyle)]
+    const prefixParts = [chat ? CHAT_GUIDANCE : undefined, goalBlock(this.config.goal), this.config.appendSystemPrompt, this.filePlugin ? FILE_READ_GUIDANCE : undefined, outputStyleAddendum(this.config.outputStyle)]
       .filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
     const prefix = prefixParts.length > 0 ? prefixParts.join('\n\n') : undefined;
-    const body = [prompt, prepared?.text, withAttachmentRefs('', imagePaths)].filter(Boolean).join('\n\n');
+    const body = [prompt, prepared?.text, chat ? undefined : withAttachmentRefs('', imagePaths)].filter(Boolean).join('\n\n');
     if (this.filePlugin) args.push('--plugin-dir', this.filePlugin.path);
     const fullPrompt = prefix ? `${prefix}\n\n---\n\n${body}` : body;
 
     this.proc = spawn(...commandArgs('cursor-agent', args), {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env },
-      cwd: this.config.cwd || undefined,
+      cwd: this.chatSandbox?.cwd ?? (this.config.cwd || undefined),
       detached: true,
     });
 
@@ -142,6 +152,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
 
   kill(): void {
     if (this.settled) return;
+    this.preparationAbort.abort();
     const pid = this.proc?.pid;
     if (pid) killProcessTree(pid, { graceMs: 500, label: `cursor-print:${this.id.slice(0, 8)}` });
     this.fail('Worker killed');
@@ -149,7 +160,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
 
   private onExit(code: number | null, signal: NodeJS.Signals | null): void {
     if (this.settled) return;
-    void this.filePlugin?.close();
+    void this.cleanup();
     const tail = this.stdoutDecoder.end();
     if (tail) { this._output += tail; this.emit('text', tail); }
     this.stderrBuf = (this.stderrBuf + this.stderrDecoder.end()).slice(-STDERR_CAP);
@@ -173,8 +184,12 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     this.fail(`cursor-agent -p ${reason}${errorTail ? `: ${errorTail}` : ''}`);
   }
 
+  private async cleanup(): Promise<void> {
+    await Promise.all([this.filePlugin?.close(), this.chatSandbox?.close()]);
+  }
+
   private fail(reason: string): void {
-    void this.filePlugin?.close();
+    void this.cleanup();
     if (this.settled) return;
     this.settled = true;
     this._status = 'failed';

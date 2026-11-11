@@ -1,3 +1,4 @@
+import { cleanupChatSandboxesOnStartup } from './providers/cursor/chatSandbox.js';
 import { ensureStorageRoot } from './storageRoot.js';
 import './envAliases.js'; // env fallback resolves before any module reads ARCO_* (see envAliases.ts)
 import { APP_VERSION } from './appVersion.js';
@@ -1949,6 +1950,8 @@ async function reapOrphanWorkers(): Promise<void> {
 // (node-pty children reparent to init on a hard kill). Same durable-registry
 // pattern as workers; awaited before listen() and retains unverified identities.
 await Promise.all([reapOrphanWorkers(), reapOrphanTerminals()]);
+// Remove private image copies left by a crashed Chat turn before new turns can start.
+await cleanupChatSandboxesOnStartup();
 
 // Phase 7a — wire the Claude Native worker's todos_updated broadcast hook
 // onto the workflow-scoped transient bus. The Activity tab consumes

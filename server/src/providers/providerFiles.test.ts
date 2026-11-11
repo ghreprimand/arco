@@ -149,7 +149,8 @@ test('Claude CLI, Codex exec and Cursor print receive decoded document text and 
   for(const [kind,provider] of [['claude',ClaudeProvider],['codex',CodexProvider],['cursor',CursorPrintProvider]] as const){
    let captured:any;
    const child=Object.assign(new EventEmitter(),{stdin:new PassThrough(),stdout:new PassThrough(),stderr:new PassThrough()});
-   t.mock.method(childProcess,'spawn',((command:any,args:any,options:any)=>{captured={command,args,options};return child;}) as any);syncBuiltinESMExports();
+   t.mock.method(childProcess,'spawn',((command:any,args:any,options:any)=>{captured={command,args,options};return child;}) as any);
+   t.mock.method(childProcess,'execFile',((_command:any,_args:any,_options:any,callback:any)=>{queueMicrotask(()=>callback(Object.assign(new Error('probe'), {code: 1}), '', "error: unknown option '--arco-chat-capability-probe'"));return child;}) as any);syncBuiltinESMExports();
    try{
     let input='';child.stdin.on('data',b=>{input+=String(b);});
     const worker=provider.create('fixture',{cwd,provider:kind,model:'fixture',effort:'medium',attachments:[join(cwd,'memo.rtf'),join(cwd,'picture.data')],tools:[],interactionMode:'chat'} as WorkerConfig);
@@ -161,10 +162,14 @@ test('Claude CLI, Codex exec and Cursor print receive decoded document text and 
      assert.ok(captured.args.includes(`${installedCodexImageToolKey()}=true`));
      const image=captured.args[captured.args.indexOf('-i')+1];assert.notEqual(image,join(cwd,'picture.data'));assert.ok((await readFile(image)).length);
     }else{
-     assert.equal(captured.args[captured.args.indexOf('--mode')+1],'ask');assert.equal(captured.options.cwd,cwd);
+     assert.equal(captured.args[captured.args.indexOf('--mode')+1],'ask');assert.notEqual(captured.options.cwd,cwd);
      assert.ok(!captured.args.includes('--plugin-dir'), 'Chat must not attach project file tools');assert.ok(!input.includes('Use Arco read_file'));assert.ok(!captured.args.includes('--approve-mcps'));
-     const roots=captured.args.flatMap((arg:string,index:number)=>arg==='--add-dir'?[captured.args[index+1]]:[]);
-     assert.ok(roots.includes(await realpath(join(storage,'uploads'))),'fitted image upload directory must be readable by Cursor');
+     assert.ok(!captured.args.includes('--add-dir'));
+     const image=captured.args[captured.args.indexOf('--image')+1];
+     assert.ok(image.startsWith(captured.options.cwd));
+     assert.notEqual(image,join(cwd,'picture.data'));
+     assert.ok((await readFile(image)).length);
+     assert.ok(!input.includes(image), 'image inputs must never become file-read instructions');
     }
     child.emit('close',0,null);child.emit('exit',0,null);
    }finally{t.mock.restoreAll();syncBuiltinESMExports();}

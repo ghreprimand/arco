@@ -188,6 +188,11 @@ export const miscHelp: Record<string, HelpEntry> = {
           the latest output. Scroll up to pause; background recipients leave
           your reading position alone.
         </p>
+        <p>Cursor Chat uses only message text and attachments. It cannot open
+          computer files by path or link and has no web access. Abandoned turn folders
+          are removed at server startup. Documents arrive as text and images
+          use Cursor&apos;s image input; unsupported image inputs are refused.
+          A Cursor version missing the required Chat controls cannot run Chat.</p>
       </>
     ),
     manualSection: 'chat-panel',

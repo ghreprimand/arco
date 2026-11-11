@@ -220,10 +220,21 @@ explicitly instead of inheriting a provider default:
   re-check `ollamaToolCallAllowed()` at dispatch, so a tool call the model
   writes as text (llama.cpp's `<tool_call>` fallback) is refused in Chat and
   in plan-review turns, even with AUTO on.
-- **Cursor** - routed to the stateless `-p --mode ask` transport
-  with plain-text output and deterministic transcript replay. Chat, read-only
-  reviewers and handoff summaries share this argument builder; the JSON-only
-  partial-output flag is not passed with text output.
+- **Cursor** - each Chat turn runs `-p --mode ask` in a private folder under
+  the selected Arco home, removed when the turn ends. Startup removes abandoned
+  turn folders without following links. Cursor Chat has no web access; its
+  header shows `NO WEB` and offers no web toggle. It receives no project
+  plugin, additional read folders or `--force`. Explicit permissions deny all
+  reads, writes, shell, web fetches and MCP tools, including previously approved
+  servers. An empty `--allowed-tools` list excludes every built-in tool family;
+  workspace context, indexing, semantic search and lint context are disabled.
+  Documents arrive as extracted text. Only fitted copies of the current
+  message's images go through `--image`, never through a Read fallback.
+  Arco checks required flags with a deliberate parser error before starting a turn.
+  Missing required isolation controls refuse Chat; an unsupported image input
+  refuses images with a plain message. These Cursor flags are internal and may
+  change between versions. Agent ACP sessions and read-only reviews retain
+  their existing project access and argument builder.
 
 **Computer voice exception.** A `voiceOperator` Chat receives only the
 bounded `arco_*` tools from `server/src/voice/toolDefinitions.ts`, with

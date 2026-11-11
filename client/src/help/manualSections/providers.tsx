@@ -639,6 +639,17 @@ export const providers: Section[] = [
   session is fixed at start; a fresh member gets the peer tools wired in from
   the first turn.
   </p>
+  <Sub>Chat attachments</Sub>
+  <p>Cursor Chat reads only the text and attachments sent with the message.
+  Each turn uses a private folder, removed afterwards or at the next server
+  start after a crash. Cursor Chat has no web access and shows NO WEB. File reads, shell,
+  search, lint, browser and MCP tools are excluded. Relative paths, full paths
+  and links do not grant access to computer files.</p>
+  <p>Documents arrive as extracted text. Images arrive as fitted copies through
+  Cursor&apos;s image input. Arco checks the installed version first and refuses
+  unsupported image inputs without falling back to a file reader. A version
+  missing the required Chat controls cannot run Chat. Agent tabs and reviews
+  keep their project access.</p>
   <Sub>Review and other primitives</Sub>
   <p>
   <strong>Primitives are read-only.</strong> When Review (or a

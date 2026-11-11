@@ -74,6 +74,7 @@ test('Cursor print passes workflow identity to the plugin only outside Chat', as
       let captured: string[] | undefined;
       const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough() });
       t.mock.method(childProcess, 'spawn', (_command: unknown, args: string[]) => { captured = args; return child; });
+      t.mock.method(childProcess, 'execFile', ((_command: string, _args: string[], _options: any, callback: any) => { queueMicrotask(() => callback(Object.assign(new Error('probe'), { code: 1 }), '', "error: unknown option '--arco-chat-capability-probe'")); return child; }) as any);
       syncBuiltinESMExports();
       const worker = CursorPrintProvider.create('fixture', { cwd: home, workflowId: 'member', model: 'auto', effort: 'low', interactionMode });
       worker.on('error', () => {});
