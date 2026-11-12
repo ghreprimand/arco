@@ -93,9 +93,11 @@ export async function requireProjectFolder(cwd?: string | null, workflowId?: str
       if (current === path.dirname(current)) break;
     }
     for (const ancestor of ancestors) {
-      const real = realpathSync(ancestor);
+      // Match Git's expanded Windows spelling without changing the lexical
+      // ancestor used below to fence links inside the selected worktree.
+      const real = realpathSync.native(ancestor);
       const candidate = candidates.find(candidate => {
-        try { return samePath(realpathSync(candidate), real); } catch { return false; }
+        try { return samePath(realpathSync.native(candidate), real); } catch { return false; }
       });
       if (!candidate) continue;
       await requireProjectBinding(candidate, workflowId);
