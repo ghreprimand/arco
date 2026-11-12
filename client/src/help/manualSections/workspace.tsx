@@ -317,9 +317,9 @@ export const workspace: Section[] = [
           <li>
             <strong>Agent</strong> - the primary&apos;s reply. Streams
             token-by-token while the turn is in flight.
-            An existing tool call completing or failing does not split a reply
-            mid-sentence. New tool calls, Cursor reasoning and operator steering
-            still separate reply segments, including after reload or replay.
+            Outside Cursor, an existing tool call completing or failing does not
+            split a reply mid-sentence. New tool calls, Cursor reasoning, Cursor tool updates and operator
+            steering still separate reply segments, including after reload or replay.
           </li>
           <li>
             <strong>Thinking</strong> - collapsible reasoning block from Claude

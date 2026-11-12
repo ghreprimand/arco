@@ -952,7 +952,7 @@ A status update for an existing tool call updates its original Activity card
 without splitting an assistant reply that is still streaming. New tool calls
 still separate reply segments. The same ordering applies after reload or event
 replay; tool cards keep their starting position when they complete or fail.
-Cursor reasoning and operator steering still separate reply segments.
+Cursor reasoning, Cursor tool updates and operator steering still separate reply segments. Cursor keeps those boundaries after reconnect while the tool card stays in its original position.
 
 Settled app-server results now carry the last token-usage notification's
 `lastPromptTokens` for ordinary workers as well as Incognito. Computer scripts

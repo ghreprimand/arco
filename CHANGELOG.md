@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep Cursor reply segments separate across tool updates, including after reconnect, while Codex tool completion preserves a reply in progress.
 - Keep Native Grep text matches that follow a ripgrep binary-file warning.
 
 - Tell Claude Native parents when the operator cancels a sub-agent, including queued work, and ask them to count the cancellation without starting a replacement unless requested.

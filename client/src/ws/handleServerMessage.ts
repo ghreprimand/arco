@@ -675,7 +675,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           }
           if (!ref[key] && turnInProgress && ref.parentTurnId && primarySeq !== undefined) {
             const prior = [...(job?.messages ?? [])].reverse().find(m => m.role === 'assistant' && m.phase === key && m.parentTurnId === ref.parentTurnId);
-            const boundary = Math.max(0, ...(job?.messages ?? []).filter(m => m.role.startsWith('peer-') || (m.role === 'user' && m.queueKind === 'steer')).map(m => m.eventSeq ?? 0), ...(job?.activity ?? []).filter(a => a.kind === 'tool_use' || (a.kind === 'thinking' && job?.config.primaryProvider === 'cursor')).map(a => a.eventSeq ?? 0));
+            const boundary = Math.max(0, ...(job?.messages ?? []).filter(m => m.role.startsWith('peer-') || (m.role === 'user' && m.queueKind === 'steer')).map(m => m.eventSeq ?? 0), ...(job?.activity ?? []).filter(a => a.kind === 'tool_use' || (a.kind === 'thinking' && job?.config.primaryProvider === 'cursor')).map(a => (job?.config.primaryProvider === 'cursor' ? a.eventEndSeq : undefined) ?? a.eventSeq ?? 0));
             if (prior?.eventEndSeq !== undefined && prior.eventEndSeq > boundary && prior.eventEndSeq < primarySeq && !hasBoundaryAfter(job?.messages ?? [], prior.id)) {
               ref[key] = prior.id;
               store.updateMessage(msg.workflowId, prior.id, { isStreaming: true });
@@ -1179,9 +1179,9 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             entry.kind === 'tool_use' &&
             ((msg.itemId && entry.itemId === msg.itemId) ||
               (msg.toolUseId && entry.toolUseId === msg.toolUseId)));
-          // A new tool card is a text boundary. Updates to a card already in
-          // place must not cut a reply that is still streaming mid-sentence.
-          if (!existingTool) splitPrimaryText(msg.workflowId);
+          // Cursor ACP treats tool updates as reply-segment boundaries.
+          // Other providers can complete an existing tool mid-sentence.
+          if (!existingTool || store.jobs[msg.workflowId]?.config.primaryProvider === 'cursor') splitPrimaryText(msg.workflowId);
           // §C1 — tool activity is a primary signal; refresh the stuck clock.
           store.bumpPrimaryEvent(msg.workflowId, Date.now());
           // docs/PROVIDERS.md - count only settled tool calls.

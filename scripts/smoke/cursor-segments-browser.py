@@ -60,8 +60,8 @@ async def main():
           window.send=m=>receive(m,{wsRef:{current:null},scheduleReconnect:()=>{}});
           s.getState().createJob('wf-cursor',{name:'cursor',workingDirectory:'/projects/fixture',primaryProvider:'cursor',primaryModel:'auto',primaryEffort:'low',skipPermissions:false});
           const root=createRoot(document.getElementById('fixture'));
-          window.renderMessages=(width)=>root.render(React.createElement('div',{id:'col',style:{width:width+'px',padding:'0'}},
-            s.getState().jobs['wf-cursor'].messages.filter(m=>m.role==='assistant'&&!m.toolUse).map(m=>React.createElement(ChatMessage,{key:m.id,jobId:'wf-cursor',message:m}))));
+          window.renderMessages=(width,id="wf-cursor")=>root.render(React.createElement('div',{id:'col',style:{width:width+'px',padding:'0'}},
+            s.getState().jobs[id].messages.filter(m=>m.role==='assistant'&&!m.toolUse).map(m=>React.createElement(ChatMessage,{key:m.id,jobId:id,message:m}))));
           window.renderImageCard=()=>root.render(React.createElement('div',{id:'image-card'},React.createElement(ChatMessage,{jobId:'wf-cursor',message:{id:'image-read',role:'system',content:'',timestamp:1,toolUse:{tool:'Read',toolUseId:'image-read',input:{file_path:'shot.png'}}}})));
           window.layout=(text,streaming,width)=>{
             root.render(React.createElement('div',{id:'col',style:{width:width+'px'}},React.createElement(ChatMessage,{key:'x',jobId:'wf-cursor',message:{id:'x',role:'assistant',content:text,isStreaming:streaming,timestamp:1,phase:'passthrough'}})));
@@ -90,6 +90,20 @@ async def main():
         assert last == [['I will fix.', False], ['While here', False], ['Then', False], ['Done', True]], last
         await page.evaluate("send({type:'primary_complete',workflowId:'wf-cursor',phase:'passthrough',seq:99}); renderMessages(600)")
         await expect(cursors).to_have_count(0)
+        # Codex completion updates can arrive between chunks of the same word.
+        await page.evaluate("""() => {
+          const w='wf-codex-segments';
+          s.getState().createJob(w,{name:'codex',workingDirectory:'/projects/fixture',primaryProvider:'codex',primaryModel:'fixture',primaryEffort:'low'});
+          send({type:'primary_turn_started',workflowId:w,startedAt:2000,seq:1});
+          send({type:'primary_tool_use',workflowId:w,tool:'command_execution',input:'{}',status:'started',toolUseId:'cmd',provider:'codex',seq:2});
+          send({type:'primary_text',workflowId:w,phase:'passthrough',text:'The reply con',seq:3});
+          send({type:'primary_tool_use',workflowId:w,tool:'command_execution',input:'{}',status:'completed',toolUseId:'cmd',provider:'codex',seq:4});
+          send({type:'primary_text',workflowId:w,phase:'passthrough',text:'tinues.',seq:5});
+          renderMessages(600,w);
+        }""")
+        await expect(cursors).to_have_count(1)
+        assert await page.evaluate("s.getState().jobs['wf-codex-segments'].messages.filter(m=>m.role==='assistant'&&!m.toolUse).map(m=>[m.content,m.isStreaming])") == [['The reply continues.', True]]
+        await expect(page.locator('#col p')).to_have_text('The reply continues.')
         # The cursor never changes the height of its message, at any wrap point.
         words = ' '.join(['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota', 'kappa'] * 3)
         shifts = []

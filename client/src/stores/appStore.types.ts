@@ -121,6 +121,8 @@ export interface ResearchEntry {
 // where historical tool use lives if we ever want it.
 export interface ActivityEntry {
   eventSeq?: number;
+  // Latest update sequence; the card stays anchored at eventSeq.
+  eventEndSeq?: number;
   id: string;
   kind: 'tool_use' | 'thinking' | 'native_event';
   tool?: string;         // set when kind === 'tool_use'
