@@ -232,6 +232,7 @@ export const headerHelp: Record<string, HelpEntry> = {
           runtime is enabled) and <C>CONNECTIONS</C>.
         </p>
         <p>
+          LOCAL STATUS labels stay readable in the selected theme, with runtime state colors retained.
           Disabled and un-installed providers drop out of the panel. See the
           panel rows' help for what clicking a version does. The panel stays inside the window below the full header and suppresses dot hover cards. Escape closes it and returns focus to its button. llama.cpp retains build and commit details and compares updates by build number only when that metadata is available.
         </p>

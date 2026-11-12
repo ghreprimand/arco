@@ -102,7 +102,8 @@ export const maintenance: Section[] = [
   body: <>
   <p>
   Provider version chips report installed, broken and deferred CLI or engine
-  state without changing Arco's own build.
+  state without changing Arco's own build. LOCAL STATUS labels stay readable
+  in the selected theme, with runtime state colors retained.
   </p>
   <p>
   Open <strong>PROVIDERS</strong> for CLI version chips. A missing CLI and

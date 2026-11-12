@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep VERSIONS local status labels readable in the selected theme while preserving runtime state colors.
+
 - Focus runtime release notes when opened from VERSIONS so Escape dismisses them and closing restores the available opening control.
 
 - Open the requested cluster panel when Computer acts in narrow layout, closing the member list and switching sections in an already-open panel.

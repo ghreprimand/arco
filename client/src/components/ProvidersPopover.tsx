@@ -269,6 +269,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
             // Elevated (not panel) so floating menus share one frosted opacity
             // level with the reader modals — the slider moves them together.
             background: 'var(--color-bg-elevated)',
+            color: 'var(--color-fg)',
             border: '1px solid var(--color-border-hairline)',
             borderRadius: '4px',
             boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
