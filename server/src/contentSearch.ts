@@ -95,7 +95,7 @@ export function searchContent(opts: SearchContentOpts): Promise<ContentSearchRes
     return Promise.resolve({ available: true, hits: [], capped: false });
   }
 
-  const args = ['--json', '--no-messages'];
+  const args = ['--json', '--no-messages', '--path-separator', '/'];
   if (ci) args.push('-i');
   for (const dir of SKIP_DIRS) {
     // rg glob excludes; `!**/<dir>/**` prunes the directory anywhere in the tree.
@@ -143,8 +143,8 @@ export function searchContent(opts: SearchContentOpts): Promise<ContentSearchRes
           if (hits.length >= maxHits) { capped = true; break; }
           hits.push({
             // rg with `cwd` set and base `.` already yields relative paths, but
-            // strip a leading `./` for tidy display.
-            file: pathText.replace(/^\.\//, ''),
+            // use forward slashes on every OS and strip either relative prefix.
+            file: pathText.replace(/^\.[\\/]/, ''),
             line: lineNo,
             column: col,
             text: lineText.replace(/\r?\n$/, ''),

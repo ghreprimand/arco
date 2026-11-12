@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -16,5 +16,9 @@ test('content search omits private filenames without hiding ordinary hits', { sk
     const limited = await searchContent({ cwd, query: 'synthetic search marker', maxHits: 1 });
     assert.deepEqual(limited.hits.map((hit) => hit.file), ['ordinary.txt']);
     assert.equal(limited.capped, false);
+    mkdirSync(path.join(cwd, 'nested'));
+    writeFileSync(path.join(cwd, 'nested', 'ordinary.txt'), 'nested search marker\n');
+    const nested = await searchContent({ cwd, query: 'nested search marker' });
+    assert.deepEqual(nested.hits.map(hit => hit.file), ['nested/ordinary.txt']);
   } finally { rmSync(cwd, { recursive: true, force: true }); }
 });

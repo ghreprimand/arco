@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show Windows content-search hits without a leading relative-folder prefix and with consistent directory separators.
+
 - Give every cluster efficiency level testing guidance: Balanced uses one test per real fault and area checks, Lean limits testing to changed work, and Thorough includes neighbouring tests and a full check. Project rules take precedence; Directors and plan drafts no longer assume extra gates.
 
 - Add Arco's model-invoked proportionate-testing skill to keep tests focused on faults a user would notice and ask before adding suites, gates, tooling or CI checks.

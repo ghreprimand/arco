@@ -454,7 +454,7 @@ Workbench Expansion A5. Content search over a workflow cwd via ripgrep. Backed b
 - `q` - search query (matched case-insensitively by default; treated as an rg/Rust regex, which plain substrings satisfy). Empty `q` returns an empty (but `available:true`) result.
 - `max` - optional cap on returned hits (default 200).
 - Honors `SKIP_DIRS` (`node_modules`, `.git`, `.arco`, `dist`, `build`, ...) and `.gitignore`.
-- Accepted searches answer **200** with `{ available, hits: [{ file, line, column, text }], capped }`. `available:false` when `rg` isn't on PATH (the UI shows a "ripgrep not installed" hint - never a 500). `capped:true` when more matches exist than `max`. Paths are cwd-relative; `line`/`column` are 1-based.
+- Accepted searches answer **200** with `{ available, hits: [{ file, line, column, text }], capped }`. `available:false` when `rg` isn't on PATH (the UI shows a "ripgrep not installed" hint - never a 500). `capped:true` when more matches exist than `max`. Paths are cwd-relative with forward-slash directory separators on every OS and no leading `./` or `.\` prefix; `line`/`column` are 1-based.
 
 > **Dependency:** `rg` (ripgrep) must be on PATH for content search. It's already a soft dependency elsewhere (the Native Grep tool, `server/src/capabilities.ts`).
 
