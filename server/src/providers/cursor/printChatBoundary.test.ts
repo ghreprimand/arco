@@ -4,11 +4,16 @@ import childProcess from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { syncBuiltinESMExports } from 'node:module';
-import { mkdtemp, rm, readFile, access, writeFile, readdir, realpath } from 'node:fs/promises';
+import { realpath as callbackRealpath } from 'node:fs';
+import { mkdtemp, rm, readFile, access, writeFile, readdir } from 'node:fs/promises';
+import { promisify } from 'node:util';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { CursorPrintProvider } from './print.js';
 import { FILE_READ_GUIDANCE } from '../providerFileContent.js';
+
+// Match ensureStorageRoot's path spelling on Windows, including 8.3 names.
+const realpath = promisify(callbackRealpath);
 
 test('Cursor print attaches the project reader to Agent turns and never Chat', async (t) => {
   const cwd = await mkdtemp(join(tmpdir(), 'arco-cursor-boundary-'));
