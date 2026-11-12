@@ -135,7 +135,7 @@ async def main():
             await dialog.get_by_text(name,exact=True).click()
             await dialog.get_by_role('button',name='SEND NUDGE (1)').click()
             prompt=await page.evaluate('sent.at(-1)[1]')
-            assert 'required' in prompt and 'review' in prompt
+            assert 'Follow the cluster testing directive' in prompt and 'requested review' in prompt
             assert ('without interrupting current work' in prompt)==active
             assert ('Delegate' in prompt)==active
             assert await page.evaluate('sent.at(-1)[3]')=='steer'

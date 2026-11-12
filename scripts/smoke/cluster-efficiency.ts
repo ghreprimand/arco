@@ -19,7 +19,7 @@ async function main(): Promise<void> {
   });
 
   await step('2: doctrine presence + addendum folding', async () => {
-    assert(!!eff.buildDoctrine('thorough')?.includes('required tests'), 'thorough retains required checks');
+    assert(!!eff.buildDoctrine('thorough')?.includes('Testing: test new behaviour and each fault you fix'), 'thorough includes its testing directive');
     const bal = eff.buildDoctrine('balanced');
     assert(!!bal && bal.includes('BALANCED'), 'balanced doctrine present');
     const lean = eff.buildDoctrine('lean');
