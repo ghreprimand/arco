@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Tell clusters to classify failed checks before blocking a release, hold releases only for product faults, and agree release readiness with the operator.
+
 - Avoid overlapping Cursor print cleanup when a request fails, preventing competing temporary-folder removals on Windows.
 
 - Keep nested Windows search-result paths consistent and accept folder searches inside registered worktrees reached through short parent names.

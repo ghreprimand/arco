@@ -1192,7 +1192,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
       <>
         <p><C>EFFICIENCY</C> guides coordination and testing each turn. Balanced is the new-cluster default: one test per real fault, at the lowest useful level; changed-area tests per change; the full check once before release. Browser tests cover real-screen journeys, one per journey, without layout, theme or size matrices.</p>
         <p>Balanced asks before adding suites, gates, test tooling or CI checks, using the operator-question tool when available. It aims for a full check of about ten minutes and proposes cuts if longer. Flaky tests are fixed or deleted, not retried. Lean runs changed-area tests and adds tests only for faults found; the full check runs only when requested. Thorough tests new behaviour and faults, neighbouring tests, and the full check before handover.</p>
-        <p>Every level asks what a user would lose before a failure blocks work; cosmetic or momentary faults are noted. Project rules and plans take precedence when they ask for more or less testing. Safety checks, message guards, requested review and landing review stay unchanged.</p>
+        <p>Every level sorts product faults from test faults and states what a user would lose before a failure blocks work; cosmetic, momentary and test faults are noted. Only product faults hold a release. Project rules and plans take precedence when they ask for more or less testing. Safety checks, message guards, requested review and landing review stay unchanged.</p>
         <p><C>NOTE</C> adds a standing instruction of your own for the whole cluster. Style and note apply on each member&apos;s next turn. The message guard beside it is a separate setting.</p>
       </>
     ),
