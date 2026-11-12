@@ -298,7 +298,7 @@ test('server starts and accepts uploads through a linked home parent', async (t)
     try { await fs.symlink(realHome, alias, 'dir'); linked = true; }
     catch (error) { if (['EPERM', 'ENOTSUP'].includes((error as NodeJS.ErrnoException).code ?? '')) return t.skip('symlinks unavailable'); throw error; }
     Object.defineProperty(instance, 'uploads', { value: path.join(alias, 'uploads') });
-    await instance.start(5000);
+    await instance.start();
     const response = await instance.api('/upload', { method: 'POST', headers: { 'Content-Type': 'text/plain', 'X-Filename': 'fixture.txt' }, body: 'synthetic upload' });
     assert.equal(response.ok, true);
     const uploaded = await response.json() as { path: string };
