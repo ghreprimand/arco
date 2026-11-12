@@ -5,7 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
-- Tell clusters to classify failed checks before blocking a release, hold releases only for product faults, and agree release readiness with the operator.
+- Tell clusters to keep checks useful and green: classify failures, fix product faults and faulty tests or rules, and never release over red checks.
 
 - Avoid overlapping Cursor print cleanup when a request fails, preventing competing temporary-folder removals on Windows.
 

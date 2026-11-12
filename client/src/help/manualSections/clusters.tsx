@@ -436,7 +436,8 @@ export const clusters: Section[] = [
   out to peers, reads the diff and checks that project-required checks
   ran. It does not invent gates or turn a one-off incident into a
   standing rule or permanent test without the operator. Before blocking
-  work, it states what a user would lose. Only product faults hold a release.
+  work, it states what a user would lose. Checks stay useful and green;
+  faulty tests are fixed or removed, never ignored.
   </li>
   <li>
   <strong>BUILDER</strong> - executes one slice end-to-end and
@@ -954,8 +955,8 @@ export const clusters: Section[] = [
   </p>
   <p>
   Every level sorts product faults from test faults and states what a user
-  would lose before a failure blocks work; cosmetic, momentary and test
-  faults are noted. Project rules and plans win
+  would lose before a failure blocks work; product faults and faulty tests
+  are fixed, while cosmetic or momentary faults are noted. Project rules and plans win
   when they ask for more or less testing. Safety checks, message guards,
   requested review and landing review stay unchanged.
   </p>
