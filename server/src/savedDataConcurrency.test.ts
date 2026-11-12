@@ -140,7 +140,9 @@ for (const reader of ['drain', 'peek', 'markDelivered'] as const) {
   });
 }
 
-test('B16: a failed mailbox copy leaves every pending message on an indexed member', async () => {
+test('B16: a failed mailbox copy leaves every pending message on an indexed member', {
+  skip: process.platform === 'win32' ? 'Windows chmod does not deny file reads with POSIX permission bits.' : false,
+}, async () => {
   const { root, project } = sandbox('b16');
   try {
     const store = await import('./clusterStore.js');
@@ -194,7 +196,9 @@ test('B28: two new image saves of one name cannot both succeed', async () => {
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('B32: a refused media export does not delete the other export', async () => {
+test('B32: a refused media export does not delete the other export', {
+  skip: process.platform === 'win32' ? 'The ffmpeg barrier fixture requires a POSIX shell executable on PATH.' : false,
+}, async () => {
   const { root, project } = sandbox('b32');
   const bin = path.join(root, 'bin');
   mkdirSync(bin);

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { syncBuiltinESMExports } from 'node:module';
 import { after, test } from 'node:test';
-import { promises as fs, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve, delimiter } from 'node:path';
+import { promises as fs, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { execFileSync, spawnSync } from 'node:child_process';
+import childProcess, { execFileSync, spawnSync } from 'node:child_process';
+import { promisify } from 'node:util';
 import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'arco-history-safety-')));
 installIsolatedTestHome(root);
@@ -90,13 +91,18 @@ test('B25: later subtrees can displace 500 older recent files', async t => {
 });
 
 test('B54: an accepted empty rerun response succeeds after one request', async (t) => {
-  const bin = join(root, 'bin'); await fs.mkdir(bin);
-  writeFileSync(join(bin, process.platform === 'win32' ? 'gh.cmd' : 'gh'), process.platform === 'win32' ? '@echo fixture\r\n' : '#!/bin/sh\necho fixture\n', { mode: 0o755 });
-  const prior = process.env.PATH; process.env.PATH = bin + delimiter + prior;
+  const token = async (command: string, args: string[]) => {
+    assert.equal(command, 'gh'); assert.deepEqual(args, ['auth', 'token']);
+    return { stdout: 'fixture', stderr: '' };
+  };
+  const stub = Object.assign(() => { throw new Error('Expected promisified execFile'); }, { [promisify.custom]: token });
+  const originalExecFile = childProcess.execFile;
+  childProcess.execFile = stub as any;
+  syncBuiltinESMExports();
   let calls = 0;
   t.mock.method(globalThis, 'fetch', async () => { calls++; return new Response(null, { status: 201 }); });
   try { const { github } = await import('./github.js'); assert.deepEqual(await github.rerunRun('fixture', 'project', 1), { ok: true }); assert.equal(calls, 1); }
-  finally { process.env.PATH = prior; }
+  finally { childProcess.execFile = originalExecFile; t.mock.restoreAll(); syncBuiltinESMExports(); }
 });
 
 test('B62: explicit Build stage cannot claim earlier missing fields are ready', async () => {

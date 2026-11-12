@@ -8,7 +8,11 @@ import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
 
 const homeRoot = realpathSync(mkdtempSync(join(tmpdir(), 'arco-removal-home-')));
 installIsolatedTestHome(homeRoot);
-after(() => rmSync(homeRoot, { recursive: true, force: true }));
+after(async () => {
+  await (await import('./workflowMeta.js')).settleMetaSideEffects();
+  (await import('./recall/index.js')).getRecallIndex().close();
+  rmSync(homeRoot, { recursive: true, force: true });
+});
 
 function fixture() {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'arco-removal-race-')));

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
 const root=mkdtempSync(join(tmpdir(),'arco-local-cluster-prompt-'));process.once('exit',()=>rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100}));installIsolatedTestHome(root);process.env.PATH=root;
+const {releaseClusterPlansWatcher}=await import('../server/broadcast.js');
 const engine=await import('./turnEngine.js');const {workflows,workflowCwds}=await import('../server/state.js');
 const store=await import('../clusterStore.js');const {createPlan}=await import('../planStore.js');const {initWorkflowStore}=await import('../workflowStore.js');
 const {settleProjectWrites}=await import('../testSupport/projectWrites.js');const {trackRecallFixture}=await import('../testSupport/recallFixture.test-support.js');const closeRecall=trackRecallFixture();
@@ -22,5 +23,5 @@ for(const {provider,blind} of [...(['ollama','llamacpp','lmstudio','strata','dee
  const cluster=await store.createCluster({cwd,memberWorkflowIds:[id,peer],progressTracking:'both'});const plan=await createPlan(cwd,{title:'Fixture cluster plan',body:'- [ ] PLAN_MARKER'});await store.setPlanId(cluster.clusterId,plan.id);await store.setMemberRole(cluster.clusterId,id,'ROLE_MARKER');if(blind)await store.setMemberAccessMode(cluster.clusterId,id,'blind');
  try{await engine.handleUserMessage(ws,session,id,'fixture task','fixture-input',undefined,false,undefined,undefined);assert.ok(captured,JSON.stringify(messages));
  const prompt=captured.systemPrompt??'';if(blind){assert.doesNotMatch(prompt,/PLAN_MARKER/);return;}assert.equal((prompt.match(/PLAN_MARKER/g)??[]).length,1);assert.equal((prompt.match(/ROLE_MARKER/g)??[]).length,1);assert.equal((prompt.match(/--- Cluster progress tracking ---/g)??[]).length,1);
- }finally{await store.deleteCluster(cluster.clusterId);workflows.delete(id);workflowCwds.delete(id);await settleProjectWrites();}
+ }finally{releaseClusterPlansWatcher(cluster.clusterId);await store.deleteCluster(cluster.clusterId);workflows.delete(id);workflowCwds.delete(id);await settleProjectWrites();}
 });

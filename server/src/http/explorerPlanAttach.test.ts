@@ -16,6 +16,7 @@ const clusters = await import('../clusterStore.js');
 const plans = await import('../planStore.js');
 const { tryHandleExplorerRoutes } = await import('./explorerRoutes.js');
 const { isAgentToolRoute } = await import('./wsAuth.js');
+const { releaseClusterPlansWatcher } = await import('../server/broadcast.js');
 const { workflowCwds } = await import('../server/state.js');
 
 test('plan library attaches to the selected cluster only in the same project', async () => {
@@ -61,6 +62,7 @@ test('plan library attaches to the selected cluster only in the same project', a
     assert.equal(await attach(alias, own.id), 200);
     assert.equal((await clusters.readCluster(cluster.clusterId))?.planId, own.id);
   } finally {
+    releaseClusterPlansWatcher(cluster.clusterId);
     await settleProjectWrites();
     await rm(root, { recursive: true, force: true });
   }

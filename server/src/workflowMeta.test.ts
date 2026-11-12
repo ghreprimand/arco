@@ -50,7 +50,12 @@ before(async () => {
   cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-meta-'));
 });
 
-after(async () => { if (cwd) await fs.rm(cwd, { recursive: true, force: true }); await fs.rm(fakeHome, { recursive: true, force: true }); });
+after(async () => {
+  await metaMod.settleMetaSideEffects();
+  (await import('./recall/index.js')).getRecallIndex().close();
+  if (cwd) await fs.rm(cwd, { recursive: true, force: true });
+  await fs.rm(fakeHome, { recursive: true, force: true });
+});
 
 test('concurrent updateMeta calls each land (no lost update)', async () => {
   await writeMeta(cwd, seed());
