@@ -107,7 +107,8 @@ test('Cursor backend Chat refusals become one plain sentence without changing re
     for (const interactionMode of ['chat', 'agent'] as const) {
       const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough() });
       let spawned = false, error = '';
-      t.mock.method(childProcess, 'spawn', (() => { spawned = true; return child; }) as any);
+      let spawnedCwd: string | undefined;
+      t.mock.method(childProcess, 'spawn', ((_command: string, _args: string[], options: any) => { spawned = true; spawnedCwd = options.cwd; return child; }) as any);
       t.mock.method(childProcess, 'execFile', ((_command: string, _args: string[], _options: any, callback: any) => { queueMicrotask(() => callback(Object.assign(new Error('probe'), { code: 1 }), '', "error: unknown option '--arco-chat-capability-probe'")); }) as any);
       syncBuiltinESMExports();
       const worker = CursorPrintProvider.create('fixture', { provider: 'cursor', model: 'fixture', effort: 'low', interactionMode });
@@ -119,6 +120,15 @@ test('Cursor backend Chat refusals become one plain sentence without changing re
       child.emit('close', 1, null);
       if (interactionMode === 'chat') assert.equal(error, 'Cursor refused this Chat request: Workspace context exclusion is not allowed for this user, team, or selected model.');
       else assert.match(error, /cursor-agent -p exited 1:.*Retry attempt/s);
+      if (interactionMode === 'chat') {
+        assert.ok(spawnedCwd, 'Chat ran in its own turn folder');
+        // The error event settles the worker before asynchronous cleanup ends.
+        for (let i = 0; i < 100; i++) {
+          if (await access(spawnedCwd).then(() => false, () => true)) break;
+          await new Promise(resolve => setTimeout(resolve, 5));
+        }
+        await assert.rejects(access(spawnedCwd), 'the turn folder is removed before fixture teardown');
+      }
       t.mock.restoreAll(); syncBuiltinESMExports();
     }
   } finally {

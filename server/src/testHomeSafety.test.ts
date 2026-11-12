@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, symlinkSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -11,6 +11,9 @@ for (const runner of ['test', 'node', 'tsx'] as const) {
   for (const alias of [false, true]) {
     test(`catalog cannot overwrite the default home via ${runner}, symlink=${alias}`, () => {
       const root = mkdtempSync(join(tmpdir(), 'arco-home-guard-'));
+      // tsx CLI opens a UNIX socket; nested runner TMPDIRs can exceed sun_path.
+      const childTemp = runner === 'tsx'
+        ? mkdtempSync(join(process.platform === 'win32' ? tmpdir() : '/tmp', 'arco-hg-')) : root;
       try {
         const home = join(root, 'home');
         const state = join(home, '.arco');
@@ -31,13 +34,17 @@ test('copied catalog test', async () => { await writeCatalog({ models: [{ alias:
           : ['--import', 'tsx', ...(runner === 'test' ? ['--test'] : []), file];
         const child = spawnSync(process.execPath, args, {
           env: { PATH: process.env.PATH, HOME: home, USERPROFILE: home, ARCO_HOME: alias ? linked : state,
-            TMPDIR: root, TMP: root, TEMP: root, ARCO_UPDATE_CHECK: '0' },
+            TMPDIR: childTemp, TMP: childTemp, TEMP: childTemp, ARCO_UPDATE_CHECK: '0' },
           encoding: 'utf8', timeout: 30_000,
         });
         assert.equal(readFileSync(catalog, 'utf8'), sentinel, child.stdout + child.stderr);
         assert.notEqual(child.status, 0);
         assert.match(child.stdout + child.stderr, /Refusing.*Arco home.*test/i);
-      } finally { rmSync(root, { recursive: true, force: true }); }
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+        if (childTemp !== root) rmSync(childTemp, { recursive: true, force: true });
+        assert.equal(existsSync(childTemp), false, 'the child temporary folder is removed');
+      }
     });
   }
 }

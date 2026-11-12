@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { join } from 'node:path';
 import { renderLifecycleCommand } from './allowlist.js';
 // @ts-expect-error -- plain ESM packaging module without type declarations
 import { renderService, servicePaths } from '../packaging/services.mjs';
@@ -38,5 +39,5 @@ test('macOS commands need the user id and honor a label override', () => {
 
 test('Linux lifecycle commands are unchanged', () => {
   assert.deepEqual(renderLifecycleCommand('arco.restart', 'linux'), { cmd: 'systemctl', args: ['--user', 'restart', 'arco.service'] });
-  assert.equal(servicePaths('linux', { XDG_CONFIG_HOME: '/c' }).unit, '/c/systemd/user/arco.service');
+  assert.equal(servicePaths('linux', { XDG_CONFIG_HOME: '/c' }).unit, join('/c', 'systemd', 'user', 'arco.service'));
 });

@@ -4,7 +4,10 @@ import { join, win32 } from 'node:path';
 import { findBrowsers, launchCommand, resolveBrowser, browserVersionTarget } from './browsers.mjs';
 
 // Simulated file systems: `files` is the set of paths that exist.
-const fs = (files, extra = {}) => ({ exists: (p) => files.includes(p), run: () => ({ stdout: '' }), ...extra });
+// A simulated filesystem accepts either host separator spelling. Linux and
+// macOS simulations mix POSIX discovery paths with the host-native legacy joins.
+const fixturePath = p => String(p).replace(/\\/g, '/');
+const fs = (files, extra = {}) => ({ exists: p => files.some(file => fixturePath(file) === fixturePath(p)), real: fixturePath, run: () => ({ stdout: '' }), ...extra });
 const ids = (list) => list.map((b) => b.id);
 const exported = (app) => join('/var/lib/flatpak/exports/bin', app);
 
@@ -76,7 +79,7 @@ test('a chosen browser is matched by id, name, Flatpak id, program name or path,
   assert.equal(pick('vivaldi').browser.id, 'vivaldi-flatpak');
   assert.equal(pick('com.vivaldi.Vivaldi').browser.id, 'vivaldi-flatpak');
   assert.equal(pick('thorium-browser').browser.family, 'thorium');
-  assert.equal(pick('thorium-browser').browser.command, join('/extra', 'thorium-browser'));
+  assert.equal(fixturePath(pick('thorium-browser').browser.command), '/extra/thorium-browser');
   assert.equal(pick('/opt/custom/chrome').browser.command, '/opt/custom/chrome');
   // An absolute path to a detected browser is that browser (POSIX paths on a POSIX host).
   if (process.platform !== 'win32') assert.equal(pick('/bin/brave-browser').browser.id, 'brave');
@@ -114,7 +117,7 @@ test('launch arguments use the profile only when one is given', () => {
 test('Linux lists Brave Origin Beta separately while preserving the old Automatic winner', () => {
   const env = { PATH: '/b', ARCO_TEST_USER_HOME: '/empty', XDG_DATA_DIRS: '/empty', XDG_DATA_HOME: '/empty' };
   const found = findBrowsers('linux', env, fs(['/b/brave', '/b/brave-origin-beta', '/b/google-chrome-beta', '/b/ungoogled-chromium']));
-  assert.equal(found[0].path, '/b/brave');
+  assert.equal(fixturePath(found[0].path), '/b/brave');
   assert.ok(found.some(b => b.name === 'Brave Origin Beta'));
   assert.ok(found.some(b => b.name === 'Google Chrome Beta'));
   assert.ok(found.some(b => b.name === 'Ungoogled Chromium'));
@@ -177,12 +180,12 @@ test('Windows lists channel builds, both roots and registered clients from both 
 });
 
 test('stable installation ids survive a PATH reorder while legacy family ids retain their preference', () => {
-  const files = ['/a/brave', '/b/brave']; const deps = fs(files);
+  const files = [join('/a', 'brave'), join('/b', 'brave')]; const deps = fs(files);
   const one = findBrowsers('linux', { PATH: '/a:/b', ARCO_TEST_USER_HOME: '/empty' }, deps);
-  const selected = one.find(b => b.path === '/a/brave').installationId;
+  const selected = one.find(b => b.path === files[0]).installationId;
   const next = resolveBrowser(selected, 'linux', { PATH: '/b:/a', ARCO_TEST_USER_HOME: '/empty' }, deps);
-  assert.equal(next.browser.path, '/a/brave');
-  assert.equal(resolveBrowser('brave', 'linux', { PATH: '/b:/a', ARCO_TEST_USER_HOME: '/empty' }, deps).browser.path, '/b/brave');
+  assert.equal(fixturePath(next.browser.path), fixturePath(files[0]));
+  assert.equal(resolveBrowser('brave', 'linux', { PATH: '/b:/a', ARCO_TEST_USER_HOME: '/empty' }, deps).browser.path, files[1]);
   assert.equal(new Set(one.map(b => b.name)).size, 2, 'duplicate display names include the installation path');
 });
 

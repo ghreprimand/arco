@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
+import fs from 'node:fs';
+import childProcess from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
 import path from 'node:path';
 
 // Settings live in a temporary Arco home; imports that capture it happen below.
@@ -39,7 +42,22 @@ test('GET /api/app-browsers returns the report and other requests pass through',
   assert.equal(await tryHandleAppBrowserRoutes({ url: '/api/settings', method: 'GET' } as never, res as never), false);
 });
 
-test('the report and the server window follow the shared browser rules', async () => {
+test('the report and the server window follow the shared browser rules', async t => {
+  // Discovery also searches fixed install roots. Limit its filesystem view,
+  // not just PATH, so a browser installed on the runner cannot enter the fixture.
+  const onlyFixture = <T extends (...args: any[]) => any>(read: T) => ((...args: Parameters<T>) => {
+    const relative = path.relative(fixture, String(args[0]));
+    if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      throw Object.assign(new Error('Outside the browser fixture'), { code: 'ENOENT' });
+    }
+    return read(...args);
+  }) as T;
+  t.mock.method(fs, 'accessSync', onlyFixture(fs.accessSync));
+  t.mock.method(fs, 'opendirSync', onlyFixture(fs.opendirSync));
+  // A Windows report must not query the runner's real browser registry either.
+  t.mock.method(childProcess, 'spawnSync', (() => ({ status: 0, stdout: '', stderr: '' })) as any);
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
   const bin = path.join(fixture, 'bin');
   mkdirSync(bin, { recursive: true });
   const env = { PATH: bin, ARCO_TEST_USER_HOME: path.join(fixture, 'user'), XDG_DATA_HOME: path.join(fixture, 'xdg') };
