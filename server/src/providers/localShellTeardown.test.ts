@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { executeOllamaTool } from './ollamaTools.js';
@@ -13,13 +13,16 @@ test('tab disposal ends an active local shell and waits for its result', { skip:
   try {
     let settled = false;
     const result = executeOllamaTool('Bash', {
-      command: 'echo ready > ready.txt; (sleep 1; echo alive > late.txt) & wait',
+      // Keep the background child blocked until after disposal, regardless of
+      // how long the hosted runner takes to observe ready.txt.
+      command: '(echo ready > ready.txt; while [ ! -e release.txt ]; do sleep 0.01; done; echo alive > late.txt) & wait',
     }, { cwd, workflowId, abortSignal: controller.signal }).then(value => { settled = true; return value; });
     for (let n = 0; !existsSync(join(cwd, 'ready.txt')) && n < 100; n++) await new Promise(resolve => setTimeout(resolve, 10));
     assert.ok(existsSync(join(cwd, 'ready.txt')), 'shell started');
     await disposeProviderResources(workflowId);
     assert.equal(settled, true, 'disposal waits for shell result and pipe closure');
     assert.match(await result, /exit signal: SIGKILL/);
+    writeFileSync(join(cwd, 'release.txt'), 'release');
     await new Promise(resolve => setTimeout(resolve, 1_200));
     assert.equal(existsSync(join(cwd, 'late.txt')), false);
   } finally { controller.abort(); await disposeProviderResources(workflowId); rmSync(cwd, { recursive: true, force: true }); }
