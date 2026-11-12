@@ -127,14 +127,19 @@ for (const kind of ['local', 'native', 'native-rg'] as const) test(`${kind} Grep
       const cwd=process.argv[1], kind=process.argv[2];
       const ctx={cwd,abortSignal:new AbortController().signal,shells:{byId:new Map(),mintId:()=> 'fixture'},readSet:new Set(),partialReadSet:new Set(),planMode:false,onTodos:()=>{}};
       console.log(kind==='local'?await executeOllamaTool('Grep',{pattern:'needle'},ctx):await executeNativeTool('Grep',{pattern:'needle'},ctx));`;
-    const result = spawnSync(process.execPath, ['--conditions','development','--import','tsx','--input-type','module','-e',script,cwd,kind], {env:{...process.env,PATH:kind === 'native-rg' ? process.env.PATH : ''},timeout:4000,encoding:'utf8'});
+    // Put nul.dat's binary warning before unicode.txt deterministically. rg's
+    // normal parallel traversal can emit these files in either order.
+    const rgConfig = join(cwd, '.ripgreprc');
+    await fs.writeFile(rgConfig, '--sort=path\n');
+    const grepEnv = {...process.env, PATH:kind === 'native-rg' ? process.env.PATH : '', RIPGREP_CONFIG_PATH:rgConfig};
+    const result = spawnSync(process.execPath, ['--conditions','development','--import','tsx','--input-type','module','-e',script,cwd,kind], {env:grepEnv,timeout:4000,encoding:'utf8'});
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /good.txt:1: ?needle in text/);
     assert.match(result.stdout, /unicode.txt:1: ?needle café/);
     for (const name of ['legacy.txt', 'utf16le.txt', 'utf16be.txt']) assert.match(result.stdout, new RegExp(`${name.replace('.', '\\.')} :3: ?needle café`.replace(' :', ':')));
     assert.doesNotMatch(result.stdout, /binary.pdf|image.png|archive.zip|nul.dat|control-heavy.bin|\uFFFD/);
     const accentedScript = script.replaceAll("pattern:'needle'", "pattern:'café'");
-    const accented = spawnSync(process.execPath, ['--conditions','development','--import','tsx','--input-type','module','-e',accentedScript,cwd,kind], {env:{...process.env,PATH:kind === 'native-rg' ? process.env.PATH : ''},timeout:4000,encoding:'utf8'});
+    const accented = spawnSync(process.execPath, ['--conditions','development','--import','tsx','--input-type','module','-e',accentedScript,cwd,kind], {env:grepEnv,timeout:4000,encoding:'utf8'});
     assert.equal(accented.status, 0, accented.stderr);
     assert.match(accented.stdout, /legacy\.txt:3: ?needle café/);
   } finally { await fs.rm(cwd,{recursive:true,force:true}); }

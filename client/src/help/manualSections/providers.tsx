@@ -58,7 +58,7 @@ export const providers: Section[] = [
   <p>Spawn from HISTORY keeps the selected earlier conversation even when it falls outside the recent replay tail. Cancelled handoffs preserve prior context. Older derived summary caches are rebuilt automatically.</p>
   <p>Native and local Read use bounded chunks and refuse special files. Their text output caps remain 256 KiB and 32 KiB. Native also recognizes byte-order-marked UTF-16 text. Use offset and limit for later lines.</p>
   <p>Non-UTF-8 text without NUL bytes and with fewer than 1% unexpected control bytes per 16 KiB chunk is decoded as Windows-1252 with a short notice. Line ranges apply to the decoded text. Control-heavy data remains a binary-file note.</p>
-  <p>A selected range containing NUL bytes receives a binary-file note even after a text-only header. Grep skips binary files, including control-heavy legacy data, searches UTF-8, UTF-16 and Windows-1252 text, and reports shortened long lines.</p>
+  <p>A selected range containing NUL bytes receives a binary-file note even after a text-only header. Grep skips binary files, including control-heavy legacy data, searches UTF-8, UTF-16 and Windows-1252 text, and reports shortened long lines. Native ripgrep keeps later text matches when it reports a binary file.</p>
   <p>Local WebFetch and the CLI file server&apos;s read-only <Code>fetch_file</Code>
   tool share a public HTTP(S) reader. Images are fitted; documents provide
   decoded text and scanned PDF pages provide images. Use <Code>pages</Code>

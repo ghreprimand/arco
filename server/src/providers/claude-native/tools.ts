@@ -500,10 +500,12 @@ async function runRipgrep(
       const searchable = new Map<string, boolean>();
       let start = 0;
       while (start < output.length) {
-        const separator = output.indexOf(opts.filesOnly ? 10 : 0, start);
-        if (separator < 0) break;
-        const end = opts.filesOnly ? separator : output.indexOf(10, separator + 1);
+        const end = output.indexOf(10, start);
         if (end < 0) break;
+        const separator = opts.filesOnly ? end : output.indexOf(0, start);
+        // Binary-file warnings are stdout lines without a NUL separator.
+        // Never let one consume the filename of the next matching text line.
+        if (separator < 0 || separator > end) { start = end + 1; continue; }
         try {
           const file = decoder.decode(output.subarray(start, separator));
           let rest = '';
