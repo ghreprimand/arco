@@ -148,6 +148,7 @@ class Instance {
   denyLog = '';
   cookie = '';
   private child?: ChildProcess;
+  private childExit?: Promise<void>;
 
   constructor() {
     for (const d of [this.home, this.scratch, this.uploads, this.project, this.outside, path.join(this.home, '.codex')]) mkdirSync(d, { recursive: true });
@@ -164,12 +165,22 @@ class Instance {
         ARCO_PORT: String(port), ARCO_HOST: '127.0.0.1', ARCO_UPLOADS_DIR: this.uploads,
     }, this.root);
     this.denyLog = guarded.denyLog;
+    let stderr = '';
+    let spawnError = '';
     this.child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', 'server/src/index.ts'], {
       cwd: repo,
-      stdio: 'ignore',
+      stdio: ['ignore', 'ignore', 'pipe'],
       env: guarded.env,
     });
-    await until('server readiness', async () => { try { return (await fetch(`${this.base}/readyz`)).ok; } catch { return false; } }, readinessMs);
+    const child = this.child;
+    child.stderr?.on('data', (chunk: Buffer) => { stderr = (stderr + chunk.toString()).slice(-16_384); });
+    child.on('error', (error) => { spawnError = error.message; });
+    this.childExit = new Promise(resolve => child.once('close', () => resolve()));
+    try {
+      await until('server readiness', async () => { try { return (await fetch(`${this.base}/readyz`)).ok; } catch { return false; } }, readinessMs);
+    } catch (error) {
+      throw new Error(`${String(error)}; server exit code=${child.exitCode}, signal=${child.signalCode}; spawn error=${spawnError || 'none'}; stderr=${stderr || '(empty)'}`);
+    }
     const minted = await fetch(`${this.base}/api/session`, { method: 'POST', headers: this.mintHeaders() });
     assert.equal(minted.status, 204);
     this.cookie = minted.headers.get('set-cookie')!.split(';')[0];
@@ -177,7 +188,7 @@ class Instance {
 
   async stop(): Promise<void> {
     this.child?.kill('SIGTERM');
-    await delay(300);
+    if (this.childExit) await Promise.race([this.childExit, delay(3000)]);
     await fs.rm(this.root, { recursive: true, force: true }).catch(() => undefined);
   }
 
