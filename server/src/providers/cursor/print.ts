@@ -165,11 +165,11 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
 
   private onExit(code: number | null, signal: NodeJS.Signals | null): void {
     if (this.settled) return;
-    void this.cleanup();
     const tail = this.stdoutDecoder.end();
     if (tail) { this._output += tail; this.emit('text', tail); }
     this.stderrBuf = (this.stderrBuf + this.stderrDecoder.end()).slice(-STDERR_CAP);
     if (code === 0) {
+      void this.cleanup();
       this.settled = true;
       this._status = 'completed';
       this.emit('result', {

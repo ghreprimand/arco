@@ -72,8 +72,9 @@ test('Cursor print passes workflow identity to the plugin only outside Chat', as
   try {
     for (const interactionMode of ['agent', 'chat'] as const) {
       let captured: string[] | undefined;
+      let spawnedCwd: string | undefined;
       const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough() });
-      t.mock.method(childProcess, 'spawn', (_command: unknown, args: string[]) => { captured = args; return child; });
+      t.mock.method(childProcess, 'spawn', (_command: unknown, args: string[], options: any) => { captured = args; spawnedCwd = options.cwd; return child; });
       t.mock.method(childProcess, 'execFile', ((_command: string, _args: string[], _options: any, callback: any) => { queueMicrotask(() => callback(Object.assign(new Error('probe'), { code: 1 }), '', "error: unknown option '--arco-chat-capability-probe'")); return child; }) as any);
       syncBuiltinESMExports();
       const worker = CursorPrintProvider.create('fixture', { cwd: home, workflowId: 'member', model: 'auto', effort: 'low', interactionMode });
@@ -89,7 +90,14 @@ test('Cursor print passes workflow identity to the plugin only outside Chat', as
       }
       child.emit('close', 0, null);
       child.emit('exit', 0, null);
-      if (path) await rm(path, { recursive: true, force: true });
+      // Worker cleanup owns these folders; a second rm races it on Windows.
+      const cleanupPath = path ? dirname(path) : spawnedCwd;
+      assert.ok(cleanupPath);
+      for (let n = 0; n < 100; n++) {
+        if (await access(cleanupPath).then(() => false, () => true)) break;
+        await new Promise(resolve => setTimeout(resolve, 5));
+      }
+      await assert.rejects(access(cleanupPath), { code: 'ENOENT' });
       t.mock.restoreAll(); syncBuiltinESMExports();
     }
   } finally { t.mock.restoreAll(); syncBuiltinESMExports(); await rm(home, { recursive: true, force: true }); }

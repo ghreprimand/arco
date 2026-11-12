@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Avoid overlapping Cursor print cleanup when a request fails, preventing competing temporary-folder removals on Windows.
+
 - Keep nested Windows search-result paths consistent and accept folder searches inside registered worktrees reached through short parent names.
 
 - Show Windows content-search hits without a leading relative-folder prefix and with consistent directory separators.
