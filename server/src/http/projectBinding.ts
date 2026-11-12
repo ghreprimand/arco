@@ -33,12 +33,12 @@ export async function requireProjectBinding(cwd?: string | null, workflowId?: st
         for (const owner of [bound.cwd, root]) {
           const managed = worktreesRoot(owner);
           try {
-            const realManaged = realpathSync(managed);
+            const realManaged = realpathSync.native(managed);
             for (const base of [managed, realManaged]) {
               const relative = path.relative(base, candidate);
               if (!relative || relative === '..' || path.isAbsolute(relative) || relative.includes(path.sep)) continue;
               const real = realpathSync(candidate);
-              if (samePath(real, path.join(realManaged, relative)) && statSync(real).isDirectory()) return real;
+              if (samePath(realpathSync.native(real), path.join(realManaged, relative)) && statSync(real).isDirectory()) return real;
             }
           } catch { /* missing or replaced task tree */ }
         }
@@ -47,21 +47,23 @@ export async function requireProjectBinding(cwd?: string | null, workflowId?: st
     };
     const selected = selectedDirectory(cwd);
     const requested = path.resolve(cwd);
-    const requestedEntry = path.join(realpathSync(path.dirname(requested)), path.basename(requested));
+    // Native realpath expands Windows short parent names like Git does. Keep
+    // the leaf lexical here: resolving it would admit a replaced symlink.
+    const requestedEntry = path.join(realpathSync.native(path.dirname(requested)), path.basename(requested));
     // Parent aliases (including temporary-folder aliases) are fine, but a
     // selected worktree replaced by a link must not redirect to a sibling.
-    if (!samePath(requestedEntry, selected) && !samePath(requested, path.resolve(bound.cwd))) throw new SelectedWorktreeError();
-    if (samePath(root, selected)) return root;
+    if (!samePath(requestedEntry, realpathSync.native(selected)) && !samePath(requested, path.resolve(bound.cwd))) throw new SelectedWorktreeError();
+    if (samePath(realpathSync.native(root), realpathSync.native(selected))) return root;
     // Only the bound repository's registry can authorize another worktree.
     // NUL-delimited porcelain preserves spaces and newlines in pathnames.
     const registry = await gitOutput(root, ['worktree', 'list', '--porcelain', '-z']);
     const registered = registry.split('\0').some(field => {
       if (!field.startsWith('worktree ')) return false;
-      try { return samePath(selectedDirectory(field.slice(9)), selected); } catch { return false; }
+      try { return samePath(realpathSync.native(selectedDirectory(field.slice(9))), realpathSync.native(selected)); } catch { return false; }
     });
     if (!registered) throw new SelectedWorktreeError();
     // A stale registered path may have been replaced by an unrelated repository.
-    const commonDirectory = async (directory: string) => realpathSync(path.resolve(directory,
+    const commonDirectory = async (directory: string) => realpathSync.native(path.resolve(directory,
       (await gitOutput(directory, ['rev-parse', '--git-common-dir'])).trimEnd()));
     if (!samePath(await commonDirectory(root), await commonDirectory(selected))) throw new SelectedWorktreeError();
     return selected;

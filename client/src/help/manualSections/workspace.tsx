@@ -501,7 +501,7 @@ export const workspace: Section[] = [
     title: 'The right panel',
     body: (
       <>
-  <p>Search and Git views use the workflow folder or a selected worktree registered with its repository. Unrelated or unavailable selections show an error; requests never silently switch to the main tree. Project document actions require a folder known to Arco.</p>
+  <p>Search and Git views use the workflow folder or a selected worktree registered with its repository. Unrelated or unavailable selections show an error; requests never silently switch to the main tree. Windows short parent-folder names work for registered worktrees; replacing the worktree itself with a folder link is refused. Project document actions require a folder known to Arco.</p>
         <p>
           The right panel holds per-workflow tools grouped into four families.
           Each workflow remembers its active tab and starts with FILES.

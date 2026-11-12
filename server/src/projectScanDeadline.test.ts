@@ -12,13 +12,19 @@ const { collectProjectDocsPage } = await import('./explorerDocs.js');
 const { ignoredProjectPaths } = await import('./projectIgnore.js');
 
 for (const mode of ['open', 'read', 'reject', 'read-reject'] as const) test(`a stalled directory ${mode} returns partial on time and disposes late resources`, async t => {
-  const project = join(process.env.HOME!, mode); mkdirSync(project); writeFileSync(join(project, 'README.md'), 'fixture');
+  const fixture = join(process.env.HOME!, mode); mkdirSync(fixture);
+  // The scanner uses promises.realpath (native on Windows), which expands
+  // temporary-folder short names. Intercept that same spelling.
+  const project = await fs.realpath(fixture);
+  writeFileSync(join(project, 'README.md'), 'fixture');
   const originalOpen = fs.opendir.bind(fs);
+  let intercepted = 0;
   let closes = 0, closing: Promise<void> | undefined;
   let released!: () => void;
   const releaseFinished = new Promise<void>(resolve => { released = resolve; });
   t.mock.method(fs, 'opendir', async (...args: any[]) => {
     if (String(args[0]) !== project) return (originalOpen as any)(...args);
+    intercepted++;
     if (mode === 'reject') return new Promise((_, reject) => setTimeout(() => { reject(new Error('fixture late rejection')); released(); }, 400));
     const handle = await (originalOpen as any)(...args);
     const originalClose = handle.close.bind(handle);
@@ -43,6 +49,7 @@ for (const mode of ['open', 'read', 'reject', 'read-reject'] as const) test(`a s
     const started = performance.now();
     const page = await collectProjectDocsPage(project);
     assert.ok(performance.now() - started < 350, 'the pending I/O exceeded the 250 ms scan budget');
+    assert.equal(intercepted, 1, 'the delayed directory open must exercise the scanner');
     assert.equal(page.partial, true);
     await releaseFinished;
     await new Promise<void>(resolve => setImmediate(resolve));

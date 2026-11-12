@@ -7,7 +7,7 @@ import type { HelpEntry } from './shared';
 export const gitOpsHelp: Record<string, HelpEntry> = {
   'gitops.stage-file': {
     title: 'Stage file',
-    body: <><p>Adds this file to the index (<C>git add -- &lt;path&gt;</C>). Staged changes are what the next commit will include.</p><p>Search and Git views use the workflow folder or a selected worktree registered with its repository. Unrelated or unavailable selections show an error; requests never silently switch to the main tree. Project document actions require a folder known to Arco.</p></>,
+    body: <><p>Adds this file to the index (<C>git add -- &lt;path&gt;</C>). Staged changes are what the next commit will include.</p><p>Search and Git views use the workflow folder or a selected worktree registered with its repository. Unrelated or unavailable selections show an error; requests never silently switch to the main tree. Windows short parent-folder names work for registered worktrees; replacing the worktree itself with a folder link is refused. Project document actions require a folder known to Arco.</p></>,
   },
   'gitops.unstage-file': {
     title: 'Unstage file',

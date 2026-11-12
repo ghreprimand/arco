@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Accept registered Windows worktrees reached through short parent-folder names while refusing replaced worktree links.
+
 - Keep checked file replacements working on Windows when the destination is open during validation.
 
 - Keep cluster attention counts visible in the narrow member rail and open BOARD when a waiting task is selected, closing the member list.

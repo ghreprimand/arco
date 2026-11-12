@@ -59,6 +59,19 @@ jobs:
       # NODE_ENV is unset on hosted runners; devDependencies (tsc, tsx) are required.
       - name: Install
         run: npm ci --include=dev
+      # Content and transcript search deliberately require rg. Native Grep has
+      # a JS fallback, so its tests alone cannot establish this prerequisite.
+      - name: Install and check ripgrep
+        run: |
+          if ! command -v rg >/dev/null 2>&1; then
+            case "$RUNNER_OS" in
+              Linux) sudo apt-get update && sudo apt-get install -y ripgrep ;;
+              macOS) brew install ripgrep ;;
+              Windows) choco install ripgrep --yes --no-progress ;;
+              *) echo "Unsupported runner: $RUNNER_OS" >&2; exit 1 ;;
+            esac
+          fi
+          rg --version
       - name: Build
         run: npm run build
       - name: Typecheck

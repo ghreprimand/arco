@@ -1,8 +1,10 @@
 import test, { after } from 'node:test';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { Readable } from 'node:stream';
 import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
@@ -132,4 +134,37 @@ for (const useGit of [false, true]) test(`LA14: search scopes folders in ${useGi
       assert.equal((await search(join(root, '.git'))).status, 403);
     }
   } finally { workflowCwds.delete(id); }
+});
+
+// Emulate Windows' JS realpath retaining an 8.3 parent spelling while Git and
+// the native resolver return its expanded spelling. The alias is a real folder
+// link on POSIX, so the same registration and common-directory checks run.
+test('LA07: short parent spelling admits only the registered worktree, not a replaced leaf', async t => {
+  const { workflowCwds } = await import('../server/state.js');
+  const { requireProjectBinding } = await import('./projectBinding.js');
+  const parent = join(home, 'expanded-parent'), alias = join(home, 'short-parent');
+  mkdirSync(parent);
+  const a = join(parent, 'owner'), b = join(parent, 'linked'); init(a);
+  git(a, 'worktree', 'add', '-b', 'alias-linked', b);
+  symlinkSync(realpathSync(parent), alias, 'junction');
+  const original = fs.realpathSync;
+  const expanded = original(parent);
+  const retainingAlias = Object.assign((target: any, ...args: any[]) => {
+    const result = Reflect.apply(original, fs, [target, ...args]);
+    return typeof result === 'string' && String(target).startsWith(alias + sep)
+      ? alias + result.slice(expanded.length) : target === alias ? alias : result;
+  }, { native: original.native });
+  t.mock.method(fs, 'realpathSync', retainingAlias as typeof original);
+  syncBuiltinESMExports();
+  workflowCwds.set('short-parent-fixture', a);
+  try {
+    const selected = join(alias, 'linked');
+    assert.equal(await requireProjectBinding(selected, 'short-parent-fixture'), selected);
+    rmSync(b, { recursive: true, force: true });
+    symlinkSync(a, b, 'junction');
+    await assert.rejects(requireProjectBinding(selected, 'short-parent-fixture'), /selected worktree/i);
+  } finally {
+    workflowCwds.delete('short-parent-fixture');
+    t.mock.restoreAll(); syncBuiltinESMExports();
+  }
 });
