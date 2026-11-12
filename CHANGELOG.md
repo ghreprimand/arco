@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Focus runtime release notes when opened from VERSIONS so Escape dismisses them and closing restores the available opening control.
+
 - Open the requested cluster panel when Computer acts in narrow layout, closing the member list and switching sections in an already-open panel.
 - Restore Chat uploads and shrink large images when the uploads folder has a linked parent, while refusing links inside uploads.
 - Keep Cursor reply segments separate across tool updates, including after reconnect, while Codex tool completion preserves a reply in progress.

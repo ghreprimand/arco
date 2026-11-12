@@ -42,6 +42,12 @@ export function ProviderReleasesModal({ onClose, installedVersion, runtime }: Pr
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    surface.current?.focus();
+    return () => { if (previous?.isConnected) previous.focus(); };
+  }, []);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -99,6 +105,7 @@ export function ProviderReleasesModal({ onClose, installedVersion, runtime }: Pr
     >
       <div
         ref={surface}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className="glow-border"
         role="dialog" aria-modal="true" aria-label={`${label} ${runtime === 'xolotl' ? 'changes' : 'releases'}`}

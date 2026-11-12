@@ -126,6 +126,8 @@ export const maintenance: Section[] = [
   prepared BUILD.json while stopped. Arco compares engine component
   versions at boot and every four hours; the app/Terminal 0.2 version
   is separate. Click opens release notes inside Arco, like Ollama.
+  Release notes take keyboard focus when opened. Escape dismisses them;
+  closing returns focus to the opening version control when it remains available.
   </p>
   <p>
   Updating Strata is manual and separate from rebuilding Arco. Preserve

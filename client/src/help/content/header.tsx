@@ -264,6 +264,8 @@ export const headerHelp: Record<string, HelpEntry> = {
           release view, keeping engine and app versions distinct. Xolotl opens
           recent source history in-app and shows UP TO DATE when revisions match.
           GitHub links are explicit external actions. Runtime updates remain manual.
+          Release notes take keyboard focus on opening. Escape dismisses them;
+          closing returns focus to the opening version control when available.
         </p>
         <p>For npm CLIs with their own platform package, Arco checks that the
           matching binary is published before installing. It can keep or select an
