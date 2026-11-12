@@ -1,3 +1,4 @@
+import { useVoicePanelOpener } from '../voice/panels';
 import { formSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 // docs/PROTOCOL_CLUSTER.md + docs/CLIENT.md - cluster tab.
 //
@@ -326,6 +327,10 @@ export function ClusterTab({
   const [rightTabRequest, setRightTabRequest] = useState<{ tab: string; n: number } | null>(null);
   const [planHintMore, setPlanHintMore] = useState(false);
   useEffect(() => { if (widthRange !== 'narrow') { setMemberListOpen(false); setRightSlide(null); } }, [widthRange]);
+  useVoicePanelOpener(clusterId, widthRange === 'narrow', (panel) => {
+    setMemberListOpen(false);
+    setRightSlide(panel);
+  });
   // View in Outputs: the narrow layout opens the cluster panel slide-out first.
   useOutputNavigationOpener((cluster?.members ?? []).map((member) => member.workflowId), widthRange === 'narrow', () => setRightSlide('files'));
   // docs/CLIENT.md - splitter drag, mirrors WorkflowView.tsx

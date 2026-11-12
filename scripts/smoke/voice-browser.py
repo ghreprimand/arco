@@ -25,7 +25,7 @@ async def open_voice_controls(p):
 async def main():
  async with async_playwright() as p:
   browser = await p.chromium.launch(executable_path=chrome_executable(), args=['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'])
-  context = await browser.new_context(viewport={'width':1600,'height':1000}, permissions=['microphone'])
+  context = await browser.new_context(viewport={'width':1600,'height':1000}, permissions=['microphone'], has_touch=True)
   errors, messages, requests = [], [], []
   transcripts = deque()
   delayed = asyncio.Event(); slow = asyncio.Event()
@@ -196,6 +196,47 @@ async def main():
   await sent_to_computer(1,'open Atlas')
   assert await page.evaluate('testStore.getState().activeClusterId') is None, 'nothing moves before Computer acts'
   await computer_tool('n1','arco_select',{'target':'Atlas'},"testStore.getState().activeClusterId==='atlas'")
+  # Panel tools must reveal narrow drawers, including from an already-open member list.
+  theme_ids = await page.evaluate("async()=>Object.keys((await import('/src/themes/registry.ts')).THEME_REGISTRY)")
+  cases = [(mode, scale, focus, theme, width)
+           for mode in ['auto','standard','compact','narrow']
+           for scale in [1,1.1] for focus in [False,True]
+           for theme in [theme_ids[0]] for width in [900,1600]]
+  cases += [('narrow',1.1,False,theme,900) for theme in theme_ids[1:]]
+  for index,(mode,scale,focus,theme,width) in enumerate(cases):
+   await page.set_viewport_size({'width':width,'height':1000})
+   await page.evaluate("""async c => {
+    const {setLayoutMode}=await import('/src/layout/layoutRange.ts');setLayoutMode(c.mode);
+    testStore.setState({focusMode:c.focus});
+    const {applyTheme}=await import('/src/themes/apply.ts');
+    applyTheme((await import('/src/themes/registry.ts')).THEME_REGISTRY[c.theme]);
+    document.documentElement.style.zoom=String(c.scale);document.documentElement.style.setProperty('--ui-scale',String(c.scale));dispatchEvent(new Event('resize'));
+   }""",{'mode':mode,'scale':scale,'focus':focus,'theme':theme})
+   await page.evaluate('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))')
+   close=page.get_by_role('button',name='Close CLUSTER PANEL',exact=True)
+   if await close.is_visible(): await close.tap()
+   opener=page.get_by_role('button',name='Show the member list',exact=True)
+   narrow=await opener.is_visible()
+   if narrow:
+    if index%2: await opener.tap()
+    else: await opener.focus(); await page.keyboard.press('Enter')
+    await page.get_by_test_id('member-list-slide-out').wait_for()
+   drawer_before=None
+   for section in ['plan','activity']:
+    await computer_tool(f'panel-matrix-{index}-{section}','arco_open_panel',{'panel':section},f"JSON.parse(localStorage.getItem('arco.clusterSidePanelTab.byCluster')||'{{}}').atlas==='{section}'")
+    target=f'[data-help="cluster.right-panel.tab.{section}"]' + (', [data-help="cluster.plan-tab"]' if section=='plan' else '')
+    await page.locator(target).first.wait_for(state='visible')
+    if narrow:
+     assert await page.get_by_test_id('right-panel-slide-out').is_visible()
+     if drawer_before: assert await drawer_before.evaluate('e=>e.isConnected'), 'section switch remounted the open drawer'
+     else: drawer_before=await page.get_by_test_id('right-panel-slide-out').element_handle()
+     assert not await page.get_by_test_id('member-list-slide-out').count()
+   if narrow:
+    await page.get_by_role('button',name='Close CLUSTER PANEL',exact=True).focus();await page.keyboard.press('Enter')
+    assert not await page.get_by_test_id('right-panel-slide-out').count()
+  print(f'PASS panel tool matrix: {len(cases)} layout/scale/focus/theme/width cases, keyboard/touch and already-open section changes',flush=True)
+  await page.set_viewport_size({'width':1600,'height':1000})
+  await page.evaluate("async()=>{(await import('/src/layout/layoutRange.ts')).setLayoutMode('auto');testStore.setState({focusMode:false});document.documentElement.style.zoom='1.1';document.documentElement.style.setProperty('--ui-scale','1.1');dispatchEvent(new Event('resize'));}")
   await settle()
   # The END CAPTURE button flushes the real worklet and queues behind the
   # phrase still being recognized, so the directive keeps its last words.

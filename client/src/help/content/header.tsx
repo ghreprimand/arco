@@ -153,7 +153,7 @@ export const headerHelp: Record<string, HelpEntry> = {
       screen, subscription quota); &quot;dictate&quot; sends the exact words. Ask for a
       completion watch by naming a worker or cluster, or a bounded mailbox rule
       to nudge selected workers for new mail before nudging a final recipient. Settings and other Arco
-      controls are available through the screen tools. Native text deletion and button activation apply directly; unsupported key actions report their limit. Say &quot;Computer&quot; while it talks to
+      controls are available through the screen tools. Opening a cluster panel in narrow layout reveals its slide-out on the requested section and closes the member list. Native text deletion and button activation apply directly; unsupported key actions report their limit. Say &quot;Computer&quot; while it talks to
       stop it and wait; &quot;stop&quot; / &quot;quiet&quot; cut speech and &quot;stop listening&quot;
       releases the microphone, all instantly. Recognition is local; spoken
       reply text goes to Microsoft for online speech, with local Kokoro fallback.

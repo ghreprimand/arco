@@ -7,6 +7,7 @@ export const voice: Section[] = [{
   id: 'hands-free-voice', group: 'Power features', title: 'Hands-free voice control',
   body: <>
   <p>During microphone startup the test buttons are disabled and CANCEL MICROPHONE cancels the attempt. Closing Settings also cancels it; any capture that finishes opening afterwards is stopped immediately.</p>
+<p>When Computer opens a cluster panel in the narrow layout, its slide-out opens on the requested section and closes the member list. Further requests switch the open section.</p>
 <p>If microphone setup fails after permission is granted, the acquired microphone tracks are stopped. Computer can open USAGE in a cluster, and its recipient chooser starts from the current selection.</p>
   <p>
   Hands-free voice lets you speak to Arco without touching the keyboard. It
