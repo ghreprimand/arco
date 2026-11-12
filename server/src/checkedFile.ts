@@ -46,7 +46,8 @@ export async function readCheckedText(file: string): Promise<string> {
 
 export async function replaceCheckedFile(file: string, contents: string): Promise<void> {
   const original = await openCheckedFile(file);
-  const before = await original.stat();
+  let before: Stats;
+  try { before = await original.stat(); } finally { await original.close(); }
   const parent = path.dirname(file);
   const temp = `${file}.${randomUUID()}.tmp`;
   try {
@@ -59,7 +60,6 @@ export async function replaceCheckedFile(file: string, contents: string): Promis
         || realpathSync(parent) !== parent) throw new FileAccessError();
     });
   } finally {
-    await original.close();
     if (realpathSync(path.dirname(file)) === path.dirname(file)) await rm(temp, { force: true });
   }
 }

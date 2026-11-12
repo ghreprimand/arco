@@ -38,6 +38,7 @@ test('B29: ADD TO PLAN preserves an intervening plan edit', async (t) => {
       const content = await Reflect.apply(read, handle, readArgs);
       if (args[0] === file && inject) {
         inject = false;
+      await handle.close();
       await store.updatePlan(f.cwd, f.plan.id, { body: '# Work\n- [x] Original task\nOperator edit\n' });
       }
       return content;
@@ -84,6 +85,7 @@ test('B130: text-matched ticks resolve against the body actually being saved', a
       const content = await Reflect.apply(read, handle, readArgs);
       if (args[0] === file && inject) {
         inject = false;
+      await handle.close();
       await store.updatePlan(f.cwd, f.plan.id, { body: '# Work\n- [ ] Inserted task\n- [ ] Original task\n' });
       }
       return content;

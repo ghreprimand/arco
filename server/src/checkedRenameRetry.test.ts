@@ -66,3 +66,25 @@ test('LA09: atomic create succeeds after a transient refusal when no other desti
   try { await atomicCheckedWriteFile(file, 'after'); assert.equal(attempts, 2); assert.equal(await fs.readFile(file, 'utf8'), 'after'); assert.deepEqual(await fs.readdir(folder), ['note.txt']); }
   finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
 });
+
+test('checked replacement releases its destination handle before attempting rename', async t => {
+  const folder = join(root, `case-${++serial}`); await fs.mkdir(folder); const file = join(folder, 'note.txt'); await fs.writeFile(file, 'before');
+  const open = fs.open.bind(fs), rename = fs.rename.bind(fs); let openDestination = false;
+  t.mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
+    const handle = await open(...args);
+    if (args[0] === file) {
+      openDestination = true;
+      const close = handle.close.bind(handle);
+      handle.close = async () => { await close(); openDestination = false; };
+    }
+    return handle;
+  });
+  t.mock.method(fs, 'rename', async (...args: Parameters<typeof fs.rename>) => {
+    if (openDestination) throw Object.assign(new Error('destination is open'), { code: 'EPERM' });
+    return rename(...args);
+  });
+  let clock = 0; t.mock.method(Date, 'now', () => { const result = clock; clock = 10_000; return result; });
+  syncBuiltinESMExports();
+  try { await replaceCheckedFile(file, 'after'); assert.equal(await fs.readFile(file, 'utf8'), 'after'); }
+  finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
+});
