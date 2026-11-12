@@ -1642,7 +1642,10 @@ export const clusters: Section[] = [
   The <Code>NEED YOU</Code> badge above the member cards counts review
   tasks with a director sign-off, tasks blocked on a decision from you,
   and members with a waiting question. Click it to jump to the task on
-  the board or to the member.
+  the board or to the member. In Narrow layout, a compact <Code>! count</Code>
+  badge stays below the member-list button while the list is closed. Opening
+  the list moves the summary into its header. Choosing a task opens BOARD
+  and closes the member list.
   </li>
   <li>
   On review cards, <Code>ACCEPT</Code> marks one task done and{' '}

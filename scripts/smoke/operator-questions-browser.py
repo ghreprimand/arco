@@ -3,7 +3,7 @@ import os as _artifact_os
 import tempfile as _artifact_tempfile
 _artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio, os
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
 from host_isolation import chrome_executable
@@ -13,7 +13,7 @@ install_navigation_defaults()
 async def main():
  async with async_playwright() as p:
   browser=await p.chromium.launch(executable_path=chrome_executable())
-  context=await browser.new_context(viewport={'width':1500,'height':1000})
+  context=await browser.new_context(viewport={'width':1500,'height':1000}, has_touch=True)
   errors=[]
   async def api(route):
    path=urlparse(route.request.url).path
@@ -23,6 +23,9 @@ async def main():
    elif path=='/api/capabilities':data={'efforts':['low','medium','high'],'models':['gpt-5.5'],'cliVersion':'unknown','codexVersion':'0.162.1'}
    elif path.endswith('/catalog'):data={'models':[]}
    elif path.endswith('/usage'):data={'available':False}
+   elif path.endswith('/peer/task-show'):
+    task_id=parse_qs(urlparse(route.request.url).query)['id'][0]
+    data={'task':await page.evaluate('id=>attentionTasks.find(t=>t.id===id)',task_id),'runs':[],'comments':[]}
    await route.fulfill(json=data)
   await context.route('**/api/**',api)
   await context.route('**/healthz',lambda r:r.fulfill(json={'status':'live'}))
@@ -102,6 +105,68 @@ async def main():
   print('Question badge themes checked:', len(measurements))
   await page.evaluate("dispatchQuestion({type:'operator_question',workflowId:'question-ui',question:{...window.question,requestId:'cluster-question',status:'answered' ,answers:{color:['Blue']},questions:[{id:'color',header:'Color',question:'Which color?',options:[{label:'Blue',description:''}],allowOther:true,secret:false}]}})")
   await page.locator('[data-help="cluster.member-question"]').wait_for(state='detached');await mark.wait_for(state='detached')
+  # Task attention stays visible without opening the narrow member list.
+  await page.evaluate("""() => {
+   window.attentionTasks=[{id:'accept-fixture',title:'Review fixture change',status:'review',signoff:{state:'met',summary:'Ready',at:1}},{id:'blocked-fixture',title:'Operator decision fixture',status:'blocked',blockedReason:'Needs operator approval'}].map(t=>({links:[],notes:'',priority:0,parentIds:[],createdAt:1,updatedAt:1,...t}));
+   window.attentionMembers=testStore.getState().clusters['fixture-cluster'].members;
+   testStore.setState(s=>({clusters:{...s.clusters,'fixture-cluster':{...s.clusters['fixture-cluster'],taskBoardMode:'shared',taskBoardAttached:true}},taskLedger:{'/projects/fixture':attentionTasks}}));
+  }""")
+  capture_dir=_artifact_os.environ.get('ARCO_ATTENTION_SCREENSHOT_DIR',_artifact_root.name)
+  _artifact_os.makedirs(capture_dir,exist_ok=True)
+  gaps=[]
+  for width in [900,1600]:
+   await page.set_viewport_size({'width':width,'height':1000})
+   await page.evaluate("""async()=>{(await import('/src/layout/layoutRange.ts')).setLayoutMode('narrow');testStore.setState({focusMode:false});document.documentElement.style.zoom='1.1';document.documentElement.style.setProperty('--ui-scale','1.1');dispatchEvent(new Event('resize'));}""")
+   close=page.get_by_role('button',name='Close MEMBERS',exact=True)
+   if await close.is_visible():await close.click()
+   await page.screenshot(path=_artifact_os.path.join(capture_dir,f'attention-{width}.png'))
+   if not await page.get_by_test_id('cluster-needs-you').is_visible():gaps.append(f'{width}:closed-list badge missing')
+   await page.evaluate("async()=>{(await import('/src/stores/boardTaskRequest.ts')).requestBoardTask('fixture-cluster','accept-fixture')}")
+   await page.wait_for_timeout(100)
+   if not await page.get_by_test_id('right-panel-slide-out').is_visible():gaps.append(f'{width}:task request did not open BOARD')
+   close=page.get_by_role('button',name='Close CLUSTER PANEL',exact=True)
+   if await close.is_visible():await close.click()
+  assert not gaps,gaps
+  theme_ids=await page.evaluate("async()=>Object.keys((await import('/src/themes/registry.ts')).THEME_REGISTRY)")
+  cases=[(mode,scale,focus,theme_ids[0],width,members) for mode in ['auto','standard','compact','narrow'] for scale in [1,1.1] for focus in [False,True] for width in [900,1600] for members in [1,24]]
+  cases += [('narrow',1.1,False,name,900,24) for name in theme_ids[1:]]
+  for n,(mode,scale,focus,theme,width,members) in enumerate(cases):
+   await page.set_viewport_size({'width':width,'height':1000})
+   await page.evaluate("""async c=>{
+    (await import('/src/layout/layoutRange.ts')).setLayoutMode(c.mode);
+    const state=testStore.getState(),base=attentionMembers[0];
+    const members=Array.from({length:c.members},(_,n)=>({...base,workflowId:n?'attention-peer-'+n:base.workflowId,displayName:'Member '+n}));
+    const jobs={...state.jobs};for(const member of members)if(!jobs[member.workflowId])jobs[member.workflowId]={...jobs[base.workflowId],workflowId:member.workflowId};
+    testStore.setState({focusMode:c.focus,jobs,clusters:{...state.clusters,'fixture-cluster':{...state.clusters['fixture-cluster'],members}}});
+    (await import('/src/themes/apply.ts')).applyTheme((await import('/src/themes/registry.ts')).THEME_REGISTRY[c.theme]);
+    document.documentElement.style.zoom=String(c.scale);document.documentElement.style.setProperty('--ui-scale',String(c.scale));dispatchEvent(new Event('resize'));
+   }""",{'mode':mode,'scale':scale,'focus':focus,'theme':theme,'members':members})
+   badge=page.get_by_test_id('cluster-needs-you')
+   await expect(badge).to_have_count(1);await expect(badge).to_be_visible()
+   rail=page.get_by_test_id('member-rail')
+   narrow=await rail.is_visible()
+   if narrow:
+    assert await rail.evaluate("e=>{const r=e.getBoundingClientRect(),b=[...e.querySelectorAll('button')].map(x=>x.getBoundingClientRect());return e.scrollWidth<=e.clientWidth+1&&b.every(x=>x.left>=r.left-1&&x.right<=r.right+1)&&b.every((a,i)=>b.slice(i+1).every(z=>Math.min(a.right,z.right)-Math.max(a.left,z.left)<=1||Math.min(a.bottom,z.bottom)-Math.max(a.top,z.top)<=1));}"),(n,'rail overflow/overlap')
+   for task_id,label in [('accept-fixture','ACCEPT'),('blocked-fixture','BLOCKED')]:
+    if n%2:await badge.tap()
+    else:await badge.focus();await page.keyboard.press('Enter')
+    choice=page.get_by_role('menuitem').filter(has_text=label).first
+    if n%2:await choice.tap()
+    else:await choice.focus();await page.keyboard.press('Enter')
+    await expect(page.locator('[data-help="cluster.task-drawer"]')).to_be_visible()
+    await expect(page.locator('[data-help="cluster.task-drawer"]')).to_contain_text('Review fixture change' if task_id=='accept-fixture' else 'Operator decision fixture')
+    if narrow:
+     await expect(page.get_by_test_id('right-panel-slide-out')).to_be_visible();await expect(page.get_by_test_id('member-list-slide-out')).to_have_count(0)
+     await page.get_by_role('button',name='Close CLUSTER PANEL',exact=True).tap()
+   if narrow:
+    await page.get_by_role('button',name='Show the member list',exact=True).tap()
+    await expect(badge).to_have_count(1)
+    await expect(page.get_by_test_id('member-list-slide-out').get_by_test_id('cluster-needs-you')).to_be_visible()
+    await badge.tap();await page.get_by_role('menuitem').filter(has_text='ACCEPT').first.tap()
+    await expect(page.get_by_test_id('member-list-slide-out')).to_have_count(0)
+    await expect(page.get_by_test_id('right-panel-slide-out')).to_be_visible()
+    await page.get_by_role('button',name='Close CLUSTER PANEL',exact=True).tap()
+  print(f'PASS attention matrix: {len(cases)} cases, one/24 members, every theme, keyboard/touch, accept/blocked and open-list navigation',flush=True)
   assert not errors,errors
   await page.screenshot(path=_artifact_os.path.join(_artifact_root.name, 'arco-questions-browser.png'))
   print('PASS: pending question button/modal, options and descriptions, multiple replies, password input, explicit submit, validation retry, authoritative answered state, disconnect disable and stale snapshot closure. No page errors.')

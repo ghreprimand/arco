@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep cluster attention counts visible in the narrow member rail and open BOARD when a waiting task is selected, closing the member list.
+
 - Keep VERSIONS local status labels readable in the selected theme while preserving runtime state colors.
 
 - Focus runtime release notes when opened from VERSIONS so Escape dismisses them and closing restores the available opening control.

@@ -18,7 +18,7 @@ const KIND_LABEL: Record<NeedsYouItem['kind'], string> = {
   question: 'QUESTION',
 };
 
-export function NeedsYouBadge({ clusterId }: { clusterId: string }) {
+export function NeedsYouBadge({ clusterId, compact = false }: { clusterId: string; compact?: boolean }) {
   const cluster = useAppStore((s) => s.clusters[clusterId]);
   const jobs = useAppStore((s) => s.jobs);
   const cwd = cluster?.cwd;
@@ -80,23 +80,28 @@ export function NeedsYouBadge({ clusterId }: { clusterId: string }) {
         className="display-font"
         data-help="cluster.needs-you"
         data-testid="cluster-needs-you"
+        aria-label={needsYouLabel(items.length)}
         aria-haspopup="true"
         aria-expanded={open}
         onClick={toggle}
         title="Work waiting on you: tasks to accept, tasks blocked on you, and members with a question."
         style={{
           flex: '0 0 auto',
-          marginLeft: '6px',
-          padding: '2px 7px',
+          marginLeft: compact ? 0 : '6px',
+          width: compact ? '32px' : undefined,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          padding: compact ? '2px' : '2px 7px',
           fontSize: '9px',
-          letterSpacing: '1px',
+          letterSpacing: compact ? 0 : '1px',
           color: '#e0a030',
           background: open ? 'var(--color-accent-primary-a06)' : 'transparent',
           border: '1px solid currentColor',
           cursor: 'pointer',
         }}
       >
-        {needsYouLabel(items.length)}
+        {compact ? `! ${items.length}` : needsYouLabel(items.length)}
       </button>
       {open && anchor && (
         <div

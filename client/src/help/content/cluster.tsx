@@ -874,7 +874,10 @@ export const clusterHelp: Record<string, HelpEntry> = {
         </p>
         <p>
           Click it for the list. Choosing a task opens the BOARD with that task
-          selected; choosing a question focuses that member.
+          selected; choosing a question focuses that member. In Narrow layout,
+          the compact ! count badge stays below the member-list button when
+          the list is closed. Opening the list moves the summary into its header.
+          A task choice closes that list and opens BOARD.
         </p>
       </>
     ),

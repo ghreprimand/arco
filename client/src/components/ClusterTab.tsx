@@ -29,6 +29,7 @@ import { MemberCard } from './MemberCard';
 import { useMessageBoxSize, messageBoxMinHeight } from '../utils/messageBoxSize';
 import { findDirector, hasNewReply, initialFocus, latestReplyId, orderMembers } from './clusterSurface.helpers';
 import { NeedsYouBadge } from './NeedsYouBadge';
+import { useBoardTaskRequest } from '../stores/boardTaskRequest';
 import { ClusterRightPanel } from './ClusterRightPanel';
 import { clusterDisplayName } from './TabBar';
 import { beginPlanReview } from './terminalInput/planDraft';
@@ -331,6 +332,12 @@ export function ClusterTab({
     setMemberListOpen(false);
     setRightSlide(panel);
   });
+  const boardTaskRequest = useBoardTaskRequest((state) => state.request);
+  useEffect(() => {
+    if (widthRange !== 'narrow' || boardTaskRequest?.clusterId !== clusterId) return;
+    setMemberListOpen(false);
+    setRightSlide('board');
+  }, [boardTaskRequest, clusterId, widthRange]);
   // View in Outputs: the narrow layout opens the cluster panel slide-out first.
   useOutputNavigationOpener((cluster?.members ?? []).map((member) => member.workflowId), widthRange === 'narrow', () => setRightSlide('files'));
   // docs/CLIENT.md - splitter drag, mirrors WorkflowView.tsx
@@ -912,7 +919,7 @@ export function ClusterTab({
                         </button>
                       );
                     })}
-                    <NeedsYouBadge clusterId={clusterId} />
+                    {(widthRange !== 'narrow' || memberListOpen) && <NeedsYouBadge clusterId={clusterId} />}
                   </div>
 
                   {directorMember && <ProjectStateNotice cwd={jobs[directorMember.workflowId]?.config.workingDirectory ?? ''} skip={directorMember.accessMode === 'isolated'} />}
@@ -1007,6 +1014,7 @@ export function ClusterTab({
                   <>
                     <div data-help="layout.member-rail" data-testid="member-rail" style={{ flex: '0 0 46px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', padding: '8px 0', borderRight: '1px solid var(--color-border-hairline)', overflowY: 'auto' }}>
                       <button type="button" data-help="layout.member-list-open" data-testid="member-list-open" onClick={() => setMemberListOpen(true)} title="Show the member list" aria-label="Show the member list" className="display-font" style={{ padding: '2px 6px', cursor: 'pointer', fontSize: '12px' }}>☰</button>
+                      {!memberListOpen && <NeedsYouBadge clusterId={clusterId} compact />}
                       {orderMembers(cluster.members, operatorReordered).map((m) => {
                         const focused = focusedMemberId === m.workflowId;
                         const mail = pendingByMember[cluster.members.indexOf(m)] ?? 0;
