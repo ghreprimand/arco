@@ -12,20 +12,28 @@ import { withFileDecodeSlot } from './fileContent/decodeSlots.js';
 export const UPLOAD_IMAGE_MAX_BYTES = 1024 * 1024;
 export const UPLOAD_IMAGE_MAX_EDGE = 2000;
 
-/** Reject links (including parent links), escapes, special files and aliases. */
+/** Allow aliases above uploads, but reject links at or inside the uploads root. */
 export function managedUploadPath(path: string): string | null {
   try {
     const root = resolve(UPLOADS_DIR), absolute = resolve(path);
-    const child = relative(root, absolute);
-    if (!child || isAbsolute(child) || child === '..' || child.startsWith(`..${sep}`) || resolve(root, child) !== absolute) return null;
-    // Check the entire spelling, rather than following an ancestor symlink.
-    for (let current = absolute; ; current = dirname(current)) {
+    const rootStat = fs.lstatSync(root);
+    if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) return null;
+    const canonicalRoot = fs.realpathSync(root);
+    const relativeTo = (base: string) => {
+      const child = relative(base, absolute);
+      return child && !isAbsolute(child) && child !== '..' && !child.startsWith(`..${sep}`) ? child : null;
+    };
+    const child = relativeTo(root) ?? relativeTo(canonicalRoot);
+    if (!child) return null;
+    let current = canonicalRoot;
+    const parts = child.split(sep);
+    for (const [index, part] of parts.entries()) {
+      current = join(current, part);
       const stat = fs.lstatSync(current);
-      if (stat.isSymbolicLink() || (current === absolute ? !stat.isFile() : !stat.isDirectory())) return null;
-      if (dirname(current) === current) break;
+      if (stat.isSymbolicLink() || (index === parts.length - 1 ? !stat.isFile() : !stat.isDirectory())) return null;
     }
-    if (fs.realpathSync(root) !== root || fs.realpathSync(absolute) !== absolute) return null;
-    return absolute;
+    if (fs.realpathSync(current) !== current) return null;
+    return current;
   } catch { return null; }
 }
 

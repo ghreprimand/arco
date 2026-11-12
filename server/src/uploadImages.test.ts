@@ -6,11 +6,13 @@ import { join } from 'node:path';
 import { PNG } from 'pngjs';
 import jpeg from 'jpeg-js';
 import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
-const root = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'arco-upload-shrink-')));
+const realRoot = fs.realpathSync(fs.mkdtempSync(join(tmpdir(), 'arco-upload-shrink-')));
+const root = `${realRoot}-alias`;
+fs.symlinkSync(realRoot, root, 'junction');
 installIsolatedTestHome(root);
 const uploads = join(root, 'uploads'); fs.mkdirSync(uploads);
 process.env.ARCO_UPLOADS_DIR = uploads;
-after(() => fs.rmSync(root, { recursive: true, force: true }));
+after(() => { fs.unlinkSync(root); fs.rmSync(realRoot, { recursive: true, force: true }); });
 const { shrinkUploadedImage } = await import('./uploadImages.js');
 function png(width: number, height: number) {
   const image = new PNG({ width, height });
@@ -26,8 +28,19 @@ test('large uploaded PNG replaces bytes at the same path and leaves no larger si
   assert.ok(fs.statSync(path).size < wide.length);
   const image = PNG.sync.read(fs.readFileSync(path));
   assert.deepEqual([image.width, image.height], [2000, 667]);
-  for (const ref of [refs.attachment, refs.event.path, refs.fileContext, ...refs.replay]) assert.equal(fs.realpathSync(ref), path);
+  for (const ref of [refs.attachment, refs.event.path, refs.fileContext, ...refs.replay]) assert.equal(fs.realpathSync(ref), fs.realpathSync(path));
   assert.deepEqual(fs.readdirSync(uploads).filter(n => n.startsWith('wide')), ['wide.png']);
+});
+
+test('model image derivation writes and returns the canonical managed path through a linked parent', async () => {
+  const path = put('model-wide.png');
+  const { deriveModelImage } = await import('./providers/attachments.js');
+  const { managedUploadPath } = await import('./uploadImages.js');
+  assert.equal(managedUploadPath(path), fs.realpathSync(path));
+  assert.equal(managedUploadPath(fs.realpathSync(path)), fs.realpathSync(path));
+  const output = await deriveModelImage(path);
+  assert.equal(output, `${fs.realpathSync(path)}.model.png`);
+  assert.ok(output && fs.existsSync(output));
 });
 
 test('threshold is strict; byte-only PNG shrinking preserves all pixels', async () => {
@@ -66,6 +79,9 @@ test('outside paths, file links, directory links, root links and realpath escape
   assert.equal(await deriveModelImage(external), null);
   assert.equal(fs.existsSync(external + '.model.png'), false);
   const link = join(uploads, 'link.png'); fs.symlinkSync(external, link);
+  const { managedUploadPath } = await import('./uploadImages.js');
+  assert.equal(managedUploadPath(link), null);
+  assert.equal(await deriveModelImage(link), null);
   assert.equal(await shrinkUploadedImage(link), false);
   const linkedDir = join(uploads, 'escape'); fs.symlinkSync(root, linkedDir, 'junction');
   assert.equal(await shrinkUploadedImage(join(linkedDir, 'external.png')), false);

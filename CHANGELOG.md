@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Restore Chat uploads and shrink large images when the uploads folder has a linked parent, while refusing links inside uploads.
 - Keep Cursor reply segments separate across tool updates, including after reconnect, while Codex tool completion preserves a reply in progress.
 - Keep Native Grep text matches that follow a ripgrep binary-file warning.
 

@@ -115,10 +115,10 @@ function siblingPaths(path: string): string[] {
 // The upload caller owns the directory; on-demand callers are still fenced
 // to uploads below. Read tools never call this sibling-writing adapter.
 export async function deriveModelImage(path: string): Promise<string | null> {
-  if (!isDerivable(path) || !managedUploadPath(path)) return null;
+  const canonical = managedUploadPath(path);
+  if (!isDerivable(path) || !canonical) return null;
   let tmp: string | undefined;
   try {
-    const canonical = realpathSync(path);
     const prefix = await readRegularPrefix(canonical, 4096);
     const originalType = fileHeaderKind(prefix.buffer);
     if (!originalType.startsWith('image/') && !(originalType === 'text/plain' && (/\.svg$/i.test(path) || isSvgPrefix(prefix.buffer)))) return null;
@@ -130,15 +130,15 @@ export async function deriveModelImage(path: string): Promise<string | null> {
     if (['image/png','image/jpeg','image/gif','image/webp'].includes(originalType)
       && prefix.size <= MODEL_IMAGE_MAX_RAW_BYTES && !result.text.includes('; scaled from ')) return null;
     const suffix = image.mediaType === 'image/jpeg' ? '.jpg' : '.png';
-    const out = `${path}${MODEL_TAG}${suffix}`;
+    const out = `${canonical}${MODEL_TAG}${suffix}`;
     tmp = `${out}.tmp-${process.pid}-${Math.random().toString(36).slice(2,8)}`;
-    if (!managedUploadPath(path)) return null;
+    if (managedUploadPath(canonical) !== canonical) return null;
     await writeFile(tmp, Buffer.from(image.data,'base64'), {flag:'wx',mode:0o600});
-    if (!managedUploadPath(path) || !managedUploadPath(tmp)) return null;
+    if (managedUploadPath(canonical) !== canonical || managedUploadPath(tmp) !== tmp) return null;
     await rename(tmp,out);
     return out;
   } catch { return null; }
-  finally { if(tmp && managedUploadPath(tmp)) await unlink(tmp).catch(()=>{}); }
+  finally { if(tmp && managedUploadPath(tmp) === tmp) await unlink(tmp).catch(()=>{}); }
 }
 
 const inflight = new Map<string, Promise<string | null>>();

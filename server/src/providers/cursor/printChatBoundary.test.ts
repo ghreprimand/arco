@@ -4,7 +4,7 @@ import childProcess from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { syncBuiltinESMExports } from 'node:module';
-import { mkdtemp, rm, readFile, access, writeFile, readdir } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, access, writeFile, readdir, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { CursorPrintProvider } from './print.js';
@@ -35,7 +35,7 @@ test('Cursor print attaches the project reader to Agent turns and never Chat', a
         assert.equal(input.includes(FILE_READ_GUIDANCE), interactionMode === 'agent');
         if (interactionMode === 'chat') {
           assert.notEqual(spawnedCwd, cwd, 'Chat must not run inside its conversation or project folder');
-          assert.ok(spawnedCwd?.startsWith(process.env.ARCO_HOME!));
+          assert.ok(spawnedCwd?.startsWith(await realpath(process.env.ARCO_HOME!)));
           assert.equal(args.includes('--force'), false);
           assert.equal(args.includes('--add-dir'), false);
           const config = JSON.parse(await readFile(join(spawnedCwd!, '.cursor', 'cli.json'), 'utf8'));
