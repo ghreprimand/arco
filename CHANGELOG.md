@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep managed uploads working with Windows short folder names.
 - Accept registered Windows worktrees reached through short parent-folder names while refusing replaced worktree links.
 
 - Keep checked file replacements working on Windows when the destination is open during validation.

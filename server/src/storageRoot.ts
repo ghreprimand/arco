@@ -1,5 +1,10 @@
-import { lstat, mkdir, realpath } from 'node:fs/promises';
+import { realpath as callbackRealpath } from 'node:fs';
+import { promisify } from 'node:util';
+import { lstat, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+
+// Match the synchronous path policy on Windows, including 8.3 names.
+const realpath = promisify(callbackRealpath);
 
 export class UnsafeStorageRootError extends Error {
   constructor() { super('The managed storage folder must be a real folder, not a link.'); }
