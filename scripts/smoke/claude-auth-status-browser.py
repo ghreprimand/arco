@@ -132,7 +132,8 @@ async def main():
             await page.evaluate('([state,cli])=>setFixture(state,cli,"native",true,state==="unknown")', [state, cli])
             await expect(page.locator('button[title*="credentials need attention"]')).to_have_count(0)
         await page.evaluate("setFixture('needs-attention',true,'native',false)")
-        await expect(page.locator('#fixture button')).to_have_count(0)
+        await expect(page.get_by_role('button', name='[AUTH: CLAUDE', exact=False)).to_have_count(0)
+        await expect(page.get_by_role('link', name='Claude usage page', exact=True)).to_have_count(0)
         await expect(page.locator('#fixture a')).to_have_count(0)
         assert await page.evaluate('JSON.stringify(authStore.getState().jobs.fixture.config)===savedConfig')
         assert not errors, errors

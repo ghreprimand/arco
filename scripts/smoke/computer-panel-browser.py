@@ -227,7 +227,15 @@ async def main():
         await expect(watches.get_by_text('1 active', exact=True)).to_be_visible()
         await expect(watches.get_by_text('Past watch finished', exact=True)).not_to_be_visible()
         chat_bounds = await dialog.locator('[data-help="chat.panel"]').bounding_box()
-        assert chat_bounds and chat_bounds['height'] >= 200, chat_bounds
+        # Fresh-install 110% text changes the space left by automation controls.
+        # Preserve the supported chat minimum and an accessible composer at both scales.
+        for scale in (1, 1.1):
+            await page.evaluate('s => { document.documentElement.style.zoom=String(s); document.documentElement.style.setProperty("--ui-scale",String(s)); window.dispatchEvent(new Event("resize")); }', scale)
+            chat_bounds = await dialog.locator('[data-help="chat.panel"]').bounding_box()
+            assert chat_bounds and chat_bounds['height'] >= 120 * scale - 1, (scale, chat_bounds)
+            await expect(composer).to_be_visible()
+            box, outer = await composer.bounding_box(), await dialog.bounding_box()
+            assert box and outer and box['y'] + box['height'] <= outer['y'] + outer['height'] + 1, (scale, box, outer)
         await dialog.get_by_role('region', name='Computer settings and automations').evaluate('(el)=>el.scrollTop=0')
         await page.screenshot(path=str(ART / 'automation-active.png'), animations='disabled')
         await page.evaluate('''() => {

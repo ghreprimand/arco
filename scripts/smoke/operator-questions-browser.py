@@ -4,7 +4,7 @@ import tempfile as _artifact_tempfile
 _artifact_root = _artifact_tempfile.TemporaryDirectory(prefix='arco-browser-artifacts-')
 import asyncio, os
 from urllib.parse import urlparse
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
 from host_isolation import chrome_executable
 
@@ -71,6 +71,12 @@ async def main():
   }""")
   await page.get_by_role('button',name='Alpha in Fixture team has a question').click()
   assert await page.evaluate("testStore.getState().clusterFocusedMember['fixture-cluster']") == 'question-ui'
+  # A pending question remains visible even while the narrow list is closed.
+  await expect(page.locator('[data-help="tabbar.waiting-question"]')).to_be_visible()
+  await expect(page.get_by_role('button',name='? 1 QUESTION',exact=True)).to_be_visible()
+  # Open the full list only to inspect the member card.
+  member_list=page.get_by_role('button',name='Show the member list',exact=True)
+  if await member_list.is_visible(): await member_list.click()
   card=page.locator('[data-help="cluster.member-card"]').filter(has_text='ALPHA')
   await card.get_by_text('? QUESTION',exact=True).wait_for()
   assert await card.get_by_text('? QUESTION',exact=True).evaluate("el=>getComputedStyle(el).color === getComputedStyle(el.closest('[data-help=\"cluster.member-card\"]')).borderColor")

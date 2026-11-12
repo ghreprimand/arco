@@ -208,8 +208,8 @@ async def main():
   scaled_width = await page.locator('.xterm').evaluate('e => e.getBoundingClientRect().width')
   assert (scaled_width > terminal_width) if float(initial_scale) < 1.3 else (scaled_width < terminal_width)
   await page.evaluate("async () => (await import('/src/stores/terminalStore.ts')).useTerminalStore.getState().closeWindow('scale-fixture')")
-  await scale.get_by_role('button',name='Reset to default',exact=True).click()
-  await page.wait_for_function("() => document.documentElement.style.zoom === '1'")
+  await scale.get_by_role('button',name='Reset to default (110%)',exact=True).click()
+  await page.wait_for_function("() => document.documentElement.style.zoom === '1.1' && localStorage.getItem('arco_ui_scale') === '1.1'")
 
   assert await page.get_by_text('THIS VIEW HIT A RENDER ERROR',exact=True).count()==0, await page.locator('body').inner_text()
   font = page.get_by_label('Font pack override')

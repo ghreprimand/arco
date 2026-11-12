@@ -39,6 +39,8 @@ async def main():
                         profile['serviceState'] = 'active' if profile['loaded'] else 'inactive'
                     snapshot['live'] = next((dict(model=x['model'], loaded=True) for x in profiles if x['loaded']), None)
                 data = snapshot
+            elif path == '/api/local-runtime-status':
+                data = dict(fetchedAt=1, rows=[dict(provider='ollama', state='idle', models=[])], ollama=dict(up=True,version='0.40.6',loadedModels=[],fetchedAt=1))
             elif path == '/api/settings':
                 data = dict(themeId='arch', enabledProviders=dict(strata=True, deepseek=True))
             elif path == '/api/auth-status':
@@ -79,16 +81,21 @@ async def main():
           const {ProvidersPopover} = await import('/src/components/ProvidersPopover.tsx');
           const {DeepSeekControls} = await import('/src/components/DeepSeekControls.tsx');
           const caps = await (await fetch('/api/capabilities')).json();
-          s.setState({capabilities:caps,settings:{enabledProviders:{strata:true,deepseek:true,ollama:true}},ollamaLive:{version:'0.40.6'}});
+          s.setState({connected:true,connectionState:'connected',capabilities:caps,settings:{enabledProviders:{strata:true,deepseek:true,ollama:true}},ollamaLive:{version:'0.40.6'}});
           document.getElementById('root').style.display='none';
           const root=document.createElement('div');root.id='deepseek-fixture';root.style.cssText='padding:30px;max-width:1000px;margin:auto;';document.body.append(root);
           createRoot(root).render(React.createElement('div',null,React.createElement(ProvidersPopover),React.createElement(DeepSeekControls)));
         }''')
         panel = page.locator('#deepseek-fixture')
-        await panel.get_by_role('button', name='PROVIDERS', exact=False).click()
-        await expect(panel.get_by_role('button', name='STRATA v0.1.44.1')).to_be_visible()
-        await expect(panel.get_by_role('button', name='XOLOTL 111111111111')).to_be_visible()
-        await panel.get_by_role('button', name='XOLOTL 111111111111').click()
+        versions = page.get_by_role('dialog', name='Provider versions', exact=True)
+        async def click_version(name):
+            if not await versions.is_visible():
+                await panel.get_by_role('button', name='Provider versions', exact=True).click()
+            await versions.get_by_role('button', name=name, exact=True).click()
+        await panel.get_by_role('button', name='Provider versions', exact=True).click()
+        await expect(versions.get_by_role('button', name='STRATA v0.1.44.1')).to_be_visible()
+        await expect(versions.get_by_role('button', name='XOLOTL 111111111111')).to_be_visible()
+        await click_version('XOLOTL 111111111111')
         modal = page.get_by_role('dialog', name='XOLOTL changes', exact=True)
         await expect(modal).to_be_visible()
         await expect(modal.get_by_text('UP TO DATE', exact=False)).to_be_visible()
@@ -96,17 +103,17 @@ async def main():
         await page.screenshot(path=str(artifact / 'xolotl-up-to-date.png'))
         await modal.get_by_role('button', name='CLOSE', exact=True).click()
         upstream['sha'] = '2222222222222222222222222222222222222222'
-        await panel.get_by_role('button', name='XOLOTL 111111111111').click()
+        await click_version('XOLOTL 111111111111')
         await expect(modal.get_by_text('1 upstream commits', exact=False)).to_be_visible()
         await expect(modal.get_by_text('New upstream change', exact=True)).to_be_visible()
         await modal.get_by_role('button', name='CLOSE', exact=True).click()
-        await panel.get_by_role('button', name='STRATA v0.1.44.1').click()
+        await click_version('STRATA v0.1.44.1')
         strata = page.get_by_role('dialog', name='STRATA releases', exact=True)
         await expect(strata.get_by_text('engine v0.1.45.3 · release v0.2.0-beta', exact=True)).to_be_visible()
         await expect(strata.get_by_text('[INSTALLED]', exact=True)).to_be_visible()
         await page.screenshot(path=str(artifact / 'strata-releases.png'))
         await strata.get_by_role('button', name='CLOSE', exact=True).click()
-        await panel.get_by_role('button', name='OLLAMA v0.40.6').click()
+        await click_version('OLLAMA v0.40.6')
         ollama = page.get_by_role('dialog', name='OLLAMA releases', exact=True)
         await expect(ollama.get_by_text('Ollama fixture notes.', exact=True)).to_be_visible()
         await ollama.get_by_role('button', name='CLOSE', exact=True).click()
@@ -123,12 +130,12 @@ async def main():
         await panel.get_by_role('button', name='UNLOAD · STOP SERVICE').click()
         await expect(panel.get_by_role('button', name='UNLOAD · STOP SERVICE')).to_be_disabled()
         assert writes == [dict(action='load', profile='exact'), dict(action='load', profile='light'), dict(action='unload')], writes
-        await panel.get_by_role('button', name='PROVIDERS', exact=False).click()
-        await expect(panel.get_by_role('button', name='STRATA v0.1.44.1')).to_be_visible()
-        await panel.get_by_role('button', name='PROVIDERS', exact=False).click()
+        await panel.get_by_role('button', name='Provider versions', exact=True).click()
+        await expect(versions.get_by_role('button', name='STRATA v0.1.44.1')).to_be_visible()
+        await panel.get_by_role('button', name='Provider versions', exact=True).click()
         installed['strata'] = '0.1.45.3'
-        await panel.get_by_role('button', name='PROVIDERS', exact=False).click()
-        await expect(panel.get_by_role('button', name='STRATA v0.1.45.3')).to_be_visible()
+        await panel.get_by_role('button', name='Provider versions', exact=True).click()
+        await expect(versions.get_by_role('button', name='STRATA v0.1.45.3')).to_be_visible()
         await page.screenshot(path=str(artifact / 'controls-and-versions.png'))
         assert not errors, errors
         print('PASS: runtime-only label; in-app Ollama/Strata/Xolotl history; matching SHA avoids comparison, distinct SHA shows changes; engine/app versions stay distinct; prepared vision labels and explicit profile controls; no browser popups or GPU access.')

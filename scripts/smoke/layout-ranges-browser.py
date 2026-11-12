@@ -329,7 +329,7 @@ async def run(base):
             await context.unroute_all(behavior='wait')
             await context.close()
             # Inspect five-member layouts and the whole top bar at representative sizes.
-            for width, height, scale in [(1280, 800, 1.0), (1280, 800, 1.5), (1366, 768, 1.0), (1920, 1080, 1.0), (1920, 1080, 1.2), (1920, 1080, 1.5), (2560, 1440, 1.0), (3840, 2160, 1.5), (1499, 800, 1.0), (1500, 800, 1.0), (1999, 800, 1.0), (2000, 800, 1.0)]:
+            for width, height, scale in [(1280, 800, 1.0), (1280, 800, 1.1), (1600, 1000, 1.1), (1280, 800, 1.5), (1366, 768, 1.0), (1920, 1080, 1.0), (1920, 1080, 1.2), (1920, 1080, 1.5), (2560, 1440, 1.0), (3840, 2160, 1.5), (1499, 800, 1.0), (1500, 800, 1.0), (1999, 800, 1.0), (2000, 800, 1.0)]:
                 context, page, errors = await open_page(browser, base, width, scale=scale, height=height)
                 chip = page.get_by_test_id('header-layout')
                 await page.get_by_label('Online', exact=True).first.wait_for(timeout=10000)
@@ -340,10 +340,24 @@ async def run(base):
                   const word = document.querySelector('[data-help="header.arco-mark"]').getBoundingClientRect();
                   const chip = document.querySelector('[data-testid="header-layout"]').getBoundingClientRect();
                   const power = document.querySelector('[data-help="header.power"]').getBoundingClientRect();
-                  return {wordY: word.y, chipY: chip.y, powerY: power.y, powerRight: power.right, width: innerWidth};
+                  const headerNode = document.querySelector('header');
+                  const header = headerNode.getBoundingClientRect();
+                  const controls = [...headerNode.querySelectorAll('button,a[href]')].map(e => ({ label: e.getAttribute('aria-label') || e.textContent.trim(), box: e.getBoundingClientRect() })).filter(c => c.box.width && c.box.height);
+                  const outside = controls.filter(({box:r}) => r.left < -1 || r.right > innerWidth + 1 || r.top < header.top - 1 || r.bottom > header.bottom + 1).map(c => c.label);
+                  const overlaps = [];
+                  for (let i=0;i<controls.length;i++) for (let j=i+1;j<controls.length;j++) {
+                    const a=controls[i].box,b=controls[j].box;
+                    if (Math.min(a.right,b.right)-Math.max(a.left,b.left)>1 && Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>1) overlaps.push([controls[i].label,controls[j].label]);
+                  }
+                  const reordered = controls.slice(1).filter((c,i) => c.box.top < controls[i].box.bottom - 1 && c.box.left < controls[i].box.left - 1).map(c => c.label);
+                  return {outside,overlaps,reordered,wordY: word.y, chipY: chip.y, powerY: power.y, powerBottom: power.bottom, headerBottom: header.bottom, powerRight: power.right, width: innerWidth};
                 }""")
-                assert abs(dimensions['wordY'] - dimensions['powerY']) < 20, dimensions
+                # Controls may wrap; the layout chip stays with the wordmark, and power stays inside the expanded header.
+                assert abs(dimensions['wordY'] - dimensions['chipY']) < 20, dimensions
+                assert dimensions['powerY'] >= dimensions['wordY'] - 1, dimensions
+                assert dimensions['powerBottom'] <= dimensions['headerBottom'] + 1, dimensions
                 assert dimensions['powerRight'] <= dimensions['width'] + 1, dimensions
+                assert not dimensions['outside'] and not dimensions['overlaps'] and not dimensions['reordered'], dimensions
                 art = os.environ.get('ARCO_LAYOUT_ARTIFACTS')
                 if art: await page.screenshot(path=str(Path(art) / f'layout-{width}x{height}-{round(scale*100)}.png'), animations='disabled')
                 assert not errors, errors

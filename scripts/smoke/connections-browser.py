@@ -158,7 +158,7 @@ async def browser(playwright,server,ready=True,fresh=False):
     return b,page,state
 
 async def open_connections(page):
-    await page.get_by_test_id('provider-dot').first.click()
+    await page.get_by_role('button',name='Provider versions',exact=True).click()
     await page.locator('[data-help="header.cli-versions"][role="dialog"]').get_by_role('button',name='CONNECTIONS',exact=False).click()
     dialog=page.get_by_role('dialog',name='Connections',exact=True)
     await dialog.get_by_role('navigation',name='Connections').get_by_role('button',name=re.compile('^Codex')).wait_for()

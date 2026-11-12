@@ -34,11 +34,11 @@ SIGNED_OUT = {**AUTH, 'claude': {'loggedIn': False, 'installed': True, 'cliInsta
 # gets pinned to a corner; 'trigger' cases pin the trigger itself (panels
 # placed with position: fixed from the trigger's box).
 CASES = [
-    ('providers', 'workflow', '[data-testid="provider-dot"] >> nth=0', '[data-help="header.cli-versions"][role=dialog]', 'click'),
+    ('providers', 'workflow', 'button[aria-label="Provider versions"]', '[data-help="header.cli-versions"][role=dialog]', 'click-fixed'),
     ('usage-claude', 'workflow', '[data-testid="provider-dot"] >> nth=0', '[role=tooltip]', 'hover'),
     ('usage-codex', 'workflow', '[data-testid="provider-dot"] >> nth=1', '[role=tooltip]', 'hover'),
     ('usage-cursor', 'workflow', '[data-testid="provider-dot"] >> nth=2', '[role=tooltip]', 'hover'),
-    ('usage-ollama', 'workflow', '[data-testid="provider-dot"] >> nth=3', '[role=tooltip]', 'hover'),
+    ('usage-local', 'workflow', 'button[aria-label="Local runtime status"]', '[role=tooltip][aria-label="Local runtime details"]', 'hover'),
     ('throttling', 'workflow', 'button[data-help="header.workflow-status"]', '[role=dialog][aria-label="Provider throttling"]', 'click'),
     ('auth-chip', 'workflow', '[data-help="header.auth-chip"] > div > button', '[data-testid="header-auth-popover"]', 'click'),
     ('knowledge', 'workflow', 'button[data-help="header.knowledge"]', '[role=menu]', 'click'),
@@ -66,7 +66,7 @@ VISIBLE_BOX = '''(sel) => {
   const els=[...document.querySelectorAll(sel)].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0;});
   if(!els.length) return null;
   const e=els[els.length-1]; const r=e.getBoundingClientRect();
-  return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,w:innerWidth,h:innerHeight,marker:e.getAttribute('data-window-placement')};
+  return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,w:innerWidth,h:innerHeight,marker:e.getAttribute('data-window-placement'),position:getComputedStyle(e).position,headerBottom:document.querySelector('header')?.getBoundingClientRect().bottom??0};
 }'''
 
 PIN = '''([el, where]) => {
@@ -302,7 +302,7 @@ async def run_config(browser, width, height, scale, failures, overflow, reached)
                         out = max(0, -box['left'], -box['top'], box['right'] - box['w'], box['bottom'] - box['h'])
                         if out > 1:
                             overflow.append((round(out), f'{name}@{width}@{scale}@natural-unmodified', box))
-                        if not box['marker']:
+                        if not box['marker'] and not (name == 'providers' and box['position'] == 'fixed' and box['top'] >= box['headerBottom'] - 1):
                             failures.append(f'{name}@{width}@{scale}@natural-unmodified: no placement marker')
                 else:
                     hidden = await page.locator('[data-testid="composer-toolbar"] > [data-overflowed="true"]:not([data-overflow-more])').count()
@@ -342,7 +342,7 @@ async def run_config(browser, width, height, scale, failures, overflow, reached)
                     await page.screenshot(path=os.path.join(SHOTS, f'popover-{tag.replace("@", "-")}.png'))
                 if out > 1:
                     overflow.append((round(out), tag, {k: round(v) if isinstance(v, float) else v for k, v in box.items()}))
-                if not box['marker']:
+                if not box['marker'] and not (name == 'providers' and box['position'] == 'fixed' and box['top'] >= box['headerBottom'] - 1):
                     failures.append(f'{tag}: no placement marker')
             if name == 'more':
                 await close_all(page)

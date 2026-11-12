@@ -97,7 +97,7 @@ async def main():
         }''')
         dot = page.get_by_role('link', name='Claude usage page', exact=True)
         await dot.hover()
-        tooltip = page.get_by_role('tooltip')
+        tooltip = page.get_by_role('tooltip').filter(has_text='Claude')
         mode = 'manual_hold'
         await page.get_by_role('button', name='Refresh Claude usage limits', exact=True).click()
         await asyncio.wait_for(manual_started.wait(), timeout=5)

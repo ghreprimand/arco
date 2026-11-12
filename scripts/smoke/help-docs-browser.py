@@ -9,7 +9,7 @@ import os
 import re
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, expect
 from browser_navigation import install_navigation_defaults
 from host_isolation import chrome_executable
 
@@ -76,16 +76,16 @@ async def main():
             await page.evaluate("testStore.getState().setHelpMode(true)")
         await page.wait_for_function('() => testStore.getState().authStatus && testStore.getState().settings')
         # Each enabled signed-in provider gets its dot; disabling it removes its
-        # trigger and the entire group disappears when none remain enabled.
+        # trigger; the group is empty when all remote and local providers are disabled.
         await page.evaluate("""() => {
           const names=['claude','codex','cursor','ollama'];
-          testStore.setState(st=>({authStatus:{...st.authStatus,...Object.fromEntries(names.map(n=>[n,{loggedIn:true}]))},settings:{...st.settings,enabledProviders:Object.fromEntries(names.map(n=>[n,true]))}}));
+          testStore.setState(st=>({authStatus:{...st.authStatus,...Object.fromEntries(names.map(n=>[n,{loggedIn:true}]))},settings:{...st.settings,enabledProviders:{...Object.fromEntries(names.map(n=>[n,true])),llamacpp:false,lmstudio:false,strata:false,deepseek:false}}}));
         }""")
         bar = page.locator('[data-help="header.live-status"]')
         await bar.wait_for()
         await page.evaluate("testStore.setState(st=>({settings:{...st.settings,providerAccounts:{codex:[{id:'work',label:'Work'}]}}}))")
         await page.evaluate('testStore.getState().setHelpMode(false)')
-        await page.get_by_label('Codex status details; open Providers').hover()
+        await page.get_by_role('link', name='Codex usage page', exact=True).hover()
         popup = page.get_by_role('tooltip').filter(has_text='Codex')
         await popup.get_by_label('Account').hover()
         await popup.get_by_label('Account').select_option('work')
@@ -98,12 +98,15 @@ async def main():
         await popup.get_by_text('Camoufox fixture missing').wait_for()
         assert any(q.get('source') == ['camoufox'] for q in quota_queries)
         await page.evaluate('testStore.getState().setHelpMode(true)')
-        for name, letter in [('claude','A'),('codex','C'),('cursor','X'),('ollama','O')]:
+        for name, letter in [('claude','A'),('codex','C'),('cursor','X'),('ollama','LOCAL')]:
             await page.wait_for_function("letter => [...document.querySelector('[data-help=\"header.live-status\"]').querySelectorAll('.display-font')].some(e => e.textContent.trim() === letter)", arg=letter)
             await page.evaluate("name => testStore.setState(st=>({settings:{...st.settings,enabledProviders:{...st.settings.enabledProviders,[name]:false}}}))", name)
             if name != 'ollama':
                 await page.wait_for_function("letter => ![...document.querySelector('[data-help=\"header.live-status\"]').querySelectorAll('.display-font')].some(e => e.textContent.trim() === letter)", arg=letter)
-        await bar.wait_for(state='detached')
+        await expect(page.get_by_role('link', name='Claude usage page', exact=True)).to_have_count(0)
+        await expect(page.get_by_role('link', name='Codex usage page', exact=True)).to_have_count(0)
+        await expect(page.get_by_role('link', name='Cursor usage page', exact=True)).to_have_count(0)
+        await expect(page.get_by_role('button', name='Local runtime status', exact=True)).to_have_count(0)
         await page.evaluate("() => testStore.setState(st=>({settings:{...st.settings,enabledProviders:{claude:true}}}))")
         await page.locator('[data-help="chat.input"]').click()
         await page.get_by_role('button', name='READ MORE IN MANUAL →').click()

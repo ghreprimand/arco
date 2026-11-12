@@ -9,6 +9,7 @@ Set ARCO_HELP_COVERAGE_REPORT to save the measured results as JSON.
 import asyncio
 import json
 import os
+import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 from playwright.async_api import async_playwright, expect
@@ -21,6 +22,15 @@ from host_isolation import chrome_executable
 URL = os.environ.get('ARCO_HELP_PREVIEW_URL', f"http://127.0.0.1:{os.environ.get('ARCO_CLIENT_PORT', '5179')}/")
 CHROME = chrome_executable() or None
 REPORT = os.environ.get('ARCO_HELP_COVERAGE_REPORT')
+
+def progress(message):
+    line = f'{time.monotonic():.1f} {message}'
+    print(line, flush=True)
+    target = os.environ.get('ARCO_THEME_PROGRESS')
+    if target:
+        with open(target, 'a', encoding='utf-8') as output:
+            output.write(line + '\n')
+
 ROOT = Path(__file__).resolve().parents[2]
 fixtures = {}
 
@@ -83,6 +93,7 @@ PROBE = r'''
 
 
 async def main(theme, viewport):
+    progress(f'context theme={theme} viewport={viewport}')
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=CHROME)
         context = await browser.new_context(viewport=viewport, has_touch=True)
@@ -101,6 +112,8 @@ async def main(theme, viewport):
                 data = {n: {'loggedIn': n in ('claude', 'codex', 'ollama'), 'installed': True, 'cliInstalled': True, 'installedModels': ['local-small'] if n == 'ollama' else []} for n in ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}
             elif path == '/api/capabilities':
                 data = {'efforts': ['low', 'medium', 'high'], 'models': ['claude-opus-4-6'], 'cliVersion': 'fixture', 'strataVersion': '0.1.0', 'xolotlRevision': '1111111111111111111111111111111111111111', 'latestVersions': {'strata': '0.2.0', 'xolotl': '2222222222222222222222222222222222222222'}}
+            elif path == '/api/local-runtime-status':
+                data = {'fetchedAt':1,'rows':[{'provider':'ollama','state':'idle','models':[]}], 'ollama':{'up':True,'version':'0.1.0','loadedModels':[],'fetchedAt':1}}
             elif path.endswith('/catalog'):
                 data = {'models': []}
             elif path == '/api/list-dirs':
@@ -200,6 +213,7 @@ async def main(theme, viewport):
         seen = set()
 
         async def probe(view):
+            progress(f'probe theme={theme} viewport={viewport} view={view}')
             await page.wait_for_timeout(250)
             res = await page.evaluate(PROBE, view)
             counts[view] = res['total']
@@ -423,7 +437,8 @@ async def walk(page, probe, tap, click_all, missing_openers, theme, viewport):
         await page.get_by_role('dialog', name='Confirm update').wait_for()
         await probe('home:confirm-update')
         await page.get_by_role('dialog', name='Confirm update').get_by_role('button', name='CANCEL').click()
-        await page.get_by_test_id('header-version-box').click()
+        await expect(page.get_by_role('dialog', name='Confirm update')).to_have_count(0)
+        await page.keyboard.press('Escape')
         await page.evaluate("s.setState({capabilities:{efforts:['low','medium','high'],models:[],cliVersion:'fixture',strataVersion:'0.1.0',xolotlRevision:'1111111111111111111111111111111111111111',latestVersions:{strata:'0.2.0',xolotl:'2222222222222222222222222222222222222222'}},ollamaLive:{version:'0.1.0'}})")
         if theme == 'matrix' and viewport['width'] == 1366:
             theme_ids = await page.evaluate("async()=>Object.keys((await import('/src/themes/registry.ts')).THEME_REGISTRY)")
@@ -431,6 +446,7 @@ async def walk(page, probe, tap, click_all, missing_openers, theme, viewport):
                      for mode in ['auto', 'standard', 'compact', 'narrow']
                      for scale in [1, 1.1] for focus in [False, True]
                      for width in [900, 1600] for provider in ['XOLOTL', 'STRATA', 'OLLAMA']]
+            base_case_count = len(cases)
             cases += [('narrow', 1.1, False, name, 900, ['XOLOTL', 'STRATA', 'OLLAMA'][n % 3]) for n, name in enumerate(theme_ids[1:])]
             for n, (mode, scale, focus, name, width, provider) in enumerate(cases):
                 await page.set_viewport_size({'width': width, 'height': 1000})
@@ -444,8 +460,21 @@ async def walk(page, probe, tap, click_all, missing_openers, theme, viewport):
                 versions = page.get_by_role('button', name='Provider versions', exact=True)
                 panel = page.get_by_role('dialog', name='Provider versions', exact=True)
                 chip = panel.get_by_role('button').filter(has_text=provider).first
-                for touch in [False, True]:
+                modal = page.get_by_role('dialog', name=provider + (' changes' if provider == 'XOLOTL' else ' releases'), exact=True)
+                if n < base_case_count:
+                    progress(f'release-close {n + 1}/{base_case_count} mode={mode} scale={scale} focus={focus} theme={name} width={width} runtime={provider} input=touch')
                     if not await panel.is_visible(): await versions.tap()
+                    await chip.focus()
+                    await chip.tap()
+                    await expect(modal).to_be_focused()
+                    await modal.get_by_role('button', name='CLOSE', exact=True).tap()
+                    await expect(modal).to_have_count(0)
+                    await expect(chip).to_be_focused()
+                for touch in [False, True]:
+                    progress(f'release-matrix {n + 1}/{len(cases)} mode={mode} scale={scale} focus={focus} theme={name} width={width} runtime={provider} input={"touch" if touch else "keyboard"}')
+                    if not await panel.is_visible():
+                        await versions.focus()
+                        await page.keyboard.press('Enter')
                     await chip.focus()
                     if touch: await chip.tap()
                     else: await page.keyboard.press('Enter')
@@ -453,14 +482,13 @@ async def walk(page, probe, tap, click_all, missing_openers, theme, viewport):
                     await expect(modal).to_be_focused()
                     bounds = await modal.bounding_box()
                     assert bounds and bounds['x'] >= -1 and bounds['y'] >= -1 and bounds['x'] + bounds['width'] <= width + 1, (n, bounds)
-                    if touch: await modal.get_by_role('button', name='CLOSE', exact=True).tap()
-                    else: await page.keyboard.press('Escape')
+                    await page.keyboard.press('Escape')
                     await expect(modal).to_have_count(0)
                     if await panel.is_visible(): await expect(chip).to_be_focused()
                     else: await expect(versions).to_be_focused()
                 await page.keyboard.press('Escape')
                 await expect(panel).to_have_count(0)
-            print(f'PASS release focus matrix: {len(cases)} cases, keyboard and touch, Escape and focus return', flush=True)
+            print(f'PASS release focus matrix: {len(cases)} cases, keyboard/touch Escape; {base_case_count} base cases touch CLOSE and prior-chip focus return', flush=True)
             await page.set_viewport_size(viewport)
             await page.evaluate("""async theme => {
                 (await import('/src/layout/layoutRange.ts')).setLayoutMode('auto');s.setState({focusMode:false});
@@ -468,13 +496,14 @@ async def walk(page, probe, tap, click_all, missing_openers, theme, viewport):
                 document.documentElement.style.zoom='1';document.documentElement.style.setProperty('--ui-scale','1');dispatchEvent(new Event('resize'));
             }""", theme)
         for provider in ['XOLOTL', 'STRATA', 'OLLAMA']:
-            version_button = page.locator('[data-providers-cluster] button').filter(has_text=provider).first
+            version_button = page.locator('[data-help="header.cli-versions"][role="dialog"] button').filter(has_text=provider).first
             if not await version_button.count():
-                await page.get_by_test_id('provider-dot').first.click()
+                await page.get_by_role('button', name='Provider versions', exact=True).click()
             await version_button.click()
             await page.get_by_role('dialog', name=provider + (' changes' if provider == 'XOLOTL' else ' releases')).wait_for()
             await probe('home:provider-releases:' + provider.lower())
             await page.keyboard.press('Escape')
+            await expect(page.get_by_role('dialog', name=provider + (' changes' if provider == 'XOLOTL' else ' releases'))).to_have_count(0)
         for selector, view in [('[data-add-location]', 'home:add-location'), ('[data-open-folder]', 'home:folder-browser')]:
             assert await tap(selector), f'{view} opener missing'
             await probe(view)
