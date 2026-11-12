@@ -14,14 +14,32 @@ const {persistInitialMeta}=await import('./turnEngine.js');
 const {replayMessagesWithResumePolicy}=await import('../providers/claude-native/resumeSummary.js');
 const {createPlan}=await import('../planStore.js');
 const {settleProjectWrites}=await import('../testSupport/projectWrites.js');
+const {releaseProjectSettingsWatcher}=await import('../settings.js');
 const {trackRecallFixture}=await import('../testSupport/recallFixture.test-support.js');const closeRecall=trackRecallFixture();
 after(async()=>{await flushAll();await settleProjectWrites();await closeRecall();rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100});});
 async function fixture(provider:'claude'|'cursor'){
  const id=randomUUID(),cwd=join(root,id);mkdirSync(cwd,{recursive:true});const messages:any[]=[];
- const ws={readyState:1,bufferedAmount:0,send:(raw:string)=>messages.push(JSON.parse(raw))} as any;
+ // Rehydrate deliberately sends the ledger snapshot in the background. Keep
+ // the fixture alive until every state snapshot has its ledger response.
+ let pendingSnapshots=0;let snapshotsDrained:(()=>void)|undefined;
+ const ws={readyState:1,bufferedAmount:0,send:(raw:string)=>{
+  const message=JSON.parse(raw);messages.push(message);
+  if(message.type==='workflow_state_snapshot')pendingSnapshots++;
+  if(message.type==='task_ledger_snapshot'){
+   pendingSnapshots--;
+   if(pendingSnapshots===0)snapshotsDrained?.();
+  }
+ }} as any;
  const wf={config:{workingDirectory:cwd,primaryProvider:provider,primaryModel:'fixture',name:'Fixture conversation',claudeTransport:'native'},primary:{provider,model:'fixture'},primarySessionId:provider==='claude'?'fixture-session':undefined,busy:false,observers:new Set([ws]),manager:{},queue:{steering:[],followUp:[]},previewHistory:[],lastContextPercent:0} as any;
  workflows.set(id,wf);workflowCwds.set(id,cwd);await initWorkflowStore(cwd,id);
- return {id,cwd,ws,wf,messages,close:async()=>{await flushAll();wf.sessionWatcher?.();workflows.delete(id);workflowCwds.delete(id);}};
+ return {id,cwd,ws,wf,messages,close:async()=>{
+  if(pendingSnapshots>0)await new Promise<void>(resolve=>{snapshotsDrained=resolve;});
+  await settleProjectWrites();
+  const current=workflows.get(id);current?.sessionWatcher?.();
+  if(current!==wf)wf.sessionWatcher?.();
+  releaseProjectSettingsWatcher(cwd);
+  workflows.delete(id);workflowCwds.delete(id);
+ }};
 }
 for(const provider of ['claude','cursor'] as const)test(`${provider} rehydrate echoes the active plan independently of context estimation`,async()=>{
  const f=await fixture(provider);
