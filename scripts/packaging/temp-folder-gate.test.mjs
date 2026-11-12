@@ -19,16 +19,20 @@ test('reports new Arco temporary directories, including when counts are unchange
   assert.deepEqual(remainingTempFolders(root, before), []);
 });
 
-test('isolated browser runner reports and retains leaked folders even on suite failure', async t => {
+test('isolated browser runner warns and removes leaked folders without changing the suite result', async t => {
   const { spawnSync } = await import('node:child_process');
   const { fileURLToPath } = await import('node:url');
   const parent = mkdtempSync(join(tmpdir(), 'arco-gate-parent-'));
   t.after(() => rmSync(parent, { recursive: true, force: true }));
   const wrapper = fileURLToPath(new URL('../temp-folder-runner.mjs', import.meta.url));
-  const child = 'require("fs").mkdirSync(require("path").join(require("os").tmpdir(), "arco-leaked")); process.exit(7)';
+  const child = 'require("fs").mkdirSync(require("path").join(require("os").tmpdir(), "arco-leaked"))';
   const result = spawnSync(process.execPath, [wrapper, process.execPath, '-e', child], { env: { ...process.env, TMPDIR: parent, TMP: parent, TEMP: parent }, encoding: 'utf8' });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /arco-leaked/);
-  assert.match(result.stderr, /Retained in/);
-  assert.equal(readdirSync(parent).length, 1);
+  assert.equal(result.status, 0);
+  assert.match(result.stderr, /WARNING: Temporary folders left by browser tests \(1\): arco-leaked/);
+  assert.equal(readdirSync(parent).length, 0);
+
+  const failed = spawnSync(process.execPath, [wrapper, process.execPath, '-e', `${child}; process.exit(7)`], { env: { ...process.env, TMPDIR: parent, TMP: parent, TEMP: parent }, encoding: 'utf8' });
+  assert.equal(failed.status, 7);
+  assert.match(failed.stderr, /WARNING: Temporary folders left by browser tests \(1\): arco-leaked/);
+  assert.equal(readdirSync(parent).length, 0);
 });

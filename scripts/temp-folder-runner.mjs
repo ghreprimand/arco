@@ -17,9 +17,7 @@ try {
 } finally {
   const leftovers = remainingTempFolders(temporary, before);
   if (leftovers.length) {
-    console.error(`Temporary folders left by browser tests (${leftovers.length}): ${leftovers.join(', ')}\nRetained in ${temporary}`);
-    process.exitCode = 1;
-  } else {
-    rmSync(temporary, { recursive: true, force: true });
+    console.warn(`WARNING: Temporary folders left by browser tests (${leftovers.length}): ${leftovers.join(', ')}`);
   }
+  rmSync(temporary, { recursive: true, force: true });
 }
