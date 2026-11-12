@@ -440,61 +440,6 @@ async def walk(page, probe, tap, click_all, missing_openers, theme, viewport):
         await expect(page.get_by_role('dialog', name='Confirm update')).to_have_count(0)
         await page.keyboard.press('Escape')
         await page.evaluate("s.setState({capabilities:{efforts:['low','medium','high'],models:[],cliVersion:'fixture',strataVersion:'0.1.0',xolotlRevision:'1111111111111111111111111111111111111111',latestVersions:{strata:'0.2.0',xolotl:'2222222222222222222222222222222222222222'}},ollamaLive:{version:'0.1.0'}})")
-        if theme == 'matrix' and viewport['width'] == 1366:
-            theme_ids = await page.evaluate("async()=>Object.keys((await import('/src/themes/registry.ts')).THEME_REGISTRY)")
-            cases = [(mode, scale, focus, theme_ids[0], width, provider)
-                     for mode in ['auto', 'standard', 'compact', 'narrow']
-                     for scale in [1, 1.1] for focus in [False, True]
-                     for width in [900, 1600] for provider in ['XOLOTL', 'STRATA', 'OLLAMA']]
-            base_case_count = len(cases)
-            cases += [('narrow', 1.1, False, name, 900, ['XOLOTL', 'STRATA', 'OLLAMA'][n % 3]) for n, name in enumerate(theme_ids[1:])]
-            for n, (mode, scale, focus, name, width, provider) in enumerate(cases):
-                await page.set_viewport_size({'width': width, 'height': 1000})
-                await page.evaluate("""async c => {
-                    (await import('/src/layout/layoutRange.ts')).setLayoutMode(c.mode);
-                    s.setState({focusMode:c.focus});
-                    (await import('/src/themes/apply.ts')).applyTheme((await import('/src/themes/registry.ts')).THEME_REGISTRY[c.theme]);
-                    document.documentElement.style.zoom=String(c.scale);
-                    document.documentElement.style.setProperty('--ui-scale',String(c.scale));dispatchEvent(new Event('resize'));
-                }""", {'mode': mode, 'scale': scale, 'focus': focus, 'theme': name})
-                versions = page.get_by_role('button', name='Provider versions', exact=True)
-                panel = page.get_by_role('dialog', name='Provider versions', exact=True)
-                chip = panel.get_by_role('button').filter(has_text=provider).first
-                modal = page.get_by_role('dialog', name=provider + (' changes' if provider == 'XOLOTL' else ' releases'), exact=True)
-                if n < base_case_count:
-                    progress(f'release-close {n + 1}/{base_case_count} mode={mode} scale={scale} focus={focus} theme={name} width={width} runtime={provider} input=touch')
-                    if not await panel.is_visible(): await versions.tap()
-                    await chip.focus()
-                    await chip.tap()
-                    await expect(modal).to_be_focused()
-                    await modal.get_by_role('button', name='CLOSE', exact=True).tap()
-                    await expect(modal).to_have_count(0)
-                    await expect(chip).to_be_focused()
-                for touch in [False, True]:
-                    progress(f'release-matrix {n + 1}/{len(cases)} mode={mode} scale={scale} focus={focus} theme={name} width={width} runtime={provider} input={"touch" if touch else "keyboard"}')
-                    if not await panel.is_visible():
-                        await versions.focus()
-                        await page.keyboard.press('Enter')
-                    await chip.focus()
-                    if touch: await chip.tap()
-                    else: await page.keyboard.press('Enter')
-                    modal = page.get_by_role('dialog', name=provider + (' changes' if provider == 'XOLOTL' else ' releases'), exact=True)
-                    await expect(modal).to_be_focused()
-                    bounds = await modal.bounding_box()
-                    assert bounds and bounds['x'] >= -1 and bounds['y'] >= -1 and bounds['x'] + bounds['width'] <= width + 1, (n, bounds)
-                    await page.keyboard.press('Escape')
-                    await expect(modal).to_have_count(0)
-                    if await panel.is_visible(): await expect(chip).to_be_focused()
-                    else: await expect(versions).to_be_focused()
-                await page.keyboard.press('Escape')
-                await expect(panel).to_have_count(0)
-            print(f'PASS release focus matrix: {len(cases)} cases, keyboard/touch Escape; {base_case_count} base cases touch CLOSE and prior-chip focus return', flush=True)
-            await page.set_viewport_size(viewport)
-            await page.evaluate("""async theme => {
-                (await import('/src/layout/layoutRange.ts')).setLayoutMode('auto');s.setState({focusMode:false});
-                (await import('/src/themes/apply.ts')).applyTheme((await import('/src/themes/registry.ts')).THEME_REGISTRY[theme]);
-                document.documentElement.style.zoom='1';document.documentElement.style.setProperty('--ui-scale','1');dispatchEvent(new Event('resize'));
-            }""", theme)
         for provider in ['XOLOTL', 'STRATA', 'OLLAMA']:
             version_button = page.locator('[data-help="header.cli-versions"][role="dialog"] button').filter(has_text=provider).first
             if not await version_button.count():

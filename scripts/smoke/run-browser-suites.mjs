@@ -178,6 +178,8 @@ const SUITES = [
   { name: 'unstyled-buttons', script: 'unstyled-buttons-browser.py', port: 5228 },
   { name: 'settings-text-color', script: 'settings-text-color-browser.py', port: 5255 },
   { name: 'theme-controls', script: 'theme-controls-browser.py', port: 5256 },
+  // Measured at 147.4 s; keep about twice that budget without enlarging theme-controls.
+  { name: 'provider-release-focus', script: 'provider-release-focus-browser.py', port: 5264, timeoutMs: 300_000 },
   { name: 'chat-timeline-order', script: 'chat-timeline-order-browser.py', port: 5262 },
   { name: 'cluster-create-tabs', script: 'cluster-create-tabs-browser.py', port: 5263 },
 ];
@@ -214,10 +216,11 @@ const runPython = (suite, env = process.env) => spawnSync('python3', [join(root,
   encoding: 'utf8',
   maxBuffer: 20 * 1024 * 1024,
   // The full theme inventory visits every surface at four theme/viewport pairs.
-  timeout: suite.name === 'theme-controls' ? 420_000 : 240_000,
+  timeout: suite.timeoutMs ?? (suite.name === 'theme-controls' ? 420_000 : 240_000),
 });
 async function runSuite(suite, env = process.env) {
-  const result = await runWithCiRetry(() => runPython(suite, env), { ci: hostedCi });
+  // Preserve the first release-focus exception and its state capture on hosted CI too.
+  const result = await runWithCiRetry(() => runPython(suite, env), { ci: hostedCi && suite.name !== 'provider-release-focus' });
   emitRun(result.first);
   if (result.status === 'flaky') {
     const tail = outputTail(result.first) || result.first.error?.message || `exit ${result.first.status}`;
