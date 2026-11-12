@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import dns from 'node:dns/promises';
@@ -142,11 +142,13 @@ test('all five local adapters carry fetched PDF text and scanned pages into thei
 
 test('real portable MCP stdio server lists and returns fetched images and PDF pages', async () => {
   const { connectServer } = await import('./client.js');
-  const { fileURLToPath } = await import('node:url');
-  const fixture = fileURLToPath(new URL('./fixtures/urlFetchNetwork.ts', import.meta.url));
+  const { fileURLToPath, pathToFileURL } = await import('node:url');
+  const fixture = join(home, 'URL preload #fixture.mjs');
+  await writeFile(fixture, `import ${JSON.stringify(new URL('./fixtures/urlFetchNetwork.ts', import.meta.url).href)};`);
   const entry = fileURLToPath(new URL('./fileMcpServer.ts', import.meta.url));
-  const session = await connectServer({ id: 'fixture', name: 'fixture', enabled: true, createdAt: 0, command: process.execPath, args: ['--conditions', 'development', '--import', 'tsx', '--import', fixture, entry, home], env: {} });
+  const session = await connectServer({ id: 'fixture', name: 'fixture', enabled: true, createdAt: 0, command: process.execPath, args: ['--conditions', 'development', '--import', 'tsx', '--import', pathToFileURL(fixture).href, entry, home], env: {} });
   try {
+    if (session.isClosed()) assert.fail((await session.callTool('fetch_file', {})).text);
     assert.ok(session.listTools().some(tool => tool.name === 'fetch_file' && tool.annotations?.readOnlyHint));
     const image = await session.callTool('fetch_file', { url: 'https://example.com/figure.png' });
     assert.equal(image.isError, false, image.text);

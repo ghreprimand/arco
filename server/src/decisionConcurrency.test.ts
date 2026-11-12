@@ -16,7 +16,11 @@ const handlers = await import('./ws/clusterHandlers.js');
 const ledgerHandlers = await import('./ws/taskLedgerHandlers.js');
 const store = await import('./workflowStore.js');
 const { settleProjectWrites } = await import('./testSupport/projectWrites.js');
-after(async () => { await settleProjectWrites(); await fs.rm(root, { recursive: true, force: true }); });
+after(async () => {
+  await settleProjectWrites();
+  (await import('./recall/index.js')).getRecallIndex().close();
+  await fs.rm(root, { recursive: true, force: true });
+});
 async function fixture() {
   const cwd = await fs.mkdtemp(join(root, 'project-'));
   const messages: any[] = [], other: any[] = [];
@@ -184,15 +188,18 @@ test('B114: messages and STOP are refused before writing into a moving store', a
 
 test('B114: a message already preparing context prevents a scaffold reservation', async (t) => {
   const f = await fixture(), engine = await import('./ws/turnEngine.js'), wf = state.workflows.get(f.ids[0]!)!;
-  const file = join(f.cwd, 'context.txt'); await fs.writeFile(file, 'Fixture context');
+  const contextDir = join(f.cwd, 'context-files'); await fs.mkdir(contextDir);
+  await fs.writeFile(join(contextDir, 'context.txt'), 'Fixture context');
+  const linkedDir = join(f.cwd, 'context-link'); await fs.symlink(contextDir, linkedDir, 'junction');
+  const file = await fs.realpath(join(linkedDir, 'context.txt'));
   const read = fs.open; let entered!: () => void, release!: () => void;
   const started = new Promise<void>(r => entered = r), blocked = new Promise<void>(r => release = r);
   t.mock.method(fs, 'open', async (...args: any[]) => {
     if (String(args[0]) === file) { entered(); await blocked; }
     return Reflect.apply(read, fs, args);
   }); syncBuiltinESMExports();
-  const pending = engine.handleUserMessage(f.ws, { workflowIds: new Set(f.ids) } as any, f.ids[0]!, '@file:context.txt', 'preparing-message', undefined, true, 'follow-up', undefined);
-  await started;
+  const pending = engine.handleUserMessage(f.ws, { workflowIds: new Set(f.ids) } as any, f.ids[0]!, '@file:context-link/context.txt', 'preparing-message', undefined, true, 'follow-up', undefined);
+  await Promise.race([started, pending.then(() => { throw new Error('Context preparation did not reach the file barrier'); })]);
   try { assert.equal(wf.busy, false); assert.throws(() => engine.reserveWorkflowMigration(wf), /busy/); }
   finally { wf.busy = true; release(); await pending; t.mock.restoreAll(); syncBuiltinESMExports(); }
   assert.equal(wf.queue.followUp.length, 1);

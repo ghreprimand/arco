@@ -8,6 +8,7 @@ const root = await mkdtemp(join(tmpdir(), 'arco-handoff-'));
 installIsolatedTestHome(root);
 after(async () => {
   await (await import('./workflowMeta.js')).settleMetaSideEffects();
+  (await import('./recall/index.js')).getRecallIndex().close();
   await rm(root, { recursive: true, force: true });
 });
 const { buildHandoffHistory, historyEligible, captureHandoffHistory, saveHandoffHistory, safeHistoryMeta } = await import('./handoffHistory.js');
