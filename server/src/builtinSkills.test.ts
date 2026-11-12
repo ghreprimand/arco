@@ -32,6 +32,16 @@ test('built-ins expose model skills and their read-only supporting files', async
   for (const result of [await executeOllamaTool('Write', { file_path: model.path, content: 'changed' }, { cwd }), await executeNativeTool('Write', { file_path: model.path, content: 'changed' }, native)]) assert.match(result, /\[error\]/);
 });
 
+test('proportionate-testing is a registered model skill in the first catalog manifest', async () => {
+  const catalog = await skills.listSkills(cwd);
+  const skill = catalog.builtin.find(s => s.slug === 'proportionate-testing');
+  assert.ok(skill);
+  assert.equal(skill.operatorOnly, false);
+  assert.ok(skill.path);
+  assert.match(skills.buildSkillsManifest(catalog), /<skill name="proportionate-testing" scope="builtin" path="[^"]+">/);
+  assert.match(readFileSync(skill.path, 'utf8'), /# Proportionate testing/);
+});
+
 test('user skill replaces a built-in; OFF removes it from the manifest', async () => {
   await skills.setBuiltinSkillOff('grilling', true);
   assert.doesNotMatch(skills.buildSkillsManifest(await skills.listSkills(cwd)), /name="grilling"/);

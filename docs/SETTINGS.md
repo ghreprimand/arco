@@ -204,7 +204,7 @@ ignored. `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` lifts the limit.
 
 ### Built-in skills
 
-Skill descriptions can be up to 300 characters. Settings > SKILLS lists the built-in skills with an OPERATOR or MODEL badge, TURN OFF and TURN ON. The composer SKILLS menu runs them or creates an EDITABLE COPY. A project or global skill with the same name replaces the built-in. Operator-run (slash): grill-me, grill-with-docs, wait-what, retro; Architecture review via `/improve-codebase-architecture`. Model-invoked (manifest / MODEL badge): grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype, writing-for-agents. Built-in third-party skills and their license are listed in [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES).
+Skill descriptions can be up to 300 characters. Settings > SKILLS lists the built-in skills with an OPERATOR or MODEL badge, TURN OFF and TURN ON. The composer SKILLS menu runs them or creates an EDITABLE COPY. A project or global skill with the same name replaces the built-in. Operator-run (slash): grill-me, grill-with-docs, wait-what, retro; Architecture review via `/improve-codebase-architecture`. Model-invoked (manifest / MODEL badge): proportionate-testing (Arco-owned), grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype, writing-for-agents. `proportionate-testing` controls how much to test; `tdd` controls how to write one test. Keep it on to ask agents for one test per real fault and operator approval before new suites, gates, tooling or CI checks. Built-in third-party skills and their license are listed in [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES).
 
 ## Save outcomes and rapid edits
 

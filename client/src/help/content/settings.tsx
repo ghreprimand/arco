@@ -376,7 +376,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
       <><p>
         Project and global skills: a folder with a <C>SKILL.md</C> and any files
         it needs. Arco lists names and descriptions to the agent each turn; the
-        agent reads a full skill only when needed. Descriptions can have up to 300 characters. Built-in skills can be turned on or off. Each row shows the extra files,
+        agent reads a full skill only when needed. Descriptions can have up to 300 characters. Built-in skills can be turned on or off. Arco's <C>proportionate-testing</C> has the MODEL badge and asks the agent to choose how much to test before adding or running checks. <C>tdd</C> describes how to write one test; the operator's instructions take priority. Each row shows the extra files,
         where an imported skill came from, and skill names its text refers to that
         are not installed. Project skills are in <C>.arco/skills/</C>, which Git
         ignores unless you use <C>SHARE WITH REPOSITORY</C>.

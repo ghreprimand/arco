@@ -546,6 +546,7 @@ export const configuration: Section[] = [
     <li><Code>retro</Code> - Use to run a retrospective on a coding session.</li>
     <li><Code>grilling</Code> - Use when stress-testing a plan, decision or idea (model-invoked).</li>
     <li><Code>domain-modeling</Code> - Use when discussing terminology or writing or editing a glossary or ADR (model-invoked).</li>
+    <li><Code>proportionate-testing</Code> - Arco's MODEL skill for choosing how much to test: one test per real fault, one happy-path browser check per journey, and approval before new suites, gates, tooling or CI checks. It sets scope; tdd describes how to write one test. The operator's instructions take priority.</li>
     <li><Code>tdd</Code> - Use for test-first feature or bug work (model-invoked).</li>
     <li><Code>diagnosing-bugs</Code> - Use for hard bugs or performance regressions (model-invoked).</li>
     <li><Code>codebase-design</Code> - Use when designing or deepening module interfaces, seams or testability (model-invoked).</li>

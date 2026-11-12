@@ -29,7 +29,11 @@ import { canonicalSkillKey, readSkillUsage } from './skillUsage.js';
 import { arcoHome } from './arcoHome.js';
 import { APP_VERSION } from './appVersion.js';
 import { ARCHITECTURE_REVIEW_SKILL } from './architectureSkill.js';
+import { PROPORTIONATE_TESTING_SKILL } from './proportionateTestingSkill.js';
+
 import { THIRD_PARTY_SKILL_FILES } from './thirdPartySkills.js';
+
+const ARCO_BUILTIN_SKILLS = [ARCHITECTURE_REVIEW_SKILL, PROPORTIONATE_TESTING_SKILL];
 
 export type SkillScope = 'project' | 'global';
 export interface SkillRef { scope: SkillScope; slug: string }
@@ -39,15 +43,14 @@ export type PickedSkillScope = SkillScope | 'builtin';
 export interface BuiltinSkillSummary { slug: string; name: string; description: string; scope: 'builtin'; operatorOnly: boolean; off?: boolean; replaced?: boolean; path?: string }
 const OPERATOR_BUILTINS = new Set(['grill-me', 'grill-with-docs', 'wait-what', 'retro']);
 export function listBuiltinSkills(): BuiltinSkillSummary[] {
-  const s = ARCHITECTURE_REVIEW_SKILL;
-  return [{ slug: s.slug, name: s.name, description: s.description, scope: 'builtin', operatorOnly: true }, ...THIRD_PARTY_SKILL_FILES.map(({ slug, files }) => {
+  return [...ARCO_BUILTIN_SKILLS.map(s => ({ slug: s.slug, name: s.name, description: s.description, scope: 'builtin' as const, operatorOnly: s.operatorOnly })), ...THIRD_PARTY_SKILL_FILES.map(({ slug, files }) => {
     const parsed = parseSkillFile(files['SKILL.md']);
     return { slug, name: parsed.name || slug, description: parsed.description || '', scope: 'builtin' as const, operatorOnly: OPERATOR_BUILTINS.has(slug) };
   })];
 }
 export function readBuiltinSkill(slug: string): { slug: string; name: string; description: string; body: string } | null {
-  const s = ARCHITECTURE_REVIEW_SKILL;
-  if (slug === s.slug || slug === 'improve-codebase-architecture') return { slug: s.slug, name: s.name, description: s.description, body: s.body };
+  const s = ARCO_BUILTIN_SKILLS.find(s => s.slug === slug || (s.slug === 'architecture-review' && slug === 'improve-codebase-architecture'));
+  if (s) return { slug: s.slug, name: s.name, description: s.description, body: s.body };
   const files = THIRD_PARTY_SKILL_FILES.find((item) => item.slug === slug)?.files;
   if (!files) return null;
   const parsed = parseSkillFile(files['SKILL.md']);
@@ -68,7 +71,10 @@ async function materializeBuiltinSkills(): Promise<string> {
   const root = builtinSkillsRoot();
   const refresh = builtinRefresh.catch(() => {}).then(async () => {
     await mkdir(arcoHome(), { recursive: true, mode: 0o700 });
-    for (const skill of THIRD_PARTY_SKILL_FILES) {
+    const ownFiles = ARCO_BUILTIN_SKILLS.filter(s => !s.operatorOnly).map(s => ({
+      slug: s.slug, files: { 'SKILL.md': renderSkillFile(s.name, s.description, s.body) },
+    }));
+    for (const skill of [...ownFiles, ...THIRD_PARTY_SKILL_FILES]) {
       for (const [name, content] of Object.entries(skill.files)) {
         const file = path.join(root, skill.slug, name);
         // Refuse links below the Arco home before opening or changing files.

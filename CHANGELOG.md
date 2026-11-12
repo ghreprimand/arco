@@ -5,6 +5,9 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Add Arco's model-invoked proportionate-testing skill to keep tests focused on faults a user would notice and ask before adding suites, gates, tooling or CI checks.
+
+
 - Keep managed uploads working with Windows short folder names.
 - Accept registered Windows worktrees reached through short parent-folder names while refusing replaced worktree links.
 
