@@ -22,6 +22,7 @@ for (const kind of ['codex', 'cursor'] as const) {
       const image = join(cwd, 'figure.data');
       const children: childProcess.ChildProcess[] = [];
       t.mock.method(childProcess, 'spawn', ((command: string, args: string[], options: childProcess.SpawnOptions) => {
+        if (command === 'taskkill') return realSpawn(command, args, options);
         assert.equal(command, kind === 'codex' ? 'codex' : 'cursor-agent');
         const catalog = kind === 'cursor' && args.includes('models');
         assert.ok(catalog || args.includes(kind === 'codex' ? 'app-server' : 'acp'));

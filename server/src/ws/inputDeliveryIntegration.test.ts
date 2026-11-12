@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after,test } from 'node:test';
-import { mkdtempSync,mkdirSync,rmSync,writeFileSync,realpathSync } from 'node:fs';
+import { mkdtempSync,mkdirSync,rmSync,writeFileSync } from 'node:fs';
+import { realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -162,9 +163,9 @@ test('image context references reach immediate and queued provider turns',async(
   const image=join(f.cwd,'fixture.png');
   writeFileSync(image,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64'));
   run=engine.handleUserMessage(f.ws,f.session,f.id,'Inspect @file:fixture.png','first',undefined,false,undefined,undefined);
-  await f.wait(1);assert.deepEqual(f.pending[0].options.attachments,[realpathSync(image)]);
+  await f.wait(1);assert.deepEqual(f.pending[0].options.attachments,[await realpath(image)]);
   await engine.handleUserMessage(f.ws,f.session,f.id,'Inspect again @file:fixture.png','next',undefined,true,'follow-up',undefined);
-  f.pending[0].finish('first answer');await f.wait(2);assert.deepEqual(f.pending[1].options.attachments,[realpathSync(image)]);
+  f.pending[0].finish('first answer');await f.wait(2);assert.deepEqual(f.pending[1].options.attachments,[await realpath(image)]);
   f.pending[1].finish('second answer');await run;
  }finally{if(f.wf.busy)engine.revokeBusy(f.wf);f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const pending of f.pending)pending.finish('fixture cleanup');await run;await f.close();}
 });
@@ -176,7 +177,7 @@ test('an image context reference remains attached to a steered message',async()=
   writeFileSync(image,Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC','base64'));
   run=engine.handleUserMessage(f.ws,f.session,f.id,'FIRST','first',undefined,false,undefined,undefined);await f.wait(1);
   await engine.handleUserMessage(f.ws,f.session,f.id,'Inspect @file:fixture.png','steer',undefined,true,'steer',undefined);
-  const items=f.pending[0].options.drainSteer();assert.equal(items.length,1);assert.deepEqual(items[0].attachments,[realpathSync(image)]);
+  const items=f.pending[0].options.drainSteer();assert.equal(items.length,1);assert.deepEqual(items[0].attachments,[await realpath(image)]);
   f.pending[0].finish('answer');await run;
  }finally{if(f.wf.busy)engine.revokeBusy(f.wf);f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const pending of f.pending)pending.finish('fixture cleanup');await run;await f.close();}
 });
