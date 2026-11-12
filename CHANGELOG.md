@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+## v0.1.5 - 2026-11-12
+
 - Tell clusters to keep checks useful and green: classify failures, fix product faults and faulty tests or rules, and never release over red checks.
 
 - Avoid overlapping Cursor print cleanup when a request fails, preventing competing temporary-folder removals on Windows.
@@ -530,7 +532,6 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Codex Chat's reduced tool set needs Codex 0.167.0 or newer.
 - App window browser detection on macOS and Windows was tested against fixtures only.
 - Arco's file tool reads inside the project folder; files elsewhere are attached.
-
 
 ## v0.1.4 - 2026-11-05
 
