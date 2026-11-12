@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, realpathSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'arco-tar-review-')));
@@ -69,7 +69,7 @@ test('FA8 system tar regular archives restore through staging', async t => {
   mkdirSync(join(source, 'nested'), { recursive: true }); writeFileSync(join(source, long), 'system tar fixture');
   const hash = createHash('sha256').update(resolve(cwd)).digest('hex').slice(0, 16);
   const tar = join(process.env.ARCO_HOME!, 'checkpoints', hash, 'fixture.1.tar');
-  try { execFileSync('tar', ['-cf', tar, '-C', source, '.'], { stdio: 'pipe' }); }
+  try { execFileSync('tar', ['-cf', basename(tar), '-C', source, '.'], { cwd: dirname(tar), stdio: 'pipe' }); }
   catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') { t.skip('system tar unavailable'); return; } throw error; }
   assert.equal((await revertToCheckpoint({ cwd, workflowId: 'fixture', seq: 1 }))?.fileCount, 1);
   assert.equal(readFileSync(join(cwd, long), 'utf8'), 'system tar fixture');
