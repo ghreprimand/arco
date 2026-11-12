@@ -8,7 +8,7 @@ test('director doctrine requires stay-available handoff and no long waits', () =
   const text = buildClusterDirectorDoctrine('Director role. Delegate via peer_send.');
   assert.ok(text);
   assert.match(text!, /Stay available to the operator/);
-  assert.match(text!, /full verification and gate runs to the tester/);
+  assert.match(text!, /the project's checks to the tester/);
   assert.match(text!, /CI watching to the change's author/);
   assert.match(text!, /Never wait inside a turn/);
   assert.match(text!, /no sleep or polling longer than 60 seconds/);

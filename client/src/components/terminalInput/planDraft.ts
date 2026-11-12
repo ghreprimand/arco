@@ -6,7 +6,7 @@ export function planDraftPrompt(goal = '', mode: 'review' | 'autosave' = 'review
   const base = `Please synthesize ${cluster ? 'a shared cluster' : 'a project'} plan from everything discussed in this conversation.${aim}
 Cover the goal, current state, open questions, and actionable next steps. Begin with one # Title, use ### headings for phases, and put each task on a top-level - [ ] checkbox line. Use durable language.
 
-Reply with the complete plan inline. Do not create, update, attach, or write any plan or project file. ${mode === 'review' ? 'The operator will review the draft before deciding whether to save it.' : 'Arco will save the draft after the turn.'}`;
+Do not write testing, gate or CI standing rules unless the operator asked for them. Reply with the complete plan inline. Do not create, update, attach, or write any plan or project file. ${mode === 'review' ? 'The operator will review the draft before deciding whether to save it.' : 'Arco will save the draft after the turn.'}`;
   return publicProject ? `${base}\n\n${PUBLIC_DRAFT_REQUEST}` : base;
 }
 
@@ -33,7 +33,7 @@ ${note.trim()}
 Current draft:
 ${draft.trim()}
 
-${hasGuardrails(draft) ? 'Keep the "Privacy and public safety" section unless the note says otherwise.\n\n' : publicProject ? `${PUBLIC_DRAFT_REQUEST}\n\n` : ''}Reply with the complete revised plan inline. Begin with one # Title, use ### headings for phases, and put each task on a top-level - [ ] checkbox line. Do not create, update, attach, or write any plan or project file. The operator will review the revision before deciding whether to save it.`;
+${hasGuardrails(draft) ? 'Keep the "Privacy and public safety" section unless the note says otherwise.\n\n' : publicProject ? `${PUBLIC_DRAFT_REQUEST}\n\n` : ''}Do not write testing, gate or CI standing rules unless the operator asked for them. Reply with the complete revised plan inline. Begin with one # Title, use ### headings for phases, and put each task on a top-level - [ ] checkbox line. Do not create, update, attach, or write any plan or project file. The operator will review the revision before deciding whether to save it.`;
 }
 
 // Refinement is a new idle plan-review turn that carries the current draft. The

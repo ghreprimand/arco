@@ -863,7 +863,7 @@ const TodoWriteTool: Entry = {
 const EnterPlanModeTool: Entry = {
   def: {
     name: 'EnterPlanMode',
-    description: 'Record a markdown plan body and gate write tools (Write / Edit) until ExitPlanMode. The plan is broadcast to the workflow so the operator can review it in the PLAN tab. Calling EnterPlanMode while already in plan mode replaces the plan body.',
+    description: 'Record a markdown plan body and gate write tools (Write / Edit) until ExitPlanMode. The plan is broadcast to the workflow so the operator can review it in the PLAN tab. Calling EnterPlanMode while already in plan mode replaces the plan body. Do not write testing, gate or CI standing rules unless the operator asked for them.',
     input_schema: {
       type: 'object',
       properties: {

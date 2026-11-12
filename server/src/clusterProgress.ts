@@ -29,6 +29,7 @@ import {
 
 // Imperative, short clauses so they read as a system directive, not prose.
 const PLAN_CLAUSE = [
+  'Do not write testing, gate or CI standing rules unless the operator asked for them.',
   'The shared cluster plan holds standing rules and tasks only; keep its checkboxes current as you work.',
   'When the operator approves new work that no existing plan item covers, the director adds one plan item in the same turn, before assigning it. Group related work: one item per feature or batch of fixes, never one per bug.',
   'In its reply, the director tells the operator which plan item it added or changed, with the item id and a one-line description.',

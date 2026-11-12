@@ -271,7 +271,7 @@ function candidateDoc(c: ArchitectureCandidate, report: string): string {
     `- Locality: ${c.benefits.locality || '(not given)'}`,
     `- Leverage: ${c.benefits.leverage || '(not given)'}`,
     `- Tests: ${c.benefits.tests || '(not given)'}`, '',
-    '## Building it', '- Tests at the new seam first; no behavior change.', '',
+    '## Building it', '- Preserve behavior; follow the project\'s testing directive.', '',
   ].join('\n');
 }
 

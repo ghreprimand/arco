@@ -601,7 +601,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.right-panel.role-set': {
     title: 'Set role',
-    body: <><p>Opens the role list: DIRECTOR, BUILDER, REVIEWER, RESEARCHER, TESTER and DOCUMENTER, plus CLEAR and CUSTOM. The current role is highlighted. A cluster may have only one director, so director choices are unavailable, with the reason shown, while another member holds that role.</p><p>Standard LM Studio, Strata and DeepSeek members receive their assigned role and shared plan. Blind members retain restricted context without the shared plan.</p></>,
+    body: <><p>Opens the role list: DIRECTOR, BUILDER, REVIEWER, RESEARCHER, TESTER and DOCUMENTER, plus CLEAR and CUSTOM. The current role is highlighted. The Director reads the diff and checks that project-required checks ran, without inventing a gate or permanent incident rule. Before blocking work, it states what a user would lose. A cluster may have only one director, so director choices are unavailable, with the reason shown, while another member holds that role.</p><p>Standard LM Studio, Strata and DeepSeek members receive their assigned role and shared plan. Blind members retain restricted context without the shared plan.</p></>,
     manualSection: 'cluster-roles',
   },
   'cluster.right-panel.role-preset': {
@@ -1190,7 +1190,9 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Coordination style',
     body: (
       <>
-        <p><C>EFFICIENCY</C> sets how members talk and hand off work. New clusters start on Balanced: clear outcomes, where changes landed and what they affect, routine decisions left to builders, and one actionable blocker or final summary. Thorough allows more explanation; Lean cuts optional narration and handoffs. Every style keeps required tests, safety checks, and the reviews you asked for.</p>
+        <p><C>EFFICIENCY</C> guides coordination and testing each turn. Balanced is the new-cluster default: one test per real fault, at the lowest useful level; changed-area tests per change; the full check once before release. Browser tests cover real-screen journeys, one per journey, without layout, theme or size matrices.</p>
+        <p>Balanced asks before adding suites, gates, test tooling or CI checks, using the operator-question tool when available. It aims for a full check of about ten minutes and proposes cuts if longer. Flaky tests are fixed or deleted, not retried. Lean runs changed-area tests and adds tests only for faults found; the full check runs only when requested. Thorough tests new behaviour and faults, neighbouring tests, and the full check before handover.</p>
+        <p>Every level asks what a user would lose before a failure blocks work; cosmetic or momentary faults are noted. Project rules and plans take precedence when they ask for more or less testing. Safety checks, message guards, requested review and landing review stay unchanged.</p>
         <p><C>NOTE</C> adds a standing instruction of your own for the whole cluster. Style and note apply on each member&apos;s next turn. The message guard beside it is a separate setting.</p>
       </>
     ),

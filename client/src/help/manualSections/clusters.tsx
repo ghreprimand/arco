@@ -433,7 +433,10 @@ export const clusters: Section[] = [
   <ul>
   <li>
   <strong>DIRECTOR</strong> - adds to the cluster plan, fans work
-  out to peers, integrates results, and avoids removing plan items.
+  out to peers, reads the diff and checks that project-required checks
+  ran. It does not invent gates or turn a one-off incident into a
+  standing rule or permanent test without the operator. Before blocking
+  work, it states what a user would lose.
   </li>
   <li>
   <strong>BUILDER</strong> - executes one slice end-to-end and
@@ -448,10 +451,9 @@ export const clusters: Section[] = [
   material and answers focused questions.
   </li>
   <li>
-  <strong>TESTER</strong> - writes and runs tests against peer
-  work and full verification on request (for example a landing
-  gate); reports via <Code>peer_send</Code>; modifies test files
-  only.
+  <strong>TESTER</strong> - runs project checks and tests peer work
+  where a real fault is likely; reports via <Code>peer_send</Code>;
+  modifies test files only.
   </li>
   <li>
   <strong>DOCUMENTER</strong> - reads peer work via{' '}
@@ -927,17 +929,34 @@ export const clusters: Section[] = [
   body: (
   <>
   <p>
-  Coordination style guides how members write and hand off work.
+  Efficiency guides how members coordinate and test each turn.
   Message guard separately limits peer messages.
   </p>
   <h4 className="manual-sub">Coordination and message limits</h4>
   <p>
-  New clusters start Balanced: complete outcomes, exact placement and
-  affected surfaces, builder-owned routine compatible decisions, and
-  one actionable blocker or final evidence packet. Thorough permits
-  useful explanation; Lean reduces optional narration and handoffs.
-  All styles preserve required tests, safety checks, operator-requested
-  review and landing review.
+  New clusters start Balanced: complete outcomes, routine decisions left
+  to builders, and a report of what was done, run and not covered. Add
+  one lowest-level test per real fault. Run changed-area tests per change
+  and the full check once before release. Browser tests cover journeys
+  that need a real screen, one per journey, without layout, theme or size matrices.
+  </p>
+  <p>
+  Balanced asks before adding suites, gates, test tooling or CI checks,
+  using the operator-question tool where available. Aim for a full check
+  of about ten minutes; propose cuts if longer before adding tests.
+  Flaky tests are fixed or deleted, not retried.
+  </p>
+  <p>
+  Lean runs changed-area tests, adds tests only for faults found, and runs
+  the full check only when requested. Thorough tests new behaviour and
+  faults, runs neighbouring tests and the full check before handover.
+  Ask before adding new suites, gates or CI checks.
+  </p>
+  <p>
+  Every level states what a user would lose before a failure blocks work;
+  cosmetic or momentary faults are noted. Project rules and plans win
+  when they ask for more or less testing. Safety checks, message guards,
+  requested review and landing review stay unchanged.
   </p>
   <p>
   Message guard is independent:

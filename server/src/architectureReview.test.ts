@@ -162,7 +162,7 @@ test('ADD TO PLAN adds one item under the Architecture review heading with its o
   const ref = await readPlanRef(cwd, plan.id, first.slug);
   assert.match(ref!.body, /^# One owner for turn boundaries/);
   assert.match(ref!.body, /- `src\/engine.ts`/);
-  assert.match(ref!.body, /Tests at the new seam first; no behavior change/);
+  assert.match(ref!.body, /Preserve behavior; follow the project's testing directive/);
   await assert.rejects(review.addCandidateToPlan(cwd, plan.id, r, 'c9'), /not in the report/);
 });
 

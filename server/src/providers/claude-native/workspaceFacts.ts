@@ -133,12 +133,12 @@ export function renderProjectFactsBlock(facts: ProjectFacts): string | null {
   const branch = facts.gitBranch ? ` on branch ${facts.gitBranch}` : '';
   lines.push(`Project: ${eco}${pm}${branch}${wt}`);
   if (facts.verifyCommands.length > 0) {
-    lines.push(`Verify your work with: ${facts.verifyCommands.join('; ')}`);
+    lines.push(`Detected project commands (choose only those required by the task, testing directive or project rules): ${facts.verifyCommands.join('; ')}`);
   }
   if (facts.runCommand) {
     lines.push(`Dev/run: ${facts.runCommand}`);
   }
-  lines.push('Prefer these detected commands over guessing build/test commands.');
+  lines.push('When a command is needed, prefer these detected commands over guessing build/test commands.');
   return lines.join('\n');
 }
 

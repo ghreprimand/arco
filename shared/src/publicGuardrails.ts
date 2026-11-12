@@ -45,6 +45,6 @@ export function insertGuardrails(body: string): string {
 }
 
 /** Text added to the plan draft prompt when the project is public. */
-export const PUBLIC_DRAFT_REQUEST = `This project is public, or will be. Include a "${GUARDRAILS_HEADING}" section of standing rules fitted to this project, placed before the first phase. Do not use ### headings inside it: ### lines are phases, so use bold labels and flat lists. Start from this template, name the project-specific risks you can see, and say how each rule is enforced:
+export const PUBLIC_DRAFT_REQUEST = `This project is public, or will be. Include a "${GUARDRAILS_HEADING}" section of standing rules fitted to this project, placed before the first phase. Do not write testing, gate or CI standing rules unless the operator asked for them. Do not use ### headings inside it: ### lines are phases, so use bold labels and flat lists. Start from this template, name the project-specific risks you can see, and say how each rule is enforced:
 
 ${PUBLIC_GUARDRAILS_TEMPLATE}`;

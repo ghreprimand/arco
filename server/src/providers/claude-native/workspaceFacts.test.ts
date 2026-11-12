@@ -87,7 +87,7 @@ test('renderProjectFactsBlock: carries verify cmds, branch, linked-worktree', ()
   });
   const block = renderProjectFactsBlock(f);
   assert.ok(block);
-  assert.match(block!, /Verify your work with: pnpm build; pnpm test/);
+  assert.match(block!, /Detected project commands \(choose only those required by the task, testing directive or project rules\): pnpm build; pnpm test/);
   assert.match(block!, /branch feature\/x/);
   assert.match(block!, /linked worktree/);
 });

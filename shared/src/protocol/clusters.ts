@@ -164,9 +164,9 @@ export const CLUSTER_EFFICIENCY_CREATE_DEFAULT: ClusterEfficiencyLevel = 'balanc
 // owns the generated coordination policy; this is operator-facing summary
 // only.
 export const CLUSTER_EFFICIENCY_LABELS: Record<ClusterEfficiencyLevel, { label: string; blurb: string }> = {
-  thorough: { label: 'Thorough', blurb: 'Explanatory coordination; required review and checks remain.' },
-  balanced: { label: 'Balanced', blurb: 'Complete outcomes, routine decisions owned by builders, one final evidence packet (new-cluster default).' },
-  lean: { label: 'Lean', blurb: 'Brief coordination and fewer optional handoffs; required review and checks remain.' },
+  thorough: { label: 'Thorough', blurb: 'More explanation; test new behaviour and faults, neighbouring tests and the full check before handover.' },
+  balanced: { label: 'Balanced', blurb: 'New-cluster default: complete outcomes, one test per real fault, area tests per change and the full check before release.' },
+  lean: { label: 'Lean', blurb: 'Brief coordination; tests only for changed work and real faults, full check only when requested.' },
 };
 
 // Optional free-text the operator appends to the canned doctrine for a

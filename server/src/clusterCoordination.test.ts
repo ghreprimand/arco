@@ -185,7 +185,7 @@ test('role-aware coordination and all mail entry points preserve required review
     assert.match(director, /exact placement/); assert.match(director, /final diff/); assert.match(director, /concrete blockers/);
     assert.match(director, /Operator NOTE.*not a mode or budget/);
     const builder = buildClusterCoordination(level, undefined, 'Implementer role.');
-    const guardLine = 'Coordination style does not change message guards, required tests, safety checks, operator-requested review or landing review. Standing project rules still apply.';
+    const guardLine = 'Efficiency guides coordination and testing. Message guards, safety checks, operator-requested review and landing review stay unchanged.';
     const sendCheck = 'Before sending, check that the message gives the recipient something to act on or something it is waiting for. A closing note to a member whose work is finished (landed, thanks, nothing further) does neither; record it on the board instead.';
     const nextStep = "When a report states the sender's next step, no reply approves it; reply only to change that step, answer a question, or assign other work. Reports that continue on their own end with their next step.";
     const noWait = 'Do not wait inside a turn for long-running checks: never sleep or poll for more than 60 seconds at a time. Start long runs in the background or hand them off, report what is running, and end the turn.';
@@ -197,7 +197,9 @@ test('role-aware coordination and all mail entry points preserve required review
       assert.ok(prompt.includes(`${nextStep}\n\n${noWait}`));
       assert.ok(prompt.includes(`${guardLine}\n\n${sendCheck}`));
     }
-    assert.match(builder, /before the full gate/); assert.match(builder, /candidate tree or patch/);
+    assert.match(builder, /what was done, what was run and what is not covered/);
+    const testing = { lean: /Testing: run only the tests for what you changed/, balanced: /Testing: add one test for each real fault you fix/, thorough: /Testing: test new behaviour and each fault you fix/ };
+    assert.match(builder, testing[level]);
     assert.doesNotMatch(builder, /assign whole phases|Do NOT review|skip.*tests/i);
     for (const prompt of [buildClusterNudge(level, false, 'Director'), buildClusterMailboxNotice(level, 2, 'Director'), buildClusterAutoPickup(level, 'Director')]) {
       assert.match(prompt, /concrete contradictory evidence/); assert.match(prompt, /required.*review/); assert.match(prompt, /Delegate/);
@@ -209,6 +211,7 @@ test('role-aware coordination and all mail entry points preserve required review
 test('the previous unedited Builder preset keeps its preset, label and normalizes forward', () => {
   const legacy = 'Implementer role. Focus on your assigned scope. Use peer_send to report progress + blockers, not to direct peers.';
   const current = ROLE_PRESETS.find((p) => p.key === 'builder')!.text;
+  assert.equal(presetForText('Implementer role. Finish assigned work and routine compatible choices; send one blocker or final evidence via peer_send.')?.label, 'BUILDER');
   assert.equal(presetForText(legacy)?.label, 'BUILDER'); assert.equal(presetForText(current)?.label, 'BUILDER');
   assert.equal(normalizeClusterRoleText(`  ${legacy} `), current);
   assert.equal(presetForText(`${legacy} Custom.`), undefined, 'an edited role stays custom');
@@ -218,7 +221,8 @@ test('the previous Tester preset keeps its preset, label and normalizes forward'
   const legacy = 'Tester role. Write + run tests against peer work. Report failures via peer_send. Modify test files only.';
   const current = ROLE_PRESETS.find((p) => p.key === 'tester')!.text;
   assert.ok(current.length <= 120);
-  assert.match(current, /landing gates/);
+  assert.match(current, /Run project checks/);
+  assert.equal(presetForText('Tester role. Write + run tests and full verification (e.g. landing gates); report via peer_send. Modify test files only.')?.label, 'TESTER');
   assert.equal(presetForText(legacy)?.label, 'TESTER');
   assert.equal(presetForText(current)?.label, 'TESTER');
   assert.equal(normalizeClusterRoleText(`  ${legacy} `), current);

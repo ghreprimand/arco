@@ -12,19 +12,24 @@ export function clusterDirectorProblem(roles: readonly (string | undefined)[]): 
 
 export function buildClusterCoordination(level: ClusterEfficiencyLevel = 'thorough', note?: string, role?: string): string {
   const lines = [`--- Cluster efficiency: ${level.toUpperCase()} ---`];
-  lines.push('Coordination style does not change message guards, required tests, safety checks, operator-requested review or landing review. Standing project rules still apply.');
+  lines.push('Efficiency guides coordination and testing. Message guards, safety checks, operator-requested review and landing review stay unchanged.');
   lines.push('Before sending, check that the message gives the recipient something to act on or something it is waiting for. A closing note to a member whose work is finished (landed, thanks, nothing further) does neither; record it on the board instead.');
   lines.push("When a report states the sender's next step, no reply approves it; reply only to change that step, answer a question, or assign other work. Reports that continue on their own end with their next step.");
   lines.push('Do not wait inside a turn for long-running checks: never sleep or poll for more than 60 seconds at a time. Start long runs in the background or hand them off, report what is running, and end the turn.');
   if (isClusterDirector(role)) {
-    lines.push('Assign complete outcomes with exact placement, affected surfaces, invariants, dependencies and acceptance evidence. Builders own routine compatible choices within that scope. Identify unresolved blockers before full verification.');
-    lines.push('Reconcile relevant tasks and new evidence; read broader history when relevant or stale. Inspect the final diff and required evidence once, then land accepted changes. Request more work only for concrete blockers or a changed relevant integration base.');
+    lines.push('Assign complete outcomes with exact placement, affected surfaces, constraints and dependencies. Builders own routine compatible choices within that scope. Ask them to say what was done, what was run and what is not covered.');
+    lines.push('Reconcile relevant tasks and new findings; read broader history when relevant or stale. Read the final diff and check that the project-required checks were run, then land accepted changes. Request more work only for concrete blockers or a changed relevant integration base.');
   } else {
-    lines.push('Finish the assigned outcome through its required work, authorized compatible decisions and verification. Raise one actionable unresolved blocker before the full gate, or send one final evidence packet with base, candidate tree or patch, checks and remaining limits.');
+    lines.push('Finish the assigned outcome and make authorized compatible decisions. Report one actionable unresolved blocker, or say what was done, what was run and what is not covered.');
   }
   if (level === 'thorough') lines.push('Include explanatory context when it helps a decision; redundant cross-review is not required.');
   else lines.push('Group related work into coherent outcomes. Avoid acknowledgment and status-ping loops, duplicate verification and unnecessary handoffs. Do not reopen successful work without concrete contradictory findings.');
-  if (level === 'lean') lines.push('Keep optional narration and peer messages brief. Brevity never removes required checks, review or evidence.');
+  if (level === 'lean') lines.push('Keep optional narration and peer messages brief. Safety checks, operator-requested review and landing review still apply.');
+  const proportion = 'Before a failure holds work up, say what a user would lose if the fault were real; note cosmetic or momentary faults and carry on.';
+  if (level === 'lean') lines.push(`Testing: run only the tests for what you changed. Add a test only for a fault that was actually found. Do not run the full check or add suites, gates or CI checks unless the operator asks. ${proportion}`);
+  else if (level === 'thorough') lines.push(`Testing: test new behaviour and each fault you fix, run the neighbouring tests, and run the full check before handing work over. Ask the operator before adding new suites, gates or CI checks. ${proportion}`);
+  else lines.push(`Testing: add one test for each real fault you fix, at the level where it appeared. Prefer the lowest-level test that would catch the fault; use a browser or end-to-end test only for a user journey that needs a real screen, one per journey, not one per layout, theme or size. Run the tests for the area you changed; run the project's full check once before a release, not for each change. Do not add test matrices unless the operator asks. Ask the operator, with the operator-question tool where the cluster has it, before adding a suite, a gate, test tooling or a CI check. ${proportion} Keep the project's full check to about ten minutes; if it is longer, tell the operator and propose what to cut before adding tests. A flaky test is fixed or deleted, not retried.`);
+  lines.push("The operator's own project rules or plan take precedence when they ask for more or less testing.");
   const addendum = (note ?? '').trim().slice(0, CLUSTER_EFFICIENCY_ADDENDUM_MAX);
   if (addendum) lines.push(`Operator NOTE (appended instruction, not a mode or budget): ${addendum}`);
   return lines.join('\n\n');
@@ -39,8 +44,8 @@ export function buildMessageGuardPolicy(guard: ClusterMessageGuard): string {
 
 function mailAction(level: ClusterEfficiencyLevel, role?: string): string {
   const action = isClusterDirector(role) ? 'Delegate concrete implementation findings and keep the affected task current; perform the required landing review.' : 'Act on actionable assignments or concrete findings within your assigned scope.';
-  const common = `${action} Reopen completed work only for concrete contradictory evidence. Preserve required tests and review.`;
-  return level === 'thorough' ? `${common} Include useful context, without redundant cross-review.` : `${common} Send one actionable blocker or final evidence packet; avoid acknowledgment and status-ping loops.`;
+  const common = `${action} Reopen completed work only for concrete contradictory evidence. Follow the cluster testing directive and the project rules; keep safety checks and requested review.`;
+  return level === 'thorough' ? `${common} Include useful context, without redundant cross-review.` : `${common} Send one actionable blocker or a final summary of what was done, run and not covered; avoid acknowledgment and status-ping loops.`;
 }
 export function buildClusterNudge(level: ClusterEfficiencyLevel = 'thorough', active = false, role?: string): string {
   return active

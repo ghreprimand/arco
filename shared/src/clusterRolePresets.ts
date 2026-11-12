@@ -15,9 +15,11 @@ const OUTCOME_DIRECTOR_TEXT = "Director role. Own outcome; plan/delegate via pee
 const OWN_OUTCOME_DIRECTOR_TEXT = 'Director role. Own outcome; delegate only via peer_send, never Task; keep plan current; verify claims; fold feedback.';
 // The previous unedited Builder preset; normalized forward like the Director
 // texts so stored members keep the BUILDER preset, label and voice aliases.
+const EVIDENCE_BUILDER_TEXT = 'Implementer role. Finish assigned work and routine compatible choices; send one blocker or final evidence via peer_send.';
 const LEGACY_BUILDER_TEXT = 'Implementer role. Focus on your assigned scope. Use peer_send to report progress + blockers, not to direct peers.';
 // Prior Tester preset; normalized forward so stored members keep the TESTER
-// preset after landing-gate verification was added to the body.
+// preset when the testing guidance changes.
+const FULL_VERIFICATION_TESTER_TEXT = 'Tester role. Write + run tests and full verification (e.g. landing gates); report via peer_send. Modify test files only.';
 const LEGACY_TESTER_TEXT = 'Tester role. Write + run tests against peer work. Report failures via peer_send. Modify test files only.';
 
 export const ROLE_PRESETS: RolePreset[] = [
@@ -29,7 +31,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'builder',
     label: 'BUILDER',
-    text: 'Implementer role. Finish assigned work and routine compatible choices; send one blocker or final evidence via peer_send.',
+    text: 'Implementer role. Finish assigned work and routine compatible choices; send one blocker or final summary via peer_send.',
   },
   {
     key: 'reviewer',
@@ -44,8 +46,8 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'tester',
     label: 'TESTER',
-    // ≤120 chars (MEMBER_ROLE_MAX). Covers peer tests and landing-gate runs.
-    text: 'Tester role. Write + run tests and full verification (e.g. landing gates); report via peer_send. Modify test files only.',
+    // <=120 chars (MEMBER_ROLE_MAX). Project checks and focused peer tests.
+    text: 'Tester role. Run project checks; test peer work where a real fault is likely. Report via peer_send. Test files only.',
   },
   {
     key: 'documenter',
@@ -59,8 +61,8 @@ export function normalizeClusterRoleText(text: string): string {
   if (trimmed === LEGACY_DIRECTOR_TEXT || trimmed === OUTCOME_DIRECTOR_TEXT || trimmed === OWN_OUTCOME_DIRECTOR_TEXT) {
     return ROLE_PRESETS.find((p) => p.key === 'director')?.text ?? trimmed;
   }
-  if (trimmed === LEGACY_BUILDER_TEXT) return ROLE_PRESETS.find((p) => p.key === 'builder')?.text ?? trimmed;
-  if (trimmed === LEGACY_TESTER_TEXT) return ROLE_PRESETS.find((p) => p.key === 'tester')?.text ?? trimmed;
+  if (trimmed === LEGACY_BUILDER_TEXT || trimmed === EVIDENCE_BUILDER_TEXT) return ROLE_PRESETS.find((p) => p.key === 'builder')?.text ?? trimmed;
+  if (trimmed === LEGACY_TESTER_TEXT || trimmed === FULL_VERIFICATION_TESTER_TEXT) return ROLE_PRESETS.find((p) => p.key === 'tester')?.text ?? trimmed;
   return trimmed;
 }
 
