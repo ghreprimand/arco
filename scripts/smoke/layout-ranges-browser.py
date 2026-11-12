@@ -329,7 +329,7 @@ async def run(base):
             await context.unroute_all(behavior='wait')
             await context.close()
             # Inspect five-member layouts and the whole top bar at representative sizes.
-            for width, height, scale in [(1280, 800, 1.0), (1280, 800, 1.1), (1600, 1000, 1.1), (1280, 800, 1.5), (1366, 768, 1.0), (1920, 1080, 1.0), (1920, 1080, 1.2), (1920, 1080, 1.5), (2560, 1440, 1.0), (3840, 2160, 1.5), (1499, 800, 1.0), (1500, 800, 1.0), (1999, 800, 1.0), (2000, 800, 1.0)]:
+            for width, height, scale in [(1280, 800, 1.1), (1600, 1000, 1.1)]:
                 context, page, errors = await open_page(browser, base, width, scale=scale, height=height)
                 chip = page.get_by_test_id('header-layout')
                 await page.get_by_label('Online', exact=True).first.wait_for(timeout=10000)

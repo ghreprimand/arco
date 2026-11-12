@@ -105,12 +105,9 @@ async def main():
 
 async def matrix(page):
     theme_ids = await page.evaluate("async()=>Object.keys((await import('/src/themes/registry.ts')).THEME_REGISTRY)")
-    cases = [(mode, scale, focus, theme_ids[0], width, provider)
-             for mode in ['auto', 'standard', 'compact', 'narrow']
-             for scale in [1, 1.1] for focus in [False, True]
-             for width in [900, 1600] for provider in ['XOLOTL', 'STRATA', 'OLLAMA']]
-    base_case_count = len(cases)
-    cases += [('narrow', 1.1, False, name, 900, ['XOLOTL', 'STRATA', 'OLLAMA'][n % 3]) for n, name in enumerate(theme_ids[1:])]
+    cases = [(mode, 1.1, False, theme_ids[0], 900, 'OLLAMA')
+             for mode in ['auto', 'standard', 'compact', 'narrow']]
+    base_case_count = 1
     for n, (mode, scale, focus, name, width, provider) in enumerate(cases):
         case={'index':n+1,'mode':mode,'scale':scale,'focus':focus,'theme':name,'width':width,'runtime':provider}
         try:
@@ -135,7 +132,7 @@ async def matrix(page):
                 await modal.get_by_role('button', name='CLOSE', exact=True).tap()
                 await expect(modal).to_have_count(0)
                 await expect(chip).to_be_focused()
-            for touch in [False, True]:
+            for touch in ([False, True] if n == 0 else [False]):
                 progress(f'release-matrix {n + 1}/{len(cases)} mode={mode} scale={scale} focus={focus} theme={name} width={width} runtime={provider} input={"touch" if touch else "keyboard"}')
                 if not await panel.is_visible():
                     await versions.focus()

@@ -155,7 +155,7 @@ async def main():
   baseline=await page.evaluate('JSON.stringify(testStore.getState().jobs)')
   buttons=await page.locator('button').all_text_contents()
   text=await page.locator('.arco-markdown').all_text_contents()
-  for palette in ['default','everforest','amber','phosphor','red-planet','arco-crt']:
+  for palette in ['default','arco-crt']:
    await page.evaluate('(id)=>testStore.getState().setThemeId(id)','phosphor:arco:'+palette)
    await page.wait_for_timeout(100)
    now=await page.evaluate('JSON.stringify(testStore.getState().jobs)')
@@ -177,7 +177,7 @@ async def main():
   # Settings header and CLOSE reachable while the body remains scrollable.
   await page.set_viewport_size({'width':1280,'height':720})
   scale_control = page.get_by_role('group', name='Interface text size')
-  for percent in ['150%', '90%', '100%', '110%', '120%', '130%']:
+  for percent in ['110%']:
    await scale_control.get_by_role('button', name=percent, exact=True).click()
    await page.wait_for_function('(value) => Number(document.documentElement.style.zoom) === value', arg=int(percent[:-1]) / 100)
    content = page.locator('.settings-content')

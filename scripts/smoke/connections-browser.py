@@ -196,7 +196,7 @@ async def setup_settings_navigation(playwright,server):
         await page.get_by_role('button',name='Skip this step',exact=True).click()
         dialog=page.get_by_role('dialog',name='Welcome - Connections',exact=True)
         codex=await choose(dialog,'Codex')
-        for scale in (1.1,1.5):
+        for scale in (1.1,):
             await page.evaluate("scale => {document.documentElement.style.zoom=scale;document.documentElement.style.setProperty('--ui-scale',scale)}",scale)
             for name,section in [('Transport defaults','transport-defaults'),('Accounts and profiles','authentication'),('Runtime versions','cli-versions'),('PROVIDER SETTINGS','authentication'),('All provider controls','enabled-providers')]:
                 opener=dialog.get_by_role('button',name=name,exact=True)

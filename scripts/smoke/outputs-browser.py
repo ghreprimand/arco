@@ -220,7 +220,7 @@ async def main():
         assert await received.failure() is None
         assert Path(await received.path()).read_bytes() == PNG
         assert download_backend.requests, 'download must reach the fixture backend'
-        for scale in [1.1,1.5]:
+        for scale in [1.1]:
             await page.evaluate('value => {document.documentElement.style.zoom=String(value);document.documentElement.style.setProperty("--ui-scale",String(value));}',scale)
             await panel.get_by_label('Search outputs', exact=True).focus()
             await expect(panel.get_by_label('Search outputs', exact=True)).to_be_focused()

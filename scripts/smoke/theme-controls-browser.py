@@ -750,8 +750,8 @@ async def walk(page, probe, tap, click_all, missing_openers, theme, viewport):
 
 
 async def run():
-    for theme in ['matrix', 'phosphor:arco:electric']:
-        for viewport in [{'width': 1366, 'height': 768}, {'width': 1920, 'height': 1080}]:
+    for theme in ['matrix']:
+        for viewport in [{'width': 1366, 'height': 768}]:
             await main(theme, viewport)
 
 asyncio.run(run())

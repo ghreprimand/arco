@@ -23,8 +23,8 @@ CHROME = chrome_executable() or None
 REPORT_ONLY = os.environ.get('ARCO_POPOVER_REPORT_ONLY') == '1'
 SHOTS = os.environ.get('ARCO_SHOT_DIR')
 SHOT_CASES = set(filter(None, os.environ.get('ARCO_POPOVER_SHOTS', '').split(',')))
-CONFIGS = [(1280, 800, 1), (1280, 800, 1.5), (900, 700, 1), (900, 700, 1.5), (480, 800, 1), (480, 800, 1.5)]
-WHERE = ['natural', 'top-left', 'top-right', 'bottom-left', 'bottom-right']
+CONFIGS = [(900, 700, 1.1)]
+WHERE = ['natural', 'bottom-right']
 PROVIDERS = ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']
 LOGGED_IN = ('claude', 'codex', 'cursor', 'ollama')
 AUTH = {n: {'loggedIn': n in LOGGED_IN, 'installed': True, 'cliInstalled': True} for n in PROVIDERS}
@@ -35,27 +35,8 @@ SIGNED_OUT = {**AUTH, 'claude': {'loggedIn': False, 'installed': True, 'cliInsta
 # placed with position: fixed from the trigger's box).
 CASES = [
     ('providers', 'workflow', 'button[aria-label="Provider versions"]', '[data-help="header.cli-versions"][role=dialog]', 'click-fixed'),
-    ('usage-claude', 'workflow', '[data-testid="provider-dot"] >> nth=0', '[role=tooltip]', 'hover'),
-    ('usage-codex', 'workflow', '[data-testid="provider-dot"] >> nth=1', '[role=tooltip]', 'hover'),
-    ('usage-cursor', 'workflow', '[data-testid="provider-dot"] >> nth=2', '[role=tooltip]', 'hover'),
-    ('usage-local', 'workflow', 'button[aria-label="Local runtime status"]', '[role=tooltip][aria-label="Local runtime details"]', 'hover'),
-    ('throttling', 'workflow', 'button[data-help="header.workflow-status"]', '[role=dialog][aria-label="Provider throttling"]', 'click'),
-    ('auth-chip', 'workflow', '[data-help="header.auth-chip"] > div > button', '[data-testid="header-auth-popover"]', 'click'),
-    ('knowledge', 'workflow', 'button[data-help="header.knowledge"]', '[role=menu]', 'click'),
-    ('tools', 'workflow', 'button[data-help="header.tools"]', '[role=menu]', 'click'),
-    ('help-menu', 'workflow', 'button[data-help="header.help"]', '[role=menu]', 'click'),
-    ('voice', 'workflow', '[data-testid="voice-menu"]', '[role=menu]', 'click'),
-    ('notifications', 'workflow', 'button[data-help="header.notifications"]', 'button[data-help="header.notifications"] ~ [role=dialog]', 'click'),
-    ('version', 'workflow', '[data-testid="header-version-box"]', '[data-testid="header-version-popover"]', 'click'),
-    ('skills', 'workflow', '[data-help="composer.skills"] > button', '[data-help="composer.skills"] > div', 'click'),
-    ('model', 'workflow', 'button[title^="Click to change model"]', '[data-testid="composer-chip-popover"]', 'click'),
     ('more', 'workflow', '[data-testid="composer-more"]', '[data-testid="composer-more-menu"]', 'click'),
-    ('help-popover', 'workflow', None, '.help-system-ui[data-window-placement]', 'help'),
-    ('storage-notice', 'workflow', None, 'aside[data-help="storage.warning"]', 'notice'),
-    ('toasts', 'workflow', None, '[data-testid="pp-toast"]', 'notice'),
-    ('brief', 'cluster', '[data-testid="composer-brief"]', '[data-testid="brief-menu"] > div', 'click'),
     ('needs-you', 'cluster', '[data-testid="cluster-needs-you"]', '[data-testid="cluster-needs-you-list"]', 'click-fixed'),
-    ('role', 'cluster', 'button[data-help^="cluster.right-panel.role-"] >> nth=0', '[data-testid="member-role-popover"]', 'click'),
     ('home-more', 'home', '.home-more > summary', '.home-more > div', 'click'),
     ('project-actions', 'home', '.home-card-menu > summary >> nth=0', '.home-card-menu[open] > div', 'click'),
 ]

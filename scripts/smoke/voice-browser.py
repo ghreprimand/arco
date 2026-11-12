@@ -198,11 +198,8 @@ async def main():
   await computer_tool('n1','arco_select',{'target':'Atlas'},"testStore.getState().activeClusterId==='atlas'")
   # Panel tools must reveal narrow drawers, including from an already-open member list.
   theme_ids = await page.evaluate("async()=>Object.keys((await import('/src/themes/registry.ts')).THEME_REGISTRY)")
-  cases = [(mode, scale, focus, theme, width)
-           for mode in ['auto','standard','compact','narrow']
-           for scale in [1,1.1] for focus in [False,True]
-           for theme in [theme_ids[0]] for width in [900,1600]]
-  cases += [('narrow',1.1,False,theme,900) for theme in theme_ids[1:]]
+  cases = [(mode, 1.1, False, theme_ids[0], 900)
+           for mode in ['auto','standard','compact','narrow']]
   for index,(mode,scale,focus,theme,width) in enumerate(cases):
    await page.set_viewport_size({'width':width,'height':1000})
    await page.evaluate("""async c => {

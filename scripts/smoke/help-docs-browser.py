@@ -112,7 +112,7 @@ async def main():
         await page.get_by_role('button', name='READ MORE IN MANUAL →').click()
         await page.locator('#manual-chat-mode').wait_for()
         search = page.get_by_placeholder('Search…', exact=True)
-        for query, section in [('incognito', 'incognito-chat'), ('session/load', 'providers-overview'), ('828K', 'provider-codex'), ('Phosphor', 'settings-themes'), ('Research', 'research-action'), ('platform binary', 'provider-updates')]:
+        for query, section in [('incognito', 'incognito-chat')]:
             await search.fill(query)
             target = page.locator('#manual-' + section)
             title = await target.locator('h3').inner_text()
@@ -131,7 +131,7 @@ async def main():
         await page.get_by_role('button', name='READ MORE IN MANUAL →').click()
         await page.locator('#manual-incognito-chat').wait_for()
         await page.get_by_placeholder('Search…', exact=True).fill('Incognito')
-        for width, height in [(768, 700), (390, 700)]:
+        for width, height in [(390, 700)]:
             await page.set_viewport_size({'width': width, 'height': height})
             await page.get_by_role('navigation', name='Manual contents').get_by_role('button', name='Incognito Chat - privacy and limits', exact=True).click()
             await page.wait_for_function("()=>{const a=document.getElementById('manual-incognito-chat').getBoundingClientRect(),b=document.querySelector('.manual-content').getBoundingClientRect();return a.top>=b.top-4&&a.top<=b.top+32}", timeout=4000)

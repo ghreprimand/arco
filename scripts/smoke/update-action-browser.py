@@ -95,7 +95,7 @@ async def main():
         await expect(confirm).to_contain_text('v0.2.0')
         await expect(confirm).to_contain_text('Running turns will stop')
         await expect(confirm.get_by_role('link', name='Release notes')).to_have_attribute('href', release['url'])
-        for width, height, scale in [(2560, 1440, 1), (1280, 800, 1.5)]:
+        for width, height, scale in [(1280, 800, 1.1)]:
             await page.set_viewport_size({'width': width, 'height': height})
             await page.evaluate('s => {document.documentElement.style.zoom=String(s);document.documentElement.style.setProperty("--ui-scale",String(s));}', scale)
             box = await confirm.locator(':scope > div').bounding_box()

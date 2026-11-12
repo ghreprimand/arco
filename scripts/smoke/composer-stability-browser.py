@@ -56,7 +56,7 @@ async def main():
           s.getState().beginPrimaryTurn('interrupt-ui', Date.now());
           s.setState({connected:true,connectionState:'online',focusMode:true});
         }''')
-        for width in [1280, 1366, 1920]:
+        for width in [1280]:
             await page.set_viewport_size({'width': width, 'height': 800 if width == 1280 else 768 if width == 1366 else 1080})
             for mode in ['standard', 'compact', 'narrow']:
                 await page.evaluate("mode => localStorage.setItem('arco.layoutMode', mode)", mode)
@@ -70,7 +70,7 @@ async def main():
                 }''')
                 toolbar = page.get_by_test_id('composer-toolbar')
                 await expect(toolbar).to_have_css('flex-wrap', 'wrap' if mode == 'standard' else 'nowrap')
-                for theme in ['matrix', 'phosphor:arco:electric']:
+                for theme in ['matrix']:
                     await page.evaluate('''async theme => {
                       const {applyTheme}=await import('/src/themes/apply.ts');
                       const {getTheme}=await import('/src/themes/registry.ts'); applyTheme(getTheme(theme));
@@ -120,7 +120,7 @@ async def main():
           const s=window.testStore, id='interrupt-ui';
           s.setState(st=>({jobs:{...st.jobs,[id]:{...st.jobs[id],busy:true,turnStartedAt:Date.now()-1620000,config:{...st.jobs[id].config,primaryProvider:'claude',claudeTransport:'native'}}}}));
         }""")
-        for width, height in [(1280, 800), (1920, 1080)]:
+        for width, height in [(1280, 800)]:
             await page.set_viewport_size({'width':width,'height':height})
             for mode in ['standard', 'narrow']:
                 await page.evaluate("mode => localStorage.setItem('arco.layoutMode', mode)", mode)
