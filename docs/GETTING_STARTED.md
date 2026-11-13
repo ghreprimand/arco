@@ -137,6 +137,12 @@ npm install -g arco-workbench
 arco setup
 ```
 
+When Arco is already installed, update with `arco update` or **UPDATE AND
+RESTART**; do not run `npm install -g arco-workbench` over the existing package.
+See [Updating Arco](OPERATIONS.md#updating-arco). To clear every older copy
+before a fresh install, see
+[Before a fresh install: remove older copies](OPERATIONS.md#before-a-fresh-install-remove-older-copies).
+
 `arco setup` asks before installing the per-user service, starts it, and opens
 the local URL. Use `arco start` for a foreground run. Use
 `arco service install|uninstall|start|stop|restart|status|logs|refresh` to manage the
@@ -145,11 +151,11 @@ service directly.
 If npm reports `EACCES` for a global install on Linux or macOS, use nvm or a
 user-owned npm prefix (for example under Homebrew's Node, or a prefix you own
 under your home directory). On Windows, run `arco.cmd` when the PowerShell
-execution policy blocks the shim. If install fails with `EEXIST` because an
-`arco` link already exists in the global bin folder (for example from an earlier
-source checkout's `npm link`), remove that link or run `npm uninstall -g` for
-the old package, then install again. If `arco doctor` reports missing or
-incompatible native modules, install the platform build tools and run:
+execution policy blocks the shim. On Windows, `EEXIST` on an existing `arco`
+launcher usually means the earlier package `@ghreprimand/arco` is still
+installed; recover as in [Running locally](OPERATIONS.md#running-locally). If
+`arco doctor` reports missing or incompatible native modules, install the
+platform build tools and run:
 
 ```bash
 arco setup --repair-native

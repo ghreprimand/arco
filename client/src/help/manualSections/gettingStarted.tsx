@@ -121,6 +121,16 @@ export const gettingStarted: Section[] = [
   <Code>arco setup</Code>
   </p>
   <p>
+  When Arco is already installed, update with <Code>arco update</Code> or{' '}
+  <strong>UPDATE AND RESTART</strong>; do not install the package over a
+  running service. On Windows, <Code>EEXIST</Code> on <Code>arco.cmd</Code>{' '}
+  usually means the earlier package <Code>@ghreprimand/arco</Code> still owns
+  the launchers; recover in{' '}
+  <Code>docs/OPERATIONS.md#running-locally</Code>. Clear older copies before a
+  fresh install with{' '}
+  <Code>docs/OPERATIONS.md#before-a-fresh-install-remove-older-copies</Code>.
+  </p>
+  <p>
   The Linux source launcher verifies process ownership before stopping a development server. Source systemd service definitions preserve checkout paths containing spaces and retain the Arco home selected during installation. Reinstall a source unit after changing that home.
   </p>
   <p>

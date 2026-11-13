@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Document how to update an existing install, clear an earlier `@ghreprimand/arco` package that owns leftover `arco` launchers, recover when Windows npm install fails over a running service, and clear older copies before a fresh install.
 - Print the running version before the first `arco setup` prompt so an older installation on PATH is immediately visible.
 
 ## v0.1.5 - 2026-11-12

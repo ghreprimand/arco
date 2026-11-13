@@ -237,6 +237,20 @@ export const maintenance: Section[] = [
   uninstall does not remove it.
   </p>
   <p>
+  On Windows, after uninstall check{' '}
+  <Code>npm ls -g --depth=0</Code> for the earlier package{' '}
+  <Code>@ghreprimand/arco</Code> (it owns leftover <Code>arco</Code>,{' '}
+  <Code>arco.cmd</Code>, and <Code>arco.ps1</Code>), uninstall it when
+  listed, then clear any leftovers under <Code>%APPDATA%\npm</Code>.
+  </p>
+  <p>
+  When an older copy may be a package, a source checkout, or both, clear it
+  with the steps in{' '}
+  <Code>docs/OPERATIONS.md#before-a-fresh-install-remove-older-copies</Code>
+  before a fresh install. Do not delete the Arco home as a routine recovery
+  step.
+  </p>
+  <p>
   Deleting the Arco home, per-project <Code>.arco/</Code> folders, or Git
   checkpoint refs <Code>refs/arco/*</Code> is optional and permanent. Those
   steps, with shell and PowerShell commands, are in{' '}
