@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { supportedNodeVersion, repairedNativeDir } from './native-repair.mjs';
 import { join } from 'node:path';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const cli = fileURLToPath(new URL('./arco.mjs', import.meta.url));
@@ -28,6 +28,10 @@ test('setup and doctor explain an unsupported Node major', (t) => {
   for (const command of ['setup', 'doctor']) {
     const source = `Object.defineProperty(process.versions, 'node', { value: '22.0.0' }); process.argv = ['node', ${JSON.stringify(cli)}, ${JSON.stringify(command)}]; await import(${JSON.stringify(new URL('./arco.mjs', import.meta.url).href)});`;
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', source], { encoding: 'utf8', env, timeout: 10000 });
+    if (command === 'setup') {
+      const manifest = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+      assert.equal(result.stdout.split(/\r?\n/)[0], `Arco v${manifest.version}`);
+    }
     assert.notEqual(result.status, 0);
     assert.match((result.stdout || '') + (result.stderr || ''), /(?:Unsupported Node\.js|unsupported).*Node\.js 24 or 26/i);
   }

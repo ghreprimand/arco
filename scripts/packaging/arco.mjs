@@ -68,6 +68,7 @@ async function main() {
     await serviceAction(args[0]); if (args[0] === 'uninstall') shortcuts('remove'); return;
   }
   if (command === 'setup') {
+    console.log(`Arco v${manifest.version}`);
     requireSupportedNode();
     if (args.length && (args.length !== 1 || args[0] !== '--repair-native')) throw new Error('Unknown setup option.');
     if (args.includes('--repair-native')) { repairNative(manifest); console.log('Native modules repaired. Restart Arco.'); return; }
