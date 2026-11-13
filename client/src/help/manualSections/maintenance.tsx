@@ -111,16 +111,25 @@ export const maintenance: Section[] = [
   the latter is shown as <strong>broken</strong>, with diagnostic detail.
   </p>
   <p>
-  For npm CLIs that publish their own platform binary package, Arco checks
-  that a matching platform version exists before installing. During an upstream
-  publish gap it may select an older installable version or retain the working
-  one. If the build is confirmed missing and no installable fallback can be
-  verified, the update is deferred. The current CLI stays unchanged; retry later.
+  Codex updates follow the installation Arco runs. Recognised standalone
+  installations use <Code>codex update</Code>. An npm installation must match
+  the current npm global package root, and its platform build must be available.
+  Arco refuses a different npm target. Unrecognised installations and older
+  standalone installations stay unchanged with instructions for a terminal.
   </p>
   <p>
-  A <Code>v... (!)</Code> notice explains this on hover; it does not mean
-  the newest advertised version was installed. A post-install probe checks
-  that the executable actually runs.
+  Results stay in the row and wrap without needing hover. They distinguish
+  updated, up to date, unchanged with a newer version available, deferred,
+  manual and failed. An unchanged version is not automatically called latest.
+  A failed updater remains a failure even when the old executable still works.
+  Claude continues to use <Code>claude update</Code>.
+  </p>
+  <p>
+  During an npm publication gap, an older npm CLI can use a pinned installable
+  version; a self-updater waits for the latest platform build instead.
+  Arco does not downgrade a working installation. The Codex flag uses that
+  installation's update target. Standalone version information comes from npm;
+  Homebrew installations without recognised ownership require manual updates.
   </p>
   <p>
   Strata's installed engine version comes from its reachable service or

@@ -248,17 +248,20 @@ export const headerHelp: Record<string, HelpEntry> = {
           Live version of each detected provider CLI (Claude / Codex) plus
           Ollama and Strata chips when their servers are reachable, a llama.cpp build chip, and
           a Cursor chip, and XOLOTL / STRATA when installed or enabled, shown in the
-          Providers popover. Each chip compares against the upstream latest (npm
-          registry for the Claude and Codex CLIs, GitHub Releases for Ollama and
-          Strata, refreshed every 4 hours). When the installed version is older than
-          the upstream latest,
+          Providers popover. Codex compares against the target for its detected
+          installation; standalone release information comes from npm. Other
+          chips compare against their upstream source, refreshed every 4 hours.
+          When the installed version is older than the target,
           the chip border + version text turn warning-color and the tooltip
           reads <C>outdated: vX → vY</C>.
         </p>
         <p>
-          Click on Claude / Codex runs the upstream installer
-          (<C>claude update</C> or a resolved npm package version) and flashes
-          back as <C>v… (latest)</C> or <C>→ vNEW</C>. Click on Ollama opens an
+          Claude uses <C>claude update</C>. A recognised standalone Codex uses
+          <C>codex update</C>; npm Codex must match the current global package
+          root before its updater or a pinned npm version can run. Unknown
+          installations receive manual instructions. The result stays in the
+          row: updated, current, unchanged, deferred, manual or failed.
+          Click on Ollama opens an
           in-app modal with the last ~10 GitHub releases (themed; markdown notes;
           your installed version is highlighted): Arco can't auto-update
           Ollama since the install path varies by OS. Strata uses the same in-app
@@ -268,12 +271,12 @@ export const headerHelp: Record<string, HelpEntry> = {
           Release notes take keyboard focus on opening. Escape dismisses them;
           closing returns focus to the opening version control when available.
         </p>
-        <p>For npm CLIs with their own platform package, Arco checks that the
-          matching binary is published before installing. It can keep or select an
-          older installable version and show <C>v… (!)</C>; hover for the notice.
-          If the build is confirmed missing and no usable fallback is found,
-          the update is deferred without changing the current CLI. Retry later.
-          A broken installed executable is distinct from a missing CLI.</p>
+        <p>Arco checks the matching npm platform binary before installing.
+          An older npm CLI can use a pinned installable version; its self-updater
+          waits when the latest build is missing. A working installation is
+          never downgraded. Results wrap without hover and never infer latest
+          from an unchanged version. A failed updater or broken executable is
+          reported explicitly. Retry a deferred update later.</p>
         <p>
           Chips for providers you've disabled in Settings or for un-installed
           CLIs are hidden automatically.

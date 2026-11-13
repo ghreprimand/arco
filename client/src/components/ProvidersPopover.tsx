@@ -1,5 +1,6 @@
 import { LocalRuntimeRows, enabledLocalRows } from './LocalRuntimeStatus';
 import { compareLlamacppBuild } from '@arco/shared';
+import type { Capabilities, CliUpdateOutcome } from '@arco/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { FreeVramButton } from './FreeVramButton';
@@ -62,10 +63,11 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
   const [releasesRuntime, setReleasesRuntime] = useState<ReleaseRuntime | null>(null);
   const [checking, setChecking] = useState<CliProvider | null>(null);
   const [checkResult, setCheckResult] = useState<Record<CliProvider, string | null>>({ claude: null,  codex: null });
-  // The row's result slot is a narrow right-aligned chip, so the displayed
-  // string is truncated hard. Keep the untruncated text for the tooltip —
-  // an update failure ("Missing optional dependency @openai/codex-linux-x64…")
-  // is only actionable if the operator can read the whole thing.
+  const [checkOutcome, setCheckOutcome] = useState<Partial<Record<CliProvider, CliUpdateOutcome>>>({});
+  // The row's result slot is narrow and right-aligned. Wrap the instruction
+  // there so touch and keyboard users can read it without hovering; retain
+  // the full detail for the tooltip too. An update failure is only actionable
+  // if the operator can read the reason and the command to run next.
   const [checkDetail, setCheckDetail] = useState<Record<CliProvider, string | null>>({ claude: null,  codex: null });
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -134,35 +136,35 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
 
   const checkForUpdates = async (provider: CliProvider) => {
     setChecking(provider);
+    setCheckOutcome((prev) => ({ ...prev, [provider]: undefined }));
     setCheckResult((prev) => ({ ...prev, [provider]: null }));
     setCheckDetail((prev) => ({ ...prev, [provider]: null }));
     try {
       const res = await fetch(`/api/check-updates?provider=${provider}`, { method: 'POST' });
-      const data = await res.json() as { updated?: boolean; previousVersion?: string; currentVersion?: string; error?: string; notice?: string };
+      const data = await res.json() as { outcome?: CliUpdateOutcome; message?: string; capabilities?: Capabilities; error?: string; notice?: string };
       let msg: string;
-      let detail: string | null = data.notice ?? null;
+      let detail: string | null = data.error ?? data.notice ?? data.message ?? null;
       // A notice means the server did something the version string alone doesn't
       // explain — e.g. upstream tagged a new `latest` whose build for this
-      // platform isn't published yet, so it installed the newest one that runs.
-      // Mark the row so the operator knows to hover, and keep it pinned.
-      if (data.error) { msg = 'FAILED'; detail = data.error; }
-      else if (data.notice) msg = `v${data.currentVersion} (!)`;
-      else if (data.updated) msg = `→ v${data.currentVersion}`;
-      else msg = `v${data.currentVersion} (latest)`;
+      // platform isn't published yet. Display that explicit outcome in the
+      // existing result slot and keep its instruction readable without hover.
+      if (data.error) { msg = data.error; detail = data.error; }
+      else msg = data.message ?? data.notice ?? `The version did not change. Arco could not check whether it is up to date.`;
+      setCheckOutcome((prev) => ({ ...prev, [provider]: data.error ? 'failed' : data.outcome }));
+      if (data.capabilities) useAppStore.getState().setCapabilities(data.capabilities);
       setCheckResult((prev) => ({ ...prev, [provider]: msg }));
       setCheckDetail((prev) => ({ ...prev, [provider]: detail }));
     } catch (e) {
       const detail = e instanceof Error ? e.message : 'unknown';
-      setCheckResult((prev) => ({ ...prev, [provider]: 'FAILED' }));
+      setCheckResult((prev) => ({ ...prev, [provider]: `Update failed: ${detail}` }));
+      setCheckOutcome((prev) => ({ ...prev, [provider]: 'failed' }));
       setCheckDetail((prev) => ({ ...prev, [provider]: detail }));
     } finally {
       setChecking(null);
       // A failure stays put until the operator dismisses it by re-checking;
       // auto-clearing the one line that explains what went wrong is how the
       // codex breakage stayed invisible.
-      setTimeout(() => setCheckResult((prev) => (
-        prev[provider] === 'FAILED' || prev[provider]?.endsWith('(!)') ? prev : { ...prev, [provider]: null }
-      )), 6000);
+      // Keep every explicit result readable until the next check.
     }
   };
 
@@ -207,7 +209,9 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
       // CLI has no parseable version either, so skip the compare rather than let
       // compareSemver read 'broken' as 0.0.0 and call it outdated.
       const latest = r.provider === 'cursor' || broken ? undefined : r.provider === 'deepseek' ? capabilities?.latestVersions?.xolotl : capabilities?.latestVersions?.[r.provider];
-      const outdated = !!latest && (r.provider === 'deepseek' ? r.version !== latest : r.provider === 'llamacpp' ? (compareLlamacppBuild(r.version, latest) ?? 0) < 0 : compareSemver(r.version, latest) < 0);
+      const outdated = r.provider === 'codex' && capabilities?.codexUpdate
+        ? capabilities.codexUpdate.updateAvailable
+        : !!latest && (r.provider === 'deepseek' ? r.version !== latest : r.provider === 'llamacpp' ? (compareLlamacppBuild(r.version, latest) ?? 0) < 0 : compareSemver(r.version, latest) < 0);
       return { ...r, latest, outdated, broken };
     });
 
@@ -292,12 +296,13 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
             const busy = isCli && checking === (provider as CliProvider);
             const result = isCli ? checkResult[provider as CliProvider] : null;
             const detail = isCli ? checkDetail[provider as CliProvider] : null;
-            const versionColor = (broken || detail) ? 'var(--color-danger)' : outdated ? 'var(--color-warning)' : 'var(--color-accent-primary-dim)';
+            const outcome = isCli ? checkOutcome[provider as CliProvider] : undefined;
+            const versionColor = (broken || outcome === 'failed') ? 'var(--color-danger)' : outdated || outcome === 'manual' || outcome === 'deferred' ? 'var(--color-warning)' : 'var(--color-accent-primary-dim)';
             // For llama.cpp the lifecycle manager owns the spawned server, so we
             // know exactly which model is in VRAM — surface it on the row.
             const llamacppLoadedAlias = isLlamacpp ? (llamacppLive?.loadedModel ?? null) : null;
             const baseTitle = broken
-              ? `${label} is installed but is not responding to --version: click to reinstall and see the error`
+              ? `${label} is installed but is not responding to --version: click for update options and the error`
               : isDeepSeek
                 ? `Xolotl checkout ${version}${outdated ? ' · upstream revision differs' : ''}. Click for source changes inside Arco. This does not update or rebuild the engine.`
               : isStrata
@@ -314,7 +319,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
                   ? `cursor-agent ${version} (self-updating: click for changelog)`
                 : outdated
                   ? `${label} CLI outdated: v${version} → v${latest} (click to install)`
-                  : `${label} CLI v${version} (latest: click to re-check)`;
+                  : `${label} CLI v${version} (click to check for updates)`;
             const onClick = isDeepSeek
               ? () => setReleasesRuntime('xolotl')
               : isStrata
@@ -357,7 +362,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
                 }}
               >
                 <span style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', whiteSpace: 'nowrap' }}>{label}</span>
-                <span style={{ fontSize: '10px', color: versionColor, overflowWrap: 'anywhere' }}>{versionDisplay}</span>
+                <span style={{ fontSize: '10px', color: result ? 'var(--color-fg)' : versionColor, overflowWrap: 'anywhere', minWidth: 0, textAlign: 'right' }}>{versionDisplay}</span>
               </button>
               </span>
             );

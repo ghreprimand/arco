@@ -1208,6 +1208,16 @@ Differences become `capabilities_changed` WS events. The CONFIG tab shows a red 
 
 If a CLI was upgraded between boots, the active tab gets a `[CLI] Updated X -> Y` system message. New flags appear in `cliChanges[]`; the operator can decide whether to accept the new behavior.
 
+### Provider update results
+
+Open VERSIONS and select the Claude or Codex row. The result stays in that row until the next check, wrapping so its instructions can be read without hover. Results distinguish an update, a confirmed current version, an unchanged version with a newer release available, a deferred update, manual instructions and an updater failure. A nonzero updater exit remains a failure even when the old executable still works.
+
+Codex updates follow the installation selected by Arco's PATH. A recognised standalone installation uses its own `codex update` command. Arco first checks that the standalone installer's destination still matches the active command directory, including a custom `CODEX_INSTALL_DIR`. An installation without that command, or one whose ownership cannot be identified, is left unchanged with terminal instructions. Arco never installs npm Codex over a standalone installation.
+
+An npm installation must resolve to the Codex package under the current `npm root -g`. Arco checks its platform build before running `codex update`; older npm installations without that command use a pinned npm version. When the self-updater cannot safely select the advertised version, the update is deferred. Arco does not downgrade a working installation. A different npm target is refused rather than creating another copy.
+
+The Codex update flag uses the target from that same installation decision and appears only when the installed semantic version is older. The npm registry supplies the published version for standalone installations; there is no separate standalone release feed or Homebrew cask check. See [Provider update limits](GOTCHAS.md#provider-update-limits). Claude continues to use `claude update`; Cursor's version remains display-only here.
+
 ---
 
 ## Director / workers dispatcher and run recovery

@@ -5,12 +5,13 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { createHash } from 'crypto';
 import { CLAUDE_MODELS } from '@arco/shared';
-import type { Capabilities, EffortLevel, ModelName } from '@arco/shared';
+import type { Capabilities, CliUpdateOutcome, EffortLevel, ModelName } from '@arco/shared';
 import { getStrataBase } from './providers/strata.js';
 import { getDeepSeekBase } from './providers/deepseek.js';
 import { probeStrataVersion, installedXolotlRevision, strataEngineReleaseVersion } from './providers/runtimeVersions.js';
 import { atomicWriteFile } from './atomicFile.js';
-import { resolveInstallableVersion } from './npmPlatformResolve.js';
+import { probeCodexUpdate, describeCliUpdate, type CliUpdateDecision, type UpdateCommandResult } from './cliUpdateDecision.js';
+import { compareVersions } from './updateCheck.js';
 import { arcoHome } from './arcoHome.js';
 import { commandArgs } from './windowsCommand.js';
 
@@ -76,23 +77,26 @@ export async function probeCapabilities(): Promise<Capabilities> {
     // Keep fallback
   }
 
-  const [cliVersion, codexVersion, cursorVersion, strataVersion, xolotlRevision, latestVersions] = await Promise.all([
+  const codexDecision = npmLatest('@openai/codex').then(probeCodexUpdate);
+  const [cliVersion, codexVersion, cursorVersion, strataVersion, xolotlRevision, latestVersions, codexUpdate] = await Promise.all([
     probeVersion('claude'),
     probeVersion('codex'),
     probeVersion('cursor-agent'),
     probeStrataVersion(await getStrataBase()),
     installedXolotlRevision(await getDeepSeekBase()),
-    probeLatestVersions(),
+    probeLatestVersions(codexDecision),
+    codexDecision,
   ]);
 
-  return { efforts, models: MODELS, cliVersion, codexVersion, cursorVersion, strataVersion, xolotlRevision, latestVersions };
+  return { efforts, models: MODELS, cliVersion, codexVersion, cursorVersion, strataVersion, xolotlRevision, latestVersions,
+    codexUpdate: { kind: codexUpdate.kind, updateAvailable: !!codexUpdate.targetVersion && (compareVersions(codexVersion, codexUpdate.targetVersion) ?? 0) < 0, instruction: codexUpdate.message ?? codexUpdate.notice } };
 }
 
 // ── Upstream latest-version probes ──
 //
-// Source of truth for "is the operator running the latest CLI?" The three
-// npm-installed CLIs query the registry directly; Ollama queries GitHub
-// Releases since it's not npm-installed. All four are best-effort: any
+// Source of truth for "is the operator running the latest CLI?" Claude reads
+// npm; Codex uses its installation decision and npm publication metadata;
+// Ollama queries GitHub Releases since it's not npm-installed. All are best-effort: any
 // failure (offline, rate-limited, schema drift) leaves that key undefined
 // and the UI falls back to displaying the installed version with no
 // outdated indicator. Caller decides cadence — boot + the existing 4h
@@ -144,10 +148,10 @@ async function strataLatestRelease(): Promise<string | undefined> {
   return strataEngineReleaseVersion(feed, release);
 }
 
-export async function probeLatestVersions(): Promise<Capabilities['latestVersions']> {
+export async function probeLatestVersions(codexDecision = npmLatest('@openai/codex').then(probeCodexUpdate)): Promise<Capabilities['latestVersions']> {
   const [claude, codex, ollama, strata, xolotl] = await Promise.all([
     npmLatest('@anthropic-ai/claude-code'),
-    npmLatest('@openai/codex'),
+    codexDecision.then((decision) => decision.targetVersion),
     ollamaLatestRelease(),
     strataLatestRelease(),
     fetchJson('https://api.github.com/repos/Indras-Mirror/Xolotl/commits/HEAD').then((data) => {
@@ -165,6 +169,8 @@ export interface UpdateResult {
   currentVersion: string;
   capabilities: Capabilities;
   output: string;
+  outcome: CliUpdateOutcome;
+  message: string;
   // Set when preflight refuses the install or the command leaves no working binary.
   // The client renders this instead of a bogus version transition.
   error?: string;
@@ -174,136 +180,89 @@ export interface UpdateResult {
   notice?: string;
 }
 
-const UPDATE_COMMAND: Record<CliProvider, { cmd: string; args: string[] }> = {
-  claude: { cmd: 'claude', args: ['update'] },
-
-  codex: { cmd: 'npm', args: ['install', '-g', '@openai/codex@latest'] },
-};
-
-// npm package behind each CLI, for the pre-flight platform-build check. Claude
-// is absent on purpose: it self-updates via `claude update`, so there is no
-// `npm install` for us to aim at a specific version.
-const NPM_PACKAGE: Partial<Record<CliProvider, string>> = {
-
-  codex: '@openai/codex',
-};
-
 function versionForProvider(caps: Capabilities, provider: CliProvider): string {
-  if (provider === 'claude') return caps.cliVersion;
-
-  return caps.codexVersion ?? 'unknown';
+  return provider === 'claude' ? caps.cliVersion : caps.codexVersion ?? 'unknown';
 }
 
 /**
- * Run the update command for the given CLI provider. Claude uses its built-in
- * self-updater; Codex falls back to `npm install -g …@latest`. Re-probes
- * capabilities after so callers get the refreshed version strings.
+ * Run the updater for the installation Arco actually launches. Claude uses its
+ * built-in updater; Codex shares one installation decision with its version flag.
+ * Re-probe afterwards: a successful command alone does not prove a working CLI.
  */
-export async function runCliUpdate(previous: Capabilities, provider: CliProvider = 'claude', runCommand = runUpdateCommand): Promise<UpdateResult> {
-  const previousVersion = versionForProvider(previous, provider);
-
+export async function runCliUpdate(previous: Capabilities, provider: CliProvider = 'claude', runCommand: (cmd: string, args: string[]) => Promise<UpdateCommandResult> = (cmd, args) => runUpdateCommand(cmd, args, provider)): Promise<UpdateResult> {
+  const previousVersion = provider === 'codex' ? await probeVersion('codex') : versionForProvider(previous, provider);
   // Pre-flight: for npm-installed CLIs, work out which version can actually run
   // on this machine before installing anything. `@latest` is not automatically
   // installable — a package whose binary ships as a platform-specific
   // optionalDependency is broken-on-arrival during the window between the
   // wrapper being tagged `latest` and that platform's tarball being published,
   // and npm reports that as success. See npmPlatformResolve.ts.
-  const pkg = NPM_PACKAGE[provider];
-  let notice: string | null = null;
-  let { cmd, args } = UPDATE_COMMAND[provider];
-
-  if (pkg) {
-    // A null resolution means the registry was unreachable; fall through to the
-    // plain `@latest` command rather than blocking an update on a network blip.
-    const resolved = await resolveInstallableVersion(pkg);
-    if (resolved) {
-      notice = resolved.notice;
-      if (resolved.blocked) {
-        return {
-          provider,
-          updated: false,
-          previousVersion,
-          currentVersion: previousVersion,
-          capabilities: previous,
-          output: notice ?? 'Update deferred; the current CLI was not changed.',
-          error: notice ?? 'Update deferred: no installable platform build was found.',
-          ...(notice ? { notice } : {}),
-        };
-      }
-      args = ['install', '-g', `${pkg}@${resolved.version}`];
-      // Already on the version we would install, and it runs — skip the install
-      // entirely so a no-op click can't churn a working CLI into a broken one.
-      if (resolved.version === previousVersion && previousVersion !== 'broken' && previousVersion !== 'unknown') {
-        return {
-          provider,
-          updated: false,
-          previousVersion,
-          currentVersion: previousVersion,
-          capabilities: previous,
-          output: `${pkg}@${previousVersion} is already installed`,
-          ...(notice ? { notice } : {}),
-        };
-      }
-    }
+  const decision: CliUpdateDecision = provider === 'codex'
+    ? await probeCodexUpdate(await npmLatest('@openai/codex'))
+    : { kind: 'unknown' as const, command: { cmd: 'claude', args: ['update'] }, targetVersion: previous.latestVersions?.claude };
+  const notice = decision.notice;
+  const capabilities = provider === 'codex'
+    ? { ...previous, codexVersion: previousVersion, latestVersions: { ...previous.latestVersions, codex: decision.targetVersion }, codexUpdate: { kind: decision.kind, updateAvailable: !!decision.targetVersion && (compareVersions(previousVersion, decision.targetVersion) ?? 0) < 0, instruction: decision.message ?? decision.notice } }
+    : previous;
+  if (!decision.command) {
+    const message = decision.message ?? 'Update deferred; the current CLI was not changed.';
+    return { provider, previousVersion, currentVersion: previousVersion, capabilities, updated: false,
+      outcome: decision.outcome ?? 'deferred', message, output: message, notice: message };
   }
-
-  let output = await runCommand(cmd, args);
+  // Already on the version we would install, and it runs — skip the install
+  // entirely so a no-op click can't churn a working CLI into a broken one.
+  if (provider === 'codex' && decision.targetVersion && (compareVersions(previousVersion, decision.targetVersion) ?? -1) >= 0) {
+    return { provider, previousVersion, currentVersion: previousVersion, capabilities, output: '',
+      ...describeCliUpdate(provider, previousVersion, previousVersion, decision.targetVersion, { exitCode: 0, output: '' }, notice),
+      ...(notice ? { notice } : {}) };
+  }
+  const { cmd, args } = decision.command;
+  let commandResult = await runCommand(cmd, args);
   let next = await probeCapabilities();
   let currentVersion = versionForProvider(next, provider);
 
   // Post-flight repair. The pre-flight check closes the common case, but npm can
   // still skip an optional dep that does exist (a mid-install network failure,
   // a poisoned cache), and that also exits 0. One retry with a clean cache is
-  // cheap next to leaving the operator's CLI dead.
-  if ((currentVersion === 'broken' || currentVersion === 'unknown') && pkg) {
-    const repairArgs = [...args, '--force'];
-    output += `\n\n[arco] ${provider} did not run after the update — retrying: npm ${repairArgs.join(' ')}`;
-    output += `\n${await runCommand('npm', repairArgs)}`;
+  // cheap next to leaving the operator's CLI dead. Only a proven npm install
+  // with a successful updater exit can reach this npm repair path.
+  if (commandResult.exitCode === 0 && (currentVersion === 'broken' || currentVersion === 'unknown') && decision.repairArgs) {
+    const repairArgs = [...decision.repairArgs, '--force'];
+    const repaired = await runCommand('npm', repairArgs);
+    commandResult = { exitCode: repaired.exitCode, output: `${commandResult.output}\n\n[arco] ${provider} did not run after the update — retrying: npm ${repairArgs.join(' ')}\n${repaired.output}` };
     next = await probeCapabilities();
     currentVersion = versionForProvider(next, provider);
   }
 
   // A post-update probe that can't report a version means the command left the
   // CLI unusable, however cleanly it exited. Deciding `updated` purely on the
-  // version string differing is how a silently-failed `npm install -g` surfaced
-  // in the popover as a cheerful "→ vunknown" (2026-09-03, codex): npm skipped
-  // the platform binary, exited 0, and 'unknown' !== '0.153.1' read as success.
-  if (currentVersion === 'broken' || currentVersion === 'unknown') {
-    return {
-      provider,
-      updated: false,
-      previousVersion,
-      currentVersion,
-      capabilities: next,
-      output,
-      error: (await probeFailureReason(provider)) ?? `${provider} did not run after the update`,
-      ...(notice ? { notice } : {}),
-    };
+  // version string differing is how a silently-failed npm install surfaced
+  // as a cheerful "→ vunknown". Nonzero exits are also failures, even when
+  // the previous executable still runs and reports the same version.
+  const report = describeCliUpdate(provider, previousVersion, currentVersion, next.latestVersions?.[provider], commandResult, notice);
+  if (report.outcome === 'failed' && commandResult.exitCode === 0) {
+    const reason = await probeFailureReason(provider);
+    if (reason) { report.error = reason; report.message = reason; }
   }
-
-  return {
-    provider,
-    updated: currentVersion !== previousVersion,
-    previousVersion,
-    currentVersion,
-    capabilities: next,
-    output,
-    ...(notice ? { notice } : {}),
-  };
+  return { provider, previousVersion, currentVersion, capabilities: next, output: commandResult.output,
+    ...report, ...(notice ? { notice } : {}) };
 }
 
-// Run an update command, folding a non-zero exit into the captured output — the
-// caller decides success from whether the CLI runs afterwards, never from the
-// exit code (npm exits 0 on a skipped optional dep).
-async function runUpdateCommand(cmd: string, args: string[]): Promise<string> {
+// Keep the command status as well as its captured output. npm can exit zero
+// after skipping an optional dep, but a nonzero updater exit is always failure.
+async function runUpdateCommand(cmd: string, args: string[], provider: CliProvider): Promise<UpdateCommandResult> {
+  const env = { ...process.env };
+  if (provider === 'codex') {
+    // Native Codex must detect its own install; an enclosing agent's package
+    // manager provenance must not turn a standalone update into an npm install.
+    for (const name of ['CODEX_MANAGED_BY_NPM', 'CODEX_MANAGED_BY_BUN', 'CODEX_MANAGED_BY_PNPM', 'CODEX_MANAGED_BY_VITE_PLUS', 'CODEX_MANAGED_PACKAGE_ROOT', 'npm_config_user_agent', 'npm_execpath']) delete env[name];
+  }
   try {
-    const { stdout, stderr } = await execFileAsync(...commandArgs(cmd, args), {
-      maxBuffer: 4 * 1024 * 1024,
-      timeout: 180_000,
-    });
-    return (stdout + stderr).trim();
+    const { stdout, stderr } = await execFileAsync(...commandArgs(cmd, args), { env, maxBuffer: 4 * 1024 * 1024, timeout: 180_000 });
+    return { output: (stdout + stderr).trim(), exitCode: 0 };
   } catch (err) {
-    return err instanceof Error ? err.message : String(err);
+    const error = err as { code?: number | string; stdout?: string; stderr?: string; message?: string };
+    return { output: (error.stderr || error.stdout || error.message || String(err)).trim(), exitCode: typeof error.code === 'number' ? error.code : 1 };
   }
 }
 

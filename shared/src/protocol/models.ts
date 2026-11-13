@@ -645,11 +645,14 @@ export const CLAUDE_MODEL_EFFORTS: Record<string, EffortLevel[]> = {
   haiku: ['low', 'medium', 'high'],
 };
 
+export type CliUpdateOutcome = 'updated' | 'current' | 'unchanged' | 'deferred' | 'manual' | 'failed';
+
 export interface Capabilities {
   efforts: EffortLevel[];
   models: ModelName[];
   cliVersion: string;
   codexVersion?: string;
+  codexUpdate?: { kind: 'standalone' | 'npm' | 'unknown'; updateAvailable: boolean; instruction?: string };
   // `cursor-agent --version` — date-stamped (e.g. "2026.07.08-0c04a8a"), not
   // semver, and not npm-installed, so there's no upstream `latestVersions.cursor`
   // and no self-update path: display-only in the PROVIDERS popover.
@@ -658,8 +661,8 @@ export interface Capabilities {
   strataVersion?: string;
   // Xolotl checkout revision; source tracking, not a claim about a rebuilt binary.
   xolotlRevision?: string;
-  // Latest published versions from upstream (npm registry for the three
-  // npm-installed CLIs, GitHub Releases for Ollama). Best-effort: any
+  // Latest versions from the selected update source (Codex's installation
+  // decision, npm for Claude, GitHub Releases for Ollama). Best-effort: any
   // probe failure leaves that key undefined and the UI falls back to the
   // installed-only display. Refreshed on the same cadence as the local
   // CLI re-probe.

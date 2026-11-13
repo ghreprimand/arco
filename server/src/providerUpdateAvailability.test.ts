@@ -1,10 +1,8 @@
 import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
-import childProcess from 'node:child_process';
-import { promisify } from 'node:util';
-import { syncBuiltinESMExports } from 'node:module';
 import { platformKey, resolveInstallableVersion } from './npmPlatformResolve.js';
-import type { Capabilities } from '@arco/shared';
+
+import { decideCodexUpdate, describeCliUpdate } from './cliUpdateDecision.js';
 
 const pkg = '@openai/codex';
 const build = (version: string) => ({ version, optionalDependencies: { [`${pkg}-${platformKey()}`]: `npm:${pkg}@${version}-${platformKey()}` } });
@@ -39,32 +37,26 @@ test('an unknown registry result remains distinct from a known missing build', a
   assert.equal(await resolveInstallableVersion(pkg),null);
 });
 
-test('a refused update never invokes an installer or replaces current capabilities', async t => {
-  registry(t,null);
-  const calls: string[] = [];
-  let realCalls = 0;
-  const denied = () => { realCalls++; assert.fail('Refused update reached the real execFile runner'); };
-  const realExecFile = childProcess.execFile;
-  Object.defineProperty(denied, promisify.custom, { value: denied, configurable: true });
-  childProcess.execFile = denied as any;
-  // execFile has a custom promisifier which otherwise closes over the original
-  // implementation, even when the exported callback function is mocked.
-  syncBuiltinESMExports();
-  try {
-    const {runCliUpdate} = await import('./capabilities.js');
-    const previous = {cliVersion:'1.0.0',codexVersion:'1.0.0'} as Capabilities;
-    const injected = async (cmd: string): Promise<string> => {
-      calls.push(cmd);
-      assert.fail('Refused update reached the injected command runner');
-    };
-    for (const runner of [injected, undefined]) {
-      const result = await runCliUpdate(previous,'codex',runner);
-      assert.deepEqual(calls,[]);
-      assert.equal(realCalls,0,'Refused update must never reach real execFile/npm');
-      assert.equal(result.capabilities,previous);
-      assert.equal(result.updated,false);
-      assert.equal(result.currentVersion,'1.0.0');
-      assert.match(result.error ?? '', /deferred|not installed/);
-    }
-  } finally { childProcess.execFile = realExecFile; t.mock.restoreAll(); syncBuiltinESMExports(); }
+test('a Windows standalone update selects its launcher and never calls npm or reports an unchanged version as latest', () => {
+  const launcher = String.raw`C:\Codex\bin\codex.exe`;
+  const decision = decideCodexUpdate({ kind: 'standalone', launcher, supportsUpdate: true }, '0.169.0');
+  assert.deepEqual(decision.command, { cmd: launcher, args: ['update'] });
+  assert.equal(decision.repairArgs, undefined);
+  assert.equal(decision.targetVersion, '0.169.0');
+  const unchanged = describeCliUpdate('codex', '0.165.0', '0.165.0', decision.targetVersion, { exitCode: 0, output: '' });
+  assert.equal(unchanged.outcome, 'unchanged');
+  assert.equal(unchanged.updated, false);
+  assert.equal(unchanged.message, 'Codex did not change; v0.169.0 is still available.');
+  const refused = decideCodexUpdate({ kind: 'npm', launcher, supportsUpdate: true, npmRootMatches: false }, '0.169.0');
+  assert.equal(refused.command, undefined);
+  assert.match(refused.message ?? '', /different Codex installation/);
+});
+
+test('a nonzero updater exit is a failure even if the old CLI still runs', () => {
+  for (const provider of ['codex', 'claude']) {
+    const result = describeCliUpdate(provider, '0.165.0', '0.165.0', '0.169.0', { exitCode: 1, output: 'Permission denied' });
+    assert.equal(result.outcome, 'failed');
+    assert.equal(result.updated, false);
+    assert.match(result.error ?? '', /Permission denied/);
+  }
 });
