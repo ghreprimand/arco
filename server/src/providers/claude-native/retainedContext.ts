@@ -21,6 +21,28 @@ export function isServerToolResultType(type: string): type is ServerToolResultTy
   return SERVER_TOOL_RESULT_TYPES.has(type);
 }
 
+// A mixed client/server response can defer its server results to a later
+// assistant message. Until those IDs are answered, the continuation must
+// contain only client tool_result blocks, without a steer or history splice.
+export function pendingServerTools(
+  messages: readonly { role?: string; content?: unknown }[],
+  startMessageIndex: number,
+): string[] {
+  const pending = new Map<string, string>();
+  for (let i = Math.max(0, startMessageIndex); i < messages.length; i++) {
+    const message = messages[i];
+    if (message.role !== 'assistant' || !Array.isArray(message.content)) continue;
+    for (const block of message.content as Array<Record<string, unknown>>) {
+      if (block.type === 'server_tool_use' && typeof block.id === 'string') {
+        pending.set(block.id, typeof block.name === 'string' ? block.name : 'server tool');
+      } else if (typeof block.type === 'string' && isServerToolResultType(block.type) && typeof block.tool_use_id === 'string') {
+        pending.delete(block.tool_use_id);
+      }
+    }
+  }
+  return [...new Set(pending.values())];
+}
+
 export function isClaudeServerToolDef(tool: unknown): boolean {
   const type = (tool as { type?: unknown }).type;
   return typeof type === 'string' && (

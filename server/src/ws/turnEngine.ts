@@ -2669,6 +2669,10 @@ export async function handleUserMessage(
             if (!dispatchCurrent()) return [];
             return drainSteerForWorker(workflowId, ws, policyTurnProvider);
           },
+          peekSteer: () => {
+            if (!dispatchCurrent() || wf.primaryTurn?.holdSteer || wf.queue.steering.some((item) => item.interrupt)) return [];
+            return wf.queue.steering;
+          },
           requeueSteer: (items, bucket) => {
             if (workflows.get(workflowId) === wf && (busyRevocations.get(wf) ?? 0) === interruptEpoch) requeueSteerForWorker(workflowId, ws, items, bucket);
           },

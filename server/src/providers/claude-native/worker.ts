@@ -61,7 +61,7 @@ import { getSandboxToolDefinitions, isSandboxTool, executeSandboxTool } from './
 import { buildMessagesFromReplayEvents, replayMessagesWithResumePolicy, compactSummarySeed, type ClaudeResumeMessage } from './resumeSummary.js';
 import { readMeta, setResolvedModelId } from '../../workflowMeta.js';
 import { lspManager } from '../../lsp/client.js';
-import { isClaudeServerToolDef, isServerToolResultType, pruneServerToolEvidenceAfterTurn, stripDanglingServerToolResults } from './retainedContext.js';
+import { isClaudeServerToolDef, isServerToolResultType, pendingServerTools, pruneServerToolEvidenceAfterTurn, stripDanglingServerToolResults } from './retainedContext.js';
 import { gzipSync } from 'node:zlib';
 import {
   executeNativeToolResult,
@@ -378,6 +378,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   private authRecovery: AuthRecoveryContext = { transport: 'native', binding: nativeCredentialBinding() };
   private clientTokenObtainedAt: number | null = null;
   private messages: MessageParam[] = [];
+  private heldSteerNotices = new WeakSet<object>();
   private hooks: HookConfig = { byEvent: {} };
   // Set once discoverTrustedHooks has run (ensureStarted, or a FOLD before any turn).
   private hooksLoaded = false;
@@ -3003,6 +3004,21 @@ export class ClaudeNativeWorker extends EventEmitter {
         this.inFlight = null;
         this.toolAbort = null;
         return;
+      }
+
+      // Client results alone do not close a mixed server/client turn. Match
+      // server results across assistant messages before adding ordinary user
+      // input or replacing history; either would end an unresolved turn.
+      const pendingServer = pendingServerTools(this.messages, turnMessageStart);
+      if (pendingServer.length > 0) {
+        const work = pendingServer.every((name) => name === 'web_search') ? 'web search finishes'
+          : pendingServer.every((name) => name === 'web_fetch') ? 'web fetch finishes' : 'server tools finish';
+        for (const item of this.config.peekSteer?.() ?? []) {
+          if (this.heldSteerNotices.has(item)) continue;
+          this.heldSteerNotices.add(item);
+          this.emit('system_notice', `Message held until ${work}.`);
+        }
+        continue;
       }
 
       // In-turn auto-compaction at a clean boundary: every tool_use of this

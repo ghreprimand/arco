@@ -89,7 +89,7 @@ interface Setup {
 function setup(replies: Array<() => AsyncGenerator<unknown>>, opts: {
   config?: Record<string, unknown>;
   summary?: (messages: MessageParam[], w: W) => Promise<AsyncGenerator<unknown>>;
-  countTokens?: number;
+  countTokens?: number | ((messages: MessageParam[]) => number);
   steer?: () => Array<{ content: string }>;
 } = {}): Setup {
   const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'arco-in-turn-compact-')));
@@ -111,7 +111,7 @@ function setup(replies: Array<() => AsyncGenerator<unknown>>, opts: {
         requests.push(JSON.parse(JSON.stringify(body.messages)));
         return replies[Math.min(requests.length - 1, replies.length - 1)]();
       },
-      ...(opts.countTokens ? { countTokens: async (body: { messages: MessageParam[] }) => { counts.push(JSON.parse(JSON.stringify(body.messages))); return { input_tokens: opts.countTokens }; } } : {}),
+      ...(opts.countTokens ? { countTokens: async (body: { messages: MessageParam[] }) => { counts.push(JSON.parse(JSON.stringify(body.messages))); return { input_tokens: typeof opts.countTokens === 'function' ? opts.countTokens(body.messages) : opts.countTokens }; } } : {}),
     },
   };
   w.hooksLoaded = true;
@@ -605,5 +605,67 @@ for (const helper of [false, true]) test(`image Read reaches the next request, c
     const replay = buildMessagesFromReplayEvents([{ ...marker, seq: 1 }] as never);
     assert.match(JSON.stringify(replay), /shot.png/);
     assert.ok(!JSON.stringify(replay).includes(sentData), 'reload carries the image receipt');
+  } finally { await s.done(); }
+});
+
+test('mixed server tools hold a steer once and defer compaction until cross-message results arrive', async () => {
+  const thinking = { type: 'thinking', thinking: 'Keep the gathered reasoning.', signature: 'unchanged-signature' };
+  const local = (id: string) => ({ type: 'tool_use', id, name: 'Bash', input: { command: `echo ${id}` } });
+  const search = { type: 'server_tool_use', id: 'search-1', name: 'web_search', input: { query: 'fixture' } };
+  const fetch = { type: 'server_tool_use', id: 'fetch-1', name: 'web_fetch', input: { url: 'https://example.test/' } };
+  const searchResult = { type: 'web_search_tool_result', tool_use_id: 'search-1', content: [] };
+  const fetchResult = { type: 'web_fetch_tool_result', tool_use_id: 'fetch-1', content: [] };
+  const mixed = (blocks: Record<string, unknown>[]) => async function* () {
+    yield { type: 'message_start', message: { model: 'claude-fable-5-2', usage: { input_tokens: 720_000, output_tokens: 1 } } };
+    for (let index = 0; index < blocks.length; index++) {
+      const block = blocks[index];
+      yield { type: 'content_block_start', index, content_block: block };
+      if (block.type === 'thinking') {
+        yield { type: 'content_block_delta', index, delta: { type: 'thinking_delta', thinking: block.thinking } };
+        yield { type: 'content_block_delta', index, delta: { type: 'signature_delta', signature: block.signature } };
+      } else if (block.type === 'tool_use') {
+        yield { type: 'content_block_delta', index, delta: { type: 'input_json_delta', partial_json: JSON.stringify(block.input) } };
+      }
+      yield { type: 'content_block_stop', index };
+    }
+    yield { type: 'message_delta', delta: { stop_reason: 'tool_use' }, usage: { output_tokens: 20 } };
+    yield { type: 'message_stop' };
+  };
+  const item = { content: 'Also include the follow-up.', clientMessageId: 'held-input' };
+  const queue = [item];
+  let drains = 0;
+  const s = setup([
+    mixed([thinking, local('a'), search]),
+    mixed([searchResult, local('b'), fetch]),
+    mixed([fetchResult, local('c')]),
+    done(120_000, 'claude-fable-5-2'),
+  ], {
+    config: { model: 'claude-fable-5-2', peekSteer: () => queue },
+    countTokens: (messages) => JSON.stringify(messages).includes('web_fetch_tool_result') ? 120_000 : 720_000,
+    steer: () => { drains++; return queue.splice(0); },
+  });
+  try {
+    await s.w.runTurn('Gather the information.');
+    assert.deepEqual(s.errors, []);
+    assert.equal(s.requests.length, 4);
+    assert.equal(drains, 1, 'the queue is read destructively only after every server call is answered');
+    assert.equal(queue.length, 0);
+    assert.equal(s.notices.filter(n => n === 'Message held until web search finishes.').length, 1);
+    assert.equal(s.notices.filter(n => n.startsWith('Message held until ')).length, 1, 'another pending round adds no duplicate');
+    assert.equal(s.summaries.length, 0, 'a high pending context is not compacted; the safe round is below threshold');
+    for (const request of s.requests.slice(1, 3)) {
+      const last = request.at(-1)!;
+      assert.equal(last.role, 'user');
+      assert.ok(Array.isArray(last.content) && last.content.every((b) => b.type === 'tool_result'));
+      assert.ok(!JSON.stringify(request).includes(item.content), 'no ordinary input ends the open server turn');
+    }
+    assert.equal(s.requests[3].at(-1)?.content, item.content);
+    for (const request of s.requests.slice(1)) {
+      assert.deepEqual(request[1], s.requests[1][1], 'earlier thinking and server calls remain unchanged');
+    }
+    assert.deepEqual((s.requests[1][1].content as unknown[])[0], thinking);
+    assert.ok(JSON.stringify(s.requests[3]).includes('web_search_tool_result'));
+    assert.ok(JSON.stringify(s.requests[3]).includes('web_fetch_tool_result'));
+    assert.ok(!s.events.some(e => /thinking_dropped|scrub/.test(String(e.action))));
   } finally { await s.done(); }
 });

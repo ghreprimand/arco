@@ -55,6 +55,11 @@ export const composerHelp: Record<string, HelpEntry> = {
           <C>Esc</C> cancels the turn (asks before dropping queued messages;{' '}
           <C>Shift+Esc</C> skips the prompt).
         </p>
+        <p>Claude Native keeps a steer queued while web search, web fetch or
+          another server tool still awaits its result. One notice says the
+          message is held. It arrives at the next safe boundary, or as the next
+          turn if the current turn finishes first. The current work keeps its
+          results and reasoning.</p>
       </>
     ),
     manualSection: 'composer',

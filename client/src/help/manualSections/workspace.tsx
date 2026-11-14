@@ -397,6 +397,11 @@ export const workspace: Section[] = [
             completed changes. <Kbd>Esc</Kbd> cancels the in-flight turn (drops
             the queue too; <Kbd>Shift+Esc</Kbd> skips the confirm). The PENDING list shows each message as Queued until delivery is confirmed, then Delivered until the next agent text or turn end. A provider without a delivery signal stays Queued until turn end. The conversation header shows the current step and elapsed time while a turn runs. Each step stays visible briefly; steps over 60 seconds are marked long-running. Hover over a shortened step to read it in full. Cluster member cards keep the last settled reply or tool step and do not show reasoning fragments.
           </li>
+          <li>Claude Native holds a steer while server tools still await results.
+            One conversation line, such as <Code>Message held until web search finishes.</Code>,
+            explains the wait. The message stays Queued until the next safe
+            boundary, or runs as the next turn if the current turn finishes
+            first. Search results and reasoning from the current work remain intact.</li>
         </ul>
         <h4 className="manual-sub">Slash commands &amp; references</h4>
         <p><Code>/prompt name args</Code> expands a saved template. Inserted argument text remains literal; <Code>$$1</Code> in the template produces literal <Code>$1</Code>.</p>

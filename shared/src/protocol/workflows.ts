@@ -575,6 +575,10 @@ export interface WorkerConfig {
   // first real reply rather than landing inside the ack.
   // In-process callback only; not serialized.
   drainSteer?: () => SteerItem[];
+  // Server-local, non-destructive view of the same eligible queue objects.
+  // Native uses their identity to show one notice per held message without
+  // acknowledging or removing input before its safe delivery boundary.
+  peekSteer?: () => readonly SteerItem[];
   // Phase 6b — re-enqueue hook for the Codex app-server worker. Called when
   // a `turn/steer` round-trip fails and the drained items have to land
   // back in a queue: `'steer'` for `activeTurnNotSteerable` (the next

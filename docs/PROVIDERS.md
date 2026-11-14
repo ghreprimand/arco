@@ -454,6 +454,8 @@ Beyond the built-in `arco-cluster` + `codebase-memory` entries, CLI Claude also 
 
 ### Native transport
 
+**Steering during server tools.** A response can mix a local `tool_use` with server calls such as web search or web fetch. With `stop_reason: tool_use`, server calls may have no result until a later assistant response. The continuation must contain only the local `tool_result` blocks while those calls remain pending. Arco pairs server calls and results by ID across the active turn, keeps steering queued and defers in-turn compaction until every call is answered. Each held message adds one conversation notice, such as `Message held until web search finishes.` The existing queue still shows it as queued. It is delivered at the next safe local-tool boundary, or as the next turn if the current turn finishes first. No evidence or thinking is stripped to make that delivery possible; actual-abort recovery is unchanged.
+
 `server/src/providers/claude-native/` - long-lived per-workflow worker that talks directly to Anthropic's Messages API via `@anthropic-ai/sdk@^0.91.1` (Pi-pinned). The agent loop runs in Arco's process so the mid-turn steer hook fires between tool-result append and the next API round-trip.
 
 **File layout (post-P0 carve-out).** `worker.ts` holds the `ClaudeNativeWorker` class and the turn/stream/error loop. To keep it under the 2000-line cap, the *stateless* leaf helpers live in siblings and are re-exported from `worker.ts` so existing `from './worker.js'` import paths still resolve:

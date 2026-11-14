@@ -150,6 +150,7 @@ export class WorkerManager {
       // and the next API round-trip to drain any pending mid-turn steer
       // queue entries. See WorkerConfig.drainSteer.
       drainSteer?: WorkerConfig['drainSteer'];
+      peekSteer?: WorkerConfig['peekSteer'];
       // Phase 6b — paired with drainSteer for the Codex app-server worker.
       // Called when `turn/steer` round-trip fails and the drained items
       // need to land back in a queue. Bucket determines whether items
@@ -289,6 +290,7 @@ export class WorkerManager {
       voiceOperator: options?.voiceOperator,
       incognito: options?.incognito,
       drainSteer: options?.drainSteer,
+      peekSteer: options?.peekSteer,
       requeueSteer: options?.requeueSteer,
       onSteerDelivered: options?.onSteerDelivered,
       // Phase 6 — workflowId is required for per-workflow-lifetime providers
