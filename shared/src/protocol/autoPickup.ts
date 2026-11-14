@@ -75,7 +75,7 @@ export const SMART_PICKUP_LIMIT_SPECS: Record<keyof SmartPickupLimits, SmartPick
   callsPerMemberHour: { default: 3, min: 1, max: 60, label: 'Evaluator requests per hour, each member', unit: 'per hour' },
   wakesPerMemberHour: { default: 3, min: 1, max: 60, label: 'Automatic wakes per hour, each member', unit: 'per hour' },
   wakesPerSession: { default: 12, min: 1, max: 200, label: 'Automatic wakes per armed session', unit: 'wakes' },
-  sessionMinutes: { default: 30, min: 5, max: 480, label: 'Armed session length', unit: 'minutes' },
+  sessionMinutes: { default: 30, min: 5, max: 240, label: 'Armed session length', unit: 'minutes' },
   timeoutSeconds: { default: 30, min: 5, max: 120, label: 'Evaluator time limit', unit: 'seconds' },
   maxInputBytes: { default: 12288, min: 2048, max: 65536, label: 'Most mail and context sent per request', unit: 'bytes' },
   maxOutputTokens: { default: 64, min: 16, max: 512, label: 'Longest evaluator answer', unit: 'tokens' },
@@ -89,12 +89,20 @@ export const DEFAULT_SMART_PICKUP_LIMITS: SmartPickupLimits = Object.fromEntries
 
 // Whole numbers within each limit's bounds; anything missing or invalid reads
 // as the default, so a hand-edited file can never raise a limit past its max.
+// Previously valid longer session lengths instead clamp to the new ceiling.
 export function sanitizeSmartPickupLimits(raw: unknown): SmartPickupLimits {
   const r = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
   const out = { ...DEFAULT_SMART_PICKUP_LIMITS };
   for (const key of SMART_PICKUP_LIMIT_KEYS) {
     const spec = SMART_PICKUP_LIMIT_SPECS[key];
     const value = r[key];
+    // Older saved sessions allowed up to eight hours. Preserve the chosen
+    // longer duration at the new four-hour ceiling instead of resetting it
+    // to the thirty-minute default when the saved limits are read again.
+    if (key === 'sessionMinutes' && typeof value === 'number' && Number.isInteger(value) && value > spec.max) {
+      out[key] = spec.max;
+      continue;
+    }
     if (typeof value === 'number' && Number.isInteger(value) && value >= spec.min && value <= spec.max) out[key] = value;
   }
   return out;

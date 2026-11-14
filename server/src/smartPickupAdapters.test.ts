@@ -26,7 +26,8 @@ test('Ollama: one non-streaming chat request with a schema, an output cap and no
     const body = bodies[0];
     assert.equal(body.stream, false);
     assert.equal('tools' in body, false);
-    assert.deepEqual((body.options as { num_predict: number }).num_predict, 64);
+    assert.deepEqual((body.options as { num_predict: number }).num_predict, 8256);
+    assert.equal(body.think, false);
     assert.deepEqual(((body.format as { properties: { action: { enum: string[] } } }).properties.action.enum), ['wake', 'defer', 'ask']);
     reply = (res) => res.end(JSON.stringify({ message: { content: '', tool_calls: [{ function: { name: 'shell' } }] } }));
     await assert.rejects(a.evaluate(req), /tool_attempted/);
@@ -48,7 +49,7 @@ test('Claude: one Messages request without tools from Native credentials; non-te
   assert.deepEqual(await a.capability(), { provider: 'claude', available: true });
   assert.equal(await a.evaluate(req), ANSWER);
   assert.equal('tools' in sent[0], false);
-  assert.equal(sent[0].max_tokens, 64);
+  assert.equal(sent[0].max_tokens, 8256);
   assert.equal(sent[0].stream, undefined);
   content = [{ type: 'tool_use', id: 't', name: 'shell', input: {} }];
   await assert.rejects(a.evaluate(req), /non_text_answer/);

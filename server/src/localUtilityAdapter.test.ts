@@ -53,6 +53,8 @@ test('local OpenAI-compatible evaluator is bounded, cancellable and never reques
       assert.equal(await candidate.evaluate(request), 'OK');
     }
     assert.equal(body.stream, false); assert.equal(body.max_tokens, 64); assert.equal('tools' in body, false);
+    assert.equal(await adapter.evaluate({ ...request, freeText: false }), 'OK');
+    assert.equal(body.max_tokens, 8256, 'evaluator headroom does not change the free-text utility cap');
     for (const [next, reason] of [['tool', 'tool_attempted'], ['empty', 'empty_answer'], ['nontext', 'non_text_answer'], ['long', 'output_too_long'], ['truncated', 'output_too_long'], ['bad', 'unreadable_answer'], ['huge', 'output_too_long'], ['auth', 'not_signed_in'], ['http', 'provider_http_503']] as const) {
       mode = next; await assert.rejects(adapter.evaluate(request), new RegExp(reason));
     }

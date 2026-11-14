@@ -1124,10 +1124,22 @@ export const clusters: Section[] = [
   path as Rule-based for the actual turn).
   </p>
   <p>
-  An error, timeout, tool attempt, or malformed or oversized answer
-  records no decision and never wakes a member. Each request reserves a
-  budget slot before it is sent; a request still in flight when the
-  server stops counts as spent.
+  An evaluator error, refusal, timeout, tool attempt, or invalid answer
+  attempts ordinary pickup once in Automatic, through every wake guard
+  and budget. The last decision, chip hover and accessible description
+  explain the failure and whether pickup started or was held. Observe-only
+  logs what it would do and never wakes.
+  </p>
+  <p>
+  A failure before the evaluator
+  session is ready retries once with its own allowance. A second startup
+  failure or any other failure takes fallback without an additional retry.
+  </p>
+  <p>
+  Valid wait or ask answers, STOP, expired sessions, unverifiable mail and
+  quota refusals never permit fallback. Each request reserves a budget
+  slot before it is sent; a request still in flight when the server stops
+  counts as spent.
   </p>
   <h4 className="manual-sub">Choosing an evaluator</h4>
   <p>
@@ -1156,10 +1168,10 @@ export const clusters: Section[] = [
   <li>Evaluator requests per hour, each member - 3 (1 to 60)</li>
   <li>Automatic wakes per hour, each member - 3 (1 to 60)</li>
   <li>Automatic wakes per armed session - 12 (1 to 200)</li>
-  <li>Armed session length - 30 minutes (5 to 480)</li>
+  <li>Armed session length - 30 minutes (5 to 240)</li>
   <li>Evaluator time limit - 30 seconds (5 to 120)</li>
   <li>Most mail and context sent per request - 12288 bytes (2048 to 65536)</li>
-  <li>Longest evaluator answer - 64 tokens (16 to 512)</li>
+  <li>Longest evaluator answer - 64 tokens (16 to 512), with the existing visible-character bound. Capped provider requests add 8192 tokens for reasoning without enlarging the visible answer.</li>
   </ul>
   <p>
   Limits are counted durably, so a restart never resets them. The
@@ -1169,9 +1181,12 @@ export const clusters: Section[] = [
   <h4 className="manual-sub">Session expiry and re-arm</h4>
   <p>
     Each Smart arming starts a
-  new session with its own expiry from the session-length limit. When the
-  session ends, or after a restart whose budget ledger cannot be read,
-  Smart turns itself Off and must be armed again.
+  new session. Set <strong>Armed session length</strong> under
+  <strong> AUTO-PICKUP &gt; LIMITS</strong> before arming: 5 to 240 minutes,
+  default 30. The dialog shows minutes remaining and the end time. When
+  the session ends, or after a restart whose budget ledger cannot be read,
+  Smart turns itself Off. Mail waits for rearming, Rule-based or NUDGE;
+  expiry never grants another wake.
   </p>
   <p>
     The evaluator choice and adjusted limits are kept for the next arming.

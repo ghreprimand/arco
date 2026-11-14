@@ -11,6 +11,7 @@
 // the session or mode changed while it was running.
 import {
   isSmartPickupMode,
+  isAutoPickupAcknowledgement,
   presetForText,
   sanitizeSmartPickupLimits,
   type SmartPickupAction,
@@ -181,7 +182,10 @@ export async function evaluateOnce(clusterId: string, workflowId: string): Promi
   if (prior && prior.sessionId === arm.sessionId && prior.fingerprint === snapshot.fingerprint) {
     // An admitted-in-principle wake that was blocked by a passing condition
     // (busy, cooldown) is retried without asking the evaluator again.
-    if (prior.wakeOwed && arm.mode === 'smart-auto') return gateAndRecord({ ...base, action: 'wake', reason: 'retry', outcome: 'pending' }, arm);
+    if (prior.wakeOwed && arm.mode === 'smart-auto') {
+      const fallback = prior.action === null;
+      return gateAndRecord({ ...base, action: fallback ? null : 'wake', reason: fallback ? prior.reason! : 'retry', outcome: 'pending' }, arm);
+    }
     // A defer lapses after deferMs so unchanged mail is looked at again; an
     // evaluation refused by a passing limit is attempted again.
     const deferLapsed = prior.action === 'defer' && prior.deferUntil !== undefined && deps.now() >= prior.deferUntil;
@@ -236,21 +240,30 @@ export async function evaluateOnce(clusterId: string, workflowId: string): Promi
   }
   if (failure !== null) {
     const d = { ...base, action: null, reason: `evaluator_error:${failure}`.slice(0, 64), outcome: 'none' };
-    // A failure before the evaluator session was ready (a cold agent start)
-    // says nothing about this mail: evaluate the same mail once more, with a
-    // new reservation counted against the limits. Any other failure, or a
-    // second start-up failure, stands until the mail changes.
+    // Preserve the established one retry for a failure before the evaluator
+    // session was ready: the model has not seen this mail yet. The retry
+    // spends its own reservation. A second startup failure or any other
+    // failure then takes the guarded fallback path without another request.
     const sameMail = prior?.fingerprint === snapshot.fingerprint && prior.sessionId === arm.sessionId;
     if (isStartupFailure(failure) && !(sameMail && prior?.startupRetried)) {
       await record(d, { retryEvaluation: true, startupRetried: true });
       return d;
     }
+    if (failure === 'cancelled') {
+      d.outcome = 'discarded';
+      await record(d);
+      return d;
+    }
+    if (still.mode === 'smart-auto') return gateAndRecord(d, still);
+    d.outcome = 'fallback_observed';
     await record(d);
     return d;
   }
   const parsed = parseEvaluatorAnswer(raw);
   if (!parsed.ok) {
     const d = { ...base, action: null, reason: `invalid_answer:${parsed.problem}`, outcome: 'none' };
+    if (still.mode === 'smart-auto') return gateAndRecord(d, still);
+    d.outcome = 'fallback_observed';
     await record(d);
     return d;
   }
@@ -268,7 +281,10 @@ const TRANSIENT = new Set(['busy', 'cooldown', 'rate_capped', 'limit_wakes_membe
 
 async function gateAndRecord(proposal: ObservedDecision, arm: { sessionId: string; mode: 'smart-observe' | 'smart-auto' }): Promise<ObservedDecision> {
   const result = await gateWake(proposal, arm);
-  const d = { ...proposal, outcome: result.outcome, ...(result.reason ? { reason: proposal.reason === 'retry' ? result.reason : `${proposal.reason}:${result.reason}` } : {}) };
+  const fallback = proposal.action === null;
+  const d = fallback
+    ? { ...proposal, outcome: `fallback_${result.outcome}${result.reason ? `:${result.reason}` : ''}` }
+    : { ...proposal, outcome: result.outcome, ...(result.reason ? { reason: proposal.reason === 'retry' ? result.reason : `${proposal.reason}:${result.reason}` } : {}) };
   const owed = result.outcome !== 'woke' && result.reason !== undefined && TRANSIENT.has(result.reason);
   await record(d, owed ? { wakeOwed: true } : {});
   return d;
@@ -302,6 +318,15 @@ async function gateWake(p: ObservedDecision, arm: { sessionId: string }): Promis
       let ids: string[];
       try { ids = await clusterMailbox.pendingIdsStrict(clusterId, wfid); } catch { refusal = 'unverifiable'; return false; }
       if (mailFingerprint(ids) !== p.fingerprint) { refusal = 'mail_changed'; return false; }
+      if (p.action === null) {
+        // Ordinary pickup ignores bare acknowledgements. Re-read the same
+        // exact mailbox under its lock; unreadable or empty mail cannot
+        // authorise fallback, and attachments retain their normal exception.
+        let pending: Awaited<ReturnType<typeof clusterMailbox.peek>>;
+        try { pending = await clusterMailbox.peek(wfid); } catch { refusal = 'unverifiable'; return false; }
+        if (ids.length === 0 || pending.length !== ids.length || pending.some((m) => !ids.includes(m.msgId))) { refusal = 'unverifiable'; return false; }
+        if (pending.every((m) => !m.artifacts?.length && isAutoPickupAcknowledgement(m.content))) { refusal = 'ack_only'; return false; }
+      }
       if (await smartPickupHoldActive(clusterId, wfid, ids, deps.now()).catch(() => true)) { refusal = 'stop_hold'; return false; }
       if (sharedGuardProblem(clusterId, wfid, depth, deps.now())) { refusal = 'rate_capped'; return false; }
       if (!claim()) { refusal = 'busy'; return false; }

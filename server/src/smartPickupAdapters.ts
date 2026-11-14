@@ -2,7 +2,8 @@ import { nativeOAuthBaseUrl } from './providers/claude-native/apiEndpoint.js';
 // Smart AUTO-PICKUP evaluator adapters. Each makes one bounded request with
 // no tools and nothing Arco keeps or resumes afterwards: a time limit, an
 // abort signal and an output cap. Any error, tool attempt or oversized answer
-// rejects, and callers treat a rejection as "no decision" (never a wake).
+// rejects. Smart: Automatic may then attempt ordinary pickup through its
+// deterministic wake gate; Observe-only records the failure without waking.
 //
 // Capability per provider:
 //   ollama  - /api/chat, stream off, JSON-schema format, no tools field.
@@ -69,8 +70,18 @@ export interface EvaluatorRequest {
 // agent start (update, sign-in refresh) without touching the answer limit.
 export const EVALUATOR_STARTUP_TIMEOUT_MS = 30_000;
 
+// Match the existing short Claude request's bounded reasoning allowance.
+// The selected answer limit still caps visible text; this is total generation
+// headroom for evaluator requests, not a larger permitted evaluator answer.
+export const EVALUATOR_REASONING_HEADROOM = 8192;
+
+function totalOutputLimit(req: EvaluatorRequest): number {
+  return req.maxOutputTokens + (req.freeText ? 0 : EVALUATOR_REASONING_HEADROOM);
+}
+
 // A failure before the agent session was ready (reason prefix startup_). The
-// observer retries such a failure once for the same mail.
+// observer preserves one retry of such a failure for the same mail, with a
+// fresh reservation. A second startup failure can use guarded fallback.
 export function isStartupFailure(reason: string): boolean {
   return reason.startsWith('startup_');
 }
@@ -132,7 +143,8 @@ export function ollamaAdapter(opts: { base?: () => Promise<string>; fetchImpl?: 
             model: req.model,
             stream: false,
             ...(req.freeText ? {} : { format: ANSWER_SCHEMA }),
-            options: { num_predict: req.maxOutputTokens, temperature: 0 },
+            ...(req.freeText ? {} : { think: false }),
+            options: { num_predict: totalOutputLimit(req), temperature: 0 },
             messages: [{ role: 'system', content: req.instructions }, { role: 'user', content: req.prompt }],
           }),
         });
@@ -179,6 +191,7 @@ export function claudeAdapter(opts: { fetchImpl?: typeof fetch; tokens?: () => P
         const resp = await client.messages.create({
           model,
           ...shortTextRequestParams(model, req.maxOutputTokens),
+          ...(req.freeText ? {} : { max_tokens: totalOutputLimit(req) }),
           system: [{ type: 'text', text: CLAUDE_IDENTITY }, { type: 'text', text: req.instructions }],
           messages: [{ role: 'user', content: req.prompt }],
         }, { signal });
@@ -192,6 +205,7 @@ export function claudeAdapter(opts: { fetchImpl?: typeof fetch; tokens?: () => P
           throw new EvaluatorRefused(reason);
         };
         if (!Array.isArray(blocks)) return refuse('unreadable_answer');
+        if (resp.stop_reason === 'refusal') return refuse('provider_refused');
         if (resp.stop_reason === 'tool_use' || types.includes('tool_use') || types.includes('other')) return refuse('non_text_answer');
         if (blocks.some((b: unknown) => b && typeof b === 'object' && 'type' in b && b.type === 'text' && (!('text' in b) || typeof b.text !== 'string'))) return refuse('unreadable_answer');
         const text = blocks.filter((b: { type?: string }) => b?.type === 'text').map((b: { text: string }) => b.text).join('');
@@ -500,11 +514,11 @@ export function openAiCompatibleAdapter(provider: SmartPickupEvaluatorProvider, 
         signal.throwIfAborted();
         const response = await fetchImpl(`${base}/chat/completions`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, signal,
-          body: JSON.stringify({ model: req.model, stream: false, max_tokens: req.maxOutputTokens, temperature: 0,
+          body: JSON.stringify({ model: req.model, stream: false, max_tokens: totalOutputLimit(req), temperature: 0,
             messages: [{ role: 'system', content: req.instructions }, { role: 'user', content: req.prompt }] }),
         });
         if (!response.ok) throw new EvaluatorRefused(response.status === 401 || response.status === 403 ? 'not_signed_in' : `provider_http_${response.status}`);
-        const result = await boundedLocalResponse(response, outputCharCap(req.maxOutputTokens) * 4 + 16_384) as { choices?: Array<{ message?: { content?: unknown; tool_calls?: unknown; function_call?: unknown }; finish_reason?: string }> };
+        const result = await boundedLocalResponse(response, outputCharCap(totalOutputLimit(req)) * 4 + 16_384) as { choices?: Array<{ message?: { content?: unknown; tool_calls?: unknown; function_call?: unknown }; finish_reason?: string }> };
         const choice = result && Array.isArray(result.choices) ? result.choices[0] : undefined;
         if ((choice?.message?.tool_calls != null && (!Array.isArray(choice.message.tool_calls) || choice.message.tool_calls.length > 0)) || choice?.message?.function_call || (choice?.finish_reason === 'tool_calls' || choice?.finish_reason === 'function_call')) throw new EvaluatorRefused('tool_attempted');
         if (!choice?.message || !('content' in choice.message)) throw new EvaluatorRefused('unreadable_answer');

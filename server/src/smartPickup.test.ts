@@ -25,7 +25,7 @@ test('limits and evaluator are sanitized; legacy boolean maps to Rule-based', ()
   const s = sanitizeSmartPickupLimits(raw);
   assert.equal(s.callsPerClusterHour, 30);
   assert.equal(s.wakesPerSession, SMART_PICKUP_LIMIT_SPECS.wakesPerSession.default, 'below min reads as default');
-  assert.equal(s.sessionMinutes, 30, 'above max reads as default');
+  assert.equal(s.sessionMinutes, 240, 'older above-max session lengths read as the four-hour ceiling');
   assert.equal(s.timeoutSeconds, 30, 'fractions rejected');
   assert.equal(s.maxOutputTokens, 64);
   assert.equal(sanitizeSmartPickupEvaluator({ provider: 'cursor', model: ' auto ' })?.model, 'auto');

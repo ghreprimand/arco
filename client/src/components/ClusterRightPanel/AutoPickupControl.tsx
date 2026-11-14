@@ -32,7 +32,7 @@ const MODE_HELP: Record<AutoPickupMode, string> = {
   off: 'No automatic worker turns. MAIL ALERTS and NUDGE stay available.',
   rule: 'Recommended: wakes members when mail arrives; skips acknowledgements and stops loops.',
   'smart-observe': 'The chosen evaluator reads an idle member\'s waiting mail and answers wake, wait or ask. Answers are only logged; no turn starts.',
-  'smart-auto': 'The same evaluator, but a wake answer starts a turn when every limit allows it, and an ask answer alerts the operator.',
+  'smart-auto': 'A wake answer starts a turn when every limit allows it; an ask answer alerts the operator. An evaluator failure attempts ordinary pickup through the same limits.',
 };
 
 export function autoPickupStateOf(cluster: ClusterStatePayload): ClusterAutoPickupState {
@@ -43,12 +43,32 @@ function describeDecision(state: ClusterAutoPickupState): string | null {
   const d = state.lastDecision;
   if (!d) return null;
   const when = new Date(d.at).toLocaleTimeString();
+  if (d.reason === 'session_expired') return `${when}: Smart session expired. Mail waits until Smart is armed again, Rule-based is chosen, or NUDGE is used. Change Armed session length in AUTO-PICKUP > LIMITS before arming.`;
   const unloaded = /^evaluator_error:model_not_loaded_(lmstudio|llamacpp|strata|deepseek)$/.exec(d.reason);
   const names = { lmstudio: 'LM Studio', llamacpp: 'llama.cpp', strata: 'Strata', deepseek: 'DeepSeek' } as const;
+  if (d.outcome.startsWith('fallback_')) {
+    const cause = unloaded ? `model not loaded in ${names[unloaded[1] as keyof typeof names]}; load it or choose another`
+      : d.reason.replace(/^(evaluator_error|invalid_answer):/, '').replace(/_/g, ' ');
+    const outcome = d.outcome === 'fallback_woke' ? 'ordinary pickup started.'
+      : d.outcome === 'fallback_observed' ? 'would use ordinary pickup. No turn started.'
+        : `ordinary pickup held: ${d.outcome.replace(/^fallback_skipped:/, '').replace(/_/g, ' ')}.`;
+    return `${when}: Evaluator failed (${cause}); ${outcome}`;
+  }
   const what = d.action ? `answered ${d.action}` : unloaded
     ? `model not loaded in ${names[unloaded[1] as keyof typeof names]}; load it or choose another`
     : d.reason.replace(/_/g, ' ');
   return `${when}: ${what}${d.action ? ` (${d.reason.replace(/_/g, ' ')}), ${d.outcome}` : ''}`;
+}
+
+function useSessionRemaining(expiresAt?: number): number | null {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (expiresAt === undefined) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, [expiresAt]);
+  return expiresAt === undefined ? null : Math.max(0, Math.ceil((expiresAt - now) / 60_000));
 }
 
 export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload }) {
@@ -60,8 +80,9 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
     wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode, ...(evaluator ? { evaluator } : {}), ...(limits ? { limits } : {}), ...(ruleLimits ? { ruleLimits } : {}), ...(remindBusy !== undefined ? { remindBusy } : {}) });
   };
   const on = state.mode !== 'off';
-  const remaining = state.session ? Math.max(0, Math.ceil((state.session.expiresAt - Date.now()) / 60_000)) : null;
-  const title = on
+  const remaining = useSessionRemaining(state.session?.expiresAt);
+  const decision = describeDecision(state);
+  const modeTitle = on
     ? `${AUTO_PICKUP_MODE_LABELS[state.mode].label}${remaining !== null ? `, about ${remaining} min left in this session` : ''}. Click to review or change.`
     : 'AUTO-PICKUP is off. Click to choose a mode.';
   return (
@@ -75,8 +96,9 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
         data-help="cluster.auto-turn"
         aria-haspopup="dialog"
         aria-label={`AUTO-PICKUP: ${AUTO_PICKUP_MODE_LABELS[state.mode].label}`}
+        aria-description={decision ?? undefined}
         className="display-font"
-        title={title}
+        title={`${modeTitle}${decision ? ` ${decision}` : ''}`}
         style={{
           padding: '3px 8px',
           background: on ? 'var(--color-accent-primary-a06)' : 'transparent',
@@ -164,6 +186,7 @@ function AutoPickupDialog({ state, onClose, onApply }: {
     : null;
   const field: React.CSSProperties = { display: 'block', margin: '4px 0 10px' };
   const decision = describeDecision(state);
+  const remaining = useSessionRemaining(state.session?.expiresAt);
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
@@ -263,7 +286,7 @@ function AutoPickupDialog({ state, onClose, onApply }: {
 
         {(state.counters || decision) && (
           <section data-help="cluster.auto-pickup-status" aria-label="AUTO-PICKUP status" style={{ borderTop: '1px solid var(--color-border-hairline)', marginTop: '10px', paddingTop: '10px', color: 'var(--color-fg-muted)' }}>
-            {state.session && <div>Session ends at {new Date(state.session.expiresAt).toLocaleTimeString()}.</div>}
+            {state.session && <div>About {remaining} min remain. Session ends at {new Date(state.session.expiresAt).toLocaleTimeString()}. Change Armed session length under LIMITS before arming.</div>}
             {state.counters && <div>Evaluator requests: {state.counters.callsThisSession} this session, {state.counters.callsLastHour} in the last hour, {state.counters.inFlight} in progress. Automatic wakes: {state.counters.wakesThisSession} of {state.limits.wakesPerSession} this session, {state.counters.wakesLastHour} in the last hour.</div>}
             {decision && <div>Last decision: {decision}</div>}
           </section>

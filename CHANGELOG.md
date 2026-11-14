@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Give capped Smart pickup evaluations reasoning headroom, attempt guarded ordinary pickup after evaluator failure while preserving the existing one startup retry, and explain fallback, session expiry and the existing session-length control, now capped at four hours with older longer values clamped.
 - Keep messages queued while Claude Native server tools are still waiting for results, show one held-message notice, and preserve the current turn's search evidence and reasoning.
 - Open attached files from the packaged install uploads folder in the file viewer.
 - Update Codex through its recognised installation, refuse a different npm target, and show explicit update results instead of calling an unchanged version latest.

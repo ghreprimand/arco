@@ -184,7 +184,9 @@ AUTO-PICKUP is a per-cluster control on the cluster right-panel header (default
 Off), not a Settings page. Modes: Off, Rule-based (recommended deterministic wake on idle
 mail with acknowledgement, loop and adjustable wake-budget guards), Smart: Observe-only (evaluator proposes wake / wait / ask; log only), and
 Smart: Automatic (wake proposals may start a turn after server gates and
-limits). Smart modes need an evaluator (Claude Native, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata or DeepSeek through Xolotl). The same provider limits apply to the utility agent.
+limits; evaluator errors instead attempt ordinary pickup once through those same gates, never over a valid wait/ask or expired session). Smart modes need an evaluator (Claude Native, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata or DeepSeek through Xolotl). The same provider limits apply to the utility agent.
+Change **Armed session length** under **AUTO-PICKUP > LIMITS** before arming (5 to 240 minutes, default 30). The dialog shows minutes remaining; expiry turns Smart Off and leaves mail waiting. The chip hover and accessible description explain failures, fallback and expiry. Capped evaluator requests have 8192 tokens of reasoning headroom above the visible-answer limit.
+
 Limits, session expiry, TURN OFF, STOP holds and counters
 are described in the in-app manual section AUTO-PICKUP and Smart pickup and in
 [cluster protocol](PROTOCOL_CLUSTER.md). Evaluator request contents and adapter

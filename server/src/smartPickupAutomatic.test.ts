@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import type { EvaluatorAdapter, EvaluatorRequest } from './smartPickupAdapters.js';
 import type { ObservedDecision } from './smartPickupObserver.js';
+import { sanitizeSmartPickupLimits } from '@arco/shared';
 
 // Race and budget scenarios for Smart: Automatic (Tester's
 // smart-pickup-race-scenarios). Synthetic members and mail; the evaluator and
@@ -71,6 +72,42 @@ test('a wake proposal starts one admitted turn with the auto-pickup prompt and l
   assert.equal(await mailbox.depthFor(m), 1, 'Smart never drains mail');
   assert.equal((await counters(c.clusterId)).wakesThisSession, 1);
   assert.equal((await counters(c.clusterId)).inFlight, 0);
+});
+
+test('a thinking-only capped evaluator reply falls back once without re-evaluating unchanged mail', async () => {
+  assert.equal(sanitizeSmartPickupLimits({ sessionMinutes: 300 }).sessionMinutes, 240, 'an older saved duration is clamped, not reset to thirty minutes');
+  const c = await automatic();
+  const [director, member] = c.members;
+  const bodies: Record<string, unknown>[] = [];
+  const claude = adapters.claudeAdapter({
+    tokens: async () => ({ accessToken: 'fixture-access' }),
+    fetchImpl: (async (_url: unknown, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)));
+      return Response.json({ id: 'fixture', type: 'message', role: 'assistant', model: 'claude-haiku-5-5',
+        content: [{ type: 'thinking', thinking: 'Fixture reasoning without a visible answer.' }],
+        stop_reason: 'max_tokens', usage: { input_tokens: 10, output_tokens: 8256 } });
+    }) as typeof fetch,
+  });
+  answer = (req) => claude.evaluate({ ...req, model: 'claude-haiku-5-5' });
+  await send(member, director, 'Review the completed change.');
+  const decision = await observer.evaluateOnce(c.clusterId, member);
+  assert.deepEqual([decision?.action, decision?.reason, decision?.outcome], [null, 'evaluator_error:output_too_long', 'fallback_woke']);
+  assert.equal(bodies[0].max_tokens, 8256, 'reasoning has headroom above the visible 64-token answer limit');
+  assert.equal(bodies[0].thinking, undefined, 'no model-specific thinking switch is required');
+  assert.equal(woke.length, 1);
+  assert.equal(woke[0].wfid, member);
+  assert.match(woke[0].content, /auto-pickup/i);
+  assert.equal(await mailbox.depthFor(member), 1, 'the admitted member turn still owns delivery');
+  assert.equal(await observer.evaluateOnce(c.clusterId, member), null);
+  assert.equal(await observer.evaluateOnce(c.clusterId, member), null);
+  assert.equal(calls.length, 1, 'the failed evaluator is not retried');
+  assert.equal(bodies.length, 1);
+  assert.equal(woke.length, 1, 'the unchanged fingerprint cannot wake twice');
+  const snap = await ledger.smartPickupSnapshot(c.clusterId, await sessionOf(c.clusterId), clock);
+  assert.equal(snap.counters.callsThisSession, 1);
+  assert.equal(snap.counters.wakesThisSession, 1);
+  assert.equal(snap.counters.inFlight, 0);
+  assert.equal(snap.lastDecision?.outcome, 'fallback_woke');
 });
 
 test('Observe-only never wakes, even on a wake proposal', async () => {

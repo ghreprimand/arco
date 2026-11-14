@@ -71,9 +71,18 @@ on restart. The instructions frame the mail as untrusted data. Off
 and Rule-based send nothing. The evaluator only proposes wake, wait or ask.
 Arco's server code decides whether a turn starts and enforces every limit.
 
-Every evaluator request has a time limit, an abort and an output cap. An error,
-timeout, tool attempt, or malformed or oversized answer records no decision and
-never wakes a member. Each request reserves a budget slot before it is sent. A
+Every evaluator request has a time limit, an abort and a visible-output cap.
+Requests with a total-token cap add 8192 tokens of reasoning headroom without
+increasing the visible-answer bound. An error, refusal, timeout, tool attempt,
+or malformed or oversized answer is never accepted as a model decision. In
+Smart: Automatic, it instead permits one ordinary pickup attempt through the
+existing acknowledgement filter, mailbox/session/STOP checks and wake budgets.
+Observe-only logs that fallback without waking. Valid wait/ask answers, cancelled
+or expired sessions, unverifiable mail and quota refusals do not permit fallback.
+A failure before the evaluator session is ready retries once with its own
+reservation; a second startup failure or any other failure takes fallback
+without an additional evaluator retry. Each request reserves a
+budget slot before it is sent. A
 request still in flight when the server stops counts as spent. Arming is
 refused when the chosen provider is not available as an evaluator.
 

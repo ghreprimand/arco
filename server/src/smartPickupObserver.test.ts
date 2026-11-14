@@ -95,7 +95,7 @@ test('Observe-only runs the labeled corpus through the evaluator, records every 
   assert.equal(snap.counters.wakesThisSession, 0, 'Observe-only reserves no wakes');
 });
 
-test('malformed, extra-field, oversized and failing answers never produce a decision', async () => {
+test('malformed, extra-field, oversized and failing answers record fallback without waking in Observe-only', async () => {
   const c = await armedCluster();
   const [director, member] = c.members;
   const bad: (() => Promise<string>)[] = [
@@ -111,7 +111,7 @@ test('malformed, extra-field, oversized and failing answers never produce a deci
     await send(member, director, `Please review change ${i}.`);
     const d = await observer.evaluateOnce(c.clusterId, member);
     assert.equal(d?.action, null, `case ${i}`);
-    assert.equal(d?.outcome, 'none');
+    assert.equal(d?.outcome, 'fallback_observed');
     assert.match(d!.reason, /^(invalid_answer|evaluator_error):/);
   }
   const last = (await ledger.smartPickupSnapshot(c.clusterId, undefined, clock)).lastDecision!;
@@ -138,7 +138,9 @@ test('a start-up failure is evaluated once more for the same mail, counted again
   answer = async () => { throw new adapters.EvaluatorRefused('startup_exited'); };
   await send(b, director, 'Review please.');
   assert.equal((await observer.evaluateOnce(c.clusterId, b))?.reason, 'evaluator_error:startup_exited');
-  assert.equal((await observer.evaluateOnce(c.clusterId, b))?.reason, 'evaluator_error:startup_exited');
+  const secondFailure = await observer.evaluateOnce(c.clusterId, b);
+  assert.equal(secondFailure?.reason, 'evaluator_error:startup_exited');
+  assert.equal(secondFailure?.outcome, 'fallback_observed', 'only the second startup failure takes fallback');
   assert.equal(await observer.evaluateOnce(c.clusterId, b), null, 'no third attempt for unchanged mail');
   assert.equal(calls.length, 2);
   // An answer-phase timeout is about this mail: no retry until it changes.
