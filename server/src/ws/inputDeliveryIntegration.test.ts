@@ -46,12 +46,31 @@ for(const provider of ['claude','codex'] as const)test(`${provider} records stee
  }finally{if(f.wf.busy)engine.revokeBusy(f.wf);f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const pending of f.pending)pending.finish('fixture cleanup');await run;await f.close();}
 });
 
-for(const stopped of [false,true])test(`a late failed steer ${stopped?'stays cancelled after STOP':'remains queued after normal completion'}`,async()=>{
+for(const stopped of [false,true])test(`a late failed steer ${stopped?'stays cancelled after STOP':'starts immediately before later operator input'}`,async()=>{
  const f=await fixture('codex');let run:Promise<void>|undefined,newToken:number|undefined;
  try{run=engine.handleUserMessage(f.ws,f.session,f.id,'FIRST_TASK','first',undefined,false,undefined,undefined);await f.wait(1);await engine.handleUserMessage(f.ws,f.session,f.id,'STEER_TASK','s',undefined,true,'steer',undefined);
  const options=f.pending[0].options,items=options.drainSteer();f.pending[0].emit({type:'worker_text',text:'answer'});f.pending[0].finish('answer');await run;
  if(stopped){engine.revokeBusy(f.wf);newToken=engine.claimBusy(f.wf);}
- options.requeueSteer(items,'follow-up');assert.equal(f.wf.queue.followUp.length,stopped?0:1);
+ options.requeueSteer(items,'follow-up');
+ if(stopped){assert.equal(f.wf.queue.followUp.length,0);assert.equal(f.pending.length,1);}
+ else{
+  await f.wait(2);
+  assert.ok(f.pending[1].spec.task.includes('STEER_TASK'),'the returned steer starts without another operator message');
+  await engine.handleUserMessage(f.ws,f.session,f.id,'LATER_TASK','later',undefined,true,'follow-up',undefined);
+  assert.ok(!f.pending[1].spec.task.includes('LATER_TASK'),'later input cannot be dispatched ahead of the returned steer');
+  f.pending[1].finish('steer delivered');await f.wait(3);assert.ok(f.pending[2].spec.task.includes('LATER_TASK'));
+  await engine.handleUserMessage(f.ws,f.session,f.id,'PREPARING_STEER','preparing',undefined,true,'steer',undefined);
+  const returning=f.pending[2].options.drainSteer();f.pending[2].finish('later delivered');
+  for(let i=0;i<600&&f.wf.busy;i++)await new Promise(resolve=>setTimeout(resolve,5));assert.equal(f.wf.busy,false);
+  f.pending[2].options.requeueSteer(returning,'steer');
+  const incoming=engine.handleUserMessage(f.ws,f.session,f.id,'PREPARING_LATER','preparing-later',undefined,true,'follow-up',undefined);
+  await f.wait(4);assert.ok(f.pending[3].spec.task.includes('PREPARING_STEER'),'returned steering retains order during idle-drain preflight');
+  const combined=f.pending[3].spec.task.includes('PREPARING_LATER');
+  if(combined)assert.ok(f.pending[3].spec.task.indexOf('PREPARING_STEER')<f.pending[3].spec.task.indexOf('PREPARING_LATER'));
+  f.pending[3].finish('prepared steer delivered');await incoming;
+  if(!combined){await f.wait(5);assert.ok(f.pending[4].spec.task.includes('PREPARING_LATER'));f.pending[4].finish('prepared later delivered');}
+  for(let i=0;i<600&&f.wf.busy;i++)await new Promise(resolve=>setTimeout(resolve,5));assert.equal(f.wf.busy,false);
+ }
  }finally{f.wf.queue.steering.length=0;f.wf.queue.followUp.length=0;for(const pending of f.pending)pending.finish('cleanup');await run;if(newToken!==undefined)engine.releaseBusy(f.wf,newToken);await f.close();}
 });
 

@@ -917,15 +917,17 @@ export class CodexAppServerWorker extends EventEmitter {
   //
   // Re-queue semantics on errors mirror the §9 mapping:
   //   - activeTurnNotSteerable {turnKind: review|compact} → re-enqueue to
-  //     the steer bucket; the next operator turn picks it up
+  //     the steer bucket; the queue engine delivers it at the next safe
+  //     turn boundary, or starts a queued turn if the tab is already idle
   //   - mismatched turnId / turn already ended → re-enqueue as follow-up
   //   - any other transport error → re-enqueue to follow-up + system_notice
   private async dispatchSteer(items: SteerItem[]): Promise<void> {
     const config = this.config;
     const turn = this.current;
     if (!this.rpc || !this.threadId || !this.current.turnId) {
-      // No live turn — push everything back into follow-up so the operator
-      // sees their messages reappear after the next user_message arrives.
+      // No live turn — push everything back into follow-up so the queue
+      // engine starts it when idle, with the normal delivery receipt. A
+      // later operator message must not be needed to unpark this batch.
       this.requeueSteer(items, 'follow-up', 'turn ended before steer dispatched', config);
       return;
     }
@@ -960,7 +962,8 @@ export class CodexAppServerWorker extends EventEmitter {
         this.requeueSteer(items, 'steer', `turn not steerable (kind=${kind})`, config);
       } else {
         // Anything else — mismatched expectedTurnId, transport blip, etc.
-        // Treat as follow-up; the operator's next turn will see the item.
+        // Treat as follow-up; the queue engine delivers it after the active
+        // turn, or starts the returned batch itself when already idle.
         const reason = err instanceof Error ? err.message : String(err);
         this.requeueSteer(items, 'follow-up', `steer rpc failed: ${reason}`, config);
         // Surface non-`activeTurnNotSteerable` failures so the operator sees

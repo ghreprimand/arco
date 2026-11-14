@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Deliver a Codex steer returned after its turn ends through the idle queue immediately, preserving its place before later input and respecting STOP and admission guards.
 - Give capped Smart pickup evaluations reasoning headroom, attempt guarded ordinary pickup after evaluator failure while preserving the existing one startup retry, and explain fallback, session expiry and the existing session-length control, now capped at four hours with older longer values clamped.
 - Keep messages queued while Claude Native server tools are still waiting for results, show one held-message notice, and preserve the current turn's search evidence and reasoning.
 - Open attached files from the packaged install uploads folder in the file viewer.

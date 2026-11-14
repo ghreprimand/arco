@@ -533,6 +533,32 @@ const storageMigrations = new WeakSet<WorkflowState>();
 const incomingMessages = new WeakMap<WorkflowState, number>();
 const lastBusyClaim = new WeakMap<WorkflowState, number>();
 const busyRevocations = new WeakMap<WorkflowState, number>();
+const requeuedSteerDrains = new WeakMap<WorkflowState, { epoch: number; active: boolean }>();
+
+function hasRequeuedSteerDrain(wf: WorkflowState): boolean {
+  return requeuedSteerDrains.get(wf)?.epoch === (busyRevocations.get(wf) ?? 0);
+}
+
+function resumeRequeuedSteer(workflowId: string, wf: WorkflowState): void {
+  const pending = requeuedSteerDrains.get(wf);
+  if (!pending) return;
+  if (workflows.get(workflowId) !== wf || pending.epoch !== (busyRevocations.get(wf) ?? 0)
+    || (wf.queue.steering.length === 0 && wf.queue.followUp.length === 0)) {
+    requeuedSteerDrains.delete(wf);
+    return;
+  }
+  // Existing or incoming turns own the next admission. Their finalizer will
+  // try again; a later operator send stays queued during this preparation.
+  if (pending.active || wf.busy || wf.primaryTurn || wf.computerResetting || incomingMessages.get(wf)) return;
+  pending.active = true;
+  void drainQueueIfIdle(workflowId).catch((err) => {
+    console.error(`[arco] [${workflowId.slice(0, 8)}] re-queued steer drain failed:`, err);
+  }).finally(() => {
+    pending.active = false;
+    if (requeuedSteerDrains.get(wf) === pending && (pending.epoch !== (busyRevocations.get(wf) ?? 0)
+      || (wf.queue.steering.length === 0 && wf.queue.followUp.length === 0))) requeuedSteerDrains.delete(wf);
+  });
+}
 
 export function publishWorkerActivity(wf: WorkflowState, kind: 'worker_started' | 'worker_finished' | 'worker_failed' | 'worker_interrupted' | 'worker_removed' | 'queue_changed') {
   if (wf.config?.incognito || wf.config?.kind === 'chat' || wf.config?.voiceOperator) return;
@@ -1282,6 +1308,11 @@ export function requeueSteerForWorker(
   console.log(
     `[arco] [${workflowId.slice(0, 8)}] mid-turn steer re-queued (bucket=${bucket}, items=${items.length})`,
   );
+  if (!wf.busy) {
+    const epoch = busyRevocations.get(wf) ?? 0;
+    if (!hasRequeuedSteerDrain(wf)) requeuedSteerDrains.set(wf, { epoch, active: false });
+    resumeRequeuedSteer(workflowId, wf);
+  }
   // ws is unused today (no per-originator notification); keep the parameter
   // for parity with drainSteerForWorker so future per-tab signaling can wire
   // through here without re-threading the call sites.
@@ -1612,8 +1643,8 @@ export async function handleUserMessage(
   // drain post-turn — Phases 5–7 turn on real mid-turn delivery for steer
   // per provider.
   if (opts?.busyOnly && (!wf.busy || wf.computerResetting || lastBusyClaim.get(wf) !== busyOnlyClaim || (opts.busyOnlyGuard && !opts.busyOnlyGuard()))) return;
-  if (opts?.claimGuard && (wf.busy || wf.computerResetting)) return;
-  if (wf.busy || wf.computerResetting) {
+  if (opts?.claimGuard && (wf.busy || wf.computerResetting || hasRequeuedSteerDrain(wf))) return;
+  if (wf.busy || wf.computerResetting || (!fromQueue && hasRequeuedSteerDrain(wf))) {
     if (primitive === 'plan-review') {
       send(ws, { type: 'system_notice', workflowId, content: '[PLAN DRAFT NOT STARTED] Wait for the current turn to finish, then try again.' });
       return;
@@ -3054,6 +3085,7 @@ export async function handleUserMessage(
   } finally {
     const remaining = (incomingMessages.get(wf) ?? 1) - 1;
     if (remaining) incomingMessages.set(wf, remaining); else incomingMessages.delete(wf);
+    resumeRequeuedSteer(workflowId, wf);
   }
 }
 
