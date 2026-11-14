@@ -11,6 +11,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Update Codex through its recognised installation, refuse a different npm target, and show explicit update results instead of calling an unchanged version latest.
 - Document how to update an existing install, clear an earlier `@ghreprimand/arco` package that owns leftover `arco` launchers, recover when Windows npm install fails over a running service, and clear older copies before a fresh install.
 - Print the running version before the first `arco setup` prompt so an older installation on PATH is immediately visible.
+- Dismiss pending Codex questions and close unanswered async questions when their turn ends.
 
 ## v0.1.5 - 2026-11-12
 

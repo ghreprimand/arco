@@ -21,10 +21,11 @@ test('both question sources, settlement, snapshot and one toast per question', (
   assert.deepEqual(useAppStore.getState().notifications.map((n) => n.message), ['Alpha has a question']);
   send({ type: 'operator_question', workflowId: id, question: { ...q, status: 'answered' } });
   assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), false);
+  assert.equal(useAppStore.getState().notifications.length, 0);
   send({ type: 'system_notice', workflowId: id, content: '[ASK:claude-native:two] Choose' });
   send({ type: 'system_notice', workflowId: id, content: '[ASK:claude-native:two] Choose' });
   assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), true);
-  assert.equal(useAppStore.getState().notifications.length, 2);
+  assert.equal(useAppStore.getState().notifications.length, 1);
   send({ type: 'claude_native_question_settled', workflowId: id, questionId: 'two' });
   assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), false);
   send({ type: 'system_notice', workflowId: id, content: '[ASK:claude-native:two] Choose' });

@@ -23,6 +23,7 @@ interface NotificationState {
   setMutedFromServer: (muted: WorkbenchNoticeCategory[]) => void;
   markAllSeen: () => void;
   clearHistory: () => void;
+  removeNotice: (id: string) => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set) => ({
@@ -37,6 +38,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
   setMutedFromServer: (muted) => set({ muted }),
   markAllSeen: () => set((s) => ({ lastSeenTs: s.notices[0]?.ts ?? s.lastSeenTs })),
   clearHistory: () => set({ notices: [] }),
+  removeNotice: (id) => set((s) => ({ notices: s.notices.filter((n) => n.id !== id) })),
 }));
 
 // Convenience selector for the unread badge (notices newer than last seen).

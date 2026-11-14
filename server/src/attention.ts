@@ -126,7 +126,7 @@ function shouldRaise(kind: AttentionKind, workflowId: string): boolean {
   return isClusterDirector(clusterStore.getMemberRole(clusterId, workflowId));
 }
 
-export function raise(kind: AttentionKind, workflowId: string, info: WorkflowInfo, text?: string, longEnough = true): void {
+export function raise(kind: AttentionKind, workflowId: string, info: WorkflowInfo, text?: string, longEnough = true, requestId?: string): void {
   if (info.incognito) return;
   const externalEligible = longEnough && shouldRaise(kind, workflowId);
   const wantDesktop = channels.desktop[kind] && externalEligible;
@@ -134,11 +134,11 @@ export function raise(kind: AttentionKind, workflowId: string, info: WorkflowInf
   // One alert per workflow and kind per few seconds, whatever produced it.
   const key = `${workflowId}:${kind}`;
   const now = Date.now();
-  if (now - (lastAlertAt.get(key) ?? 0) < 3000) return;
+  if (!requestId && now - (lastAlertAt.get(key) ?? 0) < 3000) return;
   lastAlertAt.set(key, now);
   const name = noticeSourceFor(workflowId, info.name);
   {
-    broadcastToClients({ type: 'attention_event', id: `at_${now.toString(36)}_${(idCounter++).toString(36)}`, kind, workflowId, workflowName: name, desktopEligible: wantDesktop });
+    broadcastToClients({ type: 'attention_event', id: requestId ? `question-${requestId}` : `at_${now.toString(36)}_${(idCounter++).toString(36)}`, kind, workflowId, workflowName: name, desktopEligible: wantDesktop });
   }
   if (target) {
     const body = channels.phoneText && text ? ascii(text, TEXT_MAX) : `Open Arco to see it.`;
@@ -167,7 +167,8 @@ export function observeAttention(workflowId: string, message: ServerMessage, inf
       break;
     }
     case 'operator_question':
-      if (message.question.status === 'pending' && firstSighting(message.question.requestId)) raise('waiting', workflowId, info, message.question.questions.map((q) => q.question).join(' '));
+      if (message.question.status === 'pending' && firstSighting(message.question.requestId)) raise('waiting', workflowId, info, message.question.questions.map((q) => q.question).join(' '), true, message.question.requestId);
+      else if (message.question.status !== 'pending' && !info.incognito) broadcastToClients({ type: 'attention_question_closed', requestId: message.question.requestId });
       break;
     case 'gate_required':
       if (firstSighting(message.gateId)) raise('waiting', workflowId, info, message.reason);

@@ -10,7 +10,7 @@ import { connect, type SmokeClient } from './lib.js';
 
 async function main() {
   const dir = mkdtempSync(join(tmpdir(), 'arco-question-smoke-'));
-  const bin = join(dir, 'bin'), home = join(dir, 'home'); mkdirSync(bin); mkdirSync(join(home, '.arco'), { recursive: true });
+  const bin = join(dir, 'bin'), home = join(dir, 'home'), project = join(dir, 'project'); mkdirSync(bin); mkdirSync(project); mkdirSync(join(home, '.arco'), { recursive: true });
   const executable = join(bin, 'codex'); copyFileSync('scripts/smoke/fixtures/question-codex.mjs', executable);
   writeFileSync(executable, '#!/usr/bin/env node\n' + readFileSync(executable, 'utf8')); chmodSync(executable, 0o755);
   const preload = join(dir, 'isolate.mjs');
@@ -30,7 +30,7 @@ async function main() {
     }
     const url = `ws://127.0.0.1:${port}/ws`;
     c = await connect(url);
-    c.send({ type: 'create_workflow', config: { kind: 'chat', name: 'Operator questions smoke', primaryProvider: 'codex', primaryModel: 'gpt-5.5', primaryEffort: 'high', codexTransport: 'appserver', workingDirectory: '', skipPermissions: false, chatWebAccess: false } });
+    c.send({ type: 'create_workflow', config: { kind: 'agent', name: 'Operator questions smoke', primaryProvider: 'codex', primaryModel: 'gpt-5.5', primaryEffort: 'high', codexTransport: 'appserver', workingDirectory: project, skipPermissions: false, chatWebAccess: false } });
     const created = await c.waitFor((m) => m.type === 'workflow_created', 10000);
     const workflowId = String(created.workflowId);
     c.send({ type: 'user_message', workflowId, content: 'question-demo' });
@@ -48,11 +48,7 @@ async function main() {
     c.send({ type: 'operator_question_reply', workflowId, requestId: question.requestId, answers: { destination: ['Stay'], note: ['Custom note'] } });
     await c.waitFor((m) => m.type === 'operator_question' && (m.question as any)?.status === 'answered', 5000);
     const asyncAsk = await c.waitFor((m) => m.type === 'operator_question' && (m.question as any)?.mode === 'async', 10000, 'async question');
-    await c.waitFor((m) => m.type === 'primary_turn_ended', 10000);
-    c.send({ type: 'operator_question_reply', workflowId, requestId: (asyncAsk.question as any).requestId, answers: { 'question-1': ['Blue'] } });
-    await c.waitFor((m) => m.type === 'operator_question' && (m.question as any)?.status === 'answered', 5000);
-    const answer = await c.waitFor((m) => m.type === 'primary_text' && String(m.text).includes('Async answer received'), 10000, 'async answer dispatch');
-    assert.match(String(answer.text), /Blue/);
+    await c.waitFor((m) => m.type === 'operator_question' && (m.question as any)?.requestId === (asyncAsk.question as any).requestId && (m.question as any)?.status === 'cancelled', 10000);
     await c.waitFor((m) => m.type === 'primary_turn_ended', 10000);
     c.send({ type: 'user_message', workflowId, content: 'cancel-question' });
     const cancelAsk = await c.waitFor((m) => m.type === 'operator_question' && (m.question as any)?.status === 'pending', 10000);
@@ -62,7 +58,7 @@ async function main() {
     const stale = await c.waitFor((m) => m.type === 'operator_question_reply_result' && m.requestId === (cancelAsk.question as any).requestId, 5000);
     assert.equal(stale.ok, false);
     c.send({ type: 'remove_workflow', workflowId });
-    console.log('PASS: blocking questions, option descriptions, reconnect snapshot, validation, per-ID replies, async question after turn completion, normal answer turn, cancel and stale reply.');
+    console.log('PASS: blocking questions, option descriptions, reconnect snapshot, validation, per-ID replies, async question closes at turn completion, cancel and stale reply.');
   } finally {
     if (c) await c.close();
     if (child.exitCode === null && child.signalCode === null) {

@@ -185,3 +185,8 @@ export interface AttentionEventMessage {
   // Short turns and filtered cluster members can still produce in-app notices.
   desktopEligible?: boolean;
 }
+
+export interface AttentionQuestionClosedMessage {
+  type: 'attention_question_closed';
+  requestId: string;
+}

@@ -38,3 +38,16 @@ export interface OperatorQuestionReplyResultMessage {
   ok: boolean;
   error?: string;
 }
+
+export interface OperatorQuestionDismissMessage {
+  type: 'operator_question_dismiss';
+  workflowId: string;
+  requestId: string;
+}
+export interface OperatorQuestionDismissResultMessage {
+  type: 'operator_question_dismiss_result';
+  workflowId: string;
+  requestId: string;
+  ok: boolean;
+  error?: string;
+}

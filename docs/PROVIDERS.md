@@ -1119,18 +1119,17 @@ Questions appear inline and under the composer's **? N QUESTIONS** button in
 Agent and saved Chat. Multiple questions retain IDs, option descriptions,
 freeform/secret flags and explicit submission (no default is automatically sent).
 RPC answers return on the original request ID; async message answers enter the
-normal user-message/steer queue, including after the original turn settles.
+normal user-message/steer queue while the original turn remains active. DISMISS closes a question without an answer. A phone push already sent cannot be recalled.
 Permission/command approvals still use the existing deterministic declines.
 Exec is headless and has no question/reply bridge; choose APPSERVER in CONFIG.
 
 `codex-appserver/operatorQuestions.ts` owns bounded live handles (16 per worker)
 and publishes structured `operator_question` states through a server-injected
-publisher, so async questions remain answerable after the per-turn wrapper
-unwires. Events persist through the normal workflow broadcaster; secret answers
+publisher while the corresponding turn is active. Events persist through the normal workflow broadcaster; secret answers
 are redacted before publishing. Incognito transport/privacy rules are unchanged.
 RPC questions close on turn settlement or upstream `serverRequest/resolved`;
-async message cards survive successful settlement. Explicit cancel, worker
-retirement and connection death close pending handles. Late/duplicate replies
+async message cards close when their own thread and turn settle. Explicit cancel, worker
+retirement and connection death close pending handles. Dismissal returns empty answers on the original RPC before closing its card; a failed delivery leaves it pending. Late/duplicate replies
 are rejected, and ordinary async replies cannot cross a changed provider/session.
 Reconnect snapshots reconcile live questions and close orphaned replay cards
 after a server restart. Pending cards stay hot within the existing 500-row cap.

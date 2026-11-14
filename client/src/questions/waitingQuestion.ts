@@ -28,6 +28,7 @@ export function questionToastText(workflowId: string): string {
   return cluster ? `${name} in ${clusterName(cluster)} has a question` : `${name} has a question`;
 }
 
-export function notifyQuestion(workflowId: string): void {
-  useAppStore.getState().pushNotification('info', questionToastText(workflowId), workflowId);
+export function notifyQuestion(workflowId: string, requestId?: string): void {
+  if (!requestId) { useAppStore.getState().pushNotification('info', questionToastText(workflowId), workflowId); return; }
+  useAppStore.setState((s) => ({ notifications: [...s.notifications.slice(-9), { id: `question-${requestId}`, level: 'info', message: questionToastText(workflowId), workflowId, createdAt: Date.now() }] }));
 }

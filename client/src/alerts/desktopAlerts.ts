@@ -42,6 +42,15 @@ export function isViewingWorkflow(state: ViewState, workflowId: string): boolean
   return !state.activeClusterId && state.activeJobId === workflowId;
 }
 
+const questionNotifications = new Map<string, Notification>();
+export function clearQuestionAlert(requestId: string): void {
+  const id = `question-${requestId}`;
+  useNotificationStore.getState().removeNotice(id);
+  useAppStore.getState().dismissNotification(id);
+  questionNotifications.get(id)?.close();
+  questionNotifications.delete(id);
+}
+
 // One notification per event: the event id is the tag, so a second browser
 // window on the same computer replaces rather than repeats it.
 export function handleAttentionEvent(msg: AttentionEventMessage): void {
@@ -60,6 +69,10 @@ export function handleAttentionEvent(msg: AttentionEventMessage): void {
   if (!ok) return;
   try {
     const n = new Notification(attentionTitle(msg.workflowName, msg.kind), { body: 'Open Arco to see it.', tag: msg.id });
+    if (msg.id.startsWith('question-')) {
+      questionNotifications.set(msg.id, n);
+      n.onclose = () => { if (questionNotifications.get(msg.id) === n) questionNotifications.delete(msg.id); };
+    }
     n.onclick = () => {
       try { window.focus(); } catch { /* ignore */ }
       focusWorkflowTab(msg.workflowId);

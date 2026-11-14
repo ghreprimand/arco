@@ -1628,6 +1628,7 @@ export class CodexAppServerWorker extends EventEmitter {
   // (subsequent calls during the same turn are no-ops; the turn id is the
   // gate).
   private settleTurn(data: { error?: string; result?: TurnSettleData }): void {
+    if (this.threadId && this.current.turnId) this.operatorQuestions.settleTurn(this.threadId, this.current.turnId);
     this.operatorQuestions.cancel('The turn ended before an answer was received.', true);
     if (!this.current.turnId && !this.current.startedAt) {
       // No turn was actually in flight (e.g., kill() before turn/start).

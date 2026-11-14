@@ -203,6 +203,11 @@ export const miscHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'chat-panel',
   },
+  'question.dismiss': {
+    title: 'Dismiss question',
+    body: <p>Close this question without answering. A waiting agent can continue. A phone notification already sent cannot be recalled.</p>,
+    manualSection: 'provider-codex',
+  },
   'chat.ask-question': {
     title: 'Agent question',
     body: <p>Choose one complete option or type an answer. Pipes and backslashes inside an option are kept as part of that answer. Submitting resumes the waiting agent.</p>,

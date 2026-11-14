@@ -1,7 +1,7 @@
 // ── Client → Server messages ──
 
 import type { AutomaticMessageKind } from './chat.js';
-import type { OperatorQuestionReplyMessage } from './operatorQuestions.js';
+import type { OperatorQuestionReplyMessage, OperatorQuestionDismissMessage } from './operatorQuestions.js';
 import type { VoiceToolResultMessage, ComputerContextControlMessage } from './voiceOperator.js';
 
 import type { HubLinkSetEnabledMessage } from './remoteManagement.js';
@@ -548,6 +548,7 @@ export type ClientMessage =
   | PlanDetachMessage
   | SetPreviewPortMessage
   | ClearPreviewPortMessage
+  | OperatorQuestionDismissMessage
   | OperatorQuestionReplyMessage
   | VoiceToolResultMessage
   | AskUserQuestionReplyMessage

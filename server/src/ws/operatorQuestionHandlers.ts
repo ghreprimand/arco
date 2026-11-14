@@ -1,8 +1,8 @@
 import { WebSocket } from 'ws';
-import type { OperatorQuestionReplyMessage } from '@arco/shared';
+import type { OperatorQuestionReplyMessage, OperatorQuestionDismissMessage } from '@arco/shared';
 import type { Session } from '../workflows/types.js';
 import { workflows } from '../server/state.js';
-import { replyToOperatorQuestion } from '../providers/codex-appserver/operatorQuestions.js';
+import { replyToOperatorQuestion, dismissOperatorQuestion } from '../providers/codex-appserver/operatorQuestions.js';
 import { handleUserMessage } from './turnEngine.js';
 import { broadcastWorkflow } from '../server/broadcast.js';
 
@@ -24,4 +24,12 @@ export async function handleOperatorQuestionReply(ws: WebSocket, session: Sessio
   // Transport acknowledgement only. Public question state is persisted by the
   // publisher; failed/stale reply attempts do not become transcript events.
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'operator_question_reply_result', workflowId: msg.workflowId, requestId: msg.requestId, ...result }));
+}
+
+export function handleOperatorQuestionDismiss(ws: WebSocket, session: Session, msg: OperatorQuestionDismissMessage): void {
+  const wf = workflows.get(msg.workflowId);
+  const result = !wf || !wf.observers.has(ws) || !session.workflowIds.has(msg.workflowId)
+    ? { ok: false, error: 'Subscribe to this workflow before dismissing.' }
+    : dismissOperatorQuestion(msg.workflowId, msg.requestId);
+  if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'operator_question_dismiss_result', workflowId: msg.workflowId, requestId: msg.requestId, ...result }));
 }

@@ -1277,7 +1277,7 @@ A standalone chromeless window, mounted by `main.tsx` on `?app=explorer`, sharin
 Codex app-server clarification requests render through `OperatorQuestionNotice`.
 `PendingQuestionsButton` beside the Agent/Chat composer opens all pending cards
 without finding a virtualized transcript row. Options retain descriptions;
-freeform inputs and masked secret inputs require explicit SEND ANSWERS. Pending
+freeform inputs and masked secret inputs require explicit SEND ANSWERS. DISMISS closes a pending question without an answer. When it closes, its matching bell entry and desktop notification are removed; phone pushes already sent cannot be recalled. Pending
 cards remain hot within the normal message cap. `ws/operatorQuestions.ts`
 upserts by request ID and reconciles against `workflow_state_snapshot.operatorQuestions`;
 connection/snapshot gates disable forms during reconnect, and stale cards close.

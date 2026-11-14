@@ -3,7 +3,7 @@ import test from 'node:test';
 import { PassThrough } from 'node:stream';
 import type { OperatorQuestionState } from '@arco/shared';
 import { JsonRpcClient } from './jsonRpc.js';
-import { CodexOperatorQuestions, pendingOperatorQuestions, replyToOperatorQuestion, setOperatorQuestionPublisher } from './operatorQuestions.js';
+import { CodexOperatorQuestions, pendingOperatorQuestions, replyToOperatorQuestion, dismissOperatorQuestion, setOperatorQuestionPublisher } from './operatorQuestions.js';
 import { CodexAppServerWorker } from './worker.js';
 
 const q = (id = 'choice') => ({ id, header: 'Choice', question: 'Where next?', isOther: true, options: [{ label: 'Stay', description: 'Keep the current location.' }, { label: 'Move', description: 'Use a new location.' }] });
@@ -52,7 +52,7 @@ test('cancel and upstream resolution invalidate pending handles; resolution does
   assert.deepEqual(f.responses, [{ answers: {} }]); assert.equal(f.events.at(-1)?.reason, 'operator cancelled');
 });
 
-test('async message questions survive turn completion and use ordinary operator input; failed dispatch remains retryable', async () => {
+test('async message questions can use ordinary operator input before turn completion', async () => {
   const f = fixture('question-async');
   f.broker.acceptAsync('thread', 'turn', { id: 'async-item', questions: [{ title: 'Destination?', options: ['Here', 'There'] }] });
   f.broker.acceptAsync('thread', 'turn', { id: 'async-item', questions: [{ title: 'Destination?' }] });
@@ -101,7 +101,24 @@ test('worker routes async notifications and cancels questions on transport death
   internals.threadId = 'thread'; internals.current.startedAt = Date.now(); internals.current.turnId = 'turn';
   internals.onNotification({ method: 'item/completed', params: { threadId: 'thread', turnId: 'turn', item: { id: 'async', type: 'agentMessage', delivery: 'async', text: 'A question', questions: [{ title: 'Continue?' }] } } });
   assert.equal(events[0].status, 'pending');
-  internals.settleTurn({ result: { usage: {} } }); assert.equal(pendingOperatorQuestions('question-worker').length, 1);
+  internals.settleTurn({ result: { usage: {} } });
+  assert.equal(events.at(-1)?.reason, "The agent's turn ended before an answer was received.");
   internals.teardownProcess(); assert.equal(events.at(-1)?.status, 'cancelled');
   assert.equal(pendingOperatorQuestions('question-worker').length, 0);
+});
+
+test('dismiss delivers empty RPC answers once and rejects stale or closed requests', async () => {
+  const f = fixture('question-dismiss'); f.ask();
+  const id = f.events[0].requestId;
+  assert.equal(dismissOperatorQuestion('another-workflow', id).ok, false);
+  assert.equal(dismissOperatorQuestion(f.id, id).ok, true);
+  assert.deepEqual(f.responses, [{ answers: {} }]);
+  assert.equal(f.events.at(-1)?.reason, 'Dismissed by the operator.');
+  assert.equal(dismissOperatorQuestion(f.id, id).ok, false);
+  assert.equal((await replyToOperatorQuestion(f.id, id, { choice: ['Stay'] })).ok, false);
+  f.broker.acceptRpc({ id: 88, method: 'item/tool/requestUserInput', params: { threadId: 'thread', turnId: 'turn', itemId: 'closed', questions: [q()] } }, () => false);
+  const closed = f.events.at(-1)!.requestId;
+  assert.equal(dismissOperatorQuestion(f.id, closed).ok, false);
+  assert.equal(pendingOperatorQuestions(f.id).length, 1);
+  f.broker.cancel('cleanup');
 });

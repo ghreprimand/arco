@@ -1,7 +1,7 @@
 import type { OutputSavedMessage } from '../outputs.js';
 // ── Server → Client messages ──
 
-import type { OperatorQuestionMessage, OperatorQuestionReplyResultMessage, OperatorQuestionState } from './operatorQuestions.js';
+import type { OperatorQuestionMessage, OperatorQuestionReplyResultMessage, OperatorQuestionDismissResultMessage, OperatorQuestionState } from './operatorQuestions.js';
 import type { VoiceToolCallMessage, ComputerContextUpdatedMessage, ComputerActivityChangedMessage } from './voiceOperator.js';
 
 import type { HubLinkStatusMessage } from './remoteManagement.js';
@@ -32,7 +32,7 @@ import type { DocEditStartedMessage, DocEditProposedMessage } from './docEdit.js
 import type { MdTuneupStartedMessage, MdTuneupProposedMessage, MdTuneupAppliedMessage, MdTuneupCandidatesMessage, MdTuneupUndoneMessage } from './mdTuneup.js';
 import type { KnowledgeDistillStartedMessage, KnowledgeDistillProposedMessage } from './knowledge.js';
 import type { RecallSummaryReadyMessage } from './recall.js';
-import type { WorkbenchNoticeMessage, NotificationMutesMessage, AttentionEventMessage } from './notifications.js';
+import type { WorkbenchNoticeMessage, NotificationMutesMessage, AttentionEventMessage, AttentionQuestionClosedMessage } from './notifications.js';
 import type {
   HandoffStartedMessage,
   HandoffArtifactReadyMessage,
@@ -1603,6 +1603,7 @@ export type ServerMessage =
   | UltracodeFleetProgressMessage
   | ContextBudgetMessage
   | OperatorQuestionMessage
+  | OperatorQuestionDismissResultMessage
   | OperatorQuestionReplyResultMessage
   | VoiceToolCallMessage
   | SystemNoticeMessage
@@ -1677,6 +1678,7 @@ export type ServerMessage =
   | WorkbenchNoticeMessage
   | NotificationMutesMessage
   | AttentionEventMessage
+  | AttentionQuestionClosedMessage
   | HubLinkStatusMessage;
 
 // Phase 0 — typed envelope for events read off events.jsonl or received over

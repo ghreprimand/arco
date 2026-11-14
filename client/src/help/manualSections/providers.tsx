@@ -480,10 +480,10 @@ export const providers: Section[] = [
   </p>
   <ul>
   <li>
-  Async questions let the agent continue. Answers sent after a turn ends
-  start a normal operator turn.
+  Async questions let the agent continue and close when that turn ends.
+  Afterward, send a normal message instead.
   </li>
-  <li>Cancelled or expired questions close automatically.</li>
+  <li>Select DISMISS to close a pending question without answering. A phone notification already sent cannot be recalled.</li>
   <li>
   A named toast opens the asking worker. A question mark on its tab and a
   highlighted cluster card remain until the question settles.

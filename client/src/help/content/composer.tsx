@@ -527,7 +527,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.questions': {
     title: 'Pending agent questions',
-    body: <p>Open questions from Codex app-server without scrolling back through the transcript. Pick an option or type an answer, then SEND ANSWERS. Blocking questions wait for you; async questions let the agent continue. Cancelled or expired questions cannot be answered.</p>,
+    body: <p>Open questions from Codex app-server without scrolling back through the transcript. Pick an option or type an answer, then SEND ANSWERS. Blocking questions wait for you; async questions let the agent continue and close when that turn ends. Select DISMISS to close a question without answering. A closed question cannot be answered.</p>,
     manualSection: 'provider-codex',
   },
   'worker.header.tokens': {

@@ -2702,7 +2702,7 @@ string[]> }`. Requires one explicit answer per question, honors closed option
 sets, and rejects wrong-workflow, stale or duplicate replies. Server sends a
 transient `operator_question_reply_result { workflowId, requestId, ok, error? }`
 to the submitting socket; authoritative answered/cancelled state is broadcast to
-all observers. Approval messages are separate and retain existing behavior.
+all observers. `operator_question_dismiss { workflowId, requestId }` closes a question without an answer; `operator_question_dismiss_result` reports delivery to the submitting socket. RPC dismissal sends empty answers before closure; async message questions close when their own turn settles. Approval messages are separate and retain existing behavior.
 
 `workflow_state_snapshot.operatorQuestions` contains the live pending requests
 (including an empty array). The client upserts by request ID and closes any

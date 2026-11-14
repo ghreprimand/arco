@@ -1,8 +1,10 @@
 import type { OperatorQuestionState } from '@arco/shared';
+import { clearQuestionAlert } from '../alerts/desktopAlerts';
 import { useAppStore } from '../stores/appStore';
 
 export const questionMessageId = (requestId: string) => `operator-question-${requestId}`;
 export function applyOperatorQuestion(workflowId: string, question: OperatorQuestionState, eventSeq?: number): void {
+  if (question.status !== 'pending') clearQuestionAlert(question.requestId);
   const store = useAppStore.getState();
   const id = questionMessageId(question.requestId);
   const prior = store.jobs[workflowId]?.messages.find((m) => m.id === id);

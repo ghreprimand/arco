@@ -11,7 +11,7 @@ import { useVoiceStore } from '../voice/store';
 import { dispatchVoiceToolCall } from '../voice/toolBridge';
 import { setClaudeQuestionIds, notifyQuestion } from '../questions/waitingQuestion';
 import { parseAskNotice } from '../components/AskUserQuestionNotice';
-import { handleAttentionEvent } from '../alerts/desktopAlerts';
+import { handleAttentionEvent, clearQuestionAlert } from '../alerts/desktopAlerts';
 import { applyOperatorQuestion, reconcileOperatorQuestions, questionMessageId } from './operatorQuestions';
 import { useAppStore } from '../stores/appStore';
 import { applyWorkspace, sendWorkspaceSync } from './workspaceSync';
@@ -2005,7 +2005,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         case 'operator_question': {
           const known = store.jobs[msg.workflowId]?.messages.some((m) => m.id === questionMessageId(msg.question.requestId));
           applyOperatorQuestion(msg.workflowId, msg.question, (msg as { seq?: number }).seq);
-          if (msg.question.status === 'pending' && !known && Date.now() - msg.question.createdAt < 10_000) notifyQuestion(msg.workflowId);
+          if (msg.question.status === 'pending' && !known && Date.now() - msg.question.createdAt < 10_000) notifyQuestion(msg.workflowId, msg.question.requestId);
           break;
         }
         case 'computer_activity_changed':
@@ -2016,6 +2016,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // session answers; see voice/toolBridge.ts.
           void dispatchVoiceToolCall(msg, (result) => store.wsSendRaw?.(result));
           break;
+        case 'operator_question_dismiss_result':
         case 'operator_question_reply_result':
           if (!msg.ok) store.updateMessage(msg.workflowId, questionMessageId(msg.requestId), { operatorQuestionError: msg.error || 'The answer could not be delivered.' });
           break;
@@ -2351,6 +2352,9 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         // suppression, so any notice that arrives is one to surface: record it
         // in the notice-center history AND raise a transient toast via the
         // existing app strip (error/warning → 'error' styling, else 'info').
+        case 'attention_question_closed':
+          clearQuestionAlert(msg.requestId);
+          break;
         case 'attention_event':
           handleAttentionEvent(msg);
           break;

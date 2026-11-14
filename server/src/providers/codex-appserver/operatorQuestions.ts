@@ -72,6 +72,21 @@ export async function replyToOperatorQuestion(workflowId: string, requestId: str
   } finally { entry.sending = false; }
 }
 
+export function dismissOperatorQuestion(workflowId: string, requestId: string): { ok: boolean; error?: string } {
+  const entry = pending.get(requestId);
+  if (!entry || entry.workflowId !== workflowId) return { ok: false, error: 'This question is no longer pending.' };
+  if (entry.sending) return { ok: false, error: 'An answer is already being delivered.' };
+  entry.sending = true;
+  try {
+    if (entry.respond && entry.respond({ answers: {} }) === false) throw new Error('Codex connection closed.');
+    if (pending.get(requestId) !== entry) return { ok: false, error: 'This question is no longer pending.' };
+    entry.owner.finish(entry, { ...entry.state, status: 'cancelled', reason: 'Dismissed by the operator.' });
+    return { ok: true };
+  } catch {
+    return { ok: false, error: 'The dismissal could not be delivered. The question is still pending.' };
+  } finally { entry.sending = false; }
+}
+
 export class CodexOperatorQuestions {
   private ids = new Set<string>();
   private asyncItems = new Set<string>();
@@ -110,6 +125,15 @@ export class CodexOperatorQuestions {
 
   finish(entry: Pending, state: OperatorQuestionState): void {
     pending.delete(entry.state.requestId); this.ids.delete(entry.state.requestId); entry.publish(state);
+  }
+
+  settleTurn(threadId: string, turnId: string): void {
+    for (const id of [...this.ids]) {
+      const p = pending.get(id);
+      if (p && p.rpcId === undefined && p.state.threadId === threadId && p.state.turnId === turnId) {
+        this.finish(p, { ...p.state, status: 'cancelled', reason: "The agent's turn ended before an answer was received." });
+      }
+    }
   }
 
   resolvedRpc(rpcId: JsonRpcId): void {

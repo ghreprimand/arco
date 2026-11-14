@@ -19,7 +19,7 @@ import { setDeepSeekActivityCheck } from './providers/deepseekProfiles.js';
 import { setStrataSwitchActivityCheck } from './providers/strataProfiles.js';
 import { setOperatorQuestionPublisher } from './providers/codex-appserver/operatorQuestions.js';
 import { resolveVoiceTool, setVoiceToolPublisher } from './voice/operatorTools.js';
-import { handleOperatorQuestionReply } from './ws/operatorQuestionHandlers.js';
+import { handleOperatorQuestionReply, handleOperatorQuestionDismiss } from './ws/operatorQuestionHandlers.js';
 // Side-effect import, kept FIRST: forces this process onto IPv4 before any
 // module can open a socket. See server/src/net/forceIpv4.ts.
 import { loadWorkspace, onWorkspaceChange, syncWorkspace } from './workspace.js';
@@ -973,6 +973,10 @@ wss.on('connection', (ws: WebSocket) => {
       case 'voice_tool_result': {
         const wf = workflows.get(msg.workflowId);
         if (wf && wf.observers.has(ws)) resolveVoiceTool(msg);
+        break;
+      }
+      case 'operator_question_dismiss': {
+        handleOperatorQuestionDismiss(ws, session, msg);
         break;
       }
       case 'operator_question_reply': {
