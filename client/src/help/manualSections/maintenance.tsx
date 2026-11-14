@@ -118,9 +118,16 @@ export const maintenance: Section[] = [
   standalone installations stay unchanged with instructions for a terminal.
   </p>
   <p>
-  Results stay in the row and wrap without needing hover. They distinguish
-  updated, up to date, unchanged with a newer version available, deferred,
-  manual and failed. An unchanged version is not automatically called latest.
+  An update briefly shows <Code>→ v&lt;new&gt;</Code>; a confirmed current result
+  shows <Code>v&lt;version&gt; (latest)</Code>. Both clear after 6 seconds and the
+  row returns to its version. An unchanged version with a newer release available,
+  a deferred update or manual instructions shows <Code>v&lt;version&gt; (!)</Code>
+  in warning colour until the next check.
+  </p>
+  <p>
+  A failure shows <Code>FAILED</Code>
+  in danger colour until the next check. Hover over the row for the full
+  message, error or command. An unchanged version is not automatically called latest.
   A failed updater remains a failure even when the old executable still works.
   Claude continues to use <Code>claude update</Code>.
   </p>

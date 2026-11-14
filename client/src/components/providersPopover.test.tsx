@@ -70,3 +70,63 @@ test('versions targets header menus, preserves drafts, and suppresses hovers acr
     dom.window.close();
   }
 });
+
+test('update chips clear after six seconds while honest notices and failures stay pinned', async (t) => {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost/', pretendToBeVisual: true });
+  const saved = Object.getOwnPropertyDescriptors(globalThis);
+  const before = useAppStore.getState();
+  const storage = useAppStore.persist.getOptions().storage;
+  let reply: Record<string, unknown> = {};
+  const values = { window: dom.window, document: dom.window.document, Element: dom.window.Element, Node: dom.window.Node,
+    KeyboardEvent: dom.window.KeyboardEvent, getComputedStyle: dom.window.getComputedStyle.bind(dom.window),
+    ResizeObserver: class { observe() {} disconnect() {} },
+    fetch: async (url: string) => url.includes('check-updates') ? Response.json(reply) : new Response('{}', { status: 503 }),
+    IS_REACT_ACT_ENVIRONMENT: true };
+  for (const [key, value] of Object.entries(values)) Object.defineProperty(globalThis, key, { configurable: true, value });
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
+  useAppStore.setState({ settings: null, authStatus: null, capabilities: { codexVersion: '0.169.0' } as never,
+    ollamaLive: null, llamacppLive: null });
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const root = createRoot(document.getElementById('root')!);
+  try {
+    await act(async () => root.render(<ProvidersPopover open />));
+    const chip = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(b => b.textContent?.includes('CODEX'))!;
+    const result = () => chip.lastElementChild?.textContent;
+    for (const [outcome, expected] of [['updated', '→ v0.169.0'], ['current', 'v0.169.0 (latest)']] as const) {
+      reply = { outcome, currentVersion: '0.169.0', message: 'Full successful result.' };
+      await act(async () => chip.click());
+      assert.equal(result(), expected);
+      await act(async () => t.mock.timers.tick(5999));
+      assert.equal(result(), expected);
+      await act(async () => t.mock.timers.tick(1));
+      assert.equal(result(), 'v0.169.0');
+    }
+    for (const outcome of ['unchanged', 'deferred', 'manual']) {
+      const message = outcome === 'manual' ? 'Run codex update in a terminal.' : 'A newer version is still available.';
+      reply = { outcome, currentVersion: '0.169.0', message };
+      await act(async () => chip.click());
+      assert.equal(result(), 'v0.169.0 (!)');
+      assert.equal(chip.title, message);
+      assert.match(chip.lastElementChild?.getAttribute('style') ?? '', /var\(--color-warning\)/);
+      await act(async () => t.mock.timers.tick(6000));
+      assert.equal(result(), 'v0.169.0 (!)');
+    }
+    reply = { outcome: 'failed', currentVersion: '0.169.0', error: 'Updater exited with an error.' };
+    await act(async () => chip.click());
+    assert.equal(result(), 'FAILED');
+    assert.equal(chip.title, reply.error);
+    assert.match(chip.lastElementChild?.getAttribute('style') ?? '', /var\(--color-danger\)/);
+    await act(async () => t.mock.timers.tick(6000));
+    assert.equal(result(), 'FAILED');
+    reply = { currentVersion: '0.169.0' };
+    await act(async () => chip.click());
+    assert.equal(result(), 'v0.169.0 (!)', 'an absent server outcome never confirms latest');
+  } finally {
+    await act(async () => root.unmount());
+    t.mock.timers.reset();
+    useAppStore.setState(before, true);
+    useAppStore.persist.setOptions({ storage });
+    for (const key of Object.keys(values)) { if (saved[key]) Object.defineProperty(globalThis, key, saved[key]); else Reflect.deleteProperty(globalThis, key); }
+    dom.window.close();
+  }
+});

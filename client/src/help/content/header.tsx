@@ -259,8 +259,14 @@ export const headerHelp: Record<string, HelpEntry> = {
           Claude uses <C>claude update</C>. A recognised standalone Codex uses
           <C>codex update</C>; npm Codex must match the current global package
           root before its updater or a pinned npm version can run. Unknown
-          installations receive manual instructions. The result stays in the
-          row: updated, current, unchanged, deferred, manual or failed.
+          installations receive manual instructions. An update shows
+          <C> → v&lt;new&gt;</C>; a confirmed current result shows
+          <C> v&lt;version&gt; (latest)</C>. Both clear after 6 seconds and the
+          row returns to its version. An unchanged version with a newer release,
+          a deferred update or manual instructions shows <C>v&lt;version&gt; (!)</C>
+          in warning colour until the next check. A failure shows <C>FAILED</C>
+          in danger colour until the next check. Hover for the full message,
+          error or command.
           Click on Ollama opens an
           in-app modal with the last ~10 GitHub releases (themed; markdown notes;
           your installed version is highlighted): Arco can't auto-update
@@ -274,8 +280,8 @@ export const headerHelp: Record<string, HelpEntry> = {
         <p>Arco checks the matching npm platform binary before installing.
           An older npm CLI can use a pinned installable version; its self-updater
           waits when the latest build is missing. A working installation is
-          never downgraded. Results wrap without hover and never infer latest
-          from an unchanged version. A failed updater or broken executable is
+          never downgraded. Results never infer latest from an unchanged
+          version. A failed updater or broken executable is
           reported explicitly. Retry a deferred update later.</p>
         <p>
           Chips for providers you've disabled in Settings or for un-installed

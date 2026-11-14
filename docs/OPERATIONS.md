@@ -1210,7 +1210,7 @@ If a CLI was upgraded between boots, the active tab gets a `[CLI] Updated X -> Y
 
 ### Provider update results
 
-Open VERSIONS and select the Claude or Codex row. The result stays in that row until the next check, wrapping so its instructions can be read without hover. Results distinguish an update, a confirmed current version, an unchanged version with a newer release available, a deferred update, manual instructions and an updater failure. A nonzero updater exit remains a failure even when the old executable still works.
+Open VERSIONS and select the Claude or Codex row. A successful update briefly shows `-> v<new>`; a confirmed current result shows `v<version> (latest)`. Both clear after 6 seconds and the row returns to its version. An unchanged version with a newer release available, a deferred update or manual instructions shows `v<version> (!)` in warning colour until the next check. A failure shows `FAILED` in danger colour until the next check. Hover over the row for the full message, error or command. An unchanged version is never called latest without confirmation from the server. A nonzero updater exit remains a failure even when the old executable still works.
 
 Codex updates follow the installation selected by Arco's PATH. A recognised standalone installation uses its own `codex update` command. Arco first checks that the standalone installer's destination still matches the active command directory, including a custom `CODEX_INSTALL_DIR`. An installation without that command, or one whose ownership cannot be identified, is left unchanged with terminal instructions. Arco never installs npm Codex over a standalone installation.
 

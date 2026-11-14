@@ -64,10 +64,10 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
   const [checking, setChecking] = useState<CliProvider | null>(null);
   const [checkResult, setCheckResult] = useState<Record<CliProvider, string | null>>({ claude: null,  codex: null });
   const [checkOutcome, setCheckOutcome] = useState<Partial<Record<CliProvider, CliUpdateOutcome>>>({});
-  // The row's result slot is narrow and right-aligned. Wrap the instruction
-  // there so touch and keyboard users can read it without hovering; retain
-  // the full detail for the tooltip too. An update failure is only actionable
-  // if the operator can read the reason and the command to run next.
+  // The row's result slot is a narrow right-aligned chip, so the displayed
+  // string is truncated hard. Keep the untruncated text for the tooltip —
+  // an update failure ("Missing optional dependency @openai/codex-linux-x64…")
+  // is only actionable if the operator can read the whole thing.
   const [checkDetail, setCheckDetail] = useState<Record<CliProvider, string | null>>({ claude: null,  codex: null });
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -141,22 +141,26 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
     setCheckDetail((prev) => ({ ...prev, [provider]: null }));
     try {
       const res = await fetch(`/api/check-updates?provider=${provider}`, { method: 'POST' });
-      const data = await res.json() as { outcome?: CliUpdateOutcome; message?: string; capabilities?: Capabilities; error?: string; notice?: string };
+      const data = await res.json() as { outcome?: CliUpdateOutcome; currentVersion?: string; message?: string; capabilities?: Capabilities; error?: string; notice?: string };
+      const version = data.currentVersion ?? (provider === 'codex' ? capabilities?.codexVersion : capabilities?.cliVersion) ?? 'unknown';
       let msg: string;
-      let detail: string | null = data.error ?? data.notice ?? data.message ?? null;
+      const detail = data.error ?? data.message ?? data.notice ?? 'The version did not change. Arco could not check whether it is up to date.';
       // A notice means the server did something the version string alone doesn't
       // explain — e.g. upstream tagged a new `latest` whose build for this
-      // platform isn't published yet. Display that explicit outcome in the
-      // existing result slot and keep its instruction readable without hover.
-      if (data.error) { msg = data.error; detail = data.error; }
-      else msg = data.message ?? data.notice ?? `The version did not change. Arco could not check whether it is up to date.`;
-      setCheckOutcome((prev) => ({ ...prev, [provider]: data.error ? 'failed' : data.outcome }));
+      // platform isn't published yet, so it installed the newest one that runs.
+      // Mark the row so the operator knows to hover, and keep it pinned.
+      if (data.error || data.outcome === 'failed') msg = 'FAILED';
+      else if (data.notice) msg = `v${version} (!)`;
+      else if (data.outcome === 'updated') msg = `→ v${version}`;
+      else if (data.outcome === 'current') msg = `v${version} (latest)`;
+      else msg = `v${version} (!)`;
+      setCheckOutcome((prev) => ({ ...prev, [provider]: msg === 'FAILED' ? 'failed' : msg.endsWith('(!)') ? 'deferred' : data.outcome }));
       if (data.capabilities) useAppStore.getState().setCapabilities(data.capabilities);
       setCheckResult((prev) => ({ ...prev, [provider]: msg }));
-      setCheckDetail((prev) => ({ ...prev, [provider]: detail }));
+      setCheckDetail((prev) => ({ ...prev, [provider]: msg === 'FAILED' || msg.endsWith('(!)') ? detail : null }));
     } catch (e) {
       const detail = e instanceof Error ? e.message : 'unknown';
-      setCheckResult((prev) => ({ ...prev, [provider]: `Update failed: ${detail}` }));
+      setCheckResult((prev) => ({ ...prev, [provider]: 'FAILED' }));
       setCheckOutcome((prev) => ({ ...prev, [provider]: 'failed' }));
       setCheckDetail((prev) => ({ ...prev, [provider]: detail }));
     } finally {
@@ -164,7 +168,9 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
       // A failure stays put until the operator dismisses it by re-checking;
       // auto-clearing the one line that explains what went wrong is how the
       // codex breakage stayed invisible.
-      // Keep every explicit result readable until the next check.
+      setTimeout(() => setCheckResult((prev) => (
+        prev[provider] === 'FAILED' || prev[provider]?.endsWith('(!)') ? prev : { ...prev, [provider]: null }
+      )), 6000);
     }
   };
 
@@ -362,7 +368,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
                 }}
               >
                 <span style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', whiteSpace: 'nowrap' }}>{label}</span>
-                <span style={{ fontSize: '10px', color: result ? 'var(--color-fg)' : versionColor, overflowWrap: 'anywhere', minWidth: 0, textAlign: 'right' }}>{versionDisplay}</span>
+                <span style={{ fontSize: '10px', color: versionColor }}>{versionDisplay}</span>
               </button>
               </span>
             );
