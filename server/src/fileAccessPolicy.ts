@@ -70,12 +70,14 @@ export function assertSpellingSafe(target: string, pathApi = path): void {
   // transcripts, settings, account homes, cluster vaults or logs browseable.
   for (let i = 0; i < parts.length; i++) {
     if (parts[i] !== '.arco') continue;
-    if (!runtimePathAllowed(parts.slice(i + 1))) throw new FileAccessError();
+    const runtimeUploads = isPathWithin(pathApi.join(homedir(), '.arco'), target, pathApi) || isPathWithin(runtimeHome(), target, pathApi);
+    if (!runtimePathAllowed(parts.slice(i + 1), runtimeUploads)) throw new FileAccessError();
   }
 }
 
-function runtimePathAllowed(parts: string[]): boolean {
-  return parts[0] === 'plans' || parts[0] === 'media-scratch'
+function runtimePathAllowed(parts: string[], allowUploads = false): boolean {
+  return (allowUploads && parts[0] === 'uploads' && parts.length <= 2)
+    || parts[0] === 'plans' || parts[0] === 'media-scratch'
     || (parts[0] === 'workflows' && /^[a-z0-9_-]+$/.test(parts[1] || '') && ['artifacts', 'handoffs'].includes(parts[2]))
     || (['chats', 'genesis'].includes(parts[0]) && /^[a-z0-9_-]+$/.test(parts[1] || ''));
 }
@@ -90,7 +92,7 @@ export function assertSafePath(target: string): void {
     try { runtimeRoots.push(realpathSync(runtime)); } catch { /* not created */ }
   }
   for (const root of runtimeRoots) {
-    if (isPathWithin(root, target) && !runtimePathAllowed(path.relative(root, target).split(path.sep).map((p) => p.toLowerCase()))) throw new FileAccessError();
+    if (isPathWithin(root, target) && !runtimePathAllowed(path.relative(root, target).split(path.sep).map((p) => p.toLowerCase()), true)) throw new FileAccessError();
   }
   for (const { root, temporaryRoot } of protectedRoots()) {
     // Default AppData and LOCALAPPDATA exempt only local temporary storage.
@@ -170,7 +172,7 @@ export async function createReadAccessContext(): Promise<ReadAccessContext> {
   const assert = (target: string) => {
     assertSpellingSafe(target);
     for (const root of runtimeRoots) {
-      if (isPathWithin(root, target) && !runtimePathAllowed(path.relative(root, target).split(path.sep).map(p => p.toLowerCase()))) throw new FileAccessError();
+      if (isPathWithin(root, target) && !runtimePathAllowed(path.relative(root, target).split(path.sep).map(p => p.toLowerCase()), true)) throw new FileAccessError();
     }
     protectedPaths.forEach(({ root, temporaryRoot }, index) => {
       if (isProtectedRoot(root, target, temporaryRoot)) throw new FileAccessError();

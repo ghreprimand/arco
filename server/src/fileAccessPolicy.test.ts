@@ -19,7 +19,7 @@ process.env.USERPROFILE = home;
 process.env.CODEX_HOME = customProvider;
 process.env.ARCO_UPLOADS_DIR = path.join(fixture, 'uploads');
 const { UPSTREAM_STATE_DIRECTORY } = await import('./envAliases.js');
-const { assertSpellingSafe, isProtectedRoot, confinedPath, safeDirectory } = await import('./fileAccessPolicy.js');
+const { assertSpellingSafe, assertSafePath, isProtectedRoot, confinedPath, safeDirectory } = await import('./fileAccessPolicy.js');
 const { resolveBoundCwd } = await import('./http/writeConfinement.js');
 const { patchSettings } = await import('./settings.js');
 const { resolveBrowserRead, listBrowserDirectory, resolveWorkflowDocument } = await import('./http/readConfinement.js');
@@ -125,6 +125,28 @@ test('bound workflows, saved artifacts, uploads and scratch retain narrow access
   assert.equal(await resolveBrowserRead(scratch), scratch);
   assert.equal(await resolveBrowserRead(upload), upload);
   workflowCwds.delete('fixture-workflow');
+});
+
+test('runtime uploads allow direct files without exposing other runtime state', () => {
+  const state = process.env.ARCO_HOME!;
+  const uploads = path.join(state, 'uploads');
+  const picture = file(path.join(uploads, 'picture.png'));
+  const auth = file(path.join(state, 'auth.json'));
+  const settings = path.join(state, 'settings.json');
+  const nested = file(path.join(uploads, 'nested', 'picture.png'));
+  const secret = file(path.join(uploads, '.env'));
+  const alias = path.join(fixture, 'state-alias');
+  symlinkSync(state, alias, 'dir');
+  assert.equal(confinedPath(picture, [uploads]), picture);
+  assert.equal(confinedPath(path.join(alias, 'uploads', 'picture.png'), [path.join(alias, 'uploads')]), picture);
+  for (const target of [auth, settings, nested, secret]) {
+    assert.throws(() => assertSafePath(target));
+  }
+  assert.throws(() => confinedPath(path.join(alias, 'settings.json'), [alias]));
+  const escape = path.join(uploads, 'linked-settings');
+  symlinkSync(settings, escape);
+  assert.throws(() => confinedPath(escape, [uploads]));
+  assert.throws(() => assertSafePath(path.join(project, '.arco', 'uploads', 'picture.png')));
 });
 
 test('media requires explicit finite roots and checks outputs, scratch and secrets equally', () => {

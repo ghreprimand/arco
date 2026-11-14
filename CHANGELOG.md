@@ -6,6 +6,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 ## Unreleased
 
 - Keep messages queued while Claude Native server tools are still waiting for results, show one held-message notice, and preserve the current turn's search evidence and reasoning.
+- Open attached files from the packaged install uploads folder in the file viewer.
 - Update Codex through its recognised installation, refuse a different npm target, and show explicit update results instead of calling an unchanged version latest.
 - Document how to update an existing install, clear an earlier `@ghreprimand/arco` package that owns leftover `arco` launchers, recover when Windows npm install fails over a running service, and clear older copies before a fresh install.
 - Print the running version before the first `arco setup` prompt so an older installation on PATH is immediately visible.
