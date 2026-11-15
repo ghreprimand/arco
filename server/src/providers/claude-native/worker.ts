@@ -4279,7 +4279,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     // SDK's own `.type` property), NOT on `e.error.type` (which is the outer
     // body wrapper field "error"). Read `e.type` first so overloaded/rate-limit
     // mid-stream errors are correctly classified for retry.
-    const e = err as { status?: number; message?: string; error?: { type?: string; message?: string; error?: { type?: string; message?: string } }; type?: string; name?: string };
+    const e = err as { status?: number; message?: string; error?: { type?: string; message?: string; error?: { type?: string; message?: string } }; type?: string; name?: string; code?: string; cause?: { code?: string } };
     const name = e.name ?? '';
     // Inner message is at e.error.error.message (full body → error → message)
     // for streaming errors; fall back through outer body message and SDK message.
@@ -4333,7 +4333,15 @@ export class ClaudeNativeWorker extends EventEmitter {
       this.emit('error', 'request_too_large');
       return 'fatal';
     }
-    if (status === 429 || status === 529 || errType === 'rate_limit_error' || errType === 'overloaded_error' || status === 500 || errType === 'api_error') {
+    const gatewayError = status === 502 || status === 503 || status === 504 || (status >= 520 && status <= 524);
+    // The SDK wraps failures before headers in APIConnectionError (including
+    // APIConnectionTimeoutError). A dropped response body can instead expose
+    // the fetch socket error directly; do not retry arbitrary statusless errors.
+    const connectionCode = e.cause?.code ?? e.code ?? '';
+    const connectionError = status === 0 && (err instanceof Anthropic.APIConnectionError
+      || /^(?:ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|UND_ERR_(?:SOCKET|CONNECT_TIMEOUT|HEADERS_TIMEOUT|BODY_TIMEOUT))$/.test(connectionCode));
+    const transportError = gatewayError || connectionError;
+    if (transportError || status === 429 || status === 529 || errType === 'rate_limit_error' || errType === 'overloaded_error' || status === 500 || errType === 'api_error') {
       // H10 — honor Anthropic's own retry timing when it sends one. `retry-after`
       // (seconds or HTTP-date) wins; else the soonest `anthropic-ratelimit-*-reset`.
       // Falls back to the fixed 15/30/60s ladder when no usable header is present
@@ -4346,7 +4354,9 @@ export class ClaudeNativeWorker extends EventEmitter {
       const via = timing.source
         ? ` (per ${timing.source}${timing.capped ? ', capped' : ''})`
         : '';
-      const label = kind === 'genuine'
+      const label = gatewayError ? `gateway error (HTTP ${status})`
+        : connectionError ? (err instanceof Anthropic.APIConnectionTimeoutError ? 'connection timeout' : 'connection error')
+        : kind === 'genuine'
         ? `rate limit (${errType || `HTTP ${status}`})`
         : `overload (${errType || `HTTP ${status}`})`;
       // Same attempt-budget guard as the auth / thinking branches: a 'retry'
@@ -4354,7 +4364,9 @@ export class ClaudeNativeWorker extends EventEmitter {
       // WITHOUT emitting — runTurn reads null as "error already emitted", so a
       // third consecutive 429/529/500 left the tab busy forever.
       if (attempt >= MAX_RETRY_ATTEMPTS - 1) {
-        this.emit('system_notice', `Anthropic ${label}: still failing after ${MAX_RETRY_ATTEMPTS} attempts — giving up on this turn. ${msg.slice(0, 300)}`);
+        this.emit('system_notice', transportError
+          ? `Anthropic could not be reached${gatewayError ? ` (HTTP ${status})` : ` (${label})`} after ${MAX_RETRY_ATTEMPTS} attempts. The conversation is intact; send a message to continue.`
+          : `Anthropic ${label}: still failing after ${MAX_RETRY_ATTEMPTS} attempts — giving up on this turn. ${msg.slice(0, 300)}`);
         this.emit('error', `claude-native: ${label} after ${MAX_RETRY_ATTEMPTS} attempts`);
         return 'fatal';
       }

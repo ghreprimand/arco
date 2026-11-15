@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Anthropic from '@anthropic-ai/sdk';
 import { ClaudeNativeWorker } from './worker.js';
 import { mergeUsage, applyUsageDelta } from './workerHelpers.js';
 import {
@@ -163,6 +164,68 @@ test('three consecutive overloads end the round with an emitted error', async ()
   assert.equal(await w.streamOneRound(), null);
   assert.equal(fc.calls, 3);
   assert.equal(errors.length, 1);
+});
+
+test('temporary gateway and connection failures retry safely, then end plainly if exhausted', async () => {
+  const gateway = () => Object.assign(new Error('522 {"error":{"message":"<html>edge failure</html>"}}'), {
+    status: 522, headers: { 'retry-after': '0' },
+  });
+  const w = makeWorker();
+  const errors = capture(w, 'error');
+  const results = capture(w, 'result');
+  const notices = capture(w, 'system_notice');
+  let calls = 0;
+  const requests: unknown[] = [];
+  w.client = { messages: { create: async (request: unknown) => {
+    requests.push(JSON.parse(JSON.stringify(request)));
+    if (++calls === 1) throw gateway();
+    return full();
+  } } };
+  w.ensureStarted = async () => {};
+  w.reconcileMcpSessions = async () => {};
+  w.hydrateContextManagementCapabilities = async () => {};
+  await w.runTurn('Keep working');
+  assert.equal(calls, 2);
+  assert.equal(results.length, 1, 'the recovered request completes the turn');
+  assert.deepEqual(errors, []);
+  assert.deepEqual(requests[1], requests[0], 'retry preserves the prefix and adds no duplicate delta');
+  assert.match(String(notices[0]), /gateway error \(HTTP 522\): retrying in 0s.*\(1\/3\)/);
+
+  calls = 0; requests.length = 0; notices.length = 0; results.length = 0;
+  w.client = { messages: { create: async () => { calls++; throw gateway(); } } };
+  await w.runTurn('Try again');
+  assert.equal(calls, 3);
+  assert.equal(results.length, 0);
+  assert.deepEqual(errors, ['claude-native: gateway error (HTTP 522) after 3 attempts']);
+  assert.equal(notices.length, 3, 'two retry notices and one final explanation');
+  assert.equal(notices[2], 'Anthropic could not be reached (HTTP 522) after 3 attempts. The conversation is intact; send a message to continue.');
+  assert.ok(notices.every((notice) => !String(notice).includes('<html>') && !String(notice).includes('{')));
+
+  const dropped = makeWorker();
+  dropped.hydrateContextManagementCapabilities = async () => {};
+  const socketError = Object.assign(new TypeError('terminated'), { cause: { code: 'UND_ERR_SOCKET' }, headers: { 'retry-after': '0' } });
+  async function* droppedStream() {
+    yield { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } };
+    yield { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Partial' } };
+    throw socketError;
+  }
+  const fc = fakeClient([droppedStream, full]);
+  dropped.client = fc; dropped.messages = [{ role: 'user', content: 'Continue' }];
+  const discarded = capture(dropped, 'text_discard');
+  capture(dropped, 'error');
+  assert.equal((await dropped.streamOneRound())?.text, 'Hello world');
+  assert.equal(fc.calls, 2);
+  assert.deepEqual(discarded, [7]);
+
+  const connection = makeWorker();
+  const connectionErrors = capture(connection, 'error');
+  await connection.handleApiError(new Anthropic.APIConnectionError({}), 2);
+  await connection.handleApiError(new Anthropic.APIConnectionTimeoutError(), 2);
+  assert.deepEqual(connectionErrors, ['claude-native: connection error after 3 attempts', 'claude-native: connection timeout after 3 attempts']);
+  connectionErrors.length = 0;
+  assert.equal(await connection.handleApiError(new Anthropic.APIUserAbortError(), 0), 'fatal', 'operator abort is never a transport retry');
+  assert.equal(connectionErrors.length, 1);
+  assert.doesNotMatch(String(connectionErrors[0]), /connection error|connection timeout/);
 });
 
 // ── 4. cancel during startup ─────────────────────────────────────────────────

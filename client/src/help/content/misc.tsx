@@ -1587,6 +1587,9 @@ export const miscHelp: Record<string, HelpEntry> = {
         Out-of-band status from the server: rate-limit warnings, retry
         backoffs, calibration completion, threshold crossings, the
         concurrent-writer guard, etc. Italic, dimmer than chat messages.
+        Claude Native retries temporary gateway and connection failures. If
+        attempts run out, its notice explains that the conversation is intact;
+        send another message to continue.
       </p>
     ),
   },

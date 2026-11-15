@@ -341,6 +341,13 @@ export const providers: Section[] = [
   double-retry.
   </li>
   <li>
+  Native also retries temporary gateway errors (HTTP 502, 503, 504 and
+  520-524), connection failures and timeouts, within the same three-attempt
+  limit. Cancellation stops immediately. If attempts run out, a plain notice
+  explains that the conversation is intact; send another message to continue.
+  Partial output from a retried attempt is retracted before regeneration.
+  </li>
+  <li>
   <strong>Throttle detection.</strong> A stderr regex catches &quot;usage limit
   reached&quot; messages and surfaces them in the QuotaBadge with a reset time.
   </li>

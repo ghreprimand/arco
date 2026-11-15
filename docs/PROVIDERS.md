@@ -756,6 +756,8 @@ Anthropic returns structured `{type:'error', error:{type, message}}` envelopes. 
 
 - 401 / `authentication_error` → `[AUTH:claude]` system_notice + fail (refresh already attempted in `ensureLiveTokens`).
 - 429 / `rate_limit_error`, 529 / `overloaded_error`, 500 / `api_error` → retry × 3. **Header-aware backoff:** `resolveRateLimitWait` (`rateLimit.ts`) reads the response's `retry-after` (delta-seconds or HTTP-date) first, then falls back to the soonest `anthropic-ratelimit-*-reset` RFC-3339 timestamp; the fixed 15s/30s/60s ladder is the fallback only when no usable header is present. The SDK's own retries are disabled (`maxRetries: 0`) so this header-aware ladder is the only backoff. The CLI transport's `parseClaudeReset` text-regex sniffer is gone - Native sees the parsed JSON plus the rate-limit headers.
+- HTTP 502, 503, 504 and 520 through 524, SDK connection failures/timeouts, and recognized dropped-socket errors use that same ladder and three-attempt limit. Operator cancellation is not retried. Exhaustion produces one plain notice that the conversation is intact and a short error, without the gateway's raw response body. Send another message to continue. HTTP 501, 505 and other existing non-retryable statuses keep their behavior.
+- A retry preserves the request prefix and retracts partial streamed text before regenerating it. Native Task children use the same worker loop. End-of-turn `count_tokens` is best effort with no retry; COMPACT summary generation and Server Fold use their own failure/fallback paths.
 - 413 / `request_too_large` → fail with a Handoff-recommendation system_notice. Don't retry.
 - 400 / `invalid_request_error`, 403 / `permission_error`, 400 / `billing_error`, 404 / `not_found_error` → fail; don't retry.
 
