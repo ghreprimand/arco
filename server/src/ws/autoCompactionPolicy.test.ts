@@ -97,3 +97,37 @@ test('new tabs keep auto-handoff disabled unless explicitly enabled', async () =
   applyClaudeNativeCompactDefault(explicit);
   assert.equal(explicit.claudeNativeCompact, false);
 });
+
+test('successful automatic compactions keep re-arming and repeated high readings produce one notice', async () => {
+  const { workflows } = await import('../server/state.js');
+  const { resetAutoCompactionCycle } = await import('./turnEngine.js');
+  const sent: Array<{ type: string; content?: string }> = [];
+  const ws = { readyState: 1, send: (payload: string) => sent.push(JSON.parse(payload)) } as unknown as WebSocket;
+  const wf = workflow(); wf.observers = new Set([ws]); wf.config.incognito = true;
+  workflows.set('fixture', wf);
+  let attempts = 0; let success = true;
+  initTurnEngine({ previewAutoDetect: {} as never, handleCreateWorkflow: async () => {}, handleHandoffRequest: async () => {}, handleCompactWorkflow: async (_ws, _session, _msg, guard, _detail, onSuccess) => {
+    attempts++; assert.ok(await guard!(() => 99)); if (success) onSuccess?.();
+  } });
+  const run = (percent: number) => { const token = claimBusy(wf); releaseBusy(wf, token); return maybeAutoCompactPolicy('fixture', wf, '', wf.config.autoCompaction!, { ...reading, percent }, token, ws, fakeSession); };
+  try {
+    const notices = () => sent.filter(m => m.type === 'system_notice' && m.content?.includes('last 3 turns')).length;
+    for (let i = 0; i < 3; i++) assert.equal(await run(90), true);
+    assert.equal(notices(), 0);
+    assert.equal(await run(99), true);
+    assert.equal(notices(), 1);
+    assert.equal(await run(99), true);
+    assert.equal(notices(), 1);
+    assert.equal(attempts, 5);
+    assert.equal(await run(79), false);
+    for (let i = 0; i < 4; i++) assert.equal(await run(90), true);
+    assert.equal(notices(), 2);
+    success = false;
+    assert.equal(await run(90), true);
+    assert.equal(await run(90), false);
+    assert.equal(attempts, 10);
+    resetAutoCompactionCycle(wf);
+    assert.equal(await run(90), true);
+    assert.equal(attempts, 11);
+  } finally { workflows.delete('fixture'); }
+});

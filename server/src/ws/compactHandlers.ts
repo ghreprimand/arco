@@ -30,6 +30,7 @@ import {
   releaseBusy,
   refreshCodexTokenSnapshot,
   resetCodexContextAfterCompact,
+  resetAutoCompactionCycle,
 } from './turnEngine.js';
 import { send, broadcastWorkflow, broadcastTransient, notifyClusterStateForWorkflow } from '../server/broadcast.js';
 import { workflows, workflowCwds } from '../server/state.js';
@@ -43,7 +44,7 @@ import { readSettings } from '../settings.js';
 import * as clusterStore from '../clusterStore.js';
 
 export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg: CompactWorkflowMessage,
-  claimGuard?: (claim: () => number) => Promise<number | false>, autoDetail?: string): Promise<void> {
+  claimGuard?: (claim: () => number) => Promise<number | false>, autoDetail?: string, onSuccess?: () => void): Promise<void> {
   const workflowId = msg.workflowId;
   const wf = workflows.get(workflowId);
   if (!wf) {
@@ -240,6 +241,10 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
   // busy now) — report the outcome but leave busy + the queue alone.
   const owned = releaseBusy(wf, busyToken, 'interrupted', false);
 
+  if (result.ok && owned) {
+    if (autoDetail) onSuccess?.();
+    else resetAutoCompactionCycle(wf);
+  }
   if (result.ok && owned && autoDetail) {
     if (provider === 'codex') resetCodexContextAfterCompact(workflowId, wf);
     else wf.lastContextPercent = 0;

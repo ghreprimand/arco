@@ -149,7 +149,7 @@ export interface TurnEngineDeps {
   previewAutoDetect: PreviewAutoDetect;
   handleCreateWorkflow: (ws: WebSocket, session: Session, config: WorkflowConfig) => Promise<void>;
   handleHandoffRequest: (ws: WebSocket, session: Session, msg: import('@arco/shared').HandoffRequestMessage) => Promise<{ artifactName: string } | void>;
-  handleCompactWorkflow?: (ws: WebSocket, session: Session, msg: import('@arco/shared').CompactWorkflowMessage, guard?: (claim: () => number) => Promise<number | false>, autoDetail?: string) => Promise<void>;
+  handleCompactWorkflow?: (ws: WebSocket, session: Session, msg: import('@arco/shared').CompactWorkflowMessage, guard?: (claim: () => number) => Promise<number | false>, autoDetail?: string, onSuccess?: () => void) => Promise<void>;
 }
 let deps: TurnEngineDeps;
 export function initTurnEngine(d: TurnEngineDeps): void {
@@ -885,7 +885,7 @@ export function freshAutoCompactionPercent(provider: string, transport: string, 
 }
 
 type PolicyReading = { percent: number; sessionId: string | undefined; provider: string; transport?: string };
-const policyAttempts = new WeakMap<WorkflowState, { sessionId: string | undefined; provider: string; fired: boolean }>();
+const policyAttempts = new WeakMap<WorkflowState, { sessionId: string | undefined; provider: string; fired: boolean; awaitingReading: boolean; highAfterSuccess: number }>();
 export function resetAutoCompactionCycle(wf: WorkflowState): void { policyAttempts.delete(wf); }
 
 export async function maybeAutoCompactPolicy(
@@ -899,13 +899,25 @@ export async function maybeAutoCompactPolicy(
   if (reading.provider === 'codex' && !reading.sessionId) return false;
   let state = policyAttempts.get(wf);
   if (!state || state.sessionId !== reading.sessionId || state.provider !== reading.provider) {
-    state = { sessionId: reading.sessionId, provider: reading.provider, fired: false };
+    state = { sessionId: reading.sessionId, provider: reading.provider, fired: false, awaitingReading: false, highAfterSuccess: 0 };
     policyAttempts.set(wf, state);
   }
-  if (reading.percent < policy.thresholdPercent - 5) state.fired = false;
-  if (reading.percent < policy.thresholdPercent || state.fired) return false;
-  // Prevent retries of an unsuccessful or ineffective compact until a later
-  // valid reading confirms a drop. Mark before awaiting any external work.
+  if (reading.percent < policy.thresholdPercent) {
+    state.awaitingReading = false;
+    if (reading.percent < policy.thresholdPercent - 5) state.fired = false;
+    state.highAfterSuccess = 0;
+    return false;
+  }
+  if (state.awaitingReading) {
+    state.awaitingReading = false;
+    state.highAfterSuccess++;
+    if (state.highAfterSuccess === 3) {
+      broadcastWorkflow(workflowId, { type: 'system_notice', workflowId, content: `Automatic compaction has run after each of the last 3 turns and the context is still at or above the ${policy.thresholdPercent}% threshold at turn end. It keeps running. If the turns are simply large this is expected; otherwise raise the threshold or use HANDOFF.` });
+    }
+  }
+  if (state.fired) return false;
+  // Prevent retries of an unsuccessful compact until a later valid reading
+  // confirms a drop. Mark before awaiting any external work.
   state.fired = true;
   const observedClaim = expectedClaim;
   const obs = ws ?? anyObserver(workflowId);
@@ -917,7 +929,9 @@ export async function maybeAutoCompactPolicy(
     const current = resolveProviderAutoCompaction(wf.config.autoCompaction, clusterId ? clusterStore.getAutoCompaction(clusterId) : undefined, wf.primary.provider, reading.transport ?? (wf.primary.provider === 'claude' ? 'native' : ''), wf.config.claudeNativeCompact === true);
     if (wf.busy || lastBusyClaim.get(wf) !== observedClaim || wf.primarySessionId !== reading.sessionId || wf.primary.provider !== reading.provider || !current?.enabled || current.thresholdPercent !== policy.thresholdPercent) return false;
     return claim();
-  }, `context ${reading.percent}% >= ${policy.thresholdPercent}%`);
+  }, `context ${reading.percent}% >= ${policy.thresholdPercent}%`, () => {
+    if (policyAttempts.get(wf) === state) { state.fired = false; state.awaitingReading = true; }
+  });
   return true;
 }
 
