@@ -350,6 +350,8 @@ Samples report failures rather than silently playing the fallback voice.
 
 `shared/src/protocol/voiceOperator.ts` defines the tool names;
 `server/src/voice/toolDefinitions.ts` owns their schemas and descriptions.
+Cluster routing recognizes Director and Coordinator role prefixes. An Advisor mentioning the Director remains an Advisor. Member names are a fallback only when no role is set.
+
 Tools include `arco_condition`, `arco_compact`, `arco_activity`, `arco_mail_rule`, `arco_watch`, `arco_usage`, `arco_computer`, `arco_targets`,
 `arco_select`, `arco_open_panel`, `arco_open` (settings / manual /
 knowledge...), `arco_open_dialog` (nudge, broadcast, review, handoff, spawn,

@@ -32,7 +32,7 @@ export function MemberRow({
   onDetach?: (clusterId: string, workflowId: string) => void;
 }) {
   // Two distinct UI modes share the role surface:
-  //   popoverOpen → preset list (5 presets + CLEAR + Custom…) anchored to SET
+  //   popoverOpen → preset list (8 presets + CLEAR + Custom…) anchored to SET
   //   editingCustom → inline text editor (the pre-popover affordance, kept
   //                   as the "Custom…" escape hatch).
   // Esc / click-outside dismisses the popover. Picking a preset commits +

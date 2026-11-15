@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import type { VoiceCommand, VoiceContext } from '@arco/shared';
+import { ROLE_PRESETS, type VoiceCommand, type VoiceContext } from '@arco/shared';
 import { resolveVoiceTarget, voiceCommandBody } from './commands.js';
 import { VoiceExecutor } from './executor.js';
 import { VoiceRuntime } from './runtime.js';
@@ -1067,6 +1067,24 @@ test('a message addressed to a cluster goes to its single Director; otherwise th
   assert.deepEqual(sent.map((x) => [x[0], x[1]]), [['worker-a', 'What is going on?']]);
 });
 
+
+test('Computer keeps Advisor and Designer roles separate from the Director recipient', async () => {
+  const { executor, sent } = fixture();
+  const state = useAppStore.getState();
+  for (const key of ['advisor', 'designer']) {
+    state.setClusterState('cluster-a', { ...state.clusters['cluster-a'], members: [
+      { workflowId: 'worker-a', displayName: 'Lead', status: 'idle', role: 'Director role. Delegate via peer_send.' },
+      { workflowId: 'worker-b', displayName: key === 'advisor' ? 'Advisor' : 'Director', status: 'idle', role: ROLE_PRESETS.find((p) => p.key === key)!.text },
+    ] });
+    assert.equal(await executor.runTool({ type: 'voice_tool_call', workflowId: 'c', requestId: 'r', tool: 'arco_send_message', args: { target: 'Atlas', text: 'What is going on?' } }), 'Message sent to Lead.');
+    assert.match(await executor.execute(cmd('project-status', 'Atlas')), /Asking Lead/);
+  }
+  const advisor = ROLE_PRESETS.find((p) => p.key === 'advisor')!;
+  assert.deepEqual(resolveVoiceTarget('Director', { currentId: 'helper', clusterId: 'c', targets: [
+    { id: 'helper', name: 'Helper', role: advisor.text, kind: 'member', clusterId: 'c' },
+  ] }), [], 'preset prose does not give an Advisor a Director alias');
+  assert.deepEqual(sent.map((args) => args[0]), ['worker-a', 'worker-a', 'worker-a', 'worker-a']);
+});
 
 test('a full Computer clear discards pending capture without disabling the microphone', async () => {
   reset();

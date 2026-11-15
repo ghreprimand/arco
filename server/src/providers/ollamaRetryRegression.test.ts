@@ -12,7 +12,7 @@ const { OllamaWorkerProcess } = await import('./ollama.js');
 import { classifyOllamaError } from './ollamaResilience.js';
 import { subsetOllamaTools } from './ollamaToolSubset.js';
 import { getOllamaToolDefinitions, executeOllamaTool } from './ollamaTools.js';
-import type { WorkerConfig } from '@arco/shared';
+import { ROLE_PRESETS, type WorkerConfig } from '@arco/shared';
 
 function fixture(windows = [8192]) {
   const backends = windows.map((_, i) => ({ baseUrl: `http://fixture-${i}.invalid`, label: `fixture-${i}`, weight: 1 }));
@@ -87,4 +87,20 @@ test('B107 unrelated validation failure is surfaced without an escalation reques
   const f=fixture();let calls=0;const errors:string[]=[];f.worker.on('error',(error:string)=>errors.push(error));
   f.worker.streamOneTurn=async()=>{calls++;return {ok:false,error:new Error('model does not support tools'),httpStatus:400};};
   assert.equal(await f.run(),null);assert.equal(calls,1);assert.deepEqual(errors,['model does not support tools']);
+});
+
+test('an Ollama Advisor keeps the ordinary member peer-report continuation', async () => {
+  const f = fixture();
+  Object.assign(f.worker.config, { clusterId: 'cluster', workflowId: 'fixture', clusterRole: ROLE_PRESETS.find((p) => p.key === 'advisor')!.text });
+  f.worker.maybeCompact = async () => {};
+  const notices: string[] = [];
+  f.worker.on('system_notice', (notice: string) => notices.push(notice));
+  let calls = 0;
+  f.worker.streamWithFailover = async () => {
+    calls++;
+    return { ...success(), assistantMessage: { role: 'assistant', content: 'Recommendation without mail.' } };
+  };
+  await f.worker.run('Give a second opinion.');
+  assert.equal(calls, 2, 'the initial answer and the existing peer-report continuation run');
+  assert.equal(notices.filter((notice) => notice.includes('without peer_send')).length, 1);
 });

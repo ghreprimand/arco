@@ -4,7 +4,7 @@
 // ≤120 chars so it round-trips through the server clamp unchanged.
 
 export interface RolePreset {
-  key: 'director' | 'builder' | 'reviewer' | 'researcher' | 'tester' | 'documenter';
+  key: 'director' | 'builder' | 'reviewer' | 'researcher' | 'tester' | 'documenter' | 'advisor' | 'designer';
   label: string;
   text: string;
 }
@@ -53,6 +53,16 @@ export const ROLE_PRESETS: RolePreset[] = [
     key: 'documenter',
     label: 'DOCUMENTER',
     text: 'Documenter role. Read peer work via peer_read; write + update docs (README, guides, comments). Modify docs only.',
+  },
+  {
+    key: 'advisor',
+    label: 'ADVISOR',
+    text: 'Advisor role. Give the Director a second opinion on request; state doubts. No files, assignments or landing; peer_send.',
+  },
+  {
+    key: 'designer',
+    label: 'DESIGNER',
+    text: 'Designer role. Own screen layout, states, wording and accessibility. Change UI files only; report via peer_send.',
   },
 ];
 

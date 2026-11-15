@@ -1,4 +1,4 @@
-import type { VoiceCommand, VoiceContext, VoiceTarget } from '@arco/shared';
+import { presetForText, type VoiceCommand, type VoiceContext, type VoiceTarget } from '@arco/shared';
 
 // Only an explicit first word arms command parsing. No aliases or "hey"
 // preamble: incidental speech must not reach the interpreter or executor.
@@ -37,8 +37,9 @@ export function resolveVoiceTarget(query: string, context: VoiceContext, members
   // Computer phrases the selection the way the operator did ("this project",
   // "the current tab", "it"); all of these mean the selection.
   if (!q || /^(?:this|it|current|the current|this one|this 1|the current one|the current 1|this member|this chat|this project|the project|project|current project|the current project|this tab|the tab|current tab|the current tab|this cluster|the current cluster|selected|the selected one|selection|the selection)$/.test(q)) return targets.filter((t) => t.id === context.currentId);
+  const roleName = (t: VoiceTarget) => t.role ? presetForText(t.role)?.label ?? t.role : '';
   const scoped = targets.filter((t) => t.clusterId === context.clusterId);
-  const exact = (list: VoiceTarget[]) => list.filter((t) => [t.name, ...(t.aliases ?? []), ...(t.role ? [t.role] : [])].some((name) => normaliseVoiceName(name) === q || normaliseVoiceName(name).replace(/ /g, '') === q.replace(/ /g, ''))
+  const exact = (list: VoiceTarget[]) => list.filter((t) => [t.name, ...(t.aliases ?? []), ...(t.role ? [roleName(t)] : [])].some((name) => normaliseVoiceName(name) === q || normaliseVoiceName(name).replace(/ /g, '') === q.replace(/ /g, ''))
     || (q.length >= 4 && t.id.startsWith(q)));
   const localExact = exact(scoped);
   if (localExact.length) return localExact;
@@ -51,7 +52,7 @@ export function resolveVoiceTarget(query: string, context: VoiceContext, members
     const clusters = context.targets.filter((t) => t.kind === 'cluster' && normaliseVoiceName(t.name) === qualified[2]);
     if (clusters.length === 1) return resolveVoiceTarget(qualified[1], { ...context, clusterId: clusters[0].id, targets: targets.filter((t) => t.clusterId === clusters[0].id) }, membersOnly);
   }
-  const contains = (list: VoiceTarget[]) => list.filter((t) => [t.name, ...(t.aliases ?? []), t.role ?? ''].some((name) => normaliseVoiceName(name).includes(q)));
+  const contains = (list: VoiceTarget[]) => list.filter((t) => [t.name, ...(t.aliases ?? []), roleName(t)].some((name) => normaliseVoiceName(name).includes(q)));
   const local = contains(scoped);
   if (local.length) return local;
   const any = contains(targets);

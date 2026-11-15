@@ -44,7 +44,7 @@ import * as clusterPlanStore from './clusterPlanStore.js';
 import * as clusterPlanBridge from './clusterPlanBridge.js';
 import * as taskLedger from './project/taskLedger.js';
 import { appendLedgerComment, persistLedgerKernelMutation, persistLedgerMutation } from './ws/taskLedgerHandlers.js';
-import { isClusterDirector } from '@arco/shared';
+import { isClusterDirector, presetForText } from '@arco/shared';
 import type { ServerMessage, MemberTier, LedgerTask, LedgerTaskStatus, TaskComment, TaskDetails, TaskLink, TaskRun, TaskSignoff, TaskSignoffState } from '@arco/shared';
 
 // peer_send dedupe — guards against the orphan-tool-use retry pattern:
@@ -210,7 +210,7 @@ export async function peerSend(
         if (rolePrefix.length === 1) {
           resolved = rolePrefix[0].wfid;
         } else if (rolePrefix.length === 0) {
-          const roleWord = withRole.filter((r) => r.roleLc.split(/[^a-z0-9]+/).some((part) => part === ref));
+          const roleWord = withRole.filter((r) => (presetForText(r.role!)?.label.toLowerCase() ?? r.roleLc).split(/[^a-z0-9]+/).some((part) => part === ref));
           if (roleWord.length === 1) resolved = roleWord[0].wfid;
         }
       }

@@ -56,7 +56,7 @@ import type {
   OllamaPsModel,
   OllamaThinkingInfo,
 } from '@arco/shared';
-import { ollamaThinkParam, parseOllamaThinking } from '@arco/shared';
+import { isClusterDirector, ollamaThinkParam, parseOllamaThinking } from '@arco/shared';
 import { readSettings } from '../settings.js';
 import { resolveConfigValue } from '../configValue.js';
 import type { Provider, ProviderProcess } from './types.js';
@@ -357,8 +357,7 @@ function shouldRequireClusterPeerReport(
   if (!config.clusterId || !config.workflowId) return false;
   if (observedToolNames.has('peer_send')) return false;
 
-  const role = (config.clusterRole ?? '').toLowerCase();
-  if (/\b(coordinator|director)\b/.test(role)) return false;
+  if (isClusterDirector(config.clusterRole)) return false;
 
   return true;
 }

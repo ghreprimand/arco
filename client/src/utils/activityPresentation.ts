@@ -36,7 +36,7 @@ export function settledCardItem(job: JobState | undefined): { text: string; at: 
 
 export function canPlanFirst(role: string | undefined): boolean {
   const text = role ?? '';
-  if (/^\s*(?:director|coordinator|reviewer|researcher|documenter)\b/i.test(text)) return false;
+  if (/^\s*(?:director|coordinator|reviewer|researcher|documenter|advisor)\b/i.test(text)) return false;
   if (/^\s*(?:(?:you are|this is|role is)\s+(?:an?\s+)?)?read[ -]only\b/i.test(text)) return false;
 
   // A restriction qualified within its sentence permits changes under a condition.

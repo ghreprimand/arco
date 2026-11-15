@@ -4,7 +4,7 @@ import { mailRuleRequest } from './mailRules';
 import { readVoiceUsage } from './usage';
 import { watchRequest } from './watches';
 import { controlComputer } from './computerControl';
-import { presetForText, VOICE_MAX_TARGETS, VOICE_MAX_TEXT, type VoiceCommand, type VoiceContext, type VoiceTarget, type VoiceToolCallMessage, type WorkflowConfig } from '@arco/shared';
+import { isClusterDirector, presetForText, VOICE_MAX_TARGETS, VOICE_MAX_TEXT, type VoiceCommand, type VoiceContext, type VoiceTarget, type VoiceToolCallMessage, type WorkflowConfig } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { requestChatFollow } from '../stores/chatFollowStore';
 import type { JobState } from '../stores/appStore.types';
@@ -145,7 +145,7 @@ export class VoiceExecutor {
   private clusterVoice(t: VoiceTarget | string): VoiceTarget | string {
     if (typeof t === 'string' || t.kind !== 'cluster') return t;
     const members = this.context().targets.filter((m) => m.clusterId === t.id);
-    const directors = members.filter((m) => (m.role ? presetForText(m.role)?.label : undefined) === 'Director' || /\bdirector\b/i.test(m.role ?? '') || /\bdirector\b/i.test(m.name));
+    const directors = members.filter((m) => isClusterDirector(m.role) || (!m.role?.trim() && /\bdirector\b/i.test(m.name)));
     if (directors.length === 1) return directors[0];
     return `${t.name} is a cluster${directors.length ? ' with several Directors' : ' with no Director'}; name one of its members: ${members.map((m) => m.name).join(', ')}.`;
   }
@@ -186,7 +186,7 @@ export class VoiceExecutor {
         let recipient = t;
         if (t.kind === 'cluster') {
           const directors = this.context().targets.filter((m) => m.clusterId === t.id
-            && (presetForText(m.role ?? '')?.key === 'director' || /^director$/i.test(m.name.trim())));
+            && (isClusterDirector(m.role) || (!m.role?.trim() && /^director$/i.test(m.name.trim()))));
           if (directors.length !== 1) return `Which member of ${t.name} should I ask? Select one, then ask for a project update.`;
           recipient = directors[0];
         }

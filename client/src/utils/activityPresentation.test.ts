@@ -21,7 +21,7 @@ test('plan first is hidden for director and reviewer roles', () => {
 });
 
 test('plan first follows every preset and explicit no-code roles', () => {
-  const expected = {director:false,builder:true,reviewer:false,researcher:false,tester:true,documenter:false};
+  const expected = {director:false,builder:true,reviewer:false,researcher:false,tester:true,documenter:false,advisor:false,designer:true};
   for (const role of ROLE_PRESETS) assert.equal(canPlanFirst(role.text), expected[role.key], role.key);
   for (const role of ['Coordinator role', 'Audit role. Do not write code.', 'Specialist who does not edit code', 'Read-only role', 'Inspector: never modify source code', 'Observer: no code changes', 'Audit role: do not write or edit production code', 'Reviewer: must not change application code']) assert.equal(canPlanFirst(role), false, role);
   assert.equal(canPlanFirst('Builder role. Write code.'), true);

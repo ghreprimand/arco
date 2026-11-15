@@ -428,7 +428,7 @@ export const clusters: Section[] = [
   end-to-end and report back."
   </p>
   <p>
-  Six role presets are available:
+  Eight role presets are available:
   </p>
   <ul>
   <li>
@@ -461,7 +461,21 @@ export const clusters: Section[] = [
   <Code>peer_read</Code> and writes / updates docs (README, guides,
   comments); modifies docs only.
   </li>
+  <li>
+  <strong>ADVISOR</strong> - gives the Director a second opinion on
+  request: reads, challenges, recommends and states uncertainty. It changes
+  no files, assigns no work and lands nothing; replies via <Code>peer_send</Code>.
+  </li>
+  <li>
+  <strong>DESIGNER</strong> - owns screen layout, states, wording and
+  accessibility. It changes UI files only and reports via <Code>peer_send</Code>.
+  </li>
   </ul>
+  <p>
+  When an Advisor is present, the Director consults it before a design
+  decision or when the evidence is thin. The Director keeps the decision.
+  Role hints guide the agent; they do not enforce file access.
+  </p>
   <h4 className="manual-sub">Setting one</h4>
   <ol>
   <li>
@@ -469,7 +483,7 @@ export const clusters: Section[] = [
   <Code>EDIT</Code> if one is already set).
   </li>
   <li>
-  In the popover, pick one of the six presets, <Code>CLEAR</Code>, or{' '}
+  In the popover, pick one of the eight presets, <Code>CLEAR</Code>, or{' '}
   <Code>CUSTOM…</Code>.
   </li>
   <li>

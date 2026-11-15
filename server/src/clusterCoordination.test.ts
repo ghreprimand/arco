@@ -208,6 +208,32 @@ test('role-aware coordination and all mail entry points preserve required review
   }
 });
 
+test('Advisor and Designer presets survive storage and remain ordinary cluster members', async () => {
+  const c = await make();
+  const { isClusterDirector, clusterDirectorProblem } = await import('@arco/shared');
+  const { buildClusterDirectorDoctrine } = await import('./clusterDirector.js');
+  for (const [i, key] of ['advisor', 'designer'].entries()) {
+    const preset = ROLE_PRESETS.find((p) => p.key === key)!;
+    assert.ok(preset, key);
+    assert.ok(preset.text.length <= store.MEMBER_ROLE_MAX, `${key} is not truncated`);
+    await store.setMemberRole(c.clusterId, c.members[i]!, preset.text);
+    const saved = (await store.readCluster(c.clusterId))!.memberRoles![c.members[i]!]!;
+    assert.equal(saved, preset.text);
+    assert.equal(normalizeClusterRoleText(`  ${saved} `), preset.text);
+    assert.equal(presetForText(saved)?.key, key);
+    assert.equal(isClusterDirector(saved), false);
+    assert.equal(clusterDirectorProblem(['Director role.', saved]), null);
+    assert.equal(buildClusterDirectorDoctrine(saved), undefined);
+    assert.match(buildClusterCoordination('balanced', undefined, saved), /Finish the assigned outcome/);
+    assert.match(buildClusterAutoPickup('balanced', saved), /within your assigned scope/);
+  }
+  const misplaced = await peer.peerSend(context(c, c.members[1]), { to: 'Director', content: 'A Director-only request' });
+  assert.equal(misplaced.ok, false, 'mentioning Director in the Advisor body does not make it a recipient');
+  const addressed = await peer.peerSend(context(c, c.members[1]), { to: 'Advisor', content: 'Please recommend a choice.' });
+  assert.equal(addressed.ok, true, 'the canonical Advisor role remains addressable');
+  assert.match(buildClusterDirectorDoctrine('Director role.')!, /has an Advisor.*consult it.*decision remains yours/);
+});
+
 test('the previous unedited Builder preset keeps its preset, label and normalizes forward', () => {
   const legacy = 'Implementer role. Focus on your assigned scope. Use peer_send to report progress + blockers, not to direct peers.';
   const current = ROLE_PRESETS.find((p) => p.key === 'builder')!.text;

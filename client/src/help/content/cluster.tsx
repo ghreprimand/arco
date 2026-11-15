@@ -163,7 +163,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         The member's role hint. Preset matches show the preset's UPPERCASE
-        label (DIRECTOR / BUILDER / REVIEWER / RESEARCHER / TESTER / DOCUMENTER); free-form
+        label (DIRECTOR / BUILDER / REVIEWER / RESEARCHER / TESTER / DOCUMENTER / ADVISOR / DESIGNER); free-form
         text shows as <C>CUSTOM</C>. Edit from the MEMBERS sub-tab of the
         cluster right panel.
       </p>
@@ -603,7 +603,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.right-panel.role-set': {
     title: 'Set role',
-    body: <><p>Opens the role list: DIRECTOR, BUILDER, REVIEWER, RESEARCHER, TESTER and DOCUMENTER, plus CLEAR and CUSTOM. The current role is highlighted. The Director reads the diff and checks that project-required checks ran, without inventing a gate or permanent incident rule. Before blocking work, it states what a user would lose. A cluster may have only one director, so director choices are unavailable, with the reason shown, while another member holds that role.</p><p>Standard LM Studio, Strata and DeepSeek members receive their assigned role and shared plan. Blind members retain restricted context without the shared plan.</p></>,
+    body: <><p>Opens the role list: DIRECTOR, BUILDER, REVIEWER, RESEARCHER, TESTER, DOCUMENTER, ADVISOR and DESIGNER, plus CLEAR and CUSTOM. The current role is highlighted. ADVISOR gives a second opinion on request, states uncertainty, changes no files, assigns no work and lands nothing. DESIGNER owns screen layout, states, wording and accessibility and changes UI files only. Both report via peer_send. When an Advisor is present, the Director consults it before a design decision or when evidence is thin; the Director keeps the decision. These hints guide the agent and do not enforce file access.</p><p>The Director reads the diff and checks that project-required checks ran, without inventing a gate or permanent incident rule. Before blocking work, it states what a user would lose. A cluster may have only one director, so director choices are unavailable, with the reason shown, while another member holds that role.</p><p>Standard LM Studio, Strata and DeepSeek members receive their assigned role and shared plan. Blind members retain restricted context without the shared plan.</p></>,
     manualSection: 'cluster-roles',
   },
   'cluster.right-panel.role-preset': {
