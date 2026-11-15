@@ -164,7 +164,8 @@ export const workspace: Section[] = [
           One tab per workflow (Agent or Chat). Each tab shows the workflow
           name and a status dot: Working while a turn runs, Needs you while a
           worker waits for an answer or an idle member has mail, and New reply
-          when a turn finished while you were elsewhere.
+          when a turn finished while you were elsewhere. A Needs you dot pulses
+          while work is still running in the tab.
         </p>
         <p>
           Idle has no dot. Hover

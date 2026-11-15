@@ -1,7 +1,7 @@
 import { confirmationSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import { hasWaitingQuestion } from '../questions/waitingQuestion';
 import { TabStatusChip, useTabStatus } from './TabStatusChip';
-import { clusterHasIdleMail, TAB_STATUS_LABEL } from '../utils/tabStatus';
+import { clusterHasIdleMail, tabStatusPresentation } from '../utils/tabStatus';
 import { layoutPoint } from '../utils/pointer';
 import { useMemo, useRef, useState } from 'react';
 import {
@@ -503,7 +503,9 @@ function SortableWorkflowTab({ job, isActive, onActivate, onClose, onContextMenu
   const isBusy = activeWorkers > 0 || hasStreaming;
   const accountBadge = accountBadgeForJob(job, settings);
   const waitingNames = hasWaitingQuestion(job) ? [job.config.name || job.id.slice(0, 8)] : [];
-  const status = useTabStatus('job', job.id, waitingNames.length > 0, isBusy || !!job.busy);
+  const busy = isBusy || !!job.busy;
+  const status = useTabStatus('job', job.id, waitingNames.length > 0, busy);
+  const statusLabel = tabStatusPresentation(status, busy).label;
 
   return (
     <div
@@ -526,8 +528,8 @@ function SortableWorkflowTab({ job, isActive, onActivate, onClose, onContextMenu
     >
       <button
         onClick={onActivate}
-        title={TAB_STATUS_LABEL[status]}
-        aria-label={`${job.config.name || job.id.slice(0, 8)}${accountBadge ? `, ${accountBadge}` : ''}: ${TAB_STATUS_LABEL[status]}`}
+        title={statusLabel}
+        aria-label={`${job.config.name || job.id.slice(0, 8)}${accountBadge ? `, ${accountBadge}` : ''}: ${statusLabel}`}
         className="display-font"
         style={{
           padding: '8px 4px 8px 16px',
@@ -545,7 +547,7 @@ function SortableWorkflowTab({ job, isActive, onActivate, onClose, onContextMenu
       >
         {(job.config.name || job.id.slice(0, 8)).toUpperCase()}
         {accountBadge && <AccountBadge label={accountBadge} />}
-        <TabStatusChip status={status} compact />
+        <TabStatusChip status={status} busy={busy} compact />
       </button>
       <QuestionMark names={waitingNames} />
       <button
@@ -590,6 +592,7 @@ function SortableClusterTab({ cluster, isActive, onActivate, onClose }: ClusterT
   const anyBusy = cluster.members.some((m) => m.status === 'busy' || jobs[m.workflowId]?.busy);
   const status = useTabStatus('cluster', cluster.clusterId, waitingNames.length > 0 || clusterHasIdleMail(cluster, jobs), anyBusy);
   const label = clusterDisplayName(cluster);
+  const statusLabel = tabStatusPresentation(status, anyBusy).label;
   return (
     <div
       ref={setNodeRef}
@@ -610,8 +613,8 @@ function SortableClusterTab({ cluster, isActive, onActivate, onClose }: ClusterT
     >
       <button
         onClick={onActivate}
-        title={TAB_STATUS_LABEL[status]}
-        aria-label={`${label}: ${TAB_STATUS_LABEL[status]}`}
+        title={statusLabel}
+        aria-label={`${label}: ${statusLabel}`}
         className="display-font"
         style={{
           padding: '8px 4px 8px 16px',
@@ -629,7 +632,7 @@ function SortableClusterTab({ cluster, isActive, onActivate, onClose }: ClusterT
       >
         {label.toUpperCase()}
         <span style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>[{cluster.members.length}]</span>
-        <TabStatusChip status={status} compact />
+        <TabStatusChip status={status} busy={anyBusy} compact />
       </button>
       <QuestionMark names={waitingNames} />
       <button

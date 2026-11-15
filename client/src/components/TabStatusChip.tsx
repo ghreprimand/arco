@@ -1,5 +1,5 @@
 import { useTabStatusStore, tabKey } from '../stores/tabStatusStore';
-import { tabStatus, TAB_STATUS_HINT, TAB_STATUS_LABEL, type TabStatus } from '../utils/tabStatus';
+import { tabStatus, TAB_STATUS_HINT, tabStatusPresentation, type TabStatus } from '../utils/tabStatus';
 
 const COLOR: Record<TabStatus, string> = {
   'needs-you': 'var(--color-warning)',
@@ -14,7 +14,8 @@ export function useTabStatus(kind: 'job' | 'cluster', id: string, waiting: boole
 }
 
 /** The one status word for a tab or card. Text is always present, never colour alone. */
-export function TabStatusChip({ status, compact = false }: { status: TabStatus; compact?: boolean }) {
+export function TabStatusChip({ status, busy = status === 'working', compact = false }: { status: TabStatus; busy?: boolean; compact?: boolean }) {
+  const { label, pulsing } = tabStatusPresentation(status, busy);
   if (compact) {
     // Tab strip: the colored dot only; the word is the hover text and the accessible name.
     // Idle shows nothing (the empty marker keeps the status readable by tests and tools).
@@ -23,7 +24,7 @@ export function TabStatusChip({ status, compact = false }: { status: TabStatus; 
       <span
         data-help="tabbar.status"
         data-tab-status={status}
-        {...(shown ? { role: 'img', 'aria-label': TAB_STATUS_LABEL[status], title: TAB_STATUS_LABEL[status] } : { 'aria-hidden': true })}
+        {...(shown ? { role: 'img', 'aria-label': label, title: label } : { 'aria-hidden': true })}
         style={{
           display: 'inline-block',
           flexShrink: 0,
@@ -32,7 +33,7 @@ export function TabStatusChip({ status, compact = false }: { status: TabStatus; 
           borderRadius: '50%',
           background: shown ? COLOR[status] : 'transparent',
           opacity: status === 'new-reply' ? 0.6 : 1,
-          animation: status === 'working' ? 'pulse-glow 1.5s ease-in-out infinite' : undefined,
+          animation: pulsing ? 'pulse-glow 1.5s ease-in-out infinite' : undefined,
         }}
       />
     );
@@ -41,7 +42,7 @@ export function TabStatusChip({ status, compact = false }: { status: TabStatus; 
     <span
       data-help="tabbar.status"
       data-tab-status={status}
-      title={TAB_STATUS_HINT[status]}
+      title={status === 'needs-you' && busy ? 'Needs you - still working.' : TAB_STATUS_HINT[status]}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -62,10 +63,10 @@ export function TabStatusChip({ status, compact = false }: { status: TabStatus; 
           borderRadius: '50%',
           background: status === 'idle' ? 'transparent' : COLOR[status],
           border: `1px solid ${COLOR[status]}`,
-          animation: status === 'working' ? 'pulse-glow 1.5s ease-in-out infinite' : undefined,
+          animation: pulsing ? 'pulse-glow 1.5s ease-in-out infinite' : undefined,
         }}
       />
-      {TAB_STATUS_LABEL[status]}
+      {label}
     </span>
   );
 }

@@ -25,6 +25,14 @@ export function tabStatus(input: { waiting: boolean; busy: boolean; unviewed: bo
   return 'idle';
 }
 
+/** Attention keeps its colour while the pulse and label also show ongoing work. */
+export function tabStatusPresentation(status: TabStatus, busy: boolean): { label: string; pulsing: boolean } {
+  return {
+    label: status === 'needs-you' && busy ? 'Needs you - still working' : TAB_STATUS_LABEL[status],
+    pulsing: busy,
+  };
+}
+
 /** A member that is idle while messages wait for it: it needs a nudge from the operator. */
 export function idleWithMail(member: { status: string; workflowId: string }, depth: unknown, jobBusy: boolean | undefined): boolean {
   return member.status !== 'busy' && !jobBusy && typeof depth === 'number' && Number.isSafeInteger(depth) && depth > 0;

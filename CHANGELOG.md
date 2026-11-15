@@ -8,6 +8,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Separate stopped work from optional questions and acceptance in the cluster badge, and open REVIEW task drawers on the verdict and existing acceptance actions with Edit collapsed below.
 - Deliver a Codex steer returned after its turn ends through the idle queue immediately, preserving its place before later input and respecting STOP and admission guards.
 - Give capped Smart pickup evaluations reasoning headroom, attempt guarded ordinary pickup after evaluator failure while preserving the existing one startup retry, and explain fallback, session expiry and the existing session-length control, now capped at four hours with older longer values clamped.
+- Keep the Needs you status dot pulsing while a tab is still working.
 - Keep messages queued while Claude Native server tools are still waiting for results, show one held-message notice, and preserve the current turn's search evidence and reasoning.
 - Open attached files from the packaged install uploads folder in the file viewer.
 - Update Codex through its recognised installation, refuse a different npm target, and show explicit update results instead of calling an unchanged version latest.

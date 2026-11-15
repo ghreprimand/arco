@@ -291,5 +291,5 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
 }
 
 function HomeWorkStatus({ kind, id, waiting, busy }: { kind: 'job' | 'cluster'; id: string; waiting: boolean; busy: boolean }) {
-  return <TabStatusChip status={useTabStatus(kind, id, waiting, busy)} />;
+  return <TabStatusChip status={useTabStatus(kind, id, waiting, busy)} busy={busy} />;
 }

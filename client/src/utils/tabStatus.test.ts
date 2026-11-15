@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { tabStatus, TAB_STATUS_LABEL } from './tabStatus.js';
+import { tabStatus, tabStatusPresentation, TAB_STATUS_LABEL } from './tabStatus.js';
 
 test('a waiting question outranks a running turn and an unviewed reply', () => {
   assert.equal(tabStatus({ waiting: true, busy: true, unviewed: true }), 'needs-you');
@@ -22,4 +22,11 @@ test('an idle member with mail needs the operator; a busy one or one without mai
   assert.equal(clusterHasIdleMail(cluster('idle', 2), { m: { busy: true } }), false);
   assert.equal(clusterHasIdleMail(cluster('idle', 0), {}), false);
   assert.equal(clusterHasIdleMail({ members: [{ workflowId: 'm', status: 'idle' }] }, {}), false);
+});
+
+test('attention preserves its colour while work is indicated by a pulse and label', () => {
+  const attention = tabStatus({ waiting: true, busy: true, unviewed: false });
+  assert.equal(attention, 'needs-you');
+  assert.deepEqual(tabStatusPresentation(attention, true), { label: 'Needs you - still working', pulsing: true });
+  assert.deepEqual(tabStatusPresentation(attention, false), { label: 'Needs you', pulsing: false });
 });

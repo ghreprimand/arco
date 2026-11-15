@@ -24,7 +24,8 @@ export const tabbarHelp: Record<string, HelpEntry> = {
       <p>
         A colored dot on each tab (hover for the word) and the word itself on
         each Continue card on Home. <strong>Needs you</strong> (warning dot):
-        a worker waits for an answer. <strong>Working</strong>: a turn is running.{' '}
+        a worker waits for an answer or an idle member has mail. The dot pulses
+        while work is still running. <strong>Working</strong>: a turn is running.{' '}
         <strong>New reply</strong>: a turn ended while you were on another tab
         or Home; opening the tab clears it. <strong>Idle</strong> (no dot): nothing is
         running or waiting. A cluster tab combines its members, and Needs you
