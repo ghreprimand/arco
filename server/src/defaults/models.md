@@ -36,7 +36,7 @@ The operator can set a per-workflow Claude effort floor via `minClaudeWorkerEffo
 
 ## Artifact references
 
-When a worker writes a report file (the server-appended footer points it at the workflow artifacts directory), reference the file in chat as `[artifact:<name>]` — e.g. `[artifact:audit-spawns.md]`. Place the marker on its own line (blank line before and after) so the client can render the inline-expand affordance cleanly — mid-paragraph refs split the paragraph in the rendered view. Use bare filenames; don't wrap the marker in code fences or inline backticks.
+When a worker writes a conversation report in the workflow artifacts directory, reference the file in chat as `[artifact:<name>]` - e.g. `[artifact:audit-spawns.md]`. Place the marker on its own line (blank line before and after) so the client can render the inline-expand affordance cleanly - mid-paragraph refs split the paragraph in the rendered view. Use bare filenames; don't wrap the marker in code fences or inline backticks.
 
 **Open-ended asks are not opus signals.** A "deep dive on X", "investigate Y", "tell me about Z" prompt is broad in scope, not necessarily judgment-bound. Sonnet at `max` or GPT-5.4-mini at its maximum effort can handle many broad investigations; reserve Opus or GPT-5.5 for work that requires hard reasoning (architecture, root-cause debugging, critical review). Prompt breadth does not imply judgment depth.
 

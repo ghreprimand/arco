@@ -23,7 +23,7 @@ function formatCapMb(bytes: number): string {
 export const OUTPUT_TRUNCATION_NOTICE =
   `\n\n[OUTPUT TRUNCATED — Arco enforced ${formatCapMb(MAX_WORKER_OUTPUT_BYTES)} worker-output cap. ` +
   'For reports larger than this, instruct the worker to write the full ' +
-  'output to a markdown file in the workflow artifacts directory and return only a brief summary + path.]';
+  'output to a markdown file in the workflow artifacts directory and return only a brief summary + path, unless the operator wants it kept in the project.]';
 
 function parseRssEnv(): number {
   const raw = process.env.ARCO_RSS_KILL_BYTES;
@@ -68,6 +68,11 @@ export function buildWorkerSafetyFooter(cwd?: string, wfid?: string): string {
     ? `- For report-shaped outputs (deep dives, inventories, audits, multi-section findings), write a markdown file into \`${dir}/\` (this directory already exists) and return a brief summary that names the file in backticks (for example \`audit-spawns.md\`) so it is clickable in chat. Do NOT write report files at the project root — Arco tracks artifacts per-workflow and surfaces them inline in chat. For ordinary prose responses — even detailed ones — return the full text inline; the operator reads it in chat.`
     : `- For report-shaped outputs (deep dives, inventories, audits, multi-section findings), write a markdown file in the cwd and return a brief summary + absolute path. For ordinary prose responses — even detailed ones — return the full text inline; the operator reads it in chat.`;
 
+  const projectStateLine = `Never commit, force-add or add an ignore exception for \`.arco/\`, which is local state, except a skill shared through SHARE WITH REPOSITORY.`;
+  const projectFilesLine = dir
+    ? `\n- Put files the operator wants kept in the project (documentation, a README or notes to commit) in the project tree, for example \`docs/\`, not in artifacts. ${projectStateLine}`
+    : `\n- ${projectStateLine}`;
+
   const scratchLine = dir
     ? `\n- Put large intermediate files (builds, disk images, downloads, datasets) in \`${path.join(path.dirname(dir), 'scratch')}/\` (create it if missing), not in artifacts. Keep only finished deliverables in artifacts. The operator empties scratch with EMPTY SCRATCH; nothing there is deleted automatically.`
     : '';
@@ -79,7 +84,7 @@ export function buildWorkerSafetyFooter(cwd?: string, wfid?: string): string {
 - No \`find /\` / \`du -sh /\` without \`-maxdepth\` and exclusions for \`/proc /sys /dev /run\`. Skip \`~/.cache\`, \`node_modules\`, \`.git/objects\`, \`/var/cache\`, \`/snap\`.
 - No reads of \`/proc/kcore\`, \`/proc/*/mem\`, \`/dev/{kmem,mem,zero,urandom}\` past first KB. No unbounded \`journalctl\` or \`while true\` loops.
 - No \`cat\` of files >10MB; use \`head -c 100K\` instead. \`xargs\` always with explicit limits.
-${bigOutputLine}${scratchLine}
+${bigOutputLine}${projectFilesLine}${scratchLine}
 - Arco will hard-kill your process tree at 32GB RSS or ${formatCapMb(MAX_WORKER_OUTPUT_BYTES)} returned output. These are the floor, not the budget.
 `;
 }

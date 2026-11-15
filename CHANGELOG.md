@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Tell agents to keep requested project files in the project tree and leave Arco project state out of commits, except skills shared through SHARE WITH REPOSITORY.
 - Repair missing workflow metadata before resume and session discovery, save known provider conversation ids, and explain lost conversations with an honest CTX reading and COMPACT message.
 - Re-arm between-turn auto-compaction after success and show a notice when context remains at or above the threshold after three attempts.
 - Retry temporary Claude Native gateway and connection failures on the existing ladder, and report exhausted attempts without raw gateway response bodies while preserving the conversation.

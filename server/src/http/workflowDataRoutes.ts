@@ -529,7 +529,7 @@ export async function tryHandleWorkflowDataRoutes(
     return true;
   }
 
-  // Per-workflow artifact reader. Workers write report-shaped outputs into
+  // Per-workflow artifact reader. Workers write conversation reports into
   // `<cwd>/.arco/workflows/<wfid>/artifacts/`; the client fetches them on
   // demand when chat contains `[artifact:<name>]`. Name is strictly sanitized.
   if (req.url?.startsWith('/api/workflows/artifact') && req.method === 'GET') {

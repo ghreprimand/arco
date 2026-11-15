@@ -115,6 +115,14 @@ test('the agent guidance names the conversation scratch folder', () => {
   assert.doesNotMatch(buildWorkerSafetyFooter(), /scratch/);
 });
 
+test('agent guidance keeps project files out of artifacts and protects local state', () => {
+  const scoped = buildWorkerSafetyFooter('/proj', 'conv-1');
+  assert.match(scoped, /files the operator wants kept in the project.*project tree.*docs\/.*not in artifacts/);
+  for (const footer of [scoped, buildWorkerSafetyFooter()]) {
+    assert.match(footer, /Never commit, force-add or add an ignore exception for `.arco\/`.*local state.*except a skill shared through SHARE WITH REPOSITORY/);
+  }
+});
+
 test('KEEP writes atomically, preserves existing marks, and refuses broken metadata and links', async () => {
   const { addKeep } = await import('./keepStore.js');
   await conversation(async (_cwd, dir) => {
