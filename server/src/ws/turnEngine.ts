@@ -1,9 +1,10 @@
+import { ensureWorkflowMetadata, providerConversationState, saveProviderSession, announceReplacementConversation, markConversationReading } from '../providerConversation.js';
 import { mintHandoffHistoryCapability } from '../http/handoffHistoryRoutes.js';
 import { deliverAfterTurnRevoked } from './taskLifecycle.js';
 import { resolveClaudeTransport } from '../claudeTransport.js';
 import { projectLocalFileReferences } from '../primitives/localFileContext.js';
 import { getEffectivePublicProjectChoice } from '../publicProjectChoice.js';
-import { buildMessageGuardPolicy, storedOutputStyle } from '@arco/shared';
+import { buildMessageGuardPolicy } from '@arco/shared';
 import * as attention from '../attention.js';
 import { acquireCheckoutWriter, assertCheckoutAvailable, workflowWritePaths, observeCheckoutWriters } from '../checkoutOwnership.js';
 import { randomUUID } from 'node:crypto';
@@ -22,7 +23,7 @@ SteerItem,
 WorkflowConfig,
 ClusterEfficiencyLevel
 } from '@arco/shared';
-import { AUTO_HANDOFF_DEFAULT_COMPACTIONS, autoHandoffAvailability, clampAutoHandoffCompactions, isAutoCompactionPolicy, normalizeAutoHandoff, resolveProviderAutoCompaction, type AutoHandoffAvailability, type AutoHandoffConfig, type AutoHandoffMode } from '@arco/shared';
+import { AUTO_HANDOFF_DEFAULT_COMPACTIONS, autoHandoffAvailability, clampAutoHandoffCompactions, normalizeAutoHandoff, resolveProviderAutoCompaction, type AutoHandoffAvailability, type AutoHandoffConfig, type AutoHandoffMode } from '@arco/shared';
 import { compactionsThisConversation } from '../compactionCounter.js';
 import { WebSocket } from 'ws';
 import { discoverClaudeMdFiles } from '../claudeMdDiscovery.js';
@@ -111,7 +112,7 @@ readSkillBody,
 import { ARCHITECTURE_REVIEW_SLUG, architectureReviewFacts } from '../architectureReview.js';
 import { artifactsDir } from '../workers/limits.js';
 import {
-ensureMeta,readMeta,reconcileLatestCliSession,updateMeta,workflowDir,type WorkflowMeta
+persistInitialMeta,readMeta,updateMeta,workflowDir
 } from '../workflowMeta.js';
 import {
 currentSeq as currentWorkflowSeq,
@@ -1333,122 +1334,7 @@ export function requeueSteerForWorker(
   void ws;
 }
 
-export async function persistInitialMeta(
-  cwd: string,
-  workflowId: string,
-  config: WorkflowConfig,
-  primary: PrimaryConfig,
-  opts?: { parentWorkflowId?: string },
-): Promise<void> {
-  // Cheap unlocked probe first (the common resume case); the actual seed goes
-  // through ensureMeta so a check-then-write can't clobber a concurrent
-  // updateMeta landing between the two.
-  const existing = await readMeta(cwd, workflowId);
-  if (existing) return;
-  const now = Date.now();
-  const meta: WorkflowMeta = {
-    workflowId,
-    name: config.name,
-    cwd,
-    ...(config.kind === 'chat' ? { kind: 'chat' as const } : {}),
-    ...(config.kind === 'chat' && config.voiceOperator === true ? { voiceOperator: true } : {}),
-    createdAt: now,
-    lastActiveAt: now,
-    primaryProvider: primary.provider,
-    primaryModel: primary.model,
-    primaryEffort: primary.effort,
-    ...(config.providerAccountRef ? { providerAccountRef: config.providerAccountRef } : {}),
-    cliSessions: [],
-    operator: 'local',
-    lastEventSeq: null,
-    lastTranscriptSeq: null,
-    compactedAt: null,
-    ...(config.pinnedSkills?.length
-      ? { pinnedSkills: config.pinnedSkills.map((s) => ({ scope: s.scope, slug: s.slug })) }
-      : {}),
-    ...(opts?.parentWorkflowId ? { parentWorkflowId: opts.parentWorkflowId } : {}),
-    // docs/PROVIDERS.md / docs/PROVIDERS.md - when the New-tab
-    // picker (or Spawn-from-here parent inheritance) provided a non-default
-    // value, persist it to disk on the very first meta write so a server
-    // restart before the operator's first turn doesn't lose the pick.
-    // Sanitized one more time at write-site against unknown values reaching
-    // disk via a hand-edited cascade default.
-    ...(config.efficiencyToolFilter === 'off' || config.efficiencyToolFilter === 'conservative' || config.efficiencyToolFilter === 'aggressive'
-      ? { efficiencyToolFilter: config.efficiencyToolFilter }
-      : {}),
-    // docs/PROVIDERS.md - persist the stamped new-tab default or
-    // an explicit operator choice on the first meta write.
-    ...(config.efficiencyFactForce === 'on' || config.efficiencyFactForce === 'off'
-      ? { efficiencyFactForce: config.efficiencyFactForce }
-      : {}),
-    // Persist an explicit config-protection choice to disk on first meta-write
-    // so an operator opt-out survives a restart. Absent ⇒ gate ON by default.
-    ...(config.efficiencyConfigProtection === 'on' || config.efficiencyConfigProtection === 'off'
-      ? { efficiencyConfigProtection: config.efficiencyConfigProtection }
-      : {}),
-    ...(typeof config.claudeNativeCompact === 'boolean'
-      ? {
-          claudeNativeCompact: config.claudeNativeCompact,
-          ...(config.claudeNativeCompact === true ? { claudeNativeCompactUserSetAt: now } : {}),
-        }
-      : {}),
-    ...(typeof config.claudeNativeForceInterleavedThinkingBeta === 'boolean'
-      ? { claudeNativeForceInterleavedThinkingBeta: config.claudeNativeForceInterleavedThinkingBeta }
-      : {}),
-    nativeSubagents: config.nativeSubagents,
-    claudeNativeTaskDisabled: config.claudeNativeTaskDisabled,
-    ...(config.claudeNativeThinkingDisplay === 'omitted' || config.claudeNativeThinkingDisplay === 'summarized' || config.claudeNativeThinkingDisplay === 'updates'
-      ? { claudeNativeThinkingDisplay: config.claudeNativeThinkingDisplay }
-      : {}),
-    ...(config.codexTransport === 'exec' || config.codexTransport === 'appserver'
-      ? { codexTransport: config.codexTransport }
-      : {}),
-    ...(config.codexContextPolicy === 'max' || config.codexContextPolicy === 'standard'
-      ? { codexContextPolicy: config.codexContextPolicy }
-      : {}),
-    ...(config.claudeTransport === 'cli' || config.claudeTransport === 'native'
-      ? { claudeTransport: config.claudeTransport }
-      : {}),
-    // Persist the seeded auto-handoff default on the first meta-write so a
-    // server restart before the operator's first turn keeps the global
-    // default (handleCreateWorkflow bakes it into config for new tabs). The
-    // savedMeta restore in handleCreateWorkflow reads this back.
-    ...(isAutoCompactionPolicy(config.autoCompaction) ? { autoCompaction: { ...config.autoCompaction } } : {}),
-    ...(config.autoHandoff ? { autoHandoff: { ...config.autoHandoff } } : {}),
-    // docs/PROVIDERS.md - persist the sandbox toggle on the
-    // first meta-write when the cascade default supplied a non-undefined
-    // value. Default is 'off'; only the explicit on/off pair lands here so
-    // a stale cascade doesn't accidentally turn the sandbox on for tabs
-    // that were never asked.
-    ...(config.efficiencySandbox === 'on' || config.efficiencySandbox === 'off'
-      ? { efficiencySandbox: config.efficiencySandbox }
-      : {}),
-    // docs/PROVIDERS.md - persist the review-gate toggle on the first meta-write
-    // when the cascade default supplied an explicit value, so an operator opt-in
-    // survives a restart before the first turn. Default 'off'.
-    ...(config.reviewSafeMode === 'on' || config.reviewSafeMode === 'off'
-      ? { reviewSafeMode: config.reviewSafeMode }
-      : {}),
-    // Only a style other than the default is written; unset means
-    // DEFAULT_OUTPUT_STYLE. Legacy `lite` / `caveman` from a stale client are
-    // written as `plain` / `terse` (plain being the default, it stays unset).
-    ...(storedOutputStyle(config.outputStyle) ? { outputStyle: storedOutputStyle(config.outputStyle) } : {}),
-    // docs/GOTCHAS.md - persist a north-star seeded before the first turn
-    // (e.g. a Spawn-from-here that inherited the parent's) so it survives a
-    // restart even if the operator never re-sets it. Blank ⇒ omitted.
-    ...(config.goal && config.goal.trim() ? { goal: config.goal } : {}),
-    // docs/PROVIDERS.md - persist sticky ultracode on the first meta-write so a
-    // tab left in ultracode survives a restart (the rehydrate read in
-    // workflowHandlers.ts expects saved.ultracode). Without this the flag lives
-    // only in-memory and the tab silently drops out of ultracode on restart.
-    ...(config.ultracode === true ? { ultracode: true } : {}),
-    ...(typeof config.webSearchMaxUses === 'number' ? { webSearchMaxUses: config.webSearchMaxUses } : {}),
-    ...(config.managedWorktreeSourceCwd
-      ? { managedWorktreeSourceCwd: config.managedWorktreeSourceCwd }
-      : {}),
-  };
-  await ensureMeta(cwd, meta);
-}
+export { persistInitialMeta } from '../workflowMeta.js';
 
 export async function writeCalibrationToMeta(
   cwd: string,
@@ -2005,10 +1891,18 @@ export async function handleUserMessage(
     wf.config.providerAccountRef = providerAccount.profile.id;
   }
 
+  if (!incognito) {
+    await ensureWorkflowMetadata(cwd, workflowId, wf);
+    wf.providerConversation = await providerConversationState(cwd, workflowId, wf);
+    if (wf.providerConversation) broadcastTransient(workflowId, { type: 'provider_conversation_state', workflowId, state: wf.providerConversation });
+  }
+  let sessionSave: Promise<void> = Promise.resolve();
+  let hasFreshContextReading = false;
   let activeTurnObservation: ReturnType<typeof observeCheckoutWriters> | undefined;
   try {
     while (true) {
       primaryTurn.clusterDispatch = undefined;
+      hasFreshContextReading = false;
       const pickedSkillsBlock = await resolvePickedSkillsBlock(promptPickedSkills);
       console.log(`[arco] [${workflowId.slice(0, 8)}] user_message received; starting primary turn (${wf.primary.provider}:${wf.primary.model}, resume=${wf.primarySessionId?.slice(0, 8) || 'none'})`);
 
@@ -2689,6 +2583,8 @@ export async function handleUserMessage(
           broadcast: (msg) => {
             // A Task child's final status still belongs to the card after STOP.
             if (!dispatchCurrent() && !deliverAfterTurnRevoked(msg)) return;
+            if (msg.type === 'primary_complete' && msg.tokens
+                && msg.tokens.input + (msg.tokens.cacheRead ?? 0) + (msg.tokens.cacheCreate ?? 0) > 0) hasFreshContextReading = true;
             const delivery = msg.type === 'primary_turn_started' && executionInputClientIds.length
               ? { ...msg, inputClientMessageIds: executionInputClientIds } : msg;
             send(ws, ollamaExecutionId ? stampOllamaExecution(delivery, ollamaExecutionId, executionInputSeqs) : delivery);
@@ -2796,9 +2692,7 @@ export async function handleUserMessage(
       if (!incognito && firstIteration && !wf.primarySessionId && turn.initialSessionId
           && wf.primary.provider === 'claude' && claudeTransport !== 'native') {
         wf.primarySessionId = turn.initialSessionId;
-        reconcileLatestCliSession(cwd, workflowId, 'claude', turn.initialSessionId).catch((err) => {
-          console.error(`[arco] [${workflowId.slice(0, 8)}] meta reconcile (claude mint) failed:`, err);
-        });
+        sessionSave = saveProviderSession(cwd, workflowId, wf, 'claude', turn.initialSessionId);
       }
 
       // Codex emits thread_id at init. Capture on first fire, persist to meta.
@@ -2806,9 +2700,8 @@ export async function handleUserMessage(
         if (incognito || !dispatchCurrent() || wf.primary.provider !== policyTurnProvider) return;
         if (!wf.primarySessionId) wf.primarySessionId = sid;
 
-        reconcileLatestCliSession(cwd, workflowId, policyTurnProvider, sid, providerAccount?.profile.id).catch((err) => {
-          console.error(`[arco] [${workflowId.slice(0, 8)}] meta reconcile (${wf.primary.provider}) failed:`, err);
-        });
+        announceReplacementConversation(workflowId, wf);
+        sessionSave = sessionSave.then(() => saveProviderSession(cwd, workflowId, wf, policyTurnProvider, sid, providerAccount?.profile.id));
       });
 
       // docs/PROVIDERS.md - surface the background fleet. Under ultracode the
@@ -2832,6 +2725,8 @@ export async function handleUserMessage(
       let carryInterruptedPrompt = false;
       try {
         outcome = await turn.settled;
+        await sessionSave;
+        if (hasFreshContextReading && dispatchCurrent()) await markConversationReading(cwd, workflowId, wf);
         // A second correction may cancel Native during auth/hooks, before
         // its first correction entered history. Carry that unsent input.
         carryInterruptedPrompt = await primaryTurn.interruption === false && primaryTurn.holdSteer;

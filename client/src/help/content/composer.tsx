@@ -199,6 +199,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           tabs. Runs between turns: disabled while a turn is in flight.
         </p>
       <p>For Cursor, STOP during compression finishes its cancellation wait when compression settles. A later turn is not affected by the old cancellation timer.</p>
+        <p>With earlier history but no saved Codex thread or Cursor session, COMPACT explains that the previous conversation cannot be resumed and the next message starts a new one. Earlier messages remain visible. An empty tab keeps the first-turn guidance.</p>
       </>
     ),
   },
@@ -521,6 +522,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           Click here to recalibrate on demand (Claude only: runs <C>/context</C>{' '}
           against the live session via a background pty).
         </p>
+        <p>If a saved provider conversation id was lost, <C>CTX: -</C> explains that the previous conversation cannot be resumed. The next message starts a new conversation and adds one notice; the replacement waits for its own reading. Earlier messages and usage stay in the tab. Missing metadata is recreated, but an already-lost id cannot be recovered.</p>
       </>
     ),
     manualSection: 'context-window',

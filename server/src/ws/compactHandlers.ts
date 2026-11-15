@@ -1,3 +1,4 @@
+import { hasConversationHistory } from '../providerConversation.js';
 import { supportsManualCompact } from '../manualCompactCapability.js';
 // `compact_workflow` handler — operator-triggered native compaction. One WS
 // message, provider-routed:
@@ -154,7 +155,7 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
       if (codexTransport !== 'appserver') {
         result = { ok: false, error: 'Compact needs the Codex app-server transport (CONFIG → TRANSPORT). On Codex exec, use Handoff.' };
       } else if (!wf.primarySessionId) {
-        result = { ok: false, error: 'no saved Codex thread for this workflow — run a turn first' };
+        result = { ok: false, error: await hasConversationHistory(cwd!, workflowId) ? 'The previous Codex conversation cannot be resumed because its saved thread id is unavailable. The next message starts a new conversation; earlier messages remain in this tab.' : 'no saved Codex thread for this workflow — run a turn first' };
       } else {
         const account = await resolveProviderAccount('codex', wf.config.providerAccountRef, cwd).catch(() => null);
         const turnClusterId = clusterStore.getClusterIdForWorkflow(workflowId);
@@ -184,7 +185,7 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
     } else if (provider === 'cursor') {
       compactedVia = 'cursor-acp';
       if (!wf.primarySessionId) {
-        result = { ok: false, error: 'no saved Cursor session for this workflow — run a turn first' };
+        result = { ok: false, error: await hasConversationHistory(cwd!, workflowId) ? 'The previous Cursor conversation cannot be resumed because its saved session id is unavailable. The next message starts a new conversation; earlier messages remain in this tab.' : 'no saved Cursor session for this workflow — run a turn first' };
       } else {
         const turnClusterId = clusterStore.getClusterIdForWorkflow(workflowId);
         result = await compactCursorAcpThread(workflowId, {

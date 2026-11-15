@@ -1,6 +1,7 @@
+import type { PrimaryConfig } from './primitives/seedWorker.js';
 import { beginConversationWrite } from './conversationActivity.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
-import { normalizeAutoHandoff, normalizeOutputStyle, retiredProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
+import { isAutoCompactionPolicy, storedOutputStyle, normalizeAutoHandoff, normalizeOutputStyle, retiredProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
 // Slot 9 — per-workflow identity + session ledger (meta.json).
 //
 // Lives at <cwd>/.arco/workflows/<wfid>/meta.json alongside Slot 5's
@@ -80,6 +81,8 @@ export interface WorkflowMeta {
   // Append-only ledger of every CLI session bound to this workflow. Newest
   // entry last.
   cliSessions: WorkflowCliSession[];
+  // A replacement external conversation has not supplied its own context reading.
+  providerConversationPendingReading?: boolean;
   // Phase 6 Lite — session rotations archived by Handoff land here. Not the
   // same as `cliSessions[]`: a session can appear in both (it was live at
   // some point, then later archived). The history entry carries the handoff
@@ -470,8 +473,8 @@ export async function updateMeta(
 }
 
 // Ensure a meta.json exists — write one from `seed` if missing. Used by the
-// rehydrate path so pre-Slot-9 workflows (no meta.json on disk) get one
-// lazily the next time their client reconnects.
+// creation, reconnect and turn paths. Existing metadata is preserved, including
+// updates that land while the caller is constructing its authoritative seed.
 export async function ensureMeta(cwd: string, seed: WorkflowMeta): Promise<WorkflowMeta> {
   if (!cwd) return seed;
   validateWfid(seed.workflowId);
@@ -519,16 +522,21 @@ export async function appendCliSession(
 // with Arco's placeholder id. Update that provider's latest entry in place
 // rather than appending a second row; when the ids already match, only refresh
 // lastActiveAt. This keeps resume lookup aligned with the live CLI session
-// after initial binding or session rotation.
+// after initial binding or session rotation. An authoritative seed repairs a
+// missing file inside the same lock; generic updateMeta remains update-only.
 export async function reconcileLatestCliSession(
   cwd: string,
   wfid: string,
   provider: ProviderName,
   liveSessionId: string,
   providerAccountRef?: string,
+  seed?: WorkflowMeta,
 ): Promise<void> {
   if (!cwd || !liveSessionId) return;
-  await updateMeta(cwd, wfid, (meta) => {
+  validateWfid(wfid);
+  await withFileLock(metaPath(cwd, wfid), async () => {
+    const meta = await readMeta(cwd, wfid) ?? seed;
+    if (!meta) throw new Error('Workflow metadata is missing; the provider conversation was not saved.');
     // Find the latest entry for this provider (not strictly the last overall —
     // a cross-provider workflow might have interleaved entries).
     let latestIdx = -1;
@@ -544,6 +552,11 @@ export async function reconcileLatestCliSession(
       meta.cliSessions[latestIdx].providerAccountRef = providerAccountRef;
     }
     meta.lastActiveAt = now;
+    if (seed) {
+      if (seed.providerConversationPendingReading) meta.providerConversationPendingReading = true;
+      else delete meta.providerConversationPendingReading;
+    }
+    await writeMeta(cwd, meta);
   });
 }
 
@@ -682,4 +695,125 @@ export async function listWorkflowMetas(cwd: string): Promise<WorkflowMetaSummar
   }
   out.sort((a, b) => b.lastActiveAt - a.lastActiveAt);
   return out;
+}
+
+export function workflowMetaSeed(
+  cwd: string, workflowId: string, config: WorkflowConfig,
+  primary: Pick<PrimaryConfig, 'provider' | 'model' | 'effort'>,
+  opts?: { parentWorkflowId?: string },
+): WorkflowMeta {
+  const now = Date.now();
+  return {
+    workflowId,
+    name: config.name,
+    cwd,
+    ...(config.kind === 'chat' ? { kind: 'chat' as const } : {}),
+    ...(config.kind === 'chat' && config.voiceOperator === true ? { voiceOperator: true } : {}),
+    createdAt: now,
+    lastActiveAt: now,
+    primaryProvider: primary.provider,
+    primaryModel: primary.model,
+    primaryEffort: primary.effort,
+    ...(config.providerAccountRef ? { providerAccountRef: config.providerAccountRef } : {}),
+    cliSessions: [],
+    operator: 'local',
+    lastEventSeq: null,
+    lastTranscriptSeq: null,
+    compactedAt: null,
+    ...(config.pinnedSkills?.length
+      ? { pinnedSkills: config.pinnedSkills.map((s) => ({ scope: s.scope, slug: s.slug })) }
+      : {}),
+    ...(opts?.parentWorkflowId ? { parentWorkflowId: opts.parentWorkflowId } : {}),
+    // docs/PROVIDERS.md / docs/PROVIDERS.md - when the New-tab
+    // picker (or Spawn-from-here parent inheritance) provided a non-default
+    // value, persist it to disk on the very first meta write so a server
+    // restart before the operator's first turn doesn't lose the pick.
+    // Sanitized one more time at write-site against unknown values reaching
+    // disk via a hand-edited cascade default.
+    ...(config.efficiencyToolFilter === 'off' || config.efficiencyToolFilter === 'conservative' || config.efficiencyToolFilter === 'aggressive'
+      ? { efficiencyToolFilter: config.efficiencyToolFilter }
+      : {}),
+    // docs/PROVIDERS.md - persist the stamped new-tab default or
+    // an explicit operator choice on the first meta write.
+    ...(config.efficiencyFactForce === 'on' || config.efficiencyFactForce === 'off'
+      ? { efficiencyFactForce: config.efficiencyFactForce }
+      : {}),
+    // Persist an explicit config-protection choice to disk on first meta-write
+    // so an operator opt-out survives a restart. Absent ⇒ gate ON by default.
+    ...(config.efficiencyConfigProtection === 'on' || config.efficiencyConfigProtection === 'off'
+      ? { efficiencyConfigProtection: config.efficiencyConfigProtection }
+      : {}),
+    ...(typeof config.claudeNativeCompact === 'boolean'
+      ? {
+          claudeNativeCompact: config.claudeNativeCompact,
+          ...(config.claudeNativeCompact === true ? { claudeNativeCompactUserSetAt: now } : {}),
+        }
+      : {}),
+    ...(typeof config.claudeNativeForceInterleavedThinkingBeta === 'boolean'
+      ? { claudeNativeForceInterleavedThinkingBeta: config.claudeNativeForceInterleavedThinkingBeta }
+      : {}),
+    nativeSubagents: config.nativeSubagents,
+    claudeNativeTaskDisabled: config.claudeNativeTaskDisabled,
+    ...(config.claudeNativeThinkingDisplay === 'omitted' || config.claudeNativeThinkingDisplay === 'summarized' || config.claudeNativeThinkingDisplay === 'updates'
+      ? { claudeNativeThinkingDisplay: config.claudeNativeThinkingDisplay }
+      : {}),
+    ...(config.codexTransport === 'exec' || config.codexTransport === 'appserver'
+      ? { codexTransport: config.codexTransport }
+      : {}),
+    ...(config.codexContextPolicy === 'max' || config.codexContextPolicy === 'standard'
+      ? { codexContextPolicy: config.codexContextPolicy }
+      : {}),
+    ...(config.claudeTransport === 'cli' || config.claudeTransport === 'native'
+      ? { claudeTransport: config.claudeTransport }
+      : {}),
+    // Persist the seeded auto-handoff default on the first meta-write so a
+    // server restart before the operator's first turn keeps the global
+    // default (handleCreateWorkflow bakes it into config for new tabs). The
+    // savedMeta restore in handleCreateWorkflow reads this back.
+    ...(isAutoCompactionPolicy(config.autoCompaction) ? { autoCompaction: { ...config.autoCompaction } } : {}),
+    ...(config.autoHandoff ? { autoHandoff: { ...config.autoHandoff } } : {}),
+    // docs/PROVIDERS.md - persist the sandbox toggle on the
+    // first meta-write when the cascade default supplied a non-undefined
+    // value. Default is 'off'; only the explicit on/off pair lands here so
+    // a stale cascade doesn't accidentally turn the sandbox on for tabs
+    // that were never asked.
+    ...(config.efficiencySandbox === 'on' || config.efficiencySandbox === 'off'
+      ? { efficiencySandbox: config.efficiencySandbox }
+      : {}),
+    // docs/PROVIDERS.md - persist the review-gate toggle on the first meta-write
+    // when the cascade default supplied an explicit value, so an operator opt-in
+    // survives a restart before the first turn. Default 'off'.
+    ...(config.reviewSafeMode === 'on' || config.reviewSafeMode === 'off'
+      ? { reviewSafeMode: config.reviewSafeMode }
+      : {}),
+    // Only a style other than the default is written; unset means
+    // DEFAULT_OUTPUT_STYLE. Legacy `lite` / `caveman` from a stale client are
+    // written as `plain` / `terse` (plain being the default, it stays unset).
+    ...(storedOutputStyle(config.outputStyle) ? { outputStyle: storedOutputStyle(config.outputStyle) } : {}),
+    // docs/GOTCHAS.md - persist a north-star seeded before the first turn
+    // (e.g. a Spawn-from-here that inherited the parent's) so it survives a
+    // restart even if the operator never re-sets it. Blank ⇒ omitted.
+    ...(config.goal && config.goal.trim() ? { goal: config.goal } : {}),
+    // docs/PROVIDERS.md - persist sticky ultracode on the first meta-write so a
+    // tab left in ultracode survives a restart (the rehydrate read in
+    // workflowHandlers.ts expects saved.ultracode). Without this the flag lives
+    // only in-memory and the tab silently drops out of ultracode on restart.
+    ...(config.ultracode === true ? { ultracode: true } : {}),
+    ...(typeof config.webSearchMaxUses === 'number' ? { webSearchMaxUses: config.webSearchMaxUses } : {}),
+    ...(config.managedWorktreeSourceCwd
+      ? { managedWorktreeSourceCwd: config.managedWorktreeSourceCwd }
+      : {}),
+  };
+}
+
+export async function persistInitialMeta(
+  cwd: string, workflowId: string, config: WorkflowConfig,
+  primary: Pick<PrimaryConfig, 'provider' | 'model' | 'effort'>,
+  opts?: { parentWorkflowId?: string; sessionId?: string; pendingReading?: boolean },
+): Promise<void> {
+  if (config.incognito) return;
+  const seed = workflowMetaSeed(cwd, workflowId, config, primary, opts);
+  if (opts?.pendingReading) seed.providerConversationPendingReading = true;
+  if (opts?.sessionId) seed.cliSessions.push({ provider: primary.provider, sessionId: opts.sessionId, createdAt: Date.now(), providerAccountRef: config.providerAccountRef });
+  await ensureMeta(cwd, seed);
 }

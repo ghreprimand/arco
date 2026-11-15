@@ -49,6 +49,13 @@ export function ContextMeter({ job, onRecalibrate }: { job: JobState; onRecalibr
   const cu = job.contextUsage;
   const outCumulative = job.totalTokens.output;
 
+  if (job.providerConversation) {
+    const explanation = job.providerConversation === 'unavailable'
+      ? 'The previous provider conversation cannot be resumed because its saved thread id is unavailable. The next message starts a new conversation. Earlier messages remain in this tab.'
+      : 'A new provider conversation has started. Its context reading is not available yet. Earlier usage remains in the conversation history.';
+    return <span title={explanation} aria-label={`CTX: unavailable. ${explanation}`} style={{ color: 'var(--color-fg-muted)' }}>CTX: -</span>;
+  }
+
   if (cu) {
     const fillColor = contextPercentColor(cu.percentOfWindow);
     const estK = compact(cu.estimatedTokens);

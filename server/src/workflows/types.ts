@@ -38,6 +38,7 @@ export interface WorkflowState {
   manager: WorkerManager;
   primary: PrimaryConfig;
   primarySessionId?: string;
+  providerConversation?: 'unavailable' | 'awaiting-reading';
   // Owned by the user-message loop; interrupt only its worker, never reviewers
   // or compaction. Keep the claim until cancellation has actually settled.
   primaryTurn?: { token: number; workerId?: string; holdSteer: boolean; clusterDispatch?: { clusterId?: string }; interruption?: Promise<boolean | void> };

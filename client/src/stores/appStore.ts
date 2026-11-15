@@ -1602,7 +1602,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   // Codex fallback path (which reads lastTurnTokens) doesn't render
   // pre-handoff numbers attributed to the new provider.
   clearTurnUsageState: (jobId) =>
-    set((s) => updateJob(s, jobId, () => ({ contextUsage: undefined, lastTurnTokens: undefined, lastGenSpeed: undefined }))),
+    set((s) => updateJob(s, jobId, () => ({ contextUsage: undefined, lastTurnTokens: undefined, lastGenSpeed: undefined, providerConversation: undefined }))),
 
   // NATIVE_COMPACTION_PLAN Phase 3 — compaction takeover lifecycle. The takeover
   // overlay reads `compacting`; the post-compaction banner reads `compactedResume`.

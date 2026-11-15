@@ -120,3 +120,37 @@ test('busy reconnect sends the current turn start even when the client has seen 
   assert.equal(f.messages.find(m=>m.type==='workflow_state_snapshot')?.turnStartedAt,undefined);
  } finally {await f.close();}
 });
+
+test('reconnect repairs missing metadata and marks only lost external conversations as unavailable', async () => {
+ const f = await fixture('cursor');
+ try {
+  const metaModule = await import('../workflowMeta.js');
+  await persistInitialMeta(f.cwd, f.id, f.wf.config, { ...f.wf.primary, effort: 'low' });
+  for (const event of [{ type: 'user_message_echo', content: 'Earlier question' }, { type: 'primary_complete', tokens: { input: 60000, output: 10, cacheRead: 0, cacheCreate: 0 } }]) persistAndStampSeq(f.cwd, f.id, { ...event, workflowId: f.id } as any);
+  await flushAll();
+  await fsPromises.unlink(join(f.cwd, '.arco', 'workflows', f.id, 'meta.json'));
+  await rehydrateOneWorkflow(f.ws, f.id, f.wf, 0, { tail: true });
+  assert.ok(await metaModule.readMeta(f.cwd, f.id));
+  assert.equal(f.messages.findLast(m => m.type === 'workflow_state_snapshot').providerConversation, 'unavailable');
+  const notices = f.messages.filter(m => m.type === 'system_notice' && m.content.includes('new Cursor conversation'));
+  assert.equal(notices.length, 0, 'reconnect does not claim a new provider conversation started');
+  f.wf.primarySessionId = 'live-cursor-session';
+  await fsPromises.unlink(join(f.cwd, '.arco', 'workflows', f.id, 'meta.json'));
+  await rehydrateOneWorkflow(f.ws, f.id, f.wf, 0, { tail: true });
+  assert.equal((await metaModule.readMeta(f.cwd, f.id))?.cliSessions[0].sessionId, 'live-cursor-session');
+  assert.equal(f.messages.findLast(m => m.type === 'workflow_state_snapshot').providerConversation, undefined);
+  f.wf.primarySessionId = undefined;
+  f.wf.primary.provider = 'claude'; f.wf.config.claudeTransport = 'native';
+  await rehydrateOneWorkflow(f.ws, f.id, f.wf, 0, { tail: true });
+  assert.equal(f.messages.findLast(m => m.type === 'workflow_state_snapshot').providerConversation, undefined);
+  f.wf.primary.provider = 'ollama';
+  await rehydrateOneWorkflow(f.ws, f.id, f.wf, 0, { tail: true });
+  assert.equal(f.messages.findLast(m => m.type === 'workflow_state_snapshot').providerConversation, undefined);
+  f.wf.primary.provider = 'codex';
+  f.wf.config.voiceOperator = true;
+  f.wf.config.computerContext = { keepContext: false, resets: 1, lastResetSeq: 100000 };
+  f.wf.providerConversation = 'awaiting-reading';
+  const { providerConversationState } = await import('../providerConversation.js');
+  assert.equal(await providerConversationState(f.cwd, f.id, f.wf), undefined, 'intentional fresh context is not a lost conversation');
+ } finally { await f.close(); }
+});

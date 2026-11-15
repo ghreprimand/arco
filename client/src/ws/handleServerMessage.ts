@@ -1390,6 +1390,12 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           if (msg.sessionMetadata) {
             store.setSessionMetadata(msg.workflowId, msg.sessionMetadata);
           }
+          useAppStore.setState(s => {
+            const job = s.jobs[msg.workflowId];
+            if (!job) return s;
+            return { jobs: { ...s.jobs, [job.id]: { ...job, providerConversation: msg.providerConversation,
+              ...(msg.providerConversation ? { contextUsage: undefined, lastTurnTokens: undefined, modelContextWindow: undefined } : {}) } } };
+          });
           if (!msg.busy) {
             const ref = getStreamRef(msg.workflowId);
             ref.passthrough = null;
@@ -1422,6 +1428,16 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           }
           break;
         }
+
+        case 'provider_conversation_state':
+          useAppStore.setState(s => {
+            const job = s.jobs[msg.workflowId];
+            if (!job) return s;
+            const state = msg.state === 'ready' ? undefined : msg.state;
+            return { jobs: { ...s.jobs, [job.id]: { ...job, providerConversation: state,
+              ...(state ? { contextUsage: undefined, lastTurnTokens: undefined, modelContextWindow: undefined } : {}) } } };
+          });
+          break;
 
         case 'workflow_session_metadata':
           store.setSessionMetadata(msg.workflowId, msg.sessionMetadata);

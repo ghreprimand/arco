@@ -1,3 +1,4 @@
+import { ensureWorkflowMetadata, providerConversationState, saveProviderSession } from '../providerConversation.js';
 import { isClaudeNativeTaskActive } from '../providers/claude-native/index.js';
 import { appendHandoffNotice } from '../handoffHistoryTool.js';
 import { unsettledTaskStatuses } from './taskLifecycle.js';
@@ -78,7 +79,6 @@ import {
   appendHistoryEntry,
   readMeta,
   workflowConfigFromMeta,
-  reconcileLatestCliSession,
   writeMeta,
 } from '../workflowMeta.js';
 import {
@@ -492,6 +492,7 @@ export async function handleHandoffRequest(
   // Clear the pinned session id so the next primary turn mints fresh.
   if (!handoffOwned()) return;
   wf.primarySessionId = undefined;
+  wf.providerConversation = undefined;
 
   // Retire every cached transport before the new seed, so Codex app-server
   // and Cursor ACP bootstrap their MCP children with the new history grant.
@@ -680,7 +681,7 @@ export async function handleHandoffRequest(
     // extras filter excludes non-streaming assistants when sessionChat is
     // non-empty from the pre-handoff session). No-op for non-Claude.
     startSessionWatcher(msg.workflowId, wf, cwd, ws);
-    reconcileLatestCliSession(cwd, msg.workflowId, 'claude', primaryTurn.initialSessionId).catch((err) => {
+    saveProviderSession(cwd, msg.workflowId, wf, 'claude', primaryTurn.initialSessionId).catch((err) => {
       console.error(`[arco] handoff ${handle.handoffId} meta reconcile failed:`, err);
     });
   }
@@ -694,7 +695,7 @@ export async function handleHandoffRequest(
       startSessionWatcher(msg.workflowId, wf, cwd, ws);
     }
 
-    reconcileLatestCliSession(cwd, msg.workflowId, wf.primary.provider, sid, handoffAccount?.profile.id).catch((err) => {
+    saveProviderSession(cwd, msg.workflowId, wf, wf.primary.provider, sid, handoffAccount?.profile.id).catch((err) => {
       console.error(`[arco] handoff ${handle.handoffId} meta reconcile (${wf.primary.provider}) failed:`, err);
     });
   });
@@ -1323,7 +1324,7 @@ export async function handleSpawnFromHere(
     // the usual watcher-start call never runs. Start it here once the new
     // session's id is known — same reasoning as the handoff fix above.
     startSessionWatcher(newWorkflowId, spawnedWf, newCwd, ws);
-    reconcileLatestCliSession(newCwd, newWorkflowId, 'claude', primaryTurn.initialSessionId).catch((err) => {
+    saveProviderSession(newCwd, newWorkflowId, spawnedWf, 'claude', primaryTurn.initialSessionId).catch((err) => {
       console.error(`[arco] spawn meta reconcile failed:`, err);
     });
   }
@@ -1334,7 +1335,8 @@ export async function handleSpawnFromHere(
       wf.primarySessionId = sid;
       startSessionWatcher(newWorkflowId, wf, newCwd, ws);
     }
-    reconcileLatestCliSession(newCwd, newWorkflowId, newPrimary.provider, sid, spawnAccount?.profile.id).catch((err) => {
+    if (!wf) return;
+    saveProviderSession(newCwd, newWorkflowId, wf, newPrimary.provider, sid, spawnAccount?.profile.id).catch((err) => {
       console.error(`[arco] spawn meta reconcile (${newPrimary.provider}) failed:`, err);
     });
   });
@@ -1480,6 +1482,7 @@ export async function handleRehydrateWorkflows(
       // Read meta.json to restore primarySessionId so the next user_message
       // continues the prior CLI session instead of starting a fresh one.
       try {
+        await ensureWorkflowMetadata(cwd, entry.workflowId, wf);
         const meta = await readMeta(cwd, entry.workflowId);
         if (meta) {
           const latestForProvider = [...meta.cliSessions].reverse().find((s) => s.provider === wf.primary.provider);
@@ -1752,6 +1755,7 @@ export async function rehydrateOneWorkflow(
   opts: { tail?: boolean } = {},
 ): Promise<void> {
   const cwd = wf.config.incognito ? '' : wf.config.workingDirectory;
+  if (cwd) await ensureWorkflowMetadata(cwd, workflowId, wf);
   let latestNativeLastPromptTokens: number | undefined;
   const captureReplayTokens = (events: ServerMessage[]): void => {
     for (const event of events) {
@@ -1882,9 +1886,12 @@ export async function rehydrateOneWorkflow(
     : null;
   const codexSnapshotWindow = codexSnapshot?.modelContextWindow;
   const computerState = isComputer(wf) ? await computerContextState(workflowId, wf) : undefined;
+  const conversationState = cwd ? await providerConversationState(cwd, workflowId, wf) : undefined;
+  wf.providerConversation = conversationState;
   const msg: ServerMessage = {
     type: 'workflow_state_snapshot',
     workflowId,
+    ...(conversationState ? { providerConversation: conversationState } : {}),
     workers: {},
     busy: wf.busy,
     ...(wf.busy && Number.isFinite(wf.turnStartedAt) ? { turnStartedAt: wf.turnStartedAt } : {}),
@@ -1925,7 +1932,7 @@ export async function rehydrateOneWorkflow(
 
   // Phase 2 — emit a context estimate immediately so the client has a fill
   // reading as soon as the snapshot arrives (not only after the next turn).
-  if (cwd && wf.primary.provider === 'claude' && typeof latestNativeLastPromptTokens === 'number' && latestNativeLastPromptTokens > 0) {
+  if (cwd && !conversationState && wf.primary.provider === 'claude' && typeof latestNativeLastPromptTokens === 'number' && latestNativeLastPromptTokens > 0) {
     const estimate = nativeContextEstimate(wf.primary.model, latestNativeLastPromptTokens);
     if (estimate && ws.readyState === WebSocket.OPEN) {
       const usage = { type: 'context_usage' as const, workflowId, ...estimate };

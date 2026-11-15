@@ -306,6 +306,7 @@ export interface JobState {
   // (not from events.jsonl). Empty for non-Claude providers. Not persisted —
   // rebuilt via session_entry WS messages on every connect/reconnect.
   sessionChat: ChatMessage[];
+  providerConversation?: 'unavailable' | 'awaiting-reading';
   // Phase 2 context robustness — byte-count context fill estimate. Updated
   // after each primary_complete and on rehydrate. Not persisted (derived).
   contextUsage?: {

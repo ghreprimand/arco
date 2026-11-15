@@ -279,6 +279,10 @@ Task lifecycle events are persisted on the parent workflow but the **client-side
 
 ## meta.json
 
+Missing metadata is recreated from the authoritative workflow configuration at creation, reconnect, before a turn, and when a provider session id is discovered. A known live id and its account binding are saved; existing metadata and concurrent updates are preserved under the metadata lock. Incognito writes no metadata. A write failure produces a notice that a restart may lose the resume id.
+
+Recreating a file cannot recover an id already lost before restart. Arco does not guess from the session index or provider rollouts. Codex, Cursor and Claude CLI tabs with earlier replies but no saved external conversation show `CTX: -`; old usage remains historical. A new provider conversation produces one durable notice, then waits for its own context reading. Claude Native and local providers can replay their retained history without an external id. Missing authored state still needs its originals or a backup.
+
 Per-workflow identity file. Atomic writes via `atomicFile.ts`. The type is `WorkflowMeta` in `server/src/workflowMeta.ts` (exhaustive list there); `workflowConfigFromMeta` is the single meta -> `WorkflowConfig` projection used on rehydrate and Past Chats reopen - a new persisted per-tab field must be added to **both** or it silently resets on restart.
 
 ```ts

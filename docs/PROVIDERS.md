@@ -20,6 +20,8 @@ If a provider CLI, sign-in process, language server or MCP server closes its inp
 
 Diagnostics uses platform PATH lookup, including Windows PATHEXT suffixes, to find optional tools and language servers. Model Health uses the runtime's `ARCO_LLAMACPP_BIN` override when configured; otherwise it searches PATH. An invalid configured override is reported missing. These checks do not launch a model.
 
+A missing workflow `meta.json` is repaired from the current configuration and any known live provider session id. If that id was already lost, Codex, Cursor and Claude CLI start a new provider conversation on the next message and say so once. Earlier messages stay visible, but are not a promise that the provider received the full earlier transcript. `CTX: -` explains the unavailable conversation or the replacement's pending reading. COMPACT on a lost Codex or Cursor conversation explains that the next message starts a new conversation. Claude Native and local replay-based history do not depend on an external id. See [Persistence](PERSISTENCE.md#metajson).
+
 ## Topics
 
 | Topic |

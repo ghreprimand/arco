@@ -950,10 +950,17 @@ export interface ConversationChangedMessage {
   note: string;
 }
 
+export interface ProviderConversationStateMessage {
+  type: 'provider_conversation_state';
+  workflowId: string;
+  state: 'unavailable' | 'awaiting-reading' | 'ready';
+}
+
 // Lossless state sync on reconnect. Tells the client what the server considers
 // ground truth so stale client-side state snaps to truth immediately.
 export interface WorkflowStateSnapshotMessage {
   type: 'workflow_state_snapshot';
+  providerConversation?: 'unavailable' | 'awaiting-reading';
   workflowId: string;
   workers: Record<string, WorkerState>;
   busy: boolean;
@@ -1554,6 +1561,7 @@ export type ServerMessage =
   | QuotaStatusMessage
   | TurnCancelledMessage
   | WorkflowStateSnapshotMessage
+  | ProviderConversationStateMessage
   | WorkflowSessionMetadataMessage
   | ReplayBatchMessage
   | ShutdownMessage

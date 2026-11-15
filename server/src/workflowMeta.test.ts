@@ -108,3 +108,27 @@ test('a throwing mutator rejects without wedging the next update', async () => {
   await updateMeta(cwd, WFID, (meta) => { meta.name = 'after'; });
   assert.equal((await readMeta(cwd, WFID))?.name, 'after');
 });
+
+test('a discovered session repairs missing metadata without losing account binding or concurrent metadata updates', async () => {
+  const config = { name: 'Recovered conversation', kind: 'chat', primaryProvider: 'codex', primaryModel: 'fixture', primaryEffort: 'low', providerAccountRef: 'fixture-account', codexTransport: 'appserver', workingDirectory: cwd, skipPermissions: true } as const;
+  const primary = { provider: 'codex', model: 'fixture', effort: 'low' } as const;
+  await writeMeta(cwd, seed());
+  await fs.unlink(path.join(cwd, '.arco', 'workflows', WFID, 'meta.json'));
+  await metaMod.reconcileLatestCliSession(cwd, WFID, 'codex', 'surviving-thread', 'fixture-account', metaMod.workflowMetaSeed(cwd, WFID, config, primary));
+  let meta = await readMeta(cwd, WFID);
+  assert.equal(meta?.name, config.name);
+  assert.equal(meta?.providerAccountRef, 'fixture-account');
+  assert.equal(meta?.codexTransport, 'appserver');
+  assert.deepEqual(meta?.cliSessions.map(s => [s.provider, s.sessionId, s.providerAccountRef]), [['codex', 'surviving-thread', 'fixture-account']]);
+  await Promise.all([
+    metaMod.persistInitialMeta(cwd, WFID, { ...config, name: 'stale client name' }, primary),
+    updateMeta(cwd, WFID, m => { m.goal = 'Keep the concurrent change'; }),
+    metaMod.reconcileLatestCliSession(cwd, WFID, 'codex', 'surviving-thread', 'fixture-account', metaMod.workflowMetaSeed(cwd, WFID, config, primary)),
+  ]);
+  meta = await readMeta(cwd, WFID);
+  assert.equal(meta?.name, config.name);
+  assert.equal(meta?.goal, 'Keep the concurrent change');
+  assert.equal(meta?.cliSessions.length, 1);
+  await metaMod.persistInitialMeta(cwd, 'incognito-fixture', { ...config, incognito: true }, primary);
+  assert.equal(await readMeta(cwd, 'incognito-fixture'), null);
+});

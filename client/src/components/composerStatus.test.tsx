@@ -119,6 +119,11 @@ test('the north star and a running goal stay actionable, and the context gauge n
       root.render(createElement(ContextMeter, { job: { config: { primaryProvider: 'ollama' }, totalTokens: { output: 0 }, lastTurnTokens: { input: 12_000, output: 10, cacheRead: 0, cacheCreate: 0 } } as JobState }));
     });
     assert.match(host.textContent ?? '', /12k CTX/);
+    await act(async () => {
+      root.render(createElement(ContextMeter, { job: { config: { primaryProvider: 'codex' }, providerConversation: 'unavailable', totalTokens: { output: 500 }, lastTurnTokens: { input: 60000, output: 10, cacheRead: 0, cacheCreate: 0 }, contextUsage: { estimatedTokens: 60000, windowSize: 100000, percentOfWindow: 60 } } as JobState }));
+    });
+    assert.equal(host.textContent, 'CTX: -');
+    assert.match(host.querySelector('[title]')?.getAttribute('title') ?? '', /previous provider conversation cannot be resumed/);
   } finally {
     await act(async () => { root.unmount(); });
   }

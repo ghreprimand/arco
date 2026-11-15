@@ -119,6 +119,19 @@ codex exec resume <thread-id> "next prompt"
   model's context window; the numerator is Arco's running estimate of how full the
   prompt is. How that estimate is made depends on the provider.
   </p>
+  <p>
+  If a saved provider conversation id was lost, <Code>CTX: -</Code> explains that
+  the previous conversation cannot be resumed. The next message starts a new
+  Codex, Cursor or Claude CLI conversation and adds one notice. Earlier messages
+  and usage remain in the tab. The replacement shows no context reading until it
+  supplies its own.
+  </p>
+  <p>Arco recreates missing metadata and saves any id still known
+  to the running server; it cannot recover an id already lost before restart.
+  Claude Native and local providers can replay retained history without that id.
+  </p>
+  <p>COMPACT on a lost Codex or Cursor conversation explains that the next message
+  starts a new conversation. An empty tab still asks for its first turn.</p>
   <Sub>Claude CLI</Sub>
   <p>
   Arco uses the CLI session's latest context snapshot when available, with a

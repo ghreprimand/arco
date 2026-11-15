@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Repair missing workflow metadata before resume and session discovery, save known provider conversation ids, and explain lost conversations with an honest CTX reading and COMPACT message.
 - Re-arm between-turn auto-compaction after success and show a notice when context remains at or above the threshold after three attempts.
 - Retry temporary Claude Native gateway and connection failures on the existing ladder, and report exhausted attempts without raw gateway response bodies while preserving the conversation.
 - Separate stopped work from optional questions and acceptance in the cluster badge, and open REVIEW task drawers on the verdict and existing acceptance actions with Edit collapsed below.
