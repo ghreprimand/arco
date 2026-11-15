@@ -6,7 +6,7 @@ import {
   buildNeedsYouItems,
   filterVisibleBoardTasks,
   namedCommitsForTask,
-  needsYouLabel,
+  needsYouSummary,
   reviewNeedsOperator,
   reviewTasksWithMetSignoff,
   splitRecentAndOlderReview,
@@ -28,7 +28,7 @@ function task(partial: Partial<LedgerTask> & Pick<LedgerTask, 'id' | 'title' | '
   };
 }
 
-test('review with sign-off needs the operator; review without does not', () => {
+test('signed-off review is offered for optional acceptance; unsigned review is not', () => {
   assert.equal(reviewNeedsOperator(task({ id: 'a', title: 'A', status: 'review', signoff: { state: 'met', summary: 'ok', at: 2 } })), true);
   assert.equal(reviewNeedsOperator(task({ id: 'b', title: 'B', status: 'review' })), false);
   assert.equal(reviewNeedsOperator(task({ id: 'c', title: 'C', status: 'todo', signoff: { state: 'met', summary: 'ok', at: 2 } })), false);
@@ -79,18 +79,36 @@ test('show done filter and older review fold', () => {
   assert.deepEqual(split.older.map((t) => t.id), ['o']);
 });
 
-test('needs-you list merges review, operator-blocked and questions', () => {
+test('cluster attention names urgency without treating optional acceptance or async questions as stopped work', () => {
   const items = buildNeedsYouItems({
     tasks: [
       task({ id: 'r1', title: 'Review me', status: 'review', signoff: { state: 'met', summary: 'ok', at: 1 } }),
+      task({ id: 'unsigned', title: 'Not signed off', status: 'review' }),
       task({ id: 'b1', title: 'Blocked on you', status: 'blocked', blockedReason: 'Needs you to pick a port' }),
       task({ id: 'b2', title: 'Blocked on peer', status: 'blocked', blockedReason: 'Waiting on Builder' }),
     ],
-    waitingQuestions: [{ workflowId: 'w1', displayName: 'Builder', label: 'Which branch?' }],
+    waitingQuestions: [
+      { workflowId: 'w1', displayName: 'Builder', label: 'Which branch?' },
+      { workflowId: 'w2', displayName: 'Working member', mode: 'async' },
+    ],
   });
-  assert.equal(items.length, 3);
-  assert.equal(needsYouLabel(items.length), '3 NEED YOU');
-  assert.deepEqual(items.map((i) => i.kind), ['review', 'blocked', 'question']);
+  assert.equal(items.length, 4);
+  const summary = needsYouSummary(items);
+  assert.equal(summary.label, '1 WAITING · 1 BLOCKED · 1 ASKED · 1 TO ACCEPT');
+  assert.equal(summary.stopped, 2);
+  assert.equal(summary.compactLabel, '! 2');
+  assert.deepEqual(summary.groups.map((group) => [group.label, group.stopped]), [
+    ['WAITING', true], ['BLOCKED', true], ['ASKED', false], ['TO ACCEPT', false],
+  ]);
+  assert.match(summary.title, /Finished and signed off\. Accepting is optional; nothing waits on it\./);
+  assert.deepEqual(items.map((item) => item.kind), ['review', 'blocked', 'question', 'asked'], 'the existing list order and jump targets are retained');
+  assert.equal(items.find((item) => item.kind === 'review')?.taskId, 'r1');
+  assert.equal(items.find((item) => item.kind === 'asked')?.workflowId, 'w2');
+  const optional = needsYouSummary(items.filter((item) => item.kind === 'asked' || item.kind === 'review'));
+  assert.equal(optional.label, '1 ASKED · 1 TO ACCEPT');
+  assert.equal(optional.compactLabel, '2');
+  assert.equal(optional.stopped, 0);
+  assert.ok(optional.groups.every((group) => !group.stopped));
 });
 
 test('SHOW DONE is on by default and remembers an explicit choice', async () => {

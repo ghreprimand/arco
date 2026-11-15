@@ -823,6 +823,8 @@ export function ClusterTaskBoardTab({
           canEdit={canCreateTask}
           onEditTask={editTask}
           onDeleteTask={deleteTask}
+          onQuickDone={taskShowReader && onUpdateTaskStatus ? quickDone : undefined}
+          onRecheck={wsSendRaw && recheckSenderFor(selectedTask) ? recheckTask : undefined}
           onUpdateTaskStatus={onUpdateTaskStatus}
           onReassignTask={onReassignTask}
           onReclaimRun={onReclaimRun}
@@ -1119,6 +1121,8 @@ function TaskDetailDrawer({
   canEdit,
   onEditTask,
   onDeleteTask,
+  onQuickDone,
+  onRecheck,
   onUpdateTaskStatus,
   onReassignTask,
   onReclaimRun,
@@ -1140,6 +1144,8 @@ function TaskDetailDrawer({
   canEdit: boolean;
   onEditTask: (taskId: string, patch: { title?: string; notes?: string; priority?: number; parentIds?: string[]; release?: string }) => void;
   onDeleteTask: (taskId: string) => void;
+  onQuickDone?: (taskId: string) => void;
+  onRecheck?: (task: WorktreeAwareLedgerTask) => void;
   onUpdateTaskStatus?: (workflowId: string, taskId: string, status: LedgerTaskStatus, boardKey?: string) => void;
   onReassignTask?: (workflowId: string, taskId: string, assigneeWorkflowId: string | null, boardKey?: string) => void;
   onReclaimRun?: (clusterId: string, workflowId: string, taskId: string, runId: string, boardKey?: string) => void;
@@ -1147,6 +1153,10 @@ function TaskDetailDrawer({
   onClose: () => void;
 }) {
   const runs = details?.runs ?? [];
+  const detailScroll = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (task.status === 'review' && detailScroll.current) detailScroll.current.scrollTop = 0;
+  }, [task.id, task.status]);
   const openRuns = runs.filter(runOpen);
   const linkedRefs = details?.referenceDocs?.refs ?? [];
   const [openRef, setOpenRef] = useState<{ planId: string; slug: string; exists: boolean } | null>(null);
@@ -1286,7 +1296,40 @@ function TaskDetailDrawer({
           CLOSE
         </button>
       </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 10px 12px' }}>
+      <div ref={detailScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 10px 12px' }}>
+        {task.status === 'review' && (
+          <DrawerSection title="TO ACCEPT">
+            <InlineBlock
+              label="Director sign-off"
+              body={task.signoff
+                ? `${signoffChip(task.signoff).label}\n${task.signoff.byWorkflowId ? `by ${nameFor(task.signoff.byWorkflowId)}` : 'Author not recorded'} · ${formatTime(task.signoff.at)}`
+                : 'No sign-off yet.'}
+            />
+            {task.signoff?.summary && (
+              <div title={task.signoff.summary} data-testid="review-signoff-summary"
+                style={{ color: 'var(--color-fg)', fontSize: '11px', marginTop: '5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {task.signoff.summary}
+              </div>
+            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+              <button type="button" className="display-font" data-help="cluster.board-accept"
+                disabled={!onQuickDone} onClick={() => onQuickDone?.(task.id)}
+                title="Accept this task: mark it done."
+                style={{ ...smallButtonStyle(Boolean(onQuickDone)), color: onQuickDone ? '#58a66c' : 'var(--color-fg-muted)' }}>
+                ✓ ACCEPT
+              </button>
+              <button type="button" className="display-font" data-help="cluster.board-recheck"
+                disabled={!onRecheck} onClick={() => onRecheck?.(task)}
+                title={onRecheck ? `Ask ${task.signoff?.byWorkflowId ? nameFor(task.signoff.byWorkflowId) : 'the director'} to re-verify this task actually met its target.` : 'No sign-off author is available for re-review.'}
+                style={smallButtonStyle(Boolean(onRecheck))}>
+                ↩ RECHECK
+              </button>
+            </div>
+            <p style={{ color: 'var(--color-fg-muted)', fontSize: '11px', margin: '6px 0 0' }}>
+              Accepting is optional; nothing waits on it.
+            </p>
+          </DrawerSection>
+        )}
         {loading && (
           <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', marginBottom: '8px' }}>
             Loading task details…
@@ -1347,7 +1390,7 @@ function TaskDetailDrawer({
         )}
 
         {canEdit && (
-          <DrawerSection title="Edit">
+          <DrawerSection key={task.status === 'review' ? task.id : undefined} title="Edit" collapsed={task.status === 'review'}>
             <div
               data-help="cluster.task-edit"
               style={{
@@ -1667,7 +1710,15 @@ function TaskDetailDrawer({
   );
 }
 
-function DrawerSection({ title, children }: { title: string; children: ReactNode }) {
+function DrawerSection({ title, children, collapsed = false }: { title: string; children: ReactNode; collapsed?: boolean }) {
+  if (collapsed) return (
+    <details style={{ paddingTop: '8px', marginTop: '8px', borderTop: '1px solid var(--color-border-hairline)' }}>
+      <summary className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)', marginBottom: '6px', cursor: 'pointer' }}>
+        {title}
+      </summary>
+      {children}
+    </details>
+  );
   return (
     <section style={{ paddingTop: '8px', marginTop: '8px', borderTop: '1px solid var(--color-border-hairline)' }}>
       <div className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)', marginBottom: '6px' }}>

@@ -1,5 +1,6 @@
 // Pure Needs-you counting and board accept/clutter helpers (no React).
-// Covered by scripts/smoke/task-board.ts and unit-style asserts there.
+// Badge semantics are covered by clusterNeedsYou.test.ts. The existing
+// scripts/smoke/task-board.ts checks the board and operator-accept contracts.
 
 import type { LedgerTask, TaskSignoff } from '@arco/shared';
 
@@ -9,7 +10,14 @@ export const REVIEW_OLDER_MS = 7 * 24 * 60 * 60 * 1000;
 const OPERATOR_BLOCKED =
   /\b(operator|human|you\b|your\s+(?:decision|input|approval|go)|needs?\s+(?:you|operator|human)|awaiting\s+(?:you|operator)|approve|accept|confirm)\b/i;
 
-export type NeedsYouKind = 'review' | 'blocked' | 'question';
+export type NeedsYouKind = 'review' | 'blocked' | 'question' | 'asked';
+
+export const NEEDS_YOU_KIND: Record<NeedsYouKind, { label: string; stopped: boolean; description: string }> = {
+  question: { label: 'WAITING', stopped: true, description: 'An agent is waiting for an answer before it can continue.' },
+  blocked: { label: 'BLOCKED', stopped: true, description: 'A task is blocked on the operator.' },
+  asked: { label: 'ASKED', stopped: false, description: 'An agent asked a question and can continue without an answer.' },
+  review: { label: 'TO ACCEPT', stopped: false, description: 'Finished and signed off. Accepting is optional; nothing waits on it.' },
+};
 
 export interface NeedsYouItem {
   kind: NeedsYouKind;
@@ -117,7 +125,7 @@ export function releaseSummary(tasks: readonly LedgerTask[], release: string): {
 
 export function buildNeedsYouItems(input: {
   tasks: readonly LedgerTask[];
-  waitingQuestions: readonly { workflowId: string; displayName: string; label?: string }[];
+  waitingQuestions: readonly { workflowId: string; displayName: string; label?: string; mode?: 'blocking' | 'async' }[];
 }): NeedsYouItem[] {
   const items: NeedsYouItem[] = [];
   for (const t of input.tasks) {
@@ -141,17 +149,28 @@ export function buildNeedsYouItems(input: {
     }
   }
   for (const q of input.waitingQuestions) {
+    const kind = q.mode === 'async' ? 'asked' : 'question';
     items.push({
-      kind: 'question',
-      id: `question:${q.workflowId}`,
+      kind,
+      id: `${kind}:${q.workflowId}`,
       title: q.displayName,
-      detail: q.label || 'Waiting question',
+      detail: q.label || (kind === 'asked' ? 'Agent can continue' : 'Waiting question'),
       workflowId: q.workflowId,
     });
   }
   return items;
 }
 
-export function needsYouLabel(count: number): string {
-  return `${count} NEED YOU`;
+export function needsYouSummary(items: readonly NeedsYouItem[]) {
+  const groups = (['question', 'blocked', 'asked', 'review'] as const)
+    .map((kind) => ({ kind, count: items.filter((item) => item.kind === kind).length, ...NEEDS_YOU_KIND[kind] }))
+    .filter((group) => group.count > 0);
+  const stopped = groups.reduce((count, group) => count + (group.stopped ? group.count : 0), 0);
+  return {
+    groups,
+    stopped,
+    label: groups.map((group) => `${group.count} ${group.label}`).join(' · '),
+    compactLabel: stopped > 0 ? `! ${stopped}` : String(items.length),
+    title: groups.map((group) => `${group.count} ${group.label}: ${group.description}`).join('\n'),
+  };
 }

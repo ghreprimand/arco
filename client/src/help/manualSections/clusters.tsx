@@ -1501,6 +1501,16 @@ export const clusters: Section[] = [
   board-reader member is available.
   </p>
   <p>
+  A REVIEW task opens on the director&apos;s verdict: who signed off,
+  met / partial / not met, and the summary, or No sign-off yet. ACCEPT marks
+  it done; RECHECK uses the existing request to the sign-off author.
+  Accepting is optional; nothing waits on it.
+  </p>
+  <p>
+  Edit appears below and starts closed for REVIEW only. Open it to change
+  the task fields. Other statuses keep their existing drawer layout.
+  </p>
+  <p>
   The task drawer shows overview fields (status, assignee, priority,
   worktree-required state, current worktree path, blocked reason,
   review/goal settings, links), dependency parents/children, durable
@@ -1675,13 +1685,17 @@ export const clusters: Section[] = [
   </ul>
   <ul>
   <li>
-  The <Code>NEED YOU</Code> badge above the member cards counts review
-  tasks with a director sign-off, tasks blocked on a decision from you,
-  and members with a waiting question. Click it to jump to the task on
-  the board or to the member. In Narrow layout, a compact <Code>! count</Code>
-  badge stays below the member-list button while the list is closed. Opening
-  the list moves the summary into its header. Choosing a task opens BOARD
-  and closes the member list.
+  The badge above the member cards names WAITING questions that pause an
+  agent, tasks BLOCKED on you, ASKED questions the agent can continue past,
+  and signed-off tasks TO ACCEPT. Stopped kinds come first and use the
+  warning colour; optional kinds are muted. Accepting is optional; nothing
+  waits on it.
+  </li>
+  <li>
+  Click the badge to jump to a task or member. In Narrow layout, the compact
+  <Code> ! count</Code> includes only WAITING and BLOCKED; optional-only items
+  show a plain muted number. Opening the member list moves the summary into
+  its header. Choosing a task opens BOARD and closes the member list.
   </li>
   <li>
   On review cards, <Code>ACCEPT</Code> marks one task done and{' '}

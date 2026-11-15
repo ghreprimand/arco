@@ -480,3 +480,9 @@ Dispatch rechecks the current task assignment, dependencies, cluster membership,
 board selection and worker availability under the ledger claim lock. Daemon claims
 also check its enabled state and current run and sweep limits. The worker is
 reserved during claim persistence, then receives the validated task in its turn.
+
+## Cluster attention and REVIEW drawers
+
+The cluster member-header badge names the kinds present: WAITING for a question that pauses an agent, BLOCKED for a task blocked on the operator, ASKED for a question the agent can continue past, and TO ACCEPT for a signed-off review task. Stopped kinds come first. Only WAITING and BLOCKED use warning colour and count in the compact `! n`; optional-only items show a plain muted number. The TO ACCEPT hover says that acceptance is optional and nothing waits on it. Existing task/member jump targets and the list remain.
+
+A REVIEW drawer starts with the sign-off author, verdict and summary, or No sign-off yet. ACCEPT uses the same operator status update as its board card; RECHECK uses the existing request to the sign-off author and is unavailable without a suitable author/sender. Accepting is optional. Edit is below this summary and closed initially for REVIEW; every other status retains its existing layout. Overview, references, comments, recovery and run history remain available.

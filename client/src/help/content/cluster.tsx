@@ -865,20 +865,23 @@ export const clusterHelp: Record<string, HelpEntry> = {
     manualSection: 'cluster-board',
   },
   'cluster.needs-you': {
-    title: 'Needs you badge',
+    title: 'Cluster attention',
     body: (
       <>
         <p>
-          Counts what only you can move: review tasks with a director sign-off
-          (accept them), tasks blocked on a decision from you, and members
-          waiting on an answer. It is hidden when the count is zero and sends
-          nothing.
+          Names each kind present: WAITING for a question that pauses an agent,
+          BLOCKED for a task blocked on you, ASKED for a question the agent can
+          continue past, and TO ACCEPT for a signed-off review task. Stopped
+          kinds come first and use the warning colour. ASKED and TO ACCEPT are
+          muted. Accepting is optional; nothing waits on it. The badge is
+          hidden when there are no items.
         </p>
         <p>
           Click it for the list. Choosing a task opens the BOARD with that task
           selected; choosing a question focuses that member. In Narrow layout,
-          the compact ! count badge stays below the member-list button when
-          the list is closed. Opening the list moves the summary into its header.
+          the compact badge stays below the member-list button when the list
+          is closed. Its ! count includes only WAITING and BLOCKED; optional
+          items alone show a plain muted number. Opening the list moves the summary into its header.
           A task choice closes that list and opens BOARD.
         </p>
       </>
@@ -889,10 +892,11 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'ACCEPT',
     body: (
       <p>
-        Marks this review task done. It is the same operator action as moving the card
-        to the done column, without the drawer, and it is logged like any other
-        status change. Workers cannot do this; only you can. <C>RECHECK</C> asks the
-        director to verify the task again instead.
+        Marks this review task done from its card or drawer. It is the same
+        operator action as moving the card to the done column and is logged
+        like any other status change. Accepting is optional; nothing waits on
+        it. Workers cannot do this; only you can. <C>RECHECK</C> asks the director
+        to verify the task again instead.
       </p>
     ),
     manualSection: 'cluster-board',
@@ -965,16 +969,22 @@ export const clusterHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'cluster-board',
   },
+  'cluster.board-recheck': {
+    title: 'RECHECK',
+    body: <p>Asks the sign-off author to review the task again through the existing peer mailbox. The task stays in REVIEW with its current verdict until the author updates it. This action is unavailable when no sign-off author or sending member is available. Accepting remains optional.</p>,
+    manualSection: 'cluster-board',
+  },
   'cluster.task-drawer': {
     title: 'Task drawer',
     body: (
       <p>
-        Detail panel for the selected board card. Shows overview fields, links,
-        dependency parents/children, the durable comment thread, recovery
-        controls, and run records with heartbeat age/stale status when workers
-        have emitted heartbeats. Terminal statuses remain operator-only, and
-        the drawer's status controls use the same ledger update path as the
-        standalone LEDGER tab.
+        Detail panel for the selected board card. REVIEW opens with the sign-off
+        author, verdict and summary, or No sign-off yet, followed by ACCEPT and
+        the existing RECHECK action. Accepting is optional; nothing waits on it.
+        Edit is below and closed initially for REVIEW only. Other statuses keep
+        their existing layout. Overview, links, dependencies, comments, recovery
+        controls and run records remain available. Terminal statuses stay
+        operator-only through the existing ledger update path.
       </p>
     ),
     manualSection: 'cluster-board',

@@ -8,16 +8,10 @@ import type { LedgerTask } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { requestBoardTask } from '../stores/boardTaskRequest';
 import { hasWaitingQuestion } from '../questions/waitingQuestion';
-import { buildNeedsYouItems, needsYouLabel, type NeedsYouItem } from './clusterNeedsYou';
+import { buildNeedsYouItems, needsYouSummary, NEEDS_YOU_KIND, type NeedsYouItem } from './clusterNeedsYou';
 import { useKeepInWindow } from '../layout/keepInWindow';
 
 const EMPTY_TASKS: LedgerTask[] = [];
-const KIND_LABEL: Record<NeedsYouItem['kind'], string> = {
-  review: 'ACCEPT',
-  blocked: 'BLOCKED',
-  question: 'QUESTION',
-};
-
 export function NeedsYouBadge({ clusterId, compact = false }: { clusterId: string; compact?: boolean }) {
   const cluster = useAppStore((s) => s.clusters[clusterId]);
   const jobs = useAppStore((s) => s.jobs);
@@ -33,8 +27,18 @@ export function NeedsYouBadge({ clusterId, compact = false }: { clusterId: strin
 
   const items = useMemo(() => {
     const waitingQuestions = (cluster?.members ?? [])
-      .filter((m) => hasWaitingQuestion(jobs[m.workflowId]))
-      .map((m) => ({ workflowId: m.workflowId, displayName: m.displayName }));
+      .flatMap((m) => {
+        const job = jobs[m.workflowId];
+        if (!job || !hasWaitingQuestion(job)) return [];
+        const pending = job.messages.flatMap((message) => message.operatorQuestion?.status === 'pending' ? [message.operatorQuestion] : []);
+        // Keep member jump targets and count one entry per pending mode.
+        // Legacy Native question ids describe a blocking tool question.
+        const blocking = (job.claudeNativePendingQuestionIds?.length ?? 0) > 0 || pending.some((question) => question.mode !== 'async');
+        return [
+          ...(blocking ? [{ workflowId: m.workflowId, displayName: m.displayName, mode: 'blocking' as const }] : []),
+          ...(pending.some((question) => question.mode === 'async') ? [{ workflowId: m.workflowId, displayName: m.displayName, mode: 'async' as const }] : []),
+        ];
+      });
     // Done and archived tasks are never listed: only review and blocked count.
     return buildNeedsYouItems({ tasks, waitingQuestions });
   }, [cluster?.members, jobs, tasks]);
@@ -58,6 +62,7 @@ export function NeedsYouBadge({ clusterId, compact = false }: { clusterId: strin
   useEffect(() => { if (items.length === 0) setOpen(false); }, [items.length]);
 
   if (!cluster || items.length === 0) return null;
+  const summary = needsYouSummary(items);
 
   const toggle = () => {
     const rect = buttonRef.current?.getBoundingClientRect();
@@ -80,28 +85,37 @@ export function NeedsYouBadge({ clusterId, compact = false }: { clusterId: strin
         className="display-font"
         data-help="cluster.needs-you"
         data-testid="cluster-needs-you"
-        aria-label={needsYouLabel(items.length)}
+        aria-label={summary.label}
         aria-haspopup="true"
         aria-expanded={open}
         onClick={toggle}
-        title="Work waiting on you: tasks to accept, tasks blocked on you, and members with a question."
+        title={summary.title}
         style={{
-          flex: '0 0 auto',
+          flex: compact ? '0 0 auto' : '0 1 auto',
           marginLeft: compact ? 0 : '6px',
           width: compact ? '32px' : undefined,
           minWidth: 0,
+          maxWidth: '100%',
+          whiteSpace: compact ? 'nowrap' : 'normal',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           padding: compact ? '2px' : '2px 7px',
           fontSize: '9px',
           letterSpacing: compact ? 0 : '1px',
-          color: '#e0a030',
+          color: summary.stopped > 0 ? 'var(--color-warning)' : 'var(--color-fg-muted)',
           background: open ? 'var(--color-accent-primary-a06)' : 'transparent',
           border: '1px solid currentColor',
           cursor: 'pointer',
         }}
       >
-        {compact ? `! ${items.length}` : needsYouLabel(items.length)}
+        {compact ? summary.compactLabel : summary.groups.map((group, index) => (
+          <span key={group.kind}>
+            {index > 0 && <span style={{ color: 'var(--color-fg-muted)' }}> · </span>}
+            <span style={{ color: group.stopped ? 'var(--color-warning)' : 'var(--color-fg-muted)', whiteSpace: 'nowrap' }}>
+              {group.count} {group.label}
+            </span>
+          </span>
+        ))}
       </button>
       {open && anchor && (
         <div
@@ -129,6 +143,7 @@ export function NeedsYouBadge({ clusterId, compact = false }: { clusterId: strin
               key={item.id}
               type="button"
               role="menuitem"
+              title={NEEDS_YOU_KIND[item.kind].description}
               onClick={() => pick(item)}
               style={{
                 textAlign: 'left',
@@ -146,8 +161,8 @@ export function NeedsYouBadge({ clusterId, compact = false }: { clusterId: strin
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'transparent'; }}
             >
               <span style={{ display: 'flex', gap: '6px', alignItems: 'baseline', minWidth: 0 }}>
-                <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: '#e0a030', flexShrink: 0 }}>
-                  {KIND_LABEL[item.kind]}
+                <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: NEEDS_YOU_KIND[item.kind].stopped ? 'var(--color-warning)' : 'var(--color-fg-muted)', flexShrink: 0 }}>
+                  {NEEDS_YOU_KIND[item.kind].label}
                 </span>
                 <span style={{ fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</span>
               </span>
