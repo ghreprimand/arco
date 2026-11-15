@@ -12,6 +12,8 @@ const engine = await import('./turnEngine.js');
 const { workflows, workflowCwds } = await import('../server/state.js');
 const { initWorkflowStore } = await import('../workflowStore.js');
 const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
+const { trackRecallFixture } = await import('../testSupport/recallFixture.test-support.js');
+const closeRecall = trackRecallFixture();
 
 test('a refused turn checkpoint produces one visible notice even if the callback repeats', async () => {
   const cwd = join(root, 'project'), id = 'fixture-checkpoint-skip'; mkdirSync(cwd, { recursive: true });
@@ -34,7 +36,7 @@ test('a refused turn checkpoint produces one visible notice even if the callback
     const notices = sent.filter(message => message.type === 'system_notice' && message.content === content);
     assert.equal(notices.length, 1);
   } finally {
-    workflows.delete(id); workflowCwds.delete(id); await settleProjectWrites();
-    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    workflows.delete(id); workflowCwds.delete(id); await settleProjectWrites(); await closeRecall();
+    rmSync(root, { recursive: true, force: true });
   }
 });

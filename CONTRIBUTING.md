@@ -161,6 +161,15 @@ broadcasts, or persisted store fields should include a descriptive scenario
 under `scripts/smoke/` and a matching `smoke:<feature>` script in `package.json`.
 Keep fixtures synthetic and isolate provider calls.
 
+Metadata writes also open the process-wide Recall index. The existing
+`trackRecallFixture()` helper in
+`server/src/testSupport/recallFixture.test-support.ts` tracks its projections
+and closes its connection at fixture teardown. Fixtures install it before the
+first metadata write and call its returned closure after `settleProjectWrites()`
+and before removing the whole temporary Arco home. Settling writes alone leaves
+the Recall database open. Project-only cleanup keeps the shared index available. Remote-action tests observe the handler's
+terminal broadcast because action acknowledgment means dispatch, not completion.
+
 ---
 
 ## Type checks + builds
