@@ -97,7 +97,15 @@ async def main(theme, viewport):
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=CHROME)
         context = await browser.new_context(viewport=viewport, has_touch=True)
-        await context.add_init_script("localStorage.setItem('arco_ui_scale', '1')")
+        # Sample settled token colors, not intermediate values during UI transitions.
+        await context.add_init_script("""
+          localStorage.setItem('arco_ui_scale', '1');
+          document.addEventListener('DOMContentLoaded', () => {
+            const style = document.createElement('style');
+            style.textContent = '*, *::before, *::after { transition: none !important; }';
+            document.head.append(style);
+          });
+        """)
         errors, writes, messages = [], [], []
         requested = set()
 

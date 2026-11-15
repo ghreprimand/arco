@@ -176,7 +176,7 @@ async def main():
         await model.select_option('auto')
         # Limits: an out-of-range value blocks arming; only changed limits are sent.
         await dialog.get_by_text('LIMITS', exact=True).click()
-        session = dialog.get_by_label('Armed session length (5 to 480 minutes)')
+        session = dialog.get_by_label('Armed session length (5 to 240 minutes)')
         await session.fill('1000')
         await expect(arm).to_be_disabled()
         await expect(dialog.get_by_role('alert')).to_have_text('Each limit must be a whole number within its range.')
