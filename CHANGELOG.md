@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep live Claude CLI session updates responsive as large history files grow, and keep following the file after replacement or truncation.
+
 ## v0.1.7 - 2026-11-16
 
 - Pause AUTO-PICKUP without losing its mode or wake counts, freeze the Smart session clock across restart, then resume waiting mail through the same limits; keep Rule-based RESET BUDGET separate.

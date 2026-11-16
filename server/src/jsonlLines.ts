@@ -6,7 +6,11 @@ const warnedSources = new Set<string>();
 // Retain only the current record's bytes. Decode once at its boundary so a
 // split UTF-8 character is never replaced and a long record does not build a
 // chain of decoded string fragments. Large records stay readable as before.
-export async function* jsonlLines(input: AsyncIterable<Buffer>, source: string): AsyncGenerator<string> {
+export async function* jsonlLines(
+  input: AsyncIterable<Buffer>,
+  source: string,
+  options: { finalLine?: boolean; carriageReturns?: boolean } = {},
+): AsyncGenerator<string> {
   let parts: Buffer[] = [];
   let bytes = 0;
   let afterCr = false;
@@ -27,7 +31,7 @@ export async function* jsonlLines(input: AsyncIterable<Buffer>, source: string):
   };
   for await (const chunk of input) {
     let start = 0;
-    const hasCr = chunk.includes(0x0d);
+    const hasCr = options.carriageReturns !== false && chunk.includes(0x0d);
     while (start < chunk.length) {
       if (afterCr) {
         afterCr = false;
@@ -44,5 +48,5 @@ export async function* jsonlLines(input: AsyncIterable<Buffer>, source: string):
     }
     add(chunk.subarray(start));
   }
-  if (bytes) yield take();
+  if (bytes && options.finalLine !== false) yield take();
 }

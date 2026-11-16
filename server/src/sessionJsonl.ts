@@ -1,7 +1,8 @@
-import { watch } from 'fs';
-import { readFile } from 'fs/promises';
-import { join, resolve } from 'path';
+import { watch, statSync } from 'fs';
+import { open, readFile } from 'fs/promises';
+import { basename, dirname, join, resolve } from 'path';
 import { homedir } from 'os';
+import { jsonlLines } from './jsonlLines.js';
 
 export interface SessionJsonlEntry {
   type: string;
@@ -76,6 +77,8 @@ export function watchSessionJsonl(
 
   let reading = false;
   let requested = false;
+  let identity: string | undefined;
+  try { const st = statSync(path); identity = `${st.dev}:${st.ino}`; } catch { /* not created yet */ }
   const readNew = async () => {
     if (!active) return;
     requested = true;
@@ -85,20 +88,37 @@ export function watchSessionJsonl(
       while (active && requested) {
         requested = false;
         try {
-          const buf = await readFile(path);
-          if (!active) return;
-          if (buf.length < lastOffset) lastOffset = 0;
-          const end = buf.lastIndexOf(10) + 1;
-          if (end <= lastOffset) continue;
-          const slice = buf.subarray(lastOffset, end).toString('utf-8');
-          lastOffset = end;
-          for (const line of slice.split('\n')) {
+          const fh = await open(path, 'r');
+          try {
             if (!active) return;
-            if (!line.trim()) continue;
-            let e: SessionJsonlEntry;
-            try { e = JSON.parse(line); } catch { continue; }
-            if (e && typeof e.type === 'string') onEntry(e);
-          }
+            const st = await fh.stat();
+            const nextIdentity = `${st.dev}:${st.ino}`;
+            if ((identity !== undefined && identity !== nextIdentity) || st.size < lastOffset) lastOffset = 0;
+            identity = nextIdentity;
+            let completeOffset = lastOffset;
+            // Read only the appended range. An unfinished record is left at
+            // lastOffset and completed by the next notification, as before.
+            async function* chunks(): AsyncGenerator<Buffer> {
+              for (let position = lastOffset; active && position < st.size;) {
+                const buffer = Buffer.alloc(Math.min(64 * 1024, st.size - position));
+                const { bytesRead } = await fh.read(buffer, 0, buffer.length, position);
+                if (!bytesRead) break;
+                const chunk = buffer.subarray(0, bytesRead);
+                const newline = chunk.lastIndexOf(0x0a);
+                if (newline >= 0) completeOffset = position + newline + 1;
+                position += bytesRead;
+                yield chunk;
+              }
+            }
+            for await (const line of jsonlLines(chunks(), path, { finalLine: false, carriageReturns: false })) {
+              if (!active) return;
+              if (!line.trim()) continue;
+              let e: SessionJsonlEntry;
+              try { e = JSON.parse(line); } catch { continue; }
+              if (e && typeof e.type === 'string') onEntry(e);
+            }
+            lastOffset = completeOffset;
+          } finally { await fh.close(); }
         } catch { /* file unavailable; retry at the next notification */ }
       }
     } finally { reading = false; }
@@ -119,14 +139,18 @@ export function watchSessionJsonl(
   const startWatcher = () => {
     if (!active || watcher) return;
     try {
-      watcher = watch(path, { persistent: false }, () => { void readNew(); });
+      // Watching the directory survives replacement of the session file;
+      // an inode-bound watcher would keep watching the removed file.
+      watcher = watch(dirname(path), { persistent: false }, (_event, name) => {
+        if (name === null || name === basename(path)) void readNew();
+      });
       void readNew();
       watcher.on('error', () => {
         watcher = null;
         scheduleRestart();
       });
     } catch {
-      // File not yet created — retry after 2s (happens for brand-new sessions)
+      // Session directory not yet created — retry after 2s (happens for brand-new sessions)
       scheduleRestart();
     }
   };

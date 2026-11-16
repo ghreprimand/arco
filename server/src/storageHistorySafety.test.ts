@@ -62,10 +62,10 @@ test('B11: a split UTF-8 JSONL row is emitted once after its newline', async () 
 test('B11: disposal suppresses an already admitted asynchronous read', async (t) => {
   const { watchSessionJsonl } = await import('./sessionJsonl.js');
   const file = join(root, 'disposed.jsonl'); await fs.writeFile(file, '');
-  const original = fs.readFile;
+  const original = fs.open;
   let release!: () => void, entered!: () => void;
   const blocked = new Promise<void>(r => release = r), started = new Promise<void>(r => entered = r);
-  t.mock.method(fs, 'readFile', async (...args: any[]) => {
+  t.mock.method(fs, 'open', async (...args: any[]) => {
     const raw = await Reflect.apply(original, fs, args);
     if (args[0] === file) { entered(); await blocked; }
     return raw;
@@ -74,6 +74,54 @@ test('B11: disposal suppresses an already admitted asynchronous read', async (t)
   const seen: unknown[] = [], stop = watchSessionJsonl(file, 0, e => seen.push(e));
   await fs.appendFile(file, JSON.stringify({ type: 'user' }) + '\n');
   await started; stop(); release(); await pause(); assert.equal(seen.length, 0);
+});
+
+test('session watcher reads appended ranges and follows replacement and truncation', async (t) => {
+  const { watchSessionJsonl } = await import('./sessionJsonl.js');
+  const file = join(root, 'appended-session.jsonl');
+  const prefix = JSON.stringify({ type: 'user', uuid: 'old', message: { content: 'x'.repeat(1024 * 1024) } }) + '\n';
+  await fs.writeFile(file, prefix);
+  const reads: Array<{ position: number; length: number }> = [];
+  const originalOpen = fs.open;
+  t.mock.method(fs, 'open', async (...args: any[]) => {
+    const fh = await Reflect.apply(originalOpen, fs, args);
+    if (args[0] === file) {
+      const originalRead = fh.read;
+      t.mock.method(fh, 'read', async (...readArgs: any[]) => {
+        reads.push({ position: readArgs[3], length: readArgs[2] });
+        return Reflect.apply(originalRead, fh, readArgs);
+      });
+    }
+    return fh;
+  });
+  syncBuiltinESMExports();
+  const seen: string[] = [];
+  let notify: ((id: string) => void) | undefined;
+  const stop = watchSessionJsonl(file, Buffer.byteLength(prefix), entry => {
+    seen.push(entry.uuid!); notify?.(entry.uuid!);
+  });
+  const receive = async (id: string, write: () => Promise<unknown>) => {
+    let timer: ReturnType<typeof setTimeout>;
+    const arrived = new Promise<void>((resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(`No session entry ${id}; received ${seen.join(', ')}`)), 3000);
+      notify = actual => { if (actual === id) resolve(); };
+    });
+    try { await write(); await arrived; } finally { clearTimeout(timer!); notify = undefined; }
+  };
+  const row = (uuid: string, content = '') => JSON.stringify({ type: 'user', uuid, message: { content } }) + '\n';
+  try {
+    await receive('appended', () => fs.appendFile(file, row('appended')));
+    assert.ok(reads.length > 0);
+    assert.ok(reads.every(read => read.position >= Buffer.byteLength(prefix)), 'old history is not read for an append');
+    assert.ok(reads.reduce((total, read) => total + read.length, 0) < 4096);
+    await fs.rename(file, file + '.old');
+    await receive('replacement', () => fs.writeFile(file, row('replacement', 'y'.repeat(prefix.length + 100))));
+    await receive('after-replacement', () => fs.appendFile(file, row('after-replacement')));
+    await receive('truncated', () => fs.writeFile(file, row('truncated')));
+    assert.deepEqual(seen, ['appended', 'replacement', 'after-replacement', 'truncated']);
+  } finally {
+    stop(); t.mock.restoreAll(); syncBuiltinESMExports();
+  }
 });
 
 test('B25: later subtrees can displace 500 older recent files', async t => {
