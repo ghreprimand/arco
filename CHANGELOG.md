@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+## v0.1.6 - 2026-11-16
+
 - Add ADVISOR and DESIGNER cluster role presets, with Advisor consultation in the Director instructions and Computer cluster messages routed to the actual Director.
 - Tell agents to keep requested project files in the project tree and leave Arco project state out of commits, except skills shared through SHARE WITH REPOSITORY.
 - Repair missing workflow metadata before resume and session discovery, save known provider conversation ids, and explain lost conversations with an honest CTX reading and COMPACT message.
