@@ -19,7 +19,7 @@ import { nativeOAuthBaseUrl } from './providers/claude-native/apiEndpoint.js';
 //             agent message is kept. Any command, file change, tool or web
 //             item, or any approval or other server request, interrupts the
 //             turn, kills the process and gives no decision.
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -229,6 +229,20 @@ export function claudeAdapter(opts: { fetchImpl?: typeof fetch; tokens?: () => P
   };
 }
 
+// A terminating child can still hold its cwd open on Windows. Allow up to
+// 250 ms for exit, then at most 600 ms of removal retries. Cleanup must never
+// change the evaluator's answer or refusal.
+async function removeEvaluatorFolder(proc: ChildProcess, cwd: string): Promise<void> {
+  if (proc.pid && proc.exitCode === null && proc.signalCode === null) {
+    await new Promise<void>((resolve) => {
+      const done = () => { clearTimeout(timer); proc.off('close', done); resolve(); };
+      const timer = setTimeout(done, 250);
+      proc.once('close', done);
+    });
+  }
+  await rm(cwd, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }).catch(() => undefined);
+}
+
 export function cursorAdapter(opts: { launch?: (model: string) => [string, string[]]; installed?: () => Promise<boolean>; catalog?: () => Promise<string[]> } = {}): EvaluatorAdapter {
   // `cursor-agent acp` ignores `--model`; the model is selected over ACP after
   // session/new and confirmed, and the evaluator refuses rather than answer
@@ -343,7 +357,7 @@ export function cursorAdapter(opts: { launch?: (model: string) => [string, strin
         clearTimeout(timer);
         req.signal?.removeEventListener('abort', onAbort);
         stop();
-        await rm(cwd, { recursive: true, force: true }).catch(() => undefined);
+        await removeEvaluatorFolder(proc, cwd);
       }
     },
   };
@@ -466,7 +480,7 @@ export function codexAdapter(opts: { launch?: () => [string, string[]]; usable?:
         clearTimeout(timer);
         req.signal?.removeEventListener('abort', onAbort);
         stop();
-        await rm(cwd, { recursive: true, force: true }).catch(() => undefined);
+        await removeEvaluatorFolder(proc, cwd);
       }
     },
   };

@@ -1,7 +1,7 @@
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import type { AddressInfo } from 'node:net';
@@ -227,6 +227,10 @@ const FAKE_CODEX = `
 const mode = process.env.FAKE_CODEX_MODE;
 const log = process.env.FAKE_CODEX_LOG;
 const fs = require('node:fs');
+if (mode === 'lateexit') process.on('SIGTERM', () => setTimeout(() => {
+  fs.appendFileSync(log, JSON.stringify({ event: 'late-exit', cwdPresent: fs.existsSync(process.cwd()) }) + '\\n');
+  process.exit(0);
+}, 100));
 let buf = '';
 const send = (m) => process.stdout.write(JSON.stringify(m) + '\\n');
 const item = (type, extra) => ({ type, id: 'i-' + type, ...extra });
@@ -277,6 +281,7 @@ test('Codex: one-shot app-server in an empty folder, read-only, no approvals, we
     assert.deepEqual(init.argv, ['-c', 'mcp_servers={}', 'app-server'], 'no MCP servers');
     const thread = calls.find((c) => c.method === 'thread/start');
     assert.match(thread.cwd, /arco-evaluator-/, 'runs in an empty temporary folder');
+    await assert.rejects(access(thread.cwd), { code: 'ENOENT' }, 'the evaluation removes its folder');
     assert.equal(thread.params.sandbox, 'read-only');
     assert.equal(thread.params.approvalPolicy, 'never');
     assert.equal(thread.params.config.web_search, 'disabled');
@@ -307,4 +312,22 @@ test('Codex: one-shot app-server in an empty folder, read-only, no approvals, we
 test('Codex is offered only when enabled and signed in', async () => {
   const off = codexAdapter({ usable: async () => ({ available: false, reason: 'Codex is not signed in.' }) });
   assert.deepEqual(await off.capability(), { provider: 'codex', available: false, reason: 'Codex is not signed in.' });
+});
+
+// Windows taskkill forcibly ends the child; the existing Codex evaluation
+// checks folder removal there. POSIX lets this fixture delay a real exit.
+test('Codex cleanup waits for a late child exit without changing the answer', { skip: process.platform === 'win32' && 'taskkill cannot delay the fixture exit' }, async () => {
+  const script = join(dir, 'late-exit-codex.cjs');
+  const log = join(dir, 'late-exit.log');
+  await writeFile(script, FAKE_CODEX);
+  process.env.FAKE_CODEX_MODE = 'lateexit';
+  process.env.FAKE_CODEX_LOG = log;
+  try {
+    assert.equal(await codexAdapter({ launch: () => [process.execPath, [script]], usable: async () => ({ available: true }) }).evaluate(req), ANSWER);
+    const calls = (await readFile(log, 'utf8')).trim().split('\n').map((line) => JSON.parse(line));
+    assert.deepEqual(calls.find((call) => call.event === 'late-exit'), { event: 'late-exit', cwdPresent: true });
+    await assert.rejects(access(calls.find((call) => call.method === 'thread/start').cwd), { code: 'ENOENT' });
+  } finally {
+    delete process.env.FAKE_CODEX_MODE; delete process.env.FAKE_CODEX_LOG;
+  }
 });

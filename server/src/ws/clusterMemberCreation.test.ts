@@ -12,10 +12,13 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
+import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
 
 const home = mkdtempSync(join(tmpdir(), 'arco-member-creation-'));
-process.env.HOME = home;
-process.env.ARCO_HOME = join(home, 'test-state');
+installIsolatedTestHome(home);
+const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
+const { trackRecallFixture } = await import('../testSupport/recallFixture.test-support.js');
+const closeRecall = trackRecallFixture();
 
 const TEMPLATE = { name: 'Lead', primaryModel: 'sonnet', primaryEffort: 'high', autoCompaction: { enabled: true, thresholdPercent: 70 }, resumeSessionId: 'old-session', resumeWorkflowId: 'old-wf', researchSpawnToken: 'r', templateSpawnToken: 't', providerAccountRef: 'acct-1', claudeTransport: 'cli', ultracode: true, skipPermissions: false, efficiencyToolFilter: 'aggressive' };
 // The template's settings a new member keeps in every template-based path.
@@ -172,8 +175,8 @@ test('every scratch creation response finishes its exact request, including inva
 
 test.after(async () => {
   const { settleWorkspaceWrites } = await import('../workspace.js');
-  const { settleMetaSideEffects } = await import('../workflowMeta.js');
   await settleWorkspaceWrites();
-  await settleMetaSideEffects();
+  await settleProjectWrites();
+  await closeRecall();
   rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
