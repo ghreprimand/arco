@@ -458,9 +458,9 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
   const [showResearchDialog, setShowResearchDialog] = useState(false);
   const [showTranscriptDialog, setShowTranscriptDialog] = useState(false);
   const [showForwardDialog, setShowForwardDialog] = useState(false);
-  // Cluster lookup for transcript-send — find the cluster this workflow
-  // belongs to (if any). Returns null when not a cluster member; the
-  // SEND TRANSCRIPT button hides in that case.
+  // Cluster lookup for existing-member transcript and forward destinations.
+  // Standalone tabs still offer TRANSCRIPT for a new worker; membership
+  // controls whether the existing peer-delivery destination is available.
   const clusterForJob = useAppStore((s) => {
     for (const c of Object.values(s.clusters)) {
       if (c.members.some((m) => m.workflowId === job.id)) return c;
@@ -1445,12 +1445,12 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
           </button>
         )}
 
-        {onTranscriptSend && clusterForJob && clusterForJob.members.length > 1 && (
+        {job.config.kind !== 'chat' && job.config.kind !== 'cluster' && (
           <button
             onClick={() => setShowTranscriptDialog(true)}
-            data-help="cluster.transcript-send"
+            data-help="composer.transcript-worker"
             className="display-font"
-            title="Send a chat-feed slice (full / last turn / last N turns) to another cluster member as a peer message"
+            title="Send a transcript to a cluster member, or copy exact turns to a new worker in another folder"
             style={{
               padding: '3px 8px',
               background: 'transparent',
@@ -1984,15 +1984,15 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         />
       )}
 
-      {showTranscriptDialog && onTranscriptSend && clusterForJob && (
+      {showTranscriptDialog && (
         <TranscriptSendDialog
-          cluster={clusterForJob}
+          cluster={clusterForJob ?? undefined}
           fromWorkflowId={job.id}
           messages={job.messages}
-          onConfirm={(recipients, content) => {
+          onConfirm={onTranscriptSend ? (recipients, content) => {
             setShowTranscriptDialog(false);
             for (const to of recipients) onTranscriptSend(to, content);
-          }}
+          } : undefined}
           onCancel={() => setShowTranscriptDialog(false)}
         />
       )}

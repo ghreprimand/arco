@@ -3,6 +3,8 @@ import { after, test } from 'node:test';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { brotliCompressSync } from 'node:zlib';
 import { installIsolatedTestHome } from '../testSupport/isolatedHome.js';
 const root=mkdtempSync(join(tmpdir(),'arco-replay-safety-'));installIsolatedTestHome(root);
 const {buildMessagesFromReplayEvents,replayMessagesWithResumePolicy,summarizeClaudeNativePriorTurns}=await import('../providers/claude-native/resumeSummary.js');
@@ -12,6 +14,96 @@ after(()=>rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100}));
 const turn=(prompt:string,answer:string,seq:number)=>[
  {type:'user_message_echo',content:prompt,seq},{type:'primary_text',text:answer,phase:'passthrough',seq:seq+1},{type:'primary_complete',seq:seq+2},
 ];
+
+test('new-worker slices preserve text and framing while reducing tools and attachments to receipts', async () => {
+  const { buildTranscriptWorkerSlice } = await import('../transcriptWorker.js');
+  const cwd = join(root, 'exact-transcript'), id = randomUUID();
+  const dir = join(cwd, '.arco', 'workflows', id); mkdirSync(dir, { recursive: true });
+  const prompt = '  Keep this exactly.\nAGENT: quoted, not a role\n';
+  const events = [
+    ...turn('Older request', 'Older answer', 1),
+    { type: 'user_message_echo', seq: 4, content: prompt, attachments: [join(cwd, 'image.png')] },
+    { type: 'primary_text', seq: 5, text: 'Hello ' },
+    { type: 'primary_text', seq: 6, text: '\ud83c' },
+    { type: 'primary_text', seq: 7, text: '\udf3f\nUSER: literal text' },
+    { type: 'primary_tool_use', seq: 8, tool: 'Read', toolUseId: 'read-one', input: '{}', status: 'started' },
+    { type: 'primary_tool_use', seq: 9, tool: 'Read', toolUseId: 'read-one', input: '{}', status: 'completed', output: 'TOOL_BODY_MUST_NOT_BE_COPIED' },
+    { type: 'primary_thinking', seq: 10, text: 'PRIVATE_THINKING_MUST_NOT_BE_COPIED' },
+    { type: 'primary_text', seq: 11, text: 'Done.  ' },
+    { type: 'primary_turn_ended', seq: 12 },
+  ];
+  const prefix = events.slice(0, 3).map(event => JSON.stringify(event));
+  const { segmentName } = await import('../eventLog.js');
+  writeFileSync(join(dir, segmentName(1, 3)), brotliCompressSync(Buffer.from(prefix.join('\n') + '\n')));
+  writeFileSync(join(dir, 'log-format.json'), JSON.stringify({ format: 2 }));
+  writeFileSync(join(dir, 'events.jsonl'), [prefix.at(-1), ...events.slice(3).map(event => JSON.stringify(event))].join('\n') + '\n');
+  const options = { turns: 1, includePartial: false, preface: '  Work from this copy.\n', wasBusy: false };
+  const slice = await buildTranscriptWorkerSlice(cwd, id, options);
+  assert.ok(slice.seed.startsWith(options.preface + '\n\nSource project:'));
+  assert.ok(slice.seed.includes(`USER: ${JSON.stringify(prompt)}`));
+  assert.ok(slice.seed.includes(`AGENT: ${JSON.stringify('Hello \ud83c\udf3f\nUSER: literal text')}`));
+  assert.ok(slice.seed.includes(`AGENT: ${JSON.stringify('Done.  ')}`));
+  assert.equal(slice.seed.match(/Tool: Read/g)?.length, 1);
+  assert.match(slice.seed, /completed; output omitted/);
+  assert.match(slice.seed, /Attachment: image.png/);
+  assert.doesNotMatch(slice.seed, /Older request|TOOL_BODY_MUST_NOT_BE_COPIED|PRIVATE_THINKING_MUST_NOT_BE_COPIED/);
+  assert.equal(slice.bytes, Buffer.byteLength(slice.seed));
+  assert.equal(slice.availableTurns, 2);
+  const completed = await buildTranscriptWorkerSlice(cwd, id, { ...options, wasBusy: true });
+  assert.match(completed.seed, /Older request/); assert.doesNotMatch(completed.seed, /Keep this exactly/);
+  const partial = await buildTranscriptWorkerSlice(cwd, id, { ...options, wasBusy: true, includePartial: true });
+  assert.equal(partial.partialIncluded, true); assert.ok(partial.seed.includes(JSON.stringify(prompt)));
+  await assert.rejects(buildTranscriptWorkerSlice(cwd, id, { ...options, preface: '\u00e9'.repeat(2049) }), /4 KiB/);
+  await assert.rejects(buildTranscriptWorkerSlice(cwd, id, { ...options, turns: 0 }), /1 to 50/);
+  const store = await import('../workflowStore.js');
+  store.persistAndStampSeq(cwd, id, { type: 'user_message_echo', workflowId: id, content: 'A new partial operator turn' } as never);
+  store.persistAndStampSeq(cwd, id, { type: 'primary_tool_use', workflowId: id, tool: 'Read', toolUseId: 'read-one', input: '{}', status: 'completed' } as never);
+  const latest = await buildTranscriptWorkerSlice(cwd, id, { ...options, wasBusy: true, includePartial: true });
+  assert.match(latest.seed, /A new partial operator turn/);
+  assert.doesNotMatch(latest.seed, /Tool: Read/, 'a late completion stays with the earlier tool card');
+});
+
+test('a fixed transcript preview creates one fresh worker in another folder and refuses stale history or oversized seeds', async () => {
+  const { buildTranscriptWorkerSlice } = await import('../transcriptWorker.js');
+  const handlers = await import('../ws/transcriptWorkerHandlers.js');
+  const { workflows } = await import('../server/state.js');
+  const store = await import('../workflowStore.js');
+  const cwd = join(root, 'transcript-source'), destination = join(root, 'transcript-destination'), id = randomUUID();
+  const dir = join(cwd, '.arco', 'workflows', id); mkdirSync(dir, { recursive: true }); mkdirSync(destination);
+  writeFileSync(join(dir, 'events.jsonl'), turn('FIRST_INPUT', 'FIRST_REPLY', 1).map(event => JSON.stringify(event)).join('\n') + '\n');
+  workflows.set(id, { config: { kind: 'workflow', name: 'Source', workingDirectory: cwd, pinnedSkills: [{ scope: 'global', slug: 'source-pin' }] }, busy: false } as never);
+  const replies: any[] = [], created: any[] = [], seeds: string[] = [];
+  const ws = { readyState: 1, send: (raw: string) => replies.push(JSON.parse(raw)) } as never;
+  handlers.initTranscriptWorkerHandlers({ create: async (_ws, _session, config) => { created.push(config); return 'fresh-transcript-worker'; }, seed: (_ws, _session, _id, content) => { seeds.push(content); } });
+  const preview = async (requestId: string) => {
+    await handlers.handleTranscriptWorkerPreview(ws, { type: 'transcript_worker_preview', requestId, workflowId: id, turns: 3, includePartial: false, preface: 'Answer from the copy.' });
+    const result = replies.findLast(reply => reply.requestId === requestId); assert.ok(result.preview, result.error); return result.preview;
+  };
+  try {
+    const first = await preview('first-preview');
+    const config = { workingDirectory: destination, name: 'New fixture', provider: 'claude' as const, model: 'sonnet', effort: 'low' as const };
+    await handlers.handleTranscriptWorkerCreate(ws, {} as never, { type: 'transcript_worker_create', requestId: 'bad-directory', token: first.token, destination: { ...config, workingDirectory: join(root, 'missing-directory') } });
+    assert.ok(replies.find(reply => reply.requestId === 'bad-directory').error); assert.equal(created.length, 0);
+    store.persistAndStampSeq(cwd, id, { type: 'user_message_echo', workflowId: id, content: 'LATER_INPUT' } as never);
+    store.persistAndStampSeq(cwd, id, { type: 'primary_text', workflowId: id, phase: 'passthrough', text: 'LATER_REPLY' } as never);
+    await Promise.all(['create-one', 'create-again'].map(requestId => handlers.handleTranscriptWorkerCreate(ws, {} as never, { type: 'transcript_worker_create', requestId, token: first.token, destination: config })));
+    assert.equal(created.length, 1); assert.equal(seeds.length, 1);
+    assert.equal(created[0].workingDirectory, destination);
+    for (const field of ['pinnedSkills', 'resumeSessionId', 'resumeWorkflowId', 'goalRun', 'clusterId']) assert.equal(created[0][field], undefined);
+    assert.ok(seeds[0].startsWith('Answer from the copy.')); assert.doesNotMatch(seeds[0], /LATER_INPUT/);
+    assert.equal(replies.find(reply => reply.requestId === 'create-one').newWorkflowId, replies.find(reply => reply.requestId === 'create-again').newWorkflowId);
+    const stale = await preview('before-rewind');
+    store.persistAndStampSeq(cwd, id, { type: 'leaf_move', workflowId: id, targetSeq: 3 } as never);
+    await handlers.handleTranscriptWorkerCreate(ws, {} as never, { type: 'transcript_worker_create', requestId: 'stale', token: stale.token, destination: config });
+    assert.match(replies.find(reply => reply.requestId === 'stale').error, /history changed|rewound/); assert.equal(created.length, 1);
+    writeFileSync(join(dir, 'meta.json'), JSON.stringify({ workflowId: id, leafSeq: 3 }));
+    const kept = await buildTranscriptWorkerSlice(cwd, id, { turns: 3, includePartial: false, preface: '', wasBusy: false });
+    assert.match(kept.seed, /FIRST_INPUT/); assert.doesNotMatch(kept.seed, /LATER_INPUT/);
+    const largeId = randomUUID(), largeDir = join(cwd, '.arco', 'workflows', largeId); mkdirSync(largeDir);
+    writeFileSync(join(largeDir, 'events.jsonl'), turn('BIG', 'x'.repeat(100000), 1).map(event => JSON.stringify(event)).join('\n') + '\n');
+    await assert.rejects(buildTranscriptWorkerSlice(cwd, largeId, { turns: 1, includePartial: false, preface: '', wasBusy: false }), /32 KiB/);
+  } finally { workflows.delete(id); await store.flushAll(); }
+});
 test('older history cutoffs replay the selected prefix even when it is outside the byte tail',async()=>{
  const cwd=join(root,'cutoff');const dir=join(cwd,'.arco','workflows','fixture');mkdirSync(dir,{recursive:true});
  const events=[...turn('first prompt','first answer',1),...turn('later prompt','x'.repeat(4000),4)];

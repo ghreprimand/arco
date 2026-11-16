@@ -137,7 +137,7 @@ export interface WorkflowHandlerDeps {
 let deps: WorkflowHandlerDeps;
 export function initWorkflowHandlers(d: WorkflowHandlerDeps): void { deps = d; }
 
-export async function handleCreateWorkflow(ws: WebSocket, session: Session, config: WorkflowConfig): Promise<void> {
+export async function handleCreateWorkflow(ws: WebSocket, session: Session, config: WorkflowConfig, options?: { onCreated?: (workflowId: string) => void; backgroundCreated?: boolean }): Promise<void> {
   let workflowId: string | undefined;
   let resumed = false;
   let resumeWorkflowMeta: WorkflowMeta | null = null;
@@ -658,10 +658,12 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
     workflowId,
     config,
     ...hints,
+    ...(options?.backgroundCreated ? { backgroundCreated: true } : {}),
     ...(wfNowForCreate?.primary.provider === 'claude' && wfNowForCreate.primarySessionId
       ? { claudeSessionId: wfNowForCreate.primarySessionId }
       : {}),
   });
+  options?.onCreated?.(workflowId);
   // Genesis creation starts with the seed on config, but the right-panel UI
   // reads the normalized seed/readiness fields populated by genesis_seed_updated.
   // Echo it immediately so a fresh Genesis tab does not look like an ordinary

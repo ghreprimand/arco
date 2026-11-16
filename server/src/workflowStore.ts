@@ -581,6 +581,27 @@ function withEventTs(entry: { ts?: unknown; [k: string]: unknown }): { [k: strin
   return typeof ts === 'number' ? { ...rest, eventTs: ts } : rest;
 }
 
+// Streaming consumers can retain their selected slice instead of materializing
+// the whole history. Sequence repair, sealed copies and pending flushes are the
+// same as the existing replay APIs.
+export async function* streamWorkflowEvents(cwd: string, wfid: string): AsyncGenerator<ServerMessage> {
+  if (!cwd) return;
+  validateWfid(wfid);
+  const buf = buffers.get(bufferKey(cwd, wfid));
+  if (buf) {
+    if (buf.flushTimer) { clearTimeout(buf.flushTimer); buf.flushTimer = null; }
+    await flushBuffer(buf);
+  }
+  for await (const { line, step } of effectiveLines(workflowDir(cwd, wfid))) {
+    if (!step) continue;
+    let entry: { seq?: number; ts?: number; [key: string]: unknown };
+    try { entry = JSON.parse(line); } catch { continue; }
+    if (typeof entry.seq !== 'number') continue;
+    applyStep(entry, step);
+    yield withEventTs(entry) as unknown as ServerMessage;
+  }
+}
+
 // Replay all events with seq > fromSeq, in seq order. Caller streams each
 // returned ServerMessage to the newly-connected WS (stamped seq included on
 // the wire object). Flushes pending first so the replay is head-current.

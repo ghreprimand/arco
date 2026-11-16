@@ -632,6 +632,45 @@ Fires after handoff. Announces the new CLI session ID and prepares the client to
 
 ---
 
+## Exact turns to a new worker
+
+These operator/browser messages are separate from `spawn_from_here_request`.
+No agent tool exposes them.
+
+```ts
+{ type: 'transcript_worker_preview', requestId: string, workflowId: string,
+  turns: number, includePartial: boolean, preface: string }
+{ type: 'transcript_worker_result', requestId: string,
+  preview?: { token: string, seed: string, bytes: number, availableTurns: number,
+    selectedTurns: number, partialIncluded: boolean, cutoffSeq: number },
+  newWorkflowId?: string, error?: string }
+{ type: 'transcript_worker_create', requestId: string, token: string,
+  destination: { workingDirectory: string, name: string, provider: ProviderName,
+    model: string, effort: EffortLevel, providerAccountRef?: string,
+    skipPermissions?: boolean } }
+```
+
+Preview accepts integer turn counts 1-50 and a preface of at most 4096 UTF-8
+bytes. The entire encoded seed has a 32768-byte limit. A running partial turn
+is included only on explicit selection. The server frames exact operator and
+visible primary text, plus bounded tool/attachment receipts, without reading
+attachment files. Hidden reasoning and injected instructions are not copied.
+
+The preview token is scoped to its WebSocket and expires after ten minutes;
+the server retains at most 32 preview records. Create revalidates the source
+cutoff/content/branch marker and the destination before allocating a tab.
+Ordinary appends preserve the accepted snapshot; rewind, replacement or an
+unavailable source requires another preview. A repeated create for the same
+token returns the existing new workflow id without a second seed. The normal
+`workflow_created` is initially background-created; the successful response
+lets the requesting form focus that tab. The exact seed is its first normal
+`user_message_echo`, followed by the standard primary-turn events.
+
+Destination is a fresh allowlisted WorkflowConfig, not a clone of the source.
+No source resume id, pins, cluster membership or armed run is accepted. The
+chosen provider/account resolves normally without copying sign-in files.
+Existing transcript peer-send and Spawn wire contracts remain unchanged.
+
 ## Related links
 
 - [WebSocket protocol](PROTOCOL.md)

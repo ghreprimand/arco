@@ -1,6 +1,7 @@
 // ── Client → Server messages ──
 
 import type { AutomaticMessageKind } from './chat.js';
+import type { TranscriptWorkerPreviewMessage, TranscriptWorkerCreateMessage } from './transcriptWorker.js';
 import type { OperatorQuestionReplyMessage, OperatorQuestionDismissMessage } from './operatorQuestions.js';
 import type { VoiceToolResultMessage, ComputerContextControlMessage } from './voiceOperator.js';
 
@@ -510,6 +511,8 @@ export interface DebugNativeAutoCompactProbeMessage {
 }
 
 export type ClientMessage =
+  | TranscriptWorkerPreviewMessage
+  | TranscriptWorkerCreateMessage
   | ComputerContextControlMessage
   | CreateWorkflowMessage
   | UserMessage

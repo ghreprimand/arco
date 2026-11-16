@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Copy exact recent turns and a typed preface to a fresh worker in any chosen folder, with a server-owned preview, bounded tool/file receipts and no inherited pins or provider session.
+
 - Pin standing skills to a whole cluster or an exact role from Settings > SKILLS, review them beside EFFICIENCY, and let new or replaced members inherit them within the combined tab limits.
 
 - Use the same dependency and native-package setup for CI and release builds.

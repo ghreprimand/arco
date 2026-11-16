@@ -1,4 +1,5 @@
 import { releaseProjectSettingsWatcher } from './settings.js';
+import { initTranscriptWorkerHandlers, handleTranscriptWorkerPreview, handleTranscriptWorkerCreate } from './ws/transcriptWorkerHandlers.js';
 import { NativeTaskAdmission, assertNativeTaskAllowed } from './providers/claude-native/taskAdmission.js';
 import { resolveNativeSubagents, CLAUDE_MODELS } from '@arco/shared';
 import { getCatalog as getNativeTaskCatalog } from './providers/claude-native/catalog.js';
@@ -622,6 +623,18 @@ const previewAutoDetect = new PreviewAutoDetect({
 
 initTurnEngine({ previewAutoDetect, handleCreateWorkflow, handleHandoffRequest, handleCompactWorkflow });
 initWorkflowHandlers({ previewAutoDetect, handleRehydrateWorkflows });
+initTranscriptWorkerHandlers({
+  create: async (ws, session, config) => {
+    let id: string | undefined;
+    await handleCreateWorkflow(ws, session, config, { backgroundCreated: true, onCreated: created => { id = created; } });
+    if (!id) throw new Error('The new worker could not be created. Review its settings and try again.');
+    return id;
+  },
+  seed: (ws, session, workflowId, content) => {
+    void handleUserMessage(ws, session, workflowId, content, crypto.randomUUID(), undefined, false, undefined, undefined)
+      .catch(() => send(ws, { type: 'error', workflowId, message: 'Could not start the new worker. Open its tab to review the request and retry.' }));
+  },
+});
 setStrataSwitchActivityCheck(() => [...workflows.values()].some((wf) =>
   (wf.busy && ['ollama', 'llamacpp', 'lmstudio', 'deepseek'].includes(wf.primary.provider)) ||
   Object.values(wf.manager.snapshotWorkers()).some((w) => ['ollama', 'llamacpp', 'lmstudio', 'deepseek'].includes(w.provider ?? '') && (w.status === 'running' || w.status === 'spawning'))));
@@ -731,6 +744,12 @@ wss.on('connection', (ws: WebSocket) => {
     }
 
     switch (msg.type) {
+      case 'transcript_worker_preview':
+        void handleTranscriptWorkerPreview(ws, msg);
+        break;
+      case 'transcript_worker_create':
+        void handleTranscriptWorkerCreate(ws, session, msg);
+        break;
       case 'create_workflow':
         (msg.config.incognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() =>
           handleCreateWorkflow(ws, session, msg.config).catch((err) => {

@@ -2,6 +2,26 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const composerHelp: Record<string, HelpEntry> = {
+  'composer.transcript-worker': {
+    title: 'Copy turns to a new worker',
+    body: <><p>TRANSCRIPT can create a fresh Agent tab in any chosen working directory. In a cluster, choose NEW WORKER from the existing-member dialog. Copy 1-50 operator turns, default 3, with a typed preface before them. Spawn keeps its existing summary behavior.</p><p>Operator and visible agent text stay exact. Tools and attachments become receipts; files, hidden thinking and source pins are not copied. It starts a fresh provider conversation. The new folder's own settings apply.</p></>,
+    manualSection: 'transcript-worker',
+  },
+  'composer.transcript-worker-preview': {
+    title: 'Preview the exact copied seed',
+    body: <><p>PREVIEW reads the stored source at a fixed point, including history this page has not loaded. Include the running partial turn only when selected. The preface has a 4 KiB limit; the complete seed has a 32 KiB limit. Nothing is silently clipped.</p><p>Review the byte count and selected turns. Editing turns or preface requires another preview. Source appends do not change an accepted snapshot; rewound or changed history requires refreshing it.</p></>,
+    manualSection: 'transcript-worker',
+  },
+  'composer.transcript-worker-target': {
+    title: 'Choose the new worker',
+    body: <p>Choose an existing working directory, provider, model, effort and available account. Permission prompts start on. The worker gets a fresh provider conversation with no source cluster membership or standing pins. Existing sign-in files stay in place. Relative paths quoted in the seed belong to the source project.</p>,
+    manualSection: 'transcript-worker',
+  },
+  'composer.transcript-worker-send': {
+    title: 'Send the seed as the first message',
+    body: <p>Creates one new worker from the accepted preview and starts its first message with that exact seed. The seed becomes saved conversation history in the chosen project. A stale preview or invalid destination leaves this dialog and its preface available to correct. Existing-member sends and Spawn keep their current behavior.</p>,
+    manualSection: 'transcript-worker',
+  },
   'composer.pending-edit': {
     title: 'Edit a pending message',
     body: <p>Remove this message from the queue and append its text to this tab&apos;s current draft. Its kind, attachments and selected skills return too. Skill choices merge with the tab&apos;s existing choices without duplicates and stay with that tab across navigation. Resending applies each selected skill once. The server confirms removal first. If delivery won the race, the draft stays unchanged and Arco says Already sent, nothing to edit. Reconnect before editing.</p>,

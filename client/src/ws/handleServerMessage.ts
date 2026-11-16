@@ -1,4 +1,5 @@
 import { finishClusterCreation } from '../utils/clusterCreation';
+import { finishTranscriptWorkerRequest } from '../utils/transcriptWorkerRequest';
 import { finishQueuedMessageEdit } from '../utils/queuedMessageEdit';
 import { PRIMARY_PROVIDERS, isClusterDirector } from '@arco/shared';
 import { beginPlanReview } from '../components/terminalInput/planDraft';
@@ -1495,6 +1496,9 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           store.setCliChanges(msg.changes);
           break;
 
+        case 'transcript_worker_result':
+          finishTranscriptWorkerRequest(msg);
+          break;
         case 'capabilities_updated':
           store.setCapabilities(msg.capabilities);
           if (msg.updated && msg.previousVersion) {

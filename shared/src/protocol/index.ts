@@ -48,6 +48,7 @@ export * from './notifications.js';
 export * from './orchestrationAssist.js';
 export * from './clientMessages.js';
 export * from './serverMessages.js';
+export * from './transcriptWorker.js';
 export * from './ollamaThinking.js';
 
 export * from './localModels.js';

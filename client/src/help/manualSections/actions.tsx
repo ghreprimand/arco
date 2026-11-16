@@ -241,6 +241,37 @@ export const actions: Section[] = [
     ),
   },
   {
+    id: 'transcript-worker',
+    group: 'The six operator actions',
+    title: 'Copy turns to a new worker',
+    body: <>
+      <p>Open TRANSCRIPT in an Agent composer. A standalone tab opens the new
+      worker form directly. In a cluster, choose NEW WORKER from the member
+      delivery dialog. Existing member delivery stays available; Spawn still
+      asks an agent to write a summary in the same working directory.</p>
+      <p>Choose 1-50 operator turns, default 3, and type a preface placed before
+      them. Operator and visible agent text keep their exact whitespace and
+      order. Tools become one-line receipts; attachments become source-location
+      receipts without copied files. Hidden thinking and injected instructions
+      are excluded. Include the running partial turn only when selected.</p>
+      <p>Choose an existing working directory, provider, model, effort and
+      available account. Permission prompts start on. The worker starts a fresh
+      provider conversation without the source's pins or cluster membership.
+      The destination's own project settings apply. Copied relative paths refer
+      to the source project, not the new folder.</p>
+      <p>PREVIEW reads the stored conversation at a fixed point and shows the
+      exact seed. The preface may use 4096 UTF-8 bytes; the whole seed must fit
+      32768 bytes. Oversized selections are refused instead of clipped. Choose
+      fewer turns or shorten the preface. Editing either requires another preview.</p>
+      <p>SEND TO NEW WORKER saves that seed as the new tab's first message and
+      starts it once. The source continues independently. Later source messages
+      are outside the snapshot. A rewind or changed history requires refreshing
+      the preview. Rewound sources copy only their current branch; missing ancestry
+      refuses an exact preview. Errors keep the form and preface for correction.
+      Sign-in files and attachment files are never copied.</p>
+    </>,
+  },
+  {
     id: 'live-config-swap',
     group: 'The six operator actions',
     title: 'Live model/effort swap',

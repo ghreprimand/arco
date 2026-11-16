@@ -5,16 +5,17 @@
 // budget + dedupe gates and raises the content cap to 32 KB.
 
 import { DialogShell } from './DialogShell';
+import { TranscriptWorkerDialog } from './TranscriptWorkerDialog';
 import { useMemo, useState } from 'react';
 import type { ChatMessage, ClusterStatePayload } from '@arco/shared';
 import { DEFAULT_TRANSCRIPT_INCLUDE, formatRow, turnBoundaries, type TranscriptInclude } from '../utils/transcriptFormat';
 
 interface Props {
-  cluster: ClusterStatePayload;
+  cluster?: ClusterStatePayload;
   fromWorkflowId: string;
   messages: ChatMessage[];
   /** One delivery per recipient, all with the same text. */
-  onConfirm: (toWorkflowIds: string[], content: string) => void;
+  onConfirm?: (toWorkflowIds: string[], content: string) => void;
   onCancel: () => void;
 }
 
@@ -23,7 +24,8 @@ type Scope = 'full' | 'last-turn' | 'last-n';
 const MAX_BYTES = 32 * 1024;
 
 export function TranscriptSendDialog({ cluster, fromWorkflowId, messages, onConfirm, onCancel }: Props) {
-  const peers = cluster.members.filter((m) => m.workflowId !== fromWorkflowId);
+  const peers = cluster?.members.filter((m) => m.workflowId !== fromWorkflowId) ?? [];
+  const [destination, setDestination] = useState<'members' | 'worker'>(peers.length && onConfirm ? 'members' : 'worker');
   const [toWfids, setToWfids] = useState<string[]>(peers.length === 1 ? [peers[0].workflowId] : []);
   const [note, setNote] = useState('');
   const [include, setInclude] = useState<TranscriptInclude>(DEFAULT_TRANSCRIPT_INCLUDE);
@@ -31,9 +33,9 @@ export function TranscriptSendDialog({ cluster, fromWorkflowId, messages, onConf
   const [nTurns, setNTurns] = useState(3);
 
   const senderName = useMemo(() => {
-    const m = cluster.members.find((mm) => mm.workflowId === fromWorkflowId);
+    const m = cluster?.members.find((mm) => mm.workflowId === fromWorkflowId);
     return m?.displayName ?? fromWorkflowId.slice(0, 8);
-  }, [cluster.members, fromWorkflowId]);
+  }, [cluster?.members, fromWorkflowId]);
 
   const content = useMemo(() => {
     const boundaries = turnBoundaries(messages);
@@ -57,16 +59,18 @@ export function TranscriptSendDialog({ cluster, fromWorkflowId, messages, onConf
 
   const byteLen = new TextEncoder().encode(content).length;
   const overLimit = byteLen > MAX_BYTES;
-  const canSend = toWfids.length > 0 && content.trim().length > 0 && !overLimit;
+  const canSend = !!onConfirm && toWfids.length > 0 && content.trim().length > 0 && !overLimit;
+  if (destination === 'worker') return <TranscriptWorkerDialog workflowId={fromWorkflowId} onCancel={onCancel} onMembers={peers.length && onConfirm ? () => setDestination('members') : undefined} />;
 
   const handleSend = () => {
     if (!canSend) return;
-    onConfirm(toWfids, content);
+    onConfirm?.(toWfids, content);
   };
 
   return (
-    <DialogShell title={`Send transcript - from ${senderName}`} ariaLabel="Send transcript" onClose={onCancel} closeOnBackdrop width={720} zIndex={50}
+    <DialogShell title={`Send transcript - from ${senderName}`} ariaLabel="Send transcript" dataHelp="cluster.transcript-send" onClose={onCancel} closeOnBackdrop width={720} zIndex={50}
       actions={<>
+        <button type="button" data-help="composer.transcript-worker" onClick={() => setDestination('worker')} className="display-font">NEW WORKER</button>
         <button type="button" onClick={onCancel} className="display-font" style={{ background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg-muted)', padding: '5px 12px', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px' }}>CANCEL</button>
         <button
           type="button"

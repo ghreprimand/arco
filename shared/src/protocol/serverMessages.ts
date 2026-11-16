@@ -1,4 +1,5 @@
 import type { OutputSavedMessage } from '../outputs.js';
+import type { TranscriptWorkerResultMessage } from './transcriptWorker.js';
 // ── Server → Client messages ──
 
 import type { OperatorQuestionMessage, OperatorQuestionReplyResultMessage, OperatorQuestionDismissResultMessage, OperatorQuestionState } from './operatorQuestions.js';
@@ -1497,6 +1498,7 @@ export interface TurnMessagesDeliveredMessage {
 }
 
 export type ServerMessage =
+  | TranscriptWorkerResultMessage
   | StorageWarningMessage
   | TurnMessagesDeliveredMessage
   | AppUpdateAvailableMessage

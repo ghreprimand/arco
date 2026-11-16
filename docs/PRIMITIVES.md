@@ -16,6 +16,7 @@ This doc covers each one end-to-end: trigger, server flow, events emitted, clien
 | [1. Primary turn (the seed worker)](#1-primary-turn-the-seed-worker) |
 | [2. Review](#2-review) |
 | [3. Handoff](#3-handoff) |
+| [Copy turns to a new worker](#copy-turns-to-a-new-worker) |
 | [4. Spawn from here](#4-spawn-from-here) |
 | [5. DOCS and GIT one-off prompts](#5-docs-and-git-one-off-prompts) |
 | [6. HISTORY-tab actions](#6-history-tab-actions) |
@@ -561,6 +562,47 @@ sequenceDiagram
 ```
 
 ---
+
+## Copy turns to a new worker
+
+TRANSCRIPT in any Agent composer can open a fresh worker with exact copied
+turns. A standalone source opens the new-worker form; a cluster source keeps
+its existing peer-delivery form and offers NEW WORKER. Existing peer sends and
+Spawn are unchanged: Spawn still uses an agent-written handoff in the same cwd.
+
+Choose the last 1-50 operator turns (default 3), an optional preface, working
+directory, provider/model/effort/account and permission setting. Permission
+prompts start on. The source's raw operator and visible primary text retain
+whitespace and ordering. Contiguous output deltas are joined before framing;
+literal USER/AGENT lines remain quoted JSON data. Thinking, injected project
+instructions, mail and transport metadata are excluded. Tools become one-line
+name/status receipts with output omitted; attachment receipts name their source
+location/type without copying files. Relative paths refer to the source project.
+
+PREVIEW reads the server's stored history, including records missing from the
+browser tail. The running partial turn is omitted unless selected. The preface
+is at most 4096 UTF-8 bytes and the complete seed at most 32768 bytes; an
+oversized selection is refused, never clipped. Rewound sources follow the
+current branch; missing ancestry cannot produce an exact preview. Each preview
+binds a fixed source cutoff, selected content and structural history marker.
+Ordinary later appends are outside that snapshot. Rewind or changed content
+requires a refreshed preview. Source and destination validation finishes before
+creating the tab; errors retain the form and preface.
+
+SEND TO NEW WORKER creates a normal standalone Agent workflow and dispatches
+that accepted seed once as its first user message. The preface comes before the
+source label and quoted records. Sign-in files, source pins, cluster membership,
+goals and provider session ids are not copied. Destination settings apply as
+for a normal new tab. Repeated delivery of the same accepted preview returns
+the existing new workflow rather than creating or seeding another one. The
+source continues independently. The copied seed is saved in the new project's
+normal conversation state.
+
+The implementation uses `transcriptWorker.ts`, browser-only handlers in
+`ws/transcriptWorkerHandlers.ts`, the normal workflow creator/turn engine and a
+streaming view of workflow events. It retains a limited candidate ring; rewind
+ancestry and tool linkage use metadata rather than old payload arrays. It does
+not change Native reconstruction, old replay protocols or history paging.
 
 ## 4. Spawn from here
 

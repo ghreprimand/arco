@@ -22,7 +22,7 @@ window.fixtureReady = true;</script></body></html>'''
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=chrome_executable() or None)
-        page = await browser.new_page(viewport={'width': 1300, 'height': 1100})
+        page = await browser.new_page(viewport={'width': 1300, 'height': 1100}, has_touch=True)
         blocked, errors = [], []
         async def isolate(route):
             url = urlparse(route.request.url)
@@ -33,8 +33,10 @@ async def main():
                 if url.path == '/fixture':
                     await route.fulfill(status=200, content_type='text/html', body=HTML)
                     return
+                if url.path.startswith('/api/'):
+                    await route.fulfill(json={'models': []}); return
                 is_local_fs = url.path.startswith('/@fs/') and fs_path(url.path).resolve().is_relative_to(ROOT)
-                if is_local_fs or url.path.startswith(('/@react-refresh', '/@vite/', '/@id/', '/node_modules/.vite/deps/', '/src/', '/phosphor-demo/', '/themes/victor-mono/')):
+                if is_local_fs or url.path.startswith(('/@react-refresh', '/@vite/', '/@id/', '/node_modules/.vite/deps/', '/src/', '/phosphor-demo/', '/themes/', '/backgrounds/')):
                     await route.continue_()
                     return
             blocked.append(url.path)
@@ -128,7 +130,61 @@ async def main():
         assert len(sends) == 1 and sends[0]['to'] == ['wf-b', 'wf-c'] and sends[0]['content'].startswith('For the record'), sends
         assert 'Please fix' not in sends[0]['content'] and 'landing now' not in sends[0]['content'], sends
 
-        # Over the cap: SEND stays disabled.
+        # One new-worker journey, with a server-owned preview and retained draft
+        # after a stale-snapshot refusal. Existing member sends above stay intact.
+        await page.set_viewport_size({'width': 650, 'height': 1000})
+        await page.evaluate('''async () => {
+          const {useAppStore:s}=await import('/src/stores/appStore.ts'); window.s=s;
+          const {handleServerMessage:receive}=await import('/src/ws/handleServerMessage.ts');
+          (await import('/src/themes/apply.ts')).applyTheme((await import('/src/themes/registry.ts')).getTheme('arch'));
+          document.documentElement.style.zoom='1.1';document.documentElement.style.setProperty('--ui-scale','1.1');
+          window.workerRequests=[];let createCount=0;
+          s.setState({connected:true,connectionState:'online',settings:{enabledProviders:{claude:false,codex:true,cursor:false,ollama:false,llamacpp:false,lmstudio:false,strata:false,deepseek:false}},authStatus:{claude:{loggedIn:false},codex:{loggedIn:true}},wsSendRaw:message=>{
+            workerRequests.push(message);
+            if(message.type==='transcript_worker_preview'){
+              const seed=message.preface+'\\n\\nSource project: /projects/fixture\\nUSER: "Stored request"\\nAGENT: "Stored reply not loaded in this browser"';
+              receive({type:'transcript_worker_result',requestId:message.requestId,preview:{token:'preview-'+workerRequests.length,seed,bytes:new TextEncoder().encode(seed).length,availableTurns:1,selectedTurns:1,partialIncluded:false,cutoffSeq:8}},{wsRef:{current:null},scheduleReconnect:()=>{}});
+            }
+            if(message.type==='transcript_worker_create'){
+              if(!createCount++)receive({type:'transcript_worker_result',requestId:message.requestId,error:'The source history changed. Refresh the preview.'},{wsRef:{current:null},scheduleReconnect:()=>{}});
+              else {
+                s.getState().createJob('new-worker',{kind:'workflow',name:message.destination.name,workingDirectory:message.destination.workingDirectory,primaryProvider:message.destination.provider,primaryModel:message.destination.model,primaryEffort:message.destination.effort,skipPermissions:false});
+                receive({type:'transcript_worker_result',requestId:message.requestId,newWorkflowId:'new-worker'},{wsRef:{current:null},scheduleReconnect:()=>{}});
+              }
+            }
+          }});
+        }''')
+        await page.get_by_role('button', name='OPEN TRANSCRIPT').click()
+        await page.get_by_role('dialog', name='Send transcript').get_by_role('button', name='NEW WORKER', exact=True).tap()
+        worker = page.get_by_role('dialog', name='Send turns to a new worker', exact=True)
+        await expect(worker.get_by_label('New worker provider')).to_have_value('claude')
+        await expect(worker).to_contain_text('Claude is not ready')
+        await worker.get_by_label('New worker provider').select_option('codex')
+        await expect(worker.get_by_label('Turns to copy')).to_have_value('3')
+        await expect(worker.get_by_role('button', name='SEND TO NEW WORKER', exact=True)).to_be_disabled()
+        await worker.get_by_label('New worker preface').fill('x' * 4097)
+        await expect(worker.get_by_label('New worker preface')).to_have_value('x' * 4097)
+        await expect(worker.get_by_role('button', name='PREVIEW', exact=True)).to_be_disabled()
+        await worker.get_by_label('New worker preface').fill('Use the copied decision.')
+        await worker.get_by_label('New worker working directory').fill('/projects/another-fixture')
+        await worker.get_by_role('button', name='PREVIEW', exact=True).tap()
+        await expect(worker.get_by_label('New worker seed preview')).to_contain_text('Stored reply not loaded in this browser')
+        surface = await worker.locator('[data-dialog-surface]').bounding_box()
+        assert surface['x'] >= -1 and surface['x'] + surface['width'] <= 651 and surface['y'] + surface['height'] <= 1001, surface
+        await worker.get_by_role('button', name='SEND TO NEW WORKER', exact=True).tap()
+        await expect(worker.get_by_role('alert')).to_contain_text('Refresh the preview')
+        await expect(worker.get_by_label('New worker preface')).to_have_value('Use the copied decision.')
+        await expect(worker.get_by_label('New worker working directory')).to_have_value('/projects/another-fixture')
+        await worker.get_by_role('button', name='PREVIEW', exact=True).tap()
+        await worker.get_by_role('button', name='SEND TO NEW WORKER', exact=True).focus()
+        await page.keyboard.press('Enter')
+        await expect(worker).to_have_count(0)
+        assert await page.evaluate('s.getState().activeJobId') == 'new-worker'
+        requests = await page.evaluate('workerRequests')
+        assert requests[-1]['destination']['workingDirectory'] == '/projects/another-fixture'
+        assert requests[-1]['destination']['provider'] == 'codex'
+        assert requests[0]['turns'] == 3 and requests[0]['preface'] == 'Use the copied decision.'
+        assert 'pinnedSkills' not in requests[-1]['destination']
         assert not errors, errors
         assert not blocked, blocked
         await browser.close()
