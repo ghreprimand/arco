@@ -11,6 +11,7 @@
 import { reportRecovery } from '../buildCheck';
 
 const REFRESH_MS = 20 * 60 * 1000;
+const MINT_TIMEOUT_MS = 5000;
 const nativeFetch: typeof fetch = window.fetch.bind(window);
 let inflight: Promise<void> | null = null;
 
@@ -18,7 +19,7 @@ let inflight: Promise<void> | null = null;
 // caller's normal error/reconnect path runs. Concurrent callers share one mint.
 export function ensureWsSession(): Promise<void> {
   if (!inflight) {
-    inflight = nativeFetch('/api/session', { method: 'POST', credentials: 'same-origin', cache: 'no-store' })
+    inflight = nativeFetch('/api/session', { method: 'POST', credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(MINT_TIMEOUT_MS) })
       .then(() => undefined, () => undefined)
       .finally(() => { inflight = null; });
   }

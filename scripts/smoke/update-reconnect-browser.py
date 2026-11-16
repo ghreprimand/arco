@@ -50,6 +50,17 @@ async def main():
                 else:
                     await route.continue_()
             await page.route('**/index.html?build=*', temporary_failure)
+            mint_attempts = []
+            async def stall_first_mint(route):
+                mint_attempts.append(1)
+                if len(mint_attempts) == 1:
+                    # The request never answers before the client deadline.
+                    await asyncio.sleep(12)
+                try:
+                    await route.continue_()
+                except Exception:
+                    pass  # The timed-out first request has been cancelled.
+            await page.route('**/api/session', stall_first_mint)
             old_url = page.url
             assert await page.evaluate("fetch('/api/settings').then(r => r.status)") == 200
             server.proc.terminate()
@@ -68,6 +79,7 @@ async def main():
                 except Exception: await asyncio.sleep(.15)
             else: raise RuntimeError('restarted server not ready')
             await page.get_by_title('ONLINE', exact=True).wait_for(timeout=30000)
+            assert len(mint_attempts) >= 2, 'a stalled session mint must not stop reconnecting'
             await expect(page.get_by_role('button', name='Reload Arco')).to_be_visible(timeout=12000)
             assert page.url == old_url
             assert await page.locator('#fixture-unsaved').input_value() == 'Unsent fixture draft'

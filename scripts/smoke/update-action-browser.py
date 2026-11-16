@@ -56,7 +56,9 @@ async def main():
                             await asyncio.sleep(2.5)
                         manager['result'] = {'outcome':'running','startedAt':1, 'attemptId':'fixture-attempt'}
                         data = {'ok':True, 'latest':release['latest'], 'attemptId':'fixture-attempt'}
-                else: data = manager
+                else:
+                    data = manager
+                    if manager.get('unavailable'): status_code = 503
             elif path == '/api/auth-status':
                 data = {n: {'loggedIn': n == 'claude', 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex',  'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'github']}
             elif path == '/api/capabilities': data = {'efforts': ['low', 'medium', 'high'], 'models': ['claude-opus-4-6'], 'cliVersion': 'fixture'}
@@ -145,8 +147,13 @@ async def main():
         await expect(notice.locator('[data-help="settings.update-action"]')).not_to_contain_text('Previous fixture failure.')
         await page.wait_for_timeout(800)
         manager['slow'] = False
+        manager['unavailable'] = True
+        await page.wait_for_timeout(2200)
         manager['result'] = {'outcome':'updated', 'message':'Fixture update complete.', 'finishedAt':12345, 'attemptId':'fixture-attempt'}
+        manager['unavailable'] = False
         await expect(notice).to_contain_text('Fixture update complete.', timeout=10000)
+        await expect(notice).not_to_contain_text('Starting update.')
+        await expect(version).not_to_have_text('UPDATING')
         await expect(page.locator('[data-help="settings.update-result"]')).to_have_count(0)
         await page.wait_for_timeout(6200)
         await expect(notice).to_be_visible()
