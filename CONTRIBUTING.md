@@ -390,24 +390,43 @@ npm run typecheck
 npm run test:unit
 npm run docs:check
 npm run audit:public
-node scripts/release.mjs patch --dry-run
-node scripts/release.mjs patch
+node scripts/release.mjs patch --entry-file ../release-entry.md --dry-run
+node scripts/release.mjs patch --entry-file ../release-entry.md
 ```
 
 The inaugural release is the one exception to the bump and empty-Unreleased rules:
-when there are no local version tags, `node scripts/release.mjs 0.1.0` uses the
+when there are no local version tags, `node scripts/release.mjs 0.1.0 --entry-file ../release-entry.md` uses the
 already seeded `v0.1.0` notes and retains the package version. It requires an
 empty Unreleased section and no other release sections. Any pending changes must
 be reviewed before that tag is cut.
 
 Use `minor`, `major`, or an explicit newer `X.Y.Z` instead of `patch` when
-appropriate. Unreleased must contain a change bullet. The dry run prints the
-exact planned edits and tag message without changing files. The real invocation
-rolls the changelog, updates all four manifests and their lockfile entries, and
-opens the release devlog stub in the configured Git editor (`GIT_EDITOR` or
-`core.editor`). Complete the entry with the checks actually run and remove its
-`RELEASE_ENTRY_REQUIRED` marker. An unchanged stub or failed editor prevents the
-commit; the edits remain available for review and recovery.
+appropriate. Unreleased must contain a change bullet. Write the finished UTF-8
+release entry body to a file outside the checkout or in an ignored local
+folder, so it does not make the tree dirty. The examples use a file beside the
+checkout. The script generates its dated heading and separator; do not include
+them in the input. Links in the body must resolve from the devlog archive.
+The file is read before any tracked edit. File mode opens no editor and does
+not append the changelog bullets again. The dry run prints the
+exact planned edits and tag message without changing files.
+
+The command prints the entry word count against 150-300 words, configured and
+release identities, hooks status and lockfile workspace consistency. Entry
+length, hooks status, identity and lock-version differences are diagnostics,
+not new refusals. Existing clean-tree, main/origin-main, version, changelog,
+complete-entry and unique-tag requirements remain, with repair instructions.
+The origin/main comparison uses the locally fetched ref; the command does not
+fetch or inspect hosted runs. Confirm their results and operator approval
+before running it. On approval, push the reviewed green commit to main first.
+
+The real invocation rolls the changelog, updates all four manifests and their
+lockfile entries, and prepends the supplied entry. For interactive editing use
+`--edit-entry` instead of `--entry-file`; it opens the stub in `GIT_EDITOR` or
+`core.editor`. Complete the entry and remove `RELEASE_ENTRY_REQUIRED`. An
+unchanged stub or failed editor prevents the commit; edits remain for review
+and recovery. A failure states whether files were written or a release commit
+already exists. The script never resets files, deletes a tag or retries a
+failed release automatically.
 
 The script commits `Release vX.Y.Z` with the project identity and creates the
 annotated `vX.Y.Z` tag from the changelog section. It never pushes. The maintainer
@@ -431,6 +450,9 @@ When `arco-workbench` already exists on npm, it then stages the package with
 publishing is recovered through the workflow; the release script does not
 overwrite an existing local tag. See [Updating Arco](docs/OPERATIONS.md#updating-arco)
 for installs and updates. The release notes can be
-inspected independently with `node scripts/release/notes.mjs vX.Y.Z`.
+inspected independently with `node scripts/release/notes.mjs vX.Y.Z`. After
+checking the installed update and deleting the merged release branch, create
+the next release branch only when its version is agreed. The command prints
+these remaining commands but never executes them.
 
 On Linux, `ARCO_TEST_PER_FILE=1` uses the same network namespace isolation as the aggregate unit runner. `ARCO_TEST_REQUIRE_NETNS=1` refuses a run when that isolation is unavailable.

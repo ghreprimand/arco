@@ -37,7 +37,7 @@ function fixture() {
   git('remote', 'add', 'origin', remote); git('push', '-u', 'origin', 'main');
   const editor = join(sandbox, 'editor.mjs');
   writeFileSync(editor, "import { readFileSync, writeFileSync } from 'node:fs'; const path = process.argv[2]; writeFileSync(path, readFileSync(path, 'utf8').replace(/RELEASE_ENTRY_REQUIRED:.*\\n/, 'The release preserves saved work. Verified using fixture gates; no provider calls were made.\\n'));\n");
-  const run = (...args) => spawnSync(process.execPath, ['scripts/release.mjs', ...args], { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_EDITOR: `"${process.execPath}" "${editor}"` } });
+  const run = (...args) => spawnSync(process.execPath, ['scripts/release.mjs', ...args, ...(args.includes('--entry-file') || args.includes('--edit-entry') ? [] : ['--edit-entry'])], { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_EDITOR: `"${process.execPath}" "${editor}"` } });
   return { root, remote, git, run, archive, close: () => rmSync(sandbox, { recursive: true, force: true }) };
 }
 
@@ -66,6 +66,39 @@ test('dry-run is read-only; a real release commits matching versions and an anno
     for (const directory of ['', 'shared', 'server', 'client']) assert.equal(JSON.parse(readFileSync(join(f.root, directory, 'package.json'), 'utf8')).version, '0.1.1');
     assert.equal(f.git('status', '--porcelain'), '');
     assert.equal(execFileSync('git', ['--git-dir', f.remote, 'rev-parse', 'main'], { encoding: 'utf8' }).trim(), before);
+    assert.equal(execFileSync('git', ['--git-dir', f.remote, 'tag', '--list'], { encoding: 'utf8' }).trim(), '');
+  } finally { f.close(); }
+});
+
+test('a file entry previews and releases without an editor; length and setup diagnostics only warn', () => {
+  const f = fixture();
+  try {
+    const entry = join(dirname(f.root), 'release entry with spaces.md');
+    const body = 'Synthetic release notes. ' + 'word '.repeat(347).trim();
+    const before = f.git('rev-parse', 'HEAD');
+    writeFileSync(join(dirname(f.root), 'editor.mjs'), 'throw new Error("File entry must not open an editor");\n');
+    assert.notEqual(f.run('patch', '--entry-file', entry).status, 0);
+    assert.equal(f.git('status', '--porcelain'), '');
+    writeFileSync(entry, body);
+    const lockPath = join(f.root, 'package-lock.json');
+    const lock = JSON.parse(readFileSync(lockPath, 'utf8')); lock.packages.shared.version = '0.0.9';
+    writeFileSync(lockPath, JSON.stringify(lock) + '\n');
+    f.git('add', '.'); f.git('commit', '-m', 'Fixture lock mismatch'); f.git('push', 'origin', 'main');
+    const preview = f.run('patch', '--entry-file', entry, '--dry-run');
+    assert.equal(preview.status, 0, preview.stderr);
+    assert.match(preview.stdout, /Release entry: 350 words/);
+    assert.match(preview.stdout, /WARNING: differ from manifests/);
+    assert.match(preview.stderr, /outside 150-300 words/);
+    assert.match(preview.stderr, /hooks are not active/);
+    assert.equal(f.git('status', '--porcelain'), '');
+    const result = f.run('patch', '--entry-file', entry);
+    assert.equal(result.status, 0, result.stderr);
+    const archive = readFileSync(join(f.root, f.archive), 'utf8');
+    assert.equal(archive.split('\n\n---\n\n')[0].split('\n\n').slice(1).join('\n\n'), body);
+    assert.doesNotMatch(archive, /Preserve saved work/);
+    assert.equal(f.git('cat-file', '-t', 'v0.1.1'), 'tag');
+    assert.equal(execFileSync('git', ['--git-dir', f.remote, 'rev-parse', 'main'], { encoding: 'utf8' }).trim(), f.git('rev-parse', 'HEAD^'));
+    assert.notEqual(f.git('rev-parse', 'HEAD'), before);
     assert.equal(execFileSync('git', ['--git-dir', f.remote, 'tag', '--list'], { encoding: 'utf8' }).trim(), '');
   } finally { f.close(); }
 });
@@ -103,7 +136,7 @@ test('an unfinished devlog entry prevents the release commit and tag', () => {
   try {
     f.git('config', 'core.editor', 'unused');
     // An editor that exits successfully without changing the entry.
-    const result = spawnSync(process.execPath, ['scripts/release.mjs', 'patch'], { cwd: f.root, encoding: 'utf8', env: { ...process.env, GIT_EDITOR: `"${process.execPath}" -e "process.exit(0)" --` } });
+    const result = spawnSync(process.execPath, ['scripts/release.mjs', 'patch', '--edit-entry'], { cwd: f.root, encoding: 'utf8', env: { ...process.env, GIT_EDITOR: `"${process.execPath}" -e "process.exit(0)" --` } });
     assert.notEqual(result.status, 0);
     assert.match(result.stderr, /Complete the release devlog/);
     assert.equal(f.git('log', '-1', '--format=%s'), 'Fixture base');

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Accept a release entry file without an editor, explain release preconditions and recovery, and show entry length and setup diagnostics without adding release gates.
+
 - Keep live Claude CLI session updates responsive as large history files grow, and keep following the file after replacement or truncation.
 
 ## v0.1.7 - 2026-11-16

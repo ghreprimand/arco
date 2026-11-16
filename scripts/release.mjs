@@ -16,31 +16,73 @@ function git(args, options = {}) {
   return result.stdout?.trim() ?? '';
 }
 const read = path => readFileSync(join(root, path), 'utf8');
+const usage = 'Usage: node scripts/release.mjs <patch|minor|major|X.Y.Z> (--entry-file <file> | --edit-entry) [--dry-run]';
+function entryCount(body) {
+  const words = body.trim().split(/\s+/).filter(Boolean).length;
+  console.log(`Release entry: ${words} words; expected 150-300.`);
+  if (words < 150 || words > 300) console.warn('WARNING: Release entry is outside 150-300 words. Review its length; this warning does not prevent release.');
+}
+function configValue(key) {
+  return spawnSync('git', ['config', '--get', key], { cwd: root, encoding: 'utf8' }).stdout?.trim() || '(unset)';
+}
+let completed = 'No tracked release files were changed.';
 
 try {
   const args = process.argv.slice(2);
-  const dryRun = args.includes('--dry-run');
-  const positional = args.filter(arg => arg !== '--dry-run');
-  if (positional.length !== 1 || args.filter(arg => arg === '--dry-run').length > 1) throw new Error('Usage: node scripts/release.mjs <patch|minor|major|X.Y.Z> [--dry-run]');
-  if (git(['status', '--porcelain', '--untracked-files=all'])) throw new Error('Release requires a clean working tree, including untracked files.');
-  if (git(['branch', '--show-current']) !== 'main') throw new Error('Release requires branch main.');
-  if (git(['rev-parse', 'HEAD']) !== git(['rev-parse', 'refs/remotes/origin/main'])) throw new Error('Release requires main to equal origin/main; fetch and synchronize first.');
+  let dryRun = false, editEntry = false, entryFile, requested;
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === '--dry-run' && !dryRun) dryRun = true;
+    else if (arg === '--edit-entry' && !editEntry) editEntry = true;
+    else if (arg === '--entry-file' && entryFile === undefined && args[i + 1] && !args[i + 1].startsWith('--')) entryFile = args[++i];
+    else if (!arg.startsWith('-') && requested === undefined) requested = arg;
+    else throw new Error(usage);
+  }
+  if (!requested || (entryFile !== undefined) === editEntry) throw new Error(usage);
+  let entryBody;
+  if (entryFile !== undefined) {
+    try { entryBody = readFileSync(resolve(process.cwd(), entryFile), 'utf8').trim(); }
+    catch (error) { throw new Error(`Cannot read release entry file: ${error.message}\nPass a readable UTF-8 entry body with --entry-file <file>.`); }
+    if (!entryBody || entryBody.includes('RELEASE_ENTRY_REQUIRED')) throw new Error('Complete the release devlog entry in the input file before retrying. No release files were changed.');
+    entryCount(entryBody);
+  }
+  const configuredIdentity = `${configValue('user.name')} <${configValue('user.email')}>`;
+  console.log(`Commit/tag identity: ${identity.name} <${identity.email}>; configured identity: ${configuredIdentity}.`);
+  const hooks = configValue('core.hooksPath');
+  console.log(`Hooks: ${hooks}.`);
+  if (hooks !== '.githooks' || !existsSync(join(root, '.githooks/pre-commit'))) console.warn('WARNING: Project hooks are not active. Run npm run setup:hooks before releasing.');
+  const status = git(['status', '--porcelain', '--untracked-files=all']);
+  if (status) throw new Error(`Release requires a clean working tree, including untracked files.\n${status}\nCommit the reviewed work or remove the unwanted files, then retry.`);
+  if (git(['branch', '--show-current']) !== 'main') throw new Error('Release requires branch main. After release approval, switch to clean main, fast-forward it to the green release branch and push main first.');
+  let upstream;
+  try { upstream = git(['rev-parse', '--verify', 'refs/remotes/origin/main']); }
+  catch { throw new Error('Release requires origin/main. Run git fetch origin main, review the approved release commit, synchronize main and push main first.'); }
+  if (git(['rev-parse', 'HEAD']) !== upstream) throw new Error('Release requires main to equal origin/main; fetch and synchronize first. Run git fetch origin main, review the difference, fast-forward main to the approved commit and push main before retrying.');
+  console.log('main matches the locally fetched origin/main. Confirm the final hosted run and operator approval before release; this command does not fetch or query hosted checks.');
 
   const current = JSON.parse(read('package.json')).version;
   const manifests = ['package.json', 'shared/package.json', 'server/package.json', 'client/package.json'];
-  if (manifests.some(path => JSON.parse(read(path)).version !== current)) throw new Error('All four package versions must match before release.');
-  const initial = current === '0.1.0' && positional[0] === current && git(['tag', '--list', 'v*']) === '';
-  const version = initial ? current : bumpVersion(current, positional[0]);
+  if (manifests.some(path => JSON.parse(read(path)).version !== current)) throw new Error('All four package versions must match before release. Repair package.json, shared/package.json, server/package.json and client/package.json, commit the correction and synchronize main first.');
+  const lock = JSON.parse(read('package-lock.json'));
+  const lockConsistent = lock.version === current && ['', 'shared', 'server', 'client'].every(key => lock.packages?.[key]?.version === current);
+  console.log(`Lockfile workspace versions: ${lockConsistent ? 'match manifests' : 'WARNING: differ from manifests; review package-lock.json before release'}.`);
+  const initial = current === '0.1.0' && requested === current && git(['tag', '--list', 'v*']) === '';
+  let version;
+  try { version = initial ? current : bumpVersion(current, requested); }
+  catch (error) { throw new Error(`${error.message}\nChoose patch, minor, major or an explicit newer X.Y.Z.`); }
   const tag = `v${version}`;
-  if (spawnSync('git', ['show-ref', '--verify', '--quiet', `refs/tags/${tag}`], { cwd: root }).status === 0) throw new Error(`Tag ${tag} already exists.`);
+  if (spawnSync('git', ['show-ref', '--verify', '--quiet', `refs/tags/${tag}`], { cwd: root }).status === 0) throw new Error(`Tag ${tag} already exists. Inspect it with git show ${tag}; select a newer version rather than replacing a published tag.`);
   const date = new Date().toISOString().slice(0, 10);
   const edits = new Map(manifests.map(path => [path, rewriteManifest(read(path), version)]));
   edits.set('package-lock.json', rewriteLockfile(read('package-lock.json'), version));
-  const changelog = initial ? initialChangelog(read('CHANGELOG.md'), current, positional[0]) : rollChangelog(read('CHANGELOG.md'), version, date);
+  let changelog;
+  try { changelog = initial ? initialChangelog(read('CHANGELOG.md'), current, requested) : rollChangelog(read('CHANGELOG.md'), version, date); }
+  catch (error) { throw new Error(`${error.message}\nRepair the Unreleased section in CHANGELOG.md, commit the reviewed notes and synchronize main before retrying.`); }
   edits.set('CHANGELOG.md', changelog);
   const section = extractSection(changelog, tag);
   const archive = `devlog/${date.slice(0, 7)}.md`;
-  const stub = `## ${date} -- Release ${tag}\n\nRELEASE_ENTRY_REQUIRED: Complete this entry before the release commit. Describe the user-visible changes, the release controls and files, the checks actually run and their results, failures and resolutions, and remaining limitations.\n\n${relinkForDevlog(section.replace(/^## .+\n/, ''))}\n---\n\n`;
+  const body = entryBody ?? `RELEASE_ENTRY_REQUIRED: Complete this entry before the release commit. Describe the user-visible changes, the release controls and files, the checks actually run and their results, failures and resolutions, and remaining limitations.\n\n${relinkForDevlog(section.replace(/^## .+\n/, ''))}`;
+  const stub = `## ${date} -- Release ${tag}\n\n${body.trim()}\n\n---\n\n`;
   edits.set(archive, stub + (existsSync(join(root, archive)) ? read(archive) : ''));
   const index = read('DEVLOG.md');
   if (!index.includes(`devlog/${date.slice(0, 7)}.md`)) {
@@ -62,19 +104,26 @@ try {
       console.log(`\nPlanned edit: ${path}\n${diff.stdout.split('\n').slice(4).join('\n')}`);
     }
     console.log(`\nTag message and GitHub release body:\n${section}`);
-    console.log('The release devlog entry must be completed in the editor before committing.');
-    console.log(`After review, push explicitly: git push origin main ${tag}`);
+    console.log(entryFile === undefined ? 'Interactive entry mode: complete the devlog in the editor before committing.' : 'File entry mode: the entry above is used; no editor is opened.');
+    console.log(`After the local release commit and tag exist (run only with release approval):\n1. Read the full release commit: git show HEAD\n2. Read the tag: git show ${tag}\n3. Push explicitly after review: git push origin main ${tag}\n4. Inspect the release workflow; approve the staged npm package separately.\n5. Check the installed update, then delete release/${version} after confirming it is an ancestor of main.\n6. Replace NEXT_VERSION with the next agreed version, then create its branch: git switch -c release/NEXT_VERSION main\n7. Push that branch explicitly: git push --set-upstream origin release/NEXT_VERSION`);
     if (!dryRun) {
+      completed = 'Release files may be partly written. Review the tree and index; no release commit or tag was created.';
       for (const [path, content] of edits) {
         mkdirSync(dirname(join(root, path)), { recursive: true });
         writeFileSync(join(root, path), content);
       }
-      const editor = git(['var', 'GIT_EDITOR']);
-      const edit = spawnSync(editor, [archive], { cwd: root, env, shell: true, stdio: 'inherit' });
-      if (edit.error || edit.status !== 0) throw edit.error || new Error('Release entry editor failed; changes remain available for review.');
+      completed = 'Release files were written. Review the tree and index; no release commit or tag was created.';
+      if (editEntry) {
+        const editor = git(['var', 'GIT_EDITOR']);
+        const edit = spawnSync(editor, [archive], { cwd: root, env, shell: true, stdio: 'inherit' });
+        if (edit.error || edit.status !== 0) throw edit.error || new Error('Release entry editor failed; changes remain available for review.');
+        const newest = read(archive).slice(stub.indexOf('\n\n') + 2).split(/^---\s*$/m)[0];
+        entryCount(newest);
+      }
       if (read(archive).includes('RELEASE_ENTRY_REQUIRED')) throw new Error('Complete the release devlog entry before committing; planned edits remain available for review.');
       git(['add', '--', ...edits.keys()]);
       git(['-c', `user.name=${identity.name}`, '-c', `user.email=${identity.email}`, '-c', 'commit.gpgsign=false', 'commit', '-m', `Release ${tag}`], { stdio: 'inherit' });
+      completed = 'The release commit was created locally. The annotated tag was not created; nothing was pushed.';
       const message = join(scratch, 'tag-message');
       writeFileSync(message, section);
       git(['-c', `user.name=${identity.name}`, '-c', `user.email=${identity.email}`, '-c', 'tag.gpgsign=false', 'tag', '-a', tag, '--cleanup=verbatim', '-F', message]);
@@ -83,5 +132,6 @@ try {
   } finally { rmSync(scratch, { recursive: true, force: true }); }
 } catch (error) {
   console.error(error.message);
+  console.error(completed);
   process.exitCode = 1;
 }
