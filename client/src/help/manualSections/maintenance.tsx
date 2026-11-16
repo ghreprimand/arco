@@ -216,6 +216,14 @@ export const maintenance: Section[] = [
   refuses to proceed if the stop cannot be verified.
   </p>
   <p>
+  The result stays beside the open update control. Closing that control shows
+  a separate result notice with <strong>DISMISS</strong>. If npm cannot be found,
+  the update leaves the service running and lists the locations checked. In a
+  terminal where <Code>npm --version</Code> works, stop Arco, run{' '}
+  <Code>npm install -g arco-workbench</Code>, then start Arco again. Repair the
+  Node.js/npm installation first if that terminal cannot run npm either.
+  </p>
+  <p>
   After a restart, Arco reloads a page automatically if its build changed or
   its session cannot recover and no unsaved work is detected. Otherwise the
   RELOAD banner stays visible. Save drafts and edits before selecting it.

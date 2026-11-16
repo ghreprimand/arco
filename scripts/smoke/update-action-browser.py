@@ -146,12 +146,14 @@ async def main():
         await page.wait_for_timeout(800)
         manager['slow'] = False
         manager['result'] = {'outcome':'updated', 'message':'Fixture update complete.', 'finishedAt':12345, 'attemptId':'fixture-attempt'}
-        await expect(page.locator('[data-help="settings.update-result"]')).to_contain_text('Fixture update complete.', timeout=10000)
-        await page.locator('[data-help="settings.update-result"]').get_by_role('button', name='DISMISS').click()
+        await expect(notice).to_contain_text('Fixture update complete.', timeout=10000)
+        await expect(page.locator('[data-help="settings.update-result"]')).to_have_count(0)
         await page.wait_for_timeout(6200)
         await expect(notice).to_be_visible()
         await notice.get_by_role('button', name='DISMISS', exact=True).click()
         await expect(notice).to_have_count(0)
+        await expect(page.locator('[data-help="settings.update-result"]')).to_contain_text('Fixture update complete.')
+        await page.locator('[data-help="settings.update-result"]').get_by_role('button', name='DISMISS').click()
         assert {'updateCheckDismissed': 'v0.2.1'} in writes
         manager['mode'] = 'foreground'
         manager['result'] = None
@@ -198,8 +200,10 @@ async def main():
         manager['packaged'] = False
         manager['mode'] = 'docker'
         manager['result'] = {'outcome':'failed', 'message':'Fixture update failed and rolled back.', 'finishedAt':67890}
+        await page.evaluate("async()=>{const {useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().setShowSettings(false);location.hash=''}")
         await page.reload()
         await page.wait_for_function("() => !!window.localStorage")
+        await page.get_by_test_id('app-update-notice').get_by_role('button', name='DISMISS', exact=True).click()
         await expect(page.locator('[data-help="settings.update-result"]')).to_contain_text('failed and rolled back', timeout=10000)
         # Once the server stops reporting a result, the previous message must
         # disappear rather than surviving as stale client state.

@@ -2,12 +2,49 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { supportedNodeVersion, repairedNativeDir } from './native-repair.mjs';
-import { join } from 'node:path';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { supportedNodeVersion, repairedNativeDir, npmCliPath } from './native-repair.mjs';
+import { dirname, join } from 'node:path';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const cli = fileURLToPath(new URL('./arco.mjs', import.meta.url));
+test('npm lookup finds a runnable CLI in Node, global-prefix and command layouts', (t) => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'arco-npm-lookup-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const file = (path) => { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, 'console.log("npm fixture");'); return path; };
+  const options = { argv0: '', argv: [], packageRoot: null };
+  const check = (expected, env, node, extra = {}) => {
+    const found = npmCliPath(env, node, { ...options, ...extra });
+    assert.equal(found, expected);
+    const result = spawnSync(process.execPath, [found], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), 'npm fixture');
+  };
+  if (process.platform !== 'win32') {
+    const prefix = join(root, 'homebrew');
+    const node = file(join(prefix, 'Cellar', 'node', '26.10.0_1', 'bin', 'node'));
+    const npm = file(join(prefix, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+    mkdirSync(join(prefix, 'bin'));
+    symlinkSync(node, join(prefix, 'bin', 'node'));
+    symlinkSync(npm, join(prefix, 'bin', 'npm'));
+    check(npm, { PATH: join(root, 'short-path') }, node);
+    const pathNpm = file(join(root, 'path-target', 'npm-cli.js'));
+    const bin = join(root, 'path-bin'); mkdirSync(bin);
+    symlinkSync(pathNpm, join(bin, 'npm'));
+    check(pathNpm, { PATH: bin }, join(root, 'other', 'node'));
+  }
+  const prefix = join(root, 'custom-prefix');
+  const npm = file(join(prefix, 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+  check(npm, {}, join(root, 'separate-node', 'node'), { packageRoot: join(prefix, 'lib', 'node_modules', 'arco-workbench') });
+  const windowsNpm = file(join(root, 'windows', 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+  check(windowsNpm, {}, join(root, 'windows', 'node.exe'));
+  const managedNpm = file(join(root, 'managed-node', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+  check(managedNpm, {}, join(root, 'managed-node', 'bin', 'node'));
+  check(managedNpm, {}, join(root, 'elsewhere', 'node'), { argv0: join(root, 'managed-node', 'bin', 'node') });
+  check(managedNpm, { npm_execpath: managedNpm }, join(root, 'elsewhere', 'node'));
+  assert.throws(() => npmCliPath({ PATH: '' }, join(root, 'missing', 'node'), options), /Cannot locate npm-cli\.js.*Node\.js.*global package directory.*PATH/);
+});
+
 test('unknown update options are refused before any update starts', () => {
   const result = spawnSync(process.execPath, [cli, 'update', '--ref', 'v1.0.0'], { encoding: 'utf8' });
   assert.notEqual(result.status, 0);

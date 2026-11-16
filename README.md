@@ -67,6 +67,8 @@ one that was modified after installation.
 
 For Linux service recovery after 0.1.3, see the
 [package update recovery steps](docs/OPERATIONS.md#packaged-install).
+The same section gives manual update steps when Arco cannot locate npm; stop
+Arco before replacing the package from a terminal where npm works.
 
 Use these package commands for maintenance:
 

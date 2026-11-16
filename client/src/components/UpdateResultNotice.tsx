@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useAppUpdateStore } from '../stores/appUpdateStore';
 
 interface Result { outcome: string; message?: string; finishedAt?: number; attemptId?: string }
 export function UpdateResultNotice() {
+  const inlineResult = useAppUpdateStore((s) => s.resultSurfaces.length > 0);
   const [result, setResult] = useState<Result | null>(null);
   useEffect(() => {
     let alive = true; let request = 0;
@@ -22,7 +24,7 @@ export function UpdateResultNotice() {
     void check(); const timer = setInterval(() => { void check(); }, 3000);
     return () => { alive = false; clearInterval(timer); };
   }, []);
-  if (!result) return null;
+  if (!result || inlineResult) return null;
   return <div role="status" data-help="settings.update-result" style={{ pointerEvents: 'auto', padding: 12, color: 'var(--color-fg)', background: 'var(--color-bg-panel)', border: '1px solid var(--color-accent-primary)' }}>
     <span>{result.message || (result.outcome === 'unchanged' ? 'Already on the newest release.' : 'Update completed.')}</span>{' '}
     <button type="button" onClick={() => { try { localStorage.setItem('arco-update-result-dismissed', result.attemptId || String(result.finishedAt)); } catch { /* storage is optional */ } setResult(null); }}>DISMISS</button>

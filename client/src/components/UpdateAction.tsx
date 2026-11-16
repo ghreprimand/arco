@@ -1,7 +1,7 @@
 import { createPortal } from 'react-dom';
 import { checkBuild } from '../buildCheck';
 import { confirmationSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useAppUpdateStore } from '../stores/appUpdateStore';
 
 type State = { mode: 'service' | 'foreground' | 'docker'; platform?: string; packaged?: boolean; result: { outcome: string; message?: string; attemptId?: string } | null };
@@ -13,6 +13,16 @@ export function UpdateAction({ latest, url, autoConfirm = false }: { latest: str
   const [message, setMessage] = useState('');
   const [resultMessage, setResultMessage] = useState('');
   const [fallback, setFallback] = useState(false);
+  const resultSurfaceId = useId();
+  const ownsResult = useAppUpdateStore((s) => s.resultSurfaces[0] === resultSurfaceId);
+  const hasState = state !== null;
+  useEffect(() => {
+    if (!hasState) return;
+    // An open control owns the result instead of the global notice. Starting an
+    // update moves ownership to the exact control whose button was pressed.
+    useAppUpdateStore.getState().showResultAt(resultSurfaceId);
+    return () => useAppUpdateStore.getState().removeResultSurface(resultSurfaceId);
+  }, [hasState, resultSurfaceId]);
   // null means the start request is in flight; a string fences later polls to
   // that attempt. A new page can display any result the server still reports.
   const startedAttempt = useRef<string | null | undefined>(undefined);
@@ -53,6 +63,7 @@ export function UpdateAction({ latest, url, autoConfirm = false }: { latest: str
     return () => { live = false; clearInterval(timer); };
   }, [pending]);
   const start = async () => {
+    useAppUpdateStore.getState().showResultAt(resultSurfaceId, true);
     startedAttempt.current = null;
     setConfirm(false); setPending(true); setFallback(false); setResultMessage(''); setMessage('Starting update. Arco will reconnect after restart.');
     try {
@@ -81,7 +92,7 @@ export function UpdateAction({ latest, url, autoConfirm = false }: { latest: str
     </>}
     {fallback && <div><code>{state.packaged ? 'arco update' : 'npm run arco:update'}</code>{' '}<button type="button" onClick={() => copy(state.packaged ? 'arco update' : 'npm run arco:update')}>COPY COMMAND</button></div>}
     {message && <div role="status">{message}</div>}
-    {resultMessage && <div role="status">{resultMessage}</div>}
+    {ownsResult && resultMessage && <div role="status">{resultMessage}</div>}
     {confirm && createPortal(<div role="dialog" aria-modal="true" aria-label="Confirm update" style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div ref={surface} style={{ background: 'var(--color-bg-elevated)', color: 'var(--color-fg)', border: '1px solid var(--color-border)', padding: 20, ...confirmationSurfaceSize }}>
         <WorkSurfaceControls surface={surface} storageKey="update-confirm" />

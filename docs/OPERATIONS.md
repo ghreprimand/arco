@@ -244,6 +244,27 @@ modules cannot be replaced safely. A packaged service can instead use
 Linux, macOS, and Windows. The action interrupts running turns and reports
 completion or rollback after reconnect.
 
+The result appears beside the open update control. When that control is closed,
+a separate result notice remains available with **DISMISS**. The same result is
+not shown in both places at once.
+
+Package updates and `arco setup --repair-native` find npm beside Node.js,
+through the global package directory, or through the npm command on `PATH`.
+Homebrew's versioned Node executable is supported even when the service has a
+short `PATH`. If npm still cannot be found, the update stops before stopping the
+service and describes the locations checked. In a terminal where `npm --version`
+works, update a packaged service manually:
+
+```sh
+arco service stop
+npm install -g arco-workbench
+arco service start
+```
+
+For a foreground run, stop that process before installing and run `arco start`
+afterward. If `npm --version` fails too, repair the Node.js/npm installation
+first. A native repair can then be retried with `arco setup --repair-native`.
+
 After a restart, a page reloads automatically if its build changed or its
 session cannot recover and no unsaved work is detected. Otherwise it shows a
 RELOAD banner. Save drafts and edits before selecting RELOAD.

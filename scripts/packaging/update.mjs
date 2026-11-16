@@ -41,7 +41,11 @@ export async function updatePackage(manifest, root, deps = {}) {
   const env = deps.env ?? process.env, platform = deps.platform ?? process.platform;
   const home = deps.home ?? servicePaths(platform, env).home;
   const prefix = deps.prefix ?? globalPrefix(root, platform);
-  const npm = deps.npm ?? npmCliPath(env);
+  let npm = deps.npm;
+  if (!npm) {
+    try { npm = npmCliPath(env, process.execPath, { packageRoot: root }); }
+    catch (error) { throw new Error(`${error.message} To update manually, stop Arco, run npm install -g arco-workbench, then start Arco again.`); }
+  }
   const run = deps.run ?? ((command, args, options = {}) => spawnSync(command, args, { encoding: 'utf8', env: { ...env, npm_config_cache: env.npm_config_cache || join(home, 'cache', 'npm') }, ...options }));
   const service = deps.service ?? ((action) => serviceAction(action));
   const rootStat = lstatSync(root);

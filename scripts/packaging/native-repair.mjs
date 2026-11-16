@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
@@ -10,12 +10,50 @@ export function supportedNodeVersion(version = process.versions.node) {
   return !!match && [24, 26].includes(Number(match[1]));
 }
 
-export function npmCliPath(env = process.env, executable = process.execPath) {
-  const bin = dirname(executable);
-  const candidates = [env.npm_execpath, join(bin, 'node_modules', 'npm', 'bin', 'npm-cli.js'), join(bin, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js')];
-  const cli = candidates.find((p) => p && p.endsWith('.js') && existsSync(p));
-  if (!cli) throw new Error('Cannot locate npm. Reinstall Node.js with npm and retry.');
-  return resolve(cli);
+export function npmCliPath(env = process.env, executable = process.execPath, options = {}) {
+  const { argv0 = process.argv0, argv = process.argv, packageRoot = fileURLToPath(new URL('../..', import.meta.url)) } = options;
+  const path = (env.PATH || env.Path || '').split(delimiter).filter(Boolean);
+  const candidates = [env.npm_execpath];
+  const beside = (bin) => {
+    candidates.push(join(bin, 'node_modules', 'npm', 'bin', 'npm-cli.js'), join(bin, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+    // Homebrew also keeps npm under the versioned keg's libexec directory.
+    candidates.push(join(bin, '..', 'libexec', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'));
+  };
+  for (const command of [executable, env.npm_node_execpath, argv0, ...argv.slice(0, 2)]) {
+    if (!command) continue;
+    const locations = isAbsolute(command) || /[/\\]/.test(command) ? [resolve(command)] : path.map((bin) => join(bin, command));
+    for (const location of locations) {
+      beside(dirname(location));
+      let real = location;
+      try { real = realpathSync(location); } catch { /* an argv path may no longer exist */ }
+      if (real !== location) beside(dirname(real));
+      // A service can retain only the real Cellar executable and a short PATH.
+      // Derive the Homebrew prefix from that executable, without fixed prefixes.
+      for (let dir = dirname(real); dirname(dir) !== dir; dir = dirname(dir)) {
+        if (basename(dir) === 'Cellar') { beside(join(dirname(dir), 'bin')); break; }
+      }
+    }
+  }
+  // A custom npm prefix can differ from the Node installation. The installed
+  // package provides this location even when launchd/systemd strips PATH.
+  if (packageRoot) {
+    for (let dir = resolve(packageRoot); dirname(dir) !== dir; dir = dirname(dir)) {
+      if (basename(dir) === 'node_modules') { candidates.push(join(dir, 'npm', 'bin', 'npm-cli.js')); break; }
+    }
+  }
+  for (const bin of path) {
+    candidates.push(join(bin, 'npm'));
+    beside(bin);
+  }
+  for (const candidate of new Set(candidates)) {
+    if (!candidate) continue;
+    try {
+      const cli = realpathSync(candidate);
+      // The caller invokes this file with Node, never a shell shim or executable.
+      if (/\.[cm]?js$/i.test(cli) && statSync(cli).isFile()) return cli;
+    } catch { /* try the next installation layout */ }
+  }
+  throw new Error("Cannot locate npm-cli.js beside Node.js, in Arco's global package directory, or through npm on PATH. Check npm --version in a terminal.");
 }
 export function repairedNativeDir(env = process.env) {
   const home = resolve(env.ARCO_HOME?.trim() || join(homedir(), '.arco'));

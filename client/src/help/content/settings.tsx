@@ -547,7 +547,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   'settings.update-result': {
     title: 'Update result',
     manualSection: 'arco-updates',
-    body: <p>Reports the completed update or rollback after the server reconnects. DISMISS hides this result.</p>,
+    body: <p>Reports the completed update or failure after the server reconnects. The result appears beside an open update control, or in this separate notice when no update control is open. DISMISS hides this notice. If npm cannot be found, stop Arco and run npm install -g arco-workbench from a terminal where npm works, then start Arco again.</p>,
   },
   'settings.app-updates': {
     title: 'Arco releases',

@@ -15,6 +15,9 @@ export const useAppUpdateStore = create<{
   status: UpdateCheckStatus | null;
   notice: AppUpdateAvailableMessage | null;
   updating: boolean;
+  resultSurfaces: string[];
+  showResultAt: (id: string, preferred?: boolean) => void;
+  removeResultSurface: (id: string) => void;
   versionOpen: boolean;
   setVersionOpen: (value: boolean) => void;
   setUpdating: (value: boolean) => void;
@@ -25,6 +28,12 @@ export const useAppUpdateStore = create<{
   status: null,
   notice: null,
   updating: false,
+  resultSurfaces: [],
+  showResultAt: (id, preferred = false) => set(({ resultSurfaces }) => {
+    const others = resultSurfaces.filter((value) => value !== id);
+    return { resultSurfaces: preferred ? [id, ...others] : [...others, id] };
+  }),
+  removeResultSurface: (id) => set(({ resultSurfaces }) => ({ resultSurfaces: resultSurfaces.filter((value) => value !== id) })),
   versionOpen: false,
   setVersionOpen: (versionOpen) => set({ versionOpen }),
   setUpdating: (updating) => set({ updating }),

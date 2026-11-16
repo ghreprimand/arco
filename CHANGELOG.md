@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Find npm for Homebrew and separate package prefixes when updating or repairing native modules, give manual recovery steps when npm is missing, and show an update result once beside its open control.
+
 - Keep a manual release check in the version box, center the update confirmation, and detect a changed build after a transient restart failure.
 
 - Document the notice shown when between-turn auto-compaction leaves context at or above the threshold after three attempts, and state in repository guides that files to keep belong in the project tree while `.arco/` stays local except a skill shared through SHARE WITH REPOSITORY.
