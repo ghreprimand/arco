@@ -52,26 +52,10 @@ jobs:
         with:
           # Full history of every branch and tag, for the history audits below.
           fetch-depth: 0
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup-arco
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
-      # NODE_ENV is unset on hosted runners; devDependencies (tsc, tsx) are required.
-      - name: Install
-        run: npm ci --include=dev
-      # Content and transcript search deliberately require rg. Native Grep has
-      # a JS fallback, so its tests alone cannot establish this prerequisite.
-      - name: Install and check ripgrep
-        run: |
-          if ! command -v rg >/dev/null 2>&1; then
-            case "$RUNNER_OS" in
-              Linux) sudo apt-get update && sudo apt-get install -y ripgrep ;;
-              macOS) brew install ripgrep ;;
-              Windows) choco install ripgrep --yes --no-progress ;;
-              *) echo "Unsupported runner: $RUNNER_OS" >&2; exit 1 ;;
-            esac
-          fi
-          rg --version
+          ripgrep: 'true'
       - name: Build
         run: npm run build
       - name: Typecheck
@@ -127,14 +111,15 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || inputs.os == 'ubuntu' || inputs.os == 'all'
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup-arco
         with:
-          node-version: 24
-          cache: npm
+          install-dependencies: 'false'
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - run: npm ci --include=dev
+      - uses: ./.github/actions/setup-arco
+        with:
+          setup-node: 'false'
       - name: Install Playwright Chromium
         run: |
           python3 -m pip install playwright
@@ -155,14 +140,15 @@ jobs:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.os == 'macos' || inputs.os == 'all'))
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup-arco
         with:
-          node-version: 24
-          cache: npm
+          install-dependencies: 'false'
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - run: npm ci --include=dev
+      - uses: ./.github/actions/setup-arco
+        with:
+          setup-node: 'false'
       - name: Install Playwright Chromium
         run: |
           python3 -m pip install playwright
@@ -182,14 +168,15 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || inputs.os == 'windows' || inputs.os == 'all'
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup-arco
         with:
-          node-version: 24
-          cache: npm
+          install-dependencies: 'false'
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
-      - run: npm ci --include=dev
+      - uses: ./.github/actions/setup-arco
+        with:
+          setup-node: 'false'
       - name: Install Playwright Chromium
         run: |
           python3 -m pip install playwright
@@ -212,61 +199,16 @@ jobs:
         id: detect
         run: |
           if [ -f Dockerfile ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else echo "present=false" >> "$GITHUB_OUTPUT"; fi
-      - uses: actions/setup-node@v7
-        if: steps.detect.outputs.present == 'true'
-        with:
-          node-version: 24
-          cache: npm
       - name: Install smoke dependencies
+        uses: ./.github/actions/setup-arco
         if: steps.detect.outputs.present == 'true'
-        run: npm ci --include=dev
       # smoke:docker builds arco:development itself and drives it with temporary projects, volumes and fixture providers.
       - name: Docker smoke
         if: steps.detect.outputs.present == 'true'
         run: npm run smoke:docker
 
   package-native:
-    name: package native (${{ matrix.platform }}-${{ matrix.arch }})
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { platform: linux, arch: x64, runner: ubuntu-latest }
-          - { platform: linux, arch: arm64, runner: ubuntu-24.04-arm }
-          - { platform: darwin, arch: x64, runner: macos-15-intel }
-          - { platform: darwin, arch: arm64, runner: macos-latest }
-          - { platform: win32, arch: x64, runner: windows-latest }
-          - { platform: win32, arch: arm64, runner: windows-11-arm }
-    steps:
-      - run: git config --global core.autocrlf false
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          architecture: ${{ matrix.arch }}
-          cache: npm
-      - run: npm ci --include=dev
-      - run: node scripts/packaging/collect-native.mjs "$RUNNER_TEMP/native"
-      - run: node scripts/public-audit.mjs --package "$RUNNER_TEMP/native"
-      # A single Node-API artifact must load under both supported runtimes.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          architecture: ${{ matrix.arch }}
-      - run: node scripts/packaging/probe-native.mjs "$RUNNER_TEMP/native/${{ matrix.platform }}-${{ matrix.arch }}"
-      # Artifact uploads do not preserve executable modes; keep them in tar.
-      - name: Archive native artifact
-        run: |
-          cd "$RUNNER_TEMP"
-          tar -czf "native-${{ matrix.platform }}-${{ matrix.arch }}.tgz" -C native .
-      - uses: actions/upload-artifact@v7
-        with:
-          name: native-${{ matrix.platform }}-${{ matrix.arch }}
-          path: ${{ runner.temp }}/native-${{ matrix.platform }}-${{ matrix.arch }}.tgz
-          if-no-files-found: error
-          retention-days: 1
+    uses: ./.github/workflows/native-packages.yml
 
   package-smoke:
     name: package install (${{ matrix.os }}, Node ${{ matrix.node }})
@@ -281,11 +223,9 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup-arco
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
-      - run: npm ci --include=dev
       - run: npm run build
       - name: Install npm 11 for the plain-install test
         run: |

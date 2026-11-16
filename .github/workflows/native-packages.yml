@@ -1,0 +1,66 @@
+name: Native packages
+
+on:
+  workflow_call:
+    inputs:
+      npm-cache:
+        description: Enable the CI install cache; releases disable it.
+        type: boolean
+        default: true
+      checkout-ref:
+        description: Release tag, or empty for the caller's default checkout.
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  package-native:
+    name: package native (${{ matrix.platform }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { platform: linux, arch: x64, runner: ubuntu-latest }
+          - { platform: linux, arch: arm64, runner: ubuntu-24.04-arm }
+          - { platform: darwin, arch: x64, runner: macos-15-intel }
+          - { platform: darwin, arch: arm64, runner: macos-latest }
+          - { platform: win32, arch: x64, runner: windows-latest }
+          - { platform: win32, arch: arm64, runner: windows-11-arm }
+    steps:
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.checkout-ref }}
+      - uses: ./.github/actions/setup-arco
+        with:
+          architecture: ${{ matrix.arch }}
+          npm-cache: ${{ inputs.npm-cache }}
+      - run: node scripts/packaging/collect-native.mjs "$RUNNER_TEMP/native"
+      - run: node scripts/public-audit.mjs --package "$RUNNER_TEMP/native"
+      # A single Node-API artifact must load under both supported runtimes.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          architecture: ${{ matrix.arch }}
+          package-manager-cache: ${{ inputs.npm-cache }}
+      - run: node scripts/packaging/probe-native.mjs "$RUNNER_TEMP/native/${{ matrix.platform }}-${{ matrix.arch }}"
+      # Artifact uploads do not preserve executable modes; keep them in tar.
+      - name: Archive native artifact
+        run: |
+          cd "$RUNNER_TEMP"
+          tar -czf "native-${{ matrix.platform }}-${{ matrix.arch }}.tgz" -C native .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ matrix.platform }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/native-${{ matrix.platform }}-${{ matrix.arch }}.tgz
+          if-no-files-found: error
+          retention-days: 1
+

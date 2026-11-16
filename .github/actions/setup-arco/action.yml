@@ -1,0 +1,51 @@
+name: Set up Arco
+description: Shared Node, dependency and optional search setup for existing jobs.
+inputs:
+  node-version:
+    description: Node version for this job.
+    default: '24'
+  architecture:
+    description: Node architecture; empty uses the runner default.
+    default: ''
+  npm-cache:
+    description: Enable npm caching; release jobs explicitly disable it.
+    default: 'true'
+  setup-node:
+    description: Set false when Node was already set up before an intervening step.
+    default: 'true'
+  install-dependencies:
+    description: Install workspace dependencies including development packages.
+    default: 'true'
+  ripgrep:
+    description: Install and check ripgrep for jobs that already require it.
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      if: inputs.setup-node == 'true'
+      with:
+        node-version: ${{ inputs.node-version }}
+        architecture: ${{ inputs.architecture }}
+        cache: ${{ inputs.npm-cache == 'true' && 'npm' || '' }}
+        package-manager-cache: ${{ inputs.npm-cache == 'true' }}
+    # NODE_ENV is unset on hosted runners; devDependencies (tsc, tsx) are required.
+    - name: Install
+      if: inputs.install-dependencies == 'true'
+      shell: bash
+      run: npm ci --include=dev
+    # Content and transcript search deliberately require rg. Native Grep has
+    # a JS fallback, so its tests alone cannot establish this prerequisite.
+    - name: Install and check ripgrep
+      if: inputs.ripgrep == 'true'
+      shell: bash
+      run: |
+        if ! command -v rg >/dev/null 2>&1; then
+          case "$RUNNER_OS" in
+            Linux) sudo apt-get update && sudo apt-get install -y ripgrep ;;
+            macOS) brew install ripgrep ;;
+            Windows) choco install ripgrep --yes --no-progress ;;
+            *) echo "Unsupported runner: $RUNNER_OS" >&2; exit 1 ;;
+          esac
+        fi
+        rg --version

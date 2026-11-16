@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Use the same dependency and native-package setup for CI and release builds.
+
 - Accept a release entry file without an editor, explain release preconditions and recovery, and show entry length and setup diagnostics without adding release gates.
 
 - Keep live Claude CLI session updates responsive as large history files grow, and keep following the file after replacement or truncation.
