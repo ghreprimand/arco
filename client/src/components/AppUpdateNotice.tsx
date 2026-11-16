@@ -5,11 +5,12 @@ import { useAppUpdateStore } from '../stores/appUpdateStore';
 
 export function AppUpdateNotice() {
   const notice = useAppUpdateStore((s) => s.notice);
+  const versionOpen = useAppUpdateStore((s) => s.versionOpen);
   const refresh = useAppUpdateStore((s) => s.refresh);
   const settings = useAppStore((s) => s.settings);
   const [saving, setSaving] = useState(false);
   useEffect(() => { void refresh().catch(() => {}); }, [refresh]);
-  if (!notice || !settings || settings.updateCheck === false || settings.updateCheckDismissed === notice.latest) return null;
+  if (versionOpen || !notice || !settings || settings.updateCheck === false || settings.updateCheckDismissed === notice.latest) return null;
   const dismiss = async () => {
     setSaving(true);
     try {

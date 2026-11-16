@@ -42,6 +42,14 @@ async def main():
             clean_browser = h.Browser(p, server)
             clean = await clean_browser.open()
             await clean.route('**/index.html?build=*', lambda route: route.fulfill(status=200, content_type='text/html', body=original))
+            attempts = []
+            async def temporary_failure(route):
+                attempts.append(1)
+                if len(attempts) == 1:
+                    await route.fulfill(status=503, body='temporary failure')
+                else:
+                    await route.continue_()
+            await page.route('**/index.html?build=*', temporary_failure)
             old_url = page.url
             assert await page.evaluate("fetch('/api/settings').then(r => r.status)") == 200
             server.proc.terminate()
@@ -60,7 +68,7 @@ async def main():
                 except Exception: await asyncio.sleep(.15)
             else: raise RuntimeError('restarted server not ready')
             await page.get_by_title('ONLINE', exact=True).wait_for(timeout=30000)
-            await expect(page.get_by_role('button', name='Reload Arco')).to_be_visible(timeout=30000)
+            await expect(page.get_by_role('button', name='Reload Arco')).to_be_visible(timeout=12000)
             assert page.url == old_url
             assert await page.locator('#fixture-unsaved').input_value() == 'Unsent fixture draft'
             assert await page.evaluate("fetch('/api/settings').then(r => r.status)") == 200

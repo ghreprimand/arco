@@ -24,6 +24,8 @@ export function startRecoveryGuard(): void {
   };
   document.addEventListener('input', mark, true);
   document.addEventListener('change', mark, true);
+  // A socket can reconnect before the old server stops, or its first probe can fail.
+  window.setInterval(() => { void checkBuild(); }, 10_000);
 }
 
 export function hasUnsavedWork(): boolean {
@@ -32,7 +34,7 @@ export function hasUnsavedWork(): boolean {
   return editedFields.size > 0 || Object.values(useDraftStore.getState().drafts).some((draft) => draft.length > 0)
     || Object.values(app.attachments).some((attachments) => attachments.length > 0)
     || Object.values(app.jobs).some((job) => job.config.incognito)
-    || Boolean(document.querySelector('[role="dialog"], [data-dialog-shell], dialog[open], [contenteditable="true"]:focus'));
+    || Boolean(document.querySelector('[role="dialog"]:not([data-recovery-safe]), [data-dialog-shell], dialog[open], [contenteditable="true"]:focus'));
 }
 
 export function reportRecovery(reason: RecoveryReason): void {

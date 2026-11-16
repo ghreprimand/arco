@@ -17,15 +17,17 @@ export function HeaderVersionBox() {
   const refresh = useAppUpdateStore((s) => s.refresh);
   const settings = useAppStore((s) => s.settings);
   const [open, setOpen] = useState(false);
+  const [autoConfirm, setAutoConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const root = useRef<HTMLSpanElement>(null);
   const placeRef = useKeepInWindow();
+  useEffect(() => { useAppUpdateStore.getState().setVersionOpen(open); return () => useAppUpdateStore.getState().setVersionOpen(false); }, [open]);
   useEffect(() => { void refresh().catch(() => {}); }, [refresh]);
   useEffect(() => { if (notice?.latest) void refresh().catch(() => {}); }, [notice?.latest, refresh]);
   useEffect(() => {
     if (!open) return;
-    const away = (event: MouseEvent) => { if (root.current && !root.current.contains(event.target as Node)) setOpen(false); };
+    const away = (event: MouseEvent) => { if (root.current && !root.current.contains(event.target as Node) && !(event.target as Element).closest('[aria-label="Confirm update"]')) setOpen(false); };
     const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false); };
     document.addEventListener('mousedown', away); document.addEventListener('keydown', key);
     return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', key); };
@@ -43,7 +45,7 @@ export function HeaderVersionBox() {
     : `Up to date (${current || 'version unknown'}). Last checked: ${checked}.`;
   const aria = updating ? 'Arco is updating' : available ? `Arco update available: ${plain(latest as string)}. Open update.` : `Arco version ${current || 'unknown'}. ${!checks ? 'Release checks are off.' : 'Up to date.'} Open version details.`;
   const check = async () => {
-    setBusy(true); setError('');
+    setAutoConfirm(false); setBusy(true); setError('');
     try { await refresh(true); } catch { setError('Release check unavailable'); } finally { setBusy(false); }
   };
   const versions = () => { setOpen(false); useStartupStore.getState().setSettingsSection('cli-versions'); useAppStore.getState().setShowSettings(true); };
@@ -57,7 +59,7 @@ export function HeaderVersionBox() {
       aria-label={aria}
       aria-haspopup="dialog"
       aria-expanded={open}
-      onClick={() => setOpen((value) => !value)}
+      onClick={() => { if (!open) setAutoConfirm(available); setOpen((value) => !value); }}
       style={{
         ...headerActionStyle,
         fontSize: '10px',
@@ -77,6 +79,7 @@ export function HeaderVersionBox() {
     </button>
     {(open || updating) && <div
       role="dialog"
+      data-recovery-safe
       aria-label={available ? 'Arco update' : 'Arco version'}
       data-testid="header-version-popover"
       ref={placeRef}
@@ -84,7 +87,7 @@ export function HeaderVersionBox() {
     >
       {available ? <>
         <div>Arco {plain(latest as string)} is available{current ? ` (running ${current})` : ''}.</div>
-        <UpdateAction latest={latest} url={url} autoConfirm />
+        <UpdateAction latest={latest} url={url} autoConfirm={autoConfirm} />
         {url && <div><a href={url} target="_blank" rel="noopener noreferrer">Release notes</a></div>}
       </> : <>
         <div>Running: {current || 'unknown'}</div>

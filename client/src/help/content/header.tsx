@@ -458,7 +458,9 @@ export const headerHelp: Record<string, HelpEntry> = {
           Otherwise it opens the running and latest known version, the last
           check time, <C>CHECK NOW</C>, a release-notes link and a link to
           Settings &gt; Advanced &gt; CLI and runtime versions. While an update
-          runs it reads <C>UPDATING</C>. With release checks off it shows the
+          runs it reads <C>UPDATING</C>. A release found with <C>CHECK NOW</C>
+          appears here; select <C>UPDATE AND RESTART</C> to open confirmation.
+          With release checks off it shows the
           running version only.
         </p>
       </>

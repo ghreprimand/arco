@@ -220,6 +220,8 @@ The version box in the top bar, left of the power button, always shows the
 running version. When a newer release is known it turns into an accent box with
 an up arrow and the new version, stays that way after the toast is dismissed,
 opens the update dialog on click, and shows UPDATING while an update runs.
+A release found by CHECK NOW appears in the version box; select UPDATE AND
+RESTART to open its confirmation.
 
 ### Packaged install
 

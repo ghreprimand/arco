@@ -83,16 +83,34 @@ async def main():
         await page.wait_for_function("() => !!window.testStore.getState().settings")
         await page.wait_for_function("() => !!window.updateStore.getState().status")
         assert sockets
+        # A manual check stays in the open version box and needs an explicit press.
+        version = page.get_by_test_id('header-version-box')
+        await version.click()
+        popover = page.get_by_test_id('header-version-popover')
+        await popover.get_by_role('button', name='CHECK NOW').click()
+        await expect(popover).to_contain_text('v0.2.0 is available')
+        await expect(page.get_by_test_id('app-update-notice')).to_have_count(0)
+        await expect(page.get_by_role('dialog', name='Confirm update')).to_have_count(0)
+        await popover.get_by_role('button', name='UPDATE AND RESTART').click()
+        manual_confirm = page.get_by_role('dialog', name='Confirm update')
+        box = await manual_confirm.locator(':scope > div').bounding_box()
+        assert box and abs(box['x'] + box['width'] / 2 - 640) < 3 and abs(box['y'] + box['height'] / 2 - 360) < 3
+        await manual_confirm.get_by_role('button', name='CANCEL').click()
+        await version.click()
+        await expect(page.get_by_test_id('app-update-notice')).to_have_count(0)
+        # A different release discovered in the background still shows its notice.
+        await page.evaluate('updateStore.setState({notice:null})')
+        release['latest'] = 'v0.2.1'; release['url'] = release['url'].replace('v0.2.0', 'v0.2.1')
         push_release()
         await page.wait_for_timeout(400)
         notice = page.get_by_test_id('app-update-notice')
-        await expect(notice).to_contain_text('Arco v0.2.0 is available')
+        await expect(notice).to_contain_text('Arco v0.2.1 is available')
         link = notice.get_by_role('link', name='OPEN RELEASE')
         await expect(link).to_have_attribute('href', release['url'])
         await expect(link).to_have_attribute('target', '_blank')
         await notice.get_by_role('button', name='UPDATE AND RESTART').click()
         confirm = page.get_by_role('dialog', name='Confirm update')
-        await expect(confirm).to_contain_text('v0.2.0')
+        await expect(confirm).to_contain_text('v0.2.1')
         await expect(confirm).to_contain_text('Running turns will stop')
         await expect(confirm.get_by_role('link', name='Release notes')).to_have_attribute('href', release['url'])
         for width, height, scale in [(1280, 800, 1.1)]:
@@ -107,7 +125,7 @@ async def main():
         await page.evaluate("testStore.getState().setShowSettings(true);location.hash='settings/advanced/cli-versions'")
         service_row=page.locator('[data-help="settings.app-updates"]')
         await service_row.get_by_role('button', name='UPDATE AND RESTART').click()
-        await expect(page.get_by_role('dialog', name='Confirm update')).to_contain_text('v0.2.0')
+        await expect(page.get_by_role('dialog', name='Confirm update')).to_contain_text('v0.2.1')
         await page.get_by_role('dialog', name='Confirm update').get_by_role('button', name='CANCEL').click()
         await page.evaluate('testStore.getState().setShowSettings(false)')
         manager['fail'] = True
@@ -122,7 +140,7 @@ async def main():
         manager['slow'] = True
         await notice.get_by_role('button', name='UPDATE AND RESTART').click()
         await confirm.get_by_role('button', name='UPDATE AND RESTART').click()
-        assert {'update': {'expectedLatest': 'v0.2.0'}} in writes
+        assert {'update': {'expectedLatest': 'v0.2.1'}} in writes
         await page.wait_for_timeout(2100)
         await expect(notice.locator('[data-help="settings.update-action"]')).not_to_contain_text('Previous fixture failure.')
         await page.wait_for_timeout(800)
@@ -134,16 +152,16 @@ async def main():
         await expect(notice).to_be_visible()
         await notice.get_by_role('button', name='DISMISS', exact=True).click()
         await expect(notice).to_have_count(0)
-        assert {'updateCheckDismissed': 'v0.2.0'} in writes
+        assert {'updateCheckDismissed': 'v0.2.1'} in writes
         manager['mode'] = 'foreground'
         manager['result'] = None
         await page.reload()
         await page.evaluate("async()=>{window.testStore=(await import('/src/stores/appStore.ts')).useAppStore}")
-        await page.wait_for_function("() => window.testStore.getState().settings?.updateCheckDismissed==='v0.2.0'")
+        await page.wait_for_function("() => window.testStore.getState().settings?.updateCheckDismissed==='v0.2.1'")
         push_release()
         await page.wait_for_timeout(300)
         await expect(notice).to_have_count(0)
-        release['latest'] = 'v0.3.0'; release['url'] = release['url'].replace('v0.2.0', 'v0.3.0')
+        release['latest'] = 'v0.3.0'; release['url'] = release['url'].replace('v0.2.1', 'v0.3.0')
         push_release()
         await expect(notice).to_contain_text('Arco v0.3.0 is available')
         await page.evaluate("async()=>{const {useAppStore:s}=await import('/src/stores/appStore.ts');s.getState().setShowSettings(true);location.hash='settings/advanced/cli-versions'}")

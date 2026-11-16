@@ -179,6 +179,10 @@ export const maintenance: Section[] = [
   notice is dismissed. Clicking it opens the update dialog, or the version
   details when Arco is up to date.
   </p>
+  <p>
+  A release found with CHECK NOW appears
+  in the version box; select UPDATE AND RESTART to open its confirmation.
+  </p>
   <Sub>Settings row and automatic checks</Sub>
   <p>
   Settings &gt; Advanced &gt; CLI and runtime versions includes an{' '}

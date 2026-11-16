@@ -1,3 +1,5 @@
+import { createPortal } from 'react-dom';
+import { checkBuild } from '../buildCheck';
 import { confirmationSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import { useEffect, useRef, useState } from 'react';
 import { useAppUpdateStore } from '../stores/appUpdateStore';
@@ -40,6 +42,7 @@ export function UpdateAction({ latest, url, autoConfirm = false }: { latest: str
         if (next.result?.outcome === 'running') { setResultMessage(''); setPending(true); }
         else if (next.result?.outcome === 'updated' || next.result?.outcome === 'failed' || next.result?.outcome === 'unchanged') {
           if (startedAttempt.current === null || (startedAttempt.current && next.result.attemptId !== startedAttempt.current)) return;
+          if (next.result.outcome === 'updated' && startedAttempt.current) void checkBuild();
           startedAttempt.current = undefined;
           setPending(false); setMessage(''); setResultMessage(next.result.message || (next.result.outcome === 'updated' ? 'Update complete.' : next.result.outcome === 'unchanged' ? 'Already on the newest release.' : 'Update failed.'));
         } else setResultMessage('');
@@ -79,7 +82,7 @@ export function UpdateAction({ latest, url, autoConfirm = false }: { latest: str
     {fallback && <div><code>{state.packaged ? 'arco update' : 'npm run arco:update'}</code>{' '}<button type="button" onClick={() => copy(state.packaged ? 'arco update' : 'npm run arco:update')}>COPY COMMAND</button></div>}
     {message && <div role="status">{message}</div>}
     {resultMessage && <div role="status">{resultMessage}</div>}
-    {confirm && <div role="dialog" aria-modal="true" aria-label="Confirm update" style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    {confirm && createPortal(<div role="dialog" aria-modal="true" aria-label="Confirm update" style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div ref={surface} style={{ background: 'var(--color-bg-elevated)', color: 'var(--color-fg)', border: '1px solid var(--color-border)', padding: 20, ...confirmationSurfaceSize }}>
         <WorkSurfaceControls surface={surface} storageKey="update-confirm" />
         <p>Update to {latest} and restart Arco? Running turns will stop.</p>
@@ -87,6 +90,6 @@ export function UpdateAction({ latest, url, autoConfirm = false }: { latest: str
         <button type="button" onClick={() => void start()}>UPDATE AND RESTART</button>{' '}
         <button type="button" onClick={() => setConfirm(false)}>CANCEL</button>
       </div>
-    </div>}
+    </div>, document.body)}
   </div>;
 }
