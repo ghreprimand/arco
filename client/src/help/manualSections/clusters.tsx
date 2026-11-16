@@ -1067,6 +1067,22 @@ export const clusters: Section[] = [
   open the dialog. <Code>TURN OFF</Code> sets the mode to Off at once.
   Default is Off.
   </p>
+  <p>
+  <Code>PAUSE</Code> beside TURN OFF stops automatic pickup, Smart evaluator
+  requests and busy reminders. The chip says PAUSED. Mail stays waiting;
+  NUDGE and running turns still work. The mode, armed session, wake counts
+  and pause survive a server restart. The Smart session clock freezes at its
+  remaining time. Hourly rate limits keep real time. TURN OFF clears the pause
+  and ends the session.
+  </p>
+  <p>
+  <Code>RESUME</Code> needs no confirmation. It checks each idle member with
+  waiting mail once through the normal guards and limits. Smart still evaluates
+  that mail; Observe-only only records its answer. The session and wake counts
+  stay unchanged except for work admitted after resuming. Smart continues with
+  the time left at PAUSE. A spent Rule-based
+  budget needs the separate RESET BUDGET action after resuming.
+  </p>
   <p><strong>Modes</strong></p>
   <ul>
   <li>
@@ -1098,7 +1114,7 @@ export const clusters: Section[] = [
   <p>
     Adjustable limits pause
   alternating two-member wakes (default 4), cap each member at 6 wakes
-  per hour and pause after 40 wakes per arming. RESUME starts a fresh
+  per hour and pause after 40 wakes per arming. RESET BUDGET starts a fresh
   arming budget; the hourly limit remains.
   </p>
   <p>

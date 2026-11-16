@@ -14,7 +14,7 @@ export interface BusyReminderDeps {
 }
 function enabled(clusterId: string, workflowId: string, now: number): boolean {
   const state = store.getClusterCached(clusterId);
-  if (state?.remindBusy !== true || !state.members.includes(workflowId)) return false;
+  if (state?.remindBusy !== true || state.autoPickupPausedAt !== undefined || !state.members.includes(workflowId)) return false;
   const mode = store.autoPickupModeOf(state);
   return mode === 'rule' || (mode === 'smart-auto' && (state.smartPickup?.session?.expiresAt ?? 0) > now);
 }

@@ -130,7 +130,7 @@ function armed(clusterId: string): { sessionId: string; mode: 'smart-observe' | 
   if (!state) return null;
   const mode = clusterStore.autoPickupModeOf(state);
   const session = state.smartPickup?.session;
-  if (!isSmartPickupMode(mode) || !session || !state.smartPickup?.evaluator) return null;
+  if (state.autoPickupPausedAt !== undefined || !isSmartPickupMode(mode) || !session || !state.smartPickup?.evaluator) return null;
   if (deps.now() >= session.expiresAt) return null;
   return { sessionId: session.id, mode };
 }
@@ -139,9 +139,9 @@ function armed(clusterId: string): { sessionId: string; mode: 'smart-observe' | 
 // evaluation per recipient at a time; a trigger during a run schedules one
 // more pass afterwards.
 export function onSmartPickupMail(clusterId: string, workflowId: string, chainDepth = 0): Promise<void> {
-  if (!armed(clusterId)) return Promise.resolve();
   const k = key(clusterId, workflowId);
   if (chainDepth > (depthSeen.get(k) ?? 0)) depthSeen.set(k, chainDepth);
+  if (!armed(clusterId)) return Promise.resolve();
   const current = running.get(k);
   if (current) { rerun.add(k); return current; }
   const run = (async () => {
@@ -205,6 +205,7 @@ export async function evaluateOnce(clusterId: string, workflowId: string): Promi
     return d;
   }
   const evaluator = state.smartPickup!.evaluator!;
+  if (armed(clusterId)?.sessionId !== arm.sessionId) return null;
   const slot = await reserveSmartPickup(clusterId, { kind: 'evaluator', memberId: workflowId, sessionId: arm.sessionId, limits, now: deps.now() }).catch(() => ({ ok: false as const, reason: 'ledger_unreadable' }));
   if (!slot.ok) {
     const d = { ...base, action: null, reason: slot.reason, outcome: 'skipped' };
@@ -219,6 +220,10 @@ export async function evaluateOnce(clusterId: string, workflowId: string): Promi
   }
   let raw: string | null = null;
   let failure: string | null = null;
+  if (armed(clusterId)?.sessionId !== arm.sessionId) {
+    await settleSmartPickup(clusterId, slot.id, 'session_changed', deps.now()).catch(() => undefined);
+    return null;
+  }
   try {
     raw = await evaluatorAdapter(evaluator.provider).evaluate({
       model: evaluator.model,
@@ -361,18 +366,22 @@ export async function sweepSmartPickupMail(): Promise<void> {
   sweeping = true;
   try {
     for (const clusterId of clusterStore.listKnownClusterIds().sort()) {
-      if (!armed(clusterId)) continue;
-      const members = [...(clusterStore.getClusterCached(clusterId)?.members ?? [])].sort();
-      // One member at a time per cluster, in a stable order, so the
-      // in-flight limit is respected and no mailbox starves another.
-      for (const wfid of members) {
-        if (deps.isBusy(wfid)) continue;
-        const depth = await clusterMailbox.depthFor(wfid).catch(() => 0);
-        if (depth > 0) await onSmartPickupMail(clusterId, wfid).catch(() => undefined);
-      }
+      await pickupSmartWaitingMail(clusterId);
     }
   } finally {
     sweeping = false;
+  }
+}
+
+export async function pickupSmartWaitingMail(clusterId: string): Promise<void> {
+  if (!armed(clusterId)) return;
+  const members = [...(clusterStore.getClusterCached(clusterId)?.members ?? [])].sort();
+  // One member at a time per cluster, in a stable order, so the
+  // in-flight limit is respected and no mailbox starves another.
+  for (const wfid of members) {
+    if (deps.isBusy(wfid)) continue;
+    const depth = await clusterMailbox.depthFor(wfid).catch(() => 0);
+    if (depth > 0) await onSmartPickupMail(clusterId, wfid).catch(() => undefined);
   }
 }
 

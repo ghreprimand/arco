@@ -36,8 +36,8 @@ LIMITS = {'maxInFlight': 1, 'callsPerClusterHour': 12, 'callsPerMemberHour': 3, 
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=chrome_executable() or None)
-        page = await browser.new_page(viewport={'width': 1500, 'height': 900})
-        # This suite checks controls in the Standard layout; layout-ranges-browser.py covers the other layouts.
+        page = await browser.new_page(viewport={'width': 1500, 'height': 900}, has_touch=True)
+        # Most controls use Standard; pause/resume uses Narrow and Compact at 110%.
         await page.add_init_script("localStorage.setItem('arco.layoutMode', 'standard')")
         blocked, errors = [], []
 
@@ -146,7 +146,36 @@ async def main():
         await page.evaluate('emitPause()')
         assert await page.evaluate("s.getState().notifications.some(n => n.message.includes('Alternating wakes paused between Alpha and Beta.'))")
         await page.evaluate("snapshot({autoPickup:{mode:'rule',limits,ruleStatus:{wakes:40,budgetPaused:true}}})")
-        await page.get_by_role('button', name='RESUME', exact=True).click()
+        # Operator pause is separate from the existing spent-budget stop.
+        await page.set_viewport_size({'width': 900, 'height': 900})
+        await page.evaluate("async()=>{const {setLayoutMode}=await import('/src/layout/layoutRange.ts');setLayoutMode('narrow');document.documentElement.style.zoom='1.1';document.documentElement.style.setProperty('--ui-scale','1.1');window.dispatchEvent(new Event('arco:ui-scale'))}")
+        await page.get_by_test_id('layout-panel-strip').get_by_role('button', name='MORE', exact=True).click()
+        await page.get_by_test_id('cluster-settings-toggle').click()
+        pause = page.get_by_role('button', name='Pause AUTO-PICKUP', exact=True)
+        await expect(pause).to_be_visible()
+        box = await pause.bounding_box()
+        assert box and box['x'] >= 0 and box['x'] + box['width'] <= 900, box
+        await page.touchscreen.tap(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+        assert await page.evaluate('sent.at(-1)') == {'type':'cluster_auto_pickup_set','clusterId':'cluster-a','mode':'rule','paused':True}
+        await page.evaluate("snapshot({autoPickup:{mode:'rule',paused:true,limits,ruleStatus:{wakes:40,budgetPaused:true}}})")
+        await expect(chip).to_have_text('RULE - PAUSED')
+        await expect(chip).to_have_accessible_name('AUTO-PICKUP: Rule-based, paused')
+        await expect(page.get_by_role('button', name='RESET BUDGET', exact=True)).to_be_disabled()
+        await page.evaluate("async()=>{const {setLayoutMode}=await import('/src/layout/layoutRange.ts');setLayoutMode('compact')}")
+        await page.set_viewport_size({'width': 1500, 'height': 900})
+        await expect(page.get_by_test_id('cluster-settings-summary')).to_contain_text('AUTO-PICKUP RULE - PAUSED')
+        await page.get_by_test_id('cluster-settings-toggle').click()
+        resume = page.get_by_role('button', name='Resume AUTO-PICKUP', exact=True)
+        await expect(resume).to_be_visible()
+        box = await resume.bounding_box()
+        assert box and box['x'] >= 0 and box['x'] + box['width'] <= 1500, box
+        await resume.focus()
+        await page.keyboard.press('Enter')
+        assert await page.evaluate('sent.at(-1)') == {'type':'cluster_auto_pickup_set','clusterId':'cluster-a','mode':'rule','paused':False}
+        await page.evaluate("async()=>{const {setLayoutMode}=await import('/src/layout/layoutRange.ts');setLayoutMode('standard');document.documentElement.style.zoom='';document.documentElement.style.removeProperty('--ui-scale');window.dispatchEvent(new Event('arco:ui-scale'))}")
+        await page.set_viewport_size({'width': 1500, 'height': 900})
+        await page.evaluate("snapshot({autoPickup:{mode:'rule',limits,ruleStatus:{wakes:40,budgetPaused:true}}})")
+        await page.get_by_role('button', name='RESET BUDGET', exact=True).click()
         assert await page.evaluate('sent.at(-1)') == {'type':'cluster_auto_pickup_set','clusterId':'cluster-a','mode':'rule','resumeRule':True}
         off = page.get_by_role('button', name='Turn AUTO-PICKUP off', exact=True)
         await off.click()
@@ -201,6 +230,15 @@ async def main():
         status = dialog.get_by_label('AUTO-PICKUP status')
         await expect(status).to_contain_text('Evaluator requests: 2 this session, 2 in the last hour, 0 in progress.')
         await expect(status).to_contain_text('answered defer (acknowledgment only), logged')
+        await page.evaluate('''() => {
+          const pausedAt = Date.now() - 2*60*60000;
+          snapshot({autoPickup:{mode:'smart-observe',paused:true,pausedAt,limits,evaluator:{provider:'cursor',model:'auto'},
+            session:{id:'s1',armedAt:pausedAt-2*60000,expiresAt:pausedAt+3*60000},
+            counters:{inFlight:0,callsLastHour:0,callsThisSession:2,wakesLastHour:0,wakesThisSession:0}}});
+        }''')
+        await expect(chip).to_have_text('OBSERVE - PAUSED · 0/12')
+        await expect(status).to_contain_text('About 3 min remain. Session clock paused.')
+        await expect(status).not_to_contain_text('Session ends at')
         await page.evaluate('''() => snapshot({autoPickup:{mode:'smart-observe',limits:{...limits,sessionMinutes:45},evaluator:{provider:'cursor',model:'auto'},lastEvaluator:{provider:'cursor',model:'auto'},
           session:{id:'s1',armedAt:Date.now(),expiresAt:Date.now()+45*60000},counters:{inFlight:0,callsLastHour:2,callsThisSession:2,wakesLastHour:0,wakesThisSession:0},
           lastDecision:{at:Date.now(),recipientWorkflowId:'worker-a',action:null,reason:'evaluator_error:model_not_loaded_llamacpp',outcome:'none'}}})''')

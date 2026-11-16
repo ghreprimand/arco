@@ -60,6 +60,53 @@ async function send(to: string, from: string, content: string) {
 const sessionOf = async (id: string) => (await store.readCluster(id))!.smartPickup!.session!.id;
 const counters = async (id: string) => (await ledger.smartPickupSnapshot(id, await sessionOf(id), clock)).counters;
 
+test('operator pause makes no evaluator requests and resume wakes waiting members once in the same session', { timeout: 5000 }, async () => {
+  const c = await automatic();
+  const [director, first, second] = c.members;
+  await send(first, director, 'Implement the first task.');
+  await observer.evaluateOnce(c.clusterId, first);
+  await mailbox.drain(first);
+  clock += 30_000;
+  const session = (await store.readCluster(c.clusterId))!.smartPickup!.session!;
+  const before = await counters(c.clusterId);
+  const pausedAt = clock;
+  assert.equal(before.wakesThisSession, 1);
+  assert.deepEqual(await smart.applyAutoPickup(c.clusterId, { mode: 'smart-auto', paused: true }, () => false, clock), { ok: true, mode: 'smart-auto' }, 'pausing does not need to probe the evaluator again');
+  await send(first, director, 'Review the new change.');
+  await send(second, director, 'Check the second task.');
+  await observer.onSmartPickupMail(c.clusterId, first);
+  await observer.sweepSmartPickupMail();
+  assert.equal(calls.length, 1);
+  assert.equal(woke.length, 1);
+  assert.deepEqual(await counters(c.clusterId), before);
+  assert.equal(await mailbox.depthFor(first), 1);
+  assert.equal(await mailbox.depthFor(second), 1);
+  let finish!: () => void;
+  const resumed = new Promise<void>((resolve) => { finish = resolve; });
+  observer.configureSmartPickupObserver({ onDecision: () => { if (woke.length === 3) finish(); } });
+  try {
+    await smart.applyAutoPickup(c.clusterId, { mode: 'smart-auto', paused: false }, () => false, clock);
+    await resumed;
+    assert.deepEqual(woke.slice(1).map((w) => w.wfid).sort(), [first, second].sort());
+    assert.equal(calls.length, 3);
+    assert.equal((await counters(c.clusterId)).wakesThisSession, 3, 'resume adds wakes without resetting the prior count');
+    assert.deepEqual((await store.readCluster(c.clusterId))!.smartPickup!.session, { ...session, expiresAt: session.expiresAt + clock - pausedAt });
+    await smart.applyAutoPickup(c.clusterId, { mode: 'smart-auto', paused: false }, () => false, clock);
+    await new Promise(setImmediate);
+    assert.equal(calls.length, 3, 'an already resumed mode does not scan again');
+    await mailbox.drain(first);
+    clock += 30_000;
+    await send(first, director, 'Check the result that arrives during a pause.');
+    answer = async () => {
+      await smart.applyAutoPickup(c.clusterId, { mode: 'smart-auto', paused: true }, () => false, clock);
+      return '{"action":"wake","reason":"assignment"}';
+    };
+    const late = await observer.evaluateOnce(c.clusterId, first);
+    assert.equal(late?.outcome, 'discarded', 'an evaluator answer cannot wake a member after PAUSE');
+    assert.equal(woke.length, 3);
+  } finally { observer.configureSmartPickupObserver({ onDecision: () => {} }); }
+});
+
 test('a wake proposal starts one admitted turn with the auto-pickup prompt and leaves the mail for that turn', async () => {
   const c = await automatic();
   const [d, m] = c.members;

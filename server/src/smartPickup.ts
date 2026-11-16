@@ -14,6 +14,7 @@ import {
 } from '@arco/shared';
 import * as ruleAutoTurn from './clusterAutoTurn.js';
 import * as clusterStore from './clusterStore.js';
+import { pickupSmartWaitingMail } from './smartPickupObserver.js';
 import { evaluatorAdapter } from './smartPickupAdapters.js';
 import {
   recordSmartPickupDecision,
@@ -31,14 +32,14 @@ export const SMART_PICKUP_SWEEP_MS = (() => {
   return Number.isInteger(raw) && raw >= 50 ? raw : 15_000;
 })();
 
-export type ArmProblem = 'unknown_cluster' | 'invalid_mode' | 'evaluator_required' | 'evaluator_provider_disabled' | 'evaluator_unavailable' | 'ledger_unreadable';
+export type ArmProblem = 'unknown_cluster' | 'invalid_mode' | 'invalid_pause' | 'evaluator_required' | 'evaluator_provider_disabled' | 'evaluator_unavailable' | 'ledger_unreadable';
 
 // Validate and apply an operator's AUTO-PICKUP choice. A Smart mode needs an
 // evaluator whose provider is enabled and a readable budget ledger; arming
 // always starts a fresh session. Every change is logged in the ledger.
 export async function applyAutoPickup(
   clusterId: string,
-  request: { mode: unknown; evaluator?: unknown; limits?: unknown; ruleLimits?: unknown; resumeRule?: boolean; remindBusy?: boolean },
+  request: { mode: unknown; paused?: unknown; evaluator?: unknown; limits?: unknown; ruleLimits?: unknown; resumeRule?: boolean; remindBusy?: boolean },
   isProviderEnabled: (provider: SmartPickupEvaluator['provider']) => boolean,
   now = Date.now(),
 ): Promise<{ ok: true; mode: AutoPickupMode } | { ok: false; problem: ArmProblem }> {
@@ -46,6 +47,27 @@ export async function applyAutoPickup(
   if (mode !== 'off' && mode !== 'rule' && mode !== 'smart-observe' && mode !== 'smart-auto') return { ok: false, problem: 'invalid_mode' };
   const state = clusterStore.getClusterCached(clusterId) ?? await clusterStore.readCluster(clusterId).catch(() => null);
   if (!state) return { ok: false, problem: 'unknown_cluster' };
+  if (request.paused !== undefined) {
+    if (typeof request.paused !== 'boolean' || mode === 'off' || mode !== clusterStore.autoPickupModeOf(state)
+      || request.resumeRule || request.evaluator !== undefined || request.limits !== undefined || request.ruleLimits !== undefined || request.remindBusy !== undefined) return { ok: false, problem: 'invalid_pause' };
+    const session = state.smartPickup?.session;
+    if (isSmartPickupMode(mode) && (!session || (state.autoPickupPausedAt ?? now) >= session.expiresAt)) {
+      await disarm(clusterId, session ? 'session_expired' : 'session_missing', now);
+      return { ok: true, mode: 'off' };
+    }
+    const updated = await clusterStore.setAutoPickup(clusterId, { mode, paused: request.paused, now });
+    if (!updated) return { ok: false, problem: 'invalid_pause' };
+    await recordSmartPickupDecision(clusterId, { at: now, action: null, reason: request.paused ? 'operator_paused' : 'operator_resumed', outcome: 'none' }).catch(() => undefined);
+    if (state.autoPickupPausedAt !== undefined && !request.paused) {
+      // Reply with the new control state promptly; evaluator requests may take
+      // time. Both scans use the same admission path as ordinary waiting mail.
+      setImmediate(() => {
+        void (mode === 'rule' ? ruleAutoTurn.pickupWaitingMail(clusterId) : pickupSmartWaitingMail(clusterId)).catch((error) => console.error('[arco] auto-pickup resume failed:', error));
+      });
+    }
+    return { ok: true, mode };
+  }
+  if (request.resumeRule && state.autoPickupPausedAt !== undefined) return { ok: false, problem: 'invalid_pause' };
   let evaluator: SmartPickupEvaluator | undefined;
   if (isSmartPickupMode(mode)) {
     evaluator = sanitizeSmartPickupEvaluator(request.evaluator) ?? undefined;
@@ -99,6 +121,8 @@ export async function autoPickupStateFor(state: clusterStore.ClusterState, now =
   const smart = state.smartPickup ?? {};
   const out: ClusterAutoPickupState = {
     mode,
+    paused: state.autoPickupPausedAt !== undefined,
+    ...(state.autoPickupPausedAt !== undefined ? { pausedAt: state.autoPickupPausedAt } : {}),
     remindBusy: state.remindBusy === true,
     limits: sanitizeSmartPickupLimits(smart.limits),
     ruleLimits: sanitizeRulePickupLimits(state.rulePickupLimits),
@@ -134,7 +158,7 @@ export async function sweepSmartPickup(now = Date.now()): Promise<void> {
     if (!state || !isSmartPickupMode(clusterStore.autoPickupModeOf(state))) continue;
     const session = state.smartPickup?.session;
     if (!session || !state.smartPickup?.evaluator) { await disarm(clusterId, 'session_missing', now); continue; }
-    if (now >= session.expiresAt) { await disarm(clusterId, 'session_expired', now); continue; }
+    if (state.autoPickupPausedAt === undefined && now >= session.expiresAt) { await disarm(clusterId, 'session_expired', now); continue; }
     try { await smartPickupSnapshot(clusterId, session.id, now); }
     catch { await disarm(clusterId, 'ledger_unreadable', now); }
   }

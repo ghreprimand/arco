@@ -197,24 +197,28 @@ async function sweep(): Promise<void> {
   const membersByCluster = resolveMembersFn();
   if (!membersByCluster) return;
   for (const clusterId of clusterStore.listKnownClusterIds()) {
-    if (!clusterStore.isAutoPickupWaking(clusterId)) continue;
-    const liveMembers = membersByCluster.get(clusterId);
-    if (!liveMembers || liveMembers.length === 0) continue;
-    for (const m of liveMembers) {
-      if (m.busy) {
-        if (dispatchBusyReminderFn) await remindBusyMember(clusterId,m.workflowId,{isBusy:isBusyFn,hasClusterTools:hasClusterToolsFn,dispatch:dispatchBusyReminderFn});
-        continue;
-      }
-      if (!clusterStore.isAutoTurnOnMailboxEnabled(clusterId)) continue;
-      const pending = await clusterMailbox.peek(m.workflowId).catch(() => []);
-      if (pending.length === 0) continue;
-      onPeerMessageSent({
-        clusterId,
-        senderWfid: pending[0].fromWorkflowId,
-        recipientWfid: m.workflowId,
-        incomingChainDepth: heldMailDepth(m.workflowId, pending),
-      });
+    await pickupWaitingMail(clusterId, membersByCluster.get(clusterId));
+  }
+}
+
+// Resume uses the same scan as the periodic sweep, including every normal
+// guard and budget. Never reset the Rule-based ledger to resume an operator pause.
+export async function pickupWaitingMail(clusterId: string, liveMembers = resolveMembersFn?.()?.get(clusterId)): Promise<void> {
+  if (!isBusyFn || !clusterStore.isAutoPickupWaking(clusterId) || clusterStore.isAutoPickupPaused(clusterId) || !liveMembers) return;
+  for (const m of liveMembers) {
+    if (m.busy) {
+      if (dispatchBusyReminderFn) await remindBusyMember(clusterId,m.workflowId,{isBusy:isBusyFn,hasClusterTools:hasClusterToolsFn,dispatch:dispatchBusyReminderFn});
+      continue;
     }
+    if (!clusterStore.isAutoTurnOnMailboxEnabled(clusterId)) continue;
+    const pending = await clusterMailbox.peek(m.workflowId).catch(() => []);
+    if (pending.length === 0) continue;
+    onPeerMessageSent({
+      clusterId,
+      senderWfid: pending[0].fromWorkflowId,
+      recipientWfid: m.workflowId,
+      incomingChainDepth: heldMailDepth(m.workflowId, pending),
+    });
   }
 }
 
@@ -346,6 +350,7 @@ export function onPeerMessageSent(opts: {
   if (isBusyFn && dispatchBusyReminderFn) void remindBusyMember(opts.clusterId,opts.recipientWfid,{isBusy:isBusyFn,hasClusterTools:hasClusterToolsFn,dispatch:dispatchBusyReminderFn});
   if (!clusterStore.isAutoTurnOnMailboxEnabled(opts.clusterId)) return;
   if (opts.incomingChainDepth > pendingChainDepth(opts.recipientWfid)) pendingDepth.set(opts.recipientWfid, opts.incomingChainDepth);
+  if (clusterStore.isAutoPickupPaused(opts.clusterId)) return;
   try { ruleGuard.mail(opts.clusterId, opts.senderWfid, opts.recipientWfid); } catch (error) { console.error('[arco] Rule-based pickup ledger unavailable:', error); return; }
   const key = `${opts.clusterId}:${opts.recipientWfid}`;
   if (pendingChecks.has(key)) return;
@@ -369,7 +374,7 @@ function fireRulePickup(opts: { clusterId: string; senderWfid: string; recipient
 
   // Guard 0: cluster toggle armed. Most clusters won't have this on; the
   // gate is the first check so the hot path is one map lookup when off.
-  if (!clusterStore.isAutoTurnOnMailboxEnabled(clusterId)) return;
+  if (!clusterStore.isAutoTurnOnMailboxEnabled(clusterId) || clusterStore.isAutoPickupPaused(clusterId)) return;
 
   // Guard 1: depth cap. An incoming chainDepth of (cap - 1) is the last one
   // we'll auto-turn on; the auto-turn it produces will land at cap, so the
@@ -406,12 +411,12 @@ function fireRulePickup(opts: { clusterId: string; senderWfid: string; recipient
   const wasBudgetPaused = ruleGuard.snapshot(clusterId).budgetPaused;
   const problem = ruleGuard.admit(clusterId, senderWfid, recipientWfid, limits, now);
   if (problem) {
-    const notice = problem === 'budget_paused' && !wasBudgetPaused ? 'Wake budget reached. Open AUTO-PICKUP and select RESUME.' : undefined;
+    const notice = problem === 'budget_paused' && !wasBudgetPaused ? 'Wake budget reached. Select RESET BUDGET beside AUTO-PICKUP.' : undefined;
     emitSkip(clusterId, recipientWfid, senderWfid, incomingChainDepth, problem, now, notice); return;
   }
   const pauses = ruleGuard.stamp(clusterId, senderWfid, recipientWfid, limits, now);
   const notices = [
-    ...(pauses.budgetPaused ? ['Wake budget reached. Open AUTO-PICKUP and select RESUME.'] : []),
+    ...(pauses.budgetPaused ? ['Wake budget reached. Select RESET BUDGET beside AUTO-PICKUP.'] : []),
     ...(pauses.pairPaused ? [`Alternating wakes paused between ${clusterStore.displayNameFor(senderWfid)} and ${clusterStore.displayNameFor(recipientWfid)}.`] : []),
   ];
 
@@ -453,7 +458,7 @@ function fireRulePickup(opts: { clusterId: string; senderWfid: string; recipient
   const dispatch = dispatchAutoTurnFn;
   setImmediate(() => {
     try {
-      if (!clusterStore.isAutoTurnOnMailboxEnabled(clusterId) || isBusyFn?.(recipientWfid)) return;
+      if (!clusterStore.isAutoTurnOnMailboxEnabled(clusterId) || clusterStore.isAutoPickupPaused(clusterId) || isBusyFn?.(recipientWfid)) return;
       dispatch(recipientWfid, prompt);
       } catch (err) {
       // Dispatch failure leaves the cooldown + rate-cap entries in place

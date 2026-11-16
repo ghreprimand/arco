@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { DEFAULT_SMART_PICKUP_LIMITS, resolveAutoPickupMode, sanitizeSmartPickupLimits, sanitizeSmartPickupEvaluator, SMART_PICKUP_LIMIT_SPECS } from '@arco/shared';
 
 const sandbox = await fs.mkdtemp(join(tmpdir(), 'arco-smart-pickup-'));
@@ -190,4 +191,51 @@ test('turning pickup off works even if the Rule-based ledger is unreadable', asy
   await fs.writeFile(join(store.clusterDir(c.clusterId), 'rule-pickup-ledger.json'), '{invalid');
   assert.deepEqual(await smart.applyAutoPickup(c.clusterId, { mode: 'off' }, enabled, T0), { ok: true, mode: 'off' });
   assert.equal(store.getAutoPickupMode(c.clusterId), 'off');
+});
+
+test('Smart keeps three minutes through a long pause and restart, while hourly limits keep real time', async () => {
+  const c = await make();
+  await store.setAutoPickup(c.clusterId, { mode: 'smart-auto', evaluator, limits: { sessionMinutes: 5 }, now: T0 });
+  const sessionId = (await store.readCluster(c.clusterId))!.smartPickup!.session!.id;
+  const wake = await ledger.reserveSmartPickup(c.clusterId, { kind: 'wake', memberId: c.members[0], sessionId, limits: DEFAULT_SMART_PICKUP_LIMITS, now: T0 });
+  assert.ok(wake.ok);
+  await ledger.settleSmartPickup(c.clusterId, wake.id, 'woke', T0);
+  const pausedAt = T0 + 2 * 60_000;
+  const resumedAt = pausedAt + 2 * 24 * 60 * 60_000;
+  await smart.applyAutoPickup(c.clusterId, { mode: 'smart-auto', paused: true }, enabled, pausedAt);
+  const state = (await store.readCluster(c.clusterId))!;
+  await smart.sweepSmartPickup(resumedAt);
+  assert.equal(store.getAutoPickupMode(c.clusterId), 'smart-auto', 'a paused session does not expire');
+  const source = `
+    const store = await import(${JSON.stringify(new URL('./clusterStore.js', import.meta.url).href)});
+    const smart = await import(${JSON.stringify(new URL('./smartPickup.js', import.meta.url).href)});
+    await smart.recoverSmartPickupOnBoot(${resumedAt});
+    const held = await store.readCluster(${JSON.stringify(c.clusterId)});
+    const echo = await smart.autoPickupStateFor(held, ${resumedAt});
+    await smart.applyAutoPickup(${JSON.stringify(c.clusterId)}, { mode: 'smart-auto', paused: false }, () => false, ${resumedAt});
+    const resumed = await store.readCluster(${JSON.stringify(c.clusterId)});
+    console.log(JSON.stringify({ held, echo, resumed, after: await smart.autoPickupStateFor(resumed, ${resumedAt}) }));
+  `;
+  const env: NodeJS.ProcessEnv = { PATH: process.env.PATH, HOME: join(sandbox, 'home'), USERPROFILE: join(sandbox, 'home'), ARCO_HOME: process.env.ARCO_HOME };
+  for (const key of ['SystemRoot', 'SYSTEMROOT', 'windir', 'ComSpec', 'PATHEXT']) if (process.env[key]) env[key] = process.env[key];
+  const child = spawnSync(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--input-type=module', '-e', source], {
+    encoding: 'utf8', timeout: 5000, env,
+  });
+  assert.equal(child.status, 0, child.stderr);
+  const { held, echo, resumed, after } = JSON.parse(child.stdout.trim().split(/\r?\n/).at(-1)!);
+  assert.equal(held.autoPickupPausedAt, pausedAt);
+  assert.equal(held.autoPickupMode, 'smart-auto');
+  assert.deepEqual(held.smartPickup.session, state.smartPickup!.session);
+  assert.equal(held.smartPickup.session.expiresAt - held.autoPickupPausedAt, 3 * 60_000);
+  assert.equal(echo.counters.wakesLastHour, 0, 'the real-time hourly window advances while paused');
+  assert.equal(echo.counters.wakesThisSession, 1, 'the session budget does not reset');
+  assert.equal(resumed.autoPickupPausedAt, undefined);
+  assert.equal(resumed.smartPickup.session.id, sessionId);
+  assert.equal(resumed.smartPickup.session.armedAt, T0);
+  assert.equal(resumed.smartPickup.session.expiresAt - resumedAt, 3 * 60_000);
+  assert.equal(after.counters.wakesThisSession, 1, 'resuming after retention expiry cannot refund the session budget');
+  await smart.applyAutoPickup(c.clusterId, { mode: 'off' }, enabled, resumedAt);
+  assert.equal(store.getAutoPickupMode(c.clusterId), 'off');
+  assert.equal(store.isAutoPickupPaused(c.clusterId), false);
+  assert.equal((await store.readCluster(c.clusterId))!.smartPickup?.session, undefined);
 });

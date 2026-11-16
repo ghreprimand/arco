@@ -243,7 +243,8 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
           arming surface is wired (both come from the same parent). */}
       {compactSettings && (onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (() => {
         // Medium and wide layouts: one summary line; SETTINGS opens the full block.
-        const pickup = AUTO_PICKUP_MODE_LABELS[autoPickupStateOf(cluster).mode].chip;
+        const pickupState = autoPickupStateOf(cluster);
+        const pickup = `${AUTO_PICKUP_MODE_LABELS[pickupState.mode].chip}${pickupState.paused ? ' - PAUSED' : ''}`;
         const parts = [
           onToggleIdleNudger ? `MAIL ALERTS ${cluster.idleNudgerEnabled ? 'ON' : 'OFF'}` : null,
           onToggleAutoTurn ? `AUTO-PICKUP ${pickup}` : null,

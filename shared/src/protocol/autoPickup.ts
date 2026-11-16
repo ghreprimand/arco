@@ -156,6 +156,8 @@ export interface SmartPickupCounters {
 
 export interface ClusterAutoPickupState {
   remindBusy?: boolean;
+  paused?: boolean;
+  pausedAt?: number;
   mode: AutoPickupMode;
   limits: SmartPickupLimits;
   evaluator?: SmartPickupEvaluator;
@@ -171,6 +173,7 @@ export interface ClusterAutoPickupState {
 
 // Operator sets the mode. Smart modes need an evaluator; limits are
 // optional and default per SMART_PICKUP_LIMIT_SPECS.
+// A pause-only request keeps the current mode and omits arming fields.
 export interface ClusterAutoPickupSetMessage {
   type: 'cluster_auto_pickup_set';
   clusterId: string;
@@ -179,6 +182,8 @@ export interface ClusterAutoPickupSetMessage {
   limits?: Partial<SmartPickupLimits>;
   ruleLimits?: Partial<RulePickupLimits>;
   resumeRule?: boolean;
+  // Pause/resume the current mode without rearming or resetting its budgets.
+  paused?: boolean;
   remindBusy?: boolean;
 }
 

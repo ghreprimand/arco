@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Pause AUTO-PICKUP without losing its mode or wake counts, freeze the Smart session clock across restart, then resume waiting mail through the same limits; keep Rule-based RESET BUDGET separate.
+
 - Find npm for Homebrew and separate package prefixes when updating or repairing native modules, give manual recovery steps when npm is missing, and show an update result once beside its open control.
 
 - Keep a manual release check in the version box, center the update confirmation, and detect a changed build after a transient restart failure.

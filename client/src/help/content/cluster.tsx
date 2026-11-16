@@ -312,7 +312,8 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>Chooses whether idle members start a turn on their own when mail arrives. The chip shows the current mode; click it to change it. <strong>Off</strong> is the default, and clusters armed before the modes existed are Rule-based.</p>
-        <p><strong>Rule-based (recommended)</strong> wakes an idle member for mail that asks for something and leaves plain acknowledgements waiting. Limits stop two members waking each other back and forth and cap wakes per member and per arming. <C>RESUME</C> starts a fresh allowance.</p>
+        <p><strong>Rule-based (recommended)</strong> wakes an idle member for mail that asks for something and leaves plain acknowledgements waiting. Limits stop two members waking each other back and forth and cap wakes per member and per arming. <C>RESET BUDGET</C> starts a fresh allowance after the arming total is reached.</p>
+        <p><C>PAUSE</C> stops automatic pickup and busy reminders while keeping the mode, session and wake counts. <C>RESUME</C> checks idle members with waiting mail through the same limits, without resetting the budget. NUDGE still works while paused. The Smart session clock freezes, including across a restart; hourly rate limits keep real time.</p>
         <p><strong>Smart</strong> modes ask a model you choose whether to wake the member, wait, or ask you. <strong>Observe-only</strong> only records the answers. <strong>Automatic</strong> may start the member&apos;s normal turn, but only after Arco checks again that the member is idle, the mail is unchanged and every limit allows it. <C>STOP</C> on a member holds its current mail until new mail arrives. A Smart session ends at its time limit, or after a restart when its limit record cannot be read, and must then be armed again.</p>
         <p>In Automatic, an evaluator error or invalid answer attempts ordinary pickup once through the same guards and budget. Valid wait/ask answers and STOP or expiry never permit fallback. Observe-only never wakes. The last decision, chip hover and accessible description explain failures and fallback.</p>
         <p>Set <strong>Armed session length</strong> under <strong>AUTO-PICKUP &gt; LIMITS</strong> before arming (5 to 240 minutes, default 30). The dialog shows minutes remaining. Expiry turns Smart Off; mail waits for rearming, Rule-based or NUDGE.</p>
@@ -1303,7 +1304,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.auto-pickup-rule-limits': {
     title: 'Rule-based limits',
-    body: <p>Set the alternating wake limit, hourly wakes per member, total wakes per arming and chain depth. Acknowledgement-only mail and mail stopped by the chain-depth limit stay in the mailbox. The hourly cap rolls over; reaching the arming total pauses automatic pickup until RESUME.</p>,
+    body: <p>Set the alternating wake limit, hourly wakes per member, total wakes per arming and chain depth. Acknowledgement-only mail and mail stopped by the chain-depth limit stay in the mailbox. The hourly cap rolls over; reaching the arming total stops automatic pickup until RESET BUDGET.</p>,
     manualSection: 'cluster-auto-pickup',
   },
   'cluster.auto-pickup-rule-reset': {
@@ -1312,13 +1313,23 @@ export const clusterHelp: Record<string, HelpEntry> = {
     manualSection: 'cluster-auto-pickup',
   },
   'cluster.auto-pickup-rule-resume': {
-    title: 'Resume Rule-based pickup',
-    body: <p>Start a fresh arming budget after the total wake limit pauses pickup. The rolling hourly member limit still applies.</p>,
+    title: 'Reset Rule-based wake budget',
+    body: <p>Start a fresh arming budget after the total wake limit stops pickup. The rolling hourly member limit still applies. This action stays disabled during an operator pause; use RESUME first, then reset the budget separately.</p>,
+    manualSection: 'cluster-auto-pickup',
+  },
+  'cluster.auto-pickup-pause': {
+    title: 'Pause AUTO-PICKUP',
+    body: <p>Stop automatic pickup, Smart evaluator requests and busy reminders without changing the mode, armed session or wake counts. Mail waits in the mailbox. A turn already running continues, and NUDGE still works. The pause survives a server restart. The Smart session clock freezes at its remaining time; hourly rate limits continue in real time.</p>,
+    manualSection: 'cluster-auto-pickup',
+  },
+  'cluster.auto-pickup-resume': {
+    title: 'Resume AUTO-PICKUP',
+    body: <p>Continue with the same mode, armed session and wake counts, without confirmation. Smart continues with the time left at PAUSE. Each idle member with waiting mail is checked once through the normal limits. Smart still evaluates the mail; Observe-only only records its answer. RESUME does not reset a spent Rule-based budget; RESET BUDGET is a separate action.</p>,
     manualSection: 'cluster-auto-pickup',
   },
   'cluster.auto-pickup-off': {
     title: 'Turn AUTO-PICKUP off',
-    body: <p>One click sets AUTO-PICKUP to Off. A Smart session ends at once, so an evaluator answer still in progress is discarded and starts nothing. A worker turn that already started is not cancelled; use STOP for that. The evaluator choice and limits are kept for the next arming.</p>,
+    body: <p>One click sets AUTO-PICKUP to Off and clears an operator pause. A Smart session ends at once, so an evaluator answer still in progress is discarded and starts nothing. A worker turn that already started is not cancelled; use STOP for that. The evaluator choice and limits are kept for the next arming.</p>,
     manualSection: 'cluster-auto-pickup',
   },
   'cluster.auto-pickup-dialog': {

@@ -2517,14 +2517,15 @@ export async function handleClusterAutoTurnToggle(
 // Operator chose an AUTO-PICKUP mode in the cluster dialog. Smart modes need
 // an evaluator from an enabled provider and start a new session; Off and
 // Rule-based end any Smart session. Pushes cluster_state on success.
+// A pause-only request keeps the current mode, session and budgets.
 export async function handleClusterAutoPickupSet(
   ws: WebSocket,
-  msg: { clusterId: string; mode: unknown; evaluator?: unknown; limits?: unknown; ruleLimits?: unknown; resumeRule?: boolean; remindBusy?: boolean },
+  msg: { clusterId: string; mode: unknown; paused?: unknown; evaluator?: unknown; limits?: unknown; ruleLimits?: unknown; resumeRule?: boolean; remindBusy?: boolean },
 ): Promise<void> {
   const settings = await readSettings().catch(() => null);
   const result = await applyAutoPickup(
     msg.clusterId,
-    { mode: msg.mode, evaluator: msg.evaluator, limits: msg.limits, ruleLimits: msg.ruleLimits, resumeRule: msg.resumeRule },
+    { mode: msg.mode, paused: msg.paused, evaluator: msg.evaluator, limits: msg.limits, ruleLimits: msg.ruleLimits, resumeRule: msg.resumeRule },
     (provider) => settings?.enabledProviders?.[provider] !== false,
   );
   if (!result.ok) {

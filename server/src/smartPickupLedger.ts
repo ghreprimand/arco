@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { SmartPickupCounters, SmartPickupDecisionRecord, SmartPickupLimits } from '@arco/shared';
 import { atomicWriteFile } from './atomicFile.js';
-import { clusterDir } from './clusterStore.js';
+import { clusterDir, getClusterCached } from './clusterStore.js';
 
 export type SmartPickupReservationKind = 'evaluator' | 'wake';
 
@@ -36,8 +36,9 @@ interface LedgerFile {
 }
 
 const HOUR_MS = 60 * 60 * 1000;
-// Entries older than this cannot affect any limit (hour windows and sessions
-// of at most 8 hours), so they are dropped on the next write.
+// Older entries normally cannot affect a limit (hour windows and sessions
+// of at most 8 hours), so they are dropped on the next write. Pauses can
+// extend a session's wall-clock life: retain its entries until it ends.
 const RETAIN_MS = 9 * HOUR_MS;
 const DECISIONS_KEPT = 50;
 
@@ -75,7 +76,8 @@ async function read(clusterId: string): Promise<LedgerFile> {
 }
 
 async function write(clusterId: string, ledger: LedgerFile, now: number): Promise<void> {
-  ledger.entries = ledger.entries.filter((e) => e.status === 'reserved' || now - e.at < RETAIN_MS);
+  const activeSession = getClusterCached(clusterId)?.smartPickup?.session?.id;
+  ledger.entries = ledger.entries.filter((e) => e.status === 'reserved' || e.sessionId === activeSession || now - e.at < RETAIN_MS);
   ledger.decisions = ledger.decisions.slice(-DECISIONS_KEPT);
   await fs.mkdir(clusterDir(clusterId), { recursive: true });
   await atomicWriteFile(ledgerPath(clusterId), JSON.stringify(ledger, null, 2));

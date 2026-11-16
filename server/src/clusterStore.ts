@@ -112,6 +112,9 @@ export interface ClusterState {
   // Rule-based), so clusters saved before the modes existed keep their
   // behavior. autoTurnOnMailboxEnabled is kept equal to "mode is rule".
   autoPickupMode?: AutoPickupMode;
+  // Operator pause timestamp, independent of the Rule-based wake-budget stop.
+  // The timestamp freezes Smart's remaining session time across restart.
+  autoPickupPausedAt?: number;
   remindBusy?: boolean;
   rulePickupLimits?: Partial<RulePickupLimits>;
   // Smart pickup choices kept across disarm: the active evaluator, the last
@@ -1001,13 +1004,28 @@ export async function setAutoTurnOnMailbox(
 // its own id and expiry; any other mode clears the session, which makes any
 // outstanding Smart work stale. The evaluator, last explicit choice and
 // limits persist across disarm so re-arming can offer them again.
+// Pause-only updates preserve session identity and remaining running time;
+// resume moves its expiry forward by the saved pause duration.
 export async function setAutoPickup(
   clusterId: string,
-  opts: { mode: AutoPickupMode; evaluator?: SmartPickupEvaluator; limits?: Partial<SmartPickupLimits>; ruleLimits?: Partial<RulePickupLimits>; remindBusy?: boolean; now?: number },
+  opts: { mode: AutoPickupMode; paused?: boolean; evaluator?: SmartPickupEvaluator; limits?: Partial<SmartPickupLimits>; ruleLimits?: Partial<RulePickupLimits>; remindBusy?: boolean; now?: number },
 ): Promise<ClusterState | null> {
   return withClusterMetaLock(clusterId, async () => {
     const state = await readCluster(clusterId);
     if (!state) return null;
+    if (typeof opts.paused === 'boolean') {
+      if (opts.mode === 'off' || opts.mode !== autoPickupModeOf(state)) return null;
+      const now = opts.now ?? Date.now();
+      const pausedAt = state.autoPickupPausedAt;
+      const session = state.smartPickup?.session;
+      const smartPickup = !opts.paused && pausedAt !== undefined && session && isSmartPickupMode(opts.mode)
+        ? { ...state.smartPickup, session: { ...session, expiresAt: session.expiresAt + Math.max(0, now - pausedAt) } }
+        : state.smartPickup;
+      const next = { ...state, autoPickupPausedAt: opts.paused ? pausedAt ?? now : undefined, smartPickup };
+      await writeMetaAtomic(next);
+      rebuildIndexFor(next);
+      return next;
+    }
     const now = opts.now ?? Date.now();
     const prior = state.smartPickup ?? {};
     const limits = opts.limits ? sanitizeSmartPickupLimits({ ...sanitizeSmartPickupLimits(prior.limits), ...opts.limits }) : prior.limits;
@@ -1033,6 +1051,9 @@ export async function setAutoPickup(
       rulePickupLimits: opts.ruleLimits ? sanitizeRulePickupLimits({ ...sanitizeRulePickupLimits(state.rulePickupLimits), ...opts.ruleLimits }) : state.rulePickupLimits,
       remindBusy: typeof opts.remindBusy === 'boolean' ? opts.remindBusy : state.remindBusy,
       autoPickupMode: opts.mode === 'off' ? undefined : opts.mode,
+      autoPickupPausedAt: opts.mode !== 'off' && opts.mode === autoPickupModeOf(state) && state.autoPickupPausedAt !== undefined
+        ? isSmartPickupMode(opts.mode) ? now : state.autoPickupPausedAt
+        : undefined,
       autoTurnOnMailboxEnabled: opts.mode === 'rule' ? true : undefined,
       smartPickup: hasSmart ? smartPickup : undefined,
     };
@@ -1045,6 +1066,10 @@ export async function setAutoPickup(
 export function getAutoPickupMode(clusterId: string): AutoPickupMode {
   const state = cache.get(clusterId);
   return resolveAutoPickupMode(state?.autoPickupMode, state?.autoTurnOnMailboxEnabled);
+}
+
+export function isAutoPickupPaused(clusterId: string): boolean {
+  return cache.get(clusterId)?.autoPickupPausedAt !== undefined;
 }
 
 export function autoPickupModeOf(state: Pick<ClusterState, 'autoPickupMode' | 'autoTurnOnMailboxEnabled'>): AutoPickupMode {

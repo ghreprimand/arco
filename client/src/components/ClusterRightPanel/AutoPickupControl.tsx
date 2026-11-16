@@ -60,15 +60,16 @@ function describeDecision(state: ClusterAutoPickupState): string | null {
   return `${when}: ${what}${d.action ? ` (${d.reason.replace(/_/g, ' ')}), ${d.outcome}` : ''}`;
 }
 
-function useSessionRemaining(expiresAt?: number): number | null {
+function useSessionRemaining(expiresAt?: number, pausedAt?: number): number | null {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     if (expiresAt === undefined) return;
     setNow(Date.now());
+    if (pausedAt !== undefined) return;
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
-  }, [expiresAt]);
-  return expiresAt === undefined ? null : Math.max(0, Math.ceil((expiresAt - now) / 60_000));
+  }, [expiresAt, pausedAt]);
+  return expiresAt === undefined ? null : Math.max(0, Math.ceil((expiresAt - (pausedAt ?? now)) / 60_000));
 }
 
 export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload }) {
@@ -80,10 +81,11 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
     wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode, ...(evaluator ? { evaluator } : {}), ...(limits ? { limits } : {}), ...(ruleLimits ? { ruleLimits } : {}), ...(remindBusy !== undefined ? { remindBusy } : {}) });
   };
   const on = state.mode !== 'off';
-  const remaining = useSessionRemaining(state.session?.expiresAt);
+  const pause = () => wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode: state.mode, paused: !state.paused });
+  const remaining = useSessionRemaining(state.session?.expiresAt, state.pausedAt);
   const decision = describeDecision(state);
   const modeTitle = on
-    ? `${AUTO_PICKUP_MODE_LABELS[state.mode].label}${remaining !== null ? `, about ${remaining} min left in this session` : ''}. Click to review or change.`
+    ? `${AUTO_PICKUP_MODE_LABELS[state.mode].label}${state.paused ? ', paused; automatic pickup and busy reminders are stopped' : ''}${remaining !== null ? `, about ${remaining} min left in this session${state.paused ? ' (clock paused)' : ''}` : ''}. Click to review or change.`
     : 'AUTO-PICKUP is off. Click to choose a mode.';
   return (
     <>
@@ -95,7 +97,7 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
         onClick={() => setOpen(true)}
         data-help="cluster.auto-turn"
         aria-haspopup="dialog"
-        aria-label={`AUTO-PICKUP: ${AUTO_PICKUP_MODE_LABELS[state.mode].label}`}
+        aria-label={`AUTO-PICKUP: ${AUTO_PICKUP_MODE_LABELS[state.mode].label}${state.paused ? ', paused' : ''}`}
         aria-description={decision ?? undefined}
         className="display-font"
         title={`${modeTitle}${decision ? ` ${decision}` : ''}`}
@@ -110,9 +112,13 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
         }}
       >
         {AUTO_PICKUP_MODE_LABELS[state.mode].chip}
+        {state.paused ? ' - PAUSED' : ''}
         {isSmartPickupMode(state.mode) && state.counters ? ` · ${state.counters.wakesThisSession}/${state.limits.wakesPerSession}` : ''}
       </button>
-      {state.mode === 'rule' && state.ruleStatus?.budgetPaused && <button type="button" data-help="cluster.auto-pickup-rule-resume" disabled={!connected} onClick={() => wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode: 'rule', resumeRule: true })}>RESUME</button>}
+      {state.mode === 'rule' && state.ruleStatus?.budgetPaused && <button type="button" data-help="cluster.auto-pickup-rule-resume" disabled={!connected || state.paused} title={state.paused ? 'Resume AUTO-PICKUP before resetting its wake budget.' : 'Start a fresh Rule-based wake budget; hourly member limits remain.'} onClick={() => wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode: 'rule', resumeRule: true })}>RESET BUDGET</button>}
+      {on && <button type="button" onClick={pause} disabled={!connected} data-help={state.paused ? 'cluster.auto-pickup-resume' : 'cluster.auto-pickup-pause'} aria-label={state.paused ? 'Resume AUTO-PICKUP' : 'Pause AUTO-PICKUP'} title={state.paused ? 'Resume with the same session and wake counts; check idle members with waiting mail through the normal limits.' : 'Pause automatic pickup and busy reminders without changing the mode, session or wake counts.'} className="display-font" style={{ padding: '3px 6px', background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg-muted)', cursor: 'pointer', fontSize: '9px', letterSpacing: '1px', whiteSpace: 'nowrap' }}>
+        {state.paused ? 'RESUME' : 'PAUSE'}
+      </button>}
       {on && (
         <button
           type="button"
@@ -126,13 +132,14 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
           TURN OFF
         </button>
       )}
-      {open && <AutoPickupDialog state={state} onClose={() => setOpen(false)} onApply={(mode, evaluator, limits, ruleLimits, remindBusy) => { send(mode, evaluator, limits, ruleLimits, remindBusy); setOpen(false); }} />}
+      {open && <AutoPickupDialog state={state} onPause={pause} onClose={() => setOpen(false)} onApply={(mode, evaluator, limits, ruleLimits, remindBusy) => { send(mode, evaluator, limits, ruleLimits, remindBusy); setOpen(false); }} />}
     </>
   );
 }
 
-function AutoPickupDialog({ state, onClose, onApply }: {
+function AutoPickupDialog({ state, onPause, onClose, onApply }: {
   state: ClusterAutoPickupState;
+  onPause: () => void;
   onClose: () => void;
   onApply: (mode: AutoPickupMode, evaluator?: SmartPickupEvaluator, limits?: Partial<SmartPickupLimits>, ruleLimits?: Partial<RulePickupLimits>, remindBusy?: boolean) => void;
 }) {
@@ -186,7 +193,7 @@ function AutoPickupDialog({ state, onClose, onApply }: {
     : null;
   const field: React.CSSProperties = { display: 'block', margin: '4px 0 10px' };
   const decision = describeDecision(state);
-  const remaining = useSessionRemaining(state.session?.expiresAt);
+  const remaining = useSessionRemaining(state.session?.expiresAt, state.pausedAt);
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div
@@ -200,6 +207,11 @@ function AutoPickupDialog({ state, onClose, onApply }: {
         style={{ ...formSurfaceSize(), overflowY: 'auto', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-accent-primary-dim)', borderRadius: '6px', padding: '18px 20px', fontSize: '12px', lineHeight: 1.5, color: 'var(--color-fg)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><h2 id="auto-pickup-title" className="display-font glow-text-bright" style={{ margin: '0 0 10px', fontSize: '14px', letterSpacing: '2px' }}>AUTO-PICKUP</h2><WorkSurfaceControls surface={surface} storageKey="auto-pickup" /></div>
+        {state.mode !== 'off' && <p>
+          {state.paused ? 'Paused. Waiting mail stays in the mailbox; NUDGE still works.' : 'Automatic pickup is not paused.'}{' '}
+          {state.session && state.paused ? 'The Smart session clock is paused. ' : ''}
+          <button type="button" disabled={!connected} data-help={state.paused ? 'cluster.auto-pickup-resume' : 'cluster.auto-pickup-pause'} aria-label={state.paused ? 'Resume AUTO-PICKUP' : 'Pause AUTO-PICKUP'} onClick={onPause}>{state.paused ? 'RESUME' : 'PAUSE'}</button>
+        </p>}
         <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
           <legend className="display-font" style={{ fontSize: '10px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)' }}>MODE</legend>
           {AUTO_PICKUP_MODES.map((m, i) => (
@@ -225,7 +237,7 @@ function AutoPickupDialog({ state, onClose, onApply }: {
             <input className="arco-field" type="number" min={spec.min} max={spec.max} step={1} value={Number.isFinite(ruleLimits[k]) ? ruleLimits[k] : ''} onChange={(e) => setRuleLimits((prior) => ({ ...prior, [k]: e.target.value === '' ? Number.NaN : Number(e.target.value) }))} />
           </label>; })}
           <button type="button" data-help="cluster.auto-pickup-rule-reset" onClick={() => setRuleLimits({ ...DEFAULT_RULE_PICKUP_LIMITS })}>RESET LIMITS</button>
-          {state.ruleStatus && <p>Automatic wakes: {state.ruleStatus.wakes} of {ruleLimits.wakesPerArming} this arming.{state.ruleStatus.ledgerUnavailable ? ' Paused: the Rule-based ledger is unavailable.' : state.ruleStatus.budgetPaused ? ' Paused: resume to start a fresh budget.' : ''}{state.ruleStatus.pausedPair ? ' Alternating pair paused.' : ''}</p>}
+          {state.ruleStatus && <p>Automatic wakes: {state.ruleStatus.wakes} of {ruleLimits.wakesPerArming} this arming.{state.ruleStatus.ledgerUnavailable ? ' Paused: the Rule-based ledger is unavailable.' : state.ruleStatus.budgetPaused ? ' Wake budget reached. Select RESET BUDGET beside AUTO-PICKUP after resuming any operator pause.' : ''}{state.ruleStatus.pausedPair ? ' Alternating pair paused.' : ''}</p>}
         </section>}
         {smart && (
           <section data-help="cluster.auto-pickup-evaluator" style={{ borderTop: '1px solid var(--color-border-hairline)', marginTop: '10px', paddingTop: '10px' }}>
@@ -286,7 +298,7 @@ function AutoPickupDialog({ state, onClose, onApply }: {
 
         {(state.counters || decision) && (
           <section data-help="cluster.auto-pickup-status" aria-label="AUTO-PICKUP status" style={{ borderTop: '1px solid var(--color-border-hairline)', marginTop: '10px', paddingTop: '10px', color: 'var(--color-fg-muted)' }}>
-            {state.session && <div>About {remaining} min remain. Session ends at {new Date(state.session.expiresAt).toLocaleTimeString()}. Change Armed session length under LIMITS before arming.</div>}
+            {state.session && <div>About {remaining} min remain. {state.paused ? 'Session clock paused.' : `Session ends at ${new Date(state.session.expiresAt).toLocaleTimeString()}.`} Change Armed session length under LIMITS before arming.</div>}
             {state.counters && <div>Evaluator requests: {state.counters.callsThisSession} this session, {state.counters.callsLastHour} in the last hour, {state.counters.inFlight} in progress. Automatic wakes: {state.counters.wakesThisSession} of {state.limits.wakesPerSession} this session, {state.counters.wakesLastHour} in the last hour.</div>}
             {decision && <div>Last decision: {decision}</div>}
           </section>
