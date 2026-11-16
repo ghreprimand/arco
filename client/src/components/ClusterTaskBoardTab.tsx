@@ -33,6 +33,7 @@ import {
   releaseSummary,
   NO_RELEASE,
   namedCommitsForTask,
+  plainSignoffSummary,
   reviewTasksWithMetSignoff,
   splitRecentAndOlderReview,
 } from './clusterNeedsYou';
@@ -222,8 +223,6 @@ export function ClusterTaskBoardTab({
   // Bulk accept only touches review cards the operator can see: recent ones,
   // plus older ones while that row is expanded.
   const visibleReview = olderOpen ? [...recentReview, ...olderReview] : recentReview;
-  const autoMarkDone = useAppStore((s) => s.settings?.autoMarkDoneOnMetSignoff === true);
-  const autoDoneSent = useRef<Set<string>>(new Set());
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   // Needs-you popover: open this task's drawer, then clear the request. A done
   // task is only drawn with SHOW DONE on, but the drawer reads from all tasks.
@@ -352,19 +351,6 @@ export function ClusterTaskBoardTab({
     if (!taskShowReader || !onUpdateTaskStatus) return;
     onUpdateTaskStatus(taskShowReader, taskId, 'done', cluster.taskBoardKey);
   };
-
-  // Optional auto-done (Settings > Agents and clusters). Same operator path as
-  // ACCEPT: onUpdateTaskStatus -> task_ledger_update. Each task and sign-off is
-  // sent once, so a rejected update is not retried in a loop.
-  useEffect(() => {
-    if (!autoMarkDone || !taskShowReader || !onUpdateTaskStatus) return;
-    for (const t of reviewTasksWithMetSignoff(tasks)) {
-      const key = `${t.id}:${t.signoff?.at ?? 0}`;
-      if (autoDoneSent.current.has(key)) continue;
-      autoDoneSent.current.add(key);
-      onUpdateTaskStatus(taskShowReader, t.id, 'done', cluster.taskBoardKey);
-    }
-  }, [autoMarkDone, tasks, taskShowReader, onUpdateTaskStatus, cluster.taskBoardKey]);
 
   const acceptAllMet = () => {
     if (!taskShowReader || !onUpdateTaskStatus) return;
@@ -1298,7 +1284,7 @@ function TaskDetailDrawer({
       </div>
       <div ref={detailScroll} style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 10px 12px' }}>
         {task.status === 'review' && (
-          <DrawerSection title="TO ACCEPT">
+          <DrawerSection title={task.signoff && task.signoff.state !== 'met' ? 'REVIEW' : 'TO ACCEPT'}>
             <InlineBlock
               label="Director sign-off"
               body={task.signoff
@@ -1306,9 +1292,9 @@ function TaskDetailDrawer({
                 : 'No sign-off yet.'}
             />
             {task.signoff?.summary && (
-              <div title={task.signoff.summary} data-testid="review-signoff-summary"
+              <div title={plainSignoffSummary(task.signoff)} data-testid="review-signoff-summary"
                 style={{ color: 'var(--color-fg)', fontSize: '11px', marginTop: '5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {task.signoff.summary}
+                {plainSignoffSummary(task.signoff)}
               </div>
             )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
@@ -1533,11 +1519,11 @@ function TaskDetailDrawer({
           </FieldGrid>
           {task.blockedReason && <InlineBlock label="Blocked reason" body={task.blockedReason} />}
           {/* §D3 — director's advisory sign-off (the same verdict surfaced as a
-              chip on the card). Advisory only; done stays operator-only. */}
+              chip on the card). */}
           {task.signoff && (
             <InlineBlock
               label="Director sign-off"
-              body={`${signoffChip(task.signoff).label}${task.signoff.summary ? `: ${task.signoff.summary}` : ''}\n${task.signoff.byWorkflowId ? `by ${nameFor(task.signoff.byWorkflowId)} · ` : ''}${formatTime(task.signoff.at)}`}
+              body={`${signoffChip(task.signoff).label}${plainSignoffSummary(task.signoff) ? `: ${plainSignoffSummary(task.signoff)}` : ''}\n${task.signoff.byWorkflowId ? `by ${nameFor(task.signoff.byWorkflowId)} · ` : ''}${formatTime(task.signoff.at)}`}
             />
           )}
           {task.notes && <InlineBlock label="Notes" body={task.notes} />}
@@ -2069,14 +2055,14 @@ function BoardCard({
   const showSignoff = Boolean(so) || col === 'review';
   const chip = signoffChip(so);
   const signoffTitle = so
-    ? `Director sign-off: ${so.state}${so.summary ? `: ${so.summary}` : ''}${so.byWorkflowId ? ` (by ${nameFor(so.byWorkflowId)}, ${formatTime(so.at)})` : ''}`
+    ? `Director sign-off: ${signoffChip(so).label}${plainSignoffSummary(so) ? `: ${plainSignoffSummary(so)}` : ''}${so.byWorkflowId ? ` (by ${nameFor(so.byWorkflowId)}, ${formatTime(so.at)})` : ''}`
     : 'No director sign-off yet';
   // A per-card click target that must not trigger the card drag or open the
   // drawer — stop pointer + click from bubbling to the draggable card button.
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation();
   const canRecheck = Boolean(onRecheck && so?.byWorkflowId);
   const commits = namedCommitsForTask(t);
-  const signoffSummary = col === 'review' ? so?.summary?.trim() : undefined;
+  const signoffSummary = col === 'review' ? plainSignoffSummary(so) : undefined;
   return (
     <button
       ref={setNodeRef}
@@ -2109,6 +2095,7 @@ function BoardCard({
       >
         {t.title}
       </div>
+      {t.status === 'done' && t.directorClosure && <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)' }}>Closed by director · {formatTime(t.directorClosure.at)}</div>}
       {signoffSummary && (
         <div
           title={signoffSummary}

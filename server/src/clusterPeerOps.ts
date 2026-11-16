@@ -30,6 +30,7 @@
 // `broadcastWorkflow` so persistAndStampSeq stamps every event into the
 // recipient's events.jsonl.
 
+import { readSettings } from './settings.js';
 import { recipientContext, type RecipientContext } from './peerRecipientContext.js';
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
@@ -968,11 +969,8 @@ function taskDependsOn(tasks: LedgerTask[], fromId: string, targetId: string, se
   return task.parentIds.some((parentId) => taskDependsOn(tasks, parentId, targetId, seen));
 }
 
-// Update a task's status and/or notes. Workers may set non-terminal workflow
-// statuses. `done` / `archived` are REJECTED here — the
-// operator-confirmed-done invariant (§D1) is re-enforced at the peer layer:
-// only the operator's WS task_ledger_update may reach applyUpdate with those
-// terminal statuses.
+// Workers may set non-terminal statuses. Direct done / archived requests are
+// rejected; a director met sign-off may close the task when auto-done is on.
 const SIGNOFF_STATES: ReadonlySet<TaskSignoffState> = new Set(['met', 'not_met', 'partial']);
 
 export async function peerTaskUpdate(
@@ -983,7 +981,7 @@ export async function peerTaskUpdate(
     notes?: string;
     // Release label such as "0.1.4"; an empty string clears it.
     release?: string;
-    // §D3 — the director's advisory verdict. The model passes `{ state, summary }`;
+    // The director verdict. The model passes `{ state, summary }`;
     // the server stamps `byWorkflowId`/`at` so it's attributable and unspoofable.
     // `null` explicitly clears a prior sign-off (back to PENDING).
     signoff?: { state?: string; summary?: string } | null;
@@ -998,7 +996,7 @@ export async function peerTaskUpdate(
       message: 'done/archived can only be set by the operator from the LEDGER tab. Move the task to review, set blocked, or report completion via peer_send to the director.',
     };
   }
-  // Build the server-stamped sign-off (advisory; never a terminal status).
+  // Stamp the sign-off at the peer boundary so its author cannot be spoofed.
   let signoffPatch: TaskSignoff | null | undefined;
   if (args.signoff === null) {
     signoffPatch = null;
@@ -1031,10 +1029,15 @@ export async function peerTaskUpdate(
   if (!board) {
     return { ok: false, code: 'board_detached', message: 'no task board is enabled for this cluster.' };
   }
+  const director = isClusterDirector(clusterStore.getMemberRole(ctx.clusterId, ctx.workflowId));
+  const autoMarkDone = director && signoffPatch?.state === 'met' && (await readSettings()).autoMarkDoneOnMetSignoff !== false;
   let rejection: PeerTaskRejection | null = null;
   const result = await persistLedgerMutation(ctx.workflowId, board.cwd, 'update', (tasks) => {
+    const previous = tasks.find((task) => task.id === args.id);
+    const close = director && autoMarkDone && signoffPatch?.state === 'met' && previous?.status !== 'done' && previous?.status !== 'archived';
     const applied = taskLedger.applyUpdate(tasks, args.id, {
-      ...(args.status ? { status: args.status } : {}),
+      ...(close ? { directorClosure: { byWorkflowId: ctx.workflowId, at: signoffPatch!.at } } : {}),
+      ...(close ? { status: 'done' as const } : args.status ? { status: args.status } : {}),
       ...(typeof args.notes === 'string' ? { notes: args.notes } : {}),
       ...(typeof args.release === 'string' ? { release: args.release } : {}),
       ...(signoffPatch !== undefined ? { signoff: signoffPatch } : {}),

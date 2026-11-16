@@ -87,17 +87,14 @@ export interface LedgerTask {
   // Optional release label such as "0.1.4" so a board can answer what is in a
   // release. Absent = unlabeled (the common case); older ledgers never carry it.
   release?: string;
-  // §D3 — the director's advisory sign-off verdict. See TaskSignoff. Absent =
+  // Director sign-off verdict. See TaskSignoff. Absent =
   // not yet reviewed (the board renders PENDING). Additive + projection-safe.
   signoff?: TaskSignoff;
+  directorClosure?: { byWorkflowId: string; at: number };
 }
 
-// §D3 — the director's advisory verdict on whether a task met its target.
-// ADVISORY ONLY: `done`/`archived` stay operator-gated; a sign-off never moves
-// a task to a terminal status — it's a recommendation the operator reads at a
-// glance before accepting. Written by whichever member reviews the task (the
-// director) via cluster_task_update; `byWorkflowId`/`at` are server-stamped so
-// the verdict is attributable and the RECHECK button knows who to ask.
+// The director verdict is server-stamped. A met verdict can close the task
+// when Board auto-done is on; byWorkflowId and at attribute the decision.
 export type TaskSignoffState = 'met' | 'not_met' | 'partial';
 
 export interface TaskSignoff {

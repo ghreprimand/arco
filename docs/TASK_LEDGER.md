@@ -59,17 +59,13 @@ Mutations are serialized **per-cwd** through a promise chain
 (`server/src/ws/taskLedgerHandlers.ts`) so two tabs sharing one cwd cannot
 clobber each other's load-mutate-save round.
 
-## The operator-confirmed terminal-status invariant (load-bearing)
+## Terminal status and director sign-off
 
-There is **no worker/model code path that sets `status: 'done'` or
-`status: 'archived'`.** No auto-done. Worker/model completion reports may be
-recorded as reviewable evidence, but they are advisory and never derive a
-terminal status by themselves.
+Direct worker status changes cannot set `done` or `archived`. A director's new `met` sign-off closes the task on the server when Board auto-done is on. Worker completion reports remain reviewable evidence and do not close tasks.
 
 - `newTask()` always produces `status: 'todo'`, there is no create-as-done
   path.
-- `applyUpdate()` is the only function that may set `done` / `archived`, and
-  only when the operator's `task_ledger_update` patch carries that status.
+- `applyUpdate()` sets terminal statuses when the operator requests them or when a director submits a `met` sign-off with Board auto-done enabled.
 - `rebuildFromEvents()` only replays recorded operator events; it never derives
   a status.
 
@@ -339,7 +335,7 @@ in the comment metadata, not in any separate field on the task itself.
 
 **Terminal-status gate.** Items targeting `done` or `archived` (in
 `task_create.status` or `task_update.patch.status`) are rejected before any
-mutation fires. The D1 no-auto-done invariant holds across the proposal path.
+mutation fires. The proposal path does not mark tasks done.
 
 **Inert suggestions.** The `OrchestrationAssistModelRef` on a proposal may
 carry `provider` / `model` / `effort` suggestions. These are stored verbatim for
@@ -354,7 +350,7 @@ The D1 operator-confirmed terminal-status invariant is re-enforced here:
 `operator_gated` *before* it touches the ledger. Workers may set only
 `triage` / `todo` / `ready` / `in_progress` / `blocked` / `review`; they report
 completion through `cluster_task_complete` (which moves to `review`) or via
-`peer_send`, and the **operator** marks done from the LEDGER tab. This is not a global block, the operator's
+`peer_send`. A director met sign-off can close the task if Board auto-done is enabled. The operator's
 `task_ledger_update` WS path still reaches `applyUpdate` with terminal statuses
 and succeeds. Asserted by `scripts/smoke/task-board.ts` steps (d) + (e).
 Dependency graph behavior is asserted by `scripts/smoke/task-dependencies.ts`;
@@ -383,11 +379,7 @@ the same `task_ledger_update` path as the LEDGER tab; workers cannot do this)
 and **RECHECK** (sends a templated note to the sign-off author). **ACCEPT ALL
 MET** accepts every visible review task whose sign-off reads met. Done tasks
 are shown by default and hidden when **SHOW DONE** is turned off (remembered); review tasks older than seven days fold behind
-an older-count row. A **NEED YOU** badge above the member cards counts review
-tasks with a director sign-off, tasks blocked on an operator decision, and
-members waiting on an answer; selecting an item opens the board or focuses that
-member. Settings > Agents and clusters **Board auto-done** (off by default)
-marks a met review task done without a separate ACCEPT click. The Board and Plan
+an older-count row. The attention badge above the member cards counts tasks blocked on an operator decision and members with questions. Settings > Agents and clusters **Board auto-done** is on by default and closes a task on a new director met sign-off. Turn it off to accept tasks yourself; existing review tasks are not closed retroactively. The Board and Plan
 tabs each carry a one-line purpose label so the two stay distinct.
 
 **Release labels.** A task may carry an optional `release` label (for example `0.1.4`, at most 24 characters) set from the card drawer's RELEASE field or by the director through `cluster_task_create` / `cluster_task_update` (an empty string clears it). When any task is labeled, the board header offers a release filter (ALL RELEASES, each label, NO RELEASE); a chosen label shows how many tasks are in it, how many the operator accepted (done) and how many are left, and reads READY TO RELEASE when none are left. CATCH ME UP lists board changes in its range with their release label and adds a one-line movement summary; BRIEF on a cluster adds the board totals, release progress and the last day's movement. Boards with no labels, and ledgers written before labels existed, look and load as before.
@@ -483,6 +475,6 @@ reserved during claim persistence, then receives the validated task in its turn.
 
 ## Cluster attention and REVIEW drawers
 
-The cluster member-header badge names the kinds present: WAITING for a question that pauses an agent, BLOCKED for a task blocked on the operator, ASKED for a question the agent can continue past, and TO ACCEPT for a signed-off review task. Stopped kinds come first. Only WAITING and BLOCKED use warning colour and count in the compact `! n`; optional-only items show a plain muted number. The TO ACCEPT hover says that acceptance is optional and nothing waits on it. Existing task/member jump targets and the list remain.
+The cluster member-header badge names WAITING, BLOCKED and ASKED. Only WAITING and BLOCKED use warning colour and count in the compact mark; signed-off tasks do not appear.
 
 A REVIEW drawer starts with the sign-off author, verdict and summary, or No sign-off yet. ACCEPT uses the same operator status update as its board card; RECHECK uses the existing request to the sign-off author and is unavailable without a suitable author/sender. Accepting is optional. Edit is below this summary and closed initially for REVIEW; every other status retains its existing layout. Overview, references, comments, recovery and run history remain available.

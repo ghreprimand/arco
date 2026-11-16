@@ -14,10 +14,9 @@ import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // need — is documented in docs/TASK_LEDGER.md, not assumed). The working set is
 // small + single-writer, so query() is load-all + filter-in-JS.
 //
-// LOAD-BEARING INVARIANT (§D1 acceptance): there is NO code path that sets
-// status: 'done' except an explicit operator-originated update (applyUpdate
-// below). create() never accepts a status; rebuildFromEvents only replays
-// recorded operator events; there is no auto-done / no inference anywhere.
+// Direct terminal-status updates are operator-controlled. A director's met
+// sign-off may close a task when Board auto-done is enabled; replay uses the
+// recorded result and never infers a new status.
 
 import { promises as fs, existsSync } from 'fs';
 import path from 'path';
@@ -748,9 +747,10 @@ export function applyUpdate(
     // Release label; '' clears it, undefined leaves it untouched.
     release?: string;
     worktree?: TaskWorktree | null;
-    // §D3 — director's advisory verdict. An object sets it (caller stamps
+    // Director verdict. An object sets it (caller stamps
     // byWorkflowId/at); `null` clears it; `undefined` leaves it untouched.
     signoff?: TaskSignoff | null;
+    directorClosure?: { byWorkflowId: string; at: number };
     updatedBy?: string;
   },
 ): { tasks: LedgerTask[]; updated: LedgerTask } | null {
@@ -809,6 +809,8 @@ export function applyUpdate(
     if (clean) next.signoff = clean;
     else delete next.signoff;
   }
+  if (patch.directorClosure) next.directorClosure = patch.directorClosure;
+  else if (patch.status && patch.status !== 'done') delete next.directorClosure;
   const out = [...tasks];
   out[i] = next;
   return { tasks: out, updated: next };

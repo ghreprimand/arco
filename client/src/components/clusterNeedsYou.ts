@@ -2,7 +2,7 @@
 // Badge semantics are covered by clusterNeedsYou.test.ts. The existing
 // scripts/smoke/task-board.ts checks the board and operator-accept contracts.
 
-import type { LedgerTask, TaskSignoff } from '@arco/shared';
+import type { LedgerTask } from '@arco/shared';
 
 export const REVIEW_OLDER_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -10,13 +10,12 @@ export const REVIEW_OLDER_MS = 7 * 24 * 60 * 60 * 1000;
 const OPERATOR_BLOCKED =
   /\b(operator|human|you\b|your\s+(?:decision|input|approval|go)|needs?\s+(?:you|operator|human)|awaiting\s+(?:you|operator)|approve|accept|confirm)\b/i;
 
-export type NeedsYouKind = 'review' | 'blocked' | 'question' | 'asked';
+export type NeedsYouKind = 'blocked' | 'question' | 'asked';
 
 export const NEEDS_YOU_KIND: Record<NeedsYouKind, { label: string; stopped: boolean; description: string }> = {
   question: { label: 'WAITING', stopped: true, description: 'An agent is waiting for an answer before it can continue.' },
   blocked: { label: 'BLOCKED', stopped: true, description: 'A task is blocked on the operator.' },
   asked: { label: 'ASKED', stopped: false, description: 'An agent asked a question and can continue without an answer.' },
-  review: { label: 'TO ACCEPT', stopped: false, description: 'Finished and signed off. Accepting is optional; nothing waits on it.' },
 };
 
 export interface NeedsYouItem {
@@ -30,10 +29,6 @@ export interface NeedsYouItem {
 
 export function isOperatorBlockedReason(reason: string | undefined | null): boolean {
   return Boolean(reason && OPERATOR_BLOCKED.test(reason.trim()));
-}
-
-export function reviewNeedsOperator(task: Pick<LedgerTask, 'status' | 'signoff'>): boolean {
-  return task.status === 'review' && Boolean(task.signoff);
 }
 
 export function blockedNeedsOperator(task: Pick<LedgerTask, 'status' | 'blockedReason'>): boolean {
@@ -57,6 +52,13 @@ export function namedCommitsInText(text: string | undefined | null): string[] {
 
 export function namedCommitsForTask(task: Pick<LedgerTask, 'notes' | 'signoff'>): string[] {
   return namedCommitsInText([task.notes ?? '', task.signoff?.summary ?? ''].join('\n'));
+}
+
+export function plainSignoffSummary(signoff?: LedgerTask['signoff']): string | undefined {
+  const summary = signoff?.summary?.trim();
+  if (!signoff || !summary) return undefined;
+  if (signoff.state === 'met') return summary;
+  return `Not finished: ${summary.replace(/^(?:partial|not[_ -]met)\s*:\s*/i, '')}`;
 }
 
 export function reviewTasksWithMetSignoff(tasks: readonly LedgerTask[]): LedgerTask[] {
@@ -129,16 +131,7 @@ export function buildNeedsYouItems(input: {
 }): NeedsYouItem[] {
   const items: NeedsYouItem[] = [];
   for (const t of input.tasks) {
-    if (reviewNeedsOperator(t)) {
-      const so = t.signoff as TaskSignoff;
-      items.push({
-        kind: 'review',
-        id: `review:${t.id}`,
-        title: t.title,
-        detail: `${so.state}${so.summary ? `: ${so.summary}` : ''}`,
-        taskId: t.id,
-      });
-    } else if (blockedNeedsOperator(t)) {
+    if (blockedNeedsOperator(t)) {
       items.push({
         kind: 'blocked',
         id: `blocked:${t.id}`,
@@ -162,7 +155,7 @@ export function buildNeedsYouItems(input: {
 }
 
 export function needsYouSummary(items: readonly NeedsYouItem[]) {
-  const groups = (['question', 'blocked', 'asked', 'review'] as const)
+  const groups = (['question', 'blocked', 'asked'] as const)
     .map((kind) => ({ kind, count: items.filter((item) => item.kind === kind).length, ...NEEDS_YOU_KIND[kind] }))
     .filter((group) => group.count > 0);
   const stopped = groups.reduce((count, group) => count + (group.stopped ? group.count : 0), 0);

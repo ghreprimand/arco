@@ -754,7 +754,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         through the operator path; a plain click (under a 4px drag threshold)
         opens the card drawer instead. Touch devices drag after a short press.
         Moving a card to <C>done</C> or <C>archived</C> confirms first: those
-        terminal statuses stay operator-only.
+        direct terminal status changes stay operator-only.
       </p>
     ),
     manualSection: 'cluster-board',
@@ -803,7 +803,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         Runs one deterministic dispatch sweep. Only <C>ready</C> tasks with an
         explicit idle assignee are claimed, moved to <C>in_progress</C>, given a
         run record, and sent to that member as a normal turn. Skips are logged
-        with stable reasons; terminal statuses remain operator-only. The current assignment, dependencies, membership and idle worker are checked again before each claim.
+        with stable reasons; direct terminal status changes remain operator-only. The current assignment, dependencies, membership and idle worker are checked again before each claim.
       </p>
     ),
     manualSection: 'cluster-board',
@@ -882,9 +882,8 @@ export const clusterHelp: Record<string, HelpEntry> = {
         <p>
           Names each kind present: WAITING for a question that pauses an agent,
           BLOCKED for a task blocked on you, ASKED for a question the agent can
-          continue past, and TO ACCEPT for a signed-off review task. Stopped
-          kinds come first and use the warning colour. ASKED and TO ACCEPT are
-          muted. Accepting is optional; nothing waits on it. The badge is
+          continue past. Stopped kinds come first and use the warning colour.
+          ASKED is muted. The badge is
           hidden when there are no items.
         </p>
         <p>
@@ -994,7 +993,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         the existing RECHECK action. Accepting is optional; nothing waits on it.
         Edit is below and closed initially for REVIEW only. Other statuses keep
         their existing layout. Overview, links, dependencies, comments, recovery
-        controls and run records remain available. Terminal statuses stay
+        controls and run records remain available. Direct terminal status changes stay
         operator-only through the existing ledger update path.
       </p>
     ),

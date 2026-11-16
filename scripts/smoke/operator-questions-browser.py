@@ -141,12 +141,13 @@ async def main():
     document.documentElement.style.zoom=String(c.scale);document.documentElement.style.setProperty('--ui-scale',String(c.scale));dispatchEvent(new Event('resize'));
    }""",{'mode':mode,'scale':scale,'focus':focus,'theme':theme,'members':members})
    badge=page.get_by_test_id('cluster-needs-you')
+   await expect(badge).not_to_contain_text('TO ACCEPT')
    await expect(badge).to_have_count(1);await expect(badge).to_be_visible()
    rail=page.get_by_test_id('member-rail')
    narrow=await rail.is_visible()
    if narrow:
     assert await rail.evaluate("e=>{const r=e.getBoundingClientRect(),b=[...e.querySelectorAll('button')].map(x=>x.getBoundingClientRect());return e.scrollWidth<=e.clientWidth+1&&b.every(x=>x.left>=r.left-1&&x.right<=r.right+1)&&b.every((a,i)=>b.slice(i+1).every(z=>Math.min(a.right,z.right)-Math.max(a.left,z.left)<=1||Math.min(a.bottom,z.bottom)-Math.max(a.top,z.top)<=1));}"),(n,'rail overflow/overlap')
-   for task_id,label in [('accept-fixture','ACCEPT'),('blocked-fixture','BLOCKED')]:
+   for task_id,label in [('blocked-fixture','BLOCKED')]:
     if n%2:await badge.tap()
     else:await badge.focus();await page.keyboard.press('Enter')
     choice=page.get_by_role('menuitem').filter(has_text=label).first
@@ -161,11 +162,11 @@ async def main():
     await page.get_by_role('button',name='Show the member list',exact=True).tap()
     await expect(badge).to_have_count(1)
     await expect(page.get_by_test_id('member-list-slide-out').get_by_test_id('cluster-needs-you')).to_be_visible()
-    await badge.tap();await page.get_by_role('menuitem').filter(has_text='ACCEPT').first.tap()
+    await badge.tap();await page.get_by_role('menuitem').filter(has_text='BLOCKED').first.tap()
     await expect(page.get_by_test_id('member-list-slide-out')).to_have_count(0)
     await expect(page.get_by_test_id('right-panel-slide-out')).to_be_visible()
     await page.get_by_role('button',name='Close CLUSTER PANEL',exact=True).tap()
-  print(f'PASS attention matrix: {len(cases)} cases, four layouts, keyboard/touch, accept/blocked and open-list navigation',flush=True)
+  print(f'PASS attention matrix: {len(cases)} cases, four layouts, keyboard/touch, blocked and open-list navigation',flush=True)
   assert not errors,errors
   await page.screenshot(path=_artifact_os.path.join(_artifact_root.name, 'arco-questions-browser.png'))
   print('PASS: pending question button/modal, options and descriptions, multiple replies, password input, explicit submit, validation retry, authoritative answered state, disconnect disable and stale snapshot closure. No page errors.')

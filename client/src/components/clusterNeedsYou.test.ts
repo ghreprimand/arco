@@ -6,8 +6,8 @@ import {
   buildNeedsYouItems,
   filterVisibleBoardTasks,
   namedCommitsForTask,
+  plainSignoffSummary,
   needsYouSummary,
-  reviewNeedsOperator,
   reviewTasksWithMetSignoff,
   splitRecentAndOlderReview,
 } from './clusterNeedsYou.js';
@@ -28,12 +28,6 @@ function task(partial: Partial<LedgerTask> & Pick<LedgerTask, 'id' | 'title' | '
   };
 }
 
-test('signed-off review is offered for optional acceptance; unsigned review is not', () => {
-  assert.equal(reviewNeedsOperator(task({ id: 'a', title: 'A', status: 'review', signoff: { state: 'met', summary: 'ok', at: 2 } })), true);
-  assert.equal(reviewNeedsOperator(task({ id: 'b', title: 'B', status: 'review' })), false);
-  assert.equal(reviewNeedsOperator(task({ id: 'c', title: 'C', status: 'todo', signoff: { state: 'met', summary: 'ok', at: 2 } })), false);
-});
-
 test('blocked reason must address the operator', () => {
   assert.equal(blockedNeedsOperator(task({ id: 'a', title: 'A', status: 'blocked', blockedReason: 'Needs operator decision on the port' })), true);
   assert.equal(blockedNeedsOperator(task({ id: 'b', title: 'B', status: 'blocked', blockedReason: 'Waiting on Builder 1 for the patch' })), false);
@@ -48,6 +42,11 @@ test('ACCEPT ALL MET keeps partial and not_met', () => {
     task({ id: '4', title: 'pending', status: 'review' }),
   ];
   assert.deepEqual(reviewTasksWithMetSignoff(tasks).map((t) => t.id), ['1']);
+});
+
+test('incomplete verdict summaries use plain language', () => {
+  assert.equal(plainSignoffSummary({ state: 'partial', summary: 'partial: waiting for real use', at: 1 }), 'Not finished: waiting for real use');
+  assert.equal(plainSignoffSummary({ state: 'not_met', summary: 'not_met: needs a fix', at: 1 }), 'Not finished: needs a fix');
 });
 
 test('named commits come from notes and sign-off summary', () => {
@@ -92,21 +91,19 @@ test('cluster attention names urgency without treating optional acceptance or as
       { workflowId: 'w2', displayName: 'Working member', mode: 'async' },
     ],
   });
-  assert.equal(items.length, 4);
+  assert.equal(items.length, 3);
   const summary = needsYouSummary(items);
-  assert.equal(summary.label, '1 WAITING · 1 BLOCKED · 1 ASKED · 1 TO ACCEPT');
+  assert.equal(summary.label, '1 WAITING · 1 BLOCKED · 1 ASKED');
   assert.equal(summary.stopped, 2);
   assert.equal(summary.compactLabel, '! 2');
   assert.deepEqual(summary.groups.map((group) => [group.label, group.stopped]), [
-    ['WAITING', true], ['BLOCKED', true], ['ASKED', false], ['TO ACCEPT', false],
+    ['WAITING', true], ['BLOCKED', true], ['ASKED', false],
   ]);
-  assert.match(summary.title, /Finished and signed off\. Accepting is optional; nothing waits on it\./);
-  assert.deepEqual(items.map((item) => item.kind), ['review', 'blocked', 'question', 'asked'], 'the existing list order and jump targets are retained');
-  assert.equal(items.find((item) => item.kind === 'review')?.taskId, 'r1');
+  assert.deepEqual(items.map((item) => item.kind), ['blocked', 'question', 'asked'], 'the existing list order and jump targets are retained');
   assert.equal(items.find((item) => item.kind === 'asked')?.workflowId, 'w2');
-  const optional = needsYouSummary(items.filter((item) => item.kind === 'asked' || item.kind === 'review'));
-  assert.equal(optional.label, '1 ASKED · 1 TO ACCEPT');
-  assert.equal(optional.compactLabel, '2');
+  const optional = needsYouSummary(items.filter((item) => item.kind === 'asked'));
+  assert.equal(optional.label, '1 ASKED');
+  assert.equal(optional.compactLabel, '1');
   assert.equal(optional.stopped, 0);
   assert.ok(optional.groups.every((group) => !group.stopped));
 });

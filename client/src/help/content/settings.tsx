@@ -357,10 +357,8 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Board auto-done',
     body: (
       <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported.
-        When checked, a task in review is marked done as soon as the director&apos;s
-        sign-off reads <C>met</C>, the same as pressing ACCEPT on the Board. Partial and
-        not-met sign-offs are left for you. Off by default, so you accept finished work
-        yourself.
+        On by default. A new director sign-off of <C>met</C> marks the task done on the server.
+        Turn it off to accept finished tasks yourself. Existing review tasks are unchanged; partial and not-met sign-offs do not close tasks.
       </p>
     ),
     manualSection: 'cluster-board',

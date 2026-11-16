@@ -13,5 +13,5 @@ for(const mode of ['plan','board','both'] as const)for(const hasPlan of [false,t
  }else{
   assert.doesNotMatch(text,/operator approves new work|one item per feature|item id and a one-line description/);
  }
- if(hasBoard&&mode!=='plan')assert.match(text,/done\/archived stay operator-only/);
+ if(hasBoard&&mode!=='plan')assert.match(text,/done\/archived status changes stay operator-only/);
 });

@@ -336,3 +336,49 @@ test('status classifier exempts instructions and questions and detects standalon
     assert.equal(peer.isStatusOnlyPeerMessage(text), false, text);
   }
 });
+
+test('director met sign-off closes a task and records who closed it', async () => {
+  const c = await make();
+  await store.setMemberRole(c.clusterId, c.members[0], 'Director role.');
+  const task = ledger.newTask({ title: 'Finished' });
+  await ledger.save(c.cwd, [task], store.taskBoardKeyForState(c));
+  const result = await peer.peerTaskUpdate(context(c), { id: task.id, status: 'review', signoff: { state: 'met', summary: 'Ready.' } }, () => {});
+  assert.ok(result.ok); assert.equal(result.task.status, 'done');
+  assert.equal(result.task.directorClosure?.byWorkflowId, c.members[0]);
+  assert.equal(result.task.directorClosure?.at, result.task.signoff?.at);
+  const persisted = await ledger.load(c.cwd, store.taskBoardKeyForState(c));
+  assert.equal(persisted[0].status, 'done'); assert.deepEqual(persisted[0].directorClosure, result.task.directorClosure);
+  const reopened = ledger.applyUpdate(persisted, task.id, { status: 'review' });
+  assert.ok(reopened); assert.equal(reopened.updated.directorClosure, undefined);
+});
+
+test('explicitly disabled auto-done keeps new met sign-offs in review', async () => {
+  const c = await make();
+  await store.setMemberRole(c.clusterId, c.members[0], 'Director role.');
+  const settings = await import('./settings.js');
+  await settings.patchSettings({ autoMarkDoneOnMetSignoff: false });
+  assert.equal((await settings.readSettings()).autoMarkDoneOnMetSignoff, false);
+  const task = ledger.newTask({ title: 'Needs acceptance' });
+  await ledger.save(c.cwd, [task], store.taskBoardKeyForState(c));
+  const result = await peer.peerTaskUpdate(context(c), { id: task.id, status: 'review', signoff: { state: 'met' } }, () => {});
+  assert.ok(result.ok); assert.equal(result.task.status, 'review'); assert.equal(result.task.directorClosure, undefined);
+  await settings.patchSettings({ autoMarkDoneOnMetSignoff: true });
+  assert.equal((await ledger.load(c.cwd, store.taskBoardKeyForState(c)))[0].status, 'review', 'existing sign-offs are not closed retroactively');
+});
+
+test('non-directors and incomplete verdicts do not close a task', async () => {
+  const c = await make();
+  await store.setMemberRole(c.clusterId, c.members[0], 'Director role.');
+  const tasks = ['worker', 'partial', 'not met'].map(title => ledger.newTask({ title }));
+  await ledger.save(c.cwd, tasks, store.taskBoardKeyForState(c));
+  const worker = await peer.peerTaskUpdate(context(c, c.members[1]), { id: tasks[0].id, status: 'review', signoff: { state: 'met' } }, () => {});
+  assert.ok(worker.ok); assert.equal(worker.task.status, 'review');
+  for (const [i, state] of [[1, 'partial'], [2, 'not_met']] as const) {
+    const r = await peer.peerTaskUpdate(context(c), { id: tasks[i].id, status: 'review', signoff: { state } }, () => {});
+    assert.ok(r.ok); assert.equal(r.task.status, 'review');
+    const returned = await peer.peerTaskUpdate(context(c), { id: tasks[i].id, status: i === 1 ? 'in_progress' : 'todo', signoff: { state } }, () => {});
+    assert.ok(returned.ok); assert.equal(returned.task.status, i === 1 ? 'in_progress' : 'todo');
+    const unchanged = await peer.peerTaskUpdate(context(c), { id: tasks[i].id, signoff: { state } }, () => {});
+    assert.ok(unchanged.ok); assert.equal(unchanged.task.status, i === 1 ? 'in_progress' : 'todo');
+  }
+});

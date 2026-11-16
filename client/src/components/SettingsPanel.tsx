@@ -1667,7 +1667,7 @@ function AutoHandoffDefaultsSection() {
 function BoardAutoDoneSection() {
   const settings = useAppStore((s) => s.settings);
   const setSettings = useAppStore((s) => s.setSettings);
-  const enabled = settings?.autoMarkDoneOnMetSignoff === true;
+  const enabled = settings?.autoMarkDoneOnMetSignoff !== false;
   const [saving, setSaving] = useState(false);
 
   const commit = async (next: boolean) => {
@@ -1700,7 +1700,7 @@ function BoardAutoDoneSection() {
         Mark done automatically when the director signs off as met
       </label>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5, margin: '6px 0 14px' }}>
-        Off by default. Only tasks in review with a met sign-off are marked done; partial and not-met sign-offs stay for you.
+        On by default. A new director met sign-off marks the task done on the server; partial and not-met sign-offs stay in review. Turn this off to accept finished tasks yourself.
       </div>
     </div>
   );

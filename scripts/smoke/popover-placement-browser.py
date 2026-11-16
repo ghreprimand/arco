@@ -144,7 +144,7 @@ async def open_app(browser, width, height, scale, state):
       }
       const members=[{workflowId:'pp-m1',displayName:'Director',status:'idle',role:'Director role.'},{workflowId:'pp-m2',displayName:'Builder',status:'busy',role:'Builder role.'}];
       receive({type:'cluster_state',clusterId:'pp-cluster',state:{clusterId:'pp-cluster',name:'Placement cluster',cwd:'/demo/alpha',createdAt:'',taskBoardMode:'cluster',taskBoardAttached:true,mailboxDepth:{'pp-m2':1},members,idleNudgerEnabled:false}},{wsRef:{current:null},scheduleReconnect:()=>{}});
-      const tasks=[1,2,3,4,5,6,7,8].map(i=>({id:'pp-t'+i,title:'Synthetic review item '+i+' with a long enough title to wrap',status:'review',signoff:{state:'met',summary:'Fixture sign-off '+i},createdAt:i,updatedAt:i}));
+      const tasks=[1,2,3,4,5,6,7,8].map(i=>({id:'pp-t'+i,title:'Synthetic blocked item '+i+' with a long enough title to wrap',status:'blocked',blockedReason:'Needs operator decision',createdAt:i,updatedAt:i}));
       s.getState().setTaskLedger('/demo/alpha', tasks);
     }''', AUTH)
     return context, page, errors, writes

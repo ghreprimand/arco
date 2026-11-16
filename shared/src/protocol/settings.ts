@@ -162,9 +162,8 @@ export interface ArcoSettings {
   // small text. Structural box-shadow glow on borders/LEDs is untouched. Absent /
   // false = the theme's own glow. Independent of theme + frosted glass.
   crispText?: boolean;
-  // Board convenience. When true, a task in review whose director sign-off is
-  // "met" is marked done through the same operator task_ledger_update path as
-  // the ACCEPT button. Absent / false = the operator accepts each task.
+  // A new director met sign-off closes the task on the server. Absent = true;
+  // explicit false keeps acceptance with the operator.
   autoMarkDoneOnMetSignoff?: boolean;
   // Phosphor-only decoration. Absent = effects on, softness 50. Classic
   // preferences and appearance are unaffected; crispText overrides emission.

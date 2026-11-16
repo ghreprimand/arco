@@ -1681,16 +1681,15 @@ export const clusters: Section[] = [
   </li>
   </ul>
   <Note>
-  <strong><Code>done</Code> / <Code>archived</Code> are
-  operator-only</strong> at every layer.{' '}
+  <strong>Direct <Code>done</Code> / <Code>archived</Code> status changes are
+  operator-only.</strong> A director met sign-off closes the task when Board
+  auto-done is on.{' '}
   <Code>cluster_task_update</Code> rejects either terminal status with{' '}
   <Code>operator_gated</Code> - workers move finished work to{' '}
   <Code>review</Code> through <Code>cluster_task_complete</Code> or
-  report via <Code>peer_send</Code>, and the operator marks the task done
-  from the LEDGER tab, by dragging the card to the <Code>done</Code> column
-  (confirmed), or via the drawer status controls. This
-  re-enforces the operator-confirmed terminal-status rule at
-  the peer layer.
+  report via <Code>peer_send</Code>. The operator can accept a task from
+  the LEDGER tab, by dragging the card to <Code>done</Code> with confirmation,
+  or through the drawer status controls.
   </Note>
   <p>
   Claims and updates are saved like operator edits. Every member&apos;s
@@ -1711,15 +1710,13 @@ export const clusters: Section[] = [
   </p>
   <ul>
   <li><strong>PLAN</strong> - agents follow the plan and the operator approves changes.</li>
-  <li><strong>BOARD</strong> - agents move tasks along; the operator accepts finished work and answers blocked tasks.</li>
+  <li><strong>BOARD</strong> - agents move tasks along; the operator can accept finished work and answers blocked tasks.</li>
   </ul>
   <ul>
   <li>
   The badge above the member cards names WAITING questions that pause an
-  agent, tasks BLOCKED on you, ASKED questions the agent can continue past,
-  and signed-off tasks TO ACCEPT. Stopped kinds come first and use the
-  warning colour; optional kinds are muted. Accepting is optional; nothing
-  waits on it.
+  agent, tasks BLOCKED on you, and ASKED questions the agent can continue past. Stopped kinds come first
+  and use the warning colour; ASKED is muted.
   </li>
   <li>
   Click the badge to jump to a task or member. In Narrow layout, the compact
@@ -1746,8 +1743,9 @@ export const clusters: Section[] = [
   the board moved.
   </li>
   <li>
-  Settings &gt; Agents and clusters &gt; Board auto-done can accept met
-  tasks for you. It is off by default.
+  Settings &gt; Agents and clusters &gt; Board auto-done is on by default.
+  A new director met sign-off closes the task on the server; turn the setting
+  off to accept tasks yourself. Existing review tasks stay in review.
   </li>
   </ul>
   </>

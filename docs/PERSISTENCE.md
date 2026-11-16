@@ -798,7 +798,7 @@ Global shape (representative subset):
   ollama?: { baseUrl?, backends?, modelHostMap?,... }, lmstudio?: { baseUrl? },
   fallbackChains?, autoHandoffDefaults?, handoffSummarizer?, defaultProjectTrust?, mediaUnconfined?, mediaAllowedRoots?, pinnedServices?, tabOrder?,
   onboardingComplete?, providerConfirmed?,   // first-run setup finished or skipped; a provider check succeeded
-  autoMarkDoneOnMetSignoff?,                  // Settings > Agents and clusters > Board auto-done
+  autoMarkDoneOnMetSignoff?,                  // Board auto-done; absent means on
   //...
 }
 ```

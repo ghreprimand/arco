@@ -465,7 +465,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     'cluster_task_create',
     {
       description:
-        'Create a non-terminal task on the shared cluster board. New tasks start as todo; done/archived remain operator-only. Use title plus optional body/notes, assignee, priority, parentIds, links, reviewRequired, goalMode, and goalMaxTurns. parentIds must refer to existing tasks. When the task implements a plan item, start the title with that item\'s id or text (e.g. \'P6.9 Live tab drag follow on X11\'): cluster_task_show then resolves the item\'s reference docs (its own ref links, its sub-bullets, its phase intro) for whoever works it. Add any extra ref:slug links the task needs to notes.',
+        'Create a non-terminal task on the shared cluster board. New tasks start as todo; terminal statuses cannot be set when creating a task. Use title plus optional body/notes, assignee, priority, parentIds, links, reviewRequired, goalMode, and goalMaxTurns. parentIds must refer to existing tasks. When the task implements a plan item, start the title with that item\'s id or text (e.g. \'P6.9 Live tab drag follow on X11\'): cluster_task_show then resolves the item\'s reference docs (its own ref links, its sub-bullets, its phase intro) for whoever works it. Add any extra ref:slug links the task needs to notes.',
       inputSchema: {
         title: z.string().min(1).describe('Task title. Required and non-empty.'),
         body: z.string().optional().describe('Initial task body. Alias for notes when notes is absent.'),
@@ -563,7 +563,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     'cluster_task_update',
     {
       description:
-        "Update a task on the shared cluster board. Change its `status` (triage / todo / ready / in_progress / blocked / review), replace `notes`, and/or record a `signoff` verdict. IMPORTANT: `done` and `archived` are OPERATOR-ONLY — those statuses are REJECTED here (operator_gated). When you finish work, move the task to review or report completion via peer_send to the director; the operator marks done from the LEDGER tab.\n\nSIGN-OFF (director): when you review a peer's completed task, set `signoff` to your verdict — `met`, `not_met`, or `partial` — with a one-line `summary`. ADVISORY only: it does NOT mark the task done; it surfaces a recommendation on the board so the operator can accept at a glance. Only the reviewing member (the director) should set this.",
+        "Update a task on the shared cluster board. Workers move completed work to review. Only the director signs off: set signoff to met, partial, or not_met with a plain one-line summary for the operator, without commit hashes. A director's met sign-off closes the task unless Board auto-done is off in Settings; partial and not_met stay in review. Tell the operator in chat what to try. Direct status changes to done or archived remain operator-only.",
       inputSchema: {
         id: z.string().min(1).describe('Task id from cluster_task_list.'),
         status: z.enum(['triage', 'todo', 'ready', 'in_progress', 'blocked', 'review']).optional().describe("New status. 'done' and 'archived' are rejected — operator-only."),
@@ -572,7 +572,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
         signoff: z.object({
           state: z.enum(['met', 'not_met', 'partial']).describe('Your verdict: met / not_met / partial.'),
           summary: z.string().optional().describe('One-line reason shown on the board card.'),
-        }).optional().describe('Advisory director verdict on whether the task met its target. Does NOT mark it done.'),
+        }).optional().describe('Director verdict: met closes the task unless Board auto-done is off.'),
       },
     },
     async (args) => {
@@ -699,7 +699,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     'cluster_task_complete',
     {
       description:
-        "Submit a completion report for a task. Moves the task to review and appends a durable COMPLETION REPORT comment. It does NOT mark done; done remains operator-only.",
+        "Submit a completion report for a task. Moves the task to review and appends a durable COMPLETION REPORT comment. It does not mark done; the director reviews the report.",
       inputSchema: {
         id: z.string().min(1).describe('Task id from cluster_task_list.'),
         summary: z.string().min(1).describe('What changed, tests run, files touched, and follow-ups.'),

@@ -1,5 +1,5 @@
-// Needs-you counter for the cluster members header: review tasks with a
-// director sign-off, tasks blocked on the operator, and members waiting on an
+// Needs-you counter for the cluster members header: tasks blocked on the
+// operator and members waiting on an
 // answer. Click opens a list; picking a task opens the BOARD with it selected,
 // picking a question focuses that member. Read-only: it never sends anything.
 
@@ -39,7 +39,7 @@ export function NeedsYouBadge({ clusterId, compact = false }: { clusterId: strin
           ...(pending.some((question) => question.mode === 'async') ? [{ workflowId: m.workflowId, displayName: m.displayName, mode: 'async' as const }] : []),
         ];
       });
-    // Done and archived tasks are never listed: only review and blocked count.
+    // Only tasks blocked on the operator appear alongside questions.
     return buildNeedsYouItems({ tasks, waitingQuestions });
   }, [cluster?.members, jobs, tasks]);
 

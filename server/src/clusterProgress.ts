@@ -40,7 +40,7 @@ const PLAN_CLAUSE = [
 
 const BOARD_CLAUSE = [
   'Keep the task board current.',
-  'Move each task through its statuses (todo → in_progress → review) as the work actually progresses, and report completion so the operator can mark it done (done/archived stay operator-only).',
+  'Move each task through its statuses (todo → in_progress → review) as the work actually progresses, and report completion for director review; a met sign-off closes the task unless Board auto-done is off in Settings. Direct done/archived status changes stay operator-only.',
   'Do not leave finished work sitting in an earlier status.',
 ].join(' ');
 
