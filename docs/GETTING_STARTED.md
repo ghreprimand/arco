@@ -372,7 +372,11 @@ notice and [VOICE.md](VOICE.md) before enabling hands-free mode.
 - Per-project workflows, chats, plans, and project settings: `<project>/.arco`.
   Opening a project creates that folder. It ships its own `.gitignore` so its
   contents stay out of Git by default; adding `.arco/` to the project's root
-  `.gitignore` is a sensible extra safeguard.
+  `.gitignore` is a sensible extra safeguard. Treat `.arco/` as local state that
+  is not committed, except a skill shared through SHARE WITH REPOSITORY.
+- Files you want kept in the project (documentation, a README, notes to commit)
+  belong in the project tree, for example `docs/`, not only under a conversation's
+  `artifacts/` folder inside `.arco`.
 - `ARCO_HOME` relocates the global Arco home. Project state remains in each
   project's `.arco` directory.
 

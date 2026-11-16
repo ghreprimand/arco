@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Document the notice shown when between-turn auto-compaction leaves context at or above the threshold after three attempts, and state in repository guides that files to keep belong in the project tree while `.arco/` stays local except a skill shared through SHARE WITH REPOSITORY.
+
 ## v0.1.6 - 2026-11-16
 
 - Add ADVISOR and DESIGNER cluster role presets, with Advisor consultation in the Director instructions and Computer cluster messages routed to the actual Director.

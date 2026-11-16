@@ -183,7 +183,10 @@ Global state defaults to `~/.arco` on Linux and macOS and
 different global home. Opening a project creates a `.arco` folder there for
 workflows and project settings. That folder ships its own `.gitignore` so its
 contents stay out of Git by default; adding `.arco/` to the project's root
-`.gitignore` is a sensible extra safeguard. Provider command-line tools may
+`.gitignore` is a sensible extra safeguard. Treat `.arco/` as local state that
+is not committed, except a skill shared through SHARE WITH REPOSITORY. Put
+files you want kept in the project in the project tree, not only under a
+conversation's `artifacts/` folder. Provider command-line tools may
 keep their own login data outside the Arco home. See
 [Persistence](docs/PERSISTENCE.md) for the storage layout and
 [Backup](docs/BACKUP.md) before moving an installation.

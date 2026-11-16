@@ -21,6 +21,13 @@ export const workflows: Section[] = [
   <li>Optional artifacts under <Code>artifacts/</Code> and <Code>handoffs/</Code> alongside.</li>
   </ul>
   <p>
+  Put files the operator wants kept in the project in the project tree, for
+  example <Code>docs/</Code>, not only under the conversation&apos;s{' '}
+  <Code>artifacts/</Code> folder. The project <Code>.arco/</Code> folder is
+  local state and is not committed, except a skill shared through SHARE WITH
+  REPOSITORY.
+  </p>
+  <p>
   The server reloads workflows on boot. The client rehydrates from local storage,
   and the server replays anything it missed.
   </p>

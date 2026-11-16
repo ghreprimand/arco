@@ -867,6 +867,22 @@ export const configuration: Section[] = [
   compact themselves.
   </p>
   <p>
+  Between turns, after a successful automatic compaction, the next completed
+  turn at or above the threshold can compact again.
+  </p>
+  <p>
+  If three automatic compactions in a row each leave the context still at or
+  above the threshold at turn end, a notice says automatic compaction has run
+  after each of the last 3 turns, the context is still at or above the
+  threshold, and it keeps running. Large turns make that expected; otherwise
+  raise the threshold or use HANDOFF.
+  </p>
+  <p>
+  The same notice can appear again after a turn ends below the threshold or
+  COMPACT succeeds. A failed attempt waits for a reading more than five
+  percentage points below the threshold before retrying.
+  </p>
+  <p>
   Claude Native also compacts inside one long turn. When a request reaches the
   threshold (70% under Provider), Arco summarizes the earlier history before
   the next request, keeps the tool call in progress and its result, and the
@@ -893,10 +909,10 @@ export const configuration: Section[] = [
   The retained round's narration also survives a later worker rebuild, without appearing twice.
   </p>
   <p>
-  It runs at most once per crossing: if the context stays above the threshold,
-  one notice says so. A failed summary changes nothing and the turn continues.
-  STOP cancels the whole multipart summary, including between requests, and
-  leaves the prior history available.
+  That in-turn compaction runs at most once per crossing: if the context stays
+  above the threshold, one notice says so. A failed summary changes nothing and
+  the turn continues. STOP cancels the whole multipart summary, including
+  between requests, and leaves the prior history available.
   Off turns it off, and so does Claude API compaction (beta).
   </p>
   <p>

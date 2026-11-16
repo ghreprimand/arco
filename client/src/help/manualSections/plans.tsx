@@ -491,7 +491,11 @@ export const plans: Section[] = [
       <>
         <p>
           Review and handoff write durable markdown artifacts beside the workflow, so
-          their results outlive the session.
+          their results outlive the session. Files meant to stay in the project
+          belong in the project tree, not only under that conversation&apos;s{' '}
+          <Code>artifacts/</Code> folder. The project <Code>.arco/</Code> folder
+          is local state and is not committed, except a skill shared through
+          SHARE WITH REPOSITORY.
         </p>
         <ul>
           <li>

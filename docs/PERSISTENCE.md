@@ -482,6 +482,16 @@ CREATE VIRTUAL TABLE chunks_fts USING fts5(content, content='chunks', content_ro
 
 ## Artifacts
 
+The per-workflow `artifacts/` folder holds conversation deliverables Arco
+surfaces in chat and in ARTIFACTS or Outputs: reviews, handoff-related
+outputs, report files and other finished work for that tab. Put files the
+operator wants kept in the project (documentation, a README, notes to commit)
+in the project tree, for example `docs/`, not only under
+`.arco/workflows/<wfid>/artifacts/`. Large intermediate files belong in the
+sibling `scratch/` folder. `.arco/` itself is local state and is not committed,
+except a skill shared through SHARE WITH REPOSITORY (see
+[Project `.arco/.gitignore`](#project-arcogitignore)).
+
 `<cwd>/.arco/workflows/<wfid>/artifacts/review-<ts>.md` - Review primitive outputs. YAML frontmatter + body:
 
 ```markdown
@@ -899,7 +909,14 @@ Updated on each worker spawn / settle; on macOS and Windows the start time is fi
 
 Arco creates `<cwd>/.arco/.gitignore` before writing project state. Its default
 is `*`, so Git ignores all contents of `.arco/`, including the ignore file
-itself. To share an individual file, add a negation such as `!settings.json`
+itself. Treat `.arco/` as local state that stays out of Git by default. Agents
+do not commit, force-add or add ignore exceptions for it. The one route Arco
+itself offers is **SHARE WITH REPOSITORY** in Settings > SKILLS for a project
+skill: that adds ignore exceptions for that skill only and does not stage or
+commit for you. An operator who decides to share an individual file by hand can
+still add a negation, as described next.
+
+To share an individual file by hand, add a negation such as `!settings.json`
 to that file. Sharing a nested file also requires unignoring its parent
 directories. A repository-level ignore rule can still exclude `.arco/`.
 Already tracked files stay tracked; remove them from the Git index explicitly
