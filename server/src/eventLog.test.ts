@@ -37,6 +37,23 @@ async function withProject(fn: (cwd: string, dir: (id: string) => string) => Pro
   }
 }
 
+test('record reading preserves large, split UTF-8 and partial records across sealed/live overlap', async () => {
+  await withProject(async (_cwd, dir) => {
+    const folder = dir('chunked-reader');
+    await mkdir(folder, { recursive: true });
+    const large = JSON.stringify({ seq: 1, text: 'x'.repeat(9 * 1024 * 1024) });
+    const prefix = '{"seq":2,"text":"';
+    const padding = (65535 - (Buffer.byteLength(large + '\r\n' + prefix) % 65536) + 65536) % 65536;
+    const split = prefix + 'x'.repeat(padding) + '\u00e9"}';
+    const partial = '{"seq":3,"text":"unfinished';
+    await writeFile(path.join(folder, segmentName(1, 1)), brotliCompressSync(Buffer.from(large + '\r\n')));
+    await writeFile(path.join(folder, 'events.jsonl'), large + '\r\n' + split + '\r\n' + partial);
+    const lines: string[] = [];
+    for await (const line of readLogLines(folder)) lines.push(line);
+    assert.deepEqual(lines, [large, split, partial]);
+  });
+});
+
 // One conversation: an operator turn and assistant text, repeated.
 async function writeTurns(cwd: string, id: string, turns: number): Promise<void> {
   await initWorkflowStore(cwd, id);

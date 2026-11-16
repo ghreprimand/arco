@@ -20,7 +20,7 @@
 // a segment, or that a checked segment holds.
 
 import { promises as fs, createReadStream, closeSync, fstatSync, openSync, readFileSync, readSync, readdirSync, statSync, constants as fsConstants } from 'node:fs';
-import { createInterface } from 'node:readline';
+import { jsonlLines } from './jsonlLines.js';
 import { brotliCompress, brotliDecompress, brotliDecompressSync, createBrotliDecompress, constants as zc } from 'node:zlib';
 import { promisify } from 'node:util';
 import { randomUUID } from 'node:crypto';
@@ -225,7 +225,7 @@ async function firstLiveSeq(file: string): Promise<number | null> {
   const fh = await openLive(file);
   if (!fh) return null;
   try {
-    for await (const line of handleLines(fh)) { const seq = lineSeq(line); if (seq !== null) return seq; }
+    for await (const line of handleLines(fh, file)) { const seq = lineSeq(line); if (seq !== null) return seq; }
     return null;
   } finally { await fh.close(); }
 }
@@ -241,18 +241,17 @@ function reportUnreadable(err: unknown): void {
 }
 
 async function* segmentLines(seg: Segment): AsyncGenerator<string> {
-  const input = createReadStream(seg.file);
+  const input = createReadStream(seg.file, { highWaterMark: 64 * 1024 });
   const decompressed = createBrotliDecompress();
   // An error opening or reading the file (a segment removed or replaced since
   // it was listed) reaches the reader below instead of going unhandled.
   input.on('error', (err) => decompressed.destroy(err));
-  const rl = createInterface({ input: input.pipe(decompressed), crlfDelay: Infinity });
   try {
-    for await (const line of rl) if (line) yield line;
+    for await (const line of jsonlLines(input.pipe(decompressed), seg.file)) if (line) yield line;
   } catch (err) {
     throw new SegmentReadError(seg.file, err);
   } finally {
-    rl.close(); input.destroy();
+    input.destroy(); decompressed.destroy();
   }
 }
 
@@ -261,17 +260,16 @@ async function openLive(file: string): Promise<FileHandle | null> {
   catch (err) { if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null; throw err; }
 }
 
-async function* handleLines(fh: FileHandle): AsyncGenerator<string> {
-  const input = fh.createReadStream({ autoClose: false });
-  const rl = createInterface({ input, crlfDelay: Infinity });
-  try { for await (const line of rl) if (line) yield line; }
-  finally { rl.close(); input.destroy(); }
+async function* handleLines(fh: FileHandle, source: string): AsyncGenerator<string> {
+  const input = fh.createReadStream({ autoClose: false, highWaterMark: 64 * 1024 });
+  try { for await (const line of jsonlLines(input, source)) if (line) yield line; }
+  finally { input.destroy(); }
 }
 
 async function* liveLines(file: string): AsyncGenerator<string> {
   const fh = await openLive(file);
   if (!fh) return;
-  try { yield* handleLines(fh); } finally { await fh.close(); }
+  try { yield* handleLines(fh, file); } finally { await fh.close(); }
 }
 
 // Every record line in sequence order: sealed segments, then the live file.
@@ -319,7 +317,7 @@ export async function* readLogLines(dir: string, opts: { fromSeq?: number } = {}
   try {
     yield* drainSegments();
     if (!fh) return;
-    for await (const line of handleLines(fh)) if (!copies.drop(line)) yield line;
+    for await (const line of handleLines(fh, path.join(dir, LIVE_LOG))) if (!copies.drop(line)) yield line;
   } finally { await fh?.close(); }
 }
 
