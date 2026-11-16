@@ -40,6 +40,7 @@ import { ClusterHandoffsTab } from './ClusterHandoffsTab';
 import { ClusterReviewsList } from './ClusterReviewsList';
 import { MailboxModal } from './MailboxModal';
 import { EfficiencyControl } from './EfficiencyControl';
+import { SkillsControl } from './SkillsControl';
 import { ProjectTrustChip } from './ProjectTrustChip';
 import { ProgressControl } from './ProgressControl';
 import { AutoPickupControl, autoPickupStateOf } from './AutoPickupControl';
@@ -249,6 +250,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
           onToggleIdleNudger ? `MAIL ALERTS ${cluster.idleNudgerEnabled ? 'ON' : 'OFF'}` : null,
           onToggleAutoTurn ? `AUTO-PICKUP ${pickup}` : null,
           onSetEfficiency ? (cluster.efficiencyLevel ?? 'thorough').toUpperCase() : null,
+          cluster.skillPins?.length ? `SKILLS ${cluster.skillPins.length}` : null,
           onSetTaskBoardMode || onSetTaskBoardAttached ? `BOARD ${cluster.taskBoardMode && cluster.taskBoardMode !== 'none' && cluster.taskBoardAttached !== false ? cluster.taskBoardMode.toUpperCase() : 'OFF'}` : null,
           cluster.remoteEnabled ? 'REMOTE ON' : null,
         ].filter(Boolean).join(' · ');
@@ -333,6 +335,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
               onSetEfficiency={onSetEfficiency}
             />
           )}
+          <SkillsControl cluster={cluster} />
           {/* DD7 — cluster-wide project trust for the pinned cwd. Self-hiding
               when the repo ships nothing the gate suppresses. */}
           <ProjectTrustChip cwd={cluster.cwd} />

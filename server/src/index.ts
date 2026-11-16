@@ -163,6 +163,7 @@ handleClusterOrchestrationProposalList,
 handleClusterOrchestrationProposalReject,
 handleClusterIdleNudgerToggle,
 handleClusterEfficiencySet,
+handleClusterSkillsSet,
 handleClusterAutoCompactionSet,
 handleClusterRemoteSet,
 handleClusterGatesSet,
@@ -1312,6 +1313,9 @@ wss.on('connection', (ws: WebSocket) => {
         handleClusterEfficiencySet(ws, msg.clusterId, msg.level, msg.addendum, msg.messageGuard).catch((err) => {
           console.error('[arco] cluster_efficiency_set handler failed:', err);
         });
+        break;
+      case 'cluster_skills_set':
+        void handleClusterSkillsSet(ws, msg.clusterId, msg.pins);
         break;
       case 'cluster_remote_set':
         handleClusterRemoteSet(ws, msg.clusterId, msg.enabled).catch((err) => {

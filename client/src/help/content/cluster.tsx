@@ -2,6 +2,16 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const clusterHelp: Record<string, HelpEntry> = {
+  'cluster.skills': {
+    title: 'Cluster skill pins',
+    body: <><p><C>SKILLS</C> beside EFFICIENCY shows configured cluster pins, including missing or off skills. Open it to see each skill's source and All members or role target. Full text is added each turn for matching members; new and replaced members inherit it.</p><p>Only the operator pins or unpins. Use Settings &gt; SKILLS to add a pin. Tab, cluster and matching role pins share 12 unique skills and 64 KiB of text.</p></>,
+    manualSection: 'skills',
+  },
+  'cluster.skills.unpin': {
+    title: 'Unpin from the cluster',
+    body: <p>Removes this skill's cluster or role pin on the next turn. Direct tab pins stay in place. New and replaced members stop inheriting the removed pin. Running turns keep the instructions they started with.</p>,
+    manualSection: 'skills',
+  },
   // ----------------------------------------------------- CLUSTERS
   'cluster.tab': {
     title: 'Cluster tab',

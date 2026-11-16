@@ -7,6 +7,7 @@ import { disabledClusterProvider, localCapacityRefusal, memberProvider } from '.
 // createBlankNativeWorkflow / assertAllMembersClaudeOrCodex) are injected once at
 // startup via initClusterHandlers to avoid a cycle with the entry point.
 import { isClusterOpen, workspaceAdoptFormerMembers, workspaceCloseCluster, workspaceOpenCluster } from '../workspace.js';
+import { assertSkillUnion } from '../clusterSkills.js';
 import {
   isClusterMemberProvider,
   isClusterMemberAccessMode,
@@ -1881,6 +1882,8 @@ export async function handleClusterAddFreshWorkers(
       model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: accessMode === 'isolated', resolveCodexAccount,
       tuning: msg,
     });
+    try { await assertSkillUnion(cluster, newRole || undefined, childConfig.pinnedSkills ?? [], childName); }
+    catch (err) { send(ws, { type: 'error', message: `cluster_add_fresh_workers rejected: ${err instanceof Error ? err.message : String(err)}` }); return; }
     try {
       const id = await deps.createBlankNativeWorkflow(ws, session, childConfig, MEMBER_PENDING);
       newIds.push(id);
@@ -2025,6 +2028,8 @@ export async function handleClusterMemberReplace(
     model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: accessMode === 'isolated', resolveCodexAccount,
     tuning: msg,
   });
+  try { await assertSkillUnion(cluster, msg.role ?? clusterStore.getMemberRole(msg.clusterId, msg.workflowId), childConfig.pinnedSkills ?? [], childConfig.name ?? 'Replacement'); }
+  catch (err) { send(ws, { type: 'error', message: `cluster_member_replace rejected: ${err instanceof Error ? err.message : String(err)}` }); return; }
 
   let newWorkflowId: string;
   try {
@@ -2034,11 +2039,12 @@ export async function handleClusterMemberReplace(
       msg.workflowId,
       newWorkflowId,
       accessMode,
+      msg.role,
     );
     if (!replaced) throw new Error('atomic_replace_failed');
     // The slot's role, tier and focus moved with the replacement; the
-    // request's own values win. Checked above, so these cannot refuse.
-    if (msg.role !== undefined) await clusterStore.setMemberRole(msg.clusterId, newWorkflowId, msg.role);
+    // request's own values win. Role and skill limits were applied atomically
+    // with replacement; the tier/focus values were checked above.
     if (msg.tier !== undefined) await clusterStore.setMemberTier(msg.clusterId, newWorkflowId, msg.tier);
     if (msg.focus !== undefined) await clusterStore.setMemberFocus(msg.clusterId, newWorkflowId, msg.focus);
   } catch (err) {
@@ -2256,8 +2262,8 @@ export async function handleClusterMemberRoleSet(ws: WebSocket, clusterId: strin
   try {
     updated = await clusterStore.setMemberRole(clusterId, workflowId, role);
   } catch (err) {
-    if (err instanceof clusterStore.ClusterValidationError && err.code === 'multiple_directors') {
-      send(ws, { type: 'error', message: `cluster_member_role_set rejected: multiple_directors: ${err.message}` });
+    if (err instanceof clusterStore.ClusterValidationError) {
+      send(ws, { type: 'error', message: `cluster_member_role_set rejected: ${err.code}: ${err.message}` });
       return;
     }
     throw err;
@@ -2394,6 +2400,17 @@ export async function handleClusterEfficiencySet(
     broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
   }
   console.log(`[arco] cluster ${clusterId.slice(0, 8)} efficiency → ${level}${addendum !== undefined ? ' (addendum updated)' : ''}`);
+}
+
+export async function handleClusterSkillsSet(ws: WebSocket, clusterId: string, pins: unknown): Promise<void> {
+  try {
+    const updated = await clusterStore.setSkillPins(clusterId, pins);
+    if (!updated) throw new Error('Unknown cluster.');
+    const payload = await buildClusterStatePayload(clusterId);
+    if (payload) broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
+  } catch (err) {
+    send(ws, { type: 'error', message: `Cluster skills: ${err instanceof Error ? err.message : String(err)}` });
+  }
 }
 
 // R3 (docs/REMOTE_MANAGEMENT.md) - operator flipped the cluster-level

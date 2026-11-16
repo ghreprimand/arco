@@ -36,6 +36,7 @@ import {
   resolveClusterMessageGuard,
   type ClusterMessageGuard,
   type ClusterCreationSettings,
+  type ClusterSkillPin,
   type ClusterDispatcherSettingsPatch,
   type ClusterDispatcherState,
   type ClusterEfficiencyLevel,
@@ -64,6 +65,7 @@ const ARCO_HOME = arcoHome();
 const CLUSTERS_DIR = join(ARCO_HOME, 'clusters');
 
 export interface ClusterState {
+  skillPins?: ClusterSkillPin[];
   autoCompaction?: AutoCompactionPolicy;
   clusterId: string;
   cwd: string;
@@ -275,6 +277,29 @@ function withClusterMetaLock<T>(clusterId: string, fn: () => Promise<T>): Promis
   return withFileLock(clusterMetaPath(clusterId), fn);
 }
 
+// Direct tab-pin edits share the cluster lock with role and cluster-pin edits,
+// so concurrent edits cannot each pass against an outdated effective union.
+export function withClusterSkillLock<T>(workflowId: string, fn: () => Promise<T>): Promise<T> {
+  const clusterId = getClusterIdForWorkflow(workflowId);
+  return clusterId ? withClusterMetaLock(clusterId, fn) : fn();
+}
+
+export async function setSkillPins(clusterId: string, value: unknown, options: { restoringSnapshot?: boolean } = {}): Promise<ClusterState | null> {
+  return withClusterMetaLock(clusterId, async () => {
+    const state = await readCluster(clusterId);
+    if (!state) return null;
+    const { parseClusterSkillPins, validateNewClusterPins } = await import('./clusterSkills.js');
+    const pins = parseClusterSkillPins(value);
+    // A saved snapshot has the same missing/off/grown-file behavior as restart.
+    // Current turn resolution still enforces the standing prompt limits.
+    if (!options.restoringSnapshot) await validateNewClusterPins(state, pins);
+    const next = { ...state, skillPins: pins.length ? pins : undefined };
+    await writeMetaAtomic(next);
+    rebuildIndexFor(next);
+    return next;
+  });
+}
+
 async function writeMetaAtomic(state: ClusterState): Promise<void> {
   const path = clusterMetaPath(state.clusterId);
   // proper-lockfile needs the file to exist before lock(); seed an empty
@@ -446,6 +471,7 @@ export async function addMember(
       );
     }
     const next: ClusterState = { ...state, members: [...state.members, workflowId] };
+    if (next.skillPins?.length) await (await import('./clusterSkills.js')).assertClusterSkillLimits(next);
     await writeMetaAtomic(next);
     rebuildIndexFor(next);
     memberJoined?.(clusterId, workflowId);
@@ -538,6 +564,7 @@ export async function replaceMember(
   oldWorkflowId: string,
   newWorkflowId: string,
   accessMode?: ClusterMemberAccessMode,
+  role?: string,
 ): Promise<ClusterState | null> {
   return withClusterMetaLock(clusterId, async () => {
     const state = await readCluster(clusterId);
@@ -566,6 +593,16 @@ export async function replaceMember(
       memberFocuses: remapSparse(state.memberFocuses, oldWorkflowId, newWorkflowId),
       memberAccessModes: Object.keys(nextModes).length > 0 ? nextModes : undefined,
     };
+    if (role !== undefined) {
+      const roles = { ...next.memberRoles };
+      const savedRole = normalizeClusterRoleText(role).slice(0, MEMBER_ROLE_MAX);
+      if (savedRole) roles[newWorkflowId] = savedRole;
+      else delete roles[newWorkflowId];
+      const problem = clusterDirectorProblem(next.members.map(id => roles[id]));
+      if (problem) throw new ClusterValidationError('multiple_directors', problem);
+      next.memberRoles = Object.keys(roles).length ? roles : undefined;
+    }
+    if (next.skillPins?.length) await (await import('./clusterSkills.js')).assertClusterSkillLimits(next);
     if (nextMode === 'isolated') {
       await fs.mkdir(isolatedWorkspaceFor(clusterId, newWorkflowId), { recursive: true, mode: 0o700 });
     }
@@ -686,6 +723,7 @@ export async function setMemberRole(
     const next: ClusterState = Object.keys(nextRoles).length === 0
       ? { ...state, memberRoles: undefined }
       : { ...state, memberRoles: nextRoles };
+    if (!options.restoringSnapshot && next.skillPins?.length) await (await import('./clusterSkills.js')).assertClusterSkillLimits(next);
     await writeMetaAtomic(next);
     rebuildIndexFor(next);
     return next;

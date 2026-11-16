@@ -631,6 +631,7 @@ export function sendWorkflowLive(workflowId: string, message: ServerMessage, sen
 }
 
 export async function buildClusterStatePayload(clusterId: string): Promise<{
+  skillPins?: import('@arco/shared').ClusterSkillPin[];
   clusterId: string;
   cwd: string;
   members: Array<{
@@ -709,6 +710,7 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
   }
   return {
     clusterId,
+    ...(state.skillPins?.length ? { skillPins: state.skillPins } : {}),
     cwd: state.cwd,
     members,
     mailboxDepth,

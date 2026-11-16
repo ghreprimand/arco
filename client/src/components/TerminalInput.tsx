@@ -1,5 +1,6 @@
 import { effectiveCodexTransport } from '@arco/shared';
 import { TurnTimer } from './TurnTimer';
+import { SkillsControl } from './ClusterRightPanel/SkillsControl';
 import { BriefControl } from './BriefControl';
 import { ClusterComposerButtons, type ClusterComposerControls } from './ClusterComposerButtons';
 import type { SpawnMemberIdentity } from '@arco/shared';
@@ -841,6 +842,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
           </span>
         )}
         {onCancelQueued && <QueuedMessagesIndicator job={job} onCancel={onCancelQueued} />}
+      {clusterForJob && <SkillsControl cluster={clusterForJob} memberId={job.id} />}
       {/* Standing pins persist in WorkflowConfig/meta.json and are re-injected
           every turn. They remain visible until explicitly removed. */}
       {pinnedSkills.length > 0 && (

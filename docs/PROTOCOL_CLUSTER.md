@@ -465,6 +465,37 @@ Omitted `addendum` keeps NOTE; empty clears it; non-empty replaces it, trimmed t
 
 All new creation paths use explicit Balanced, Warn only at 15, a cluster-local board and progress tracking set to Both. Explicit creation settings override those defaults. Stored omitted style fields still mean Thorough; old omitted board fields keep the existing interpretation. Snapshot restore uses saved settings and old-format fallbacks rather than creation defaults. No existing board is moved, merged or copied by the new default. Guard state rides in cluster state and snapshot metadata; automatic-execution arming remains off on restore.
 
+### `cluster_skills_set` ->
+
+The operator's SKILLS control beside EFFICIENCY lists configured cluster pins.
+Settings > SKILLS offers PIN TO TAB and PIN TO CLUSTER; a cluster target is all
+members or an exact saved role string, including a custom role. Agents have no
+pin or unpin tool. Built-ins use an editable project/global copy, as tab pins do.
+
+```ts
+{ type: 'cluster_skills_set', clusterId: string,
+  pins: Array<{ scope: 'project' | 'global', slug: string, role?: string }> }
+```
+
+This replaces the cluster's `skillPins` array under its metadata lock and
+echoes it in `cluster_state`. Empty clears it; omitted metadata means no pins.
+No bodies are stored in cluster or tab metadata. Each turn resolves all-member
+pins, matching-role pins and direct tab pins, deduplicated by source and slug.
+Inherited project skills resolve from the cluster project, including for an
+isolated member. Added, replaced, restarted and snapshot-restored members inherit
+the current pins without copying them into their own `pinnedSkills`.
+
+The combined per-member set has the existing 12-skill and 64 KiB body limits.
+An addition over either limit is refused before saving. Role changes and member
+replacement validate the proposed set too. Direct tab-pin edits share the
+cluster lock so concurrent edits cannot each validate against stale state.
+Configured role targets are checked even when they currently have no member.
+Removing pins remains possible after a skill grows. On later turns missing,
+off or overgrown skills use the existing skipped-skill notice and bounded
+resolver. The popup keeps missing/off references visible instead of silently
+retargeting a moved or deleted skill. The count is configured entries, not a
+claim that every pin applies to every member. Running turns are unchanged.
+
 ### `cluster_progress_set` ->
 
 2026-06-29 - operator picked which surface(s) the cluster keeps current, from the ClusterRightPanel progress chip or the `+ NEW` cluster creator. `mode` is one of `CLUSTER_PROGRESS_MODES` (`plan` / `board` / `both`; server rejects unknown strings with `cluster_progress_set rejected: unknown_mode`, unknown cluster with `unknown_cluster`). Each mode resolves server-side (`clusterProgress.ts` `buildProgressDoctrine(mode, hasPlan, hasBoard)`) to a deterministic system-prompt doctrine block injected into every member's next turn - a plan-upkeep clause (keep the shared plan's `[ ]`/`[x]` current via `cluster_plan_tick`), a board-upkeep clause (move tasks through their statuses as work progresses), plus a reconcile line when BOTH surfaces are live. Each clause is gated on the surface actually existing (`hasPlan` / `hasBoard`), so a mode with no matching surface injects nothing. The progress default `both` is non-empty: pre-feature clusters with a plan start getting the upkeep nudge. Takes effect on each member's **next** turn (in-flight untouched). Server persists to cluster `meta.json` and rebroadcasts `cluster_state`; `cluster_state.progressTracking` is echoed only when non-default (absent ≡ `both`). Passes the four-question test: operator-set, deterministic doctrine, logged via `cluster_state`, reversible by flipping the chip.

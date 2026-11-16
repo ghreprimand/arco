@@ -147,16 +147,22 @@ test('no limit removes only peer quota; size, dedupe and membership fences still
 
 test('snapshot restore retains explicit choices and old-format omitted fallback without migrating boards', async () => {
   const c = await make({ efficiencyLevel: 'lean', progressTracking: 'board', taskBoardMode: 'project', messageGuard: guard('hard', 31) });
+  const { writeSkill } = await import('./skills.js');
+  const skill = await writeSkill({ scope: 'project', name: 'Snapshot fixture', description: '', body: 'Preserve this standing fixture.' }, c.cwd);
+  const skillPins = [{ scope: 'project' as const, slug: skill.slug }];
+  await store.setSkillPins(c.clusterId, skillPins);
   for (const id of c.members) await writeMeta(c.cwd, { workflowId: id, name: 'Fixture', cwd: c.cwd, createdAt: 1, lastActiveAt: 1, primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'medium', cliSessions: [], operator: 'fixture', lastEventSeq: null, lastTranscriptSeq: null, compactedAt: null });
   const snapshot = await snapshots.saveSnapshot({ clusterId: c.clusterId, name: 'Coordination fixture' });
   const restored = await snapshots.restoreSnapshot(snapshot.id, c.cwd);
   const state = await store.readCluster(restored.cluster.clusterId); assert.ok(state);
   assert.equal(state.efficiencyLevel, 'lean'); assert.equal(state.progressTracking, 'board');
+  assert.deepEqual(state.skillPins, skillPins);
   assert.equal(store.normalizeTaskBoardMode(state), 'project'); assert.deepEqual(state.messageGuard, guard('hard', 31));
   const path = join(process.env.ARCO_HOME!, 'cluster-snapshots', snapshot.id, 'manifest.json');
   const manifest = JSON.parse(await fs.readFile(path, 'utf8'));
   delete manifest.clusterState.efficiencyLevel; delete manifest.clusterState.messageGuard;
   delete manifest.clusterState.taskBoardMode; delete manifest.clusterState.taskBoardAttached; delete manifest.clusterState.progressTracking;
+  delete manifest.clusterState.skillPins;
   await fs.writeFile(path, JSON.stringify(manifest));
   const legacy = await snapshots.restoreSnapshot(snapshot.id, c.cwd);
   const oldState = await store.readCluster(legacy.cluster.clusterId); assert.ok(oldState);

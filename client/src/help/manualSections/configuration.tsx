@@ -531,6 +531,24 @@ export const configuration: Section[] = [
   </p>
   <p>UPDATE checks every installed file against its REVIEW snapshot before replacing the folder. A later local edit refuses the update and remains intact. REVIEW again before applying.</p>
   <p>Quotes and backslashes in skill names and descriptions survive repeated edits. IMPORT, MOVE, DUPLICATE and new skill creation keep collision suffixes within the 64-character folder-name limit.</p>
+  <Sub>Pin to a tab, cluster or role</Sub>
+  <p>In Settings &gt; SKILLS, PIN TO TAB selects an Agent tab. PIN TO CLUSTER
+  selects a cluster and All members or one role. A custom role must match its
+  saved text exactly. Project skills stay within their project; global skills
+  can be pinned anywhere. Full text is added on every matching member's next turn.</p>
+  <p>The cluster SKILLS button beside EFFICIENCY shows the configured count.
+  Open it to see sources, scope, availability and UNPIN. New and replaced
+  members inherit the cluster's pins. A member's composer shows FROM CLUSTER;
+  its direct tab pins remain separate. Only the operator can pin or unpin.</p>
+  <p>Tab, cluster and matching role pins share a limit of 12 unique skills and
+  64 KiB of text. Duplicate references apply once. Additions over the limit are
+  refused with a reason. Running turns keep their existing instructions.
+  There are no default pins or Standing skills row during creation.</p>
+  <p>Missing, moved, deleted or off skills are skipped and remain visible for
+  removal. Edits take effect next turn; an enlarged skill that no longer fits
+  is reported in the conversation. Pinning project text applies it even with
+  project trust off. To pin a built-in, first save an EDITABLE COPY as a project
+  or global skill.</p>
   <Sub>Built-in skills</Sub>
   <p>Built-ins are on by default. Settings lists each with an OPERATOR or MODEL
   badge and can turn each off. A project or

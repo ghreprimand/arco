@@ -1,6 +1,9 @@
 // ── Clusters + peer messaging ──
 
-import type { AutoCompactionPolicy } from './workflows.js';
+import type { ArcoSkillRef, AutoCompactionPolicy } from './workflows.js';
+
+// The role is the saved role text, not a preset key. Absent applies to all.
+export interface ClusterSkillPin extends ArcoSkillRef { role?: string }
 
 // Providers that can participate in cluster peer-mode. Claude/Codex wire peer
 // tools through Native/stdio-MCP. Cursor wires them through an in-process
@@ -245,6 +248,7 @@ export const CLUSTER_PROGRESS_LABELS: Record<ClusterProgressMode, { label: strin
 };
 
 export interface ClusterStatePayload {
+  skillPins?: ClusterSkillPin[];
   autoCompaction?: AutoCompactionPolicy;
   clusterId: string;
   cwd: string;
@@ -1064,6 +1068,13 @@ export interface ClusterEfficiencySetMessage {
   level: ClusterEfficiencyLevel;
   addendum?: string;
   messageGuard?: ClusterMessageGuard;
+}
+
+// Operator-only browser action; no agent tool exposes this mutation.
+export interface ClusterSkillsSetMessage {
+  type: 'cluster_skills_set';
+  clusterId: string;
+  pins: ClusterSkillPin[];
 }
 
 // operator drag-reordered the member grid. `memberIds` is the

@@ -2,6 +2,21 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const settingsHelp: Record<string, HelpEntry> = {
+  'settings.skills.pin-tab': {
+    title: 'Pin a skill to a tab',
+    body: <p>Select an Agent tab to add the skill's full text on every turn. Project skills can be pinned within their project; global skills can be pinned anywhere. The tab's own pins and inherited cluster pins share one 12-skill, 64 KiB limit.</p>,
+    manualSection: 'skills',
+  },
+  'settings.skills.pin-cluster': {
+    title: 'Pin a skill to a cluster or role',
+    body: <p>Choose a cluster and All members or a role. New and replaced matching members inherit the pin. Custom role text must match exactly. The cluster SKILLS button lists these pins and lets the operator remove them. Agents cannot pin or unpin.</p>,
+    manualSection: 'skills',
+  },
+  'settings.skills.pin': {
+    title: 'Choose where the standing skill applies',
+    body: <><p>Select a tab or cluster, then the cluster role scope when offered. PIN adds the full skill text every turn. The dialog shows how many current members match; future matching members inherit it too.</p><p>Duplicate skill references apply once. More than 12 unique skills or 64 KiB with the existing pins is refused. Pinning a project skill is explicit approval to apply its text even with project trust off. CANCEL leaves the pins unchanged.</p></>,
+    manualSection: 'skills',
+  },
   'settings.native-subagents-running': {
     title: 'Maximum running at once',
     body: <p>Settings - Agents and clusters - Claude Native sub-agents. Claude Native runs up to this many Task children for one parent. Additional admitted tasks queue and can be cancelled. Default: 4, including existing tabs. Blank uses Settings in a tab, or 4 in Settings. Applies next turn; CLI, Codex, Cursor and local providers do not use this limit.</p>,

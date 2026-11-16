@@ -96,6 +96,7 @@ import type {
   ClusterMemberFocusSetMessage,
   ClusterIdleNudgerToggleMessage,
   ClusterEfficiencySetMessage,
+  ClusterSkillsSetMessage,
   ClusterAutoCompactionSetMessage,
   ClusterRemoteSetMessage,
   ClusterGatesSetMessage,
@@ -591,6 +592,7 @@ export type ClientMessage =
   | ClusterIdleNudgerToggleMessage
   | ClusterAutoCompactionSetMessage
   | ClusterEfficiencySetMessage
+  | ClusterSkillsSetMessage
   | ClusterRemoteSetMessage
   | ClusterGatesSetMessage
   | ClusterMemberReorderMessage

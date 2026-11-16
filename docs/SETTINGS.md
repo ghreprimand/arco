@@ -208,6 +208,22 @@ ignored. `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` lifts the limit.
 
 ### Built-in skills
 
+Settings > SKILLS offers PIN TO TAB for an Agent tab and PIN TO CLUSTER for all
+members or one exact saved role, including a custom role. Project skills are
+limited to their project; global skills can target any open tab or cluster.
+The cluster SKILLS button beside EFFICIENCY lists sources, scope and availability
+and provides UNPIN. New and replaced members inherit cluster pins automatically;
+only the operator controls them. A member's FROM CLUSTER button opens the same
+list without mixing inherited pins into its direct tab settings.
+
+The effective union is limited to 12 unique skills and 64 KiB of body text.
+An addition that exceeds it is refused. Duplicates apply once. Missing or off
+skills are skipped but stay visible for removal; moved or deleted references
+are not silently retargeted. Edits are read next turn, and a skill that grows
+beyond the limit is reported in the conversation. Pinning a project skill
+explicitly approves that text even with project trust off. Save an EDITABLE
+COPY before pinning a built-in skill. No pins are added by default.
+
 Skill descriptions can be up to 300 characters. Settings > SKILLS lists the built-in skills with an OPERATOR or MODEL badge, TURN OFF and TURN ON. The composer SKILLS menu runs them or creates an EDITABLE COPY. A project or global skill with the same name replaces the built-in. Operator-run (slash): grill-me, grill-with-docs, wait-what, retro; Architecture review via `/improve-codebase-architecture`. Model-invoked (manifest / MODEL badge): proportionate-testing (Arco-owned), grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype, writing-for-agents. `proportionate-testing` controls how much to test; `tdd` controls how to write one test. Keep it on to ask agents for one test per real fault and operator approval before new suites, gates, tooling or CI checks. Built-in third-party skills and their license are listed in [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES).
 
 ## Save outcomes and rapid edits

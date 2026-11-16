@@ -1,3 +1,4 @@
+import { resolveWorkflowSkillPins } from '../clusterSkills.js';
 import { ensureWorkflowMetadata, providerConversationState, saveProviderSession, announceReplacementConversation, markConversationReading } from '../providerConversation.js';
 import { mintHandoffHistoryCapability } from '../http/handoffHistoryRoutes.js';
 import { deliverAfterTurnRevoked } from './taskLifecycle.js';
@@ -103,7 +104,6 @@ readSettings
 import {
 buildPickedSkillsBlock,
 buildPinnedSkillsBlock,
-resolvePinnedSkills,
 buildSkillsManifest,
 listSkills,
 readSkillBody,
@@ -1839,8 +1839,9 @@ export async function handleUserMessage(
   // pick, a project pin is an explicit operator vouch and bypasses discovery's
   // project-trust suppression. Missing files fail safe and stay visible.
   let pinnedSkillsBlock = '';
-  if (projectContextEnabled && wf.config.pinnedSkills?.length) {
-    const resolved = await resolvePinnedSkills(wf.config.pinnedSkills, cwd);
+  const effectivePins = projectContextEnabled ? await resolveWorkflowSkillPins(workflowId, cwd, wf.config.pinnedSkills ?? []) : undefined;
+  if (effectivePins?.refs.length) {
+    const { resolved } = effectivePins;
     const built = buildPinnedSkillsBlock(resolved.skills);
     pinnedSkillsBlock = built.text;
     const skipped = [...resolved.missing, ...resolved.truncated];
@@ -2045,7 +2046,7 @@ export async function handleUserMessage(
         const catalog = await listSkills(cwd, { includeProject });
         // A pinned body is already present in full; omit its progressive-
         // disclosure metadata to avoid duplicate/conflicting instructions.
-        const pinnedKeys = new Set((wf.config.pinnedSkills ?? []).map((s) => `${s.scope}:${s.slug}`));
+        const pinnedKeys = new Set((effectivePins?.refs ?? []).map((s) => `${s.scope}:${s.slug}`));
         primarySkillsManifest = buildSkillsManifest({
           project: catalog.project.filter((s) => !pinnedKeys.has(`project:${s.slug}`)),
           global: catalog.global.filter((s) => !pinnedKeys.has(`global:${s.slug}`)),

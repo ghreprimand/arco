@@ -875,6 +875,7 @@ export async function restoreSnapshot(snapshotId: string, targetCwdInput?: strin
   // Passive cluster configuration is portable. Runtime arming is not:
   // idle-nudger, auto-turn, dispatcher enabled, REMOTE, and remote gates stay
   // OFF on every restore so importing a cluster cannot start work or expose it.
+  if (src.skillPins?.length) await clusterStore.setSkillPins(cluster.clusterId, src.skillPins, { restoringSnapshot: true });
   if (src.autoCompaction) await clusterStore.setAutoCompaction(cluster.clusterId, src.autoCompaction);
   await clusterStore.setEfficiency(
     cluster.clusterId,

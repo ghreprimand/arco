@@ -3,6 +3,7 @@ import { createTwoFilesPatch } from 'diff';
 import { DialogShell } from './DialogShell';
 import { DirectoryBrowser } from './media/DirectoryPicker';
 import { SkillEditorDialog, type SkillEditorTarget } from './SkillEditorDialog';
+import { PinSkillDialog } from './ClusterRightPanel/SkillsControl';
 
 // Settings > SKILLS (P8.6): list, create, edit and delete skills, plus IMPORT
 // (GitHub link, folder, zip), UPDATE with a per-file diff, ON/OFF, MOVE between
@@ -63,6 +64,7 @@ export function SkillsSettings({ cwd }: { cwd: string }) {
   const [importing, setImporting] = useState(false);
   const [updating, setUpdating] = useState<SkillSummary | null>(null);
   const [sharing, setSharing] = useState<SkillSummary | null>(null);
+  const [pinning, setPinning] = useState<{ skill: SkillSummary; kind: 'tab' | 'cluster' } | null>(null);
 
   const refresh = async () => {
     setError(null);
@@ -118,6 +120,8 @@ export function SkillsSettings({ cwd }: { cwd: string }) {
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
           <button type="button" style={small} onClick={() => setEditor({ scope: s.scope, slug: s.slug })}>EDIT</button>
           <button type="button" style={small} data-help="settings.skills.toggle" onClick={() => void toggle(s)}>{s.off ? 'TURN ON' : 'TURN OFF'}</button>
+          <button type="button" style={small} data-help="settings.skills.pin-tab" disabled={s.off} onClick={() => setPinning({ skill: s, kind: 'tab' })}>PIN TO TAB</button>
+          <button type="button" style={small} data-help="settings.skills.pin-cluster" disabled={s.off} onClick={() => setPinning({ skill: s, kind: 'cluster' })}>PIN TO CLUSTER</button>
           {(s.scope === 'global' || cwd) && <button type="button" style={small} data-help="settings.skills.move" disabled={s.scope === 'global' && !cwd} onClick={() => move(s)}>{s.scope === 'project' ? 'MOVE TO GLOBAL' : 'MOVE TO PROJECT'}</button>}
           <button type="button" style={small} data-help="settings.skills.duplicate" onClick={() => duplicate(s)}>DUPLICATE</button>
           {(s.source?.kind === 'github' || s.source?.kind === 'folder') && <button type="button" style={small} data-help="settings.skills.update" onClick={() => setUpdating(s)}>UPDATE</button>}
@@ -130,6 +134,7 @@ export function SkillsSettings({ cwd }: { cwd: string }) {
 
   return (
     <div data-help="settings.skills">
+      {pinning && <PinSkillDialog skill={pinning.skill} kind={pinning.kind} cwd={cwd} onClose={() => setPinning(null)} />}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '6px' }}>
         <span className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>SKILLS</span>
         <span style={{ display: 'flex', gap: '6px' }}>

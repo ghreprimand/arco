@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Pin standing skills to a whole cluster or an exact role from Settings > SKILLS, review them beside EFFICIENCY, and let new or replaced members inherit them within the combined tab limits.
+
 - Use the same dependency and native-package setup for CI and release builds.
 
 - Accept a release entry file without an editor, explain release preconditions and recovery, and show entry length and setup diagnostics without adding release gates.

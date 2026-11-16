@@ -19,7 +19,9 @@ import { updateMeta } from '../workflowMeta.js';
 import { withFileLock } from '../atomicFile.js';
 import { disposeProviderResources } from '../providers/index.js';
 import { refreshHubReporting } from '../management/initHubLink.js';
-import { buildPinnedSkillsBlock, resolvePinnedSkills } from '../skills.js';
+import { buildPinnedSkillsBlock, resolvePinnedSkills, isValidSlug } from '../skills.js';
+import { withClusterSkillLock } from '../clusterStore.js';
+import { assertWorkflowSkillPins, uniqueSkillRefs } from '../clusterSkills.js';
 import type { Session } from '../workflows/types.js';
 
 export async function handleUpdatePrimaryConfig(
@@ -285,11 +287,21 @@ export async function handleUpdatePrimaryConfig(
     missing: string[];
   } | undefined;
   if (msg.pinnedSkills !== undefined) {
-    const requested = Array.isArray(msg.pinnedSkills) ? msg.pinnedSkills : [];
-    const resolved = await resolvePinnedSkills(requested, wf.config.workingDirectory);
-    const refs = resolved.skills.map((s) => ({ scope: s.scope, slug: s.slug }));
-    if (refs.length > 0) wf.config.pinnedSkills = refs;
-    else delete wf.config.pinnedSkills;
+    const requested = uniqueSkillRefs((Array.isArray(msg.pinnedSkills) ? msg.pinnedSkills : []).filter(ref => ref && (ref.scope === 'project' || ref.scope === 'global') && isValidSlug(ref.slug)));
+    let resolved;
+    try {
+      resolved = await withClusterSkillLock(msg.workflowId, async () => {
+        await assertWorkflowSkillPins(msg.workflowId, wf.config.workingDirectory, requested);
+        const result = await resolvePinnedSkills(requested, wf.config.workingDirectory);
+        const refs = result.skills.map(s => ({ scope: s.scope, slug: s.slug }));
+        if (refs.length) wf.config.pinnedSkills = refs;
+        else delete wf.config.pinnedSkills;
+        return result;
+      });
+    } catch (err) {
+      send(ws, { type: 'error', workflowId: msg.workflowId, message: err instanceof Error ? err.message : String(err) });
+      return;
+    }
     const block = buildPinnedSkillsBlock(resolved.skills);
     pinnedSkillsBroadcast = {
       skills: resolved.skills.map((s) => ({ scope: s.scope, slug: s.slug, name: s.name })),
