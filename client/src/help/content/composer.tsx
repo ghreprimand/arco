@@ -576,6 +576,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Current model & effort',
     body: (
       <>
+        <p>Codex also refreshes its cached catalog on the next request after its CLI changes the local model list. The browser polls every 30 minutes; reload the page to request it sooner without restarting Arco. The cold fallback includes GPT-6.2 Sol and Astra, with Sol as default; a live account catalog takes precedence.</p>
         <p>FABLE 5.2 offers low, medium, high, xhigh and max effort. Switching a tab from 5.2 to another model drops its earlier reasoning; the request still works.</p>
         <p>
           The model + effort used for the next turn. Live-editable from the

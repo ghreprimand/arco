@@ -28,6 +28,8 @@
 // (c) `additionalSpeedTiers` (e.g. 'priority'), (d) personality support.
 
 import { spawn } from 'node:child_process';
+import { statSync } from 'node:fs';
+import { join } from 'node:path';
 import { JsonRpcClient } from './jsonRpc.js';
 import type { InitializeResponse } from './bindings/InitializeResponse.js';
 import type { ModelListResponse } from './bindings/v2/ModelListResponse.js';
@@ -49,6 +51,16 @@ const ARCO_CLIENT_VERSION = '0.1.0';
 // reads of the same home share one entry.
 const caches = new Map<string, CodexCatalogSnapshot>();
 const inFlightByKey = new Map<string, Promise<CodexCatalogSnapshot>>();
+const modelCacheStamps = new Map<string, string | null>();
+
+// Codex refreshes this file independently, including from its own model picker.
+// A new local catalog must not wait for Arco's one-hour snapshot to expire.
+function modelCacheStamp(home: string): string | null {
+  try {
+    const file = statSync(join(home, 'models_cache.json'));
+    return `${file.mtimeMs}:${file.ctimeMs}:${file.size}:${file.ino}`;
+  } catch { return null; }
+}
 
 function cacheKey(codexHome?: string): string {
   return resolveCodexHome(codexHome);
@@ -97,13 +109,14 @@ export async function getCodexCatalog(force = false, codexHome?: string): Promis
   const key = cacheKey(codexHome);
   const now = Date.now();
   const cache = caches.get(key) ?? null;
-  if (!force && cache && now - cache.fetchedAt < REFRESH_INTERVAL_MS) return cache;
+  if (!force && cache && now - cache.fetchedAt < REFRESH_INTERVAL_MS && modelCacheStamps.get(key) === modelCacheStamp(key)) return cache;
   const existing = inFlightByKey.get(key);
   if (existing) return existing;
   const p = (async () => {
     try {
       const fresh = await fetchCodexCatalog(codexHome);
       caches.set(key, fresh);
+      modelCacheStamps.set(key, modelCacheStamp(key));
       return fresh;
     } catch (err) {
       if (cache) {

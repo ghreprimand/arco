@@ -42,6 +42,8 @@ export const CLAUDE_MODEL_LABELS: Record<string, string> = {
 // re-pin the naming to a single generation, and don't assume a single-dash
 // `gpt-<major>-<name>` shape: 6.1 brought the dotted minor back.
 export const CODEX_MODELS = [
+  'gpt-6.2-sol',
+  'gpt-6.2-astra',
   'gpt-6-astra',
   'gpt-6.1-sol',
   'gpt-6-sol',
@@ -75,8 +77,31 @@ export interface CodexModelInfo {
 }
 
 export const CODEX_MODEL_INFO: Record<string, CodexModelInfo> = {
+  // GPT-6.2 cold-catalog fallback. The live catalog is authoritative for
+  // availability, default choice, efforts and images. Both entries use the
+  // observed 872K catalog maximum with its 95% effective margin; the 128K
+  // output fallback is retained, not a newly advertised provider output cap.
+  'gpt-6.2-sol': {
+    id: 'gpt-6.2-sol',
+    label: '6.2 SOL',
+    picker: true,
+    defaultForCodex: true,
+    publishedContextWindow: 872_000,
+    publishedMaxOutput: 128_000,
+    fallbackOperationalWindow: 828_400,
+    supportedEfforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+  },
+  'gpt-6.2-astra': {
+    id: 'gpt-6.2-astra',
+    label: '6.2 ASTRA',
+    picker: true,
+    publishedContextWindow: 872_000,
+    publishedMaxOutput: 128_000,
+    fallbackOperationalWindow: 828_400,
+    supportedEfforts: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+  },
   // GPT-6 Astra (2026-09-03). Codex's own catalog reports isDefault:true for it,
-  // so it is Arco's default too. Two things here are unlike every 5.x entry:
+  // so it was Arco's default then. Two things here are unlike every 5.x entry:
   // Arco asks for the live catalog maximum by default. This fallback is the
   // current 872K max after Codex's 95% effective-window margin. Its effort
   // surface runs all the way to 'ultra'.
@@ -84,7 +109,6 @@ export const CODEX_MODEL_INFO: Record<string, CodexModelInfo> = {
     id: 'gpt-6-astra',
     label: '6 ASTRA',
     picker: true,
-    defaultForCodex: true,
     publishedContextWindow: 1_050_000,
     publishedMaxOutput: 128_000,
     fallbackOperationalWindow: 828_400,

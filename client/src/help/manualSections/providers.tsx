@@ -427,14 +427,17 @@ export const providers: Section[] = [
   </p>
   <Sub>Models and effort</Sub>
   <p>
-  Arco&apos;s default is <Code>gpt-6-astra</Code>. The picker uses the
+  The cold default is <Code>gpt-6.2-sol</Code>; a live account catalog supplies
+  its own default. The picker uses the
   selected model&apos;s live catalog, so the effort levels offered follow the
   model:
   </p>
   <Table
   headers={['Model', 'Role', 'Effort levels']}
   rows={[
-  [<Code key="a">gpt-6-astra</Code>, 'Arco default', 'low / medium / high / xhigh / max / ultra'],
+  [<Code key="s62">gpt-6.2-sol</Code>, 'Cold default', 'low / medium / high / xhigh / max / ultra'],
+  [<Code key="a62">gpt-6.2-astra</Code>, 'Complex coding', 'low / medium / high / xhigh / max / ultra'],
+  [<Code key="a">gpt-6-astra</Code>, 'Earlier Astra', 'low / medium / high / xhigh / max / ultra'],
   [<Code key="s">gpt-6-sol</Code>, 'Everyday coding workhorse', 'low / medium / high / xhigh / max / ultra'],
   [<Code key="l">gpt-6-luna</Code>, 'Fast and affordable', 'Stops at max'],
   ['Older models', '-', 'Can expose fewer levels'],
@@ -444,6 +447,13 @@ export const providers: Section[] = [
   Codex tabs default to the selected account/model&apos;s live MAX context
   value (currently about 828K effective for Astra). CONFIG can return a tab
   to STANDARD (about 258K). A provider-reported window takes precedence.
+  </p>
+  <p>
+  The catalog refreshes when the CLI changes its local model list, on the next
+  Arco catalog request. The browser polls every 30 minutes; reload the page to
+  request it sooner without restarting Arco. GPT-6.2 Sol and Astra support image
+  input. STANDARD is about 475K effective for Sol and 258K for Astra; MAX is
+  about 828K for both. Provider-reported values take precedence.
   </p>
   <Note kind="warn">Codex describes ultra as maximum reasoning with automatic
   task delegation. Provider-internal delegated-agent activity is not fully

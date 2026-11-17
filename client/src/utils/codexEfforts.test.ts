@@ -15,7 +15,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CodexCatalogSnapshot } from '@arco/shared';
-import { EFFORT_RANK } from '@arco/shared';
+import { EFFORT_RANK, CODEX_PICKER_MODELS, DEFAULT_CODEX_MODEL } from '@arco/shared';
 import { effortsForModel, effortsForProvider, clampEffortForModel } from './format.js';
 
 // Shape mirrors what codex-appserver/catalog.ts distils from `model/list`.
@@ -78,4 +78,13 @@ test('GPT-6 Sol / Luna cold-catalog fallback: Sol gets ultra, Luna stops at max'
   assert.deepEqual(effortsForModel('codex', 'gpt-6-luna' as never, null, null), ['low', 'medium', 'high', 'xhigh', 'max']);
   assert.deepEqual(effortsForModel('codex', 'gpt-6.1-sol' as never, null, null), ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
   assert.equal(clampEffortForModel('ultra', 'codex', 'gpt-6-luna' as never, null, null), 'max');
+});
+
+
+test('GPT-6.2 cold catalog offers both models with all supported efforts and the live default', () => {
+  for (const id of ['gpt-6.2-sol', 'gpt-6.2-astra']) {
+    assert.ok(CODEX_PICKER_MODELS.includes(id as never));
+    assert.deepEqual(effortsForModel('codex', id, null, null), ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
+  }
+  assert.equal(DEFAULT_CODEX_MODEL, 'gpt-6.2-sol');
 });
