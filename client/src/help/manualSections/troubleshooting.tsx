@@ -513,7 +513,8 @@ New turns blocked for 60s. Recover via Handoff.`}</Pre>
   <Sub>"Package install will not start or the page does not load"</Sub>
   <ul>
   <li>Run <Code>arco doctor</Code>: it reports the Node version (24 or newer), whether the native modules load, whether the port is free on loopback, which provider CLIs answer <Code>--version</Code>, and the service state.</li>
-  <li>If the native modules are missing or incompatible, run <Code>arco setup --repair-native</Code> (build tools required).</li>
+  <li>Only run <Code>arco setup --repair-native</Code> when Arco reports that a native part will not load, including missing or incompatible native modules in <Code>arco doctor</Code>. A working platform build toolchain is required.</li>
+  <li>A failed repair names the compile or link step when available and repeats its decisive error. The installed native parts stay unchanged and keep working. Build tools may be missing, out of date or broken; resolve the reported error before retrying a needed repair.</li>
   <li>If the port is in use, another Arco or a different program holds it. Stop the other process or set <Code>ARCO_PORT</Code>.</li>
   <li>Run <Code>arco service logs</Code> to read the recent service logs.</li>
   </ul>

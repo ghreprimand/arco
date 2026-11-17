@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Explain failed native repairs with the failing build step and decisive error, and state that installed native parts remain unchanged.
+
 - Scroll the tab row sideways with the mouse wheel, reveal active tabs and show edge buttons when more tabs are hidden.
 
 - Keep replayed compaction notices and context updates at their saved positions and times when a conversation opens in another browser.

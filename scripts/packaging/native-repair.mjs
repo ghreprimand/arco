@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, delimiter, dirname, isAbsolute, join, resolve } from 'node:path';
@@ -90,7 +90,36 @@ export function activateRepairedTerminal(env = process.env) {
     return { dir: pty, module: require(file) };
   };
 }
-export function repairNative(manifest, env = process.env) {
+function buildFailure(output, error, code, signal) {
+  const lines = output.replace(/\x1b\[[0-9;]*m/g, '').split(/\r?\n/)
+    .map((line) => line.replace(/^npm (?:error|ERR!)\s*/i, '').trim()).filter(Boolean);
+  // Prefer the compiler/linker diagnosis over npm and node-gyp's exit summary.
+  const decisive = [...lines].reverse().find((line) =>
+    !/^(?:gyp ERR!|make:|ninja:|collect2:)|linker command failed/i.test(line)
+    && /\b(?:ld(?:\.lld)?|lld-link|link\.exe):|\berror LNK\d+|\bfatal error\b|\berror:|unknown architecture|undefined symbols/i.test(line));
+  const detail = decisive || error?.message || lines.at(-1) || (signal ? `build command stopped by ${signal}` : `build command exited with status ${code}`);
+  const step = /\b(?:ld(?:\.lld)?|lld-link|link\.exe):|\berror LNK\d+|unknown architecture|undefined symbols/i.test(decisive || '') ? 'link'
+    : /\bfatal error\b|\berror:/i.test(decisive || '') ? 'compile' : 'build';
+  return `Native ${step} failed: ${detail.replace(/[.\s]+$/, '')}. The platform build tools may be missing, out of date or broken. Installed native parts were left unchanged and keep working. Repair is only needed when Arco reports that a native part will not load.`;
+}
+
+async function buildNative(command, args, options) {
+  await new Promise((resolve, reject) => {
+    const child = spawn(command, args, { ...options, stdio: ['inherit', 'pipe', 'pipe'] });
+    let tail = '';
+    // Forward progress while retaining only a bounded tail for the closing line.
+    const forward = (stream) => (chunk) => {
+      tail = (tail + chunk.toString()).slice(-64 * 1024);
+      stream.write(chunk);
+    };
+    child.stdout.on('data', forward(process.stdout));
+    child.stderr.on('data', forward(process.stderr));
+    child.once('error', (error) => reject(new Error(buildFailure(tail, error))));
+    child.once('close', (code, signal) => code === 0 ? resolve() : reject(new Error(buildFailure(tail, undefined, code, signal))));
+  });
+}
+
+export async function repairNative(manifest, env = process.env) {
   const versions = manifest.arcoNativeDependencies;
   if (!versions || !['node-pty', 'better-sqlite3'].every((name) => /^\d+\.\d+\.\d+$/.test(versions[name] || ''))) throw new Error('Native dependency versions are missing from this package.');
   const target = repairedNativeDir(env), parent = dirname(target);
@@ -100,8 +129,7 @@ export function repairNative(manifest, env = process.env) {
     const dependencies = Object.fromEntries(Object.entries(versions));
     const allowScripts = Object.fromEntries(Object.entries(versions).map(([name, version]) => [`${name}@${version}`, true]));
     writeFileSync(join(scratch, 'package.json'), JSON.stringify({ name: 'arco-native-repair', version: '1.0.0', private: true, dependencies, allowScripts }, null, 2));
-    const result = spawnSync(process.execPath, [npmCliPath(env), 'install', '--no-audit', '--no-fund'], { cwd: scratch, env: { ...env, npm_config_build_from_source: 'true', npm_config_cache: env.npm_config_cache || join(parent, '..', 'cache', 'npm'), npm_config_devdir: env.npm_config_devdir || join(parent, '..', 'cache', 'node-gyp') }, stdio: 'inherit' });
-    if (result.error || result.status !== 0) throw new Error('Native build failed. Install the platform build tools, then run arco setup --repair-native.');
+    await buildNative(process.execPath, [npmCliPath(env), 'install', '--no-audit', '--no-fund'], { cwd: scratch, env: { ...env, npm_config_build_from_source: 'true', npm_config_cache: env.npm_config_cache || join(parent, '..', 'cache', 'npm'), npm_config_devdir: env.npm_config_devdir || join(parent, '..', 'cache', 'node-gyp') } });
     const modules = join(scratch, 'node_modules');
     const require = createRequire(join(scratch, 'package.json'));
     const sqliteRoot = join(modules, 'better-sqlite3');

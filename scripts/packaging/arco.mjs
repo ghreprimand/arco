@@ -71,7 +71,7 @@ async function main() {
     console.log(`Arco v${manifest.version}`);
     requireSupportedNode();
     if (args.length && (args.length !== 1 || args[0] !== '--repair-native')) throw new Error('Unknown setup option.');
-    if (args.includes('--repair-native')) { repairNative(manifest); console.log('Native modules repaired. Restart Arco.'); return; }
+    if (args.includes('--repair-native')) { await repairNative(manifest); console.log('Native modules repaired. Restart Arco.'); return; }
     if (!process.stdin.isTTY) throw new Error('Run arco setup in an interactive terminal.');
     const prompt = createInterface({ input: process.stdin, output: process.stdout });
     let answer;

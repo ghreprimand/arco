@@ -147,8 +147,15 @@ Studio Build Tools on Windows). Provider CLIs (`claude`, `codex`,
 
 If a global install reports `EACCES` on Linux or macOS, use nvm or a user-owned
 npm prefix. On Windows, use `arco.cmd` if PowerShell execution policy blocks the
-shim. If `arco doctor` reports missing or incompatible native modules, install
-the platform build tools and run `arco setup --repair-native`.
+shim. Only run `arco setup --repair-native` when Arco reports that a native
+part will not load, including a missing or incompatible module in `arco doctor`.
+The repair requires a working platform build toolchain.
+
+A failed repair names the compile or link step when its output identifies it
+and repeats the last decisive error line. Build output stays visible above it.
+Build tools may be missing, out of date or broken; installing them again is
+not always the answer. The installed native parts stay unchanged and keep
+working. Resolve the reported toolchain error before retrying a needed repair.
 
 **`NODE_ENV=production` drops dev dependencies.** With `NODE_ENV=production` exported in the shell, `npm ci` and `npm install` skip `devDependencies` (TypeScript, Vite, tsx), so `npm run build` fails with missing type definitions. Install with `env -u NODE_ENV npm ci --include=dev` (POSIX) or `npm ci --include=dev` after clearing the variable (PowerShell: `Remove-Item Env:NODE_ENV`).
 

@@ -1946,6 +1946,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   'diagnostics.check-row': {
     title: 'Diagnostic check',
     body: (
+      <>
       <p>
         One probe result. The glyph + status colour is the verdict -{' '}
         <strong>OK</strong> (green) the thing works, <strong>WARN</strong>{' '}
@@ -1954,6 +1955,13 @@ export const miscHelp: Record<string, HelpEntry> = {
         <strong>SKIPPED</strong> (grey) not probed on this platform/config. Click
         to expand the detail line, any remediation hint, and the check id.
       </p>
+      <p>
+        Only run <C>arco setup --repair-native</C> when Arco reports that a native
+        part will not load. A failed repair shows the failing build step and
+        decisive error when available. Installed native parts stay unchanged
+        and keep working. The build tools may be missing, out of date or broken.
+      </p>
+      </>
     ),
     manualSection: 'diagnostics',
   },

@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { supportedNodeVersion, repairedNativeDir, npmCliPath } from './native-repair.mjs';
 import { dirname, join } from 'node:path';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const cli = fileURLToPath(new URL('./arco.mjs', import.meta.url));
@@ -55,6 +55,37 @@ test('native package supports the tested Node majors and uses a Node-API repair 
   for (const version of ['24.0.0', '24.22.2', '26.0.0', '26.13.0']) assert.equal(supportedNodeVersion(version), true);
   for (const version of ['22.0.0', '25.0.0', '27.0.0', 'invalid']) assert.equal(supportedNodeVersion(version), false);
   assert.ok(repairedNativeDir({ ARCO_HOME: join('fixture', 'home') }).endsWith(join('native', `${process.platform}-${process.arch}`)));
+});
+
+test('failed native repair reports the decisive build step and preserves installed parts', (t) => {
+  const home = mkdtempSync(join(tmpdir(), 'arco-native-failure-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const npm = join(home, 'npm-fixture.cjs');
+  const env = { HOME: home, USERPROFILE: home, ARCO_HOME: join(home, 'state'), PATH: home, npm_execpath: npm };
+  for (const key of ['SystemRoot', 'SYSTEMROOT', 'windir', 'ComSpec', 'PATHEXT']) if (process.env[key]) env[key] = process.env[key];
+  const installed = repairedNativeDir(env);
+  mkdirSync(installed, { recursive: true });
+  writeFileSync(join(installed, 'existing-part'), 'installed native fixture');
+  for (const [step, diagnosis] of [
+    ['link', 'ld: unknown architecture arm64e.x1-macos'],
+    ['compile', 'binding.cc:7: fatal error: fixture-header.h: No such file or directory'],
+  ]) {
+    writeFileSync(npm, `console.log('Building native fixture'); console.error(${JSON.stringify('npm error ' + diagnosis)}); console.error('npm error clang: error: linker command failed with exit code 1'); console.error('npm error gyp ERR! build error'); process.exitCode = 1;`);
+    const run = `import { repairNative } from ${JSON.stringify(new URL('./native-repair.mjs', import.meta.url).href)};
+      try { await repairNative({ arcoNativeDependencies: { 'node-pty': '1.0.0', 'better-sqlite3': '1.0.0' } }); }
+      catch (error) { console.error(error.message); process.exitCode = 1; }`;
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', run], { env, encoding: 'utf8', timeout: 10000 });
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stdout, /Building native fixture/, result.stderr);
+    assert.ok(result.stderr.includes(`Native ${step} failed: ${diagnosis}.`), result.stderr);
+    assert.equal((result.stderr.match(/Native (?:link|compile) failed:/g) || []).length, 1);
+    assert.match(result.stderr, /build tools may be missing, out of date or broken/);
+    assert.match(result.stderr, /Installed native parts were left unchanged and keep working/);
+    assert.match(result.stderr, /Repair is only needed when Arco reports that a native part will not load/);
+    assert.doesNotMatch(result.stdout, /Native modules repaired/);
+    assert.equal(readFileSync(join(installed, 'existing-part'), 'utf8'), 'installed native fixture');
+    assert.deepEqual(readdirSync(dirname(installed)), [process.platform + '-' + process.arch]);
+  }
 });
 
 test('setup and doctor explain an unsupported Node major', (t) => {
