@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Reject malformed Claude effort updates before changing any settings, preserving the working configuration.
+
 - Explain failed native repairs with the failing build step and decisive error, and state that installed native parts remain unchanged.
 
 - Scroll the tab row sideways with the mouse wheel, reveal active tabs and show edge buttons when more tabs are hidden.

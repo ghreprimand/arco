@@ -33,3 +33,18 @@ test('B125 unavailable metadata produces an explicit temporary-setting outcome',
     } finally {f.close();}
   }
 });
+
+test('Claude rejects malformed effort updates before changing live or saved settings',async()=>{
+  const f=fixture();try {
+    const config=structuredClone(f.wf.config), primary=structuredClone(f.wf.primary);
+    for(const effort of ['invalid','ultra','none',23,null]) {
+      f.sent.length=0;
+      await f.update({effort,model:'opus',goal:'different goal',autoCompaction:{enabled:true,thresholdPercent:80}});
+      assert.deepEqual(f.wf.primary,primary);assert.deepEqual(f.wf.config,config);
+      assert.equal(f.sent.length,1);assert.equal(f.sent[0].type,'error');
+      assert.match(f.sent[0].message,/Claude effort must be.*no settings were changed/);
+    }
+    await f.update({effort:'max'});assert.equal(f.wf.primary.effort,'max');assert.equal(f.wf.config.primaryEffort,'max');
+    f.wf.primary.provider='codex';await f.update({effort:'ultra'});assert.equal(f.wf.primary.effort,'ultra');
+  } finally {f.close();}
+});

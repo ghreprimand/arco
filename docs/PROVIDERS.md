@@ -22,6 +22,12 @@ Diagnostics uses platform PATH lookup, including Windows PATHEXT suffixes, to fi
 
 A missing workflow `meta.json` is repaired from the current configuration and any known live provider session id. If that id was already lost, Codex, Cursor and Claude CLI start a new provider conversation on the next message and say so once. Earlier messages stay visible, but are not a promise that the provider received the full earlier transcript. `CTX: -` explains the unavailable conversation or the replacement's pending reading. COMPACT on a lost Codex or Cursor conversation explains that the next message starts a new conversation. Claude Native and local replay-based history do not depend on an external id. See [Persistence](PERSISTENCE.md#metajson).
 
+Claude configuration updates accept only `low`, `medium`, `high`, `xhigh` or
+`max` effort. A malformed value is rejected before any fields in the update
+change live state or saved metadata, so it cannot reach the CLI's `--effort`
+argument. The model picker still offers the selected model's supported subset;
+other providers retain their own effort values.
+
 ## Topics
 
 | Topic |

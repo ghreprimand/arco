@@ -35,6 +35,13 @@ export async function handleUpdatePrimaryConfig(
     return;
   }
 
+  if (wf.primary.provider === 'claude' && msg.effort !== undefined
+    && !['low', 'medium', 'high', 'xhigh', 'max'].includes(msg.effort)) {
+    send(ws, { type: 'error', workflowId: msg.workflowId,
+      message: 'Claude effort must be low, medium, high, xhigh or max; no settings were changed.' });
+    return;
+  }
+
   const proposedGoal = msg.goal === undefined ? wf.config.goal : capGoal(msg.goal);
   const proposedGoalRun = msg.goalRun === undefined ? undefined : normalizeGoalRunArm(msg.goalRun, !!proposedGoal?.trim());
   if (typeof proposedGoalRun === 'string') {
