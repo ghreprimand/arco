@@ -1,24 +1,46 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { update, parseArgs, compareTags, compareVersions, npmCommand, windowsServerRunning, checkoutFingerprint, canonicalCheckoutPath } from '../arco-update.mjs';
 
 function git(cwd, ...args) { const r = spawnSync('git', args, { cwd, encoding: 'utf8' }); assert.equal(r.status, 0, r.stderr); return r.stdout.trim(); }
+// Each case mutates its own repository. Build the identical two-release history
+// once, then copy it instead of repeating init/commit/tag/push/clone per case.
+let seedDirectory;
+after(() => { if (seedDirectory) rmSync(seedDirectory, { recursive: true, force: true }); });
+function releaseSeed() {
+  if (seedDirectory) return seedDirectory;
+  seedDirectory = mkdtempSync(join(tmpdir(), 'arco-update-seed-'));
+  const remote = join(seedDirectory, 'origin.git'), source = join(seedDirectory, 'source'), checkout = join(seedDirectory, 'checkout');
+  const template = join(seedDirectory, 'empty-template'); mkdirSync(template);
+  mkdirSync(remote); git(remote, 'init', '--bare', '--template', template);
+  mkdirSync(source); git(source, 'init', '-b', 'main', '--template', template);
+  git(source, 'config', 'user.name', 'Fixture'); git(source, 'config', 'user.email', 'fixture@example.invalid');
+  const save = (version) => { writeFileSync(join(source, 'package.json'), JSON.stringify({ version }, null, 2) + '\n'); git(source, 'add', 'package.json'); git(source, 'commit', '-m', `release ${version}`); };
+  save('1.0.0'); git(source, 'tag', 'v1.0.0');
+  git(source, 'remote', 'add', 'origin', '../origin.git'); git(source, 'push', '-u', 'origin', 'main', '--tags');
+  git(seedDirectory, 'clone', '--template', template, '--branch', 'main', 'origin.git', 'checkout');
+  // Relative remotes keep every copied fixture independent of this seed.
+  git(checkout, 'config', 'remote.origin.url', '../origin.git');
+  writeFileSync(join(source, 'optional.txt'), 'release content'); git(source, 'add', 'optional.txt');
+  save('1.1.0'); git(source, 'tag', 'v1.1.0'); git(source, 'tag', 'v2.0.0-rc.1'); git(source, 'push', 'origin', 'main', '--tags');
+  return seedDirectory;
+}
 function fixture(t, autocrlf = false) {
   const dir = mkdtempSync(join(tmpdir(), 'arco-update-fixture-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const remote = join(dir, 'origin.git'), source = join(dir, 'source'), checkout = join(dir, 'checkout');
-  mkdirSync(remote); git(remote, 'init', '--bare'); mkdirSync(source); git(source, 'init', '-b', 'main');
-  git(source, 'config', 'user.name', 'Fixture'); git(source, 'config', 'user.email', 'fixture@example.invalid');
-  const save = (version) => { writeFileSync(join(source, 'package.json'), JSON.stringify({ version }, null, 2) + '\n'); git(source, 'add', 'package.json'); git(source, 'commit', '-m', `release ${version}`); };
-  save('1.0.0'); git(source, 'tag', 'v1.0.0'); git(source, 'remote', 'add', 'origin', remote); git(source, 'push', '-u', 'origin', 'main', '--tags');
-  git(dir, ...(autocrlf ? ['-c', 'core.autocrlf=true'] : []), 'clone', '--branch', 'main', remote, checkout);
-  if (autocrlf) git(checkout, 'config', 'core.autocrlf', 'true');
-  writeFileSync(join(source, 'optional.txt'), 'release content'); git(source, 'add', 'optional.txt');
-  save('1.1.0'); git(source, 'tag', 'v1.1.0'); git(source, 'tag', 'v2.0.0-rc.1'); git(source, 'push', 'origin', 'main', '--tags');
+  cpSync(releaseSeed(), dir, { recursive: true });
+  const source = join(dir, 'source'), checkout = join(dir, 'checkout');
+  if (autocrlf) {
+    // The CRLF case needs a fresh index created with conversion enabled; copying
+    // an LF index and then changing core.autocrlf keeps stale conversion flags.
+    rmSync(checkout, { recursive: true, force: true });
+    git(dir, 'clone', '--config', 'core.autocrlf=true', '--template', join(dir, 'empty-template'), '--branch', 'main', 'origin.git', 'checkout');
+    git(checkout, 'reset', '--hard', 'v1.0.0');
+  }
   const commands = []; let fail = null;
   const run = (cmd, args, options = {}) => { commands.push([cmd, ...args]); if (cmd === 'fake-npm') { if (fail === args[0]) { fail = null; return { status: 1, stdout: '', stderr: 'fixture failure' }; } return { status: 0, stdout: '', stderr: '' }; } return spawnSync(cmd, args, { cwd: checkout, encoding: 'utf8', ...options }); };
   const deps = { cwd: checkout, platform: 'linux', run, npm: { command: 'fake-npm', prefix: [] }, serviceMode: async () => null, report: () => {} };

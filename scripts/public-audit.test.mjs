@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, cpSync, readFileSync, existsSync, appendFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
@@ -15,10 +15,8 @@ function fixture(run) {
   const cwd = mkdtempSync(join(tmpdir(), 'arco-audit-'));
   const git = (...args) => execFileSync('git', args, { cwd, stdio: 'pipe' });
   git('init', '-b', 'main');
-  git('config', 'user.name', projectName);
-  git('config', 'user.email', projectEmail);
-  git('config', 'commit.gpgsign', 'false');
-  git('config', 'core.hooksPath', '/dev/null');
+  // Fixture setup is not a Git-config test; avoid four child processes per case.
+  appendFileSync(join(cwd, '.git', 'config'), `\n[user]\n\tname = ${projectName}\n\temail = ${projectEmail}\n[commit]\n\tgpgsign = false\n[core]\n\thooksPath = /dev/null\n`);
   const env = { ...process.env, ARCO_PRIVATE_PATTERNS_FILE: join(cwd, '.git', 'private-patterns') };
   const check = (...args) => spawnSync(process.execPath, [audit, ...args], { cwd, encoding: 'utf8', env });
   const push = input => spawnSync(process.execPath, [audit, '--push'], { cwd, encoding: 'utf8', env, input });

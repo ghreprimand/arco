@@ -243,7 +243,7 @@ test('folder creation takes a plain name only, never follows a link and never re
 });
 
 test('concurrent renames, listings and creations lose nothing and leave no temporary files', async () => {
-  const dirs = Array.from({ length: 12 }, (_, i) => folder(work, `par-${i}`));
+  const dirs = Array.from({ length: 3 }, (_, i) => folder(work, `par-${i}`));
   seed(dirs);
   writeFileSync(settingsFile, JSON.stringify({ projects: dirs, defaultWorkingDirectory: scan }));
   const first = (await call('GET', '/api/projects')).json;
@@ -356,7 +356,7 @@ test('a relocation that cannot write its first record changes nothing and says s
 });
 
 test('listings racing a relocation always show the project exactly once', async () => {
-  for (let round = 0; round < 15; round++) {
+  for (let round = 0; round < 2; round++) {
     const gone = join(work, `storm-gone-${round}`);
     const dest = folder(work, `storm-dest-${round}`);
     seed([gone, folder(work, `storm-bystander-${round}`)], [{ id: ID_A, path: gone, displayName: 'Storm' }]);

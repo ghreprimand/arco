@@ -35,11 +35,14 @@ test('a global discovery finishes promptly across many missing and synthetic pro
   assert.ok(docs.every(d => !d.rel.includes('.hidden')));
 });
 
-test('artifact discovery retains every workflow artifact beyond the old result cap', async () => {
+test('artifact discovery retains every workflow artifact beyond the old result cap', async t => {
+  const started = performance.now();
   const project = join(home, 'artifacts-project');
   const folder = join(project, '.arco', 'workflows', '11111111-2222-4333-8444-555555555555', 'artifacts');
   for (let i = 0; i < 2005; i++) file(join(folder, `output-${i}.md`));
+  const prepared = performance.now();
   assert.equal((await collectArtifacts({ project })).length, 2005);
+  t.diagnostic(JSON.stringify({ files: 2005, fixtureMilliseconds: prepared - started, discoveryMilliseconds: performance.now() - prepared }));
 });
 
 test('entry and time budgets stop traversal and report partial results without blocking timers', async () => {

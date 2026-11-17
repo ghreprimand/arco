@@ -108,7 +108,8 @@ test('existing image editor writes index variants after moving outside the produ
   } finally { workflowCwds.delete(ids[0]); }
 });
 
-test('large cluster collections still include outputs from the last producing member', async () => {
+test('large cluster collections still include outputs from the last producing member', async t => {
+  const started = performance.now();
   const members = Array.from({ length: 65 }, (_, i) => `50000000-0000-4000-8000-${String(i).padStart(12, '0')}`);
   for (const [i, id] of members.entries()) {
     const root = path.join(project, '.arco', 'workflows', id);
@@ -117,10 +118,12 @@ test('large cluster collections still include outputs from the last producing me
     if (i === 64) writeFileSync(path.join(root, 'artifacts', 'last-member.txt'), 'last member output');
   }
   const cluster = await createCluster({ cwd: project, memberWorkflowIds: members });
+  const prepared = performance.now();
   const response = await fetch(`${base}/api/outputs?clusterId=${cluster.clusterId}`);
   assert.equal(response.status, 200);
   const body = await response.json() as { outputs: Array<{ workflowId: string; name: string }> };
   assert.deepEqual(body.outputs.map(row => [row.workflowId, row.name]), [[members[64], 'last-member.txt']]);
+  t.diagnostic(JSON.stringify({ members: 65, fixtureMilliseconds: prepared - started, requestMilliseconds: performance.now() - prepared }));
 });
 
 test('open resolves registered outputs only, refuses programs and records the opener command', async () => {

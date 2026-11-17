@@ -118,11 +118,14 @@ test('synthetic timing: 30 entries and 40 registered projects', async t => {
   for (let i = 0; i < 30; i++) fs.writeFileSync(join(projects[0], `file-${i}.txt`), 'fixture');
   await configure(projects, projects[0]);
   const measure = async (fn: typeof listBrowserDirectory) => {
-    const values: number[] = [];
-    for (let i = 0; i < 3; i++) { const started = performance.now(); const result = await fn(projects[0], false); assert.equal(result.entries.length, 30); values.push(performance.now() - started); }
-    return values;
+    const started = performance.now();
+    const result = await fn(projects[0], false);
+    assert.equal(result.entries.length, 30);
+    return { result, milliseconds: performance.now() - started };
   };
+  // One capture of each implementation checks parity and reports timing; repeated
+  // benchmark samples of the frozen implementation do not add regression coverage.
   const before = await measure(referenceListBrowserDirectory), after = await measure(listBrowserDirectory);
-  assert.equal(JSON.stringify(await listBrowserDirectory(projects[0], false)), JSON.stringify(await referenceListBrowserDirectory(projects[0], false)));
-  t.diagnostic(JSON.stringify({ beforeMilliseconds: before, afterMilliseconds: after }));
+  assert.equal(JSON.stringify(after.result), JSON.stringify(before.result));
+  t.diagnostic(JSON.stringify({ beforeMilliseconds: before.milliseconds, afterMilliseconds: after.milliseconds }));
 });

@@ -202,6 +202,16 @@ context, test entry filenames and a loaded `node:test` detect test execution;
 `NODE_ENV` alone does not. Atomic writers also check cached paths when writing,
 so importing a store before the fixture setup cannot bypass that check.
 
+The updater fixtures copy one prepared release history into independent repositories;
+its CRLF case creates a fresh clone so Git initializes the index with line-ending
+conversion enabled. Public-audit fixtures write their initial local configuration
+directly; cases that exercise configuration changes still use Git. Listing parity
+captures each implementation once, while project race cases keep concurrent
+renames, listings and creations without repeating a load benchmark. Artifact and
+cluster-output checks retain their boundary-sized fixtures and print setup and
+request durations separately. These diagnostics distinguish fixture overhead from
+the time spent in the product without changing pass criteria.
+
 Pure-logic modules ship a co-located `*.test.ts` run under the Node built-in runner: `node --conditions development --import tsx --test <file>`. Each is wired as a `test:<name>` script (root `package.json` + `server/package.json`), e.g. `npm run test:cursor-models`. Convention: add a co-located test for each new deterministic parser, budgeter, or matcher. Run the relevant `test:*` script and `npm run typecheck`; run the aggregate unit suite with `npm run test:unit`.
 
 ---
