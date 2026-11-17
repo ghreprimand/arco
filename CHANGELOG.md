@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep the full cluster member REPLACE form reachable by scrolling in Narrow layout.
+
 - Replace a cluster member with no history, recent whole turns or full history; preview how much fits and copy the newest turns instead of refusing oversized history.
 
 - Stream Claude CLI session loads at 2 GB, limit uncached Claude Native reconstruction to 1 GiB, and explain a refused or failed reconstruction once while retaining the earlier transcript.

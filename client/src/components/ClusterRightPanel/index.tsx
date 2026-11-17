@@ -230,6 +230,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
         // outer splitter narrow enough to crush the panel.
         flex: 1,
         minWidth: '240px',
+        minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
         borderLeft: '1px solid var(--color-border-hairline)',

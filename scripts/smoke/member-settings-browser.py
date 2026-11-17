@@ -81,7 +81,7 @@ async def main():
           s.getState().createJob('helper',{name:'Helper',workingDirectory:'/projects/fixture',primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'low',skipPermissions:false,fastMode:true,outputStyle:'terse',autoCompaction:{enabled:true,thresholdPercent:70}});
           const members=[{workflowId:'lead',displayName:'Lead',status:'idle',role:director},{workflowId:'helper',displayName:'Helper',status:'idle',role:'Tester',tier:'light',focus:'browser tests'}];
           receive({type:'cluster_state',clusterId:'c1',state:{clusterId:'c1',cwd:'/projects/fixture',createdAt:'',taskBoardMode:'none',taskBoardAttached:false,mailboxDepth:{},members,autoCompaction:{enabled:false,thresholdPercent:80}}},{wsRef:{current:null},scheduleReconnect:()=>{}});
-          createRoot(document.getElementById('fixture')).render(React.createElement('div',{style:{display:'flex',width:'100%',height:'950px'}},React.createElement(ClusterTab,{clusterId:'c1',onSendToMember:()=>true,onCancelMember:()=>{},onCancelQueuedForMember:()=>{},onUpload:async()=>null,onAddFreshWorkers:(...args)=>fresh.push(args)})));
+          createRoot(document.getElementById('fixture')).render(React.createElement('div',{style:{display:'flex',flexDirection:'column',overflow:'hidden',width:'100%',height:'calc(100vh / var(--ui-scale, 1))',minHeight:0}},React.createElement(ClusterTab,{clusterId:'c1',onSendToMember:()=>true,onCancelMember:()=>{},onCancelQueuedForMember:()=>{},onUpload:async()=>null,onAddFreshWorkers:(...args)=>fresh.push(args)})));
         }''', DIRECTOR)
         await page.get_by_role('button', name='MEMBERS', exact=True).first.click()
 
@@ -152,16 +152,40 @@ async def main():
         # Replacement history shares the server-owned transcript preview.
         # One Narrow touch/keyboard journey checks both reduced modes and the
         # explicit zero-turn case, without adding a layout or theme matrix.
-        await page.set_viewport_size({'width': 430, 'height': 1000})
+        await page.set_viewport_size({'width': 430, 'height': 700})
         await page.evaluate("""async () => {
           const {setLayoutMode} = await import('/src/layout/layoutRange.ts');
+          const {applyUiScale} = await import('/src/themes/bootstrap.ts');
           setLayoutMode('narrow');
-          document.documentElement.style.setProperty('--ui-scale', '1.1');
+          applyUiScale(1.1);
         }""")
         await page.get_by_role('button', name='MORE', exact=True).click()
         if await helper_row.count() == 0:
             await page.get_by_role('button', name='MEMBERS', exact=True).first.click()
         await helper_row.click()
+        # The real panel must own a bounded scroll box. Locator.click/tap
+        # auto-scrolls, so check the wheel and native keyboard focus before
+        # the history controls can hide a clipped confirmation button.
+        panel = page.get_by_role('dialog', name='CLUSTER PANEL', exact=True)
+        scroller = await confirm.evaluate_handle("""el => {
+          for (let p=el.parentElement; p; p=p.parentElement) {
+            if (getComputedStyle(p).overflowY === 'auto') return p;
+          }
+          throw new Error('REPLACE has no scroll container');
+        }""")
+        scroll_box = await scroller.as_element().bounding_box()
+        await page.mouse.move(scroll_box['x'] + scroll_box['width'] / 2, scroll_box['y'] + scroll_box['height'] / 2)
+        await page.mouse.wheel(0, 2000)
+        await page.wait_for_function('el => el.scrollTop > 0', arg=scroller)
+        confirm_box = await confirm.bounding_box()
+        panel_box = await panel.bounding_box()
+        assert confirm_box['y'] >= panel_box['y'] and confirm_box['y'] + confirm_box['height'] <= panel_box['y'] + panel_box['height'], confirm_box
+        await page.get_by_role('button', name='CANCEL', exact=True).evaluate('el => el.focus({preventScroll:true})')
+        await scroller.evaluate('el => { el.scrollTop = 0; }')
+        await page.keyboard.press('Tab')
+        await expect(confirm).to_be_focused()
+        confirm_box = await confirm.bounding_box()
+        assert 0 <= confirm_box['y'] and confirm_box['y'] + confirm_box['height'] <= 700, confirm_box
         history = page.get_by_role('combobox', name='Replacement history')
         await expect(history).to_have_value('none')
         await history.select_option('recent')

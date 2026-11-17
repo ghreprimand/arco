@@ -1242,6 +1242,8 @@ Automatic picks by window width: Narrow under 1500, Compact from 1500, Standard 
 - **Compact:** one-row member cards and fixed starting side widths of 250 px for the member grid and 320 px for the cluster right panel (360 px for a single tab). Cluster settings fold into a summary, the plan hint is one line, and optional composer tools move into MORE as needed.
 - **Narrow:** the member grid becomes a rail of initials and the right panel a strip of buttons. Each opens its panel over the chat. Esc, CLOSE or the backdrop closes a panel.
 
+The cluster panel root has `minHeight: 0` so it can shrink inside the Narrow slide-out's flex column. Its existing body owns vertical scrolling, including the full REPLACE form; the slide-out header stays outside that scroll area. The side panel and member list keep their own bounded scroll areas.
+
 Dragged splitter positions are saved separately for each layout. Positions from the retired width band that no longer exists are ignored.
 
 ## Menus and popovers inside the window
