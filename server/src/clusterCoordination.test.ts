@@ -6,7 +6,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { presetForText, normalizeClusterRoleText, ROLE_PRESETS, buildClusterCoordination, buildClusterNudge, buildClusterMailboxNotice, buildClusterAutoPickup, resolveClusterMessageGuard, isClusterMessageGuard, type ClusterMessageGuard } from '@arco/shared';
+import { presetForText, normalizeClusterRoleText, ROLE_PRESETS, buildTurnWaitInstructions, buildClusterCoordination, buildClusterNudge, buildClusterMailboxNotice, buildClusterAutoPickup, resolveClusterMessageGuard, isClusterMessageGuard, type ClusterMessageGuard } from '@arco/shared';
+
+import { buildLocalClusterSystemPrompt, withLocalTurnWaitInstructions, OLLAMA_PRIMARY_SYSTEM_PROMPT, LLAMACPP_PRIMARY_SYSTEM_PROMPT } from './server/prompts.js';
+import { codexClusterDeveloperInstructions } from './providers/codexCodeMode.js';
+import { buildClusterDirectorDoctrine } from './clusterDirector.js';
 
 const sandbox = await fs.mkdtemp(join(tmpdir(), 'arco-coordination-'));
 process.env.ARCO_HOME = join(sandbox, 'home');
@@ -201,12 +205,37 @@ test('role-aware coordination and all mail entry points preserve required review
       assert.ok(prompt.includes(`${sendCheck}\n\n${nextStep}`));
       assert.ok(prompt.includes(`${guardLine}\n\n${sendCheck}`));
     }
-    assert.equal(director.split(noWait).length - 1, 1);
-    assert.doesNotMatch(builder, /60 seconds/);
-    assert.match(builder, /at most 120 seconds each/);
-    assert.match(builder, /Between waits, check for new messages \(peer_read in a cluster\)/);
-    assert.match(builder, /Report when the result is in/);
-    assert.match(builder, /what you are waiting on and that you need a nudge/);
+    const workerWait = buildTurnWaitInstructions('Implementer');
+    for (const [role, coordination] of [['Director', director], ['Implementer', builder]] as const) {
+      assert.doesNotMatch(coordination, /60 seconds|120 seconds/);
+      const expected = buildTurnWaitInstructions(role);
+      const assertOneWait = (prompt: string) => {
+        assert.equal(prompt.split(expected).length - 1, 1);
+        assert.equal(prompt.split(role === 'Director' ? workerWait : noWait).length - 1, 0);
+        assert.equal(prompt.match(/(?:60|120) seconds/g)?.length, 1);
+      };
+      // Check the assembled sources, not just the coordination fragment.
+      for (const base of [OLLAMA_PRIMARY_SYSTEM_PROMPT, LLAMACPP_PRIMARY_SYSTEM_PROMPT]) {
+        assertOneWait(buildLocalClusterSystemPrompt({
+          base: withLocalTurnWaitInstructions(base, role), clusterRole: role,
+          clusterEfficiencyDoctrine: coordination,
+          clusterProgressDoctrine: buildClusterDirectorDoctrine(role),
+        }));
+      }
+      const codex = codexClusterDeveloperInstructions({ provider: 'codex', model: 'fixture', effort: 'low', cwd: '/tmp/project', clusterId: 'fixture', clusterRole: role });
+      assertOneWait([codex, coordination].join('\n\n'));
+      // Other remote provider prefixes use the same role-aware builder.
+      assertOneWait([expected, coordination, buildClusterDirectorDoctrine(role)].filter(Boolean).join('\n\n'));
+    }
+    for (const base of [OLLAMA_PRIMARY_SYSTEM_PROMPT, LLAMACPP_PRIMARY_SYSTEM_PROMPT]) {
+      const standalone = withLocalTurnWaitInstructions(base);
+      assert.equal(standalone.split(workerWait).length - 1, 1);
+      assert.doesNotMatch(standalone, /60 seconds/);
+    }
+    assert.match(workerWait, /at most 120 seconds each/);
+    assert.match(workerWait, /Between waits, check for new messages \(peer_read in a cluster\)/);
+    assert.match(workerWait, /Report when the result is in/);
+    assert.match(workerWait, /what you are waiting on and that you need a nudge/);
     assert.match(builder, /what was done, what was run and what is not covered/);
     const testing = { lean: /Testing: run only the tests for what you changed/, balanced: /Testing: add one test for each real fault you fix/, thorough: /Testing: test new behaviour and each fault you fix/ };
     assert.match(builder, testing[level]);

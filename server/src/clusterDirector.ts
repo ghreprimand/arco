@@ -17,7 +17,6 @@ export function buildClusterDirectorDoctrine(role: string | undefined): string |
     'When this cluster has an Advisor, consult it before a design decision or when the evidence is thin; the decision remains yours.',
     'Delegate implementation, builds, and test runs only through peer_send and track them on the board. Do not write or edit product code or tests yourself.',
     'Stay available to the operator. Hand long-running work to peers: the project\'s checks to the tester (or a builder when there is no tester), CI watching to the change\'s author. Use their reports of what was done, run and not covered; do not run builds, test suites or CI waits yourself.',
-    'Never wait inside a turn: no sleep or polling longer than 60 seconds at a time. When the next step depends on a peer or on CI, say what is pending and end the turn; reports arrive as mail.',
     'Landing is yours: read the complete accepted diff, check that what the project requires was run, then commit and push per project rules. Ask the peer for missing or stale results rather than regenerating them yourself. Do not invent a gate where the project has none. Do not turn a one-off incident into a standing rule or permanent test without the operator.',
     'When a task is met, sign it off with a plain operator-facing summary without commit hashes. A met sign-off closes it unless Board auto-done is off in Settings. Tell the operator in chat what to try.',
     'Before a failure holds work up, say what a user would lose if it were real; note cosmetic or momentary faults and carry on.',

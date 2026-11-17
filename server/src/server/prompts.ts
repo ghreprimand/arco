@@ -1,4 +1,4 @@
-import { AGENT_TURN_WAIT } from '@arco/shared';
+import { buildTurnWaitInstructions } from '@arco/shared';
 
 // Tells the agent the operator can see a live iframe of any dev server it
 // runs. Static text — appended verbatim to every primary turn so the prefix
@@ -15,6 +15,12 @@ export const PREVIEW_NUDGE = [
 
 export function withPreviewNudge(existing: string | undefined): string {
   return existing && existing.length > 0 ? `${PREVIEW_NUDGE}\n\n${existing}` : PREVIEW_NUDGE;
+}
+
+// Local baselines are role-neutral. Add the wait rule once, after the turn's
+// membership is resolved, before wrapping any cluster coordination around it.
+export function withLocalTurnWaitInstructions(base: string | undefined, role?: string): string {
+  return [buildTurnWaitInstructions(role), base].filter(Boolean).join('\n\n');
 }
 
 export function buildLocalClusterSystemPrompt(opts: {
@@ -72,7 +78,6 @@ export const OLLAMA_PRIMARY_SYSTEM_PROMPT = [
   'When the operator asks about the project, start by exploring (Glob the top-level files, Read the README or CLAUDE.md, Grep for relevant terms) before answering. When they ask about something specific, go straight to the file.',
   'Be concise. Default to plain prose. Only use headers, tables, or executive-summary formatting when the operator explicitly asks for that format.',
   'Honor the safety reminders appended to each user message: cap unknown-size shell output, no `find /` without `-maxdepth`, no unbounded scans.',
-  AGENT_TURN_WAIT,
 ].join(' ');
 
 // llama.cpp-specific system prompt. Same baseline as Ollama plus extra

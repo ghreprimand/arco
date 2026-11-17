@@ -98,7 +98,8 @@ test('Astra director gets developer-level Arco identity and operating contract',
   assert.ok(text?.includes('call cluster_plan_read'));
   assert.ok(text?.includes('Do not write or edit product code or tests yourself'));
   assert.ok(text?.includes('Stay available to the operator'));
-  assert.ok(text?.includes('Never wait inside a turn'));
+  assert.ok(text?.includes('Do not wait inside a turn'));
+  assert.equal(text?.match(/60 seconds/g)?.length, 1);
   assert.ok(text?.includes('Landing is yours'));
   assert.ok(text?.includes('The plan holds standing rules and tasks only'));
   assert.ok(!text?.includes('Do not end with a status-only response'));

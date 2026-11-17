@@ -62,6 +62,7 @@ import {
 } from '../server/broadcast.js';
 import {
   buildLocalClusterSystemPrompt,
+  withLocalTurnWaitInstructions,
   LLAMACPP_PRIMARY_SYSTEM_PROMPT,
   OLLAMA_PRIMARY_SYSTEM_PROMPT,
   withPreviewNudge,
@@ -598,11 +599,14 @@ export async function handleHandoffRequest(
     );
   }
   const prewarmIsLocal = wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' || (wf.primary.provider === 'strata' || wf.primary.provider === 'deepseek');
-  const prewarmLocalBase = wf.primary.provider === 'ollama'
+  const prewarmLocalBaseline = wf.primary.provider === 'ollama'
     ? OLLAMA_PRIMARY_SYSTEM_PROMPT
     : (wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' || (wf.primary.provider === 'strata' || wf.primary.provider === 'deepseek'))
       ? LLAMACPP_PRIMARY_SYSTEM_PROMPT
       : undefined;
+  const prewarmLocalBase = prewarmIsLocal
+    ? withLocalTurnWaitInstructions(prewarmLocalBaseline, prewarmClusterRole)
+    : undefined;
   const prewarmSystemPrompt = prewarmIsLocal && prewarmClusterId
     ? buildLocalClusterSystemPrompt({
         base: prewarmLocalBase,

@@ -83,6 +83,7 @@ SESSION_HISTORY_PAGE_SIZE
 } from '../server/constants.js';
 import {
 buildLocalClusterSystemPrompt,
+withLocalTurnWaitInstructions,
 LLAMACPP_PRIMARY_SYSTEM_PROMPT,
 OLLAMA_PRIMARY_SYSTEM_PROMPT,
 withPreviewNudge
@@ -2304,6 +2305,10 @@ export async function handleUserMessage(
             turnClusterTaskBoardAttached,
           ),
         );
+      }
+
+      if (!chatMode && (wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' || wf.primary.provider === 'strata' || wf.primary.provider === 'deepseek')) {
+        finalSystemPrompt = withLocalTurnWaitInstructions(finalSystemPrompt, turnClusterRole);
       }
 
       if (turnClusterId && (wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp' || wf.primary.provider === 'lmstudio' || wf.primary.provider === 'strata' || wf.primary.provider === 'deepseek')) {

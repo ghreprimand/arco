@@ -22,7 +22,6 @@ export function buildClusterCoordination(level: ClusterEfficiencyLevel = 'thorou
   lines.push('Efficiency guides coordination and testing. Message guards, safety checks, operator-requested review and landing review stay unchanged.');
   lines.push('Before sending, check that the message gives the recipient something to act on or something it is waiting for. A closing note to a member whose work is finished (landed, thanks, nothing further) does neither; record it on the board instead.');
   lines.push("When a report states the sender's next step, no reply approves it; reply only to change that step, answer a question, or assign other work. Reports that continue on their own end with their next step.");
-  lines.push(buildTurnWaitInstructions(role));
   if (isClusterDirector(role)) {
     lines.push('Assign complete outcomes with exact placement, affected surfaces, constraints and dependencies. Builders own routine compatible choices within that scope. Ask them to say what was done, what was run and what is not covered.');
     lines.push('Reconcile relevant tasks and new findings; read broader history when relevant or stale. Read the final diff and check that the project-required checks were run, then land accepted changes. Request more work only for concrete blockers or a changed relevant integration base.');

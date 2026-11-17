@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Give each agent one wait instruction matching its role, including local Directors and handoff prewarm.
+
 - Bound llama.cpp replies and stalled streams even with automatic recovery off; stop with one plain error and no retry.
 
 - Let non-Director agents wait for required check results in bounded steps while checking messages; keep the Director's 60-second rule.
