@@ -1700,7 +1700,7 @@ function BoardAutoDoneSection() {
         Mark done automatically when the director signs off as met
       </label>
       <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5, margin: '6px 0 14px' }}>
-        On by default. A new director met sign-off marks the task done on the server; partial and not-met sign-offs stay in review. Turn this off to accept finished tasks yourself.
+        On by default. A new director met sign-off marks the task done on the server; partial and not-met sign-offs do not change the task status. Turn this off to accept finished tasks yourself.
       </div>
     </div>
   );

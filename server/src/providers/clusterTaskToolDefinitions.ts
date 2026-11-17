@@ -76,7 +76,7 @@ export const CLUSTER_TASK_TOOL_DEFINITIONS: ClusterTaskToolDefinition[] = [
     {
       name: 'cluster_task_update',
       description:
-        "Update a task on the shared cluster board. Workers move completed work to review. Only the director signs off: set signoff to met, partial, or not_met with a plain one-line summary for the operator, without commit hashes. A director's met sign-off closes the task unless Board auto-done is off in Settings; partial and not_met stay in review. Tell the operator in chat what to try. Direct status changes to done or archived remain operator-only.",
+        "Update a task on the shared cluster board. Workers move completed work to review. Only the director signs off: set signoff to met, partial, or not_met with a plain one-line summary for the operator, without commit hashes. A director's met sign-off closes the task unless Board auto-done is off in Settings; partial and not_met leave the task status unchanged unless you set a status. Tell the operator in chat what to try. Direct status changes to done or archived remain operator-only.",
       input_schema: {
         type: 'object',
         properties: {
