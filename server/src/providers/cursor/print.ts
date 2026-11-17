@@ -1,3 +1,4 @@
+import { buildTurnWaitInstructions } from '@arco/shared';
 import { prepareProviderHistory, historyBinding } from '../handoffHistoryBinding.js';
 import { prepareLocalFileContext, combineChatAttachments } from '../localFileMedia.js';
 import { createChatSandbox, CHAT_FLAGS, CHAT_GUIDANCE } from './chatSandbox.js';
@@ -111,7 +112,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     // ACP worker's beginTurn. goalBlock is null-when-empty so the default primitive
     // path is byte-identical to a bare prompt.
     // The output-style addendum closes the prefix (null for normal).
-    const prefixParts = [chat ? CHAT_GUIDANCE : undefined, goalBlock(this.config.goal), this.config.appendSystemPrompt, this.filePlugin ? FILE_READ_GUIDANCE : undefined, outputStyleAddendum(this.config.outputStyle)]
+    const prefixParts = [buildTurnWaitInstructions(this.config.clusterRole), chat ? CHAT_GUIDANCE : undefined, goalBlock(this.config.goal), this.config.appendSystemPrompt, this.filePlugin ? FILE_READ_GUIDANCE : undefined, outputStyleAddendum(this.config.outputStyle)]
       .filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
     const prefix = prefixParts.length > 0 ? prefixParts.join('\n\n') : undefined;
     const body = [prompt, prepared?.text, chat ? undefined : withAttachmentRefs('', imagePaths)].filter(Boolean).join('\n\n');

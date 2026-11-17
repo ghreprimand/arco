@@ -103,7 +103,7 @@ test('Astra director gets developer-level Arco identity and operating contract',
   assert.ok(text?.includes('The plan holds standing rules and tasks only'));
   assert.ok(!text?.includes('Do not end with a status-only response'));
   assert.ok(text?.includes('tools.mcp__arco_cluster__peer_send'));
-  assert.ok(text?.includes('do not sleep or poll for more than 60 seconds'));
+  assert.ok(text?.includes('never sleep or poll for more than 60 seconds'));
 });
 
 test('non-cluster Codex thread gets turn discipline without cluster identity', () => {
@@ -111,7 +111,8 @@ test('non-cluster Codex thread gets turn discipline without cluster identity', (
     provider: 'codex', model: 'gpt-6-astra', effort: 'medium', cwd: '/tmp/project',
   });
   assert.ok(text);
-  assert.match(text!, /do not sleep or poll for more than 60 seconds/);
+  assert.match(text!, /at most 120 seconds each/);
+  assert.doesNotMatch(text!, /60 seconds/);
   assert.doesNotMatch(text!, /Arco cluster identity/);
   assert.doesNotMatch(text!, /mcp__arco_cluster__/);
 });

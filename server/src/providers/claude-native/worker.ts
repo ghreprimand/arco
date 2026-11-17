@@ -1,7 +1,7 @@
 import { setMaxListeners } from 'node:events';
 import { assertNativeTaskAllowed } from './taskAdmission.js';
 import { readSettings } from '../../settings.js';
-import { resolveNativeSubagents, type NativeSubagentPolicy } from '@arco/shared';
+import { buildTurnWaitInstructions, resolveNativeSubagents, type NativeSubagentPolicy } from '@arco/shared';
 import { availableHandoffSources, executeHandoffHistory, HANDOFF_HISTORY_TOOL, HANDOFF_HISTORY_CONTEXT } from '../../handoffHistoryTool.js';
 import { mediaRetirementNotice } from './mediaRetirementNotice.js';
 import { nativeMediaLimits } from './mediaLimits.js';
@@ -2071,7 +2071,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         'Continue working until the request is complete or you are genuinely blocked on operator input. ' +
         "Never end your turn with a status update, a plan, or a promise of future work ('Continuing now', 'I'll do X next') — " +
         'if your final paragraph describes work you have not done, do that work now instead of ending the turn. ' +
-        'Finishing the request does not mean waiting for it: do not sleep or poll for more than 60 seconds at a time for builds, test suites or CI; report what is running and end the turn. ' +
+        buildTurnWaitInstructions(this.config.clusterRole) + ' ' +
         'If a delegated Task child fails or returns an error or nonsense (e.g. a login error), say so explicitly in your reply and adapt openly — never silently work around a failed delegation. ' +
         // Fable 5.1 / 5.2 can rewrite whole files where a targeted edit would do
         // (docs/PROVIDERS.md); Anthropic's documented one-liner.

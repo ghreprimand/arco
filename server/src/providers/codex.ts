@@ -1,3 +1,4 @@
+import { buildTurnWaitInstructions } from '@arco/shared';
 import { prepareProviderHistory, historyBinding } from './handoffHistoryBinding.js';
 import { prepareLocalFileContext, combineChatAttachments } from './localFileMedia.js';
 import { codexChatOverrides, requireCodexChatCapabilities } from './codexChatBoundary.js';
@@ -111,7 +112,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
     // prefix cache like the rest of the framing. Covers operator turns AND
     // primitive seeds (both carry config.goal). Absent / blank ⇒ no change.
     // The output-style addendum closes the prefix, as on app-server.
-    const prefixParts = [goalBlock(this.config.goal), this.config.appendSystemPrompt, cliFileReadGuidance(this.config), outputStyleAddendum(this.config.outputStyle)]
+    const prefixParts = [buildTurnWaitInstructions(this.config.clusterRole), goalBlock(this.config.goal), this.config.appendSystemPrompt, cliFileReadGuidance(this.config), outputStyleAddendum(this.config.outputStyle)]
       .filter((s): s is string => typeof s === 'string' && s.length > 0);
     const prefixSp = prefixParts.length > 0 ? prefixParts.join('\n\n') : undefined;
     const fullPrompt = prefixSp

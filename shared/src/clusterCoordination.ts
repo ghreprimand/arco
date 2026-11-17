@@ -3,6 +3,13 @@ import { CLUSTER_EFFICIENCY_ADDENDUM_MAX, type ClusterEfficiencyLevel, type Clus
 
 export const isClusterDirector = (role?: string): boolean => /^\s*(?:director|coordinator)\b/i.test(role ?? '');
 
+const DIRECTOR_TURN_WAIT = 'Do not wait inside a turn for long-running checks: never sleep or poll for more than 60 seconds at a time. Start long runs in the background or hand them off, report what is running, and end the turn.';
+export const AGENT_TURN_WAIT = 'For standalone agents and non-Director cluster members: when a report depends on a build, test run or CI result, wait inside the turn in steps of at most 120 seconds each, repeated as many times as the job needs. Use a foreground command within the tool timeout or check a background run between steps. Between waits, check for new messages (peer_read in a cluster) and act on them. Report when the result is in. End the turn early only when blocked or when the job clearly cannot finish within a reasonable time; then state in one line what you are waiting on and that you need a nudge.';
+
+export function buildTurnWaitInstructions(role?: string): string {
+  return isClusterDirector(role) ? DIRECTOR_TURN_WAIT : AGENT_TURN_WAIT;
+}
+
 /** Explain why a role list cannot be used for a new cluster. */
 export function clusterDirectorProblem(roles: readonly (string | undefined)[]): string | null {
   return roles.filter(isClusterDirector).length > 1
@@ -15,7 +22,7 @@ export function buildClusterCoordination(level: ClusterEfficiencyLevel = 'thorou
   lines.push('Efficiency guides coordination and testing. Message guards, safety checks, operator-requested review and landing review stay unchanged.');
   lines.push('Before sending, check that the message gives the recipient something to act on or something it is waiting for. A closing note to a member whose work is finished (landed, thanks, nothing further) does neither; record it on the board instead.');
   lines.push("When a report states the sender's next step, no reply approves it; reply only to change that step, answer a question, or assign other work. Reports that continue on their own end with their next step.");
-  lines.push('Do not wait inside a turn for long-running checks: never sleep or poll for more than 60 seconds at a time. Start long runs in the background or hand them off, report what is running, and end the turn.');
+  lines.push(buildTurnWaitInstructions(role));
   if (isClusterDirector(role)) {
     lines.push('Assign complete outcomes with exact placement, affected surfaces, constraints and dependencies. Builders own routine compatible choices within that scope. Ask them to say what was done, what was run and what is not covered.');
     lines.push('Reconcile relevant tasks and new findings; read broader history when relevant or stale. Read the final diff and check that the project-required checks were run, then land accepted changes. Request more work only for concrete blockers or a changed relevant integration base.');

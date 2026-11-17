@@ -13,6 +13,7 @@ import * as fs from 'node:fs';
 import { resolveCodexHome } from './codexHome.js';
 import * as path from 'node:path';
 import type { WorkerConfig } from '@arco/shared';
+import { AGENT_TURN_WAIT, buildTurnWaitInstructions } from '@arco/shared';
 import { buildClusterDirectorDoctrine } from '../clusterDirector.js';
 
 interface CodeModeEntry {
@@ -93,18 +94,17 @@ export function codexCodeModeClusterAddendum(): string {
 }
 
 // Standing turn discipline for every Codex workflow (cluster and single).
-export const CODEX_TURN_DISCIPLINE =
-  'Finishing the request does not mean waiting for it: do not sleep or poll for more than 60 seconds at a time for builds, test suites or CI; report what is running and end the turn.';
+export const CODEX_TURN_DISCIPLINE = AGENT_TURN_WAIT;
 
 // app-server can place Arco's durable cluster identity at developer level
 // when a thread starts/resumes. Per-turn plan content still rides in user
 // input because it is mutable; the stable role and tool contract do not need
 // to compete with Codex's own `/root` developer framing there.
 // Non-cluster threads still receive CODEX_TURN_DISCIPLINE so single workflows
-// stay available to the operator the same way.
+// wait for the result their report depends on and check for messages between waits.
 export function codexClusterDeveloperInstructions(config: WorkerConfig): string | null {
   if (config.provider !== 'codex') return null;
-  const blocks: string[] = [CODEX_TURN_DISCIPLINE];
+  const blocks: string[] = [buildTurnWaitInstructions(config.clusterRole)];
   if (config.clusterId) {
     blocks.push(
       '--- Arco cluster identity ---',

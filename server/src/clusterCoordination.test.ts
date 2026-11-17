@@ -198,11 +198,15 @@ test('role-aware coordination and all mail entry points preserve required review
     for (const prompt of [director, builder]) {
       assert.equal(prompt.split(sendCheck).length - 1, 1);
       assert.equal(prompt.split(nextStep).length - 1, 1);
-      assert.equal(prompt.split(noWait).length - 1, 1);
       assert.ok(prompt.includes(`${sendCheck}\n\n${nextStep}`));
-      assert.ok(prompt.includes(`${nextStep}\n\n${noWait}`));
       assert.ok(prompt.includes(`${guardLine}\n\n${sendCheck}`));
     }
+    assert.equal(director.split(noWait).length - 1, 1);
+    assert.doesNotMatch(builder, /60 seconds/);
+    assert.match(builder, /at most 120 seconds each/);
+    assert.match(builder, /Between waits, check for new messages \(peer_read in a cluster\)/);
+    assert.match(builder, /Report when the result is in/);
+    assert.match(builder, /what you are waiting on and that you need a nudge/);
     assert.match(builder, /what was done, what was run and what is not covered/);
     const testing = { lean: /Testing: run only the tests for what you changed/, balanced: /Testing: add one test for each real fault you fix/, thorough: /Testing: test new behaviour and each fault you fix/ };
     assert.match(builder, testing[level]);

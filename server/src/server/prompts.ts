@@ -1,3 +1,5 @@
+import { AGENT_TURN_WAIT } from '@arco/shared';
+
 // Tells the agent the operator can see a live iframe of any dev server it
 // runs. Static text — appended verbatim to every primary turn so the prefix
 // cache keeps hitting (Claude / Codex caches; Ollama prefix cache). The
@@ -70,7 +72,7 @@ export const OLLAMA_PRIMARY_SYSTEM_PROMPT = [
   'When the operator asks about the project, start by exploring (Glob the top-level files, Read the README or CLAUDE.md, Grep for relevant terms) before answering. When they ask about something specific, go straight to the file.',
   'Be concise. Default to plain prose. Only use headers, tables, or executive-summary formatting when the operator explicitly asks for that format.',
   'Honor the safety reminders appended to each user message: cap unknown-size shell output, no `find /` without `-maxdepth`, no unbounded scans.',
-  'Finishing the request does not mean waiting for it: do not sleep or poll for more than 60 seconds at a time for builds, test suites or CI; report what is running and end the turn.',
+  AGENT_TURN_WAIT,
 ].join(' ');
 
 // llama.cpp-specific system prompt. Same baseline as Ollama plus extra

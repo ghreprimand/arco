@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Let non-Director agents wait for required check results in bounded steps while checking messages; keep the Director's 60-second rule.
+
 - Check published llama.cpp build tags so the existing provider row can flag an older installed build without installing or loading anything.
 
 - Reject malformed Claude effort updates before changing any settings, preserving the working configuration.
