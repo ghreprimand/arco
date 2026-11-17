@@ -965,7 +965,8 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             role: 'ctx-divider',
             content: `${action} (${trigger})${detail}`,
             isStreaming: false,
-            timestamp: Date.now(),
+            eventSeq: (msg as { seq?: number }).seq,
+            timestamp: eventTime(msg) ?? Date.now(),
           });
           break;
         }
@@ -2069,7 +2070,8 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             content: msg.content,
             authRecovery: msg.authRecovery,
             isStreaming: false,
-            timestamp: Date.now(),
+            eventSeq: (msg as { seq?: number }).seq,
+            timestamp: eventTime(msg) ?? Date.now(),
           });
           break;
         }

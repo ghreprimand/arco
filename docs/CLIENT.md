@@ -578,13 +578,12 @@ Ordinary application JSON stays visible when it uses keys such as workers, state
 
 ```ts
 if (sessionChat.length === 0) {
-  return job.messages
-    .filter((m) => !(m.role === 'user' && m.queued))
-    .sort((a, b) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+  return orderConversation(job.messages
+    .filter((m) => !(m.role === 'user' && m.queued)));
 }
 ```
 
-The sort handles out-of-order frame arrivals on the wire (long pauses between text chunks, reconnect replay).
+`orderConversation` keeps rows with `eventSeq` in server order and places unsequenced legacy rows by timestamp. System notices and context dividers retain the server's sequence and `eventTs` on live delivery and replay, with receive time as the fallback when an event has none. A fresh page therefore places compaction notices and later context updates between the same conversation rows, at their saved times.
 
 **Merged path** - when `sessionChat` is populated (Claude with JSONL):
 

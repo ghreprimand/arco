@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep replayed compaction notices and context updates at their saved positions and times when a conversation opens in another browser.
+
 - Keep the full cluster member REPLACE form reachable by scrolling in Narrow layout.
 
 - Replace a cluster member with no history, recent whole turns or full history; preview how much fits and copy the newest turns instead of refusing oversized history.
