@@ -2,9 +2,10 @@ import { createHash } from 'node:crypto';
 import { buildTranscriptSlice, type TranscriptSliceOptions } from './transcriptWorker.js';
 import { replayEvents } from './workflowStore.js';
 import { renderTranscript, summarizePriorTurns } from './primitives/exportContext.js';
+import { RECENT_HISTORY_MAX_BYTES } from './historyLimits.js';
 
 export const REPLACEMENT_FULL_BYTES = 512 * 1024;
-export const REPLACEMENT_RECENT_BYTES = 128 * 1024;
+export const REPLACEMENT_RECENT_BYTES = RECENT_HISTORY_MAX_BYTES;
 export type ReplacementHistoryMode = 'recent' | 'full';
 
 export async function buildReplacementHistory(cwd: string, workflowId: string, mode: ReplacementHistoryMode, options: TranscriptSliceOptions) {

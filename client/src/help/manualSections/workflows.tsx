@@ -142,6 +142,11 @@ codex exec resume <thread-id> "next prompt"
   If a rebuild exceeds the limit or fails, one notice says that the agent
   continues without earlier context. Earlier messages stay in the tab; include
   any context the next task needs again.</p>
+  <p>The older-turn digest used by Claude Native resume is limited to 128 KiB.
+  Compacted context and its kept-tail digest come first; oldest turn notes are
+  left out first. The tab and the agent receive the same line saying how many were left out.
+  If compacted context alone is too large, the same line says it was shortened.
+  Earlier messages remain in the conversation.</p>
   <p>Claude CLI session loading handles 2 GB histories separately. If its session file cannot be read, a notice says
   that the saved conversation is intact; new messages appear when readable.</p>
   <p>COMPACT on a lost Codex or Cursor conversation explains that the next message

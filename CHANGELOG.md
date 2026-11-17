@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Cap Claude Native older-turn resume summaries at 128 KiB, keep compacted context first and disclose omitted turns.
+
 - Connect contextual help for the Cursor changelog link and replacement dialog CANCEL button.
 
 - Update Cursor from its PROVIDERS row using its own updater, with a best-effort update flag and a separate CLI changelog link.

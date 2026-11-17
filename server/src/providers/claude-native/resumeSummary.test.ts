@@ -8,10 +8,60 @@ import {
   buildMessagesFromReplayEvents,
   compactSummarySeed,
   replayMessagesWithResumePolicy,
+  summarizeClaudeNativePriorTurns,
   type ClaudeResumeMessage,
 } from './resumeSummary.js';
 import { projectCompactSummaryMessages, projectKeptTail } from './workerHelpers.js';
 import type { MessageParam } from './contentBlocks.js';
+import { REPLACEMENT_RECENT_BYTES } from '../../replacementHistory.js';
+
+test('resume summaries cap UTF-8 bytes, keep compacted context and newest whole notes, and preserve fitting output', () => {
+  const small = [
+    { type: 'user_message_echo', seq: 1, content: 'small request' },
+    { type: 'primary_text', seq: 2, text: 'small reply' },
+    { type: 'primary_complete', seq: 3 },
+  ];
+  assert.deepEqual(summarizeClaudeNativePriorTurns(small), {
+    summary: '## Prior turns in this workflow (auto-summary)\n\n### Turn 1: small request\n- Assistant reply: "small reply"',
+    throughSeq: 3, lastHandoffSeq: null,
+  });
+  const contextHeading = '## Earlier context (operator-compacted)\n\n';
+  const exact = 'x'.repeat(REPLACEMENT_RECENT_BYTES - Buffer.byteLength(contextHeading));
+  assert.equal(summarizeClaudeNativePriorTurns([{ type: 'native_compacted', summary: exact }]).summary, contextHeading + exact);
+
+  const compact = 'COMPACTED_' + '界'.repeat(9000);
+  const marker = { type: 'native_compacted', seq: 4, summary: compact,
+    keptTail: [{ role: 'user' as const, content: 'KEPT_TAIL' }] };
+  const turns = Array.from({ length: 300 }, (_, i) => [
+    { type: 'user_message_echo', seq: 5 + i * 3, content: `request-${i + 1} ${'界'.repeat(100)}` },
+    { type: 'primary_text', seq: 6 + i * 3, text: `answer-${i + 1} ${'海'.repeat(240)}` },
+    { type: 'primary_complete', seq: 7 + i * 3 },
+  ]).flat();
+  const result = summarizeClaudeNativePriorTurns([...small, marker, ...turns]);
+  assert.ok(Buffer.byteLength(result.summary, 'utf8') <= REPLACEMENT_RECENT_BYTES);
+  assert.ok(result.summary.startsWith(contextHeading + compact + '\n\n### Recent verbatim turns kept at that compaction\n**user:** KEPT_TAIL'));
+  const omitted = Number(/Earlier context: (\d+) oldest turn notes were left out/.exec(result.summary)?.[1]);
+  assert.ok(omitted > 0 && omitted < 300);
+  assert.deepEqual([...result.summary.matchAll(/^### Turn (\d+):/gm)].map(match => Number(match[1])),
+    Array.from({ length: 300 - omitted }, (_, i) => omitted + i + 1));
+  assert.doesNotMatch(result.summary, /small request|\uFFFD/);
+  assert.equal(result.throughSeq, 904);
+  assert.ok(result.summaryNotice && result.summary.includes(result.summaryNotice));
+
+  const oversizedContext = summarizeClaudeNativePriorTurns([{ ...marker, summary: '界'.repeat(REPLACEMENT_RECENT_BYTES) }]).summary;
+  assert.ok(Buffer.byteLength(oversizedContext, 'utf8') <= REPLACEMENT_RECENT_BYTES);
+  assert.match(oversizedContext, /\*\*user:\*\* KEPT_TAIL/);
+  assert.match(oversizedContext, /0 oldest turn notes were left out and compacted context was shortened/);
+  assert.doesNotMatch(oversizedContext, /\uFFFD/);
+
+  const oversizedNote = summarizeClaudeNativePriorTurns([
+    { type: 'user_message_echo', content: 'one huge note' },
+    { type: 'primary_tool_use', tool: 'Write', input: JSON.stringify({ file_path: 'x'.repeat(REPLACEMENT_RECENT_BYTES * 2) }) },
+  ]).summary;
+  assert.ok(Buffer.byteLength(oversizedNote, 'utf8') <= REPLACEMENT_RECENT_BYTES);
+  assert.match(oversizedNote, /1 oldest turn note was left out/);
+  assert.doesNotMatch(oversizedNote, /### Turn/);
+});
 
 function line(ev: Record<string, unknown>): string {
   return JSON.stringify(ev) + '\n';

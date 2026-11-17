@@ -1469,10 +1469,11 @@ export class ClaudeNativeWorker extends EventEmitter {
                 .filter((e) => meta?.computerContext?.lastResetSeq !== undefined
                   ? (('seq' in e.message && typeof e.message.seq === 'number') ? e.message.seq : 0) > meta.computerContext.lastResetSeq
                   : e.ts > (meta?.computerContext?.lastResetAt ?? 0)).map((e) => e.message) as unknown as Parameters<typeof buildMessagesFromReplayEvents>[0]),
-                mode: 'exact', reconstructed: false, summaryThroughSeq: undefined, tailEvents: undefined }
+                mode: 'exact', reconstructed: false, summaryThroughSeq: undefined, tailEvents: undefined, summaryNotice: undefined }
             : await replayMessagesWithResumePolicy(cwd, this.workflowId, undefined, { leafSeq: meta?.leafSeq, attachmentMarkers });
           this.messages = attachmentMarkers ? await restoreChatAttachments(replay.messages as MessageParam[], attachmentMarkers) : replay.messages as MessageParam[];
           this.resetPrefixFreeze('replay');
+          if (replay.summaryNotice) this.emit('system_notice', replay.summaryNotice);
           if (replay.reconstructed) {
             // docs/PERSISTENCE.md - the rewound branch's ancestry
             // had rotated off the size-capped log, so this is a RECONSTRUCTED

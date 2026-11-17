@@ -10,6 +10,7 @@ import { openLogByteSource, readLogLines, type LogByteSource } from '../../event
 import { jsonlLines } from '../../jsonlLines.js';
 import { serverFoldSeed, type ServerCompactionBlock } from './serverFold.js';
 import { isShellToolName } from '@arco/shared';
+import { RECENT_HISTORY_MAX_BYTES } from '../../historyLimits.js';
 
 const isFileRead = (name: string | undefined): boolean => !!name && /^(?:Read|(?:.*__)?(?:read_file|fetch_file))$/i.test(name);
 
@@ -132,6 +133,7 @@ export type ResumeReplayResult = {
   summaryThroughSeq?: number;
   summaryBytes?: number;
   tailEvents?: number;
+  summaryNotice?: string;
   // docs/PERSISTENCE.md - true when a branch-aware (leafSeq)
   // replay walked into ancestry that had rotated off the size-capped log, so
   // the branch was reconstructed from what survived rather than replayed in
@@ -148,12 +150,14 @@ type SummaryCache = {
   throughSeq: number | null;
   lastHandoffSeq: number | null;
   summary: string;
+  summaryNotice?: string;
   inputHistory: ReplayEvent[];
   updatedAt: string;
 };
 
 type SummaryBuild = {
   summary: string;
+  summaryNotice?: string;
   throughSeq: number | null;
   lastHandoffSeq: number | null;
 };
@@ -559,20 +563,25 @@ export function summarizeClaudeNativePriorTurns(events: ReplayEvent[], laterEven
 
   if (turns.length === 0 && !compactSummary) return { summary: '', throughSeq, lastHandoffSeq };
 
-  const lines: string[] = [];
-  if (compactSummary) {
-    lines.push('## Earlier context (operator-compacted)');
-    lines.push('');
-    lines.push(compactSummary.trim());
-    if (compactTail) {
+  const renderPrefix = (summary = compactSummary, tail = compactTail): string => {
+    const lines: string[] = [];
+    if (compactSummary) {
+      lines.push('## Earlier context (operator-compacted)');
       lines.push('');
-      lines.push('### Recent verbatim turns kept at that compaction');
-      lines.push(compactTail);
+      lines.push(summary?.trim() ?? '');
+      if (tail) {
+        lines.push('');
+        lines.push('### Recent verbatim turns kept at that compaction');
+        lines.push(tail);
+      }
+      if (turns.length > 0) lines.push('');
     }
-    if (turns.length > 0) lines.push('');
-  }
-  if (turns.length > 0) lines.push('## Prior turns in this workflow (auto-summary)');
-  turns.forEach((t, i) => {
+    if (turns.length > 0) lines.push('## Prior turns in this workflow (auto-summary)');
+    return lines.join('\n');
+  };
+  let prefix = renderPrefix();
+  const notes = turns.map((t, i) => {
+    const lines: string[] = [];
     const head = t.userText.length > 120 ? t.userText.slice(0, 120) + '...' : t.userText;
     lines.push('');
     lines.push(`### Turn ${i + 1}: ${head}`);
@@ -599,8 +608,43 @@ export function summarizeClaudeNativePriorTurns(events: ReplayEvent[], laterEven
       const reply = t.finalReply.trim().replace(/\s+/g, ' ').slice(0, 240);
       lines.push(`- Assistant reply: "${reply}${t.finalReply.length > 240 ? '...' : ''}"`);
     }
+    return lines.join('\n');
   });
-  return { summary: lines.join('\n'), throughSeq, lastHandoffSeq };
+  const noteBytes = notes.map(note => Buffer.byteLength(note, 'utf8') + 1);
+  let retainedBytes = noteBytes.reduce((sum, bytes) => sum + bytes, 0);
+  if (Buffer.byteLength(prefix, 'utf8') + retainedBytes <= RECENT_HISTORY_MAX_BYTES) {
+    return { summary: [prefix, ...notes].join('\n'), throughSeq, lastHandoffSeq };
+  }
+
+  let omitted = 0;
+  let shortened = false;
+  const notice = () => `Earlier context: ${omitted} oldest turn note${omitted === 1 ? '' : 's'} ${omitted === 1 ? 'was' : 'were'} left out${shortened ? ' and compacted context was shortened' : ''} to stay within 128 KiB.`;
+  const prefixBytes = Buffer.byteLength(prefix, 'utf8');
+  while (omitted < notes.length && prefixBytes + 1 + Buffer.byteLength(notice(), 'utf8') + retainedBytes > RECENT_HISTORY_MAX_BYTES) {
+    retainedBytes -= noteBytes[omitted++];
+  }
+  if (prefixBytes + 1 + Buffer.byteLength(notice(), 'utf8') > RECENT_HISTORY_MAX_BYTES) {
+    // The compacted context itself can be larger than the budget. Preserve its
+    // kept-tail digest first, then as much summary text as fits, without cutting
+    // a UTF-8 character. The same notice discloses this exceptional shortening.
+    shortened = true;
+    const budget = RECENT_HISTORY_MAX_BYTES - Buffer.byteLength(notice(), 'utf8') - 1;
+    const clip = (text: string, bytes: number): string => {
+      const encoded = Buffer.from(text, 'utf8');
+      let end = Math.min(encoded.length, Math.max(0, bytes));
+      while (end > 0 && (encoded[end] & 0xc0) === 0x80) end--;
+      return encoded.subarray(0, end).toString('utf8');
+    };
+    const tailPrefix = renderPrefix('', compactTail);
+    if (Buffer.byteLength(tailPrefix, 'utf8') <= budget) {
+      prefix = renderPrefix(clip(compactSummary?.trim() ?? '', budget - Buffer.byteLength(tailPrefix, 'utf8')), compactTail);
+    } else {
+      const overhead = Buffer.byteLength(renderPrefix('', 'x'), 'utf8') - 1;
+      prefix = renderPrefix('', clip(compactTail ?? '', budget - overhead));
+    }
+  }
+  const summaryNotice = notice();
+  return { summary: [prefix, summaryNotice, ...notes.slice(omitted)].join('\n'), summaryNotice, throughSeq, lastHandoffSeq };
 }
 
 async function readSummaryCache(path: string, workflowId: string, sourceSize: number, tailStartByte: number): Promise<SummaryCache | null> {
@@ -613,7 +657,8 @@ async function readSummaryCache(path: string, workflowId: string, sourceSize: nu
       parsed.workflowId === workflowId &&
       parsed.sourceSize === sourceSize &&
       parsed.tailStartByte === tailStartByte &&
-      typeof parsed.summary === 'string' && Array.isArray(parsed.inputHistory)
+      typeof parsed.summary === 'string' && Buffer.byteLength(parsed.summary, 'utf8') <= RECENT_HISTORY_MAX_BYTES && Array.isArray(parsed.inputHistory)
+      && (parsed.summaryNotice === undefined || typeof parsed.summaryNotice === 'string')
       && parsed.inputHistory.every(event => (event?.type === 'user_message_echo' && typeof event.content === 'string') || (event?.type === 'queued_messages_drained' && typeof event.deliveryId === 'string'))
     ) {
       return parsed as SummaryCache;
@@ -740,6 +785,7 @@ async function replayFromSource(cwd: string, workflowId: string, source: LogSour
       throughSeq: built.throughSeq,
       lastHandoffSeq: built.lastHandoffSeq,
       summary: built.summary,
+      summaryNotice: built.summaryNotice,
       inputHistory: referencedInputRecords(tailEvents, olderEvents),
       updatedAt: new Date().toISOString(),
     };
@@ -754,5 +800,6 @@ async function replayFromSource(cwd: string, workflowId: string, source: LogSour
     summaryThroughSeq: cache.throughSeq ?? undefined,
     summaryBytes: cache.summary.length,
     tailEvents: tailEvents.length,
+    ...(cache.summaryNotice ? { summaryNotice: cache.summaryNotice } : {}),
   };
 }
