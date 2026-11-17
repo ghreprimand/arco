@@ -988,6 +988,11 @@ export const clusters: Section[] = [
   members check peer mail and act on it. They report when the result arrives.
   </p>
   <p>
+  After a progress report or an answer while assigned work remains, non-Director
+  members and standalone agents continue that work in the same turn; they end
+  the turn only when it is done or with one stated blocker.
+  </p>
+  <p>
   If blocked or if a job clearly cannot finish within a reasonable time,
   the agent names what it is waiting on and says that a nudge is needed
   before ending its turn. This guidance adds no automatic completion wake.

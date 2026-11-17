@@ -206,6 +206,11 @@ test('role-aware coordination and all mail entry points preserve required review
       assert.ok(prompt.includes(`${guardLine}\n\n${sendCheck}`));
     }
     const workerWait = buildTurnWaitInstructions('Implementer');
+    const continueWork = 'When you report progress or answer a question while assigned work is unfinished, continue that work in the same turn; end the turn only when it is done or with one stated blocker.';
+    for (const role of [undefined, ...ROLE_PRESETS.filter((preset) => preset.key !== 'director').map((preset) => preset.text)]) {
+      assert.equal(buildTurnWaitInstructions(role).split(continueWork).length - 1, 1);
+    }
+    assert.doesNotMatch(buildTurnWaitInstructions('Director'), /continue that work in the same turn/);
     for (const [role, coordination] of [['Director', director], ['Implementer', builder]] as const) {
       assert.doesNotMatch(coordination, /60 seconds|120 seconds/);
       const expected = buildTurnWaitInstructions(role);

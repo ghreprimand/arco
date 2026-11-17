@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Tell non-Director agents to continue unfinished work in the same turn after reporting progress or answering a question.
+
 - Cap Claude Native older-turn resume summaries at 128 KiB, keep compacted context first and disclose omitted turns.
 
 - Connect contextual help for the Cursor changelog link and replacement dialog CANCEL button.
