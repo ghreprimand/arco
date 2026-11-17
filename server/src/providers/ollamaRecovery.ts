@@ -1,8 +1,8 @@
 // Ollama auto-compaction (Master-plan M8 / Hardening §6 Phase 4).
 //
 // This is a PORT of `llamacppRecovery.ts`'s auto-compaction to the Ollama
-// provider, sharpened with the two tool-message invariants odysseus learned the
-// hard way (sanitize orphaned tool turns, truncate oversized tool-call args).
+// provider, with two tool-message invariants ported from Odysseus
+// (sanitize orphaned tool turns, truncate oversized tool-call args).
 // Read `llamacppRecovery.ts` first — this module mirrors its operator-facing
 // POSTURE exactly: opt-in by choosing the provider (default-on for the provider,
 // env-gated off), bounded by a deterministic context-fill threshold, every
@@ -13,8 +13,8 @@
 // ── WHY THE TRANSFORM DIFFERS FROM llamacppRecovery.performCompaction ─────────
 // The reference asks the PRIMARY model to summarize its whole stack and reseeds
 // `[system, seed]`. M8's spec (Hardening §6) is sharper, matching odysseus:
-//   - keep the leading system block intact (odysseus dropped it with a naïve
-//     split — load-bearing);
+//   - keep the leading system block intact (a naive midpoint split can drop
+//     the system prompt - load-bearing);
 //   - keep the current turn + last-10 messages VERBATIM (the recent tail the
 //     model needs to continue coherently — a summary of the last few turns
 //     loses the exact state the model is mid-edit on);
@@ -389,8 +389,8 @@ export function splitForCompaction(
   keepLastMessages: number,
 ): { system: CompactMessage[]; older: CompactMessage[]; tail: CompactMessage[] } {
   // Leading system block: all consecutive system messages at the front. Preserve
-  // them verbatim — odysseus's bug was dropping the system prompt with a naïve
-  // midpoint split. Offset the split past it.
+  // them verbatim - a naive midpoint split can drop the system prompt.
+  // Offset the split past it.
   let sysEnd = 0;
   while (sysEnd < messages.length && messages[sysEnd].role === 'system') sysEnd++;
   const system = messages.slice(0, sysEnd);

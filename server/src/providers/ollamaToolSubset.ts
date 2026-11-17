@@ -5,14 +5,14 @@ import { PLAN_TOOL_NAMES } from '../planTools.js';
 // ── Why subset at all ───────────────────────────────────────────────────────
 // Arco advertises its ENTIRE tool registry on every /api/chat turn. On
 // 7B–30B-class local models a large tool-schema payload degrades tool
-// selection (wrong-tool / single-token-stop failures — odysseus #1567) AND
+// selection (wrong-tool / single-token-stop failures) AND
 // burns input context (the schemas ride every request). We trim the advertised
 // set to a relevant top-K so the schema stays small and selection stays sharp.
 //
 // ── Why a HEURISTIC (no embeddings) ─────────────────────────────────────────
 // Arco's catalog is ~12 tools. Keyword/term-overlap ranking against the
-// task context is more than enough; an embedding model + vector index (what
-// odysseus's tool_index.py uses) is rejected as overkill for a 12-item set
+// task context is more than enough; an embedding model + vector index is
+// rejected as overkill for a 12-item set
 // (Hardening §1 "Out"). Deterministic, readable, inspectable — the M10
 // guardrail.
 //

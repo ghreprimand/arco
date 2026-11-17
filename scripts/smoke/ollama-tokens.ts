@@ -6,7 +6,7 @@
 // Offline-runnable (CI has no daemon); exercises the ACCOUNTING logic, not a
 // real model response.
 //
-// The load-bearing assertion (Hardening §5, odysseus 6973c54): a tool-CALL
+// The load-bearing assertion (Hardening §5): a tool-CALL
 // assistant turn carries empty `content` with the whole payload in
 // `tool_calls[].function.arguments`. A naïve content-only estimate undershoots
 // 20-30% there and the M8 compaction gate goes blind. So this test proves the

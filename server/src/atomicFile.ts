@@ -2,8 +2,7 @@
 //
 // Before this module, ~20 call sites hand-rolled `write tmp -> rename`, 11 of
 // them via byte-identical private `atomicWrite` helpers. They shared three
-// defects (Odysseus delta audit, 2026-08-30 — docs/PERSISTENCE.md § Atomic
-// writes):
+// defects (see docs/PERSISTENCE.md, Atomic writes):
 //
 //   1. NO fsync. `rename` is atomic for the directory entry, but the bytes may
 //      still be in the page cache. A crash between write and flush can leave a

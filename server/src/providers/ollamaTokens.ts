@@ -17,7 +17,7 @@ import { imageBase64TokenCost } from '../imageTokens.js';
 //      so it can compact BEFORE the request overflows the window, not after a
 //      400. This module is that estimate.
 //
-// THE LOAD-BEARING GOTCHA (odysseus 6973c54, Hardening §5): a naïve estimate
+// THE LOAD-BEARING GOTCHA (Hardening §5): a naïve estimate
 // that only counts visible `content` text undershoots by 20-30% on tool-heavy
 // transcripts, because a tool-CALL assistant turn carries `content:""` with
 // the entire payload in `tool_calls[].function.arguments`, and a tool-RESULT

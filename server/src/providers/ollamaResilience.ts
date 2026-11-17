@@ -50,9 +50,9 @@ export interface ResolvedBackend {
 
 // ── Cooldown TTLs (Hardening §4: SHORT 5–15s, not minutes) ────────────────
 //
-// A blipped Tailscale host must rejoin selection fast — odysseus's hard-won
-// lesson: "a SINGLE transient blip used to trip a full 60s lockout — the user
-// saw a 503 and thought the model died when it was fine a second later." We
+// A blipped Tailscale host must rejoin selection fast. A single transient
+// failure must not impose a full 60s lockout after the backend has recovered,
+// leaving requests blocked even though the host is healthy again. We
 // cool reactively on the failure itself (no per-minute %-failure math — at low
 // local request volume a single failure IS the whole signal, per Excellence
 // §"Deliberately rejected") and recover lazily once the TTL lapses.
