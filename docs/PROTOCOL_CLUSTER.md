@@ -271,8 +271,9 @@ session. The server clones the source WorkflowConfig plus name/role/tier/focus,
 then applies every field the request carries: provider/model/effort/account,
 access, `name` (non-empty renames), `role` (empty clears; a second director is
 refused with `multiple_directors`) and the member tuning above.
-`includeHistory` and `transferActiveTasks` are independent opt-ins. ISOLATED
-members reject both options.
+`historyMode` and `transferActiveTasks` are independent choices. History defaults to `none`; legacy `includeHistory: true` selects `full`. ISOLATED members reject history and task transfer. `recent` accepts 1 to 50 turns (default 10) within a 128 KiB seed; `full` preserves the old transcript and action digest within 512 KiB, otherwise fitting the newest contiguous whole turns within that budget through the shared transcript reader. Tools and attachments become receipts in reduced copies. No text is clipped; an oversized newest turn can produce an explicit zero-turn copy.
+
+New clients request `transcript_worker_preview` with `replacement: { clusterId, mode }` and send its token. The existing socket-owned cache fixes the cutoff and checks the history again before replacement. Preview fields include selected/requested/available turns, bytes, `truncated` and `historyFallback`; REPLACE stays disabled until the preview completes. Changed or rewound history requires a fresh preview. Legacy requests without a history mode still work without a token. A partial copy adds one persisted `system_notice` in the new workflow; old conversation files remain. The existing fitting full-history renderer retains its event array; this change does not promise bounded memory for that legacy renderer.
 
 ```ts
 {
@@ -292,7 +293,10 @@ members reject both options.
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive',
   fastMode?: boolean,
   autoCompaction?: { enabled: boolean, thresholdPercent: number } | null,
-  includeHistory?: boolean,
+  includeHistory?: boolean,        // legacy true selects full
+  historyMode?: 'none' | 'recent' | 'full',
+  historyTurns?: number,           // 1..50, default 10
+  historyToken?: string,           // required by new history-mode clients
   transferActiveTasks?: boolean
 }
 

@@ -23,7 +23,7 @@ DIRECTOR = "Director role. Delegate via peer_send, never Task; don't write code;
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=chrome_executable() or None)
-        page = await browser.new_page(viewport={'width': 1500, 'height': 1000})
+        page = await browser.new_page(viewport={'width': 1500, 'height': 1000}, has_touch=True)
         # Standard layout: the controls are checked, not the layout.
         await page.add_init_script("localStorage.setItem('arco.layoutMode', 'standard')")
         blocked, errors = [], []
@@ -74,6 +74,7 @@ async def main():
           const {useAppStore:s} = await import('/src/stores/appStore.ts');
           const {handleServerMessage:receive} = await import('/src/ws/handleServerMessage.ts');
           window.fresh=[]; window.raw=[];
+          s.setState({connected:true});
           s.getState().setWsSendRaw((m) => { raw.push(m); return true; });
           // The first member is the ADD FRESH template; the second is replaced.
           s.getState().createJob('lead',{name:'Lead',workingDirectory:'/projects/fixture',primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'low',skipPermissions:false,outputStyle:'lite',efficiencyToolFilter:'conservative'});
@@ -148,6 +149,62 @@ async def main():
         expected = {'name': 'Checker', 'tier': None, 'focus': '', 'outputStyle': 'normal', 'efficiencyToolFilter': 'aggressive', 'fastMode': False, 'autoCompaction': None}
         assert {k: sent.get(k, 'missing') for k in expected} == expected, sent
         assert sent['role'].startswith('Implementer role'), sent
+        # Replacement history shares the server-owned transcript preview.
+        # One Narrow touch/keyboard journey checks both reduced modes and the
+        # explicit zero-turn case, without adding a layout or theme matrix.
+        await page.set_viewport_size({'width': 430, 'height': 1000})
+        await page.evaluate("""async () => {
+          const {setLayoutMode} = await import('/src/layout/layoutRange.ts');
+          setLayoutMode('narrow');
+          document.documentElement.style.setProperty('--ui-scale', '1.1');
+        }""")
+        await page.get_by_role('button', name='MORE', exact=True).click()
+        if await helper_row.count() == 0:
+            await page.get_by_role('button', name='MEMBERS', exact=True).first.click()
+        await helper_row.click()
+        history = page.get_by_role('combobox', name='Replacement history')
+        await expect(history).to_have_value('none')
+        await history.select_option('recent')
+        turns = page.get_by_role('spinbutton', name='Recent history turns')
+        await expect(turns).to_have_value('10')
+        await expect(confirm).to_be_disabled()
+        preview_request = await page.evaluate("raw.findLast(m => m.type === 'transcript_worker_preview')")
+        assert preview_request['turns'] == 10 and preview_request['replacement'] == {'clusterId': 'c1', 'mode': 'recent'}, preview_request
+        async def preview_response(request, selected, available, fallback=False):
+            await page.evaluate("""async ({request,selected,available,fallback}) => {
+              const {handleServerMessage:receive} = await import('/src/ws/handleServerMessage.ts');
+              receive({type:'transcript_worker_result',requestId:request.requestId,preview:{token:'replacement-preview',seed:selected?'quoted history':'',bytes:selected?12345:0,availableTurns:available,selectedTurns:selected,partialIncluded:false,cutoffSeq:30,historyMode:request.replacement.mode,requestedTurns:request.turns,truncated:selected<available,historyFallback:fallback}},{wsRef:{current:null},scheduleReconnect:()=>{}});
+            }""", {'request':request,'selected':selected,'available':available,'fallback':fallback})
+        await preview_response(preview_request, 7, 30)
+        await expect(page.get_by_text('Only 7 of the requested 10 turns fit within 128 KiB.', exact=False)).to_be_visible()
+        await expect(confirm).to_be_enabled()
+        await turns.fill('51')
+        await expect(confirm).to_be_disabled()
+        await expect(page.get_by_text('Choose from 1 to 50 turns.', exact=True)).to_be_visible()
+        await turns.fill('10')
+        await page.wait_for_function("raw.filter(m=>m.type==='transcript_worker_preview').length === 2")
+        preview_request = await page.evaluate("raw.findLast(m => m.type === 'transcript_worker_preview')")
+        await preview_response(preview_request, 7, 30)
+        await confirm.focus()
+        await page.keyboard.press('Enter')
+        sent = await page.evaluate('raw.at(-1)')
+        assert sent['historyMode'] == 'recent' and sent['historyTurns'] == 10 and sent['historyToken'] == 'replacement-preview', sent
+        await helper_row.click()
+        await history.select_option('full')
+        await expect(confirm).to_be_disabled()
+        preview_request = await page.evaluate("raw.findLast(m => m.type === 'transcript_worker_preview')")
+        await preview_response(preview_request, 12, 30, True)
+        await expect(page.get_by_text('Only the most recent 12 of 30 turns fit within 512 KiB.', exact=False)).to_be_visible()
+        await confirm.tap()
+        sent = await page.evaluate('raw.at(-1)')
+        assert sent['historyMode'] == 'full' and sent['historyToken'] == 'replacement-preview', sent
+        await helper_row.click()
+        await history.select_option('recent')
+        preview_request = await page.evaluate("raw.findLast(m => m.type === 'transcript_worker_preview')")
+        await preview_response(preview_request, 0, 30)
+        await expect(page.get_by_text('No whole recent turn fits the history limit.', exact=False)).to_be_visible()
+        await expect(confirm).to_be_enabled()
+        await page.get_by_role('button', name='CANCEL', exact=True).click()
         # A custom DIRECTOR role while another member directs keeps REPLACE unavailable.
         await helper_row.click()
         await page.get_by_test_id('replace-role-custom').fill('Director of tests')

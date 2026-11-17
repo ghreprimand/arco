@@ -1,3 +1,5 @@
+import { buildReplacementHistory, replacementHistoryNotice } from '../replacementHistory.js';
+import { takeReplacementHistoryPreview } from './transcriptWorkerHandlers.js';
 import { existingClusterMemberRefusal } from '../existingClusterMembers.js';
 import { isClusterCreationSettings, isClusterMessageGuard, clusterDirectorProblem, isClusterDirector, normalizeClusterRoleText, presetForText } from '@arco/shared';
 import { disabledClusterProvider, localCapacityRefusal, memberProvider } from '../localCapacity.js';
@@ -40,7 +42,6 @@ import * as clusterRehydrate from '../clusterRehydrate.js';
 import * as clusterStore from '../clusterStore.js';
 import { refreshHubReporting } from '../management/initHubLink.js';
 import { replayEvents } from '../workflowStore.js';
-import { renderTranscript, summarizePriorTurns } from '../primitives/exportContext.js';
 import * as taskDispatcher from '../taskDispatcher.js';
 import * as taskLedger from '../project/taskLedger.js';
 import * as orchestrationProposals from '../project/orchestrationProposals.js';
@@ -1931,8 +1932,6 @@ export async function handleClusterAddFreshWorkers(
   console.log(`[arco] cluster ${msg.clusterId.slice(0, 8)} grew by ${newIds.length} fresh workers`);
 }
 
-const REPLACEMENT_HISTORY_MAX_BYTES = 512 * 1024;
-
 // The name and role a REPLACE request carries, as a refusal code or null.
 function replaceIdentityRefusal(cluster: clusterStore.ClusterState, msg: import('@arco/shared').ClusterMemberReplaceMessage): string | null {
   if (msg.name !== undefined && (typeof msg.name !== 'string' || msg.name.trim().length > 64)) return 'invalid_name';
@@ -1967,7 +1966,9 @@ export async function handleClusterMemberReplace(
     send(ws, { type: 'error', message: 'cluster_member_replace rejected: invalid_access_mode' });
     return;
   }
-  if (accessMode === 'isolated' && (msg.includeHistory || msg.transferActiveTasks)) {
+  const historyMode = msg.historyMode ?? (msg.includeHistory ? 'full' : 'none');
+  if (!['none', 'recent', 'full'].includes(historyMode)) { send(ws, { type: 'error', message: 'cluster_member_replace rejected: invalid_history_mode' }); return; }
+  if (accessMode === 'isolated' && (historyMode !== 'none' || msg.transferActiveTasks)) {
     send(ws, { type: 'error', message: 'cluster_member_replace rejected: isolated_requires_fresh_context_and_no_tasks' });
     return;
   }
@@ -2003,22 +2004,21 @@ export async function handleClusterMemberReplace(
     }
   }
 
-  let historySeed = '';
-  if (msg.includeHistory) {
-    const events = await replayEvents(cluster.cwd, msg.workflowId, 0).catch(() => []);
-    const transcript = renderTranscript(events).trim();
-    const actions = summarizePriorTurns(events).trim();
-    historySeed = [
-      '[REPLACEMENT CONTEXT — copied by explicit operator request; this is a new provider session]',
-      transcript,
-      actions ? `\n[Prior-turn action digest]\n${actions}` : '',
-      '\nAcknowledge this imported context briefly, then wait for the operator.',
-    ].filter(Boolean).join('\n\n');
-    if (Buffer.byteLength(historySeed, 'utf8') > REPLACEMENT_HISTORY_MAX_BYTES) {
-      send(ws, {
-        type: 'error',
-        message: `cluster_member_replace rejected: history_too_large (>${REPLACEMENT_HISTORY_MAX_BYTES} bytes)`,
-      });
+  let historySeed = '', historyNotice: string | undefined;
+  if (historyMode !== 'none') {
+    const turns = msg.historyTurns ?? 10;
+    try {
+      if (!Number.isInteger(turns) || turns < 1 || turns > 50) throw new Error('Choose from 1 to 50 recent turns.');
+      const preview = msg.historyToken
+        ? await takeReplacementHistoryPreview(ws, msg.clusterId, msg.workflowId, historyMode, turns, msg.historyToken)
+        : msg.historyMode !== undefined
+          ? (() => { throw new Error('Preview the history before replacing this member.'); })()
+          : await buildReplacementHistory(cluster.cwd, msg.workflowId, 'full', { turns, includePartial: false, preface: '', wasBusy: false });
+      historySeed = preview.seed;
+      historyNotice = replacementHistoryNotice(preview);
+      if (source.busy) throw new Error('The member started working. Wait for it to finish and refresh the preview.');
+    } catch (err) {
+      send(ws, { type: 'error', message: `cluster_member_replace rejected: ${err instanceof Error ? err.message : String(err)}` });
       return;
     }
   }
@@ -2101,7 +2101,7 @@ export async function handleClusterMemberReplace(
     oldWorkflowId: msg.workflowId,
     newWorkflowId,
     accessMode,
-    historyIncluded: !!msg.includeHistory,
+    historyIncluded: !!historySeed,
     transferredTaskCount,
     member: {
       workflowId: newWorkflowId,
@@ -2122,6 +2122,7 @@ export async function handleClusterMemberReplace(
   const payload = await buildClusterStatePayload(msg.clusterId);
   if (payload) broadcastCluster(msg.clusterId, { type: 'cluster_state', clusterId: msg.clusterId, state: payload });
 
+  if (historyNotice) broadcastWorkflow(newWorkflowId, { type: 'system_notice', workflowId: newWorkflowId, content: historyNotice });
   if (historySeed) {
     await deps.handleUserMessage(
       ws,

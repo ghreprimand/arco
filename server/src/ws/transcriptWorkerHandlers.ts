@@ -1,3 +1,5 @@
+import * as clusterStore from '../clusterStore.js';
+import { buildReplacementHistory } from '../replacementHistory.js';
 import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import type WebSocket from 'ws';
@@ -18,8 +20,8 @@ interface Dependencies {
 }
 let deps: Dependencies;
 export function initTranscriptWorkerHandlers(value: Dependencies): void { deps = value; }
-type Slice = Awaited<ReturnType<typeof buildTranscriptWorkerSlice>>;
-interface Snapshot { owner: WebSocket; source: string; cwd: string; options: TranscriptSliceOptions; slice: Slice; expires: number; created?: string; creating?: Promise<string> }
+type Slice = Awaited<ReturnType<typeof buildTranscriptWorkerSlice>> | Awaited<ReturnType<typeof buildReplacementHistory>>;
+interface Snapshot { replacement?: { clusterId: string; mode: 'recent' | 'full' }; claimed?: boolean; owner: WebSocket; source: string; cwd: string; options: TranscriptSliceOptions; slice: Slice; expires: number; created?: string; creating?: Promise<string> }
 const snapshots = new Map<string, Snapshot>();
 function prune(): void {
   for (const [token, entry] of snapshots) if (entry.expires < Date.now() && !entry.creating) snapshots.delete(token);
@@ -40,10 +42,20 @@ export async function handleTranscriptWorkerPreview(ws: WebSocket, message: Tran
     prune();
     const source = sourceFor(message.workflowId);
     const options: TranscriptSliceOptions = { turns: message.turns, includePartial: message.includePartial, preface: message.preface, wasBusy: source.busy };
-    const cwd = source.config.workingDirectory;
-    const slice = await buildTranscriptWorkerSlice(cwd, message.workflowId, options);
+    let cwd = source.config.workingDirectory;
+    if (message.replacement) {
+      const cluster = await clusterStore.readCluster(message.replacement.clusterId);
+      if (!cluster?.members.includes(message.workflowId)) throw new Error('Choose an available cluster member.');
+      if (source.busy) throw new Error('Wait for the member to finish before replacing it.');
+      if (!['recent', 'full'].includes(message.replacement.mode)) throw new Error('Choose a valid history mode.');
+      cwd = cluster.cwd;
+      options.includePartial = false; options.preface = ''; options.wasBusy = false;
+    }
+    const slice = message.replacement
+      ? await buildReplacementHistory(cwd, message.workflowId, message.replacement.mode, options)
+      : await buildTranscriptWorkerSlice(cwd, message.workflowId, options);
     const token = randomUUID();
-    snapshots.set(token, { owner: ws, source: message.workflowId, cwd, options: { ...options, cutoffSeq: slice.cutoffSeq }, slice, expires: Date.now() + 10 * 60_000 });
+    snapshots.set(token, { replacement: message.replacement, owner: ws, source: message.workflowId, cwd, options: { ...options, cutoffSeq: slice.cutoffSeq }, slice, expires: Date.now() + 10 * 60_000 });
     const { digest: _digest, branchKey: _branch, ...preview } = slice;
     send(ws, { type: 'transcript_worker_result', requestId: message.requestId, preview: { ...preview, token } });
   } catch (error) {
@@ -73,7 +85,7 @@ async function destinationConfig(message: TranscriptWorkerCreateMessage): Promis
 export async function handleTranscriptWorkerCreate(ws: WebSocket, session: Session, message: TranscriptWorkerCreateMessage): Promise<void> {
   try {
     const entry = snapshots.get(message.token);
-    if (!entry || entry.owner !== ws || entry.expires < Date.now()) throw new Error('The preview expired or disconnected. Refresh the preview before sending.');
+    if (!entry || entry.owner !== ws || entry.replacement || entry.expires < Date.now()) throw new Error('The preview expired or disconnected. Refresh the preview before sending.');
     if (!entry.created && !entry.creating) {
       entry.creating = (async () => {
         const source = sourceFor(entry.source);
@@ -95,4 +107,20 @@ export async function handleTranscriptWorkerCreate(ws: WebSocket, session: Sessi
     if (entry && !entry.created) entry.creating = undefined;
     send(ws, { type: 'transcript_worker_result', requestId: message.requestId, error: error instanceof Error ? error.message : String(error) });
   }
+}
+
+
+// REPLACE consumes the same socket-bound, fixed-cutoff preview as NEW WORKER.
+// Claim after checking again so a repeated submit cannot allocate two members.
+export async function takeReplacementHistoryPreview(ws: WebSocket, clusterId: string, workflowId: string, mode: 'recent' | 'full', turns: number, token: string) {
+  const entry = snapshots.get(token);
+  if (!entry || entry.owner !== ws || entry.expires < Date.now() || entry.source !== workflowId
+    || entry.replacement?.clusterId !== clusterId || entry.replacement.mode !== mode || entry.options.turns !== turns) {
+    throw new Error('The history preview expired or changed. Refresh it before replacing.');
+  }
+  const current = await buildReplacementHistory(entry.cwd, workflowId, mode, entry.options);
+  if (current.digest !== entry.slice.digest) throw new Error('The source history changed or was rewound. Refresh the preview.');
+  if (entry.claimed) throw new Error('This history preview was already used. Refresh it before replacing again.');
+  entry.claimed = true;
+  return current;
 }

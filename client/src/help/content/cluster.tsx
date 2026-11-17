@@ -561,19 +561,20 @@ export const clusterHelp: Record<string, HelpEntry> = {
     manualSection: 'cluster-member-replacement',
   },
   'cluster.replace.history': {
-    title: 'Include prior workflow history',
+    title: 'Replacement history',
     body: (
       <>
-        <p>
-          OFF gives the replacement the same clean start as any fresh cluster
-          worker. ON copies a transcript and action digest into one explicit,
-          visible seed turn; it spends a model call and still does not reuse
-          the old provider session.
-        </p>
-        <p>
-          Leave this OFF for a genuinely context-blind replacement. It is
-          unavailable for <C>ISOLATED</C>.
-        </p>
+        <p><C>NO HISTORY</C> is the default. <C>RECENT HISTORY</C> copies the last
+          10 whole turns; choose 1 to 50 within 128 KiB. Text stays word for
+          word, with receipts for tools and attached files.</p>
+        <p><C>FULL HISTORY</C> keeps the prior transcript and action digest when
+          they fit 512 KiB. Otherwise the newest whole turns that fit are copied
+          with tool/file receipts. The preview gives the count before REPLACE;
+          nothing is clipped. A zero-turn preview means no history is copied.</p>
+        <p>A partial copy adds one plain line to the new tab. Earlier history
+          stays in the previous conversation. A nonempty seed spends a model
+          call and never reuses the old provider session. History is unavailable
+          for <C>ISOLATED</C>.</p>
       </>
     ),
     manualSection: 'cluster-member-replacement',

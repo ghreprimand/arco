@@ -688,6 +688,10 @@ export interface ClusterMemberReplaceMessage extends ClusterMemberTuning {
   // Absent keeps the old role; an empty string clears it.
   role?: string;
   includeHistory?: boolean;
+  // Legacy includeHistory:true means full. New clients send the preview token.
+  historyMode?: 'none' | 'recent' | 'full';
+  historyTurns?: number;
+  historyToken?: string;
   transferActiveTasks?: boolean;
 }
 

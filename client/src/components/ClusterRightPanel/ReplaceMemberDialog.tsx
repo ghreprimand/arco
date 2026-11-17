@@ -12,6 +12,7 @@ import {
   type ClusterStatePayload,
   type EffortLevel,
   type ModelName,
+  type TranscriptWorkerPreview,
 } from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
@@ -19,6 +20,7 @@ import { effortsForModel } from '../../utils/format';
 import { capDefaultEffort } from '../../utils/effortDefaults';
 import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
 import { MemberSettingsFields } from './MemberSettingsFields';
+import { requestTranscriptWorker } from '../../utils/transcriptWorkerRequest';
 import { memberSettingsFrom, memberTuning, type MemberSettings } from './memberSettings';
 
 const menuStyle: CSSProperties = {
@@ -67,7 +69,32 @@ export function ReplaceMemberDialog({
   const [role, setRole] = useState(member.role ?? '');
   const [memberSettings, setMemberSettings] = useState<MemberSettings>(() => memberSettingsFrom(job?.config, { tier: member.tier, focus: member.focus, keepAutoCompaction: true }));
   const otherDirector = cluster.members.some((m) => m.workflowId !== member.workflowId && isClusterDirector(m.role));
-  const [includeHistory, setIncludeHistory] = useState(false);
+  const [historyMode, setHistoryMode] = useState<'none' | 'recent' | 'full'>('none');
+  const [historyTurns, setHistoryTurns] = useState('10');
+  const [historyResult, setHistoryResult] = useState<{ key: string; preview: TranscriptWorkerPreview } | null>(null);
+  const [historyError, setHistoryError] = useState('');
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const turnCount = Number(historyTurns);
+  const validTurns = Number.isInteger(turnCount) && turnCount >= 1 && turnCount <= 50;
+  const historyKey = `${cluster.clusterId}:${member.workflowId}:${historyMode}:${historyMode === 'recent' ? historyTurns : '10'}`;
+  const historyPreview = historyResult?.key === historyKey ? historyResult.preview : null;
+  useEffect(() => {
+    let active = true;
+    setHistoryError(''); setHistoryResult(null);
+    if (historyMode === 'none') { setHistoryLoading(false); return; }
+    if (historyMode === 'recent' && !validTurns) { setHistoryLoading(false); setHistoryError('Choose from 1 to 50 turns.'); return; }
+    setHistoryLoading(true);
+    void requestTranscriptWorker({ type: 'transcript_worker_preview', workflowId: member.workflowId,
+      turns: historyMode === 'recent' ? turnCount : 10, includePartial: false, preface: '',
+      replacement: { clusterId: cluster.clusterId, mode: historyMode },
+    }).then(result => {
+      if (!active) return;
+      if (!result.preview) throw new Error('The history preview is unavailable. Choose the history mode again.');
+      setHistoryResult({ key: historyKey, preview: result.preview });
+    }).catch(error => { if (active) setHistoryError(error instanceof Error ? error.message : String(error)); })
+      .finally(() => { if (active) setHistoryLoading(false); });
+    return () => { active = false; };
+  }, [historyKey]);
   const [transferTasks, setTransferTasks] = useState(true);
   const codexAccounts = settings?.providerAccounts?.codex ?? [];
   const codexCatalog = useCodexCatalogFor(account);
@@ -116,15 +143,15 @@ export function ReplaceMemberDialog({
     setAccessMode(next);
     if (next === 'isolated') {
       if (provider !== 'claude') pickProvider('claude');
-      setIncludeHistory(false);
+      setHistoryMode('none');
       setTransferTasks(false);
     }
   };
 
   const directorBlocked = isClusterDirector(role) && otherDirector;
-  const ready = !!model && !directorBlocked;
+  const ready = !!model && !directorBlocked && (historyMode === 'none' || (!!historyPreview && !historyLoading && !historyError));
   const submit = () => {
-    if (!wsSendRaw || !model || directorBlocked) return;
+    if (!wsSendRaw || !ready) return;
     wsSendRaw({
       type: 'cluster_member_replace',
       clusterId: cluster.clusterId,
@@ -137,7 +164,9 @@ export function ReplaceMemberDialog({
       ...(name.trim() && name.trim() !== originalName ? { name: name.trim() } : {}),
       role: role.trim(),
       ...memberTuning(memberSettings, provider),
-      includeHistory,
+      includeHistory: historyMode !== 'none',
+      historyMode,
+      ...(historyMode !== 'none' ? { historyTurns: historyMode === 'recent' ? turnCount : 10, historyToken: historyPreview!.token } : {}),
       transferActiveTasks: transferTasks,
     });
     onClose();
@@ -316,17 +345,37 @@ export function ReplaceMemberDialog({
       <label
         className="display-font"
         data-help="cluster.replace.history"
-        style={{ fontSize: '10px', color: 'var(--color-fg)', opacity: accessMode === 'isolated' ? 0.45 : 1 }}
+        style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px', fontSize: '10px', color: 'var(--color-fg)', opacity: accessMode === 'isolated' ? 0.45 : 1 }}
       >
-        <input
-          type="checkbox"
-          data-help="cluster.replace.history"
-          checked={includeHistory}
-          disabled={accessMode === 'isolated'}
-          onChange={(e) => setIncludeHistory(e.target.checked)}
-          style={{ accentColor: 'var(--color-accent-primary)' }}
-        /> INCLUDE PRIOR WORKFLOW HISTORY
+        HISTORY
+        <select aria-label="Replacement history" data-help="cluster.replace.history" value={historyMode}
+          disabled={accessMode === 'isolated'} onChange={event => setHistoryMode(event.target.value as typeof historyMode)} style={menuStyle}>
+          <option value="none">NO HISTORY</option>
+          <option value="recent">RECENT HISTORY</option>
+          <option value="full">FULL HISTORY</option>
+        </select>
       </label>
+      {historyMode === 'recent' && <label className="display-font" data-help="cluster.replace.history" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontSize: '10px' }}>
+        LAST TURNS
+        <input aria-label="Recent history turns" type="number" min={1} max={50} step={1} value={historyTurns}
+          onChange={event => setHistoryTurns(event.target.value)} style={{ ...menuStyle, flex: '0 1 72px', width: '72px' }} />
+        <span style={{ color: 'var(--color-fg-muted)' }}>1 to 50, within 128 KiB</span>
+      </label>}
+      {historyMode !== 'none' && <div role="status" style={{ fontSize: '10px', lineHeight: 1.4, overflowWrap: 'anywhere', color: historyError || historyPreview?.truncated || historyPreview?.historyFallback ? 'var(--color-warning)' : 'var(--color-fg-muted)' }}>
+        {historyLoading ? 'Checking the saved history...' : historyError || (historyPreview && (
+          !historyPreview.selectedTurns && historyPreview.truncated
+            ? 'No whole recent turn fits the history limit. No earlier history will be copied.'
+            : historyMode === 'full' && !historyPreview.historyFallback
+              ? `The full prior transcript and action digest fit within 512 KiB (${historyPreview.bytes} bytes).`
+              : historyMode === 'full'
+                ? historyPreview.truncated
+                  ? `Only the most recent ${historyPreview.selectedTurns} of ${historyPreview.availableTurns} turns fit within 512 KiB. Earlier turns will not be copied.`
+                  : `The full history exceeds 512 KiB. All ${historyPreview.selectedTurns} turns fit as text and tool/file receipts; the full action digest will not be copied.`
+                : historyPreview.selectedTurns < Math.min(turnCount, historyPreview.availableTurns)
+                  ? `Only ${historyPreview.selectedTurns} of the requested ${turnCount} turns fit within 128 KiB. Earlier turns will not be copied (${historyPreview.availableTurns} available).`
+                  : `The most recent ${historyPreview.selectedTurns} of ${historyPreview.availableTurns} available turns will be copied (${historyPreview.bytes} bytes).`
+        ))}
+      </div>}
       <label
         className="display-font"
         data-help="cluster.replace.tasks"
@@ -341,7 +390,7 @@ export function ReplaceMemberDialog({
           style={{ accentColor: 'var(--color-accent-primary)' }}
         /> TRANSFER ACTIVE TASK ASSIGNMENTS
       </label>
-      {includeHistory && (
+      {historyMode !== 'none' && !!historyPreview?.seed && (
         <div style={{ color: 'var(--color-warning)', fontSize: '10px' }}>
           This starts one visible seed turn and spends a model call. No provider session is reused.
         </div>

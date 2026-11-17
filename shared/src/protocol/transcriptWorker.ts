@@ -8,6 +8,10 @@ export interface TranscriptWorkerPreview {
   selectedTurns: number;
   partialIncluded: boolean;
   cutoffSeq: number;
+  historyMode?: 'recent' | 'full';
+  requestedTurns?: number;
+  truncated?: boolean;
+  historyFallback?: boolean;
 }
 
 export interface TranscriptWorkerPreviewMessage {
@@ -17,6 +21,8 @@ export interface TranscriptWorkerPreviewMessage {
   turns: number;
   includePartial: boolean;
   preface: string;
+  // REPLACE shares the fixed transcript-preview flow, with its own budgets.
+  replacement?: { clusterId: string; mode: 'recent' | 'full' };
 }
 
 export interface TranscriptWorkerCreateMessage {

@@ -173,6 +173,70 @@ test('every scratch creation response finishes its exact request, including inva
   assert.deepEqual(messages.at(-1), { type: 'cluster_creation_finished', requestId: 'invalid-settings-fixture' });
 });
 
+test('oversized replacement history creates a fresh member with newest whole turns and a persisted omission notice', async () => {
+  const store = await import('../clusterStore.js');
+  const handlers = await import('./clusterHandlers.js');
+  const { handleTranscriptWorkerPreview } = await import('./transcriptWorkerHandlers.js');
+  const { workflows, workflowCwds, sessions } = await import('../server/state.js');
+  const { initWorkflowStore, persistAndStampSeq, flushWorkflowBuffer, replayEvents } = await import('../workflowStore.js');
+  const messages: any[] = [], seeds: string[] = [];
+  const ws = { readyState: 1, OPEN: 1, send: (raw: string) => messages.push(JSON.parse(raw)) } as never;
+  const session = { id: 'replacement-history', workflowIds: new Set(), clusterIds: new Set(), clusterObserved: new Map() } as never;
+  sessions.set(ws, session);
+  const ids: string[] = [];
+  const tab = async (config: Record<string, unknown> = {}) => {
+    const id = randomUUID(); ids.push(id);
+    workflows.set(id, { config: { kind: 'workflow', name: 'Fixture', workingDirectory: home, primaryProvider: 'claude', primaryModel: 'sonnet', ...config }, busy: false,
+      observers: new Set([ws]), primary: { provider: 'claude' } } as never);
+    workflowCwds.set(id, home); await initWorkflowStore(home, id); return id;
+  };
+  handlers.initClusterHandlers({ catalogModelKnown: async () => true, assertAllMembersClaudeOrCodex: async () => null,
+    handleUserMessage: async (_ws, _session, _id, content) => { seeds.push(content); },
+    handleRemoveWorkflow: id => { workflows.delete(id); },
+    createBlankNativeWorkflow: async (_ws, _session, config) => tab(config as never),
+  });
+  try {
+    for (const mode of ['full', 'recent'] as const) {
+      const source = await tab(), other = await tab();
+      for (let index = 0; index < 25; index++) {
+        persistAndStampSeq(home, source, { type: 'user_message_echo', workflowId: source, content: `[TURN-${index}] ` + 'q'.repeat(30 * 1024) } as never);
+        persistAndStampSeq(home, source, { type: 'primary_text', workflowId: source, phase: 'passthrough', text: `[ANSWER-${index}] ` + 'a'.repeat(10 * 1024) } as never);
+        persistAndStampSeq(home, source, { type: 'primary_complete', workflowId: source } as never);
+      }
+      await flushWorkflowBuffer(home, source);
+      const cluster = await store.createCluster({ cwd: home, memberWorkflowIds: [source, other] });
+      (session as { clusterIds: Set<string> }).clusterIds.add(cluster.clusterId);
+      await handleTranscriptWorkerPreview(ws, { type: 'transcript_worker_preview', requestId: mode, workflowId: source,
+        turns: 10, includePartial: false, preface: '', replacement: { clusterId: cluster.clusterId, mode } });
+      const preview = messages.findLast(message => message.type === 'transcript_worker_result' && message.requestId === mode)?.preview;
+      assert.ok(preview, JSON.stringify(messages.at(-1)));
+      assert.equal(preview.availableTurns, 25);
+      assert.equal(preview.selectedTurns, mode === 'full' ? 12 : 3);
+      assert.equal(preview.truncated, true);
+      assert.ok(preview.bytes <= (mode === 'full' ? 512 : 128) * 1024);
+      await handlers.handleClusterMemberReplace(ws, session, { type: 'cluster_member_replace', clusterId: cluster.clusterId, workflowId: source,
+        ...(mode === 'full' ? { includeHistory: true } : { historyMode: mode, historyTurns: 10, historyToken: preview.token }),
+      });
+      const replaced = messages.findLast(message => message.type === 'cluster_member_replaced' && message.oldWorkflowId === source);
+      assert.ok(replaced, JSON.stringify(messages.filter(message => message.type === 'error')));
+      assert.notEqual(replaced.newWorkflowId, source);
+      assert.equal((await store.readCluster(cluster.clusterId))?.members[0], replaced.newWorkflowId);
+      const seed = seeds.at(-1)!;
+      assert.match(seed, /\[TURN-24\]/);
+      assert.match(seed, /\[ANSWER-24\]/);
+      assert.doesNotMatch(seed, /\[TURN-0\]/);
+      assert.equal((seed.match(/^USER:/gm) ?? []).length, preview.selectedTurns);
+      assert.equal(seed, preview.seed);
+      await flushWorkflowBuffer(home, replaced.newWorkflowId);
+      const notice = (await replayEvents(home, replaced.newWorkflowId, 0)).find(event => event.type === 'system_notice');
+      assert.ok(notice && notice.type === 'system_notice');
+      assert.match(notice.content, new RegExp(`Only the most recent ${preview.selectedTurns} of 25 turns`));
+      assert.match(notice.content, /Earlier turns were not copied/);
+    }
+    assert.equal(messages.some(message => message.type === 'error'), false);
+  } finally { sessions.delete(ws); for (const id of ids) { workflows.delete(id); workflowCwds.delete(id); } }
+});
+
 test.after(async () => {
   const { settleWorkspaceWrites } = await import('../workspace.js');
   await settleWorkspaceWrites();

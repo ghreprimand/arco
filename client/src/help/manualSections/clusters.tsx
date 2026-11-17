@@ -653,15 +653,22 @@ export const clusters: Section[] = [
   refused; Arco never switches to another account.
   </p>
   <p>
-  Two independent switches control what crosses the boundary:
+  Two independent choices control what crosses the boundary:
   </p>
   <ul>
   <li>
-  <strong>INCLUDE PRIOR WORKFLOW HISTORY</strong> is OFF by default.
-  When ON, Arco renders the old transcript plus an action digest
-  into one explicit replacement-context seed turn. This costs a
-  model call and does not resume or reuse the former provider
-  session.
+  <strong>HISTORY</strong> starts at <strong>NO HISTORY</strong>.
+  <strong> RECENT HISTORY</strong> copies the last 10 whole turns by default;
+  choose 1 to 50 within 128 KiB. Text stays word for word, with tool calls and
+  attached files represented by receipts. <strong>FULL HISTORY</strong> keeps
+  the prior transcript and action digest when they fit 512 KiB. Above that
+  limit it copies the newest whole turns that fit, with receipts instead of
+  the full action digest. The preview says how many turns fit before REPLACE
+  becomes available. Nothing is clipped to fit. If no whole recent turn fits,
+  the preview says that no history will be copied.
+  A partial copy leaves one plain line in the replacement conversation; the
+  earlier history remains in the previous conversation. A nonempty imported
+  seed spends a model call and always starts a new provider conversation.
   </li>
   <li>
   <strong>TRANSFER ACTIVE TASK ASSIGNMENTS</strong> reassigns the
