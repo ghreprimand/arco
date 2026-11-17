@@ -179,6 +179,12 @@ export const workspace: Section[] = [
           reorder them.
         </p>
         <p>
+          Use the mouse wheel over the row to scroll sideways,
+          or swipe horizontally on a touch screen or trackpad. Previous tabs
+          and Next tabs buttons appear at edges with more tabs. Opening a tab
+          brings it into view; keyboard focus also keeps its control visible.
+        </p>
+        <p>
           Click the <Code>×</Code> on a tab to close it: Arco asks for
           confirmation first, and the prompt calls out an in-progress turn (it
           will be cancelled) or an unsaved Incognito chat (it will be lost).{' '}A

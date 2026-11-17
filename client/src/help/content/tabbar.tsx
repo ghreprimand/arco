@@ -18,6 +18,11 @@ export const tabbarHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'tab-bar',
   },
+  'tabbar.scroll': {
+    title: 'Scroll tabs',
+    body: <p>Use the mouse wheel over the tab row to scroll sideways. Swipe horizontally on a touch screen or trackpad, or press the Previous tabs and Next tabs edge buttons. An edge button means more tabs are hidden in that direction. Opening a tab brings it into view. Tab focus also keeps its control visible.</p>,
+    manualSection: 'tab-bar',
+  },
   'tabbar.status': {
     title: 'Tab status',
     body: (

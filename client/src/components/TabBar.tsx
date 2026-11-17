@@ -3,7 +3,7 @@ import { hasWaitingQuestion } from '../questions/waitingQuestion';
 import { TabStatusChip, useTabStatus } from './TabStatusChip';
 import { clusterHasIdleMail, tabStatusPresentation } from '../utils/tabStatus';
 import { layoutPoint } from '../utils/pointer';
-import { useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -125,6 +125,86 @@ function applyTabOrder<T extends { id: string }>(items: T[], order: string[] | u
   return [...known, ...unknown];
 }
 
+// Keep scrolling local to the strip: scrollIntoView can also move the page.
+function TabScrollRow({ activeKey, children }: { activeKey: string; children: ReactNode }) {
+  const row = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ before: false, after: false });
+
+  useLayoutEffect(() => {
+    const el = row.current;
+    const inner = content.current;
+    if (!el || !inner) return;
+    const measure = () => setEdges((previous) => {
+      const before = el.scrollLeft > 1;
+      const after = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+      return previous.before === before && previous.after === after ? previous : { before, after };
+    });
+    const reveal = (target: Element | null) => {
+      if (!target) return;
+      const bounds = el.getBoundingClientRect();
+      const tab = target.getBoundingClientRect();
+      const scale = bounds.width / el.clientWidth || 1;
+      const left = (tab.left - bounds.left) / scale;
+      const right = (tab.right - bounds.left) / scale;
+      if (left < 32) el.scrollLeft += left - 32;
+      else if (right > el.clientWidth - 32) el.scrollLeft += Math.min(left - 32, right - el.clientWidth + 32);
+      measure();
+    };
+    let width = el.clientWidth;
+    const resize = new ResizeObserver(() => {
+      if (width !== el.clientWidth) {
+        width = el.clientWidth;
+        reveal(inner.querySelector('[data-active-tab="true"]'));
+      }
+      measure();
+    });
+    resize.observe(el);
+    resize.observe(inner);
+    const wheel = (event: WheelEvent) => {
+      // Preserve native horizontal gestures and browser zoom.
+      if (event.ctrlKey || event.deltaX !== 0 || event.deltaY === 0) return;
+      const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? el.clientWidth : 1;
+      const previous = el.scrollLeft;
+      el.scrollLeft += event.deltaY * unit;
+      if (el.scrollLeft !== previous) event.preventDefault();
+    };
+    const focus = (event: FocusEvent) => reveal((event.target as Element).closest('[data-help="tabbar.tab"], [data-help="tabbar.cluster"], button'));
+    el.addEventListener('wheel', wheel, { passive: false });
+    el.addEventListener('scroll', measure);
+    el.addEventListener('focusin', focus);
+    reveal(inner.querySelector('[data-active-tab="true"]'));
+    measure();
+    return () => {
+      resize.disconnect();
+      el.removeEventListener('wheel', wheel);
+      el.removeEventListener('scroll', measure);
+      el.removeEventListener('focusin', focus);
+    };
+  }, [activeKey]);
+
+  return (
+    <div style={{ position: 'relative', minWidth: 0 }}>
+      <div ref={row} aria-label="Open tabs" style={{ overflowX: 'auto', overscrollBehaviorX: 'contain' }}>
+        <div ref={content} style={{ display: 'flex', alignItems: 'stretch', width: 'max-content', minWidth: '100%' }}>
+          {children}
+        </div>
+      </div>
+      {([-1, 1] as const).map((direction) => (
+        <button key={direction} type="button" aria-label={direction < 0 ? 'Previous tabs' : 'Next tabs'}
+          title={direction < 0 ? 'More tabs to the left' : 'More tabs to the right'} data-help="tabbar.scroll"
+          hidden={direction < 0 ? !edges.before : !edges.after}
+          onClick={() => { const el = row.current; if (el) el.scrollLeft += direction * Math.max(32, el.clientWidth * 0.7); }}
+          style={{ position: 'absolute', top: 0, bottom: 0, [direction < 0 ? 'left' : 'right']: 0,
+            width: 32, padding: 0, background: 'var(--color-bg-panel)', color: 'var(--color-accent-primary)',
+            border: '1px solid var(--color-border)', cursor: 'pointer', fontSize: 20 }}>
+          {direction < 0 ? '<' : '>'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster, onDeleteCluster, onAddClusterMember, onCreateClusterWithFreshWorkers }: Props) {
   const jobs = useAppStore((s) => s.jobs);
   const activeJobId = useAppStore((s) => s.activeJobId);
@@ -224,6 +304,7 @@ export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster
         aria-current={showHome ? 'page' : undefined}
         aria-label="Home: projects, open work and saved sessions"
         data-help="tabbar.home"
+        data-active-tab={showHome}
         className="display-font"
         style={{
           padding: '8px 14px',
@@ -261,13 +342,7 @@ export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster
         }}
       >
         {/* Top row — clusters + standalone workflow tabs, drag-reorderable */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'stretch',
-            overflowX: 'auto',
-          }}
-        >
+        <TabScrollRow activeKey={showHome ? 'home' : showCreator ? 'new' : activeClusterId ?? activeJobId ?? ''}>
           {homeButton}
           <DndContext sensors={sensors} onDragEnd={onDragEnd}>
             <SortableContext items={topRowItems.map((it) => it.id)} strategy={horizontalListSortingStrategy}>
@@ -309,6 +384,7 @@ export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster
           <button
             onClick={showJobCreator}
             data-help="tabbar.new"
+            data-active-tab={showCreator && !showHome}
             className="display-font"
             style={{
               padding: '8px 14px',
@@ -324,7 +400,7 @@ export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster
           >
             + NEW
           </button>
-        </div>
+        </TabScrollRow>
 
         {/* the per-member bottom row was removed: the cluster's
             left-pane member cards already focus a member, the account badge
@@ -511,6 +587,7 @@ function SortableWorkflowTab({ job, isActive, onActivate, onClose, onContextMenu
     <div
       ref={setNodeRef}
       data-help="tabbar.tab"
+      data-active-tab={isActive}
       onContextMenu={onContextMenu}
       {...attributes}
       {...listeners}
@@ -597,6 +674,7 @@ function SortableClusterTab({ cluster, isActive, onActivate, onClose }: ClusterT
     <div
       ref={setNodeRef}
       data-help="tabbar.cluster"
+      data-active-tab={isActive}
       {...attributes}
       {...listeners}
       style={{

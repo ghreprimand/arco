@@ -135,6 +135,45 @@ async def main():
         assert frames >= 20, frames
         assert sorted(n for n in names if n != 'Home') == ['Team of seven', 'own-tab'], names
         assert active == 'c7', active
+        # Overflow navigation must work with a hidden browser scrollbar.
+        await page.set_viewport_size({'width': 430, 'height': 400})
+        await page.evaluate("""async () => {
+          const {useAppStore:s} = await import('/src/stores/appStore.ts');
+          for (let i = 0; i < 12; i++) s.getState().createJob('extra-' + i, {
+            name: 'Extra workflow ' + i, workingDirectory: '/projects/fixture', primaryProvider: 'claude', primaryModel: 'fixture'
+          });
+          s.getState().setActiveJob('own-tab');
+          const css = document.createElement('style');
+          css.textContent = '[aria-label="Open tabs"] { scrollbar-width: none; } [aria-label="Open tabs"]::-webkit-scrollbar { display: none; }';
+          document.head.append(css);
+        }""")
+        strip = page.get_by_label('Open tabs', exact=True)
+        await page.wait_for_function("""document.querySelector('[aria-label="Open tabs"]').scrollWidth > 1000""")
+        await strip.evaluate('(el) => el.scrollLeft = 0')
+        await page.get_by_role('button', name='Next tabs', exact=True).wait_for(state='visible')
+        bounds = await strip.bounding_box()
+        await page.mouse.move(bounds['x'] + bounds['width'] / 2, bounds['y'] + 10)
+        await page.mouse.wheel(0, 240)
+        await page.wait_for_function("""document.querySelector('[aria-label="Open tabs"]').scrollLeft > 100""")
+        await page.get_by_role('button', name='Previous tabs', exact=True).wait_for(state='visible')
+        await page.evaluate("async () => (await import('/src/stores/appStore.ts')).useAppStore.getState().setActiveJob('extra-11')")
+        await page.wait_for_function("""() => {
+          const row = document.querySelector('[aria-label="Open tabs"]');
+          const active = row.querySelector('[data-active-tab="true"]').getBoundingClientRect();
+          const bounds = row.getBoundingClientRect();
+          return active.left >= bounds.left + 31 && active.right <= bounds.right - 31;
+        }""")
+        await page.get_by_role('button', name='Previous tabs', exact=True).focus()
+        before = await strip.evaluate('(el) => el.scrollLeft')
+        await page.keyboard.press('Enter')
+        await page.wait_for_function("""(before) => document.querySelector('[aria-label="Open tabs"]').scrollLeft < before""", arg=before)
+        await page.evaluate("async () => (await import('/src/stores/appStore.ts')).useAppStore.getState().setActiveCluster('c7')")
+        await page.wait_for_function("""() => {
+          const row = document.querySelector('[aria-label="Open tabs"]');
+          const active = row.querySelector('[data-active-tab="true"]').getBoundingClientRect();
+          const bounds = row.getBoundingClientRect();
+          return active.left >= bounds.left + 31 && active.right <= bounds.right - 31;
+        }""")
         assert not errors, errors
         assert not blocked, blocked
         await browser.close()

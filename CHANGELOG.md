@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Scroll the tab row sideways with the mouse wheel, reveal active tabs and show edge buttons when more tabs are hidden.
+
 - Keep replayed compaction notices and context updates at their saved positions and times when a conversation opens in another browser.
 
 - Keep the full cluster member REPLACE form reachable by scrolling in Narrow layout.
