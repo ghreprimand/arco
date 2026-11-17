@@ -264,13 +264,23 @@ test('resume byte source streams sealed large records with unchanged offsets and
   } finally { await rm(cwd, { recursive: true, force: true }); }
 });
 
-test('Native reconstruction failure emits one durable-style notice without removing the saved history', async () => {
+test('Native reconstruction failure emits one durable-style notice without removing the saved history', async (t) => {
   const cwd = await mkdtemp(join(tmpdir(), 'arco-resume-notice-'));
   try {
     const id = 'unreadable-history', dir = join(cwd, '.arco', 'workflows', id);
-    // A directory in place of the live file causes an actual read failure on
-    // every supported host without depending on permission bits or root status.
-    await fs.mkdir(join(dir, 'events.jsonl'), { recursive: true });
+    const file = join(dir, 'events.jsonl');
+    await fs.mkdir(file, { recursive: true });
+    // Windows can open a directory and report zero bytes. Exercise that
+    // metadata on other platforms so replay cannot mistake it for an empty file.
+    const open = fs.open;
+    t.mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
+      const handle = await open(...args);
+      if (args[0] === file) {
+        const stat = await handle.stat();
+        t.mock.method(handle, 'stat', async () => Object.assign(stat, { size: 0 }));
+      }
+      return handle;
+    });
     const { ClaudeNativeWorker } = await import('./worker.js');
     const worker = new ClaudeNativeWorker({ workflowId: id, config: { cwd, model: 'haiku' } as never });
     const notices: string[] = [];
@@ -298,7 +308,7 @@ test('Native reconstruction above its size bound notices once without reading th
       const handle = await open(...args);
       if (String(args[0]) === file) {
         const stat = await handle.stat();
-        t.mock.method(handle, 'stat', async () => ({ ...stat, size: NATIVE_RECONSTRUCTION_MAX_BYTES + 1 }));
+        t.mock.method(handle, 'stat', async () => Object.assign(stat, { size: NATIVE_RECONSTRUCTION_MAX_BYTES + 1 }));
         t.mock.method(handle, 'read', async () => { rangeReads++; throw new Error('The oversized range must not be read'); });
       }
       return handle;

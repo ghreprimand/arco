@@ -361,9 +361,17 @@ export async function openLogByteSource(dir: string): Promise<LogByteSource | nu
       }
     };
   } else {
-    const fh = await openLive(path.join(dir, LIVE_LOG));
+    const file = path.join(dir, LIVE_LOG);
+    const fh = await openLive(file);
     if (!fh) return null;
-    try { size = (await fh.stat()).size; } catch (err) { await fh.close(); throw err; }
+    try {
+      const stat = await fh.stat();
+      if (!stat.isFile()) throw new Error(`Expected a history file at ${file}`);
+      size = stat.size;
+    } catch (err) {
+      await fh.close();
+      throw err;
+    }
     close = () => fh.close();
     chunks = async function* (start, length) {
       const end = Math.min(size, start + length);
