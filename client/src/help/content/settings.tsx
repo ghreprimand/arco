@@ -379,6 +379,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           frees VRAM immediately. <C>chatTemplate</C> and <C>extraArgs</C> are
           preserved across edits even if not exposed in the form. Endpoint overrides use the same host and port for launch, health and inference. A server exit clears ready state; the next request can reload it.
         </p>
+        <p>Each reply has a 120-second wall-clock limit and a 90-second no-data limit. Both apply with <C>ARCO_LLAMACPP_AUTO_RECOVER=off</C>; Arco then stops with one plain error and no retry. Override the limits with <C>ARCO_LLAMACPP_TURN_BUDGET_MS</C> and <C>ARCO_LLAMACPP_STALL_TIMEOUT_MS</C> in the server environment. With recovery on, the existing recovery budget and final-summary attempt still apply.</p>
       </>
     ),
     manualSection: 'provider-llamacpp',

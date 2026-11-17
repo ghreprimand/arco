@@ -44,6 +44,7 @@ export interface RecoveryConfig {
   // decode rate on a busy device (a thinking model in mid-reasoning emits
   // tokens slower than answer-mode but never goes silent for 90s when
   // healthy).
+  // Enforced even when enabled is false; that switch only disables recovery.
   stallTimeoutMs: number;
   // Per-turn wall-clock budget. Hard ceiling on a single streamOneTurn
   // call regardless of what the model is emitting. Catches productive-
@@ -51,6 +52,7 @@ export interface RecoveryConfig {
   // pumping endlessly) that the runaway detector misses because each
   // signal individually looks legit. 120s lets a long, healthy reasoning
   // pass through; past that the model is almost certainly stuck.
+  // Enforced even when enabled is false.
   turnBudgetMs: number;
 }
 

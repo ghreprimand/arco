@@ -910,8 +910,8 @@ export const providers: Section[] = [
   <Sub>Auto-recovery</Sub>
   <p>
   Local thinking models fail in specific ways the lifecycle alone can&apos;t
-  handle. The provider runs three recovery paths in place (without spawning
-  Handoff) and one warning:
+  handle. The provider runs recovery paths in place (without spawning Handoff)
+  and a context-fill warning:
   </p>
   <ul>
   <li><strong>Reasoning runaway</strong> - model emits{' '}
@@ -922,7 +922,12 @@ export const providers: Section[] = [
   <Code>ARCO_LLAMACPP_STALL_TIMEOUT_MS</Code> (default 90 s). Builds a
   deterministic summary (no LLM call) and continues.
   </li>
-  <li><strong>Tool-cap exhaustion</strong> - 50-turn cap fires on a
+  <li><strong>Wall-clock limit</strong> - a reply reaches{' '}
+  <Code>ARCO_LLAMACPP_TURN_BUDGET_MS</Code> (default 120 s), even while
+  text keeps arriving. Cancels the stream and continues with a recap
+  within the recovery budget.
+  </li>
+  <li><strong>Tool-cap exhaustion</strong> - 25-turn cap fires on a
   legitimately long task. Same deterministic recap, reset counter, keep
   going.
   </li>
@@ -934,9 +939,18 @@ export const providers: Section[] = [
   </li>
   </ul>
   <p>
-  The three recovery paths share a budget (default 2 per operator turn). Each emits a{' '}
-  <Code>system_notice</Code> so the cause is visible without digging through
-  logs.
+  Recovery paths share a budget (default 1 per operator turn), followed by
+  one final-summary attempt before terminating if it also fails. Each emits
+  a <Code>system_notice</Code> so the cause is visible without digging
+  through logs.
+  </p>
+  <p>
+  The wall-clock and no-data limits also apply with{' '}
+  <Code>ARCO_LLAMACPP_AUTO_RECOVER=off</Code>. Arco then cancels the stream,
+  attempts to free its slot and shows one plain error without retrying.
+  The wall-clock limit includes the request and resets for each reply in
+  a tool loop. Override these limits in the server environment when a
+  model needs longer.
   </p>
   <Sub>Serve-failure diagnosis</Sub>
   <p>

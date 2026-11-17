@@ -3,9 +3,10 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import type { WorkerConfig } from '@arco/shared';
+import type { LlamacppModelDef, WorkerConfig } from '@arco/shared';
 import { LlamacppProvider } from './llamacpp.js';
-import { defaultRecoveryConfig } from './llamacppRecovery.js';
+import { defaultRecoveryConfig, type RecoveryConfig } from './llamacppRecovery.js';
+import type { LlamacppLoadedState } from './llamacppManager.js';
 import { ToolLoopDetector } from './ollamaTools.js';
 
 // A llama.cpp Chat tab, or a plan-review turn in an agent tab, offers the
@@ -17,6 +18,7 @@ interface Dispatcher {
   abortController: AbortController | null;
   dispatchToolCalls(calls: Call[], autoMode: boolean, loop: ToolLoopDetector): Promise<Array<{ content: string }>>;
   streamOneTurn(baseUrl: string, model: string, messages: unknown[], tools: undefined, recovery: unknown): Promise<{ assistantMessage: { tool_calls?: Call[] } } | null>;
+  runLoaded(prompt: string, def: LlamacppModelDef, loaded: LlamacppLoadedState, startedAt: number): Promise<void>;
   on(event: string, fn: (...args: unknown[]) => void): unknown;
 }
 
@@ -101,6 +103,87 @@ test('llama.cpp agent turn with AUTO still runs the call', async () => {
     await worker(dir, { interactionMode: 'agent' }).dispatchToolCalls([bash('touch ran.txt')], true, new ToolLoopDetector());
     assert.equal(existsSync(join(dir, 'ran.txt')), true);
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('llama.cpp bounds active and stalled streams with recovery off and retains the recovery limit when on', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arco-llamacpp-deadline-'));
+  const realFetch = globalThis.fetch;
+  const encoder = new TextEncoder();
+  const chunk = encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: 'working ' }, finish_reason: null }] })}\n\n`);
+  const def = { alias: 'fixture', ggufPath: 'unused.gguf', ctxSize: 4096, ngl: 0, capabilities: { tools: false } } as LlamacppModelDef;
+  const loaded = { alias: 'fixture', host: '127.0.0.1', port: 9, pid: 0, loadedAt: 0, lastUsedAt: 0 };
+  const timers = new Set<ReturnType<typeof setInterval>>();
+  const fallbacks = new Set<ReturnType<typeof setTimeout>>();
+  try {
+    for (const enabled of [false, true]) {
+      for (const active of [true, false]) {
+        let requests = 0, erasures = 0, cancelled = 0, guardMisses = 0;
+        globalThis.fetch = (async (url: unknown) => {
+          if (String(url).includes('/slots/')) { erasures++; return new Response('{}'); }
+          requests++;
+          let interval: ReturnType<typeof setInterval> | undefined;
+          let fallback: ReturnType<typeof setTimeout>;
+          const body = new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(chunk);
+              if (active) {
+                interval = setInterval(() => controller.enqueue(chunk), 5);
+                timers.add(interval);
+              }
+              // A broken guard must fail the assertion, not hang the test.
+              fallback = setTimeout(() => {
+                guardMisses++;
+                if (interval) { clearInterval(interval); timers.delete(interval); }
+                fallbacks.delete(fallback);
+                controller.close();
+              }, 2000);
+              fallbacks.add(fallback);
+            },
+            cancel() {
+              cancelled++;
+              if (interval) { clearInterval(interval); timers.delete(interval); }
+              clearTimeout(fallback); fallbacks.delete(fallback);
+            },
+          });
+          return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+        }) as typeof fetch;
+        const w = worker(dir, { interactionMode: 'chat' });
+        w.abortController = new AbortController();
+        const errors: string[] = [], notices: string[] = [];
+        w.on('error', value => errors.push(String(value)));
+        w.on('system_notice', value => notices.push(String(value)));
+        const read = w.streamOneTurn.bind(w);
+        // Exercise the actual SSE parser and run loop with short fixture limits.
+        w.streamOneTurn = (base, model, messages, tools, recovery) => {
+          Object.assign(recovery as RecoveryConfig, {
+            enabled, maxAutoRecoveries: 1,
+            turnBudgetMs: active ? 100 : 1000, stallTimeoutMs: active ? 1000 : 100,
+          });
+          return read(base, model, messages, tools, recovery);
+        };
+        await w.runLoaded('fixture', def, loaded, Date.now());
+        assert.equal(guardMisses, 0, 'the stream guard must finish before the fixture fallback');
+        assert.equal(requests, enabled ? 3 : 1, 'one recovery and one final-summary attempt only when enabled');
+        assert.equal(cancelled, requests, 'each interrupted stream is cancelled');
+        assert.equal(erasures, enabled ? 2 : 1, 'free the slot without retrying when recovery is off');
+        assert.equal(errors.length, 1, 'one terminal error');
+        if (enabled) {
+          assert.equal(notices.filter(line => line.startsWith('auto-recovery:')).length, 1);
+          assert.equal(notices.filter(line => line.startsWith('auto-recovery exhausted')).length, 1);
+          assert.match(errors[0], /after exhausting 1 auto-recoveries/);
+        } else {
+          assert.deepEqual(notices, []);
+          assert.match(errors[0], /Automatic recovery is off; no retry was made\.$/);
+          assert.match(errors[0], active ? /reply exceeded the 100ms time limit/ : /no stream data for 100ms/);
+        }
+      }
+    }
+  } finally {
+    for (const timer of timers) clearInterval(timer);
+    for (const timer of fallbacks) clearTimeout(timer);
+    globalThis.fetch = realFetch;
     rmSync(dir, { recursive: true, force: true });
   }
 });

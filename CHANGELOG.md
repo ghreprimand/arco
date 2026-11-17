@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Bound llama.cpp replies and stalled streams even with automatic recovery off; stop with one plain error and no retry.
+
 - Let non-Director agents wait for required check results in bounded steps while checking messages; keep the Director's 60-second rule.
 
 - Check published llama.cpp build tags so the existing provider row can flag an older installed build without installing or loading anything.

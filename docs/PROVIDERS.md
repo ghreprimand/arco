@@ -1936,24 +1936,27 @@ binary or model is installed or loaded.
 
 ### Auto-recovery
 
-Local thinking models fail in three specific ways that the lifecycle alone can't handle: reasoning runaway (model emits `reasoning_content` for minutes without ever committing), tool-cap exhaustion (50-turn cap fires on legitimately long work), and context fill (96K cap is small compared to Claude). The provider runs an in-place auto-recovery system that keeps the conversation going without operator intervention.
+Local thinking models fail in three specific ways that the lifecycle alone can't handle: reasoning runaway (model emits `reasoning_content` for minutes without ever committing), tool-cap exhaustion (25-turn cap fires on legitimately long work), and context fill (96K cap is small compared to Claude). The provider runs an in-place auto-recovery system that keeps the conversation going without operator intervention.
 
 Distinct from the heavyweight Handoff primitive (which spawns a fresh workflow with a chosen summarizer model - tuned for Claude/Codex flows). Auto-recovery operates inside the same worker on the same workflow, just intelligently resetting the in-memory message stack when something goes sideways.
 
-Four detection paths, all gated by `ARCO_LLAMACPP_AUTO_RECOVER` (default on):
+Each reply has a wall-clock limit of `ARCO_LLAMACPP_TURN_BUDGET_MS` (default 120s), even while text keeps arriving, and a no-data limit of `ARCO_LLAMACPP_STALL_TIMEOUT_MS` (default 90s). Both limits also apply when `ARCO_LLAMACPP_AUTO_RECOVER=off`. With recovery off, Arco cancels the stream, attempts to free its slot and reports one plain error without retrying. The wall-clock timer includes the request and resets for each reply in a tool loop.
+
+With automatic recovery enabled (the default), the existing shared recovery budget and final-summary attempt remain in effect. The main detection paths are:
 
 | Trigger | Detection | Recovery |
 |---|---|---|
-| Reasoning runaway | `reasoning_content` exceeds `ARCO_LLAMACPP_REASONING_BUDGET` tokens (default 8000) with no `content` or `tool_calls` arrived | Abort stream, inject a fake assistant + user pair telling the model to commit to action. Continue. |
+| Reasoning runaway | `reasoning_content` exceeds `ARCO_LLAMACPP_REASONING_BUDGET` tokens (default 4000) | Abort stream, inject a fake assistant + user pair telling the model to commit to action. Continue. |
 | Stream stall | No SSE event for `ARCO_LLAMACPP_STALL_TIMEOUT_MS` (default 90s) | Abort stream, build deterministic summary of progress so far, inject as user message, continue. |
-| Tool-cap hit | `MAX_TOOL_TURNS` (default 50) exhausted without final answer | Build deterministic recap of tool calls + files, inject as user message asking to continue or wrap up, reset counter. |
+| Wall-clock limit | A reply reaches `ARCO_LLAMACPP_TURN_BUDGET_MS` (default 120s), even with stream data arriving | Abort stream, inject a deterministic recap and continue within the existing recovery budget. |
+| Tool-cap hit | `MAX_TOOL_TURNS` (default 25) exhausted without final answer | Build deterministic recap of tool calls + files, inject as user message asking to continue or wrap up, reset counter. |
 | Context fill | `lastInputTokens / ctxSize >= ARCO_LLAMACPP_COMPACT_THRESHOLD` (default 0.85), checked at clean turn boundaries only | Warn-only `system_notice` suggesting Handoff. The old in-turn compaction was removed 2026-09-25: it replaced a local message array (the next turn rebuilt the full transcript and overflowed again), streamed its summary into the persisted answer, and paid a generation every over-threshold turn. |
 
-The three recovering paths share one budget (the context-fill row only warns and no longer spends it): `ARCO_LLAMACPP_MAX_RECOVERIES` (default 2 per operator turn). Once exhausted, the provider falls through to the normal failure path. Each recovery emits a `system_notice` so the operator sees what happened without having to dig through logs.
+The recovering paths share one budget (the context-fill row only warns and no longer spends it): `ARCO_LLAMACPP_MAX_RECOVERIES` (default 1 per operator turn). Once exhausted, the provider requests one final summary before terminating if that attempt also fails. Each recovery emits a `system_notice` so the operator sees what happened without having to dig through logs.
 
 The deterministic-summary path (used by stall + tool-cap recovery) walks the message stack and extracts: tools used + counts, files read, files written, last 10 Bash commands, last 3 substantial assistant text snippets. No LLM call required - works even when the model is unresponsive.
 
-The compaction path (context fill) does require a model call. The model summarizes its own work with a structured prompt anchored on the operator's original ask. The summary becomes the new conversation seed; the original tool history is dropped.
+The context-fill path only warns and suggests Handoff. It does not make a compaction model call or replace the conversation history.
 
 ### Environment overrides
 
@@ -1963,12 +1966,13 @@ The compaction path (context fill) does require a model call. The model summariz
 | `ARCO_LLAMACPP_PORT` | `8923` | Port the manager spawns llama-server on |
 | `ARCO_LLAMACPP_HOST` | `127.0.0.1` | Bind host |
 | `ARCO_LLAMACPP_KEEPALIVE_MS` | `600000` (10 min) | Idle eviction window. `0` = never evict. |
-| `ARCO_LLAMACPP_MAX_TOOL_TURNS` | `50` | Tool-loop iterations per operator turn before recovery (or failure if recovery exhausted) |
-| `ARCO_LLAMACPP_AUTO_RECOVER` | `true` | Master kill-switch for auto-recovery system |
-| `ARCO_LLAMACPP_REASONING_BUDGET` | `8000` | Reasoning tokens before runaway intervention |
+| `ARCO_LLAMACPP_MAX_TOOL_TURNS` | `25` | Tool-loop iterations per operator turn before recovery (or failure if recovery exhausted) |
+| `ARCO_LLAMACPP_AUTO_RECOVER` | `true` | Enable recovery attempts; `off` still enforces the time limits |
+| `ARCO_LLAMACPP_REASONING_BUDGET` | `4000` | Reasoning tokens before runaway intervention |
 | `ARCO_LLAMACPP_COMPACT_THRESHOLD` | `0.85` | Context fill fraction that raises the suggest-Handoff notice |
-| `ARCO_LLAMACPP_MAX_RECOVERIES` | `2` | Total auto-recovery actions per operator turn |
-| `ARCO_LLAMACPP_STALL_TIMEOUT_MS` | `90000` | SSE event timeout before stall-recovery fires |
+| `ARCO_LLAMACPP_MAX_RECOVERIES` | `1` | Total auto-recovery actions per operator turn |
+| `ARCO_LLAMACPP_STALL_TIMEOUT_MS` | `90000` | No stream data limit, enforced even with recovery off; range 10000-600000 ms |
+| `ARCO_LLAMACPP_TURN_BUDGET_MS` | `120000` | Wall-clock limit per reply, enforced even with recovery off; range 10000-1800000 ms |
 | `ARCO_LOOP_COACH_THRESHOLD` | `2` | Identical (tool, args) calls before loop coach fires (shared with Ollama) |
 
 ---

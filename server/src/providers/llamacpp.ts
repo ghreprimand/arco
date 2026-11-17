@@ -401,7 +401,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
 
     let res: Response;
     try {
-      res = await requestWithDeadline(this.abortController!.signal, recovery.enabled ? Math.min(recovery.stallTimeoutMs, recovery.turnBudgetMs) : 120_000, (signal) => fetch(`${baseUrl}/v1/chat/completions`, {
+      res = await requestWithDeadline(this.abortController!.signal, Math.min(recovery.stallTimeoutMs, recovery.turnBudgetMs), (signal) => fetch(`${baseUrl}/v1/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -451,21 +451,23 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
 
     // Recovery-bounded stream read. Wraps reader.read() in a stall timeout
     // and a per-iteration runaway check. Aborts the upstream call cleanly
-    // when either trips so the run loop can recover.
+    // when either trips so the run loop can recover. The time limits also
+    // apply with recovery off; that setting controls retries, not the bound.
     const readWithGuards = async (): Promise<{ value?: Uint8Array; done: boolean }> => {
-      if (!recovery.enabled) return reader.read();
+      const remainingMs = recovery.turnBudgetMs - (Date.now() - turnStart);
+      const wallClockFirst = remainingMs <= recovery.stallTimeoutMs;
       let stallTimer: NodeJS.Timeout | null = null;
       try {
         return await Promise.race([
           reader.read(),
           new Promise<{ value?: undefined; done: true }>((resolve) => {
             stallTimer = setTimeout(() => {
-              interruption = 'stall';
+              interruption = wallClockFirst ? 'wall_clock' : 'stall';
               // Cancel the underlying body reader so the next read() resolves
               // with done:true; resolve our race so the outer loop exits.
               reader.cancel().catch(() => { /* already gone */ });
               resolve({ done: true });
-            }, recovery.stallTimeoutMs);
+            }, Math.max(0, Math.min(recovery.stallTimeoutMs, remainingMs)));
           }),
         ]);
       } finally {
@@ -489,7 +491,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
         // Catches the "tool_calls + reasoning + content pumping endlessly"
         // mode that the runaway detector misses (model looks productive by
         // every per-signal metric but isn't converging).
-        if (recovery.enabled && Date.now() - turnStart > recovery.turnBudgetMs) {
+        if (Date.now() - turnStart >= recovery.turnBudgetMs) {
           interruption = 'wall_clock';
           reader.cancel().catch(() => { /* already gone */ });
           break;
@@ -511,7 +513,7 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
         }
 
         const { value, done } = await readWithGuards();
-        if (interruption === 'stall') break;
+        if (interruption) break;
         if (done) {
           streamEnded = true;
           if (buf.trim().length === 0) break;
@@ -845,6 +847,15 @@ class LlamacppWorkerProcess extends EventEmitter implements ProviderProcess {
 
       const turnResult = await this.streamOneTurn(baseUrl, def.alias, messages, tools, recovery);
       if (turnResult === null) return;
+
+      if (!recovery.enabled && turnResult.interruption) {
+        await this.eraseLlamaSlot(baseUrl);
+        const reason = turnResult.interruption === 'stall'
+          ? `no stream data for ${recovery.stallTimeoutMs}ms`
+          : `reply exceeded the ${recovery.turnBudgetMs}ms time limit`;
+        this.fail(`llama.cpp stopped: ${reason}. Automatic recovery is off; no retry was made.`);
+        return;
+      }
 
       // Don't update lastInputTokens on interrupted streams — the usage
       // event only fires on normal completion, so an interrupted call
