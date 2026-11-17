@@ -131,7 +131,8 @@ async def matrix(page):
                 await expect(modal).to_be_focused()
                 await modal.get_by_role('button', name='CLOSE', exact=True).tap()
                 await expect(modal).to_have_count(0)
-                await expect(chip).to_be_focused()
+                await expect(panel).to_have_count(0)
+                await expect(versions).to_be_focused()
             for touch in ([False, True] if n == 0 else [False]):
                 progress(f'release-matrix {n + 1}/{len(cases)} mode={mode} scale={scale} focus={focus} theme={name} width={width} runtime={provider} input={"touch" if touch else "keyboard"}')
                 if not await panel.is_visible():
@@ -146,14 +147,12 @@ async def matrix(page):
                 assert bounds and bounds['x'] >= -1 and bounds['y'] >= -1 and bounds['x'] + bounds['width'] <= width + 1, (n, bounds)
                 await page.keyboard.press('Escape')
                 await expect(modal).to_have_count(0)
-                if await panel.is_visible(): await expect(chip).to_be_focused()
-                else: await expect(versions).to_be_focused()
-            await page.keyboard.press('Escape')
-            await expect(panel).to_have_count(0)
+                await expect(panel).to_have_count(0)
+                await expect(versions).to_be_focused()
         except Exception:
             await capture(page,case)
             raise
-    print(f'PASS release focus matrix: {len(cases)} cases, keyboard/touch Escape; {base_case_count} base cases touch CLOSE and prior-chip focus return', flush=True)
+    print(f'PASS release focus matrix: {len(cases)} cases, keyboard/touch Escape; {base_case_count} base cases touch CLOSE and versions-trigger focus return', flush=True)
 
 
 if __name__ == '__main__':
