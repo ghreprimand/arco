@@ -1,5 +1,5 @@
 import { LocalRuntimeRows, enabledLocalRows } from './LocalRuntimeStatus';
-import { compareLlamacppBuild } from '@arco/shared';
+import { compareCursorVersions, compareLlamacppBuild } from '@arco/shared';
 import type { Capabilities, CliUpdateOutcome } from '@arco/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
@@ -19,8 +19,8 @@ import { setProviderPanelOpen } from './providerPanelState';
 // store slices + owns the update-check + Ollama-releases-modal state that used
 // to sit in SystemHeader.
 
-type CliProvider = 'claude' | 'codex';
-type VersionedProvider = CliProvider | 'ollama' | 'llamacpp' | 'cursor' | 'strata' | 'deepseek';
+type CliProvider = 'claude' | 'codex' | 'cursor';
+type VersionedProvider = CliProvider | 'ollama' | 'llamacpp' | 'strata' | 'deepseek';
 
 // Lightweight semver compare — the four upstream sources we read all emit
 // dotted-numeric versions (npm registry + GitHub release tags after stripping
@@ -62,13 +62,13 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
   };
   const [releasesRuntime, setReleasesRuntime] = useState<ReleaseRuntime | null>(null);
   const [checking, setChecking] = useState<CliProvider | null>(null);
-  const [checkResult, setCheckResult] = useState<Record<CliProvider, string | null>>({ claude: null,  codex: null });
+  const [checkResult, setCheckResult] = useState<Record<CliProvider, string | null>>({ claude: null, codex: null, cursor: null });
   const [checkOutcome, setCheckOutcome] = useState<Partial<Record<CliProvider, CliUpdateOutcome>>>({});
   // The row's result slot is a narrow right-aligned chip, so the displayed
   // string is truncated hard. Keep the untruncated text for the tooltip —
   // an update failure ("Missing optional dependency @openai/codex-linux-x64…")
   // is only actionable if the operator can read the whole thing.
-  const [checkDetail, setCheckDetail] = useState<Record<CliProvider, string | null>>({ claude: null,  codex: null });
+  const [checkDetail, setCheckDetail] = useState<Record<CliProvider, string | null>>({ claude: null, codex: null, cursor: null });
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -142,7 +142,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
     try {
       const res = await fetch(`/api/check-updates?provider=${provider}`, { method: 'POST' });
       const data = await res.json() as { outcome?: CliUpdateOutcome; currentVersion?: string; message?: string; capabilities?: Capabilities; error?: string; notice?: string };
-      const version = data.currentVersion ?? (provider === 'codex' ? capabilities?.codexVersion : capabilities?.cliVersion) ?? 'unknown';
+      const version = data.currentVersion ?? (provider === 'codex' ? capabilities?.codexVersion : provider === 'cursor' ? capabilities?.cursorVersion : capabilities?.cliVersion) ?? 'unknown';
       let msg: string;
       const detail = data.error ?? data.message ?? data.notice ?? 'The version did not change. Arco could not check whether it is up to date.';
       // A notice means the server did something the version string alone doesn't
@@ -192,8 +192,8 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
     // GitHub releases since the upstream is operator-built (no self-update path).
     { provider: 'llamacpp' as VersionedProvider, label: 'LLAMA', version: llamacppLive?.version ?? 'unknown' },
     // Cursor: date-versioned `cursor-agent` (self-updating, curl-installed — no
-    // npm registry latest to compare against), so display-only; click opens the
-    // upstream changelog.
+    // npm registry latest to compare against). Its public installer supplies
+    // latest metadata; a row click runs its updater and the changelog stays separate.
     { provider: 'cursor' as VersionedProvider, label: 'CURSOR', version: capabilities?.cursorVersion ?? 'unknown' },
   ] as const)
     .filter(({ provider, version }) => {
@@ -210,14 +210,14 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
     })
     .map((r) => {
       const broken = r.version === 'broken';
-      // Cursor has no upstream latest to compare (curl-installed, self-updating),
-      // so it's never flagged outdated — narrow it out before indexing. A broken
+      // Cursor's public installer supplies its dated latest build without
+      // an npm lookup. A broken
       // CLI has no parseable version either, so skip the compare rather than let
       // compareSemver read 'broken' as 0.0.0 and call it outdated.
-      const latest = r.provider === 'cursor' || broken ? undefined : r.provider === 'deepseek' ? capabilities?.latestVersions?.xolotl : capabilities?.latestVersions?.[r.provider];
+      const latest = broken ? undefined : r.provider === 'deepseek' ? capabilities?.latestVersions?.xolotl : capabilities?.latestVersions?.[r.provider];
       const outdated = r.provider === 'codex' && capabilities?.codexUpdate
         ? capabilities.codexUpdate.updateAvailable
-        : !!latest && (r.provider === 'deepseek' ? r.version !== latest : r.provider === 'llamacpp' ? (compareLlamacppBuild(r.version, latest) ?? 0) < 0 : compareSemver(r.version, latest) < 0);
+        : !!latest && (r.provider === 'deepseek' ? r.version !== latest : r.provider === 'llamacpp' ? (compareLlamacppBuild(r.version, latest) ?? 0) < 0 : r.provider === 'cursor' ? (compareCursorVersions(r.version, latest) ?? 0) < 0 : compareSemver(r.version, latest) < 0);
       return { ...r, latest, outdated, broken };
     });
 
@@ -298,7 +298,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
             const isDeepSeek = provider === 'deepseek';
             const isLlamacpp = provider === 'llamacpp';
             const isCursor = provider === 'cursor';
-            const isCli = !isOllama && !isLlamacpp && !isCursor && !isStrata && !isDeepSeek;
+            const isCli = !isOllama && !isLlamacpp && !isStrata && !isDeepSeek;
             const busy = isCli && checking === (provider as CliProvider);
             const result = isCli ? checkResult[provider as CliProvider] : null;
             const detail = isCli ? checkDetail[provider as CliProvider] : null;
@@ -322,7 +322,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
                   ? `llama.cpp ${version} · model "${llamacppLoadedAlias}" loaded (click to view upstream releases)`
                   : `llama.cpp ${version} · no model loaded (click to view upstream releases)`
                 : isCursor
-                  ? `cursor-agent ${version} (self-updating: click for changelog)`
+                  ? `cursor-agent ${version}${outdated ? ` → ${latest} available` : ''} (click to run cursor-agent update)`
                 : outdated
                   ? `${label} CLI outdated: v${version} → v${latest} (click to install)`
                   : `${label} CLI v${version} (click to check for updates)`;
@@ -334,9 +334,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
               ? () => setReleasesRuntime('ollama')
               : isLlamacpp
                 ? () => window.open('https://github.com/ggml-org/llama.cpp/releases', '_blank', 'noopener')
-                : isCursor
-                  ? () => window.open('https://cursor.com/changelog', '_blank', 'noopener')
-                  : () => checkForUpdates(provider as CliProvider);
+                : () => checkForUpdates(provider as CliProvider);
             const versionDisplay = busy ? '…'
               : result ? result
               : isDeepSeek ? version.slice(0, 12)
@@ -344,12 +342,13 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
               : (isLlamacpp && llamacppLoadedAlias) ? `v${version} · ${llamacppLoadedAlias}`
               : `v${version}`;
             return (
-              <span key={provider} data-help={isDeepSeek ? 'header.xolotl-version' : isStrata ? 'header.strata-version' : 'header.cli-versions'} style={{ display: 'flex' }}>
+              <span key={provider} data-help={isDeepSeek ? 'header.xolotl-version' : isStrata ? 'header.strata-version' : 'header.cli-versions'} style={{ display: 'flex', flexDirection: isCursor ? 'column' : undefined }}>
               <button
                 onClick={onClick}
                 disabled={busy}
                 className="display-font"
                 title={detail ?? baseTitle}
+                aria-label={detail ?? baseTitle}
                 style={{
                   display: 'flex',
                   width: '100%',
@@ -370,6 +369,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
                 <span style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', whiteSpace: 'nowrap' }}>{label}</span>
                 <span style={{ fontSize: '10px', color: versionColor }}>{versionDisplay}</span>
               </button>
+              {isCursor && <a href="https://cursor.com/docs/cli/changelog" target="_blank" rel="noopener noreferrer" aria-label="Cursor CLI changelog" style={{ alignSelf: 'flex-end', padding: '4px', fontSize: '9px', lineHeight: 1.4 }}>CURSOR CHANGELOG ↗</a>}
               </span>
             );
           })}

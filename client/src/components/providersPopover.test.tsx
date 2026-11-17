@@ -130,3 +130,52 @@ test('update chips clear after six seconds while honest notices and failures sta
     dom.window.close();
   }
 });
+
+
+test('Cursor row updates through its own route, keeps a separate changelog and remains usable without latest metadata', async t => {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost/', pretendToBeVisual: true });
+  const saved = Object.getOwnPropertyDescriptors(globalThis), before = useAppStore.getState();
+  const storage = useAppStore.persist.getOptions().storage;
+  const old = '2026.07.09-abcdef0', latest = '2026.11.13-eacade1';
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const requests: string[] = [];
+  let reply: Record<string, unknown> = { outcome: 'updated', currentVersion: latest, capabilities: { cursorVersion: latest, latestVersions: { cursor: latest } } };
+  const values = { window: dom.window, document: dom.window.document, Element: dom.window.Element, Node: dom.window.Node,
+    KeyboardEvent: dom.window.KeyboardEvent, getComputedStyle: dom.window.getComputedStyle.bind(dom.window),
+    ResizeObserver: class { observe() {} disconnect() {} }, IS_REACT_ACT_ENVIRONMENT: true,
+    fetch: async (url: string) => { if (!url.includes('check-updates')) return new Response('{}', { status: 503 }); requests.push(url); return Response.json(reply); } };
+  for (const [key, value] of Object.entries(values)) Object.defineProperty(globalThis, key, { configurable: true, value });
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
+  useAppStore.setState({ settings: null, authStatus: null, ollamaLive: null, llamacppLive: null, localRuntimeStatus: null,
+    capabilities: { cursorVersion: old, latestVersions: { cursor: latest } } as never });
+  const root = createRoot(document.getElementById('root')!);
+  try {
+    await act(async () => root.render(<ProvidersPopover open />));
+    const chip = [...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(b => b.textContent?.includes('CURSOR'))!;
+    assert.match(chip.title, /available.*cursor-agent update/);
+    const changelog = document.querySelector<HTMLAnchorElement>('[aria-label="Cursor CLI changelog"]')!;
+    assert.equal(changelog.href, 'https://cursor.com/docs/cli/changelog');
+    assert.equal(changelog.closest('button'), null);
+    await act(async () => chip.click());
+    assert.deepEqual(requests, ['/api/check-updates?provider=cursor']);
+    assert.match(chip.textContent ?? '', new RegExp(`→ v${latest.replaceAll('.', '\\.')}`));
+    assert.doesNotMatch(chip.title, /available/);
+    await act(async () => useAppStore.getState().setCapabilities({ cursorVersion: latest } as never));
+    reply = { outcome: 'unchanged', currentVersion: latest, message: 'Cursor did not change; the latest version is unknown.' };
+    await act(async () => chip.click());
+    assert.equal(requests.length, 2, 'metadata failure must not disable updating');
+    assert.match(chip.title, /latest version is unknown/);
+    assert.doesNotMatch(chip.textContent ?? '', /\(latest\)/);
+    reply = { outcome: 'failed', error: 'Cursor update failed: fixture permission denied' };
+    await act(async () => chip.click());
+    assert.match(chip.textContent ?? '', /FAILED/);
+    assert.equal(chip.getAttribute('aria-label'), reply.error);
+    assert.ok(document.querySelector('[aria-label="Cursor CLI changelog"]'));
+  } finally {
+    await act(async () => root.unmount());
+    t.mock.timers.reset();
+    useAppStore.setState(before, true); useAppStore.persist.setOptions({ storage });
+    for (const key of Object.keys(values)) { if (saved[key]) Object.defineProperty(globalThis, key, saved[key]); else Reflect.deleteProperty(globalThis, key); }
+    dom.window.close();
+  }
+});

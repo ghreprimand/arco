@@ -3,7 +3,7 @@ import { promises as fs, constants, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import type { CliUpdateOutcome } from '@arco/shared';
+import { compareCursorVersions, type CliUpdateOutcome } from '@arco/shared';
 import { commandArgs, findWindowsCommand, npmShimTarget } from './windowsCommand.js';
 import { resolveInstallableVersion, type ResolvedInstall } from './npmPlatformResolve.js';
 import { compareVersions } from './updateCheck.js';
@@ -138,7 +138,8 @@ export async function probeCodexUpdate(published?: string): Promise<CliUpdateDec
 export interface UpdateCommandResult { output: string; exitCode: number; }
 
 export function describeCliUpdate(provider: string, previous: string, current: string, target: string | undefined, command: UpdateCommandResult, notice?: string): { outcome: CliUpdateOutcome; message: string; updated: boolean; error?: string } {
-  const name = provider === 'codex' ? 'Codex' : 'Claude CLI';
+  const name = provider === 'codex' ? 'Codex' : provider === 'cursor' ? 'Cursor' : 'Claude CLI';
+  const compare = provider === 'cursor' ? (a: string, b: string) => compareCursorVersions(a, b) ?? null : compareVersions;
   if (command.exitCode !== 0) {
     const error = `${name} update failed: ${command.output.trim().slice(0, 2000) || `exit code ${command.exitCode}`}`;
     return { outcome: 'failed', message: error, updated: false, error };
@@ -147,11 +148,11 @@ export function describeCliUpdate(provider: string, previous: string, current: s
     const error = `${name} did not run after the update.`;
     return { outcome: 'failed', message: error, updated: false, error };
   }
-  if (previous !== current && (compareVersions(current, previous) ?? 1) > 0) {
+  if (previous !== current && (compare(current, previous) ?? 1) > 0) {
     return { outcome: 'updated', message: `Updated ${name} from v${previous} to v${current}.${notice ? ` ${notice}` : ''}`, updated: true };
   }
   if (notice) return { outcome: 'deferred', message: notice, updated: false };
-  const comparison = target ? compareVersions(current, target) : null;
+  const comparison = target ? compare(current, target) : null;
   if (comparison !== null && comparison >= 0) return { outcome: 'current', message: `${name} v${current} is up to date for this installation.`, updated: false };
   return { outcome: 'unchanged', updated: false, message: comparison !== null
     ? `${name} did not change; v${target} is still available.`

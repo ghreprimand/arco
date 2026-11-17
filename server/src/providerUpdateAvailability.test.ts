@@ -2,6 +2,7 @@ import test, { type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
 import { platformKey, resolveInstallableVersion } from './npmPlatformResolve.js';
 
+import { compareCursorVersions } from '@arco/shared';
 import { decideCodexUpdate, describeCliUpdate } from './cliUpdateDecision.js';
 
 const pkg = '@openai/codex';
@@ -53,10 +54,29 @@ test('a Windows standalone update selects its launcher and never calls npm or re
 });
 
 test('a nonzero updater exit is a failure even if the old CLI still runs', () => {
-  for (const provider of ['codex', 'claude']) {
+  for (const provider of ['codex', 'claude', 'cursor']) {
     const result = describeCliUpdate(provider, '0.165.0', '0.165.0', '0.169.0', { exitCode: 1, output: 'Permission denied' });
     assert.equal(result.outcome, 'failed');
     assert.equal(result.updated, false);
     assert.match(result.error ?? '', /Permission denied/);
   }
+});
+
+
+test('Cursor dated versions report update results without treating hashes as ordered semver', () => {
+  const old = '2026.07.09-abcdef0', latest = '2026.11.13-eacade1';
+  assert.equal(compareCursorVersions(old, latest), -1);
+  assert.equal(compareCursorVersions(latest, old), 1);
+  assert.equal(compareCursorVersions(latest, latest), 0);
+  assert.equal(compareCursorVersions(latest, '2026.11.13-1234567'), undefined);
+  assert.equal(compareCursorVersions('broken', latest), undefined);
+  assert.equal(compareCursorVersions('2026.02.30-abcdef0', latest), undefined);
+  const done = { exitCode: 0, output: '' };
+  assert.equal(describeCliUpdate('cursor', old, latest, latest, done).message, `Updated Cursor from v${old} to v${latest}.`);
+  assert.equal(describeCliUpdate('cursor', latest, latest, latest, done).outcome, 'current');
+  assert.equal(describeCliUpdate('cursor', old, old, latest, done).outcome, 'unchanged');
+  const unknown = describeCliUpdate('cursor', old, old, undefined, done);
+  assert.equal(unknown.outcome, 'unchanged');
+  assert.match(unknown.message, /could not check/);
+  assert.equal(describeCliUpdate('cursor', old, 'broken', latest, done).outcome, 'failed');
 });

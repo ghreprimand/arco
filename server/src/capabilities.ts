@@ -4,7 +4,7 @@ import { promises as fs } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { createHash } from 'crypto';
-import { CLAUDE_MODELS } from '@arco/shared';
+import { CLAUDE_MODELS, compareCursorVersions } from '@arco/shared';
 import type { Capabilities, CliUpdateOutcome, EffortLevel, ModelName } from '@arco/shared';
 import { getStrataBase } from './providers/strata.js';
 import { getDeepSeekBase } from './providers/deepseek.js';
@@ -28,7 +28,8 @@ const MODELS: ModelName[] = [...CLAUDE_MODELS] as ModelName[];
 // Provider we know how to check/update from Arco. Not a union with
 // ProviderName because Ollama isn't a CLI and doesn't ship with a version
 // flag in the same sense.
-export type CliProvider = 'claude' | 'codex';
+export type CliProvider = 'claude' | 'codex' | 'cursor';
+const cliBinary = (provider: CliProvider): string => provider === 'cursor' ? 'cursor-agent' : provider;
 
 // 'unknown' = the CLI isn't installed (the PROVIDERS popover hides those rows).
 // 'broken' = it IS installed but the version probe failed. Keeping them distinct
@@ -96,7 +97,8 @@ export async function probeCapabilities(): Promise<Capabilities> {
 //
 // Source of truth for "is the operator running the latest CLI?" Claude reads
 // npm; Codex uses its installation decision and npm publication metadata;
-// Ollama and llama.cpp query GitHub Releases since they are not npm-installed. All are best-effort: any
+// Ollama and llama.cpp query GitHub Releases since they are not npm-installed.
+// Cursor reads the version embedded in its public installer as text. All are best-effort: any
 // failure (offline, rate-limited, schema drift) leaves that key undefined
 // and the UI falls back to displaying the installed version with no
 // outdated indicator. Caller decides cadence — boot + the existing 4h
@@ -141,6 +143,30 @@ async function llamacppLatestRelease(): Promise<string | undefined> {
   return builds.length ? `b${Math.max(...builds)}` : undefined;
 }
 
+async function cursorLatestRelease(): Promise<string | undefined> {
+  try {
+    // Read the installer as bounded metadata only; never run fetched shell text.
+    const response = await fetch('https://cursor.com/install', { signal: AbortSignal.timeout(REGISTRY_TIMEOUT_MS) });
+    if (!response.ok || !response.body) return undefined;
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.byteLength;
+        if (size > 64 * 1024) { await reader.cancel(); return undefined; }
+        chunks.push(value);
+      }
+    } finally { reader.releaseLock(); }
+    const script = Buffer.concat(chunks).toString('utf8');
+    const versions = new Set([...script.matchAll(/https:\/\/downloads\.cursor\.com\/(?:lab|stable)\/(\d{4}\.\d{2}\.\d{2}-[a-f0-9]{6,40})\//gi)].map(match => match[1]));
+    const version = versions.size === 1 ? [...versions][0] : undefined;
+    return version && compareCursorVersions(version, version) === 0 ? version : undefined;
+  } catch { return undefined; }
+}
+
 export async function refreshRuntimeVersions(previous: Capabilities): Promise<Capabilities> {
   // Installed runtimes can change outside Arco. Refresh on demand without
   // probing every CLI/upstream registry or starting an inference service.
@@ -160,7 +186,7 @@ async function strataLatestRelease(): Promise<string | undefined> {
 }
 
 export async function probeLatestVersions(codexDecision = npmLatest('@openai/codex').then(probeCodexUpdate)): Promise<Capabilities['latestVersions']> {
-  const [claude, codex, ollama, strata, xolotl, llamacpp] = await Promise.all([
+  const [claude, codex, ollama, strata, xolotl, llamacpp, cursor] = await Promise.all([
     npmLatest('@anthropic-ai/claude-code'),
     codexDecision.then((decision) => decision.targetVersion),
     ollamaLatestRelease(),
@@ -170,8 +196,9 @@ export async function probeLatestVersions(codexDecision = npmLatest('@openai/cod
       return typeof sha === 'string' && /^[a-f0-9]{40}$/.test(sha) ? sha : undefined;
     }),
     llamacppLatestRelease(),
+    cursorLatestRelease(),
   ]);
-  return { claude, codex, ollama, strata, xolotl, llamacpp };
+  return { claude, codex, ollama, strata, xolotl, llamacpp, cursor };
 }
 
 export interface UpdateResult {
@@ -193,16 +220,17 @@ export interface UpdateResult {
 }
 
 function versionForProvider(caps: Capabilities, provider: CliProvider): string {
-  return provider === 'claude' ? caps.cliVersion : caps.codexVersion ?? 'unknown';
+  return provider === 'claude' ? caps.cliVersion : provider === 'cursor' ? caps.cursorVersion ?? 'unknown' : caps.codexVersion ?? 'unknown';
 }
 
 /**
  * Run the updater for the installation Arco actually launches. Claude uses its
  * built-in updater; Codex shares one installation decision with its version flag.
+ * Cursor also uses its own updater, with no installer or npm fallback.
  * Re-probe afterwards: a successful command alone does not prove a working CLI.
  */
 export async function runCliUpdate(previous: Capabilities, provider: CliProvider = 'claude', runCommand: (cmd: string, args: string[]) => Promise<UpdateCommandResult> = (cmd, args) => runUpdateCommand(cmd, args, provider)): Promise<UpdateResult> {
-  const previousVersion = provider === 'codex' ? await probeVersion('codex') : versionForProvider(previous, provider);
+  const previousVersion = provider === 'claude' ? versionForProvider(previous, provider) : await probeVersion(cliBinary(provider));
   // Pre-flight: for npm-installed CLIs, work out which version can actually run
   // on this machine before installing anything. `@latest` is not automatically
   // installable — a package whose binary ships as a platform-specific
@@ -211,7 +239,7 @@ export async function runCliUpdate(previous: Capabilities, provider: CliProvider
   // and npm reports that as success. See npmPlatformResolve.ts.
   const decision: CliUpdateDecision = provider === 'codex'
     ? await probeCodexUpdate(await npmLatest('@openai/codex'))
-    : { kind: 'unknown' as const, command: { cmd: 'claude', args: ['update'] }, targetVersion: previous.latestVersions?.claude };
+    : { kind: 'unknown' as const, command: { cmd: cliBinary(provider), args: ['update'] }, targetVersion: previous.latestVersions?.[provider] };
   const notice = decision.notice;
   const capabilities = provider === 'codex'
     ? { ...previous, codexVersion: previousVersion, latestVersions: { ...previous.latestVersions, codex: decision.targetVersion }, codexUpdate: { kind: decision.kind, updateAvailable: !!decision.targetVersion && (compareVersions(previousVersion, decision.targetVersion) ?? 0) < 0, instruction: decision.message ?? decision.notice } }
@@ -253,7 +281,7 @@ export async function runCliUpdate(previous: Capabilities, provider: CliProvider
   // the previous executable still runs and reports the same version.
   const report = describeCliUpdate(provider, previousVersion, currentVersion, next.latestVersions?.[provider], commandResult, notice);
   if (report.outcome === 'failed' && commandResult.exitCode === 0) {
-    const reason = await probeFailureReason(provider);
+    const reason = await probeFailureReason(cliBinary(provider));
     if (reason) { report.error = reason; report.message = reason; }
   }
   return { provider, previousVersion, currentVersion, capabilities: next, output: commandResult.output,
@@ -287,14 +315,15 @@ async function runUpdateCommand(cmd: string, args: string[], provider: CliProvid
 
 const SNAPSHOT_DIR = join(arcoHome(), 'cli-snapshots');
 
-const HELP_PROBES: Record<CliProvider, string[][]> = {
+type HelpProvider = Exclude<CliProvider, 'cursor'>;
+const HELP_PROBES: Record<HelpProvider, string[][]> = {
   claude: [['--help'], ['config', '--help'], ['mcp', '--help']],
 
   codex: [['--help'], ['exec', '--help']],
 };
 
 export interface CliChange {
-  provider: CliProvider;
+  provider: HelpProvider;
   fromVersion: string;
   toVersion: string;
   newFlags: string[];
@@ -308,16 +337,16 @@ interface SnapshotMeta {
   seenAt: number;
 }
 
-async function runHelpProbe(bin: CliProvider, args: string[]): Promise<string | null> {
+async function runHelpProbe(bin: HelpProvider, args: string[]): Promise<string | null> {
   try {
-    const { stdout } = await execFileAsync(...commandArgs(bin, args), CLI_PROBE_OPTIONS);
+    const { stdout } = await execFileAsync(...commandArgs(cliBinary(bin), args), CLI_PROBE_OPTIONS);
     return stdout;
   } catch {
     return null; // flag not supported on this version — skip silently
   }
 }
 
-async function snapshotHelp(provider: CliProvider): Promise<{ text: string; hash: string }> {
+async function snapshotHelp(provider: HelpProvider): Promise<{ text: string; hash: string }> {
   const chunks: string[] = [];
   for (const args of HELP_PROBES[provider]) {
     const out = await runHelpProbe(provider, args);
@@ -336,7 +365,7 @@ function extractFlags(helpText: string): Set<string> {
   return flags;
 }
 
-async function readPriorSnapshot(provider: CliProvider): Promise<{ text: string; meta: SnapshotMeta } | null> {
+async function readPriorSnapshot(provider: HelpProvider): Promise<{ text: string; meta: SnapshotMeta } | null> {
   try {
     const text = await fs.readFile(join(SNAPSHOT_DIR, `${provider}.txt`), 'utf8');
     const meta = JSON.parse(await fs.readFile(join(SNAPSHOT_DIR, `${provider}.meta.json`), 'utf8')) as SnapshotMeta;
@@ -346,7 +375,7 @@ async function readPriorSnapshot(provider: CliProvider): Promise<{ text: string;
   }
 }
 
-async function writeSnapshot(provider: CliProvider, text: string, meta: SnapshotMeta): Promise<void> {
+async function writeSnapshot(provider: HelpProvider, text: string, meta: SnapshotMeta): Promise<void> {
   await fs.mkdir(SNAPSHOT_DIR, { recursive: true });
   // Both files atomically: a truncated `.txt` paired with a valid `.meta.json`
   // reads back as a real snapshot and renders a large bogus capability diff to
@@ -374,7 +403,7 @@ function simpleDiff(oldText: string, newText: string): string {
  * baseline silently and are NOT reported as changes.
  */
 export async function detectCliChanges(caps: Capabilities): Promise<CliChange[]> {
-  const providers: CliProvider[] = ['claude',  'codex'];
+  const providers: HelpProvider[] = ['claude',  'codex'];
   const changes: CliChange[] = [];
   for (const p of providers) {
     const currentVersion = versionForProvider(caps, p);

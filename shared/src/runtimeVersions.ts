@@ -35,3 +35,17 @@ export function compareLlamacppBuild(a: string, b: string): number | undefined {
   const aa = llamacppBuild(a), bb = llamacppBuild(b);
   return aa === undefined || bb === undefined ? undefined : aa < bb ? -1 : aa > bb ? 1 : 0;
 }
+
+// Cursor uses a date plus a build hash, not semver. A different hash on the
+// same date has no reliable ordering; leave that comparison unknown.
+export function compareCursorVersions(a: string, b: string): number | undefined {
+  const date = (value: string): string | undefined => {
+    const stamp = /^(\d{4}\.\d{2}\.\d{2})-[a-f0-9]{6,40}$/i.exec(value)?.[1];
+    if (!stamp) return undefined;
+    const iso = stamp.replaceAll('.', '-');
+    const parsed = new Date(`${iso}T00:00:00Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().startsWith(iso) ? stamp : undefined;
+  };
+  const aa = date(a), bb = date(b);
+  return !aa || !bb ? undefined : aa < bb ? -1 : aa > bb ? 1 : a === b ? 0 : undefined;
+}

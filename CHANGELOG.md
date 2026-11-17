@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Update Cursor from its PROVIDERS row using its own updater, with a best-effort update flag and a separate CLI changelog link.
+
 - Keep expected missing-Git revision checks quiet at start-up and recognize forwarded KEEP help links in documentation checks.
 
 - Give each agent one wait instruction matching its role, including local Directors and handoff prewarm.

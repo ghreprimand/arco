@@ -1151,6 +1151,20 @@ against isolated Vite with all API/WebSocket traffic stubbed.
 
 ## Cursor
 
+In the PROVIDERS panel, clicking CURSOR runs the existing `cursor-agent update`
+command and probes that CLI again. It never runs npm or an installation script
+as a fallback. The row uses the existing one-line update result and keeps a
+separate CURSOR CHANGELOG link. An updater failure remains a failure even if
+the old CLI still works; an unreadable version after the update is also a failure.
+
+The update flag reads the dated version embedded in the public
+[Cursor installer](https://cursor.com/install) as bounded text, without executing
+it. A missing, malformed or unavailable value leaves the latest version unknown
+and shows no flag; the update action still works. Date-stamped builds compare by
+date. Different hashes on the same date have no known ordering, so they do not
+produce an update flag. An unchanged version is called latest only when the
+published version can be compared and confirms it.
+
 ACP and print output decode UTF-8 across pipe chunks, preserving multibyte text and filenames. Cancelling native compression finishes its cancellation wait when compression settles; its fallback timer cannot kill a later turn.
 
 `server/src/providers/cursor/` - a long-lived per-workflow ACP worker (`worker.ts`) driving

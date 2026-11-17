@@ -132,6 +132,17 @@ export const maintenance: Section[] = [
   Claude continues to use <Code>claude update</Code>.
   </p>
   <p>
+  Cursor uses <Code>cursor-agent update</Code> and rechecks its version.
+  The separate CURSOR CHANGELOG link opens the CLI release notes.
+  </p>
+  <p>
+  Cursor&apos;s update flag reads the dated release version from its public
+  installer without running the script. If that metadata cannot be read,
+  no flag appears and clicking the row still runs the updater. Builds with
+  different hashes on the same date have no known order and do not show
+  an update flag. Arco never installs a second copy as a fallback.
+  </p>
+  <p>
   During an npm publication gap, an older npm CLI can use a pinned installable
   version; a self-updater waits for the latest platform build instead.
   Arco does not downgrade a working installation. The Codex flag uses that

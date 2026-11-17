@@ -654,21 +654,23 @@ export interface Capabilities {
   codexVersion?: string;
   codexUpdate?: { kind: 'standalone' | 'npm' | 'unknown'; updateAvailable: boolean; instruction?: string };
   // `cursor-agent --version` — date-stamped (e.g. "2026.07.08-0c04a8a"), not
-  // semver, and not npm-installed, so there's no upstream `latestVersions.cursor`
-  // and no self-update path: display-only in the PROVIDERS popover.
+  // semver, and not npm-installed. Its own updater handles row clicks; latest
+  // metadata is read as text from the public installer without executing it.
   cursorVersion?: string;
   // Live engine version, falling back to prepared engine/BUILD.json while stopped.
   strataVersion?: string;
   // Xolotl checkout revision; source tracking, not a claim about a rebuilt binary.
   xolotlRevision?: string;
   // Latest versions from the selected update source (Codex's installation
-  // decision, npm for Claude, GitHub Releases for Ollama/llama.cpp). Best-effort: any
+  // decision, npm for Claude, public installer metadata for Cursor, and GitHub
+  // Releases for Ollama/llama.cpp). Best-effort: any
   // probe failure leaves that key undefined and the UI falls back to the
   // installed-only display. Refreshed on the same cadence as the local
   // CLI re-probe.
   latestVersions?: {
     claude?: string;
     codex?: string;
+    cursor?: string;
     ollama?: string;
     strata?: string;
     xolotl?: string;

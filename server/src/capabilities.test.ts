@@ -34,3 +34,17 @@ test('llama.cpp update metadata selects the newest published numeric build and s
   t.mock.method(globalThis, 'fetch', async () => { throw new Error('offline'); });
   assert.equal((await probeLatestVersions(codex))?.llamacpp, undefined);
 });
+
+
+test('Cursor latest metadata reads only a bounded installer version and stays unknown on failure', async t => {
+  let script = 'DOWNLOAD_URL="https://downloads.cursor.com/lab/2026.11.13-eacade1/${OS}/${ARCH}/agent-cli-package.tar.gz"';
+  t.mock.method(globalThis, 'fetch', async (url: string) => new Response(url === 'https://cursor.com/install' ? script : '{}'));
+  const decision = Promise.resolve({ kind: 'unknown' as const });
+  assert.equal((await probeLatestVersions(decision))?.cursor, '2026.11.13-eacade1');
+  for (const invalid of ['no release version', script + '\nhttps://downloads.cursor.com/lab/2026.11.14-abcdef0/linux/x64/package', script.replace('2026.11.13', '2026.99.99'), 'x'.repeat(64 * 1024) + script]) {
+    script = invalid;
+    assert.equal((await probeLatestVersions(decision))?.cursor, undefined);
+  }
+  t.mock.method(globalThis, 'fetch', async () => { throw new Error('offline'); });
+  assert.equal((await probeLatestVersions(decision))?.cursor, undefined);
+});

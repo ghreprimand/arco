@@ -1893,7 +1893,7 @@ export async function handleHttpRequest(
         res.end(JSON.stringify({ error: retired }));
         return;
       }
-      const provider: CliProvider = providerParam === 'codex'
+      const provider: CliProvider = providerParam === 'codex' || providerParam === 'cursor'
         ? providerParam
         : 'claude';
       const result = await runCliUpdate(deps.getCapabilities(), provider);
