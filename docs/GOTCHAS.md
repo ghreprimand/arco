@@ -598,6 +598,7 @@ Cursor is an ACP provider (`cursor-agent acp`). Current transport details are su
 
 ## Cross-platform
 
+- **Compare existing file and folder paths through `realpath` in tests.** macOS can expose temporary paths through `/var` while Arco stores their resolved `/private/var` paths. Resolve both sides for identity checks. When the test checks that Arco stores a resolved path, compare the stored value directly with the resolved expected path.
 - **Arco runs on Linux (primary dev machine) and macOS (secondary).** Any server-side shell-out or spawn needs to work on both. GNU-only flags, Linux-only binaries, and `/proc/` reads without a fallback are the usual traps. Concrete rules:
   - **No `setsid` binary.** Not installed by default on macOS. Node's `spawn(..., { detached: true })` already calls `setsid(2)` on POSIX and gives you the same new-session / no-controlling-terminal behavior for free. `nohup` is also redundant once `stdio: 'ignore'` + detach is in place. A restart path that `spawn('setsid', ...)`'d would silently `ENOENT` on Darwin.
   - **Shell scripts target bash 3.2+.** macOS ships bash 3.2 by default. `set -uo pipefail`, POSIX traps, `||` short-circuits are all fine. Bash-4 features like associative arrays (`declare -A`), `[[ =~ ]]` with `BASH_REMATCH` quirks, `readarray`, or `${var,,}` lowercase-expansion do not round-trip.

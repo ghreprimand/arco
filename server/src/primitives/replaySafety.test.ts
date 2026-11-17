@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -88,7 +88,7 @@ test('a fixed transcript preview creates one fresh worker in another folder and 
     store.persistAndStampSeq(cwd, id, { type: 'primary_text', workflowId: id, phase: 'passthrough', text: 'LATER_REPLY' } as never);
     await Promise.all(['create-one', 'create-again'].map(requestId => handlers.handleTranscriptWorkerCreate(ws, {} as never, { type: 'transcript_worker_create', requestId, token: first.token, destination: config })));
     assert.equal(created.length, 1); assert.equal(seeds.length, 1);
-    assert.equal(created[0].workingDirectory, destination);
+    assert.equal(created[0].workingDirectory, realpathSync(destination));
     for (const field of ['pinnedSkills', 'resumeSessionId', 'resumeWorkflowId', 'goalRun', 'clusterId']) assert.equal(created[0][field], undefined);
     assert.ok(seeds[0].startsWith('Answer from the copy.')); assert.doesNotMatch(seeds[0], /LATER_INPUT/);
     assert.equal(replies.find(reply => reply.requestId === 'create-one').newWorkflowId, replies.find(reply => reply.requestId === 'create-again').newWorkflowId);

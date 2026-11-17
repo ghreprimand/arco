@@ -202,6 +202,11 @@ context, test entry filenames and a loaded `node:test` detect test execution;
 `NODE_ENV` alone does not. Atomic writers also check cached paths when writing,
 so importing a store before the fixture setup cannot bypass that check.
 
+Compare existing file and folder paths through `realpath` on both sides. macOS
+can expose temporary fixtures through `/var` while Arco stores paths under
+`/private/var`. To check that an output is already resolved, compare the output
+directly with the resolved expected path.
+
 The updater fixtures copy one prepared release history into independent repositories;
 its CRLF case creates a fresh clone so Git initializes the index with line-ending
 conversion enabled. Public-audit fixtures write their initial local configuration
