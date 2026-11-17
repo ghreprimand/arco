@@ -399,6 +399,7 @@ export function ReplaceMemberDialog({
         <button
           type="button"
           onClick={onClose}
+          data-help="cluster.replace.cancel"
           className="display-font"
           style={{
             padding: '4px 10px',

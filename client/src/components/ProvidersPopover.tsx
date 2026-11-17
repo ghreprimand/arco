@@ -369,7 +369,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
                 <span style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-fg-muted)', whiteSpace: 'nowrap' }}>{label}</span>
                 <span style={{ fontSize: '10px', color: versionColor }}>{versionDisplay}</span>
               </button>
-              {isCursor && <a href="https://cursor.com/docs/cli/changelog" target="_blank" rel="noopener noreferrer" aria-label="Cursor CLI changelog" style={{ alignSelf: 'flex-end', padding: '4px', fontSize: '9px', lineHeight: 1.4 }}>CURSOR CHANGELOG ↗</a>}
+              {isCursor && <a href="https://cursor.com/docs/cli/changelog" target="_blank" rel="noopener noreferrer" aria-label="Cursor CLI changelog" data-help="header.cursor-changelog" style={{ alignSelf: 'flex-end', padding: '4px', fontSize: '9px', lineHeight: 1.4 }}>CURSOR CHANGELOG ↗</a>}
               </span>
             );
           })}
