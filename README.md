@@ -50,10 +50,11 @@ box, a release toast, or Settings. See
 before a fresh install (package, source checkout, or unknown origin), see
 [Before a fresh install: remove older copies](docs/OPERATIONS.md#before-a-fresh-install-remove-older-copies).
 
-`arco setup` asks before installing the per-user service and creating an
-application shortcut, starts the service, and opens the local URL. Use the
-shortcut or `arco open` for a Chromium app window (Chrome, Edge, Brave, Vivaldi
-or Chromium, including other installed channels; choose one in Settings > Advanced > App window browser or with
+`arco setup` prints the package version it runs, then asks before installing the
+per-user service and creating an application shortcut, starts the service, and
+opens the local URL. Use the shortcut or `arco open` for a Chromium app window
+(Chrome, Edge, Brave, Vivaldi or Chromium, including other installed channels;
+choose one in Settings > Advanced > App window browser or with
 `arco open --browser <name-or-path>`); `arco open --tab` opens a regular
 browser tab. The service is `arco.service` under systemd user services,
 `arco-workbench.plist` with label `arco-workbench` under launchd, or the
@@ -214,14 +215,15 @@ making it reachable elsewhere.
 - **Utility agent:** one operator-chosen provider and model for short side jobs such as **BRIEF**, **CATCH ME UP**, and **TIDY**. Accepts Claude with Native sign-in, Codex, Cursor, Ollama, LM Studio, llama.cpp, and Strata or DeepSeek through Xolotl; never chosen silently. [Settings](docs/SETTINGS.md#utility-agent) | [Feature reference](docs/FEATURES.md)
 - **Conversation control:** interrupt an active Claude or Codex turn and send a correction next, preserving queued follow-ups. Mid-turn sends show Queued or Delivered; the conversation header names the current step and its elapsed time. PLAN FIRST arms a Native Claude turn to plan before editing, separately from the project plan. It is hidden for cluster roles that do not edit code. [Interrupt and send](docs/PROVIDERS.md#interrupt-and-send)
 - **Operator actions:** Review, SECOND OPINION, Research, Handoff, and Spawn keep results visible and actions explicit. [Operator actions](docs/OPERATOR_ACTIONS.md)
-- **Clusters and plans:** size-ordered templates, at most one director, shared
-  task boards, peer messages, plans, and optional operator-armed AUTO-PICKUP
-  (Rule-based recommended; Smart modes need an evaluator from the same
-  providers as the utility agent). A plan gives a workflow or cluster its
-  shared direction; the board tracks who is doing each task. Member status shows
-  when a turn starts and remains working until it settles; cards keep the last settled reply or tool step. Describe a
-  cluster's purpose during creation to request a director's draft, then review
-  it before attaching.
+- **Clusters and plans:** size-ordered templates, at most one director, eight
+  role presets including ADVISOR and DESIGNER, shared task boards, peer
+  messages, plans, and optional operator-armed AUTO-PICKUP (Rule-based
+  recommended; Smart modes need an evaluator from the same providers as the
+  utility agent) with PAUSE, RESUME and RESET BUDGET. A plan gives a workflow or
+  cluster its shared direction; the board tracks who is doing each task. Member
+  status shows when a turn starts and remains working until it settles; cards
+  keep the last settled reply or tool step. Describe a cluster's purpose during
+  creation to request a director's draft, then review it before attaching.
   [Task ledger](docs/TASK_LEDGER.md) | [Plan or board?](docs/PLAN_OR_BOARD.md) | [Getting started](docs/GETTING_STARTED.md)
 - **Updates and shortcuts:** the top-bar version box shows the running version and opens the update dialog; package installs use `arco update` or **UPDATE AND RESTART**; `arco open` and per-user shortcuts open a dedicated app window. [Updating Arco](docs/OPERATIONS.md#updating-arco) | [Service mode](docs/SERVICE_MODE.md)
 - **Working tools:** an embedded terminal and Git workbench keep commands, diffs, checkpoints, and reviews beside the conversation. [Git workbench](docs/GIT_WORKBENCH.md)

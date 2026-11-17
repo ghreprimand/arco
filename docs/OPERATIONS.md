@@ -63,8 +63,9 @@ See [Updating Arco](#updating-arco). To clear every older copy before a fresh
 install, see
 [Before a fresh install: remove older copies](#before-a-fresh-install-remove-older-copies).
 
-`arco setup` asks before installing the service, starts it, and opens the local
-URL. Use `arco service install|uninstall|start|stop|restart|status|logs|refresh` for
+`arco setup` prints the package version it runs, then asks before installing the
+service, starts it, and opens the local URL. Use
+`arco service install|uninstall|start|stop|restart|status|logs|refresh` for
 direct service control, or `arco start` for a foreground run. Service settings
 come from `ARCO_HOME`, `ARCO_PORT`, `ARCO_HOST`, and the other supported
 environment values saved at first install. Existing unowned or modified service

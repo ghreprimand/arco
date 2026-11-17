@@ -296,6 +296,17 @@ export const headerHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'provider-updates',
   },
+  'header.cursor-changelog': {
+    title: 'CURSOR CHANGELOG',
+    manualSection: 'provider-updates',
+    body: (
+      <p>
+        Opens Cursor&apos;s CLI release notes in a new tab. It does not run an
+        update. Click the CURSOR version row to run <C>cursor-agent update</C>
+        and recheck the installed version.
+      </p>
+    ),
+  },
   'header.workflow-status': {
     title: 'Provider throttling',
     manualSection: 'header',

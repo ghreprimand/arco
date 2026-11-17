@@ -603,6 +603,16 @@ export const clusterHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'cluster-member-replacement',
   },
+  'cluster.replace.cancel': {
+    title: 'Cancel replacement',
+    body: (
+      <p>
+        Closes the REPLACE form without creating a worker or changing the
+        roster. Choices in the form are discarded.
+      </p>
+    ),
+    manualSection: 'cluster-member-replacement',
+  },
   'cluster.right-panel.member-focus': {
     title: 'Focus member',
     body: <p>Click a member&apos;s name to focus that worker: its chat and controls take over the detail pane. Its status (<C>IDLE</C> or <C>BUSY</C>) and work size sit beside the name. Use PROMOTE or BACK TO CLUSTER to move a member into its own tab and back.</p>,

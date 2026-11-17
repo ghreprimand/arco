@@ -42,7 +42,7 @@ offers Genesis. A new user sees a **Getting started** card until a provider,
 project folder, and first conversation (any chat, session or cluster) are available; **HIDE** keeps the card hidden on this browser. Without browser storage, Home still works and HIDE applies until the Home view reloads.
 
 **Continue** lists open work, with questions waiting for an answer first and the
-current step for running work. Each Continue card shows a status word: Working, Needs you, New reply (a turn finished while you were elsewhere) or Idle. Tabs show a status dot; hover over a tab for its status. Idle has no dot. **Resume** returns to a tab. Two rows show at
+current step for running work. Each Continue card shows a status word: Working, Needs you, New reply (a turn finished while you were elsewhere) or Idle. Tabs show a status dot; hover over a tab for its status. Needs you stays the attention colour and pulses while a turn is still running; the dot is solid only when nothing is running. Idle has no dot. **Resume** returns to a tab. Two rows show at
 first; **Show all** opens the rest in a bounded scrolling area.
 
 The project grid lists available folders alphabetically in two rows; **Show all** opens the rest in a bounded scrolling area, and a search shows every match. Filter it by
@@ -143,8 +143,9 @@ See [Updating Arco](OPERATIONS.md#updating-arco). To clear every older copy
 before a fresh install, see
 [Before a fresh install: remove older copies](OPERATIONS.md#before-a-fresh-install-remove-older-copies).
 
-`arco setup` asks before installing the per-user service, starts it, and opens
-the local URL. Use `arco start` for a foreground run. Use
+`arco setup` prints the package version it runs, then asks before installing the
+per-user service, starts it, and opens the local URL. Use `arco start` for a
+foreground run. Use
 `arco service install|uninstall|start|stop|restart|status|logs|refresh` to manage the
 service directly.
 
