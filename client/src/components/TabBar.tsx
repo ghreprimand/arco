@@ -169,7 +169,11 @@ function TabScrollRow({ activeKey, children }: { activeKey: string; children: Re
       el.scrollLeft += event.deltaY * unit;
       if (el.scrollLeft !== previous) event.preventDefault();
     };
-    const focus = (event: FocusEvent) => reveal((event.target as Element).closest('[data-help="tabbar.tab"], [data-help="tabbar.cluster"], button'));
+    const focus = (event: FocusEvent) => {
+      const target = event.target;
+      // Pointer focus must not move the control between pointerdown and click.
+      if (target instanceof Element && target.matches(':focus-visible')) reveal(target);
+    };
     el.addEventListener('wheel', wheel, { passive: false });
     el.addEventListener('scroll', measure);
     el.addEventListener('focusin', focus);
