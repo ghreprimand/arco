@@ -96,7 +96,7 @@ export async function probeCapabilities(): Promise<Capabilities> {
 //
 // Source of truth for "is the operator running the latest CLI?" Claude reads
 // npm; Codex uses its installation decision and npm publication metadata;
-// Ollama queries GitHub Releases since it's not npm-installed. All are best-effort: any
+// Ollama and llama.cpp query GitHub Releases since they are not npm-installed. All are best-effort: any
 // failure (offline, rate-limited, schema drift) leaves that key undefined
 // and the UI falls back to displaying the installed version with no
 // outdated indicator. Caller decides cadence — boot + the existing 4h
@@ -130,6 +130,17 @@ async function ollamaLatestRelease(): Promise<string | undefined> {
   return undefined;
 }
 
+async function llamacppLatestRelease(): Promise<string | undefined> {
+  // /releases/latest can be a semantic milestone older than the daily builds.
+  // Only numeric build tags can be compared to the installed binary's build.
+  const data = await fetchJson('https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=20');
+  if (!Array.isArray(data)) return undefined;
+  const builds = data.filter((release) => release && !release.draft)
+    .map((release) => typeof release.tag_name === 'string' && /^b[1-9]\d*$/.test(release.tag_name) ? Number(release.tag_name.slice(1)) : NaN)
+    .filter(Number.isSafeInteger);
+  return builds.length ? `b${Math.max(...builds)}` : undefined;
+}
+
 export async function refreshRuntimeVersions(previous: Capabilities): Promise<Capabilities> {
   // Installed runtimes can change outside Arco. Refresh on demand without
   // probing every CLI/upstream registry or starting an inference service.
@@ -149,7 +160,7 @@ async function strataLatestRelease(): Promise<string | undefined> {
 }
 
 export async function probeLatestVersions(codexDecision = npmLatest('@openai/codex').then(probeCodexUpdate)): Promise<Capabilities['latestVersions']> {
-  const [claude, codex, ollama, strata, xolotl] = await Promise.all([
+  const [claude, codex, ollama, strata, xolotl, llamacpp] = await Promise.all([
     npmLatest('@anthropic-ai/claude-code'),
     codexDecision.then((decision) => decision.targetVersion),
     ollamaLatestRelease(),
@@ -158,8 +169,9 @@ export async function probeLatestVersions(codexDecision = npmLatest('@openai/cod
       const sha = (data as { sha?: unknown } | null)?.sha;
       return typeof sha === 'string' && /^[a-f0-9]{40}$/.test(sha) ? sha : undefined;
     }),
+    llamacppLatestRelease(),
   ]);
-  return { claude, codex, ollama, strata, xolotl };
+  return { claude, codex, ollama, strata, xolotl, llamacpp };
 }
 
 export interface UpdateResult {

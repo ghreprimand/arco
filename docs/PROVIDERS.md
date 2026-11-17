@@ -1914,6 +1914,15 @@ OpenAI fragment-assembly: tool calls arrive across multiple SSE events, partial 
 
 Operator-declared in the catalog; no `--show`-equivalent on llama-server. Setting `capabilities.vision: true` without an `mmprojPath` is allowed (the validator doesn't reject it) but the provider drops images and emits a system_notice - guard at the UI layer where useful.
 
+The version check reads the newest numeric `b<build>` tag among the 20 most
+recent published GitHub releases, excluding drafts. Published daily builds
+marked as prereleases are included. The
+existing PROVIDERS row compares that build with the installed binary's build
+number and marks an older build. Semantic milestone versions are not used as
+build numbers. An unavailable feed or unknown build leaves the flag unset.
+Clicking the row still opens upstream releases; updates remain manual and no
+binary or model is installed or loaded.
+
 ### Quirks
 
 - **Cold-start latency.** First turn after a switch is 20-30s for a 17GB GGUF (mmap + VRAM transfer). UI shows nothing useful during this window today; status is queryable via `GET /api/llamacpp-live`.

@@ -277,6 +277,10 @@ export const headerHelp: Record<string, HelpEntry> = {
           Release notes take keyboard focus on opening. Escape dismisses them;
           closing returns focus to the opening version control when available.
         </p>
+        <p>llama.cpp checks recent published numeric build tags and flags an
+          older installed build. If a build cannot be read, no flag is shown.
+          Click its row for upstream releases and update manually; the check
+          does not install anything or load a model.</p>
         <p>Arco checks the matching npm platform binary before installing.
           An older npm CLI can use a pinned installable version; its self-updater
           waits when the latest build is missing. A working installation is

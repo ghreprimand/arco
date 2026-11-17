@@ -662,7 +662,7 @@ export interface Capabilities {
   // Xolotl checkout revision; source tracking, not a claim about a rebuilt binary.
   xolotlRevision?: string;
   // Latest versions from the selected update source (Codex's installation
-  // decision, npm for Claude, GitHub Releases for Ollama). Best-effort: any
+  // decision, npm for Claude, GitHub Releases for Ollama/llama.cpp). Best-effort: any
   // probe failure leaves that key undefined and the UI falls back to the
   // installed-only display. Refreshed on the same cadence as the local
   // CLI re-probe.

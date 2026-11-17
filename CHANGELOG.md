@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Check published llama.cpp build tags so the existing provider row can flag an older installed build without installing or loading anything.
+
 - Reject malformed Claude effort updates before changing any settings, preserving the working configuration.
 
 - Explain failed native repairs with the failing build step and decisive error, and state that installed native parts remain unchanged.

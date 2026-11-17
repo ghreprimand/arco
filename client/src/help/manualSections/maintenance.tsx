@@ -139,6 +139,13 @@ export const maintenance: Section[] = [
   Homebrew installations without recognised ownership require manual updates.
   </p>
   <p>
+  llama.cpp checks recent published numeric build tags and flags an older
+  installed build. Semantic milestone versions are not compared as build
+  numbers. If a build cannot be read, no update flag is shown. Click the row
+  to open upstream releases and update manually; the check does not install
+  anything or load a model.
+  </p>
+  <p>
   Strata's installed engine version comes from its reachable service or
   prepared BUILD.json while stopped. Arco compares engine component
   versions at boot and every four hours; the app/Terminal 0.2 version
