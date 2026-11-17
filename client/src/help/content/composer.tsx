@@ -543,6 +543,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           against the live session via a background pty).
         </p>
         <p>If a saved provider conversation id was lost, <C>CTX: -</C> explains that the previous conversation cannot be resumed. The next message starts a new conversation and adds one notice; the replacement waits for its own reading. Earlier messages and usage stay in the tab. Missing metadata is recreated, but an already-lost id cannot be recovered.</p>
+        <p>Claude Native limits an uncached reconstruction parse to 1 GiB. A valid summary cache with a small tail can resume a larger history. A refused or failed rebuild adds one notice: the agent continues without earlier context, so include any needed context again. Claude CLI loading handles 2 GB separately; a session-history notice means its saved conversation is intact and new messages will appear when readable. Earlier messages remain in the tab.</p>
       </>
     ),
     manualSection: 'context-window',

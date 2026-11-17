@@ -5,6 +5,21 @@ import { readMeta, persistInitialMeta, reconcileLatestCliSession, workflowMetaSe
 import { scanEventsOfTypes } from './workflowStore.js';
 import { broadcastWorkflow, broadcastTransient } from './server/broadcast.js';
 
+const historyLoadNotices = new WeakMap<object, Set<string>>();
+export function reportHistoryLoadFailure(workflowId: string, owner: object, provider: 'native' | 'cli', emit?: (content: string) => void, nativeLimitBytes?: number): void {
+  const shown = historyLoadNotices.get(owner) ?? new Set<string>();
+  if (shown.has(provider)) return;
+  shown.add(provider);
+  historyLoadNotices.set(owner, shown);
+  const content = provider === 'native'
+    ? nativeLimitBytes !== undefined
+      ? `Earlier context could not be rebuilt within the ${nativeLimitBytes / (1024 * 1024)} MiB reconstruction limit, so the agent continues without it. Earlier messages remain in this tab.`
+      : 'Earlier context could not be rebuilt for this conversation, so the agent continues without it. Earlier messages remain in this tab.'
+    : 'Earlier Claude CLI session history could not be loaded in this tab. The saved conversation is intact; new session messages will appear when the file can be read.';
+  if (emit) emit(content);
+  else broadcastWorkflow(workflowId, { type: 'system_notice', workflowId, content });
+}
+
 export async function hasConversationHistory(cwd: string, workflowId: string, afterSeq = 0): Promise<boolean> {
   let found = false;
   await scanEventsOfTypes(cwd, workflowId, ['primary_complete', 'primary_text'], event => { if ((('seq' in event && typeof event.seq === 'number') ? event.seq : 0) > afterSeq) found = true; });

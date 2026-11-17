@@ -15,6 +15,7 @@ import { nativeOAuthBaseUrl } from './apiEndpoint.js';
 import { createHash } from 'node:crypto';
 import { ensureProjectStateIgnore } from '../../projectStateIgnore.js';
 import { replayEventsWithTs } from '../../workflowStore.js';
+import { reportHistoryLoadFailure } from '../../providerConversation.js';
 import { computerToolDefinitions, executeComputerTool } from '../../voice/toolDefinitions.js';
 // Phase 7a — long-lived per-workflow Claude Native worker.
 //
@@ -58,7 +59,7 @@ import { getPeerToolDefinitions, isPeerTool, executePeerTool } from './peerTools
 import { registryToolDefs, parseRegistryToolName, isRegistryToolAllowed, isRegistryToolReadOnly } from './registryTools.js';
 import { connectServer, type McpSession } from '../../mcp/client.js';
 import { getSandboxToolDefinitions, isSandboxTool, executeSandboxTool } from './sandboxTools.js';
-import { buildMessagesFromReplayEvents, replayMessagesWithResumePolicy, compactSummarySeed, type ClaudeResumeMessage } from './resumeSummary.js';
+import { buildMessagesFromReplayEvents, replayMessagesWithResumePolicy, compactSummarySeed, NativeReconstructionLimitError, type ClaudeResumeMessage } from './resumeSummary.js';
 import { readMeta, setResolvedModelId } from '../../workflowMeta.js';
 import { lspManager } from '../../lsp/client.js';
 import { isClaudeServerToolDef, isServerToolResultType, pendingServerTools, pruneServerToolEvidenceAfterTurn, stripDanglingServerToolResults } from './retainedContext.js';
@@ -1488,6 +1489,8 @@ export class ClaudeNativeWorker extends EventEmitter {
           }
         } catch (err) {
           console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] replay failed:`, err);
+          reportHistoryLoadFailure(this.workflowId, this, 'native', content => this.emit('system_notice', content),
+            err instanceof NativeReconstructionLimitError ? err.limitBytes : undefined);
         }
       }
       this.replayed = true;

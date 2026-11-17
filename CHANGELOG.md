@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Stream Claude CLI session loads at 2 GB, limit uncached Claude Native reconstruction to 1 GiB, and explain a refused or failed reconstruction once while retaining the earlier transcript.
+
 - Close new director-approved tasks on the server by default and keep signed-off tasks out of the attention badge. Turn off Board auto-done in Settings > Agents and clusters to accept tasks yourself.
 
 - Copy exact recent turns and a typed preface to a fresh worker in any chosen folder, with a server-owned preview, bounded tool/file receipts and no inherited pins or provider session.

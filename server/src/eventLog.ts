@@ -329,6 +329,60 @@ export async function readLogText(dir: string): Promise<string> {
   return parts.length ? parts.join('\n') + '\n' : '';
 }
 
+// Byte offsets retain the old resume reader's accounting: raw file bytes for
+// a plain log, or the newline-normalized, overlap-filtered readLogText bytes
+// when segments exist. Ranges stream without concatenating the whole log.
+export interface LogByteSource {
+  size: number;
+  chunks(start: number, length: number): AsyncGenerator<Buffer>;
+  read(start: number, length: number): Promise<string>;
+  close(): Promise<void>;
+}
+export async function openLogByteSource(dir: string): Promise<LogByteSource | null> {
+  let size = 0;
+  let chunks: LogByteSource['chunks'];
+  let close: LogByteSource['close'] = async () => {};
+  if ((await listSegments(dir)).length) {
+    for await (const line of readLogLines(dir)) size += Buffer.byteLength(line, 'utf8') + 1;
+    chunks = async function* (start, length) {
+      const end = Math.min(size, start + length);
+      let position = 0;
+      for await (const line of readLogLines(dir)) {
+        const next = position + Buffer.byteLength(line, 'utf8') + 1;
+        if (next > start && position < end) {
+          const buffer = Buffer.from(line + '\n', 'utf8');
+          const from = Math.max(0, start - position), through = Math.min(buffer.length, end - position);
+          for (let offset = from; offset < through; offset += 64 * 1024) {
+            yield buffer.subarray(offset, Math.min(through, offset + 64 * 1024));
+          }
+        }
+        position = next;
+        if (position >= end) break;
+      }
+    };
+  } else {
+    const fh = await openLive(path.join(dir, LIVE_LOG));
+    if (!fh) return null;
+    try { size = (await fh.stat()).size; } catch (err) { await fh.close(); throw err; }
+    close = () => fh.close();
+    chunks = async function* (start, length) {
+      const end = Math.min(size, start + length);
+      for (let position = start; position < end;) {
+        const buffer = Buffer.alloc(Math.min(64 * 1024, end - position));
+        const { bytesRead } = await fh.read(buffer, 0, buffer.length, position);
+        if (!bytesRead) break;
+        position += bytesRead;
+        yield buffer.subarray(0, bytesRead);
+      }
+    };
+  }
+  return { size, chunks, close, read: async (start, length) => {
+    const parts: Buffer[] = [];
+    for await (const chunk of chunks(start, length)) parts.push(chunk);
+    return Buffer.concat(parts).toString('utf8');
+  } };
+}
+
 function decompressSegmentSync(seg: Segment): string {
   try { return brotliDecompressSync(readFileSync(seg.file)).toString('utf8'); }
   catch (err) { throw new SegmentReadError(seg.file, err); }

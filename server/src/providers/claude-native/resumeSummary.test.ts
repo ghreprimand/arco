@@ -185,3 +185,82 @@ test('large resume uses cached older summary plus exact recent tail', async (t) 
   assert.equal(cache.throughSeq, replay.summaryThroughSeq);
   assert.match(cache.summary ?? '', /old prompt/);
 });
+
+
+test('resume byte source streams sealed large records with unchanged offsets and branch replay', async () => {
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-resume-stream-'));
+  try {
+    const { brotliCompressSync } = await import('node:zlib');
+    const { openLogByteSource, readLogText, segmentName } = await import('../../eventLog.js');
+    const id = 'large-record', dir = join(cwd, '.arco', 'workflows', id);
+    await fs.mkdir(dir, { recursive: true });
+    const rows = [
+      { seq: 1, type: 'user_message_echo', content: 'a'.repeat(9 * 1024 * 1024) + 'é' },
+      { seq: 2, parentEventSeq: 1, type: 'primary_text', text: 'whole answer' },
+      { seq: 3, parentEventSeq: 2, type: 'primary_complete' },
+    ];
+    await fs.writeFile(join(dir, segmentName(1, 2)), brotliCompressSync(Buffer.from(rows.slice(0, 2).map(line).join(''))));
+    await fs.writeFile(join(dir, 'events.jsonl'), line(rows[1]) + line(rows[2]) + '{"seq":4');
+    const expected = await readLogText(dir), source = (await openLogByteSource(dir))!;
+    let size = 0;
+    for await (const chunk of source.chunks(0, source.size)) { assert.ok(chunk.length <= 65536); size += chunk.length; }
+    assert.equal(size, Buffer.byteLength(expected));
+    assert.equal(source.size, size);
+    assert.equal(await source.read(9 * 1024 * 1024 - 10, 100), Buffer.from(expected).subarray(9 * 1024 * 1024 - 10, 9 * 1024 * 1024 + 90).toString('utf8'));
+    await source.close();
+    const result = await replayMessagesWithResumePolicy(cwd, id, undefined, { leafSeq: 3 });
+    assert.deepEqual(result.messages, buildMessagesFromReplayEvents(rows));
+    assert.equal(result.eventBytes, size);
+  } finally { await rm(cwd, { recursive: true, force: true }); }
+});
+
+test('Native reconstruction failure emits one durable-style notice without removing the saved history', async () => {
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-resume-notice-'));
+  try {
+    const id = 'unreadable-history', dir = join(cwd, '.arco', 'workflows', id);
+    // A directory in place of the live file causes an actual read failure on
+    // every supported host without depending on permission bits or root status.
+    await fs.mkdir(join(dir, 'events.jsonl'), { recursive: true });
+    const { ClaudeNativeWorker } = await import('./worker.js');
+    const worker = new ClaudeNativeWorker({ workflowId: id, config: { cwd, model: 'haiku' } as never });
+    const notices: string[] = [];
+    worker.on('system_notice', content => notices.push(content));
+    await (worker as unknown as { restoreSavedHistory(): Promise<void> }).restoreSavedHistory();
+    await (worker as unknown as { restoreSavedHistory(): Promise<void> }).restoreSavedHistory();
+    assert.deepEqual(notices, ['Earlier context could not be rebuilt for this conversation, so the agent continues without it. Earlier messages remain in this tab.']);
+    assert.ok((await fs.stat(join(dir, 'events.jsonl'))).isDirectory());
+  } finally { await rm(cwd, { recursive: true, force: true }); }
+});
+
+
+test('Native reconstruction above its size bound notices once without reading the range', async (t) => {
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-resume-bound-'));
+  try {
+    const { NATIVE_RECONSTRUCTION_MAX_BYTES } = await import('./resumeSummary.js');
+    const id = 'large-sized-source', dir = join(cwd, '.arco', 'workflows', id), file = join(dir, 'events.jsonl');
+    await fs.mkdir(dir, { recursive: true });
+    const original = line({ seq: 1, type: 'user_message_echo', content: 'Saved history stays here' });
+    await fs.writeFile(file, original);
+    await fs.writeFile(join(dir, 'meta.json'), JSON.stringify({ workflowId: id, leafSeq: 1 }));
+    const open = fs.open;
+    let rangeReads = 0;
+    t.mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
+      const handle = await open(...args);
+      if (String(args[0]) === file) {
+        const stat = await handle.stat();
+        t.mock.method(handle, 'stat', async () => ({ ...stat, size: NATIVE_RECONSTRUCTION_MAX_BYTES + 1 }));
+        t.mock.method(handle, 'read', async () => { rangeReads++; throw new Error('The oversized range must not be read'); });
+      }
+      return handle;
+    });
+    const { ClaudeNativeWorker } = await import('./worker.js');
+    const worker = new ClaudeNativeWorker({ workflowId: id, config: { cwd, model: 'haiku' } as never });
+    const notices: string[] = [];
+    worker.on('system_notice', content => notices.push(content));
+    await (worker as unknown as { restoreSavedHistory(): Promise<void> }).restoreSavedHistory();
+    await (worker as unknown as { restoreSavedHistory(): Promise<void> }).restoreSavedHistory();
+    assert.equal(rangeReads, 0);
+    assert.deepEqual(notices, ['Earlier context could not be rebuilt within the 1024 MiB reconstruction limit, so the agent continues without it. Earlier messages remain in this tab.']);
+    assert.equal(await fs.readFile(file, 'utf8'), original);
+  } finally { await rm(cwd, { recursive: true, force: true }); }
+});

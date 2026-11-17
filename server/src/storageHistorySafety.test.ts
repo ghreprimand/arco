@@ -299,3 +299,67 @@ test('B31: missing ripgrep and invalid regex degrade without retaining transcrip
   assert.deepEqual(await searchTranscript(root, 'fixture', join(root, 'absent-rg')), { available: false });
   assert.deepEqual(await searchTranscript(root, '[', 'rg'), { available: true });
 });
+
+
+test('session loading streams complete large UTF-8 records and propagates read failures', async (t) => {
+  const { loadSessionJsonl } = await import('./sessionJsonl.js');
+  const file = join(root, 'large-initial.jsonl');
+  const rows = [{ type: 'user', message: { content: 'a'.repeat(9 * 1024 * 1024) + 'é' } }, { type: 'assistant', uuid: 'last' }];
+  const complete = rows.map(row => JSON.stringify(row) + '\r\n').join('');
+  await fs.writeFile(file, complete + '{"type":"user"');
+  const readFile = fs.readFile;
+  t.mock.method(fs, 'readFile', async (...args: any[]) => {
+    assert.notEqual(args[0], file, 'initial loading must not decode the whole session');
+    return Reflect.apply(readFile, fs, args);
+  });
+  const loaded = await loadSessionJsonl(file);
+  assert.deepEqual(loaded.entries, rows);
+  assert.equal(loaded.byteLength, Buffer.byteLength(complete));
+  const open = fs.open;
+  t.mock.method(fs, 'open', async (...args: any[]) => {
+    if (args[0] === file) throw Object.assign(new Error('Synthetic unreadable session'), { code: 'EACCES' });
+    return Reflect.apply(open, fs, args);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+  await assert.rejects(loadSessionJsonl(file), { code: 'EACCES' });
+});
+
+test('failed session-history loading announces once and watches future rows without false terminal warnings', async (t) => {
+  const { startSessionWatcher } = await import('./ws/turnEngine.js');
+  const { resolveSessionJsonlPath } = await import('./sessionJsonl.js');
+  const { workflows } = await import('./server/state.js');
+  const cwd = join(root, 'failed-session-project'), id = 'failed-session-history';
+  const file = resolveSessionJsonlPath(cwd, 'session-fixture');
+  await fs.mkdir(resolve(file, '..'), { recursive: true });
+  await fs.writeFile(file, JSON.stringify({ type: 'user', entrypoint: 'cli', uuid: 'old' }) + '\n');
+  const open = fs.open;
+  let fail = true;
+  t.mock.method(fs, 'open', async (...args: any[]) => {
+    if (args[0] === file && fail) { fail = false; throw Object.assign(new Error('Synthetic unreadable session'), { code: 'EACCES' }); }
+    return Reflect.apply(open, fs, args);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+  const seen: any[] = [];
+  const ws = { readyState: 1, send: (raw: string) => seen.push(JSON.parse(raw)) };
+  const wf = { config: { claudeTransport: 'cli', workingDirectory: cwd }, primary: { provider: 'claude' }, primarySessionId: 'session-fixture', observers: new Set([ws]) } as any;
+  workflows.set(id, wf);
+  async function until(predicate: () => boolean): Promise<void> {
+    const deadline = Date.now() + 2000;
+    while (!predicate()) { assert.ok(Date.now() < deadline, 'Session watcher did not deliver expected state'); await pause(5); }
+  }
+  try {
+    startSessionWatcher(id, wf, cwd, ws as never);
+    await until(() => !!wf.sessionWatcher);
+    await pause();
+    const notices = seen.filter(message => message.type === 'system_notice');
+    assert.equal(notices.length, 1);
+    assert.match(notices[0].content, /saved conversation is intact/);
+    assert.equal(wf.lastForeignWriteAt, undefined);
+    await fs.appendFile(file, JSON.stringify({ type: 'assistant', entrypoint: 'sdk-cli', uuid: 'new', message: { content: 'new answer' } }) + '\n');
+    await until(() => seen.some(message => message.type === 'session_entry' && message.entry.uuid === 'new'));
+    assert.equal(wf.lastForeignWriteAt, undefined);
+    assert.equal(seen.some(message => message.type === 'session_entry' && message.entry.uuid === 'old'), false);
+  } finally { wf.sessionWatcher?.(); workflows.delete(id); }
+});

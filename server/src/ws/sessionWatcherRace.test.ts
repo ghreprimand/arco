@@ -23,10 +23,10 @@ test('B119: an older session load cannot replace the newer watcher or replay its
   let entered!: () => void, release!: () => void;
   const started = new Promise<void>(r => { entered = r; });
   const held = new Promise<void>(r => { release = r; });
-  const read = fs.readFile;
-  t.mock.method(fs, 'readFile', async (...args: Parameters<typeof fs.readFile>) => {
+  const open = fs.open;
+  t.mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
     if (String(args[0]) === oldPath) { entered(); await held; }
-    return read(...args);
+    return open(...args);
   });
   syncBuiltinESMExports();
   const messages: string[] = [];

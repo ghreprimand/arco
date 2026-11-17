@@ -137,6 +137,13 @@ codex exec resume <thread-id> "next prompt"
   to the running server; it cannot recover an id already lost before restart.
   Claude Native and local providers can replay retained history without that id.
   </p>
+  <p>Claude Native rebuilds at most 1 GiB of uncached history in one parse.
+  A valid summary cache with a small tail can still resume a larger history.
+  If a rebuild exceeds the limit or fails, one notice says that the agent
+  continues without earlier context. Earlier messages stay in the tab; include
+  any context the next task needs again.</p>
+  <p>Claude CLI session loading handles 2 GB histories separately. If its session file cannot be read, a notice says
+  that the saved conversation is intact; new messages appear when readable.</p>
   <p>COMPACT on a lost Codex or Cursor conversation explains that the next message
   starts a new conversation. An empty tab still asks for its first turn.</p>
   <Sub>Claude CLI</Sub>

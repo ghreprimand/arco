@@ -6,7 +6,8 @@ import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { atomicWriteFile } from '../../atomicFile.js';
-import { listSegments, readLogText, readLogLines } from '../../eventLog.js';
+import { openLogByteSource, readLogLines, type LogByteSource } from '../../eventLog.js';
+import { jsonlLines } from '../../jsonlLines.js';
 import { serverFoldSeed, type ServerCompactionBlock } from './serverFold.js';
 import { isShellToolName } from '@arco/shared';
 
@@ -16,6 +17,19 @@ const SUMMARY_CACHE_VERSION = 4;
 const SUMMARY_CACHE_KIND = 'claude-native-resume-summary';
 const DEFAULT_REPLAY_BYTES = 1 * 1024 * 1024;
 const TAIL_LINE_BACKTRACK_BYTES = 1 * 1024 * 1024;
+
+// The retained event arrays still amplify source bytes during reconstruction.
+// Refuse an uncached parse beyond the measured default-heap margin; a valid
+// summary cache needs only its small tail and does not parse the old prefix.
+export const NATIVE_RECONSTRUCTION_MAX_BYTES = 1024 * 1024 * 1024;
+export class NativeReconstructionLimitError extends Error {
+  readonly code = 'NATIVE_RECONSTRUCTION_LIMIT';
+  readonly limitBytes = NATIVE_RECONSTRUCTION_MAX_BYTES;
+  constructor(readonly rangeBytes: number) {
+    super(`Claude Native reconstruction requires ${rangeBytes} bytes, above the ${NATIVE_RECONSTRUCTION_MAX_BYTES}-byte limit.`);
+    this.name = 'NativeReconstructionLimitError';
+  }
+}
 
 function readPositiveIntEnv(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -148,43 +162,28 @@ function workflowDir(cwd: string, workflowId: string): string {
   return join(cwd, '.arco', 'workflows', workflowId);
 }
 
-function eventsPath(cwd: string, workflowId: string): string {
-  return join(workflowDir(cwd, workflowId), 'events.jsonl');
-}
-
 function summaryCachePath(cwd: string, workflowId: string): string {
   return join(workflowDir(cwd, workflowId), 'resume-summary.json');
 }
 
-// The history as a byte-addressed source. A plain log is read in place; a log
-// with sealed segments (P7.3) is read once into memory, the same amount a
-// whole-file read of the plain log took. Offsets are offsets in that text.
-interface LogSource { size: number; read(start: number, length: number): Promise<string> }
+// Only the byte source changes here. Replay projection, summary boundaries,
+// branch ancestry and cache keys continue to use their existing rules.
+type LogSource = LogByteSource;
 async function openLogSource(cwd: string, workflowId: string): Promise<LogSource | null> {
-  const dir = workflowDir(cwd, workflowId);
-  if ((await listSegments(dir)).length > 0) {
-    const text = Buffer.from(await readLogText(dir), 'utf8');
-    return { size: text.length, read: async (start, length) => text.subarray(start, start + length).toString('utf8') };
-  }
-  const path = eventsPath(cwd, workflowId);
-  try {
-    const size = (await fs.stat(path)).size;
-    return { size, read: (start, length) => readByteRange(path, start, length) };
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    throw err;
-  }
+  return openLogByteSource(workflowDir(cwd, workflowId));
 }
 
-async function readByteRange(path: string, start: number, length: number): Promise<string> {
-  const fh = await fs.open(path, 'r');
-  try {
-    const buf = Buffer.alloc(length);
-    await fh.read(buf, 0, buf.length, start);
-    return buf.toString('utf8');
-  } finally {
-    await fh.close();
+async function readSourceEvents(source: LogSource, length: number, dropLastPartial = false): Promise<ReplayEvent[]> {
+  if (length > NATIVE_RECONSTRUCTION_MAX_BYTES) throw new NativeReconstructionLimitError(length);
+  const events: ReplayEvent[] = [];
+  for await (const line of jsonlLines(source.chunks(0, length), 'conversation replay', {
+    finalLine: !dropLastPartial, carriageReturns: false,
+  })) {
+    if (!line) continue;
+    try { events.push(JSON.parse(line) as ReplayEvent); }
+    catch { /* Match parseJsonl: corrupt or partial records remain untouched. */ }
   }
+  return events;
 }
 
 async function findTailReplayStart(source: LogSource, desiredStart: number): Promise<{ start: number; completeLine: boolean }> {
@@ -645,6 +644,11 @@ export async function replayMessagesWithResumePolicy(
 ): Promise<ResumeReplayResult> {
   const source = await openLogSource(cwd, workflowId);
   if (!source) return { messages: [], mode: 'empty', eventBytes: 0 };
+  try { return await replayFromSource(cwd, workflowId, source, maxSeq, opts); }
+  finally { await source.close(); }
+}
+
+async function replayFromSource(cwd: string, workflowId: string, source: LogSource, maxSeq: number | undefined, opts: ReplayOptions): Promise<ResumeReplayResult> {
   const stat = { size: source.size };
 
   const exactReplayBytes = opts.exactReplayBytes ?? RESUME_EXACT_REPLAY_BYTES;
@@ -664,8 +668,7 @@ export async function replayMessagesWithResumePolicy(
   // This is what lets post-rewind turns be included WITHOUT advancing leafSeq
   // on every turn.
   if (typeof opts.leafSeq === 'number') {
-    const raw = await source.read(0, stat.size);
-    const events = parseJsonl(raw);
+    const events = await readSourceEvents(source, stat.size);
     let tailSeq: number | undefined;
     for (const e of events) {
       if (typeof e.seq === 'number' && (tailSeq === undefined || e.seq > tailSeq)) tailSeq = e.seq;
@@ -681,8 +684,7 @@ export async function replayMessagesWithResumePolicy(
   }
 
   if (stat.size <= exactReplayBytes) {
-    const raw = await source.read(0, stat.size);
-    const events = parseJsonl(raw);
+    const events = await readSourceEvents(source, stat.size);
     return {
       messages: buildMessagesFromReplayEvents(events, [], maxSeq, undefined, [], opts.attachmentMarkers),
       mode: 'exact',
@@ -717,8 +719,7 @@ export async function replayMessagesWithResumePolicy(
   const cachePath = summaryCachePath(cwd, workflowId);
   let cache = opts.attachmentMarkers ? null : await readSummaryCache(cachePath, workflowId, stat.size, tailStartByte);
   if (!cache) {
-    const olderRaw = tailStartByte > 0 ? await source.read(0, tailStartByte) : '';
-    const olderEvents = parseJsonl(olderRaw, { dropLastPartial: !tailStart.completeLine });
+    const olderEvents = await readSourceEvents(source, tailStartByte, !tailStart.completeLine);
     const built = summarizeClaudeNativePriorTurns(olderEvents, tailEvents, !!opts.attachmentMarkers);
     if (opts.attachmentMarkers) {
       const lastOlderSeq = olderEvents.reduce((max, event) => Math.max(max, event.seq ?? 0), 0);

@@ -1,5 +1,5 @@
 import { watch, statSync } from 'fs';
-import { open, readFile } from 'fs/promises';
+import { open, type FileHandle } from 'fs/promises';
 import { basename, dirname, join, resolve } from 'path';
 import { homedir } from 'os';
 import { jsonlLines } from './jsonlLines.js';
@@ -44,30 +44,58 @@ export function resolveSubagentsWorkflowsDir(cwd: string, sessionId: string): st
 export async function loadSessionJsonl(
   path: string,
 ): Promise<{ entries: SessionJsonlEntry[]; byteLength: number }> {
-  let buf: Buffer;
+  let fh: FileHandle;
   try {
-    buf = await readFile(path);
-  } catch {
-    return { entries: [], byteLength: 0 };
+    fh = await open(path, 'r');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { entries: [], byteLength: 0 };
+    throw err;
   }
   const entries: SessionJsonlEntry[] = [];
-  const complete = buf.lastIndexOf(10) + 1;
-  for (const line of buf.subarray(0, complete).toString('utf-8').split('\n')) {
-    if (!line.trim()) continue;
-    try {
-      const e = JSON.parse(line) as SessionJsonlEntry;
-      if (e && typeof e.type === 'string') entries.push(e);
-    } catch { /* skip malformed lines */ }
+  let complete = 0;
+  try {
+    const size = (await fh.stat()).size;
+    async function* chunks(): AsyncGenerator<Buffer> {
+      for (let position = 0; position < size;) {
+        const buffer = Buffer.alloc(Math.min(64 * 1024, size - position));
+        const { bytesRead } = await fh.read(buffer, 0, buffer.length, position);
+        if (!bytesRead) break;
+        const chunk = buffer.subarray(0, bytesRead);
+        const newline = chunk.lastIndexOf(0x0a);
+        if (newline >= 0) complete = position + newline + 1;
+        position += bytesRead;
+        yield chunk;
+      }
+    }
+    for await (const line of jsonlLines(chunks(), path, { finalLine: false, carriageReturns: false })) {
+      if (!line.trim()) continue;
+      try {
+        const e = JSON.parse(line) as SessionJsonlEntry;
+        if (e && typeof e.type === 'string') entries.push(e);
+      } catch { /* skip malformed lines */ }
+    }
+    return { entries, byteLength: complete };
+  } finally { await fh.close(); }
+}
+
+async function lastCompleteOffset(fh: FileHandle, size: number): Promise<number> {
+  for (let end = size; end > 0;) {
+    const start = Math.max(0, end - 64 * 1024), buffer = Buffer.alloc(end - start);
+    const { bytesRead } = await fh.read(buffer, 0, buffer.length, start);
+    const newline = buffer.subarray(0, bytesRead).lastIndexOf(0x0a);
+    if (newline >= 0) return start + newline + 1;
+    end = start;
   }
-  return { entries, byteLength: complete };
+  return 0;
 }
 
 // Tail the session JSONL for new entries, emitting each one via `onEntry`.
 // `initialOffset` should be the byteLength from loadSessionJsonl so we
-// don't re-emit history. Returns a dispose function.
+// don't re-emit history. Null anchors at the first readable complete boundary
+// after initial loading failed. Returns a dispose function.
 export function watchSessionJsonl(
   path: string,
-  initialOffset: number,
+  initialOffset: number | null,
   onEntry: (entry: SessionJsonlEntry) => void,
 ): () => void {
   let lastOffset = initialOffset;
@@ -93,13 +121,21 @@ export function watchSessionJsonl(
             if (!active) return;
             const st = await fh.stat();
             const nextIdentity = `${st.dev}:${st.ino}`;
+            // After an initial-load failure, anchor to the first readable
+            // complete boundary. Old terminal rows must not look like new
+            // concurrent-session writes; an unfinished last row stays pending.
+            if (lastOffset === null) {
+              lastOffset = await lastCompleteOffset(fh, st.size);
+              identity = nextIdentity;
+            }
             if ((identity !== undefined && identity !== nextIdentity) || st.size < lastOffset) lastOffset = 0;
             identity = nextIdentity;
-            let completeOffset = lastOffset;
+            const startOffset = lastOffset;
+            let completeOffset = startOffset;
             // Read only the appended range. An unfinished record is left at
             // lastOffset and completed by the next notification, as before.
             async function* chunks(): AsyncGenerator<Buffer> {
-              for (let position = lastOffset; active && position < st.size;) {
+              for (let position = startOffset; active && position < st.size;) {
                 const buffer = Buffer.alloc(Math.min(64 * 1024, st.size - position));
                 const { bytesRead } = await fh.read(buffer, 0, buffer.length, position);
                 if (!bytesRead) break;

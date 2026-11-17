@@ -1,5 +1,5 @@
 import { resolveWorkflowSkillPins } from '../clusterSkills.js';
-import { ensureWorkflowMetadata, providerConversationState, saveProviderSession, announceReplacementConversation, markConversationReading } from '../providerConversation.js';
+import { ensureWorkflowMetadata, providerConversationState, saveProviderSession, announceReplacementConversation, markConversationReading, reportHistoryLoadFailure } from '../providerConversation.js';
 import { mintHandoffHistoryCapability } from '../http/handoffHistoryRoutes.js';
 import { deliverAfterTurnRevoked } from './taskLifecycle.js';
 import { resolveClaudeTransport } from '../claudeTransport.js';
@@ -310,9 +310,15 @@ export function startSessionWatcher(workflowId: string, wf: WorkflowState, cwd: 
   const current = () => workflows.get(workflowId) === wf && wf.primarySessionId === sessionId
     && sessionWatcherEpochs.get(wf) === epoch && wf.primary.provider === 'claude';
   const path = resolveSessionJsonlPath(cwd, sessionId);
-  resolveClaudeTransport(wf, cwd).then((transport) => {
+  resolveClaudeTransport(wf, cwd).then(async (transport) => {
     if (!current() || transport === 'native') return null;
-    return loadSessionJsonl(path);
+    try { return await loadSessionJsonl(path); }
+    catch (err) {
+      console.error(`[arco] [${workflowId.slice(0, 8)}] session history load failed:`, err);
+      if (!current()) return null;
+      reportHistoryLoadFailure(workflowId, wf, 'cli');
+      return { entries: [] as SessionJsonlEntry[], byteLength: null };
+    }
   }).then((loaded) => {
     if (!loaded || !current()) return;
     const { entries, byteLength } = loaded;
@@ -381,7 +387,7 @@ export function startSessionWatcher(workflowId: string, wf: WorkflowState, cwd: 
     } else {
       dispose(); // workflow gone — clean up immediately
     }
-    console.log(`[arco] [${workflowId.slice(0, 8)}] session watcher started (${tail.length} emitted / ${earlier.length} deferred / ${entries.length} total, ${byteLength}B)`);
+    console.log(`[arco] [${workflowId.slice(0, 8)}] session watcher started (${tail.length} emitted / ${earlier.length} deferred / ${entries.length} total, ${byteLength === null ? 'offset pending' : `${byteLength}B`})`);
   }).catch((err) => {
     console.error(`[arco] [${workflowId.slice(0, 8)}] session watcher init failed:`, err);
   });
