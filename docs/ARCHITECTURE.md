@@ -486,7 +486,7 @@ Opening a repo Arco hasn't seen before suppresses its project-local `CLAUDE.md`,
 
 `POST /api/provider-throttle` clears an explicitly chosen provider through the central state, immediately broadcasting to connected browsers. Codex and Claude usage rechecks use existing model-free meters; a fresh headroom result clears the remembered limit through `markAvailable(provider, 'manual-probe')` unless a newer limit arrived during the read. Exhausted or unavailable results change nothing. Because provider state lacks account/model identity, neither Clear nor a recheck emits the quota-recovered notice (`announcesRecovery`); a limit still in force returns on the next turn. The browser independently hides expired rows on a one-second clock tick with two seconds of grace and accepts a fresh snapshot on reconnect.
 
-The active execution consumer is goal-run continuation eligibility. Clearing restores future eligibility, never re-arms an already stopped run, and does not enqueue a model request. Manual turns, queues, cluster pickup and reviewer choice do not currently consult this state. `buildQuotaInjection` and `crossFamilyFallback` remain legacy helpers without live callers.
+The active execution consumer is goal-run continuation eligibility. Clearing restores future eligibility, never re-arms an already stopped run, and does not enqueue a model request. Manual turns, queues, cluster pickup and reviewer choice do not currently consult this state. The unused prompt formatter and cross-family reviewer fallback were removed; no live routing behavior depends on them.
 
 ### System notices
 

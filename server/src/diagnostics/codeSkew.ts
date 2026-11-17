@@ -46,6 +46,7 @@ function readHeadSync(): string | null {
       cwd: REPO_ROOT,
       timeout: 2000,
       encoding: 'utf8',
+      stdio: 'pipe',
     });
     const rev = out.trim();
     return /^[0-9a-f]{40}$/i.test(rev) ? rev : null;

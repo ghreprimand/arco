@@ -63,6 +63,7 @@ function shortGitRevision(repoRoot: string): string {
     return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
       cwd: repoRoot,
       encoding: 'utf8',
+      stdio: 'pipe',
     }).trim();
   } catch {
     return 'unknown';

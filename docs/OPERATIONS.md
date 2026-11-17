@@ -905,6 +905,8 @@ The shape regression is pinned by
 
 ### Reproducing the live unit on a clean install
 
+Installed packages may have no Git checkout. Startup revision probes then keep the revision unknown and the code-skew diagnostic skipped, without printing a fatal Git line. This does not prevent the server from starting.
+
 Deployment caveat: `core.code-skew` compares startup Git HEAD with current HEAD,
 not asset contents. Committing an already-deployed build or documentation alone
 can warn without a pending runtime fix. For a verified **client-only** update,

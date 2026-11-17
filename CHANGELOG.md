@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep expected missing-Git revision checks quiet at start-up and recognize forwarded KEEP help links in documentation checks.
+
 - Give each agent one wait instruction matching its role, including local Directors and handoff prewarm.
 
 - Bound llama.cpp replies and stalled streams even with automatic recovery off; stop with one plain error and no retry.

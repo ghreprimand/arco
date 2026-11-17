@@ -58,6 +58,7 @@
 // static data-help usages:
 //   - helpKey="literal"  /  helpKey={'literal'}
 //   - dataHelp="literal" /  dataHelp={'literal'}
+//   - help="literal" / help={'literal'} / help = 'literal' (forwarded defaults)
 //   - help: 'literal'   (object-literal property, value shaped like a help key)
 // The `help:` object form is matched only when the value matches the help-key
 // shape (a dotted/hyphenated lowercase token) to avoid sweeping up unrelated
@@ -203,10 +204,13 @@ function scanUsages(src: string, file: string, acc: UsageScan): void {
   let m: RegExpExecArray | null;
 
   // Aliased-prop forwarders: helpKey= / dataHelp= with a literal value.
-  const aliasRe = /(?:helpKey|dataHelp)\s*=\s*(?:(["'])((?:\\.|(?!\1).)*)\1|\{\s*(["'`])((?:\\.|(?!\3).)*)\3\s*\})/g;
+  // KEEP controls also forward help=, including a default parameter assignment.
+  const aliasRe = /(?:helpKey|dataHelp|\bhelp)\s*=\s*(?:(["'])((?:\\.|(?!\1).)*)\1|\{\s*(["'`])((?:\\.|(?!\3).)*)\3\s*\})/g;
   while ((m = aliasRe.exec(src))) {
     const value = m[2] ?? m[4];
     if (value === undefined) continue;
+    // A generic help prop can contain prose unrelated to contextual help.
+    if (/^help\s*=/.test(m[0]) && !KEY_SHAPE.test(value)) continue;
     if (m[3] === '`' && value.includes('${')) {
       acc.dynamicPrefixes.push({ prefix: value.split('${')[0], file, raw: value });
     } else {
@@ -419,12 +423,12 @@ function selfTest(): void {
   const content = join(dir, 'content.tsx');
   const manual = join(dir, 'manual.tsx');
   // A component using a key that has no entry + a key that does.
-  writeFileSync(comp, `<button data-help="fixture.missing">x</button>\n<button data-help="fixture.present">y</button>`);
+  writeFileSync(comp, `<button data-help="fixture.missing">x</button>\n<button data-help="fixture.present">y</button>\nfunction KeepButton({ help = 'fixture.keep-default' }) { return <button data-help={help}>KEEP</button>; }\n<KeepButton help="fixture.keep-warning" />\n<KeepButton help="fixture.missing-forwarded" />`);
   // An entry that is referenced but links to a dangling section, plus an
   // unreferenced entry.
   writeFileSync(
     content,
-    `export const x = {\n  'fixture.present': { title: 'p', body: null, manualSection: 'no-such-section' },\n  'fixture.orphan': { title: 'o', body: null },\n};`,
+    `export const x = {\n  'fixture.present': { title: 'p', body: null, manualSection: 'no-such-section' },\n  'fixture.orphan': { title: 'o', body: null },\n  'fixture.keep-default': { title: 'k', body: null },\n  'fixture.keep-warning': { title: 'w', body: null },\n};`,
   );
   writeFileSync(manual, `export const s = [{ id: 'real-section', title: 't', group: 'g', body: null }];`);
 
@@ -435,6 +439,8 @@ function selfTest(): void {
     // (1a) and (2) are hard errors.
     ['missing-entry ERROR', r.errors.some((e) => e.includes('fixture.missing') && e.includes('no HELP_CONTENT entry'))],
     ['dangling-section ERROR', r.errors.some((e) => e.includes('no-such-section'))],
+    ['missing forwarded help ERROR', r.errors.some((e) => e.includes('fixture.missing-forwarded') && e.includes('no HELP_CONTENT entry'))],
+    ['forwarded help and default are referenced', !r.warnings.some((w) => w.includes('fixture.keep-default') || w.includes('fixture.keep-warning'))],
     // (1b) is a warning, not an error — assert it surfaces as a warning AND does
     // not leak into errors (so it can't fail the build).
     ['unreferenced-entry WARNING', r.warnings.some((w) => w.includes('fixture.orphan') && w.includes('never referenced'))],

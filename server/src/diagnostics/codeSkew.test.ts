@@ -8,6 +8,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir, devNull } from 'node:os';
+import { join } from 'node:path';
 import { classifyCodeSkew } from './codeSkew.js';
 
 const A = 'a'.repeat(40);
@@ -50,4 +54,38 @@ test('HEAD differs but count uncomputable (rebase/reset) → generic warn', () =
   const r = classifyCodeSkew({ dev: false, bootRev: A, headRev: B, behind: null });
   assert.equal(r.status, 'warn');
   assert.match(r.detail, /changed since boot/);
+});
+
+
+test('startup revision probes keep a non-repository Git failure out of stderr', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'arco-no-git-'));
+  try {
+    const script = `
+      import childProcess from 'node:child_process';
+      import { syncBuiltinESMExports } from 'node:module';
+      const exec = childProcess.execFileSync;
+      // This fixture must never query the host's network identity.
+      childProcess.execFileSync = (file, ...args) => {
+        if (file === 'tailscale') throw new Error('network identity disabled in fixture');
+        return exec(file, ...args);
+      };
+      syncBuiltinESMExports();
+      const skew = await import(${JSON.stringify(new URL('./codeSkew.ts', import.meta.url).href)});
+      const identity = await import(${JSON.stringify(new URL('../management/identity.ts', import.meta.url).href)});
+      console.log(JSON.stringify({ boot: skew.getBootRev(), revision: identity.buildServiceInstanceDescriptor(process.env.GIT_DIR, 'fixture').gitRevision }));
+    `;
+    const child = spawnSync(process.execPath, ['--conditions', 'development', '--import', import.meta.resolve('tsx'), '--input-type', 'module', '--eval', script], {
+      cwd: dir, encoding: 'utf8', timeout: 10_000,
+      env: {
+        PATH: process.env.PATH, SystemRoot: process.env.SystemRoot,
+        HOME: dir, USERPROFILE: dir, ARCO_HOME: join(dir, 'state'),
+        GIT_DIR: dir, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: devNull,
+      },
+    });
+    assert.equal(child.status, 0, child.stderr || child.error?.message);
+    assert.deepEqual(JSON.parse(child.stdout), { boot: null, revision: 'unknown' });
+    assert.equal(child.stderr, '', 'expected Git absence must not print a fatal start-up line');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
