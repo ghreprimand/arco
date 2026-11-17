@@ -61,6 +61,11 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
     if (onOpenChange) onOpenChange(next); else setOwnOpen(next);
   };
   const [releasesRuntime, setReleasesRuntime] = useState<ReleaseRuntime | null>(null);
+  const openReleases = (runtime: ReleaseRuntime) => {
+    buttonRef.current?.focus();
+    setOpen(false);
+    setReleasesRuntime(runtime);
+  };
   const [checking, setChecking] = useState<CliProvider | null>(null);
   const [checkResult, setCheckResult] = useState<Record<CliProvider, string | null>>({ claude: null, codex: null, cursor: null });
   const [checkOutcome, setCheckOutcome] = useState<Partial<Record<CliProvider, CliUpdateOutcome>>>({});
@@ -76,10 +81,10 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
   const wasOpen = useRef(false);
   useEffect(() => {
     setProviderPanelOpen(open, panelToken.current);
-    if (!open && wasOpen.current) buttonRef.current?.focus();
+    if (!open && wasOpen.current && !releasesRuntime) buttonRef.current?.focus();
     wasOpen.current = open;
     return () => { if (open) setProviderPanelOpen(false, panelToken.current); };
-  }, [open]);
+  }, [open, releasesRuntime]);
   useLayoutEffect(() => {
     if (!open) return;
     const panel = panelRef.current;
@@ -327,11 +332,11 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
                   ? `${label} CLI outdated: v${version} → v${latest} (click to install)`
                   : `${label} CLI v${version} (click to check for updates)`;
             const onClick = isDeepSeek
-              ? () => setReleasesRuntime('xolotl')
+              ? () => openReleases('xolotl')
               : isStrata
-              ? () => setReleasesRuntime('strata')
+              ? () => openReleases('strata')
               : isOllama
-              ? () => setReleasesRuntime('ollama')
+              ? () => openReleases('ollama')
               : isLlamacpp
                 ? () => window.open('https://github.com/ggml-org/llama.cpp/releases', '_blank', 'noopener')
                 : () => checkForUpdates(provider as CliProvider);

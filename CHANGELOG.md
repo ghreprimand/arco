@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep provider release notes above the workspace and close the PROVIDERS panel when opening them.
+
 - Keep close buttons clickable when the tab row is scrolled.
 
 - Show the Claude Native reconstruction notice when a live history path is not a regular file.

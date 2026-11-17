@@ -1739,7 +1739,7 @@ tokens and milliseconds, summed across tool rounds. `primary_complete.genSpeed`
 drives the Agent and Chat composer readout after each turn, excluding tool time.
 PROVIDERS displays the installed engine from `/v1/status` and compares GitHub
 releases at boot and every four hours; newer releases turn yellow and link to
-upstream release notes. FREE VRAM uses `/v1/unload` only on loopback, refuses
+upstream release notes. Opening the notes closes PROVIDERS; the release window is placed above the workspace and returns focus to the provider button when closed. FREE VRAM uses `/v1/unload` only on loopback, refuses
 active local turns and reviewers, and blocks new local turns during unloading.
 It also unloads local Ollama, managed llama.cpp and LM Studio LLMs, including
 providers hidden in the picker. No model files or configured limits change.

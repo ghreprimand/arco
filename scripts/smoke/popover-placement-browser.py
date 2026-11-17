@@ -343,11 +343,36 @@ async def run_config(browser, width, height, scale, failures, overflow, reached)
     await context.close()
 
 
+async def provider_releases_journey(browser):
+    context, page, errors, writes = await open_app(browser, 900, 700, 1.1, {'auth': AUTH})
+    await show(page, 'workflow')
+    await context.route('**/api/capabilities', lambda route: route.fulfill(json={
+        'cliVersion': '2.1.0', 'strataVersion': '1.0.0', 'latestVersions': {},
+    }))
+    trigger = page.get_by_role('button', name='Provider versions')
+    await trigger.click()
+    await page.get_by_role('button', name='STRATA', exact=False).click()
+    dialog = page.get_by_role('dialog', name='STRATA releases')
+    await dialog.wait_for(state='visible')
+    assert await page.get_by_role('dialog', name='Provider versions').count() == 0
+    assert await dialog.evaluate("el => el.parentElement.parentElement === document.body")
+    assert await dialog.evaluate("el => el.contains(document.activeElement)")
+    assert await dialog.evaluate("el => { const r=el.getBoundingClientRect(); return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)); }")
+    await page.keyboard.press('Escape')
+    assert await dialog.count() == 0
+    assert await trigger.evaluate('el => el === document.activeElement')
+    assert not errors, errors
+    assert not writes, writes
+    await context.close()
+    print('PASS provider releases: portal, panel close, focus and Escape')
+
+
 async def main():
     failures, overflow = [], []
     reached = {}
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=CHROME)
+        await provider_releases_journey(browser)
         # Three windows at a time keep the run short; each has its own context.
         for i in range(0, len(CONFIGS), 3):
             await asyncio.gather(*(run_config(browser, w, h, sc, failures, overflow, reached) for w, h, sc in CONFIGS[i:i + 3]))

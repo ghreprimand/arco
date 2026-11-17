@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/atom-one-dark.css';
 import { strataEngineReleaseVersion } from '@arco/shared';
+import { DialogPortal, containDialogTab } from './DialogShell';
 import { contentSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 
 // Shared in-app release/source history for operator-managed runtimes.
@@ -49,10 +50,11 @@ export function ProviderReleasesModal({ onClose, installedVersion, runtime }: Pr
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); return; }
+      containDialogTab(e, surface.current);
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
   }, [onClose]);
 
   useEffect(() => {
@@ -90,6 +92,7 @@ export function ProviderReleasesModal({ onClose, installedVersion, runtime }: Pr
   }, [repo, runtime, installedVersion]);
 
   return (
+    <DialogPortal>
     <div
       onClick={onClose}
       style={{
@@ -99,7 +102,7 @@ export function ProviderReleasesModal({ onClose, installedVersion, runtime }: Pr
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 9500,
+        zIndex: 9800,
         backdropFilter: 'blur(3px)',
       }}
     >
@@ -248,5 +251,6 @@ export function ProviderReleasesModal({ onClose, installedVersion, runtime }: Pr
         </div>
       </div>
     </div>
+    </DialogPortal>
   );
 }
