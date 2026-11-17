@@ -8,7 +8,7 @@ import { copyFileSync, chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { once } from 'node:events';
-import type { WorkerConfig } from '@arco/shared';
+import { buildTurnWaitInstructions, type WorkerConfig } from '@arco/shared';
 import fx from './fixtures/acp-models.json' with { type: 'json' };
 import { catalogIds, resolveCatalogModel, acpMatchesCatalog, describeAcpModel } from './modelMap.js';
 
@@ -233,16 +233,22 @@ test('ACP and print mode close the prompt prefix with the output-style addendum'
   try {
     const settled = once(w, 'turn_settled');
     await w.ensureStarted();
-    await w.beginTurn('hello');
+    await w.beginTurn('hello', 'APPENDED');
     await settled;
     const prompt = requests().find((r) => r.method === 'session/prompt')?.params?.prompt as Array<{ type: string; text?: string }>;
-    assert.equal(prompt[0].text, `${goalBlock('Ship the fix')}\n\n${FILE_READ_GUIDANCE}\n\n${terse}\n\n---\n\nhello`);
+    const prefix = `${buildTurnWaitInstructions()}\n\n${goalBlock('Ship the fix')}\n\nAPPENDED\n\n${FILE_READ_GUIDANCE}\n\n${terse}\n\n---\n\n`;
+    assert.equal(prompt[0].text, `${prefix}hello`);
+    const nextSettled = once(w, 'turn_settled');
+    await w.beginTurn('next turn', 'APPENDED');
+    await nextSettled;
+    const next = requests().filter((r) => r.method === 'session/prompt').at(-1)?.params?.prompt as Array<{ type: string; text?: string }>;
+    assert.equal(next[0].text, `${prefix}next turn`, 'the prefix stays stable when the turn body changes');
   } finally { await w.dispose(); }
 
   const { CursorPrintProvider } = await import('./print.js');
-  for (const [style, expected] of [['plain', `${FILE_READ_GUIDANCE}\n\n${outputStyleAddendum('plain')}\n\n---\n\nhello`], ['normal', `${FILE_READ_GUIDANCE}\n\n---\n\nhello`]] as const) {
+  for (const [style, expected] of [['plain', `${buildTurnWaitInstructions()}\n\n${goalBlock('Ship the fix')}\n\nAPPENDED\n\n${FILE_READ_GUIDANCE}\n\n${outputStyleAddendum('plain')}\n\n---\n\nhello`], ['normal', `${buildTurnWaitInstructions()}\n\n${goalBlock('Ship the fix')}\n\nAPPENDED\n\n${FILE_READ_GUIDANCE}\n\n---\n\nhello`]] as const) {
     setFake({});
-    const p = CursorPrintProvider.create(`p-style-${style}`, { ...config('auto'), outputStyle: style } as WorkerConfig);
+    const p = CursorPrintProvider.create(`p-style-${style}`, { ...config('auto'), outputStyle: style, goal: 'Ship the fix', appendSystemPrompt: 'APPENDED' } as WorkerConfig);
     const done = new Promise<void>((res, rej) => { p.once('result', () => res()); p.once('error', (e: string) => rej(new Error(e))); });
     p.spawn('hello');
     await done;

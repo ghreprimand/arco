@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
-import type { WorkerConfig } from '@arco/shared';
+import { buildTurnWaitInstructions, type WorkerConfig } from '@arco/shared';
 import { outputStyleAddendum } from './outputStyle.js';
 import { goalBlock } from './goalBlock.js';
 import { FILE_READ_GUIDANCE } from './providerFileContent.js';
@@ -125,11 +125,11 @@ const cfg = (provider: string, extra: Partial<WorkerConfig> = {}): WorkerConfig 
 } as unknown as WorkerConfig);
 
 // One spawn of a CLI provider against the fake command; returns what it received.
-async function cliRun(create: (id: string, c: WorkerConfig) => import('./types.js').ProviderProcess, config: WorkerConfig): Promise<{ argv: string[]; stdin: string }> {
+async function cliRun(create: (id: string, c: WorkerConfig) => import('./types.js').ProviderProcess, config: WorkerConfig, prompt = 'PROMPT-BODY'): Promise<{ argv: string[]; stdin: string }> {
   writeFileSync(logFile, '');
   const p = create(`w-${Math.random().toString(16).slice(2)}`, config) as unknown as import('node:events').EventEmitter & { spawn(prompt: string): void };
   const settled = new Promise<void>((res, reject) => { p.once('result', () => res()); p.once('error', (error) => reject(new Error(String(error)))); });
-  p.spawn('PROMPT-BODY');
+  p.spawn(prompt);
   await settled;
   for (let i = 0; i < 50 && !(existsSync(logFile) && readFileSync(logFile, 'utf8').trim()); i++) await new Promise((r) => setTimeout(r, 20));
   return JSON.parse(readFileSync(logFile, 'utf8').trim().split('\n').pop()!);
@@ -139,11 +139,13 @@ test('Claude CLI: the addendum closes --append-system-prompt, after the north st
   const { ClaudeProvider } = await import('./claude.js');
   const run = await cliRun(ClaudeProvider.create, cfg('claude', { outputStyle: 'terse', goal: 'Ship the fix', appendSystemPrompt: 'APPENDED' }));
   const appended = run.argv[run.argv.indexOf('--append-system-prompt') + 1];
-  assert.ok(appended.endsWith(TERSE), appended);
+  assert.equal(appended, `${buildTurnWaitInstructions()}\n\n${goalBlock('Ship the fix')}\n\nAPPENDED\n\n${TERSE}`);
   assert.ok(appended.indexOf('Ship the fix') < appended.indexOf('APPENDED'));
   assert.ok(appended.indexOf('APPENDED') < appended.indexOf(TERSE));
+  const next = await cliRun(ClaudeProvider.create, cfg('claude', { outputStyle: 'terse', goal: 'Ship the fix', appendSystemPrompt: 'APPENDED' }), 'NEXT-BODY');
+  assert.equal(next.argv[next.argv.indexOf('--append-system-prompt') + 1], appended, 'the system prefix stays stable when the turn body changes');
   const none = await cliRun(ClaudeProvider.create, cfg('claude', { outputStyle: 'normal' }));
-  assert.equal(none.argv.includes('--append-system-prompt'), false);
+  assert.equal(none.argv[none.argv.indexOf('--append-system-prompt') + 1], buildTurnWaitInstructions());
   assert.doesNotMatch(JSON.stringify(none), /output-style/);
 });
 
@@ -162,13 +164,19 @@ test('Claude SAFE grants only built-in reads and retains configured tools', { ti
 
 test('Codex exec: the addendum closes the prompt prefix before the separator', { timeout: 30_000 }, async () => {
   const { CodexProvider } = await import('./codex.js');
-  const run = await cliRun(CodexProvider.create, cfg('codex', { outputStyle: 'plain', appendSystemPrompt: 'APPENDED' }));
-  assert.ok(run.stdin.startsWith(`APPENDED\n\n${FILE_READ_GUIDANCE}\n\n${PLAIN}\n\n---\n\n`), run.stdin);
+  const config = cfg('codex', { outputStyle: 'plain', goal: 'Ship the fix', appendSystemPrompt: 'APPENDED' });
+  const run = await cliRun(CodexProvider.create, config);
+  const prefix = `${buildTurnWaitInstructions()}\n\n${goalBlock('Ship the fix')}\n\nAPPENDED\n\n${FILE_READ_GUIDANCE}\n\n${PLAIN}\n\n---\n\n`;
+  assert.equal(run.stdin, `${prefix}PROMPT-BODY`);
+  const next = await cliRun(CodexProvider.create, config, 'NEXT-BODY');
+  assert.equal(next.stdin, `${prefix}NEXT-BODY`, 'the prefix stays stable when the turn body changes');
   assert.ok(run.stdin.endsWith('PROMPT-BODY'));
   const none = await cliRun(CodexProvider.create, cfg('codex', {}));
-  assert.equal(none.stdin, `${FILE_READ_GUIDANCE}\n\n---\n\nPROMPT-BODY`);
+  assert.equal(none.stdin, `${buildTurnWaitInstructions()}\n\n${FILE_READ_GUIDANCE}\n\n---\n\nPROMPT-BODY`);
+  assert.doesNotMatch(none.stdin, /output-style/);
   const chat = await cliRun(CodexProvider.create, cfg('codex', { interactionMode: 'chat' }));
-  assert.equal(chat.stdin, 'PROMPT-BODY');
+  assert.equal(chat.stdin, `${buildTurnWaitInstructions()}\n\n---\n\nPROMPT-BODY`);
+  assert.doesNotMatch(chat.stdin, /output-style/);
 });
 
 test('Codex app-server: the addendum closes the prefix of the turn input', async () => {
