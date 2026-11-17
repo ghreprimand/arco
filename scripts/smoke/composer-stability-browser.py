@@ -26,7 +26,7 @@ async def main():
             path = urlparse(route.request.url).path
             data = {'files': [], 'entries': [], 'workflows': [], 'projects': [], 'clusters': [], 'skills': [], 'plans': [], 'items': [], 'tasks': [], 'sessions': [], 'messages': [], 'chats': [], 'dirs': []}
             if path == '/api/settings':
-                data = {'themeId': 'arch', 'enabledProviders': {'codex': True, 'claude': True}}
+                data = {'themeId': 'matrix', 'enabledProviders': {'codex': True, 'claude': True}}
             elif path == '/api/auth-status':
                 data = {n: {'loggedIn': True, 'installed': True, 'cliInstalled': True} for n in ['claude', 'codex',  'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'github']}
             elif path == '/api/capabilities':
@@ -71,11 +71,8 @@ async def main():
                 toolbar = page.get_by_test_id('composer-toolbar')
                 await expect(toolbar).to_have_css('flex-wrap', 'wrap' if mode == 'standard' else 'nowrap')
                 for theme in ['matrix']:
-                    await page.evaluate('''async theme => {
-                      const {applyTheme}=await import('/src/themes/apply.ts');
-                      const {getTheme}=await import('/src/themes/registry.ts'); applyTheme(getTheme(theme));
-                    }''', theme)
-                    await page.wait_for_timeout(250)
+                    # Let the initial theme load finish before measuring live turn updates.
+                    await expect(page.locator('html')).to_have_attribute('data-theme', theme)
                     samples = await page.evaluate('''async () => {
                       const s=window.testStore, jobId='interrupt-ui';
                       const el=document.querySelector('[data-help="composer.input"]').parentElement;

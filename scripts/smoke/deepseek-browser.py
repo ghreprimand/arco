@@ -88,13 +88,18 @@ async def main():
         }''')
         panel = page.locator('#deepseek-fixture')
         versions = page.get_by_role('dialog', name='Provider versions', exact=True)
+        def version_row(label):
+            provider, version = label.split(' ', 1)
+            return versions.get_by_role('button').filter(
+                has=page.get_by_text(provider, exact=True)
+            ).filter(has=page.get_by_text(version, exact=True))
         async def click_version(name):
             if not await versions.is_visible():
                 await panel.get_by_role('button', name='Provider versions', exact=True).click()
-            await versions.get_by_role('button', name=name, exact=True).click()
+            await version_row(name).click()
         await panel.get_by_role('button', name='Provider versions', exact=True).click()
-        await expect(versions.get_by_role('button', name='STRATA v0.1.44.1')).to_be_visible()
-        await expect(versions.get_by_role('button', name='XOLOTL 111111111111')).to_be_visible()
+        await expect(version_row('STRATA v0.1.44.1')).to_be_visible()
+        await expect(version_row('XOLOTL 111111111111')).to_be_visible()
         await click_version('XOLOTL 111111111111')
         modal = page.get_by_role('dialog', name='XOLOTL changes', exact=True)
         await expect(modal).to_be_visible()
@@ -131,11 +136,11 @@ async def main():
         await expect(panel.get_by_role('button', name='UNLOAD · STOP SERVICE')).to_be_disabled()
         assert writes == [dict(action='load', profile='exact'), dict(action='load', profile='light'), dict(action='unload')], writes
         await panel.get_by_role('button', name='Provider versions', exact=True).click()
-        await expect(versions.get_by_role('button', name='STRATA v0.1.44.1')).to_be_visible()
+        await expect(version_row('STRATA v0.1.44.1')).to_be_visible()
         await panel.get_by_role('button', name='Provider versions', exact=True).click()
         installed['strata'] = '0.1.45.3'
         await panel.get_by_role('button', name='Provider versions', exact=True).click()
-        await expect(versions.get_by_role('button', name='STRATA v0.1.45.3')).to_be_visible()
+        await expect(version_row('STRATA v0.1.45.3')).to_be_visible()
         await page.screenshot(path=str(artifact / 'controls-and-versions.png'))
         assert not errors, errors
         print('PASS: runtime-only label; in-app Ollama/Strata/Xolotl history; matching SHA avoids comparison, distinct SHA shows changes; engine/app versions stay distinct; prepared vision labels and explicit profile controls; no browser popups or GPU access.')

@@ -620,7 +620,7 @@ async def walk(page, probe, tap, click_all, missing_openers, theme, viewport):
         assert await tap('[data-testid="cluster-nudge"]'), 'Cluster nudge opener missing'
         await probe('cluster:nudge')
         await page.keyboard.press('Escape')
-        assert await tap('button[data-help="cluster.transcript-send"]'), 'Cluster transcript opener missing'
+        assert await tap('button[data-help="composer.transcript-worker"]'), 'Cluster transcript opener missing'
         await probe('cluster:transcript')
         await page.keyboard.press('Escape')
         assert await tap('[data-testid="composer-brief"]'), 'Cluster BRIEF opener missing'

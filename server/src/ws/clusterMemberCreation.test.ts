@@ -238,9 +238,16 @@ test('oversized replacement history creates a fresh member with newest whole tur
 });
 
 test.after(async () => {
+  const { listKnownClusterIds } = await import('../clusterStore.js');
+  const { releaseClusterPlansWatcher } = await import('../server/broadcast.js');
   const { settleWorkspaceWrites } = await import('../workspace.js');
+  // The initial-plan fixture opens a watcher on the directory we remove.
+  for (const id of listKnownClusterIds()) releaseClusterPlansWatcher(id);
+  console.info('[member creation fixture] Plan watchers released; settling writes.');
   await settleWorkspaceWrites();
   await settleProjectWrites();
   await closeRecall();
+  console.info('[member creation fixture] Writes settled and Recall closed; removing temporary project.');
   rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+  console.info('[member creation fixture] Temporary project removed.');
 });
