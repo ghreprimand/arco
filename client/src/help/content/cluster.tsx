@@ -4,7 +4,12 @@ import type { HelpEntry } from './shared';
 export const clusterHelp: Record<string, HelpEntry> = {
   'cluster.skills': {
     title: 'Cluster skill pins',
-    body: <><p><C>SKILLS</C> beside EFFICIENCY shows configured cluster pins, including missing or off skills. Open it to see each skill's source and All members or role target. Full text is added each turn for matching members; new and replaced members inherit it.</p><p>Only the operator pins or unpins. Use Settings &gt; SKILLS to add a pin. Tab, cluster and matching role pins share 12 unique skills and 64 KiB of text.</p></>,
+    body: <><p><C>SKILLS</C> beside EFFICIENCY shows configured cluster pins, including missing or off skills. Open it to see each skill's source and All members or role target. Full text is added each turn for matching members; new and replaced members inherit it.</p><p>Only the operator pins or unpins. Use ADD SKILL to choose a skill and pin it to all members or one role. Settings &gt; SKILLS also manages skills and pins. Tab, cluster and matching role pins share 12 unique skills and 64 KiB of text.</p></>,
+    manualSection: 'skills',
+  },
+  'cluster.skills.add': {
+    title: 'Add a cluster skill',
+    body: <p>Choose an available project or global skill, then choose all members or one role. Full text is included on matching members' next turns. Turn on or create skills in Settings &gt; SKILLS.</p>,
     manualSection: 'skills',
   },
   'cluster.skills.unpin': {

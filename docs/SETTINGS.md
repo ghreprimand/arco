@@ -221,8 +221,8 @@ members or one exact saved role, including a custom role. Project skills are
 limited to their project; global skills can target any open tab or cluster. The
 active tab or its cluster is selected when eligible. After a pin is saved,
 Settings shows the skill, destination and role in one line.
-The cluster SKILLS button beside EFFICIENCY lists sources, scope and availability
-and provides UNPIN. New and replaced members inherit cluster pins automatically;
+The cluster SKILLS button beside EFFICIENCY lists sources, scope and availability.
+ADD SKILL pins an available skill to all members or one role; UNPIN removes a pin. New and replaced members inherit cluster pins automatically;
 only the operator controls them. A member's FROM CLUSTER button opens the same
 list without mixing inherited pins into its direct tab settings.
 

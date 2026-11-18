@@ -17,6 +17,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Reset the header step timer when a new turn or matching step starts.
 
+- Add cluster skills directly from the CLUSTER SKILLS window.
+
 ## v0.1.8 - 2026-11-17
 
 - Keep provider release notes above the workspace and close the PROVIDERS panel when opening them.

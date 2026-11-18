@@ -13,6 +13,9 @@ export function SkillsControl({ cluster, memberId }: { cluster: ClusterStatePayl
   const send = useAppStore(s => s.wsSendRaw);
   const connected = useAppStore(s => s.connected);
   const [open, setOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [selected, setSelected] = useState('');
+  const [pinning, setPinning] = useState<Skill | null>(null);
   const [catalog, setCatalog] = useState<Skill[] | null>(null);
   const [error, setError] = useState('');
   const pins = cluster.skillPins ?? [];
@@ -36,13 +39,14 @@ export function SkillsControl({ cluster, memberId }: { cluster: ClusterStatePayl
     <button type="button" className="display-font" data-help="cluster.skills" style={button}
       aria-label={`${memberId ? 'Skills inherited from cluster' : 'Cluster skills'}, ${count} ${count === 1 ? 'pin' : 'pins'}`} aria-haspopup="dialog" aria-expanded={open}
       onClick={() => setOpen(true)}>{memberId ? 'FROM CLUSTER' : 'SKILLS'} [{count}]</button>
-    {open && <DialogShell title="Cluster skills" dataHelp="cluster.skills" onClose={() => setOpen(false)} closeOnBackdrop width={620}
-      actions={<button type="button" style={button} data-help="cluster.skills" onClick={() => {
+    {open && !adding && !pinning && <DialogShell title="Cluster skills" dataHelp="cluster.skills" onClose={() => setOpen(false)} closeOnBackdrop width={620}
+      actions={<><button type="button" style={button} data-help="cluster.skills.add" disabled={catalog === null || !catalog.some(skill => !skill.off)} onClick={() => { setSelected(''); setAdding(true); }}>ADD SKILL</button><button type="button" style={button} data-help="cluster.skills" onClick={() => {
         setOpen(false); useStartupStore.getState().setSettingsSection('skills'); useAppStore.getState().setShowSettings(true);
-      }}>SETTINGS &gt; SKILLS</button>}>
+      }}>SETTINGS &gt; SKILLS</button></>}>
       <p>Full skill text is added to every turn for matching members, including new and replaced members. Only the operator changes these pins.</p>
-      {!pins.length && <p>No skills are pinned to this cluster. Pin a skill from Settings &gt; SKILLS.</p>}
+      {!pins.length && <p>No skills are pinned to this cluster. Select ADD SKILL to pin one.</p>}
       {error && <p role="alert">{error}</p>}
+      {catalog && !catalog.some(skill => !skill.off) && <p>No available skills. Create or turn on a skill in Settings &gt; SKILLS.</p>}
       {pins.map((pin, index) => {
         const skill = catalog?.find(item => sameRef(item, pin));
         const status = catalog === null ? 'Loading' : !skill ? 'Missing or unreadable' : skill.off ? 'Off' : 'Available';
@@ -59,10 +63,17 @@ export function SkillsControl({ cluster, memberId }: { cluster: ClusterStatePayl
       })}
       <p>Tab pins, cluster pins and matching role pins share one limit: 12 unique skills and 64 KiB of text. Missing or off skills are skipped. A skill that grows beyond the limit is reported in the conversation.</p>
     </DialogShell>}
+    {open && adding && <DialogShell zIndex={9700} title="Add cluster skill" dataHelp="cluster.skills.add" onClose={() => setAdding(false)} width={620}
+      actions={<><button type="button" style={button} onClick={() => setAdding(false)}>CANCEL</button><button type="button" style={button} disabled={!selected} onClick={() => { const skill = catalog?.find(item => JSON.stringify([item.scope, item.slug]) === selected); if (skill) { setAdding(false); setPinning(skill); } }}>NEXT</button></>}>
+      <label>Skill<select className="arco-field" aria-label="Skill to add" data-help="cluster.skills.add" value={selected} onChange={event => setSelected(event.target.value)} style={{ display: 'block', width: '100%', minWidth: 0 }}>
+        <option value="">Select a skill</option>{catalog?.filter(skill => !skill.off).map(skill => <option key={JSON.stringify([skill.scope, skill.slug])} value={JSON.stringify([skill.scope, skill.slug])}>{skill.name} ({skill.scope})</option>)}
+      </select></label>
+    </DialogShell>}
+    {open && pinning && <PinSkillDialog skill={pinning} cwd={cluster.cwd} kind="cluster" initialTargetId={cluster.clusterId} onClose={() => setPinning(null)} />}
   </>;
 }
 
-export function PinSkillDialog({ skill, cwd, kind, onClose, onPinned }: { skill: Skill; cwd: string; kind: 'tab' | 'cluster'; onClose: () => void; onPinned?: (result: { kind: 'tab' | 'cluster'; id: string; role?: string; scope: 'project' | 'global'; slug: string; message: string }) => void }) {
+export function PinSkillDialog({ skill, cwd, kind, onClose, onPinned, initialTargetId }: { skill: Skill; cwd: string; kind: 'tab' | 'cluster'; onClose: () => void; initialTargetId?: string; onPinned?: (result: { kind: 'tab' | 'cluster'; id: string; role?: string; scope: 'project' | 'global'; slug: string; message: string }) => void }) {
   const clusters = useAppStore(s => s.clusters);
   const jobs = useAppStore(s => s.jobs);
   const activeClusterId = useAppStore(s => s.activeClusterId);
@@ -72,7 +83,7 @@ export function PinSkillDialog({ skill, cwd, kind, onClose, onPinned }: { skill:
   const targets = kind === 'cluster'
     ? Object.values(clusters).filter(cluster => skill.scope === 'global' || cluster.cwd === cwd).map(cluster => ({ id: cluster.clusterId, name: cluster.name ?? `Cluster ${cluster.clusterId.slice(0, 8)}` }))
     : Object.values(jobs).filter(job => job.config.kind !== 'chat' && (skill.scope === 'global' || job.config.workingDirectory === cwd)).map(job => ({ id: job.id, name: job.config.name || job.id.slice(0, 8) }));
-  const activeTarget = kind === 'cluster' ? activeClusterId ?? Object.values(clusters).find(item => item.members.some(member => member.workflowId === activeJobId))?.clusterId : activeJobId;
+  const activeTarget = initialTargetId ?? (kind === 'cluster' ? activeClusterId ?? Object.values(clusters).find(item => item.members.some(member => member.workflowId === activeJobId))?.clusterId : activeJobId);
   const [target, setTarget] = useState(targets.find(item => item.id === activeTarget)?.id ?? targets[0]?.id ?? '');
   const [scope, setScope] = useState('all');
   const [customRole, setCustomRole] = useState('');

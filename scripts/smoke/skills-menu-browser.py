@@ -165,6 +165,18 @@ async def main():
         await page.get_by_role('dialog', name='Cluster skills').get_by_role('button', name='Unpin Testing guide from Reader', exact=True).tap()
         await expect(page.get_by_role('button', name='Cluster skills, 1 pin', exact=True)).to_be_visible()
         assert await page.evaluate('s.getState().jobs.fixture.config.pinnedSkills') == [{'scope':'project','slug':'testing'}]
+        popup = page.get_by_role('dialog', name='Cluster skills', exact=True)
+        await popup.get_by_role('button', name='ADD SKILL', exact=True).click()
+        selector = page.get_by_role('dialog', name='Add cluster skill', exact=True)
+        await selector.get_by_label('Skill to add').select_option(label='Testing guide (project)')
+        await selector.get_by_role('button', name='NEXT', exact=True).click()
+        dialog = page.get_by_role('dialog', name='Pin Testing guide to cluster', exact=True)
+        assert await dialog.get_by_label('Pin destination cluster').input_value() == 'pins'
+        await dialog.get_by_label('Cluster skill scope').select_option('role:Reader')
+        await dialog.get_by_role('button', name='PIN', exact=True).click()
+        popup = page.get_by_role('dialog', name='Cluster skills', exact=True)
+        await expect(popup.get_by_role('button', name='Unpin Testing guide from Reader', exact=True)).to_be_visible()
+        await popup.get_by_role('button', name='Unpin Testing guide from Reader', exact=True).click()
         await page.keyboard.press('Escape')
         assert not errors, errors
         assert not blocked, blocked

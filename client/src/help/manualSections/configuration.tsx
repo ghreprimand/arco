@@ -539,7 +539,7 @@ export const configuration: Section[] = [
   <p>The active tab or its cluster is selected when eligible. After a pin is
   saved, Settings names the skill, destination and role.</p>
   <p>The cluster SKILLS button beside EFFICIENCY shows the configured count.
-  Open it to see sources, scope, availability and UNPIN. New and replaced
+  Open it to see sources, scope and availability. ADD SKILL pins an available skill to all members or one role; UNPIN removes a pin. New and replaced
   members inherit the cluster's pins. A member's composer shows FROM CLUSTER;
   its direct tab pins remain separate. Only the operator can pin or unpin.</p>
   <p>Tab, cluster and matching role pins share a limit of 12 unique skills and
