@@ -132,6 +132,13 @@ export const composerHelp: Record<string, HelpEntry> = {
       <p>SEND waits for every pending upload batch, including another paste or drop started while uploading. The upload folder must be a real folder, not a link.</p></>
     ),
   },
+  'composer.upload-from-phone': {
+    title: 'Upload from phone',
+    body: (
+      <><p>Scan the code with a phone on the same private network as Arco. Use Take Photo or Choose Files. The files appear beside Attach in this conversation. Review them before pressing Send.</p><p>The code lasts five minutes. Close it when finished. It accepts up to 10 files, 20 MiB per file and 100 MiB total. This needs a direct private network address.</p></>
+    ),
+    manualSection: 'composer',
+  },
   'composer.remote': {
     title: 'Remote monitoring',
     body: (

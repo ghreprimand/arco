@@ -447,6 +447,12 @@ export const workspace: Section[] = [
           Arco fits images and sends them visually when the model reports vision support. SVG attachments include source text; image-capable models also receive a fitted preview when rendering succeeds, while text-only models receive an image-omission note.
         </p>
         <p>
+          Open <Code>UPLOAD FROM PHONE</Code> beside Attach and scan the code on the same private network. Take a photo or choose files. They appear in the original draft, even after switching tabs. Press Send to submit them.
+        </p>
+        <p>
+          The code closes after five minutes or when Close is pressed. It accepts up to 10 files, 20 MiB each and 100 MiB total. Unsent phone files are removed after 30 minutes. Anyone who obtains the code on the private network can put files in that draft until it closes.
+        </p>
+        <p>
           PDFs, office documents and notebooks are decoded before sending, including
           Chat tabs without file tools. Other binaries return a file note.
         </p>

@@ -340,3 +340,51 @@ body {
 [data-overflowed="true"] { display: none !important; }
 
 .provider-status-link:focus-visible { outline: 2px solid var(--color-accent-primary); outline-offset: 3px; border-radius: 2px; }
+
+.phone-upload-window {
+  position: fixed;
+  z-index: 1990;
+  inset: auto 1rem 1rem auto;
+  display: grid;
+  gap: .75rem;
+  box-sizing: border-box;
+  width: min(20rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  padding: 1rem;
+  color: var(--color-fg);
+  background: var(--color-bg-elevated, var(--color-bg));
+  border: 1px solid var(--color-border);
+  border-radius: .5rem;
+  box-shadow: 0 .5rem 2rem rgb(0 0 0 / .4);
+  overflow-wrap: anywhere;
+}
+
+.phone-upload-window h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.phone-upload-window img {
+  display: block;
+  width: min(100%, 16rem);
+  height: auto;
+  margin-inline: auto;
+  image-rendering: pixelated;
+}
+
+.phone-upload-window button {
+  min-height: 2.75rem;
+  padding: .35rem .65rem;
+  color: inherit;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: .3rem;
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .phone-upload-button {
+    min-block-size: 44px;
+  }
+}

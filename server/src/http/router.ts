@@ -1,7 +1,8 @@
 import { localRuntimeStatusService } from '../localRuntimeStatus.js';
 import { tryHandleHandoffHistoryRoute } from './handoffHistoryRoutes.js';
-import { shrinkUploadedImage } from '../uploadImages.js';
-import { ensureStorageRoot, UnsafeStorageRootError } from '../storageRoot.js';
+import { UnsafeStorageRootError } from '../storageRoot.js';
+import { readAttachmentBody, storeAttachment } from './attachmentUpload.js';
+import { tryHandlePhoneOperator, tryHandlePhonePage } from './phoneUploadRoutes.js';
 import { requireProjectBinding } from './projectBinding.js';
 import { tryHandleStorageRoutes } from './storageRoutes.js';
 import { tryHandleArchitectureReviewRoutes } from './architectureReviewRoutes.js';
@@ -30,10 +31,10 @@ ClusterPresetMember,ProviderName
 import { type LlamacppModelDef } from '@arco/shared';
 import { spawn } from 'child_process';
 import { chmodSync,writeFileSync } from 'fs';
-import { mkdir,readdir,readFile,writeFile } from 'fs/promises';
+import { mkdir,readdir,readFile } from 'fs/promises';
 import { IncomingMessage,ServerResponse } from 'http';
 import { homedir,tmpdir } from 'os';
-import { basename,extname,join,resolve,sep } from 'path';
+import { extname,join,resolve,sep } from 'path';
 import { unloadLocalModels } from '../localModels.js';
 import { getAuthStatus,triggerAuthLogin } from '../auth.js';
 import { cliSnapshotDir,runCliUpdate,refreshRuntimeVersions,type CliProvider } from '../capabilities.js';
@@ -101,11 +102,8 @@ send
 import {
 compareDirectoryNames,
 PORT,
-PROJECT_ROOT,
-UPLOAD_IMAGE_EXT,
-UPLOADS_DIR
+PROJECT_ROOT
 } from '../server/constants.js';
-import { queueModelImage } from '../providers/attachments.js';
 import {
 sessions,
 workflows
@@ -235,6 +233,7 @@ export async function handleHttpRequest(
     res.end(JSON.stringify({ error: 'Forbidden origin' }));
     return;
   }
+  if (await tryHandlePhonePage(req, res)) return;
   if (guard.origin) {
     res.setHeader('Access-Control-Allow-Origin', guard.origin);
     res.setHeader('Vary', 'Origin');
@@ -312,6 +311,7 @@ export async function handleHttpRequest(
 
   // Operator routes in their own modules: behind the session gate like every
   // other /api route (they read or change settings and can call providers).
+  if (await tryHandlePhoneOperator(req, res)) return;
   if (await tryHandleProviderThrottleRoutes(req, res)) return;
   if (await tryHandleSmartPickupRoutes(req, res)) return;
   if (await tryHandleTidyRoutes(req, res)) return;
@@ -384,9 +384,7 @@ export async function handleHttpRequest(
 
   if (req.url === '/upload' && req.method === 'POST') {
     try {
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) chunks.push(chunk as Buffer);
-      const body = Buffer.concat(chunks);
+      const body = await readAttachmentBody(req);
       // Reject empty uploads so they cannot produce invalid image blocks in
       // a worker's persistent history.
       if (body.length === 0) {
@@ -398,21 +396,9 @@ export async function handleHttpRequest(
         ? req.headers['x-filename'].trim()
         : `upload-${Date.now()}`;
       const contentType = typeof req.headers['content-type'] === 'string' ? req.headers['content-type'].split(';')[0].trim().toLowerCase() : '';
-      const ext = extname(rawFilename);
-      const inferredExt = !ext && contentType ? UPLOAD_IMAGE_EXT[contentType] : undefined;
-      const filename = basename(rawFilename) + (inferredExt ?? '');
-      const fileId = crypto.randomUUID().slice(0, 8);
-      const uploadRoot = await ensureStorageRoot(UPLOADS_DIR);
-      const savePath = join(uploadRoot, `${fileId}-${filename}`);
-      await writeFile(savePath, body, { flag: 'wx' });
-      console.log(`[arco] File uploaded: ${filename} -> ${savePath}`);
-      // Finish upload-only replacement before publishing the stable path.
-      // Failure retains the original; project files never enter this path.
-      await shrinkUploadedImage(savePath);
-      // Other formats still use a separate model-compatible copy.
-      queueModelImage(savePath);
+      const stored = await storeAttachment(body, rawFilename, contentType);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ fileId, filename, path: savePath }));
+      res.end(JSON.stringify(stored));
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       const message = error instanceof UnsafeStorageRootError ? error.message : 'Upload failed';

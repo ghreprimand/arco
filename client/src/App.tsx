@@ -1,3 +1,4 @@
+import { PhoneUploadWindow } from './components/PhoneUpload';
 import { memberReviewScopeSupported, MEMBER_REVIEW_SCOPE_REASON } from './utils/memberReviewScope';
 import { requestVoicePanel } from './voice/panels';
 import { CatchMeUp } from './components/CatchMeUp';
@@ -637,6 +638,7 @@ ${scopeBody}
       }}
     >
       <ThemedBackgroundShader />
+      <PhoneUploadWindow />
 
       <div
         style={{

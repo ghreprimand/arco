@@ -1,3 +1,4 @@
+import { phoneUploadRequest } from '../utils/phoneUploadApi';
 import { validateSettings } from '../utils/settingsResponse';
 import { create } from 'zustand';
 import { forgetGitDialog } from '../utils/gitDialogMemory';
@@ -1664,6 +1665,9 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       const existing = s.attachments[jobId];
       if (!existing || index < 0 || index >= existing.length) return {};
       const removed = existing[index];
+      if (removed.phoneUpload && removed.phoneUpload.expiresAt > Date.now()) {
+        void phoneUploadRequest('/draft/' + removed.phoneUpload.id, { method: 'DELETE' }).catch(() => {});
+      }
       if (removed.previewUrl) URL.revokeObjectURL(removed.previewUrl);
       const next = existing.filter((_, i) => i !== index);
       if (next.length === 0) {

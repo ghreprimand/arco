@@ -1,8 +1,8 @@
 import { PNG } from 'pngjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import os, { tmpdir } from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import type { IncomingMessage, ServerResponse } from 'node:http';
@@ -24,7 +24,7 @@ function request(method: string, url: string, body: string | Buffer = '', header
   Object.assign(req, { method, url, headers: { host: '127.0.0.1:3001', ...headers }, socket: { remoteAddress: '127.0.0.1', remotePort: 1 } });
   return req;
 }
-async function send(method: string, url: string, body: string | Buffer = '', headers: Record<string, string> = {}, transport: { encrypted?: boolean; remoteAddress?: string } = {}): Promise<Reply> {
+async function send(method: string, url: string, body: string | Buffer = '', headers: Record<string, string> = {}, transport: { encrypted?: boolean; remoteAddress?: string; localAddress?: string; localPort?: number } = {}): Promise<Reply> {
   const { handleHttpRequest } = await import('./router.js');
   let status = 200, out = '';
   const replyHeaders: Record<string, string> = {};
@@ -156,4 +156,65 @@ test('upload returns a stable reference after verified image replacement', async
   const decoded = PNG.sync.read(bytes);
   assert.deepEqual([decoded.width, decoded.height], [2000, 67]);
   assert.equal(await awaitModelImage(saved.path, 10000), saved.path);
+});
+
+
+test('a private phone link can only stage uploads for the conversation that opened it', async (t) => {
+  const { mintToken, SESSION_COOKIE } = await import('./wsAuth.js');
+  const { workflows } = await import('../server/state.js');
+  const { adoptPhoneDrafts, sweepPhoneDrafts } = await import('./phoneUploadDrafts.js');
+  const fixtureAddress = [192, 168, 45, 10].join('.');
+  const prefix = fixtureAddress.split('.').slice(0, -1).join('.');
+  const peer = prefix + '.11';
+  const origin = `http://${fixtureAddress}:3333`;
+  const socket = { localAddress: fixtureAddress, localPort: 3333, remoteAddress: peer };
+  t.mock.method(os, 'networkInterfaces', () => ({
+    fixture: [{ address: fixtureAddress, cidr: fixtureAddress + '/24', family: 'IPv4',
+      internal: false, netmask: [255, 255, 255, 0].join('.'), mac: '' }],
+  }));
+  const incoming = { host: new URL(origin).host, origin, 'x-filename': 'phone%20note.txt' };
+  const desktop = { ...incoming, cookie: `${SESSION_COOKIE}=${mintToken()}`, 'x-arco-phone-owner': 'a'.repeat(64) };
+  const secondDesktop = { ...incoming, cookie: `${SESSION_COOKIE}=${mintToken()}`, 'x-arco-phone-owner': 'b'.repeat(64) };
+  const api = '/api/phone-upload';
+  for (const workflowId of ['first-draft', 'second-draft']) {
+    workflows.set(workflowId, { config: { workingDirectory: root } } as never);
+    t.after(() => { workflows.delete(workflowId); });
+  }
+  const make = (workflowId: string) => JSON.stringify({ workflowId });
+  assert.equal((await send('POST', api, make('first-draft'), incoming, socket)).status, 401);
+  assert.equal((await send('POST', api, make('first-draft'), desktop, { localPort: 3333 })).status, 403);
+  const opening = await send('POST', api, make('first-draft'), desktop, socket);
+  assert.equal(opening.status, 201, opening.body);
+  const first = JSON.parse(opening.body);
+  const link = new URL(first.url);
+  assert.equal(link.origin, origin);
+  assert.equal(link.pathname, '/phone-upload');
+  const phone = { ...incoming, 'x-arco-phone-upload': link.hash.slice(1) };
+  const page = await send('GET', link.pathname, '', incoming, socket);
+  assert.equal(page.status, 200);
+  assert.ok(!page.body.includes(phone['x-arco-phone-upload']));
+  assert.equal((await send('POST', link.pathname, 'wrong network', phone, { ...socket, remoteAddress: [192, 168, 46, 11].join('.') })).status, 403);
+  assert.equal((await send('POST', link.pathname, 'bad size', { ...phone, 'content-length': String(20 * 1024 * 1024 + 1) }, socket)).status, 413);
+  assert.equal((await send('POST', link.pathname, 'From my phone', phone, socket)).status, 201);
+  const anotherFile = { ...phone, 'x-filename': 'spare.txt' };
+  assert.equal((await send('POST', link.pathname, 'Unused', anotherFile, socket)).status, 201);
+  assert.equal((await send('GET', `${api}/${first.id}`, '', secondDesktop, socket)).status, 404);
+  const second = JSON.parse((await send('POST', api, make('second-draft'), desktop, socket)).body);
+  assert.deepEqual(JSON.parse((await send('GET', `${api}/${second.id}`, '', desktop, socket)).body).files, []);
+  const refreshed = { ...desktop, cookie: `${SESSION_COOKIE}=${mintToken()}` };
+  const staged = JSON.parse((await send('GET', `${api}/${first.id}`, '', refreshed, socket)).body).files;
+  assert.equal(staged.length, 2);
+  assert.equal(staged[0].filename, 'phone note.txt');
+  assert.equal(readFileSync(staged[0].path, 'utf8'), 'From my phone');
+  assert.equal((await send('GET', '/api/file-content?' + new URLSearchParams({ path: staged[0].path }), '', phone, socket)).status, 401);
+  assert.equal(adoptPhoneDrafts('second-draft', [staged[0].path]), false);
+  const closed = JSON.parse((await send('DELETE', `${api}/${first.id}`, '', desktop, socket)).body);
+  assert.equal(closed.closed, true);
+  assert.equal(closed.files[0].path, staged[0].path);
+  assert.equal((await send('POST', link.pathname, 'too late', phone, socket)).status, 410);
+  assert.equal(adoptPhoneDrafts('first-draft', [staged[0].path]), true);
+  t.mock.method(Date, 'now', () => staged[1].expiresAt + 1);
+  await sweepPhoneDrafts();
+  assert.equal(existsSync(staged[1].path), false);
+  assert.equal(readFileSync(staged[0].path, 'utf8'), 'From my phone');
 });

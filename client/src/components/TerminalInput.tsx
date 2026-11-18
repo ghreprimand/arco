@@ -1,3 +1,4 @@
+import { PhoneUploadButton } from './PhoneUpload';
 import { effectiveCodexTransport } from '@arco/shared';
 import { TurnTimer } from './TurnTimer';
 import { SkillsControl } from './ClusterRightPanel/SkillsControl';
@@ -51,7 +52,7 @@ import { ToolbarMore, useToolbarOverflow } from '../layout/ToolbarOverflow';
 import { useKeepInWindow } from '../layout/keepInWindow';
 
 // FILE, PLAN and BRIEF stay on the composer line in every layout.
-const TOOLBAR_KEEP: ReadonlySet<string> = new Set(['composer.attach', 'composer.plan', 'composer.brief']);
+const TOOLBAR_KEEP: ReadonlySet<string> = new Set(['composer.attach', 'composer.upload-from-phone', 'composer.plan', 'composer.brief']);
 
 export interface Props {
   job: JobState;
@@ -1221,6 +1222,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
           + FILE
         </button>
         </span>
+        <PhoneUploadButton workflowId={job.id} />
 
         {hubLinked && onUpdatePrimary && (
           <button

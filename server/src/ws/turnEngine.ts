@@ -132,6 +132,7 @@ WorkflowState
 } from '../workflows/types.js';
 import { takeQueuedTurn } from './messageQueue.js';
 import { awaitModelImages } from '../providers/attachments.js';
+import { adoptPhoneDrafts } from '../http/phoneUploadDrafts.js';
 
 const PUBLIC_REPO_SAFETY_SYSTEM_BLOCK = [
   'Genesis public repository safety:',
@@ -1578,6 +1579,10 @@ export async function handleUserMessage(
       type: 'system_notice', workflowId,
       content: '[INTERRUPT & SEND] No interruptible Claude or Codex primary turn is running. Your message is queued as a follow-up.',
     });
+    if (!isolatedMember && !adoptPhoneDrafts(workflowId, attachments)) {
+      send(ws, { type: 'error', workflowId, message: 'A phone attachment expired or belongs to another conversation.' });
+      return;
+    }
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
     const queuedAttachments = [...new Set([...(attachments ?? []), ...contextAttachments])];
     const queuedItem = { clusterBusyReminder: opts?.clusterBusyReminder, automaticKind: opts?.automaticKind, content, attachments: isolatedMember || !queuedAttachments.length ? undefined : queuedAttachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
@@ -1659,6 +1664,10 @@ export async function handleUserMessage(
   // Refuse before taking queued input: a restore admitted during preflight
   // must leave the queue available for an explicit later attempt.
   assertCheckoutAvailable(workflowWritePaths(wf));
+  if (!fromQueue && !isolatedMember && !adoptPhoneDrafts(workflowId, attachments)) {
+    send(ws, { type: 'error', workflowId, message: 'A phone attachment expired or belongs to another conversation.' });
+    return;
+  }
   let activeOllamaInputSeqs: number[] = [];
   let activeInputClientIds: string[] = [];
   if (fromQueue) {

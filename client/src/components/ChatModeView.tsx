@@ -1,3 +1,4 @@
+import { PhoneUploadButton } from './PhoneUpload';
 import { TidyComposer } from './TidyComposer';
 import { useMessageBoxSize, messageBoxMinHeight, messageBoxMaxHeight } from '../utils/messageBoxSize';
 import { PendingQuestionsButton } from './PendingQuestionsButton';
@@ -340,6 +341,7 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
               {uploading ? '…' : '＋'}
             </button>
           )}
+          {canAttach && <PhoneUploadButton workflowId={job.id} />}
           <textarea
             data-help="chat.input"
             ref={areaRef}

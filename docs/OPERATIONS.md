@@ -760,6 +760,24 @@ SSH session reaches it. Set `ARCO_HOST=0.0.0.0` **only** when you deliberately
 want LAN/tailnet clients to reach the surface directly - there is no user login,
 only the browser session cookie and the Host and Origin check above.
 
+### Upload from phone
+
+Open **UPLOAD FROM PHONE** beside Attach and scan the code on a phone that
+can already reach Arco over a direct private network connection. The picker
+accepts photos, PDFs, text and supported office documents. The code uses Arco's
+existing address and port, with no account or relay. If the server listens only
+on loopback, or the desktop is reached through a reverse proxy such as Tailscale
+Serve, the control reports that phone upload is unavailable. A direct tailnet
+address can be used when the existing listener serves it.
+
+The code allows uploads for five minutes, with up to 10 files, 20 MiB per file
+and 100 MiB total. Closing it revokes further uploads but keeps files already
+in the draft. The original conversation receives the attachments, and its
+normal Send submits them. Arco removes discarded phone attachments and expires
+unsent ones after 30 minutes. Anyone on the private network who obtains the
+code may put a file in that draft. Plain HTTP can be observed on the network.
+Use a trusted private network and review attachments before sending.
+
 The **Security & Exposure** group in the System modal's Diagnostics tab (and the
 support bundle) reports this posture: bind address, terminal/git/filesystem/
 credential exposure, preview proxy, local model endpoints, and risky env flags -

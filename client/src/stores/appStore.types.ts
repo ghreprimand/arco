@@ -82,6 +82,7 @@ export interface DraftAttachment {
   path: string;            // absolute path on the server's filesystem
   previewUrl?: string;     // URL.createObjectURL result; revoke in store actions
   isImage: boolean;
+  phoneUpload?: { id: string; expiresAt: number };
 }
 
 // Phase 5 — entry-per-review for the right-pane Review tab. Built up from

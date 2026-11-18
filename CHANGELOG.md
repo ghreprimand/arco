@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Attach photos and files from a phone on the same private network using a short-lived QR code.
+
 - Show Codex commands that outlive their reply and keep their later exit results in ACTIVITY.
 
 - Open files in Git worktrees from conversation links and browse their branch-labelled documents under the project in ARTIFACTS.
