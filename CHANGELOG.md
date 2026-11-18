@@ -15,6 +15,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Open Settings skill dialogs in front of Settings, select the active destination and show saved pin confirmations.
 
+- Reset the header step timer when a new turn or matching step starts.
+
 ## v0.1.8 - 2026-11-17
 
 - Keep provider release notes above the workspace and close the PROVIDERS panel when opening them.

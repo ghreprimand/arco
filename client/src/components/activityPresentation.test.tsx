@@ -26,3 +26,23 @@ test('header holds a step and member cards retain settled content without stream
     job.busy=true; job.activity=[];await render();await act(async()=>{await new Promise(resolve=>setTimeout(resolve,1050));});assert.match(host.querySelector('[data-help="cluster.member-card"]')?.textContent??'',/Reading second.txt/);
   } finally {await act(async()=>root.unmount());dom.window.close();for(const [name,desc] of prior){if(desc)Object.defineProperty(globalThis,name,desc);else delete (globalThis as any)[name];}}
 });
+
+
+test('header resets the elapsed step for a new turn and a repeated working step', async () => {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', { url:'http://localhost/', pretendToBeVisual:true });
+  const names = ['window','document','localStorage','HTMLElement','Node','navigator','IS_REACT_ACT_ENVIRONMENT'];
+  const prior = new Map(names.map(name => [name,Object.getOwnPropertyDescriptor(globalThis,name)]));
+  for (const name of names) Object.defineProperty(globalThis,name,{configurable:true,value:name==='IS_REACT_ACT_ENVIRONMENT'?true:(dom.window as any)[name]});
+  const host=dom.window.document.createElement('div');dom.window.document.body.append(host);const root=createRoot(host);
+  const now=Date.now();
+  const job={activity:[],turnStartedAt:now-90000} as unknown as JobState;
+  const render=async()=>act(async()=>{root.render(createElement(PrimaryStatus,{job}));});
+  try {
+    await render();assert.match(host.textContent??'',/1m 30s.*LONG-RUNNING/);
+    job.turnStartedAt=now;await render();assert.match(host.textContent??'',/Working \(0 s\)/);assert.doesNotMatch(host.textContent??'',/LONG-RUNNING/);
+    job.activity=[{id:'finished',kind:'tool_use',tool:'Read',status:'completed',at:now-90000,updatedAt:now-80000}] as any;
+    await render();assert.match(host.textContent??'',/1m 20s.*LONG-RUNNING/);
+    job.activity=[{id:'later',kind:'tool_use',tool:'Read',status:'completed',at:now,updatedAt:now}] as any;
+    await render();assert.match(host.textContent??'',/Working \(0 s\)/);assert.doesNotMatch(host.textContent??'',/LONG-RUNNING/);
+  } finally {await act(async()=>root.unmount());dom.window.close();for(const [name,desc] of prior){if(desc)Object.defineProperty(globalThis,name,desc);else delete (globalThis as any)[name];}}
+});
