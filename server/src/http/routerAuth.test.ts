@@ -182,7 +182,6 @@ test('a private phone link can only stage uploads for the conversation that open
   }
   const make = (workflowId: string) => JSON.stringify({ workflowId });
   assert.equal((await send('POST', api, make('first-draft'), incoming, socket)).status, 401);
-  assert.equal((await send('POST', api, make('first-draft'), desktop, { localPort: 3333 })).status, 403);
   const opening = await send('POST', api, make('first-draft'), desktop, socket);
   assert.equal(opening.status, 201, opening.body);
   const first = JSON.parse(opening.body);
@@ -224,4 +223,45 @@ test('a private phone link can only stage uploads for the conversation that open
   await sweepPhoneDrafts();
   assert.equal(existsSync(staged[1].path), false);
   assert.equal(readFileSync(staged[0].path, 'utf8'), 'From my phone');
+});
+
+test('on the default loopback bind, opening a phone code starts a listener that answers only the phone upload page', async (t) => {
+  const http = await import('node:http');
+  const { mintToken, SESSION_COOKIE } = await import('./wsAuth.js');
+  const { workflows } = await import('../server/state.js');
+  const { _bindPhoneListenerForTest } = await import('./phoneUploadListener.js');
+  const { _closePhoneListenerForTest } = await import('./phoneUploadRoutes.js');
+  // A fixture private interface; the listener binds loopback in its place.
+  const fixtureAddress = [192, 168, 47, 10].join('.');
+  t.mock.method(os, 'networkInterfaces', () => ({
+    fixture: [{ address: fixtureAddress, cidr: fixtureAddress + '/24', family: 'IPv4',
+      internal: false, netmask: [255, 255, 255, 0].join('.'), mac: '' }],
+  }));
+  _bindPhoneListenerForTest(() => '127.0.0.1');
+  t.after(async () => { _bindPhoneListenerForTest(null); await _closePhoneListenerForTest(); });
+  workflows.set('loopback-draft', { config: { workingDirectory: root } } as never);
+  t.after(() => { workflows.delete('loopback-draft'); });
+  const desktop = { host: '127.0.0.1:3333', origin: 'http://127.0.0.1:3333', cookie: `${SESSION_COOKIE}=${mintToken()}`, 'x-arco-phone-owner': 'd'.repeat(64) };
+  const opening = await send('POST', '/api/phone-upload', JSON.stringify({ workflowId: 'loopback-draft' }), desktop,
+    { localAddress: '127.0.0.1', localPort: 3333, remoteAddress: '127.0.0.1' });
+  assert.equal(opening.status, 201, opening.body);
+  const link = new URL(JSON.parse(opening.body).url);
+  assert.equal(link.hostname, fixtureAddress);
+  assert.equal(link.pathname, '/phone-upload');
+  const ask = (method: string, path: string, headers: Record<string, string> = {}) => new Promise<number>((resolve) => {
+    const req = http.request({ host: '127.0.0.1', port: Number(link.port), method, path, headers: { host: link.host, ...headers }, agent: false },
+      res => { res.resume(); resolve(res.statusCode ?? 0); });
+    req.on('upgrade', (_res, socket) => { socket.destroy(); resolve(101); });
+    req.on('error', () => resolve(-1));
+    req.end();
+  });
+  for (const [method, path] of [['GET', '/'], ['POST', '/api/session'], ['GET', '/healthz'], ['POST', '/api/phone-upload'],
+    ['GET', '/api/file-content?path=x'], ['POST', '/upload'], ['GET', '/phone-upload?x=1'], ['GET', '/phone-upload/']]) {
+    assert.equal(await ask(method, path, { cookie: desktop.cookie }), 404, path);
+  }
+  const upgrade = { Connection: 'Upgrade', Upgrade: 'websocket', 'Sec-WebSocket-Version': '13', 'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==' };
+  for (const path of ['/ws', '/terminal', '/phone-upload']) assert.notEqual(await ask('GET', path, upgrade), 101, path);
+  // The page path reaches the phone handler, which refuses this loopback peer.
+  const page = await ask('GET', '/phone-upload');
+  assert.equal(page, 403);
 });

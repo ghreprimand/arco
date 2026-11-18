@@ -5,22 +5,24 @@ import { unzipSync } from 'fflate';
 import * as clusterStore from '../clusterStore.js';
 import { fileHeaderKind } from '../fileContent/detect.js';
 import { awaitModelImage } from '../providers/attachments.js';
-import { UUID_PATTERN } from '../server/constants.js';
+import { PORT, UUID_PATTERN } from '../server/constants.js';
 import { workflows } from '../server/state.js';
 import type { WorkflowState } from '../workflows/types.js';
 import { managedUploadPath } from '../uploadImages.js';
 import { readAttachmentBody, storeAttachment, UploadTooLarge } from './attachmentUpload.js';
 import { readFileForExplorer } from './fileRead.js';
 import { discardPhoneDraft, phoneDraftForOwner, phoneFilename, rememberPhoneDraft, PHONE_DRAFT_TTL_MS, type PhoneDraft } from './phoneUploadDrafts.js';
-import { listensOnLoopbackOnly, phoneUploadOrigins, privatePhoneOrigin } from './phoneUploadNetwork.js';
+import { phoneListenerAddresses, phoneUploadOrigins, privatePhoneOrigin } from './phoneUploadNetwork.js';
+import { startPhoneListener, type PhoneListener } from './phoneUploadListener.js';
+import { checkRequestOrigin } from './originGuard.js';
 import { PHONE_PAGE, PHONE_PAGE_CSP } from './phoneUploadPage.js';
 import { readCookie, SESSION_COOKIE, verifyToken } from './wsAuth.js';
 
 const PHONE_PATH = '/phone-upload';
 const API_PATH = '/api/phone-upload';
 const UNAVAILABLE = 'Phone upload is unavailable. Open Arco on your private network first.';
-const LOOPBACK_ONLY = 'Phone upload is unavailable. Arco listens on this computer only, so a phone cannot reach it. Set ARCO_HOST to a private network address and restart Arco.';
-const NO_PRIVATE_ADDRESS = 'Phone upload is unavailable. Arco does not listen on a private network or tailnet address.';
+const NO_PRIVATE_ADDRESS = 'Phone upload is unavailable. This computer has no private network or tailnet address a phone can reach. Connect it to Wi-Fi, a wired network or Tailscale, then try again.';
+const NOT_LISTENING = 'Phone upload is unavailable. Arco could not accept connections on this computer\'s private network address. Try again; if it keeps failing, the Arco log has a line with the error code.';
 const CLOSED = 'This link is closed or expired. Open a new code in Arco.';
 const MIB = 1024 * 1024;
 const FILE_LIMIT = 20 * MIB;
@@ -29,6 +31,9 @@ const COUNT_LIMIT = 10;
 const LINK_TTL_MS = 5 * 60_000;
 const MAX_OPEN_LINKS = 8;
 const MAX_TRANSFERS = 2;
+// The temporary phone listener stays open this long after the last request
+// for a code, so a choice between several addresses finds it still there.
+const LISTENER_GRACE_MS = 60_000;
 
 interface UploadLink {
   id: string;
@@ -48,6 +53,9 @@ interface UploadLink {
 const links = new Map<string, UploadLink>();
 const tokens = new Map<string, UploadLink>();
 let transfers = 0;
+let phoneListener: Promise<PhoneListener> | null = null;
+let openingCodes = 0;
+let listenerGraceUntil = 0;
 const digest = (s: string) => createHash('sha256').update(s).digest('hex');
 
 function json(res: ServerResponse, status: number, body: object): void {
@@ -88,7 +96,47 @@ function purgeLinks(): void {
   }
 }
 
-setInterval(purgeLinks, 30_000).unref();
+// The temporary listener closes only when no code is being opened, no upload
+// is in progress, no link is still open and the grace time has passed.
+function releasePhoneListener(): void {
+  if (!phoneListener || openingCodes > 0 || transfers > 0 || Date.now() < listenerGraceUntil) return;
+  if ([...tokens.values()].some(link => active(link))) return;
+  const closing = phoneListener;
+  phoneListener = null;
+  void closing.then(listener => listener.close());
+}
+
+setInterval(() => { purgeLinks(); releasePhoneListener(); }, 30_000).unref();
+
+export async function _closePhoneListenerForTest(): Promise<void> {
+  const closing = phoneListener;
+  phoneListener = null;
+  (await closing)?.close();
+}
+
+// The temporary listener's only route: the same Host and Origin precheck as
+// the main router, then the phone page and its upload endpoint.
+async function phoneOnly(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (!checkRequestOrigin(req).ok) return error(res, 403, 'Forbidden origin');
+  await tryHandlePhonePage(req, res);
+}
+
+// When the main server serves no private address (the default loopback
+// bind), open the temporary phone listener on this machine's private network
+// and tailnet addresses, or reuse the one already open.
+async function temporaryOrigins(port: number): Promise<{ origins: string[]; error?: string }> {
+  listenerGraceUntil = Date.now() + LISTENER_GRACE_MS;
+  if (!phoneListener) {
+    const addresses = phoneListenerAddresses();
+    if (!addresses.length) return { origins: [], error: NO_PRIVATE_ADDRESS };
+    phoneListener = startPhoneListener(addresses, port, phoneOnly);
+  }
+  const current = phoneListener;
+  const { origins } = await current;
+  if (origins.length) return { origins };
+  if (phoneListener === current) phoneListener = null;
+  return { origins, error: NOT_LISTENING };
+}
 
 const imageExtensions: Record<string, string> = {
   'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp',
@@ -201,6 +249,36 @@ async function uploadFromPhone(req: IncomingMessage, res: ServerResponse, origin
   }
 }
 
+// Opens one upload link on a chosen address, or lists the addresses to
+// choose from when there are several. Synchronous, so a temporary listener
+// cannot close between its origins being read and the link being recorded.
+function createLink(res: ServerResponse, body: { workflowId: string; origin?: string }, workflow: WorkflowState,
+  owner: string, origins: string[]): true {
+  const origin = body.origin ?? (origins.length === 1 ? origins[0] : undefined);
+  if (!origin) {
+    json(res, 200, { origins });
+    return true;
+  }
+  if (!origins.includes(origin)) {
+    error(res, 403, UNAVAILABLE);
+    return true;
+  }
+  if (tokens.size >= MAX_OPEN_LINKS || links.size >= 4 * MAX_OPEN_LINKS) {
+    error(res, 429, 'Too many phone upload links. Wait for one to expire.');
+    return true;
+  }
+  const token = randomBytes(32).toString('base64url');
+  const link: UploadLink = {
+    id: randomUUID(), key: digest(token), owner, workflowId: body.workflowId, workflow,
+    cwd: workflow.config.workingDirectory!, origin, expiresAt: Date.now() + LINK_TTL_MS,
+    files: [], receivedBytes: 0, closed: false, transferring: false,
+  };
+  links.set(link.id, link);
+  tokens.set(link.key, link);
+  json(res, 201, { id: link.id, url: origin + PHONE_PATH + '#' + token, expiresAt: link.expiresAt });
+  return true;
+}
+
 // This exact path has upload authority only. It is deliberately handled
 // before operator session auth, with the same router Host/Origin precheck.
 export async function tryHandlePhonePage(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -235,40 +313,28 @@ export async function tryHandlePhoneOperator(req: IncomingMessage, res: ServerRe
   try {
     if (path === API_PATH && req.method === 'POST') {
       purgeLinks();
-      const origins = phoneUploadOrigins(req);
-      if (!origins.length) {
-        error(res, 403, listensOnLoopbackOnly() ? LOOPBACK_ONLY : NO_PRIVATE_ADDRESS);
-        return true;
-      }
       const body = JSON.parse((await readAttachmentBody(req, 4096)).toString()) as { workflowId?: string; origin?: string };
       const workflow = typeof body?.workflowId === 'string' ? workflows.get(body.workflowId) : undefined;
       if (!body?.workflowId || !targetAvailable(body.workflowId, workflow)) {
         error(res, 409, 'This conversation does not accept attachments.');
         return true;
       }
-      const origin = body.origin ?? (origins.length === 1 ? origins[0] : undefined);
-      if (!origin) {
-        json(res, 200, { origins });
-        return true;
+      let origins = phoneUploadOrigins(req);
+      if (!origins.length) {
+        openingCodes++;
+        try {
+          const opened = await temporaryOrigins(req.socket.localPort || PORT);
+          if (opened.error) {
+            error(res, 503, opened.error);
+            return true;
+          }
+          origins = opened.origins;
+          return createLink(res, { workflowId: body.workflowId, origin: body.origin }, workflow, owner, origins);
+        } finally {
+          openingCodes--;
+        }
       }
-      if (!origins.includes(origin)) {
-        error(res, 403, UNAVAILABLE);
-        return true;
-      }
-      if (tokens.size >= MAX_OPEN_LINKS || links.size >= 4 * MAX_OPEN_LINKS) {
-        error(res, 429, 'Too many phone upload links. Wait for one to expire.');
-        return true;
-      }
-      const token = randomBytes(32).toString('base64url');
-      const link: UploadLink = {
-        id: randomUUID(), key: digest(token), owner, workflowId: body.workflowId, workflow,
-        cwd: workflow.config.workingDirectory!, origin, expiresAt: Date.now() + LINK_TTL_MS,
-        files: [], receivedBytes: 0, closed: false, transferring: false,
-      };
-      links.set(link.id, link);
-      tokens.set(link.key, link);
-      json(res, 201, { id: link.id, url: origin + PHONE_PATH + '#' + token, expiresAt: link.expiresAt });
-      return true;
+      return createLink(res, { workflowId: body.workflowId, origin: body.origin }, workflow, owner, origins);
     }
     const id = path.slice(path.lastIndexOf('/') + 1);
     if (!UUID_PATTERN.test(id)) {

@@ -203,6 +203,11 @@ function PhoneCode({ opening, dismiss }: { opening: Opening; dismiss: () => void
       {qr && <>
         <img src={qr} alt="Scan to upload from your phone" />
         <div>Expires in {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</div>
+        <p className="phone-upload-hint">
+          If the phone cannot open the page, check that it is on the same Wi-Fi or tailnet as this computer
+          and that this computer&apos;s firewall allows incoming connections on port {new URL(link!.url).port || '80'}.
+          If the system asks whether Node.js may accept connections, allow it on private networks.
+        </p>
       </>}
       {count > 0 && <div role="status">{count} added to the message box.</div>}
       <button type="button" ref={dismissButton} onClick={dismiss}>Close</button>

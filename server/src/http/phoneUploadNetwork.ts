@@ -86,9 +86,22 @@ function privateListeners(req: IncomingMessage): PhoneUploadNetwork[] {
   return [...networks.values()];
 }
 
-/** True when the server listens on loopback only, so no other device can reach it. */
-export function listensOnLoopbackOnly(): boolean {
-  return loopback(HOST) || /^localhost$/i.test(HOST);
+/**
+ * The IPv4 private network and tailnet addresses of this machine that a
+ * phone could reach, container bridges excluded. The temporary phone
+ * listener binds each one separately, never a wildcard.
+ */
+export function phoneListenerAddresses(): string[] {
+  const found = new Set<string>();
+  for (const [name, entries] of Object.entries(os.networkInterfaces())) {
+    if (/^(docker|veth|virbr|br-)/i.test(name)) continue;
+    const tailnet = /tailscale/i.test(name) || !!entries?.some(entry => /^fd7a:115c:a1e0:/i.test(entry.address));
+    for (const entry of entries ?? []) {
+      const network = family(address(entry.address)) === 'ipv4' ? privateInterface(entry, tailnet, 1) : null;
+      if (network) found.add(network.address);
+    }
+  }
+  return [...found];
 }
 
 export function phoneUploadOrigins(req: IncomingMessage): string[] {

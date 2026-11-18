@@ -762,17 +762,29 @@ only the browser session cookie and the Host and Origin check above.
 
 ### Upload from phone
 
-Open **UPLOAD FROM PHONE** beside Attach and scan the code on a phone that
-can already reach Arco over a direct private network connection. The picker
-accepts photos, PDFs, text and supported office documents. The code uses Arco's
-existing address and port, with no account or relay. The code holds a private
-LAN or tailnet address that the running listener serves, whatever address,
-machine name or proxy the desktop page was opened with. A listener on
-`0.0.0.0` or `::` serves every private interface except container bridges, and
-the window offers a choice when there are several; a listener bound to one
-address serves that address. If the server listens only on loopback (the
-default), the control says so: set `ARCO_HOST` to a private address and
-restart Arco. The phone itself must connect directly; an upload that arrives
+Open **UPLOAD FROM PHONE** beside Attach and scan the code on a phone on the
+same private network or tailnet as this computer. The picker accepts photos,
+PDFs, text and supported office documents. There is no account or relay. The
+code holds a private LAN or tailnet address, whatever address, machine name or
+proxy the desktop page was opened with, and the window offers a choice when
+there are several.
+
+When the server itself listens on a private address (`ARCO_HOST` set to
+`0.0.0.0`, `::` or one private address), the code uses that listener. With the
+default loopback bind, opening the window starts a temporary phone listener on
+each private IPv4 network and tailnet address of this computer, container
+bridges excluded, one address at a time and never a wildcard. It tries Arco's
+own port first and takes a free port on an address where that is taken. It
+answers only the phone upload page and its upload endpoint; every other path
+returns 404 and WebSocket upgrades are refused, so the workbench, its API and
+the terminal stay on loopback. It closes about a minute after no code is open
+and no upload is in progress. The main server's bind does not change.
+
+Arco makes no firewall or system change. If the phone cannot open the page,
+check that it is on the same network and that the computer's firewall allows
+incoming connections on the port in the code; the window says so. Windows and
+macOS may ask once whether Node.js may accept connections; allow it on private
+networks. The phone itself must connect directly; an upload that arrives
 through a reverse proxy such as Tailscale Serve is refused.
 
 The code allows uploads for five minutes, with up to 10 files, 20 MiB per file

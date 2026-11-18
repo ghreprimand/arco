@@ -365,6 +365,11 @@ body {
   font-size: 1rem;
 }
 
+.phone-upload-window .phone-upload-hint {
+  margin: 0;
+  font-size: .8rem;
+}
+
 .phone-upload-window img {
   display: block;
   width: min(100%, 16rem);

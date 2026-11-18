@@ -135,7 +135,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   'composer.upload-from-phone': {
     title: 'Upload from phone',
     body: (
-      <><p>Scan the code with a phone on the same private network as Arco. Use Take Photo or Choose Files. The files appear beside Attach in this conversation. Review them before pressing Send.</p><p>The code lasts five minutes. Close it when finished. It accepts up to 10 files, 20 MiB per file and 100 MiB total. Arco must listen on a private network or tailnet address (<C>ARCO_HOST</C>); the address the desktop page uses does not matter. When Arco listens on this computer only, the window says so.</p></>
+      <><p>Scan the code with a phone on the same private network as Arco. Use Take Photo or Choose Files. The files appear beside Attach in this conversation. Review them before pressing Send.</p><p>The code lasts five minutes. Close it when finished. It accepts up to 10 files, 20 MiB per file and 100 MiB total. The code holds this computer&apos;s private network or tailnet address, whatever address the desktop page uses. When Arco listens on this computer only (the default), opening the code starts a temporary listener for the phone page alone; nothing else in Arco becomes reachable. If the phone cannot open the page, check that it is on the same network and that the firewall allows the port in the code. If the system asks whether Node.js may accept connections, allow it on private networks.</p></>
     ),
     manualSection: 'composer',
   },
