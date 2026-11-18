@@ -71,47 +71,10 @@ come from `ARCO_HOME`, `ARCO_PORT`, `ARCO_HOST`, and the other supported
 environment values saved at first install. Existing unowned or modified service
 definitions are refused.
 
-On Windows, `npm install -g arco-workbench` over a running packaged service
-fails. npm prints `npm warn cleanup` lines with `EPERM` under
-`%APPDATA%\npm\node_modules\arco-workbench`, then `EEXIST` on
-`%APPDATA%\npm\arco.cmd`. The `EEXIST` and leftover `arco`, `arco.cmd`, and
-`arco.ps1` files come from an earlier install under the previous package name
-`@ghreprimand/arco`, which provides the same `arco` command. Arco does not
-write those three launcher files itself; npm creates them from the package's
-`bin` entry.
-
-To keep a working `arco-workbench` install and its running service, uninstall
-the earlier package and recreate the launchers:
-
-```sh
-npm uninstall -g @ghreprimand/arco
-npm rebuild -g arco-workbench
-arco version
-```
-
-`npm rebuild -g arco-workbench` recreates the launcher files without replacing
-package files, so it is safe while the service runs. While the launchers are
-missing, the package is still intact when this runs (PowerShell: use
-`$env:APPDATA` in place of `%APPDATA%`):
-
-```bat
-node "%APPDATA%\npm\node_modules\arco-workbench\scripts\packaging\arco.mjs" version
-```
-
-For a fresh install, uninstall `@ghreprimand/arco` first when
-`npm ls -g --depth=0` lists it, then install `arco-workbench` (see
-[Before a fresh install: remove older copies](#before-a-fresh-install-remove-older-copies)).
-If a direct overwrite left the service holding package files open, stop or
-uninstall the service before replacing the package. Do not delete
-`%USERPROFILE%\.arco` as a routine step; it holds settings and saved work (see
-[Uninstall](#uninstall) if that data must go).
-
-If `npm install -g arco-workbench` fails with `EEXIST` because an `arco` link
-already exists in the global bin folder (for example from `@ghreprimand/arco`
-or an earlier source checkout's `npm link`), remove that link or uninstall the
-listed package (`npm uninstall -g @ghreprimand/arco` when it appears in
-`npm ls -g --depth=0`), then install again. For `EACCES` on Linux or macOS, use
-nvm or a user-owned npm prefix (for example under Homebrew's Node).
+On Linux or macOS, an `EEXIST` error on the global `arco` link can come
+from an earlier package or a source checkout linked with `npm link`. Uninstall
+that package or remove its stale link before installing again. For `EACCES`,
+use nvm or a user-owned npm prefix (for example under Homebrew's Node).
 
 The package starts on port 3001 when available and chooses the next free port
 through 3099, then an operating-system-assigned port. It saves and reuses the
@@ -123,6 +86,54 @@ The packaged service is the systemd user unit `arco.service`, the launchd
 LaunchAgent `arco-workbench.plist` with label `arco-workbench`, or the Windows
 Task Scheduler logon task `arco-workbench`. See
 [`SERVICE_MODE.md`](SERVICE_MODE.md).
+
+### Windows install and launcher recovery
+
+Use [Updating Arco](#updating-arco) for an existing install. A direct npm
+overwrite can fail while the packaged service holds files open. npm can
+report `EPERM` during cleanup. A separate `EEXIST` on `arco.cmd` means a
+launcher is already present. In the confirmed case it belonged to
+`@ghreprimand/arco`, an earlier package that also provides `arco`. npm
+creates `arco`, `arco.cmd`, and `arco.ps1` from the package's `bin` entry.
+`arco setup` manages the service and shortcuts.
+
+Use the same terminal and npm installation that produced the error. In
+PowerShell, check the installed packages and the launchers npm would use:
+
+```powershell
+npm ls -g --depth=0
+$prefix = npm prefix -g
+Get-Command arco -All -ErrorAction SilentlyContinue
+Get-ChildItem -LiteralPath $prefix -Name |
+  Where-Object { $_ -in 'arco', 'arco.cmd', 'arco.ps1' }
+```
+
+The usual prefix is `%APPDATA%\npm`. Use the reported prefix for a custom
+installation. If a launcher remains, open it as text and look for
+`node_modules\@ghreprimand\arco`, `node_modules\arco-workbench`, or a
+linked source checkout. Check each remaining launcher, since they can point
+to different targets. Remove only stale launchers whose targets belong to
+the Arco copy being removed.
+
+If the older package is listed, remove it with
+`npm uninstall -g @ghreprimand/arco`. If the current package is intact and
+its launchers are missing, recreate them with `npm rebuild -g arco-workbench`.
+Then run `arco version` and `arco doctor`. The version identifies which
+package the launcher reaches. The doctor checks the runtime and native
+modules. If the launcher is missing, run the same checks from the package
+directly in PowerShell:
+
+```powershell
+$cli = Join-Path $prefix 'node_modules\arco-workbench\scripts\packaging\arco.mjs'
+node $cli version
+node $cli doctor
+```
+
+A failed direct overwrite can leave package files or dependencies incomplete.
+If the installed package cannot run or fails its runtime checks, follow the
+[manual package update steps](#packaged-install) with the service stopped.
+Keep the Arco home with its settings and saved work. To remove all older
+copies, follow [Before a fresh install: remove older copies](#before-a-fresh-install-remove-older-copies).
 
 ### Source checkout
 
@@ -473,10 +484,10 @@ for manual review.
 
 On Windows, `arco.cmd` is acceptable if the PowerShell shim is blocked. After
 uninstalling `arco-workbench`, check `npm ls -g --depth=0` for the earlier
-package `@ghreprimand/arco` and run `npm uninstall -g @ghreprimand/arco` when
-it is listed; that package owns the `arco`, `arco.cmd`, and `arco.ps1`
-launcher files. Then check `%APPDATA%\npm` for any leftover launchers and
-remove them before installing again.
+`@ghreprimand/arco` package and uninstall it if it is listed and being removed.
+Check the three launcher names in the prefix reported by `npm prefix -g`.
+Follow [Windows install and launcher recovery](#windows-install-and-launcher-recovery)
+to inspect their targets. Remove only stale launchers for the copies removed.
 
 ### 3. Optional: delete Arco data (permanent)
 
@@ -590,9 +601,10 @@ npm uninstall -g arco-workbench
 npm uninstall -g @ghreprimand/arco
 ```
 
-Then confirm `arco version` no longer runs an old copy. On Windows, check
-`%APPDATA%\npm` for leftover `arco`, `arco.cmd`, and `arco.ps1`, and remove any
-that remain.
+Then confirm `arco version` no longer runs an old copy. On Windows, inspect
+the three launchers under the prefix reported by `npm prefix -g` and remove
+only stale launchers for the copies removed. See
+[Windows install and launcher recovery](#windows-install-and-launcher-recovery).
 
 ### 3. Stop a source checkout
 

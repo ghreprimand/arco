@@ -85,11 +85,12 @@ If a global npm install reports `EACCES` on Linux or macOS, use nvm or a
 user-owned npm prefix (for example under Homebrew's Node, or a prefix you own
 under your home directory). On Windows, an execution-policy restriction can
 block the PowerShell shim; run `arco.cmd` instead. On Windows, `EEXIST` on an
-existing `arco` launcher usually means the earlier package `@ghreprimand/arco`
-is still installed; recover as in
-[Running locally](docs/OPERATIONS.md#running-locally). If `arco doctor`
-reports missing or incompatible native modules, install the platform build
-tools and run `arco setup --repair-native`.
+existing `arco` launcher can be caused by the earlier `@ghreprimand/arco`
+package or a linked checkout. Check the active npm prefix and launcher
+targets in
+[Windows install and launcher recovery](docs/OPERATIONS.md#windows-install-and-launcher-recovery).
+If `arco doctor` reports missing or incompatible native modules, install the
+platform build tools and run `arco setup --repair-native`.
 
 [Getting started](docs/GETTING_STARTED.md) continues through Connections, the
 first project, chat, clusters, voice, and backup. To remove a package install,

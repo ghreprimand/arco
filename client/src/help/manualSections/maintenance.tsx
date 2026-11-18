@@ -283,11 +283,11 @@ export const maintenance: Section[] = [
   uninstall does not remove it.
   </p>
   <p>
-  On Windows, after uninstall check{' '}
-  <Code>npm ls -g --depth=0</Code> for the earlier package{' '}
-  <Code>@ghreprimand/arco</Code> (it owns leftover <Code>arco</Code>,{' '}
-  <Code>arco.cmd</Code>, and <Code>arco.ps1</Code>), uninstall it when
-  listed, then clear any leftovers under <Code>%APPDATA%\npm</Code>.
+  On Windows, check <Code>npm ls -g --depth=0</Code> for the earlier package{' '}
+  <Code>@ghreprimand/arco</Code>. Uninstall it if you are removing that copy.
+  Use <Code>npm prefix -g</Code> to find <Code>arco</Code>,{' '}
+  <Code>arco.cmd</Code>, and <Code>arco.ps1</Code>. Open remaining launchers as text
+  and remove only those that point to the copies you removed.
   </p>
   <p>
   When an older copy may be a package, a source checkout, or both, clear it

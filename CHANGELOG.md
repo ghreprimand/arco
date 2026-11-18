@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Clarify Windows npm launcher ownership and safe recovery after a failed install.
+
 ## v0.1.8 - 2026-11-17
 
 - Keep provider release notes above the workspace and close the PROVIDERS panel when opening them.
