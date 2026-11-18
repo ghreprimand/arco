@@ -25,6 +25,7 @@ interface WorktreeRegistry {
 interface BrowserWorktree {
   directory: string;
   canonical: string;
+  native: string;
   branch: string;
   device: number;
   inode: number;
@@ -68,6 +69,7 @@ export async function confirmBrowserWorktree(registry: WorktreeRegistry, entry: 
     const canonical = await access.safeDirectory(entry.directory);
     refuseArcoState(canonical);
     const real = await nativePath(canonical);
+    access.assertSafePath(real);
     const home = await nativePath(homedir()).catch(() => homedir());
     if (samePath(real, registry.checkout) || samePath(real, path.parse(real).root) || isPathWithin(real, home)) return null;
     const [top, common] = await Promise.all([
@@ -75,14 +77,21 @@ export async function confirmBrowserWorktree(registry: WorktreeRegistry, entry: 
       gitDirectory(real, '--git-common-dir', signal),
     ]);
     if (!samePath(real, top) || !samePath(common, registry.common)) return null;
-    return { ...entry, canonical, device: root.dev, inode: root.ino };
+    return { ...entry, canonical, native: real, device: root.dev, inode: root.ino };
   } catch { return null; }
 }
 
 export async function browserWorktreeFile(target: string, tree: BrowserWorktree, access: ReadAccessContext): Promise<string> {
   refuseArcoState(target);
-  const { real } = await access.inspect(target, [{ root: tree.directory, canonical: tree.canonical }], 'file');
+  if (!isPathWithin(tree.directory, target) && !isPathWithin(tree.canonical, target)) throw new FileAccessError();
+  const { real } = await access.inspect(target, undefined, 'file');
+  // Git for Windows and Node may spell the same directory differently when
+  // a parent has an 8.3 name. Compare both resolved paths in native spelling.
+  const expanded = await nativePath(real);
+  access.assertSafePath(expanded);
   refuseArcoState(real);
+  refuseArcoState(expanded);
+  if (!isPathWithin(tree.native, expanded)) throw new FileAccessError();
   const root = await lstat(tree.directory);
   if (!root.isDirectory() || root.dev !== tree.device || root.ino !== tree.inode) throw new FileAccessError();
   return real;
@@ -97,11 +106,15 @@ export async function resolveWorktreeFile(target: string, boundCwd: string, acce
   if (!entry) {
     // Parent aliases occur on macOS and Windows. Match the root's expanded
     // spelling but keep the request's spelling for read confinement below.
+    const spellings = await Promise.all(registry.entries.map(async candidate => ({
+      candidate,
+      real: await nativePath(candidate.directory).catch(() => null),
+    })));
     for (let dir = path.dirname(target); dir !== path.dirname(dir); dir = path.dirname(dir)) {
       const stat = await lstat(dir).catch(() => null);
       if (!stat?.isDirectory()) continue;
       const real = await nativePath(dir);
-      const registered = registry.entries.find(candidate => samePath(candidate.directory, real));
+      const registered = spellings.find(candidate => candidate.real && samePath(candidate.real, real))?.candidate;
       if (registered) { entry = registered; alias = dir; break; }
     }
   }

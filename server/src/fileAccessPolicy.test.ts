@@ -149,6 +149,10 @@ test('a bound tab and the project document list can open Git-confirmed worktree 
     const selected = await resolveBrowserRead(document, outside, 'worktree-main');
     assert.equal((await readFileForExplorer(selected) as { content?: string }).content, 'Branch fixture');
     assert.equal(await resolveBrowserRead(path.relative(main, document), main, 'worktree-main'), selected);
+    const parentAlias = path.join(fixture, 'worktree-parent-alias');
+    symlinkSync(fixture, parentAlias, 'junction');
+    const aliased = await resolveBrowserRead(path.join(parentAlias, 'linked checkout', 'branch-note.md'), main, 'worktree-main');
+    assert.equal(realpathSync.native(aliased), realpathSync.native(selected));
     await assert.rejects(resolveBrowserRead(document));
     await assert.rejects(resolveBrowserRead(document, outside));
     await assert.rejects(resolveBrowserRead(protectedFile, main, 'worktree-main'));
