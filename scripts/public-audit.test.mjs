@@ -605,12 +605,6 @@ test('tracked agent instruction files and directories are rejected', () => fixtu
   assert.equal(history.status, 1);
   assert.match(history.stderr, /agent-instruction-file/);
 }));
-test('untracked agent instruction files are not reported when ignored', () => fixture(({ cwd, git, check, commit }) => {
-  writeFileSync(join(cwd, '.gitignore'), 'AGENTS.md\n');
-  writeFileSync(join(cwd, 'AGENTS.md'), 'local notes');
-  commit();
-  assert.equal(check('--tree').status, 0);
-}));
 test('typographic punctuation is rejected in added Markdown lines and messages only', () => fixture(({ cwd, git, check }) => {
   const mark = String.fromCharCode(0x2014);
   writeFileSync(join(cwd, 'old.md'), `legacy ${mark} line\n`);
@@ -648,11 +642,16 @@ test('a tracked upstream state directory is rejected in staged and history scope
   assert.equal(history.status, 1);
   assert.match(history.stderr, /upstream-state-directory/);
 }));
-test('an ignored untracked upstream state directory passes', () => fixture(({ cwd, git, check, commit }) => {
+test('ignored agent instructions and an ignored upstream state directory pass', () => fixture(({ cwd, git, check, commit }) => {
   mkdirSync(join(cwd, '.git', 'info'), { recursive: true });
   writeFileSync(join(cwd, '.git', 'info', 'exclude'), `${stateDir}/\n`);
   mkdirSync(join(cwd, stateDir));
   writeFileSync(join(cwd, stateDir, 'notes.txt'), 'local');
+  writeFileSync(join(cwd, '.gitignore'), 'AGENTS.md\n');
+  writeFileSync(join(cwd, 'AGENTS.md'), 'local notes');
   commit();
+  assert.equal(git('check-ignore', 'AGENTS.md').toString().trim(), 'AGENTS.md');
+  const stateFile = stateDir + '/notes.txt';
+  assert.equal(git('check-ignore', stateFile).toString().trim(), stateFile);
   assert.equal(check('--tree').status, 0);
 }));

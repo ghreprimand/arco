@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { VOICE_TOOL_TIMEOUT_MS } from '@arco/shared';
 import { requestVoiceTool, resolveVoiceTool, setVoiceToolPublisher, voiceToolCallsPending } from './operatorTools.js';
 
 test('the relay repairs malformed text and Unicode boundaries for every provider', async () => {
@@ -36,12 +37,15 @@ test('voice tool calls relay to the window, resolve on its result, and refuse ba
   assert.equal(published.length, 1);
 });
 
-test('a window that never answers times out instead of hanging the model', async () => {
+test('a window that never answers times out instead of hanging the model', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   setVoiceToolPublisher(() => 1);
-  const started = Date.now();
-  const result = await Promise.race([requestVoiceTool('chat-2', 'arco_status', {}), new Promise((r) => setTimeout(r, 25_000, 'hung'))]);
-  assert.deepEqual(result, { ok: false, error: 'No hands-free window answered in time.' });
-  assert(Date.now() - started >= 19_000);
+  const reply = requestVoiceTool('chat-2', 'arco_status', {});
+  t.mock.timers.tick(VOICE_TOOL_TIMEOUT_MS - 1);
+  assert.equal(voiceToolCallsPending('chat-2'), 1);
+  t.mock.timers.tick(1);
+  assert.deepEqual(await reply, { ok: false, error: 'No hands-free window answered in time.' });
+  assert.equal(voiceToolCallsPending('chat-2'), 0);
 });
 
 // Shared native/MCP definitions must never expose project tools to Computer.

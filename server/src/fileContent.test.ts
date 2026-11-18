@@ -2,6 +2,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { fileContentFromBytes } from './fileContent.js';
+import { withFileDecodeSlot } from './fileContent/decodeSlots.js';
 
 test('shared decoder keeps UTF-8 text and explains invalid UTF-8 and binary data', async () => {
   assert.equal((await fileContentFromBytes(Buffer.from('first\nsecond'), 'file.data', { offset: 2 })).text, 'second');
@@ -125,13 +126,24 @@ test('ordinary source identifiers do not masquerade as ZIP or BMP headers',async
 });
 
 test('a cancelled decode waiting for a worker slot settles without waiting for other files',async()=>{
-  const bytes=await solidPng(20000,20000),first=fileContentFromBytes(bytes,'first.png'),second=fileContentFromBytes(bytes,'second.png');
-  const controller=new AbortController();
-  const queued=fileContentFromBytes(bytes,'cancelled.png',{signal:controller.signal});controller.abort(new Error('fixture cancelled'));
+  let release!: () => void;
+  const hold = new Promise<void>((resolve) => { release = resolve; });
+  const active = [withFileDecodeSlot(() => hold), withFileDecodeSlot(() => hold)];
+  const controller = new AbortController();
+  const reason = new Error('fixture cancelled');
+  const queued = fileContentFromBytes(Buffer.from('fixture'), 'cancelled.txt', { signal: controller.signal });
+  const cancelled = assert.rejects(queued, (error) => error === reason);
+  controller.abort(reason);
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const settled=await Promise.race([queued.then(()=>false,()=>true),new Promise<boolean>(resolve=>setTimeout(()=>resolve(false),500))]);
-    assert.equal(settled,true,'cancellation must not wait for the active decoders');
-  }finally{await Promise.allSettled([first,second,queued]);}
+    await Promise.race([cancelled, new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('cancellation waited for the active decoders')), 500);
+    })]);
+  } finally {
+    clearTimeout(timer);
+    release();
+    await Promise.allSettled([...active, queued]);
+  }
 });
 
 test('UTF-16 byte-order marks take precedence over MPEG frame signatures',async()=>{

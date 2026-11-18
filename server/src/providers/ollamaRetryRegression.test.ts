@@ -79,9 +79,29 @@ test('B104 rejected structured synthesis returns the completed free-text review'
   assert.equal(results.length,1);assert.match(results[0].text,/VERDICT: PASS/);assert.deepEqual(errors,[]);assert.ok(notices.some(n=>/fallback/i.test(n)));
 });
 
-test('B105 repeated failures stop at the backend retry budget',async()=>{
-  const f=fixture();let calls=0;f.worker.streamOneTurn=async()=>{calls++;return {ok:false,error:new Error('temporary'),httpStatus:503};};
-  assert.equal(await f.run(),null);assert.equal(calls,3);
+test('B105 repeated failures stop at the backend retry budget', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = fixture();
+  let calls = 0;
+  let wait = 0;
+  f.worker.on('system_notice', (notice: string) => {
+    const match = notice.match(/backoff (\d+)ms/);
+    if (match) wait = Number(match[1]);
+  });
+  f.worker.streamOneTurn = async () => {
+    calls++;
+    return { ok: false, error: new Error('temporary'), httpStatus: 503 };
+  };
+  const result = f.run();
+  for (const attempt of [1, 2, 3]) {
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(calls, attempt);
+    assert.ok(wait > 0);
+    t.mock.timers.tick(wait);
+    wait = 0;
+  }
+  assert.equal(await result, null);
+  assert.equal(calls, 3);
 });
 test('B107 unrelated validation failure is surfaced without an escalation request',async()=>{
   const f=fixture();let calls=0;const errors:string[]=[];f.worker.on('error',(error:string)=>errors.push(error));

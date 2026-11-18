@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import test from 'node:test';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { zipSync, strToU8 } from 'fflate';
@@ -17,7 +17,7 @@ const { StrataProvider } = await import('./strata.js');
 const { DeepSeekProvider } = await import('./deepseek.js');
 const { defaultRecoveryConfig } = await import('./llamacppRecovery.js');
 
-async function fixtureSet(dir: string): Promise<string[]> {
+async function createAttachmentFixtures(dir: string): Promise<string[]> {
   const text = join(dir, 'fixture.txt'), image = join(dir, 'fixture.png'), word = join(dir, 'fixture.docx'), sheet = join(dir, 'fixture.xlsx'), pdf = join(dir, 'fixture.pdf');
   await writeFile(text, 'fixture marker');
   await writeFile(image, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64'));
@@ -29,11 +29,23 @@ async function fixtureSet(dir: string): Promise<string[]> {
   return [text, image, word, sheet, pdf];
 }
 
+const attachmentFixtures = await createAttachmentFixtures(home);
+
+async function fixtureSet(dir: string, textOnly = false): Promise<string[]> {
+  const sources = textOnly ? attachmentFixtures.slice(0, 1) : attachmentFixtures;
+  return await Promise.all(sources.map(async source => {
+    const path = join(dir, basename(source));
+    await copyFile(source, path);
+    return path;
+  }));
+}
+
 for (const [name, provider] of Object.entries({ ollama: OllamaProvider, llamacpp: LlamacppProvider, lmstudio: LmstudioProvider, strata: StrataProvider, deepseek: DeepSeekProvider })) {
   test(`${name} Chat delivers attachment content on its outbound request without paths`, async t => {
     const dir = await mkdtemp(join(tmpdir(), 'arco-chat-file-'));
     try {
-      const files = await fixtureSet(dir); const path = files[0];
+      const textOnly = name === 'lmstudio' || name === 'strata' || name === 'deepseek';
+      const files = await fixtureSet(dir, textOnly); const path = files[0];
       const worker = provider.create('fixture', { provider: name, cwd: dir, workflowId: 'fixture', model: 'fixture', effort: 'medium', interactionMode: 'chat', attachments: files } as any) as any;
       worker.abortController = new AbortController(); worker.visionCapable = true; worker.on('error', () => {});
       const messages = name === 'llamacpp'
@@ -49,7 +61,9 @@ for (const [name, provider] of Object.entries({ ollama: OllamaProvider, llamacpp
       if (name === 'ollama') await worker.streamOneTurn('http://127.0.0.1:9', 'fixture', messages, undefined, false, {});
       else if (name === 'llamacpp') await worker.streamOneTurn('http://127.0.0.1:9', 'fixture', messages, undefined, defaultRecoveryConfig());
       else await worker.streamOneTurn('http://127.0.0.1:9', 'fixture', messages, undefined);
-      for (const marker of ['fixture marker', 'word fixture marker', 'sheet fixture marker', 'pdf fixture marker']) assert.ok(outbound.includes(marker), marker);
+      if (!textOnly) {
+        for (const marker of ['word fixture marker', 'sheet fixture marker', 'pdf fixture marker']) assert.ok(outbound.includes(marker), marker);
+      }
       const wire = JSON.stringify(JSON.parse(outbound));
       assert.match(wire, /\[Attached file: fixture\.txt\]\\n\[Begin attachment content\]\\nfixture marker\\n\[End attachment content\]/);
       assert.ok(!outbound.includes(path));

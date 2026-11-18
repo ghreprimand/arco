@@ -105,15 +105,14 @@ test('images and PDFs share one message byte budget regardless of attachment ord
     for (let i = 0; i < 3; i++) page.drawImage(await document.embedPng(png), { x: i * 10, y: 0, width: 100, height: 100 });
     page.drawText('Fixture budget fallback text', { x: 10, y: 500, size: 10, font });
     await writeFile(pdfPath, await document.save());
-    const imagePaths = Array.from({ length: 14 }, () => imagePath);
-    const imageOnly = await prepareProviderAttachments(imagePaths);
+    const imagePaths = Array.from({ length: 12 }, () => imagePath);
     for (const paths of [[...imagePaths, pdfPath], [pdfPath, ...imagePaths]]) {
       const prepared = await prepareProviderAttachments(paths, true, undefined, true);
       const imageBytes = prepared.images.reduce((bytes, image) => bytes + image.data.length, 0);
       const documentBytes = prepared.documents.reduce((bytes, pdf) => bytes + pdf.data.length, 0);
       assert.ok(imageBytes > 18 * 1024 * 1024, 'fixture must approach the image budget');
       assert.ok(imageBytes + documentBytes <= 20 * 1024 * 1024, 'combined media must fit one 20 MiB message budget');
-      assert.equal(prepared.images.length, imageOnly.images.length, 'PDFs must not displace fitted images');
+      assert.equal(prepared.images.length, imagePaths.length, 'PDFs must not displace fitted images');
       assert.equal(prepared.documents.length, 0);
       assert.match(prepared.text, /PDF.*media byte limit/);
       assert.match(prepared.text, /Fixture budget fallback text/);

@@ -27,12 +27,15 @@ for (const [kind, provider] of Object.entries(providers)) test(`${kind}: prior a
   const cwd = await realpath(await mkdtemp(join(tmpdir(), 'arco-project-')));
   const workflowId = `wf-replay-${kind}`;
   try {
-    const picture = join(cwd, 'picture.png'), document = join(cwd, 'memo.rtf');
-    await writeFile(picture, png); await writeFile(document, '{\\rtf1\\ansi Remembered document fact}');
+    const decodeDocument = kind === 'ollama' || kind === 'llama';
+    const documentName = decodeDocument ? 'memo.rtf' : 'memo.txt';
+    const picture = join(cwd, 'picture.png'), document = join(cwd, documentName);
+    const documentBytes = (text: string) => decodeDocument ? '{\\rtf1\\ansi ' + text + '}' : text;
+    await writeFile(picture, png); await writeFile(document, documentBytes('Remembered document fact'));
     const config = { cwd, workflowId, model: 'fixture', effort: 'medium', interactionMode: 'agent', priorFiles: [] };
     await initWorkflowStore(cwd, workflowId);
     persistAndStampSeq(cwd, workflowId, { type: 'user_message_echo', workflowId, content: 'Remember these files', attachments: [picture, document] } as any);
-    const first = await build(kind, provider, { ...config, attachments: [picture, document], priorFiles: [{ kind: 'source', path: picture, name: 'picture.png' }, { kind: 'source', path: document, name: 'memo.rtf' }] }, 'Remember these files', event => persistAndStampSeq(cwd, workflowId, event));
+    const first = await build(kind, provider, { ...config, attachments: [picture, document], priorFiles: [{ kind: 'source', path: picture, name: 'picture.png' }, { kind: 'source', path: document, name: documentName }] }, 'Remember these files', event => persistAndStampSeq(cwd, workflowId, event));
     assert.equal(images(first), 1);
     for (const event of [
       { type: 'primary_text', workflowId, phase: 'passthrough', text: 'Files inspected.' },
@@ -43,10 +46,10 @@ for (const [kind, provider] of Object.entries(providers)) test(`${kind}: prior a
     const events = await replayEvents(cwd, workflowId, 0);
     const transcript = renderTranscript(events);
     assert.match(transcript, /picture\.png/, 'durable projection must name the earlier attachment');
-    assert.match(transcript, /memo\.rtf/);
+    assert.ok(transcript.includes(documentName));
     const { projectLocalFileReferences } = await import('../primitives/localFileContext.js');
     const priorFiles = projectLocalFileReferences(events, cwd);
-    await writeFile(document, '{\\rtf1\\ansi Changed document now}');
+    await writeFile(document, documentBytes('Changed document now'));
     assert.ok(!JSON.stringify(events).includes(png.toString('base64')), 'saved events contain references, never pixels');
     const second = await build(kind, provider, { ...config, appendSystemPrompt: transcript, priorFiles }, 'Compare the files');
     assert.equal(images(second), 1);

@@ -92,18 +92,21 @@ test('an auto-pickup turn (no operator socket) raises the finished alert', async
   } finally { workflows.delete(f.id); workflowCwds.delete(f.id); }
 });
 
-test('cluster members: every finished turn reaches the BELL; the desktop follows the cluster finished source', async () => {
+test('cluster members: every finished turn reaches the BELL; the desktop follows the cluster finished source', async (t) => {
   const director = fixture('claude'); const builder = fixture('codex');
   const cluster = await clusterStore.createCluster({ cwd: director.cwd, memberWorkflowIds: [director.id, builder.id] });
   await clusterStore.setMemberRole(cluster.clusterId, director.id, 'Director');
   await clusterStore.setMemberRole(cluster.clusterId, builder.id, 'Builder');
   try {
+    t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
     assert.deepEqual((await turn(builder)).map((e) => [e.kind, e.desktopEligible]), [['finished', false]]);
     assert.deepEqual((await turn(director)).map((e) => [e.kind, e.desktopEligible]), [['finished', true]]);
     await attention.saveChannels({ desktop: { finished: true, failed: true, waiting: true }, clusterFinished: 'all' });
-    await new Promise((r) => setTimeout(r, 3100)); // one alert per workflow and kind every 3 seconds
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    t.mock.timers.tick(3_100); // one alert per workflow and kind every 3 seconds
     assert.deepEqual((await turn(builder)).map((e) => [e.kind, e.desktopEligible]), [['finished', true]]);
   } finally {
+    await new Promise<void>((resolve) => setImmediate(resolve));
     await attention.saveChannels({ desktop: { finished: true, failed: true, waiting: true } });
     await clusterStore.deleteCluster(cluster.clusterId);
     for (const f of [director, builder]) { workflows.delete(f.id); workflowCwds.delete(f.id); }
