@@ -782,15 +782,17 @@ and no upload is in progress. The main server's bind does not change.
 
 Each offered address is marked UNVERIFIED until a file arrives through it.
 After a successful upload the address is marked VERIFIED BY UPLOAD with the
-time it last worked; the open window shows this on its next poll. When several addresses are available, each choice button shows the
-address and port followed by its mark, for example
-`http://<address>:<port> UNVERIFIED`; the line under the code shows the chosen
-address the same way. If one address does not open on the phone and another is
+time it last worked; the open window shows this on its next poll. The address
+and port, its mark and, once it has worked, `Last worked` with the time each
+take their own line, in the choice buttons when several addresses are
+available and under the code for the chosen address, so a narrow window wraps
+them cleanly. If one address does not open on the phone and another is
 offered, close the window, open it again and choose the other address. Arco
 knows it opened a listener there but cannot tell from the computer whether the
 phone can reach it: the firewall or the network (a guest Wi-Fi, a router that
 keeps devices apart) may block it, and settings can change after an address has
-worked. **More info** in the window says so. Arco does not inspect the
+worked. **More info**, shown once in the window, says so and lists what to
+check. Arco does not inspect the
 firewall; reading its rules can need administrator rights and start a password
 prompt.
 
@@ -805,10 +807,22 @@ memory and writes it back on the next successful upload.
 
 Arco makes no firewall or system change. If the phone cannot open the page,
 check that it is on the same network and that the computer's firewall allows
-incoming connections on the port in the code; the window says so. Windows and
+incoming connections on the port in the code; **More info** says so. Windows and
 macOS may ask once whether Node.js may accept connections; allow it on private
 networks. The phone itself must connect directly; an upload that arrives
 through a reverse proxy such as Tailscale Serve is refused.
+
+The phone page uses the Arco theme that was active on the computer when the
+code was opened: its colours, borders and, for the themes that use a font
+bundled with Arco (Victor Mono, Excalifont), that font. Other theme fonts load
+from the internet on the computer, so the phone uses its own font instead. The
+desktop page sends the theme's applied values with the request that opens the
+code; the server keeps only fixed colour, border and font-name values that pass
+strict checks, and the phone page reads them, and any bundled font, with the
+code's token from the same `/phone-upload` path. No CSS, HTML or URL from the
+desktop reaches the phone page, the page makes no request outside Arco, and the
+page's content security policy is unchanged. A page that cannot read the theme
+keeps its plain look.
 
 The code allows uploads for five minutes, with up to 10 files, 20 MiB per file
 and 100 MiB total. Closing it revokes further uploads but keeps files already

@@ -17,6 +17,7 @@ import { startPhoneListener, type PhoneListener } from './phoneUploadListener.js
 import { recordRouteSuccess, routeSuccesses } from './phoneUploadRouteHistory.js';
 import { checkRequestOrigin } from './originGuard.js';
 import { PHONE_PAGE, PHONE_PAGE_CSP } from './phoneUploadPage.js';
+import { bundledPhoneFont, checkedPhoneTheme, type PhoneTheme } from './phoneUploadTheme.js';
 import { readCookie, SESSION_COOKIE, verifyToken } from './wsAuth.js';
 
 const PHONE_PATH = '/phone-upload';
@@ -49,6 +50,7 @@ interface UploadLink {
   receivedBytes: number;
   closed: boolean;
   transferring: boolean;
+  theme?: PhoneTheme;
 }
 
 const links = new Map<string, UploadLink>();
@@ -256,7 +258,7 @@ async function uploadFromPhone(req: IncomingMessage, res: ServerResponse, origin
 // Opens one upload link on a chosen address, or lists the addresses to
 // choose from when there are several. Synchronous, so a temporary listener
 // cannot close between its origins being read and the link being recorded.
-function createLink(res: ServerResponse, body: { workflowId: string; origin?: string }, workflow: WorkflowState,
+function createLink(res: ServerResponse, body: { workflowId: string; origin?: string; theme?: unknown }, workflow: WorkflowState,
   owner: string, origins: string[]): true {
   const origin = body.origin ?? (origins.length === 1 ? origins[0] : undefined);
   if (!origin) {
@@ -275,7 +277,7 @@ function createLink(res: ServerResponse, body: { workflowId: string; origin?: st
   const link: UploadLink = {
     id: randomUUID(), key: digest(token), owner, workflowId: body.workflowId, workflow,
     cwd: workflow.config.workingDirectory!, origin, expiresAt: Date.now() + LINK_TTL_MS,
-    files: [], receivedBytes: 0, closed: false, transferring: false,
+    files: [], receivedBytes: 0, closed: false, transferring: false, theme: checkedPhoneTheme(body.theme),
   };
   links.set(link.id, link);
   tokens.set(link.key, link);
@@ -286,6 +288,22 @@ function createLink(res: ServerResponse, body: { workflowId: string; origin?: st
   return true;
 }
 
+// What the phone page reads with its token: the theme snapshot taken when
+// the code was opened, or one bundled font that theme names. Nothing else.
+async function phoneResource(req: IncomingMessage, res: ServerResponse, origin: string): Promise<void> {
+  const token = req.headers['x-arco-phone-upload'];
+  if (typeof token !== 'string' || !/^[\w-]{43}$/.test(token)) return error(res, 403, 'Open the upload page from the QR code.');
+  const link = tokens.get(digest(token));
+  if (!link || !active(link)) return error(res, 410, CLOSED);
+  if (link.origin !== origin) return error(res, 403, UNAVAILABLE);
+  const fontId = req.headers['x-arco-phone-font'];
+  if (fontId === undefined) return json(res, 200, { theme: link.theme ?? null });
+  const font = typeof fontId === 'string' ? await bundledPhoneFont(link.theme, fontId) : null;
+  if (!font) return error(res, 404, 'Not found.');
+  res.writeHead(200, { 'Content-Type': font.type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+  res.end(font.bytes);
+}
+
 // This exact path has upload authority only. It is deliberately handled
 // before operator session auth, with the same router Host/Origin precheck.
 export async function tryHandlePhonePage(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
@@ -293,6 +311,7 @@ export async function tryHandlePhonePage(req: IncomingMessage, res: ServerRespon
   const origin = privatePhoneOrigin(req);
   if (!origin) error(res, 403, UNAVAILABLE);
   else if (req.method === 'POST') await uploadFromPhone(req, res, origin);
+  else if (req.method === 'GET' && req.headers['x-arco-phone-upload'] !== undefined) await phoneResource(req, res, origin);
   else if (req.method === 'GET') {
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8', 'Content-Security-Policy': PHONE_PAGE_CSP,
@@ -320,7 +339,7 @@ export async function tryHandlePhoneOperator(req: IncomingMessage, res: ServerRe
   try {
     if (path === API_PATH && req.method === 'POST') {
       purgeLinks();
-      const body = JSON.parse((await readAttachmentBody(req, 4096)).toString()) as { workflowId?: string; origin?: string };
+      const body = JSON.parse((await readAttachmentBody(req, 8192)).toString()) as { workflowId?: string; origin?: string; theme?: unknown };
       const workflow = typeof body?.workflowId === 'string' ? workflows.get(body.workflowId) : undefined;
       if (!body?.workflowId || !targetAvailable(body.workflowId, workflow)) {
         error(res, 409, 'This conversation does not accept attachments.');
@@ -336,12 +355,12 @@ export async function tryHandlePhoneOperator(req: IncomingMessage, res: ServerRe
             return true;
           }
           origins = opened.origins;
-          return createLink(res, { workflowId: body.workflowId, origin: body.origin }, workflow, owner, origins);
+          return createLink(res, { workflowId: body.workflowId, origin: body.origin, theme: body.theme }, workflow, owner, origins);
         } finally {
           openingCodes--;
         }
       }
-      return createLink(res, { workflowId: body.workflowId, origin: body.origin }, workflow, owner, origins);
+      return createLink(res, { workflowId: body.workflowId, origin: body.origin, theme: body.theme }, workflow, owner, origins);
     }
     const id = path.slice(path.lastIndexOf('/') + 1);
     if (!UUID_PATTERN.test(id)) {

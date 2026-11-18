@@ -450,13 +450,13 @@ export const workspace: Section[] = [
           Open <Code>UPLOAD FROM PHONE</Code> beside Attach and scan the code on the same private network. Take a photo or choose files. They appear in the original draft, even after switching tabs. Press Send to submit them.
         </p>
         <p>
-          The code holds this computer&apos;s private network or tailnet address, whatever address the desktop page uses. When Arco listens on this computer only (the default), opening the code starts a temporary listener that serves the phone upload page alone and closes about a minute after the last code. If the phone cannot open the page, check the network and that the firewall allows the port in the code.
+          The code holds this computer&apos;s private network or tailnet address, whatever address the desktop page uses. When Arco listens on this computer only (the default), opening the code starts a temporary listener that serves the phone upload page alone and closes about a minute after the last code. The phone page uses the Arco theme that was active when the code was opened.
         </p>
         <p>
-          Each address is marked <Code>UNVERIFIED</Code> until a file arrives through it, then <Code>VERIFIED BY UPLOAD</Code> with the time it last worked. Arco remembers this for each address and port, also after a restart.
+          Each address is marked <Code>UNVERIFIED</Code> until a file arrives through it, then <Code>VERIFIED BY UPLOAD</Code> with the time it last worked, each on its own line. Arco remembers this for each address and port, also after a restart.
         </p>
         <p>
-          Arco opens a listener on each address but cannot tell from this computer whether the phone can reach it, and network or firewall settings can change after an address has worked. <Code>More info</Code> in the window explains this. If one address does not open on the phone and another is offered, close the window, open it again and choose the other address, for example the tailnet address.
+          Arco cannot tell from this computer whether the phone can reach an address, and settings can change after it has worked. <Code>More info</Code>, shown once in the window, explains this and lists what to check. If one address does not open on the phone and another is offered, close the window, open it again and choose the other address, for example the tailnet address.
         </p>
         <p>
           The code closes after five minutes or when Close is pressed. It accepts up to 10 files, 20 MiB each and 100 MiB total. Unsent phone files are removed after 30 minutes. Anyone who obtains the code on the private network can put files in that draft until it closes.

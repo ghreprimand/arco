@@ -365,11 +365,6 @@ body {
   font-size: 1rem;
 }
 
-.phone-upload-window .phone-upload-hint {
-  margin: 0;
-  font-size: .8rem;
-}
-
 .phone-upload-window .phone-upload-unverified {
   display: inline-block;
   padding: 0 .3rem;
@@ -397,6 +392,22 @@ body {
 
 .phone-upload-window .phone-upload-route {
   font-size: .8rem;
+  text-align: start;
+}
+
+/* Address, status and last-worked time on separate lines, the same in the
+   chooser and under the code. */
+.phone-upload-window .phone-upload-route-label {
+  display: grid;
+  gap: .25rem;
+  justify-items: start;
+  min-width: 0;
+}
+
+.phone-upload-window .phone-upload-address {
+  max-width: 100%;
+  font-family: var(--font-code, monospace);
+  overflow-wrap: anywhere;
 }
 
 .phone-upload-window .phone-upload-info {
@@ -414,7 +425,11 @@ body {
 }
 
 .phone-upload-window .phone-upload-info p {
-  margin: 0;
+  margin: 0 0 .5rem;
+}
+
+.phone-upload-window .phone-upload-info p:last-child {
+  margin-bottom: 0;
 }
 
 .phone-upload-window img {

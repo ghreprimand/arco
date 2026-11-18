@@ -183,7 +183,13 @@ test('a private phone link can only stage uploads for the conversation that open
   }
   const make = (workflowId: string) => JSON.stringify({ workflowId });
   assert.equal((await send('POST', api, make('first-draft'), incoming, socket)).status, 401);
-  const opening = await send('POST', api, make('first-draft'), desktop, socket);
+  // The theme snapshot keeps only fixed values in their strict forms.
+  const theme = {
+    'color-bg': 'rgb(12, 14, 16)', 'color-fg': 'rgba(74, 240, 102, 0.5)', 'color-border': 'red; background: url(//x)',
+    'color-error': 'rgb(300, 0, 0)', 'border-width': '1px', 'radius-sm': '1em', 'font-body': "'Victor Mono', monospace",
+    'font-display': 'x; } body { background: url(//x)', 'background-image': 'url(//x)', scheme: 'dark',
+  };
+  const opening = await send('POST', api, JSON.stringify({ workflowId: 'first-draft', theme }), desktop, socket);
   assert.equal(opening.status, 201, opening.body);
   const first = JSON.parse(opening.body);
   const link = new URL(first.url);
@@ -193,6 +199,18 @@ test('a private phone link can only stage uploads for the conversation that open
   const page = await send('GET', link.pathname, '', incoming, socket);
   assert.equal(page.status, 200);
   assert.ok(!page.body.includes(phone['x-arco-phone-upload']));
+  const looks = await send('GET', link.pathname, '', phone, socket);
+  assert.equal(looks.status, 200, looks.body);
+  assert.deepEqual(JSON.parse(looks.body).theme, {
+    vars: { 'color-bg': 'rgb(12, 14, 16)', 'color-fg': 'rgba(74, 240, 102, 0.5)', 'border-width': '1px', 'font-body': '"Victor Mono", monospace' },
+    scheme: 'dark',
+    fonts: [{ id: 'victor-mono-400', family: 'Victor Mono', weight: '400' }, { id: 'victor-mono-700', family: 'Victor Mono', weight: '700' }],
+  });
+  // Only a bundled font the theme names can be read, and only with the token.
+  for (const font of ['excalifont-400', '../../package.json', 'constructor']) {
+    assert.equal((await send('GET', link.pathname, '', { ...phone, 'x-arco-phone-font': font }, socket)).status, 404, font);
+  }
+  assert.equal((await send('GET', link.pathname, '', { ...phone, 'x-arco-phone-upload': 'x'.repeat(43) }, socket)).status, 410);
   assert.equal((await send('POST', link.pathname, 'wrong network', phone, { ...socket, remoteAddress: [192, 168, 46, 11].join('.') })).status, 403);
   assert.equal((await send('POST', link.pathname, 'bad size', { ...phone, 'content-length': String(20 * 1024 * 1024 + 1) }, socket)).status, 413);
   // Opening a code and failed uploads leave the route unverified.

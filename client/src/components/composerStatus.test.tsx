@@ -176,23 +176,28 @@ test('a phone upload route is unverified until a file arrives through it, in the
     const routes = [...panel.querySelectorAll('button')].filter((button) => button.textContent?.startsWith('http://'));
     assert.deepEqual(routes.map((button) => button.textContent), [
       'http://192.0.2.10:3019 UNVERIFIED',
-      `http://100.64.0.10:3019 VERIFIED BY UPLOAD last worked ${new Date(lastWorked).toLocaleString()}`,
+      `http://100.64.0.10:3019 VERIFIED BY UPLOAD Last worked ${new Date(lastWorked).toLocaleString()}`,
     ]);
+    // Address, mark and time each take their own line.
+    assert.deepEqual([...routes[1].querySelector('.phone-upload-route-label')!.children].map((line) => line.className),
+      ['phone-upload-address', 'phone-upload-verified', 'phone-upload-last-worked']);
     const info = panel.querySelector('details.phone-upload-info');
     assert.equal(info?.querySelector('summary')?.textContent, 'More info');
     assert.match(info?.textContent ?? '', /settings can change/);
-    assert.match(info?.textContent ?? '', /If the link won.t open, check this computer.s firewall/);
+    assert.match(info?.textContent ?? '', /firewall allows incoming connections/);
 
     await act(async () => { routes[0].click(); });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     assert.ok(panel.querySelector('img'), 'the chosen route still produces a code');
     assert.equal(panel.querySelector('.phone-upload-route')?.textContent, 'http://192.0.2.10:3019 UNVERIFIED');
-    assert.ok(panel.querySelector('details.phone-upload-info'));
+    // Troubleshooting appears once, in More info, with no route-specific footer.
+    assert.equal(panel.querySelectorAll('details.phone-upload-info').length, 1);
+    assert.doesNotMatch(panel.textContent ?? '', /tailnet|Node\.js/);
     // The open code's own polling shows the route verified once a file arrives.
     uploaded = true;
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1_100)); });
     assert.equal(panel.querySelector('.phone-upload-route')?.textContent,
-      `http://192.0.2.10:3019 VERIFIED BY UPLOAD last worked ${new Date(lastWorked + 60_000).toLocaleString()}`);
+      `http://192.0.2.10:3019 VERIFIED BY UPLOAD Last worked ${new Date(lastWorked + 60_000).toLocaleString()}`);
     assert.equal(requests.filter((request) => request.startsWith('POST')).length, 2);
   } finally {
     await act(async () => { root.unmount(); });

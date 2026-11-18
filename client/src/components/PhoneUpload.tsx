@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import qrcode from 'qrcode-generator';
 import { useAppStore } from '../stores/appStore';
 import { phoneUploadRequest } from '../utils/phoneUploadApi';
+import { phoneThemeSnapshot } from '../utils/phoneTheme';
 const OPEN_EVENT = 'arco:open-phone-upload';
 const IMAGE = /\.(?:png|jpe?g|gif|webp|avif|heic|heif|tiff?|bmp|ico)$/i;
 
@@ -55,21 +56,32 @@ export function PhoneUploadButton({ workflowId, style }: { workflowId: string; s
 // the firewall or the network may block it, and Arco never inspects either.
 // A route is marked Verified by upload only after a file has arrived through
 // it (the server remembers when); every other offered route is Unverified.
+// The address, its status and when it last worked each take their own line,
+// in the chooser and under the code alike, so a narrow window wraps cleanly.
 export function PhoneRouteLabel({ origin, verifiedAt }: { origin: string; verifiedAt?: number }) {
-  return verifiedAt
-    ? <>{origin} <span className="phone-upload-verified">VERIFIED BY UPLOAD</span>{' '}
-      <span className="phone-upload-last-worked">last worked {new Date(verifiedAt).toLocaleString()}</span></>
-    : <>{origin} <span className="phone-upload-unverified">UNVERIFIED</span></>;
+  return <span className="phone-upload-route-label">
+    <span className="phone-upload-address">{origin}</span>{' '}
+    {verifiedAt
+      ? <><span className="phone-upload-verified">VERIFIED BY UPLOAD</span>{' '}
+        <span className="phone-upload-last-worked">Last worked {new Date(verifiedAt).toLocaleString()}</span></>
+      : <span className="phone-upload-unverified">UNVERIFIED</span>}
+  </span>;
 }
 
+// The one place for troubleshooting, shown once whether the window is
+// offering addresses or showing a code.
 export function PhoneRouteInfo() {
   return <details className="phone-upload-info">
     <summary>More info</summary>
     <p>
-      An address is Verified by upload once a file has arrived through it, and Unverified until then. Network and
-      firewall settings can change, so an address that worked before can stop working. If the link won&apos;t open,
-      check this computer&apos;s firewall and make sure your phone is on the same private network. Guest Wi-Fi can
-      block connections between devices. Arco does not inspect or change the firewall.
+      Verified by upload means a file has arrived through this address. Unverified means none has yet. Network and
+      firewall settings can change, so an address that worked before can stop working.
+    </p>
+    <p>
+      If the page won&apos;t open on the phone, check that the phone is on the same private network as this computer
+      and that this computer&apos;s firewall allows incoming connections on the address&apos;s port. Some networks,
+      such as guest Wi-Fi, keep devices apart. If this computer asks whether to allow incoming connections, allow
+      them on private networks. Arco does not inspect or change the firewall.
     </p>
   </details>;
 }
@@ -115,7 +127,7 @@ function PhoneCode({ opening, dismiss }: { opening: Opening; dismiss: () => void
     void phoneUploadRequest('', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workflowId, ...(chosen ? { origin: chosen } : {}) }),
+      body: JSON.stringify({ workflowId, ...(chosen ? { origin: chosen } : {}), theme: phoneThemeSnapshot() }),
     }).then(async response => {
       const result = await response.json();
       if (cancelled) {
@@ -230,20 +242,16 @@ function PhoneCode({ opening, dismiss }: { opening: Opening; dismiss: () => void
           : 'Choose the private address your phone can reach.')}
       </div>
       {!creating && !link && !error && origins.map(origin =>
-        <button type="button" key={origin} onClick={() => setChosen(origin)}><PhoneRouteLabel origin={origin} verifiedAt={verified[origin]} /></button>,
+        <button type="button" className="phone-upload-route" key={origin} onClick={() => setChosen(origin)}>
+          <PhoneRouteLabel origin={origin} verifiedAt={verified[origin]} />
+        </button>,
       )}
-      {!creating && !link && !error && origins.length > 0 && <PhoneRouteInfo />}
       {qr && <>
         <img src={qr} alt="Scan to upload from your phone" />
         <div className="phone-upload-route"><PhoneRouteLabel origin={new URL(link!.url).origin} verifiedAt={verifiedAt} /></div>
-        <PhoneRouteInfo />
         <div>Expires in {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</div>
-        <p className="phone-upload-hint">
-          If the phone cannot open the page, check that it is on the same Wi-Fi or tailnet as this computer
-          and that this computer&apos;s firewall allows incoming connections on port {new URL(link!.url).port || '80'}.
-          If the system asks whether Node.js may accept connections, allow it on private networks.
-        </p>
       </>}
+      {(qr || (!creating && !link && !error && origins.length > 0)) && <PhoneRouteInfo />}
       {count > 0 && <div role="status">{count} added to the message box.</div>}
       <button type="button" ref={dismissButton} onClick={dismiss}>Close</button>
     </section>,

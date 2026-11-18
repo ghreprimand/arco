@@ -168,7 +168,7 @@ async def main():
         await expect(phone.get_by_alt_text('Scan to upload from your phone')).to_be_visible()
         await expect(phone.locator('.phone-upload-route')).to_have_text(PHONE_ORIGIN + ' UNVERIFIED')
         await phone.locator('details.phone-upload-info summary').click()
-        await expect(phone.locator('details.phone-upload-info p')).to_be_visible()
+        await expect(phone.locator('details.phone-upload-info p').first).to_be_visible()
         box = await page.evaluate('''() => {
           const w = document.querySelector('[data-testid=phone-upload-window]');
           const r = w.getBoundingClientRect(), t = w.querySelector('h2').getBoundingClientRect();
