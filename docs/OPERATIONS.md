@@ -780,17 +780,28 @@ returns 404 and WebSocket upgrades are refused, so the workbench, its API and
 the terminal stay on loopback. It closes about a minute after no code is open
 and no upload is in progress. The main server's bind does not change.
 
-Each offered address is marked UNVERIFIED. When several addresses are
-available, each choice button shows the address and port followed by
-UNVERIFIED, for example `http://<address>:<port> UNVERIFIED`; the line under
-the code shows the chosen address the same way. If one address does not open
-on the phone and another is offered, close the window, open it again and choose
-the other address. Arco knows it opened a listener there but cannot tell from the computer
-whether the phone can reach it: the firewall or the network (a guest Wi-Fi, a
-router that keeps devices apart) may block it. **More info** in the window says
-so. The address is confirmed only when the page opens on the phone. Arco does
-not inspect the firewall; reading its rules can need administrator rights and
-start a password prompt.
+Each offered address is marked UNVERIFIED until a file arrives through it.
+After a successful upload the address is marked VERIFIED BY UPLOAD with the
+time it last worked; the open window shows this on its next poll. When several addresses are available, each choice button shows the
+address and port followed by its mark, for example
+`http://<address>:<port> UNVERIFIED`; the line under the code shows the chosen
+address the same way. If one address does not open on the phone and another is
+offered, close the window, open it again and choose the other address. Arco
+knows it opened a listener there but cannot tell from the computer whether the
+phone can reach it: the firewall or the network (a guest Wi-Fi, a router that
+keeps devices apart) may block it, and settings can change after an address has
+worked. **More info** in the window says so. Arco does not inspect the
+firewall; reading its rules can need administrator rights and start a password
+prompt.
+
+The result is kept in `phone-upload-routes.json` in Arco's home: for each
+address and port, only the time a file last arrived through it, at most 16
+entries, written atomically and read again after a restart. Opening a code and
+failed uploads record nothing, and the file holds no phone address, file name,
+size or link token. If the file cannot be written the upload still succeeds and
+the log has one line with the error code. Deleting the file while Arco is
+stopped returns every address to UNVERIFIED; a running Arco keeps its copy in
+memory and writes it back on the next successful upload.
 
 Arco makes no firewall or system change. If the phone cannot open the page,
 check that it is on the same network and that the computer's firewall allows

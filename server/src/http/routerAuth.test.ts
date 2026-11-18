@@ -163,6 +163,7 @@ test('a private phone link can only stage uploads for the conversation that open
   const { mintToken, SESSION_COOKIE } = await import('./wsAuth.js');
   const { workflows } = await import('../server/state.js');
   const { adoptPhoneDrafts, sweepPhoneDrafts } = await import('./phoneUploadDrafts.js');
+  const { _forgetRouteHistoryForTest, _routeHistorySavedForTest } = await import('./phoneUploadRouteHistory.js');
   const fixtureAddress = [192, 168, 45, 10].join('.');
   const prefix = fixtureAddress.split('.').slice(0, -1).join('.');
   const peer = prefix + '.11';
@@ -194,17 +195,31 @@ test('a private phone link can only stage uploads for the conversation that open
   assert.ok(!page.body.includes(phone['x-arco-phone-upload']));
   assert.equal((await send('POST', link.pathname, 'wrong network', phone, { ...socket, remoteAddress: [192, 168, 46, 11].join('.') })).status, 403);
   assert.equal((await send('POST', link.pathname, 'bad size', { ...phone, 'content-length': String(20 * 1024 * 1024 + 1) }, socket)).status, 413);
+  // Opening a code and failed uploads leave the route unverified.
+  assert.equal(first.verifiedAt, undefined);
+  assert.equal(JSON.parse((await send('GET', `${api}/${first.id}`, '', desktop, socket)).body).verifiedAt, undefined);
   assert.equal((await send('POST', link.pathname, 'From my phone', phone, socket)).status, 201);
+  // A stored file marks the route verified on the open code's next poll, and
+  // only the route and time are saved.
+  const verifiedAt = JSON.parse((await send('GET', `${api}/${first.id}`, '', desktop, socket)).body).verifiedAt;
+  assert.equal(typeof verifiedAt, 'number');
+  await _routeHistorySavedForTest();
+  const routeHistory = path.join(root, 'state', 'phone-upload-routes.json');
+  assert.deepEqual(JSON.parse(readFileSync(routeHistory, 'utf8')), { [origin]: verifiedAt });
   const anotherFile = { ...phone, 'x-filename': 'spare.txt' };
   assert.equal((await send('POST', link.pathname, 'Unused', anotherFile, socket)).status, 201);
   assert.equal((await send('GET', `${api}/${first.id}`, '', secondDesktop, socket)).status, 404);
   // A desktop page opened through a local proxy is offered the
   // listener's direct private address; a proxied phone upload stays refused.
+  await _routeHistorySavedForTest();
+  const lastWorked = JSON.parse(readFileSync(routeHistory, 'utf8'))[origin];
+  _forgetRouteHistoryForTest();
   const proxied = { ...desktop, host: 'localhost:3333', origin: 'http://localhost:3333', 'x-forwarded-for': '127.0.0.1' };
   const secondOpening = await send('POST', api, make('second-draft'), proxied, { ...socket, remoteAddress: '127.0.0.1' });
   assert.equal(secondOpening.status, 201, secondOpening.body);
   const second = JSON.parse(secondOpening.body);
   assert.equal(new URL(second.url).origin, origin);
+  assert.equal(second.verifiedAt, lastWorked, 'the saved result is read back after a restart');
   assert.equal((await send('POST', link.pathname, 'proxied', { ...phone, 'x-forwarded-for': peer }, socket)).status, 403);
   assert.deepEqual(JSON.parse((await send('GET', `${api}/${second.id}`, '', desktop, socket)).body).files, []);
   const refreshed = { ...desktop, cookie: `${SESSION_COOKIE}=${mintToken()}` };

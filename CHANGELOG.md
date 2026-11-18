@@ -5,7 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
-- Attach photos and files from a phone on the same private network using a short-lived QR code. It works with the default setting: when Arco listens on this computer only, opening the code starts a temporary listener that serves the phone upload page alone, on this computer's private network and tailnet addresses, and closes when no code is open. The window says what to check when the phone cannot connect, and marks each offered address UNVERIFIED, with a More info note, because Arco cannot tell whether the phone can reach it.
+- Attach photos and files from a phone on the same private network using a short-lived QR code. It works with the default setting: when Arco listens on this computer only, opening the code starts a temporary listener that serves the phone upload page alone, on this computer's private network and tailnet addresses, and closes when no code is open. The window says what to check when the phone cannot connect, and marks each offered address UNVERIFIED, with a More info note, because Arco cannot tell whether the phone can reach it. After a file arrives through an address it is marked VERIFIED BY UPLOAD with the time it last worked, remembered for that address and port across restarts.
 
 - Show Codex commands that outlive their reply and keep their later exit results in ACTIVITY.
 

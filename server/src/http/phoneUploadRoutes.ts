@@ -14,6 +14,7 @@ import { readFileForExplorer } from './fileRead.js';
 import { discardPhoneDraft, phoneDraftForOwner, phoneFilename, rememberPhoneDraft, PHONE_DRAFT_TTL_MS, type PhoneDraft } from './phoneUploadDrafts.js';
 import { phoneListenerAddresses, phoneUploadOrigins, privatePhoneOrigin } from './phoneUploadNetwork.js';
 import { startPhoneListener, type PhoneListener } from './phoneUploadListener.js';
+import { recordRouteSuccess, routeSuccesses } from './phoneUploadRouteHistory.js';
 import { checkRequestOrigin } from './originGuard.js';
 import { PHONE_PAGE, PHONE_PAGE_CSP } from './phoneUploadPage.js';
 import { readCookie, SESSION_COOKIE, verifyToken } from './wsAuth.js';
@@ -232,6 +233,9 @@ async function uploadFromPhone(req: IncomingMessage, res: ServerResponse, origin
       return error(res, 410, CLOSED);
     }
     link.files.push(draft);
+    // The route worked: remember it. Saving happens in the background and a
+    // failure there never turns this successful upload into an error.
+    void recordRouteSuccess(link.origin);
     json(res, 201, { ok: true });
   } catch (e) {
     if (draft) await discardPhoneDraft(draft).catch(() => {});
@@ -256,7 +260,7 @@ function createLink(res: ServerResponse, body: { workflowId: string; origin?: st
   owner: string, origins: string[]): true {
   const origin = body.origin ?? (origins.length === 1 ? origins[0] : undefined);
   if (!origin) {
-    json(res, 200, { origins });
+    json(res, 200, { origins, verified: routeSuccesses(origins) });
     return true;
   }
   if (!origins.includes(origin)) {
@@ -275,7 +279,10 @@ function createLink(res: ServerResponse, body: { workflowId: string; origin?: st
   };
   links.set(link.id, link);
   tokens.set(link.key, link);
-  json(res, 201, { id: link.id, url: origin + PHONE_PATH + '#' + token, expiresAt: link.expiresAt });
+  json(res, 201, {
+    id: link.id, url: origin + PHONE_PATH + '#' + token, expiresAt: link.expiresAt,
+    verifiedAt: routeSuccesses([origin])[origin],
+  });
   return true;
 }
 
@@ -362,7 +369,7 @@ export async function tryHandlePhoneOperator(req: IncomingMessage, res: ServerRe
       const files = link.files.filter(file => phoneDraftForOwner(file.fileId, owner))
         .map(({ fileId, filename, path, expiresAt }) => ({ fileId, filename, path, expiresAt }));
       if (req.method === 'DELETE') links.delete(id);
-      json(res, 200, { files, closed });
+      json(res, 200, { files, closed, verifiedAt: routeSuccesses([link.origin])[link.origin] });
     } else error(res, 405, 'Method not allowed.');
   } catch (e) {
     if (e instanceof UploadTooLarge || e instanceof SyntaxError) error(res, 400, 'Invalid phone upload request.');

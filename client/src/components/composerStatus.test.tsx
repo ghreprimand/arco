@@ -129,11 +129,13 @@ test('the north star and a running goal stay actionable, and the context gauge n
   }
 });
 
-test('every phone upload route is marked unverified with a static note, in the chooser and beside the code', async () => {
+test('a phone upload route is unverified until a file arrives through it, in the chooser and beside the code', async () => {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/', pretendToBeVisual: true });
   const names = ['window', 'document', 'localStorage', 'HTMLElement', 'Node', 'navigator', 'getComputedStyle', 'fetch', 'CustomEvent'];
   const previous = new Map(names.map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   const requests: string[] = [];
+  const lastWorked = Date.UTC(2026, 10, 18, 9, 30);
+  let uploaded = false;
   const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
   Object.defineProperties(globalThis, {
     window: { configurable: true, value: dom.window },
@@ -151,9 +153,9 @@ test('every phone upload route is marked unverified with a static note, in the c
         const body = JSON.parse(String(init.body)) as { origin?: string };
         return body.origin
           ? reply({ id: 'fixture-link', url: `${body.origin}/phone-upload#fixture`, expiresAt: Date.now() + 300_000 }, 201)
-          : reply({ origins: ['http://192.0.2.10:3019', 'http://100.64.0.10:3019'] });
+          : reply({ origins: ['http://192.0.2.10:3019', 'http://100.64.0.10:3019'], verified: { 'http://100.64.0.10:3019': lastWorked } });
       }
-      return reply({ files: [], closed: false });
+      return reply({ files: [], closed: false, ...(uploaded ? { verifiedAt: lastWorked + 60_000 } : {}) });
     } },
   });
   const { useAppStore } = await import('../stores/appStore');
@@ -172,17 +174,25 @@ test('every phone upload route is marked unverified with a static note, in the c
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     const panel = dom.window.document.querySelector('[data-testid="phone-upload-window"]')!;
     const routes = [...panel.querySelectorAll('button')].filter((button) => button.textContent?.startsWith('http://'));
-    assert.deepEqual(routes.map((button) => button.textContent), ['http://192.0.2.10:3019 UNVERIFIED', 'http://100.64.0.10:3019 UNVERIFIED']);
+    assert.deepEqual(routes.map((button) => button.textContent), [
+      'http://192.0.2.10:3019 UNVERIFIED',
+      `http://100.64.0.10:3019 VERIFIED BY UPLOAD last worked ${new Date(lastWorked).toLocaleString()}`,
+    ]);
     const info = panel.querySelector('details.phone-upload-info');
     assert.equal(info?.querySelector('summary')?.textContent, 'More info');
-    assert.match(info?.textContent ?? '', /cannot check from this computer whether the phone can reach it/);
-    assert.match(info?.textContent ?? '', /firewall or the network/);
+    assert.match(info?.textContent ?? '', /settings can change/);
+    assert.match(info?.textContent ?? '', /If the link won.t open, check this computer.s firewall/);
 
     await act(async () => { routes[0].click(); });
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
     assert.ok(panel.querySelector('img'), 'the chosen route still produces a code');
     assert.equal(panel.querySelector('.phone-upload-route')?.textContent, 'http://192.0.2.10:3019 UNVERIFIED');
     assert.ok(panel.querySelector('details.phone-upload-info'));
+    // The open code's own polling shows the route verified once a file arrives.
+    uploaded = true;
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 1_100)); });
+    assert.equal(panel.querySelector('.phone-upload-route')?.textContent,
+      `http://192.0.2.10:3019 VERIFIED BY UPLOAD last worked ${new Date(lastWorked + 60_000).toLocaleString()}`);
     assert.equal(requests.filter((request) => request.startsWith('POST')).length, 2);
   } finally {
     await act(async () => { root.unmount(); });

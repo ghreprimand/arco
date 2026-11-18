@@ -14,6 +14,7 @@ interface Link {
   id: string;
   url: string;
   expiresAt: number;
+  verifiedAt?: number;
 }
 interface PhoneFile {
   fileId: string;
@@ -52,19 +53,23 @@ export function PhoneUploadButton({ workflowId, style }: { workflowId: string; s
 
 // Arco cannot tell from this computer whether a phone can reach an address:
 // the firewall or the network may block it, and Arco never inspects either.
-// Every offered route is therefore marked Unverified, with a static note.
-export function PhoneRouteLabel({ origin }: { origin: string }) {
-  return <>{origin} <span className="phone-upload-unverified">UNVERIFIED</span></>;
+// A route is marked Verified by upload only after a file has arrived through
+// it (the server remembers when); every other offered route is Unverified.
+export function PhoneRouteLabel({ origin, verifiedAt }: { origin: string; verifiedAt?: number }) {
+  return verifiedAt
+    ? <>{origin} <span className="phone-upload-verified">VERIFIED BY UPLOAD</span>{' '}
+      <span className="phone-upload-last-worked">last worked {new Date(verifiedAt).toLocaleString()}</span></>
+    : <>{origin} <span className="phone-upload-unverified">UNVERIFIED</span></>;
 }
 
 export function PhoneRouteInfo() {
   return <details className="phone-upload-info">
     <summary>More info</summary>
     <p>
-      Arco opened a listener on this address, but it cannot check from this computer whether the phone can reach it.
-      This computer&apos;s firewall or the network (a guest Wi-Fi, a router that keeps devices apart, a VPN) can block
-      the connection. The address is confirmed only when the page opens on the phone. Arco does not inspect or change
-      the firewall.
+      An address is Verified by upload once a file has arrived through it, and Unverified until then. Network and
+      firewall settings can change, so an address that worked before can stop working. If the link won&apos;t open,
+      check this computer&apos;s firewall and make sure your phone is on the same private network. Guest Wi-Fi can
+      block connections between devices. Arco does not inspect or change the firewall.
     </p>
   </details>;
 }
@@ -74,6 +79,8 @@ function PhoneCode({ opening, dismiss }: { opening: Opening; dismiss: () => void
   const workflowAvailable = useAppStore(s => !!s.jobs[workflowId]);
   const [link, setLink] = useState<Link | null>(null);
   const [origins, setOrigins] = useState<string[]>([]);
+  const [verified, setVerified] = useState<Record<string, number>>({});
+  const [verifiedAt, setVerifiedAt] = useState<number | undefined>();
   const [chosen, setChosen] = useState('');
   const [creating, setCreating] = useState(true);
   const [error, setError] = useState('');
@@ -116,8 +123,13 @@ function PhoneCode({ opening, dismiss }: { opening: Opening; dismiss: () => void
         return;
       }
       if (!response.ok) setError(result.error || 'Phone upload is unavailable.');
-      else if (result.origins) setOrigins(result.origins);
-      else setLink(result);
+      else if (result.origins) {
+        setOrigins(result.origins);
+        setVerified(result.verified ?? {});
+      } else {
+        setLink(result);
+        setVerifiedAt(result.verifiedAt);
+      }
     }).catch(() => {
       if (!cancelled) setError('Phone upload is unavailable.');
     }).finally(() => {
@@ -173,6 +185,7 @@ function PhoneCode({ opening, dismiss }: { opening: Opening; dismiss: () => void
           return;
         }
         addFiles(data.files);
+        if (data.verifiedAt) setVerifiedAt(data.verifiedAt);
         if (data.closed) {
           setClosed(true);
           clearInterval(timer);
@@ -217,12 +230,12 @@ function PhoneCode({ opening, dismiss }: { opening: Opening; dismiss: () => void
           : 'Choose the private address your phone can reach.')}
       </div>
       {!creating && !link && !error && origins.map(origin =>
-        <button type="button" key={origin} onClick={() => setChosen(origin)}><PhoneRouteLabel origin={origin} /></button>,
+        <button type="button" key={origin} onClick={() => setChosen(origin)}><PhoneRouteLabel origin={origin} verifiedAt={verified[origin]} /></button>,
       )}
       {!creating && !link && !error && origins.length > 0 && <PhoneRouteInfo />}
       {qr && <>
         <img src={qr} alt="Scan to upload from your phone" />
-        <div className="phone-upload-route"><PhoneRouteLabel origin={new URL(link!.url).origin} /></div>
+        <div className="phone-upload-route"><PhoneRouteLabel origin={new URL(link!.url).origin} verifiedAt={verifiedAt} /></div>
         <PhoneRouteInfo />
         <div>Expires in {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</div>
         <p className="phone-upload-hint">
