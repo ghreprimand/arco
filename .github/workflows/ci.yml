@@ -67,7 +67,7 @@ jobs:
       # network. The shell-script provider stubs and the network namespace only apply on POSIX hosts.
       - name: Unit tests
         # A hung test must fail the step with output instead of holding the runner for the job limit.
-        timeout-minutes: ${{ matrix.os == 'windows-latest' && 35 || 20 }}
+        timeout-minutes: 20
         env:
           ARCO_TEST_WINDOWS_SHARD: ${{ matrix.os == 'windows-latest' && matrix.shard || '' }}
         run: npm run test:unit
