@@ -714,10 +714,18 @@ export interface PrimaryThinkingMessage {
 // Primary invoked a tool. `input` is JSON-stringified so the ACTIVITY tab can
 // render an abbreviated summary (e.g. "Read server/src/index.ts",
 // "Grep primary_thinking"). One event per tool call.
+export interface CodexLateCommand {
+  itemId: string;
+  input: string;
+  startedAt: number;
+  waitingUntil: number;
+}
+
 export interface PrimaryToolUseMessage {
   ollamaExecutionId?: string;
   type: 'primary_tool_use';
   workflowId: string;
+  lateCommand?: Omit<CodexLateCommand, 'itemId' | 'input'> & { state: 'running' | 'finished' | 'lost' | 'untracked' };
   tool: string;
   input: string;
   status?: 'started' | 'in_progress' | 'completed' | 'failed';
@@ -961,6 +969,7 @@ export interface ProviderConversationStateMessage {
 // ground truth so stale client-side state snaps to truth immediately.
 export interface WorkflowStateSnapshotMessage {
   type: 'workflow_state_snapshot';
+  codexLateCommands?: CodexLateCommand[];
   providerConversation?: 'unavailable' | 'awaiting-reading';
   workflowId: string;
   workers: Record<string, WorkerState>;

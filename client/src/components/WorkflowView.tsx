@@ -1,3 +1,4 @@
+import { CodexLateCommandLine } from './CodexLateCommand';
 import { useVoicePanelOpener } from '../voice/panels';
 import { ContextMeter } from './ContextMeter';
 import { PrimaryStatus } from './PrimaryStatus';
@@ -221,6 +222,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
           }}
         >
           <div className="display-font" data-testid="conversation-header" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, padding: '8px 12px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: '10px' }}>{job.busy && <PrimaryStatus job={job} />}<span data-help="worker.header.ctx" style={{ marginLeft: 'auto', flexShrink: 0 }}><ContextMeter job={job} onRecalibrate={onRecalibrate} /></span></div>
+          <CodexLateCommandLine job={job} header />
           {/* `no-frost`: the chat column is a transparent transcript scaffold,
               not a glass content panel. Under frosted-glass mode the generic
               `.arco-panel` backdrop-filter blur would soften the ambient

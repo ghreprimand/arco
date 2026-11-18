@@ -1,3 +1,4 @@
+import { CodexLateCommandLine, runningCodexCommand } from './CodexLateCommand';
 import { ContextMeter } from './ContextMeter';
 import { PrimaryStatus } from './PrimaryStatus';
 // docs/PROTOCOL_CLUSTER.md - one cluster member's chat + composer.
@@ -166,11 +167,12 @@ export function MemberPane({
         </span>
         {accountBadge && <AccountBadge label={accountBadge} />}
         <span style={{ color: status === 'busy' ? 'var(--color-warning)' : 'var(--color-fg-muted)', fontSize: '10px' }}>
-          {status === 'busy' ? 'WORKING' : 'IDLE'}
+          {status === 'busy' ? 'WORKING' : runningCodexCommand(job) ? 'COMMAND RUNNING' : 'IDLE'}
         </span>
         {status === 'busy' && <PrimaryStatus job={job} />}
         <span data-help="worker.header.ctx" style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '10px' }}><ContextMeter job={job} onRecalibrate={onRecalibrate} /></span>
       </div>
+      <CodexLateCommandLine job={job} header />
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         <ChatPanel

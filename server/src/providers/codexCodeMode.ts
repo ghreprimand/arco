@@ -13,7 +13,7 @@ import * as fs from 'node:fs';
 import { resolveCodexHome } from './codexHome.js';
 import * as path from 'node:path';
 import type { WorkerConfig } from '@arco/shared';
-import { AGENT_TURN_WAIT, buildTurnWaitInstructions } from '@arco/shared';
+import { AGENT_TURN_WAIT, buildTurnWaitInstructions, isClusterDirector } from '@arco/shared';
 import { buildClusterDirectorDoctrine } from '../clusterDirector.js';
 
 interface CodeModeEntry {
@@ -94,7 +94,12 @@ export function codexCodeModeClusterAddendum(): string {
 }
 
 // Standing turn discipline for every Codex workflow (cluster and single).
-export const CODEX_TURN_DISCIPLINE = AGENT_TURN_WAIT;
+const CODEX_COMMAND_WAIT = 'A command reply with a session ID and no exit code means it is still running. Poll that session until it exits before reporting, and do not end the turn saying you are waiting for it.';
+export const CODEX_TURN_DISCIPLINE = AGENT_TURN_WAIT + ' ' + CODEX_COMMAND_WAIT;
+
+export function codexTurnWaitInstructions(role: string | undefined): string {
+  return isClusterDirector(role) ? buildTurnWaitInstructions(role) : CODEX_TURN_DISCIPLINE;
+}
 
 // app-server can place Arco's durable cluster identity at developer level
 // when a thread starts/resumes. Per-turn plan content still rides in user
@@ -104,7 +109,7 @@ export const CODEX_TURN_DISCIPLINE = AGENT_TURN_WAIT;
 // wait for the result their report depends on and check for messages between waits.
 export function codexClusterDeveloperInstructions(config: WorkerConfig): string | null {
   if (config.provider !== 'codex') return null;
-  const blocks: string[] = [buildTurnWaitInstructions(config.clusterRole)];
+  const blocks: string[] = [codexTurnWaitInstructions(config.clusterRole)];
   if (config.clusterId) {
     blocks.push(
       '--- Arco cluster identity ---',

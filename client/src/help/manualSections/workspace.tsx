@@ -410,6 +410,9 @@ export const workspace: Section[] = [
             boundary, or runs as the next turn if the current turn finishes
             first. Search results and reasoning from the current work remain intact.</li>
         </ul>
+        <p>
+          If Codex finishes a reply while a shell command is still running, the header and cluster member card show the command and its start time. The indicator lasts up to five minutes. ACTIVITY records the exit when Codex reports it.
+        </p>
         <h4 className="manual-sub">Slash commands &amp; references</h4>
         <p><Code>/prompt name args</Code> expands a saved template. Inserted argument text remains literal; <Code>$$1</Code> in the template produces literal <Code>$1</Code>.</p>
         <p>

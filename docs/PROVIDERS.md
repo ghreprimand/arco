@@ -82,6 +82,15 @@ ACTIVITY > BACKGROUND lists programs the agent started through a shell tool and 
 
 The tracker matches shell-tool commands to process arguments and follows their known children. Claude CLI, Codex exec and app-server, and Cursor ACP supply these events. Providers without a discoverable child-process id do not feed this process tracker. Native and local tool execution keep their existing task reporting.
 
+
+When a Codex app-server turn ends with a shell command still running, its header
+and cluster member card show the command and start time for up to five minutes.
+ACTIVITY keeps a later exit on the original command. Losing the connection
+before an exit arrives is reported as a lost result. The indicator does not
+block a new message or start another turn. A long-lived command can keep running
+after the indicator clears, and Arco can still record its exit while the
+worker tracks it.
+
 ## The provider abstraction
 
 Every provider implements `ProviderProcess` from `server/src/providers/types.ts`:

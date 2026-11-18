@@ -1,3 +1,4 @@
+import { CodexLateCommandLine, runningCodexCommand } from './CodexLateCommand';
 // docs/CLIENT.md - compact ~120px card per cluster member.
 //
 // Read-only-with-click; no composer, no primitive bar (those live in the
@@ -65,6 +66,7 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
   const wfid = job?.id ?? '';
   const wfidShort = wfid.slice(0, 8);
   const busy = status === 'busy';
+  const lateCommand = runningCodexCommand(job);
   const waitingQuestion = hasWaitingQuestion(job);
   const bodyText = useSettledPreview(job);
   const bodyDim = bodyText === '[no turns]';
@@ -172,10 +174,11 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
         })()}
         {density === 'compact' && roleChipLabel && <span data-help="cluster.member-card.role-chip" title={trimmedRole} style={{ padding: '0 4px', border: '1px solid var(--color-accent-secondary-a40, var(--color-accent-secondary-dim))', color: 'var(--color-accent-secondary)', fontSize: '9px', letterSpacing: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, flex: '0 1 auto' }}>{roleChipLabel}</span>}
         <span style={{ marginLeft: 'auto', color: busy ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)', fontSize: '10px', flexShrink: 0 }}>
-          {status === 'busy' ? 'WORKING' : 'IDLE'}
+          {busy ? 'WORKING' : lateCommand ? 'COMMAND RUNNING' : 'IDLE'}
         </span>
         {wfid && <BriefControl scope="worker" targetId={wfid} label="BRIEF" data-help="cluster.member-brief" testId="member-brief" title="A short synopsis of this member from facts Arco can see. Read-only; sends nothing." style={{ padding: '1px 5px', fontSize: '9px', flexShrink: 0 }} />}
       </div>
+      <CodexLateCommandLine job={job} />
       {/* Line 2 — wfid prefix · role chip (when set). Folded into the
           tooltip and line 1 in the compact density. */}
       {density !== 'compact' && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', letterSpacing: '1px' }}>

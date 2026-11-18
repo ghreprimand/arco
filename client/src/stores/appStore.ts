@@ -1538,6 +1538,9 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       messages: j.messages.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m)),
     }))),
 
+  setCodexLateCommands: (jobId, next) =>
+    set(s => updateJob(s, jobId, j => ({ codexLateCommands: next(j.codexLateCommands ?? []) }))),
+
   appendActivity: (jobId, entry) =>
     set((s) => updateJob(s, jobId, (j) => {
       // Defensive init: jobs that existed in memory before the activity

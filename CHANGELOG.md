@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show Codex commands that outlive their reply and keep their later exit results in ACTIVITY.
+
 - Open files in Git worktrees from conversation links and browse their branch-labelled documents under the project in ARTIFACTS.
 
 - Clarify Windows npm launcher ownership and safe recovery after a failed install.

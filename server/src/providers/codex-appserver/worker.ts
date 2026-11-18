@@ -1,3 +1,4 @@
+import { CodexLateCommands } from './lateCommands.js';
 import { historyBinding } from '../handoffHistoryBinding.js';
 import { codexWebSearchMode } from '../codexWebSearch.js';
 import { codexImageToolConfig } from '../codexImageTool.js';
@@ -1055,6 +1056,35 @@ export class CodexAppServerWorker extends EventEmitter {
 
   // ── Notification handling ────────────────────────────────────────────
 
+  private readonly lateCommands = new CodexLateCommands((event, state) => {
+    this.emit('late_command', event, state);
+  });
+
+  get runningLateCommands() { return this.lateCommands.snapshot(); }
+
+  private commandToolUse(item: Extract<ThreadItem, { type: 'commandExecution' }>, completed: boolean): ToolUseEvent {
+    return {
+      name: 'Bash',
+      input: JSON.stringify({ command: item.command, cwd: item.cwd }),
+      status: completed ? (item.exitCode === 0 ? 'completed' : 'failed') : 'started',
+      provider: appServerProvider(this.config), itemType: 'command_execution', itemId: item.id,
+      ...(completed && item.aggregatedOutput != null ? { output: item.aggregatedOutput } : {}),
+      ...(completed && item.exitCode != null ? { exitCode: item.exitCode } : {}),
+    };
+  }
+
+  private handleCommandItem(p: ItemStartedNotification | ItemCompletedNotification, completed: boolean): boolean {
+    if (p.item.type !== 'commandExecution') return false;
+    if (p.threadId !== this.threadId || appServerProvider(this.config) !== 'codex') return false;
+    const active = this.current.startedAt && (!this.current.turnId || p.turnId === this.current.turnId);
+    const event = this.commandToolUse(p.item, completed);
+    if (completed) {
+      if (this.lateCommands.complete(p.turnId, event)) return true;
+    } else if (active) this.lateCommands.start(p.turnId, event);
+    if (active) this.emit('tool_use', event);
+    return true;
+  }
+
   private onNotification(n: JsonRpcNotification): void {
     switch (n.method) {
       case 'serverRequest/resolved': {
@@ -1137,12 +1167,12 @@ export class CodexAppServerWorker extends EventEmitter {
       }
       case 'item/started': {
         const p = n.params as ItemStartedNotification;
-        this.emitToolUseFromItem(p.item, 'started');
+        if (!this.handleCommandItem(p, false)) this.emitToolUseFromItem(p.item, 'started');
         return;
       }
       case 'item/completed': {
         const p = n.params as ItemCompletedNotification;
-        this.emitToolUseFromItem(p.item, 'completed');
+        if (!this.handleCommandItem(p, true)) this.emitToolUseFromItem(p.item, 'completed');
         const asyncItem = p.item as ThreadItem & { delivery?: string; questions?: unknown };
         if (asyncItem.type === 'agentMessage' && asyncItem.delivery === 'async' && p.threadId === this.threadId && this.current.startedAt && (!this.current.turnId || p.turnId === this.current.turnId)) {
           try { this.operatorQuestions.acceptAsync(p.threadId, p.turnId, asyncItem); }
@@ -1254,24 +1284,9 @@ export class CodexAppServerWorker extends EventEmitter {
     // unchanged on appserver tabs.
     const provider = appServerProvider(this.config);
     switch (item.type) {
-      case 'commandExecution': {
-        const completed = status === 'completed';
-        const finalStatus: ToolUseEvent['status'] =
-          completed ? (item.exitCode === 0 ? 'completed' : 'failed') : 'started';
-        this.emit('tool_use', {
-          name: 'Bash',
-          input: JSON.stringify({ command: item.command, cwd: item.cwd }),
-          status: finalStatus,
-          provider,
-          itemType: 'command_execution',
-          itemId: item.id,
-          ...(completed && item.aggregatedOutput !== null
-            ? { output: item.aggregatedOutput }
-            : {}),
-          ...(completed && item.exitCode !== null ? { exitCode: item.exitCode } : {}),
-        });
+      case 'commandExecution':
+        this.emit('tool_use', this.commandToolUse(item, status === 'completed'));
         return;
-      }
       case 'fileChange': {
         const completed = status === 'completed';
         const finalStatus: ToolUseEvent['status'] =
@@ -1640,6 +1655,7 @@ export class CodexAppServerWorker extends EventEmitter {
       this.emit('turn_settled', data);
       return;
     }
+    if (this.current.turnId) this.lateCommands.settle(this.current.turnId);
     this.current = emptyTurnState();
     if (data.error && data.error !== 'Worker killed') {
       // Also run the stderr fallback throttle sniffer in case the protocol
@@ -1663,6 +1679,7 @@ export class CodexAppServerWorker extends EventEmitter {
   }
 
   private teardownProcess(): void {
+    this.lateCommands.disconnect();
     this.operatorQuestions.cancel('The Codex connection closed.');
     if (this.rpc) {
       try { this.rpc.close('worker teardown'); } catch { /* ignore */ }

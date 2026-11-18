@@ -524,6 +524,13 @@ export const composerHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'run-as-picker',
   },
+  'worker.header.late-command': {
+    title: 'Codex command still running',
+    body: (
+      <p>Codex finished its reply while this command was still running. Arco shows the command and its start time for up to five minutes. Check ACTIVITY for the exit result when Codex supplies it. If the connection closes before the result arrives, the tab says the result was lost.</p>
+    ),
+    manualSection: 'composer',
+  },
   'worker.header.ctx': {
     title: 'Context fill',
     body: (

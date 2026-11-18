@@ -1,3 +1,4 @@
+import { runningCodexLateCommands } from '../providers/codex-appserver/index.js';
 import { ensureWorkflowMetadata, providerConversationState, saveProviderSession } from '../providerConversation.js';
 import { isClaudeNativeTaskActive } from '../providers/claude-native/index.js';
 import { appendHandoffNotice } from '../handoffHistoryTool.js';
@@ -1895,6 +1896,7 @@ export async function rehydrateOneWorkflow(
   const msg: ServerMessage = {
     type: 'workflow_state_snapshot',
     workflowId,
+    ...(wf.primary.provider === 'codex' ? { codexLateCommands: runningCodexLateCommands(workflowId) } : {}),
     ...(conversationState ? { providerConversation: conversationState } : {}),
     workers: {},
     busy: wf.busy,

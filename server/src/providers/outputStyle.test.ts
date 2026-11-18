@@ -1,3 +1,4 @@
+import { CODEX_TURN_DISCIPLINE } from './codexCodeMode.js';
 // OUTPUT STYLE: the addendum text for each level, and that every provider puts
 // it into the prompt it builds. Claude CLI and Codex exec run against a fake
 // command that records its arguments and standard input; the HTTP and
@@ -166,16 +167,16 @@ test('Codex exec: the addendum closes the prompt prefix before the separator', {
   const { CodexProvider } = await import('./codex.js');
   const config = cfg('codex', { outputStyle: 'plain', goal: 'Ship the fix', appendSystemPrompt: 'APPENDED' });
   const run = await cliRun(CodexProvider.create, config);
-  const prefix = `${buildTurnWaitInstructions()}\n\n${goalBlock('Ship the fix')}\n\nAPPENDED\n\n${FILE_READ_GUIDANCE}\n\n${PLAIN}\n\n---\n\n`;
+  const prefix = `${CODEX_TURN_DISCIPLINE}\n\n${goalBlock('Ship the fix')}\n\nAPPENDED\n\n${FILE_READ_GUIDANCE}\n\n${PLAIN}\n\n---\n\n`;
   assert.equal(run.stdin, `${prefix}PROMPT-BODY`);
   const next = await cliRun(CodexProvider.create, config, 'NEXT-BODY');
   assert.equal(next.stdin, `${prefix}NEXT-BODY`, 'the prefix stays stable when the turn body changes');
   assert.ok(run.stdin.endsWith('PROMPT-BODY'));
   const none = await cliRun(CodexProvider.create, cfg('codex', {}));
-  assert.equal(none.stdin, `${buildTurnWaitInstructions()}\n\n${FILE_READ_GUIDANCE}\n\n---\n\nPROMPT-BODY`);
+  assert.equal(none.stdin, `${CODEX_TURN_DISCIPLINE}\n\n${FILE_READ_GUIDANCE}\n\n---\n\nPROMPT-BODY`);
   assert.doesNotMatch(none.stdin, /output-style/);
   const chat = await cliRun(CodexProvider.create, cfg('codex', { interactionMode: 'chat' }));
-  assert.equal(chat.stdin, `${buildTurnWaitInstructions()}\n\n---\n\nPROMPT-BODY`);
+  assert.equal(chat.stdin, `${CODEX_TURN_DISCIPLINE}\n\n---\n\nPROMPT-BODY`);
   assert.doesNotMatch(chat.stdin, /output-style/);
 });
 

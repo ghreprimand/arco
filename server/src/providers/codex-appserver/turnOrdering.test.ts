@@ -44,3 +44,30 @@ test('a late acknowledgement cannot replace the id of a newer turn',async()=>{
  w.onNotification({method:'turn/started',params:{threadId:'thread',turn:{id:'old'}}});w.onNotification({method:'turn/completed',params:{threadId:'thread',turn:{id:'old',status:'completed'}}});
  await worker.beginTurn('new',undefined);release({turn:{id:'old'}});await old;assert.equal(w.current.turnId,'new');
 });
+
+test('a settled turn keeps its command completion when a newer turn is listening', async () => {
+  const worker = new CodexAppServerWorker('fixture', config, 'thread');
+  const w = worker as any;
+  w.threadId = 'thread';
+  Object.assign(w.current, { turnId: 'first', startedAt: Date.now() });
+  const foreground: string[] = [];
+  const terminal: Array<{ state: string; id: string; exit?: number }> = [];
+  const listener = (event: { itemId: string }) => foreground.push(event.itemId);
+  worker.on('tool_use', listener);
+  worker.on('late_command', (event, marker) => terminal.push({ state: marker.state, id: event.itemId, exit: event.exitCode }));
+  worker.once('turn_settled', () => worker.off('tool_use', listener));
+  const item = { type: 'commandExecution', id: 'shell', command: 'npm run build', cwd: '.', aggregatedOutput: null, exitCode: null };
+  const notify = (method: string, turnId: string, item: object) => w.onNotification({ method, params: { threadId: 'thread', turnId, item } });
+  notify('item/started', 'first', item);
+  w.onNotification({ method: 'turn/completed', params: { threadId: 'thread', turn: { id: 'first', status: 'completed' } } });
+  assert.deepEqual(worker.runningLateCommands.map(command => command.itemId), ['shell']);
+  Object.assign(w.current, { turnId: 'next', startedAt: Date.now() });
+  worker.on('tool_use', listener);
+  notify('item/completed', 'first', { ...item, exitCode: 0, aggregatedOutput: 'Built' });
+  assert.deepEqual(foreground, ['shell']);
+  assert.deepEqual(terminal, [
+    { state: 'running', id: 'shell', exit: undefined },
+    { state: 'finished', id: 'shell', exit: 0 },
+  ]);
+  assert.deepEqual(worker.runningLateCommands, []);
+});

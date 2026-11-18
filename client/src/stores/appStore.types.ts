@@ -1,3 +1,4 @@
+import type { CodexLateCommand } from '@arco/shared';
 // Data-shape declarations for the app store. Extracted verbatim from
 // appStore.ts (Phase 5 file-size refactor) — move-only, no behavior change.
 // This module is dependency-light: it imports only from `@arco/shared`
@@ -301,6 +302,7 @@ export interface JobState {
   // Long-running children of the primary CLI (typically Bash calls with
   // run_in_background: true). Replaced wholesale by each `primary_activity`
   // broadcast. Empty until the server's tracker emits its first tick.
+  codexLateCommands?: CodexLateCommand[];
   primaryBackgroundJobs?: PrimaryBackgroundJob[];
   // Phase 1 context robustness — chat built from Claude's session JSONL
   // (not from events.jsonl). Empty for non-Claude providers. Not persisted —
@@ -967,6 +969,7 @@ export interface AppState {
   // activity lingers so operators can read what just happened.
   beginPrimaryTurn: (jobId: string, startedAt: number) => void;
   endPrimaryTurn: (jobId: string) => void;
+  setCodexLateCommands: (jobId: string, next: (existing: CodexLateCommand[]) => CodexLateCommand[]) => void;
   appendActivity: (jobId: string, entry: ActivityEntry) => void;
   setPrimaryBackgroundJobs: (jobId: string, jobs: PrimaryBackgroundJob[]) => void;
   // Clear activity on fresh user message (the NEW turn hasn't started yet

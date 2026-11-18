@@ -1177,15 +1177,27 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         }
 
         case 'primary_tool_use': {
+          const { itemId, lateCommand } = msg;
+          if (itemId && lateCommand) {
+            const { state, startedAt, waitingUntil } = lateCommand;
+            store.setCodexLateCommands(msg.workflowId, existing => {
+              const rest = existing.filter(item => item.itemId !== itemId);
+              if (state === 'running' && waitingUntil > Date.now()) {
+                rest.push({ itemId, input: msg.input, startedAt, waitingUntil });
+              }
+              return rest;
+            });
+            if (state !== 'finished') break;
+          }
           const existingTool = store.jobs[msg.workflowId]?.activity?.some(entry =>
             entry.kind === 'tool_use' &&
             ((msg.itemId && entry.itemId === msg.itemId) ||
               (msg.toolUseId && entry.toolUseId === msg.toolUseId)));
           // Cursor ACP treats tool updates as reply-segment boundaries.
           // Other providers can complete an existing tool mid-sentence.
-          if (!existingTool || store.jobs[msg.workflowId]?.config.primaryProvider === 'cursor') splitPrimaryText(msg.workflowId);
-          // §C1 — tool activity is a primary signal; refresh the stuck clock.
-          store.bumpPrimaryEvent(msg.workflowId, Date.now());
+          if (!lateCommand && (!existingTool || store.jobs[msg.workflowId]?.config.primaryProvider === 'cursor')) splitPrimaryText(msg.workflowId);
+          // §C1 — tool activity in the current turn refreshes the stuck clock.
+          if (!lateCommand) store.bumpPrimaryEvent(msg.workflowId, Date.now());
           // docs/PROVIDERS.md - count only settled tool calls.
           // The 'completed'/'failed' filter avoids double-counting Codex's
           // 'started'/'in_progress' deltas (which fire multiple times per
@@ -1207,7 +1219,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             output: msg.output,
             exitCode: msg.exitCode,
             toolUseId: msg.toolUseId,
-            at: Date.now(),
+            at: existingTool ? Date.now() : lateCommand?.startedAt ?? Date.now(),
           });
           break;
 
@@ -1372,6 +1384,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // ghost workers and unstick the cancel button by finalizing
           // streaming messages when the server isn't busy.
           store.applyWorkflowSnapshot(msg.workflowId, msg.workers, msg.busy, msg.transcriptTail, msg.turnStartedAt);
+          store.setCodexLateCommands(msg.workflowId, () => msg.codexLateCommands ?? []);
           // Slot 2 — snapshot arrival is the signal that dismisses the
           // per-job SYNCING gate; no-op until a disconnect resets it.
           store.markSnapshotReceived(msg.workflowId);

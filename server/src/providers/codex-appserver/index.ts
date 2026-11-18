@@ -12,7 +12,7 @@ import { providerSessionScope } from '../sessionScope.js';
 // to tear down the long-lived child when the operator closes the tab.
 
 import { EventEmitter } from 'events';
-import type { WorkerConfig, WorkerStatus } from '@arco/shared';
+import type { PrimaryToolUseMessage, WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from '../types.js';
 import { CodexAppServerWorker, computeMcpSignature, bootstrapSurfaceKey, type ToolUseEvent, type PrimaryArtifactEvent, type TurnSettleData } from './worker.js';
 import { codexContextWindowOverride } from '../codexContextWindow.js';
@@ -335,6 +335,23 @@ function acquireWorker(
   }
   const fresh = new CodexAppServerWorker(workflowId, config, resumeSessionId);
   workersByWorkflow.set(workflowId, fresh);
+  fresh.on('late_command', (event: ToolUseEvent, lateCommand: PrimaryToolUseMessage['lateCommand']) => {
+    void import('../../server/broadcast.js').then(({ broadcastWorkflow }) => {
+      const { name: tool, ...entry } = event;
+      broadcastWorkflow(workflowId, {
+        ...entry, type: 'primary_tool_use', workflowId, tool, lateCommand,
+        ...(lateCommand?.state === 'finished' ? {} : { status: 'in_progress' }),
+      });
+      if (lateCommand?.state === 'lost') {
+        let command = 'A command';
+        try { command = JSON.parse(event.input).command || command; } catch { /* use the fallback */ }
+        broadcastWorkflow(workflowId, {
+          type: 'system_notice', workflowId,
+          content: `Codex lost the result for ${command.slice(0, 240)} when its connection closed.`,
+        });
+      }
+    }).catch(error => console.warn('[arco] could not record a late Codex command result', error));
+  });
   fresh.on('fatal', (reason: string) => {
     // Drop the cache entry so the next operator turn re-spawns. Don't
     // dispose() — the entry is already torn down by `onChildDeath`.
@@ -348,6 +365,10 @@ function acquireWorker(
     console.warn(`[appserver:${workflowId.slice(0, 8)}] worker dropped from cache (${reason}); consecutive failures=${count}`);
   });
   return fresh;
+}
+
+export function runningCodexLateCommands(workflowId: string) {
+  return workersByWorkflow.get(workflowId)?.runningLateCommands ?? [];
 }
 
 // Operator-triggered native compaction against the long-lived per-workflow
