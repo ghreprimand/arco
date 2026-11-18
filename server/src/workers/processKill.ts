@@ -166,9 +166,15 @@ export function _shellTreeTagForTest(child: ChildProcess): string | undefined {
 // Prints, one per line, the Windows process id (or, outside Windows, the
 // process id) of every MSYS process whose environment holds the tag. Bash
 // built-ins only, so it starts nothing per process.
+// Test observations on stderr contain process IDs and readability only.
 export const MSYS_TREE_SWEEP = [
   'tag=$1',
+  'if [ -n "$2" ]; then exec 3>&2; fi',
   'for d in /proc/[0-9]*; do',
+  '  if [ -n "$2" ]; then',
+  '    readable=no; [ -r "$d/environ" ] && readable=yes',
+  '    printf \'entry %s readable=%s\\n\' "${d#/proc/}" "$readable" >&3',
+  '  fi',
   '  [ -r "$d/environ" ] || continue',
   '  hit=',
   '  while IFS= read -r -d \'\' e || [ -n "$e" ]; do',
@@ -177,6 +183,7 @@ export const MSYS_TREE_SWEEP = [
   '  [ -n "$hit" ] || continue',
   '  w=',
   '  [ -r "$d/winpid" ] && read -r w < "$d/winpid"',
+  '  if [ -n "$2" ]; then printf \'match %s pid=%s\\n\' "${d#/proc/}" "$w" >&3; fi',
   '  printf \'%s\\n\' "${w:-${d#/proc/}}"',
   'done 2>/dev/null',
   '',
@@ -190,30 +197,51 @@ function listMsysTree(tree: { tag: string; bash: string }): Promise<number[]> {
   return msysTreeSweep(tree.bash, tree.tag, process.platform);
 }
 
-export function msysTreeSweep(bash: string, tag: string, platform: NodeJS.Platform = process.platform): Promise<number[]> {
+interface MsysSweepObservation {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+  error?: string;
+  stdout: string;
+  stderr: string;
+}
+
+export function msysTreeSweep(
+  bash: string,
+  tag: string,
+  platform: NodeJS.Platform = process.platform,
+  observe?: (result: MsysSweepObservation) => void,
+): Promise<number[]> {
   return new Promise((resolve) => {
     const env = { ...process.env };
     delete env[PROCESS_TREE_ENV];
     let out = '';
+    let stderr = '';
     let done = false;
-    const finish = (): void => {
+    const finish = (code: number | null, signal: NodeJS.Signals | null, error?: string): void => {
       if (done) return;
       done = true;
       clearTimeout(timer);
+      observe?.({ code, signal, error, stdout: out, stderr });
       resolve(out.split(/\r?\n/).filter((l) => /^\d+$/.test(l.trim())).map((l) => Number(l.trim())));
     };
-    const timer = setTimeout(() => { try { sweeper?.kill(); } catch { /* gone */ } finish(); }, SWEEP_TIMEOUT_MS);
+    const timer = setTimeout(() => {
+      try { sweeper?.kill(); } catch { /* gone */ }
+      finish(null, null, 'sweep timed out');
+    }, SWEEP_TIMEOUT_MS);
     let sweeper: ChildProcess | undefined;
     try {
-      const plan = shellSpawnPlan({ file: bash, args: ['-c', MSYS_TREE_SWEEP, 'arco-sweep', tag], msys: true }, { env, stdio: ['ignore', 'pipe', 'ignore'] }, platform);
+      const args = ['-c', MSYS_TREE_SWEEP, 'arco-sweep', tag];
+      if (observe) args.push('observe');
+      const plan = shellSpawnPlan({ file: bash, args, msys: true }, { env, stdio: ['ignore', 'pipe', observe ? 'pipe' : 'ignore'] }, platform);
       // The sweep itself must not carry a tag, or it would list itself.
       if (plan.options.env) delete (plan.options.env as NodeJS.ProcessEnv)[PROCESS_TREE_ENV];
       sweeper = spawn(plan.file, plan.args, plan.options);
       sweeper.stdout?.on('data', (b: Buffer) => { out += b.toString('utf8'); });
-      sweeper.on('error', finish);
+      sweeper.stderr?.on('data', (b: Buffer) => { stderr += b.toString('utf8'); });
+      sweeper.on('error', (error: NodeJS.ErrnoException) => finish(null, null, error.code ?? error.name));
       sweeper.on('close', finish);
-    } catch {
-      finish();
+    } catch (error) {
+      finish(null, null, (error as NodeJS.ErrnoException).code ?? 'sweep spawn failed');
     }
   });
 }
