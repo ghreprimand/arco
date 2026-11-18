@@ -1,9 +1,9 @@
 // Aggregate fixture-based source unit tests and the standalone onboarding UI unit suite.
 // Credentials and runtime settings from the invoking shell are not inherited.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, dirname, join, resolve } from 'node:path';
+import { delimiter, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { snapshotTempFolders, remainingTempFolders } from './temp-folder-gate.mjs';
 
@@ -15,8 +15,33 @@ function testsIn(directory) {
     return entry.isFile() && /\.test\.(?:[cm]?js|tsx?)$/.test(entry.name) ? [path] : [];
   });
 }
-const files = ['shared/src', 'server/src', 'client/src', 'scripts/release', 'scripts/updater', 'scripts/packaging', 'scripts/agent', 'scripts/backup', 'scripts/management'].flatMap(path => testsIn(join(root, path))).concat(join(root, 'scripts/public-audit.test.mjs'), join(root, 'scripts/smoke/onboarding-ui.test.tsx')).sort();
-if (!files.length) throw new Error('No unit tests discovered.');
+const discovered = ['shared/src', 'server/src', 'client/src', 'scripts/release', 'scripts/updater', 'scripts/packaging', 'scripts/agent', 'scripts/backup', 'scripts/management'].flatMap(path => testsIn(join(root, path))).concat(join(root, 'scripts/public-audit.test.mjs'), join(root, 'scripts/smoke/onboarding-ui.test.tsx')).sort();
+if (!discovered.length) throw new Error('No unit tests discovered.');
+const windows = process.platform === 'win32';
+const shard = process.env.ARCO_TEST_WINDOWS_SHARD || undefined;
+if (shard !== undefined && (!windows || (shard !== '1' && shard !== '2'))) {
+  throw new Error('ARCO_TEST_WINDOWS_SHARD must be 1 or 2 and can only be set on Windows.');
+}
+
+function balanceWindowsTests(files) {
+  const timings = JSON.parse(readFileSync(new URL('./unit-test-windows-times.json', import.meta.url), 'utf8'));
+  const entries = files.map(file => ({
+    file,
+    weight: timings[relative(root, file).split(sep).join('/')] ?? 750,
+  }));
+  // Input is sorted by path. Stable sort keeps ties deterministic on both runners.
+  entries.sort((a, b) => b.weight - a.weight);
+  const shards = [[], []];
+  const durations = [0, 0];
+  for (const { file, weight } of entries) {
+    const choice = durations[0] <= durations[1] ? 0 : 1;
+    shards[choice].push(file);
+    durations[choice] += weight;
+  }
+  return shards.map(group => group.sort());
+}
+
+const files = shard === undefined ? discovered : balanceWindowsTests(discovered)[Number(shard) - 1];
 const sandbox = mkdtempSync(join(tmpdir(), 'arco-unit-'));
 const temporary = join(sandbox, 'tmp');
 let before;
@@ -26,7 +51,6 @@ try {
   before = snapshotTempFolders(temporary);
   // A test may prepend its own fake executable. Otherwise an accidental real
   // provider subprocess fails before it can make a paid call or use host auth.
-  const windows = process.platform === 'win32';
   for (const command of ['claude', 'codex', 'gemini', 'cursor-agent', 'agent', 'ollama', 'llama-server', 'llama-cli', 'lms', 'xolotl', 'docker', 'podman', 'gh', 'systemctl', 'journalctl', 'ssh', 'curl', 'wget']) {
     writeFileSync(join(binaries, command), '#!/bin/sh\necho "Real provider commands are disabled in unit tests; install a fixture on PATH." >&2\nexit 97\n', { mode: 0o755 });
     // Windows resolves commands through PATHEXT, so an extensionless script
@@ -56,6 +80,7 @@ try {
     }
     mkdirSync(env.APPDATA, { recursive: true }); mkdirSync(env.LOCALAPPDATA, { recursive: true });
   }
+  if (shard) console.log(`Windows unit shard ${shard}/2: assigned ${files.length} of ${discovered.length} discovered files.`);
   console.log(`Running ${files.length} source unit-test files with isolated HOME, temporary storage and provider fixtures.`);
   // A per-test timeout turns a hang into a named failure instead of a stalled job.
   const testArgs = ['--conditions', 'development', '--import', 'tsx', '--test', '--test-concurrency=1', '--test-timeout=120000', ...files];
@@ -89,6 +114,7 @@ try {
       if (r.error?.code === 'ETIMEDOUT' || (r.status === null && r.signal)) timedOut.push(name);
       else if (r.status !== 0) failed.push(name);
     }
+    if (shard) console.log(`\nWindows unit shard ${shard}/2: ran ${files.length} of ${discovered.length} discovered files.`);
     console.log(`\nFiles: ${files.length}, failed: ${failed.length}, timed out: ${timedOut.length}`);
     for (const name of failed) console.log(`FAILED   ${name}`);
     for (const name of timedOut) console.log(`TIMEOUT  ${name}`);

@@ -193,6 +193,17 @@ Anything failing `tsc` fails the workspace's `build`. The `ClientMessage` / `Ser
 
 ### Unit tests
 
+Hosted CI runs two Windows unit jobs per Node version. The unit runner
+discovers the same files in each job and assigns each file to one job,
+starting with the files that took longest in CI. It uses
+`scripts/unit-test-windows-times.json` for weights of 2 seconds and above.
+The initial weights are median durations in milliseconds from four Windows
+runs before the test cuts. New and shorter files use a 750 ms weight, so a
+new test needs no table change. Refresh the weights from measured Windows
+durations if the two jobs drift apart. Each job logs its own file count and
+the total discovered by the runner. Both completed counts must add up to
+that total. Linux, macOS and unsharded runs use the entire discovered suite.
+
 `npm run test:unit` supplies a temporary `HOME` and a separate temporary
 `ARCO_HOME`. It also checks its dedicated temporary directory for new `arco-*` folders after the tests, even on failure. Leftovers are listed in a warning and removed with the sandbox; they do not change the test result. `node scripts/smoke/run-browser-suites.mjs` applies the same check in a fresh temporary directory. Single-file tests must do the same before importing runtime
 modules. `installIsolatedTestHome(root)` in `server/src/testSupport/isolatedHome.ts`

@@ -35,7 +35,7 @@ defaults:
 
 jobs:
   verify:
-    name: verify (${{ matrix.os }}, Node ${{ matrix.node }})
+    name: verify (${{ matrix.os }}, Node ${{ matrix.node }}${{ matrix.os == 'windows-latest' && format(', units {0}/2', matrix.shard) || '' }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.os == 'windows-latest' && 40 || 25 }}
     strategy:
@@ -44,6 +44,8 @@ jobs:
         # Push, schedule or dispatch "all": all three. Other dispatches: the chosen OS.
         os: ${{ fromJSON((contains('push schedule', github.event_name) || inputs.os == 'all') && '["ubuntu-latest","macos-latest","windows-latest"]' || format('["{0}-latest"]', inputs.os)) }}
         node: [24, 26]
+        shard: ['1']
+        include: ${{ fromJSON((contains('push schedule', github.event_name) || inputs.os == 'all' || inputs.os == 'windows') && '[{"os":"windows-latest","node":24,"shard":"2"},{"os":"windows-latest","node":26,"shard":"2"}]' || '[]') }}
     steps:
       # Byte-exact fixtures (theme snapshot hash) must not see CRLF conversion on Windows.
       - name: Disable line-ending conversion
@@ -59,16 +61,20 @@ jobs:
       - name: Build
         run: npm run build
       - name: Typecheck
+        if: matrix.shard != '2'
         run: npm run typecheck
       # scripts/test-unit.mjs isolates HOME, provider commands and (on Linux, when permitted) the
       # network. The shell-script provider stubs and the network namespace only apply on POSIX hosts.
       - name: Unit tests
         # A hung test must fail the step with output instead of holding the runner for the job limit.
         timeout-minutes: ${{ matrix.os == 'windows-latest' && 35 || 20 }}
+        env:
+          ARCO_TEST_WINDOWS_SHARD: ${{ matrix.os == 'windows-latest' && matrix.shard || '' }}
         run: npm run test:unit
       # Optional operator-held patterns (names, hosts) for the audit. The secret is written to a
       # temporary file and exposed only as ARCO_PRIVATE_PATTERNS_FILE; absent secret = no-op.
       - name: Load private audit patterns
+        if: matrix.shard != '2'
         env:
           ARCO_PRIVATE_PATTERNS: ${{ secrets.ARCO_PRIVATE_PATTERNS }}
         run: |
@@ -79,6 +85,7 @@ jobs:
             echo "No ARCO_PRIVATE_PATTERNS secret; using built-in rules only."
           fi
       - name: Public-safety audit (tree)
+        if: matrix.shard != '2'
         run: npm run audit:public -- --tree
       # A manual or weekly run audits the checked-out commit's history and the tags.
       # Private patterns apply to the tree and staged scans only: older commits legitimately
@@ -97,6 +104,7 @@ jobs:
           ARCO_PRIVATE_PATTERNS_FILE: ''
         run: node scripts/public-audit.mjs --history
       - name: Help registry check
+        if: matrix.shard != '2'
         run: npm run docs:check
       - name: Documentation link check
         if: matrix.os == 'ubuntu-latest' && matrix.node == 24
