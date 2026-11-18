@@ -2173,8 +2173,11 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // deterministic per msgId so a present-in-messages check makes the
           // handler idempotent. Without this the chat grows unboundedly
           // every restart.
-          const existing = store.jobs[msg.workflowId]?.messages.some((m) => m.id === id);
-          if (existing) break;
+          const existing = store.jobs[msg.workflowId]?.messages.find((m) => m.id === id);
+          if (existing) {
+            if (existing.peerFullContent === undefined && typeof msg.content === 'string') store.updateMessage(msg.workflowId, id, { peerFullContent: msg.content });
+            break;
+          }
           splitPrimaryText(msg.workflowId);
           const sentEntry: ChatMessage = {
             id,
@@ -2182,6 +2185,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             turnStartedAt: store.jobs[msg.workflowId]?.turnStartedAt,
             eventSeq: (msg as { seq?: number }).seq,
             content: msg.contentPreview,
+            ...(typeof msg.content === 'string' ? { peerFullContent: msg.content } : {}),
             isStreaming: false,
             timestamp: 'ts' in msg && typeof (msg as { ts?: number }).ts === 'number' ? (msg as { ts: number }).ts : Date.now(),
             senderWorkflowId: msg.from,

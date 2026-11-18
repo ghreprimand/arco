@@ -58,11 +58,14 @@ async def main():
           s.getState().createJob('wf-a',{name:'Alpha',workingDirectory:'/projects/fixture',primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'low',skipPermissions:false});
           receive({type:'cluster_state',clusterId:'cl-1',state:{clusterId:'cl-1',cwd:'/projects/fixture',createdAt:'',taskBoardMode:'none',taskBoardAttached:false,mailboxDepth:{},members:[
             {workflowId:'wf-a',displayName:'Alpha',status:'idle'},{workflowId:'wf-b',displayName:'Beta',status:'idle'},{workflowId:'wf-c',displayName:'Gamma',status:'idle'}],idleNudgerEnabled:false}},{wsRef:{current:null},scheduleReconnect:()=>{}});
+          receive({type:'peer_message_received',workflowId:'wf-a',msgId:'in',from:'wf-b',fromName:'Beta',content:'Beta says the fix looks right '+ 'x'.repeat(240)+'\\nReceived ending',ts:3},{wsRef:{current:null},scheduleReconnect:()=>{}});
+          receive({type:'peer_message_sent',workflowId:'wf-a',msgId:'out',from:'wf-a',to:'wf-b',contentPreview:'Thanks Beta, landing now (shortened ec...',ts:4},{wsRef:{current:null},scheduleReconnect:()=>{}});
+          receive({type:'peer_message_sent',workflowId:'wf-a',msgId:'out',from:'wf-a',to:'wf-b',contentPreview:'Thanks Beta, landing now (shortened ec...',content:'Thanks Beta, landing now (shortened echo)\\nThe full second line remains available.',ts:4},{wsRef:{current:null},scheduleReconnect:()=>{}});
+          const peerRows=s.getState().jobs['wf-a'].messages;
           const messages = [
             {id:'m1',role:'user',content:'Please fix the login bug',isStreaming:false,timestamp:1},
             {id:'m2',role:'assistant',content:'Found it: the token is never refreshed.',isStreaming:false,timestamp:2},
-            {id:'m3',role:'peer-received',content:'Beta says the fix looks right',senderDisplayName:'Beta',isStreaming:false,timestamp:3},
-            {id:'m4',role:'peer-sent',content:'Thanks Beta, landing now (shortened ec...',senderDisplayName:'Beta',isStreaming:false,timestamp:4},
+            ...peerRows,
           ];
           function Harness() {
             const [dialog, setDialog] = React.useState('none');
@@ -80,6 +83,23 @@ async def main():
         boxes = page.get_by_test_id('message-select')
         await expect(boxes).to_have_count(4)
         await expect(page.get_by_test_id('message-selection-bar')).to_have_count(0)
+
+        # Read both directions, keeping sent previews and the original line breaks.
+        sent = page.get_by_role('button', name='Open peer message sent to Beta', exact=True)
+        await sent.focus(); await page.keyboard.press('Enter')
+        mail = page.get_by_role('dialog', name='Peer message', exact=True)
+        await expect(mail).to_contain_text('The full second line remains available.')
+        await expect(mail).to_contain_text('From: Alpha')
+        await expect(mail).to_contain_text('To: Beta')
+        assert '\nThe full second line' in await mail.inner_text()
+        await page.keyboard.press('Escape'); await expect(sent).to_be_focused()
+        received = page.get_by_role('button', name='Open peer message from Beta', exact=True)
+        await expect(received).not_to_contain_text('Received ending')
+        await received.tap()
+        mail = page.get_by_role('dialog', name='Peer message', exact=True)
+        await expect(mail).to_contain_text('Beta says the fix looks right')
+        await expect(mail).to_contain_text('Received ending')
+        await mail.get_by_role('button', name='CLOSE', exact=True).click()
 
         # FORWARD two messages to two members with a note.
         await boxes.nth(0).click()

@@ -18,11 +18,15 @@ Cluster mode groups tabs sharing one cwd so members can hand notes between opera
 
 ### Peer messaging (workflow-scoped)
 
+Select a sent or received PEER card in the conversation to read the available
+message in a dialog. Older sent records may contain only a preview; the dialog
+says when the full body was not saved. Close the dialog to return to the card.
+
 Three workflow-scoped event kinds - emitted on each member's own `broadcastWorkflow` channel so events.jsonl carries the per-member view.
 
 #### `peer_message_sent` <-
 
-Emitted on the sender's workflow when `peer_send` succeeds. Carries a content preview only; the full content lives on the recipient's matching `peer_message_received`.
+Emitted on the sender's workflow when `peer_send` succeeds. New events carry the full content and a compact preview; older sender events may have only the preview. The recipient's matching `peer_message_received` carries the delivered content.
 
 ```ts
 {
@@ -32,6 +36,8 @@ Emitted on the sender's workflow when `peer_send` succeeds. Carries a content pr
   from: string,                        // sender workflowId (== workflowId above)
   to: string,                          // recipient workflowId
   contentPreview: string,              // up to 200 chars
+  content?: string,                    // full content on new events
+  ts?: number,                         // original send time
   chainDepth?: number, // auto-turn chain depth; stamped server-side at broadcast (operator-initiated sends ride at depth 0). The auto-turn detector refuses to fire when chainDepth ≥ AUTO_TURN_MAX_CHAIN_DEPTH.
 }
 ```

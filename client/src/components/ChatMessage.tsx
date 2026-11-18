@@ -26,6 +26,7 @@ export type { WrittenFilesIndex };
 import { useOperatorLabel } from '../utils/operatorLabel';
 import { useTerminalStore } from '../stores/terminalStore';
 import { detectCommand } from './Terminal/detectCommand';
+import { DialogShell } from './DialogShell';
 
 // Thresholds above which an operator message auto-collapses into a pill.
 // Either dimension triggers — a single 2000-char paragraph is as intrusive
@@ -876,6 +877,8 @@ function hashSenderColor(senderWorkflowId: string | undefined): string {
 function PeerMessageBlock({ message, jobId, onMakeTask }: { message: ChatMessageType; jobId?: string; onMakeTask?: (content: string, fromWorkflowId: string) => void }) {
   const selected = useMessageSelectionStore((s) => !!jobId && (s.selected[jobId]?.includes(message.id) ?? false));
   const isSent = message.role === 'peer-sent';
+  const [open, setOpen] = useState(false);
+  const openButton = useRef<HTMLButtonElement>(null);
   const senderColor = hashSenderColor(message.senderWorkflowId);
   const arrow = isSent ? '→' : '←';
   const verb = isSent ? 'sent to' : 'from';
@@ -889,9 +892,14 @@ function PeerMessageBlock({ message, jobId, onMakeTask }: { message: ChatMessage
   const senderLabel = peerInfo
     ? (peerInfo.role ? `${peerInfo.displayName} (${peerInfo.role})` : peerInfo.displayName)
     : fallbackLabel;
-  return (
+  const self = useAppStore((s) => jobId ? s.clusterMemberLabels[jobId] : undefined);
+  const selfLabel = self?.displayName ?? jobId?.slice(0, 8) ?? 'This member';
+  return (<>
     <div
+      data-help="cluster.peer-message"
+      onClick={(event) => { if (!(event.target as HTMLElement).closest('button, input, a')) { openButton.current?.focus(); setOpen(true); } }}
       style={{
+        cursor: 'pointer',
         margin: '8px 16px',
         padding: '8px 12px',
         borderLeft: `3px solid ${senderColor}`,
@@ -954,11 +962,18 @@ function PeerMessageBlock({ message, jobId, onMakeTask }: { message: ChatMessage
           </button>
         ) : null}
       </div>
-      <div style={{ color: 'var(--color-fg)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-        {message.content}
-      </div>
+      <button ref={openButton} type="button" aria-label={`Open peer message ${verb} ${senderLabel}`} aria-haspopup="dialog" data-help="cluster.peer-message" onClick={() => setOpen(true)} style={{ padding: 0, border: 0, background: 'transparent', color: 'var(--color-fg)', textAlign: 'left', font: 'inherit', cursor: 'pointer', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+        {message.content.length > 200 ? `${message.content.slice(0, 200)}…` : message.content}
+      </button>
     </div>
-  );
+    {open && <DialogShell title="Peer message" dataHelp="cluster.peer-message" onClose={() => setOpen(false)} width={720}
+      actions={<button type="button" onClick={() => setOpen(false)}>CLOSE</button>}>
+      <p>From: {isSent ? selfLabel : senderLabel}<br />To: {isSent ? senderLabel : selfLabel}<br />
+        {message.timestamp ? `Sent: ${new Date(message.timestamp).toLocaleString()}` : 'Time unavailable'}</p>
+      {isSent && message.peerFullContent === undefined && <p>Only the saved preview is available for this older sent message.</p>}
+      <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{isSent ? (message.peerFullContent ?? message.content) : message.content}</div>
+    </DialogShell>}
+  </>);
 }
 
 // Memoised. ChatPanel virtualises with `overscan: 16`, so ~30 rows

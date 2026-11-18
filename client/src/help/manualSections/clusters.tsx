@@ -920,6 +920,9 @@ export const clusters: Section[] = [
   members&apos; conversation records.
   </li>
   </ul>
+  <p>A sent or received PEER card in the conversation shows a short preview.
+  Select it to read the full available message, sender, recipient and time. Older sent messages may have
+  only their saved preview. Close the dialog to return to the conversation.</p>
   <p>
   Temporary mailbox read or attachment-write failures leave pending messages
   untouched for retry. Each attachment gets a separate file, even when names

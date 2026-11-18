@@ -53,6 +53,8 @@ export async function rehydrateClusterOnce(
         from: m.fromWorkflowId,
         to: m.toWorkflowId,
         contentPreview: m.content.length > 200 ? `${m.content.slice(0, 200)}…` : m.content,
+        content: m.content,
+        ...(Number.isFinite(Date.parse(m.createdAt)) ? { ts: Date.parse(m.createdAt) } : {}),
       };
       // broadcastWorkflow stamps the event into the SENDER's events.jsonl
       // and fans out to that workflow's live observers. The cluster

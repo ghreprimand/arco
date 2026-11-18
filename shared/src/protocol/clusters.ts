@@ -35,10 +35,7 @@ export function isClusterMemberAccessMode(v: unknown): v is ClusterMemberAccessM
 // Three kinds, all workflow-scoped (each member's events.jsonl carries
 // only the events that apply to it):
 //   peer_message_sent      — emitted on the SENDER's workflow when
-//                             peer_send succeeds. Carries a content
-//                             preview only (the full content can be
-//                             reconstructed from the recipient's
-//                             matching peer_message_received).
+//                             peer_send succeeds. Carries the preview and, for new messages, the full body.
 //   peer_message_received  — emitted on the RECIPIENT's workflow at
 //                             injection time (pre-turn drain or mid-turn
 //                             peer_read). Replay reproduces the
@@ -59,7 +56,9 @@ export interface PeerMessageSentMessage {
   msgId: string;
   from: string;             // sender workflowId (== workflowId above)
   to: string;               // recipient workflowId
-  contentPreview: string;   // up to 200 chars; full content lives in the recipient's record
+  contentPreview: string;   // up to 200 chars
+  content?: string;         // absent on older sender records
+  ts?: number;              // original send time
   // Auto-turn-on-mailbox chain depth (docs/PROTOCOL_CLUSTER.md). 0 (or
   // absent) for operator-initiated sends. When the auto-turn detector fires a
   // turn on a recipient, peer_send originating during that turn carries

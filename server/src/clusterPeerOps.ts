@@ -363,6 +363,7 @@ export async function peerSend(
       artifacts.push({ name: basename(abs), contentBase64: data.toString('base64'), byteLength: data.byteLength });
     }
   }
+  const createdAt = new Date().toISOString();
   try {
     await clusterMailbox.enqueue(resolved, {
       msgId,
@@ -370,7 +371,7 @@ export async function peerSend(
       fromDisplayName,
       toWorkflowId: resolved,
       content: args.content,
-      createdAt: new Date().toISOString(),
+      createdAt,
       delivered: false,
       ...(artifacts?.length ? { artifacts } : {}),
     }, opts?.maxContentBytes !== undefined ? { maxContentBytes: opts.maxContentBytes } : undefined);
@@ -398,6 +399,8 @@ export async function peerSend(
     from: ctx.workflowId,
     to: resolved,
     contentPreview: args.content.length > 200 ? `${args.content.slice(0, 200)}…` : args.content,
+    content: args.content,
+    ts: Date.parse(createdAt),
   });
   const warning = guard && clusterBudget.takeWarning(ctx.workflowId, guard, guardDecision!.count)
     ? `Warn-only threshold exceeded: ${guardDecision!.count}/${guard.threshold} peer messages this primary turn. Mail accepted. Consolidate related same-recipient information; required work and review still apply.`

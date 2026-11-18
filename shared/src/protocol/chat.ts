@@ -19,6 +19,7 @@ export interface ChatMessage {
   // chat row, so a reload preserves the visual peer-message timeline.
   role: 'user' | 'assistant' | 'system' | 'peer-sent' | 'peer-received' | 'ctx-divider';
   content: string;
+  peerFullContent?: string; // sent mail body; absent for older preview-only records
   automaticKind?: AutomaticMessageKind;
   authRecovery?: AuthRecoveryContext;
   operatorQuestion?: OperatorQuestionState;

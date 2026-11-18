@@ -2,6 +2,11 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const clusterHelp: Record<string, HelpEntry> = {
+  'cluster.peer-message': {
+    title: 'Read peer mail',
+    body: <p>The card shows a short preview. Open it to read the full available message, sender, recipient and time. Older sent messages may contain only a saved preview. Close the dialog to return to the conversation.</p>,
+    manualSection: 'cluster-peer-messaging',
+  },
   'cluster.skills': {
     title: 'Cluster skill pins',
     body: <><p><C>SKILLS</C> beside EFFICIENCY shows configured cluster pins, including missing or off skills. Open it to see each skill's source and All members or role target. Full text is added each turn for matching members; new and replaced members inherit it.</p><p>Only the operator pins or unpins. Use ADD SKILL to choose a skill and pin it to all members or one role. Settings &gt; SKILLS also manages skills and pins. Tab, cluster and matching role pins share 12 unique skills and 64 KiB of text.</p></>,
