@@ -162,17 +162,22 @@ test('a bound tab and the project document list can open Git-confirmed worktree 
 
     const { collectDocsPage } = await import('./explorerDocs.js');
     const overview = await collectDocsPage();
-    assert.ok(overview.projects?.some(project => project.cwd === main), 'a project with only a sibling document remains selectable');
+    // Git for Windows may expand an 8.3 alias that Node kept in the fixture path.
+    const projectRoot = realpathSync.native(main);
+    assert.ok(overview.projects?.some(project => realpathSync.native(project.cwd) === projectRoot),
+      'a project with only a sibling document remains selectable');
     assert.deepEqual(overview.entries, []);
     const page = await collectDocsPage({ project: main });
-    assert.deepEqual(page.entries.map(({ branch, cwd, rel }) => ({ branch, cwd, rel })), [
-      { branch: 'review', cwd: main, rel: 'branch-note.md' },
+    assert.deepEqual(page.entries.map(({ branch, cwd, rel }) => ({ branch, cwd: realpathSync.native(cwd), rel })), [
+      { branch: 'review', cwd: projectRoot, rel: 'branch-note.md' },
     ]);
-    assert.equal(await resolveBrowserRead(page.entries[0].path, page.entries[0].cwd), selected);
+    const listed = await resolveBrowserRead(page.entries[0].path, page.entries[0].cwd);
+    assert.equal(realpathSync.native(listed), realpathSync.native(selected));
 
     const mainDocument = file(path.join(main, 'main-note.md'));
     workflowCwds.set('worktree-linked', linked);
-    assert.equal(await resolveBrowserRead(mainDocument, linked, 'worktree-linked'), mainDocument);
+    const openedMain = await resolveBrowserRead(mainDocument, linked, 'worktree-linked');
+    assert.equal(realpathSync.native(openedMain), realpathSync.native(mainDocument));
     workflowCwds.delete('worktree-linked');
 
     git('worktree', 'remove', '--force', linked);
