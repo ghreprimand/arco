@@ -9,6 +9,7 @@ import asyncio
 import base64
 import json
 import os
+import time
 from pathlib import Path
 from urllib.parse import urlparse
 from playwright.async_api import async_playwright, expect
@@ -20,6 +21,7 @@ install_navigation_defaults()
 
 PORT = os.environ.get('ARCO_CLIENT_PORT', '5227')
 ORIGIN = 'http://127.0.0.1:' + PORT
+PHONE_ORIGIN = 'http://192.0.2.10:3019'
 ROOT = Path(__file__).resolve().parents[2]
 PNG = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jubkAAAAASUVORK5CYII=')
 HTML = '''<!doctype html><html><head><link rel="stylesheet" href="/src/styles/global.css"></head><body><div id="fixture"></div><script type="module">import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window); window.$RefreshReg$=()=>{}; window.$RefreshSig$=()=>type=>type; window.__vite_plugin_react_preamble_installed__=true; window.fixtureReady=true;</script></body></html>'''
@@ -107,6 +109,16 @@ async def main():
                         'path': '/tmp/arco-uploads/ab12-' + name,
                     })
                     return
+                if url.path.startswith('/api/phone-upload'):
+                    # Synthetic documentation address; no real listener exists.
+                    if route.request.method == 'POST':
+                        await route.fulfill(status=201, json={
+                            'id': 'phone-fixture', 'url': PHONE_ORIGIN + '/phone-upload#fixture',
+                            'expiresAt': int(time.time() * 1000) + 300_000,
+                        })
+                    else:
+                        await route.fulfill(json={'files': [], 'closed': False})
+                    return
                 local = url.path.startswith('/@fs/') and fs_path(url.path).resolve().is_relative_to(ROOT)
                 if route.request.method == 'GET' and (local or url.path.startswith(('/@react-refresh', '/@vite/', '/@id/', '/node_modules/.vite/deps/', '/src/'))):
                     await route.continue_()
@@ -135,6 +147,41 @@ async def main():
         assert all(u['url'].startswith(ORIGIN + '/upload') for u in state['uploads']), state['uploads']
         assert all(':3001' not in u['url'] for u in state['uploads'])
         assert not state['blocked']
+
+        # --- UPLOAD FROM PHONE at the 110% interface scale ---
+        # The expanded window must stay inside the viewport with its title
+        # visible; its height limit once ignored the interface scale.
+        await page.set_viewport_size({'width': 1000, 'height': 700})
+        await page.evaluate('''async () => {
+          const React = (await import('/node_modules/.vite/deps/react.js')).default;
+          const {createRoot} = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;
+          const {PhoneUploadWindow} = await import('/src/components/PhoneUpload.tsx');
+          const {applyUiScale} = await import('/src/themes/bootstrap.ts');
+          applyUiScale(1.1);
+          const host = document.createElement('div');
+          document.body.append(host);
+          window.__phoneRoot = createRoot(host);
+          window.__phoneRoot.render(React.createElement(PhoneUploadWindow));
+        }''')
+        await page.get_by_role('button', name='Upload from phone').click()
+        phone = page.get_by_test_id('phone-upload-window')
+        await expect(phone.get_by_alt_text('Scan to upload from your phone')).to_be_visible()
+        await expect(phone.locator('.phone-upload-route')).to_have_text(PHONE_ORIGIN + ' UNVERIFIED')
+        await phone.locator('details.phone-upload-info summary').click()
+        await expect(phone.locator('details.phone-upload-info p')).to_be_visible()
+        box = await page.evaluate('''() => {
+          const w = document.querySelector('[data-testid=phone-upload-window]');
+          const r = w.getBoundingClientRect(), t = w.querySelector('h2').getBoundingClientRect();
+          return {top: r.top, bottom: r.bottom, title: t.top, height: innerHeight};
+        }''')
+        assert box['top'] >= 0 and box['title'] >= 0 and box['bottom'] <= box['height'] + 1, box
+        await phone.get_by_role('button', name='Close', exact=True).click()
+        await expect(phone).to_have_count(0)
+        await page.evaluate('''async () => {
+          window.__phoneRoot.unmount();
+          (await import('/src/themes/bootstrap.ts')).applyUiScale(1);
+        }''')
+        await page.set_viewport_size({'width': 1000, 'height': 800})
 
         # --- paste image ---
         before = len(state['uploads'])

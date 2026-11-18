@@ -50,6 +50,25 @@ export function PhoneUploadButton({ workflowId, style }: { workflowId: string; s
   >UPLOAD FROM PHONE</button>;
 }
 
+// Arco cannot tell from this computer whether a phone can reach an address:
+// the firewall or the network may block it, and Arco never inspects either.
+// Every offered route is therefore marked Unverified, with a static note.
+export function PhoneRouteLabel({ origin }: { origin: string }) {
+  return <>{origin} <span className="phone-upload-unverified">UNVERIFIED</span></>;
+}
+
+export function PhoneRouteInfo() {
+  return <details className="phone-upload-info">
+    <summary>More info</summary>
+    <p>
+      Arco opened a listener on this address, but it cannot check from this computer whether the phone can reach it.
+      This computer&apos;s firewall or the network (a guest Wi-Fi, a router that keeps devices apart, a VPN) can block
+      the connection. The address is confirmed only when the page opens on the phone. Arco does not inspect or change
+      the firewall.
+    </p>
+  </details>;
+}
+
 function PhoneCode({ opening, dismiss }: { opening: Opening; dismiss: () => void }) {
   const { workflowId } = opening;
   const workflowAvailable = useAppStore(s => !!s.jobs[workflowId]);
@@ -198,10 +217,13 @@ function PhoneCode({ opening, dismiss }: { opening: Opening; dismiss: () => void
           : 'Choose the private address your phone can reach.')}
       </div>
       {!creating && !link && !error && origins.map(origin =>
-        <button type="button" key={origin} onClick={() => setChosen(origin)}>{origin}</button>,
+        <button type="button" key={origin} onClick={() => setChosen(origin)}><PhoneRouteLabel origin={origin} /></button>,
       )}
+      {!creating && !link && !error && origins.length > 0 && <PhoneRouteInfo />}
       {qr && <>
         <img src={qr} alt="Scan to upload from your phone" />
+        <div className="phone-upload-route"><PhoneRouteLabel origin={new URL(link!.url).origin} /></div>
+        <PhoneRouteInfo />
         <div>Expires in {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</div>
         <p className="phone-upload-hint">
           If the phone cannot open the page, check that it is on the same Wi-Fi or tailnet as this computer

@@ -780,6 +780,18 @@ returns 404 and WebSocket upgrades are refused, so the workbench, its API and
 the terminal stay on loopback. It closes about a minute after no code is open
 and no upload is in progress. The main server's bind does not change.
 
+Each offered address is marked UNVERIFIED. When several addresses are
+available, each choice button shows the address and port followed by
+UNVERIFIED, for example `http://<address>:<port> UNVERIFIED`; the line under
+the code shows the chosen address the same way. If one address does not open
+on the phone and another is offered, close the window, open it again and choose
+the other address. Arco knows it opened a listener there but cannot tell from the computer
+whether the phone can reach it: the firewall or the network (a guest Wi-Fi, a
+router that keeps devices apart) may block it. **More info** in the window says
+so. The address is confirmed only when the page opens on the phone. Arco does
+not inspect the firewall; reading its rules can need administrator rights and
+start a password prompt.
+
 Arco makes no firewall or system change. If the phone cannot open the page,
 check that it is on the same network and that the computer's firewall allows
 incoming connections on the port in the code; the window says so. Windows and

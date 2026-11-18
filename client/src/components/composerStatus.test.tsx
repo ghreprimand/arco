@@ -128,3 +128,69 @@ test('the north star and a running goal stay actionable, and the context gauge n
     await act(async () => { root.unmount(); });
   }
 });
+
+test('every phone upload route is marked unverified with a static note, in the chooser and beside the code', async () => {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/', pretendToBeVisual: true });
+  const names = ['window', 'document', 'localStorage', 'HTMLElement', 'Node', 'navigator', 'getComputedStyle', 'fetch', 'CustomEvent'];
+  const previous = new Map(names.map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  const requests: string[] = [];
+  const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+  Object.defineProperties(globalThis, {
+    window: { configurable: true, value: dom.window },
+    document: { configurable: true, value: dom.window.document },
+    localStorage: { configurable: true, value: dom.window.localStorage },
+    HTMLElement: { configurable: true, value: dom.window.HTMLElement },
+    Node: { configurable: true, value: dom.window.Node },
+    navigator: { configurable: true, value: dom.window.navigator },
+    getComputedStyle: { configurable: true, value: dom.window.getComputedStyle.bind(dom.window) },
+    CustomEvent: { configurable: true, value: dom.window.CustomEvent },
+    IS_REACT_ACT_ENVIRONMENT: { configurable: true, value: true },
+    fetch: { configurable: true, value: async (url: string, init: RequestInit = {}) => {
+      requests.push(`${init.method ?? 'GET'} ${url}`);
+      if (init.method === 'POST') {
+        const body = JSON.parse(String(init.body)) as { origin?: string };
+        return body.origin
+          ? reply({ id: 'fixture-link', url: `${body.origin}/phone-upload#fixture`, expiresAt: Date.now() + 300_000 }, 201)
+          : reply({ origins: ['http://192.0.2.10:3019', 'http://100.64.0.10:3019'] });
+      }
+      return reply({ files: [], closed: false });
+    } },
+  });
+  const { useAppStore } = await import('../stores/appStore');
+  const { PhoneUploadWindow } = await import('./PhoneUpload');
+  useAppStore.setState({ jobs: { 'phone-fixture': job({ messages: [], reviews: [], handoffs: [] } as Partial<JobState>) } });
+  const host = dom.window.document.createElement('div');
+  dom.window.document.body.append(host);
+  const root = createRoot(host);
+  try {
+    await act(async () => { root.render(createElement(PhoneUploadWindow)); });
+    const trigger = dom.window.document.createElement('button');
+    dom.window.document.body.append(trigger);
+    await act(async () => {
+      dom.window.dispatchEvent(new dom.window.CustomEvent('arco:open-phone-upload', { detail: { workflowId: 'phone-fixture', trigger } }));
+    });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    const panel = dom.window.document.querySelector('[data-testid="phone-upload-window"]')!;
+    const routes = [...panel.querySelectorAll('button')].filter((button) => button.textContent?.startsWith('http://'));
+    assert.deepEqual(routes.map((button) => button.textContent), ['http://192.0.2.10:3019 UNVERIFIED', 'http://100.64.0.10:3019 UNVERIFIED']);
+    const info = panel.querySelector('details.phone-upload-info');
+    assert.equal(info?.querySelector('summary')?.textContent, 'More info');
+    assert.match(info?.textContent ?? '', /cannot check from this computer whether the phone can reach it/);
+    assert.match(info?.textContent ?? '', /firewall or the network/);
+
+    await act(async () => { routes[0].click(); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert.ok(panel.querySelector('img'), 'the chosen route still produces a code');
+    assert.equal(panel.querySelector('.phone-upload-route')?.textContent, 'http://192.0.2.10:3019 UNVERIFIED');
+    assert.ok(panel.querySelector('details.phone-upload-info'));
+    assert.equal(requests.filter((request) => request.startsWith('POST')).length, 2);
+  } finally {
+    await act(async () => { root.unmount(); });
+    dom.window.close();
+    for (const [name, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete (globalThis as Record<string, unknown>)[name];
+    }
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  }
+});
