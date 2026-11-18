@@ -450,13 +450,25 @@ export const workspace: Section[] = [
           Open <Code>UPLOAD FROM PHONE</Code> beside Attach and scan the code on the same private network. Take a photo or choose files. They appear in the original draft, even after switching tabs. Press Send to submit them.
         </p>
         <p>
-          The code holds this computer&apos;s private network or tailnet address, whatever address the desktop page uses. When Arco listens on this computer only (the default), opening the code starts a temporary listener that serves the phone upload page alone and closes about a minute after the last code. The phone page uses the Arco theme that was active when the code was opened.
+          The window lists private IPv4 origins as <Code>http://&lt;ipv4&gt;:&lt;port&gt;</Code> from the listener (home LAN and Tailscale when present). It never lists MagicDNS names or the desktop page hostname. When several appear, choose one. Scan the full QR; the origin under the code is only the address and port.
+        </p>
+        <p>
+          When Arco listens on this computer only (the default), opening the code starts a temporary listener that serves the phone upload page alone and closes about a minute after no code is open and no upload is in progress.
+        </p>
+        <p>
+          The phone must open the code&apos;s address directly; a path through Tailscale Serve or another reverse proxy is refused. The phone page uses the Arco theme that was active when the code was opened.
         </p>
         <p>
           Each address is marked <Code>UNVERIFIED</Code> until a file arrives through it, then <Code>VERIFIED BY UPLOAD</Code> with the time it last worked, each on its own line. Arco remembers this for each address and port, also after a restart.
         </p>
         <p>
-          Arco cannot tell from this computer whether the phone can reach an address, and settings can change after it has worked. <Code>More info</Code>, shown once in the window, explains this and lists what to check. If one address does not open on the phone and another is offered, close the window, open it again and choose the other address, for example the tailnet address.
+          Arco cannot tell from this computer whether the phone can reach an address, and settings can change after it has worked. <Code>More info</Code>, shown once in the window, explains this and lists what to check. If one address does not open on the phone and another is offered, close the window, open it again and choose the other address, for example the Tailscale IPv4 origin.
+        </p>
+        <p>
+          Same Wi-Fi: pick the LAN origin if offered, scan the QR, and avoid guest Wi-Fi that blocks connections between devices. Same Tailscale network: pick the Tailscale <Code>http://100.x...</Code> origin (not a MagicDNS name), keep both devices in the same tailnet, scan the QR, and do not put the upload URL behind Serve.
+        </p>
+        <p>
+          Full workbench access on a private network or via Serve is a separate bind; it is not the QR upload listener. Worked steps live under Operations - Upload from phone.
         </p>
         <p>
           The code closes after five minutes or when Close is pressed. It accepts up to 10 files, 20 MiB each and 100 MiB total. Unsent phone files are removed after 30 minutes. Anyone who obtains the code on the private network can put files in that draft until it closes.

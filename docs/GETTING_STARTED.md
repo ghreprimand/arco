@@ -290,6 +290,10 @@ work or start a session from a project card. The full control map is in
 5. Select **LAUNCH WORKFLOW**, wait for the provider to connect, then send a
    small request in the composer.
 
+To attach a photo or file from a phone on the same private network without
+opening the full workbench, use **UPLOAD FROM PHONE** beside Attach. Prefer the
+worked paths under [Upload from phone](OPERATIONS.md#upload-from-phone).
+
 ### Chat without project tools
 
 For a plain saved conversation without file or project tools, choose **CHAT** in

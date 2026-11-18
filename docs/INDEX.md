@@ -48,7 +48,7 @@
 
 - [MCP Registry](MCP_REGISTRY.md): MCP server registration and per-workflow access.
 - [Resume index](RESUME_INDEX.md): saved-session titles and resume controls.
-- [Operations](OPERATIONS.md): startup, configuration, recovery, and network exposure.
+- [Operations](OPERATIONS.md): startup, configuration, recovery, and network exposure. Includes [Upload from phone](OPERATIONS.md#upload-from-phone) for the QR path on a private LAN or Tailscale network.
 - [Service mode](SERVICE_MODE.md): compiled server and background service lifecycle.
 - [Docker](DOCKER.md): container setup, project mounts, provider login, and persistence.
 - [Remote Management](REMOTE_MANAGEMENT.md): private-network console, agent, and remote actions.

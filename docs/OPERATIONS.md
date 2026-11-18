@@ -765,9 +765,12 @@ only the browser session cookie and the Host and Origin check above.
 Open **UPLOAD FROM PHONE** beside Attach and scan the code on a phone on the
 same private network or tailnet as this computer. The picker accepts photos,
 PDFs, text and supported office documents. There is no account or relay. The
-code holds a private LAN or tailnet address, whatever address, machine name or
-proxy the desktop page was opened with, and the window offers a choice when
-there are several.
+window lists each offered private IPv4 origin as `http://<ipv4>:<port>` from
+the listener (home LAN and Tailscale addresses when present). It never lists
+MagicDNS names, machine names or the desktop page's proxy URL. When several
+origins appear, choose one. The QR encodes the full upload link for that origin
+(`/phone-upload` plus the secret after `#`). The line under the code shows the
+origin only, so you can tell which address and port it is using.
 
 When the server itself listens on a private address (`ARCO_HOST` set to
 `0.0.0.0`, `::` or one private address), the code uses that listener. With the
@@ -831,6 +834,70 @@ normal Send submits them. Arco removes discarded phone attachments and expires
 unsent ones after 30 minutes. Anyone on the private network who obtains the
 code may put a file in that draft. Plain HTTP can be observed on the network.
 Use a trusted private network and review attachments before sending.
+
+#### Same private LAN - upload only
+
+Goal: the phone puts files in one draft. The workbench stays on this computer.
+
+1. Leave Arco on the default bind (`ARCO_HOST=127.0.0.1`). The desktop page stays
+   on loopback (or the packaged local URL).
+2. On the computer, open the conversation and press **UPLOAD FROM PHONE**.
+3. If several addresses appear, each shows the origin, then **UNVERIFIED** or
+   **VERIFIED BY UPLOAD**, then **Last worked** with a time when verified, each
+   on its own line. Choose the home-LAN origin, for example
+   `http://192.0.2.10:3001`. That line is the address and port only. **More info**
+   (once in the window) explains reachability and what to check.
+4. On the phone, join the same Wi-Fi or LAN as the computer (not a guest network
+   that isolates clients). Scan the QR code so the phone opens the full link.
+   Do not type only the origin shown under the code; that address alone is not
+   the upload page with the link token. Use **Take Photo** or **Choose Files**.
+5. If the page does not load: confirm the same network; allow incoming
+   connections on the private profile for the port in the origin (Windows and
+   macOS may ask once); on Linux, allow that TCP port only on the private or LAN
+   zone. Do not open it to the public internet. Arco does not change the
+   firewall.
+6. After a file arrives, the desktop mark becomes **VERIFIED BY UPLOAD** with
+   **Last worked** and the local time. Review attachments, then **Send**.
+
+This path is not setting `ARCO_HOST=0.0.0.0` so phones browse the full
+workbench. That bind exposes filesystem and control surfaces with only the
+session cookie and Host/Origin checks (see Exposure posture above).
+
+#### Same Tailscale tailnet - upload only
+
+Goal: phone and desktop share a Tailscale network; upload uses the Tailscale
+IPv4 origin in the chooser.
+
+1. Install Tailscale on the Arco computer and the phone; sign both into the same
+   tailnet. MagicDNS names help the operator recognise devices in the Tailscale
+   console; they do not appear in Arco's chooser.
+2. Keep Arco on the default loopback bind for the desktop session.
+3. Open **UPLOAD FROM PHONE**. When several addresses appear, choose the
+   Tailscale IPv4 origin Arco shows (CGNAT `100.x` form). Origins are always
+   `http://<ipv4>:<port>` from the listener; never a MagicDNS name.
+4. On the phone (cellular or another network is fine if Tailscale is up), scan
+   the QR for the full upload link. Direct connection only: do not put the
+   upload URL behind Tailscale Serve or Funnel; Serve and reverse-proxy uploads
+   are refused.
+5. Allow the port in the origin for the Tailscale interface or zone if the OS
+   firewall blocks it; do not publish that port on the public internet.
+6. A successful upload marks that origin **VERIFIED BY UPLOAD** as on the LAN
+   path.
+
+Peer connectivity on a tailnet normally needs no extra inbound ports on the LAN
+edge; still allow the Arco phone-upload port on the Arco host so the phone's
+Tailscale interface can reach that listener.
+
+#### Whole Arco on a private network (contrast)
+
+When the operator wants the full UI from another device on a trusted private
+network or via Tailscale Serve HTTPS, that is a deliberate bind or Serve setup
+(`ARCO_HOST` and/or Tailscale Serve as in [Remote management](REMOTE_MANAGEMENT.md)
+and Exposure posture). There is still no user password - only the browser
+session cookie and Host/Origin checks. That path is separate from **UPLOAD FROM
+PHONE**. The QR temporary listener answers only `/phone-upload` and its upload
+API; it does not open the workbench, API or terminal. Never use Funnel or any
+public relay to expose Arco or the upload listener.
 
 The **Security & Exposure** group in the System modal's Diagnostics tab (and the
 support bundle) reports this posture: bind address, terminal/git/filesystem/
