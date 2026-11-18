@@ -100,13 +100,24 @@ export async function resolveBoundCwd(
   const live = [...workflowCwds.values(), ...[...workflows.values()].map(wf => wf.config.workingDirectory),
     ...clusterStore.listKnownClusterIds().map(id => clusterStore.getClusterCached(id)?.cwd)];
   for (const root of live) {
-    try { if (root && safeDirectory(root) === canonical) return { ok: true, cwd: callerCwd }; } catch { /* protected or stale root */ }
+    try { if (root && sameDirectory(canonical, root)) return { ok: true, cwd: callerCwd }; } catch { /* protected or stale root */ }
   }
   const roots = await knownRoots();
   for (const root of roots) {
-    try { if (safeDirectory(root) === canonical) return { ok: true, cwd: callerCwd }; } catch { /* protected or stale root */ }
+    try { if (sameDirectory(canonical, root)) return { ok: true, cwd: callerCwd }; } catch { /* protected or stale root */ }
   }
   return { ok: false, reason: 'unknown-cwd' };
+}
+
+// Node's JavaScript realpath keeps a Windows 8.3 short name and the letter
+// case as written, while the native resolver (used by the document list)
+// expands both. A known root and a caller cwd that name the same directory in
+// different spellings still match; both sides pass safeDirectory first.
+function sameDirectory(canonical: string, root: string): boolean {
+  const other = safeDirectory(root);
+  if (other === canonical) return true;
+  if (process.platform !== 'win32') return false;
+  try { return realpathSync.native(other) === realpathSync.native(canonical); } catch { return false; }
 }
 
 export function boundCwdError(reason: 'none' | 'unknown-workflow' | 'unknown-cwd'): string {
