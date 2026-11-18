@@ -1135,6 +1135,8 @@ task-board contents are not part of a cluster snapshot.
 
 ## Director roles and work size
 
+A Director is instructed to answer the operator first. For an unresolved issue, the answer recommends the next step, names its owner, and states any operator decision or action and when it is needed. The Director owns worker coordination and says when a worker already owns the follow-up and the operator has nothing to do. It promises later follow-up only when an available trigger can wake it, and asks the operator to nudge the Director only when progress depends on it. New work waits for operator approval; already approved work continues.
+
 A new cluster or preset may have at most one director. Role text beginning with Director or Coordinator identifies a director. Existing clusters and saved presets remain readable without rewriting their roles. Assigning a director to another member is rejected. Legacy clusters that already have two directors remain intact, surface a warning on MEMBERS rows, and still allow REPLACE that preserves both directors' roles. The optional `tier` field is a work-size hint for the director: light for quick edits, standard for normal feature work, and heavy for large or architectural changes. It does not change model or effort and is most useful when several members can take the same work. Template review offers work size only for repeated roles.
 
 ## Composer and task editor recovery

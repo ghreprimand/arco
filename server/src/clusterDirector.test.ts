@@ -22,3 +22,9 @@ test('non-director roles get no director doctrine', () => {
   assert.equal(buildClusterDirectorDoctrine('Tester role.'), undefined);
   assert.equal(buildClusterDirectorDoctrine(undefined), undefined);
 });
+
+test('director handoff instructions identify the next step and any operator action', () => {
+  const text = buildClusterDirectorDoctrine('Director role.')!;
+  assert.match(text, /Answer the operator first.*recommend the next step, name who owns the work.*operator needs to decide or do and when.*worker already owns the follow-up.*operator has nothing to do.*Promise later follow-up only when an available trigger can wake you.*nudge the Director only when progress depends on it/);
+  assert.match(text, /New work waits for the operator's approval; continue already approved work as usual/);
+});
