@@ -536,6 +536,8 @@ export const configuration: Section[] = [
   selects a cluster and All members or one role. A custom role must match its
   saved text exactly. Project skills stay within their project; global skills
   can be pinned anywhere. Full text is added on every matching member's next turn.</p>
+  <p>The active tab or its cluster is selected when eligible. After a pin is
+  saved, Settings names the skill, destination and role.</p>
   <p>The cluster SKILLS button beside EFFICIENCY shows the configured count.
   Open it to see sources, scope, availability and UNPIN. New and replaced
   members inherit the cluster's pins. A member's composer shows FROM CLUSTER;

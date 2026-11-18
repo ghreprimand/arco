@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createTwoFilesPatch } from 'diff';
-import { DialogShell } from './DialogShell';
+import { DialogShell, SETTINGS_CHILD_DIALOG_Z_INDEX } from './DialogShell';
+import { useAppStore } from '../stores/appStore';
 import { DirectoryBrowser } from './media/DirectoryPicker';
 import { SkillEditorDialog, type SkillEditorTarget } from './SkillEditorDialog';
 import { PinSkillDialog } from './ClusterRightPanel/SkillsControl';
@@ -64,7 +65,18 @@ export function SkillsSettings({ cwd }: { cwd: string }) {
   const [importing, setImporting] = useState(false);
   const [updating, setUpdating] = useState<SkillSummary | null>(null);
   const [sharing, setSharing] = useState<SkillSummary | null>(null);
+  const clusters = useAppStore(s => s.clusters);
+  const jobs = useAppStore(s => s.jobs);
+  const [pendingPin, setPendingPin] = useState<{ kind: 'tab' | 'cluster'; id: string; role?: string; scope: Scope; slug: string; message: string } | null>(null);
   const [pinning, setPinning] = useState<{ skill: SkillSummary; kind: 'tab' | 'cluster' } | null>(null);
+
+  useEffect(() => {
+    if (!pendingPin) return;
+    const pins = pendingPin.kind === 'cluster' ? clusters[pendingPin.id]?.skillPins : jobs[pendingPin.id]?.config.pinnedSkills;
+    if (pins?.some(pin => pin.scope === pendingPin.scope && pin.slug === pendingPin.slug && (pendingPin.kind === 'tab' || ('role' in pin ? pin.role : undefined) === pendingPin.role))) {
+      setNote(pendingPin.message); setPendingPin(null);
+    }
+  }, [clusters, jobs, pendingPin]);
 
   const refresh = async () => {
     setError(null);
@@ -134,7 +146,7 @@ export function SkillsSettings({ cwd }: { cwd: string }) {
 
   return (
     <div data-help="settings.skills">
-      {pinning && <PinSkillDialog skill={pinning.skill} kind={pinning.kind} cwd={cwd} onClose={() => setPinning(null)} />}
+      {pinning && <PinSkillDialog skill={pinning.skill} kind={pinning.kind} cwd={cwd} onClose={() => setPinning(null)} onPinned={result => { setNote(''); setPendingPin(result); }} />}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', gap: '6px' }}>
         <span className="display-font" style={{ fontSize: '11px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>SKILLS</span>
         <span style={{ display: 'flex', gap: '6px' }}>
@@ -216,7 +228,7 @@ export function SkillImportDialog({ cwd, onClose, onImported }: { cwd: string; o
   };
 
   return (
-    <DialogShell title="IMPORT SKILL" ariaLabel="Import skill" dataHelp="settings.skills.import" onClose={onClose} width={720}
+    <DialogShell zIndex={SETTINGS_CHILD_DIALOG_Z_INDEX} title="IMPORT SKILL" ariaLabel="Import skill" dataHelp="settings.skills.import" onClose={onClose} width={720}
       status={error ? <span role="alert" style={{ color: 'var(--color-error)' }}>{error}</span> : null}
       actions={<>
         <button type="button" disabled={busy} onClick={() => void review()}>REVIEW</button>
@@ -266,7 +278,7 @@ function SkillUpdateDialog({ cwd, skill, onClose, onUpdated }: { cwd: string; sk
     catch (err) { setError(err instanceof Error ? err.message : String(err)); setBusy(false); }
   };
   return (
-    <DialogShell size="viewer" title={`UPDATE ${skill.name.toUpperCase()}`} ariaLabel="Update skill" dataHelp="settings.skills.update" onClose={onClose} width={820}
+    <DialogShell zIndex={SETTINGS_CHILD_DIALOG_Z_INDEX} size="viewer" title={`UPDATE ${skill.name.toUpperCase()}`} ariaLabel="Update skill" dataHelp="settings.skills.update" onClose={onClose} width={820}
       status={error ? <span role="alert" style={{ color: 'var(--color-error)' }}>{error}</span> : null}
       actions={<button type="button" disabled={busy || !preview?.changed} onClick={() => void apply()}>APPLY UPDATE</button>}>
       <p style={{ marginTop: 0 }}>Fetched again from {sourceLabel(skill.source)}. Nothing changes until you select APPLY UPDATE; the skill stays on or off as it is.</p>
@@ -300,7 +312,7 @@ function SkillShareDialog({ cwd, skill, onClose, onShared }: { cwd: string; skil
   };
   const isPublic = preview?.publicRepository || markedPublic;
   return (
-    <DialogShell title="SHARE WITH REPOSITORY" ariaLabel="Share skill with repository" dataHelp="settings.skills.share" onClose={onClose}
+    <DialogShell zIndex={SETTINGS_CHILD_DIALOG_Z_INDEX} title="SHARE WITH REPOSITORY" ariaLabel="Share skill with repository" dataHelp="settings.skills.share" onClose={onClose}
       status={error ? <span role="alert" style={{ color: 'var(--color-error)' }}>{error}</span> : null}
       actions={<button type="button" disabled={busy || !preview || preview.alreadyTrackable} onClick={() => void share()}>{isPublic ? 'SHARE IN PUBLIC REPOSITORY' : 'SHARE'}</button>}>
       {preview?.alreadyTrackable ? <p>Git does not ignore these files; they can already be committed.</p> : <p>Git ignores <code>.arco</code> in this project. SHARE adds an exception for this skill to <code>.arco/.gitignore</code>, so these files show up in Git and can be committed. Arco does not stage or commit them.</p>}

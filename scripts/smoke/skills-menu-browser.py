@@ -128,14 +128,23 @@ async def main():
             if(message.type==='update_primary_config')s.getState().updateJobPrimary(message.workflowId,{pinnedSkills:message.pinnedSkills});
           }});
           const host=document.createElement('div');document.body.prepend(host);
-          function Pins(){const c=s(state=>state.clusters.pins);return React.createElement(React.Fragment,null,React.createElement(SkillsControl,{cluster:c}),React.createElement(SkillsSettings,{cwd:'/fixture'}));}
+          function Pins(){const c=s(state=>state.clusters.pins);return React.createElement(React.Fragment,null,React.createElement(SkillsControl,{cluster:c}),React.createElement('div',{id:'settings-cover'},React.createElement(SkillsSettings,{cwd:'/fixture'})));}
           createRoot(host).render(React.createElement(Pins));
         }''')
         review = page.locator('[data-testid="skill-row"][data-skill="review"]')
         testing = page.locator('[data-testid="skill-row"][data-skill="testing"]')
+        await page.evaluate("Object.assign(document.getElementById('settings-cover').style,{position:'fixed',inset:'0',zIndex:'9600',overflow:'auto',background:'var(--color-bg)'})")
         await review.get_by_role('button', name='PIN TO CLUSTER', exact=True).tap()
         dialog = page.get_by_role('dialog', name='Pin Review guide to cluster', exact=True)
+        await expect(dialog).to_be_visible()
+        assert await dialog.evaluate("el=>{const r=el.getBoundingClientRect();return el.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2))}")
+        assert await dialog.evaluate("el=>el.contains(document.activeElement)")
+        await page.keyboard.press('Escape')
+        await expect(review.get_by_role('button', name='PIN TO CLUSTER', exact=True)).to_be_focused()
+        await review.get_by_role('button', name='PIN TO CLUSTER', exact=True).tap()
         await dialog.get_by_role('button', name='PIN', exact=True).tap()
+        await expect(page.get_by_role('status').filter(has_text='Pinned Review guide to Fixture cluster (All members).')).to_be_visible()
+        await page.evaluate("document.getElementById('settings-cover').removeAttribute('style')")
         await testing.get_by_role('button', name='PIN TO CLUSTER', exact=True).tap()
         dialog = page.get_by_role('dialog', name='Pin Testing guide to cluster', exact=True)
         await dialog.get_by_label('Cluster skill scope').select_option('role:Reader')

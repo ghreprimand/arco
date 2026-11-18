@@ -218,7 +218,9 @@ ignored. `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` lifts the limit.
 
 Settings > SKILLS offers PIN TO TAB for an Agent tab and PIN TO CLUSTER for all
 members or one exact saved role, including a custom role. Project skills are
-limited to their project; global skills can target any open tab or cluster.
+limited to their project; global skills can target any open tab or cluster. The
+active tab or its cluster is selected when eligible. After a pin is saved,
+Settings shows the skill, destination and role in one line.
 The cluster SKILLS button beside EFFICIENCY lists sources, scope and availability
 and provides UNPIN. New and replaced members inherit cluster pins automatically;
 only the operator controls them. A member's FROM CLUSTER button opens the same

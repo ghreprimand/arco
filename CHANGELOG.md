@@ -13,6 +13,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Clarify Windows npm launcher ownership and safe recovery after a failed install.
 
+- Open Settings skill dialogs in front of Settings, select the active destination and show saved pin confirmations.
+
 ## v0.1.8 - 2026-11-17
 
 - Keep provider release notes above the workspace and close the PROVIDERS panel when opening them.

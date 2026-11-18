@@ -9,6 +9,8 @@ import { confirmationSurfaceSize, contentSurfaceSize, formSurfaceSize, pickerSur
 // The header and footer never scroll away, so the result line and the actions
 // stay visible at small window heights.
 
+export const SETTINGS_CHILD_DIALOG_Z_INDEX = 9701;
+
 export const dialogTitleStyle: CSSProperties = {
   fontSize: '12px', letterSpacing: '3px', color: 'var(--color-accent-primary)', margin: 0, fontWeight: 'normal',
 };

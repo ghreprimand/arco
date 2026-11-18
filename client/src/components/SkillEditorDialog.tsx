@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { DialogShell } from './DialogShell';
+import { DialogShell, SETTINGS_CHILD_DIALOG_Z_INDEX } from './DialogShell';
 
 // Phase 1 — Arco-managed skills CRUD dialog. Operator types Name +
 // Description + Body, picks scope (project / global), and saves. The server
@@ -134,7 +134,7 @@ export function SkillEditorDialog({ cwd, target, onClose, onSaved }: Props) {
       onClose={onClose}
       closeOnBackdrop
       width={560}
-      zIndex={9300}
+      zIndex={SETTINGS_CHILD_DIALOG_Z_INDEX}
       status={!loading && error ? (
         <div style={{ fontSize: '11px', color: 'var(--color-warning)', fontFamily: 'var(--font-body)' }}>{error}</div>
       ) : undefined}

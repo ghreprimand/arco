@@ -14,7 +14,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.skills.pin': {
     title: 'Choose where the standing skill applies',
-    body: <><p>Select a tab or cluster, then the cluster role scope when offered. PIN adds the full skill text every turn. The dialog shows how many current members match; future matching members inherit it too.</p><p>Duplicate skill references apply once. More than 12 unique skills or 64 KiB with the existing pins is refused. Pinning a project skill is explicit approval to apply its text even with project trust off. CANCEL leaves the pins unchanged.</p></>,
+    body: <><p>The active tab or its cluster is selected when eligible; choose a different destination or role if needed. Settings names the destination after the pin is saved. PIN adds the full skill text every turn. The dialog shows how many current members match; future matching members inherit it too.</p><p>Duplicate skill references apply once. More than 12 unique skills or 64 KiB with the existing pins is refused. Pinning a project skill is explicit approval to apply its text even with project trust off. CANCEL leaves the pins unchanged.</p></>,
     manualSection: 'skills',
   },
   'settings.native-subagents-running': {

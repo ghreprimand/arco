@@ -2,7 +2,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { ROLE_PRESETS, presetForText, type ArcoSkillRef, type ClusterStatePayload, type ClusterSkillPin } from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
 import { useStartupStore } from '../../stores/startupStore';
-import { DialogShell } from '../DialogShell';
+import { DialogShell, SETTINGS_CHILD_DIALOG_Z_INDEX } from '../DialogShell';
 
 interface Skill { scope: 'project' | 'global'; slug: string; name: string; off?: boolean }
 const button: CSSProperties = { padding: '3px 8px', background: 'transparent', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-fg)', cursor: 'pointer', fontSize: '10px', letterSpacing: '1px' };
@@ -62,15 +62,18 @@ export function SkillsControl({ cluster, memberId }: { cluster: ClusterStatePayl
   </>;
 }
 
-export function PinSkillDialog({ skill, cwd, kind, onClose }: { skill: Skill; cwd: string; kind: 'tab' | 'cluster'; onClose: () => void }) {
+export function PinSkillDialog({ skill, cwd, kind, onClose, onPinned }: { skill: Skill; cwd: string; kind: 'tab' | 'cluster'; onClose: () => void; onPinned?: (result: { kind: 'tab' | 'cluster'; id: string; role?: string; scope: 'project' | 'global'; slug: string; message: string }) => void }) {
   const clusters = useAppStore(s => s.clusters);
   const jobs = useAppStore(s => s.jobs);
+  const activeClusterId = useAppStore(s => s.activeClusterId);
+  const activeJobId = useAppStore(s => s.activeJobId);
   const send = useAppStore(s => s.wsSendRaw);
   const connected = useAppStore(s => s.connected);
   const targets = kind === 'cluster'
     ? Object.values(clusters).filter(cluster => skill.scope === 'global' || cluster.cwd === cwd).map(cluster => ({ id: cluster.clusterId, name: cluster.name ?? `Cluster ${cluster.clusterId.slice(0, 8)}` }))
     : Object.values(jobs).filter(job => job.config.kind !== 'chat' && (skill.scope === 'global' || job.config.workingDirectory === cwd)).map(job => ({ id: job.id, name: job.config.name || job.id.slice(0, 8) }));
-  const [target, setTarget] = useState(targets[0]?.id ?? '');
+  const activeTarget = kind === 'cluster' ? activeClusterId ?? Object.values(clusters).find(item => item.members.some(member => member.workflowId === activeJobId))?.clusterId : activeJobId;
+  const [target, setTarget] = useState(targets.find(item => item.id === activeTarget)?.id ?? targets[0]?.id ?? '');
   const [scope, setScope] = useState('all');
   const [customRole, setCustomRole] = useState('');
   const cluster = kind === 'cluster' ? clusters[target] : undefined;
@@ -88,9 +91,12 @@ export function PinSkillDialog({ skill, cwd, kind, onClose }: { skill: Skill; cw
       const existing = jobs[target]?.config.pinnedSkills ?? [];
       if (!existing.some(ref => sameRef(ref, skill))) send?.({ type: 'update_primary_config', workflowId: target, pinnedSkills: [...existing, { scope: skill.scope, slug: skill.slug }] });
     }
+    const name = targets.find(item => item.id === target)?.name ?? target;
+    const destination = cluster ? `${name} (${role === undefined ? 'All members' : roleLabel(role)})` : name;
+    onPinned?.({ kind, id: target, role, scope: skill.scope, slug: skill.slug, message: `Pinned ${skill.name} to ${destination}.` });
     onClose();
   };
-  return <DialogShell title={`Pin ${skill.name} to ${kind}`} dataHelp="settings.skills.pin" onClose={onClose} width={620}
+  return <DialogShell zIndex={SETTINGS_CHILD_DIALOG_Z_INDEX} title={`Pin ${skill.name} to ${kind}`} dataHelp="settings.skills.pin" onClose={onClose} width={620}
     actions={<><button type="button" data-help="settings.skills.pin" style={button} onClick={onClose}>CANCEL</button><button type="button" data-help="settings.skills.pin" style={button} disabled={!valid} onClick={pin}>PIN</button></>}>
     {!targets.length ? <p>Open {kind === 'cluster' ? 'a cluster' : 'an Agent tab'}{skill.scope === 'project' ? ' for this project' : ''} to pin this skill.</p> : <>
       <label>{kind === 'cluster' ? 'Cluster' : 'Tab'}<select className="arco-field" aria-label={`Pin destination ${kind}`} data-help="settings.skills.pin" value={target} style={{ display: 'block', width: '100%', minWidth: 0 }} onChange={event => { setTarget(event.target.value); setScope('all'); }}>
