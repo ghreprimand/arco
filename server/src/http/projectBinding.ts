@@ -4,6 +4,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import { confinedPath, isPathWithin, FileAccessError, safeDirectory } from '../fileAccessPolicy.js';
 import { worktreesRoot } from '../project/taskWorktree.js';
+import { projectGitEnv } from '../publicProject.js';
 import { resolveBoundCwd } from './writeConfinement.js';
 
 const execFileAsync = promisify(execFile);
@@ -14,8 +15,8 @@ class SelectedWorktreeError extends Error {
   constructor() { super('The selected worktree is unavailable or is not registered with this tab\'s project. Select a worktree again.'); }
 }
 
-async function gitOutput(cwd: string, args: string[]): Promise<string> {
-  const { stdout } = await execFileAsync('git', args, { cwd, encoding: 'utf8', timeout: 5000, maxBuffer: 1024 * 1024 });
+export async function gitOutput(cwd: string, args: string[], signal?: AbortSignal): Promise<string> {
+  const { stdout } = await execFileAsync('git', args, { cwd, encoding: 'utf8', timeout: 5000, maxBuffer: 1024 * 1024, env: projectGitEnv(), signal });
   return stdout;
 }
 

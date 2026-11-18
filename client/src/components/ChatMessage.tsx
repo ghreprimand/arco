@@ -4,7 +4,7 @@ import { OperatorQuestionNotice } from './OperatorQuestionNotice';
 import { useMessageSelectionStore } from '../stores/messageSelectionStore';
 import { memo, useMemo, useRef, useState } from 'react';
 import { useAppStore, type ClusterMemberLabel } from '../stores/appStore';
-import ReactMarkdown, { type Components } from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform, type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { ChatMessage as ChatMessageType } from '@arco/shared';
@@ -87,6 +87,11 @@ const MARKDOWN_FILE_REF_RE =
 
 function hasMarkdownFileRef(text: string): boolean {
   return MARKDOWN_FILE_REF_RE.test(text);
+}
+
+// A Windows drive path in a Markdown link is a local viewer target.
+function chatMarkdownUrl(url: string, key: string): string {
+  return key === 'href' && /^[A-Za-z]:[\\/]/.test(url) ? url : defaultUrlTransform(url);
 }
 
 // Extract pure text from a ReactMarkdown children prop. Markdown headings /
@@ -404,7 +409,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
   const renderSystemMarkdown = isSystem && hasMarkdownFileRef(displayContent);
 
   // Filename auto-link: any markdown heading / inline `code` / `[link]` / image
-  // whose text resolves to a file under the workflow CWD opens FileViewerModal.
+  // whose text resolves to a project file opens FileViewerModal.
   // State + modal live at message scope so each bubble owns its own viewer.
   const [viewerPath, setViewerPath] = useState<string | null>(null);
   // Shared mousedown coords for all FileLink spans in this bubble. A useRef
@@ -479,7 +484,10 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
         <CopyablePre {...props} workflowId={jobId}>{children}</CopyablePre>
       ),
       a: ({ node: _node, href, children, ...props }) => {
-        const resolved = href ? resolveChatFilePath(href, jobCwd, writtenFiles) : null;
+        let target = href;
+        // Markdown encodes local URL characters, including spaces in a checkout name.
+        try { if (href) target = decodeURIComponent(href); } catch { /* keep the original spelling */ }
+        const resolved = target ? resolveChatFilePath(target, jobCwd, writtenFiles) : null;
         if (resolved) return <FileLink filePath={resolved}>{children}</FileLink>;
         return <a {...props} href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
       },
@@ -678,6 +686,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeHighlight]}
                 components={markdownComponents}
+                urlTransform={chatMarkdownUrl}
               >
                 {part.value}
               </ReactMarkdown>
@@ -714,6 +723,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeHighlight]}
             components={markdownComponents}
+            urlTransform={chatMarkdownUrl}
           >
             {displayContent}
           </ReactMarkdown>

@@ -37,7 +37,7 @@ const INITIAL_LENS: LensId = (() => {
 export function ExplorerApp() {
   const [lens, setLens] = useState<LensId>(INITIAL_LENS);
   const [root, setRoot] = useState<string | null>(null);
-  const [viewerPath, setViewerPath] = useState<string | null>(null);
+  const [viewerFile, setViewerFile] = useState<{ path: string; project?: string } | null>(null);
   // Reveal-in-tree (§4.3): switch to TREE with a target path. `.arco`
   // artifacts are hidden, so only real project files (CHANGED FILES) trigger this.
   const [reveal, setReveal] = useState<{ path: string; nonce: number } | null>(null);
@@ -144,10 +144,10 @@ export function ExplorerApp() {
 
         <main style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
           {activeLens.id === 'artifacts' && (
-            <ArtifactsLens focusTick={focusTick} treeRoot={root} onOpen={setViewerPath} onRevealInTree={revealInTree} />
+            <ArtifactsLens focusTick={focusTick} treeRoot={root} onOpen={(path, project) => setViewerFile({ path, project })} onRevealInTree={revealInTree} />
           )}
           {activeLens.id === 'recents' && (
-            <RecentsLens focusTick={focusTick} treeRoot={root} onOpen={setViewerPath} onRevealInTree={revealInTree} />
+            <RecentsLens focusTick={focusTick} treeRoot={root} onOpen={(path) => setViewerFile({ path })} onRevealInTree={revealInTree} />
           )}
           {activeLens.id === 'plans' && <PlansLens focusTick={focusTick} />}
           {activeLens.id === 'storage' && <StorageLens focusTick={focusTick} />}
@@ -163,7 +163,8 @@ export function ExplorerApp() {
 
       {/* Shared viewer for the ARTIFACTS/CHANGED FILES lenses. The TREE lens
           (FileExplorer) opens its own modal internally. */}
-      {viewerPath && <FileViewerModal path={viewerPath} onClose={() => setViewerPath(null)} />}
+      {viewerFile && <FileViewerModal path={viewerFile.path} onClose={() => setViewerFile(null)}
+        readUrl={viewerFile.project ? '/api/file-content?' + new URLSearchParams({ path: viewerFile.path, cwd: viewerFile.project }) : undefined} />}
     </div>
   );
 }

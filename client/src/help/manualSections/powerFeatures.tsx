@@ -483,8 +483,9 @@ export const powerFeatures: Section[] = [
   </Note>
   <p>
   File references opened from chat, help or rendered markdown use a stacked file
-  viewer. Its raw/formatted toggle switches between highlighted or rendered
-  output and the exact file text.
+  viewer. In chat, a link can open an ordinary file in a Git worktree of the tab's
+  repository. Arco checks the worktree when you open the link. The raw/formatted
+  toggle switches between the rendered view and the exact file text.
   </p>
   </>
   ),

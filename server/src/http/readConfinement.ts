@@ -2,11 +2,12 @@ import { readListingSettings } from '../settings.js';
 import path from 'node:path';
 import { explorerRoot } from './explorerRoot.js';
 import { readdir } from 'node:fs/promises';
-import { FileAccessError, assertSafePath, confinedPath, createReadAccessContext, type ReadAccessContext } from '../fileAccessPolicy.js';
+import { FileAccessError, assertSafePath, confinedPath, createReadAccessContext, isPathWithin, type ReadAccessContext } from '../fileAccessPolicy.js';
 import { knownRoots, resolveBoundCwd } from './writeConfinement.js';
 import { UPLOADS_DIR } from '../server/constants.js';
 import { SCRATCH_ROOT } from '../media/scratch.js';
 import { artifactsDir } from '../workers/limits.js';
+import { resolveWorktreeFile } from './browserWorktrees.js';
 
 export async function readRoots(cwd?: string | null, workflowId?: string | null): Promise<string[]> {
   const bound = await resolveBoundCwd(cwd, workflowId);
@@ -31,6 +32,9 @@ export async function resolveBrowserRead(p: string, cwd?: string | null, workflo
     if (tracked) return tracked;
   }
   try { return confinedPath(target, roots, kind); } catch (err) {
+    if (kind === 'file' && bound.ok && !roots.some(root => isPathWithin(root, target))) {
+      return resolveWorktreeFile(target, bound.cwd, await createReadAccessContext());
+    }
     // Only a missing bare filename can fall back to this bound workflow's
     // artifacts. Traversal, denied paths and unknown bindings never fall back.
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT' || kind !== 'file' || !bound.ok || !workflowId

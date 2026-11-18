@@ -20,7 +20,7 @@ import { mergeItems, rollupProjects, type ArtifactEntry, type DocEntry, type Pro
 interface Props {
   focusTick: number;
   treeRoot?: string | null;
-  onOpen: (path: string) => void;
+  onOpen: (path: string, project?: string) => void;
   onRevealInTree: (path: string) => void;
 }
 
@@ -32,7 +32,12 @@ function subdirOf(rel: string): string {
   return i === -1 ? '·' : rel.slice(0, i) + '/';
 }
 
-interface LoadedEntries<T> { entries: T[]; partial?: boolean; error?: string }
+interface LoadedEntries<T> {
+  entries: T[];
+  projects?: Array<Pick<ProjectSummary, 'cwd' | 'project'>>;
+  partial?: boolean;
+  error?: string;
+}
 
 async function loadEntries<T>(url: string, label: string): Promise<LoadedEntries<T>> {
   try {
@@ -40,7 +45,7 @@ async function loadEntries<T>(url: string, label: string): Promise<LoadedEntries
     if (!response.ok) throw new Error('List unavailable');
     const body = await response.json();
     if (!Array.isArray(body?.entries)) throw new Error('Invalid list response');
-    return { entries: body.entries, partial: body.partial === true };
+    return { entries: body.entries, partial: body.partial === true, projects: Array.isArray(body.projects) ? body.projects : undefined };
   } catch {
     return { entries: [], error: `${label} could not be loaded. Refocus this window to retry.` };
   }
@@ -70,29 +75,30 @@ export function ArtifactsLens({ focusTick, treeRoot, onOpen, onRevealInTree }: P
       .then(result => { if (!cancelled) setProjectDocs(result); });
     return () => { cancelled = true; };
   }, [selectedCwd, focusTick]);
-  const items = useMemo(() => mergeItems(artifacts?.entries ?? [], selectedCwd && projectDocs
-    ? [...(docs?.entries ?? []).filter(doc => doc.cwd !== selectedCwd), ...projectDocs.entries]
-    : docs?.entries ?? []), [artifacts, docs, selectedCwd, projectDocs]);
+  const items = useMemo(() => mergeItems(artifacts?.entries ?? [], docs?.entries ?? []), [artifacts, docs]);
   const currentDocs = selectedCwd ? projectDocs : docs;
   const status = <div data-help="header.archive" style={{ fontSize: '12px', color: 'var(--color-fg-muted)', marginBottom: '10px' }}>
     {artifacts === null ? <div>Loading artifacts...</div> : artifacts.error
       ? <div role="status">{artifacts.error}</div> : artifacts.entries.length === 0 ? <div>No artifacts found.</div> : null}
     {currentDocs === null ? <div>Loading project documents...</div> : currentDocs.error
       ? <div role="status">{currentDocs.error}</div> : currentDocs.entries.length === 0 ? <div>No project documents found.</div> : null}
-    {currentDocs?.partial && <div>Showing the newest {currentDocs.entries.length}; open a project for more.</div>}
+    {currentDocs?.partial && <div>{selectedCwd
+      ? 'Some project documents were outside this scan.'
+      : 'Showing the newest ' + currentDocs.entries.length + '; open a project for more.'}</div>}
   </div>;
 
-  const projects = useMemo<ProjectSummary[]>(() => rollupProjects(items ?? []), [items]);
-  const recent = useMemo(() => (items ?? []).slice(0, RECENT_STRIP), [items]);
-  const selected = useMemo(() => projects.find((p) => p.cwd === selectedCwd) ?? null, [projects, selectedCwd]);
-  const projectItems = useMemo(() => {
+  const projects = useMemo(() => rollupProjects(items, docs?.projects), [items, docs?.projects]);
+  const recent = useMemo(() => items.slice(0, RECENT_STRIP), [items]);
+  const selected = projects.find(p => p.cwd === selectedCwd);
+  const scopedItems = useMemo(() => {
     if (!selectedCwd) return [];
+    if (!projectDocs || projectDocs.error) return items.filter(it => it.cwd === selectedCwd);
+    return mergeItems((artifacts?.entries ?? []).filter(it => it.cwd === selectedCwd), projectDocs.entries.filter(doc => doc.cwd === selectedCwd));
+  }, [selectedCwd, projectDocs, artifacts, items]);
+  const projectItems = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    return (items ?? [])
-      .filter((it) => it.cwd === selectedCwd)
-      .filter((it) => !q || it.name.toLowerCase().includes(q) || (it.rel ?? '').toLowerCase().includes(q) || (it.tabTitle ?? '').toLowerCase().includes(q));
-  }, [items, selectedCwd, filter]);
-
+    return scopedItems.filter(it => !q || [it.name, it.rel, it.tabTitle, it.branch].some(value => value?.toLowerCase().includes(q)));
+  }, [scopedItems, filter]);
 
   // ── PROJECT view ──────────────────────────────────────────────────────────
   if (selected) {
@@ -104,11 +110,11 @@ export function ArtifactsLens({ focusTick, treeRoot, onOpen, onRevealInTree }: P
           <div style={{ overflow: 'hidden' }}>
             <div className="display-font glow-text-cyan" style={{ fontSize: '17px', letterSpacing: '1px' }}>{selected.project}</div>
             <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)' }} title={selected.cwd}>
-              {countLabel(selected)} · {selected.cwd}
+              {countLabel(rollupProjects(scopedItems)[0] ?? selected)} · {selected.cwd}
             </div>
           </div>
         </div>
-        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter by filename, folder, or tab title…" style={filterInputStyle} />
+        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter by filename, folder, branch, or tab title…" style={filterInputStyle} />
         <div style={{ flex: 1, overflowY: 'auto', marginTop: '10px' }}>
           {projectItems.length === 0 ? (
             <Centered text={filter ? 'Nothing matches that filter.' : 'No documents or artifacts in this project.'} />
@@ -144,8 +150,8 @@ export function ArtifactsLens({ focusTick, treeRoot, onOpen, onRevealInTree }: P
                 <div className="display-font" style={{ fontSize: '15px', letterSpacing: '0.5px', color: 'var(--color-accent-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {p.project}
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)', marginTop: '5px' }}>{countLabel(p)}</div>
-                <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', marginTop: '3px', opacity: 0.8 }}>updated {formatRelativeTime(p.lastMtime)}</div>
+                {p.count > 0 && <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)', marginTop: '5px' }}>{countLabel(p)}</div>}
+                {p.lastMtime > 0 && <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', marginTop: '3px', opacity: 0.8 }}>updated {formatRelativeTime(p.lastMtime)}</div>}
               </button>
             ))}
           </div>
@@ -162,23 +168,26 @@ function countLabel(p: ProjectSummary): string {
   return parts.join(' · ') || '0 files';
 }
 
-function ItemRow({ item, treeRoot, onOpen, onRevealInTree, showProject }: { item: ProjectItem; treeRoot?: string | null; onOpen: (p: string) => void; onRevealInTree: (p: string) => void; showProject?: boolean }) {
-  const meta = item.kind === 'doc'
-    ? `${showProject ? '' : subdirOf(item.rel ?? '') + ' · '}${formatRelativeTime(item.mtime)}`
-    : `${item.tabTitle} · ${item.provider} · ${formatRelativeTime(item.mtime)}`;
+function ItemRow({ item, treeRoot, onOpen, onRevealInTree, showProject }: { item: ProjectItem; treeRoot?: string | null; onOpen: Props['onOpen']; onRevealInTree: (p: string) => void; showProject?: boolean }) {
+  const meta = [
+    ...(item.kind === 'doc'
+      ? [item.branch, showProject ? undefined : subdirOf(item.rel ?? '')]
+      : [item.tabTitle, item.provider]),
+    formatRelativeTime(item.mtime),
+  ].filter(Boolean).join(' · ');
   return (
     <div className="archive-row" style={rowStyle} title={item.path}>
-      <button onClick={() => onOpen(item.path)} style={rowMainBtn}>
+      <button onClick={() => onOpen(item.path, item.branch ? item.cwd : undefined)} style={rowMainBtn}>
         <span style={{ width: '18px', flexShrink: 0, color: item.kind === 'doc' ? 'var(--color-accent-primary-dim)' : 'var(--color-accent-secondary-dim)', fontSize: '12px' }}>
           {item.kind === 'doc' ? '▤' : '⌸'}
         </span>
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-accent-secondary-dim)' }}>{item.name}</span>
-        <span style={{ fontSize: '12px', color: 'var(--color-fg-muted)', flexShrink: 0, letterSpacing: '0.3px' }}>
+        <span title={meta} style={{ fontSize: '12px', color: 'var(--color-fg-muted)', maxWidth: '55%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {showProject && <span style={{ color: 'var(--color-accent-primary-dim)' }}>{item.project} · </span>}
           {meta}
         </span>
       </button>
-      {canRevealInTree(item.path, treeRoot) && (
+      {!item.branch && canRevealInTree(item.path, treeRoot) && (
         <button data-help="header.archive" onClick={() => onRevealInTree(item.path)} className="display-font" title="Reveal in the file tree" style={revealBtn}>⊞</button>
       )}
     </div>
@@ -198,7 +207,7 @@ function Centered({ text }: { text: string }) {
 }
 
 const colStyle: React.CSSProperties = { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: '18px 20px', overflow: 'hidden' };
-const cardGridStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', marginTop: '12px', overflowY: 'auto', paddingBottom: '8px', alignContent: 'start' };
+const cardGridStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(220px, 100%), 1fr))', gap: '12px', marginTop: '12px', overflowY: 'auto', paddingBottom: '8px', alignContent: 'start' };
 const cardStyle: React.CSSProperties = { textAlign: 'left', background: 'var(--color-bg-panel)', border: '1px solid var(--color-border-hairline)', borderRadius: '5px', padding: '14px' , cursor: 'pointer' };
 const rowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '4px', width: '100%', borderBottom: '1px solid var(--color-border-hairline)' };
 const rowMainBtn: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0, textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--color-fg)', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '14px', padding: '9px 4px' };

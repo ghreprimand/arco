@@ -224,7 +224,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'chat.message.agent': {
     title: 'Agent reply',
-    body: <p>The primary's reply. Streams token-by-token while the turn is in flight. Outside Cursor, status updates for an existing tool call keep the reply together and the tool in its original position, including after reload. New tools, Cursor reasoning, Cursor tool updates and operator steering still separate reply segments. Ordinary JSON with application keys stays visible. Valid legacy envelopes and arco-artifact fences use compact summaries. Drive-qualified Windows and UNC filenames can be opened as file references.</p>,
+    body: <p>The primary's reply. Streams token-by-token while the turn is in flight. Outside Cursor, status updates for an existing tool call keep the reply together and the tool in its original position, including after reload. New tools, Cursor reasoning, Cursor tool updates and operator steering still separate reply segments. Ordinary JSON with application keys stays visible. Valid legacy envelopes and arco-artifact fences use compact summaries. Drive-qualified Windows and UNC filenames can be opened as file references. Conversation links can also open ordinary files in Git worktrees of the tab's repository. Arco checks the worktree on open.</p>,
   },
   'chat.message.thinking': {
     title: 'Reasoning trace',

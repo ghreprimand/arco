@@ -36,6 +36,7 @@ export interface DocEntry {
   project: string;
   cwd: string;
   rel: string;
+  branch?: string;
 }
 
 // One unified item the ARTIFACTS lens renders — a project document OR a workflow
@@ -47,7 +48,8 @@ export interface ProjectItem {
   project: string;
   cwd: string;
   kind: 'doc' | 'artifact';
-  rel?: string;        // doc: path relative to project root (shows the subdir)
+  rel?: string;        // doc: path relative to its checkout (shows the subdir)
+  branch?: string;     // doc: branch of a sibling worktree
   tabTitle?: string;   // artifact: the tab that produced it
   provider?: string;   // artifact
 }
@@ -82,7 +84,7 @@ export function fileKind(name: string): FileKind {
   return 'other';
 }
 
-export function rollupProjects(items: ProjectItem[]): ProjectSummary[] {
+export function rollupProjects(items: ProjectItem[], known: Array<Pick<ProjectSummary, 'cwd' | 'project'>> = []): ProjectSummary[] {
   const byCwd = new Map<string, ProjectSummary>();
   for (const it of items) {
     const cur = byCwd.get(it.cwd);
@@ -101,6 +103,9 @@ export function rollupProjects(items: ProjectItem[]): ProjectSummary[] {
       });
     }
   }
+  for (const project of known) {
+    if (!byCwd.has(project.cwd)) byCwd.set(project.cwd, { ...project, count: 0, docCount: 0, artifactCount: 0, lastMtime: 0 });
+  }
   return [...byCwd.values()].sort((a, b) => b.lastMtime - a.lastMtime);
 }
 
@@ -111,7 +116,7 @@ export function mergeItems(artifacts: ArtifactEntry[], docs: DocEntry[]): Projec
   const seen = new Set<string>();
   const out: ProjectItem[] = [];
   const push = (it: ProjectItem) => { if (!seen.has(it.path)) { seen.add(it.path); out.push(it); } };
-  for (const d of docs) push({ path: d.path, name: d.name, mtime: d.mtime, project: d.project, cwd: d.cwd, kind: 'doc', rel: d.rel });
+  for (const d of docs) push({ path: d.path, name: d.name, mtime: d.mtime, project: d.project, cwd: d.cwd, kind: 'doc', rel: d.rel, branch: d.branch });
   for (const a of artifacts) push({ path: a.path, name: a.name, mtime: a.mtime, project: a.project, cwd: a.cwd, kind: 'artifact', tabTitle: a.tabTitle, provider: a.provider });
   out.sort((x, y) => y.mtime - x.mtime);
   return out;

@@ -502,7 +502,8 @@ export const headerHelp: Record<string, HelpEntry> = {
     title: 'Artifacts',
     body: (
       <>
-        <p>Artifacts load independently from project documents. The document scan skips hidden, build and dependency folders and nested Git checkouts or worktrees. Entry and time budgets can limit the list: "Showing the newest N; open a project for more". Opening a project searches it separately. Workflow artifacts remain listed in full. Each list has its own loading and empty state. A failed list shows a notice while the other results remain usable. Switch away from the window and return to retry. Slow or stalled folders return an incomplete list when the scan budget ends; available results remain usable.</p>
+        <p>Open a project card in ARTIFACTS to see documents from its Git worktrees. The branch or detached commit appears on each worktree document. Open it in the read-only viewer. Arco checks Git again on open and refuses protected paths.</p>
+        <p>Artifacts load independently from project documents. The overview skips hidden folders, build and dependency folders, and nested Git checkouts. Scan limits can leave a partial list. Opening a project searches it separately. Switch away and return to retry a failed list.</p>
         <p>
           Opens the standalone <strong>ARTIFACTS</strong> window: a chromeless
           project-artifact explorer in its own browser window

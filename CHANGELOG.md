@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Open files in Git worktrees from conversation links and browse their branch-labelled documents under the project in ARTIFACTS.
+
 - Clarify Windows npm launcher ownership and safe recovery after a failed install.
 
 ## v0.1.8 - 2026-11-17

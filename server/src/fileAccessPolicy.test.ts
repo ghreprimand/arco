@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync, 
 import os from 'node:os';
 import path from 'node:path';
 import { createServer } from 'node:http';
+import { execFileSync } from 'node:child_process';
 
 // Direct invocation is isolated too; imports that capture HOME happen below.
 // Match the canonical paths returned by confinement, including symlinked temp roots.
@@ -125,6 +126,60 @@ test('bound workflows, saved artifacts, uploads and scratch retain narrow access
   assert.equal(await resolveBrowserRead(scratch), scratch);
   assert.equal(await resolveBrowserRead(upload), upload);
   workflowCwds.delete('fixture-workflow');
+});
+
+test('a bound tab and the project document list can open Git-confirmed worktree files', async () => {
+  const main = path.join(home, 'worktree-project');
+  const linked = path.join(fixture, 'linked checkout');
+  mkdirSync(main);
+  const git = (...args: string[]) => execFileSync('git', ['-C', main, ...args], { stdio: 'pipe' });
+  git('init', '-b', 'main');
+  git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test', '-c', 'core.hooksPath=none',
+    'commit', '--allow-empty', '-m', 'Fixture');
+  git('worktree', 'add', '-b', 'review', linked);
+  workflowCwds.set('worktree-main', main);
+  const knownProjects = file(path.join(process.env.ARCO_HOME!, 'known-cwds.json'), JSON.stringify([main]));
+  try {
+    const document = file(path.join(linked, 'branch-note.md'), 'Branch fixture');
+    const protectedFile = file(path.join(linked, 'credentials.txt'));
+    const privateArtifact = file(path.join(linked, '.arco', 'workflows', 'other', 'artifacts', 'note.md'));
+    const siblingEscape = path.join(linked, 'escape.md');
+    symlinkSync(external, siblingEscape, 'file');
+
+    const selected = await resolveBrowserRead(document, outside, 'worktree-main');
+    assert.equal((await readFileForExplorer(selected) as { content?: string }).content, 'Branch fixture');
+    assert.equal(await resolveBrowserRead(path.relative(main, document), main, 'worktree-main'), selected);
+    await assert.rejects(resolveBrowserRead(document));
+    await assert.rejects(resolveBrowserRead(document, outside));
+    await assert.rejects(resolveBrowserRead(protectedFile, main, 'worktree-main'));
+    await assert.rejects(resolveBrowserRead(privateArtifact, main, 'worktree-main'));
+    await assert.rejects(resolveBrowserRead(siblingEscape, main, 'worktree-main'));
+    await assert.rejects(listBrowserDirectory(linked, false));
+
+    const { collectDocsPage } = await import('./explorerDocs.js');
+    const overview = await collectDocsPage();
+    assert.ok(overview.projects?.some(project => project.cwd === main), 'a project with only a sibling document remains selectable');
+    assert.deepEqual(overview.entries, []);
+    const page = await collectDocsPage({ project: main });
+    assert.deepEqual(page.entries.map(({ branch, cwd, rel }) => ({ branch, cwd, rel })), [
+      { branch: 'review', cwd: main, rel: 'branch-note.md' },
+    ]);
+    assert.equal(await resolveBrowserRead(page.entries[0].path, page.entries[0].cwd), selected);
+
+    const mainDocument = file(path.join(main, 'main-note.md'));
+    workflowCwds.set('worktree-linked', linked);
+    assert.equal(await resolveBrowserRead(mainDocument, linked, 'worktree-linked'), mainDocument);
+    workflowCwds.delete('worktree-linked');
+
+    git('worktree', 'remove', '--force', linked);
+    file(document, 'Ordinary replacement directory');
+    await assert.rejects(resolveBrowserRead(document, main, 'worktree-main'));
+    assert.ok((await collectDocsPage({ project: main })).entries.every(item => !item.branch));
+  } finally {
+    workflowCwds.delete('worktree-main');
+    workflowCwds.delete('worktree-linked');
+    rmSync(knownProjects);
+  }
 });
 
 test('runtime uploads allow direct files without exposing other runtime state', () => {
