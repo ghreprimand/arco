@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import qrcode from 'qrcode-generator';
 import { useAppStore } from '../stores/appStore';
@@ -29,7 +29,9 @@ function qrUrl(value: string): string {
   return qr.createDataURL(4, 16);
 }
 
-export function PhoneUploadButton({ workflowId }: { workflowId: string }) {
+// The composer that holds the button passes its own sizing, so the button
+// matches the attach control beside it instead of standing taller.
+export function PhoneUploadButton({ workflowId, style }: { workflowId: string; style?: CSSProperties }) {
   return <button
     type="button"
     className="display-font phone-upload-button"
@@ -40,9 +42,10 @@ export function PhoneUploadButton({ workflowId }: { workflowId: string }) {
       detail: { workflowId, trigger: e.currentTarget },
     })); }}
     style={{
-      flexShrink: 0, padding: '3px 8px', minHeight: '32px', whiteSpace: 'nowrap',
+      flexShrink: 0, padding: '3px 8px', whiteSpace: 'nowrap',
       background: 'transparent', border: '1px solid var(--color-border-hairline)',
-      borderRadius: '3px', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '10px',
+      borderRadius: '3px', color: 'var(--color-accent-secondary-dim)', cursor: 'pointer',
+      fontSize: '10px', letterSpacing: '1px', ...style,
     }}
   >UPLOAD FROM PHONE</button>;
 }

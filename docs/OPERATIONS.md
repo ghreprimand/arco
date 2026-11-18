@@ -765,10 +765,15 @@ only the browser session cookie and the Host and Origin check above.
 Open **UPLOAD FROM PHONE** beside Attach and scan the code on a phone that
 can already reach Arco over a direct private network connection. The picker
 accepts photos, PDFs, text and supported office documents. The code uses Arco's
-existing address and port, with no account or relay. If the server listens only
-on loopback, or the desktop is reached through a reverse proxy such as Tailscale
-Serve, the control reports that phone upload is unavailable. A direct tailnet
-address can be used when the existing listener serves it.
+existing address and port, with no account or relay. The code holds a private
+LAN or tailnet address that the running listener serves, whatever address,
+machine name or proxy the desktop page was opened with. A listener on
+`0.0.0.0` or `::` serves every private interface except container bridges, and
+the window offers a choice when there are several; a listener bound to one
+address serves that address. If the server listens only on loopback (the
+default), the control says so: set `ARCO_HOST` to a private address and
+restart Arco. The phone itself must connect directly; an upload that arrives
+through a reverse proxy such as Tailscale Serve is refused.
 
 The code allows uploads for five minutes, with up to 10 files, 20 MiB per file
 and 100 MiB total. Closing it revokes further uploads but keeps files already

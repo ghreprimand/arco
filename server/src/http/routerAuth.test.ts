@@ -199,7 +199,14 @@ test('a private phone link can only stage uploads for the conversation that open
   const anotherFile = { ...phone, 'x-filename': 'spare.txt' };
   assert.equal((await send('POST', link.pathname, 'Unused', anotherFile, socket)).status, 201);
   assert.equal((await send('GET', `${api}/${first.id}`, '', secondDesktop, socket)).status, 404);
-  const second = JSON.parse((await send('POST', api, make('second-draft'), desktop, socket)).body);
+  // A desktop page opened through a local proxy is offered the
+  // listener's direct private address; a proxied phone upload stays refused.
+  const proxied = { ...desktop, host: 'localhost:3333', origin: 'http://localhost:3333', 'x-forwarded-for': '127.0.0.1' };
+  const secondOpening = await send('POST', api, make('second-draft'), proxied, { ...socket, remoteAddress: '127.0.0.1' });
+  assert.equal(secondOpening.status, 201, secondOpening.body);
+  const second = JSON.parse(secondOpening.body);
+  assert.equal(new URL(second.url).origin, origin);
+  assert.equal((await send('POST', link.pathname, 'proxied', { ...phone, 'x-forwarded-for': peer }, socket)).status, 403);
   assert.deepEqual(JSON.parse((await send('GET', `${api}/${second.id}`, '', desktop, socket)).body).files, []);
   const refreshed = { ...desktop, cookie: `${SESSION_COOKIE}=${mintToken()}` };
   const staged = JSON.parse((await send('GET', `${api}/${first.id}`, '', refreshed, socket)).body).files;

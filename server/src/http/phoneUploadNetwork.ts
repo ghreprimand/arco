@@ -62,28 +62,33 @@ function canReach(network: PhoneUploadNetwork, peer: string): boolean {
     && network.peers.check(peer, kind);
 }
 
+// The private addresses the running listener serves. This depends only on
+// the listener and the machine's interfaces, never on the URL or route the
+// desktop page used: a page opened by machine name, by another address or
+// through a proxy is offered the same direct addresses a phone can reach.
+// A wildcard listener serves every private interface (container bridges
+// excluded); a listener bound to one address serves only that address.
 function privateListeners(req: IncomingMessage): PhoneUploadNetwork[] {
-  if (!isDirect(req) || !req.socket.localPort || (req.socket as { encrypted?: boolean }).encrypted) return [];
+  if (!req.socket.localPort || (req.socket as { encrypted?: boolean }).encrypted) return [];
   const local = address(req.socket.localAddress);
-  const peer = address(req.socket.remoteAddress);
   const wildcard = HOST === '::' || HOST === '0.0.0.0';
-  const host = req.headers.host ?? '';
-  const localDesktop = wildcard && loopback(local) && loopback(peer)
-    && /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(host);
   const networks = new Map<string, PhoneUploadNetwork>();
   for (const [name, entries] of Object.entries(os.networkInterfaces())) {
-    if (localDesktop && /^(docker|veth|virbr|br-)/i.test(name)) continue;
+    if (wildcard && /^(docker|veth|virbr|br-)/i.test(name)) continue;
     const tailnet = /tailscale/i.test(name) || !!entries?.some(entry => /^fd7a:115c:a1e0:/i.test(entry.address));
     for (const entry of entries ?? []) {
       const ip = address(entry.address);
-      if (ip !== local && (!localDesktop || (HOST === '0.0.0.0' && family(ip) !== 'ipv4'))) continue;
+      if (wildcard ? HOST === '0.0.0.0' && family(ip) !== 'ipv4' : ip !== local) continue;
       const network = privateInterface(entry, tailnet, req.socket.localPort);
-      if (network && (localDesktop || canReach(network, peer))) {
-        networks.set(network.origin, network);
-      }
+      if (network) networks.set(network.origin, network);
     }
   }
   return [...networks.values()];
+}
+
+/** True when the server listens on loopback only, so no other device can reach it. */
+export function listensOnLoopbackOnly(): boolean {
+  return loopback(HOST) || /^localhost$/i.test(HOST);
 }
 
 export function phoneUploadOrigins(req: IncomingMessage): string[] {
@@ -93,7 +98,7 @@ export function phoneUploadOrigins(req: IncomingMessage): string[] {
 export function privatePhoneOrigin(req: IncomingMessage): string | undefined {
   const local = address(req.socket.localAddress);
   const peer = address(req.socket.remoteAddress);
-  if (!isIP(peer) || loopback(peer)) return undefined;
+  if (!isDirect(req) || !isIP(peer) || loopback(peer)) return undefined;
   return privateListeners(req).find(network => network.address === local
     && canReach(network, peer) && req.headers.host === new URL(network.origin).host)?.origin;
 }

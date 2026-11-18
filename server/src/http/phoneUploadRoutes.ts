@@ -12,13 +12,15 @@ import { managedUploadPath } from '../uploadImages.js';
 import { readAttachmentBody, storeAttachment, UploadTooLarge } from './attachmentUpload.js';
 import { readFileForExplorer } from './fileRead.js';
 import { discardPhoneDraft, phoneDraftForOwner, phoneFilename, rememberPhoneDraft, PHONE_DRAFT_TTL_MS, type PhoneDraft } from './phoneUploadDrafts.js';
-import { phoneUploadOrigins, privatePhoneOrigin } from './phoneUploadNetwork.js';
+import { listensOnLoopbackOnly, phoneUploadOrigins, privatePhoneOrigin } from './phoneUploadNetwork.js';
 import { PHONE_PAGE, PHONE_PAGE_CSP } from './phoneUploadPage.js';
 import { readCookie, SESSION_COOKIE, verifyToken } from './wsAuth.js';
 
 const PHONE_PATH = '/phone-upload';
 const API_PATH = '/api/phone-upload';
 const UNAVAILABLE = 'Phone upload is unavailable. Open Arco on your private network first.';
+const LOOPBACK_ONLY = 'Phone upload is unavailable. Arco listens on this computer only, so a phone cannot reach it. Set ARCO_HOST to a private network address and restart Arco.';
+const NO_PRIVATE_ADDRESS = 'Phone upload is unavailable. Arco does not listen on a private network or tailnet address.';
 const CLOSED = 'This link is closed or expired. Open a new code in Arco.';
 const MIB = 1024 * 1024;
 const FILE_LIMIT = 20 * MIB;
@@ -235,7 +237,7 @@ export async function tryHandlePhoneOperator(req: IncomingMessage, res: ServerRe
       purgeLinks();
       const origins = phoneUploadOrigins(req);
       if (!origins.length) {
-        error(res, 403, UNAVAILABLE);
+        error(res, 403, listensOnLoopbackOnly() ? LOOPBACK_ONLY : NO_PRIVATE_ADDRESS);
         return true;
       }
       const body = JSON.parse((await readAttachmentBody(req, 4096)).toString()) as { workflowId?: string; origin?: string };

@@ -5,7 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
-- Attach photos and files from a phone on the same private network using a short-lived QR code.
+- Attach photos and files from a phone on the same private network using a short-lived QR code. The code holds the private address Arco listens on, whatever address the desktop page uses.
 
 - Show Codex commands that outlive their reply and keep their later exit results in ACTIVITY.
 

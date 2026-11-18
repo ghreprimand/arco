@@ -382,9 +382,3 @@ body {
   border-radius: .3rem;
   cursor: pointer;
 }
-
-@media (pointer: coarse) {
-  .phone-upload-button {
-    min-block-size: 44px;
-  }
-}
