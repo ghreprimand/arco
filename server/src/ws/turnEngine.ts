@@ -2635,6 +2635,12 @@ export async function handleUserMessage(
             if (!dispatchCurrent() || wf.primaryTurn?.holdSteer || wf.queue.steering.some((item) => item.interrupt)) return [];
             return wf.queue.steering;
           },
+          pendingInput: () => {
+            if (!dispatchCurrent() || wf.queue.steering.some((item) => item.interrupt)) return undefined;
+            const direct = (item: { automaticKind?: string }) => item.automaticKind !== 'auto-pickup';
+            if (!wf.primaryTurn?.holdSteer && wf.queue.steering.some(direct)) return 'steer';
+            return wf.queue.followUp.some(direct) ? 'follow-up' : undefined;
+          },
           requeueSteer: (items, bucket) => {
             if (workflows.get(workflowId) === wf && (busyRevocations.get(wf) ?? 0) === interruptEpoch) requeueSteerForWorker(workflowId, ws, items, bucket);
           },

@@ -1179,11 +1179,11 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         case 'primary_tool_use': {
           const { itemId, lateCommand } = msg;
           if (itemId && lateCommand) {
-            const { state, startedAt, waitingUntil } = lateCommand;
+            const { state, startedAt, waitingUntil, waiting } = lateCommand;
             store.setCodexLateCommands(msg.workflowId, existing => {
               const rest = existing.filter(item => item.itemId !== itemId);
               if (state === 'running' && waitingUntil > Date.now()) {
-                rest.push({ itemId, input: msg.input, startedAt, waitingUntil });
+                rest.push({ itemId, input: msg.input, startedAt, waitingUntil, ...(waiting ? { waiting } : {}) });
               }
               return rest;
             });

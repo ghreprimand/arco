@@ -83,13 +83,38 @@ ACTIVITY > BACKGROUND lists programs the agent started through a shell tool and 
 The tracker matches shell-tool commands to process arguments and follows their known children. Claude CLI, Codex exec and app-server, and Cursor ACP supply these events. Providers without a discoverable child-process id do not feed this process tracker. Native and local tool execution keep their existing task reporting.
 
 
-When a Codex app-server turn ends with a shell command still running, its header
-and cluster member card show the command and start time for up to five minutes.
-ACTIVITY keeps a later exit on the original command. Losing the connection
-before an exit arrives is reported as a lost result. The indicator does not
-block a new message or start another turn. A long-lived command can keep running
-after the indicator clears, and Arco can still record its exit while the
-worker tracks it.
+When a Codex app-server turn ends with a shell command still running, the Arco
+turn is not over. The tab and cluster member card stay WORKING and name the
+command. When the command ends, Arco starts the next Codex turn on the same
+thread with the command, its run time, exit code and the last 4,000 characters
+of output, and shows a "Command ended" line. To the operator it is one turn.
+This does not depend on AUTO-PICKUP and is never charged as a wake.
+
+- One continuation when the last waited-on command ends, or at once when one
+  fails. Ends within two seconds of each other go into the same continuation;
+  a result that arrives while a Codex turn is running is added to that turn.
+- Limits per Arco turn: 30 minutes of waiting in total and 20 continuations.
+  At either limit the turn ends with one line naming what still runs.
+- STOP ends the wait at once and nothing continues afterwards. The command is
+  left running; its row in ACTIVITY still records how it ends.
+- A message the operator sends during the wait, or an explicit nudge, ends the
+  wait: a steering message becomes the next Codex turn at once, a queued
+  follow-up runs next as its own turn and that turn receives the result.
+  Peer mail stays in the mailbox as during any turn; AUTO-PICKUP considers it
+  once the turn has ended.
+- A program meant to keep running is not waited on: one the shell puts in the
+  background (`&`, `nohup`) ends its shell at once, and a known server or
+  watcher started in the foreground (`npm run dev`, `vite`, `uvicorn`,
+  `python -m http.server`, `--watch`, `tail -f`, `docker compose up` without
+  `-d`) is shown as running without holding the turn. Codex is told to start
+  such programs in the background.
+- Losing the Codex connection, or Codex closing the thread, ends the wait with
+  the existing lost-result line.
+
+A command that is not waited on keeps the "still running" line for up to five
+minutes after the turn; ACTIVITY keeps its later exit on the original command.
+The wait applies only to the app-server transport; `codex exec` ends its
+process with the turn.
 
 ## The provider abstraction
 

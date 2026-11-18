@@ -719,6 +719,8 @@ export interface CodexLateCommand {
   input: string;
   startedAt: number;
   waitingUntil: number;
+  // The tab's turn is open only because the agent waits on this command.
+  waiting?: boolean;
 }
 
 export interface PrimaryToolUseMessage {

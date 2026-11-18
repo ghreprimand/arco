@@ -579,6 +579,10 @@ export interface WorkerConfig {
   // Native uses their identity to show one notice per held message without
   // acknowledging or removing input before its safe delivery boundary.
   peekSteer?: () => readonly SteerItem[];
+  // Codex app-server only: while a turn waits on a command, which queued
+  // input the operator (or an explicit nudge) has sent. Automatic pickup
+  // reminders are left out: they wait for the turn to end as usual.
+  pendingInput?: () => 'steer' | 'follow-up' | undefined;
   // Phase 6b — re-enqueue hook for the Codex app-server worker. Called when
   // a `turn/steer` round-trip fails and the drained items have to land
   // back in a queue: `'steer'` for `activeTurnNotSteerable` (the next

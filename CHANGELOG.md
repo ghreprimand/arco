@@ -9,6 +9,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Show Codex commands that outlive their reply and keep their later exit results in ACTIVITY.
 
+- Keep a Codex turn working while a command it started is still running, then continue Codex once with the result, without AUTO-PICKUP.
+
 - Open files in Git worktrees from conversation links and browse their branch-labelled documents under the project in ARTIFACTS.
 
 - Clarify Windows npm launcher ownership and safe recovery after a failed install.

@@ -1,4 +1,4 @@
-import { CodexLateCommands } from './lateCommands.js';
+import { CodexLateCommands, type HeldCommandResult } from './lateCommands.js';
 import { historyBinding } from '../handoffHistoryBinding.js';
 import { codexWebSearchMode } from '../codexWebSearch.js';
 import { codexImageToolConfig } from '../codexImageTool.js';
@@ -53,6 +53,7 @@ import type { TurnInterruptParams } from './bindings/v2/TurnInterruptParams.js';
 import type { TurnSteerParams } from './bindings/v2/TurnSteerParams.js';
 import type { TurnSteerResponse } from './bindings/v2/TurnSteerResponse.js';
 import type { ThreadStartedNotification } from './bindings/v2/ThreadStartedNotification.js';
+import type { ThreadClosedNotification } from './bindings/v2/ThreadClosedNotification.js';
 import type { TurnStartedNotification } from './bindings/v2/TurnStartedNotification.js';
 import type { TurnCompletedNotification } from './bindings/v2/TurnCompletedNotification.js';
 import type { ItemStartedNotification } from './bindings/v2/ItemStartedNotification.js';
@@ -356,6 +357,9 @@ interface CurrentTurnState {
   // wall of text ("…release process.Kernel.org confirms…"). We insert a
   // paragraph break when the item id changes. Null until the first delta.
   lastAgentMsgItemId: string | null;
+  // The agent's final answer has started: a command that ends after this
+  // point was never seen by the model.
+  finalAnswerStarted: boolean;
   artifacts: Set<Promise<void>>;
   settling: boolean;
 }
@@ -373,6 +377,7 @@ function emptyTurnState(): CurrentTurnState {
     transientNoticeKey: null,
     transientNoticeCount: 0,
     lastAgentMsgItemId: null,
+    finalAnswerStarted: false,
     artifacts: new Set(),
     settling: false,
   };
@@ -677,7 +682,7 @@ export class CodexAppServerWorker extends EventEmitter {
   // element. Empty prompt + image-only payload is a valid request shape now
   // that images are first-class — no more "Please inspect the attached
   // image(s)." synthetic fallback.
-  async beginTurn(prompt: string, appendSystemPrompt: string | undefined): Promise<void> {
+  async beginTurn(prompt: string, appendSystemPrompt: string | undefined, options: { continuation?: boolean } = {}): Promise<void> {
     if (this.disposed) throw new Error('codex app-server worker disposed');
     if (!this.rpc || !this.threadId) {
       throw new Error('codex app-server worker not bootstrapped');
@@ -690,7 +695,8 @@ export class CodexAppServerWorker extends EventEmitter {
     }
 
     const preparationGeneration = this.preparationGeneration;
-    const prepared = await prepareProviderAttachments(this.config.attachments, true, undefined, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
+    // A continuation carries command results, never the operator's files again.
+    const prepared = await prepareProviderAttachments(options.continuation ? undefined : this.config.attachments, true, undefined, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
     if (preparationGeneration !== this.preparationGeneration) throw new Error('Worker killed');
     const modelImages = await persistProviderImages(prepared.images);
     if (preparationGeneration !== this.preparationGeneration) throw new Error('Worker killed');
@@ -1058,9 +1064,38 @@ export class CodexAppServerWorker extends EventEmitter {
 
   private readonly lateCommands = new CodexLateCommands((event, state) => {
     this.emit('late_command', event, state);
-  });
+  }, () => this.emit('held_commands'));
 
   get runningLateCommands() { return this.lateCommands.snapshot(); }
+
+  // Commands the agent waits on after its Codex turn ended. The per-turn
+  // wrapper holds the Arco turn open for them and delivers each result once.
+  get heldCommands() { return this.lateCommands.running(); }
+  hasHeldResults(): boolean { return this.lateCommands.hasResults(); }
+  hasFailedHeldResult(): boolean { return this.lateCommands.hasFailedResult(); }
+  takeHeldResults(): HeldCommandResult[] { return this.lateCommands.takeResults(); }
+  restoreHeldResults(results: HeldCommandResult[]): void { this.lateCommands.restoreResults(results); }
+  showHeldUntil(until: number): void { this.lateCommands.hold(until); }
+  releaseHeldWait(): void { this.lateCommands.release(); }
+  // Arco's text may join the running turn only before its final answer starts.
+  get acceptsResultSteer(): boolean { return !!this.current.turnId && !this.current.finalAnswerStarted; }
+  abandonHeldCommands(): void { this.lateCommands.abandon(); }
+
+  /** Add Arco's text to the running turn. False when no turn takes it. */
+  async steerText(text: string): Promise<boolean> {
+    const turn = this.current;
+    if (!this.rpc || !this.threadId || !turn.turnId) return false;
+    try {
+      await this.rpc.request<TurnSteerResponse>('turn/steer', {
+        threadId: this.threadId, input: buildSteerInput([{ content: text }]),
+        responsesapiClientMetadata: null, expectedTurnId: turn.turnId,
+      } satisfies TurnSteerParams);
+      return true;
+    } catch (err) {
+      console.warn(`[appserver:${this.workflowId.slice(0, 8)}] command result steer failed: ${err instanceof Error ? err.message : String(err)}`);
+      return false;
+    }
+  }
 
   private commandToolUse(item: Extract<ThreadItem, { type: 'commandExecution' }>, completed: boolean): ToolUseEvent {
     return {
@@ -1079,7 +1114,11 @@ export class CodexAppServerWorker extends EventEmitter {
     const active = this.current.startedAt && (!this.current.turnId || p.turnId === this.current.turnId);
     const event = this.commandToolUse(p.item, completed);
     if (completed) {
-      if (this.lateCommands.complete(p.turnId, event)) return true;
+      // One completion per command: one that ended after the agent's final
+      // answer began is kept for after this turn; one from a turn that has
+      // already completed belongs to the long-lived publisher.
+      if (active && this.current.finalAnswerStarted) this.lateCommands.completeUnseen(p.turnId, event);
+      else if (this.lateCommands.complete(p.turnId, event)) return true;
     } else if (active) this.lateCommands.start(p.turnId, event);
     if (active) this.emit('tool_use', event);
     return true;
@@ -1090,6 +1129,12 @@ export class CodexAppServerWorker extends EventEmitter {
       case 'serverRequest/resolved': {
         const p = n.params as { threadId: string; requestId: string | number };
         if (p.threadId === this.threadId) this.operatorQuestions.resolvedRpc(p.requestId);
+        return;
+      }
+      case 'thread/closed': {
+        // Codex unloaded the thread and stopped its terminals: no held
+        // command will report an end any more.
+        if ((n.params as ThreadClosedNotification).threadId === this.threadId) this.lateCommands.disconnect();
         return;
       }
       case 'thread/started': {
@@ -1167,6 +1212,8 @@ export class CodexAppServerWorker extends EventEmitter {
       }
       case 'item/started': {
         const p = n.params as ItemStartedNotification;
+        if (p.item.type === 'agentMessage' && p.item.phase === 'final_answer' && p.threadId === this.threadId
+          && this.current.startedAt && (!this.current.turnId || p.turnId === this.current.turnId)) this.current.finalAnswerStarted = true;
         if (!this.handleCommandItem(p, false)) this.emitToolUseFromItem(p.item, 'started');
         return;
       }

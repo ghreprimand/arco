@@ -135,6 +135,13 @@ test('B171: a silent busy worker reaches the stuck deadline without store update
     await f.render(RuntimeStateBanner, { job: { id: 'fixture', busy: true, lastPrimaryEventAt: 1000 }, onCancel() {} });
     now = 32000; await act(async () => { for (const tick of [...f.timers.values()]) tick(); });
     assert.ok(document.body.textContent?.includes('CANCEL TURN'));
+    // A server left running from an earlier turn does not explain the silence;
+    // a command the turn is waiting on does, and its header line names it.
+    const server = { itemId: 'dev', input: '{}', startedAt: 1000, waitingUntil: 900000 };
+    await f.render(RuntimeStateBanner, { job: { id: 'fixture', busy: true, lastPrimaryEventAt: 1000, codexLateCommands: [server] }, onCancel() {} });
+    assert.ok(document.body.textContent?.includes('may be stuck'));
+    await f.render(RuntimeStateBanner, { job: { id: 'fixture', busy: true, lastPrimaryEventAt: 1000, codexLateCommands: [server, { ...server, itemId: 'build', waiting: true }] }, onCancel() {} });
+    assert.ok(!document.body.textContent?.includes('may be stuck'));
   } finally { await f.close(); }
 });
 

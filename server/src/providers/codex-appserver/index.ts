@@ -18,6 +18,11 @@ import { CodexAppServerWorker, computeMcpSignature, bootstrapSurfaceKey, type To
 import { codexContextWindowOverride } from '../codexContextWindow.js';
 import { allowVoiceTools, blockVoiceTools, observeVoiceTools } from '../../voice/operatorTools.js';
 import { ComputerTurnWatchdog } from '../../voice/turnWatchdog.js';
+import type { SteerItem } from '@arco/shared';
+import {
+  HELD_BATCH_MS, HELD_CONTINUATION_LIMIT, HELD_WAIT_LIMIT_MS,
+  formatDuration, heldResultNotice, heldResultsMessage, shortCommand,
+} from './heldCommands.js';
 
 const workersByWorkflow = new Map<string, CodexAppServerWorker>();
 const compactReservations = new Map<string, CodexAppServerWorker>();
@@ -70,7 +75,7 @@ function resetFailureCount(workflowId: string): void {
 
 // One operator turn against the long-lived worker. ProviderProcess shape
 // preserved so WorkerManager / seedWorker can stay unchanged.
-class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
+export class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
   readonly id: string;
   private _status: WorkerStatus = 'spawning';
   private _output = '';
@@ -86,6 +91,24 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
   private watchdog?: ComputerTurnWatchdog;
   private stopToolObserver?: () => void;
   private timeoutReason?: string;
+  // docs/PROVIDERS.md - the Arco turn stays open while a command the agent
+  // started is still running after its Codex turn completed. Each Codex turn
+  // inside it adds its cost; the result is reported once, at the end.
+  private readonly startedAt = Date.now();
+  private costUsd = 0;
+  private lastResult?: TurnSettleData;
+  private continuations = 0;
+  private waitedMs = 0;
+  private waitStartedAt = 0;
+  private waitTimer?: NodeJS.Timeout;
+  private inputTimer?: NodeJS.Timeout;
+  private batchTimer?: NodeJS.Timeout;
+  private resultSteer?: Promise<void>;
+  // STOP: nothing continues, and no later result restarts the turn.
+  private stopped = false;
+  // Interrupt & send: the wait ends, but the commands stay held so the
+  // operator's next turn receives their results.
+  private interrupting = false;
 
   constructor(
     id: string,
@@ -168,11 +191,17 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
   }
 
   async interrupt(): Promise<void> {
-    if (!this.settled) await this.worker.cancelCurrentTurn();
+    if (this.settled) return;
+    this.interrupting = true;
+    this.stopWaitClock();
+    await this.worker.cancelCurrentTurn();
   }
 
   kill(): void {
     if (this.settled) return;
+    this.stopped = true;
+    this.stopWaitClock();
+    this.worker.abandonHeldCommands();
     // Async; the wrapper's `error` event fires when `turn_settled` lands.
     void this.worker.cancelCurrentTurn().catch((err: unknown) => {
       if (this.settled) return;
@@ -221,26 +250,26 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
         this.fail('turn settled with no result');
         return;
       }
-      this.settled = true;
-      this._status = 'completed';
-      this.unwire();
       // Successful turn — the spawn-failure circuit breaker resets so any
       // earlier intermittent crashes stop counting toward the 3-strike cap.
       resetFailureCount(this.workflowId);
-      this.emit('result', {
-        text: this._output.length >= r.text.length ? this._output : r.text,
-        costUsd: r.costUsd,
-        durationMs: r.durationMs,
-        ...(r.usage ? { usage: r.usage } : {}),
-        ...(typeof r.modelContextWindow === 'number' ? { modelContextWindow: r.modelContextWindow } : {}),
-        ...(typeof r.freshContextWindow === 'number' ? { freshContextWindow: r.freshContextWindow } : {}),
-        ...(typeof r.lastPromptTokens === 'number' ? { lastPromptTokens: r.lastPromptTokens } : {}),
-        // docs/PROVIDERS.md - Codex doesn't expose tool_result bytes
-        // through the app-server JSON-RPC surface. Sentinel: -1 = unknown.
-        thinkingBytes: 0,
-        toolResultBytes: -1,
-        toolResultBytesRaw: -1,
-      });
+      this.costUsd += r.costUsd ?? 0;
+      this.lastResult = r;
+      void this.afterCodexTurn();
+    };
+    const onHeldCommands = () => {
+      if (this.settled || this.stopped) return;
+      if (this.waitStartedAt) {
+        // Ends that arrive close together go to the agent in one turn.
+        if (!this.batchTimer) this.batchTimer = setTimeout(() => { this.batchTimer = undefined; this.reviewWait(); }, HELD_BATCH_MS);
+        return;
+      }
+      // A result that arrives while the final answer is being written waits
+      // for the turn to complete and continues it, so it is never lost.
+      if (this.worker.hasHeldResults() && !this.resultSteer && !this.lastResult && this.worker.acceptsResultSteer) {
+        // A Codex turn is running: the result goes into it, never a second turn.
+        this.resultSteer = this.steerResults().finally(() => { this.resultSteer = undefined; });
+      }
     };
     const onFatal = (reason: string) => {
       if (this.settled) return;
@@ -258,6 +287,7 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
     this.worker.on('system_notice', onSystemNotice);
     this.worker.on('turn_settled', onSettled);
     this.worker.on('fatal', onFatal);
+    this.worker.on('held_commands', onHeldCommands);
 
     this.wired.push(
       { event: 'init', fn: onInit as (...args: unknown[]) => void },
@@ -268,6 +298,7 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
       { event: 'system_notice', fn: onSystemNotice as (...args: unknown[]) => void },
       { event: 'turn_settled', fn: onSettled as (...args: unknown[]) => void },
       { event: 'fatal', fn: onFatal as (...args: unknown[]) => void },
+      { event: 'held_commands', fn: onHeldCommands as (...args: unknown[]) => void },
     );
 
     // Phase 6a unused but harmless — silences "WorkerConfig.appendSystemPrompt
@@ -277,6 +308,7 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
   }
 
   private unwire(): void {
+    this.stopWaitClock();
     this.watchdog?.stop(); this.watchdog = undefined;
     this.stopToolObserver?.(); this.stopToolObserver = undefined;
     for (const { event, fn } of this.wired) {
@@ -290,7 +322,156 @@ class CodexAppServerTurn extends EventEmitter implements ProviderProcess {
     this.settled = true;
     this._status = 'failed';
     this.unwire();
+    // After Interrupt & send the operator's message runs next and takes the
+    // results; any other failure leaves nobody to deliver them to.
+    if (!this.interrupting) this.worker.abandonHeldCommands();
     this.emit('error', reason);
+  }
+
+  // ── Waiting on commands the agent started ───────────────────────────
+
+  private async afterCodexTurn(): Promise<void> {
+    // A result steer still in flight either landed in the turn that just
+    // ended or comes back to the queue of results; wait to know which.
+    if (this.resultSteer) await this.resultSteer;
+    if (this.settled) return;
+    const running = this.worker.heldCommands;
+    const ready = this.worker.hasHeldResults();
+    if (this.stopped || (!ready && running.length === 0)) return this.finish();
+    if (this.continuations >= HELD_CONTINUATION_LIMIT) {
+      return this.giveUp(`Arco stopped continuing Codex after ${HELD_CONTINUATION_LIMIT} command results in this turn.`);
+    }
+    if (ready && (running.length === 0 || this.worker.hasFailedHeldResult())) return this.continueWith([]);
+    this.startWait();
+  }
+
+  private startWait(): void {
+    const remaining = HELD_WAIT_LIMIT_MS - this.waitedMs;
+    if (remaining <= 0) return this.giveUp(`Arco stopped waiting after ${formatDuration(HELD_WAIT_LIMIT_MS)} in this turn.`);
+    this.waitStartedAt = Date.now();
+    this.worker.showHeldUntil(this.waitStartedAt + remaining);
+    this.waitTimer = setTimeout(() => {
+      this.stopWaitClock();
+      this.giveUp(`Arco stopped waiting after ${formatDuration(HELD_WAIT_LIMIT_MS)} in this turn.`);
+    }, remaining);
+    this.waitTimer.unref?.();
+    this.inputTimer = setInterval(() => this.checkInput(), 500);
+    this.inputTimer.unref?.();
+  }
+
+  private stopWaitClock(): void {
+    if (this.waitStartedAt) {
+      this.waitedMs += Date.now() - this.waitStartedAt;
+      this.worker.releaseHeldWait();
+    }
+    this.waitStartedAt = 0;
+    clearTimeout(this.waitTimer); this.waitTimer = undefined;
+    clearInterval(this.inputTimer); this.inputTimer = undefined;
+    clearTimeout(this.batchTimer); this.batchTimer = undefined;
+  }
+
+  private reviewWait(): void {
+    if (this.settled || !this.waitStartedAt) return;
+    const running = this.worker.heldCommands;
+    const ready = this.worker.hasHeldResults();
+    if (ready && (running.length === 0 || this.worker.hasFailedHeldResult())) {
+      this.stopWaitClock();
+      this.continueWith([]);
+    } else if (!ready && running.length === 0) {
+      // Codex lost the commands (connection or thread closed); the lost
+      // line has already been shown.
+      this.stopWaitClock();
+      this.finish();
+    }
+  }
+
+  // Direct operator input or an explicit nudge ends the wait. A steer goes
+  // to the agent at once; a follow-up waits for the turn to end, so the
+  // turn ends here and the follow-up turn takes over the held commands.
+  private checkInput(): void {
+    if (this.settled || !this.waitStartedAt) return;
+    const pending = this.config.pendingInput?.();
+    if (!pending) return;
+    const peeked = this.config.peekSteer?.() ?? [];
+    if (pending === 'follow-up' || peeked.some(item => item.attachments?.length)) {
+      this.stopWaitClock();
+      this.emit('system_notice', `Stopped waiting for ${this.runningLabel()}: your message is next. Arco still passes the result on when it ends.`);
+      return this.finish();
+    }
+    const items = this.config.drainSteer?.() ?? [];
+    if (!items.length) return;
+    this.stopWaitClock();
+    this.continueWith(items);
+  }
+
+  private continueWith(items: SteerItem[]): void {
+    this.continuations += 1;
+    const results = this.worker.takeHeldResults();
+    const running = this.worker.heldCommands;
+    for (const result of results) this.emit('system_notice', heldResultNotice(result, true));
+    const message = [
+      ...(results.length ? [heldResultsMessage(results, running)] : []),
+      ...items.map(item => item.content),
+      ...(!results.length && running.length ? [`[Arco] Still running: ${running.map(item => shortCommand(item.command)).join('; ')}. Arco tells you when it ends.`] : []),
+    ].join('\n\n');
+    this._output += this._output ? '\n\n' : '';
+    this.lastResult = undefined;
+    this.worker.beginTurn(message, undefined, { continuation: true })
+      .then(() => {
+        if (items.length) this.config.onSteerDelivered?.(items);
+        if (this.settled) void this.worker.cancelCurrentTurn().catch(() => {});
+      })
+      .catch((err: unknown) => {
+        if (this.settled) return;
+        this.worker.restoreHeldResults(results);
+        if (items.length) this.config.requeueSteer?.(items, 'follow-up');
+        this.fail(err instanceof Error ? err.message : String(err));
+      });
+  }
+
+  private async steerResults(): Promise<void> {
+    const results = this.worker.takeHeldResults();
+    if (!results.length) return;
+    const delivered = await this.worker.steerText(heldResultsMessage(results, this.worker.heldCommands));
+    if (!delivered) { this.worker.restoreHeldResults(results); return; }
+    for (const result of results) this.emit('system_notice', heldResultNotice(result, false));
+  }
+
+  private runningLabel(): string {
+    const running = this.worker.heldCommands;
+    return running.length ? running.map(item => `\`${shortCommand(item.command)}\``).join(', ') : 'the command';
+  }
+
+  private giveUp(line: string): void {
+    const running = this.worker.heldCommands;
+    this.worker.abandonHeldCommands();
+    this.emit('system_notice', running.length
+      ? `${line} Still running: ${running.map(item => `\`${shortCommand(item.command)}\``).join(', ')}. Its row records how it ends.`
+      : line);
+    this.finish();
+  }
+
+  private finish(): void {
+    if (this.settled) return;
+    const r = this.lastResult;
+    if (!r) { this.fail('turn settled with no result'); return; }
+    this.settled = true;
+    this._status = 'completed';
+    this.unwire();
+    this.emit('result', {
+      text: this._output.length >= r.text.length ? this._output : r.text,
+      costUsd: this.costUsd,
+      durationMs: Math.max(r.durationMs ?? 0, Date.now() - this.startedAt),
+      ...(r.usage ? { usage: r.usage } : {}),
+      ...(typeof r.modelContextWindow === 'number' ? { modelContextWindow: r.modelContextWindow } : {}),
+      ...(typeof r.freshContextWindow === 'number' ? { freshContextWindow: r.freshContextWindow } : {}),
+      ...(typeof r.lastPromptTokens === 'number' ? { lastPromptTokens: r.lastPromptTokens } : {}),
+      // docs/PROVIDERS.md - Codex doesn't expose tool_result bytes
+      // through the app-server JSON-RPC surface. Sentinel: -1 = unknown.
+      thinkingBytes: 0,
+      toolResultBytes: -1,
+      toolResultBytesRaw: -1,
+    });
   }
 }
 

@@ -1,3 +1,4 @@
+import { waitedCodexCommand } from './CodexLateCommand';
 import { useEffect, useState } from 'react';
 import { useAppStore, type JobState } from '../stores/appStore';
 import { deriveWorkflowState, recoveryActionFor, type WorkflowRuntimeState } from '../runtime/runtimeState';
@@ -59,6 +60,10 @@ export function RuntimeStateBanner({ job, onCancel }: Props) {
       </div>
     );
   }
+
+  // A turn held open for a Codex command is silent by design; the header
+  // names the command, so this is not reported as a stuck worker.
+  if (state === 'stuck' && waitedCodexCommand(job)) return null;
 
   if (state === 'stuck') {
     const anchor = job.lastPrimaryEventAt ?? job.recoveredAt ?? now;

@@ -411,7 +411,7 @@ export const workspace: Section[] = [
             first. Search results and reasoning from the current work remain intact.</li>
         </ul>
         <p>
-          If Codex finishes a reply while a shell command is still running, the header and cluster member card show the command and its start time. The indicator lasts up to five minutes. ACTIVITY records the exit when Codex reports it.
+          If Codex finishes a reply while a shell command is still running, the tab stays WORKING and names the command. When it ends, Arco continues Codex with its result, without AUTO-PICKUP. The wait lasts at most 30 minutes per turn. STOP ends it and leaves the command running. A message you send ends the wait. Servers and watchers are not waited on; ACTIVITY records their exit.
         </p>
         <h4 className="manual-sub">Slash commands &amp; references</h4>
         <p><Code>/prompt name args</Code> expands a saved template. Inserted argument text remains literal; <Code>$$1</Code> in the template produces literal <Code>$1</Code>.</p>

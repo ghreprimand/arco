@@ -94,7 +94,7 @@ export function codexCodeModeClusterAddendum(): string {
 }
 
 // Standing turn discipline for every Codex workflow (cluster and single).
-const CODEX_COMMAND_WAIT = 'A command reply with a session ID and no exit code means it is still running. Poll that session until it exits before reporting, and do not end the turn saying you are waiting for it.';
+const CODEX_COMMAND_WAIT = 'A command reply with a session ID and no exit code means it is still running. Poll that session until it exits before reporting, and do not end the turn saying you are waiting for it. Start a program meant to keep running, such as a server or a watcher, in the background with & or nohup, so Arco does not wait for it.';
 export const CODEX_TURN_DISCIPLINE = AGENT_TURN_WAIT + ' ' + CODEX_COMMAND_WAIT;
 
 export function codexTurnWaitInstructions(role: string | undefined): string {
