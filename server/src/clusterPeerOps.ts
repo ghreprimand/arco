@@ -688,6 +688,12 @@ async function clusterTaskBoardContext(clusterId: string): Promise<ClusterTaskBo
   return { cwd: state.cwd, ...(boardKey ? { boardKey } : {}) };
 }
 
+/** Tasks on this cluster's own board, or null when it has no board. */
+export async function loadClusterBoardTasks(clusterId: string): Promise<LedgerTask[] | null> {
+  const board = await clusterTaskBoardContext(clusterId);
+  return board ? taskLedger.load(board.cwd, board.boardKey) : null;
+}
+
 function broadcastTaskSnapshot(
   broadcastCluster: (msg: ServerMessage) => void,
   ctx: PeerOpsContext,

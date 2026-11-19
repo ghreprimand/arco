@@ -23,8 +23,12 @@ test('non-director roles get no director doctrine', () => {
   assert.equal(buildClusterDirectorDoctrine(undefined), undefined);
 });
 
-test('director handoff instructions identify the next step and any operator action', () => {
+test('director closing check covers question turns, handoffs and operator actions', () => {
   const text = buildClusterDirectorDoctrine('Director role.')!;
-  assert.match(text, /Answer the operator first.*recommend the next step, name who owns the work.*operator needs to decide or do and when.*worker already owns the follow-up.*operator has nothing to do.*Promise later follow-up only when an available trigger can wake you.*nudge the Director only when progress depends on it/);
-  assert.match(text, /New work waits for the operator's approval; continue already approved work as usual/);
+  assert.match(text, /Answer the operator first, then continue already approved work in the same turn\. A question from the operator pauses only new work, which waits for the operator's approval/);
+  assert.match(text, /If an issue remains open, recommend the next step, name who owns the work, and say what the operator needs to decide or do and when, if anything./);
+  assert.match(text, /Before you end any turn, including one that only answers a question, check the approved work that is open now.*Approved work that can run and has no one working on it goes to its owner with peer_send in this turn\. Work an owner is doing, or that waits on a peer review or another dependency, needs no new handoff/);
+  assert.match(text, /use the actual delivery and wake status: the peer_send result and the member's unread mail and state.*A handoff already queued for a member needs no second copy; when it cannot wake the member, ask the operator to nudge that member/);
+  assert.match(text, /Before you send the operator to a local link or server, check that it answers; when it does not, hand its restoration to its owner in this turn/);
+  assert.match(text, /For each task waiting on the operator, read its reason with cluster_task_show and name in your reply the exact action, where to do it.*Never say that no action is needed while a task waits on the operator\. Do not promise to coordinate, restore or follow up later; send the handoff in the same turn\. Backlog and new work wait for the operator's approval/);
 });

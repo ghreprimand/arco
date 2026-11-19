@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show the Director, in each turn where its cluster's board can be read and has open work, the ids of its open board tasks by state (within a 2 KB limit), which members have unread mail and whether AUTO-PICKUP is on, and guide it to hand approved runnable work to its owner, check a local link before sending the operator to it, and name any operator action, including a needed nudge, before it ends a turn, also when it only answers a question.
+
 - Follow Claude Native sub-agents from a pinned list, open and hide their tabs without stopping them, and steer a running child.
 
 - Keep each enabled provider's letter in the top bar when it is signed out, rejected, still being checked, or missing its CLI; hover, focus and the accessible name say what it needs, and a click or tap opens its Connections entry. The Claude letter replaces the separate Claude sign-in chip.

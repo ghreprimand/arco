@@ -41,7 +41,9 @@ import * as clusterStore from '../clusterStore.js';
 import * as clusterEfficiency from '../clusterEfficiency.js';
 import { BLIND_CLUSTER_DOCTRINE } from '../clusterAccessDoctrine.js';
 import { buildProgressDoctrine } from '../clusterProgress.js';
-import { buildClusterDirectorDoctrine, joinClusterDoctrines } from '../clusterDirector.js';
+import { buildClusterDirectorDoctrine, isClusterDirectorRole, joinClusterDoctrines } from '../clusterDirector.js';
+import { buildDirectorOpenWork } from '../clusterOpenWork.js';
+import { loadClusterBoardTasks } from '../clusterPeerOps.js';
 import * as projectTrust from '../projectTrust.js';
 import { parsePromptInvocation, expandPromptCommand, projectPromptExists } from '../prompts.js';
 import {
@@ -2306,8 +2308,25 @@ export async function handleUserMessage(
           turnClusterRole,
           clusterStore.getMessageGuard(turnClusterId),
         );
+        // The Director sees its own cluster's open board work and unread
+        // member mail every turn, as ids, states and counts only (no
+        // member-written text; see clusterOpenWork.ts). An unreadable board
+        // leaves the block out.
+        const openWorkTasks = turnClusterTaskBoardAttached && isClusterDirectorRole(turnClusterRole)
+          ? await loadClusterBoardTasks(turnClusterId).catch(() => null)
+          : null;
+        const openWorkMail = openWorkTasks
+          ? {
+            members: await Promise.all((clusterStore.getClusterCached(turnClusterId)?.members ?? [])
+              .filter((id) => id !== workflowId)
+              .map(async (id) => ({ workflowId: id, unread: await clusterMailbox.depthFor(id).catch(() => 0), busy: workflows.get(id)?.busy }))),
+            autoPickupWakes: clusterStore.isAutoPickupWaking(turnClusterId) && !clusterStore.isAutoPickupPaused(turnClusterId),
+          }
+          : undefined;
+        const turnOpenWork = openWorkTasks ? buildDirectorOpenWork(openWorkTasks, openWorkMail) : undefined;
         turnClusterProgressDoctrine = joinClusterDoctrines(
           buildClusterDirectorDoctrine(turnClusterRole),
+          turnOpenWork,
           buildProgressDoctrine(
             clusterStore.getProgressTracking(turnClusterId),
             !!turnClusterPlan && turnClusterPlan.trim().length > 0,

@@ -6,6 +6,16 @@ export const isClusterDirector = (role?: string): boolean => /^\s*(?:director|co
 const DIRECTOR_TURN_WAIT = 'Do not wait inside a turn for long-running checks: never sleep or poll for more than 60 seconds at a time. Start long runs in the background or hand them off, report what is running, and end the turn.';
 export const AGENT_TURN_WAIT = 'For standalone agents and non-Director cluster members: when a report depends on a build, test run or CI result, wait inside the turn in steps of at most 120 seconds each, repeated as many times as the job needs. Use a foreground command within the tool timeout or check a background run between steps. Between waits, check for new messages (peer_read in a cluster) and act on them. Report when the result is in. End the turn early only when blocked or when the job clearly cannot finish within a reasonable time; then state in one line what you are waiting on and that you need a nudge. When you report progress or answer a question while assigned work is unfinished, continue that work in the same turn; end the turn only when it is done or with one stated blocker.';
 
+/** Blocked reasons that ask the operator (not a peer) for a decision or action.
+ * Shared by the board's BLOCKED badge and the Director's open-work block so
+ * both name the same tasks. */
+const OPERATOR_BLOCKED =
+  /\b(operator|human|you\b|your\s+(?:decision|input|approval|go)|needs?\s+(?:you|operator|human)|awaiting\s+(?:you|operator)|approve|accept|confirm)\b/i;
+
+export function isOperatorBlockedReason(reason: string | undefined | null): boolean {
+  return Boolean(reason && OPERATOR_BLOCKED.test(reason.trim()));
+}
+
 export function buildTurnWaitInstructions(role?: string): string {
   return isClusterDirector(role) ? DIRECTOR_TURN_WAIT : AGENT_TURN_WAIT;
 }

@@ -2,13 +2,9 @@
 // Badge semantics are covered by clusterNeedsYou.test.ts. The existing
 // scripts/smoke/task-board.ts checks the board and operator-accept contracts.
 
-import type { LedgerTask } from '@arco/shared';
+import { isOperatorBlockedReason, type LedgerTask } from '@arco/shared';
 
 export const REVIEW_OLDER_MS = 7 * 24 * 60 * 60 * 1000;
-
-/** Blocked reasons that ask the operator (not a peer) for a decision. */
-const OPERATOR_BLOCKED =
-  /\b(operator|human|you\b|your\s+(?:decision|input|approval|go)|needs?\s+(?:you|operator|human)|awaiting\s+(?:you|operator)|approve|accept|confirm)\b/i;
 
 export type NeedsYouKind = 'blocked' | 'question' | 'asked';
 
@@ -27,9 +23,8 @@ export interface NeedsYouItem {
   workflowId?: string;
 }
 
-export function isOperatorBlockedReason(reason: string | undefined | null): boolean {
-  return Boolean(reason && OPERATOR_BLOCKED.test(reason.trim()));
-}
+// One rule for "blocked on the operator", shared with the Director's open-work block.
+export { isOperatorBlockedReason };
 
 export function blockedNeedsOperator(task: Pick<LedgerTask, 'status' | 'blockedReason'>): boolean {
   return task.status === 'blocked' && isOperatorBlockedReason(task.blockedReason);
