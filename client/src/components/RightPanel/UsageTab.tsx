@@ -352,7 +352,7 @@ function CursorUsageCard({ usage, onUsage }: { usage: CursorUsageInfo; onUsage: 
         <div style={{ padding: '2px 14px 0', fontSize: '10px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
           <div>
             {usage.needsLogin
-              ? <>Not signed in to Cursor. Run <code style={{ fontFamily: 'var(--font-mono)' }}>cursor-agent login</code>, then ↻.</>
+              ? <>Not signed in to Cursor. Sign in from Connections, then ↻.</>
               : (usage.error ?? 'Cursor usage has not loaded yet.')}
           </div>
           <a

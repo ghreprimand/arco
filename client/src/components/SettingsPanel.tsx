@@ -22,6 +22,8 @@ import type { AuthStatus, AuthStatusByProvider, AuthLoginTarget, AuthLoginResult
 import { activeProjectCwd } from '../utils/activeProject';
 import { RunAsPicker, type RunAsSelection } from './RunAsPicker';
 import { LoginCommand } from './LoginCommand';
+import { LoginFlow } from './LoginFlow';
+import { checkProviderStatus } from '../utils/providerStatusCheck';
 import { THEME_REGISTRY, DEFAULT_THEME_ID } from '../themes/registry';
 import type { Theme } from '../themes/types';
 import { FONT_PACKS } from '../themes/fontPacks';
@@ -108,6 +110,10 @@ export function SettingsPanel({ onClose }: Props) {
   const [loginPending, setLoginPending] = useState<AuthLoginTarget | null>(null);
   const [manualHint, setManualHint] = useState<string | null>(null);
   const [loginCommand, setLoginCommand] = useState<string | null>(null);
+  // Providers whose sign-in runs inside Arco (the Connections flow) show it at
+  // their own row instead of a command at the bottom of the section.
+  const [inAppLogin, setInAppLogin] = useState<AuthLoginResult | null>(null);
+  const [inAppNote, setInAppNote] = useState<string | null>(null);
   const [savingProvider, setSavingProvider] = useState<ProviderName | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -437,6 +443,11 @@ export function SettingsPanel({ onClose }: Props) {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [loginPending]);
 
+  // A finished in-app sign-in gives way to the row's LIVE state.
+  useEffect(() => {
+    if (inAppLogin?.session && authStatus?.[inAppLogin.session.provider]?.loggedIn) setInAppLogin(null);
+  }, [authStatus, inAppLogin]);
+
   // Clear loginPending once the target provider flips to loggedIn.
   useEffect(() => {
     if (!loginPending || !authStatus) return;
@@ -449,10 +460,18 @@ export function SettingsPanel({ onClose }: Props) {
     setLoginPending(provider);
     setManualHint(null);
     setLoginCommand(null);
+    setInAppLogin(null);
+    setInAppNote(null);
+    const inApp = provider === 'cursor';
     try {
-      const res = await fetch(`/api/auth-login?provider=${provider}`, { method: 'POST' });
+      const res = await fetch(`/api/auth-login?provider=${provider}${inApp ? '&inApp=1' : ''}`, { method: 'POST' });
       const data = (await res.json()) as AuthLoginResult;
-      if (data.command) {
+      if (!res.ok) throw new Error();
+      if (inApp && data.session) {
+        // The flow at the row shows the link, progress and any failure.
+        setInAppLogin(data);
+        setLoginPending(null);
+      } else if (data.command) {
         // Keep loginPending so the fast poll flips the row LIVE when it lands.
         setLoginCommand(data.command);
         setManualHint(data.manual ?? null);
@@ -463,6 +482,19 @@ export function SettingsPanel({ onClose }: Props) {
     } catch {
       setManualHint('Could not start login.');
       setLoginPending(null);
+    }
+  };
+
+  // After an in-app sign-in, run the same explicit check as Connections and
+  // publish it to the shared status, so the top bar and the pickers update now.
+  const finishInAppLogin = async (provider: AuthLoginTarget) => {
+    const status = await checkProviderStatus(provider);
+    if (!status) {
+      setInAppNote('Sign-in finished, but Arco could not check the status. Press LOG IN to try again, or use Check connection in Connections.');
+    } else if (!status.loggedIn) {
+      setInAppNote(status.error ? `Sign-in finished, but the status still reads not signed in: ${status.error}` : 'Sign-in finished, but the status still reads not signed in. Press LOG IN to try again.');
+    } else {
+      setInAppNote(null);
     }
   };
 
@@ -831,6 +863,20 @@ export function SettingsPanel({ onClose }: Props) {
               loginPending={loginPending === 'cursor'}
               onLogin={() => startLogin('cursor')}
             />
+            {inAppLogin?.session?.provider === 'cursor' && (
+              <div data-testid="settings-cursor-login" style={{ padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>
+                <LoginFlow
+                  result={inAppLogin}
+                  onRestart={() => void startLogin('cursor')}
+                  onComplete={() => { void finishInAppLogin('cursor'); }}
+                />
+              </div>
+            )}
+            {inAppNote && (
+              <div role="alert" data-testid="settings-cursor-login-note" style={{ fontSize: '11px', color: 'var(--color-warning)', fontFamily: 'var(--font-body)', padding: '0 14px' }}>
+                {inAppNote}
+              </div>
+            )}
             <div id="connection-advanced-ollama" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
               <label htmlFor="ollama-endpoint" className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
                 OLLAMA ENDPOINT
@@ -2332,7 +2378,8 @@ function ProviderRow({ label, provider, status, loginPending, onLogin, variant, 
       return status?.email ? `${status.email} · ChatGPT OAuth` : 'ChatGPT OAuth';
     }
     if (loggedIn) return status?.email || 'authenticated';
-    return status?.error ? `error: ${status.error.slice(0, 80)}` : 'not authenticated';
+    if (status?.error) return status.probeFailed ? `status unknown: ${status.error}` : status.error;
+    return 'not authenticated';
   })();
   return (
     <div
@@ -2350,7 +2397,7 @@ function ProviderRow({ label, provider, status, loginPending, onLogin, variant, 
         <span className="display-font" style={{ fontSize: '12px', letterSpacing: '2px', color: loggedIn ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)' }}>
           {label}
         </span>
-        <span style={{ fontSize: '10px', color: usesOpenAiApiKey ? 'var(--color-warning)' : loggedIn ? 'var(--color-accent-primary-dim)' : 'var(--color-warning-dim)', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: '10px', color: usesOpenAiApiKey ? 'var(--color-warning)' : loggedIn ? 'var(--color-accent-primary-dim)' : 'var(--color-warning-dim)', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: !loggedIn && status?.error && !isLocalRuntime ? 'normal' : 'nowrap' }}>
           {subline}
         </span>
         {usesOpenAiApiKey && (

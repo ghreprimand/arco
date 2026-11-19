@@ -339,7 +339,13 @@ async function getDeepSeekAuthStatus(): Promise<AuthStatus> {
 async function getCursorAuthStatus(explicit = false): Promise<AuthStatus> {
   const result = await readCursorAccessToken();
   if (result.token === null) {
-    return { loggedIn: false, error: result.detail ?? 'Not signed in to Cursor - run `cursor-agent login`' };
+    // A locked or unreadable keyring is not a sign-out: report the probe as
+    // failed so the status reads unknown, never "signed out".
+    return {
+      loggedIn: false,
+      ...(result.uncertain ? { probeFailed: true } : {}),
+      error: result.detail ?? 'Not signed in to Cursor. Sign in from Connections.',
+    };
   }
   if (explicit) await checkCursorLoginWithCli();
   const rejection = cursorAuthRejection(result.token);

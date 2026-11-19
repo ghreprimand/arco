@@ -561,10 +561,15 @@ export const providers: Section[] = [
   </p>
   <Sub>Sign-in</Sub>
   <p>
-  <Code>cursor-agent login</Code> stores a cursor.com session JWT at{' '}
-  <Code>~/.config/cursor/auth.json</Code> (auto-refreshed). Arco&apos;s auth
-  probe reads it fresh, but an already-running ACP child can retain old
-  credentials.
+  Sign in from Connections &gt; Cursor or from LOG IN on the Cursor row in
+  Settings; both run <Code>cursor-agent login</Code> inside Arco and show its
+  link. Current Cursor CLIs keep the session in the system keyring on Linux
+  and macOS, and in <Code>auth.json</Code> otherwise. Arco reads it fresh
+  without unlocking a locked keyring; a locked keyring reads as status
+  unknown, not signed out.
+  </p>
+  <p>
+  An already-running ACP child can retain old credentials.
   </p>
   <p>
   A recognized sign-in failure shows a re-login card and retires that child.

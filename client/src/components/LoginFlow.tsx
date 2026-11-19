@@ -24,6 +24,8 @@ export function LoginFlow({ result, onRestart, onComplete }: Props) {
   const [showCommand, setShowCommand] = useState(false);
   const provider = session?.provider ?? result.session?.provider ?? 'claude';
   const name = LABEL[provider] ?? provider;
+  // Cursor's login shows no code: the page confirms and the CLI finishes.
+  const confirmsOnPage = provider === 'cursor';
 
   useEffect(() => { if (session?.status === 'completed') onComplete?.(); }, [session?.status, provider]);
 
@@ -94,7 +96,12 @@ export function LoginFlow({ result, onRestart, onComplete }: Props) {
           <div style={stepStyle}>
             <span style={num}>2</span>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {session.needsCode ? (
+              {confirmsOnPage ? (
+                <>
+                  <span style={{ fontSize: '12px', fontFamily: 'var(--font-body)' }}>Confirm the sign-in on that page. There is no code to enter.</span>
+                  <span style={{ fontSize: '11px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)' }}>Waiting for {name} to confirm. Arco finishes on its own.</span>
+                </>
+              ) : session.needsCode ? (
                 <>
                   <span style={{ fontSize: '12px', fontFamily: 'var(--font-body)' }}>The page shows a code when you finish. Paste it here.</span>
                   <div style={{ display: 'flex', gap: '6px' }}>

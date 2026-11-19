@@ -1,5 +1,5 @@
 import { LocalRuntimeIndicator } from './LocalRuntimeStatus';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { formatTokens } from './RightPanel/format';
 import { CursorIncludedGauge } from './CursorIncludedGauge';
@@ -9,6 +9,8 @@ import { claudeAuthPresentation, selectedClaudeTransport } from '../utils/claude
 import { refreshClaudeAllowance } from '../utils/claudeAllowance';
 import { dismissProviderHovers, useProviderHover } from './providerPanelState';
 import { useKeepInWindow } from '../layout/keepInWindow';
+import { providerIndicator, providerShown, type ProviderIndicator } from './providerIndicator';
+import { useStartupStore } from '../stores/startupStore';
 
 interface Props {
   usage: UsageInfo | null;
@@ -25,19 +27,71 @@ export function UsageBar({ usage }: Props) {
   const authStatus = useAppStore((s) => s.authStatus);
   const codexUsage = useAppStore((s) => s.codexUsage);
   const cursorUsage = useAppStore((s) => s.cursorUsage);
-  const enabledProviders = useAppStore((s) => s.settings?.enabledProviders);
-  const isProviderEnabled = (provider: keyof NonNullable<typeof enabledProviders>) => enabledProviders?.[provider] !== false;
-  const claudeAuthed = !!(authStatus?.claude.loggedIn || authStatus?.claude.native?.credentialsPresent || authStatus?.claude.cli?.loggedIn);
-  const codexAuthed = authStatus?.codex.loggedIn ?? false;
-  const cursorAuthed = authStatus?.cursor?.loggedIn ?? false;
+  const settings = useAppStore((s) => s.settings);
+  const capabilities = useAppStore((s) => s.capabilities);
+  const tabTransport = useAppStore(s => s.activeJobId ? s.jobs[s.activeJobId]?.config.claudeTransport : undefined);
+  const forceCli = useAppStore(s => {
+    const config = s.activeJobId ? s.jobs[s.activeJobId]?.config : undefined;
+    return (config?.primaryProvider ?? 'claude') === 'claude' && config?.ultracode === true;
+  });
+  const codexAccount = useAppStore(s => {
+    const config = s.activeJobId ? s.jobs[s.activeJobId]?.config : undefined;
+    return config?.primaryProvider === 'codex' ? config.providerAccountRef : undefined;
+  });
+  const input = { auth: authStatus, capabilities, claudeTransport: selectedClaudeTransport(tabTransport, settings?.claude?.transport, forceCli), codexAccount };
+  // An enabled provider keeps its slot whatever its state; a disabled one
+  // disappears, as in the Versions list. Only a ready provider shows usage.
+  const slot = (provider: 'claude' | 'codex' | 'cursor', ready: () => ReactElement) => {
+    if (!providerShown(settings, provider)) return null;
+    const view = providerIndicator(provider, input);
+    return view.state === 'ready' ? ready() : <ProviderNeeds key={provider} view={view} />;
+  };
 
   return (
     <div data-help="header.live-status" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-      {isProviderEnabled('claude') && claudeAuthed && <ClaudeStatus usage={usage} />}
-      {isProviderEnabled('codex') && codexAuthed && <CodexStatus usage={codexUsage} />}
-      {isProviderEnabled('cursor') && cursorAuthed && <CursorStatus usage={cursorUsage} />}
+      {slot('claude', () => <ClaudeStatus usage={usage} />)}
+      {slot('codex', () => <CodexStatus usage={codexUsage} />)}
+      {slot('cursor', () => <CursorStatus usage={cursorUsage} />)}
       <LocalRuntimeIndicator />
     </div>
+  );
+}
+
+// A provider that is not ready: the same letter and slot, a dot coloured by
+// what it needs, and the need in words on hover, focus and for screen
+// readers. When it needs the operator, a click or tap opens its Connections
+// entry; while its status is still being checked it only describes itself.
+function ProviderNeeds({ view }: { view: ProviderIndicator }) {
+  const color = view.state === 'runtime'
+    ? 'var(--color-danger)'
+    : view.state === 'checking' || view.state === 'unknown'
+      ? 'var(--color-fg-muted)'
+      : 'var(--color-warning)';
+  const label = `${view.name}: ${view.text}`;
+  const content = (
+    <>
+      <span aria-hidden style={{ width: '7px', height: '7px', borderRadius: '50%', boxSizing: 'border-box', background: view.state === 'checking' || view.state === 'unknown' ? 'transparent' : color, border: `1.5px ${view.state === 'sign-in' || view.state === 'rejected' ? 'dashed' : 'solid'} ${color}`, flexShrink: 0, opacity: view.state === 'checking' || view.state === 'unknown' ? 0.6 : 1 }} />
+      {view.letter}
+    </>
+  );
+  const style = { display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', letterSpacing: '0.5px', color, border: 0, padding: 0, background: 'transparent', font: 'inherit', fontFamily: 'var(--font-display)' } as const;
+  if (!view.attention) {
+    return <span role="img" tabIndex={0} title={label} aria-label={label} data-testid="provider-dot" data-provider={view.provider} data-state={view.state} className="display-font" style={style}>{content}</span>;
+  }
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      data-testid="provider-dot"
+      data-provider={view.provider}
+      data-state={view.state}
+      className="display-font provider-status-link"
+      onClick={() => { dismissProviderHovers(); useStartupStore.getState().openConnections(view.provider); }}
+      style={{ ...style, cursor: 'pointer' }}
+    >
+      {content}
+    </button>
   );
 }
 
@@ -195,7 +249,7 @@ function CursorStatus({ usage }: { usage: CursorUsageInfo | null }) {
             ) : (
               <span style={{ color: 'var(--color-fg-muted)' }}>
                 {usage?.needsLogin
-                  ? <>Not signed in to Cursor. Run <code style={{ fontFamily: 'var(--font-mono)' }}>cursor-agent login</code>.</>
+                  ? 'Not signed in to Cursor. Sign in from Connections.'
                   : (usage?.error ?? 'Cursor usage has not loaded yet.')}
               </span>
             )}

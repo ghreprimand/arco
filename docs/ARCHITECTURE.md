@@ -542,7 +542,7 @@ Top-level structure rendered from `App.tsx`:
 
 ```text
 App
-├── SystemHeader (title, auth chip, shutdown/reconnect buttons)
+├── SystemHeader (title, provider letters, shutdown/reconnect buttons)
 ├── TabBar (workflow + cluster tabs + "+" for new)
 ├── WorkflowView | WorkflowCreator | GitHubPanel | ClusterTab
 │   └── WorkflowView (when a workflow tab is active)

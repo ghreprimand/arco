@@ -95,9 +95,12 @@ export const workspace: Section[] = [
             in focus mode. These status reads never load models or control services.
           </li>
           <li>
-            <strong>Auth chip</strong> - at-a-glance status of Claude auth.
-            Pulses when re-login is needed; click to start the re-login flow.
-            A click outside its panel or Escape closes the panel.
+            <strong>Remote letters that need attention</strong> - an enabled remote
+            provider keeps its letter when it is not ready; a disabled one has none.
+            The dot is amber for sign-in needed or rejected, red for a missing or
+            broken CLI, and hollow grey while the status is unknown. Hover or focus
+            says what it needs. Click or tap such a letter to open its Connections
+            entry. A ready letter keeps its usage card and link.
           </li>
           <li>
             <strong>KNOWLEDGE dropdown</strong> - RECALL (search past

@@ -3,6 +3,7 @@ import type { ArcoSettings, AuthLoginResult, AuthLoginTarget, ConnectionCatalog 
 import { useAppStore } from '../../stores/appStore';
 import { useStartupStore } from '../../stores/startupStore';
 import { LoginFlow } from '../LoginFlow';
+import { checkProviderStatus } from '../../utils/providerStatusCheck';
 import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { LoginCommand } from '../LoginCommand';
 import { NativeLoginControls } from '../NativeLoginControls';
@@ -65,12 +66,7 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
     checkingRef.current=true;setChecking(true);setNote('Checking provider status...');
     try {
       if(target){
-        const res=await fetch(`/api/connections/check?provider=${target}`,{method:'POST'});
-        const body=await res.json();
-        if(!res.ok || body?.provider!==target || typeof body?.status?.loggedIn!=='boolean')throw new Error();
-        const previous=useAppStore.getState().authStatus;
-        if(alive.current && previous)setAuth({...previous,[target]:body.status});
-        if(alive.current && body.settings?.enabledProviders)setSettings(body.settings as ArcoSettings);
+        if(!await checkProviderStatus(target))throw new Error();
       }else{
         const res=await fetch('/api/auth-status',{cache:'no-store'});
         const body=parseConnectionStatus(res.ok,await res.json());

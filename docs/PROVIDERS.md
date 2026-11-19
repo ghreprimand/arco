@@ -1218,7 +1218,13 @@ upload dir so ask-mode's read tool can open them. Non-images are path refs on bo
 
 ### Auth and stale ACP recovery
 
-`GET /api/auth-status` reads `~/.config/cursor/auth.json` fresh, while each workflow's long-lived
+`GET /api/auth-status` reads the Cursor session fresh (`providers/cursor/authToken.ts`): the CLI's own
+`auth.json` first (`$XDG_CONFIG_HOME/cursor` on Linux, `%APPDATA%\Cursor` on Windows, `~/.cursor` on
+macOS), then `~/.config/cursor/auth.json`; on Linux, when that file holds only
+`{"storedIn":"os-secret-store"}`, the desktop keyring through `secret-tool search` (service
+`cursor-credentials`, account `cursor-user`, never unlocking, nothing cached); on macOS, the login
+keychain. A locked or unreadable keyring sets `probeFailed`, so the status reads unknown, not signed
+out, and the top-bar X opens Connections. Each workflow's long-lived
 `cursor-agent acp` child keeps the credentials and CLI binary it started with. A successful
 `cursor-agent login` or CLI update therefore does not repair an already-running ACP process by itself.
 Cursor reports this condition as the ordinary assistant text `Please sign in to continue`, not as an
@@ -1228,8 +1234,10 @@ cached worker. After the operator completes login and resends, `acquireWorker` s
 with the current credentials and attempts the normal `session/load` resume. Any longer answer that only
 mentions signing in falls through as normal assistant text.
 
-Connections > Cursor runs `cursor-agent login` inside Arco (`authLoginSession.ts`, with
+Connections > Cursor, and LOG IN on the CURSOR (ACP) row in Settings, run `cursor-agent login` inside Arco (`authLoginSession.ts`, with
 `NO_OPEN_BROWSER=1`) and shows the link it prints; the CLI finishes on its own once the page confirms.
+When the Settings flow finishes, Arco runs the same explicit check as Connections
+(`client/src/utils/providerStatusCheck.ts`) and publishes it to the shared status.
 `POST /api/auth-login?provider=cursor` still returns the terminal command as a fallback.
 
 A readable token is not proof of a working sign-in. `providers/cursor/authState.ts` remembers the last
@@ -1269,13 +1277,12 @@ otherwise.
 
 Cursor's ACP `result` carries **no per-turn tokens**, so Cursor never emits `primary_turn_token_usage`
 and never appears in the per-project Usage aggregation. Instead `server/src/cursorUsage.ts` polls the
-**authed dashboard API** (`GET /api/cursor-usage`, 3-min cache; reads `~/.config/cursor/auth.json` fresh
-each poll, decodes the JWT `sub`, builds the `WorkosCursorSessionToken` cookie) for month-to-date charged-$
+**authed dashboard API** (`GET /api/cursor-usage`, 3-min cache; reads the session fresh each poll as in Auth above, decodes the JWT `sub`, builds the `WorkosCursorSessionToken` cookie) for month-to-date charged-$
 + token totals + per-`kind` counts + the `get-hard-limit` `hardCapped` flag. The client polls it into the
 `cursorUsage` store field and renders `CursorUsageCard` at the top of the Usage tab - it shows even when
 the per-project aggregation is empty (Cursor-only projects have no per-turn events). The card is labelled
 "· polled · not live" so a blank in-tab live meter reads as expected, not broken. `401/403` →
-`needsLogin` + a `cursor-agent login` nudge.
+`needsLogin` + a pointer to sign in from Connections.
 
 The worker header deliberately renders **`CTX: Cursor-managed`**, not an invented percentage. Cursor's
 ACP adapter currently returns only `{ stopReason }` from `session/prompt` and emits neither per-turn

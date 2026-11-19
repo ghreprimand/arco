@@ -210,6 +210,36 @@ test('the Connections check asks cursor-agent status; polls never do', { timeout
   assert.equal(authState.parseCursorStatusOutput('something else'), 'unknown');
 });
 
+test('a sign-in the current CLI moved to the Linux keyring is read there, and a locked keyring is not a sign-out', async () => {
+  const { readCursorAccessTokenFrom, parseSecretToolSearch, cursorAuthPaths } = await import('./authToken.js');
+  // What cursor-agent leaves in auth.json once its tokens live in the secret service.
+  const pointer = JSON.stringify({ storedIn: 'os-secret-store' });
+  let reads = 0;
+  const src = (file: string, store: () => ReturnType<typeof parseSecretToolSearch>) => ({
+    platform: 'linux' as const, authPaths: ['/fixture/auth.json'], override: false,
+    readFileText: async () => file, readKeychain: async () => null,
+    readSecretStore: async () => { reads++; return store(); },
+  });
+  const stored = parseSecretToolSearch('[/org/freedesktop/secrets/collection/login/7]\nlabel = Cursor CLI credentials (cursor)\nsecret = {"accessToken":"tok-store","refreshToken":"r"}\n', '');
+  assert.deepEqual(await readCursorAccessTokenFrom(src(pointer, () => stored)), { token: 'tok-store', source: 'secret-store' });
+  const locked = await readCursorAccessTokenFrom(src(pointer, () => parseSecretToolSearch('[/org/freedesktop/secrets/collection/login/7]\nlabel = Cursor CLI credentials (cursor)\n', '')));
+  assert.equal(locked.token, null);
+  assert.equal(locked.token === null && locked.uncertain, true);
+  assert.match(locked.token === null ? locked.detail ?? '' : '', /locked/);
+  const signedOut = await readCursorAccessTokenFrom(src(JSON.stringify({ signedOut: true }), () => stored));
+  assert.equal(signedOut.token === null && signedOut.reason, 'signed-out');
+  assert.equal(reads, 2, 'a signed-out file never reads the keyring');
+  for (const r of [locked, signedOut]) assert.doesNotMatch(r.token === null ? r.detail ?? '' : '', /fixture|auth\.json/, 'no file path in the message');
+  // The CLI's own path first; the path Arco read before stays as a fallback.
+  assert.deepEqual(cursorAuthPaths('linux', {}, '/h'), [join('/h', '.config', 'cursor', 'auth.json')]);
+  assert.deepEqual(cursorAuthPaths('linux', { XDG_CONFIG_HOME: '/x' }, '/h'), [join('/x', 'cursor', 'auth.json'), join('/h', '.config', 'cursor', 'auth.json')]);
+  assert.deepEqual(cursorAuthPaths('win32', { APPDATA: 'C:\\A' }, 'C:\\h'), [join('C:\\A', 'Cursor', 'auth.json'), join('C:\\h', '.config', 'cursor', 'auth.json')]);
+  assert.deepEqual(cursorAuthPaths('darwin', {}, '/h'), [join('/h', '.cursor', 'auth.json'), join('/h', '.config', 'cursor', 'auth.json')]);
+  const legacy = await readCursorAccessTokenFrom({ ...src(pointer, () => stored), platform: 'win32', authPaths: ['/own/auth.json', '/legacy/auth.json'],
+    readFileText: async (path: string) => { if (path === '/own/auth.json') throw Object.assign(new Error('missing'), { code: 'ENOENT' }); return JSON.stringify({ accessToken: 'tok-legacy' }); } });
+  assert.deepEqual(legacy, { token: 'tok-legacy', source: 'file' });
+});
+
 test('print mode passes the chosen catalog id, Auto included', { timeout: 30_000 }, async () => {
   const { CursorPrintProvider } = await import('./print.js');
   for (const model of ['auto', 'grok-4.7-medium']) {

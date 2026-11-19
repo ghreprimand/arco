@@ -1,4 +1,5 @@
 import { LocalRuntimeRows, enabledLocalRows } from './LocalRuntimeStatus';
+import { providerShown } from './providerIndicator';
 import { compareCursorVersions, compareLlamacppBuild } from '@arco/shared';
 import type { Capabilities, CliUpdateOutcome } from '@arco/shared';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -204,7 +205,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
     .filter(({ provider, version }) => {
       // Hide providers the operator disabled in settings (null = fail-open during
       // initial load) and CLIs that aren't installed.
-      if (settings?.enabledProviders?.[provider] === false) return false;
+      if (!providerShown(settings, provider)) return false;
       // 'unknown' means not installed — hide. 'broken' means installed but the
       // version probe threw, and that row MUST stay visible: when a failed
       // `npm install -g` left codex unable to run, collapsing it

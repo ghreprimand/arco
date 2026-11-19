@@ -936,7 +936,7 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `STRATA_URL_BASE` | `http://127.0.0.1:8081/v1` | Standalone Strata endpoint; `settings.strata.baseUrl` takes precedence |
 | `ARCO_STRATA_PROFILES` | `~/.arco/strata-profiles.json` | Optional prepared-profile registry; exact matching loopback endpoint only; see [STRATA.md](STRATA.md) |
 | `LMSTUDIO_URL_BASE` | `http://localhost:1234/v1` | LM Studio OpenAI-compat endpoint |
-| `ARCO_CURSOR_AUTH` | `~/.config/cursor/auth.json` | Path to the Cursor session-JWT file; read fresh each poll by the auth-status check and the `/api/cursor-usage` poller (test/override seam) |
+| `ARCO_CURSOR_AUTH` | the Cursor CLI's own `auth.json` | Path to the Cursor session-JWT file; read fresh each poll by the auth-status check and the `/api/cursor-usage` poller; disables the keyring and keychain reads (test/override seam) |
 | `ARCO_LLAMACPP_BIN` | `llama-server` on `PATH` | Path to the `llama-server` binary |
 | `ARCO_LLAMACPP_HOST` | `127.0.0.1` | `llama-server` bind host; loopback by default |
 | `ARCO_LLAMACPP_PORT` | `8923` | `llama-server` bind port (chosen to avoid common dev ports) |
@@ -1144,7 +1144,7 @@ Set `ARCO_CAMOUFOX_PYTHON` to the absolute path of that environment's Python in 
 
 ## Auth
 
-Per-service. Status surfaced via the SystemHeader's `HeaderAuthChip` and the `AuthOverlay` (blocks UI when no primary-capable provider is authed).
+Per-service. Status is surfaced by the top-bar provider letters (an enabled provider stays visible and opens its Connections entry when it needs sign-in or its CLI) and the `AuthOverlay` (blocks UI when no primary-capable provider is authed).
 
 | Provider | Login command / endpoint | Status check |
 |---|---|---|
@@ -1154,7 +1154,7 @@ Per-service. Status surfaced via the SystemHeader's `HeaderAuthChip` and the `Au
 | Codex usage probe | `POST /api/codex-usage-login` (terminal-launched flow) | `GET /api/codex-usage` |
 | GitHub | `gh auth login` | `gh auth status` |
 | Ollama | (no login) | `${OLLAMA_URL_BASE}/api/tags` reachable |
-| Cursor (ACP) | Connections > Cursor runs `cursor-agent login` in Arco and shows the link (or run it in a terminal) | `~/.config/cursor/auth.json` carries a session JWT; read fresh each poll. While Cursor has rejected that token the status reads not signed in (Sign in again); the explicit Connections check also runs `cursor-agent status` |
+| Cursor (ACP) | Connections > Cursor, or LOG IN on the Cursor row in Settings, runs `cursor-agent login` in Arco and shows the link (or run it in a terminal) | The session JWT is read fresh each poll: from `auth.json` (`$XDG_CONFIG_HOME/cursor` on Linux, `%APPDATA%\Cursor` on Windows, `~/.cursor` on macOS, then `~/.config/cursor` as before), from the desktop keyring through `secret-tool search` when the file says `storedIn: os-secret-store` (never unlocks; a locked keyring reads as status unknown), or from the macOS keychain. While Cursor has rejected that token the status reads not signed in (Sign in again); the explicit Connections check also runs `cursor-agent status` |
 | Strata | (no login) | Live `/v1/models`, plus validated prepared local profiles while stopped/unloaded |
 | LM Studio | (no login) | `${LMSTUDIO_URL_BASE}` OpenAI-compat server reachable |
 | llama.cpp | (no login - Arco spawns/manages `llama-server`) | `llama-server` reachable |

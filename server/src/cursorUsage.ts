@@ -49,7 +49,7 @@ export async function getCursorUsage(force = false): Promise<CursorUsageInfo> {
   // (auth.json on Linux, login keychain on macOS).
   const result = await readCursorAccessToken();
   if (result.token === null) {
-    const missing = result.reason === 'missing';
+    const missing = result.reason === 'missing' || result.reason === 'signed-out';
     return cache({
       available: false,
       fetchedAt: Date.now(),
@@ -57,8 +57,8 @@ export async function getCursorUsage(force = false): Promise<CursorUsageInfo> {
       dashboardUrl: DASHBOARD_URL,
       ...(missing ? { needsLogin: true } : {}),
       error: missing
-        ? 'Not signed in to Cursor. Run `cursor-agent login`.'
-        : (result.detail ?? 'Cursor session token is unreadable. Run `cursor-agent login`.'),
+        ? (result.detail ?? 'Not signed in to Cursor. Sign in from Connections.')
+        : (result.detail ?? 'Cursor session token is unreadable. Sign in to Cursor again from Connections.'),
     });
   }
 

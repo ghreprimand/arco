@@ -6,7 +6,6 @@ import { createRoot } from 'react-dom/client';
 import type { ArcoSettings, AuthStatusByProvider, UsageInfo } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { UsageBar } from './UsageBar';
-import { HeaderAuthChip } from './HeaderAuthChip';
 
 test('usage limits dropdown: refresh, stale snapshot and no sign-in detail preserve execution authentication and saved work', async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost', pretendToBeVisual: true });
@@ -28,7 +27,7 @@ test('usage limits dropdown: refresh, stale snapshot and no sign-in detail prese
   useAppStore.setState({ authStatus: auth, settings: { claude: { transport: 'native' }, enabledProviders: { claude: true, codex: false, cursor: false, ollama: false } } as ArcoSettings, jobs: {}, activeJobId: null, usage: null });
   useAppStore.getState().createJob('fixture', { name: 'Saved fixture', workingDirectory: '/projects/fixture', primaryProvider: 'claude', primaryModel: 'fixture', primaryEffort: 'low', claudeTransport: 'native', skipPermissions: false });
   const savedJob = JSON.stringify(useAppStore.getState().jobs.fixture), savedAuth = JSON.stringify(auth);
-  function Surface() { const value = useAppStore(s => s.usage); return createElement(Fragment, null, createElement(HeaderAuthChip), createElement(UsageBar, { usage: value })); }
+  function Surface() { const value = useAppStore(s => s.usage); return createElement(UsageBar, { usage: value }); }
   const root = createRoot(dom.window.document.getElementById('root')!);
   const text = () => dom.window.document.body.textContent!;
   const clickCheck = async () => {

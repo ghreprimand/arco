@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { JSDOM } from 'jsdom';
-import { act, createElement, Fragment } from 'react';
+import { act, createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { ArcoSettings, AuthStatus, AuthStatusByProvider, ClaudeNativeAuthStatus } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useStartupStore } from '../stores/startupStore';
-import { HeaderAuthChip } from './HeaderAuthChip';
 import { UsageBar } from './UsageBar';
 import { claudeAuthPresentation, selectedClaudeTransport } from '../utils/claudeAuth';
 
@@ -19,7 +18,7 @@ function status(native: ClaudeNativeAuthStatus['state'], cli: boolean): AuthStat
   };
 }
 
-async function fixture(auth: AuthStatus, transport: 'native' | 'cli' = 'native', enabled = true) {
+async function fixture(auth: AuthStatus, transport: 'native' | 'cli' = 'native', enabled = true, others: Partial<AuthStatusByProvider> = {}) {
   const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost', pretendToBeVisual: true });
   const globals = Object.getOwnPropertyDescriptors(globalThis);
   const requests: string[] = [];
@@ -28,19 +27,19 @@ async function fixture(auth: AuthStatus, transport: 'native' | 'cli' = 'native',
     localStorage: { configurable: true, value: dom.window.localStorage }, IS_REACT_ACT_ENVIRONMENT: { configurable: true, value: true },
     fetch: { configurable: true, value: async (url: string) => {
       requests.push(url);
-      assert.equal(url, '/api/auth-login?provider=claude');
-      return new Response(JSON.stringify({ started: false, command: 'claude auth login --claudeai' }), { status: 200 });
+      throw new Error(`no request expected: ${url}`);
     } },
   });
   const before = useAppStore.getState(), startup = useStartupStore.getState();
   const storage = useAppStore.persist.getOptions().storage;
   useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
   const providers = Object.fromEntries(['claude', 'codex', 'cursor', 'ollama', 'github', 'llamacpp', 'lmstudio', 'strata', 'deepseek'].map(id => [id, id === 'claude' ? auth : { loggedIn: false }])) as unknown as AuthStatusByProvider;
-  useAppStore.setState({ authStatus: providers, jobs: {}, activeJobId: null, showSettings: false, settings: { claude: { transport }, enabledProviders: { claude: enabled, codex: false, cursor: false, ollama: false } } as ArcoSettings });
+  Object.assign(providers, others);
+  useAppStore.setState({ authStatus: providers, jobs: {}, activeJobId: null, showSettings: false, settings: { claude: { transport }, enabledProviders: { claude: enabled, codex: 'codex' in others, cursor: 'cursor' in others, ollama: false } } as ArcoSettings });
   useAppStore.getState().createJob('fixture', { name: 'Saved fixture', workingDirectory: '/projects/fixture', primaryProvider: 'claude', primaryModel: 'fixture', primaryEffort: 'low', skipPermissions: false, claudeTransport: transport });
   const saved = JSON.stringify(useAppStore.getState().jobs.fixture.config);
   const root = createRoot(dom.window.document.getElementById('root')!);
-  await act(async () => root.render(createElement(Fragment, null, createElement(HeaderAuthChip), createElement(UsageBar, { usage: { session: null, weekly: null, fetchedAt: Date.now(), subscriptionType: null, error: 'fixture meter unavailable' } }))));
+  await act(async () => root.render(createElement(UsageBar, { usage: { session: null, weekly: null, fetchedAt: Date.now(), subscriptionType: null, error: 'fixture meter unavailable' } })));
   return {
     dom, requests,
     text: () => dom.window.document.body.textContent!,
@@ -70,38 +69,52 @@ test('Native credentials with CLI signed out keep the dot and avoid a false Nati
   } finally { await f.close(); }
 });
 
+// Opens Connections at the provider; the indicator is the only recovery
+// control, with no second warning chip and no login request of its own.
+async function opensConnections(f: Awaited<ReturnType<typeof fixture>>, provider: string, label: RegExp) {
+  const dot = f.dom.window.document.querySelector<HTMLButtonElement>(`button[data-testid="provider-dot"][data-provider="${provider}"]`)!;
+  assert.ok(dot, `${provider} indicator`);
+  assert.match(dot.getAttribute('aria-label') ?? '', label);
+  assert.equal(dot.getAttribute('title'), dot.getAttribute('aria-label'));
+  await f.click(dot);
+  assert.equal(useStartupStore.getState().setupOpen, true);
+  assert.equal(useStartupStore.getState().setupProvider, provider);
+  assert.doesNotMatch(f.text(), /AUTH:/);
+  assert.equal(f.requests.length, 0);
+}
+
 for (const native of ['missing', 'needs-attention'] as const) {
-  test(`CLI sign-in with Native ${native} offers Native settings, without a CLI login request`, async () => {
+  test(`CLI sign-in with Native ${native}: the Claude indicator opens Connections`, async () => {
     const f = await fixture(status(native, true));
-    try {
-      assert.match(f.text(), /AUTH: CLAUDE NATIVE/);
-      await f.click(f.dom.window.document.querySelector('button')!);
-      const recovery = [...f.dom.window.document.querySelectorAll('button')].find(b => b.textContent?.includes('OPEN NATIVE SIGN-IN SETTINGS'))!;
-      assert.ok(recovery); await f.click(recovery);
-      assert.equal(useAppStore.getState().showSettings, true);
-      assert.equal(useStartupStore.getState().settingsSection, 'claude-signin');
-      assert.equal(f.requests.length, 0);
-    } finally { await f.close(); }
+    try { await opensConnections(f, 'claude', /^Claude: Native sign-in (needed|needs attention)\. Open Connections/); }
+    finally { await f.close(); }
   });
 }
 
-test('a saved CLI transport gets only the CLI recovery command', async () => {
+test('a saved CLI transport that is signed out: the Claude indicator says so and opens Connections', async () => {
   const f = await fixture(status('present', false), 'cli');
-  try {
-    assert.match(f.text(), /AUTH: CLAUDE CLI/);
-    await f.click(f.dom.window.document.querySelector('button')!);
-    const recovery = [...f.dom.window.document.querySelectorAll('button')].find(b => b.textContent?.includes('SIGN IN TO CLAUDE CLI'))!;
-    await f.click(recovery);
-    assert.deepEqual(f.requests, ['/api/auth-login?provider=claude']);
-    assert.equal(useAppStore.getState().showSettings, false);
-    assert.match(f.text(), /claude auth login --claudeai/);
-  } finally { await f.close(); }
+  try { await opensConnections(f, 'claude', /^Claude: CLI signed out/); }
+  finally { await f.close(); }
 });
 
-test('disabled Claude suppresses both authentication chip and usage dot', async () => {
+test('disabled Claude has no indicator at all', async () => {
   const f = await fixture(status('needs-attention', true), 'native', false);
-  try { assert.doesNotMatch(f.text(), /AUTH:/); assert.equal(f.dom.window.document.querySelector('a'), null); }
+  try { assert.doesNotMatch(f.text(), /AUTH:/); assert.equal(f.dom.window.document.querySelector('[data-provider="claude"], a'), null); }
   finally { await f.close(); }
+});
+
+test('enabled Codex and Cursor stay in the top bar signed out; a failed probe is not a sign-out', async () => {
+  const f = await fixture(status('present', false), 'native', true, {
+    codex: { loggedIn: false },
+    cursor: { loggedIn: false, probeFailed: true, error: 'Cursor keeps its sign-in in the system keyring, which is locked.' },
+  });
+  try {
+    await opensConnections(f, 'codex', /^Codex: sign-in needed\. Open Connections/);
+    // A finished check that could not read the keyring is unknown, not signed
+    // out, and still leads to its recovery step.
+    await opensConnections(f, 'cursor', /^Cursor: status unknown: .*locked\..*Open Connections/);
+    assert.equal(f.dom.window.document.querySelector('[data-provider="cursor"]')!.getAttribute('data-state'), 'unknown');
+  } finally { await f.close(); }
 });
 
 test('both, neither, failed probes and stale state retain transport-specific meaning', () => {

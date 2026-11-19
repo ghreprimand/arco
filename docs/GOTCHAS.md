@@ -114,8 +114,8 @@ These guardrails bound worker memory use and prevent a runaway subprocess from d
 
 - **A failed `claude auth status` probe is "unknown", never "logged out".**
   `getClaudeAuthStatus` retries once, then returns the last known answer with
-  `probeFailed:true`; only a parsed `loggedIn:false` counts. `HeaderAuthChip`
-  ignores `probeFailed`, and App.tsx keeps polling while logged out. A failed
+  `probeFailed:true`; only a parsed `loggedIn:false` counts. The top-bar
+  provider letters (`providerIndicator`) read `probeFailed` as unknown, and App.tsx keeps polling while logged out. A failed
   probe must preserve the last known authentication state; otherwise polling
   can stop and leave a false sign-in prompt visible.
 

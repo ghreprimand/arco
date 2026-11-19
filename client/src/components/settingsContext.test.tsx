@@ -82,3 +82,74 @@ test('B175: a selected cluster supplies the project folder to handoff prompt set
     assert.ok(requests.some((r) => r.url === '/api/handoff-prompts?cwd=%2Ffixture%2Fproject'), requests.map((r) => r.url).join(', '));
   });
 });
+
+test('Cursor LOG IN in Settings runs the in-app sign-in at its row, not a bare command', async () => {
+  const saved = useAppStore.getState().authStatus;
+  useAppStore.setState({ authStatus: { claude: { loggedIn: true }, cursor: { loggedIn: false, error: "Cursor's saved sign-in has no session token." } } as never });
+  const session = { provider: 'cursor', status: 'pending', needsCode: false, startedAt: Date.now(), url: 'https://cursor.example/login?id=fixture' };
+  const realFetch = globalThis.fetch;
+  try {
+    await mounted(false, async (container, requests) => {
+      const page = [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Providers and models');
+      assert.ok(page);
+      await act(async () => page.click());
+      const inner = globalThis.fetch;
+      globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+        if (String(url).startsWith('/api/auth-login')) {
+          requests.push({ url: String(url) });
+          return { ok: true, json: async () => ({ started: true, command: 'env NO_OPEN_BROWSER=1 cursor-agent login', session }) };
+        }
+        return inner(url as string, init);
+      }) as typeof fetch;
+      const row = [...container.querySelectorAll('span')].find((s) => s.textContent === 'CURSOR (ACP)')?.closest('div')?.parentElement;
+      const login = [...(row?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'LOG IN');
+      assert.ok(login, 'the Cursor row offers LOG IN');
+      await act(async () => login.click());
+      assert.ok(requests.some((r) => r.url === '/api/auth-login?provider=cursor&inApp=1'), requests.map((r) => r.url).join(', '));
+      const flow = container.querySelector('[data-testid="settings-cursor-login"]');
+      assert.ok(flow, 'the sign-in shows at the Cursor row');
+      assert.equal(flow.querySelector('a')?.getAttribute('href'), session.url);
+      assert.match(flow.textContent ?? '', /PREFER A TERMINAL\?/);
+      assert.doesNotMatch(login.textContent ?? '', /WAITING/);
+    });
+  } finally {
+    globalThis.fetch = realFetch;
+    useAppStore.setState({ authStatus: saved });
+  }
+});
+
+test('a finished Cursor sign-in in Settings publishes the explicit check to the shared status', async () => {
+  const saved = useAppStore.getState().authStatus;
+  useAppStore.setState({ authStatus: { claude: { loggedIn: true }, cursor: { loggedIn: false } } as never });
+  const realFetch = globalThis.fetch;
+  try {
+    await mounted(false, async (container, requests) => {
+      const page = [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Providers and models');
+      assert.ok(page);
+      await act(async () => page.click());
+      const inner = globalThis.fetch;
+      globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+        const u = String(url);
+        if (u.startsWith('/api/auth-login')) {
+          requests.push({ url: u });
+          return { ok: true, json: async () => ({ started: true, command: 'cursor-agent login', session: { provider: 'cursor', status: 'completed', needsCode: false, startedAt: Date.now() } }) };
+        }
+        if (u === '/api/connections/check?provider=cursor') {
+          requests.push({ url: u });
+          return { ok: true, json: async () => ({ provider: 'cursor', status: { loggedIn: true, apiProvider: 'cursor-session' } }) };
+        }
+        return inner(url as string, init);
+      }) as typeof fetch;
+      const row = [...container.querySelectorAll('span')].find((s) => s.textContent === 'CURSOR (ACP)')?.closest('div')?.parentElement;
+      const login = [...(row?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'LOG IN');
+      assert.ok(login);
+      await act(async () => { login.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
+      assert.ok(requests.some((r) => r.url === '/api/connections/check?provider=cursor'), requests.map((r) => r.url).join(', '));
+      assert.equal(useAppStore.getState().authStatus?.cursor?.loggedIn, true, 'the top bar and pickers read the shared status');
+      assert.equal(container.querySelector('[data-testid="settings-cursor-login-note"]'), null);
+    });
+  } finally {
+    globalThis.fetch = realFetch;
+    useAppStore.setState({ authStatus: saved });
+  }
+});

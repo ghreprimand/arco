@@ -16,7 +16,6 @@ import { HeaderDropdown, type HeaderMenuItem } from './HeaderDropdown';
 import { SystemModal } from './SystemModal';
 import { openMediaStudio } from './media/launchers';
 import { openArchive } from '../explorer/launch';
-import { HeaderAuthChip } from './HeaderAuthChip';
 import { NotificationCenter } from './NotificationCenter';
 import { HubLinkChip } from './HubLinkChip';
 import { StatusLight } from './primitives/StatusLight';
@@ -83,7 +82,7 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
   const [systemModalOpen, setSystemModalOpen] = useState(false);
   const [providersOpen, setProvidersOpen] = useState(false);
 
-  const showUsage = hasEnabledUsageProvider(authStatus, (provider) => enabledProviders?.[provider] !== false);
+  const showUsage = hasEnabledUsageProvider((provider) => enabledProviders?.[provider] !== false);
 
   // I1-followup — the five feature actions fold into two labeled dropdowns
   // (KNOWLEDGE / TOOLS), mirroring the prior visual grouping. Settings + Manual
@@ -180,7 +179,7 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
 
         <div style={{ display: 'flex', alignItems: 'center', gap: tightHeader ? '3px' : '8px', fontSize: '11px', fontFamily: 'var(--font-display)', letterSpacing: tightHeader ? '0px' : '1px', flexWrap: 'wrap', justifyContent: 'flex-end', minWidth: 0, flexShrink: 0, maxWidth: '100%' }}>
           {/* Status cluster — urgent runtime state, always visible: provider
-              versions (folded into a popover), the provider throttling warning, and the Claude auth chip. */}
+              versions (folded into a popover) and the provider throttling warning. */}
           {/* Provider throttling stays visible in focus mode —
               it's urgent runtime state. Everything else is secondary chrome. */}
           <WorkflowStatusChip />
@@ -191,10 +190,6 @@ export function SystemHeader({ onReconnect, onRestartServer, reconnectState, onS
           </div>
           {!focusMode && (
           <>
-          <span data-help="header.auth-chip" style={{ display: 'inline-flex' }}>
-            <HeaderAuthChip />
-          </span>
-
           <GroupDivider />
 
           {/* Feature actions — two labeled dropdowns mirroring the prior groups.
