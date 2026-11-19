@@ -8,28 +8,27 @@ export const powerFeatures: Section[] = [
   title: 'The TASKS tab - Native sub-agent fan-out',
   body: (
   <>
-  <p>Native Task children keep the requested model in their live settings, saved metadata and promoted tab.</p>
+  <p>Native Task children keep the requested model in their live settings, saved metadata and child view.</p>
   <p>
   When a Claude Native tab calls the <Code>Task</Code> tool, the spawned
   sub-agent runs as its own Arco workflow, scoped to its parent. Use the TASKS
-  tab to watch those children and promote any of them to a full tab.
+  tab or the SUB-AGENTS row above the message box to watch those children. VIEW IN TAB opens the same child conversation. Closing that view hides it and returns to the parent without stopping the child.
   </p>
+  <p>A draft stays until the server confirms receipt. Receipt clears the draft but does not confirm delivery to the child. If delivery is unconfirmed, check the conversation before sending again.</p>
   <Sub>Where children show up</Sub>
   <ul>
   <li>
   <strong>Task card</strong> on the parent's <Code>Task</Code> chat row. It
   shows the child's status (<Code>running</Code>, <Code>done</Code>,{' '}
   <Code>error</Code> or <Code>cancelled</Code>), elapsed time and workflow id,
-  with a <strong>PROMOTE</strong> button that moves the child into the top tab
-  strip.
+  with a <strong>VIEW IN TAB</strong> button that opens the child in the top tab strip.
   </li>
   <li>
   <strong>TASKS tab</strong> in the right pane. It appears only once this
   workflow has Task children and lists each one with the same controls.
   </li>
   <li>
-  <strong>Tab strip filter.</strong> Children that have not been promoted are
-  hidden from the top tab strip, so a fan-out turn does not flood the bar.
+  <strong>SUB-AGENTS row.</strong> Expand it to view, cancel or cancel all pending children. A running Native child can receive a text steer; a message not delivered, or whose delivery could not be confirmed, is reported in the child conversation. Completed children are read-only.
   </li>
   </ul>
   <Sub>How fan-out behaves</Sub>

@@ -31,7 +31,7 @@ import { EventEmitter } from 'events';
 import { promises as fs, readFileSync } from 'node:fs';
 import { basename, join, extname } from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
-import type { WorkerConfig, ServerMessage } from '@arco/shared';
+import type { WorkerConfig, ServerMessage, SteerItem } from '@arco/shared';
 import { supportsClaudeAdaptiveThinking, isClaudeModelAlias, enforcesPreservedThinking, supportsMidConversationSystemMessages, supportsMidConversationToolChanges } from '@arco/shared';
 import { loadTokens, nativeCredentialBinding } from './auth.js';
 import type { AuthRecoveryContext } from '@arco/shared';
@@ -2834,6 +2834,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     let turnMessageStart = this.messages.length - 1;
 
     let iterations = 0;
+    let pendingTaskSteers: SteerItem[] = [];
     let stopHookContinuations = 0;
     while (iterations++ < MAX_TOOL_TURNS) {
       const round = await this.streamOneRound();
@@ -2844,6 +2845,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         this.toolAbort = null;
         return;
       }
+      if (pendingTaskSteers.length) { this.config.onSteerDelivered?.(pendingTaskSteers); pendingTaskSteers = []; }
       stopReason = round.stopReason;
       finalText = round.text;
       stopDetails = round.stopDetails ?? null;
@@ -3054,6 +3056,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       // turnEngine dispatches it as its own turn once this one settles.
       if (toolResults.length === 0) continue;
       const steer = this.config.drainSteer?.() ?? [];
+      if (this.config.claudeNativeSubagent) pendingTaskSteers = steer;
       for (const item of steer) {
         const attached = await nativeAttachmentContent(item.content, item.attachments, this.messages, this.inFlight?.signal, (pending, result, origin) => this.admitMedia(pending, result, origin), this.config.interactionMode === 'chat' && !this.config.voiceOperator);
         for (const notice of attached.notices) this.emit('system_notice', notice);

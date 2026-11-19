@@ -133,13 +133,15 @@ import {
 appendHistoryEntry,
 clearProviderCliSessions,
 readMeta,
+workflowConfigFromMeta,
 updateMeta,
 writeMeta,
 } from './workflowMeta.js';
 import {
 flushAll as flushAllWorkflowEvents,
 initWorkflowStore,
-replayEvents as replayWorkflowEvents
+replayEvents as replayWorkflowEvents,
+streamWorkflowEvents
 } from './workflowStore.js';
 import type {
 Session
@@ -750,6 +752,12 @@ wss.on('connection', (ws: WebSocket) => {
       case 'transcript_worker_create':
         void handleTranscriptWorkerCreate(ws, session, msg);
         break;
+      case 'open_task_view':
+        void openNativeTaskView(ws, session, msg.workflowId, msg.taskId, msg.childWorkflowId, msg.lastSeq);
+        break;
+      case 'task_child_message':
+        handleNativeChildMessage(ws, msg);
+        break;
       case 'create_workflow':
         (msg.config.incognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() =>
           handleCreateWorkflow(ws, session, msg.config).catch((err) => {
@@ -764,10 +772,13 @@ wss.on('connection', (ws: WebSocket) => {
         setNotificationMutes(msg.muted);
         break;
       case 'user_message':
+        { const previous = genericMessageChecks.get(msg.workflowId) ?? Promise.resolve();
+        const current = previous.then(async () => {
+        if (await rejectGenericTaskChildMessage(ws, msg)) return;
         { const clusterId = clusterStore.getClusterIdForWorkflow(msg.workflowId); if (clusterId) clusterAutoTurn.interruptRulePickup(clusterId, msg.workflowId); }
         if (scopedIncognito && ((msg.attachments?.length ?? 0) > 0 || msg.primitive !== undefined || (msg.pickedSkills?.length ?? 0) > 0)) {
           send(ws, { type: 'error', workflowId: msg.workflowId, message: 'Attachments, skills, and workbench primitives are unavailable in strict Incognito Chat.' });
-          break;
+          return;
         }
         (workflows.get(msg.workflowId)?.config.incognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() =>
           handleUserMessage(ws, session, msg.workflowId, msg.content, msg.clientMessageId, msg.attachments, msg.interjection === true, msg.kind, msg.primitive, msg.pickedSkills, { automaticKind: msg.automaticKind === 'nudge' ? 'nudge' : undefined }).catch((err) => {
@@ -794,6 +805,9 @@ wss.on('connection', (ws: WebSocket) => {
             void notifyClusterStateForWorkflow(msg.workflowId);
           }),
         );
+        });
+        genericMessageChecks.set(msg.workflowId, current);
+        void current.finally(() => { if (genericMessageChecks.get(msg.workflowId) === current) genericMessageChecks.delete(msg.workflowId); }).catch(() => {}); }
         break;
       case 'cancel':
         if (msg.taskId) {
@@ -2101,6 +2115,98 @@ setClaudeNativePlanBroadcast((workflowId): PlanBroadcast => ({
   },
 }));
 
+export async function openNativeTaskView(ws: WebSocket, session: Session, parentId: string, taskId: string, childId: string, lastSeq?: number): Promise<void> {
+  const parent = workflows.get(parentId);
+  const cwd = parent?.config.workingDirectory;
+  if (!parent || !cwd || !parent.observers.has(ws)) return;
+  try {
+    const meta = await readMeta(cwd, childId);
+    let member = false;
+    for await (const event of streamWorkflowEvents(cwd, parentId)) {
+      if (event.type === 'task_started' && event.taskId === taskId && event.childWorkflowId === childId) { member = true; break; }
+    }
+    if (workflows.get(parentId) !== parent || !parent.observers.has(ws) || !meta || meta.parentWorkflowId !== parentId || !member) throw new Error('Task membership is unavailable.');
+    nativeTaskChildIds.add(childId);
+    const config = workflows.get(childId)?.config ?? workflowConfigFromMeta(meta, cwd);
+    send(ws, { type: 'workflow_created', workflowId: childId, config, parentWorkflowId: parentId, taskView: { parentWorkflowId: parentId, taskId } });
+    await handleRehydrateWorkflows(ws, session, [{ workflowId: childId, config, currentSessionId: childId, lastSeq: Number.isSafeInteger(lastSeq) && (lastSeq ?? -1) >= 0 ? lastSeq : 0 }]);
+  } catch {
+    send(ws, { type: 'system_notice', workflowId: parentId, content: 'Could not open this sub-agent: its parent task or transcript is unavailable.' });
+  }
+}
+
+// A Task child is owned by one parent task and may never start an independent
+// turn from a tab message. The queue exists only for the lifetime of that run.
+type NativeChildInput = { parentId: string; taskId: string; parentIsCurrent: () => boolean; childIsCurrent: () => boolean; active: boolean; items: Array<{ content: string; clientMessageId?: string }>; inFlight: Array<{ content: string; clientMessageId?: string }> };
+const nativeChildInputs = new Map<string, NativeChildInput>();
+const nativeTaskChildIds = new Set<string>();
+const genericMessageChecks = new Map<string, Promise<void>>();
+// Child IDs are generated once per run, so the parent, task and child tuple
+// identifies the live run even if a task ID is reused later.
+export function handleNativeChildMessage(ws: WebSocket, msg: Extract<ClientMessage, { type: 'task_child_message' }>): void {
+  const child = workflows.get(msg.childWorkflowId);
+  const parent = workflows.get(msg.workflowId);
+  const state = nativeChildInputs.get(msg.childWorkflowId);
+  if (!child || !parent || !child.observers.has(ws) || !parent.observers.has(ws) || !state?.active || state.parentId !== msg.workflowId || state.taskId !== msg.taskId || !state.parentIsCurrent() || !state.childIsCurrent() || !msg.content.trim()) {
+    send(ws, { type: 'task_child_message_rejected', workflowId: msg.childWorkflowId, clientMessageId: msg.clientMessageId });
+    return;
+  }
+  state.items.push({ content: msg.content, clientMessageId: msg.clientMessageId });
+  broadcastWorkflow(msg.childWorkflowId, { type: 'user_message_echo', workflowId: msg.childWorkflowId, content: msg.content, timestamp: Date.now(), clientMessageId: msg.clientMessageId, kind: 'steer', deliveryTracked: true });
+}
+
+// Generic sends must never revive a Task child, including after a restart.
+// A workflow with the restriction flag alone is not necessarily a Task child.
+export async function rejectGenericTaskChildMessage(ws: WebSocket, msg: Extract<ClientMessage, { type: 'user_message' }>): Promise<boolean> {
+  const child = workflows.get(msg.workflowId);
+  if (!child) return false;
+  let taskChild = nativeTaskChildIds.has(msg.workflowId) || nativeChildInputs.has(msg.workflowId);
+  if (!taskChild && !child.config.incognito) {
+    const cwd = child.config.workingDirectory;
+    let parented = false;
+    try {
+      if (!cwd) return false;
+      const meta = await readMeta(cwd, msg.workflowId);
+      if (!meta) { if (child.config.claudeNativeTaskDisabled) throw new Error('Missing workflow metadata'); return false; }
+      if (meta.parentWorkflowId) {
+        parented = true;
+        for await (const event of streamWorkflowEvents(cwd, meta.parentWorkflowId)) {
+          if (event.type === 'task_started' && event.childWorkflowId === msg.workflowId) { taskChild = true; nativeTaskChildIds.add(msg.workflowId); break; }
+        }
+      }
+    } catch { taskChild = parented || child.config.claudeNativeTaskDisabled === true; }
+  }
+  if (!taskChild && workflows.get(msg.workflowId) === child) return false;
+  if (msg.clientMessageId) send(ws, { type: 'queued_message_cancelled', workflowId: msg.workflowId, clientMessageId: msg.clientMessageId });
+  send(ws, { type: 'system_notice', workflowId: msg.workflowId, content: `Message not delivered: open the sub-agent from its parent task. Your message: ${msg.content}` });
+  return true;
+}
+function finishNativeChildInput(childId: string, state: NativeChildInput): void {
+  if (!state.active) return;
+  state.active = false;
+  for (const [items, reason] of [[state.items.splice(0), 'Message not delivered: the sub-agent ended'], [state.inFlight.splice(0), 'Delivery not confirmed: the sub-agent ended; it may have received the message']] as const) {
+    for (const item of items) {
+      if (item.clientMessageId) broadcastWorkflow(childId, { type: 'queued_message_cancelled', workflowId: childId, clientMessageId: item.clientMessageId });
+      broadcastWorkflow(childId, { type: 'system_notice', workflowId: childId, content: `${reason}. Your message: ${item.content}` });
+    }
+  }
+}
+function drainNativeChildInput(childId: string, state: NativeChildInput) {
+  if (!state.active || nativeChildInputs.get(childId) !== state || !state.parentIsCurrent() || !state.childIsCurrent()) return [];
+  const items = state.items.splice(0);
+  state.inFlight.push(...items);
+  return items;
+}
+function confirmNativeChildInput(childId: string, state: NativeChildInput): void {
+  if (!state.active) return;
+  const ids = state.inFlight.splice(0).flatMap((item) => item.clientMessageId ? [item.clientMessageId] : []);
+  if (ids.length) {
+    const deliveryId = crypto.randomUUID();
+    broadcastWorkflow(childId, { type: 'turn_messages_delivered', workflowId: childId, clientMessageIds: ids, deliveryId });
+    broadcastWorkflow(childId, { type: 'queued_messages_drained', workflowId: childId, clientMessageIds: ids, deliveryId, drainedAt: Date.now() });
+  }
+}
+
 // Phase 7b — Claude Native Task tool handler. Mints a child workflow that
 // inherits the parent's primary config, spawns a tab visible to the operator
 // (broadcast to the parent's observers), runs one primary turn seeded with
@@ -2155,6 +2261,9 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
     };
     const childPrimary = derivePrimaryConfig(childConfig);
     const childManager = new WorkerManager();
+    const childInput: NativeChildInput = { parentId: parentWorkflowId, taskId, parentIsCurrent: () => workflows.get(parentWorkflowId) === parent, childIsCurrent: () => workflows.get(childWorkflowId)?.manager === childManager, active: true, items: [], inFlight: [] };
+    nativeChildInputs.set(childWorkflowId, childInput);
+    nativeTaskChildIds.add(childWorkflowId);
 
     workflows.set(childWorkflowId, {
       config: childConfig,
@@ -2223,10 +2332,12 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
           if (m.type === 'primary_model') onModel?.(m.resolvedModel);
           if (m.type === 'primary_text') accumulated += m.text;
           if (m.type === 'primary_complete') {
+            finishNativeChildInput(childWorkflowId, childInput);
             settled = true;
             resolveFinal(accumulated);
           }
           if (m.type === 'error' && !settled) {
+            finishNativeChildInput(childWorkflowId, childInput);
             settled = true;
             // 'Worker killed' only follows a cancel (the card's own CANCEL):
             // report it as cancelled, not as a failure.
@@ -2244,6 +2355,8 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
         claudeNativeForceInterleavedThinkingBeta: parent.config.claudeNativeForceInterleavedThinkingBeta === true,
         claudeNativeThinkingDisplay: parent.config.claudeNativeThinkingDisplay,
         claudeNativeTaskDisabled: true,
+        drainSteer: () => drainNativeChildInput(childWorkflowId, childInput),
+        onSteerDelivered: () => confirmNativeChildInput(childWorkflowId, childInput),
         claudeNativeSubagent: { agentType: subagentType?.trim() || 'general-purpose', parentWorkflowId },
         // H30 — the child turn threads outputStyle the same way the normal turn
         // does (a runPrimaryTurn arg, NOT derivePrimaryConfig, which drops it).
@@ -2259,6 +2372,7 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
     );
 
     const cancelChild = () => {
+      finishNativeChildInput(childWorkflowId, childInput);
       if (settled) return;
       try { childManager.killAll(); } catch { /* already gone */ }
       if (!settled) { settled = true; rejectFinal(new Error('AbortError: task cancelled')); }
@@ -2277,6 +2391,8 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
     }, (err) => {
       if (!settled) { settled = true; rejectFinal(err instanceof Error ? err : new Error(String(err))); }
     }).finally(() => {
+      finishNativeChildInput(childWorkflowId, childInput);
+      nativeChildInputs.delete(childWorkflowId);
       signal?.removeEventListener('abort', cancelChild);
       turnSignal?.removeEventListener('abort', cancelChild);
       const wf = workflows.get(childWorkflowId);
@@ -2292,6 +2408,9 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
   } catch (err) {
     permit.release();
     if (allocatedChildId) {
+      const input = nativeChildInputs.get(allocatedChildId);
+      if (input) finishNativeChildInput(allocatedChildId, input);
+      nativeChildInputs.delete(allocatedChildId);
       releaseProjectSettingsWatcher(parentCwd);
       for (const obs of parent.observers) sessions.get(obs)?.workflowIds.delete(allocatedChildId);
       workflows.get(allocatedChildId)?.manager.killAll();

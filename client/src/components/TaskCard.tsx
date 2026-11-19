@@ -50,7 +50,7 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
     return Object.values(job.taskChildren).find((t) => t.toolUseId === toolUseId);
   });
   const childJob = useAppStore((s) => entry?.childWorkflowId ? s.jobs[entry.childWorkflowId] : undefined);
-  const promoteTaskChild = useAppStore((s) => s.promoteTaskChild);
+  const promoteTaskChild = useAppStore((s) => s.requestTaskChildView);
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   const [expanded, setExpanded] = useState(false);
 
@@ -165,7 +165,7 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
             color: 'var(--color-fg-muted)',
           }}
         >
-          {entry?.childWorkflowId && !promoted && (
+          {entry?.childWorkflowId && (
             <button
               type="button"
               onClick={handlePromote}
@@ -181,22 +181,8 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
               }}
               title="Open this child workflow in the top tab strip"
             >
-              PROMOTE TO TAB
+              {promoted ? 'FOCUS TAB' : 'VIEW IN TAB'}
             </button>
-          )}
-          {entry && promoted && (
-            <span
-              className="display-font"
-              style={{
-                fontSize: '10px',
-                letterSpacing: '1px',
-                color: 'var(--color-accent-secondary-dim)',
-                padding: '2px 8px', minHeight: '44px',
-                border: '1px solid var(--color-border-hairline)',
-              }}
-            >
-              PROMOTED
-            </span>
           )}
           {canCancel && (
             <button

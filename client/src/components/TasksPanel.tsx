@@ -34,7 +34,7 @@ function fmtElapsed(ms: number): string {
 }
 
 export function TasksPanel({ job }: Props) {
-  const promoteTaskChild = useAppStore((s) => s.promoteTaskChild);
+  const promoteTaskChild = useAppStore((s) => s.requestTaskChildView);
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   const allChildren = useAppStore((s) => s.jobs);
   const [, force] = useState(0);
@@ -122,8 +122,10 @@ export function TasksPanel({ job }: Props) {
               </span>
             </div>
             <div style={{ marginTop: '6px', overflowWrap: 'anywhere' }}>Model: {entry.model ?? child?.resolvedPrimaryModel ?? child?.config.primaryModel ?? 'Model not recorded'}</div>
+            <div>Last activity: {child?.lastPrimaryEventAt ? new Date(child.lastPrimaryEventAt).toLocaleTimeString() : 'not available'} · Steps: {child?.toolCallsSinceHandoff ?? 'not available'}</div>
+            {child?.taskTodos && <ul aria-label="Sub-agent checklist">{child.taskTodos.map((todo, index) => <li key={index}>{todo.status}: {todo.content}</li>)}</ul>}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
-              {entry.childWorkflowId && !promoted && (
+              {entry.childWorkflowId && (
                 <button
                   type="button"
                   onClick={() => entry.childWorkflowId && promoteTaskChild(entry.childWorkflowId)}
@@ -138,22 +140,8 @@ export function TasksPanel({ job }: Props) {
                     padding: '2px 8px', minHeight: '44px',
                   }}
                 >
-                  PROMOTE
+                  {promoted ? 'FOCUS TAB' : 'VIEW IN TAB'}
                 </button>
-              )}
-              {promoted && (
-                <span
-                  className="display-font"
-                  style={{
-                    fontSize: '10px',
-                    letterSpacing: '1px',
-                    color: 'var(--color-accent-secondary-dim)',
-                    padding: '2px 8px', minHeight: '44px',
-                    border: '1px solid var(--color-border-hairline)',
-                  }}
-                >
-                  PROMOTED
-                </span>
               )}
               {(entry.phase === 'running' || entry.phase === 'queued') && (
                 <button

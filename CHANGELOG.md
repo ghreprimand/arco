@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Follow Claude Native sub-agents from a pinned list, open and hide their tabs without stopping them, and steer a running child.
+
 - Keep each enabled provider's letter in the top bar when it is signed out, rejected, still being checked, or missing its CLI; hover, focus and the accessible name say what it needs, and a click or tap opens its Connections entry. The Claude letter replaces the separate Claude sign-in chip.
 
 - Run Cursor LOG IN in Settings through the in-app sign-in under its row, and read a Cursor sign-in that current Cursor CLIs keep in the Linux keyring, where Arco showed signed out before.

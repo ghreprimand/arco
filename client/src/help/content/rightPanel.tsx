@@ -623,7 +623,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.tab.tasks': {
     title: 'TASKS',
-    body: <><p>Subtasks the agent started with its Task tool. Each card shows whether the subtask is running, done, failed or cancelled, how long it has run, and <C>PROMOTE</C> to open it as its own tab. The tab appears only when this agent has started subtasks; subtasks of subtasks are not shown.</p><p>The model requested by a Native Task is reflected in the child settings and remains set after promotion or reopen.</p></>,
+    body: <><p>Subtasks the agent started with its Task tool. Each card shows whether the subtask is running, done, failed or cancelled, how long it has run, and <C>VIEW IN TAB</C> to open the same child as a tab. Closing that view hides it without stopping the task. The tab appears only when this agent has started subtasks; subtasks of subtasks are not shown.</p><p>The model requested by a Native Task is reflected in the child settings and remains set after opening or reopening its view.</p></>,
     manualSection: 'tasks-tab',
   },
   'rightpanel.tab.ledger': {

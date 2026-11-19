@@ -278,3 +278,10 @@ export function boundProjects<T>(list: T[], columns: number, expanded: boolean, 
 export function conversationStarted(input: { openWork: number; savedChats: number; savedClusters: number; savedSessions: number; remembered: boolean }): boolean {
   return input.remembered || input.openWork > 0 || input.savedChats > 0 || input.savedClusters > 0 || input.savedSessions > 0;
 }
+
+
+// Only a view opened for a recorded Task child can close without stopping it.
+export function isTaskChildView(job: JobState, jobs: Record<string, JobState>): boolean {
+  const view = job.taskView;
+  return !!view && jobs[view.parentWorkflowId]?.taskChildren?.[view.taskId]?.childWorkflowId === job.id;
+}

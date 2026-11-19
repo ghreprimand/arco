@@ -254,6 +254,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
 
   setConnected: (connected, sessionId) =>
     set((s) => {
+      if (!connected) useDraftStore.getState().disconnectTaskChildSends();
       // Slot 2 — on disconnect, any prior snapshot is stale; reset so the
       // SYNCING overlay re-engages until the server re-sends snapshots on
       // the next reconnect. On connect, no-op (individual job flags flip
@@ -1793,21 +1794,39 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       };
     })),
 
+  requestTaskChildView: (childWorkflowId) => {
+    const state = get();
+    const parent = Object.values(state.jobs).find((job) => Object.values(job.taskChildren ?? {}).some((entry) => entry.childWorkflowId === childWorkflowId));
+    const task = Object.values(parent?.taskChildren ?? {}).find((entry) => entry.childWorkflowId === childWorkflowId);
+    if (parent && task) state.wsSendRaw?.({ type: 'open_task_view', workflowId: parent.id, taskId: task.taskId, childWorkflowId, lastSeq: state.jobs[childWorkflowId]?.lastSeq ?? 0 });
+  },
+
   promoteTaskChild: (childWorkflowId) =>
     set((s) => {
       const child = s.jobs[childWorkflowId];
-      if (!child || !child.parentWorkflowId) return {};
+      const parent = child?.parentWorkflowId ? s.jobs[child.parentWorkflowId] : Object.values(s.jobs).find((job) => Object.values(job.taskChildren ?? {}).some((entry) => entry.childWorkflowId === childWorkflowId));
+      const task = Object.values(parent?.taskChildren ?? {}).find((entry) => entry.childWorkflowId === childWorkflowId);
+      if (!parent || !task) return {};
+      if (!child) return {};
       return {
-        jobs: {
-          ...s.jobs,
-          [childWorkflowId]: { ...child, promoted: true },
-        },
-        activeJobId: childWorkflowId,
-        showCreator: false,
-        creatorRequested: false,
-        showHome: false,
+        jobs: { ...s.jobs, [childWorkflowId]: { ...child, promoted: true, taskView: { parentWorkflowId: parent.id, taskId: task.taskId } } },
+        activeJobId: childWorkflowId, showCreator: false, creatorRequested: false, showHome: false,
       };
     }),
+
+  hideTaskChild: (childWorkflowId) => {
+    const state = get();
+    const child = state.jobs[childWorkflowId];
+    const view = child?.taskView;
+    const parent = view ? state.jobs[view.parentWorkflowId] : undefined;
+    if (!child || !view) return false;
+    if (!parent || parent.taskChildren?.[view.taskId]?.childWorkflowId !== childWorkflowId) {
+      get().pushNotification('error', 'Cannot close this sub-agent view until its parent task is available.', childWorkflowId);
+      return true;
+    }
+    set((s) => ({ jobs: { ...s.jobs, [childWorkflowId]: { ...child, promoted: false, taskView: undefined } }, activeJobId: parent.id, showHome: false, showCreator: false }));
+    return true;
+  },
 
   setEarlierState: (jobId, patch) =>
     set((s) => updateJob(s, jobId, () => patch)),
@@ -1973,6 +1992,8 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         ...(j.taskChildren ? { taskChildren: j.taskChildren } : {}),
         ...(j.parentWorkflowId ? { parentWorkflowId: j.parentWorkflowId } : {}),
         ...(j.promoted ? { promoted: j.promoted } : {}),
+        ...(j.taskView ? { taskView: j.taskView } : {}),
+        ...(j.taskTodos ? { taskTodos: j.taskTodos } : {}),
         // Phase 8 — persist the last 500 narrative events so refresh on a
         // settled workflow still renders HISTORY. Replay only resends
         // events with seq > clientLastSeq, so without persistence a quiet

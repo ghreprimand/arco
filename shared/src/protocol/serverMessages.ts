@@ -134,6 +134,7 @@ export interface WorkflowCreatedMessage {
   // strip without a server round-trip) but suppresses tab creation +
   // active-tab switch while it's parented and unpromoted.
   parentWorkflowId?: string;
+  taskView?: { parentWorkflowId: string; taskId: string };
   // Worktree bake-off attempts are ordinary top-level workflow tabs, but are
   // created as a batch. Keep the source tab focused while they materialize.
   backgroundCreated?: boolean;
@@ -1118,6 +1119,8 @@ export interface QueuedMessagesDrainedMessage {
 // Phase 3 — generic in-chat system notice for server-generated alerts
 // (context warnings, auto-handoff status). Persisted to events.jsonl so
 // the notice appears on replay/resume.
+export interface TaskChildMessageRejectedMessage { type: 'task_child_message_rejected'; workflowId: string; clientMessageId: string }
+
 export interface SystemNoticeMessage {
   authRecovery?: AuthRecoveryContext;
   type: 'system_notice';
@@ -1628,6 +1631,7 @@ export type ServerMessage =
   | OperatorQuestionReplyResultMessage
   | VoiceToolCallMessage
   | SystemNoticeMessage
+  | TaskChildMessageRejectedMessage
   | ClaudeNativeQuestionSettledMessage
   | QueuedMessageCancelledMessage
   | QueuedMessageEditResultMessage

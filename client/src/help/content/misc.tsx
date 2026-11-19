@@ -2,6 +2,11 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const miscHelp: Record<string, HelpEntry> = {
+  'runtime.subagent-list': {
+    title: 'Sub-agents',
+    body: <p>Expand the row to see Task children and their status. VIEW IN TAB opens the same child; closing that view hides it without stopping the task. CANCEL stops one child and CANCEL ALL stops pending children. A running Native child can receive a text steer; a draft stays until the server confirms receipt. Receipt clears the draft but does not confirm delivery to the child. If delivery is unconfirmed, check the conversation before sending again. Completed children are read-only.</p>,
+    manualSection: 'tasks-tab',
+  },
   'runtime.waiting-subagents': {
     title: 'Waiting for sub-agents',
     body: <p>The Native parent is awaiting Task replies. The strip counts running and queued children instead of labelling their wait as a stuck worker. CANCEL TURN stops the parent and its children; each queued or running task also has its own CANCEL. The parent resumes when its Task calls settle.</p>,
@@ -278,11 +283,11 @@ export const miscHelp: Record<string, HelpEntry> = {
   'chat.task-card': {
     title: 'Task sub-agent (Native)',
     body: (
-      <p>Native task rows show QUEUED before a child starts and retain the effective model after reload. CANCEL removes queued work or stops a running child. The parent is told the operator cancelled it, to count it as cancelled, and not to replace it unless requested; this is a model instruction. PROMOTE appears after a child exists.
+      <p>Native task rows show QUEUED before a child starts and retain the effective model after reload. CANCEL removes queued work or stops a running child. The parent is told the operator cancelled it, to count it as cancelled, and not to replace it unless requested; this is a model instruction. VIEW IN TAB appears after a child exists.
         The Native worker called the <C>Task</C> tool: this card represents a
         first-class child workflow scoped to its parent. Status:{' '}
         <C>running</C> / <C>done</C> / <C>error</C> / <C>cancelled</C>; the{' '}
-        <C>PROMOTE</C> button surfaces the child into the top tab strip.
+        <C>VIEW IN TAB</C> button opens the child in the top tab strip. Closing that view hides it without stopping the task.
         Depth-1 only (children can't call <C>Task</C> themselves). Parallel{' '}
         <C>Task</C> calls within one turn dispatch concurrently. Stopping the
         parent turn marks every unfinished card <C>cancelled</C> at once; the

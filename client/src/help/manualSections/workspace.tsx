@@ -613,7 +613,7 @@ export const workspace: Section[] = [
             ],
             [
               <strong key="t">TASKS</strong>,
-              <>Claude Native <Code>Task</Code> children. Hidden until this workflow has child tasks; promote one to expose it in the top tab strip.</>,
+              <>Claude Native <Code>Task</Code> children. Hidden until this workflow has child tasks; use VIEW IN TAB to open its conversation in the top tab strip.</>,
             ],
             [
               <strong key="kn">KNOWLEDGE</strong>,

@@ -19,7 +19,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useAppStore, type JobState } from '../stores/appStore';
-import { standaloneTabJobs } from '../utils/homeModel';
+import { standaloneTabJobs, isTaskChildView } from '../utils/homeModel';
 import { useRecallStore } from '../stores/recallStore';
 import { usePlanGenesisStore } from '../stores/planGenesisStore';
 import { closeSummaryPlan } from '../recall/closeSummary';
@@ -229,6 +229,7 @@ export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster
   // never delayed or blocked: the tab is removed first, and a failure only
   // shows a toast.
   const closeWorkflow = (wfid: string) => {
+    if (useAppStore.getState().hideTaskChild(wfid)) return;
     const plan = closeSummaryPlan(useAppStore.getState().jobs[wfid], useRecallStore.getState().summarizeOnClose);
     const origin = usePlanGenesisStore.getState().cancel(wfid);
     onRemoveWorkflow(wfid);
@@ -634,6 +635,7 @@ function SortableWorkflowTab({ job, isActive, onActivate, onClose, onContextMenu
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={() => {
+          if (isTaskChildView(job, useAppStore.getState().jobs)) { onClose(); return; }
           // Close tears down the in-memory worker (and any active turn); an
           // incognito chat is gone for good. One stray click shouldn't do that.
           const notes: string[] = [];

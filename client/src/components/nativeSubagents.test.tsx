@@ -7,6 +7,7 @@ import { useAppStore } from '../stores/appStore';
 import { NativeSubagentControls } from './NativeSubagentControls';
 import { TaskCard } from './TaskCard';
 import { TasksPanel } from './TasksPanel';
+import { isTaskChildView } from '../utils/homeModel';
 import { RuntimeStateBanner } from './RuntimeStateBanner';
 import type { NativeSubagentPolicy } from '@arco/shared';
 
@@ -59,6 +60,88 @@ test('per-tab model inheritance differs from explicit Agent choice and queued ro
     await act(async () => root.unmount());
     useAppStore.setState(before, true); useAppStore.persist.setOptions({ storage });
     dom.window.close();
+    for (const key of Object.keys(globals)) { if (saved[key]) Object.defineProperty(globalThis, key, saved[key]); else Reflect.deleteProperty(globalThis, key); }
+  }
+});
+
+
+test('task view requires a parent task and hides without removing the child', () => {
+  const before = useAppStore.getState(), storage = useAppStore.persist.getOptions().storage;
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
+  const sent: unknown[] = [];
+  try {
+    const config = { name: 'Fixture', primaryProvider: 'claude', primaryModel: 'haiku', primaryEffort: 'low', kind: 'agent' } as never;
+    useAppStore.getState().createJob('parent', config);
+    useAppStore.getState().createJob('child', config, undefined, 'parent');
+    useAppStore.getState().createJob('other', config, undefined, 'parent');
+    useAppStore.setState({ wsSendRaw: (message: unknown) => sent.push(message) } as never);
+    useAppStore.getState().promoteTaskChild('other');
+    assert.equal(useAppStore.getState().jobs.other.promoted, undefined);
+    useAppStore.getState().recordTaskStarted('parent', { taskId: 'task', toolUseId: 'tool', description: 'Fixture', startedAt: 1, childWorkflowId: 'child' });
+    useAppStore.getState().requestTaskChildView('child');
+    assert.deepEqual(sent, [{ type: 'open_task_view', workflowId: 'parent', taskId: 'task', childWorkflowId: 'child', lastSeq: 0 }]);
+    useAppStore.getState().promoteTaskChild('child');
+    assert.equal(useAppStore.getState().activeJobId, 'child');
+    assert.equal(isTaskChildView(useAppStore.getState().jobs.child, useAppStore.getState().jobs), true);
+    assert.equal(isTaskChildView(useAppStore.getState().jobs.other, useAppStore.getState().jobs), false);
+    assert.equal(useAppStore.getState().hideTaskChild('child'), true);
+    assert.equal(useAppStore.getState().activeJobId, 'parent');
+    assert.equal(useAppStore.getState().jobs.child.promoted, false);
+    assert.equal(useAppStore.getState().hideTaskChild('other'), false);
+    useAppStore.getState().promoteTaskChild('child');
+    assert.equal(useAppStore.getState().activeJobId, 'child');
+  } finally { useAppStore.setState(before, true); useAppStore.persist.setOptions({ storage }); }
+});
+
+test('child send keeps its exact draft through a socket failure, disconnect and rejection until the matching receipt', async () => {
+  const { TaskChildComposer } = await import('./TaskChildComposer');
+  const { useDraftStore, readSavedTaskChildSends } = await import('../stores/draftStore');
+  const { handleServerMessage } = await import('../ws/handleServerMessage');
+  const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost', pretendToBeVisual: true });
+  const saved = Object.getOwnPropertyDescriptors(globalThis), before = useAppStore.getState(), draftsBefore = useDraftStore.getState();
+  const storage = useAppStore.persist.getOptions().storage;
+  const globals = { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, sessionStorage: dom.window.sessionStorage, React, IS_REACT_ACT_ENVIRONMENT: true };
+  for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { configurable: true, value });
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
+  const root = createRoot(document.getElementById('root')!);
+  try {
+    const config = { name: 'Fixture', primaryProvider: 'claude', primaryModel: 'haiku', primaryEffort: 'low', kind: 'agent' } as never;
+    useAppStore.getState().createJob('child-send', config, undefined, 'parent-send');
+    useAppStore.getState().createJob('other-send', config);
+    useAppStore.setState((s) => ({ jobs: { ...s.jobs, 'child-send': { ...s.jobs['child-send'], taskView: { parentWorkflowId: 'parent-send', taskId: 'task-send' } } }, activeJobId: 'other-send' }));
+    const job = useAppStore.getState().jobs['child-send'];
+    const otherMessages = [...useAppStore.getState().jobs['other-send'].messages];
+    const content = '  keep exact text  ';
+    useDraftStore.getState().setDraft(job.id, content);
+    await act(async () => root.render(<TaskChildComposer job={job} canSteer send={() => false} />));
+    await act(async () => document.querySelector('form')!.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
+    assert.equal(useDraftStore.getState().drafts[job.id], content);
+    assert.match(document.body.textContent!, /Message not delivered/);
+    await act(async () => useDraftStore.getState().releaseTaskChildSend(job.id));
+    const sent: any[] = [];
+    await act(async () => root.render(<TaskChildComposer job={job} canSteer send={(message) => { sent.push(message); return true; }} />));
+    await act(async () => document.querySelector('form')!.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
+    assert.equal(sent.length, 1); assert.equal(sent[0].content, content);
+    assert.deepEqual(readSavedTaskChildSends(dom.window.sessionStorage)[job.id], { id: sent[0].clientMessageId, content, state: 'unconfirmed' });
+    await act(async () => useAppStore.getState().setConnected(false));
+    assert.equal(useDraftStore.getState().drafts[job.id], content);
+    assert.match(document.body.textContent!, /Delivery is not confirmed/);
+    const deps = { wsRef: { current: null }, scheduleReconnect: () => {} } as never;
+    await act(async () => handleServerMessage({ type: 'task_child_message_rejected', workflowId: job.id, clientMessageId: sent[0].clientMessageId } as never, deps));
+    assert.equal(useDraftStore.getState().drafts[job.id], content);
+    assert.deepEqual(useAppStore.getState().jobs['other-send'].messages, otherMessages);
+    assert.match(document.body.textContent!, /Message not delivered/);
+    await act(async () => useDraftStore.getState().releaseTaskChildSend(job.id));
+    await act(async () => document.querySelector('form')!.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
+    await act(async () => handleServerMessage({ type: 'user_message_echo', workflowId: job.id, clientMessageId: sent[1].clientMessageId, content, timestamp: Date.now(), kind: 'steer' } as never, deps));
+    assert.equal(useDraftStore.getState().drafts[job.id], undefined);
+    await act(async () => useAppStore.getState().setConnected(false));
+    assert.equal(useDraftStore.getState().taskChildSends[job.id], undefined);
+    assert.equal(useDraftStore.getState().drafts[job.id], undefined);
+    assert.deepEqual(readSavedTaskChildSends(dom.window.sessionStorage), {});
+    assert.equal(sent.length, 2);
+  } finally {
+    await act(async () => root.unmount()); useAppStore.setState(before, true); useDraftStore.setState(draftsBefore, true); useAppStore.persist.setOptions({ storage }); dom.window.close();
     for (const key of Object.keys(globals)) { if (saved[key]) Object.defineProperty(globalThis, key, saved[key]); else Reflect.deleteProperty(globalThis, key); }
   }
 });

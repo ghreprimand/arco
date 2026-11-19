@@ -44,7 +44,31 @@ export function clearDraftSkillPicks(jobId: string): void {
   useDraftStore.setState(s => { const { [jobId]: _, ...queueEditSkills } = s.queueEditSkills; return { queueEditSkills }; });
 }
 
+export type TaskChildSend = { id: string; content: string; state: 'awaiting' | 'unconfirmed' | 'rejected' };
+const TASK_CHILD_SENDS_KEY = 'arco.taskChildSends';
+export function readSavedTaskChildSends(storage: Pick<Storage, 'getItem'> | null): Record<string, TaskChildSend> {
+  try {
+    const parsed: unknown = JSON.parse(storage?.getItem(TASK_CHILD_SENDS_KEY) ?? '{}');
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    return Object.fromEntries(Object.entries(parsed).flatMap(([jobId, value]) => {
+      if (!value || typeof value !== 'object') return [];
+      const item = value as Partial<TaskChildSend>;
+      if (typeof item.id !== 'string' || typeof item.content !== 'string') return [];
+      return [[jobId, { id: item.id, content: item.content, state: item.state === 'rejected' ? 'rejected' : 'unconfirmed' }]];
+    }));
+  } catch { return {}; }
+}
+function taskSendStorage(): Storage | null {
+  try { return typeof sessionStorage === 'undefined' ? null : sessionStorage; } catch { return null; }
+}
+const restoredTaskSends = readSavedTaskChildSends(taskSendStorage());
 interface DraftState {
+  taskChildSends: Record<string, TaskChildSend>;
+  beginTaskChildSend: (jobId: string, id: string, content: string) => void;
+  acceptTaskChildSend: (jobId: string, id: string) => void;
+  rejectTaskChildSend: (jobId: string, id: string) => void;
+  disconnectTaskChildSends: () => void;
+  releaseTaskChildSend: (jobId: string) => void;
   drafts: Record<string, string>;
   queueEditSkills: Record<string, DraftSkillPick[]>;
   queueEditKinds: Record<string, 'steer' | 'follow-up' | 'interrupt'>;
@@ -56,7 +80,24 @@ interface DraftState {
 }
 
 export const useDraftStore = create<DraftState>((set) => ({
-  drafts: {},
+  drafts: Object.fromEntries(Object.entries(restoredTaskSends).map(([id, pending]) => [id, pending.content])),
+  taskChildSends: restoredTaskSends,
+  beginTaskChildSend: (jobId, id, content) => set((s) => ({ taskChildSends: { ...s.taskChildSends, [jobId]: { id, content, state: 'awaiting' } } })),
+  acceptTaskChildSend: (jobId, id) => set((s) => {
+    const pending = s.taskChildSends[jobId];
+    if (!pending || pending.id !== id) return {};
+    const { [jobId]: _, ...taskChildSends } = s.taskChildSends;
+    if (s.drafts[jobId] !== pending.content) return { taskChildSends };
+    const { [jobId]: _draft, ...drafts } = s.drafts;
+    return { taskChildSends, drafts };
+  }),
+  rejectTaskChildSend: (jobId, id) => set((s) => {
+    const pending = s.taskChildSends[jobId];
+    if (!pending || pending.id !== id) return {};
+    return { taskChildSends: { ...s.taskChildSends, [jobId]: { ...pending, state: 'rejected' } } };
+  }),
+  disconnectTaskChildSends: () => set((s) => ({ taskChildSends: Object.fromEntries(Object.entries(s.taskChildSends).map(([id, pending]) => [id, pending.state === 'awaiting' ? { ...pending, state: 'unconfirmed' as const } : pending])) })),
+  releaseTaskChildSend: (jobId) => set((s) => { const { [jobId]: _, ...taskChildSends } = s.taskChildSends; return { taskChildSends }; }),
   queueEditSkills: {},
   queueEditKinds: {},
   tidyUndo: {},
@@ -107,6 +148,18 @@ export const useDraftStore = create<DraftState>((set) => ({
     }),
 }));
 
+// Pending child messages survive a reload in this browser tab. They are never
+// resent automatically; after reload their delivery is unconfirmed until replay.
+useDraftStore.subscribe((state, previous) => {
+  if (state.taskChildSends === previous.taskChildSends) return;
+  try {
+    const storage = taskSendStorage();
+    if (!storage) return;
+    if (Object.keys(state.taskChildSends).length) storage.setItem(TASK_CHILD_SENDS_KEY, JSON.stringify(state.taskChildSends));
+    else storage.removeItem(TASK_CHILD_SENDS_KEY);
+  } catch { /* retain the in-memory draft if browser storage is unavailable */ }
+});
+
 // Non-reactive read for event handlers (send, Escape-when-empty, slash-command
 // prefixing). Reads at call time so it is always current without subscribing.
 export function readDraft(jobId: string): string {
@@ -114,6 +167,7 @@ export function readDraft(jobId: string): string {
 }
 
 // Called from appStore.removeJob so closing a tab still drops its draft.
+// Keep a pending child send recoverable if its workflow disappears.
 export function dropDraftForJob(jobId: string): void {
-  useDraftStore.getState().clearDraft(jobId);
+  if (!useDraftStore.getState().taskChildSends[jobId]) useDraftStore.getState().clearDraft(jobId);
 }

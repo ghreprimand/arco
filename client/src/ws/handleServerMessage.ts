@@ -15,6 +15,7 @@ import { parseAskNotice } from '../components/AskUserQuestionNotice';
 import { handleAttentionEvent, clearQuestionAlert } from '../alerts/desktopAlerts';
 import { applyOperatorQuestion, reconcileOperatorQuestions, questionMessageId } from './operatorQuestions';
 import { useAppStore } from '../stores/appStore';
+import { useDraftStore } from '../stores/draftStore';
 import { applyWorkspace, sendWorkspaceSync } from './workspaceSync';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useRecallStore } from '../stores/recallStore';
@@ -280,7 +281,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // A member job just materialized — clear its rehydrate-request guard
           // so a future genuine gap (e.g. re-add) can request again.
           const restored = deps.wsRef.current ? requestedMemberRehydrate.get(deps.wsRef.current)?.delete(msg.workflowId) : false;
-          store.createJob(
+          if (!msg.taskView || !store.jobs[msg.workflowId]) store.createJob(
             msg.workflowId,
             msg.config,
             msg.resumedVia,
@@ -289,6 +290,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             restored,
             msg.clusterMemberPending,
           );
+          if (msg.taskView) store.promoteTaskChild(msg.workflowId);
           if (msg.config.templateSpawnToken && usePlanGenesisStore.getState().bind(msg.config.templateSpawnToken, msg.workflowId)) {
             store.setActiveJob(msg.workflowId);
           }
@@ -467,6 +469,15 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
         }
 
+        case 'task_child_message_rejected': {
+          useDraftStore.getState().rejectTaskChildSend(msg.workflowId, msg.clientMessageId);
+          if (!useAppStore.getState().jobs[msg.workflowId]) {
+            const pending = useDraftStore.getState().taskChildSends[msg.workflowId];
+            if (pending?.id === msg.clientMessageId) useAppStore.getState().pushNotification('error', `Sub-agent message was not delivered. Draft: ${pending.content}`, msg.workflowId);
+          }
+          break;
+        }
+
         case 'queued_message_cancelled': {
           useAppStore.setState((s) => {
             const job = s.jobs[msg.workflowId];
@@ -540,6 +551,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         }
 
         case 'user_message_echo': {
+          if (msg.clientMessageId) useDraftStore.getState().acceptTaskChildSend(msg.workflowId, msg.clientMessageId);
           // The server persists and broadcasts each user prompt. The originating
           // tab already has an optimistic message with the same clientMessageId,
           // so skip that duplicate; a remote tab or resume replay has no match
@@ -1224,6 +1236,13 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         }
+
+        case 'todos_updated':
+          useAppStore.setState((state) => {
+            const job = state.jobs[msg.workflowId];
+            return job ? { jobs: { ...state.jobs, [msg.workflowId]: { ...job, taskTodos: msg.todos } } } : state;
+          });
+          break;
 
         case 'task_started':
           store.recordTaskStarted(msg.workflowId, {

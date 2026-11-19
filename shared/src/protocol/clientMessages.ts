@@ -510,7 +510,13 @@ export interface DebugNativeAutoCompactProbeMessage {
   mode: 'off' | 'conservative' | 'aggressive';
 }
 
+export interface TaskChildMessage { type: 'task_child_message'; workflowId: string; taskId: string; childWorkflowId: string; content: string; clientMessageId: string }
+
+export interface OpenTaskViewMessage { type: 'open_task_view'; workflowId: string; taskId: string; childWorkflowId: string; lastSeq?: number }
+
 export type ClientMessage =
+  | OpenTaskViewMessage
+  | TaskChildMessage
   | TranscriptWorkerPreviewMessage
   | TranscriptWorkerCreateMessage
   | ComputerContextControlMessage

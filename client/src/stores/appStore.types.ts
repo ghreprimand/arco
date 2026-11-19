@@ -400,6 +400,8 @@ export interface JobState {
   // tab" on the inline card or TASKS row).
   parentWorkflowId?: string;
   promoted?: boolean;
+  taskView?: { parentWorkflowId: string; taskId: string };
+  taskTodos?: Array<{ content: string; status: 'pending' | 'in_progress' | 'completed' }>;
   // A new cluster member announced before the cluster state that lists it.
   // Kept out of the tab bar and Home until that state arrives (then the
   // cluster tab shows it) or an error releases it as a standalone tab.
@@ -1013,8 +1015,8 @@ export interface AppState {
   // Phase 7b — raw WS sender registered by useWebSocket on mount. Lets
   // self-contained chat-message components (AskUserQuestionNotice) reply
   // without threading callbacks through the prop tree.
-  wsSendRaw: ((msg: unknown) => void) | null;
-  setWsSendRaw: (fn: ((msg: unknown) => void) | null) => void;
+  wsSendRaw: ((msg: unknown) => boolean | void) | null;
+  setWsSendRaw: (fn: ((msg: unknown) => boolean | void) | null) => void;
 
   // Phase 8 — HISTORY tab → ChatPanel scroll-and-flash. Set by HistoryTab
   // selection for events that carry a stable chatMessageId (today: user
@@ -1053,7 +1055,9 @@ export interface AppState {
   // Flips `promoted` on the child JobState and switches the active tab
   // to it. No server round-trip — `workflow_created` already minted the
   // JobState; only the TabBar filter is gated on `promoted`.
+  requestTaskChildView: (childWorkflowId: string) => void;
   promoteTaskChild: (childWorkflowId: string) => void;
+  hideTaskChild: (childWorkflowId: string) => boolean;
 }
 
 export interface AppMemoryStats {

@@ -203,9 +203,8 @@ export function useWebSocket() {
     // Phase 7b — register a raw send hook on the store so chat-message
     // components (AskUserQuestionNotice) can reply without prop-threading.
     useAppStore.getState().setWsSendRaw((msg) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify(msg));
-      }
+      if (wsRef.current?.readyState !== WebSocket.OPEN) return false;
+      try { wsRef.current.send(JSON.stringify(msg)); return true; } catch { return false; }
     });
     registerLiveChangesSender((msg) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {

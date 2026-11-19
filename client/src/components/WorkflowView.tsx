@@ -5,11 +5,13 @@ import { PrimaryStatus } from './PrimaryStatus';
 import { useEffect, useRef, useState } from 'react';
 import { ChatPanel } from './ChatPanel';
 import { TerminalInput } from './TerminalInput';
+import { TasksPanel } from './TasksPanel';
 import { RightPanel } from './RightPanel';
 import { PlanCandidateBanner } from './PlanCandidateBanner';
 import { RuntimeStateBanner } from './RuntimeStateBanner';
 import { Panel } from './primitives/Panel';
 import { useAppStore } from '../stores/appStore';
+import { TaskChildComposer } from './TaskChildComposer';
 import { ProjectStateNotice } from './ProjectStateNotice';
 import type { JobState } from '../stores/appStore';
 import type { ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, PreviewCaptureKind, PreviewViewport, ArcoSkillRef, BakeoffAttemptSpec } from '@arco/shared';
@@ -129,6 +131,18 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
   // I3 — focus mode hides the right panel (+ splitter), giving the chat the
   // full width. Reversible: toggling off restores the persisted split fraction.
   const focusMode = useAppStore((s) => s.focusMode);
+  const [taskListOpen, setTaskListOpen] = useState(false);
+  const parentTask = useAppStore((s) => {
+    const view = job.taskView;
+    return view ? s.jobs[view.parentWorkflowId]?.taskChildren?.[view.taskId] : undefined;
+  });
+  const wsSendRaw = useAppStore((s) => s.wsSendRaw);
+  const childView = !!job.taskView && parentTask?.childWorkflowId === job.id;
+  const childCanSteer = childView && parentTask?.phase === 'running' && job.config.claudeNativeTaskDisabled === true;
+  const taskEntries = Object.values(job.taskChildren ?? {});
+  const taskRunning = taskEntries.filter((task) => task.phase === 'running').length;
+  const taskQueued = taskEntries.filter((task) => task.phase === 'queued').length;
+  const taskFailed = taskEntries.filter((task) => task.phase === 'error').length;
   const isolatedMember = useAppStore((s) => Object.values(s.clusters).some((c) => c.members.some((m) => m.workflowId === job.id && m.accessMode === 'isolated')));
   const { range: widthRange } = useLayout();
   const widthRangeRef = useRef(widthRange);
@@ -214,7 +228,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
         {/* LEFT — chat + composer. Full width in focus mode. */}
         <div
           style={{
-            flex: focusMode ? '1 1 100%' : narrow || rightFixedPx !== null ? '1 1 0%' : `1 1 ${(1 - rightFraction) * 100}%`,
+            flex: (focusMode || childView) ? '1 1 100%' : narrow || rightFixedPx !== null ? '1 1 0%' : `1 1 ${(1 - rightFraction) * 100}%`,
             display: 'flex',
             flexDirection: 'column',
             minWidth: 0,
@@ -233,10 +247,17 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
           <Panel className="no-frost" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <ChatPanel job={job} onCancelQueued={onCancelQueued} onLoadEarlier={onLoadEarlier} />
           </Panel>
-          <ProjectStateNotice cwd={job.config.workingDirectory ?? ''} skip={isolatedMember} />
-          <PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachPlanToCluster} onSend={onSend} />
+          {!childView && <ProjectStateNotice cwd={job.config.workingDirectory ?? ''} skip={isolatedMember} />}
+          {!childView && <PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachPlanToCluster} onSend={onSend} />}
           <RuntimeStateBanner job={job} onCancel={onCancel} />
-          <TerminalInput
+          {taskEntries.length > 0 && <div style={{ position: 'relative', minWidth: 0 }} data-help="runtime.subagent-list">
+            {taskListOpen && <div role="region" aria-label="Sub-agents" onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); setTaskListOpen(false); } }} style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, maxHeight: 'min(55vh, 420px)', overflowY: 'auto', zIndex: 50, background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)' }}>
+              <TasksPanel job={job} />
+              {(taskRunning + taskQueued > 0) && <button type="button" onClick={() => { for (const task of taskEntries) if (task.phase === 'running' || task.phase === 'queued') wsSendRaw?.({ type: 'cancel', workflowId: job.id, taskId: task.taskId }); }}>CANCEL ALL</button>}
+            </div>}
+            <button type="button" aria-expanded={taskListOpen} onClick={() => setTaskListOpen(!taskListOpen)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', whiteSpace: 'nowrap', overflow: 'hidden', fontSize: '9px', padding: '4px 2px', gap: 4 }}><span>SUB-AGENTS {taskListOpen ? '▾' : '▸'}</span><span>{taskRunning} RUN · {taskQueued} QUEUE · {taskFailed} FAILED</span></button>
+          </div>}
+          {childView ? <TaskChildComposer job={job} canSteer={childCanSteer} send={wsSendRaw} /> : <TerminalInput
             job={job}
             onSend={onSend}
             onCancel={onCancel}
@@ -254,11 +275,11 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
             onBackToCluster={onBackToCluster}
             onTranscriptSend={onTranscriptSend}
             onResearch={onResearch}
-          />
+          />}
         </div>
 
         {/* SPLITTER — hidden in focus mode (no right panel to resize). */}
-        {!focusMode && !narrow && (
+        {!focusMode && !childView && !narrow && (
         <div
           onMouseDown={startDrag}
           role="separator"
@@ -275,13 +296,13 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
         />
         )}
 
-        {!focusMode && narrow && <PanelStrip items={RIGHT_STRIP} active={slide} onOpen={(id) => {
+        {!focusMode && !childView && narrow && <PanelStrip items={RIGHT_STRIP} active={slide} onOpen={(id) => {
           if (id !== 'more') setTabRequest((prev) => ({ tab: id, n: (prev?.n ?? 0) + 1 }));
           setSlide(id);
         }} />}
 
         {/* RIGHT — tabbed side panel. Hidden in focus mode; a slide-out in the narrow range. */}
-        {!focusMode && (!narrow || slide) && (() => { const rightBody = (
+        {!focusMode && !childView && (!narrow || slide) && (() => { const rightBody = (
         <div
           style={{
             flex: narrow ? 1 : rightFixedPx !== null ? `0 0 ${rightFixedPx}px` : `1 1 ${rightFraction * 100}%`,
