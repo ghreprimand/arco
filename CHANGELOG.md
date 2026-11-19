@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+## v0.1.9 - 2026-11-19
+
 - Tell the Director to name the next step, its owner and any operator action when an issue remains open.
 
 - Document Upload from phone worked paths for the same private LAN and the same Tailscale network, separate full workbench access from the QR listener, and name the control in FEATURES, README, Getting Started and the documentation index, with matching help and manual text.
