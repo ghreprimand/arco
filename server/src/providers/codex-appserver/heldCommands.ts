@@ -29,9 +29,13 @@ function outcome(result: HeldCommandResult): string {
   return typeof result.exitCode === 'number' ? `exit ${result.exitCode}` : result.failed ? 'failed' : 'ended';
 }
 
-/** The operator-visible line for one delivered result. */
-export function heldResultNotice(result: HeldCommandResult, continues: boolean): string {
-  return `Command ended: \`${shortCommand(result.command)}\` - ${outcome(result)} after ${formatDuration(result.endedAt - result.startedAt)}.${continues ? ' Codex continues.' : ''}`;
+/** One chat notice for a resumed batch, or a failed result in an active turn. */
+export function heldResultsNotice(results: HeldCommandResult[], continues: boolean): string | undefined {
+  if (!results.length) return undefined;
+  const failed = results.filter(result => result.failed || (typeof result.exitCode === 'number' && result.exitCode !== 0)).length;
+  if (!continues) return failed ? `${failed} ${failed === 1 ? 'command' : 'commands'} failed. See ACTIVITY for details.` : undefined;
+  const count = results.length;
+  return `${count} ${count === 1 ? 'command' : 'commands'} finished${failed ? ` (${failed} failed)` : ''}. Codex continues.`;
 }
 
 /** The text Codex receives: each result once, output tail capped. */

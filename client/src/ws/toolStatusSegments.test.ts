@@ -5,6 +5,11 @@ import { handleServerMessage, type WsDeps } from './handleServerMessage.js';
 import { useAppStore } from '../stores/appStore.js';
 import { streamingMsgs } from './streamState.js';
 import { projectChatMessages } from '../utils/displayMessages.js';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { build } from 'esbuild';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 
 const deps: WsDeps = { wsRef: { current: null }, scheduleReconnect: () => {} };
 const send = (msg: Record<string, unknown>) => handleServerMessage(msg as unknown as ServerMessage, deps);
@@ -79,4 +84,28 @@ test('reload between text deltas keeps the persisted segment open across tool co
   [f.tool(4, 'completed', { itemId: 'command' }), f.text(5, right), f.event('primary_complete', 6, { phase: 'passthrough' })].forEach(send);
   assert.deepEqual(f.replies().map(m => m.content), [left + right]);
   assert.equal(f.job().activity.find(a => a.itemId === 'command')?.eventSeq, 2);
+});
+
+// The persisted completion carries elapsed time so cold replay renders the same row.
+test('held command completion shows its exit and elapsed time in ACTIVITY live and after replay', async () => {
+  const fixtures: Record<string, string> = { '../FileViewerModal': 'exports.FileViewerModal = () => null;', './FilesTab': 'exports.EmptyState = () => null;' };
+  const built = await build({ entryPoints: [fileURLToPath(new URL('../components/RightPanel/ActivityTab.tsx', import.meta.url))], bundle: true, write: false, platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic', plugins: [{ name: 'activity-fixtures', setup(build) {
+    build.onResolve({ filter: /.*/ }, args => args.path in fixtures ? { path: args.path, namespace: 'fixture' } : undefined);
+    build.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: fixtures[args.path] }));
+  } }] });
+  const mod = { exports: {} as { ActivityTab: React.ComponentType<any> } };
+  new Function('require', 'module', 'exports', built.outputFiles[0].text)(createRequire(import.meta.url), mod, mod.exports);
+  for (const replay of [false, true]) {
+    const f = fixture();
+    const events = [
+      f.tool(1, 'started', { itemId: 'held', input: JSON.stringify({ command: 'fixture check' }) }),
+      f.tool(2, 'completed', { itemId: 'held', input: JSON.stringify({ command: 'fixture check' }), exitCode: 0, lateCommand: { state: 'finished', startedAt: 1000, waitingUntil: 300000, elapsedMs: 62000 } }),
+    ];
+    if (replay) send({ type: 'replay_batch', workflowId: f.id, events });
+    else events.forEach(send);
+    const html = renderToStaticMarkup(React.createElement(mod.exports.ActivityTab, { job: f.job() }));
+    assert.match(html, /fixture check/);
+    assert.match(html, /exit 0/);
+    assert.match(html, /62s/);
+  }
 });

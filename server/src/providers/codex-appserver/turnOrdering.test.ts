@@ -122,14 +122,17 @@ test('a Codex researcher retries one authentication failure before reporting it'
 test('a command that outlives its Codex turn continues the agent once with its result', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
   const h = heldTurn(); await settle();
-  h.command('turn-1', 'build', 'npm run build'); h.complete('turn-1'); await settle();
+  h.command('turn-1', 'build', 'npm run build'); h.command('turn-1', 'check', 'npm run check'); h.complete('turn-1'); await settle();
   assert.equal(h.results.length, 0, 'the Arco turn stays open while the command runs');
-  assert.deepEqual(h.markers.at(-1), { id: 'build', state: 'running', waiting: true });
+  assert.ok(h.markers.some(marker => marker.id === 'build' && marker.waiting));
   h.command('turn-1', 'build', 'npm run build', { exitCode: 0, output: 'built\n' });
+  h.command('turn-1', 'check', 'npm run check', { exitCode: 0, output: 'checked\n' });
   t.mock.timers.tick(HELD_BATCH_MS); await settle();
   assert.equal(h.starts.length, 2);
   assert.match(h.starts[1], /npm run build[\s\S]*exit 0[\s\S]*built/);
-  assert.ok(h.notices.some(line => /Command ended: `npm run build` - exit 0/.test(line)));
+  assert.match(h.starts[1], /npm run check[\s\S]*exit 0[\s\S]*checked/);
+  assert.deepEqual(h.notices, ['2 commands finished. Codex continues.']);
+  assert.deepEqual(h.markers.filter(marker => marker.state === 'finished').map(marker => marker.id), ['build', 'check']);
   h.complete('turn-2'); await settle();
   assert.equal(h.results.length, 1);
   assert.equal(h.starts.length, 2, 'the result is delivered once');
@@ -144,6 +147,7 @@ test('a command that ends after the final answer began continues the agent after
   h.complete('turn-1'); await settle();
   assert.equal(h.starts.length, 2);
   assert.match(h.starts[1], /npm run lint[\s\S]*exit 2[\s\S]*lint failed/);
+  assert.deepEqual(h.notices, ['1 command finished (1 failed). Codex continues.']);
 });
 
 test('STOP during the wait ends the turn and a later result starts nothing', async (t) => {
@@ -173,6 +177,7 @@ test('operator steering during the wait starts the continuation and the result j
   h.command('turn-1', 'deploy', './deploy.sh', { exitCode: 0, output: 'deployed\n' }); await settle();
   assert.equal(h.steers.length, 1, 'the result joins the running turn');
   assert.match(h.steers[0], /deploy\.sh[\s\S]*exit 0/);
+  assert.deepEqual(h.notices, [], 'routine results joining a running turn stay quiet');
   h.complete('turn-2'); await settle();
   assert.equal(h.results.length, 1);
   assert.equal(h.starts.length, 2);

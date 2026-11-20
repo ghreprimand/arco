@@ -89,7 +89,9 @@ When a Codex app-server turn ends with a shell command still running, the Arco
 turn is not over. The tab and cluster member card stay WORKING and name the
 command. When the command ends, Arco starts the next Codex turn on the same
 thread with the command, its run time, exit code and the last 4,000 characters
-of output, and shows a "Command ended" line. To the operator it is one turn.
+of output. Chat shows one short count when Codex continues; ACTIVITY keeps each
+command, known exit code and elapsed time, with output shortened to 240 characters.
+To the operator it is one turn.
 This does not depend on AUTO-PICKUP and is never charged as a wake.
 
 - One continuation when the last waited-on command ends, or at once when one

@@ -139,6 +139,7 @@ export interface ActivityEntry {
   toolUseId?: string;
   output?: string;
   exitCode?: number;
+  heldElapsedMs?: number;
   at: number;
   updatedAt?: number;
 }

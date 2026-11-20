@@ -728,7 +728,7 @@ export interface PrimaryToolUseMessage {
   ollamaExecutionId?: string;
   type: 'primary_tool_use';
   workflowId: string;
-  lateCommand?: Omit<CodexLateCommand, 'itemId' | 'input'> & { state: 'running' | 'finished' | 'lost' | 'untracked' };
+  lateCommand?: Omit<CodexLateCommand, 'itemId' | 'input'> & { state: 'running' | 'finished' | 'lost' | 'untracked'; elapsedMs?: number };
   tool: string;
   input: string;
   status?: 'started' | 'in_progress' | 'completed' | 'failed';

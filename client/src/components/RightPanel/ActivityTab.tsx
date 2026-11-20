@@ -697,7 +697,8 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
         <span style={{ flex: 1, minWidth: 0, color: 'var(--color-fg-muted)', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>
           {abbreviateToolInput(entry.tool, entry.input)}
           {entry.text ? ` ×${entry.text}` : ''}
-          {typeof entry.exitCode === 'number' && entry.exitCode !== 0 ? ` · exit ${entry.exitCode}` : ''}
+          {typeof entry.exitCode === 'number' && (entry.exitCode !== 0 || entry.heldElapsedMs !== undefined) ? ` · exit ${entry.exitCode}` : ''}
+          {entry.heldElapsedMs !== undefined ? ` · ${Math.round(entry.heldElapsedMs / 1000)}s` : ''}
           {entry.output ? `\n↳ ${truncate(entry.output.replace(/\s+/g, ' ').trim(), 240)}` : ''}
         </span>
         <ActivityTimestamp at={entry.at} />

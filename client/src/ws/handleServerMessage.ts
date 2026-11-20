@@ -1264,6 +1264,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             itemId: msg.itemId,
             output: msg.output,
             exitCode: msg.exitCode,
+            ...(lateCommand?.state === 'finished' && typeof lateCommand.elapsedMs === 'number' ? { heldElapsedMs: lateCommand.elapsedMs } : {}),
             toolUseId: msg.toolUseId,
             at: existingTool ? Date.now() : lateCommand?.startedAt ?? Date.now(),
           });

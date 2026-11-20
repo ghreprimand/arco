@@ -24,7 +24,7 @@ import { ComputerTurnWatchdog } from '../../voice/turnWatchdog.js';
 import type { SteerItem } from '@arco/shared';
 import {
   HELD_BATCH_MS, HELD_CONTINUATION_LIMIT, HELD_WAIT_LIMIT_MS,
-  formatDuration, heldResultNotice, heldResultsMessage, shortCommand,
+  formatDuration, heldResultsNotice, heldResultsMessage, shortCommand,
 } from './heldCommands.js';
 
 const workersByWorkflow = new Map<string, CodexAppServerWorker>();
@@ -477,7 +477,6 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
     this.continuations += 1;
     const results = this.worker.takeHeldResults();
     const running = this.worker.heldCommands;
-    for (const result of results) this.emit('system_notice', heldResultNotice(result, true));
     const message = [
       ...(results.length ? [heldResultsMessage(results, running)] : []),
       ...items.map(item => item.content),
@@ -487,6 +486,8 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
     this.lastResult = undefined;
     this.worker.beginTurn(message, undefined, { continuation: true })
       .then(() => {
+        const notice = heldResultsNotice(results, true);
+        if (notice && !this.settled) this.emit('system_notice', notice);
         if (items.length) this.config.onSteerDelivered?.(items);
         if (this.settled) void this.worker.cancelCurrentTurn().catch(() => {});
       })
@@ -503,7 +504,8 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
     if (!results.length) return;
     const delivered = await this.worker.steerText(heldResultsMessage(results, this.worker.heldCommands));
     if (!delivered) { this.worker.restoreHeldResults(results); return; }
-    for (const result of results) this.emit('system_notice', heldResultNotice(result, false));
+    const notice = heldResultsNotice(results, false);
+    if (notice) this.emit('system_notice', notice);
   }
 
   private runningLabel(): string {

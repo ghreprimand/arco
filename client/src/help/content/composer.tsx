@@ -540,7 +540,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     title: 'Codex command still running',
     body: (
       <>
-        <p>Codex ended its reply while this command was still running. While the tab is WORKING, Arco waits for the command and then continues Codex with its result, once, without AUTO-PICKUP. The wait ends after 30 minutes in total; STOP ends it at once and leaves the command running.</p>
+        <p>Codex ended its reply while this command was still running. While the tab is WORKING, Arco waits for the command and then continues Codex with its result, once, without AUTO-PICKUP. Chat shows one short count when Codex continues; ACTIVITY shows each command, elapsed time and known exit code. Output is shortened. The wait ends after 30 minutes in total; STOP ends it at once and leaves the command running.</p>
         <p>A message you send ends the wait: Codex gets it now and the result when the command ends. Servers and watchers are not waited on. After the turn, the line stays up to five minutes and ACTIVITY records the exit. If the connection closes first, the tab says the result was lost.</p>
       </>
     ),

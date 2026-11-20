@@ -219,6 +219,7 @@ export class CodexLateCommands {
   private notify(command: Command, state: NonNullable<PrimaryToolUseMessage['lateCommand']>['state'], result?: ToolUseEvent): void {
     this.publish(result ?? command.event, {
       state, startedAt: command.startedAt, waitingUntil: command.waitingUntil ?? Date.now(),
+      ...(state === 'finished' ? { elapsedMs: Math.max(0, Date.now() - command.startedAt) } : {}),
       ...(command.waiting && state === 'running' ? { waiting: true } : {}),
     });
   }

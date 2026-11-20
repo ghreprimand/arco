@@ -134,6 +134,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Offer packaged updates only when the exact GitHub release is available on npm, and check again before stopping the service.
 
+- Show one short chat notice when Codex continues after commands finish; show each command, elapsed time and known exit code in ACTIVITY.
+
 - Show the Director, in each turn where its cluster's board can be read and has open work, the ids of its open board tasks by state (within a 2 KB limit), which members have unread mail and whether AUTO-PICKUP is on, and guide it to hand approved runnable work to its owner, check a local link before sending the operator to it, and name any operator action, including a needed nudge, before it ends a turn, also when it only answers a question.
 
 - Follow Claude Native sub-agents from a pinned list, open and hide their tabs without stopping them, and steer a running child.
