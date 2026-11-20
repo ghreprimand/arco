@@ -1,16 +1,34 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { compareVersions, createUpdateChecker } from './updateCheck.js';
-import type { AppUpdateAvailableMessage } from '@arco/shared';
+import type { AppUpdateAvailableMessage, AppUpdateStatusChangedMessage } from '@arco/shared';
 
 const release = (tag = 'v0.2.0') => ({ tag_name: tag, html_url: `https://github.com/ghreprimand/arco/releases/tag/${tag}`, published_at: '2026-10-27T12:00:00Z', name: `Arco ${tag}` });
+
+test('packaged updates are offered only while the exact GitHub release is available on npm', async () => {
+  let state: 'missing' | 'ready' | 'offline' = 'missing';
+  const notices: Array<AppUpdateAvailableMessage | AppUpdateStatusChangedMessage> = [];
+  const checker = createUpdateChecker({ current: '0.1.0', packaged: true, settings: async () => ({}), broadcast: m => notices.push(m),
+    fetch: async (url) => {
+      if (String(url).includes('api.github.com')) return Response.json(release());
+      assert.equal(url, 'https://registry.npmjs.org/arco-workbench/0.2.0');
+      if (state === 'missing') return new Response('', { status: 404 });
+      if (state === 'offline') throw new Error('offline');
+      return Response.json({ name: 'arco-workbench', version: '0.2.0', dist: { tarball: 'https://registry.npmjs.org/arco-workbench/-/arco-workbench-0.2.0.tgz' } });
+    },
+  });
+  const missing = await checker.check();
+  assert.equal(missing.latest, 'v0.2.0'); assert.equal(missing.packageStatus, 'unpublished'); assert.equal(missing.updateAvailable, false); assert.equal(notices.length, 0);
+  state = 'ready'; assert.equal((await checker.check()).updateAvailable, true); assert.equal(notices.length, 1);
+  state = 'offline'; const unavailable = await checker.check(); assert.equal(unavailable.packageStatus, 'unknown'); assert.equal(unavailable.updateAvailable, false); assert.equal(notices.at(-1)?.type, 'app_update_status_changed');
+});
 function fixture(response: () => Promise<Response> = async () => Response.json(release())) {
   const settings = { updateCheck: true, updateCheckDismissed: '' };
   let environment: string | undefined;
   const messages: AppUpdateAvailableMessage[] = [], logs: string[] = [], debug: string[] = [];
   let calls = 0;
   const checker = createUpdateChecker({ current: '0.1.0', settings: async () => settings, environment: () => environment,
-    broadcast: (m) => messages.push(m), log: (m) => logs.push(m), debug: (m) => debug.push(m),
+    broadcast: (m) => { if (m.type === 'app_update_available') messages.push(m); }, log: (m) => logs.push(m), debug: (m) => debug.push(m),
     fetch: async (url, init) => {
       calls++;
       assert.equal(url, 'https://api.github.com/repos/ghreprimand/arco/releases/latest');
@@ -34,7 +52,7 @@ test('0.1.5 is offered to an install at 0.1.5-rc.1, which is newer than 0.1.4', 
     current: '0.1.5-rc.1',
     settings: async () => ({ updateCheck: true }),
     environment: () => undefined,
-    broadcast: (message) => messages.push(message),
+    broadcast: (message) => { if (message.type === 'app_update_available') messages.push(message); },
     fetch: async () => Response.json(release('v0.1.5')),
     now: () => new Date('2026-11-05T12:00:00Z'),
   });

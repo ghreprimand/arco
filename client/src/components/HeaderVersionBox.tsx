@@ -38,12 +38,14 @@ export function HeaderVersionBox() {
   const url = notice?.url ?? status?.url ?? null;
   const available = Boolean(latest);
   const checked = status?.checkedAt ? new Date(status.checkedAt).toLocaleString() : 'not yet';
+  const waiting = status?.packageStatus === 'unpublished' ? 'The release is not yet published on npm.'
+    : status?.packageStatus === 'unknown' ? 'Could not confirm npm availability.' : null;
   const label = updating ? 'UPDATING' : available ? `\u2191 ${plain(latest as string)}` : current || 'version';
   const tip = updating ? 'Updating Arco. It will reconnect after the restart.'
     : available ? `Update available: ${plain(latest as string)}. Click to update.`
     : !checks ? 'Release checks are off. Showing the running version only.'
-    : `Up to date (${current || 'version unknown'}). Last checked: ${checked}.`;
-  const aria = updating ? 'Arco is updating' : available ? `Arco update available: ${plain(latest as string)}. Open update.` : `Arco version ${current || 'unknown'}. ${!checks ? 'Release checks are off.' : 'Up to date.'} Open version details.`;
+    : waiting ? `${waiting} Last checked: ${checked}.` : `Up to date (${current || 'version unknown'}). Last checked: ${checked}.`;
+  const aria = updating ? 'Arco is updating' : available ? `Arco update available: ${plain(latest as string)}. Open update.` : `Arco version ${current || 'unknown'}. ${!checks ? 'Release checks are off.' : waiting || 'Up to date.'} Open version details.`;
   const check = async () => {
     setAutoConfirm(false); setBusy(true); setError('');
     try { await refresh(true); } catch { setError('Release check unavailable'); } finally { setBusy(false); }
@@ -92,6 +94,8 @@ export function HeaderVersionBox() {
       </> : <>
         <div>Running: {current || 'unknown'}</div>
         <div>{checks ? `Latest known release: ${status?.latest ? plain(status.latest) : 'none yet'}` : 'Release checks are off.'}</div>
+        {checks && status?.packageStatus === 'unpublished' && <div>Not yet published on npm. Check again later.</div>}
+        {checks && status?.packageStatus === 'unknown' && <div>Could not confirm npm availability. Check again later.</div>}
         {checks && <div>Last checked: {checked}</div>}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 6 }}>
           <button type="button" disabled={busy || !checks} onClick={() => void check()}>CHECK NOW</button>

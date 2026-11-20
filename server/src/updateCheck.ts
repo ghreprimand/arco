@@ -1,4 +1,4 @@
-import type { AppUpdateAvailableMessage, UpdateCheckStatus } from '@arco/shared';
+import type { AppUpdateAvailableMessage, AppUpdateStatusChangedMessage, UpdateCheckStatus } from '@arco/shared';
 
 const ENDPOINT = 'https://api.github.com/repos/ghreprimand/arco/releases/latest';
 const RELEASE_PREFIX = 'https://github.com/ghreprimand/arco/releases/tag/';
@@ -28,9 +28,10 @@ type Preferences = { updateCheck?: boolean; updateCheckDismissed?: string };
 interface Dependencies {
   current: string;
   settings: () => Promise<Preferences>;
-  broadcast: (message: AppUpdateAvailableMessage) => void;
+  broadcast: (message: AppUpdateAvailableMessage | AppUpdateStatusChangedMessage) => void;
   fetch?: typeof fetch;
   environment?: () => string | undefined;
+  packaged?: boolean;
   debug?: (message: string) => void;
   log?: (message: string) => void;
   now?: () => Date;
@@ -65,10 +66,32 @@ export function createUpdateChecker(deps: Dependencies) {
           typeof release.html_url !== 'string' || !release.html_url.startsWith(RELEASE_PREFIX) ||
           typeof release.published_at !== 'string' || !Number.isFinite(Date.parse(release.published_at))) throw new Error('invalid release');
       const latest = `v${tag.replace(/^v/, '')}`;
+      let packageStatus: UpdateCheckStatus['packageStatus'];
+      if (deps.packaged && compareVersions(tag, deps.current)! > 0) {
+        try {
+          const version = tag.replace(/^v/, '');
+          if (!/^\d+\.\d+\.\d+$/.test(version)) throw new Error('not a stable version');
+          const npm = await request(`https://registry.npmjs.org/arco-workbench/${version}`, {
+            headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(5000), redirect: 'error',
+          });
+          if (npm.status === 404) packageStatus = 'unpublished';
+          else if (!npm.ok) packageStatus = 'unknown';
+          else {
+            const metadata = await npm.json() as Record<string, unknown>;
+            packageStatus = metadata.name === 'arco-workbench' && metadata.version === version && !!(metadata.dist && typeof metadata.dist === 'object' && typeof (metadata.dist as Record<string, unknown>).tarball === 'string') ? 'available' : 'unknown';
+          }
+        } catch { packageStatus = 'unknown'; }
+      }
       // Re-read preferences: an opt-out or dismissal can arrive during the request.
       const settings = await deps.settings();
       if (!enabled(settings)) return status();
-      cache = { ...cache, latest, url: release.html_url, publishedAt: release.published_at, updateAvailable: compareVersions(tag, deps.current)! > 0 };
+      const wasAvailable = cache.updateAvailable;
+      const previousLatest = cache.latest;
+      cache = { ...cache, latest, url: release.html_url, publishedAt: release.published_at, updateAvailable: compareVersions(tag, deps.current)! > 0 && (!deps.packaged || packageStatus === 'available'), ...(deps.packaged ? { packageStatus } : {}) };
+      if (deps.packaged && wasAvailable && !cache.updateAvailable) {
+        if (previousLatest) announced.delete(previousLatest);
+        deps.broadcast({ type: 'app_update_status_changed' });
+      }
       if (cache.updateAvailable && settings.updateCheckDismissed !== latest && !announced.has(latest)) {
         announced.add(latest);
         const message: AppUpdateAvailableMessage = { type: 'app_update_available', current: deps.current, latest, url: release.html_url, publishedAt: release.published_at };
@@ -76,6 +99,11 @@ export function createUpdateChecker(deps: Dependencies) {
         deps.log?.(`app_update_available ${latest}`);
       }
     } catch {
+      if (deps.packaged) {
+        const wasAvailable = cache.updateAvailable;
+        cache = { ...cache, updateAvailable: false, packageStatus: 'unknown' };
+        if (wasAvailable) { if (cache.latest) announced.delete(cache.latest); deps.broadcast({ type: 'app_update_status_changed' }); }
+      }
       if (!loggedFailure) { loggedFailure = true; deps.debug?.('Release check unavailable; retrying on the next scheduled check.'); }
     }
     return status();

@@ -76,6 +76,15 @@ export async function updatePackage(manifest, root, deps = {}) {
       if (order === null) throw new Error('The installed or target package version is invalid.');
       if (order < 0) throw new Error('The latest package is older than this installation. A downgrade is not performed.');
       if (order === 0) return { outcome: 'unchanged', message: 'Already on the newest release.' };
+      if (deps.expected) {
+        let published;
+        try {
+          const result = call(['view', `${manifest.name}@${version}`, 'version', '--json', '--cache', join(scratch, 'registry-cache'), '--prefer-online', '--fetch-retries=0', '--fetch-timeout=5000'], { timeout: 15000 });
+          published = JSON.parse(result.stdout || 'null');
+          if (Array.isArray(published) && published.length === 1) published = published[0];
+        } catch { throw new Error('The confirmed release is not available from the npm registry, or the registry could not be reached. Try again later.'); }
+        if (published !== version) throw new Error('The confirmed release is not available from the npm registry, or the registry could not be reached. Try again later.');
+      }
     }
     // Dependencies are not all bundled in the tarball. A full local snapshot
     // permits rollback even when the registry or the network is unavailable.

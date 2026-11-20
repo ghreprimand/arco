@@ -263,6 +263,12 @@ modules cannot be replaced safely. A packaged service can instead use
 Linux, macOS, and Windows. The action interrupts running turns and reports
 completion or rollback after reconnect.
 
+For packaged installs, Arco offers the GitHub release only after its exact
+version is publicly available on npm. If the package is not published or npm
+cannot be reached, the version box says so; use **CHECK NOW** again later. The
+updater checks the confirmed version again before stopping a managed service.
+Source and Docker installs continue to follow GitHub releases.
+
 The result appears beside the open update control. When that control is closed,
 a separate result notice remains available with **DISMISS**. The same result is
 not shown in both places at once.

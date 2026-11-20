@@ -89,3 +89,37 @@ test('an update failure appears once beside its button, falling back to a notice
     dom.window.close();
   }
 });
+
+
+test('an open update confirmation closes when its offered version disappears or changes', async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost/' });
+  const saved = Object.getOwnPropertyDescriptors(globalThis);
+  const before = useAppUpdateStore.getState();
+  const values = { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage,
+    IS_REACT_ACT_ENVIRONMENT: true, fetch: async () => Response.json({ mode: 'service', packaged: true, result: null }) };
+  for (const [key, value] of Object.entries(values)) Object.defineProperty(globalThis, key, { configurable: true, value });
+  const root = createRoot(document.getElementById('root')!);
+  const render = async (latest: string | null) => act(async () => root.render(createElement(UpdateAction, { latest, url: null })));
+  const open = async () => act(async () => document.querySelector<HTMLButtonElement>('[data-help="settings.update-action"] button')!.click());
+  try {
+    await render('v0.2.0');
+    await open();
+    assert.ok(document.querySelector('[role="dialog"]')?.textContent?.includes('v0.2.0'));
+    await render(null);
+    assert.equal(document.querySelector('[role="dialog"]'), null);
+    await render('v0.2.0');
+    assert.equal(document.querySelector('[role="dialog"]'), null, 'the old confirmation does not reopen');
+    await open();
+    await render('v0.3.0');
+    assert.equal(document.querySelector('[role="dialog"]'), null, 'a different version needs a new confirmation');
+    await open();
+    assert.ok(document.querySelector('[role="dialog"]')?.textContent?.includes('v0.3.0'));
+  } finally {
+    await act(async () => root.unmount());
+    useAppUpdateStore.setState(before, true);
+    for (const key of Object.keys(values)) {
+      if (saved[key]) Object.defineProperty(globalThis, key, saved[key]); else Reflect.deleteProperty(globalThis, key);
+    }
+    dom.window.close();
+  }
+});

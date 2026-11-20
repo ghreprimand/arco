@@ -568,7 +568,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   'settings.app-updates': {
     title: 'Arco releases',
     manualSection: 'arco-updates',
-    body: <p>Shows the running version and latest release. CHECK NOW refreshes release information. Check for new releases controls the automatic check; ARCO_UPDATE_CHECK=0 overrides it. UPDATE AND RESTART is available in packaged user services on Linux, macOS and Windows and in Linux source user services after confirmation; other run modes show a copyable command. No update runs automatically.</p>,
+    body: <p>Shows the running version and latest release. CHECK NOW refreshes release information. For packaged installs, Arco waits until the exact release is available on npm before offering the update. If npm cannot be checked, try again later. Check for new releases controls the automatic check; ARCO_UPDATE_CHECK=0 overrides it. UPDATE AND RESTART is available in packaged user services on Linux, macOS and Windows and in Linux source user services after confirmation; other run modes show a copyable command. No update runs automatically.</p>,
   },
   'settings.app-window-browser': {
     title: 'App window browser',

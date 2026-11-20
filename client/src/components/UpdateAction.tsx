@@ -8,7 +8,7 @@ type State = { mode: 'service' | 'foreground' | 'docker'; platform?: string; pac
 export function UpdateAction({ latest, url, autoConfirm = false }: { latest: string | null; url: string | null; autoConfirm?: boolean }) {
   const surface = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<State | null>(null);
-  const [confirm, setConfirm] = useState(false);
+  const [confirm, setConfirm] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState('');
   const [resultMessage, setResultMessage] = useState('');
@@ -37,8 +37,11 @@ export function UpdateAction({ latest, url, autoConfirm = false }: { latest: str
   }, [pending]);
   const asked = useRef(false);
   useEffect(() => {
-    if (autoConfirm && !asked.current && state?.mode === 'service' && latest) { asked.current = true; setConfirm(true); }
+    if (autoConfirm && !asked.current && state?.mode === 'service' && latest) { asked.current = true; setConfirm(latest); }
   }, [autoConfirm, state, latest]);
+  useEffect(() => {
+    if (confirm !== null && confirm !== latest) setConfirm(null);
+  }, [confirm, latest]);
   useEffect(() => {
     let live = true; let request = 0;
     const refresh = async () => {
@@ -65,7 +68,7 @@ export function UpdateAction({ latest, url, autoConfirm = false }: { latest: str
   const start = async () => {
     useAppUpdateStore.getState().showResultAt(resultSurfaceId, true);
     startedAttempt.current = null;
-    setConfirm(false); setPending(true); setFallback(false); setResultMessage(''); setMessage('Starting update. Arco will reconnect after restart.');
+    setConfirm(null); setPending(true); setFallback(false); setResultMessage(''); setMessage('Starting update. Arco will reconnect after restart.');
     try {
       const response = await fetch('/api/update-manager', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expectedLatest: latest }) });
       const result = await response.json();
@@ -84,7 +87,7 @@ export function UpdateAction({ latest, url, autoConfirm = false }: { latest: str
     void navigator.clipboard.writeText(value).then(() => setMessage('Command copied.'), () => setMessage('Could not copy the command.'));
   };
   return <div data-help="settings.update-action" style={{ marginTop: 8 }}>
-    {state.mode === 'service' && latest ? <button type="button" disabled={pending} onClick={() => setConfirm(true)}>UPDATE AND RESTART</button> : <>
+    {state.mode === 'service' && latest ? <button type="button" disabled={pending} onClick={() => setConfirm(latest)}>UPDATE AND RESTART</button> : <>
       {state.mode === 'foreground' && state.platform === 'win32' && <div>Stop Arco before updating, then run {state.packaged ? 'arco start' : 'npm start'}.</div>}
       {state.mode === 'foreground' && state.platform === 'darwin' && <div>Restart the foreground process or the configured launchd job after updating.</div>}
       {command ? <><code>{command}</code>{' '}
@@ -93,13 +96,13 @@ export function UpdateAction({ latest, url, autoConfirm = false }: { latest: str
     {fallback && <div><code>{state.packaged ? 'arco update' : 'npm run arco:update'}</code>{' '}<button type="button" onClick={() => copy(state.packaged ? 'arco update' : 'npm run arco:update')}>COPY COMMAND</button></div>}
     {message && <div role="status">{message}</div>}
     {ownsResult && resultMessage && <div role="status">{resultMessage}</div>}
-    {confirm && createPortal(<div role="dialog" aria-modal="true" aria-label="Confirm update" style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    {confirm !== null && confirm === latest && createPortal(<div role="dialog" aria-modal="true" aria-label="Confirm update" style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div ref={surface} style={{ background: 'var(--color-bg-elevated)', color: 'var(--color-fg)', border: '1px solid var(--color-border)', padding: 20, ...confirmationSurfaceSize }}>
         <WorkSurfaceControls surface={surface} storageKey="update-confirm" />
         <p>Update to {latest} and restart Arco? Running turns will stop.</p>
         {url && <p><a href={url} target="_blank" rel="noopener noreferrer">Release notes</a></p>}
         <button type="button" onClick={() => void start()}>UPDATE AND RESTART</button>{' '}
-        <button type="button" onClick={() => setConfirm(false)}>CANCEL</button>
+        <button type="button" onClick={() => setConfirm(null)}>CANCEL</button>
       </div>
     </div>, document.body)}
   </div>;

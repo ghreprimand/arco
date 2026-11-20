@@ -261,6 +261,10 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           useAppUpdateStore.getState().receive(msg);
           break;
 
+        case 'app_update_status_changed':
+          void useAppUpdateStore.getState().refresh().catch(() => {});
+          break;
+
         case 'settings_updated':
           // Global settings carry the shared tab order — refetch so a reorder
           // in another browser lands live instead of on next reconnect.

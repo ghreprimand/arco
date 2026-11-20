@@ -1494,6 +1494,7 @@ export interface UpdateCheckStatus {
   checkedAt: string | null;
   updateAvailable: boolean;
   enabled: boolean;
+  packageStatus?: 'available' | 'unpublished' | 'unknown';
 }
 
 export interface AppUpdateAvailableMessage {
@@ -1502,6 +1503,10 @@ export interface AppUpdateAvailableMessage {
   latest: string;
   url: string;
   publishedAt: string;
+}
+
+export interface AppUpdateStatusChangedMessage {
+  type: 'app_update_status_changed';
 }
 
 export interface TurnMessagesDeliveredMessage {
@@ -1516,6 +1521,7 @@ export type ServerMessage =
   | StorageWarningMessage
   | TurnMessagesDeliveredMessage
   | AppUpdateAvailableMessage
+  | AppUpdateStatusChangedMessage
   | ComputerActivityChangedMessage
   | ComputerContextUpdatedMessage
   | ConnectedMessage

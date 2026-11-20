@@ -22,6 +22,21 @@ function fixture(t) {
   return { home, root, calls, actions, deps: { home, npm: 'npm-cli.js', prefix: home, managed: true, windowsRunning: async () => false, run, service: async (action) => actions.push(action) }, failInstall: () => { fail = true; } };
 }
 
+test('an unavailable confirmed release never stops the managed service', async (t) => {
+  const f = fixture(t);
+  f.deps.run = (_command, args) => { f.calls.push(args.slice(1)); return { status: 1, stdout: '' }; };
+  await assert.rejects(updatePackage(manifest, f.root, { ...f.deps, expected: 'v1.1.0' }), /not available from the npm registry/);
+  assert.deepEqual(f.actions, []);
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0][1], '@scope/arco@1.1.0');
+  assert.equal(readFileSync(join(f.root, 'package.json'), 'utf8'), '{}');
+  f.deps.run = (_command, args) => { f.calls.push(args.slice(1)); return { status: 0, stdout: JSON.stringify('1.1.0') }; };
+  const result = await updatePackage(manifest, f.root, { ...f.deps, expected: 'v1.1.0', refresh: async () => ({ status: 0 }) });
+  assert.equal(result.outcome, 'updated');
+  assert.deepEqual(f.actions, ['stop', 'start']);
+  assert.deepEqual(f.calls.slice(1).map((args) => args[0]), ['view', 'install']);
+});
+
 test('global prefix resolves both unscoped and legacy scoped installs', () => {
   const prefix = join(tmpdir(), 'fixture-prefix');
   const modules = join(prefix, 'lib', 'node_modules');

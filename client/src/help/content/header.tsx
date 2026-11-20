@@ -465,6 +465,8 @@ export const headerHelp: Record<string, HelpEntry> = {
           Settings &gt; Advanced &gt; CLI and runtime versions. While an update
           runs it reads <C>UPDATING</C>. A release found with <C>CHECK NOW</C>
           appears here; select <C>UPDATE AND RESTART</C> to open confirmation.
+          Packaged installs wait until that release is available on npm; if
+          npm cannot be checked, use <C>CHECK NOW</C> again later.
           With release checks off it shows the
           running version only.
         </p>

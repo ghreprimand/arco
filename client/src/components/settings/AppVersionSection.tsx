@@ -26,6 +26,8 @@ export function AppVersionSection() {
   return <div data-help="settings.app-updates" style={{ fontSize: '12px', lineHeight: 1.7, marginBottom: '16px', color: 'var(--color-accent-primary)' }}>
     <strong>Arco</strong>: {status ? `v${status.current.replace(/^v/, '')}` : 'version unavailable'}
     <div style={{ color: 'var(--color-fg-muted)' }}>{status?.latest ? `Latest release: ${status.latest}${status.publishedAt ? ` (${status.publishedAt.slice(0, 10)})` : ''}` : 'No release information yet'}</div>
+    {status?.packageStatus === 'unpublished' && <div>Not yet published on npm. Check again later.</div>}
+    {status?.packageStatus === 'unknown' && <div>Could not confirm npm availability. Check again later.</div>}
     <UpdateAction latest={status?.updateAvailable ? status.latest : null} url={status?.url ?? null} />
     <button type="button" disabled={busy || !status?.enabled} onClick={() => void check()}>CHECK NOW</button>
     <label style={{ display: 'block' }}><input type="checkbox" checked={settings?.updateCheck !== false} disabled={busy || !settings} onChange={(e) => void toggle(e.target.checked)} /> Check for new releases</label>

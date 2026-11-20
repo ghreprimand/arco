@@ -6,6 +6,7 @@ import { WebSocket } from 'ws';
 
 export const updateChecker = createUpdateChecker({
   current: APP_VERSION,
+  packaged: process.env.ARCO_PACKAGED === '1' && process.env.ARCO_DEPLOYMENT !== 'docker',
   settings: () => readSettings(),
   broadcast: (message) => {
     for (const ws of sessions.keys()) {

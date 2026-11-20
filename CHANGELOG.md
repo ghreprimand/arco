@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Offer packaged updates only when the exact GitHub release is available on npm, and check again before stopping the service.
+
 - Show the Director, in each turn where its cluster's board can be read and has open work, the ids of its open board tasks by state (within a 2 KB limit), which members have unread mail and whether AUTO-PICKUP is on, and guide it to hand approved runnable work to its owner, check a local link before sending the operator to it, and name any operator action, including a needed nudge, before it ends a turn, also when it only answers a question.
 
 - Follow Claude Native sub-agents from a pinned list, open and hide their tabs without stopping them, and steer a running child.
