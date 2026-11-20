@@ -932,6 +932,33 @@ export const clusterHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'cluster-board',
   },
+  'cluster.board-approve': {
+    title: 'HANDOFF APPROVAL',
+    body: (
+      <p>
+        <C>APPROVE FOR HANDOFF</C> records that you approve this task as it
+        reads now. If a director turn then ends without handing it to anyone,
+        the director chat offers <C>CONTINUE DIRECTOR</C>. Editing the title or
+        notes makes the approval stale; approve again. <C>WITHDRAW APPROVAL</C>{' '}
+        removes it. Only you can approve; moving the card does not.
+      </p>
+    ),
+    manualSection: 'cluster-board',
+  },
+  'cluster.director-continue': {
+    title: 'CONTINUE DIRECTOR',
+    body: (
+      <p>
+        Appears in the director chat when a task you approved still has no
+        owner after a director turn. <C>CONTINUE DIRECTOR</C> starts one director
+        turn to hand it off; it is checked again first and starts nothing if the
+        task no longer needs it. When the handoff waits unread with an idle
+        member, the line names that member; use <C>NUDGE</C>. <C>DISMISS</C>{' '}
+        closes the offer for this approval.
+      </p>
+    ),
+    manualSection: 'cluster-board',
+  },
   'cluster.board-accept-all-met': {
     title: 'ACCEPT ALL MET',
     body: (

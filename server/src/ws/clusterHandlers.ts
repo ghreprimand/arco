@@ -1,3 +1,4 @@
+import * as directorContinue from '../directorContinue.js';
 import { buildReplacementHistory, replacementHistoryNotice } from '../replacementHistory.js';
 import { takeReplacementHistoryPreview } from './transcriptWorkerHandlers.js';
 import { existingClusterMemberRefusal } from '../existingClusterMembers.js';
@@ -93,6 +94,10 @@ export function attachClusterObservers(ws: WebSocket, session: Session, clusterI
     if (!wf) continue;
     wf.observers.add(ws);
     attached.add(wfid);
+    // A client that attaches after the Director's turn ended still gets its
+    // CONTINUE DIRECTOR offer; offers are live only and not replayed.
+    const offer = directorContinue.currentOffer(wfid);
+    if (offer && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'director_continue_offer', workflowId: wfid, offer }));
   }
   if (attached.size > 0) session.clusterObserved.set(clusterId, attached);
 }

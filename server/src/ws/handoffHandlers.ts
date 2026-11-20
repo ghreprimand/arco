@@ -1,3 +1,4 @@
+import * as directorContinue from '../directorContinue.js';
 import { runningCodexLateCommands } from '../providers/codex-appserver/index.js';
 import { ensureWorkflowMetadata, providerConversationState, saveProviderSession } from '../providerConversation.js';
 import { isClaudeNativeTaskActive } from '../providers/claude-native/index.js';
@@ -1977,6 +1978,7 @@ export async function rehydrateOneWorkflow(
   if (cwd) {
     void sendTaskLedgerSnapshot(workflowId).catch(() => { /* best-effort */ });
   }
+  directorContinue.sendCurrentOffer(workflowId);
 
   // §K2 — re-emit the live terminal session list so a reconnecting client
   // recovers its switcher. terminal_opened is only broadcast at spawn time and

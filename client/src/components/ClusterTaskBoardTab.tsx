@@ -18,6 +18,7 @@ import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, useDragg
 import type { DragEndEvent } from '@dnd-kit/core';
 import type { ClusterDispatcherState, ClusterStatePayload, LedgerTask, LedgerTaskStatus, TaskComment, TaskDetails, TaskLink, TaskRun } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
+import { isTaskApprovalCurrent } from '@arco/shared';
 import { clearBoardTaskRequest, useBoardTaskRequest } from '../stores/boardTaskRequest';
 import { PlanRefViewer } from './plans/PlanRefsSection';
 import type { ClusterDispatcherSettingsPatch, ClusterSwarmCreateRequest } from './ClusterRightPanel/types';
@@ -295,7 +296,7 @@ export function ClusterTaskBoardTab({
   // through the dedicated status controls, never these field edits.
   const editTask = (
     taskId: string,
-    patch: { title?: string; notes?: string; priority?: number; parentIds?: string[]; release?: string },
+    patch: { title?: string; notes?: string; priority?: number; parentIds?: string[]; release?: string; approved?: boolean },
   ) => {
     if (!taskShowReader || !wsSendRaw) return;
     wsSendRaw({
@@ -1128,7 +1129,7 @@ function TaskDetailDrawer({
   nameFor: (workflowId: string) => string;
   allTasks: WorktreeAwareLedgerTask[];
   canEdit: boolean;
-  onEditTask: (taskId: string, patch: { title?: string; notes?: string; priority?: number; parentIds?: string[]; release?: string }) => void;
+  onEditTask: (taskId: string, patch: { title?: string; notes?: string; priority?: number; parentIds?: string[]; release?: string; approved?: boolean }) => void;
   onDeleteTask: (taskId: string) => void;
   onQuickDone?: (taskId: string) => void;
   onRecheck?: (task: WorktreeAwareLedgerTask) => void;
@@ -1529,6 +1530,26 @@ function TaskDetailDrawer({
           {task.notes && <InlineBlock label="Notes" body={task.notes} />}
           <LinksView links={task.links} />
         </DrawerSection>
+
+        {task.status !== 'done' && task.status !== 'archived' && (
+          <DrawerSection title="Handoff approval">
+            <div data-help="cluster.board-approve" data-testid="task-approval" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+              <span style={{ flex: '1 1 200px', minWidth: 0, color: 'var(--color-fg)' }}>
+                {isTaskApprovalCurrent(task)
+                  ? `Approved ${formatTime(task.operatorApproval!.at)}.${task.operatorApproval!.offer === 'dismissed' ? ' Offer dismissed.' : task.operatorApproval!.offer === 'continued' ? ' Director continued once.' : ''}`
+                  : task.operatorApproval
+                    ? 'Title or notes changed since you approved it. Approve again to allow CONTINUE DIRECTOR.'
+                    : 'Not approved. Approve it so the Director chat can offer CONTINUE DIRECTOR if a turn ends without handing it off.'}
+              </span>
+              <button type="button" className="display-font" disabled={!canEdit}
+                onClick={() => onEditTask(task.id, { approved: !isTaskApprovalCurrent(task) })}
+                title={isTaskApprovalCurrent(task) ? 'Withdraw your approval for this task.' : 'Approve this task as it reads now.'}
+                style={smallButtonStyle(canEdit)}>
+                {isTaskApprovalCurrent(task) ? 'WITHDRAW APPROVAL' : task.operatorApproval ? 'APPROVE AGAIN' : 'APPROVE FOR HANDOFF'}
+              </button>
+            </div>
+          </DrawerSection>
+        )}
 
         <DrawerSection title="Operator Status">
           <div

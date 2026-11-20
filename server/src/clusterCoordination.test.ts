@@ -335,6 +335,17 @@ test('peer send returns recipient context from the board and latest reply', asyn
   assert.equal(sent.recipientContext?.state, 'unknown');
 });
 
+test('a handoff with task_id records the approval current when it was sent', async () => {
+  const c = await make();
+  const key = store.taskBoardKeyForState(c);
+  const base = ledger.newTask({ title: 'Write the fixture notes' });
+  const approvedTask = ledger.applyUpdate([base], base.id, { approved: true })!.updated;
+  await ledger.save(c.cwd, [approvedTask], key);
+  assert.ok((await peer.peerSend(context(c), { to: c.members[1], content: 'Please write the fixture notes.', taskId: base.id })).ok);
+  const recorded = (await ledger.loadKernel(c.cwd, key)).comments.find((cm) => cm.metadata?.kind === 'handoff');
+  assert.equal(recorded?.metadata?.approvalId, approvedTask.operatorApproval!.id);
+});
+
 test('director status-only sends are held once before accounting, and confirmation delivers unchanged', async () => {
   const c = await make({ messageGuard: guard('hard', 10) });
   await store.setMemberRole(c.clusterId, c.members[0], 'Director role.');
@@ -348,6 +359,11 @@ test('director status-only sends are held once before accounting, and confirmati
   assert.equal(!held.ok && held.code, 'status_confirmation');
   assert.equal(budget.peek(c.members[0]).count, 0);
   assert.equal(events.at(-1)?.reason, 'status_confirmation');
+  // A task_id does not exempt a status-only message from confirmation.
+  const boardTask = ledger.newTask({ title: 'Check the fixture' });
+  await ledger.save(c.cwd, [boardTask], store.taskBoardKeyForState(c));
+  const heldWithTask = await peer.peerSend(ctx, { to: c.members[1], content: body, taskId: boardTask.id });
+  assert.equal(!heldWithTask.ok && heldWithTask.code, 'status_confirmation');
   const delivered = await peer.peerSend(ctx, { to: c.members[1], content: body, confirm: true });
   assert.ok(delivered.ok);
   assert.equal((await peer.peerRead(context(c, c.members[1])))[0]?.content, body);

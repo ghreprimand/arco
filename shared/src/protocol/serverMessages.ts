@@ -47,7 +47,7 @@ import type { StorageWarningMessage } from './storage.js';
 import type { GitOpResultMessage } from './gitOps.js';
 import type { MediaOpResultMessage, MediaStemsResultMessage } from './media.js';
 import type { TerminalOpenedMessage, TerminalKilledMessage, TerminalCommandLoggedMessage, TerminalSessionsMessage } from './terminal.js';
-import type { TaskLedgerSnapshotMessage, TaskLedgerEventMessage } from './tasks.js';
+import type { TaskLedgerSnapshotMessage, TaskLedgerEventMessage, DirectorContinueOfferMessage } from './tasks.js';
 import type { McpRegistrySnapshotMessage, McpProbeResultMessage, McpAllowSnapshotMessage, McpMalwareWarningMessage } from './mcp.js';
 import type {
   ClusterOrchestrationAssistStartedMessage,
@@ -1692,6 +1692,7 @@ export type ServerMessage =
   | TerminalCommandLoggedMessage
   | TerminalSessionsMessage
   | TaskLedgerSnapshotMessage
+  | DirectorContinueOfferMessage
   | TaskLedgerEventMessage
   | McpRegistrySnapshotMessage
   | McpProbeResultMessage

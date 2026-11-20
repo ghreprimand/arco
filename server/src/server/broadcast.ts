@@ -37,6 +37,7 @@ import { workspaceCloseCluster, workspaceOpenCluster, workspaceOpenWorkflow } fr
 import * as clusterMailbox from '../clusterMailbox.js';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
 import * as clusterAutoTurn from '../clusterAutoTurn.js';
+import { observeForDirectorContinue } from '../directorContinueHook.js';
 import * as clusterIdleNudger from '../clusterIdleNudger.js';
 import * as attention from '../attention.js';
 import * as notifications from '../notifications.js';
@@ -432,10 +433,12 @@ function observeTurnBoundary(workflowId: string, wf: WorkflowState, message: Ser
     if (turnBoundaryState.get(workflowId) === 'open') return;
     turnBoundaryState.set(workflowId, 'open');
     onTurnStarted(workflowId, wf);
+    observeForDirectorContinue(workflowId, message);
   } else if (message.type === 'primary_turn_ended') {
     if (turnBoundaryState.get(workflowId) === 'closed') return;
     turnBoundaryState.set(workflowId, 'closed');
     onTurnEnded(workflowId, wf);
+    observeForDirectorContinue(workflowId, message);
   }
 }
 
@@ -513,6 +516,8 @@ export function broadcastWorkflow(workflowId: string, message: ServerMessage): v
     }
   }
   observeTurnBoundary(workflowId, wf, message);
+  // Turn starts and ends reach it once, from observeTurnBoundary.
+  if (message.type !== 'primary_turn_started' && message.type !== 'primary_turn_ended') observeForDirectorContinue(workflowId, message);
   // Claude Native compaction (COMPACT or automatic) counts toward auto-handoff.
   if (message.type === 'native_compacted') reportCompaction({ workflowId, source: 'claude-native' });
   recordIncognitoEvent(workflowId, outgoing);

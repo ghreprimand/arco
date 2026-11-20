@@ -242,6 +242,7 @@ export async function handleTaskLedgerUpdate(
       worktreeRequired: msg.worktreeRequired,
       release: msg.release,
       assignee: msg.assignee,
+      ...(typeof msg.approved === 'boolean' ? { approved: msg.approved } : {}),
       updatedBy: msg.workflowId,
     });
     if (!result) {

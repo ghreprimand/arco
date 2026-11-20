@@ -1,3 +1,4 @@
+import { useDirectorContinueStore } from '../stores/directorContinueStore';
 import { finishClusterCreation } from '../utils/clusterCreation';
 import { finishTranscriptWorkerRequest } from '../utils/transcriptWorkerRequest';
 import { finishQueuedMessageEdit } from '../utils/queuedMessageEdit';
@@ -2467,6 +2468,9 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // place keyed by cwd; the server re-snapshots after every mutation
           // so the client never has to fold deltas.
           store.setTaskLedger(msg.cwd, msg.tasks, msg.boardKey);
+          break;
+        case 'director_continue_offer':
+          useDirectorContinueStore.getState().apply(msg.workflowId, msg.offer, msg.notice);
           break;
         case 'task_ledger_event':
           // The durable per-mutation event (the projection's source on disk).

@@ -43,6 +43,7 @@ import type {
 import type {
   TaskLedgerCreateMessage,
   TaskLedgerUpdateMessage,
+  DirectorContinueActionMessage,
   TaskLedgerDeleteMessage,
   TaskLedgerListMessage,
   TaskRunRecoverMessage,
@@ -627,6 +628,7 @@ export type ClientMessage =
   | TerminalListMessage
   | TaskLedgerCreateMessage
   | TaskLedgerUpdateMessage
+  | DirectorContinueActionMessage
   | TaskLedgerDeleteMessage
   | TaskLedgerListMessage
   | TaskRunRecoverMessage

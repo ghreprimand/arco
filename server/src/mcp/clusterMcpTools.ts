@@ -79,11 +79,11 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     return r.json();
   }
 
-  async function callPeerSend(args: { to: string; content: string; confirm?: boolean }): Promise<{ ok: true; body: unknown } | { ok: false; err: PeerSendUpstreamError }> {
+  async function callPeerSend(args: { to: string; content: string; confirm?: boolean; taskId?: string }): Promise<{ ok: true; body: unknown } | { ok: false; err: PeerSendUpstreamError }> {
     const r = await fetch(`${BASE_URL}/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: workflowId, to: args.to, content: args.content, confirm: args.confirm }),
+      body: JSON.stringify({ from: workflowId, to: args.to, content: args.content, confirm: args.confirm, ...(args.taskId ? { taskId: args.taskId } : {}) }),
     });
     const body = await r.json().catch(() => ({})) as PeerSendUpstreamError | unknown;
     if (!r.ok) return { ok: false, err: body as PeerSendUpstreamError };
@@ -307,11 +307,12 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
         to: z.string().describe('Peer full workflowId, unique 8-char prefix, unique displayName, or unique role text.'),
         content: z.string().describe('Message body (≤ 16 KB UTF-8).'),
         confirm: z.boolean().optional().describe('Deliver a status-only message after the first send asks for confirmation.'),
+        task_id: z.string().optional().describe("When this message hands a board task to the recipient, the task's full id from cluster_task_list. Arco records the handoff on the task so it can tell the operator the task reached that member. An id not on this cluster's board is refused and nothing is sent."),
       },
     },
     async (args) => {
       try {
-        const r = await callPeerSend({ to: args.to, content: args.content, confirm: args.confirm });
+        const r = await callPeerSend({ to: args.to, content: args.content, confirm: args.confirm, taskId: args.task_id });
         if (!r.ok) {
           // Translate the REST 400 into an MCP isError result so the model
           // sees a tool error (same shape Native's peer_send returns).

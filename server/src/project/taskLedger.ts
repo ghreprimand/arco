@@ -35,6 +35,7 @@ import type {
   TaskDetails,
   TaskBoardKey,
 } from '@arco/shared';
+import { taskApprovalScope } from '@arco/shared';
 import { replayEvents } from '../workflowStore.js';
 import { listWorkflowMetas } from '../workflowMeta.js';
 import { atomicWriteFile } from '../atomicFile.js';
@@ -759,6 +760,15 @@ export function applyUpdate(
     // byWorkflowId/at); `null` clears it; `undefined` leaves it untouched.
     signoff?: TaskSignoff | null;
     directorClosure?: { byWorkflowId: string; at: number };
+    // Operator approval for a Director handoff. true approves the task as it
+    // reads after this patch; false withdraws it. Only the operator's
+    // task_ledger_update passes it.
+    approved?: boolean;
+    // Server-set: how the operator closed the CONTINUE DIRECTOR offer for the
+    // current approval. Applies only while approvalOfferFor names the current
+    // approval, so a stale offer never closes a newer one.
+    approvalOffer?: 'dismissed' | 'continued';
+    approvalOfferFor?: string;
     updatedBy?: string;
   },
 ): { tasks: LedgerTask[]; updated: LedgerTask } | null {
@@ -819,6 +829,11 @@ export function applyUpdate(
   }
   if (patch.directorClosure) next.directorClosure = patch.directorClosure;
   else if (patch.status && patch.status !== 'done') delete next.directorClosure;
+  if (patch.approved === true) next.operatorApproval = { id: randomUUID(), at: next.updatedAt, scope: taskApprovalScope(next) };
+  else if (patch.approved === false) delete next.operatorApproval;
+  if (patch.approvalOffer && next.operatorApproval && next.operatorApproval.id === patch.approvalOfferFor) {
+    next.operatorApproval = { ...next.operatorApproval, offer: patch.approvalOffer };
+  }
   const out = [...tasks];
   out[i] = next;
   return { tasks: out, updated: next };

@@ -1756,6 +1756,13 @@ export const clusters: Section[] = [
   reads met. Partial, not-met, and unsigned tasks are left for you.
   </li>
   <li>
+  In a task&apos;s drawer, <Code>APPROVE FOR HANDOFF</Code> approves it as it
+  reads now. If a director turn ends without handing it off, the director chat
+  offers <Code>CONTINUE DIRECTOR</Code> for one turn, or names the idle member
+  whose unread handoff needs <Code>NUDGE</Code>. Editing the task makes the
+  approval stale.
+  </li>
+  <li>
   <Code>SHOW DONE</Code> is on by default and lists done and archived
   tasks; turn it off to hide them (the choice is remembered). Review tasks older than 7 days fold into an{' '}
   <Code>N older</Code> row.

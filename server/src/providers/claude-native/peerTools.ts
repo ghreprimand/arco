@@ -106,6 +106,7 @@ export function getPeerToolDefinitions(opts?: {
           to: { type: 'string', description: 'Peer 8-char display name or full workflowId.' },
           content: { type: 'string', description: 'Message body (≤ 16 KB UTF-8).' },
           confirm: { type: 'boolean', description: 'Deliver a status-only message after the first send asks for confirmation.' },
+          task_id: { type: 'string', description: "When this message hands a board task to the recipient, the task's full id from cluster_task_list. Arco records the handoff on the task so it can tell the operator the task reached that member. An id not on this cluster's board is refused and nothing is sent." },
           artifact_paths: {
             type: 'array',
             items: { type: 'string' },
@@ -215,6 +216,7 @@ export async function executePeerTool(
         to,
         content,
         confirm: args.confirm === true,
+        ...(typeof args.task_id === 'string' ? { taskId: args.task_id } : {}),
         ...(Array.isArray(args.artifact_paths)
           ? { artifactPaths: args.artifact_paths.filter((p): p is string => typeof p === 'string') }
           : {}),

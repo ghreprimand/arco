@@ -198,7 +198,7 @@ export async function tryHandleClusterRoutes(
           const chunks: Buffer[] = [];
           for await (const chunk of req) chunks.push(chunk as Buffer);
           const body = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}') as {
-            from?: string; to?: string; content?: string; confirm?: boolean;
+            from?: string; to?: string; content?: string; confirm?: boolean; taskId?: string;
           };
           const from = typeof body.from === 'string' ? body.from : '';
           const to = typeof body.to === 'string' ? body.to : '';
@@ -213,7 +213,7 @@ export async function tryHandleClusterRoutes(
             res.end(JSON.stringify({ error: 'to and content are required' }));
             return true;
           }
-          const result = await clusterPeerOps.peerSend(makeCtx(from), { to, content, confirm: body.confirm === true });
+          const result = await clusterPeerOps.peerSend(makeCtx(from), { to, content, confirm: body.confirm === true, ...(typeof body.taskId === 'string' ? { taskId: body.taskId } : {}) });
           if (!result.ok) {
             // 400 for policy rejections — the MCP child translates these
             // into `isError: true` MCP results so the model sees a tool

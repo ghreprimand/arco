@@ -46,7 +46,7 @@ import * as clusterPlanStore from './clusterPlanStore.js';
 import * as clusterPlanBridge from './clusterPlanBridge.js';
 import * as taskLedger from './project/taskLedger.js';
 import { appendLedgerComment, persistLedgerKernelMutation, persistLedgerMutation } from './ws/taskLedgerHandlers.js';
-import { isClusterDirector, presetForText } from '@arco/shared';
+import { isClusterDirector, isTaskApprovalCurrent, presetForText } from '@arco/shared';
 import type { ServerMessage, MemberTier, LedgerTask, LedgerTaskStatus, TaskComment, TaskDetails, TaskLink, TaskRun, TaskSignoff, TaskSignoffState } from '@arco/shared';
 
 // peer_send dedupe — guards against the orphan-tool-use retry pattern:
@@ -118,7 +118,7 @@ export interface PeerSendResult {
 
 export interface PeerSendRejection {
   ok: false;
-  code: 'unknown_peer' | 'self_send' | 'budget_exhausted' | 'content_too_large' | 'enqueue_failed' | 'recipient_not_in_cluster' | 'duplicate_send' | 'status_confirmation';
+  code: 'unknown_peer' | 'self_send' | 'budget_exhausted' | 'content_too_large' | 'enqueue_failed' | 'recipient_not_in_cluster' | 'duplicate_send' | 'status_confirmation' | 'unknown_task';
   message: string;
   // Budget-only fields. Present when the rejection rides through
   // peer_send_rejected with budget_exhausted.
@@ -166,7 +166,7 @@ export function isStatusOnlyPeerMessage(content: string): boolean {
 
 export async function peerSend(
   ctx: PeerOpsContext,
-  args: { to: string; content: string; artifactPaths?: string[]; confirm?: boolean },
+  args: { to: string; content: string; artifactPaths?: string[]; confirm?: boolean; taskId?: string },
   opts?: { bypassBudget?: boolean; bypassDedupe?: boolean; maxContentBytes?: number },
 ): Promise<PeerSendResult | PeerSendRejection> {
   // Primary path: full workflowId or unambiguous 8-char prefix (plan §0).
@@ -245,6 +245,19 @@ export async function peerSend(
       code: 'self_send',
       message: 'peer_send target resolves to your own workflowId; cannot message self.',
     };
+  }
+  // A handoff names the board task it hands over, so Arco can tell from
+  // structured state that the task reached a member (see directorContinue.ts).
+  // An id that is not on this cluster's board is refused before anything is
+  // reserved or sent.
+  const handoffTaskId = typeof args.taskId === 'string' && args.taskId.trim().length > 0 ? args.taskId.trim() : undefined;
+  let handoffBoard: ClusterTaskBoardContext | null = null;
+  if (handoffTaskId) {
+    handoffBoard = mailboxOnly(ctx) ? null : await clusterTaskBoardContext(ctx.clusterId);
+    const boardTasks = handoffBoard ? await taskLedger.load(handoffBoard.cwd, handoffBoard.boardKey).catch(() => null) : null;
+    if (!boardTasks?.some((t) => t.id === handoffTaskId)) {
+      return { ok: false, code: 'unknown_task', message: `task_id ${handoffTaskId.slice(0, 36)} is not on this cluster's board; nothing was sent. Use a full id from cluster_task_list, or send without task_id.` };
+    }
   }
   const statusOnly = isClusterDirector(clusterStore.getMemberRole(ctx.clusterId, ctx.workflowId))
     && !args.artifactPaths?.length && isStatusOnlyPeerMessage(args.content);
@@ -403,6 +416,10 @@ export async function peerSend(
     content: args.content,
     ts: Date.parse(createdAt),
   });
+  if (handoffTaskId && handoffBoard) {
+    await recordHandoff(ctx, handoffBoard, handoffTaskId, resolved, msgId)
+      .catch((err) => console.error('[arco] handoff record failed:', err));
+  }
   const warning = guard && clusterBudget.takeWarning(ctx.workflowId, guard, guardDecision!.count)
     ? `Warn-only threshold exceeded: ${guardDecision!.count}/${guard.threshold} peer messages this primary turn. Mail accepted. Consolidate related same-recipient information; required work and review still apply.`
     : undefined;
@@ -674,6 +691,14 @@ async function clusterTaskBoardContext(clusterId: string): Promise<ClusterTaskBo
   return { cwd: state.cwd, ...(boardKey ? { boardKey } : {}) };
 }
 
+/** This cluster's board with its comments, or null when it has no board. */
+export async function loadClusterBoardKernel(clusterId: string): Promise<{ cwd: string; boardKey?: string; tasks: LedgerTask[]; comments: TaskComment[] } | null> {
+  const board = await clusterTaskBoardContext(clusterId);
+  if (!board) return null;
+  const state = await taskLedger.loadKernel(board.cwd, board.boardKey);
+  return { ...board, tasks: state.tasks, comments: state.comments };
+}
+
 /** Tasks on this cluster's own board, or null when it has no board. */
 export async function loadClusterBoardTasks(clusterId: string): Promise<LedgerTask[] | null> {
   const board = await clusterTaskBoardContext(clusterId);
@@ -778,6 +803,30 @@ export interface PeerTaskHeartbeatOk {
 // write back a caller-captured task list — it can be stale by now.
 async function appendTaskComment(board: ClusterTaskBoardContext, comment: TaskComment): Promise<void> {
   await appendLedgerComment(board.cwd, comment, board.boardKey);
+}
+
+// Durable record that a peer message handed a board task to a member. The
+// comment's metadata (kind 'handoff', recipient, message id) is what
+// directorContinue.ts reads; the body is for people reading the board.
+async function recordHandoff(ctx: PeerOpsContext, board: ClusterTaskBoardContext, taskId: string, toWorkflowId: string, msgId: string): Promise<void> {
+  // The handoff belongs to the operator approval current when it was sent, so
+  // a later approval (after an edit, or withdraw and approve again) needs a
+  // handoff of its own. Read inside the mutation so it sees the stored task.
+  let comment: TaskComment | undefined;
+  const result = await persistLedgerMutation(ctx.workflowId, board.cwd, 'comment', (tasks) => {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return null;
+    const approvalId = isTaskApprovalCurrent(task) ? task.operatorApproval?.id : undefined;
+    comment = taskLedger.newTaskComment({
+      taskId,
+      body: `Handoff sent to ${clusterStore.displayNameFor(toWorkflowId)} by peer message ${msgId}.`,
+      authorWorkflowId: ctx.workflowId,
+      authorLabel: clusterStore.displayNameFor(ctx.workflowId),
+      metadata: { kind: 'handoff', toWorkflowId, msgId, ...(approvalId ? { approvalId } : {}) },
+    });
+    return { tasks, id: taskId, payload: { comment } };
+  }, { boardKey: board.boardKey });
+  if (result && comment) await appendTaskComment(board, comment);
 }
 
 function resolveAssignee(clusterId: string, assignee: string | undefined): string | undefined | null {

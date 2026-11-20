@@ -1,3 +1,4 @@
+import { DirectorContinuePrompt } from './DirectorContinuePrompt';
 import { PhoneUploadButton } from './PhoneUpload';
 import { effectiveCodexTransport } from '@arco/shared';
 import { TurnTimer } from './TurnTimer';
@@ -832,6 +833,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
         style={{ display: 'none' }}
       />
 
+      <DirectorContinuePrompt workflowId={job.id} />
       <div data-testid="composer-status-line" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '6px', minWidth: 0, minHeight: isBusy ? '24px' : undefined, position: 'relative', paddingRight: job.busy && job.turnStartedAt !== undefined ? '96px' : 0 }}>
         <TurnTimer busy={job.busy === true} startedAt={job.turnStartedAt} />
         <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />

@@ -102,7 +102,9 @@ notifyClusterStateForWorkflow,
 releasePlansWatcher,
 send,
 sendAllHandoffLockSnapshots,
+sendWorkflowLive,
 } from './server/broadcast.js';
+import * as directorContinue from './directorContinue.js';
 import {
 HOST,
 PERIODIC_PROBE_INTERVAL_MS,
@@ -1093,6 +1095,12 @@ wss.on('connection', (ws: WebSocket) => {
       case 'task_ledger_update':
         handleTaskLedgerUpdate(ws, msg).catch((err) => {
           console.error('[arco] task_ledger_update handler failed:', err);
+        });
+        break;
+      case 'director_continue_action':
+        if (msg.action !== 'continue' && msg.action !== 'dismiss') break;
+        directorContinue.act(msg.workflowId, msg.offerId, msg.action).catch((err) => {
+          console.error('[arco] director_continue_action failed:', err);
         });
         break;
       case 'task_ledger_delete':
@@ -2558,6 +2566,13 @@ function onListening() {
     }).then(() => resolve(false), () => resolve(false));
   });
   configureMailRules(conditionalTurn);
+  // Continue the Director: the operator's click runs one ordinary operator
+  // turn, started only if the claim guard's fresh check passes.
+  directorContinue.configure({
+    sendLive: (wfid, msg) => sendWorkflowLive(wfid, msg),
+    isBusy: (wfid) => workflows.get(wfid)?.busy,
+    startTurn: (wfid, content, guard) => conditionalTurn(wfid, content, guard),
+  });
   // Smart: Automatic wakes use the same conditional admission; an ask
   // proposal raises one operator notice.
   configureSmartPickupObserver({

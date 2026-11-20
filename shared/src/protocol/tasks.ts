@@ -91,6 +91,40 @@ export interface LedgerTask {
   // not yet reviewed (the board renders PENDING). Additive + projection-safe.
   signoff?: TaskSignoff;
   directorClosure?: { byWorkflowId: string; at: number };
+  // Operator approval for a Director handoff (docs/PROTOCOL_CLUSTER.md
+  // "Continue the Director"). Set and cleared only by the operator's
+  // task_ledger_update; `scope` fingerprints the title and notes it approved,
+  // so an edit to either makes the approval stale. `offer` records how the
+  // operator closed the one CONTINUE DIRECTOR offer for this approval.
+  operatorApproval?: TaskOperatorApproval;
+}
+
+export interface TaskOperatorApproval {
+  // A new id for each approval, so an offer made for one approval can never
+  // act on a later one.
+  id: string;
+  at: number;
+  scope: string;
+  offer?: 'dismissed' | 'continued';
+}
+
+/** Fingerprint of the approved scope of a task: its title and notes. */
+export function taskApprovalScope(task: Pick<LedgerTask, 'title' | 'notes'>): string {
+  // FNV-1a 32-bit over UTF-16 code units; enough to notice an edit, and the
+  // same in the server and the browser.
+  let hash = 0x811c9dc5;
+  const text = `${task.title}\u0000${task.notes}`;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `${text.length.toString(36)}-${hash.toString(36)}`;
+}
+
+/** True when the operator approved this task and its title and notes are
+ * unchanged since. */
+export function isTaskApprovalCurrent(task: Pick<LedgerTask, 'title' | 'notes' | 'operatorApproval'>): boolean {
+  return !!task.operatorApproval && task.operatorApproval.scope === taskApprovalScope(task);
 }
 
 // The director verdict is server-stamped. A met verdict can close the task
@@ -232,6 +266,9 @@ export interface TaskLedgerUpdateMessage {
   // clears the claim (→ unassigned). Workers never reach this message; they
   // claim/release through the `cluster_task_*` peer-tools.
   assignee?: string;
+  // Operator approval for a Director handoff: true approves the task as it
+  // reads after this update, false withdraws the approval.
+  approved?: boolean;
 }
 
 export interface TaskLedgerDeleteMessage {
@@ -318,4 +355,39 @@ export interface TaskLedgerEventMessage {
   task?: LedgerTask; // present for create/update; absent for delete
   payload?: Record<string, unknown>;
   at: number;        // ms epoch — fold order tiebreaker alongside seq
+}
+
+// ── Continue the Director on an approved task (docs/PROTOCOL_CLUSTER.md) ──
+
+// One offer at most per Director, computed by the server when a Director turn
+// ends. 'continue' offers CONTINUE DIRECTOR for an approved task no member has
+// been handed; 'nudge' names the member whose queued handoff waits for NUDGE.
+export interface DirectorContinueOffer {
+  id: string;
+  clusterId: string;
+  taskId: string;
+  taskTitle: string;
+  // The approval this offer was made for (TaskOperatorApproval.id).
+  approvalId: string;
+  kind: 'continue' | 'nudge';
+  memberWorkflowId?: string;
+  memberName?: string;
+  createdAt: number;
+}
+
+// Server → client, live only. `offer: null` clears the prompt; `notice`
+// explains a click that started nothing.
+export interface DirectorContinueOfferMessage {
+  type: 'director_continue_offer';
+  workflowId: string;
+  offer: DirectorContinueOffer | null;
+  notice?: string;
+}
+
+// Client → server: the operator's CONTINUE DIRECTOR or DISMISS on an offer.
+export interface DirectorContinueActionMessage {
+  type: 'director_continue_action';
+  workflowId: string;
+  offerId: string;
+  action: 'continue' | 'dismiss';
 }
