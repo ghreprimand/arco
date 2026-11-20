@@ -43,3 +43,17 @@ test('status broadcast failure cannot prevent question delivery or cancellation'
   worker.cancel();
   await assert.rejects(second, /turn cancelled/);
 });
+
+test('a batch decision broadcasts the winning answer and rejects a second browser', async () => {
+  const worker: any = new ClaudeNativeWorker({ workflowId: 'fixture', config: { model: 'sonnet', effort: 'low' } });
+  const events: any[] = [];
+  worker.setWorkflowEventBroadcast((event: unknown) => events.push(event));
+  const pending = worker.handleAskUserQuestion('Batch', undefined, (reply: string) => reply === 'allow' || reply === 'deny');
+  const id = worker.getPendingInteractions().question.questionId;
+  assert.equal(worker.resolveQuestion(id, 'allow'), true);
+  assert.equal(worker.resolveQuestion(id, 'deny'), false);
+  assert.equal(await pending, 'allow');
+  assert.equal(events[0].answer, 'allow');
+  assert.equal(worker.getPendingInteractions().question, null);
+  await worker.dispose();
+});

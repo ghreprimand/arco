@@ -1,7 +1,7 @@
 import { setMaxListeners } from 'node:events';
-import { assertNativeTaskAllowed } from './taskAdmission.js';
+import { assertNativeTaskAllowed, nativeTaskBatchApprovalReasons } from './taskAdmission.js';
 import { readSettings } from '../../settings.js';
-import { buildTurnWaitInstructions, resolveNativeSubagents, type NativeSubagentPolicy } from '@arco/shared';
+import { buildTurnWaitInstructions, resolveNativeSubagents, CLAUDE_MODELS, type NativeSubagentPolicy } from '@arco/shared';
 import { availableHandoffSources, executeHandoffHistory, HANDOFF_HISTORY_TOOL, HANDOFF_HISTORY_CONTEXT } from '../../handoffHistoryTool.js';
 import { mediaRetirementNotice } from './mediaRetirementNotice.js';
 import { nativeMediaLimits } from './mediaLimits.js';
@@ -61,6 +61,8 @@ import { connectServer, type McpSession } from '../../mcp/client.js';
 import { getSandboxToolDefinitions, isSandboxTool, executeSandboxTool } from './sandboxTools.js';
 import { buildMessagesFromReplayEvents, replayMessagesWithResumePolicy, compactSummarySeed, NativeReconstructionLimitError, type ClaudeResumeMessage } from './resumeSummary.js';
 import { readMeta, setResolvedModelId } from '../../workflowMeta.js';
+import { workflowDir, WFID_PATTERN } from '../../workflowMeta.js';
+import { atomicWriteFile } from '../../atomicFile.js';
 import { lspManager } from '../../lsp/client.js';
 import { isClaudeServerToolDef, isServerToolResultType, pendingServerTools, pruneServerToolEvidenceAfterTurn, stripDanglingServerToolResults } from './retainedContext.js';
 import { gzipSync } from 'node:zlib';
@@ -289,6 +291,7 @@ export interface TaskSpawnArgs {
   policy?: NativeSubagentPolicy;
   onQueued?: (model: string) => void;
   onModel?: (model: string) => void;
+  onStarted?: () => void;
   description: string;
   prompt: string;
   subagentType?: string;
@@ -323,6 +326,7 @@ interface PendingQuestion {
   // parsing the [ASK:…] system_notice back out of events.jsonl.
   text: string;
   options?: string[];
+  validate?: (reply: string) => boolean;
   resolve: (reply: string) => void;
   reject: (err: Error) => void;
 }
@@ -505,6 +509,9 @@ export class ClaudeNativeWorker extends EventEmitter {
   private planBroadcast: PlanBroadcast | null = null;
   private taskHandler: TaskSpawnHandler | null = null;
   private taskTurn = new AbortController();
+  private taskStartsThisTurn = 0;
+  private approvedTaskModels = new Map<string, { model?: string; input: string }>();
+  private taskBatchRefusal = 'Task not started: the operator denied the batch.';
   private taskPolicy = resolveNativeSubagents();
   private taskRequests = new Map<string, AbortController>();
   // docs/PROVIDERS.md - generic workflow-scoped event sink for
@@ -765,10 +772,10 @@ export class ClaudeNativeWorker extends EventEmitter {
   // Server's WS handler routes ask_user_question_reply here.
   resolveQuestion(questionId: string, reply: string): boolean {
     const pending = this.pendingQuestion;
-    if (!pending || pending.id !== questionId) return false;
+    if (!pending || pending.id !== questionId || (pending.validate && !pending.validate(reply))) return false;
     this.pendingQuestion = null;
     pending.resolve(reply);
-    try { this.workflowEventBroadcast({ type: 'claude_native_question_settled', workflowId: this.workflowId, questionId }); } catch { /* status must not interrupt answer delivery */ }
+    try { this.workflowEventBroadcast({ type: 'claude_native_question_settled', workflowId: this.workflowId, questionId, ...(pending.validate ? { answer: reply } : {}) }); } catch { /* status must not interrupt answer delivery */ }
     return true;
   }
 
@@ -777,7 +784,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     if (!pending) return;
     this.pendingQuestion = null;
     pending.reject(new Error(`AbortError: ${reason}`));
-    try { this.workflowEventBroadcast({ type: 'claude_native_question_settled', workflowId: this.workflowId, questionId: pending.id }); } catch { /* status must not interrupt cancellation */ }
+    try { this.workflowEventBroadcast({ type: 'claude_native_question_settled', workflowId: this.workflowId, questionId: pending.id, ...(pending.validate ? { answer: 'cancelled' } : {}) }); } catch { /* status must not interrupt cancellation */ }
   }
 
   // DEBAG (docs/PROVIDERS.md) - server's WS handler routes gate_reply here.
@@ -1492,6 +1499,20 @@ export class ClaudeNativeWorker extends EventEmitter {
           console.warn(`[claude-native:${this.workflowId.slice(0, 8)}] replay failed:`, err);
           reportHistoryLoadFailure(this.workflowId, this, 'native', content => this.emit('system_notice', content),
             err instanceof NativeReconstructionLimitError ? err.limitBytes : undefined);
+        }
+      }
+      if (cwd) {
+        const marker = this.batchMarkerPath();
+        if (marker) {
+          try {
+            await fs.access(marker);
+            await fs.unlink(marker);
+            const notice = 'A pending sub-agent approval was cancelled when the service restarted. No child was started from that approval.';
+            this.emit('system_notice', notice);
+            this.messages.push({ role: 'user', content: notice });
+          } catch (err) {
+            if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+          }
         }
       }
       this.replayed = true;
@@ -2625,6 +2646,8 @@ export class ClaudeNativeWorker extends EventEmitter {
   async runTurn(prompt: string): Promise<void> {
     this.cancelPendingTasks();
     this.taskTurn = new AbortController();
+    this.taskStartsThisTurn = 0;
+    this.approvedTaskModels.clear();
     setMaxListeners(0, this.taskTurn.signal);
     this.retiredImagesThisTurn = 0;
     this.retiredDocumentsThisTurn = 0;
@@ -2932,8 +2955,23 @@ export class ClaudeNativeWorker extends EventEmitter {
         if (block.name === 'Task') taskBlocks.push(block);
         else otherBlocks.push(block);
       }
-      const taskPromises = taskBlocks.map((block) =>
-        this.dispatchTool(block).then((result) => ({ block, result })),
+      let batchAllowed: boolean;
+      try {
+        batchAllowed = await this.approveTaskBatch(taskBlocks);
+      } catch (err) {
+        if (this.taskTurn.signal.aborted || this.inFlight?.signal.aborted) {
+          this.emit('error', 'Worker killed');
+          this.scrubServerToolEvidenceOnAbort(turnMessageStart);
+          this.inFlight = null;
+          this.toolAbort = null;
+          return;
+        }
+        this.taskBatchRefusal = `Task not started: approval failed (${err instanceof Error ? err.message : String(err)}).`;
+        batchAllowed = false;
+      }
+      const taskPromises = taskBlocks.map((block) => batchAllowed
+        ? this.dispatchTool(block).then((result) => ({ block, result }))
+        : Promise.resolve({ block, result: { text: this.taskBatchRefusal, content: undefined, isError: true } }),
       );
       // H9 — in-turn loop guard. Set when the operator has armed hard-stop and a
       // tool tripped; handled (graceful abort) once this round's results are in.
@@ -3891,6 +3929,13 @@ export class ClaudeNativeWorker extends EventEmitter {
       }
     }
 
+    if (block.name === 'Task') {
+      const approved = this.approvedTaskModels.get(block.id);
+      if (!approved || approved.input !== JSON.stringify(input)) {
+        return { text: 'Task not started: its input changed after the batch decision.', isError: true };
+      }
+    }
+
     // H62 (Phase 3) — partial-read → full-write warning. NON-BLOCKING: computed
     // before dispatch (read-state is unaffected by the write), the note is
     // appended to the SUCCESSFUL Write result so the model self-corrects next
@@ -4132,7 +4177,78 @@ export class ClaudeNativeWorker extends EventEmitter {
     }
   }
 
-  private async handleAskUserQuestion(question: string, options: string[] | undefined): Promise<string> {
+  private batchMarkerPath(): string | null {
+    const cwd = this.config.persistenceCwd ?? this.config.cwd;
+    return !this.config.incognito && cwd && WFID_PATTERN.test(this.workflowId) ? join(workflowDir(cwd, this.workflowId), 'pending-subagent-approval.json') : null;
+  }
+
+  private async batchCatalog(force: boolean) { return await getCatalog(force); }
+
+  private async approveTaskBatch(blocks: ToolUseBlock[]): Promise<boolean> {
+    if (!blocks.length) return true;
+    this.taskBatchRefusal = 'Task not started: the operator denied the batch.';
+    try {
+      assertNativeTaskAllowed({ interactionMode: this.config.interactionMode, inCluster: this.config.clusterId !== undefined, taskDisabled: this.taskDisabled });
+    } catch {
+      for (const block of blocks) this.approvedTaskModels.set(block.id, { input: JSON.stringify(block.input && typeof block.input === 'object' ? block.input : {}) });
+      return true;
+    }
+    if (this.taskStartsThisTurn + blocks.length > this.taskPolicy.maxStarts) {
+      this.taskBatchRefusal = `Task not started: the batch exceeds the limit of ${this.taskPolicy.maxStarts} starts per turn.`;
+      return false;
+    }
+    const turn = this.taskTurn;
+    const entries = blocks.map((block) => {
+      const input = block.input && typeof block.input === 'object' ? block.input as Record<string, unknown> : {};
+      const requested = typeof input.model === 'string' ? input.model.trim() : '';
+      return { block, input, requested, effective: this.taskPolicy.model || requested || this.config.model };
+    });
+    const reasons = nativeTaskBatchApprovalReasons({ starts: this.taskStartsThisTurn, parentModel: this.config.model, effectiveModels: entries.map((e) => e.effective), requestedModels: entries.map((e) => e.requested).filter(Boolean) });
+    let selected: string | undefined;
+    if (reasons.length) {
+      const snapshot = await this.batchCatalog(false);
+      if (turn !== this.taskTurn || turn.signal.aborted) throw new Error('AbortError: Task batch cancelled');
+      const models: string[] = snapshot.models.length ? snapshot.models.map((m) => m.id) : [...CLAUDE_MODELS];
+      const detail = entries.map((e, i) => `${i + 1}. ${String(e.input.description ?? 'Task').slice(0, 120)}; requested: ${e.requested || 'parent'}; effective: ${e.effective}`).join('\n');
+      const payload = Buffer.from(JSON.stringify({ models })).toString('base64url');
+      const question = `[BATCH_APPROVAL:${payload}]\nStart ${entries.length} sub-agent${entries.length === 1 ? '' : 's'}? ${reasons.includes('count') ? 'This exceeds four starts in this turn. ' : ''}${reasons.includes('unknown_cost') ? 'Relative model cost is unknown.' : ''}\n${detail}`;
+      const valid = (value: string) => value === 'allow' || value === 'deny' || (value.startsWith('model:') && models.includes(value.slice(6)));
+      const marker = this.batchMarkerPath();
+      if (marker) {
+        const cwd = this.config.persistenceCwd ?? this.config.cwd!;
+        ensureProjectStateIgnore(cwd);
+        await atomicWriteFile(marker, '{"pending":true}\n');
+      }
+      let answer: string;
+      try {
+        if (turn !== this.taskTurn || turn.signal.aborted) throw new Error('AbortError: Task batch cancelled');
+        answer = await this.handleAskUserQuestion(question, undefined, valid);
+      } finally {
+        if (marker) await fs.rm(marker, { force: true });
+      }
+      if (turn !== this.taskTurn || turn.signal.aborted) throw new Error('AbortError: Task batch cancelled');
+      if (answer === 'deny') return false;
+      if (answer.startsWith('model:')) selected = answer.slice(6);
+      const current = await this.batchCatalog(true);
+      if (turn !== this.taskTurn || turn.signal.aborted) throw new Error('AbortError: Task batch cancelled');
+      if (!current.fresh || !current.models.length) {
+        this.taskBatchRefusal = 'Task not started: model availability could not be checked.';
+        this.emit('system_notice', 'Sub-agent batch not started: model availability could not be checked.');
+        return false;
+      }
+      const available = current.models.map((m) => m.id);
+      const proposed = selected ? [selected] : entries.map((e) => e.effective);
+      if (proposed.some((model) => !available.includes(model) && !available.includes(resolveClaudeAliasFromCatalog(model)))) {
+        this.taskBatchRefusal = 'Task not started: a selected model is no longer available.';
+        this.emit('system_notice', 'Sub-agent batch not started: a selected model is no longer available.');
+        return false;
+      }
+    }
+    for (const entry of entries) this.approvedTaskModels.set(entry.block.id, { model: selected, input: JSON.stringify(entry.input) });
+    return true;
+  }
+
+  private async handleAskUserQuestion(question: string, options: string[] | undefined, validate?: (reply: string) => boolean): Promise<string> {
     if (this.pendingQuestion) {
       throw new Error('another question is awaiting response');
     }
@@ -4144,7 +4260,7 @@ export class ClaudeNativeWorker extends EventEmitter {
     }
     this.emit('system_notice', `[ASK:claude-native:${id}] ${question}${optionsLine}`);
     return await new Promise<string>((resolve, reject) => {
-      this.pendingQuestion = { id, text: question, options, resolve, reject };
+      this.pendingQuestion = { id, text: question, options, validate, resolve, reject };
     });
   }
 
@@ -4152,6 +4268,8 @@ export class ClaudeNativeWorker extends EventEmitter {
     assertNativeTaskAllowed({ interactionMode: this.config.interactionMode, inCluster: this.config.clusterId !== undefined, taskDisabled: this.taskDisabled });
     if (!this.taskHandler) throw new Error('Task handler not registered');
     const turn = this.taskTurn;
+    const batchModel = this.approvedTaskModels.get(args.toolUseId)?.model;
+    const spawnPolicy = batchModel ? { ...this.taskPolicy, model: batchModel } : this.taskPolicy;
     const request = new AbortController();
     const requestId = `task-${crypto.randomUUID()}`;
     this.taskRequests.set(requestId, request);
@@ -4163,8 +4281,9 @@ export class ClaudeNativeWorker extends EventEmitter {
       handle = await this.taskHandler({
         parentWorkflowId: this.workflowId,
         taskId: requestId, turnSignal: turn.signal, signal: request.signal,
-        policy: this.taskPolicy,
+        policy: spawnPolicy,
         description: args.description, prompt: args.prompt, subagentType: args.subagentType, model: args.model,
+        onStarted: () => { if (this.taskTurn === turn) this.taskStartsThisTurn++; },
         onQueued: (model) => {
           if (turn.signal.aborted || request.signal.aborted) throw new Error('AbortError: Task cancelled');
           chosenModel = model; queued = true;
@@ -4238,10 +4357,10 @@ export class ClaudeNativeWorker extends EventEmitter {
       elapsedMs: Date.now() - startedAt,
       summary: finalText.slice(0, 200),
     });
-    const overridden = this.taskPolicy.model && args.model
-      && resolveClaudeAliasFromCatalog(this.taskPolicy.model) !== resolveClaudeAliasFromCatalog(args.model);
+    const overridden = spawnPolicy.model && args.model
+      && resolveClaudeAliasFromCatalog(spawnPolicy.model) !== resolveClaudeAliasFromCatalog(args.model);
     return overridden
-      ? `${finalText}\n\nSub-agent used ${chosenModel ?? handle.model ?? this.taskPolicy.model}: the operator's model setting overrides the requested ${args.model}.`
+      ? `${finalText}\n\nSub-agent used ${chosenModel ?? handle.model ?? spawnPolicy.model}: the operator's model selection overrides the requested ${args.model}.`
       : finalText;
   }
 

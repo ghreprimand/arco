@@ -215,7 +215,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'chat.ask-question': {
     title: 'Agent question',
-    body: <p>Choose one complete option or type an answer. Pipes and backslashes inside an option are kept as part of that answer. Submitting resumes the waiting agent.</p>,
+    body: <><p>Choose one complete option or type an answer. Pipes and backslashes inside an option are kept as part of that answer. Submitting resumes the waiting agent.</p><p>For a Claude Native sub-agent batch, ALLOW starts the proposed batch, ALLOW ON ANOTHER MODEL uses the selected model for that batch, and DENY starts none. STOP cancels a waiting batch.</p></>,
     manualSection: 'chat-panel',
   },
   'chat.automatic-message': {

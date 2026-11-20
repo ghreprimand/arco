@@ -24,7 +24,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.native-subagents-starts': {
     title: 'Maximum starts per turn',
-    body: <p>Claude Native starts at most this many sub-agents across all Task rounds in one parent turn. Default: 8, including existing tabs. Queued tasks reserve places; cancelling before start releases one. Excess calls are refused and told not to retry unless requested. A new parent turn resets the count. Blank inherits Settings or the default.</p>,
+    body: <><p>Claude Native starts at most this many sub-agents across all Task rounds in one parent turn. Default: 8, including existing tabs. Queued tasks reserve places; cancelling before start releases one. A batch over the limit is refused. A new parent turn resets the count. Blank inherits Settings or the default.</p><p>Separately, a batch that would exceed four starts or use a model with an unknown relative cost asks for approval. Choose ALLOW, ALLOW ON ANOTHER MODEL or DENY. A model chosen there applies only to that batch.</p></>,
     manualSection: 'settings-providers',
   },
   'settings.native-subagents-model': {

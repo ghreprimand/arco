@@ -8,7 +8,8 @@ import { getTheme } from '../themes/registry';
 import { RecentsLens } from '../explorer/RecentsLens';
 import { ArtifactsLens } from '../explorer/ArtifactsLens';
 import { canRevealInTree, treeRevealDirectories } from '../explorer/treeReveal';
-import { parseAskNotice } from './AskUserQuestionNotice';
+import { AskUserQuestionNotice, parseAskNotice } from './AskUserQuestionNotice';
+import { PendingQuestionsButton } from './PendingQuestionsButton';
 import { CatchMeUp } from './CatchMeUp';
 import { openSetupMic } from '../voice/setupAudio';
 import { useAppStore } from '../stores/appStore';
@@ -29,6 +30,39 @@ async function fixture() {
     close: async () => { await act(async () => root.unmount()); useAppStore.setState(state, true); useAppStore.persist.setOptions({ storage }); dom.window.close(); for (const key of [...Object.keys(globals), 'fetch', 'AudioContext']) { if (before[key]) Object.defineProperty(globalThis, key, before[key]); else Reflect.deleteProperty(globalThis, key); } },
   };
 }
+
+test('batch approval offers one model choice and sends the selected decision', async () => {
+  const f = await fixture(); const sent: unknown[] = [];
+  try {
+    useAppStore.setState({ wsSendRaw: (value: unknown) => { sent.push(value); } } as never);
+    const payload = Buffer.from(JSON.stringify({ models: ['haiku', 'sonnet'] })).toString('base64url');
+    const content = `[ASK:claude-native:batch] [BATCH_APPROVAL:${payload}]\nStart two tasks?`;
+    const parsed = parseAskNotice(content)!;
+    assert.deepEqual(parsed.batchModels, ['haiku', 'sonnet']);
+    await f.render(createElement(AskUserQuestionNotice, { workflowId: 'fixture', questionId: parsed.questionId, question: parsed.question, batchModels: parsed.batchModels, content }));
+    assert.ok(document.body.textContent?.includes('Start two tasks?'));
+    const select = document.querySelector('select')!;
+    await act(async () => { select.value = 'sonnet'; select.dispatchEvent(new window.Event('change', { bubbles: true })); });
+    await f.click('ALLOW ON ANOTHER MODEL');
+    assert.deepEqual(sent, [{ type: 'ask_user_question_reply', workflowId: 'fixture', questionId: 'batch', reply: 'model:sonnet' }]);
+  } finally { await f.close(); }
+});
+
+test('a waiting batch is reachable from PENDING QUESTIONS', async () => {
+  const f = await fixture();
+  try {
+    const id = 'batch-fixture';
+    useAppStore.getState().createJob(id, { name: 'Fixture', primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'low' } as never);
+    const payload = Buffer.from(JSON.stringify({ models: ['haiku'] })).toString('base64url');
+    const content = `[ASK:claude-native:batch] [BATCH_APPROVAL:${payload}]\nStart two tasks?`;
+    useAppStore.getState().addMessage(id, { id: 'batch-message', role: 'system', content, timestamp: Date.now() } as never);
+    useAppStore.setState((state) => ({ jobs: { ...state.jobs, [id]: { ...state.jobs[id], claudeNativePendingQuestionIds: ['batch'] } } }));
+    await f.render(createElement(PendingQuestionsButton, { workflowId: id }));
+    await f.click('? 1 QUESTION');
+    assert.ok(document.body.textContent?.includes('Start two tasks?'));
+    assert.ok(document.body.textContent?.includes('ALLOW ON ANOTHER MODEL'));
+  } finally { await f.close(); }
+});
 
 test('B70: switching classic themes removes optional colors from the previous theme', async () => {
   const f = await fixture();

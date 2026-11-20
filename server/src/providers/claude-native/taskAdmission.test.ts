@@ -1,10 +1,96 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { NativeTaskAdmission, assertNativeTaskAllowed } from './taskAdmission.js';
+import { NativeTaskAdmission, assertNativeTaskAllowed, nativeTaskBatchApprovalReasons } from './taskAdmission.js';
 import { ClaudeNativeWorker } from './worker.js';
+import { mkdtemp, mkdir, rm, writeFile, access } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const policy = { maxRunning: 1, maxStarts: 2 };
 const tick = () => new Promise((r) => setTimeout(r, 0));
+
+test('batch approval considers cumulative starts and does not assume unknown model prices', () => {
+  const reasons = (starts: number, parentModel: string, effectiveModels: string[]) =>
+    nativeTaskBatchApprovalReasons({ starts, parentModel, effectiveModels });
+  assert.deepEqual(reasons(2, 'sonnet', ['sonnet', 'sonnet']), []);
+  assert.deepEqual(reasons(3, 'sonnet', ['sonnet', 'sonnet']), ['count']);
+  assert.deepEqual(reasons(0, 'sonnet', ['opus']), ['unknown_cost']);
+  assert.deepEqual(reasons(0, 'sonnet', ['new-model']), ['unknown_cost']);
+  assert.deepEqual(reasons(0, 'new-model', ['new-model']), []);
+  assert.deepEqual(nativeTaskBatchApprovalReasons({ starts: 0, parentModel: 'sonnet', effectiveModels: ['haiku'], requestedModels: ['opus'] }), ['unknown_cost']);
+});
+
+test('worker counts only children reported started in its current turn', async () => {
+  const worker: any = new ClaudeNativeWorker({ workflowId: 'fixture', config: { model: 'haiku', effort: 'low' } });
+  let notifyStarted!: () => void;
+  worker.setTaskHandler(async (args: any) => {
+    notifyStarted = args.onStarted;
+    return { taskId: 'fixture-task', childWorkflowId: 'fixture-child', finalText: Promise.resolve('done'), read: () => ({ output: '', settled: true }), cancel() {} };
+  });
+  try {
+    await worker.handleSpawnTask({ description: 'Fixture', prompt: 'work', toolUseId: 'fixture-tool' });
+    assert.equal(worker.taskStartsThisTurn, 0);
+    notifyStarted(); assert.equal(worker.taskStartsThisTurn, 1);
+    worker.taskTurn = new AbortController();
+    notifyStarted(); assert.equal(worker.taskStartsThisTurn, 1);
+  } finally { await worker.dispose(); }
+});
+
+test('a batch waits for one validated decision before child dispatch', async () => {
+  const worker: any = new ClaudeNativeWorker({ workflowId: 'fixture', config: { model: 'sonnet', effort: 'low' } });
+  worker.batchCatalog = async () => ({ models: ['haiku', 'sonnet', 'opus'].map((id) => ({ id })), fresh: true });
+  const blocks = [{ type: 'tool_use', id: 'one', name: 'Task', input: { description: 'First', prompt: 'work', model: 'opus' } }];
+  try {
+    const approval = worker.approveTaskBatch(blocks);
+    await tick();
+    const id = worker.getPendingInteractions().question.questionId;
+    assert.equal(worker.approvedTaskModels.size, 0);
+    assert.equal(worker.resolveQuestion(id, 'invalid'), false);
+    assert.equal(worker.resolveQuestion(id, 'model:haiku'), true);
+    assert.equal(worker.resolveQuestion(id, 'deny'), false);
+    assert.equal(await approval, true);
+    assert.equal(worker.approvedTaskModels.get('one').model, 'haiku');
+    let actualModel = '';
+    worker.setTaskHandler(async (args: any) => {
+      actualModel = args.policy.model;
+      return { taskId: 'fixture-task', childWorkflowId: 'fixture-child', finalText: Promise.resolve('done'), read: () => ({ output: '', settled: true }), cancel() {} };
+    });
+    await worker.handleSpawnTask({ description: 'First', prompt: 'work', model: 'opus', toolUseId: 'one' });
+    assert.equal(actualModel, 'haiku');
+    worker.approvedTaskModels.clear();
+    const denied = worker.approveTaskBatch(blocks); await tick();
+    assert.equal(worker.resolveQuestion(worker.getPendingInteractions().question.questionId, 'deny'), true);
+    assert.equal(await denied, false);
+    assert.equal(worker.approvedTaskModels.size, 0);
+    worker.batchCatalog = async (force: boolean) => force
+      ? { models: [], fresh: false }
+      : { models: [{ id: 'opus' }], fresh: true };
+    const unavailable = worker.approveTaskBatch(blocks); await tick();
+    assert.equal(worker.resolveQuestion(worker.getPendingInteractions().question.questionId, 'allow'), true);
+    assert.equal(await unavailable, false);
+    assert.match(worker.taskBatchRefusal, /availability could not be checked/);
+    assert.equal(worker.approvedTaskModels.size, 0);
+    worker.batchCatalog = async () => ({ models: ['haiku', 'sonnet', 'opus'].map((model) => ({ id: model })), fresh: true });
+    const cancelled = worker.approveTaskBatch(blocks); await tick(); worker.cancel();
+    await assert.rejects(cancelled, /AbortError/);
+    assert.equal(worker.approvedTaskModels.size, 0);
+  } finally { await worker.dispose(); }
+});
+
+test('restart cancels an unfinished approval and tells the resumed parent', async () => {
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-batch-approval-'));
+  const worker: any = new ClaudeNativeWorker({ workflowId: 'fixture', config: { cwd, model: 'sonnet', effort: 'low' } });
+  const marker = worker.batchMarkerPath(); const notices: string[] = [];
+  worker.on('system_notice', (text: string) => notices.push(text));
+  try {
+    await mkdir(join(cwd, '.arco', 'workflows', 'fixture'), { recursive: true });
+    await writeFile(marker, '{"pending":true}\n');
+    await worker.restoreSavedHistory();
+    assert.ok(notices.some((notice) => notice.includes('cancelled when the service restarted')));
+    assert.ok(worker.messages.some((message: any) => typeof message.content === 'string' && message.content.includes('No child was started')));
+    await assert.rejects(access(marker));
+  } finally { await worker.dispose(); await rm(cwd, { recursive: true, force: true }); }
+});
 
 test('FIFO admission bounds running and cumulative starts across rounds', async () => {
   const admission = new NativeTaskAdmission();

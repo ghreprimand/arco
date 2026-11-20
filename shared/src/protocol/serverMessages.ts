@@ -1132,6 +1132,7 @@ export interface ClaudeNativeQuestionSettledMessage {
   type: 'claude_native_question_settled';
   workflowId: string;
   questionId: string;
+  answer?: string;
 }
 
 // Emitted after the session JSONL watcher's initial tail emit + after each

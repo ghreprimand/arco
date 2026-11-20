@@ -227,7 +227,9 @@ Native Task model overrides are applied to the child workflow configuration befo
 
 Settings - Agents and clusters supplies `nativeSubagents` defaults; a tab's CONFIG values override individual fields. `maxRunning` defaults to 4 (range 1-32), `maxStarts` to 8 per parent turn (range 1-128), and `model` to Agent's choice. Both finite limits apply to existing installs on the next parent turn. Blank limits inherit Settings in a tab or the defaults in Settings. Settings changes apply next turn.
 
-Agent's choice preserves the existing rule: use the parent's model unless the agent names another. A selected catalog model overrides the agent's requested model, including after hooks. An unavailable selection is refused instead of substituted. This does not bound token use or spending; no ask-first or pricing control is included.
+Agent's choice uses the parent's model unless the agent names another. A selected catalog model overrides the agent's request. Before a batch crosses four starts in one turn, or uses a model whose relative cost is unknown, the parent asks once. ALLOW uses the proposed models; ALLOW ON ANOTHER MODEL uses the selected model for this batch only; DENY starts none. Arco compares the request and effective model with the parent's model. Different models currently require approval because their relative cost is not known to Arco. Model availability is checked again before the batch starts; an unavailable model is refused instead of substituted. This does not bound token use or spending.
+
+The question waits until answered or the turn is cancelled. All open pages share one decision. STOP cancels the pending batch. After a restart an unfinished approval closes, and the next resumed Native turn reports that no child was started from it. A hook or review gate that changes a Task after the batch decision causes that Task to be refused. The running and start limits remain separate from the approval threshold.
 
 Each parent has a FIFO running limit and a cumulative start budget across all tool rounds. Admitted extra Tasks wait with a QUEUED row and no child workflow yet. Queued tasks reserve budget places; cancellation before start refunds the reservation. A started child counts even if it fails or is cancelled. Calls beyond the budget return a plain refusal telling the agent not to retry unless requested. A new parent turn resets the budget. Queued and running tasks can be cancelled individually; parent cancellation stops both. Individual CANCEL tells the parent that the operator cancelled that sub-agent, asks it not to start a replacement unless the operator requests one, and asks it to count the task as cancelled. These are model instructions, not an additional admission limit. Chat, cluster members and depth-capped Task children are refused at dispatch and again before child creation.
 
@@ -237,7 +239,7 @@ Inline and TASKS rows retain the effective model through event replay, including
 
 | Provider | Sub-agent enforcement in this release |
 | --- | --- |
-| Claude Native | Arco enforces the running limit, per-turn start budget and selected model for ordinary Agent tabs outside clusters. |
+| Claude Native | Arco enforces the batch decision, running limit, per-turn start budget and selected model for ordinary Agent tabs outside clusters. |
 | Claude CLI | Provider-owned Agent and ultracode Workflow calls; Native limits/model do not apply. Existing `--tools`/`--disallowedTools` remove tools but do not impose these limits. No new switches are applied. |
 | Codex exec and app-server | Provider-owned harness; Native limits/model do not apply. Installed feature switches `multi_agent` and `multi_agent_v2` exist but alone do not prove all code-mode spawning routes absent. No new Agent switches are applied. |
 | Cursor ACP/print | Provider-owned Agent tools; no child count/model control established by installed help. Ordinary print Chat keeps its existing empty tool allowlist. |

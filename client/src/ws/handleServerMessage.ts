@@ -12,7 +12,7 @@ import { useComputerStore } from '../stores/computerStore';
 import { useVoiceStore } from '../voice/store';
 import { dispatchVoiceToolCall } from '../voice/toolBridge';
 import { setClaudeQuestionIds, notifyQuestion } from '../questions/waitingQuestion';
-import { parseAskNotice } from '../components/AskUserQuestionNotice';
+import { markAskNoticeAnswered, parseAskNotice } from '../components/AskUserQuestionNotice';
 import { handleAttentionEvent, clearQuestionAlert } from '../alerts/desktopAlerts';
 import { applyOperatorQuestion, reconcileOperatorQuestions, questionMessageId } from './operatorQuestions';
 import { useAppStore } from '../stores/appStore';
@@ -2081,6 +2081,11 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
         case 'claude_native_question_settled': {
           const ids = useAppStore.getState().jobs[msg.workflowId]?.claudeNativePendingQuestionIds ?? [];
           setClaudeQuestionIds(msg.workflowId, ids.filter((id) => id !== msg.questionId));
+          if (msg.answer) {
+            clearQuestionAlert(msg.questionId);
+            const messages = useAppStore.getState().jobs[msg.workflowId]?.messages ?? [];
+            for (const message of messages) if (parseAskNotice(message.content)?.questionId === msg.questionId) store.updateMessage(msg.workflowId, message.id, { content: markAskNoticeAnswered(message.content, msg.answer) });
+          }
           break;
         }
         case 'system_notice': {
@@ -2091,7 +2096,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             const ids = job?.claudeNativePendingQuestionIds ?? [];
             const known = job?.messages.some((m) => parseAskNotice(m.content)?.questionId === ask.questionId);
             if (!known && !ids.includes(ask.questionId)) setClaudeQuestionIds(msg.workflowId, [...ids, ask.questionId]);
-            if (!known && job?.snapshotReceived !== false) notifyQuestion(msg.workflowId);
+            if (!known && job?.snapshotReceived !== false) notifyQuestion(msg.workflowId, ask.batchModels ? ask.questionId : undefined);
           }
           // NATIVE_COMPACTION_PLAN Phase 3 — a compaction-failure notice is the
           // terminal signal on the no-native_compacted path (empty/failed

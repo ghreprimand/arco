@@ -2222,7 +2222,7 @@ function confirmNativeChildInput(childId: string, state: NativeChildInput): void
 // final assistant text. Depth-1 only — the child carries `claudeNativeTaskDisabled`
 // so its tool registry drops `Task`.
 const nativeTaskAdmissions = new WeakMap<object, NativeTaskAdmission>();
-setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subagentType, model, taskId: requestedTaskId, signal, turnSignal, policy: capturedPolicy, onQueued, onModel }): Promise<TaskSpawnHandle> => {
+setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subagentType, model, taskId: requestedTaskId, signal, turnSignal, policy: capturedPolicy, onQueued, onModel, onStarted }): Promise<TaskSpawnHandle> => {
   const parent = workflows.get(parentWorkflowId);
   if (!parent) throw new Error(`Task: parent workflow ${parentWorkflowId.slice(0, 8)} not found`);
   const parentCwd = parent.config.workingDirectory;
@@ -2328,6 +2328,7 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
 
     assertActive();
     permit.started();
+    onStarted?.();
     const childTurn = runPrimaryTurn(
       {
         workflowId: childWorkflowId,

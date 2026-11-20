@@ -53,7 +53,7 @@ export function NativeSubagentControls({ value, defaults, onChange, inherit = fa
         </select>
       </label>
     </div>
-    <p style={{ margin: '8px 0 0' }}>Blank limits use {inherit ? 'Settings' : 'the defaults'}: {inherited.maxRunning} running, {inherited.maxStarts} starts per turn. Extra admitted tasks queue; calls beyond the turn limit are refused. A selected model overrides the agent's request.</p>
+    <p style={{ margin: '8px 0 0' }}>Blank limits use {inherit ? 'Settings' : 'the defaults'}: {inherited.maxRunning} running, {inherited.maxStarts} starts per turn. Extra admitted tasks queue; a batch beyond the turn limit is refused. A selected model overrides the agent's request. Separately, a batch asks before exceeding four starts or using a model with unknown relative cost.</p>
     {error && <p role="alert">{error}</p>}
   </fieldset>;
 }

@@ -40,3 +40,17 @@ test('both question sources, settlement, snapshot and one toast per question', (
   send({ type: 'cluster_state', clusterId: 'cluster', state: { clusterId: 'cluster', name: 'Team', cwd: '/projects/fixture', members: [{ workflowId: id, displayName: 'Builder', status: 'idle' }] } });
   assert.equal(questionToastText(id), 'Builder in Team has a question');
 });
+
+test('batch settlement clears attention and records the winning decision', () => {
+  const id = 'batch-question-fixture';
+  useAppStore.getState().createJob(id, config);
+  useAppStore.setState({ notifications: [] });
+  const models = Buffer.from(JSON.stringify({ models: ['sonnet'] })).toString('base64url');
+  send({ type: 'system_notice', workflowId: id, content: `[ASK:claude-native:batch] [BATCH_APPROVAL:${models}]\nStart the batch?` });
+  assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), true);
+  assert.equal(useAppStore.getState().notifications.length, 1);
+  send({ type: 'claude_native_question_settled', workflowId: id, questionId: 'batch', answer: 'deny' });
+  assert.equal(hasWaitingQuestion(useAppStore.getState().jobs[id]), false);
+  assert.equal(useAppStore.getState().notifications.length, 0);
+  assert.ok(useAppStore.getState().jobs[id].messages.some((message) => message.content.includes('[ASK_ANSWERED:deny]')));
+});

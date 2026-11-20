@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useAppStore } from '../stores/appStore';
 
 // Recognize `[ASK:claude-native:<questionId>] <body>` system_notice sentinels
@@ -9,6 +9,7 @@ import { useAppStore } from '../stores/appStore';
 const ASK_NOTICE_RE = /^\[ASK:claude-native:([a-zA-Z0-9_-]+)\]\s+([\s\S]*)$/;
 const ASK_OPTIONS_RE = /^\[ASK_OPTIONS:([\s\S]*)\]$/;
 const ASK_ANSWERED_RE = /^\[ASK_ANSWERED:([\s\S]*)\]$/;
+const batchControl: CSSProperties = { minHeight: 44, maxWidth: '100%', padding: '6px 10px', background: 'var(--color-bg-panel)', color: 'var(--color-control-fg)', border: '1px solid var(--color-border-hairline)', borderRadius: 3, whiteSpace: 'normal', overflowWrap: 'anywhere' };
 
 export interface ParsedAskNotice {
   workflowId?: string; // filled by caller from the message's workflowId
@@ -18,7 +19,7 @@ export interface ParsedAskNotice {
   answered?: string;
 }
 
-export function parseAskNotice(content: string): { questionId: string; question: string; options?: string[]; answered?: string } | null {
+export function parseAskNotice(content: string): { questionId: string; question: string; options?: string[]; answered?: string; batchModels?: string[] } | null {
   const m = content.match(ASK_NOTICE_RE);
   if (!m) return null;
   const questionId = m[1];
@@ -45,7 +46,17 @@ export function parseAskNotice(content: string): { questionId: string; question:
   } else {
     body = lines.join('\n').trimEnd();
   }
-  return { questionId, question: body, options, answered };
+  let batchModels: string[] | undefined;
+  const batch = body.match(/^\[BATCH_APPROVAL:([A-Za-z0-9_-]+)\]\n/);
+  if (batch) {
+    try {
+      const bytes = Uint8Array.from(atob(batch[1].replace(/-/g, '+').replace(/_/g, '/')), (character) => character.charCodeAt(0));
+      const decoded = JSON.parse(new TextDecoder().decode(bytes));
+      if (Array.isArray(decoded.models) && decoded.models.every((m: unknown) => typeof m === 'string')) batchModels = decoded.models;
+    } catch { /* invalid batch notices remain ordinary text */ }
+    if (batchModels) body = body.slice(batch[0].length);
+  }
+  return { questionId, question: body, options, answered, ...(batchModels ? { batchModels } : {}) };
 }
 
 export function markAskNoticeAnswered(content: string, reply: string): string {
@@ -62,12 +73,18 @@ interface Props {
   answered?: string;
   messageId?: string;
   content: string;
+  batchModels?: string[];
 }
 
-export function AskUserQuestionNotice({ workflowId, questionId, question, options, answered, messageId, content }: Props) {
+export function AskUserQuestionNotice({ workflowId, questionId, question, options, answered, messageId, content, batchModels }: Props) {
   const [state, setState] = useState<'idle' | 'sent'>(answered ? 'sent' : 'idle');
   const [submittedAnswer, setSubmittedAnswer] = useState(answered ?? '');
   const [value, setValue] = useState('');
+  const [model, setModel] = useState(batchModels?.[0] ?? '');
+  useEffect(() => {
+    if (answered) { setSubmittedAnswer(answered); setState('sent'); }
+    else if (batchModels && submittedAnswer === 'closed') { setSubmittedAnswer(''); setState('idle'); }
+  }, [answered, batchModels, submittedAnswer]);
   const sendRaw = useAppStore((s) => s.wsSendRaw);
   const updateMessage = useAppStore((s) => s.updateMessage);
 
@@ -75,10 +92,10 @@ export function AskUserQuestionNotice({ workflowId, questionId, question, option
     if (state !== 'idle') return;
     const trimmed = reply.trim();
     if (!trimmed || !sendRaw) return;
-    sendRaw({ type: 'ask_user_question_reply', workflowId, questionId, reply: trimmed });
-    setSubmittedAnswer(trimmed);
+    if (sendRaw({ type: 'ask_user_question_reply', workflowId, questionId, reply: trimmed }) === false) return;
+    setSubmittedAnswer(batchModels ? 'sending' : trimmed);
     setState('sent');
-    if (messageId) {
+    if (messageId && !batchModels) {
       updateMessage(workflowId, messageId, {
         content: markAskNoticeAnswered(content, trimmed),
       });
@@ -86,6 +103,9 @@ export function AskUserQuestionNotice({ workflowId, questionId, question, option
   };
 
   if (state === 'sent') {
+    const answerLabel = batchModels
+      ? submittedAnswer === 'allow' ? 'Allowed' : submittedAnswer === 'deny' ? 'Denied' : submittedAnswer.startsWith('model:') ? `Allowed on ${submittedAnswer.slice(6)}` : submittedAnswer === 'sending' ? 'Sending...' : 'Closed'
+      : `Answered: ${submittedAnswer}`;
     return (
       <div style={{ marginBottom: '10px', maxWidth: '100%' }}>
         <div
@@ -102,7 +122,7 @@ export function AskUserQuestionNotice({ workflowId, questionId, question, option
           }}
         >
           <span className="display-font" style={{ color: 'var(--color-accent-secondary)', letterSpacing: '1px' }}>[ASK:CLAUDE]</span>
-          <span>Answered: {submittedAnswer}</span>
+          <span>{answerLabel}</span>
         </div>
       </div>
     );
@@ -140,7 +160,14 @@ export function AskUserQuestionNotice({ workflowId, questionId, question, option
         }}
       >
         <div style={{ color: 'var(--color-text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', lineHeight: '1.5', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>{question}</div>
-        {options && options.length > 0 ? (
+        {batchModels ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', minWidth: 0 }}>
+            <button type="button" className="display-font" style={batchControl} onClick={() => submit('allow')}>ALLOW</button>
+            <label style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, maxWidth: '100%', minWidth: 0 }}>Another model <select style={{ ...batchControl, maxWidth: '100%', minWidth: 0 }} value={model} onChange={(event) => setModel(event.target.value)}>{batchModels.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+            <button type="button" className="display-font" style={batchControl} disabled={!model} onClick={() => submit(`model:${model}`)}>ALLOW ON ANOTHER MODEL</button>
+            <button type="button" className="display-font" style={batchControl} onClick={() => submit('deny')}>DENY</button>
+          </div>
+        ) : options && options.length > 0 ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
             {options.map((opt, i) => (
               <button

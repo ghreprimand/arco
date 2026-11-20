@@ -269,6 +269,11 @@ interface Props {
 
 function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued, onMakeTask, presentation = 'workbench', retryText, retryAttachments, onEditMessage, onRetryMessage }: Props) {
   const latestSeedId = useAppStore(s => jobId ? latestHandoffSeed(s.jobs[jobId]?.messages ?? [])?.id : undefined);
+  const batchQuestionClosed = useAppStore((s) => {
+    const job = jobId ? s.jobs[jobId] : undefined;
+    const ask = parseAskNotice(message.content);
+    return !!ask?.batchModels && !!job?.snapshotReceived && !(job.claudeNativePendingQuestionIds ?? []).includes(ask.questionId);
+  });
   const selected = useMessageSelectionStore((s) => !!jobId && (s.selected[jobId]?.includes(message.id) ?? false));
   // Tool-use pills from the Claude session JSONL render as a compact row
   // rather than a chat bubble. Bypass the whole bubble pipeline — we don't
@@ -384,7 +389,8 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
           questionId={askNotice.questionId}
           question={askNotice.question}
           options={askNotice.options}
-          answered={askNotice.answered}
+          batchModels={askNotice.batchModels}
+          answered={askNotice.answered ?? (batchQuestionClosed ? 'closed' : undefined)}
           messageId={message.id}
           content={message.content}
         />

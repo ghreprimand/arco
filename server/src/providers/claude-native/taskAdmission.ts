@@ -1,6 +1,27 @@
 // Admission belongs to the parent, not each child WorkerManager. A permit
 // covers initialization through settlement; the turn budget counts starts.
 export interface NativeTaskLimits { maxRunning: number; maxStarts: number }
+
+// Different models are conservatively unknown unless a maintained price
+// source can establish their relative cost for the actual versions.
+export function nativeTaskBatchApprovalReasons(input: {
+  starts: number;
+  parentModel: string;
+  effectiveModels: string[];
+  requestedModels?: string[];
+}): Array<'count' | 'cost' | 'unknown_cost'> {
+  const reasons = new Set<'count' | 'cost' | 'unknown_cost'>();
+  if (input.starts + input.effectiveModels.length > 4) reasons.add('count');
+  const parent = input.parentModel.trim().toLowerCase();
+  // Consider a requested model even when an operator override changes the
+  // effective model: the request is still part of the approval decision.
+  for (const name of [...input.effectiveModels, ...(input.requestedModels ?? [])]) {
+    const model = name.trim().toLowerCase();
+    if (model && model === parent) continue;
+    reasons.add('unknown_cost');
+  }
+  return [...reasons];
+}
 export function assertNativeTaskAllowed(context: { interactionMode?: string; inCluster?: boolean; taskDisabled?: boolean }): void {
   if (context.interactionMode === 'chat' || context.inCluster || context.taskDisabled) {
     throw new Error('Task not available in Chat, cluster members or depth-capped children.');

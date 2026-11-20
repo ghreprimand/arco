@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Ask before a Claude Native sub-agent batch passes four starts or uses a model with an unknown relative cost; allow the batch, choose another model or deny it.
+
 - Approve a board task for handoff from its drawer; when a director turn ends without handing an approved task to anyone, the director chat offers CONTINUE DIRECTOR for one turn once the task's parent tasks are done, or names the idle member whose unread handoff needs NUDGE. `peer_send` takes an optional `task_id` that records the handoff on the task.
 
 - Keep agent-authored cluster plan items concise and allow a Director to complete a whole linked item with its met board sign-off.

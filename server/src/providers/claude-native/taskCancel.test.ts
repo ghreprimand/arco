@@ -90,6 +90,35 @@ test('parent cancel reports each unsettled Task child as cancelled synchronously
   } finally { await s.done(); }
 });
 
+test('a five-task round cannot start a child before its single approval', async () => {
+  const s = setup();
+  try {
+    s.w.ensureStarted = async () => { s.w.client = { messages: { create: async () => taskRound(['a', 'b', 'c', 'd', 'e'])() } }; };
+    s.w.batchCatalog = async () => ({ models: [{ id: 'claude-opus-4-8' }], fresh: true });
+    const run = s.w.runTurn('start five tasks');
+    await waitFor(() => !!s.w.getPendingInteractions().question);
+    assert.equal(s.handles.length, 0);
+    const id = s.w.getPendingInteractions().question.questionId;
+    assert.equal(s.w.resolveQuestion(id, 'allow'), true);
+    await waitFor(() => s.handles.length === 5);
+    s.w.cancel();
+    await run;
+  } finally { await s.done(); }
+});
+
+test('STOP while the batch decision is pending leaves every child unstarted', async () => {
+  const s = setup();
+  try {
+    s.w.ensureStarted = async () => { s.w.client = { messages: { create: async () => taskRound(['a', 'b', 'c', 'd', 'e'])() } }; };
+    s.w.batchCatalog = async () => ({ models: [{ id: 'claude-opus-4-8' }], fresh: true });
+    const run = s.w.runTurn('start five tasks');
+    await waitFor(() => !!s.w.getPendingInteractions().question);
+    s.w.cancel();
+    await run;
+    assert.equal(s.handles.length, 0);
+  } finally { await s.done(); }
+});
+
 test('SDK abort reported as a plain Error after cancel is classified as Worker killed', async () => {
   const s = setup();
   try {
