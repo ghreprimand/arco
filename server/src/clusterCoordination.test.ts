@@ -420,3 +420,106 @@ test('non-directors and incomplete verdicts do not close a task', async () => {
     assert.ok(unchanged.ok); assert.equal(unchanged.task.status, i === 1 ? 'in_progress' : 'todo');
   }
 });
+
+test('explicit met sign-off completes only the uniquely numbered attached item and is safe to repeat', async () => {
+  const c = await make();
+  await store.setMemberRole(c.clusterId, c.members[0], 'Director role.');
+  const bridge = await import('./clusterPlanBridge.js');
+  const plan = await bridge.setClusterPlanBody(c.clusterId, '# Plan\n\n- [ ] P9.60 Outcome\n- [ ] P9.61 Later');
+  assert.ok(plan);
+  const { executePeerTool } = await import('./providers/claude-native/peerTools.js');
+  const planRead = JSON.parse(await executePeerTool('cluster_plan_read', {}, { workflowId: c.members[0], clusterId: c.clusterId, broadcast: () => {} }));
+  assert.equal(planRead.planId, plan.planId);
+  assert.match(planRead.revision, /^[a-f0-9]{64}$/);
+  const staleItem = await bridge.completePlanItem(c.clusterId, plan.planId, 'P9.60', { text: 'P9.60 Previous wording', checked: false, revision: planRead.revision });
+  assert.equal(!staleItem.ok && staleItem.code, 'stale_plan');
+  const task = ledger.newTask({ title: 'P9.60 Outcome' });
+  await ledger.save(c.cwd, [task], store.taskBoardKeyForState(c));
+  const ctx = context(c);
+  const args = { id: task.id, signoff: { state: 'met', summary: 'Ready.' }, completePlan: { planId: plan.planId, itemId: 'P9.60', revision: planRead.revision } };
+  const workerDenied = await peer.peerTaskUpdate(context(c, c.members[1]), args, () => {});
+  assert.equal(workerDenied.ok, false);
+  const stale = await peer.peerTaskUpdate(ctx, { ...args, completePlan: { ...args.completePlan, planId: randomUUID() } }, () => {});
+  assert.equal(stale.ok, false);
+  const bad = await peer.peerTaskUpdate(ctx, { ...args, completePlan: { ...args.completePlan, itemId: 'P9.61' } }, () => {});
+  assert.equal(bad.ok, false);
+  assert.match((await bridge.readClusterPlan(c.clusterId))!.body, /- \[ \] P9.60/);
+  const planStore = await import('./clusterPlanStore.js');
+  const receipt = { ...args.completePlan, completedRevision: planStore.planRevision(planStore.checkedPlanBody(plan.body, 2)) };
+  const pending = await peer.peerTaskUpdate(ctx, { id: task.id, status: 'review', signoff: { state: 'partial', summary: 'Plan completion pending for P9.60; retry the met sign-off.' }, pendingPlan: receipt }, () => {});
+  assert.ok(pending.ok);
+  assert.ok((await bridge.completePlanItem(c.clusterId, plan.planId, 'P9.60', { text: 'P9.60 Outcome', checked: false, revision: planRead.revision })).ok);
+  assert.ok((await peer.peerTaskUpdate(ctx, args, () => {})).ok);
+  assert.ok((await peer.peerTaskUpdate(ctx, args, () => {})).ok);
+  const body = (await bridge.readClusterPlan(c.clusterId))!.body;
+  assert.match(body, /- \[x\] P9.60/); assert.match(body, /- \[ \] P9.61/);
+  assert.equal((await ledger.load(c.cwd, store.taskBoardKeyForState(c)))[0].signoff?.state, 'met');
+  const linked = ledger.newTask({ title: 'A linked task', links: [{ kind: 'plan', ref: plan.planId, label: 'P9.61' }] });
+  const current = await ledger.load(c.cwd, store.taskBoardKeyForState(c));
+  await ledger.save(c.cwd, [...current, linked], store.taskBoardKeyForState(c));
+  assert.ok((await peer.peerTaskUpdate(ctx, { id: linked.id, signoff: { state: 'met' }, completePlan: { planId: plan.planId, itemId: 'P9.61', revision: planStore.planRevision(body) } }, () => {})).ok);
+  assert.match((await bridge.readClusterPlan(c.clusterId))!.body, /- \[x\] P9.61/);
+});
+
+test('cluster authoring enforces the summary limit without stranding legacy items', async () => {
+  const c = await make();
+  const ctx = context(c);
+  const long = 'a'.repeat(241);
+  const rejected = await peer.peerPlanWrite(ctx, `# Plan\n- [ ] P1 ${long}`, () => {});
+  assert.equal(!rejected.ok && rejected.code, 'item_too_long');
+  const bridge = await import('./clusterPlanBridge.js');
+  await bridge.setClusterPlanBody(c.clusterId, `# Plan\n- [ ] P1 ${long}`);
+  assert.ok((await peer.peerPlanWrite(ctx, `# Plan\n- [ ] P1 ${'a'.repeat(240)} [detail](ref:detail)`, () => {})).ok);
+});
+
+test('met sign-off refuses a changed plan and cannot transfer pending completion to another plan', async () => {
+  const c = await make(); await store.setMemberRole(c.clusterId, c.members[0], 'Director role.');
+  const bridge = await import('./clusterPlanBridge.js');
+  const { planRevision, checkedPlanBody } = await import('./clusterPlanStore.js');
+  const plan = await bridge.setClusterPlanBody(c.clusterId, '# Plan\n- [ ] P1.1 Reviewed outcome'); assert.ok(plan);
+  const task = ledger.newTask({ title: 'P1.1 Work' }); await ledger.save(c.cwd, [task], store.taskBoardKeyForState(c));
+  const ctx = context(c), revision = planRevision(plan.body);
+  const args = { id: task.id, signoff: { state: 'met' }, completePlan: { planId: plan.planId, itemId: 'P1.1', revision } };
+  await bridge.setClusterPlanBody(c.clusterId, '# Plan\n- [ ] P1.1 Changed outcome');
+  const stale = await peer.peerTaskUpdate(ctx, args, () => {}); assert.equal(stale.ok, false);
+  assert.equal((await ledger.load(c.cwd, store.taskBoardKeyForState(c)))[0].signoff, undefined);
+  await bridge.setClusterPlanBody(c.clusterId, plan.body);
+  const pendingPlan = { ...args.completePlan, completedRevision: planRevision(checkedPlanBody(plan.body, 1)) };
+  assert.ok((await peer.peerTaskUpdate(ctx, { id: task.id, status: 'review', signoff: { state: 'partial', summary: 'Plan completion pending for P1.1; retry the met sign-off.' }, pendingPlan }, () => {})).ok);
+  const plans = await import('./planStore.js');
+  const replacement = await plans.createPlan(c.cwd, { title: 'Replacement', body: plan.body });
+  await bridge.attachExistingPlan(c.clusterId, replacement.id);
+  const wrong = await peer.peerTaskUpdate(ctx, { ...args, completePlan: { ...args.completePlan, planId: replacement.id } }, () => {});
+  assert.equal(wrong.ok, false);
+  assert.match((await bridge.readClusterPlan(c.clusterId))!.body, /- \[ \] P1.1/);
+  assert.equal((await ledger.load(c.cwd, store.taskBoardKeyForState(c)))[0].signoff?.planCompletion?.planId, plan.planId);
+});
+
+test('plan completion preserves done tasks and refuses archived tasks', async () => {
+  const c = await make(); await store.setMemberRole(c.clusterId, c.members[0], 'Director role.');
+  const bridge = await import('./clusterPlanBridge.js'); const { planRevision } = await import('./clusterPlanStore.js');
+  const plan = await bridge.setClusterPlanBody(c.clusterId, '# Plan\n- [ ] P1.1 Outcome\n- [ ] P1.2 Later'); assert.ok(plan);
+  const done = { ...ledger.newTask({ title: 'P1.1 Outcome' }), status: 'done' as const };
+  const archived = { ...ledger.newTask({ title: 'P1.2 Later' }), status: 'archived' as const };
+  await ledger.save(c.cwd, [done, archived], store.taskBoardKeyForState(c));
+  const ctx = context(c), revision = planRevision(plan.body);
+  const bad = await peer.peerTaskUpdate(ctx, { id: archived.id, signoff: { state: 'met' }, completePlan: { planId: plan.planId, itemId: 'P1.2', revision } }, () => {});
+  assert.equal(bad.ok, false); assert.equal((await ledger.load(c.cwd, store.taskBoardKeyForState(c)))[1].status, 'archived');
+  const events: Array<{ type: string }> = [];
+  const args = { id: done.id, status: 'review' as const, signoff: { state: 'met' }, completePlan: { planId: plan.planId, itemId: 'P1.1', revision } };
+  const completed = await peer.peerTaskUpdate(ctx, args, event => events.push(event)); assert.ok(completed.ok); assert.equal(completed.task.status, 'done');
+  const repeat = await peer.peerTaskUpdate(ctx, args, event => events.push(event)); assert.ok(repeat.ok); assert.equal(repeat.task.status, 'done');
+  for (const event of events) if (event.type === 'task_ledger_snapshot') assert.doesNotMatch(JSON.stringify(event), /"status":"review"/);
+  const beforeReopen = await ledger.load(c.cwd, store.taskBoardKeyForState(c));
+  const reopened = ledger.applyUpdate(beforeReopen, done.id, { status: 'review' }); assert.ok(reopened);
+  await ledger.save(c.cwd, reopened.tasks, store.taskBoardKeyForState(c));
+  const resubmitted = await peer.peerTaskUpdate(ctx, args, event => events.push(event)); assert.ok(resubmitted.ok); assert.equal(resubmitted.task.status, 'done');
+  const saved = await ledger.load(c.cwd, store.taskBoardKeyForState(c));
+  assert.equal(saved[0].status, 'done');
+  const legacy = { ...saved[0], signoff: { state: 'met' as const, at: Date.now() } };
+  await ledger.save(c.cwd, [legacy, saved[1]], store.taskBoardKeyForState(c));
+  const eventCount = events.length;
+  const current = await bridge.readClusterPlan(c.clusterId); assert.ok(current);
+  const legacyRetry = await peer.peerTaskUpdate(ctx, { ...args, completePlan: { ...args.completePlan, revision: planRevision(current.body) } }, event => events.push(event));
+  assert.ok(legacyRetry.ok); assert.equal(legacyRetry.task.status, 'done'); assert.equal(events.length, eventCount);
+});

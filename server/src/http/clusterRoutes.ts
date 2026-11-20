@@ -267,6 +267,8 @@ export async function tryHandleClusterRoutes(
           }
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
+            planId: result.planId,
+            revision: result.revision,
             title: result.title,
             body: result.body,
             updatedAt: result.updatedAt,
@@ -619,7 +621,7 @@ export async function tryHandleClusterRoutes(
           for await (const chunk of req) chunks.push(chunk as Buffer);
           const body = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}') as {
             workflowId?: string; id?: string; status?: string; notes?: string; release?: string;
-            signoff?: { state?: string; summary?: string } | null;
+            signoff?: { state?: string; summary?: string } | null; completePlan?: { planId: string; itemId: string; revision: string };
           };
           const workflowId = typeof body.workflowId === 'string' ? body.workflowId : '';
           if (!workflowId || !cluster.members.includes(workflowId)) {
@@ -636,6 +638,7 @@ export async function tryHandleClusterRoutes(
               ...(typeof body.release === 'string' ? { release: body.release } : {}),
               // §D3 — advisory sign-off; peerTaskUpdate validates + stamps author.
               ...(body.signoff !== undefined ? { signoff: body.signoff } : {}),
+              ...(body.completePlan !== undefined ? { completePlan: body.completePlan } : {}),
             },
             (msg) => broadcastCluster(clusterId, msg),
           );

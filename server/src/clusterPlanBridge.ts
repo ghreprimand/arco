@@ -129,6 +129,30 @@ async function setClusterPlanBodyUnlocked(clusterId: string, body: string): Prom
   return toRecord(created);
 }
 
+// Validate against the body held by the canonical plan-store lock, so an
+// operator edit cannot be silently overwritten between validation and save.
+export async function writeModelPlan(
+  clusterId: string,
+  body: string,
+  validate: (existingBody: string) => void,
+): Promise<ClusterPlanRecord | null> {
+  return withClusterPlanLock(clusterId, async () => {
+    assertBodyWritable(body);
+    const state = await clusterStore.readCluster(clusterId);
+    if (!state) return null;
+    const existing = await readClusterPlanUnlocked(clusterId);
+    if (!existing) {
+      validate('');
+      return setClusterPlanBodyUnlocked(clusterId, body);
+    }
+    const updated = await updatePlan(state.cwd, existing.planId, current => {
+      validate(current.body);
+      return { body };
+    });
+    return updated ? toRecord(updated) : null;
+  });
+}
+
 export async function clearClusterPlan(clusterId: string): Promise<void> {
   await withClusterPlanLock(clusterId, async () => {
     await clusterStore.clearPlanId(clusterId);
@@ -145,7 +169,7 @@ export type PlanTickResult =
       body: string;
       updatedAt: number;
     }
-  | { ok: false; code: 'no_plan' | 'out_of_range' | 'not_a_checkbox_line' | 'task_not_found' | 'ambiguous_task'; message: string; matches?: number[] };
+  | { ok: false; code: 'no_plan' | 'out_of_range' | 'not_a_checkbox_line' | 'task_not_found' | 'ambiguous_task' | 'stale_plan'; message: string; matches?: number[] };
 
 class TickRejected extends Error {
   constructor(readonly result: Extract<PlanTickResult, { ok: false }>) { super(result.message); }
@@ -175,6 +199,35 @@ export async function togglePlanItem(clusterId: string, matcher: number | { task
         return { body };
       });
       if (!saved || !tick) return { ok: false, code: 'no_plan', message: 'cluster plan disappeared while updating.' };
+      return { ...tick, body: saved.body, updatedAt: saved.updatedAt };
+    } catch (err) { if (err instanceof TickRejected) return err.result; throw err; }
+  });
+}
+
+// Completion is idempotent and checked against the currently attached plan
+// and the current body under the canonical plan lock.
+export async function completePlanItem(clusterId: string, planId: string, itemId: string, expected: { text: string; checked: boolean; revision: string }): Promise<PlanTickResult> {
+  return withClusterPlanLock(clusterId, async () => {
+    const rec = await readClusterPlanUnlocked(clusterId);
+    const state = await clusterStore.readCluster(clusterId);
+    if (!rec || !state || rec.planId !== planId) return { ok: false, code: 'no_plan', message: 'The attached plan changed. Read it again before sign-off.' };
+    let tick: Extract<PlanTickResult, { ok: true }> | undefined;
+    try {
+      const saved = await updatePlan(state.cwd, planId, current => {
+        if (legacyClusterPlanStore.planRevision(current.body) !== expected.revision) throw new TickRejected({ ok: false, code: 'stale_plan', message: 'The plan changed during sign-off. Read it again before retrying.' });
+        const hits = legacyClusterPlanStore.extractPlanCheckboxItems(current.body).filter(item => legacyClusterPlanStore.planItemId(item.text) === itemId.toLowerCase());
+        if (hits.length !== 1) throw new TickRejected({ ok: false, code: hits.length ? 'ambiguous_task' : 'task_not_found', message: `Plan item ${itemId} must match exactly one checkbox.` });
+        if (hits[0].text !== expected.text || hits[0].checked !== expected.checked) throw new TickRejected({ ok: false, code: 'stale_plan', message: 'The plan item changed during sign-off. Read it again before retrying.' });
+        const lines = current.body.split('\n');
+        const item = hits[0];
+        const match = CHECKBOX_RE.exec(lines[item.lineIndex])!;
+        const before = item.checked ? '[x]' : '[ ]';
+        lines[item.lineIndex] = `${match[1]}[x]${match[3]}`;
+        const body = lines.join('\n');
+        tick = { ok: true, toggledLine: item.lineIndex, before, after: '[x]', body, updatedAt: 0 };
+        return { body };
+      });
+      if (!saved || !tick) return { ok: false, code: 'no_plan', message: 'The plan disappeared while completing the item.' };
       return { ...tick, body: saved.body, updatedAt: saved.updatedAt };
     } catch (err) { if (err instanceof TickRejected) return err.result; throw err; }
   });

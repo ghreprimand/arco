@@ -194,12 +194,13 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     return { ok: true, body };
   }
 
-  async function callTaskUpdate(args: { id: string; status?: string; notes?: string; release?: string; signoff?: { state: string; summary?: string } }): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
+  async function callTaskUpdate(args: { id: string; status?: string; notes?: string; release?: string; signoff?: { state: string; summary?: string }; completePlan?: { planId: string; itemId: string; revision: string } }): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
     const payload: Record<string, unknown> = { workflowId, id: args.id };
     if (typeof args.status === 'string') payload.status = args.status;
     if (typeof args.notes === 'string') payload.notes = args.notes;
     if (typeof args.release === 'string') payload.release = args.release;
     if (args.signoff && typeof args.signoff === 'object') payload.signoff = args.signoff;
+    if (args.completePlan) payload.completePlan = args.completePlan;
     const r = await fetch(`${BASE_URL}/task-update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -330,7 +331,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     'cluster_plan_read',
     {
       description:
-        'Read the full shared cluster plan (markdown body + title + updatedAt). The plan copy injected into your context at turn start may be an OUTLINE (headings, checkbox lines, and labelled standing-directive sections; other prose omitted) when the full plan is large — call this whenever you need the complete text, e.g. before cluster_plan_write or when an outline item needs its surrounding detail. Read-only; cluster mode only.',
+        'Read the full shared cluster plan (plan ID + revision + markdown body + title + updatedAt). The plan copy injected into your context at turn start may be an OUTLINE (headings, checkbox lines, and labelled standing-directive sections; other prose omitted) when the full plan is large — call this whenever you need the complete text, e.g. before cluster_plan_write or when an outline item needs its surrounding detail. Read-only; cluster mode only.',
       inputSchema: {},
     },
     async () => {
@@ -375,7 +376,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     'cluster_plan_write',
     {
       description:
-        "Write the shared cluster plan body (markdown). Use this to author the initial plan or append/restructure its tasks as scope evolves. Do not write testing, gate or CI standing rules unless the operator asked for them. The plan holds standing rules and tasks only: never write progress/status notes, evidence, commit hashes, CI ids, test counts, or dates into it (those belong on board tasks or in artifacts). Model-driven writes are additive: if a plan already exists, the server rejects writes that remove existing checkbox tasks or change their `[ ]`/`[x]` status. Use cluster_plan_tick for status changes, and ask the operator to replace/clear the plan from the PLAN tab for destructive edits. Body cannot be empty and is capped at 32768 chars.\n\nConvention: only the cluster director should call this. Other members should propose plan changes via peer_send to the director rather than writing directly.\n\nIMPORTANT: if the plan copy in your context is marked as an outline (prose omitted), call cluster_plan_read FIRST and base your rewrite on the full body — rewriting from the outline would silently delete the plan's prose.",
+        "Write the shared cluster plan body (markdown). Use this to author the initial plan or append/restructure its tasks as scope evolves. Do not write testing, gate or CI standing rules unless the operator asked for them. The plan holds standing rules and tasks only: never write progress/status notes, evidence, commit hashes, CI ids, test counts, or dates into it (those belong on board tasks or in artifacts). Keep each new or lengthened checkbox summary within 240 characters, excluding the item ID and reference links. Put assignment and evidence on the board and specifications in reference docs. Existing numbered items can be shortened when the ID is unique. Model-driven writes cannot remove existing tasks or change their `[ ]`/`[x]` status. Use cluster_plan_tick for status changes, and ask the operator to replace/clear the plan from the PLAN tab for destructive edits. Body cannot be empty and is capped at 32768 chars.\n\nConvention: only the cluster director should call this. Other members should propose plan changes via peer_send to the director rather than writing directly.\n\nIMPORTANT: if the plan copy in your context is marked as an outline (prose omitted), call cluster_plan_read FIRST and base your rewrite on the full body — rewriting from the outline would silently delete the plan's prose.",
       inputSchema: {
         body: z.string().min(1).max(32768).describe('New markdown body for the plan. Must be non-empty, ≤32768 chars.'),
       },
@@ -563,12 +564,13 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     'cluster_task_update',
     {
       description:
-        "Update a task on the shared cluster board. Workers move completed work to review. Only the director signs off: set signoff to met, partial, or not_met with a plain one-line summary for the operator, without commit hashes. A director's met sign-off closes the task unless Board auto-done is off in Settings; partial and not_met leave the task status unchanged unless you set a status. Tell the operator in chat what to try. Direct status changes to done or archived remain operator-only.",
+        "Update a task on the shared cluster board. Workers move completed work to review. Only the director signs off: set signoff to met, partial, or not_met with a plain one-line summary for the operator, without commit hashes. A director's met sign-off closes the task unless Board auto-done is off in Settings; partial and not_met leave the task status unchanged unless you set a status. For a completed whole plan item, pass completePlan with the attached plan ID, reviewed revision and unique numbered item ID; ordinary sign-offs do not change the plan. If completion is pending, read the original plan ID, item ID and reviewed revision with cluster_task_show, then retry; if the plan changed, resolve the pending sign-off and review again. Tell the operator in chat what to try. Direct status changes to done or archived remain operator-only.",
       inputSchema: {
         id: z.string().min(1).describe('Task id from cluster_task_list.'),
         status: z.enum(['triage', 'todo', 'ready', 'in_progress', 'blocked', 'review']).optional().describe("New status. 'done' and 'archived' are rejected — operator-only."),
         notes: z.string().optional().describe('Replacement notes body for the task.'),
         release: z.string().optional().describe('Release label such as 0.1.4; an empty string clears it.'),
+        completePlan: z.object({ planId: z.string().min(1), itemId: z.string().min(1), revision: z.string().length(64) }).optional().describe('Use the revision from cluster_plan_read after reviewing the whole item, complete the attached plan item with this Director met sign-off.'),
         signoff: z.object({
           state: z.enum(['met', 'not_met', 'partial']).describe('Your verdict: met / not_met / partial.'),
           summary: z.string().optional().describe('One-line reason shown on the board card.'),
@@ -577,7 +579,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     },
     async (args) => {
       try {
-        const r = await callTaskUpdate({ id: args.id, status: args.status, notes: args.notes, release: args.release, signoff: args.signoff });
+        const r = await callTaskUpdate({ id: args.id, status: args.status, notes: args.notes, release: args.release, signoff: args.signoff, completePlan: args.completePlan });
         if (!r.ok) {
           const detail = r.err.message ?? r.err.error ?? 'unknown_error';
           return textResult(`[error] ${r.err.error ?? 'task_update_failed'}: ${detail}`, true);

@@ -1263,6 +1263,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
       <>
         <p>Chooses which shared record members keep up to date as work moves: <C>PLAN</C> (tick items in the shared plan), <C>BOARD</C> (move task statuses), or <C>BOTH</C>, the default, which keeps the two in step.</p>
         <p>With PLAN or BOTH and an attached plan, the director adds uncovered approved work in the same turn before assigning it, grouped as one feature or batch of fixes. Its reply names the item added or changed with its id and a one-line description. Checkbox ticking rules stay the same.</p>
+        <p>A director can complete a whole numbered plan item with its met board sign-off. A task covering only one stage leaves the item open. If the sign-off says plan completion is pending, ask the director to retry the same reviewed item. If the plan changed, resolve the pending sign-off and review it again.</p>
         <p>Members get this as part of their standing instructions, but only for records that exist: a cluster with no plan, or with the board set to <C>NONE</C>, skips that part. Applies on each member&apos;s next turn and can be changed back at any time.</p>
       </>
     ),

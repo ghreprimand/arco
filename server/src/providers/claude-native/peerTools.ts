@@ -127,7 +127,7 @@ export function getPeerToolDefinitions(opts?: {
     {
       name: 'cluster_plan_read',
       description:
-        'Read the full shared cluster plan (markdown body + title + updatedAt). The plan copy injected into your context at turn start may be an OUTLINE (headings, checkbox lines, and labelled standing-directive sections; other prose omitted) when the full plan is large — call this whenever you need the complete text, e.g. before cluster_plan_write or when an outline item needs its surrounding detail. Read-only; cluster mode only.',
+        'Read the full shared cluster plan (plan ID + revision + markdown body + title + updatedAt). The plan copy injected into your context at turn start may be an OUTLINE (headings, checkbox lines, and labelled standing-directive sections; other prose omitted) when the full plan is large — call this whenever you need the complete text, e.g. before cluster_plan_write or when an outline item needs its surrounding detail. Read-only; cluster mode only.',
       input_schema: {
         type: 'object',
         properties: {},
@@ -154,7 +154,7 @@ export function getPeerToolDefinitions(opts?: {
     {
       name: 'cluster_plan_write',
       description:
-        "Write the shared cluster plan body (markdown). Use this to author the initial plan or append/restructure its tasks as scope evolves. Do not write testing, gate or CI standing rules unless the operator asked for them. The plan holds standing rules and tasks only: never write progress/status notes, evidence, commit hashes, CI ids, test counts, or dates into it (those belong on board tasks or in artifacts). Model-driven writes are additive: if a plan already exists, the server rejects writes that remove existing checkbox tasks or change their `[ ]`/`[x]` status. Use cluster_plan_tick for status changes, and ask the operator to replace/clear the plan from the PLAN tab for destructive edits. Body cannot be empty and is capped at 32768 chars.\n\nConvention: only the cluster director should call this. Other members should propose plan changes via peer_send to the director rather than writing directly.\n\nIMPORTANT: if the plan copy in your context is marked as an outline (prose omitted), call cluster_plan_read FIRST and base your rewrite on the full body — rewriting from the outline would silently delete the plan's prose.",
+        "Write the shared cluster plan body (markdown). Use this to author the initial plan or append/restructure its tasks as scope evolves. Do not write testing, gate or CI standing rules unless the operator asked for them. The plan holds standing rules and tasks only: never write progress/status notes, evidence, commit hashes, CI ids, test counts, or dates into it (those belong on board tasks or in artifacts). Keep each new or lengthened checkbox summary within 240 characters, excluding the item ID and reference links. Put assignment and evidence on the board and specifications in reference docs. Existing numbered items can be shortened when the ID is unique. Model-driven writes cannot remove existing tasks or change their `[ ]`/`[x]` status. Use cluster_plan_tick for status changes, and ask the operator to replace/clear the plan from the PLAN tab for destructive edits. Body cannot be empty and is capped at 32768 chars.\n\nConvention: only the cluster director should call this. Other members should propose plan changes via peer_send to the director rather than writing directly.\n\nIMPORTANT: if the plan copy in your context is marked as an outline (prose omitted), call cluster_plan_read FIRST and base your rewrite on the full body — rewriting from the outline would silently delete the plan's prose.",
       input_schema: {
         type: 'object',
         properties: {
@@ -234,7 +234,7 @@ export async function executePeerTool(
       const result = await peerOps.peerPlanRead(opsCtx);
       if (!result.ok) return `[error] ${result.code}: ${result.message}`;
       return JSON.stringify(
-        { title: result.title, body: result.body, updatedAt: result.updatedAt, byteLength: result.byteLength },
+        { planId: result.planId, revision: result.revision, title: result.title, body: result.body, updatedAt: result.updatedAt, byteLength: result.byteLength },
         null,
         2,
       );
@@ -382,6 +382,7 @@ export async function executePeerTool(
           ...(typeof args.release === 'string' ? { release: args.release } : {}),
           // §D3 — advisory sign-off; peerTaskUpdate validates state + stamps author.
           ...(args.signoff !== undefined ? { signoff: args.signoff as { state?: string; summary?: string } | null } : {}),
+          ...(args.completePlan !== undefined ? { completePlan: args.completePlan as { planId: string; itemId: string; revision: string } } : {}),
         },
         bcastCluster,
       );

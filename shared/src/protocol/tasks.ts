@@ -102,6 +102,7 @@ export interface TaskSignoff {
   summary?: string;        // one-line reason, surfaced on the card tooltip
   byWorkflowId?: string;   // server-stamped: the member who signed off
   at: number;              // ms epoch, server-stamped
+  planCompletion?: { planId: string; itemId: string; revision: string; completedRevision: string };
 }
 
 export interface TaskKernelSnapshot {

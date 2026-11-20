@@ -17,6 +17,7 @@
 // pattern). In-memory cache by clusterId so per-turn reads don't hit disk.
 
 import { promises as fs } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import lockfile from 'proper-lockfile';
 import { clusterDir } from './clusterStore.js';
@@ -187,6 +188,47 @@ export function extractPlanCheckboxItems(body: string): PlanCheckboxItem[] {
 // checkbox tasks or change their completion state. Status changes go
 // through cluster_plan_tick so they remain narrow and auditable; destructive
 // plan replacement stays operator-only via the PLAN tab.
+export const PLAN_ITEM_SUMMARY_MAX = 240;
+
+export function planRevision(body: string): string {
+  return createHash('sha256').update(body, 'utf8').digest('hex');
+}
+
+export function checkedPlanBody(body: string, lineIndex: number): string {
+  const lines = body.split('\n');
+  const match = CHECKBOX_RE.exec(lines[lineIndex]);
+  if (!match) throw new Error('plan item is not a checkbox');
+  lines[lineIndex] = `${match[1]}[x]${match[3]}`;
+  return lines.join('\n');
+}
+
+export function planItemId(text: string): string | undefined {
+  return text.match(/^([A-Za-z]{1,3}\d+(?:\.\d+)*)(?=[\s:.)-]|$)/)?.[1].toLowerCase();
+}
+
+export function planItemSummary(text: string): string {
+  return text.replace(/^[A-Za-z]{1,3}\d+(?:\.\d+)*(?=[\s:.)-]|$)[\s:.)-]*/, '')
+    .replace(/\[[^\]\n]*\]\(ref:[a-z0-9-]+\)/gi, '')
+    .replace(/\[\[ref:[a-z0-9-]+\]\]/gi, '')
+    .replace(/(?<![\w/:-])ref:[a-z0-9-]+/gi, '')
+    .replace(/\s+/g, ' ').trim();
+}
+
+export function oversizedPlanItems(existingBody: string, nextBody: string): string[] {
+  const old = extractPlanCheckboxItems(existingBody);
+  const next = extractPlanCheckboxItems(nextBody);
+  return next.filter(item => {
+    const length = planItemSummary(item.text).length;
+    if (length <= PLAN_ITEM_SUMMARY_MAX) return false;
+    const same = old.find(o => o.normalizedText === item.normalizedText);
+    if (same) return false;
+    const id = planItemId(item.text);
+    const previous = id && old.filter(o => planItemId(o.text) === id);
+    const successors = id && next.filter(o => planItemId(o.text) === id);
+    return !(previous && successors && previous.length === 1 && successors.length === 1 && length <= planItemSummary(previous[0].text).length);
+  }).map(item => item.text);
+}
+
 export function validatePlanWritePreservesCheckboxes(
   existingBody: string,
   nextBody: string,
@@ -202,6 +244,14 @@ export function validatePlanWritePreservesCheckboxes(
     nextByText.set(item.normalizedText, bucket);
   }
 
+  const oldIds = new Map<string, PlanCheckboxItem[]>();
+  const nextIds = new Map<string, PlanCheckboxItem[]>();
+  for (const [items, map] of [[existing, oldIds], [next, nextIds]] as const) {
+    for (const item of items) {
+      const id = planItemId(item.text);
+      if (id) map.set(id, [...(map.get(id) ?? []), item]);
+    }
+  }
   const usedNext = new Set<PlanCheckboxItem>();
   const removed: string[] = [];
   const statusChanged: Array<{ text: string; before: '[ ]' | '[x]'; after: '[ ]' | '[x]' }> = [];
@@ -225,6 +275,15 @@ export function validatePlanWritePreservesCheckboxes(
       continue;
     }
 
+    const id = planItemId(oldItem.text);
+    const oldMatches = id ? oldIds.get(id) : undefined;
+    const newMatches = id ? nextIds.get(id) : undefined;
+    const rewritten = oldMatches?.length === 1 && newMatches?.length === 1 ? newMatches[0] : undefined;
+    if (rewritten && !usedNext.has(rewritten) && (planItemSummary(rewritten.text).length < planItemSummary(oldItem.text).length || normalizeCheckboxText(planItemSummary(rewritten.text)) === normalizeCheckboxText(planItemSummary(oldItem.text)))) {
+      usedNext.add(rewritten);
+      if (rewritten.checked !== oldItem.checked) statusChanged.push({ text: oldItem.text, before: oldItem.checked ? '[x]' : '[ ]', after: rewritten.checked ? '[x]' : '[ ]' });
+      continue;
+    }
     removed.push(oldItem.text);
   }
 

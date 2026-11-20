@@ -62,3 +62,17 @@ test('model plan writes reject checkbox status changes', () => {
     ]);
   }
 });
+
+test('model writes limit new or lengthened summaries while allowing safe numbered shortening', async () => {
+  const { oversizedPlanItems } = await import('./clusterPlanStore.js');
+  const long = 'a'.repeat(250);
+  assert.deepEqual(oversizedPlanItems('', `- [ ] P1.1 ${long}`), [`P1.1 ${long}`]);
+  const existing = `- [x] P1.1 ${long} [spec](ref:before)`;
+  const shortened = `- [x] P1.1 ${'a'.repeat(245)} [spec](ref:after)`;
+  assert.deepEqual(oversizedPlanItems(existing, shortened), []);
+  assert.deepEqual(validatePlanWritePreservesCheckboxes(existing, shortened), { ok: true });
+  assert.equal(validatePlanWritePreservesCheckboxes(existing, shortened.replace('[x]', '[ ]')).ok, false);
+  assert.equal(validatePlanWritePreservesCheckboxes(`${existing}\n${existing}`, `${shortened}\n${shortened}`).ok, false);
+  assert.deepEqual(oversizedPlanItems(existing, `${existing}\n- [ ] P2 ${'b'.repeat(241)}`).length, 1);
+  assert.deepEqual(validatePlanWritePreservesCheckboxes(existing, existing.replace('ref:before', 'ref:after')), { ok: true });
+});

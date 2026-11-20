@@ -148,6 +148,14 @@ function sanitizeSignoff(v: unknown): TaskSignoff | null {
   if (typeof o.byWorkflowId === 'string' && o.byWorkflowId.trim().length > 0) {
     out.byWorkflowId = o.byWorkflowId.trim();
   }
+  const completion = o.planCompletion;
+  if (completion && typeof completion === 'object') {
+    const c = completion as Record<string, unknown>;
+    if (typeof c.planId === 'string' && typeof c.itemId === 'string' && typeof c.revision === 'string' && typeof c.completedRevision === 'string'
+      && /^[a-f0-9]{64}$/.test(c.revision) && /^[a-f0-9]{64}$/.test(c.completedRevision)) {
+      out.planCompletion = { planId: c.planId, itemId: c.itemId, revision: c.revision, completedRevision: c.completedRevision };
+    }
+  }
   return out;
 }
 

@@ -76,7 +76,7 @@ export const CLUSTER_TASK_TOOL_DEFINITIONS: ClusterTaskToolDefinition[] = [
     {
       name: 'cluster_task_update',
       description:
-        "Update a task on the shared cluster board. Workers move completed work to review. Only the director signs off: set signoff to met, partial, or not_met with a plain one-line summary for the operator, without commit hashes. A director's met sign-off closes the task unless Board auto-done is off in Settings; partial and not_met leave the task status unchanged unless you set a status. Tell the operator in chat what to try. Direct status changes to done or archived remain operator-only.",
+        "Update a task on the shared cluster board. Workers move completed work to review. Only the director signs off: set signoff to met, partial, or not_met with a plain one-line summary for the operator, without commit hashes. A director's met sign-off closes the task unless Board auto-done is off in Settings; partial and not_met leave the task status unchanged unless you set a status. For a completed whole plan item, pass completePlan with the attached plan ID, reviewed revision and unique numbered item ID; ordinary sign-offs do not change the plan. If completion is pending, read the original plan ID, item ID and reviewed revision with cluster_task_show, then retry; if the plan changed, resolve the pending sign-off and review again. Tell the operator in chat what to try. Direct status changes to done or archived remain operator-only.",
       input_schema: {
         type: 'object',
         properties: {
@@ -84,6 +84,7 @@ export const CLUSTER_TASK_TOOL_DEFINITIONS: ClusterTaskToolDefinition[] = [
           status: { type: 'string', enum: ['triage', 'todo', 'ready', 'in_progress', 'blocked', 'review'], description: "New status. 'done' and 'archived' are rejected - operator-only." },
           notes: { type: 'string', description: 'Replacement notes body for the task.' },
           release: { type: 'string', description: 'Release label such as 0.1.4; an empty string clears it.' },
+          completePlan: { type: 'object', description: 'After reviewing the whole item, complete it with a Director met sign-off. Give the plan ID and revision from cluster_plan_read and its unique numbered item ID.', properties: { planId: { type: 'string' }, itemId: { type: 'string' }, revision: { type: 'string' } }, required: ['planId', 'itemId', 'revision'] },
           signoff: {
             type: 'object',
             description: 'Director verdict: met closes the task unless Board auto-done is off.',

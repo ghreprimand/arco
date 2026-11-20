@@ -33,7 +33,7 @@ const PLAN_CLAUSE = [
   'The shared cluster plan holds standing rules and tasks only; keep its checkboxes current as you work.',
   'When the operator approves new work that no existing plan item covers, the director adds one plan item in the same turn, before assigning it. Group related work: one item per feature or batch of fixes, never one per bug.',
   'In its reply, the director tells the operator which plan item it added or changed, with the item id and a one-line description.',
-  'When you finish a plan checkbox item, flip it with cluster_plan_tick in the same turn (match by the item text).',
+  'When a whole plan item is complete, update its checkbox in the same turn. Use cluster_plan_tick for an explicit status change, including reopening an item.',
   'The director owns plan upkeep — do not let the plan\'s [ ]/[x] state fall behind the real state of the work.',
   'Never write progress, evidence, commit hashes, CI ids, test counts, or dated status notes into the plan body; those belong on board tasks or in artifacts.',
 ].join(' ');
@@ -46,7 +46,7 @@ const BOARD_CLAUSE = [
 
 const RECONCILE_CLAUSE =
   'The plan and the board track the same work at different granularities — keep BOTH reflecting reality. ' +
-  'When you complete a board task that corresponds to a plan item, tick the plan item too.';
+  'A board task may cover only a stage. After the whole item meets its completion rules, the director can complete it with a met board sign-off using completePlan and its reviewed revision and unique numbered item ID.';
 
 // Build the system-prompt doctrine block for a cluster. Returns undefined when
 // there is nothing to inject (e.g. mode 'plan' but no plan attached, or mode

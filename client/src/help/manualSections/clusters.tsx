@@ -1036,7 +1036,7 @@ export const clusters: Section[] = [
   <h4 className="manual-sub">KEEP CURRENT</h4>
   <p>PLAN keeps shared plan checkboxes current. BOARD keeps task statuses current. BOTH, the default, keeps the two in step. Instructions apply only to records attached to the cluster and reach members on their next turn.</p>
   <p>With PLAN or BOTH and an attached plan, the director adds uncovered approved work in the same turn, before assigning it. Related work gets one item per feature or batch of fixes, never one per bug.</p>
-  <p>The director's reply names the plan item added or changed with its id and a one-line description. Existing checkbox ticking rules still apply.</p>
+  <p>The director's reply names the plan item added or changed with its id and a one-line description. A director can complete a whole numbered plan item with its met board sign-off. A task covering only one stage leaves the item open. If the sign-off says plan completion is pending, ask the director to retry the same reviewed item. If the plan changed, resolve the pending sign-off and review it again.</p>
   <p>
   New clusters use a cluster-local board and progress tracking set to Both. Saved
   choices and old-format snapshot fallbacks are preserved; existing

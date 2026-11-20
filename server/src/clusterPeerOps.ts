@@ -31,6 +31,7 @@
 // recipient's events.jsonl.
 
 import { readSettings } from './settings.js';
+import { withFileLock } from './atomicFile.js';
 import { recipientContext, type RecipientContext } from './peerRecipientContext.js';
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
@@ -428,6 +429,7 @@ export interface PeerPlanReadOk {
   // file path; listed here so a member doesn't need a second call to learn
   // they exist.
   planId: string;
+  revision: string;
   refs: Array<{ slug: string; title: string; bytes: number }>;
   refsDir: string;
 }
@@ -455,6 +457,7 @@ export async function peerPlanRead(
     updatedAt: rec.updatedAt,
     byteLength: Buffer.byteLength(rec.body, 'utf8'),
     planId: rec.planId,
+    revision: clusterPlanStore.planRevision(rec.body),
     refs: refs.map((r) => ({ slug: r.slug, title: r.title, bytes: r.bytes })),
     refsDir: `.arco/plans/${rec.planId}.refs/`,
   };
@@ -480,7 +483,7 @@ export interface PeerPlanTickOk {
 
 export interface PeerPlanTickRejection {
   ok: false;
-  code: 'no_plan' | 'out_of_range' | 'not_a_checkbox_line' | 'task_not_found' | 'ambiguous_task' | 'invalid_matcher' | 'write_failed' | 'access_denied';
+  code: 'no_plan' | 'out_of_range' | 'not_a_checkbox_line' | 'task_not_found' | 'ambiguous_task' | 'invalid_matcher' | 'write_failed' | 'access_denied' | 'stale_plan';
   message: string;
   matches?: number[];
 }
@@ -529,7 +532,7 @@ export interface PeerPlanWriteOk {
 
 export interface PeerPlanWriteRejection {
   ok: false;
-  code: 'empty_body' | 'too_large' | 'destructive_write_requires_operator' | 'write_failed' | 'access_denied';
+  code: 'empty_body' | 'too_large' | 'item_too_long' | 'destructive_write_requires_operator' | 'write_failed' | 'access_denied';
   message: string;
   limit?: number;
   actual?: number;
@@ -551,47 +554,30 @@ export async function peerPlanWrite(
       message: 'plan body cannot be empty; use cluster_plan_tick for status changes or ask the operator to clear via the PLAN tab.',
     };
   }
-  const existing = await clusterPlanBridge.readClusterPlan(ctx.clusterId).catch(() => null);
-  if (existing) {
-    const preservation = clusterPlanStore.validatePlanWritePreservesCheckboxes(existing.body, trimmed);
-    if (!preservation.ok) {
-      const removedPreview = preservation.violation.removed.slice(0, 5).map((item) => `- ${item}`).join('\n');
-      const changedPreview = preservation.violation.statusChanged
-        .slice(0, 5)
-        .map((item) => `- ${item.text} (${item.before} -> ${item.after})`)
-        .join('\n');
-      const sections = [
-        'cluster_plan_write is additive for model-driven writes. Preserve existing checkbox tasks and use cluster_plan_tick for status changes, or ask the operator to replace the plan from the PLAN tab.',
-      ];
-      if (removedPreview) sections.push(`Removed existing items:\n${removedPreview}`);
-      if (changedPreview) sections.push(`Changed existing item status:\n${changedPreview}`);
-      return {
-        ok: false,
-        code: 'destructive_write_requires_operator',
-        message: sections.join('\n\n'),
-        removed: preservation.violation.removed,
-        statusChanged: preservation.violation.statusChanged,
-      };
-    }
-  }
   let rec: clusterPlanBridge.ClusterPlanRecord | null;
+  class PlanWriteRejected extends Error {
+    constructor(readonly rejection: PeerPlanWriteRejection) { super(rejection.message); }
+  }
   try {
-    rec = await clusterPlanBridge.setClusterPlanBody(ctx.clusterId, trimmed);
+    rec = await clusterPlanBridge.writeModelPlan(ctx.clusterId, trimmed, existingBody => {
+      const preservation = clusterPlanStore.validatePlanWritePreservesCheckboxes(existingBody, trimmed);
+      if (!preservation.ok) throw new PlanWriteRejected({
+        ok: false, code: 'destructive_write_requires_operator',
+        message: 'Preserve existing items and their checked state. Only uniquely numbered items may be shortened; use cluster_plan_tick for status changes.',
+        removed: preservation.violation.removed, statusChanged: preservation.violation.statusChanged,
+      });
+      const oversized = clusterPlanStore.oversizedPlanItems(existingBody, trimmed);
+      if (oversized.length) throw new PlanWriteRejected({
+        ok: false, code: 'item_too_long', limit: clusterPlanStore.PLAN_ITEM_SUMMARY_MAX,
+        message: `Checkbox summary exceeds ${clusterPlanStore.PLAN_ITEM_SUMMARY_MAX} characters: ${oversized[0]}. Put assignment and evidence on the board and durable specifications in linked reference docs.`,
+      });
+    });
   } catch (err) {
-    if (err instanceof clusterPlanBridge.PlanTooLargeError) {
-      return {
-        ok: false,
-        code: 'too_large',
-        message: err.message,
-        limit: err.limit,
-        actual: trimmed.length,
-      };
-    }
-    return {
-      ok: false,
-      code: 'write_failed',
-      message: `writePlan failed: ${err instanceof Error ? err.message : String(err)}`,
+    if (err instanceof PlanWriteRejected) return err.rejection;
+    if (err instanceof clusterPlanBridge.PlanTooLargeError) return {
+      ok: false, code: 'too_large', message: err.message, limit: err.limit, actual: trimmed.length,
     };
+    return { ok: false, code: 'write_failed', message: `writePlan failed: ${err instanceof Error ? err.message : String(err)}` };
   }
   if (!rec) {
     return {
@@ -994,6 +980,11 @@ export async function peerTaskUpdate(
     // the server stamps `byWorkflowId`/`at` so it's attributable and unspoofable.
     // `null` explicitly clears a prior sign-off (back to PENDING).
     signoff?: { state?: string; summary?: string } | null;
+    completePlan?: { planId: string; itemId: string; revision: string };
+    finishPending?: string;
+    pendingPlan?: NonNullable<TaskSignoff['planCompletion']>;
+    expectedStatus?: LedgerTaskStatus;
+    expectedTaskLink?: { title: string; links: TaskLink[] };
   },
   broadcastCluster: (msg: ServerMessage) => void,
 ): Promise<PeerTaskUpdateOk | PeerTaskRejection> {
@@ -1027,6 +1018,7 @@ export async function peerTaskUpdate(
       at: Date.now(),
     };
   }
+  if (args.pendingPlan && signoffPatch) signoffPatch.planCompletion = args.pendingPlan;
   if (args.status && !WORKER_TASK_STATUSES.has(args.status)) {
     return {
       ok: false,
@@ -1039,10 +1031,85 @@ export async function peerTaskUpdate(
     return { ok: false, code: 'board_detached', message: 'no task board is enabled for this cluster.' };
   }
   const director = isClusterDirector(clusterStore.getMemberRole(ctx.clusterId, ctx.workflowId));
+  if (args.completePlan !== undefined) return withFileLock(`cluster-plan-signoff:${ctx.clusterId}:${args.id}`, async () => {
+    if (!args.completePlan || typeof args.completePlan !== 'object') return { ok: false, code: 'invalid_link', message: 'Provide the plan ID, numbered item ID and reviewed revision from cluster_plan_read.' };
+    if (!director || signoffPatch?.state !== 'met') return { ok: false, code: 'operator_gated', message: 'Only a Director met sign-off can complete a plan item.' };
+    const { planId, itemId, revision } = args.completePlan;
+    if (typeof planId !== 'string' || typeof itemId !== 'string' || typeof revision !== 'string' || !/^[a-f0-9]{64}$/.test(revision) || !clusterPlanStore.planItemId(itemId) || clusterPlanStore.planItemId(itemId) !== itemId.toLowerCase()) {
+      return { ok: false, code: 'invalid_link', message: 'Provide the plan ID, numbered item ID and reviewed revision from cluster_plan_read.' };
+    }
+    const tasks = await taskLedger.load(board.cwd, board.boardKey);
+    const task = tasks.find(t => t.id === args.id);
+    if (!task) return { ok: false, code: 'not_found', message: 'The board task no longer exists.' };
+    if (task.status === 'archived') return { ok: false, code: 'operator_gated', message: 'Archived tasks cannot complete plan items. Reopen the task first.' };
+    const plan = await clusterPlanBridge.readClusterPlan(ctx.clusterId);
+    const links = task.links.filter(link => link.kind === 'plan');
+    const linkedPlans = links.map(link => link.ref);
+    const linkedItemIds = links.map(link => link.label && clusterPlanStore.planItemId(link.label)).filter((id): id is string => Boolean(id));
+    const titleId = clusterPlanStore.planItemId(task.title);
+    const resolvedId = linkedItemIds.length ? (new Set(linkedItemIds).size === 1 ? linkedItemIds[0] : undefined) : titleId;
+    if (!plan || plan.planId !== planId || (linkedPlans.length > 0 && (new Set(linkedPlans).size !== 1 || linkedPlans[0] !== planId)) || resolvedId !== itemId.toLowerCase()) {
+      return { ok: false, code: 'invalid_link', message: 'The task and the currently attached plan must identify the same numbered item. Read them again.' };
+    }
+    const matches = clusterPlanStore.extractPlanCheckboxItems(plan.body).filter(item => clusterPlanStore.planItemId(item.text) === itemId.toLowerCase());
+    if (matches.length !== 1) return { ok: false, code: 'invalid_link', message: 'The numbered item must identify exactly one checkbox.' };
+    const currentRevision = clusterPlanStore.planRevision(plan.body);
+    const receipt = task.signoff?.planCompletion;
+    const sameReceipt = receipt && receipt.planId === planId && receipt.itemId.toLowerCase() === itemId.toLowerCase() && receipt.revision === revision;
+    if (task.signoff?.state === 'partial' && task.signoff.summary?.startsWith('Plan completion pending for ') && !sameReceipt) {
+      return { ok: false, code: 'invalid_link', message: 'The pending completion belongs to another reviewed plan item or revision. Resolve it before signing off.' };
+    }
+    const alreadyApplied = sameReceipt && task.signoff?.state === 'met' && currentRevision === receipt.completedRevision && matches[0].checked;
+    if (alreadyApplied && (task.status === 'done' || (task.status === 'review' && (await readSettings()).autoMarkDoneOnMetSignoff === false))) return { ok: true, task };
+    if (task.status === 'done' && task.signoff?.state === 'met' && currentRevision === revision && matches[0].checked) return { ok: true, task };
+    const recoveringCompleted = sameReceipt && task.signoff?.state === 'partial' && currentRevision === receipt.completedRevision && matches[0].checked;
+    if (currentRevision !== revision && !recoveringCompleted && !alreadyApplied) return { ok: false, code: 'invalid_link', message: 'The plan changed since review. If completion is pending, replace that partial sign-off first; then read and review the plan again.' };
+    const completion = sameReceipt && (task.signoff?.state === 'partial' || alreadyApplied) ? receipt : {
+      planId, itemId, revision,
+      completedRevision: clusterPlanStore.planRevision(clusterPlanStore.checkedPlanBody(plan.body, matches[0].lineIndex)),
+    };
+    // A visible partial sign-off is a durable recovery marker. If the process
+    // stops between the two stores, retrying the same action finishes it.
+    const pendingSummary = `Plan completion pending for ${itemId}; retry the met sign-off.`;
+    const pending = await peerTaskUpdate(ctx, {
+      id: args.id, ...(task.status === 'done' ? {} : { status: 'review' as const }), expectedStatus: task.status, expectedTaskLink: { title: task.title, links: task.links }, pendingPlan: completion,
+      signoff: { state: 'partial', summary: pendingSummary },
+    }, broadcastCluster);
+    if (!pending.ok) return pending;
+    let completed: clusterPlanBridge.PlanTickResult;
+    try { completed = await clusterPlanBridge.completePlanItem(ctx.clusterId, planId, itemId, { text: matches[0].text, checked: matches[0].checked, revision: currentRevision }); }
+    catch (err) { return { ok: false, code: 'write_failed', message: `Plan completion pending; retry the same met sign-off: ${err instanceof Error ? err.message : String(err)}` }; }
+    if (!completed.ok) return { ok: false, code: 'invalid_link', message: `Plan completion pending; ${completed.message} Read the board and plan. If changed, replace the pending partial sign-off and review again; otherwise retry using its saved identity and revision.` };
+    broadcastCluster({ type: 'cluster_plan_changed', clusterId: ctx.clusterId, body: completed.body, updatedAt: completed.updatedAt, bodyLength: completed.body.length });
+    try {
+      const signed = await peerTaskUpdate(ctx, { id: args.id, ...(task.status !== 'done' && args.status ? { status: args.status } : {}), expectedStatus: task.status === 'done' ? 'done' : 'review', pendingPlan: completion, ...(args.notes !== undefined ? { notes: args.notes } : {}), ...(args.release !== undefined ? { release: args.release } : {}), signoff: args.signoff, finishPending: pendingSummary, expectedTaskLink: { title: task.title, links: task.links } }, broadcastCluster);
+      if (!signed.ok) return { ok: false, code: 'write_failed', message: `Plan item completed but board sign-off remains pending. Retry the same met sign-off: ${signed.message}` };
+      return signed;
+    } catch (err) {
+      return { ok: false, code: 'write_failed', message: `Plan item completed but board sign-off remains pending. Retry the same met sign-off: ${err instanceof Error ? err.message : String(err)}` };
+    }
+  });
   const autoMarkDone = director && signoffPatch?.state === 'met' && (await readSettings()).autoMarkDoneOnMetSignoff !== false;
   let rejection: PeerTaskRejection | null = null;
   const result = await persistLedgerMutation(ctx.workflowId, board.cwd, 'update', (tasks) => {
     const previous = tasks.find((task) => task.id === args.id);
+    if (previous && args.expectedStatus && previous.status !== args.expectedStatus) {
+      rejection = { ok: false, code: 'invalid_status', message: 'The task status changed. Read the board before retrying.' };
+      return null;
+    }
+    if (previous && args.expectedTaskLink && (previous.title !== args.expectedTaskLink.title || JSON.stringify(previous.links) !== JSON.stringify(args.expectedTaskLink.links))) {
+      rejection = { ok: false, code: 'invalid_link', message: 'The task link changed. Read the board and plan before retrying.' };
+      return null;
+    }
+    const previousPending = previous?.signoff?.state === 'partial' && previous.signoff.summary?.startsWith('Plan completion pending for ');
+    if (args.finishPending && (!previousPending || previous?.signoff?.summary !== args.finishPending)) {
+      rejection = { ok: false, code: 'write_failed', message: 'The pending board sign-off changed; read the board and plan before retrying.' };
+      return null;
+    }
+    if (previousPending && signoffPatch?.state === 'met' && !args.finishPending) {
+      rejection = { ok: false, code: 'invalid_link', message: 'Plan completion is pending. Read the plan and retry the met sign-off with completePlan.' };
+      return null;
+    }
     const close = director && autoMarkDone && signoffPatch?.state === 'met' && previous?.status !== 'done' && previous?.status !== 'archived';
     const applied = taskLedger.applyUpdate(tasks, args.id, {
       ...(close ? { directorClosure: { byWorkflowId: ctx.workflowId, at: signoffPatch!.at } } : {}),
