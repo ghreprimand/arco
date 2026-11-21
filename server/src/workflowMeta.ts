@@ -1,3 +1,4 @@
+import { normalizedWorkflowEffort } from './effortValidation.js';
 import type { PrimaryConfig } from './primitives/seedWorker.js';
 import { beginConversationWrite } from './conversationActivity.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
@@ -310,7 +311,7 @@ export function workflowConfigFromMeta(meta: WorkflowMeta, cwd: string): Workflo
     // Preserve the default-claude invariant (undefined ≡ claude).
     primaryProvider: meta.primaryProvider === 'claude' ? undefined : meta.primaryProvider,
     primaryModel: meta.primaryModel,
-    primaryEffort: meta.primaryEffort,
+    primaryEffort: normalizedWorkflowEffort(meta.primaryProvider, meta.primaryModel, meta.primaryEffort),
     skipPermissions: true,
     ...(meta.providerAccountRef ? { providerAccountRef: meta.providerAccountRef } : {}),
     // — transport overrides (HIGH: dropping these runs the WRONG transport) —
@@ -377,6 +378,7 @@ export async function readMeta(cwd: string, wfid: string): Promise<WorkflowMeta 
     delete parsed.orchestratorProvider;
     delete parsed.orchestratorModel;
     delete parsed.orchestratorEffort;
+    parsed.primaryEffort = normalizedWorkflowEffort(parsed.primaryProvider, parsed.primaryModel, parsed.primaryEffort);
     return parsed;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;

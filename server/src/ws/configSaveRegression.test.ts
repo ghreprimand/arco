@@ -48,3 +48,32 @@ test('Claude rejects malformed effort updates before changing live or saved sett
     f.wf.primary.provider='codex';await f.update({effort:'ultra'});assert.equal(f.wf.primary.effort,'ultra');
   } finally {f.close();}
 });
+
+
+test('invalid saved effort is repaired on recovery and rejected on a later update', async () => {
+  const { mkdir, writeFile } = await import('node:fs/promises');
+  const { readMeta, workflowConfigFromMeta } = await import('../workflowMeta.js');
+  const { derivePrimaryConfig } = await import('./turnEngine.js');
+  const id = crypto.randomUUID(), cwd = join(root, 'invalid-effort');
+  const dir = join(cwd, '.arco', 'workflows', id); await mkdir(dir, { recursive: true });
+  await writeFile(join(dir, 'meta.json'), JSON.stringify({ workflowId: id, name: 'fixture', cwd, primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'normal', cliSessions: [] }));
+  const saved = await readMeta(cwd, id); assert.ok(saved);
+  const config = workflowConfigFromMeta(saved, cwd);
+  assert.equal(config.primaryEffort, 'medium');
+  assert.equal(derivePrimaryConfig(config).effort, 'medium');
+  const stale = { ...config, primaryEffort: 'normal' } as any;
+  assert.equal(derivePrimaryConfig(stale).effort, 'medium');
+  assert.equal(stale.primaryEffort, 'medium');
+  const restricted = { ...config, primaryModel: 'haiku', primaryEffort: 'max' } as any;
+  assert.equal(derivePrimaryConfig(restricted).effort, 'high');
+  const f = fixture();
+  try {
+    await f.update({ effort: 'normal' });
+    assert.equal(f.wf.primary.effort, 'low');
+    assert.ok(f.sent.some((m) => m.type === 'error'));
+    f.sent.length = 0;
+    await f.update({ model: 'haiku', effort: 'max' });
+    assert.equal(f.wf.primary.model, 'sonnet');
+    assert.ok(f.sent.some((m) => m.type === 'error'));
+  } finally { f.close(); }
+});

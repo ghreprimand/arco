@@ -1,3 +1,4 @@
+import { normalizedWorkflowEffort } from '../effortValidation.js';
 import { resolveWorkflowSkillPins } from '../clusterSkills.js';
 import { ensureWorkflowMetadata, providerConversationState, saveProviderSession, announceReplacementConversation, markConversationReading, reportHistoryLoadFailure } from '../providerConversation.js';
 import { mintHandoffHistoryCapability } from '../http/handoffHistoryRoutes.js';
@@ -398,6 +399,7 @@ export function startSessionWatcher(workflowId: string, wf: WorkflowState, cwd: 
 }
 
 export function derivePrimaryConfig(config: WorkflowConfig): PrimaryConfig {
+  config.primaryEffort = normalizedWorkflowEffort(config.primaryProvider, config.primaryModel, config.primaryEffort);
   return {
     provider: config.primaryProvider ?? 'claude',
     model: config.primaryModel,

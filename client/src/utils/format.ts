@@ -1,4 +1,4 @@
-import { CODEX_MODEL_INFO, CLAUDE_MODEL_EFFORTS, ollamaEffortsFor } from '@arco/shared';
+import { CODEX_MODEL_INFO, CLAUDE_MODEL_EFFORTS, CLAUDE_EFFORTS, ollamaEffortsFor } from '@arco/shared';
 import type { TokenUsage, ProviderName, ModelName, EffortLevel, ClaudeCatalogSnapshot, CodexCatalogSnapshot, OllamaThinkingInfo } from '@arco/shared';
 
 // Ollama per-model graded-thinking levels, fed from the auth snapshot
@@ -116,7 +116,7 @@ export const DEFAULT_AUTO_COMPACT_THRESHOLD = 80_000;
 // fallback so models that stop at high are not offered unsupported levels.
 // An empty result means the UI should not show a separate effort control.
 export function effortsForProvider(provider: ProviderName | undefined): EffortLevel[] {
-  if (provider === 'claude') return ['low', 'medium', 'high', 'xhigh', 'max'];
+  if (provider === 'claude') return [...CLAUDE_EFFORTS];
   if (provider === 'codex') return ['low', 'medium', 'high'];
 
   // Ollama: `low` injects `/no_think` into the system prompt so Qwen-family

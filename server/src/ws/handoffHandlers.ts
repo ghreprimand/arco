@@ -1,3 +1,4 @@
+import { allowedWorkflowEfforts, normalizedWorkflowEffort } from '../effortValidation.js';
 import * as directorContinue from '../directorContinue.js';
 import { runningCodexLateCommands } from '../providers/codex-appserver/index.js';
 import { ensureWorkflowMetadata, providerConversationState, saveProviderSession } from '../providerConversation.js';
@@ -141,6 +142,10 @@ export async function handleHandoffRequest(
   const wf = workflows.get(msg.workflowId);
   if (!wf) {
     send(ws, { type: 'error', message: `Unknown workflow ${msg.workflowId.slice(0, 8)}` });
+    return;
+  }
+  if (msg.newPrimary && !allowedWorkflowEfforts(msg.newPrimary.provider, msg.newPrimary.model).includes(msg.newPrimary.effort)) {
+    send(ws, { type: 'error', message: 'The selected effort is not supported by this provider and model.' });
     return;
   }
   // Chat tabs are projectless: the reflection/summarizer runs as an Agent
@@ -812,6 +817,10 @@ export async function handleSpawnFromHere(
     send(ws, { type: 'error', message: `Unknown parent workflow ${msg.parentWorkflowId.slice(0, 8)}` });
     return;
   }
+  if (!allowedWorkflowEfforts(msg.newConfig.primaryProvider, msg.newConfig.primaryModel).includes(msg.newConfig.primaryEffort)) {
+    send(ws, { type: 'error', message: 'The selected effort is not supported by this provider and model.' });
+    return;
+  }
   // Chat tabs are projectless — the reflection and the spawned tab would run
   // Agent workers with project tools. Also refuse a chat-kind newConfig.
   if (isChatWorkflow(parent.config) || isChatWorkflow(msg.newConfig)) {
@@ -1417,6 +1426,9 @@ export async function handleRehydrateWorkflows(
   entries: Array<{ workflowId: string; config: WorkflowConfig; currentSessionId: string; lastSeq?: number; tail?: boolean }>,
 ): Promise<void> {
   for (const entry of entries) {
+    const originalEffort = entry.config.primaryEffort;
+    entry.config.primaryEffort = normalizedWorkflowEffort(entry.config.primaryProvider, entry.config.primaryModel, originalEffort);
+    const repairedEffort = entry.config.primaryEffort !== originalEffort;
     const existing = workflows.get(entry.workflowId);
     if (!existing && entry.config.incognito) {
       // Register before anything below can log the wfid.
@@ -1469,6 +1481,7 @@ export async function handleRehydrateWorkflows(
     }
     session.workflowIds.add(entry.workflowId);
     const wf = workflows.get(entry.workflowId)!;
+    if (repairedEffort) send(ws, { type: 'workflow_config_synced', workflowId: entry.workflowId, config: wf.config });
     if (!existing && wf.config.incognito && wf.config.voiceOperator) {
       // A new server epoch has no private history, even if the reconnecting
       // page still has old rows in memory. Do not imply that context survived.

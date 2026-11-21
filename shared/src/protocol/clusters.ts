@@ -422,7 +422,7 @@ export interface ClusterCreateWithFreshWorkersMessage extends ClusterCreationSet
   // when undefined, the server inherits from the anchor. Provider is fenced
   // to ClusterMemberProvider (cluster fence applies). Model is validated server-
   // side against the live catalog when populated; cold-catalog falls back
-  // to non-empty-string. Effort is passed through as-is (per-provider enum).
+  // to non-empty-string. Effort is checked against the provider and model.
   // Constraint: when `provider` differs from the anchor's provider, the
   // operator MUST also pass `model` (the anchor's model name doesn't make
   // sense on the new provider). UI enforces this; server rejects with

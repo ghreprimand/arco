@@ -650,6 +650,8 @@ export const CLAUDE_ALIAS_FALLBACK: Record<'opus' | 'sonnet' | 'haiku', string> 
 
 // Per-Claude-model effort sets. Static fallback and doc override for cases
 // where /v1/models is cold or lags the published model behavior.
+export const CLAUDE_EFFORTS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max'];
+
 export const CLAUDE_MODEL_EFFORTS: Record<string, EffortLevel[]> = {
   'claude-fable-5-2': ['low', 'medium', 'high', 'xhigh', 'max'],
   'claude-mythos-5-2': ['low', 'medium', 'high', 'xhigh', 'max'],

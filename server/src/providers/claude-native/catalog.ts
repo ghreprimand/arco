@@ -88,6 +88,11 @@ export function getCachedModelCapabilities(modelId: string): {
   };
 }
 
+// The picker uses the same cached model efforts when a catalog is available.
+export function getCachedClaudeModelEfforts(modelId: string): ClaudeCatalogModel['supportedEfforts'] | undefined {
+  return cache?.models.find((model) => model.id === modelId)?.supportedEfforts;
+}
+
 // True once a non-empty catalog has been fetched in this process. Callers use
 // it to decide whether an alias resolution is catalog-backed or a static guess.
 export function hasCatalogCache(): boolean {

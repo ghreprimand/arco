@@ -1,3 +1,4 @@
+import { allowedWorkflowEfforts, normalizedWorkflowEffort } from '../effortValidation.js';
 import { sanitizeNativeSubagents } from '@arco/shared';
 // `update_primary_config` handler — live per-tab edits to the primary worker's
 // model / effort / account + the per-workflow toggles (transports, efficiency
@@ -35,11 +36,17 @@ export async function handleUpdatePrimaryConfig(
     return;
   }
 
-  if (wf.primary.provider === 'claude' && msg.effort !== undefined
-    && !['low', 'medium', 'high', 'xhigh', 'max'].includes(msg.effort)) {
+  const proposedModel = msg.model ?? wf.primary.model;
+  const allowedEfforts = allowedWorkflowEfforts(wf.primary.provider, proposedModel);
+  if (msg.effort !== undefined && !allowedEfforts.includes(msg.effort)) {
+    const label = wf.primary.provider === 'claude' ? 'Claude' : 'Provider';
     send(ws, { type: 'error', workflowId: msg.workflowId,
-      message: 'Claude effort must be low, medium, high, xhigh or max; no settings were changed.' });
+      message: `${label} effort must be ${allowedEfforts.join(', ')}; no settings were changed.` });
     return;
+  }
+  if (msg.model !== undefined && msg.effort === undefined) {
+    const next = normalizedWorkflowEffort(wf.primary.provider, proposedModel, wf.primary.effort);
+    if (next !== wf.primary.effort) msg = { ...msg, effort: next };
   }
 
   const proposedGoal = msg.goal === undefined ? wf.config.goal : capGoal(msg.goal);

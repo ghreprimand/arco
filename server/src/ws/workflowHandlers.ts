@@ -1,3 +1,4 @@
+import { allowedWorkflowEfforts, normalizedWorkflowEffort } from '../effortValidation.js';
 import { clearLocalFileMedia } from '../providers/localFileMedia.js';
 import { rehydrateOneWorkflow } from './handoffHandlers.js';
 import { isAutoCompactionPolicy, normalizeAutoHandoff, normalizeOutputStyle, removedProviderReason, resolveAutoCompactionPolicy } from '@arco/shared';
@@ -226,6 +227,12 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
     send(ws, { type: 'error', message: removedProviderReason(provider) ?? `Unsupported provider: ${provider}` });
     return;
   }
+  if (!config.resumeWorkflowId && config.primaryEffort !== undefined &&
+    !allowedWorkflowEfforts(provider, config.primaryModel).includes(config.primaryEffort)) {
+    send(ws, { type: 'error', message: 'The selected effort is not supported by this provider and model.' });
+    return;
+  }
+  config.primaryEffort = normalizedWorkflowEffort(provider, config.primaryModel, config.primaryEffort);
   const primary = derivePrimaryConfig(config);
   const manager = new WorkerManager();
   // docs/PROVIDERS.md - fact-force defaults OFF for new tabs.

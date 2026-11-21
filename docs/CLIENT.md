@@ -33,7 +33,7 @@ HISTORY advances its saved-event cursor even when a page contains no narrative r
 
 Open task drawers use the live ledger row. Snapshot changes refresh comments, runs and dependencies; a new selection clears the previous details while loading.
 
-Opening a FILES or CONTENT command-palette result hides the palette while the file viewer is open. Closing the viewer restores the query and selection.
+Opening a FILES or CONTENT command-palette result hides the palette while the file viewer is open. Closing the viewer restores the query and selection. A restored workflow with an invalid saved effort uses a valid level for its provider and model; unsupported new effort values are refused.
 
 PREVIEW fits within its panel at the current interface text size. Cluster CAPTURE SCREENSHOT, CHECK CONSOLE and CHECK NETWORK target the member in view with the selected capture viewport. Capture controls are disabled without a sender.
 

@@ -1,3 +1,4 @@
+import { allowedWorkflowEfforts } from '../effortValidation.js';
 import * as directorContinue from '../directorContinue.js';
 import { buildReplacementHistory, replacementHistoryNotice } from '../replacementHistory.js';
 import { takeReplacementHistoryPreview } from './transcriptWorkerHandlers.js';
@@ -1524,6 +1525,9 @@ export async function handleClusterCreateWithFreshWorkers(
   const modelProblem = await templateModelRefusal(choice, msg.model, isKnownCatalogModel)
     ?? await memberAccountRefusal(choice.provider, msg.providerAccountRef, sourceCwd, isKnownCodexAccount);
   if (modelProblem) { send(ws, { type: 'error', message: `cluster_create_with_fresh_workers rejected: ${modelProblem}` }); return; }
+  if (msg.effort !== undefined && !allowedWorkflowEfforts(choice.provider, msg.model ?? source.config.primaryModel).some((level) => level === msg.effort)) {
+    send(ws, { type: 'error', message: 'cluster_create_with_fresh_workers rejected: invalid_effort' }); return;
+  }
   const n = Math.max(1, Math.min(4, Math.floor(msg.additionalCount)));
   const freshAdded = Array.from({ length: n }, () => providerResolution.provider as string);
   const freshDisabled = await disabledClusterProvider([inheritedSourceProvider, ...freshAdded]);
@@ -1672,6 +1676,9 @@ async function createClusterFromScratch(
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] ${modelProblem}` });
       return;
     }
+    if (m.effort !== undefined && !allowedWorkflowEfforts(m.provider, m.model).some((level) => level === m.effort)) {
+      send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] invalid_effort` }); return;
+    }
     if (m.tier !== undefined && !clusterStore.isMemberTier(m.tier)) {
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] invalid_tier:${m.tier}` });
       return;
@@ -1803,6 +1810,9 @@ export async function handleClusterAddFreshWorkers(
     ?? await memberAccountRefusal(choice.provider, msg.providerAccountRef, cluster.cwd, isKnownCodexAccount)
     ?? memberTuningRefusal(msg);
   if (modelProblem) { send(ws, { type: 'error', message: `cluster_add_fresh_workers rejected: ${modelProblem}` }); return; }
+  if (msg.effort !== undefined && !allowedWorkflowEfforts(choice.provider, msg.model ?? template.config.primaryModel).some((level) => level === msg.effort)) {
+    send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: invalid_effort' }); return;
+  }
   if (accessMode === 'isolated' && providerResolution.provider !== 'claude') {
     send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: isolated_requires_claude_native' });
     return;
@@ -1999,6 +2009,9 @@ export async function handleClusterMemberReplace(
     ?? memberTuningRefusal(msg)
     ?? replaceIdentityRefusal(cluster, msg);
   if (modelProblem) { send(ws, { type: 'error', message: `cluster_member_replace rejected: ${modelProblem}` }); return; }
+  if (msg.effort !== undefined && !allowedWorkflowEfforts(choice.provider, msg.model ?? source.config.primaryModel).some((level) => level === msg.effort)) {
+    send(ws, { type: 'error', message: 'cluster_member_replace rejected: invalid_effort' }); return;
+  }
   if (providerResolution.provider !== inheritedProvider) {
     const replaced = [providerResolution.provider as string];
     const others = cluster.members.filter((id) => id !== msg.workflowId).map(memberProvider);
