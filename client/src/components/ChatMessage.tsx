@@ -550,6 +550,14 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
   }, [jobCwd, writtenFiles, jobId]);
 
   const operatorLabel = useOperatorLabel();
+  if (isSystem && /^\[SKILL\] (Applied|Loaded): /.test(message.content)) {
+    return <div data-help="chat.message.system" style={{ display: 'flex', alignItems: 'baseline', gap: '8px', padding: '3px 0', color: 'var(--color-fg-muted)', fontSize: '12px', lineHeight: 1.4 }}>
+      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{message.content}</span>
+      {message.timestamp && <time className="display-font" style={{ flexShrink: 0, fontSize: '10px' }} title={new Date(message.timestamp).toLocaleString()}>
+        {new Date(message.timestamp).toLocaleTimeString(undefined, { hour12: false })}
+      </time>}
+    </div>;
+  }
   const chatPresentation = presentation === 'chat';
   const roleLabel = isUser
     ? chatPresentation ? 'YOU' : `> ${operatorLabel}`

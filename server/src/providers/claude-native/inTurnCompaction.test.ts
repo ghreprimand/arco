@@ -633,6 +633,7 @@ test('mixed server tools hold a steer once and defer compaction until cross-mess
   };
   const item = { content: 'Also include the follow-up.', clientMessageId: 'held-input' };
   const queue = [item];
+  const delivered: unknown[] = [];
   let drains = 0;
   const s = setup([
     mixed([thinking, local('a'), search]),
@@ -640,7 +641,7 @@ test('mixed server tools hold a steer once and defer compaction until cross-mess
     mixed([fetchResult, local('c')]),
     done(120_000, 'claude-fable-5-2'),
   ], {
-    config: { model: 'claude-fable-5-2', peekSteer: () => queue },
+    config: { model: 'claude-fable-5-2', peekSteer: () => queue, onSteerDelivered: (items: unknown[]) => delivered.push(...items) },
     countTokens: (messages) => JSON.stringify(messages).includes('web_fetch_tool_result') ? 120_000 : 720_000,
     steer: () => { drains++; return queue.splice(0); },
   });
@@ -650,6 +651,7 @@ test('mixed server tools hold a steer once and defer compaction until cross-mess
     assert.equal(s.requests.length, 4);
     assert.equal(drains, 1, 'the queue is read destructively only after every server call is answered');
     assert.equal(queue.length, 0);
+    assert.deepEqual(delivered, [item], 'the primary turn confirms the steer once after delivery');
     assert.equal(s.notices.filter(n => n === 'Message held until web search finishes.').length, 1);
     assert.equal(s.notices.filter(n => n.startsWith('Message held until ')).length, 1, 'another pending round adds no duplicate');
     assert.equal(s.summaries.length, 0, 'a high pending context is not compacted; the safe round is below threshold');

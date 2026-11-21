@@ -1219,6 +1219,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
       // here makes the cancel path self-sufficient. Idempotent — endPrimaryTurn
       // re-applies the same state on the trailing frame.
       busy: false,
+      skillActivity: [],
       turnStartedAt: undefined,
       turnMessages: {},
       messages: capMessages(j.messages.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m))),
@@ -1515,6 +1516,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   beginPrimaryTurn: (jobId, startedAt) =>
     set((s) => updateJob(s, jobId, () => ({
       busy: true,
+      skillActivity: [],
       turnStartedAt: startedAt,
       // Hide the cache-warmth timer while the turn runs — it'll restart from
       // 5:00 in endPrimaryTurn.
@@ -1529,6 +1531,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
   endPrimaryTurn: (jobId) =>
     set((s) => updateJob(s, jobId, (j) => ({
       busy: false,
+      skillActivity: [],
       turnStartedAt: undefined,
       turnMessages: {},
       lastTurnEndedAt: Date.now(),

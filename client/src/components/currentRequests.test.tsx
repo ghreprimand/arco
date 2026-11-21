@@ -227,7 +227,7 @@ test('B180: resume selections and out-of-order lists belong to the current folde
   const f=await fixture();const pending:Array<(r:Response)=>void>=[];g.fetch=()=>new Promise(r=>pending.push(r));
   try{
     const {Harness}=await component('./WorkflowCreator/index.tsx','',{},s=>harness(`
-      const {workDir}=props;const supportedProvider=true,providerReady=true,connected=true;const nameEdited=useRef(true),projectChoices=[];const setName=()=>{},projectNameForDirectory=()=>'';
+      const {workDir}=props;const researchStartPrefill=undefined,supportedProvider=true,providerReady=true,connected=true;const nameEdited=useRef(true),projectChoices=[];const setName=()=>{},projectNameForDirectory=()=>'';
       ${section(s,'  const [sessions,','  // Selecting a session')}
       ${section(s,'  const canLaunch =','\n',)}
       return <><button onClick={openResumeMode}>RESUME</button><button onClick={()=>setSelectedSessionId(sessions[0]?.sessionId)}>PICK</button><button disabled={!canLaunch}>LAUNCH</button><div>{sessions.map(s=>s.sessionId).join(',')}</div></>;
@@ -238,4 +238,26 @@ test('B180: resume selections and out-of-order lists belong to the current folde
     await f.render(Harness,{workDir:'C'});await act(async()=>pending[3](Response.json({sessions:[{sessionId:'C'}]})));await act(async()=>pending[2](Response.json({sessions:[{sessionId:'B'}]})));
     assert.ok(document.body.textContent?.endsWith('C'));assert.equal([...document.querySelectorAll('button')].find(b=>b.textContent==='LAUNCH')!.disabled,true);
   }finally{await f.close();}
+});
+
+test('skill details close on Escape or an outside press while conversation activity remains', async () => {
+  const f = await fixture();
+  try {
+    const { SkillActivityIndicator } = await component('./SkillActivityIndicator.tsx');
+    f.state.jobs.member = { config: { name: 'Reader' }, busy: true, skillActivity: [
+      { kind: 'applied', name: 'Proof', scope: 'project' }, { kind: 'loaded', name: 'Index', scope: 'builtin' },
+    ] };
+    await f.render(SkillActivityIndicator, { workflowId: 'member' });
+    const summary = document.querySelector('button')!;
+    const region = document.querySelector<HTMLElement>('[aria-label="Skill activity details"]')!;
+    await act(async () => summary.click());
+    assert.equal(region.hidden, false);
+    region.focus();
+    await act(async () => region.dispatchEvent(new f.dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    assert.equal(region.hidden, true);
+    assert.equal(document.activeElement, summary);
+    await act(async () => summary.click());
+    await act(async () => document.body.dispatchEvent(new f.dom.window.MouseEvent('click', { bubbles: true })));
+    assert.equal(summary.getAttribute('aria-expanded'), 'false');
+  } finally { await f.close(); }
 });

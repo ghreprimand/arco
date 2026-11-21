@@ -6,6 +6,9 @@ A complete tour of Arco capabilities, with links to subsystem contracts and
 controls. For installation and first session, see
 [Getting started](GETTING_STARTED.md).
 
+
+Skill activity appears below the conversation header during a turn. The control shows the selected member's skill name or a count; when only other members have activity, it shows their count. Open it for member names and Applied or Loaded skill names. Escape or an outside press closes the details. Applied means Arco delivered a skill body; Loaded means a known Arco skill file had a successful Read result. A marker stays in the transcript on reload. Claude Native reports completed Reads. Other paths can be silent; Codex shell commands are not counted as Loaded. Local provider mid-turn steering does not currently report a delivery confirmation for Applied. Listing or pinning alone is not a Loaded event.
+
 ## Workspace start and clusters
 
 | Feature | What it does | Details |

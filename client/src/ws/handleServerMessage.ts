@@ -1439,6 +1439,11 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // ghost workers and unstick the cancel button by finalizing
           // streaming messages when the server isn't busy.
           store.applyWorkflowSnapshot(msg.workflowId, msg.workers, msg.busy, msg.transcriptTail, msg.turnStartedAt);
+          useAppStore.setState(s => {
+            const job = s.jobs[msg.workflowId];
+            if (!job) return s;
+            return { jobs: { ...s.jobs, [msg.workflowId]: { ...job, skillActivity: msg.busy ? msg.skillActivity ?? [] : [] } } };
+          });
           store.setCodexLateCommands(msg.workflowId, () => msg.codexLateCommands ?? []);
           // Slot 2 — snapshot arrival is the signal that dismisses the
           // per-job SYNCING gate; no-op until a disconnect resets it.
@@ -2123,6 +2128,24 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           }
           break;
         }
+        case 'skill_activity': {
+          const { workflowId, kind, name, scope, turn } = msg;
+          useAppStore.setState(s => {
+            const job = s.jobs[workflowId];
+            if (!job || !job.busy || job.turnStartedAt !== turn) return s;
+            const activity = job.skillActivity ?? [];
+            if (activity.some(item => item.name === name && item.scope === scope)) return s;
+            return { jobs: { ...s.jobs, [workflowId]: { ...job, skillActivity: [...activity, { kind, name, scope, turn }] } } };
+          });
+          store.addMessage(workflowId, {
+            id: crypto.randomUUID(), role: 'system',
+            content: `[SKILL] ${kind === 'applied' ? 'Applied' : 'Loaded'}: ${name}`,
+            isStreaming: false, eventSeq: (msg as { seq?: number }).seq,
+            timestamp: eventTime(msg) ?? Date.now(),
+          });
+          break;
+        }
+
         case 'system_notice': {
           if (msg.content.startsWith('[PLAN DRAFT NOT STARTED]') || (msg.content.startsWith('[TURN BLOCKED]') && useAppStore.getState().jobs[msg.workflowId]?.pendingPlanCapture === 'review')) store.setPendingPlanCapture(msg.workflowId, null);
           const ask = parseAskNotice(msg.content);

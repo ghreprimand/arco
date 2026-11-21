@@ -165,7 +165,8 @@ export function recordContextUsage(workflowId: string, message: ServerMessage): 
 
 // Track only live starts. The busy owner clears the timestamp on release or STOP.
 function recordLiveTurnStart(wf: WorkflowState | undefined, message: ServerMessage): void {
-  if (wf?.busy && message.type === 'primary_turn_started' && Number.isFinite(message.startedAt)) wf.turnStartedAt = message.startedAt;
+  if (wf?.busy && message.type === 'primary_turn_started' && Number.isFinite(message.startedAt)) { wf.turnStartedAt = message.startedAt; wf.skillActivity = []; }
+  if (wf && message.type === 'primary_turn_ended') wf.skillActivity = [];
 }
 
 function observeResearchMessage(workflowId: string, message: ServerMessage): void {

@@ -184,6 +184,7 @@ export interface JobState {
   currentSessionId: string;
   config: WorkflowConfig;
   messages: ChatMessage[];
+  skillActivity?: Array<{ kind: 'applied' | 'loaded'; name: string; scope: 'project' | 'global' | 'builtin'; turn: number }>;
   claudeNativePendingQuestionIds?: string[];
   workers: Record<string, WorkerState>;
   reviews: ReviewEntry[];

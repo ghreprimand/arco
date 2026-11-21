@@ -100,3 +100,33 @@ test('Gemini sub-agent updates create one conversation line per tool id on repla
     assert.deepEqual(rows[0].toolUse?.input, { Role: 'Researcher', Prompt: 'Read the brief' });
   } finally { useAppStore.getState().removeJob(id); useAppStore.persist.setOptions({ storage }); }
 });
+
+test('skill activity stays in the transcript after replay and clears when the turn ends', () => {
+  const storage = useAppStore.persist.getOptions().storage;
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
+  const id = 'skill-activity-replay';
+  try {
+    useAppStore.getState().createJob(id, { name: 'fixture', workingDirectory: '/fixture', skipPermissions: false, primaryProvider: 'claude', primaryModel: 'claude-opus-4-8', primaryEffort: 'low' });
+    handleServerMessage({ type: 'primary_turn_started', workflowId: id, startedAt: 100 }, ctx);
+    handleServerMessage({ type: 'skill_activity', workflowId: id, kind: 'loaded', name: 'Example', scope: 'builtin', turn: 100 }, ctx);
+    assert.equal(useAppStore.getState().jobs[id].skillActivity?.[0]?.name, 'Example');
+    useAppStore.setState(s => ({ jobs: { ...s.jobs, [id]: { ...s.jobs[id], skillActivity: [] } } }));
+    handleServerMessage({ type: 'workflow_state_snapshot', workflowId: id, workers: {}, busy: true, turnStartedAt: 100, transcriptTail: [], skillActivity: [{ kind: 'loaded', name: 'Example', scope: 'builtin', turn: 100 }] }, ctx);
+    assert.equal(useAppStore.getState().jobs[id].skillActivity?.[0]?.name, 'Example');
+    handleServerMessage({ type: 'primary_turn_ended', workflowId: id, endedAt: 200 }, ctx);
+    assert.deepEqual(useAppStore.getState().jobs[id].skillActivity, []);
+    assert.ok(useAppStore.getState().jobs[id].messages.some(m => m.content === '[SKILL] Loaded: Example'));
+    useAppStore.getState().removeJob(id);
+    useAppStore.getState().createJob(id, { name: 'fixture', workingDirectory: '/fixture', skipPermissions: false, primaryProvider: 'claude', primaryModel: 'claude-opus-4-8', primaryEffort: 'low' });
+    handleServerMessage({ type: 'replay_batch', workflowId: id, events: [
+      { type: 'primary_turn_started', workflowId: id, startedAt: 100, seq: 1 },
+      { type: 'skill_activity', workflowId: id, kind: 'loaded', name: 'Example', scope: 'builtin', turn: 100, seq: 2 },
+      { type: 'primary_turn_ended', workflowId: id, endedAt: 200, seq: 3 },
+    ] }, ctx);
+    assert.deepEqual(useAppStore.getState().jobs[id].skillActivity, []);
+    assert.ok(useAppStore.getState().jobs[id].messages.some(m => m.content === '[SKILL] Loaded: Example'));
+  } finally {
+    useAppStore.getState().removeJob(id);
+    useAppStore.persist.setOptions({ storage });
+  }
+});

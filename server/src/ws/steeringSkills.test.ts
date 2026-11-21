@@ -19,12 +19,23 @@ for (const scope of ['project', 'builtin'] as const) test(`B122: mid-turn steeri
   const cwd = join(home, scope), id = `steer-${scope}`;
   await fs.mkdir(join(cwd, '.arco', 'skills', 'fixture'), { recursive: true });
   await fs.writeFile(join(cwd, '.arco', 'skills', 'fixture', 'SKILL.md'), '---\nname: Fixture rule\ndescription: A synthetic rule\n---\nKeep the fixture rule in this message.\n');
-  const ws = { readyState: 1, send: () => {} } as unknown as WebSocket;
+  const notices: any[] = [];
+  const ws = { readyState: 1, send: (raw: string) => notices.push(JSON.parse(raw)) } as unknown as WebSocket;
   const wf = { config: { name: 'Fixture', workingDirectory: cwd, claudeTransport: 'native' }, primary: { provider: 'claude', model: 'claude-opus-4-8' }, busy: true, observers: new Set([ws]), queue: { steering: [], followUp: [] } } as unknown as WorkflowState;
   workflows.set(id, wf); workflowCwds.set(id, cwd); await initWorkflowStore(cwd, id);
   try {
     await engine.handleUserMessage(ws, {} as Session, id, 'Use this selected skill.', 'fixture-message', undefined, true, 'steer', undefined, [{ scope, slug: scope === 'project' ? 'fixture' : 'grill-me' }]);
+    assert.equal(wf.queue.steering[0].activitySkills?.length, 1, 'resolved names travel with the queued item');
+    assert.ok(notices.some(message => message.type === 'system_notice' && message.content.includes('Prepared 1 operator-picked skill')));
+    const events: string[] = [];
+    const { newSkillActivityEmitter } = await import('../skillActivity.js');
+    const emit = newSkillActivityEmitter((kind, skill) => events.push(`${kind}:${skill.name}`));
+    assert.deepEqual(events, [], 'resolving or queueing does not report delivery');
     const delivered = engine.drainSteerForWorker(id, ws);
+    assert.deepEqual(events, [], 'draining is not yet a confirmed delivery');
+    engine.emitDeliveredSteerSkills(delivered, emit);
+    engine.emitDeliveredSteerSkills(delivered, emit);
+    assert.equal(events.length, 1, 'confirmed delivery is recorded once');
     assert.equal(delivered.length, 1);
     assert.equal(delivered[0].content.match(/<arco-skill /g)?.length, 1);
     if (scope === 'project') assert.match(delivered[0].content, /Keep the fixture rule in this message/);
@@ -45,6 +56,7 @@ for (const { scope, slash } of [{ scope: 'project', slash: false }, { scope: 'bu
     await engine.handleUserMessage(ws, {} as Session, id, slash ? '/grill-me Use this selected skill.' : 'Use this selected skill.', 'original', undefined, true, 'steer', undefined, slash ? undefined : picks);
     const { handleCancelQueuedMessage } = await import('./workflowHandlers.js');
     handleCancelQueuedMessage(ws, id, 'original', 'edit-request');
+    assert.ok(!messages.some(message => message.type === 'skill_activity'), 'cancelled queued skills are not reported as delivered');
     const item = messages.find(m => m.type === 'queued_message_edit_result')?.item;
     assert.deepEqual(item?.pickedSkills, picks);
     assert.equal(item.expandedContext, undefined);

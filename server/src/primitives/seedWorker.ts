@@ -28,6 +28,7 @@ import * as clusterBudget from '../clusterBudget.js';
 import * as clusterStore from '../clusterStore.js';
 import * as stuckBreaker from '../workers/stuckBreaker.js';
 import { extractReadPath, recordSkillRead } from '../skillUsage.js';
+import { confirmedSkillRead, type KnownSkill, type ActivitySkill } from '../skillActivity.js';
 import { addGoalRunTokens } from '../goalRun.js';
 import { workflows } from '../server/state.js';
 import { isShellToolName } from '@arco/shared';
@@ -46,6 +47,8 @@ export interface PrimaryConfig {
 export interface TurnContext {
   workflowId: string;
   cwd: string;
+  knownSkills?: KnownSkill[];
+  loadedSkill?: (skill: ActivitySkill) => void;
   manager: WorkerManager;
   broadcast: (msg: ServerMessage) => void;
   // Optional — when present, `worker_tool_use` events are inspected for
@@ -551,6 +554,8 @@ export function runPrimaryTurn(
         return;
       }
       case 'worker_tool_use': {
+        const loaded = confirmedSkillRead(ev.tool, ev.input, ev.status, ctx.cwd, ctx.knownSkills ?? []);
+        if (loaded) ctx.loadedSkill?.(loaded);
         // Preserve the provider's tool-use id when supplied so chat-side
         // action cards can correlate with the corresponding assistant block.
         // Generate one only for providers that do not supply an id.

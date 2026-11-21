@@ -76,6 +76,7 @@ import { PreviewAutoDetect } from '../previewAutoDetect.js';
 import { PrimaryBackgroundTracker } from '../primaryBackgroundTracker.js';
 import { renderTranscript,summarizePriorTurns } from '../primitives/exportContext.js';
 import { runPrimaryTurn,type PrimaryConfig } from '../primitives/seedWorker.js';
+import { newSkillActivityEmitter, emitDeliveredSkills, skillsDeliveredInPrompt, type ActivitySkill, type KnownSkill } from '../skillActivity.js';
 import { ollamaContextUsage } from '../providers/ollamaTokens.js';
 import { evaluateGoalRun, goalRunContinuePrompt, GOAL_RUN_STOP_TEXT, type GoalRunState } from '../goalRun.js';
 import { isAvailable } from '../quota.js';
@@ -1284,6 +1285,10 @@ export function broadcastQueueUpdate(workflowId: string): void {
 // past the hook — by design.
 const originalSteerItems = new WeakMap<SteerItem, QueueItem>();
 
+export function emitDeliveredSteerSkills(items: SteerItem[], emit: (kind: 'applied' | 'loaded', skill: ActivitySkill) => void): void {
+  for (const item of items) emitDeliveredSkills(originalSteerItems.get(item)?.activitySkills ?? [], emit);
+}
+
 export function drainSteerForWorker(workflowId: string, ws: WebSocket, deliveryProvider?: WorkflowConfig['primaryProvider']): SteerItem[] {
   const wf = workflows.get(workflowId);
   if (!wf || wf.queue.steering.length === 0 || wf.primaryTurn?.holdSteer || wf.queue.steering.some((q) => q.interrupt)) return [];
@@ -1616,10 +1621,14 @@ export async function handleUserMessage(
       .map(({ scope, slug }) => ({ scope, slug })) : undefined;
   pickedSkills = editPickedSkills;
 
+  let resolvedPickNames: ActivitySkill[] = [];
+  let queuedSkillNames: ActivitySkill[] = [];
+
   // A synchronous provider drain cannot load one-shot skills. Resolve them
   // before admitting a busy send; both drain paths then carry the same block.
   if (wf.busy && pickedSkills?.length) {
-    const selectedBlock = await resolvePickedSkillsBlock(pickedSkills);
+    const selectedBlock = await resolvePickedSkillsBlock(pickedSkills, true);
+    queuedSkillNames = resolvedPickNames;
     if (selectedBlock) expandedContext = `${expandedContext ?? ''}\n\n${selectedBlock}`;
     pickedSkills = undefined;
   }
@@ -1675,7 +1684,7 @@ export async function handleUserMessage(
     }
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
     const queuedAttachments = [...new Set([...(attachments ?? []), ...contextAttachments])];
-    const queuedItem = { ...(wf.primary.provider === 'antigravity-cli' && opts?.operatorInitiated === true ? { operatorInitiated: true } : {}), ...(geminiMember && opts?.geminiSend ? { geminiSend: opts.geminiSend } : {}), ...(opts?.operatorAction === true ? { operatorAction: true } : {}), clusterBusyReminder: opts?.clusterBusyReminder, automaticKind: opts?.automaticKind, content, attachments: isolatedMember || !queuedAttachments.length ? undefined : queuedAttachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
+    const queuedItem = { ...(wf.primary.provider === 'antigravity-cli' && opts?.operatorInitiated === true ? { operatorInitiated: true } : {}), ...(geminiMember && opts?.geminiSend ? { geminiSend: opts.geminiSend } : {}), ...(opts?.operatorAction === true ? { operatorAction: true } : {}), clusterBusyReminder: opts?.clusterBusyReminder, automaticKind: opts?.automaticKind, content, attachments: isolatedMember || !queuedAttachments.length ? undefined : queuedAttachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, activitySkills: queuedSkillNames, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
     arr.push(queuedItem);
     opts?.onBusyQueued?.();
     send(ws, {
@@ -1763,6 +1772,7 @@ export async function handleUserMessage(
   if (!fromQueue) setTurnOrigin(workflowId, opts?.operatorAction === true);
   let activeOllamaInputSeqs: number[] = [];
   let activeInputClientIds: string[] = [];
+  let promptQueuedSkills: ActivitySkill[] = [];
   if (fromQueue) {
     const drained = takeQueuedTurn(wf.queue);
     if (drained.length === 0) return;
@@ -1785,6 +1795,7 @@ export async function handleUserMessage(
     expandedContext = mergedRefs.length > 0 ? mergedRefs : undefined;
     clientMessageId = undefined;
     pickedSkills = drained.flatMap((d) => d.pickedSkills ?? []);
+    promptQueuedSkills = drained.flatMap((d) => d.activitySkills ?? []);
     initialInterrupt = drained.some((d) => d.interrupt);
   }
 
@@ -1853,6 +1864,7 @@ export async function handleUserMessage(
     promptExpandedContext = refs || undefined;
     promptClientMessageId = undefined;
     promptPickedSkills = [...(append ? promptPickedSkills ?? [] : []), ...drained.flatMap((d) => d.pickedSkills ?? [])];
+    promptQueuedSkills = [...(append ? promptQueuedSkills : []), ...drained.flatMap((d) => d.activitySkills ?? [])];
     primaryTurn.holdSteer = drained.some((d) => d.interrupt);
   };
 
@@ -1905,7 +1917,7 @@ export async function handleUserMessage(
   // applies regardless
   // of the DD7 trust gate above — picking IS the operator's vouch. A missing /
   // unreadable skill is skipped with a notice rather than failing the turn.
-  async function resolvePickedSkillsBlock(picks: typeof pickedSkills): Promise<string> {
+  async function resolvePickedSkillsBlock(picks: typeof pickedSkills, queued = false): Promise<string> {
     if (!projectContextEnabled || !picks?.length) return '';
     const resolved: Array<{ name: string; scope: 'project' | 'global' | 'builtin'; body: string }> = [];
     const missing: string[] = [];
@@ -1933,14 +1945,15 @@ export async function handleUserMessage(
         missing.push(`${pick.scope}:${pick.slug}`);
       }
     }
+    resolvedPickNames = resolved.map(({ name, scope }) => ({ name, scope }));
     const built = buildPickedSkillsBlock(resolved);
     const names = resolved.map((s) => s.name).join(', ');
     broadcastWorkflow(workflowId, {
       type: 'system_notice',
       workflowId,
       content:
-        `[SKILLS] Inlined ${resolved.length} operator-picked skill${resolved.length === 1 ? '' : 's'} ` +
-        `(${built.bytes} bytes) into this turn${names ? `: ${names}` : ''}.` +
+        `[SKILLS] ${queued ? 'Prepared' : 'Inlined'} ${resolved.length} operator-picked skill${resolved.length === 1 ? '' : 's'} ` +
+        `(${built.bytes} bytes) ${queued ? 'for the queued message' : 'into this turn'}${names ? `: ${names}` : ''}.` +
         (missing.length > 0 ? ` Skipped (not found): ${missing.join(', ')}.` : ''),
     });
     return built.text;
@@ -2017,7 +2030,9 @@ export async function handleUserMessage(
     while (true) {
       primaryTurn.clusterDispatch = undefined;
       hasFreshContextReading = false;
+      resolvedPickNames = [];
       const pickedSkillsBlock = await resolvePickedSkillsBlock(promptPickedSkills);
+      const turnAppliedSkills = skillsDeliveredInPrompt(wf.primary.provider, [...resolvedPickNames, ...promptQueuedSkills, ...(effectivePins?.resolved.skills ?? []).map(({name, scope}) => ({name, scope}))]);
       console.log(`[arco] [${workflowId.slice(0, 8)}] user_message received; starting primary turn (${wf.primary.provider}:${wf.primary.model}, resume=${wf.primarySessionId?.slice(0, 8) || 'none'})`);
 
       // Peer mailbox: don't auto-drain pre-turn. Just count what's pending and
@@ -2158,8 +2173,10 @@ export async function handleUserMessage(
       // Re-scanning per turn means edits / deletes via the UI take effect on
       // the next turn without restarting anything.
       let primarySkillsManifest = '';
+      let knownSkills: KnownSkill[] = [];
       if (projectContextEnabled || (wf.primary.provider === 'antigravity-cli' && !wf.primarySessionId)) try {
         const catalog = await listSkills(cwd, { includeProject });
+        knownSkills = [...catalog.project, ...catalog.global, ...catalog.builtin.filter((skill): skill is typeof skill & {path: string} => !!skill.path)].map(({name, scope, path}) => ({name, scope, path}));
         // A pinned body is already present in full; omit its progressive-
         // disclosure metadata to avoid duplicate/conflicting instructions.
         const pinnedKeys = new Set((wf.primary.provider === 'antigravity-cli' ? [] : effectivePins?.refs ?? []).map((s) => `${s.scope}:${s.slug}`));
@@ -2749,6 +2766,14 @@ export async function handleUserMessage(
       const executionInputSeqs = [...activeOllamaInputSeqs];
       const executionInputClientIds = [...activeInputClientIds];
       let dispatchedWorkerId: string | undefined;
+      let activityTurn = 0;
+      const emitSkillActivity = newSkillActivityEmitter((kind, skill) => {
+        if (activityTurn) {
+          const event = { type: 'skill_activity' as const, workflowId, kind, ...skill, turn: activityTurn };
+          (wf.skillActivity ??= []).push(event);
+          broadcastWorkflow(workflowId, event);
+        }
+      });
       const dispatchCurrent = () => workflows.get(workflowId) === wf && ownsBusy(wf, busyToken) && (dispatchedWorkerId === undefined || primaryTurn.workerId === dispatchedWorkerId);
       const geminiSkills = wf.primary.provider === 'antigravity-cli' && (!memberClusterId || opts?.automaticKind !== 'nudge') && !wf.primarySessionId ? primarySkillsManifest : '';
       const geminiAdditions = [visibleGeminiPlan, geminiSkills].filter(Boolean).join('\n\n');
@@ -2758,6 +2783,8 @@ export async function handleUserMessage(
           workflowId,
           cwd,
           manager: wf.manager,
+          knownSkills,
+          loadedSkill: (skill) => { if (dispatchCurrent()) emitSkillActivity('loaded', skill); },
           broadcast: (msg) => {
             // A Task child's final status still belongs to the card after STOP.
             if (!dispatchCurrent() && !deliverAfterTurnRevoked(msg)) return;
@@ -2766,6 +2793,10 @@ export async function handleUserMessage(
             const delivery = msg.type === 'primary_turn_started' && executionInputClientIds.length
               ? { ...msg, inputClientMessageIds: executionInputClientIds } : msg;
             send(ws, ollamaExecutionId ? stampOllamaExecution(delivery, ollamaExecutionId, executionInputSeqs) : delivery);
+            if (msg.type === 'primary_turn_started') {
+              activityTurn = msg.startedAt ?? Date.now();
+              emitDeliveredSkills(turnAppliedSkills, emitSkillActivity);
+            }
           },
           bgTracker: chatMode ? undefined : wf.bgTracker,
           notePotentialDevServerStart: chatMode ? undefined : (cmd, toolUseId) => { if (dispatchCurrent()) deps.previewAutoDetect.notePotentialDevServerStart(workflowId, cmd, toolUseId); },
@@ -2804,6 +2835,8 @@ export async function handleUserMessage(
             if (workflows.get(workflowId) === wf && (busyRevocations.get(wf) ?? 0) === interruptEpoch) requeueSteerForWorker(workflowId, ws, items, bucket);
           },
           onSteerDelivered: (items) => {
+            if (!dispatchCurrent()) return;
+            emitDeliveredSteerSkills(items, emitSkillActivity);
             const clientMessageIds = items.flatMap((item) => item.clientMessageId ? [item.clientMessageId] : []);
             if (clientMessageIds.length && policyTurnProvider === 'codex') broadcastWorkflow(workflowId, { type: 'turn_messages_delivered', workflowId, clientMessageIds, ...(items[0]?.deliveryId ? { deliveryId: items[0].deliveryId } : {}) });
           },

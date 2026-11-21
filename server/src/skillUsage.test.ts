@@ -70,3 +70,20 @@ test('readSkillUsage returns empty for a missing file', async () => {
   const usage = await readSkillUsage(path.join(os.tmpdir(), 'arco-nonexistent-usage-xyz.json'));
   assert.deepEqual(usage, {});
 });
+
+import { confirmedSkillRead, skillsDeliveredInPrompt } from './skillActivity.js';
+
+test('skill activity requires a completed read of a known skill', () => {
+  const known = [{ path: path.resolve('/repo/.arco/skills/example/SKILL.md'), name: 'Example', scope: 'project' as const }];
+  const input = JSON.stringify({ file_path: known[0].path });
+  assert.equal(confirmedSkillRead('Read', input, 'started', '/repo', known), undefined);
+  assert.equal(confirmedSkillRead('Read', input, 'failed', '/repo', known), undefined);
+  assert.deepEqual(confirmedSkillRead('Read', input, 'completed', '/repo', known), { name: 'Example', scope: 'project' });
+  assert.equal(confirmedSkillRead('Read', JSON.stringify({ file_path: '/repo/SKILL.md' }), 'completed', '/repo', known), undefined);
+});
+
+test('Antigravity does not report skill bodies that its raw prompt does not deliver', () => {
+  const skills = [{ name: 'Example', scope: 'project' as const }];
+  assert.deepEqual(skillsDeliveredInPrompt('antigravity-cli', skills), []);
+  assert.deepEqual(skillsDeliveredInPrompt('claude', skills), skills);
+});

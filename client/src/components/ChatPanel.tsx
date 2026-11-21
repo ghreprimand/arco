@@ -1,3 +1,4 @@
+import { SkillActivityIndicator } from './SkillActivityIndicator';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { ChatMessage as ChatMessageType } from '@arco/shared';
@@ -429,10 +430,13 @@ export function ChatPanel({ job, onCancelQueued, onLoadEarlier, clusterContext, 
   }, []);
 
   return (
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+    {presentation === 'workbench' && <SkillActivityIndicator workflowId={job.id} clusterId={clusterId} />}
     <div
       style={{
         flex: 1,
         minHeight: 0,
+        overflow: 'clip',
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
@@ -619,6 +623,7 @@ export function ChatPanel({ job, onCancelQueued, onLoadEarlier, clusterContext, 
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

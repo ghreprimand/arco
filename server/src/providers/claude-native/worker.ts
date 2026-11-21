@@ -3177,7 +3177,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       // turnEngine dispatches it as its own turn once this one settles.
       if (toolResults.length === 0) continue;
       const steer = this.config.drainSteer?.() ?? [];
-      if (this.config.claudeNativeSubagent) pendingTaskSteers = steer;
+      pendingTaskSteers = steer;
       for (const item of steer) {
         const attached = await nativeAttachmentContent(item.content, item.attachments, this.messages, this.inFlight?.signal, (pending, result, origin) => this.admitMedia(pending, result, origin), this.config.interactionMode === 'chat' && !this.config.voiceOperator);
         for (const notice of attached.notices) this.emit('system_notice', notice);

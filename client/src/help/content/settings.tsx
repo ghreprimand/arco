@@ -7,6 +7,11 @@ export const settingsHelp: Record<string, HelpEntry> = {
     body: <p>Off by default. When enabled, all Ollama cluster members keep file, shell, mailbox, plan reading and board reading tools. WebSearch and WebFetch, board changes, plan changes and other tools are unavailable to those members. Turn this off to restore their usual tool selection. Ollama Agent tabs and Chats are unchanged.</p>,
     manualSection: 'provider-ollama',
   },
+  'skills.activity': {
+    title: 'Skill activity',
+    body: <p>Open Skills below the conversation header to see active members and their skills. The summary shows the selected member's skill name or count. If only other members have activity, it shows their number. Press Escape or tap outside to close. Applied means Arco delivered the skill text; Loaded means a successful Read of a known Arco skill file was observed. Claude Native reports completed Reads. Other paths, including Codex shell commands, may not report loads. Local provider mid-turn steering does not currently report a delivery confirmation for Applied. A marker stays in the conversation.</p>,
+    manualSection: 'skills',
+  },
   'settings.skills.pin-tab': {
     title: 'Pin a skill to a tab',
     body: <p>Select an Agent tab to add the skill's full text on each supported turn. Antigravity CLI does not receive pinned skill bodies. Project skills can be pinned within their project; global skills can be pinned anywhere. The tab's own pins and inherited cluster pins share one 12-skill, 64 KiB limit.</p>,

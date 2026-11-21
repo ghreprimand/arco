@@ -979,6 +979,7 @@ export interface WorkflowStateSnapshotMessage {
   busy: boolean;
   /** Original start of the active live turn, when known. */
   turnStartedAt?: number;
+  skillActivity?: Array<Pick<SkillActivityMessage, 'kind' | 'name' | 'scope' | 'turn'>>;
   transcriptTail: ChatMessage[];
   operatorQuestions?: OperatorQuestionState[];
   claudeNativePendingQuestionIds?: string[];
@@ -1120,6 +1121,15 @@ export interface QueuedMessagesDrainedMessage {
 // (context warnings, auto-handoff status). Persisted to events.jsonl so
 // the notice appears on replay/resume.
 export interface TaskChildMessageRejectedMessage { type: 'task_child_message_rejected'; workflowId: string; clientMessageId: string }
+
+export interface SkillActivityMessage {
+  type: 'skill_activity';
+  workflowId: string;
+  kind: 'applied' | 'loaded';
+  name: string;
+  scope: 'project' | 'global' | 'builtin';
+  turn: number;
+}
 
 export interface SystemNoticeMessage {
   authRecovery?: AuthRecoveryContext;
@@ -1520,6 +1530,7 @@ export interface TurnMessagesDeliveredMessage {
 }
 
 export type ServerMessage =
+  | SkillActivityMessage
   | TranscriptWorkerResultMessage
   | StorageWarningMessage
   | TurnMessagesDeliveredMessage

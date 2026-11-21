@@ -35,6 +35,7 @@ export interface WorkflowState {
   busy: boolean;
   // Start of the current live primary turn, never persisted as workflow state.
   turnStartedAt?: number;
+  skillActivity?: Array<import('@arco/shared').SkillActivityMessage>;
   manager: WorkerManager;
   primary: PrimaryConfig;
   primarySessionId?: string;
@@ -220,6 +221,7 @@ export interface QueueItem {
   automaticKind?: import('@arco/shared').AutomaticMessageKind;
   ollamaInputSeq?: number;
   interrupt?: boolean;
+  activitySkills?: import('../skillActivity.js').ActivitySkill[];
   pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>;
   // Original choices for EDIT; their resolved bodies may already be in expandedContext.
   editPickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>;

@@ -535,6 +535,9 @@ export const configuration: Section[] = [
   </p>
   <p>UPDATE checks every installed file against its REVIEW snapshot before replacing the folder. A later local edit refuses the update and remains intact. REVIEW again before applying.</p>
   <p>Quotes and backslashes in skill names and descriptions survive repeated edits. IMPORT, MOVE, DUPLICATE and new skill creation keep collision suffixes within the 64-character folder-name limit.</p>
+  <p>While a turn runs, skill activity appears below the conversation header. The selected member's skill name or count appears first. When only other members have activity, the summary shows their number. Open the control for the full names. Press Escape or tap outside to close.</p>
+  <p>Applied means Arco delivered the skill text; Loaded means Arco observed a successful Read of a known Arco skill file. A marker stays in the conversation after the turn and after reload.</p>
+  <p>Claude Native reports completed Reads; other provider paths may not report a successful read, including Codex shell commands. Local provider mid-turn steering does not currently report a delivery confirmation for Applied. Listing a skill does not mean it was loaded.</p>
   <Sub>Pin to a tab, cluster or role</Sub>
   <p>In Settings &gt; SKILLS, PIN TO TAB selects an Agent tab. PIN TO CLUSTER
   selects a cluster and All members or one role. A custom role must match its
