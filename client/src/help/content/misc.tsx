@@ -1514,7 +1514,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'storage.empty-scratch': {
     title: 'EMPTY SCRATCH',
-    body: <p>Deletes the conversation's scratch folder, where agents put large temporary files, after a confirmation. Kept items stay. Off while the conversation is working.</p>,
+    body: <p>Removes unkept files from the conversation's scratch folder, where agents put large temporary files. Closing a tab, detaching or replacing a member, and deleting a cluster offer the same choice. KEEP SCRATCH is the default. A resumed conversation and its next agent turn are told if scratch was emptied. The size warning limit is in STORAGE SETTINGS.</p>,
     manualSection: 'storage-view',
   },
   'storage.auto-archive': {

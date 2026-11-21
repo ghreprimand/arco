@@ -63,6 +63,8 @@ export const CURRENT_SCHEMA_VERSION = 2;
 
 export interface WorkflowMeta {
   workflowId: string;
+  // An explicit close emptied scratch; the next agent turn must be told.
+  scratchEmptiedPending?: { keptItems: number; at: number };
   name: string;
   cwd: string;
   kind?: 'workflow' | 'chat';

@@ -2231,6 +2231,12 @@ export async function handleUserMessage(
       // between consecutive requests of an auto-continued turn.
       const nativeClaudeTurn = wf.primary.provider === 'claude' && claudeTransport === 'native';
       const turnNoticeParts: string[] = [];
+      const scratchNotice = firstIteration && !incognito ? (await readMeta(cwd, workflowId))?.scratchEmptiedPending : undefined;
+      if (scratchNotice) {
+        const notice = `Scratch was emptied when this tab closed. Intermediate files may need to be recreated; ${scratchNotice.keptItems ? 'kept files remain' : 'no files were kept'}.`;
+        if (nativeClaudeTurn) turnNoticeParts.push(notice);
+        else promptWithPlan = `${notice}\n\n${promptWithPlan}`;
+      }
       let armPlanMode = false;
       if (wf.pendingPlanModeEntry) {
         if (nativeClaudeTurn && firstIteration) {
@@ -2812,6 +2818,11 @@ export async function handleUserMessage(
       }
       activeTurnObservation?.stop(); activeTurnObservation = undefined;
       console.log(`[arco] [${workflowId.slice(0, 8)}] turn settled${outcome.error ? ' with error: ' + outcome.error : ''}`);
+      if (scratchNotice && !outcome.error && ownsBusy(wf, busyToken)) {
+        await updateMeta(cwd, workflowId, (meta) => {
+          if (meta.scratchEmptiedPending?.at === scratchNotice.at) delete meta.scratchEmptiedPending;
+        }).catch((error) => console.warn('[arco] scratch reminder could not be cleared:', error));
+      }
       lastTurnErrored = !!outcome.error;
       watchHadError ||= lastTurnErrored;
       if (firstIteration && opts?.backgroundEvent) opts.onBackgroundSettled?.(outcome.error ?? undefined);

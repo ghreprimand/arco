@@ -467,16 +467,43 @@ function StorageReportPanel({ cwd }: { cwd: string }) {
   </section>;
 }
 export function UsageTab({ job }: { job: JobState }) {
-  return <ProjectUsageTab cwd={job.config.workingDirectory || ''} />;
+  return <ProjectUsageTab cwd={job.config.workingDirectory || ''} workflowId={job.config.incognito ? undefined : job.id} />;
+}
+
+function ScratchUsage({ workflowId, name }: { workflowId: string; name?: string }) {
+  const [measurement, setMeasurement] = useState<{ bytes: number; measuredAt: number } | null>(null);
+  const [limit, setLimit] = useState<number | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  async function measure() {
+    setLoading(true); setError('');
+    try {
+      const [response, policy] = await Promise.all([fetch(`/api/storage/scratch?${new URLSearchParams({ workflowId })}`), fetch('/api/storage/policy')]);
+      if (!response.ok || !policy.ok) throw new Error('Scratch size or warning setting could not be read.');
+      const data = await response.json() as { bytes: number; measuredAt: number };
+      const options = await policy.json() as { scratchWarningGiB: number };
+      setMeasurement(data); setLimit(options.scratchWarningGiB * 1024 ** 3);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Scratch could not be measured.'); }
+    finally { setLoading(false); }
+  }
+  useEffect(() => { setMeasurement(null); setError(''); setLimit(null); }, [workflowId]);
+  return <section style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border)' }}>
+    <strong>SCRATCH{name ? ` - ${name}` : ''}</strong>{' '}
+    <button type="button" disabled={loading} onClick={() => void measure()}>{loading ? 'MEASURING...' : measurement ? 'REFRESH' : 'MEASURE SCRATCH'}</button>
+    {measurement && <p>{bytes(measurement.bytes)}; measured {new Date(measurement.measuredAt).toLocaleString()}. The measurement may be stale if scratch changed.{limit !== null && measurement.bytes > limit && ' Scratch exceeds the warning limit.'}</p>}
+    {error && <p role="alert">{error}{measurement ? ' The earlier measurement may be stale.' : ''}</p>}
+  </section>;
 }
 
 // USAGE for a project folder: the storage report and token usage summed over
 // every conversation saved there. A cluster tab passes its shared folder, so
 // the figures cover all members.
-export function ProjectUsageTab({ cwd, note }: { cwd: string; note?: string }) {
+export function ProjectUsageTab({ cwd, note, workflowId, scratchMembers }: { cwd: string; note?: string; workflowId?: string; scratchMembers?: Array<{ id: string; name: string }> }) {
   return (
     <div style={{ overflowY: 'auto', flex: 1 }}>
       {note && <div style={{ padding: '6px 14px 0', fontSize: '10px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>{note}</div>}
+      {workflowId && <ScratchUsage key={workflowId} workflowId={workflowId} />}
+      {scratchMembers?.map((member) => <ScratchUsage key={member.id} workflowId={member.id} name={member.name} />)}
       <StorageReportPanel key={cwd} cwd={cwd} />
       <UsageContent cwd={cwd || undefined} />
     </div>

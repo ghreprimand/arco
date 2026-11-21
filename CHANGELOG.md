@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Offer to empty unkept scratch when a conversation closes, with KEEP SCRATCH as the default; show scratch size and a configurable warning.
+
 - Open missing bare filenames from a cluster conversation in another member's artifacts, choosing the member when several match.
 
 - Clarify the DESIGNER, REVIEWER, RESEARCHER and DOCUMENTER role presets while retaining existing unedited preset roles.

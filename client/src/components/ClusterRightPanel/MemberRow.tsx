@@ -4,6 +4,7 @@ import { ROLE_PRESETS, presetForText, MEMBER_TIERS, isClusterDirector, clusterDi
 import type { ClusterStatePayload, MemberTier } from '@arco/shared';
 import { ReplaceMemberDialog } from './ReplaceMemberDialog';
 import { useKeepInWindow } from '../../layout/keepInWindow';
+import { ScratchCloseDialog } from '../ScratchCloseDialog';
 
 // Phase 2.6 — operator-set role hint cap, mirrored from the server enum in
 // clusterStore.MEMBER_ROLE_MAX.
@@ -48,6 +49,7 @@ export function MemberRow({
   const [focusEditing, setFocusEditing] = useState(false);
   const [focusDraft, setFocusDraft] = useState(member.focus ?? '');
   const [replaceOpen, setReplaceOpen] = useState(false);
+  const [detachScratch, setDetachScratch] = useState(false);
 
   // F5 — per-member rename. Pencil-edit toggles inline input pre-filled
   // with the operator-set name (empty if not set, so the placeholder shows
@@ -316,9 +318,9 @@ export function MemberRow({
           <button
             onClick={() => {
               const ok = window.confirm(
-                `Detach ${member.displayName} from this cluster?\n\nThe workflow's history is preserved on disk; the next turn won't see peer tools. Same wire as the bottom-row ×: single confirm, single click.`,
+                `Detach ${member.displayName} from this cluster?\n\nThe workflow's history is preserved on disk; the next turn won't see peer tools.`,
               );
-              if (ok) onDetach(cluster.clusterId, member.workflowId);
+              if (ok) setDetachScratch(true);
             }}
             data-help="cluster.detach"
             className="display-font"
@@ -341,6 +343,7 @@ export function MemberRow({
       {replaceOpen && (
         <ReplaceMemberDialog cluster={cluster} member={member} onClose={() => setReplaceOpen(false)} />
       )}
+      {detachScratch && <ScratchCloseDialog targets={[{ id: member.workflowId, name: memberName }]} onCancel={() => setDetachScratch(false)} onContinue={() => { setDetachScratch(false); onDetach?.(cluster.clusterId, member.workflowId); }} />}
 
       {onSetRole && (
         <div data-help="cluster.right-panel.role-custom" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', position: 'relative' }}>

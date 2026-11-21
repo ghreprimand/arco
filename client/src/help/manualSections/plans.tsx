@@ -420,12 +420,12 @@ export const plans: Section[] = [
           <li><strong>KEEP</strong> protects the whole conversation from archive and deletion. <strong>UNKEEP</strong> removes every KEEP mark of the conversation again; no file is changed.</li>
           <li><strong>ARCHIVE</strong> packs a closed conversation into one compressed file; <strong>RESTORE</strong> brings it back without overwriting anything.</li>
           <li><strong>DELETE</strong> removes a closed conversation or an archive for good.</li>
-          <li><strong>EMPTY SCRATCH</strong> deletes the scratch folder where agents put large temporary files.</li>
+          <li><strong>EMPTY SCRATCH</strong> removes unkept files from the scratch folder where agents put large temporary files. Closing a tab, detaching or replacing a member, or deleting a cluster offers the same choice; keeping scratch is the default. A resumed conversation and its next agent turn are told when scratch was emptied.</li>
           <li><strong>COMPRESS OLD LOGS</strong> seals the logs of a project's closed conversations; nothing is deleted.</li>
         </ul>
         <p>
           Worktrees, caches and Arco's own folder are shown for information only.
-          Plans are never touched. STORAGE SETTINGS holds the disk budget notice
+          Plans are never touched. The tab's USAGE panel can measure its scratch; STORAGE SETTINGS sets the scratch warning limit (1 GiB by default). STORAGE SETTINGS also holds the disk budget notice
           (100 GiB by default) and auto-archive, which is off by default and never deletes.
         </p>
       </>

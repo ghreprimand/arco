@@ -5,18 +5,21 @@ import { arcoHome } from '../arcoHome.js';
 import { snapshot } from '../workspace.js';
 import { realpathWithinProjects } from '../projects.js';
 import { confinedPath } from '../fileAccessPolicy.js';
-import { lstat, readFile } from 'node:fs/promises';
+import { lstat, readFile, readdir, realpath } from 'node:fs/promises';
 import { projectCheckpointRoot, scanStorage, type StorageReport } from '../storageReport.js';
-import { compressOldLogs, deleteConversation, emptyScratch, StorageActionError } from '../storageActions.js';
+import { checkedConversationDir, checkedEntry, compressOldLogs, deleteConversation, emptyScratch, scratchIsWorking, StorageActionError } from '../storageActions.js';
 import { sealWorkflowLogNow } from '../workflowStore.js';
 import { archiveConversation, archivePath, listArchives, restoreConversation } from '../storageArchive.js';
 import { isKept, readKeep } from '../keepStore.js';
 import { openWorkflowIds, readPolicy, storageOverview, writePolicy, cachedOverviewAge } from '../storageOverview.js';
 import { purgeWorkflow } from '../workflows/purgeWorkflow.js';
-import { workflows } from '../server/state.js';
+import { workflowCwds, workflows } from '../server/state.js';
+import { isChatStorage } from '../projects.js';
 import { addKeep, removeKeep } from '../keepStore.js';
 import { outputDirectory } from '../outputStore.js';
 import { inspectArtifactCopy, copyReviewedArtifact, ignoreCopyDestination } from '../artifactCopy.js';
+import { readMeta, updateMeta } from '../workflowMeta.js';
+import { broadcastWorkflow } from '../server/broadcast.js';
 
 const cache = new Map<string, Promise<StorageReport>>();
 // Not a path, so it cannot collide with a project key.
@@ -47,13 +50,54 @@ async function projectFor(cwd: unknown): Promise<string | null> {
   return key;
 }
 
+// A close request can name only the workflow's live, server-bound folder.
+// Chat storage is intentionally not a project, but its own workflow binding
+// still gives it the same storage actions as a project conversation.
+async function boundStorageProject(workflowId: string): Promise<string | null> {
+  const cwd = workflowCwds.get(workflowId);
+  if (!cwd || !workflows.has(workflowId)) return null;
+  if (!isChatStorage(cwd)) return projectFor(cwd);
+  try {
+    const canonical = await realpath(cwd);
+    if (!isChatStorage(canonical)) return null;
+    if ((await lstat(path.join(canonical, '.arco'))).isSymbolicLink()) return null;
+    return canonical;
+  } catch { return null; }
+}
+
+// STOP clears `busy` before the provider has finished tearing down. Scratch
+// remains protected until the turn's finalizer clears the primary turn too.
+function scratchWorking(workflowId: string): boolean {
+  return scratchIsWorking(workflows.get(workflowId));
+}
+
+async function scratchMeasurement(workflowId: string): Promise<unknown> {
+  const project = await boundStorageProject(workflowId);
+  if (!project) throw new StorageActionError('not_found', 'The conversation storage is unavailable.');
+  let dir: string;
+  try { dir = await checkedConversationDir(project, workflowId); }
+  catch (err) {
+    if (err instanceof StorageActionError && err.code === 'not_found') return { exists: false, bytes: 0, measuredAt: Date.now(), keptItems: 0, busy: scratchWorking(workflowId) };
+    throw err;
+  }
+  const keep = await readKeep(dir);
+  if (!keep.ok) throw new StorageActionError('keep_unreadable', 'The KEEP list cannot be read.');
+  if (!await checkedEntry(dir, 'scratch')) return { exists: false, bytes: 0, measuredAt: Date.now(), keptItems: 0, busy: scratchWorking(workflowId) };
+  const scratch = path.join(dir, 'scratch');
+  const entries = await readdir(scratch);
+  const report = await scanStorage(scratch, null, { stateName: '\0' });
+  if (report.errors) throw new Error('The scratch size could not be measured completely.');
+  return { exists: entries.length > 0, bytes: report.stateBytes, measuredAt: report.measuredAt, keptItems: keep.items.filter((item) => item.path === '.' || item.path === 'scratch' || item.path.startsWith('scratch/')).length, busy: scratchWorking(workflowId) };
+}
+
 const ACTION_STATUS: Record<StorageActionError['code'], number> = { changed: 409, keep_unreadable: 409, busy: 409, open: 409, kept: 409, exists: 409, unsafe: 409, not_found: 404, invalid: 400 };
 
 // Operator storage actions. Each needs `confirm: true`: the client asks first.
 async function handleStorageAction(req: IncomingMessage, res: ServerResponse, action: string): Promise<void> {
   const body = await readJson(req);
   if (!body) return json(res, 400, { error: 'invalid_body' });
-  const project = await projectFor(body.path);
+  const closeWorkflowId = action === 'empty-scratch' && body.onClose === true && typeof body.workflowId === 'string' ? body.workflowId : '';
+  const project = closeWorkflowId ? await boundStorageProject(closeWorkflowId) : await projectFor(body.path);
   if (!project) return json(res, 403, { error: 'Project is unavailable' });
   if (body.confirm !== true) return json(res, 400, { error: 'confirmation_required' });
   const workflowId = typeof body.workflowId === 'string' ? body.workflowId : '';
@@ -96,8 +140,32 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
     const busy = !!workflows.get(workflowId)?.busy;
     const open = openWorkflowIds().has(workflowId);
     if (action === 'empty-scratch') {
-      const result = await emptyScratch(project, workflowId, { busy });
-      return json(res, 200, { ok: true, ...result });
+      if (!closeWorkflowId) {
+        const result = await emptyScratch(project, workflowId, { busy });
+        return json(res, 200, { ok: true, ...result });
+      }
+      const wf = workflows.get(workflowId);
+      if (!wf) throw new StorageActionError('not_found', 'The conversation is unavailable.');
+      const { reserveWorkflowMigration, drainQueueIfIdle } = await import('../ws/turnEngine.js');
+      let release: (() => void) | undefined;
+      try {
+        if (scratchWorking(workflowId)) throw new StorageActionError('busy', 'The conversation is working; empty its scratch folder when it is idle.');
+        try { release = reserveWorkflowMigration(wf); }
+        catch { throw new StorageActionError('busy', 'The conversation is working; empty its scratch folder when it is idle.'); }
+        if (!await readMeta(project, workflowId)) throw new StorageActionError('not_found', 'The conversation metadata is unavailable.');
+        const result = await emptyScratch(project, workflowId, { busy: false });
+        if (result.removedFiles > 0) {
+          const saved = await updateMeta(project, workflowId, (meta) => { meta.scratchEmptiedPending = { keptItems: result.keptItems, at: Date.now() }; });
+          if (!saved) throw new Error('The scratch notice could not be saved.');
+          const receivedMessage = wf.queue.steering.length > 0 || wf.queue.followUp.length > 0;
+          broadcastWorkflow(workflowId, { type: 'system_notice', workflowId, content: receivedMessage ? 'Scratch was emptied, but the tab stayed open because a message arrived. Intermediate files may need to be recreated; kept files remain.' : 'Scratch was emptied when this tab closed. Intermediate files may need to be recreated; kept files remain.' });
+        }
+        if (wf.queue.steering.length || wf.queue.followUp.length) throw new StorageActionError('changed', 'A message arrived while scratch was being emptied. The conversation remains open.');
+        return json(res, 200, { ok: true, ...result });
+      } finally {
+        release?.();
+        if (release && (wf.queue.steering.length || wf.queue.followUp.length)) void drainQueueIfIdle(workflowId).catch((error) => console.error('[arco] scratch cleanup queue drain failed:', error));
+      }
     }
     if (action === 'archive') return json(res, 200, { ok: true, ...(await archiveConversation(project, workflowId, { open, busy, by: 'operator' })) });
     if (action === 'restore') return json(res, 200, { ok: true, ...(await restoreConversation(project, workflowId)) });
@@ -115,13 +183,24 @@ async function handleStorageAction(req: IncomingMessage, res: ServerResponse, ac
 
 export async function tryHandleStorageRoutes(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   const url = new URL(req.url ?? '/', 'http://localhost');
+  if (url.pathname === '/api/storage/scratch' && req.method === 'GET') {
+    if (url.searchParams.get('busyOnly') === '1') {
+      const wf = workflows.get(url.searchParams.get('workflowId') || '');
+      if (!wf) json(res, 404, { error: 'The conversation is unavailable.' });
+      else json(res, 200, { busy: scratchWorking(url.searchParams.get('workflowId') || '') });
+      return true;
+    }
+    try { json(res, 200, await scratchMeasurement(url.searchParams.get('workflowId') || '')); }
+    catch (err) { json(res, err instanceof StorageActionError ? ACTION_STATUS[err.code] : 500, { error: err instanceof Error ? err.message : 'Scratch measurement failed.' }); }
+    return true;
+  }
   if (url.pathname === '/api/storage/policy') {
     if (req.method === 'GET') { json(res, 200, await readPolicy()); return true; }
     if (req.method === 'POST') {
       const body = await readJson(req);
       if (!body) { json(res, 400, { error: 'invalid_body' }); return true; }
       const patch: Record<string, unknown> = {};
-      for (const key of ['autoArchiveClosedDays', 'budgetGiB', 'budgetNotice']) if (key in body) patch[key] = body[key];
+      for (const key of ['autoArchiveClosedDays', 'budgetGiB', 'budgetNotice', 'scratchWarningGiB']) if (key in body) patch[key] = body[key];
       json(res, 200, await writePolicy(patch));
       return true;
     }

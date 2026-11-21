@@ -139,7 +139,7 @@ Each item lists the recommendation, what it costs, and the operator's direction 
 ### 6. Artifact warnings and scratch (P7.4, approved with conditions)
 
 - **Recommendation:** warn at write time when one artifact file reaches 1 GiB, or a conversation's artifacts reach 5 GiB. These thresholds would have warned on a small number of files and conversations in the large, long-used installation. Approving a warning sets **KEEP** on that file or folder, and it never warns again.
-- **Scratch:** each conversation gets `scratch/` beside `artifacts/`, not inside it. Agent guidance says to put large intermediate files there. **EMPTY SCRATCH** deletes it, only on the operator's click and after a confirmation. Kept items are skipped.
+- **Scratch:** each conversation gets `scratch/` beside `artifacts/`, not inside it. Agent guidance says to put large intermediate files there. **EMPTY SCRATCH** removes unkept items only on the operator's request. A tab close, member detach or replacement, or cluster deletion offers the same action; keeping scratch is the default. After an empty on close, the conversation and its next agent turn say that intermediate files may need to be recreated. The USAGE panel measures scratch on request. STORAGE SETTINGS sets a per-conversation warning, 1 GiB by default. Kept items are skipped.
 - **Trade-off:** files under the thresholds never warn, even when many of them add up. The per-conversation total covers most of that.
 - **Checked when:** every 30 seconds while a turn runs and again when it ends (`server/src/storageTurnWatch.ts`); each item still warns once. `ARCO_ARTIFACT_WARN_FILE_BYTES` and `ARCO_ARTIFACT_WARN_CONVERSATION_BYTES` override the thresholds and `ARCO_ARTIFACT_WARN_INTERVAL_MS` the interval.
 

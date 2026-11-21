@@ -872,7 +872,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
             covers every member. */}
         {tab === 'history' && <ClusterAnchoredHistory cluster={cluster} />}
         {tab === 'preview' && <ClusterAnchoredPreview cluster={cluster} />}
-        {tab === 'usage' && <ProjectUsageTab cwd={cluster.cwd} note="Covers every conversation saved in this project folder, all members included." />}
+        {tab === 'usage' && <ProjectUsageTab cwd={cluster.cwd} note="Covers every conversation saved in this project folder, all members included." scratchMembers={cluster.members.map((member) => ({ id: member.workflowId, name: member.displayName }))} />}
         {tab === 'config' && (
           <ClusterConfigTab
             cluster={cluster}

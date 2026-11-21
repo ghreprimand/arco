@@ -28,7 +28,7 @@ interface Conversation {
   keep?: { readable: boolean; whole: boolean; items: number };
 }
 interface ProjectReport { measuredAt: number; workflows: Conversation[]; archives?: Archive[] }
-interface Policy { autoArchiveClosedDays: number | null; budgetGiB: number; budgetNotice: boolean }
+interface Policy { autoArchiveClosedDays: number | null; budgetGiB: number; budgetNotice: boolean; scratchWarningGiB: number }
 
 // One label per server bucket (same as MEMORY > USAGE > MEASURE STORAGE).
 const LABELS: Record<string, string> = {
@@ -228,17 +228,18 @@ function PolicyControls() {
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [days, setDays] = useState('30');
   const [budget, setBudget] = useState('100');
+  const [scratchLimit, setScratchLimit] = useState('1');
   const [error, setError] = useState('');
   useEffect(() => {
     fetch('/api/storage/policy').then((r) => r.json() as Promise<Policy>).then((p) => {
-      setPolicy(p); setBudget(String(p.budgetGiB)); if (p.autoArchiveClosedDays) setDays(String(p.autoArchiveClosedDays));
+      setPolicy(p); setBudget(String(p.budgetGiB)); setScratchLimit(String(p.scratchWarningGiB)); if (p.autoArchiveClosedDays) setDays(String(p.autoArchiveClosedDays));
     }).catch(() => setError('The storage settings could not be read.'));
   }, []);
   async function save(patch: Partial<Policy>) {
     try {
       const r = await fetch('/api/storage/policy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const next = await r.json() as Policy; setPolicy(next); setBudget(String(next.budgetGiB)); setError('');
+      const next = await r.json() as Policy; setPolicy(next); setBudget(String(next.budgetGiB)); setScratchLimit(String(next.scratchWarningGiB)); setError('');
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   }
   if (!policy) return error ? <div role="alert" style={alert}>{error}</div> : null;
@@ -253,6 +254,12 @@ function PolicyControls() {
           <input className="arco-field" type="number" min={1} max={3650} value={days} aria-label="Days closed before archiving" style={{ width: '64px' }}
             onChange={(e) => setDays(e.target.value)} onBlur={() => { if (on) void save({ autoArchiveClosedDays: Math.max(1, Number(days) || 30) }); }} />
           days (off by default; never deletes)
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          Warn when a conversation's scratch exceeds
+          <input className="arco-field" type="number" min={0.01} step="any" value={scratchLimit} aria-label="Scratch warning limit in GiB" style={{ width: '72px' }}
+            onChange={(e) => setScratchLimit(e.target.value)} onBlur={() => void save({ scratchWarningGiB: Number(scratchLimit) })} />
+          GiB
         </label>
         <label data-help="storage.budget" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
           <input type="checkbox" checked={policy.budgetNotice} onChange={(e) => void save({ budgetNotice: e.target.checked })} />

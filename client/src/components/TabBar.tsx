@@ -24,6 +24,7 @@ import { useRecallStore } from '../stores/recallStore';
 import { usePlanGenesisStore } from '../stores/planGenesisStore';
 import { closeSummaryPlan } from '../recall/closeSummary';
 import { TabContextMenu } from './TabContextMenu';
+import { ScratchCloseDialog, type ScratchCloseTarget } from './ScratchCloseDialog';
 import type { ClusterMemberProvider, ClusterStatePayload, ArcoSettings, ProviderName } from '@arco/shared';
 
 interface Props {
@@ -31,6 +32,7 @@ interface Props {
   // any in-flight worker for this workflow. Keeps `removeJob` local so the
   // UI stays responsive even if the socket is temporarily closed.
   onRemoveWorkflow: (workflowId: string) => void;
+  onStopWorkflow: (workflowId: string) => void;
   // Starts a Recall summary for summarize-on-close; true when it was sent.
   requestRecallSummary?: (wfid: string, summarizer: ReturnType<typeof import('../recall/closeSummary').recallSummarizerFor>) => boolean;
   // docs/PROTOCOL_CLUSTER.md - operator clicked "CREATE CLUSTER" in the
@@ -209,7 +211,7 @@ function TabScrollRow({ activeKey, children }: { activeKey: string; children: Re
   );
 }
 
-export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster, onDeleteCluster, onAddClusterMember, onCreateClusterWithFreshWorkers }: Props) {
+export function TabBar({ onRemoveWorkflow, onStopWorkflow, requestRecallSummary, onCreateCluster, onDeleteCluster, onAddClusterMember, onCreateClusterWithFreshWorkers }: Props) {
   const jobs = useAppStore((s) => s.jobs);
   const activeJobId = useAppStore((s) => s.activeJobId);
   const showCreator = useAppStore((s) => s.showCreator);
@@ -255,6 +257,13 @@ export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster
   };
 
   const [contextAnchor, setContextAnchor] = useState<{ jobId: string; x: number; y: number } | null>(null);
+  const [scratchClose, setScratchClose] = useState<{ targets: ScratchCloseTarget[]; complete: () => void; stop: boolean } | null>(null);
+
+  const askScratch = (ids: string[], complete: () => void, stop = false) => {
+    const targets = ids.filter((id) => !jobs[id]?.config.incognito).map((id) => ({ id, name: jobs[id]?.config.name || id.slice(0, 8) }));
+    if (!targets.length) { complete(); return; }
+    setScratchClose({ targets, complete, stop });
+  };
 
   // teardown picker. window.confirm gave a binary OK/Cancel that
   // only covered "keep members working". The new flow offers a third path —
@@ -359,7 +368,7 @@ export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster
                       job={item.job}
                       isActive={item.id === activeJobId && !showCreator && !showHome && !activeClusterId}
                       onActivate={() => setActiveJob(item.id)}
-                      onClose={() => closeWorkflow(item.id)}
+                      onClose={() => askScratch([item.id], () => closeWorkflow(item.id), true)}
                       onContextMenu={(e) => {
                         e.preventDefault();
                         setContextAnchor({ jobId: item.id, ...layoutPoint(e) });
@@ -429,16 +438,21 @@ export function TabBar({ onRemoveWorkflow, requestRecallSummary, onCreateCluster
           memberCount={closeTarget.memberIds.length}
           onCancel={() => setCloseTarget(null)}
           onKeepMembers={() => {
-            onDeleteCluster(closeTarget.clusterId);
+            const target = closeTarget;
             setCloseTarget(null);
+            askScratch(target.memberIds, () => onDeleteCluster(target.clusterId));
           }}
           onCloseAll={() => {
-            for (const wfid of closeTarget.memberIds) closeWorkflow(wfid);
-            onDeleteCluster(closeTarget.clusterId);
+            const target = closeTarget;
             setCloseTarget(null);
+            askScratch(target.memberIds, () => {
+              for (const wfid of target.memberIds) closeWorkflow(wfid);
+              onDeleteCluster(target.clusterId);
+            }, true);
           }}
         />
       )}
+      {scratchClose && <ScratchCloseDialog targets={scratchClose.targets} onStop={scratchClose.stop ? onStopWorkflow : undefined} onCancel={() => setScratchClose(null)} onContinue={() => { const complete = scratchClose.complete; setScratchClose(null); complete(); }} />}
     </>
   );
 }
@@ -540,7 +554,7 @@ function ClusterCloseConfirm({
           >
             CLOSE CLUSTER + {memberCount} MEMBER{memberCount === 1 ? '' : 'S'}
             <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px', marginTop: '3px', textTransform: 'none' }}>
-              Removes every member workflow tab. Worker state on disk is preserved per the usual remove_workflow path.
+              Removes every member workflow tab and cancels running turns. Worker state on disk is preserved per the usual remove_workflow path.
             </div>
           </button>
           <button
@@ -639,7 +653,7 @@ function SortableWorkflowTab({ job, isActive, onActivate, onClose, onContextMenu
           // Close tears down the in-memory worker (and any active turn); an
           // incognito chat is gone for good. One stray click shouldn't do that.
           const notes: string[] = [];
-          if (isBusy) notes.push('A turn is in progress and will be cancelled.');
+          if (busy) notes.push('A turn is in progress and will be cancelled.');
           if (job.config.incognito) notes.push('This incognito chat is not saved and will be lost.');
           const msg = `Close ${job.config.name}?${notes.length ? `\n\n${notes.join('\n')}` : ''}`;
           if (window.confirm(msg)) onClose();

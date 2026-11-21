@@ -656,6 +656,7 @@ ${scopeBody}
         <SystemHeader onReconnect={reconnect} onRestartServer={restartServer} reconnectState={reconnectState} onSetPreviewPort={setPreviewPort} onSetNotificationMutes={setNotificationMutes} onHubLinkToggle={hubLinkSetEnabled} />
         <TabBar
           onRemoveWorkflow={removeWorkflow}
+          onStopWorkflow={cancel}
           requestRecallSummary={requestRecallSummary}
           onCreateCluster={createCluster}
           onDeleteCluster={deleteCluster}

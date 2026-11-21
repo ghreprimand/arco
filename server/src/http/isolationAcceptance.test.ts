@@ -88,11 +88,12 @@ async function freePort(): Promise<number> {
 
 // Ollama-protocol fixture. `holdTurns()` keeps the next chat response open
 // until `release()`, which models a turn that is still running.
-interface FakeModel { url: string; holdTurns(): void; release(): void; chatRequests(): number; close(): Promise<void> }
+interface FakeModel { url: string; holdTurns(): void; release(): void; chatRequests(): number; lastChat(): string; close(): Promise<void> }
 async function startFakeModel(): Promise<FakeModel> {
   let gate: Promise<void> | null = null;
   let open: () => void = () => undefined;
   let chats = 0;
+  let lastChat = '';
   const server: Server = createServer(async (req, res) => {
     let body = '';
     for await (const chunk of req) body += chunk;
@@ -103,6 +104,7 @@ async function startFakeModel(): Promise<FakeModel> {
     if (req.url === '/api/show') return json({ capabilities: ['completion', 'tools'], parameters: 'num_ctx 8192', model_info: { 'fixture.context_length': 8192 } });
     if (req.url === '/api/chat') {
       chats += 1;
+      lastChat = body;
       res.writeHead(200, { 'Content-Type': 'application/x-ndjson' });
       res.write(JSON.stringify({ model: MODEL, message: { role: 'assistant', content: 'FIXTURE-REPLY-TEXT' }, done: false }) + '\n');
       if (gate) await gate;
@@ -118,6 +120,7 @@ async function startFakeModel(): Promise<FakeModel> {
     holdTurns() { gate = new Promise<void>((resolve) => { open = resolve; }); },
     release() { open(); gate = null; },
     chatRequests: () => chats,
+    lastChat: () => lastChat,
     close: () => new Promise<void>((resolve) => { server.closeAllConnections?.(); server.close(() => resolve()); }),
   };
 }
@@ -408,6 +411,91 @@ test('storage report is restricted to registered project paths', async () => {
   assert.equal(overview.budget.limitBytes, 100 * 1024 ** 3);
   const budget = await (await main.api('/api/storage/budget')).json() as { over: boolean; measuredAt: number | null };
   assert.equal(budget.over, false); assert.ok(budget.measuredAt);
+});
+
+test('empty scratch on close preserves KEEP and tells the resumed agent', async () => {
+  const socket = await main.openSocket();
+  try {
+    socket.ws.send(JSON.stringify({ type: 'create_workflow', config: config(main.project, { primaryProvider: 'ollama', primaryModel: MODEL }) }));
+    const created = await socket.waitFor((m) => m.type === 'workflow_created');
+    assert.ok(created);
+    const id = created.workflowId as string;
+    const dir = path.join(main.project, '.arco', 'workflows', id);
+    await until('workflow metadata', () => existsSync(path.join(dir, 'meta.json')));
+    await fs.mkdir(path.join(dir, 'scratch'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'scratch', 'remove.txt'), 'temporary');
+    await fs.writeFile(path.join(dir, 'scratch', 'keep.txt'), 'kept');
+    await fs.writeFile(path.join(dir, 'keep.json'), JSON.stringify({ version: 1, items: [{ path: 'scratch/keep.txt', reason: 'operator', at: 1 }] }));
+    const measured = await main.api(`/api/storage/scratch?workflowId=${id}`);
+    assert.equal(measured.status, 200);
+    assert.deepEqual(((await measured.json()) as { keptItems: number }).keptItems, 1);
+    assert.equal((await main.api('/api/storage/scratch?workflowId=not-a-workflow')).status, 404);
+    const response = await main.post('/api/storage/empty-scratch', { workflowId: id, onClose: true, confirm: true });
+    assert.equal(response.status, 200);
+    assert.equal(existsSync(path.join(dir, 'scratch', 'remove.txt')), false);
+    assert.equal(readFileSync(path.join(dir, 'scratch', 'keep.txt'), 'utf8'), 'kept');
+    assert.ok(await socket.waitFor((m) => m.type === 'system_notice' && String(m.content).includes('Scratch was emptied')));
+    socket.ws.send(JSON.stringify({ type: 'user_message', workflowId: id, content: 'Continue.' }));
+    assert.ok(await socket.waitFor((m) => m.type === 'primary_turn_ended' && m.workflowId === id, 20_000));
+    assert.match(model.lastChat(), /Scratch was emptied when this tab closed/);
+  } finally { await socket.close(); }
+});
+
+test('empty scratch on close refuses a running turn', async () => {
+  const socket = await main.openSocket();
+  try {
+    socket.ws.send(JSON.stringify({ type: 'create_workflow', config: config(main.project, { primaryProvider: 'ollama', primaryModel: MODEL }) }));
+    const created = await socket.waitFor((m) => m.type === 'workflow_created');
+    assert.ok(created);
+    const id = created.workflowId as string;
+    const scratch = path.join(main.project, '.arco', 'workflows', id, 'scratch');
+    await fs.mkdir(scratch, { recursive: true });
+    await fs.writeFile(path.join(scratch, 'work.txt'), 'in progress');
+    const before = model.chatRequests();
+    model.holdTurns();
+    socket.ws.send(JSON.stringify({ type: 'user_message', workflowId: id, content: 'Start a held turn.' }));
+    await until('provider call in flight', () => model.chatRequests() === before + 1);
+    const response = await main.post('/api/storage/empty-scratch', { workflowId: id, onClose: true, confirm: true });
+    assert.equal(response.status, 409);
+    assert.equal(readFileSync(path.join(scratch, 'work.txt'), 'utf8'), 'in progress');
+  } finally { model.release(); await socket.close(); }
+});
+
+test('empty scratch on close refuses an unreadable KEEP list', async () => {
+  const socket = await main.openSocket();
+  try {
+    socket.ws.send(JSON.stringify({ type: 'create_workflow', config: config(main.project, {}) }));
+    const created = await socket.waitFor((m) => m.type === 'workflow_created');
+    assert.ok(created);
+    const id = created.workflowId as string;
+    const dir = path.join(main.project, '.arco', 'workflows', id);
+    await fs.mkdir(path.join(dir, 'scratch'), { recursive: true });
+    await fs.writeFile(path.join(dir, 'scratch', 'work.txt'), 'protected');
+    await fs.writeFile(path.join(dir, 'keep.json'), '{broken');
+    assert.equal((await main.api(`/api/storage/scratch?workflowId=${id}`)).status, 409);
+    const response = await main.post('/api/storage/empty-scratch', { workflowId: id, onClose: true, confirm: true });
+    assert.equal(response.status, 409);
+    assert.equal(readFileSync(path.join(dir, 'scratch', 'work.txt'), 'utf8'), 'protected');
+  } finally { await socket.close(); }
+});
+
+test('empty scratch on close uses a saved Chat storage binding', async () => {
+  const socket = await main.openSocket();
+  try {
+    socket.ws.send(JSON.stringify({ type: 'create_workflow', config: chatConfig('scratch Chat') }));
+    const created = await socket.waitFor((m) => m.type === 'workflow_created');
+    assert.ok(created);
+    const id = created.workflowId as string;
+    const cwd = (created.config as { workingDirectory: string }).workingDirectory;
+    const scratch = path.join(cwd, '.arco', 'workflows', id, 'scratch');
+    await until('saved Chat metadata', () => existsSync(path.join(cwd, '.arco', 'workflows', id, 'meta.json')));
+    await fs.mkdir(scratch, { recursive: true });
+    await fs.writeFile(path.join(scratch, 'temp.txt'), 'temporary');
+    assert.equal((await main.api(`/api/storage/scratch?workflowId=${id}`)).status, 200);
+    const response = await main.post('/api/storage/empty-scratch', { workflowId: id, onClose: true, confirm: true });
+    assert.equal(response.status, 200);
+    assert.equal(existsSync(path.join(scratch, 'temp.txt')), false);
+  } finally { await socket.close(); }
 });
 
 // ── read confinement ─────────────────────────────────────────

@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { holdsKept, isKept, normalizeKeepPath, readKeep } from './keepStore.js';
 import { checkArtifactSizes } from './storageWarnings.js';
-import { emptyScratch, StorageActionError } from './storageActions.js';
+import { emptyScratch, scratchIsWorking, StorageActionError } from './storageActions.js';
 import { buildWorkerSafetyFooter } from './workers/limits.js';
 
 // P7.4 (docs/STORAGE_PLAN.md): the KEEP file reader, artifact size warnings
@@ -24,6 +24,13 @@ async function sized(file: string, bytes: number): Promise<void> {
   await writeFile(file, ''); await truncate(file, bytes);
 }
 const keepFile = (dir: string, items: unknown[]) => writeFile(path.join(dir, 'keep.json'), JSON.stringify({ version: 1, items }));
+
+test('scratch remains protected while a worker or stopping primary is active', () => {
+  const manager = { snapshotWorkers: () => ({ worker: { status: 'running' } }) };
+  assert.equal(scratchIsWorking({ busy: false, manager }), true);
+  assert.equal(scratchIsWorking({ busy: false, primaryTurn: {}, manager: { snapshotWorkers: () => ({}) } }), true);
+  assert.equal(scratchIsWorking({ busy: false, manager: { snapshotWorkers: () => ({ worker: { status: 'done' } }) } }), false);
+});
 
 test('KEEP paths stay inside the conversation and cover what is below them', async () => {
   assert.equal(normalizeKeepPath('artifacts\\disk.qcow2'), 'artifacts/disk.qcow2');

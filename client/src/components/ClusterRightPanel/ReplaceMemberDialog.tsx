@@ -22,6 +22,7 @@ import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
 import { MemberSettingsFields } from './MemberSettingsFields';
 import { requestTranscriptWorker } from '../../utils/transcriptWorkerRequest';
 import { memberSettingsFrom, memberTuning, type MemberSettings } from './memberSettings';
+import { ScratchCloseDialog } from '../ScratchCloseDialog';
 
 const menuStyle: CSSProperties = {
   flex: 1,
@@ -96,6 +97,7 @@ export function ReplaceMemberDialog({
     return () => { active = false; };
   }, [historyKey]);
   const [transferTasks, setTransferTasks] = useState(true);
+  const [scratchOpen, setScratchOpen] = useState(false);
   const codexAccounts = settings?.providerAccounts?.codex ?? [];
   const codexCatalog = useCodexCatalogFor(account);
   const catalogs = useModelCatalogs({ codex: codexCatalog });
@@ -172,7 +174,7 @@ export function ReplaceMemberDialog({
     onClose();
   };
 
-  return (
+  return (<>
     <div style={{ border: '1px solid var(--color-accent-primary)', padding: '8px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
       <div
         className="display-font"
@@ -415,7 +417,7 @@ export function ReplaceMemberDialog({
         </button>
         <button
           type="button"
-          onClick={submit}
+          onClick={() => setScratchOpen(true)}
           disabled={!ready}
           data-help="cluster.replace.confirm"
           className="display-font"
@@ -433,5 +435,7 @@ export function ReplaceMemberDialog({
         </button>
       </div>
     </div>
+    {scratchOpen && <ScratchCloseDialog targets={[{ id: member.workflowId, name: member.displayName }]} onCancel={() => setScratchOpen(false)} onContinue={() => { setScratchOpen(false); submit(); }} />}
+    </>
   );
 }

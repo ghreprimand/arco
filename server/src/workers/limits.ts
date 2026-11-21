@@ -74,7 +74,7 @@ export function buildWorkerSafetyFooter(cwd?: string, wfid?: string): string {
     : `\n- ${projectStateLine}`;
 
   const scratchLine = dir
-    ? `\n- Put large intermediate files (builds, disk images, downloads, datasets) in \`${path.join(path.dirname(dir), 'scratch')}/\` (create it if missing), not in artifacts. Keep only finished deliverables in artifacts. The operator empties scratch with EMPTY SCRATCH; nothing there is deleted automatically.`
+    ? `\n- Put large intermediate files (builds, disk images, downloads, datasets) in \`${path.join(path.dirname(dir), 'scratch')}/\` (create it if missing), not in artifacts. Keep only finished deliverables in artifacts. The operator can empty scratch with EMPTY SCRATCH or choose to empty it when closing the tab; nothing there is deleted automatically.`
     : '';
   return `
 

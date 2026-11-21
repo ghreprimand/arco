@@ -16,8 +16,8 @@ import { readKeep, isKept } from './keepStore.js';
 // operator turned the rule on.
 
 const GiB = 1024 * 1024 * 1024;
-export interface StoragePolicy { version: 1; autoArchiveClosedDays: number | null; budgetGiB: number; budgetNotice: boolean }
-export const DEFAULT_POLICY: StoragePolicy = { version: 1, autoArchiveClosedDays: null, budgetGiB: 100, budgetNotice: true };
+export interface StoragePolicy { version: 1; autoArchiveClosedDays: number | null; budgetGiB: number; budgetNotice: boolean; scratchWarningGiB: number }
+export const DEFAULT_POLICY: StoragePolicy = { version: 1, autoArchiveClosedDays: null, budgetGiB: 100, budgetNotice: true, scratchWarningGiB: 1 };
 
 function policyPath(): string { return path.join(arcoHome(), 'storage-policy.json'); }
 
@@ -36,6 +36,7 @@ export function sanitizePolicy(v: Partial<StoragePolicy>): StoragePolicy {
     autoArchiveClosedDays: typeof days === 'number' && Number.isInteger(days) && days >= 1 && days <= 3650 ? days : null,
     budgetGiB: typeof budget === 'number' && Number.isFinite(budget) && budget >= 1 && budget <= 1_000_000 ? budget : DEFAULT_POLICY.budgetGiB,
     budgetNotice: typeof v.budgetNotice === 'boolean' ? v.budgetNotice : DEFAULT_POLICY.budgetNotice,
+    scratchWarningGiB: typeof v.scratchWarningGiB === 'number' && Number.isFinite(v.scratchWarningGiB) && v.scratchWarningGiB > 0 && v.scratchWarningGiB <= 1_000_000 ? v.scratchWarningGiB : DEFAULT_POLICY.scratchWarningGiB,
   };
 }
 

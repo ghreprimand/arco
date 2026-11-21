@@ -69,6 +69,12 @@ export async function recordStorageAction(cwd: string, entry: Record<string, unk
 
 export interface RemovalResult { removedBytes: number; removedFiles: number; keptItems: number }
 
+// A primary can have stopped while another worker is still writing. STOP also
+// drops busy before the primary turn's teardown has finished.
+export function scratchIsWorking(wf: { busy?: boolean; primaryTurn?: unknown; manager: { snapshotWorkers(): Record<string, { status: string }> } } | undefined): boolean {
+  return !!wf && (!!wf.busy || !!wf.primaryTurn || Object.values(wf.manager.snapshotWorkers()).some((worker) => worker.status === 'running' || worker.status === 'spawning'));
+}
+
 // Remove everything under `root` (relative `rel` inside the conversation)
 // except kept items. Links are removed as links, never followed.
 async function removeExceptKept(dir: string, rel: string, kept: Parameters<typeof isKept>[0], out: RemovalResult): Promise<void> {

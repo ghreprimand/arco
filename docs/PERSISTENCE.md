@@ -79,7 +79,7 @@ Conversation records are append-only as a rule - Arco never auto-deletes `events
 │       ├── events.jsonl             # append-only NDJSON event log (the live part)
 │       ├── events.<first>-<last>.jsonl.br  # sealed, compressed older records (see Sealed segments)
 │       ├── log-format.json          # { "format": 2 } once a segment exists
-│       ├── scratch/                 # large intermediate files; emptied only by EMPTY SCRATCH (storageActions.ts)
+│       ├── scratch/                 # large intermediate files; emptied only at the operator's request (storageActions.ts)
 │       ├── keep.json                # KEEP marks: items skipped by EMPTY SCRATCH, archive, delete and size warnings (keepStore.ts); never archived or removed by them
 │       ├── storage-warnings.json    # artifact sizes already warned about (storageWarnings.ts)
 │       ├── meta.json                # workflow identity + session ledger

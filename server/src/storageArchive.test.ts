@@ -123,6 +123,9 @@ test('the auto-archive rule is off by default and picks only long-closed, unkept
   assert.equal(sanitizePolicy({ autoArchiveClosedDays: 30 }).autoArchiveClosedDays, 30);
   assert.equal(sanitizePolicy({ budgetGiB: -5 }).budgetGiB, 100);
   assert.equal(sanitizePolicy({}).budgetNotice, true);
+  assert.equal(sanitizePolicy({}).scratchWarningGiB, 1);
+  assert.equal(sanitizePolicy({ scratchWarningGiB: 0.5 }).scratchWarningGiB, 0.5);
+  assert.equal(sanitizePolicy({ scratchWarningGiB: 0 }).scratchWarningGiB, 1);
   await project(async (cwd, dir) => {
     const old = new Date(Date.now() - 40 * 86_400_000);
     for (const name of ['meta.json', 'events.jsonl']) await utimes(path.join(dir, name), old, old);
