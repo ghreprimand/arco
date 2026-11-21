@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 for (const layout of ['src', 'dist'] as const) {
   for (const nodeEnv of [undefined, 'development', 'production']) {
-    test(`${layout} MCP entries follow running module with NODE_ENV ${nodeEnv ?? 'unset'}`, () => {
+    test(`${layout} MCP entries follow running module with NODE_ENV ${nodeEnv ?? 'unset'}`, {
+      skip: layout === 'dist' && !existsSync(resolve('server/dist/mcp/mcpConfigWriter.js')) ? 'build output not present' : false,
+    }, () => {
       const ext = layout === 'src' ? 'ts' : 'js';
       const script = `
         import { resolveMcpServerEntry, resolveArcoMcpServerEntry, resolveVoiceMcpServerEntry } from './server/${layout}/mcp/mcpConfigWriter.${ext}';
