@@ -1,6 +1,7 @@
 import { layoutPoint } from '../../utils/pointer';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useLayout } from '../../layout/layoutRange';
 import { ModalHelpButton } from '../help/ModalHelpButton';
 import { contentSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { AudioEditor, AudioOpsPanel } from './AudioEditor';
@@ -328,6 +329,9 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
     if (file) importFile(file);
   };
 
+  // Mobile view: the studio fills the visible area and its header wraps
+  // (docs/CLIENT.md "Mobile view"); the phone's Back closes it.
+  const phone = useLayout().phone;
   const body = typeof document !== 'undefined' ? document.body : null;
   if (!body) return null;
 
@@ -340,7 +344,8 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
       style={{
         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 9400, padding: '36px',
+        zIndex: 9400, padding: phone ? 0 : '36px',
+        ...(phone ? { top: 'calc(var(--phone-vt, 0px) / var(--ui-scale, 1))', bottom: 'auto', height: 'calc(var(--phone-vh, 100dvh) / var(--ui-scale, 1))' } : {}),
       }}
     >
       <div
@@ -348,13 +353,13 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
         className="glow-border"
         ref={surface}
         style={{
-          ...contentSurfaceSize,
-          background: 'var(--color-bg)', border: '1px solid var(--color-border-bright)',
-          borderRadius: '6px', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          ...(phone ? { width: '100%', height: '100%', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)', paddingBottom: 'env(safe-area-inset-bottom)', boxSizing: 'border-box' as const } : contentSurfaceSize),
+          background: 'var(--color-bg)', border: phone ? 0 : '1px solid var(--color-border-bright)',
+          borderRadius: phone ? 0 : '6px', display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}
       >
         {/* Header */}
-        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexShrink: 0 }}>
+        <div data-media-header="" data-media-phone={phone || undefined} style={{ padding: phone ? 'calc(6px + env(safe-area-inset-top)) 10px 6px' : '10px 16px', borderBottom: '1px solid var(--color-border-hairline)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: phone ? '6px' : '12px', flexShrink: 0, flexWrap: phone ? 'wrap' : undefined }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
             {/* Mode switcher — the indicator IS the control. Flips the studio
                 between image / audio / video in place; the underlying editors +
@@ -382,8 +387,8 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
               {displayName}
             </span>
           </div>
-          <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center' }}>
-            <WorkSurfaceControls storageKey="media" surface={surface} />
+          <div style={{ display: 'flex', gap: '6px', flexShrink: 0, alignItems: 'center', flexWrap: phone ? 'wrap' : undefined }}>
+            {!phone && <WorkSurfaceControls storageKey="media" surface={surface} />}
             {mode === 'image' && hasImage && !editing && (
               <>
                 <button data-help="media.zoom-out" onClick={() => zoomBy(1 / 1.2)} className="display-font" title="Zoom out" style={ctrlBtn}>−</button>

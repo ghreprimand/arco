@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { layoutRange, rangeWidthKey, readLayoutMode, readRangeFraction, writeRangeFraction } from './layoutRange';
+import { isMobilePath, isPhoneWidth, layoutRange, rangeWidthKey, readLayoutMode, readRangeFraction, writeRangeFraction } from './layoutRange';
 
 test('Automatic uses the agreed interface pixel boundaries', () => {
   assert.equal(layoutRange(1499, 1, 'auto'), 'narrow');
@@ -42,4 +42,22 @@ test('the saved layout mode defaults to Automatic', () => {
   assert.equal(readLayoutMode(memory({ 'arco.layoutMode': 'compact' })), 'compact');
   assert.equal(readLayoutMode(memory({ 'arco.layoutMode': 'narrow' })), 'narrow');
   assert.equal(readLayoutMode(memory({ 'arco.layoutMode': 'tiny' })), 'auto');
+});
+
+test('the link to the mobile view shows below 600 CSS pixels, or on the short side of a touch screen', () => {
+  assert.equal(isPhoneWidth(390), true);
+  assert.equal(isPhoneWidth(599), true);
+  assert.equal(isPhoneWidth(600), false);
+  assert.equal(isPhoneWidth(0), false);
+  // A phone turned sideways (touch only) stays a phone; a short desktop window does not.
+  assert.equal(isPhoneWidth(844, 390, true), true);
+  assert.equal(isPhoneWidth(844, 390, false), false);
+  assert.equal(isPhoneWidth(1024, 768, true), false);
+});
+
+test('only the /mobile address opens the mobile view', () => {
+  assert.equal(isMobilePath('/mobile'), true);
+  assert.equal(isMobilePath('/mobile/'), true);
+  assert.equal(isMobilePath('/'), false);
+  assert.equal(isMobilePath('/mobiles'), false);
 });

@@ -660,6 +660,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
       <div
         className={[isAssistant || renderSystemMarkdown ? 'arco-markdown' : '', message.isStreaming ? 'arco-streaming' : ''].filter(Boolean).join(' ') || undefined}
         data-streaming={message.isStreaming ? 'true' : undefined}
+        data-message-body={isSystem ? 'system' : 'text'}
         style={{
           padding: isSystem ? '4px 0' : '8px 12px',
           borderLeft: chatPresentation || isSystem

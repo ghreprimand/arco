@@ -449,3 +449,99 @@ body {
   border-radius: .3rem;
   cursor: pointer;
 }
+
+/* Mobile view (/mobile, docs/CLIENT.md "Mobile view"): conversation text,
+   questions and the message box use the phone's own font at 16px, which is
+   easier to read on a small screen and keeps iPhone Safari from zooming into
+   the message box. Colours stay the theme's; code keeps the theme's code font.
+   Controls, status and labels keep the theme font. */
+[data-phone-layout] [data-message-body='text'],
+[data-phone-layout] [data-mobile-questions],
+[data-phone-layout] [data-question-card],
+[data-phone-layout] textarea,
+[data-phone-layout] input:not([type='checkbox']):not([type='radio']):not([type='range']) {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+}
+/* Question options and their buttons are touch-sized in the mobile view. */
+[data-phone-layout] [data-mobile-questions] button,
+[data-phone-layout] [data-question-card] button {
+  min-height: 44px;
+  font-size: 15px !important;
+}
+[data-phone-layout] [data-message-body] code,
+[data-phone-layout] [data-message-body] pre {
+  font-family: var(--font-code) !important;
+  font-size: 13px !important;
+}
+
+/* Mobile view composer (docs/CLIENT.md "Mobile view"): one thumb row with
+   the draft, the options button and SEND or STEER. The composer's other rows
+   (status, skills, toolbar, model, recipient and NUDGE) show only while the
+   options are open. */
+[data-phone-layout] [data-composer]:not([data-phone-options-open]) [data-phone-option] {
+  display: none !important;
+}
+
+/* Mobile view: every control is at least 44 by 44 CSS pixels, so it can be
+   hit with a thumb. */
+[data-phone-layout] button,
+[data-phone-layout] select,
+[data-phone-layout] summary,
+[data-phone-layout] [role='button'],
+[data-phone-layout] [role='tab'] {
+  min-height: 44px;
+  min-width: 44px;
+}
+/* A message's selection box: a 44px target around a 20px box. */
+[data-phone-layout] [data-testid='message-select'] {
+  appearance: none;
+  width: 44px;
+  height: 44px;
+  margin: -12px -8px !important;
+  cursor: pointer;
+  background: transparent no-repeat center / 12px 12px;
+  outline: 2px solid var(--color-fg-muted);
+  outline-offset: -14px;
+}
+[data-phone-layout] [data-testid='message-select']:checked {
+  background-image: linear-gradient(var(--color-accent-primary), var(--color-accent-primary));
+  outline-color: var(--color-accent-primary);
+}
+
+/* Mobile view: the conversation keeps clear of the phone's rounded corners
+   and camera cut-out when turned sideways. */
+[data-phone-layout] [data-help='chat.panel'] {
+  padding: 12px calc(12px + env(safe-area-inset-right)) 12px calc(12px + env(safe-area-inset-left)) !important;
+}
+
+/* Mobile view: the question being asked uses the phone's own font at 16px,
+   like the conversation text. */
+[data-phone-layout] [data-question-prose] {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+}
+/* Mobile view: CATCH ME UP sits in the PANELS hub as one of its tiles. */
+[data-phone-layout] [data-testid='mobile-panel-catch-up'] > div,
+[data-phone-layout] [data-testid='mobile-panel-catch-up'] > div > button {
+  width: 100%;
+  min-height: 52px;
+}
+
+/* Mobile view: an open board task fills the board panel; its CLOSE returns
+   to the list. */
+[data-phone-layout] [data-board-phone-task] > :not([data-help='cluster.task-drawer']) {
+  display: none !important;
+}
+[data-phone-layout] [data-board-phone-task] > [data-help='cluster.task-drawer'] {
+  flex: 1 1 auto !important;
+  max-height: none !important;
+}
+/* Mobile view: the media studio's header controls are touch-sized too (the
+   studio is drawn outside the app root). */
+[data-media-phone] button {
+  min-height: 44px;
+  min-width: 44px;
+}

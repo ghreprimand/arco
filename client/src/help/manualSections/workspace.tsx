@@ -678,6 +678,24 @@ export const workspace: Section[] = [
           <strong>MORE</strong>. FILE, PLAN and BRIEF always stay.
         </p>
         <p>
+          On a phone, open the <strong>/mobile</strong> address (the
+          workbench in a phone-sized window links to it). It lists your tabs,
+          with what needs you first, and shows one conversation at a time with
+          larger text. The phone's Back closes the top layer.{' '}
+          <strong>PANELS</strong> opens files, plan, board, terminal,
+          Settings, Recall, Media or System full screen. Colours follow the
+          theme; the text size is set per phone.
+        </p>
+        <p>
+          The message box keeps the draft, the options button and{' '}
+          <strong>SEND</strong> on one row; the options button shows files,
+          model, skills, recipient and NUDGE. While the agent works,{' '}
+          <strong>SEND</strong> reads <strong>STEER</strong>, and a second row
+          has <strong>STOP</strong> and <strong>QUEUE FOR AFTER</strong>.
+          Questions and approvals waiting on you open from the line under the
+          header.
+        </p>
+        <p>
           A dragged splitter is remembered for each layout, so a laptop window
           and a desktop window keep their own widths. Standard keeps the
           original saved width. The choice is kept in this browser and applies

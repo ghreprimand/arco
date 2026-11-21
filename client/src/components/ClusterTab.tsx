@@ -45,6 +45,7 @@ import type { McpSenders } from './RightPanel/McpRegistrySection';
 import type { UploadResult } from '../utils/uploadAttachment';
 import { readRangeFraction, useLayout, writeRangeFraction, type LayoutRange } from '../layout/layoutRange';
 import { PanelStrip, SlideOut } from '../layout/SlideOut';
+import { usePhonePanelRequests, usePhoneStore } from '../stores/phoneStore';
 import { useOutputNavigationOpener } from '../utils/outputNavigation';
 import { useKeepInWindow } from '../layout/keepInWindow';
 
@@ -319,7 +320,14 @@ export function ClusterTab({
 
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastRef = useKeepInWindow({ anchor: () => null });
-  const { range: widthRange } = useLayout();
+  const { range: widthRange, phone } = useLayout();
+  // Mobile view: the header's PANELS sheet asks for one of this tab's
+  // panels; it opens full width over the chat (docs/CLIENT.md "Mobile view").
+  useEffect(() => {
+    if (!phone) return;
+    usePhoneStore.getState().setPanels(RIGHT_STRIP);
+    return () => usePhoneStore.getState().setPanels([]);
+  }, [phone]);
   const widthRangeRef = useRef(widthRange);
   widthRangeRef.current = widthRange;
   const compactLayout = widthRange !== 'standard';
@@ -336,6 +344,10 @@ export function ClusterTab({
   const [rightTabRequest, setRightTabRequest] = useState<{ tab: string; n: number } | null>(null);
   const [planHintMore, setPlanHintMore] = useState(false);
   useEffect(() => { if (widthRange !== 'narrow') { setMemberListOpen(false); setRightSlide(null); } }, [widthRange]);
+  usePhonePanelRequests(phone, RIGHT_STRIP.map((item) => item.id), (id) => {
+    if (id !== 'more') setRightTabRequest((prev) => ({ tab: id, n: (prev?.n ?? 0) + 1 }));
+    setRightSlide(id);
+  }, () => { setRightSlide(null); setMemberListOpen(false); });
   useVoicePanelOpener(clusterId, widthRange === 'narrow', (panel) => {
     setMemberListOpen(false);
     setRightSlide(panel);
@@ -1025,6 +1037,8 @@ export function ClusterTab({
                 </div>
                 );
                 if (widthRange !== 'narrow') return gridColumn;
+                // Mobile view: the header's member strip and members sheet replace the rail.
+                if (phone) return null;
                 // Narrow: a rail of member initials; the full list opens over the chat.
                 return (
                   <>
@@ -1099,7 +1113,7 @@ export function ClusterTab({
                       onSend={(content, attachments, kind, primitive, pickedSkills) =>
                         sendFromComposer(focusedMember.workflowId, content, attachments, kind, primitive, pickedSkills)
                       }
-                      clusterControls={{ clusterId, recipientLabel, placeholder: composerPlaceholder, onChooseRecipients: openRecipients, pendingTotal, pendingMembers, nudgedCount, onNudge: nudgeOffered ? openNudgeModal : undefined }}
+                      clusterControls={{ clusterId, recipientLabel, placeholder: composerPlaceholder, customRecipients: !!composerRecipients, onChooseRecipients: openRecipients, pendingTotal, pendingMembers, nudgedCount, onNudge: nudgeOffered ? openNudgeModal : undefined }}
                       onAttachPlan={!cluster.research && onAttachPlanToMember ? (planId) => onAttachPlanToMember(focusedMember.workflowId, planId) : undefined}
                       onAttachToCluster={!cluster.research && onSetClusterPlan ? (body) => onSetClusterPlan(clusterId, body) : undefined}
                       onCancel={() => onCancelMember(focusedMember.workflowId)}
@@ -1198,7 +1212,7 @@ export function ClusterTab({
           }}
         />}
 
-        {widthRange === 'narrow' && <PanelStrip items={cluster.research ? RESEARCH_RIGHT_STRIP : RIGHT_STRIP} active={rightSlide} onOpen={(id) => {
+        {widthRange === 'narrow' && !phone && <PanelStrip items={cluster.research ? RESEARCH_RIGHT_STRIP : RIGHT_STRIP} active={rightSlide} onOpen={(id) => {
           if (id !== 'more') setRightTabRequest((prev) => ({ tab: id, n: (prev?.n ?? 0) + 1 }));
           setRightSlide(id);
         }} />}
@@ -1262,7 +1276,7 @@ export function ClusterTab({
         />
         );
         if (widthRange === 'narrow') {
-          return rightSlide && <SlideOut side="right" width="380px" label="CLUSTER PANEL" onClose={() => setRightSlide(null)} testId="right-panel-slide-out">{rightPanel}</SlideOut>;
+          return rightSlide && <SlideOut side="right" width={phone ? '100%' : '380px'} full={phone} label="CLUSTER PANEL" onClose={() => setRightSlide(null)} testId="right-panel-slide-out">{rightPanel}</SlideOut>;
         }
         return (
         <div

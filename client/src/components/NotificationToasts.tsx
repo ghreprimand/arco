@@ -1,3 +1,4 @@
+import { usePhoneLayout } from '../layout/layoutRange';
 import { UpdateResultNotice } from './UpdateResultNotice';
 import { AppUpdateNotice } from './AppUpdateNotice';
 // Phase 2.5.1 — top-right toast strip for transient notifications.
@@ -43,13 +44,16 @@ export function NotificationToasts() {
   }, [notifications, dismiss]);
 
 
+  const phone = usePhoneLayout();
   return (
     <div
       ref={placeRef}
       style={{
         position: 'fixed',
-        top: '16px',
-        right: '16px',
+        // Mobile view: below its header, so STOP and Back stay reachable.
+        top: phone ? 'calc(var(--phone-header-h, 0px) + 8px)' : '16px',
+        right: phone ? '8px' : '16px',
+        left: phone ? '8px' : undefined,
         zIndex: 9999,
         display: 'flex',
         flexDirection: 'column',

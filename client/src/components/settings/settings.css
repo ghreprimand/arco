@@ -30,3 +30,21 @@
 .settings-dialog .project-folders-ui label{color:var(--color-accent-primary-dim)}
 .settings-dialog .saved-project-management p{color:var(--color-fg-muted)}
 .settings-dialog .saved-project-management summary{color:var(--color-accent-primary)}
+/* Mobile view (docs/CLIENT.md "Mobile view"): Settings fills the visible area
+   in one column, the category list first and one category at a time. */
+.settings-backdrop.settings-phone{padding:0;background:var(--color-bg);top:calc(var(--phone-vt,0px) / var(--ui-scale,1));bottom:auto;height:calc(var(--phone-vh,100dvh) / var(--ui-scale,1));align-items:stretch}
+.settings-phone .settings-dialog.settings-dialog{width:100%;height:100%;max-width:none;max-height:none;border:0;border-radius:0;resize:none;gap:8px;padding:calc(8px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left))}
+.settings-phone .settings-header h2{font-size:15px;letter-spacing:2px}
+.settings-phone .settings-header button,.settings-phone .settings-phone-back{font-size:13px;min-height:44px;padding:0 14px;color:var(--color-fg);background:transparent;border:1px solid var(--color-border-hairline);border-radius:4px;cursor:pointer;text-align:left}
+.settings-phone .settings-phone-back{align-self:flex-start}
+.settings-phone .settings-search{font-size:13px;color:var(--color-fg)}
+.settings-phone .settings-layout{grid-template-columns:minmax(0,1fr);gap:8px}
+.settings-phone .settings-layout nav{display:flex;flex-direction:column;gap:6px;max-height:none;min-height:0;overflow:auto;align-self:stretch}
+.settings-phone .settings-layout nav button{font-size:14px;min-height:52px;padding:0 14px;color:var(--color-fg)}
+.settings-phone[data-settings-view=list] .settings-content{display:none}
+.settings-phone[data-settings-view=page] .settings-layout nav{display:none}
+.settings-phone .settings-content{padding:2px 0 12px}
+.settings-phone .settings-description,.settings-phone .settings-scope-guide,.settings-phone .settings-notice{font-size:14px;color:var(--color-fg)}
+.settings-phone .settings-section-meta{flex-wrap:wrap;font-size:13px}
+.settings-phone .settings-section-help{max-width:100%}
+.settings-phone .settings-section{zoom:1.15}

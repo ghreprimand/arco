@@ -5,6 +5,8 @@ import { useAppStore } from '../../stores/appStore';
 import { useStartupStore } from '../../stores/startupStore';
 import { settingsHelp } from '../../help/content/settings';
 import { SETTINGS_PAGES, SETTINGS_SECTIONS, settingsHash, settingsMatches, settingsSection, type SettingsPage } from './navigation';
+import { useLayout } from '../../layout/layoutRange';
+import { usePhoneStore } from '../../stores/phoneStore';
 import './settings.css';
 
 // The Settings dialog (P3.4): category list, search across every section, a
@@ -78,11 +80,23 @@ export function SettingsLayout({ onClose, children, unavailable = {} }: { onClos
   const search = useRef<HTMLInputElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const searching = query.trim().length > 0;
+  // Mobile view: a category list first, then one category with a way back
+  // (docs/CLIENT.md "Mobile view"). The phone's Back closes the category first.
+  const phone = useLayout().phone;
+  const phonePage = usePhoneStore((s) => s.settingsPage);
+  const setPhonePage = usePhoneStore((s) => s.setSettingsPage);
+  useEffect(() => {
+    if (!phone) return;
+    setPhonePage(!!initial);
+    return () => setPhonePage(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone]);
   const matched = SETTINGS_SECTIONS.filter((s) => !unavailable[s.id] && (searching ? settingsMatches(s, query, helpText) : s.page === page));
   const visible = new Set(matched.map((s) => s.id));
 
   useEffect(() => {
-    if (!initial?.focus) search.current?.focus();
+    // On a phone, focusing the search would open the on-screen keyboard.
+    if (!initial?.focus && !phone) search.current?.focus();
     const back = opener.current;
     return () => { requestAnimationFrame(() => { if (back?.isConnected) back.focus(); }); };
   }, []);
@@ -91,7 +105,7 @@ export function SettingsLayout({ onClose, children, unavailable = {} }: { onClos
   useLayoutEffect(() => {
     if (!requested) return;
     const target = resolveRequest(requested);
-    if (target) { setPage(target.page); setQuery(''); setFocus(target.focus ?? null); setNotice(''); }
+    if (target) { setPage(target.page); setQuery(''); setFocus(target.focus ?? null); setNotice(''); if (phone) setPhonePage(true); }
     else setNotice('That setting is not available here. Search for it or choose a category.');
     if (!target?.focus) clearRequest(null);
   }, [requested, clearRequest]);
@@ -124,13 +138,14 @@ export function SettingsLayout({ onClose, children, unavailable = {} }: { onClos
   };
   const choose = (next: SettingsPage) => {
     setPage(next); setQuery(''); setNotice('');
+    if (phone) setPhonePage(true);
     content.current?.scrollTo({ top: 0 });
     window.history.replaceState(null, '', `#settings/${next}`);
   };
   const current = SETTINGS_PAGES.find((p) => p.id === page)!;
 
   return (
-    <div className="settings-backdrop" onClick={close}>
+    <div className={phone ? 'settings-backdrop settings-phone' : 'settings-backdrop'} data-settings-view={phone ? (searching || phonePage ? 'page' : 'list') : undefined} onClick={close}>
       <Panel ref={dialog} className="settings-dialog" role="dialog" aria-label="Settings" aria-modal="true" onClick={(e: React.MouseEvent) => e.stopPropagation()}
         onKeyDown={(e: React.KeyboardEvent) => {
           if (e.key === 'Tab' && dialog.current && (e.target as HTMLElement).closest('[role="dialog"]') === dialog.current) {
@@ -148,7 +163,7 @@ export function SettingsLayout({ onClose, children, unavailable = {} }: { onClos
         <header className="settings-header">
           <h2 className="display-font glow-text-bright">SETTINGS</h2>
           {document.querySelector('.connections-backdrop') && <span>Close Settings to return to Connections.</span>}
-          <WorkSurfaceControls storageKey="settings" surface={dialog} />
+          {!phone && <WorkSurfaceControls storageKey="settings" surface={dialog} />}
           <button type="button" className="display-font" onClick={close} aria-label="Close settings" data-help="settings-panel.close">CLOSE ✕</button>
         </header>
         <label className="settings-search" data-help="settings.navigation">Find a setting
@@ -161,6 +176,7 @@ export function SettingsLayout({ onClose, children, unavailable = {} }: { onClos
             ))}
           </nav>
           <div className="settings-content" ref={content} tabIndex={-1}>
+            {phone && !searching && <button type="button" className="display-font settings-phone-back" data-testid="settings-phone-back" onClick={() => setPhonePage(false)}>{'\u2039'} ALL SETTINGS</button>}
             <h3>{searching ? 'Search results' : current.label}</h3>
             <p className="settings-description">{searching ? 'Matches across every category.' : current.description}</p>
             <details className="settings-scope-guide" data-help="settings.scope">

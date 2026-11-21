@@ -7,6 +7,8 @@ export interface ClusterComposerControls {
   recipientLabel: string;
   // Empty-composer placeholder naming who the message goes to.
   placeholder?: string;
+  // The operator chose recipients other than the member shown.
+  customRecipients?: boolean;
   onChooseRecipients: () => void;
   pendingTotal: number;
   pendingMembers: number;

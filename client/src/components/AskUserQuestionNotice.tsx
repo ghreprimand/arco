@@ -159,7 +159,7 @@ export function AskUserQuestionNotice({ workflowId, questionId, question, option
           background: 'var(--color-bg-sunken)',
         }}
       >
-        <div style={{ color: 'var(--color-text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', lineHeight: '1.5', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>{question}</div>
+        <div data-question-prose="" style={{ color: 'var(--color-text-primary)', fontSize: '13px', fontFamily: 'var(--font-body)', lineHeight: '1.5', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>{question}</div>
         {batchModels ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', minWidth: 0 }}>
             <button type="button" className="display-font" style={batchControl} onClick={() => submit('allow')}>ALLOW</button>

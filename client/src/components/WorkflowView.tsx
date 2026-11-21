@@ -21,6 +21,7 @@ import type { TaskLedgerPatch } from './RightPanel/types';
 import type { UploadResult } from '../utils/uploadAttachment';
 import { readRangeFraction, useLayout, writeRangeFraction } from '../layout/layoutRange';
 import { PanelStrip, SlideOut } from '../layout/SlideOut';
+import { usePhonePanelRequests, usePhoneStore } from '../stores/phoneStore';
 import { useOutputNavigationOpener } from '../utils/outputNavigation';
 
 interface Props {
@@ -145,7 +146,15 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
   const taskQueued = taskEntries.filter((task) => task.phase === 'queued').length;
   const taskFailed = taskEntries.filter((task) => task.phase === 'error').length;
   const isolatedMember = useAppStore((s) => Object.values(s.clusters).some((c) => c.members.some((m) => m.workflowId === job.id && isIsolatedAccessMode(m.accessMode))));
-  const { range: widthRange } = useLayout();
+  const { range: widthRange, phone } = useLayout();
+  // Mobile view: the header's PANELS sheet asks for one of this tab's
+  // panels; it opens full width, in focus mode too (docs/CLIENT.md "Mobile view").
+  useEffect(() => {
+    if (!phone || childView) return;
+    usePhoneStore.getState().setPanels(RIGHT_STRIP);
+    return () => usePhoneStore.getState().setPanels([]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phone, !!childView]);
   const widthRangeRef = useRef(widthRange);
   widthRangeRef.current = widthRange;
   const [byRange, setByRange] = useState<Partial<Record<string, number | null>>>({});
@@ -161,6 +170,10 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
   const [slide, setSlide] = useState<string | null>(null);
   const [tabRequest, setTabRequest] = useState<{ tab: string; n: number } | null>(null);
   useEffect(() => { if (widthRange !== 'narrow') setSlide(null); }, [widthRange]);
+  usePhonePanelRequests(phone, RIGHT_STRIP.map((item) => item.id), (id) => {
+    if (id !== 'more') setTabRequest((prev) => ({ tab: id, n: (prev?.n ?? 0) + 1 }));
+    setSlide(id);
+  }, () => setSlide(null));
   const narrow = widthRange === 'narrow';
   // View in Outputs: the narrow layout opens the side panel slide-out first.
   useOutputNavigationOpener([job.id], narrow && !focusMode, () => setSlide('files'));
@@ -236,7 +249,9 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
             minHeight: 0,
           }}
         >
-          <div className="display-font" data-testid="conversation-header" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, padding: '8px 12px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: '10px' }}>{job.busy && <PrimaryStatus job={job} />}<span data-help="worker.header.ctx" style={{ marginLeft: 'auto', flexShrink: 0 }}><ContextMeter job={job} onRecalibrate={onRecalibrate} /></span></div>
+          {/* Mobile view: the phone header already names the conversation and its
+              state, so this line shows only while a turn runs, for its activity. */}
+          {(!phone || job.busy) && <div className="display-font" data-testid="conversation-header" style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, padding: '8px 12px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: '10px' }}>{job.busy && <PrimaryStatus job={job} />}<span data-help="worker.header.ctx" style={{ marginLeft: 'auto', flexShrink: 0 }}><ContextMeter job={job} onRecalibrate={onRecalibrate} /></span></div>}
           <CodexLateCommandLine job={job} header />
           {/* `no-frost`: the chat column is a transparent transcript scaffold,
               not a glass content panel. Under frosted-glass mode the generic
@@ -297,13 +312,13 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
         />
         )}
 
-        {!focusMode && !childView && narrow && <PanelStrip items={RIGHT_STRIP} active={slide} onOpen={(id) => {
+        {!focusMode && !childView && narrow && !phone && <PanelStrip items={RIGHT_STRIP} active={slide} onOpen={(id) => {
           if (id !== 'more') setTabRequest((prev) => ({ tab: id, n: (prev?.n ?? 0) + 1 }));
           setSlide(id);
         }} />}
 
         {/* RIGHT — tabbed side panel. Hidden in focus mode; a slide-out in the narrow range. */}
-        {!focusMode && !childView && (!narrow || slide) && (() => { const rightBody = (
+        {(!focusMode || (phone && slide)) && !childView && (!narrow || slide) && (() => { const rightBody = (
         <div
           style={{
             flex: narrow ? 1 : rightFixedPx !== null ? `0 0 ${rightFixedPx}px` : `1 1 ${rightFraction * 100}%`,
@@ -354,7 +369,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
           />
         </div>
         );
-        return narrow ? <SlideOut side="right" width="400px" label="SIDE PANEL" onClose={() => setSlide(null)} testId="right-panel-slide-out">{rightBody}</SlideOut> : rightBody;
+        return narrow ? <SlideOut side="right" width={phone ? '100%' : '400px'} full={phone} label="SIDE PANEL" onClose={() => setSlide(null)} testId="right-panel-slide-out">{rightBody}</SlideOut> : rightBody;
         })()}
       </div>
     </div>

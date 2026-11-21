@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { useTerminalStore, type TerminalWindow, type TerminalSession } from '../../stores/terminalStore';
+import { useTerminalStore, visibleTerminalWindows, type TerminalWindow, type TerminalSession } from '../../stores/terminalStore';
+import { usePhoneLayout } from '../../layout/layoutRange';
 import { readDraft } from '../../stores/draftStore';
 import { useAppStore } from '../../stores/appStore';
 import { FloatingWindow } from './FloatingWindow';
@@ -35,9 +36,10 @@ interface Props {
 
 export function FloatingTerminalWindow(props: Props) {
   const windows = useTerminalStore((s) => s.windows);
+  const phone = usePhoneLayout();
   return (
     <>
-      {windows.map((w) => (
+      {visibleTerminalWindows(windows, phone).map((w) => (
         <TerminalWindowInstance key={w.windowId} win={w} {...props} />
       ))}
     </>
@@ -58,6 +60,7 @@ function TerminalWindowInstance({
   const newSession = useTerminalStore((s) => s.newSession);
   const switchWindowSession = useTerminalStore((s) => s.switchWindowSession);
   const consumePrefill = useTerminalStore((s) => s.consumePrefill);
+  const phone = usePhoneLayout();
 
   const job = useAppStore((s) => s.jobs[workflowId]);
   const setDraft = useAppStore((s) => s.setDraft);
@@ -119,7 +122,12 @@ function TerminalWindowInstance({
   return (
     <FloatingWindow
       title={title}
-      onClose={() => closeWindow(windowId)}
+      // On a phone only one window shows, so closing it closes them all (each
+      // detaches; every shell keeps running and PANELS > TERMINAL reattaches).
+      onClose={() => {
+        if (!phone) { closeWindow(windowId); return; }
+        for (const w of useTerminalStore.getState().windows) closeWindow(w.windowId);
+      }}
       headerActions={
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {/* Session switcher — pick which session this window views. */}

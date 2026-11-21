@@ -1,6 +1,11 @@
 import type { Theme } from './types';
 import { getFontPack } from './fontPacks';
 import { phosphorEmission } from './phosphor/emission';
+import { isMobilePath } from '../layout/layoutRange';
+
+function onMobileView(): boolean {
+  return typeof window !== 'undefined' && isMobilePath(window.location.pathname);
+}
 
 // Idempotent — safe to call on every settings refresh. Mutates :root CSS vars,
 // sets data-theme on <html>, and lazy-loads the theme's Google Fonts stylesheet
@@ -201,7 +206,10 @@ export function applyTheme(
   const clampB = (v: number | null | undefined): number =>
     typeof v === 'number' && Number.isFinite(v) ? Math.min(100, Math.max(-100, v)) : 0;
   const bgLift = clampB(brightness?.bg);
-  const textLift = clampB(brightness?.text);
+  // The mobile view (/mobile, docs/CLIENT.md "Mobile view") uses the theme's
+  // own text colours: a text brightness lift lowers contrast on light themes,
+  // and a phone screen has no room to spare. The workbench keeps the setting.
+  const textLift = onMobileView() ? 0 : clampB(brightness?.text);
   // Backgrounds shift HSL lightness (surface dimmer); text/ink shifts HSV value
   // (brightens the colour without washing to white). See the two helpers.
   const tok = (key: string, value: string): string => {

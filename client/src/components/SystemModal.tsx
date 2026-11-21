@@ -1,5 +1,6 @@
 import { contentSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 import { useEffect, useRef, useState } from 'react';
+import { useLayout } from '../layout/layoutRange';
 import { useAppStore } from '../stores/appStore';
 import { DiagnosticsTab } from './DiagnosticsTab';
 import { ModelHealthPanel } from './ModelHealthPanel';
@@ -14,6 +15,7 @@ interface Props {
 type SystemTab = 'actions' | 'diagnostics' | 'model-health' | 'services';
 
 export function SystemModal({ onClose, onSetPreviewPort }: Props) {
+  const phone = useLayout().phone;
   const surface = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<SystemTab>('actions');
   useEffect(() => {
@@ -73,16 +75,16 @@ export function SystemModal({ onClose, onSetPreviewPort }: Props) {
         style={{
           background: 'var(--color-bg-dialog)',
           border: '1px solid var(--color-border-hairline)',
-          borderRadius: '6px',
-          padding: '24px 28px',
-          ...contentSurfaceSize,
+          borderRadius: phone ? 0 : '6px',
+          padding: phone ? 'calc(12px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(12px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))' : '24px 28px',
+          ...(phone ? { width: '100%', height: 'calc(var(--phone-vh, 100dvh) / var(--ui-scale, 1))', boxSizing: 'border-box' as const } : contentSurfaceSize),
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
           gap: '18px',
         }}
       >
-        <WorkSurfaceControls surface={surface} storageKey="system" />
+        {!phone && <WorkSurfaceControls surface={surface} storageKey="system" />}
         <div
           className="display-font"
           style={{
@@ -98,7 +100,7 @@ export function SystemModal({ onClose, onSetPreviewPort }: Props) {
             Model Health (Ollama / llama.cpp / model-files readout) · Services
             (machine-wide local web/dev service browser: project-agnostic, so
             it lives here rather than the per-workflow right panel). */}
-        <div style={{ display: 'flex', gap: '4px', borderBottom: '1px solid var(--color-border-hairline)' }}>
+        <div style={{ display: 'flex', flexWrap: phone ? 'wrap' : undefined, gap: '4px', borderBottom: '1px solid var(--color-border-hairline)' }}>
           {(['actions', 'diagnostics', 'model-health', 'services'] as const).map((t) => (
             <button
               key={t}
@@ -114,7 +116,7 @@ export function SystemModal({ onClose, onSetPreviewPort }: Props) {
                 color: tab === t ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
                 cursor: 'pointer',
                 fontSize: '11px',
-                letterSpacing: '2px',
+                letterSpacing: phone ? '0.5px' : '2px',
                 padding: '6px 4px',
               }}
             >

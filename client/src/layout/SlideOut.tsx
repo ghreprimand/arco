@@ -3,7 +3,9 @@
 // The panel itself is the same component as in the wider layouts; only its
 // place changes. Escape, the close button or a click beside it closes it.
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { usePhoneOverlay } from './phoneOverlay';
+import { usePhoneStore } from '../stores/phoneStore';
 
 interface SlideOutProps {
   side: 'left' | 'right';
@@ -12,23 +14,39 @@ interface SlideOutProps {
   onClose: () => void;
   children: ReactNode;
   testId?: string;
+  // Mobile view: the panel covers the whole width, with no dimmed margin, and
+  // ends with a button back to the conversation.
+  full?: boolean;
 }
 
-export function SlideOut({ side, width, label, onClose, children, testId }: SlideOutProps) {
+export function SlideOut({ side, width, label, onClose, children, testId, full = false }: SlideOutProps) {
+  // Mobile view: the full-width panel is the one overlay over the chat; the
+  // chat underneath cannot take focus while it is open. The mobile view's Back
+  // handling reads which panel is open.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const returnLabel = usePhoneStore((s) => s.returnLabel);
+  useEffect(() => {
+    if (!full) return;
+    const phone = usePhoneStore.getState();
+    phone.claim('panel');
+    phone.setOpenPanel(label);
+    return () => { if (usePhoneStore.getState().openPanel === label) usePhoneStore.getState().setOpenPanel(null); };
+  }, [full, label]);
+  usePhoneOverlay(panelRef, full);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented) onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 40, display: 'flex', justifyContent: side === 'left' ? 'flex-start' : 'flex-end' }}>
+    <div ref={panelRef} style={{ position: 'absolute', inset: 0, zIndex: 40, display: 'flex', justifyContent: side === 'left' ? 'flex-start' : 'flex-end' }}>
       <div onClick={onClose} aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)' }} />
       <div
         role="dialog"
         aria-label={label}
         data-testid={testId}
         style={{
-          position: 'relative', width, maxWidth: '92%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0,
+          position: 'relative', width, maxWidth: full ? '100%' : '92%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0,
           background: 'var(--color-bg-dialog, var(--color-bg-panel))',
           [side === 'left' ? 'borderRight' : 'borderLeft']: '1px solid var(--color-border-hairline)',
           boxShadow: '0 0 24px rgba(0,0,0,0.45)',
@@ -36,9 +54,17 @@ export function SlideOut({ side, width, label, onClose, children, testId }: Slid
       >
         <div className="display-font" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
           <span style={{ flex: 1 }}>{label}</span>
-          <button type="button" data-help="layout.slide-out-close" onClick={onClose} title="Close (Esc)" aria-label={`Close ${label}`} className="display-font" style={{ padding: '1px 8px', fontSize: '10px', cursor: 'pointer' }}>CLOSE</button>
+          <button type="button" data-help="layout.slide-out-close" onClick={onClose} title="Close (Esc)" aria-label={`Close ${label}`} className="display-font" style={{ padding: full ? '6px 14px' : '1px 8px', minHeight: full ? '44px' : undefined, fontSize: full ? '12px' : '10px', cursor: 'pointer' }}>CLOSE</button>
         </div>
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>{children}</div>
+        {full && (
+          <div style={{ flexShrink: 0, padding: '8px calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left))', borderTop: '1px solid var(--color-border-hairline)' }}>
+            <button type="button" data-testid="mobile-panel-return" data-help="mobile.return" onClick={onClose} className="display-font"
+              style={{ width: '100%', minHeight: '44px', fontSize: '13px', letterSpacing: '0.5px', color: 'var(--color-accent-primary)', borderColor: 'var(--color-accent-primary)' }}>
+              {returnLabel ? `Back to ${returnLabel}` : 'Back to the conversation'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

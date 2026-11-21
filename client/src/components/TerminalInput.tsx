@@ -48,7 +48,7 @@ import {
   effortsForModel,
 } from '../utils/format';
 import type { UploadResult } from '../utils/uploadAttachment';
-import { useLayoutRange } from '../layout/layoutRange';
+import { useLayout, useLayoutRange } from '../layout/layoutRange';
 import { ToolbarMore, useToolbarOverflow } from '../layout/ToolbarOverflow';
 import { useKeepInWindow } from '../layout/keepInWindow';
 
@@ -322,6 +322,57 @@ function ComposerSendButtons({ jobId, blocked, hasAttachments, busy, canInterrup
   </>;
 }
 
+// Mobile view: the thumb row's buttons beside the draft. SEND (STEER while a
+// turn runs) and the options button that shows the composer's other rows.
+function PhoneSendButtons({ jobId, blocked, hasAttachments, busy, optionsOpen, onToggleOptions, onSend }: {
+  jobId: string; blocked: boolean; hasAttachments: boolean; busy: boolean; optionsOpen: boolean;
+  onToggleOptions: () => void; onSend: () => void;
+}) {
+  const draft = useDraftStore((s) => s.drafts[jobId] ?? '');
+  const disabled = blocked || (!draft.trim() && !hasAttachments);
+  const base = { minWidth: '44px', minHeight: '44px', padding: '0 12px', background: 'transparent', borderRadius: '4px', fontSize: '13px', letterSpacing: '0.5px', whiteSpace: 'nowrap' as const, flexShrink: 0 };
+  return <>
+    <button type="button" data-testid="composer-phone-options" data-help="mobile.composer-options" aria-expanded={optionsOpen} aria-label="Message options"
+      title="Attach files, model, skills, recipient and the other composer tools" onClick={onToggleOptions} className="display-font"
+      style={{ ...base, padding: 0, border: `1px solid ${optionsOpen ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`, color: 'var(--color-fg)', fontSize: '18px' }}>
+      {optionsOpen ? '\u00D7' : '\u22EF'}
+    </button>
+    <button type="button" data-testid="composer-phone-send" data-help="composer.send" onClick={onSend} disabled={disabled} className="display-font"
+      title={busy ? 'Steer: the agent reads this at the next point it can, without stopping the turn' : 'Send message'}
+      style={{ ...base, border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)', fontWeight: 600, opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>
+      {busy ? 'STEER' : 'SEND'}
+    </button>
+  </>;
+}
+
+// Mobile view, while a turn runs: STOP in thumb reach and, with a draft,
+// QUEUE FOR AFTER (the follow-up that desktop sends with Alt+Enter) and,
+// where the provider supports it, INTERRUPT & SEND.
+function PhoneBusyButtons({ jobId, blocked, hasAttachments, canInterrupt, onQueue, onInterrupt, onStop }: {
+  jobId: string; blocked: boolean; hasAttachments: boolean; canInterrupt: boolean; onQueue: () => void; onInterrupt: () => void; onStop: () => void;
+}) {
+  const draft = useDraftStore((s) => s.drafts[jobId] ?? '');
+  const hasDraft = !blocked && (!!draft.trim() || hasAttachments);
+  // The row wraps, so STOP stays whole at 320 px and at a larger text size.
+  const base = { flex: '1 1 auto', minHeight: '44px', padding: '0 10px', background: 'transparent', borderRadius: '4px', fontSize: '13px', letterSpacing: '0.5px', whiteSpace: 'nowrap' as const, cursor: 'pointer' };
+  return (
+    <div data-testid="composer-phone-busy" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+      {hasDraft && <button type="button" data-testid="composer-phone-queue" data-help="mobile.composer-queue" onClick={onQueue} className="display-font"
+        title="Queue this message to send when the current turn ends" style={{ ...base, border: '1px solid var(--color-accent-secondary)', color: 'var(--color-fg)' }}>
+        QUEUE FOR AFTER
+      </button>}
+      {hasDraft && canInterrupt && <button type="button" data-help="composer.interrupt" onClick={onInterrupt} className="display-font"
+        title="Stop the current turn and send this message next" style={{ ...base, border: '1px solid var(--color-warning)', color: 'var(--color-fg)' }}>
+        INTERRUPT &amp; SEND
+      </button>}
+      <button type="button" data-testid="composer-phone-stop" data-help="composer.cancel" onClick={onStop} className="display-font"
+        title="Stop the current turn" style={{ ...base, flex: '0 0 auto', border: '1px solid var(--color-danger)', color: 'var(--color-danger)', fontWeight: 700 }}>
+        {'\u25A0'} STOP
+      </button>
+    </div>
+  );
+}
+
 export function TerminalInput({ job, researchProject = false, onSend, onCancel, onCancelQueued, onUpload, onReview, onHandoff, onSpawn, onUpdatePrimary, onCompact, onFold, onSetToolPosture, onSetProjectTrust, onArmPlanMode, onBackToCluster, clusterControls, clusterContext, memberRole, onTranscriptSend, onReviewViaMember, onResearch }: Props) {
   // Composer text lives in the store keyed by job.id so each tab keeps its
   // own draft across tab switches. Empty tab reads back as ''.
@@ -356,7 +407,12 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
   const [pendingUploads, setPendingUploads] = useState(0);
   const uploading = pendingUploads > 0;
   const toolbarRef = useRef<HTMLDivElement | null>(null);
-  const toolbarOneLine = useLayoutRange() !== 'standard';
+  // Mobile view (docs/CLIENT.md "Mobile view"): one thumb row holds the
+  // draft, the options button and SEND or STEER; everything else is behind
+  // the options button, which shows the toolbar and footer rows wrapped.
+  const phone = useLayout().phone;
+  const [phoneOptions, setPhoneOptions] = useState(false);
+  const toolbarOneLine = useLayoutRange() !== 'standard' && !phone;
   const toolbarHidden = useToolbarOverflow(toolbarRef, toolbarOneLine, TOOLBAR_KEEP);
   const [uploadError, setUploadError] = useState<string | null>(null);
   // One-shot choices stay with the draft, including EDIT replies for inactive tabs.
@@ -817,14 +873,17 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
 
   return (
     <div
+      data-composer=""
+      data-phone-options-open={(phone && phoneOptions) || undefined}
       style={{
         borderTop: '1px solid var(--color-border-hairline)',
         background: 'var(--color-bg-input)',
-        padding: '10px 20px',
+        padding: phone ? '6px calc(8px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left))' : '10px 20px',
         position: 'relative',
         zIndex: 10,
         flexShrink: 0,
         transition: 'all 0.2s ease',
+        ...(phone && phoneOptions ? { maxHeight: 'calc(var(--phone-vh, 100dvh) / var(--ui-scale, 1) * 0.6)', overflowY: 'auto' as const } : {}),
       }}
     >
       <input
@@ -836,7 +895,8 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
       />
 
       <DirectorContinuePrompt workflowId={job.id} />
-      <div data-testid="composer-status-line" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '6px', minWidth: 0, minHeight: isBusy ? '24px' : undefined, position: 'relative', paddingRight: job.busy && job.turnStartedAt !== undefined ? '96px' : 0 }}>
+      {phone && onCancelQueued && <QueuedMessagesIndicator job={job} onCancel={onCancelQueued} />}
+      <div data-testid="composer-status-line" data-phone-option="" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '6px', minWidth: 0, minHeight: isBusy ? '24px' : undefined, position: 'relative', paddingRight: job.busy && job.turnStartedAt !== undefined ? '96px' : 0 }}>
         <TurnTimer busy={job.busy === true} startedAt={job.turnStartedAt} />
         <NorthStarBar job={job} onUpdatePrimary={onUpdatePrimary} />
         {planModeToggleVisible && <button type="button" data-help="composer.plan-first" aria-pressed={planModeArmed} onClick={() => setPlanModeArmed((v) => !v)} title="Plan before editing on the next turn. This is separate from the attached project plan." className="display-font" style={{ marginLeft: 'auto', flexShrink: 0, padding: '3px 8px', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', background: 'transparent', color: planModeArmed ? 'var(--color-warning)' : 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: '10px', whiteSpace: 'nowrap' }}>PLAN FIRST (next turn)</button>}
@@ -846,12 +906,12 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
             <button type="button" title="Dismiss the compacted conversation notice; resume on your own when ready." aria-label="Dismiss compacted notice" onClick={() => clearCompacting(job.id)}>×</button>
           </span>
         )}
-        {onCancelQueued && <QueuedMessagesIndicator job={job} onCancel={onCancelQueued} />}
-      {clusterForJob && <SkillsControl cluster={clusterForJob} memberId={job.id} />}
+        {!phone && onCancelQueued && <QueuedMessagesIndicator job={job} onCancel={onCancelQueued} />}
+      {clusterForJob && <div data-phone-option=""><SkillsControl cluster={clusterForJob} memberId={job.id} /></div>}
       {/* Standing pins persist in WorkflowConfig/meta.json and are re-injected
           every turn. They remain visible until explicitly removed. */}
       {pinnedSkills.length > 0 && (
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div data-phone-option="" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
             PINNED SKILLS:
           </span>
@@ -1084,21 +1144,33 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
         </div>
       )}
 
+      {/* Mobile view: recipients other than the member shown stay visible
+          beside the draft while the options are closed, so the operator sees
+          who SEND reaches (the header names the member shown, whom STOP acts on). */}
+      {phone && clusterControls?.customRecipients && (
+        <button type="button" data-testid="composer-phone-recipients" data-help="cluster.recipients" onClick={clusterControls.onChooseRecipients}
+          aria-label={`Sending to ${clusterControls.recipientLabel}. Choose recipients.`} className="display-font"
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', minHeight: '44px', marginBottom: '6px', padding: '0 12px', background: 'transparent',
+            border: '2px solid var(--color-warning)', borderRadius: '4px', color: 'var(--color-fg)', fontSize: '13px', letterSpacing: '0.5px', cursor: 'pointer', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>SENDING TO {clusterControls.recipientLabel}</span><span aria-hidden="true">{'\u25BE'}</span>
+        </button>
+      )}
       {/* Send choices wrap below the draft so both stay visible at narrow widths. */}
       <div
         className="glow-border"
         data-help="composer.input"
         style={{
           display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'flex-start',
+          flexWrap: phone ? 'nowrap' : 'wrap',
+          alignItems: phone ? 'flex-end' : 'flex-start',
+          gap: phone ? '6px' : undefined,
           border: '1px solid var(--color-border-bright)',
           borderRadius: '4px',
-          padding: '8px 12px',
+          padding: phone ? '4px 4px 4px 10px' : '8px 12px',
           background: 'var(--color-bg-sunken)',
         }}
       >
-        <span
+        {!phone && <span
           className="display-font glow-text"
           style={{
             marginRight: '10px',
@@ -1109,7 +1181,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
           }}
         >
           {isBusy ? '...' : '>'}
-        </span>
+        </span>}
 
         <ComposerTextarea
           jobId={job.id}
@@ -1119,7 +1191,9 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
           disabled={isCompacting}
           isBusy={isBusy}
           placeholder={
-            uploading
+            phone && !uploading && !isCompacting
+              ? (isBusy ? 'Steer now, or queue for after this turn' : (clusterControls?.placeholder ?? 'Message'))
+              : uploading
               ? 'Uploading file...'
               : isCompacting
                 ? 'Compacting conversation… composer is locked until it finishes'
@@ -1131,7 +1205,9 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
           }
         />
 
-        <div style={{ flexBasis: '100%', display: 'flex', flexWrap: 'wrap', alignItems: 'center',
+        {phone && <PhoneSendButtons jobId={job.id} blocked={uploading || isCompacting} hasAttachments={attachments.length > 0} busy={isBusy}
+          optionsOpen={phoneOptions} onToggleOptions={() => setPhoneOptions((v) => !v)} onSend={() => handleSubmit(isBusy ? 'steer' : undefined)} />}
+        {!phone && <div style={{ flexBasis: '100%', display: 'flex', flexWrap: 'wrap', alignItems: 'center',
           justifyContent: 'flex-end', gap: '6px', marginTop: '6px' }}>
         {isBusy && (
           <span
@@ -1179,8 +1255,11 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
             ✕ CANCEL
           </button>
         )}
-        </div>
+        </div>}
       </div>
+      {phone && isBusy && <PhoneBusyButtons jobId={job.id} blocked={uploading || isCompacting} hasAttachments={attachments.length > 0}
+        canInterrupt={interruptAvailable} onQueue={() => handleSubmit('follow-up', false)} onInterrupt={() => handleSubmit('interrupt', false)} onStop={onCancel} />}
+      {phone && <div data-phone-option="" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}><TidyComposer key={job.id} jobId={job.id} disabled={uploading || isCompacting} /></div>}
 
       <MessageSelectionBar jobId={job.id} onSecondOpinion={() => {
         const picked = new Set(useMessageSelectionStore.getState().selected[job.id] ?? []);
@@ -1196,6 +1275,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
       <div
         ref={toolbarRef}
         data-testid="composer-toolbar"
+        data-phone-option=""
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -1624,7 +1704,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
       </div>
 
       {/* Hint row — keyboard shortcuts + toolbox. */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', rowGap: '6px', marginTop: '4px', fontSize: '10px', fontFamily: 'var(--font-display)', color: 'var(--color-fg-muted)', letterSpacing: '1px', padding: '0 4px' }}>
+      <div data-phone-option="" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', rowGap: '6px', marginTop: '4px', fontSize: '10px', fontFamily: 'var(--font-display)', color: 'var(--color-fg-muted)', letterSpacing: '1px', padding: '0 4px' }}>
         <span style={{ flex: '1 1 220px', minWidth: 0 }}>
           <span ref={chipRef} data-help="composer.footer.model" style={{ position: 'relative', color: 'var(--color-accent-primary)', opacity: 0.85 }}>
             {String(job.config.primaryProvider ?? 'claude').toUpperCase()}
@@ -1736,8 +1816,8 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
               return <span style={{ marginLeft: 6, color: 'var(--color-fg-muted)', fontSize: '9px' }}>(WILL LOAD ON NEXT TURN)</span>;
             })()}
           </span>
-          <span style={{ opacity: 0.5 }}>{'  ·  '}</span>
-          DROP / PASTE TO ATTACH · SHIFT+ENTER FOR NEWLINE
+          {!phone && <><span style={{ opacity: 0.5 }}>{'  ·  '}</span>
+          DROP / PASTE TO ATTACH · SHIFT+ENTER FOR NEWLINE</>}
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-start' }}>
           {onBackToCluster && (
@@ -1924,7 +2004,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
               </div>
             )}
           </div>
-          <span>{isBusy ? '↵ STEER · ⌥↵ FOLLOW-UP' : 'ENTER TO SEND'}</span>
+          {!phone && <span>{isBusy ? '↵ STEER · ⌥↵ FOLLOW-UP' : 'ENTER TO SEND'}</span>}
         </div>
       </div>
 

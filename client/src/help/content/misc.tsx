@@ -33,6 +33,71 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: <p>In the narrow layout the right panel folds into this strip. Each button opens the panel over the chat at that tab (BOARD, PLAN or FILES in a cluster; FILES, PLAN or MEMORY in a single tab); MORE opens it at the tab used last. Nothing is removed: every tab is still there.</p>,
     manualSection: 'window-layout',
   },
+  'mobile.open': {
+    title: 'Open mobile view',
+    body: <p>The workbench in a phone-sized window offers the mobile view at the /mobile address. It shows one conversation at a time with larger text and touch-sized controls. The workbench itself does not change.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.header': {
+    title: 'Mobile view header',
+    body: <p>In the list of tabs it shows how many conversations are working and how many need you. In a conversation it shows a back button, the cluster and the name with its state, PANELS, a waiting question or approval and, in a cluster, its members. Sideways or while typing it keeps one row.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.directory': {
+    title: 'Tabs',
+    body: <p>Everything that needs you comes first, then clusters (open one to see its members), agents, chats, Home and New tab. Choose a row to open that conversation. Drafts are kept.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.back': {
+    title: 'Back to tabs',
+    body: <p>Returns to the list of tabs. The number after the triangle counts conversations that need you. The phone's own Back button or gesture closes the top layer the same way.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.title': {
+    title: 'Conversation name',
+    body: <p>The conversation shown and its state. In a cluster, choose it to list the members and switch to another one.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.members': {
+    title: 'Members',
+    body: <p>Each member of this cluster with its state: a triangle needs you, a bar is working, a dot is idle. Choose one to show its conversation; the message box then writes to that member.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.question': {
+    title: 'Waiting question',
+    body: <p>A question, a sub-agent batch approval or a review gate waits in this conversation. Choose it to answer, approve or reject in place, as on the workbench.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.composer-options': {
+    title: 'Message options',
+    body: <p>Shows the rest of the message box: attach files, upload from phone, model and effort, skills, recipient, NUDGE, PLAN, BRIEF and the other tools. Choose it again to hide them.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.composer-queue': {
+    title: 'Queue for after',
+    body: <p>Sends the draft when the current turn ends, instead of steering the turn now. The workbench does the same with Alt+Enter.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.system': {
+    title: 'System',
+    body: <p>Opens the System dialog: services, previews and diagnostics. The phone's Back closes it.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.panels': {
+    title: 'Panels',
+    body: <p>Opens this tab's panels (files, plan, board, memory), a terminal, CATCH ME UP, Settings, Home, New tab, notices, the manual, Recall, Media, System, All plans and Artifacts. Each opens full screen with a way back to the conversation; All plans and Artifacts open in a new browser tab.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.return': {
+    title: 'Back to the conversation',
+    body: <p>Closes the panel and returns to the same conversation and draft. CLOSE, Esc and the phone's Back do the same.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.text-size': {
+    title: 'Text size on this phone',
+    body: <p>The text size of the mobile view in this browser only, at 100, 110 or 120 percent. The workbench's own text size is not changed. Colours follow the theme chosen in Settings, without its text brightness.</p>,
+    manualSection: 'window-layout',
+  },
   'layout.slide-out-close': {
     title: 'Close the panel',
     body: <p>Closes a panel that opened over the chat in the narrow layout. Esc or a click beside the panel does the same. What you changed in the panel stays.</p>,

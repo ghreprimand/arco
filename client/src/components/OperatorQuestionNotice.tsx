@@ -26,13 +26,13 @@ export function OperatorQuestionNotice({ workflowId, question, error }: { workfl
     setSending(true);
     send!({ type: 'operator_question_dismiss', workflowId, requestId: question.requestId });
   };
-  return <div id={`operator-question-${question.requestId}`} style={{ borderLeft: '2px solid var(--color-accent-secondary)', padding: '10px 12px', background: 'var(--color-bg-sunken)', marginBottom: 12 }}>
+  return <div id={`operator-question-${question.requestId}`} data-question-card="" style={{ borderLeft: '2px solid var(--color-accent-secondary)', padding: '10px 12px', background: 'var(--color-bg-sunken)', marginBottom: 12 }}>
     <div className="display-font" style={{ color: 'var(--color-accent-secondary)', fontSize: 11, letterSpacing: 1, marginBottom: 8 }}>
       {question.provider.toUpperCase()} · {pending ? question.mode === 'blocking' ? 'WAITING FOR YOUR ANSWER' : 'QUESTION · AGENT CAN CONTINUE' : question.status.toUpperCase()}
     </div>
     <form onSubmit={(e) => { e.preventDefault(); submit(); }}>
       {question.questions.map((q, i) => <fieldset key={q.id} disabled={disabled} style={{ border: 0, padding: 0, margin: '0 0 12px', minWidth: 0 }}>
-        <legend style={{ color: 'var(--color-text-primary)', fontSize: 13, whiteSpace: 'pre-wrap', marginBottom: 6 }}>{q.header && <strong>{q.header} · </strong>}{q.question}</legend>
+        <legend data-question-prose="" style={{ color: 'var(--color-text-primary)', fontSize: 13, whiteSpace: 'pre-wrap', marginBottom: 6 }}>{q.header && <strong>{q.header} · </strong>}{q.question}</legend>
         {pending ? <>
           {q.options?.length ? <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 6 }}>
             {q.options.map((o, index) => <button key={index} type="button" onClick={() => setAnswers((a) => ({ ...a, [q.id]: o.label }))}

@@ -26,6 +26,7 @@ import { PlanCandidateBanner } from './PlanCandidateBanner';
 import { RuntimeStateBanner } from './RuntimeStateBanner';
 import { AccountBadge, accountBadgeForJob } from './TabBar';
 import { useAppStore } from '../stores/appStore';
+import { useLayout } from '../layout/layoutRange';
 import type { JobState } from '../stores/appStore';
 import type { ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef } from '@arco/shared';
 import type { UploadResult } from '../utils/uploadAttachment';
@@ -109,11 +110,14 @@ export function MemberPane({
 }: Props) {
   const settings = useAppStore((s) => s.settings);
   const accountBadge = accountBadgeForJob(job, settings);
+  // Mobile view: the phone header names the member and its state, so this
+  // line shows only the running turn's activity.
+  const phone = useLayout().phone;
   return (
     <div
       style={{
         flex: '1 1 0',
-        minWidth: '320px',
+        minWidth: phone ? 0 : '320px',
         display: 'flex',
         flexDirection: 'column',
         // Slice 6a — focused pane gets a whole-pane accent outline so the
@@ -130,7 +134,7 @@ export function MemberPane({
         background: 'transparent',
       }}
     >
-      <div
+      {phone ? (status === 'busy' && <div className="display-font" data-testid="member-pane-activity" style={{ padding: '6px 12px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: '11px', minWidth: 0 }}><PrimaryStatus job={job} /></div>) : <div
         className="display-font"
         style={{
           padding: '8px 12px',
@@ -173,7 +177,7 @@ export function MemberPane({
         </span>
         {status === 'busy' && <PrimaryStatus job={job} />}
         <span data-help="worker.header.ctx" style={{ marginLeft: 'auto', flexShrink: 0, fontSize: '10px' }}><ContextMeter job={job} onRecalibrate={onRecalibrate} /></span>
-      </div>
+      </div>}
       <CodexLateCommandLine job={job} header />
 
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>

@@ -18,6 +18,7 @@ import { DndContext, PointerSensor, TouchSensor, useSensor, useSensors, useDragg
 import type { DragEndEvent } from '@dnd-kit/core';
 import type { ClusterDispatcherState, ClusterStatePayload, LedgerTask, LedgerTaskStatus, TaskComment, TaskDetails, TaskLink, TaskRun } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
+import { useLayout } from '../layout/layoutRange';
 import { isTaskApprovalCurrent } from '@arco/shared';
 import { clearBoardTaskRequest, useBoardTaskRequest } from '../stores/boardTaskRequest';
 import { PlanRefViewer } from './plans/PlanRefsSection';
@@ -224,6 +225,7 @@ export function ClusterTaskBoardTab({
   // Bulk accept only touches review cards the operator can see: recent ones,
   // plus older ones while that row is expanded.
   const visibleReview = olderOpen ? [...recentReview, ...olderReview] : recentReview;
+  const phone = useLayout().phone;
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   // Needs-you popover: open this task's drawer, then clear the request. A done
   // task is only drawn with SHOW DONE on, but the drawer reads from all tasks.
@@ -445,7 +447,9 @@ export function ClusterTaskBoardTab({
   }, [cluster.clusterId, taskShowReader, selectedTaskId, tasks]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    // Mobile view: an open task fills the board panel instead of sharing it
+    // with the list (global.css, data-board-phone-task); closing it returns to the list.
+    <div data-board-phone-task={(phone && selectedTask) ? '' : undefined} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <div
         style={{
           flexShrink: 0,

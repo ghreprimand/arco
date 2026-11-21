@@ -1,4 +1,5 @@
 import { DEFAULT_UI_SCALE, normalizeUiScale } from '@arco/shared';
+import { isMobilePath } from '../layout/layoutRange';
 import { getTheme } from './registry';
 import { applyTheme, applyCrispText } from './apply';
 import { applyPhosphorPreferences, readPhosphorPreferences } from './phosphor/preferences';
@@ -165,9 +166,28 @@ export function writeCachedCrispText(v: boolean | undefined | null): void {
   }
 }
 
+// The mobile view (/mobile, docs/CLIENT.md "Mobile view") keeps its own text
+// size in this browser instead of the workbench-wide setting, so a large
+// desktop text size never enlarges the phone and a phone choice never
+// changes the computer.
+export const MOBILE_TEXT_SIZES = [1, 1.1, 1.2] as const;
+const LS_MOBILE_TEXT_KEY = 'arco_mobile_text_size';
+function onMobilePath(): boolean {
+  return typeof window !== 'undefined' && isMobilePath(window.location.pathname);
+}
+export function readMobileTextSize(): number {
+  const value = readCachedNum(LS_MOBILE_TEXT_KEY);
+  return value !== null && (MOBILE_TEXT_SIZES as readonly number[]).includes(value) ? value : 1;
+}
+export function writeMobileTextSize(value: number): void {
+  if (!(MOBILE_TEXT_SIZES as readonly number[]).includes(value)) return;
+  writeCachedNum(LS_MOBILE_TEXT_KEY, value);
+  applyUiScale(value);
+}
+
 export function applyUiScale(value: number): void {
   if (typeof document !== 'undefined') {
-    const scale = String(normalizeUiScale(value));
+    const scale = String(onMobilePath() ? readMobileTextSize() : normalizeUiScale(value));
     document.documentElement.style.zoom = scale;
     document.documentElement.style.setProperty('--ui-scale', scale);
     // The window-size layout (client/src/layout/layoutRange.ts) counts the

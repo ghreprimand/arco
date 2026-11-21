@@ -36,6 +36,7 @@ import { SyncingOverlay } from './components/SyncingOverlay';
 import { DuplicateTabOverlay } from './components/DuplicateTabOverlay';
 import { AuthOverlay } from './components/AuthOverlay';
 import { SettingsPanel } from './components/SettingsPanel';
+import { SystemModal } from './components/SystemModal';
 import { UserManual } from './components/UserManual';
 import { HelpButton } from './components/help/HelpButton';
 import { HelpBanner } from './components/help/HelpBanner';
@@ -57,6 +58,9 @@ import { RecallView } from './components/Recall/RecallView';
 import { FloatingTerminalWindow } from './components/Terminal/FloatingTerminalWindow';
 import { useWebSocket } from './hooks/useWebSocket';
 import { titleWithWaiting, waitingJobIds } from './alerts/waiting';
+import { MobileHeader, MobileScreenHost, OpenMobileViewLink, usePhoneViewport } from './components/MobileShell';
+import { useLayout } from './layout/layoutRange';
+import { usePhoneStore } from './stores/phoneStore';
 import { useNotificationChannelsStore } from './stores/notificationChannelsStore';
 import { useTabSingleton } from './hooks/useTabSingleton';
 import { useTensionDriver } from './hooks/useTension';
@@ -406,6 +410,14 @@ function AppBody() {
   // client with no persisted jobs skips the overlay entirely (createJob
   // marks new workflows snapshotReceived=true).
   const syncing = useAppStore((s) => s.connected && Object.values(s.jobs).some((j) => !j.snapshotReceived));
+  // Mobile view (docs/CLIENT.md "Mobile view"): the /mobile address draws a
+  // directory and one conversation under a short header, kept inside the
+  // visible area while the keyboard is open. The desktop workbench in a
+  // phone-sized window only offers a link to it.
+  const { phone, phoneSized } = useLayout();
+  const phoneViewport = usePhoneViewport(phone);
+  const phoneScreen = usePhoneStore((s) => s.screen);
+  const phoneSystemOpen = usePhoneStore((s) => s.systemOpen);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -629,7 +641,19 @@ ${scopeBody}
 
   return (
     <div
-      style={{
+      data-phone-layout={phone || undefined}
+      data-phone-short={(phone && phoneViewport.compact) || undefined}
+      style={phone ? {
+        position: 'fixed',
+        // The page is zoomed by the text size (applyUiScale), so the visible
+        // box in CSS pixels is the visual viewport divided by that scale.
+        top: 'calc(var(--phone-vt, 0px) / var(--ui-scale, 1))',
+        left: 0,
+        right: 0,
+        height: 'calc(var(--phone-vh, 100dvh) / var(--ui-scale, 1))',
+        display: 'flex',
+        flexDirection: 'column',
+      } : {
         height: '100%',
         width: '100%',
         display: 'flex',
@@ -653,6 +677,8 @@ ${scopeBody}
         <StaleBuildBanner />
         <BrowserNotice />
         {authStatus && !providerConnected && !showHome && <ProviderOutageBanner />}
+        {phone ? <MobileHeader viewport={phoneViewport} /> : <>
+        {phoneSized && <OpenMobileViewLink />}
         <SystemHeader onReconnect={reconnect} onRestartServer={restartServer} reconnectState={reconnectState} onSetPreviewPort={setPreviewPort} onSetNotificationMutes={setNotificationMutes} onHubLinkToggle={hubLinkSetEnabled} />
         <TabBar
           onRemoveWorkflow={removeWorkflow}
@@ -663,10 +689,13 @@ ${scopeBody}
           onAddClusterMember={addClusterMember}
           onCreateClusterWithFreshWorkers={createClusterWithFreshWorkers}
         />
-        <CatchMeUp scope={showHome || showCreator || showGithub ? null : activeClusterId ? { kind: 'cluster', id: activeClusterId } : activeJobId && !jobs[activeJobId]?.config.incognito ? { kind: 'workflow', id: activeJobId } : null} />
+        </>}
+        {/* Mobile view: CATCH ME UP is in PANELS. */}
+        {!phone && <CatchMeUp scope={showHome || showCreator || showGithub ? null : activeClusterId ? { kind: 'cluster', id: activeClusterId } : activeJobId && !jobs[activeJobId]?.config.incognito ? { kind: 'workflow', id: activeJobId } : null} />}
         <VoiceControl sendMessage={sendMessage} cancel={cancel} createWorkflow={createWorkflow} />
 
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          {phone && <MobileScreenHost />}
           {((!showGithub && !showHome && !activeClusterId && (showCreator || !activeJob)) || retainCreator) && (
             <div style={{ display: !showGithub && !showHome && !activeClusterId && (showCreator || !activeJob) ? 'contents' : 'none' }}>
               <ErrorBoundary label="creator">
@@ -954,6 +983,7 @@ ${scopeBody}
       {computerOpen && <ComputerPanel onLoadEarlier={loadEarlierMessages} onCancel={cancel} onSend={sendMessage} />}
       {setupOpen && <AuthOverlay mode="dialog" />}
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      {phone && phoneSystemOpen && <SystemModal onClose={() => usePhoneStore.getState().setSystemOpen(false)} onSetPreviewPort={setPreviewPort} />}
       {showManual && <UserManual onClose={() => setShowManual(false)} />}
       <HelpBanner />
       <HelpPopover />

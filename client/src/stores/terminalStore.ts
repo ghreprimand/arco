@@ -84,6 +84,14 @@ interface TerminalState {
   consumePrefill: (windowId: string) => string | null;
 }
 
+/** The windows drawn now. The mobile view (docs/CLIENT.md "Mobile view") shows only
+ * the newest, full screen: + NEW there replaces the view instead of stacking a
+ * second full-screen window. The others stay open with their shells and return
+ * on a wider screen; the session switcher reaches their shells meanwhile. */
+export function visibleTerminalWindows(windows: TerminalWindow[], phone: boolean): TerminalWindow[] {
+  return phone && windows.length > 1 ? windows.slice(-1) : windows;
+}
+
 export const useTerminalStore = create<TerminalState>((set, get) => ({
   windows: [],
   sessionsByWorkflow: {},

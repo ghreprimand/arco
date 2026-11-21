@@ -15,6 +15,33 @@ export const LAYOUT_MODE_EVENT = 'arco:layout-mode';
 export const UI_SCALE_EVENT = 'arco:ui-scale';
 export const COMPACT_FROM = 1500;
 export const STANDARD_FROM = 2000;
+// The mobile view (docs/CLIENT.md "Mobile view") is the separate /mobile
+// address: one conversation at a time, a directory of tabs and full-screen
+// panels, drawn from the same stores and theme as the desktop workbench.
+export const MOBILE_PATH = '/mobile';
+
+export function isMobilePath(pathname: string): boolean {
+  return pathname === MOBILE_PATH || pathname.startsWith(`${MOBILE_PATH}/`);
+}
+
+function mobileRoute(): boolean {
+  return typeof window !== 'undefined' && isMobilePath(window.location.pathname);
+}
+
+// Below this many CSS pixels of width (or, on a touch-only screen, of the
+// shorter side, so a phone turned sideways counts) the desktop workbench
+// offers a link to the mobile view. It never switches by itself.
+export const PHONE_BELOW = 600;
+
+export function isPhoneWidth(width: number, height = Infinity, coarsePointer = false): boolean {
+  if (!Number.isFinite(width) || width <= 0) return false;
+  if (width < PHONE_BELOW) return true;
+  return coarsePointer && Number.isFinite(height) && height > 0 && height < PHONE_BELOW;
+}
+
+function coarsePointer(): boolean {
+  try { return typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches && !window.matchMedia('(any-pointer: fine)').matches; } catch { return false; }
+}
 export const AUTOMATIC_LAYOUT_DESCRIPTION = 'Automatic picks by window width: Narrow under 1500, Compact from 1500, Standard from 2000 (interface pixels: window width divided by the text size).';
 
 export const LAYOUT_MODES: Array<{ id: LayoutMode; label: string; hint: string }> = [
@@ -88,21 +115,26 @@ function currentScale(): number {
   return Number.isFinite(raw) && raw > 0 ? raw : 1;
 }
 
-function snapshot(): { mode: LayoutMode; range: LayoutRange; interfaceWidth: number } {
+interface LayoutSnapshot { mode: LayoutMode; range: LayoutRange; interfaceWidth: number; phone: boolean; phoneSized: boolean }
+
+function snapshot(): LayoutSnapshot {
   const mode = currentMode ?? (currentMode = readLayoutMode());
   const width = typeof window === 'undefined' ? 1280 : window.innerWidth;
   const scale = currentScale();
-  return { mode, range: layoutRange(width, scale, mode), interfaceWidth: Math.floor(width / scale) };
+  const phone = mobileRoute();
+  const phoneSized = isPhoneWidth(width, typeof window === 'undefined' ? Infinity : window.innerHeight, coarsePointer());
+  // The mobile view always draws the narrow range underneath its own header.
+  return { mode, range: phone ? 'narrow' : layoutRange(width, scale, mode), interfaceWidth: Math.floor(width / scale), phone, phoneSized };
 }
 
 // The layout mode and the range to draw now. Updates on window resize, on an
 // interface scale change and when the mode changes (in this tab or another).
-export function useLayout(): { mode: LayoutMode; range: LayoutRange; interfaceWidth: number } {
+export function useLayout(): LayoutSnapshot {
   const [state, setState] = useState(snapshot);
   useEffect(() => {
     const update = () => setState((prev) => {
       const next = snapshot();
-      return prev.mode === next.mode && prev.range === next.range && prev.interfaceWidth === next.interfaceWidth ? prev : next;
+      return prev.mode === next.mode && prev.range === next.range && prev.interfaceWidth === next.interfaceWidth && prev.phone === next.phone && prev.phoneSized === next.phoneSized ? prev : next;
     });
     const onStorage = (e: StorageEvent) => {
       if (e.key !== LAYOUT_MODE_KEY) return;
@@ -126,4 +158,9 @@ export function useLayout(): { mode: LayoutMode; range: LayoutRange; interfaceWi
 
 export function useLayoutRange(): LayoutRange {
   return useLayout().range;
+}
+
+/** True in the mobile view (the /mobile address). */
+export function usePhoneLayout(): boolean {
+  return useLayout().phone;
 }

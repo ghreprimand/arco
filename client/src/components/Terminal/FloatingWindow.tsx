@@ -1,5 +1,8 @@
 import { interfaceScale, layoutPoint } from '../../utils/pointer';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { usePhoneLayout } from '../../layout/layoutRange';
+import { usePhoneOverlay } from '../../layout/phoneOverlay';
+import { usePhoneStore } from '../../stores/phoneStore';
 
 // WORKBENCH_EXPANSION §K1 — reusable floating window shell.
 //
@@ -88,19 +91,34 @@ export function FloatingWindow({ title, onClose, headerActions, children, initia
     setZ(nextZ());
   };
 
+  // Mobile view (docs/CLIENT.md "Mobile view"): the window fills the screen
+  // below the phone header instead of floating, and does not drag or resize.
+  // It is the one overlay over the chat there: a sheet or side panel closes,
+  // and the chat underneath cannot take focus while it is open.
+  const phone = usePhoneLayout();
+  const windowRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (phone) usePhoneStore.getState().claim('terminal'); }, [phone]);
+  usePhoneOverlay(windowRef, phone);
   return (
     <div
+      ref={windowRef}
       onMouseDown={() => setZ(nextZ())}
+      data-testid="floating-window"
       style={{
         position: 'fixed',
-        left: pos.x,
-        top: pos.y,
-        width: pos.width,
-        height: pos.height,
+        ...(phone ? {
+          left: 0,
+          top: 'calc(var(--phone-vt, 0px) / var(--ui-scale, 1) + var(--phone-header-h, 0px))',
+          width: '100%',
+          height: 'calc(var(--phone-vh, 100dvh) / var(--ui-scale, 1) - var(--phone-header-h, 0px))',
+          borderRadius: 0,
+        } : { left: pos.x, top: pos.y, width: pos.width, height: pos.height }),
         zIndex: z,
         display: 'flex',
         flexDirection: 'column',
-        background: 'var(--color-bg-panel)',
+        // The phone view paints the opaque dialog surface: a glass panel
+        // would show the conversation through the window.
+        background: phone ? 'var(--color-bg-dialog, var(--color-bg-panel))' : 'var(--color-bg-panel)',
         border: '1px solid var(--color-accent-primary-dim)',
         borderRadius: '6px',
         boxShadow: '0 12px 40px rgba(0,0,0,0.55)',
@@ -109,7 +127,7 @@ export function FloatingWindow({ title, onClose, headerActions, children, initia
     >
       {/* Title bar — drag handle */}
       <div
-        onMouseDown={startDrag('move')}
+        onMouseDown={phone ? undefined : startDrag('move')}
         className="display-font"
         style={{
           display: 'flex',
@@ -117,9 +135,9 @@ export function FloatingWindow({ title, onClose, headerActions, children, initia
           justifyContent: 'space-between',
           gap: '8px',
           padding: '6px 10px',
-          background: 'var(--color-bg-secondary)',
+          background: phone ? 'var(--color-bg-dialog, var(--color-bg-secondary))' : 'var(--color-bg-secondary)',
           borderBottom: '1px solid var(--color-border-hairline)',
-          cursor: 'grab',
+          cursor: phone ? 'default' : 'grab',
           userSelect: 'none',
           flexShrink: 0,
         }}
@@ -127,10 +145,13 @@ export function FloatingWindow({ title, onClose, headerActions, children, initia
         <span style={{ fontSize: '10px', letterSpacing: '1.5px', color: 'var(--color-accent-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {title}
         </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }} onMouseDown={(e) => e.stopPropagation()}>
+        {/* On a phone the actions wrap onto a second row rather than push the
+            close button off the screen. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', ...(phone ? { flexWrap: 'wrap' as const, justifyContent: 'flex-end', flexShrink: 1, minWidth: 0 } : { flexShrink: 0 }) }} onMouseDown={(e) => e.stopPropagation()}>
           {headerActions}
           <button
             onClick={onClose}
+            aria-label="Close window"
             title="Close window (the shell keeps running: reopen to re-attach)"
             className="display-font"
             style={{
@@ -139,9 +160,9 @@ export function FloatingWindow({ title, onClose, headerActions, children, initia
               borderRadius: '3px',
               color: 'var(--color-fg-muted)',
               cursor: 'pointer',
-              fontSize: '12px',
-              width: '20px',
-              height: '20px',
+              fontSize: phone ? '16px' : '12px',
+              width: phone ? '40px' : '20px',
+              height: phone ? '36px' : '20px',
               padding: 0,
             }}
           >
@@ -156,7 +177,7 @@ export function FloatingWindow({ title, onClose, headerActions, children, initia
       </div>
 
       {/* Resize handle (bottom-right) */}
-      <div
+      {!phone && <div
         onMouseDown={startDrag('resize')}
         title="Drag to resize"
         style={{
@@ -169,7 +190,7 @@ export function FloatingWindow({ title, onClose, headerActions, children, initia
           // Subtle corner grip.
           background: 'linear-gradient(135deg, transparent 50%, var(--color-accent-primary-dim) 50%)',
         }}
-      />
+      />}
     </div>
   );
 }

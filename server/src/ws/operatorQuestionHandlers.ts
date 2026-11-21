@@ -6,10 +6,22 @@ import { replyToOperatorQuestion, dismissOperatorQuestion } from '../providers/c
 import { handleUserMessage } from './turnEngine.js';
 import { broadcastWorkflow } from '../server/broadcast.js';
 
+/** This connection may answer or close a workflow's question when it observes
+ * the workflow as an open tab or as a member of a cluster it has open. A browser
+ * that opened a cluster without restoring the member tabs itself (a phone, a
+ * second computer) only has the cluster route. */
+export function canAnswerFor(ws: WebSocket, session: Pick<Session, 'workflowIds' | 'clusterObserved'>, workflowId: string): boolean {
+  const wf = workflows.get(workflowId);
+  if (!wf || !wf.observers.has(ws)) return false;
+  if (session.workflowIds.has(workflowId)) return true;
+  for (const members of session.clusterObserved.values()) if (members.has(workflowId)) return true;
+  return false;
+}
+
 export async function handleOperatorQuestionReply(ws: WebSocket, session: Session, msg: OperatorQuestionReplyMessage): Promise<void> {
   const wf = workflows.get(msg.workflowId);
   let result: { ok: boolean; error?: string };
-  if (!wf || !wf.observers.has(ws) || !session.workflowIds.has(msg.workflowId)) {
+  if (!wf || !canAnswerFor(ws, session, msg.workflowId)) {
     result = { ok: false, error: 'Subscribe to this workflow before answering.' };
   } else {
     result = await replyToOperatorQuestion(msg.workflowId, msg.requestId, msg.answers, async (content, question) => {
@@ -28,7 +40,7 @@ export async function handleOperatorQuestionReply(ws: WebSocket, session: Sessio
 
 export function handleOperatorQuestionDismiss(ws: WebSocket, session: Session, msg: OperatorQuestionDismissMessage): void {
   const wf = workflows.get(msg.workflowId);
-  const result = !wf || !wf.observers.has(ws) || !session.workflowIds.has(msg.workflowId)
+  const result = !wf || !canAnswerFor(ws, session, msg.workflowId)
     ? { ok: false, error: 'Subscribe to this workflow before dismissing.' }
     : dismissOperatorQuestion(msg.workflowId, msg.requestId);
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'operator_question_dismiss_result', workflowId: msg.workflowId, requestId: msg.requestId, ...result }));
