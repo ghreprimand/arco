@@ -25,6 +25,7 @@ import { usePlanGenesisStore } from '../stores/planGenesisStore';
 import { closeSummaryPlan } from '../recall/closeSummary';
 import { TabContextMenu } from './TabContextMenu';
 import { ScratchCloseDialog, type ScratchCloseTarget } from './ScratchCloseDialog';
+import { ResearchCloseDialog } from './research/ResearchCloseDialog';
 import type { ClusterMemberProvider, ClusterStatePayload, ArcoSettings, ProviderName } from '@arco/shared';
 
 interface Props {
@@ -275,6 +276,8 @@ export function TabBar({ onRemoveWorkflow, onStopWorkflow, requestRecallSummary,
     label: string;
     memberIds: string[];
   } | null>(null);
+  const [researchClose, setResearchClose] = useState<{ clusterId: string; label: string } | null>(null);
+  const researchCloseCluster = researchClose ? clusters[researchClose.clusterId] : undefined;
 
   // Phase 7b — Task children mint a JobState (so promote can flip it into
   // the strip without a server round-trip) but are scoped to the parent's
@@ -383,6 +386,14 @@ export function TabBar({ onRemoveWorkflow, onStopWorkflow, requestRecallSummary,
                     isActive={item.id === activeClusterId && !showCreator}
                     onActivate={() => setActiveCluster(item.id)}
                     onClose={() => {
+                      // docs/RESEARCH.md - a research project has its own close.
+                      // The Director's scratch choice comes first, so nothing
+                      // is asked after the researchers are gone.
+                      if (item.cluster.research) {
+                        const target = { clusterId: item.id, label: clusterDisplayName(item.cluster) };
+                        askScratch([item.cluster.research.directorWorkflowId], () => setResearchClose(target));
+                        return;
+                      }
                       setCloseTarget({
                         clusterId: item.id,
                         label: clusterDisplayName(item.cluster),
@@ -449,6 +460,21 @@ export function TabBar({ onRemoveWorkflow, onStopWorkflow, requestRecallSummary,
               for (const wfid of target.memberIds) closeWorkflow(wfid);
               onDeleteCluster(target.clusterId);
             }, true);
+          }}
+        />
+      )}
+      {researchClose && researchCloseCluster?.research && (
+        <ResearchCloseDialog
+          clusterId={researchClose.clusterId}
+          research={researchCloseCluster.research}
+          onCloseResearcher={(wfid) => { if (useAppStore.getState().jobs[wfid]) closeWorkflow(wfid); }}
+          onCancel={() => setResearchClose(null)}
+          onClosed={() => {
+            const target = researchClose;
+            const director = researchCloseCluster.research!.directorWorkflowId;
+            setResearchClose(null);
+            if (useAppStore.getState().jobs[director]) closeWorkflow(director);
+            onDeleteCluster(target.clusterId);
           }}
         />
       )}

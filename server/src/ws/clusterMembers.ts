@@ -104,6 +104,8 @@ export interface ScratchMemberSpec {
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
   outputStyle?: import('@arco/shared').OutputStyle;
   accessMode?: string;
+  webSearchMaxUses?: number;
+  contextSize?: number;
 }
 
 // CREATE FROM SCRATCH: only what the creator's list says, with defaults
@@ -121,7 +123,11 @@ export async function memberConfigFromSpec(m: ScratchMemberSpec, index: number, 
     ...(m.efficiencyToolFilter && m.efficiencyToolFilter !== 'off' ? { efficiencyToolFilter: m.efficiencyToolFilter } : {}),
     ...(storedOutputStyle(m.outputStyle) ? { outputStyle: storedOutputStyle(m.outputStyle) } : {}),
   };
-  if (m.accessMode === 'isolated') {
+  if (m.accessMode === 'researcher') {
+    if (m.webSearchMaxUses) config.webSearchMaxUses = m.webSearchMaxUses;
+    if (m.contextSize && m.provider === 'ollama') config.ollamaParams = { num_ctx: m.contextSize };
+  }
+  if (m.accessMode === 'isolated' || m.accessMode === 'researcher') {
     config.claudeTransport = 'native';
     config.ultracode = false;
   }

@@ -1,3 +1,4 @@
+import { installResearchCloseOnDelete, researchProjectIdsOnDisk, sweepClosedResearch } from './research/researchClose.js';
 import { releaseProjectSettingsWatcher } from './settings.js';
 import { initTranscriptWorkerHandlers, handleTranscriptWorkerPreview, handleTranscriptWorkerCreate } from './ws/transcriptWorkerHandlers.js';
 import { NativeTaskAdmission, assertNativeTaskAllowed } from './providers/claude-native/taskAdmission.js';
@@ -296,6 +297,9 @@ import { resolveOrphanedGate, handleGateRevoke } from './ws/gateHandlers.js';
 import { checkRequestOrigin } from './http/originGuard.js';
 import { checkUpgradeAuth, describePeer, wsAuthEnabled } from './http/wsAuth.js';
 import { startStoragePolicy } from './storageOverview.js';
+import * as researchRounds from './research/researchRounds.js';
+import { RESEARCH_SYNTHETIC_SESSION } from './research/researchState.js';
+import * as clusterMailbox from './clusterMailbox.js';
 
 // Strict-incognito exception list, read by the protocol fence in the ws
 // message handler below. That fence rejects every config
@@ -2538,6 +2542,35 @@ function onListening() {
     }).catch(() => undefined);
   };
   startSmartPickupSupervisor(pushClusterState);
+  // docs/RESEARCH.md - research rounds deliver mail and start turns through
+  // the same mailbox and handleUserMessage path as auto-pickup.
+  researchRounds.configureResearch({
+    enqueue: (to, msg, opts) => clusterMailbox.enqueue(to, msg, opts),
+    mintMsgId: () => clusterMailbox.mintMsgId(),
+    wake: (wfid, prompt) => {
+      const fakeWs = { readyState: WebSocket.CLOSED, send: () => undefined } as unknown as WebSocket;
+      const fakeSession: Session = { id: RESEARCH_SYNTHETIC_SESSION, workflowIds: new Set([wfid]), clusterIds: new Set(), clusterObserved: new Map() };
+      handleUserMessage(fakeWs, fakeSession, wfid, prompt, undefined, undefined, false, undefined, undefined, undefined, { automaticKind: 'auto-pickup' })
+        .catch((err) => console.error(`[arco] research turn failed to start for ${wfid.slice(0, 8)}:`, err));
+    },
+    isBusy: (wfid) => workflows.get(wfid)?.busy === true,
+    pendingMail: (wfid) => clusterMailbox.depthFor(wfid),
+    clusterIdFor: (wfid) => clusterStore.getClusterIdForWorkflow(wfid),
+    notify: pushClusterState,
+    now: () => Date.now(),
+  });
+  installResearchCloseOnDelete((wfid) => workflows.get(wfid)?.busy === true);
+  // docs/RESEARCH.md - after a crash, remove researcher folders that belong
+  // to research tabs already closed (no cluster left). Never a research folder.
+  void (async () => {
+    const clusters = await clusterStore.loadAllClustersFromDisk();
+    const onDisk = await researchProjectIdsOnDisk();
+    if (!onDisk) return [];
+    for (const c of clusters) if (c.research) onDisk.add(c.research.projectId);
+    return sweepClosedResearch(onDisk);
+  })()
+    .then((removed) => { if (removed.length) console.log(`[arco] research: removed researcher folders of ${removed.length} closed project(s): ${removed.join(', ')}`); })
+    .catch((err) => console.error('[arco] research startup sweep failed:', err));
   // Smart Observe-only: evaluate idle members' waiting mail and record the
   // proposal. Nothing here starts a turn.
   startSmartPickupObserver({
@@ -2657,6 +2690,10 @@ function onListening() {
   // "AWAITING REHYDRATE…" and its turns invisible. Failure-isolated (matches the
   // recall backfill above): a bad cluster meta never blocks boot or /readyz.
   registerAllClusterMembersOnBoot()
+    .then(async (n) => {
+      await researchRounds.restoreResearchTimers(clusterStore.listKnownClusterIds());
+      return n;
+    })
     .then((n) => n > 0 && console.log(`[arco] Registered ${n} cluster member(s) on boot`))
     .catch((err) => console.error('[arco] cluster member boot registration failed:', err));
 }

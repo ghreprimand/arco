@@ -13,7 +13,7 @@ import path from 'path';
 import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import type { ClusterMemberProvider, ClusterPreset, ClusterPresetMember, MemberTier } from '@arco/shared';
-import { MEMBER_TIERS, MEMBER_FOCUS_MAX, normalizeOutputStyle, isClusterMemberAccessMode, clusterDirectorProblem } from '@arco/shared';
+import { MEMBER_TIERS, MEMBER_FOCUS_MAX, normalizeOutputStyle, isClusterMemberAccessMode, isResearcherProvider, clusterDirectorProblem } from '@arco/shared';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
 import { arcoHome } from './arcoHome.js';
 
@@ -157,7 +157,15 @@ function normalizeMember(raw: unknown, idx: number): ClusterPresetMember {
     if (r.accessMode === 'isolated' && provider !== 'claude') {
       throw new PresetValidationError(400, `members[${idx}].accessMode isolated requires provider claude`);
     }
+    if (r.accessMode === 'researcher' && !isResearcherProvider(provider)) {
+      throw new PresetValidationError(400, `members[${idx}].accessMode researcher requires provider claude, ollama or llamacpp`);
+    }
     if (r.accessMode !== 'standard') out.accessMode = r.accessMode;
+  }
+  // Research panels keep each researcher's ADVANCED limits (docs/RESEARCH.md).
+  if (out.accessMode === 'researcher') {
+    if (provider === 'claude' && Number.isInteger(r.webSearchMaxUses) && (r.webSearchMaxUses as number) >= 1 && (r.webSearchMaxUses as number) <= 50) out.webSearchMaxUses = r.webSearchMaxUses as number;
+    if (provider === 'ollama' && Number.isInteger(r.contextSize) && (r.contextSize as number) >= 2048 && (r.contextSize as number) <= 1_048_576) out.contextSize = r.contextSize as number;
   }
   return out;
 }

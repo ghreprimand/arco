@@ -524,6 +524,7 @@ export class CodexAppServerWorker extends EventEmitter {
           clusterId: this.config.clusterId,
           taskBoardAttached: this.config.clusterTaskBoardAttached === true,
           accessMode: this.config.clusterAccessMode,
+          researchDirector: this.config.clusterResearchDirector === true,
           port,
           codebaseMemoryIndexPath,
           registryServers,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ProjectRootsSettings } from './ProjectRootsSettings';
 import { WorkingDirectoryDefault } from './WorkingDirectoryDefault';
+import { ResearchFolderSetting } from './ResearchFolderSetting';
 import type { ProjectEntry } from './WorkflowCreator/ProjectPicker';
 import { parsePickerProjects } from '../utils/homeModel';
 
@@ -114,6 +115,7 @@ export function ProjectsSettings() {
         Bookmarks do not control saved chats or files. Removing a bookmark deletes neither.
       </div>
       </details>
+      <ResearchFolderSetting />
       <details className="advanced-folder-options"><summary>Advanced folder options</summary><WorkingDirectoryDefault /></details>
     </div>
   );

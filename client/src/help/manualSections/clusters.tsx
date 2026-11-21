@@ -401,6 +401,84 @@ export const clusters: Section[] = [
   ),
   },
   {
+  id: 'research-start',
+  group: 'Clusters',
+  title: 'Start a research project',
+  body: (
+  <>
+  <p>
+  A research project sends one brief to several researchers who work
+  independently, and gives their reports to a Research Director you keep
+  talking to. Open <Code>+NEW</Code>, choose <strong>RESEARCH</strong>, give
+  a short <strong>Name</strong> (it names the tab and the folder), write the
+  <strong>Brief</strong> with everything that matters (question, budget,
+  must-haves, sources to avoid), then choose
+  <Code>START RESEARCH PROJECT</Code>.
+  </p>
+  <p>
+  The Director starts on the brief at once: it sends round 1, or asks you
+  one question if the brief is unclear.
+  </p>
+  <p>
+  Each researcher row has only Provider, Model and Effort, with
+  <Code>DUPLICATE</Code>, <Code>REMOVE</Code> and <Code>ADVANCED</Code>.
+  Researchers run on Claude, Ollama or llama.cpp. <strong>ADVANCED</strong>{' '}
+  sets web searches per turn for Claude and the context size for Ollama.
+  More than 8 researchers asks once before starting.
+  </p>
+  <p>
+  <Code>ONE OF EACH PROVIDER</Code> fills one row per connected researcher
+  provider, <Code>SAME AS LAST TIME</Code> repeats your last panel, and
+  <Code>+ SAVE PANEL</Code> saves the rows and the Research Director as a
+  named panel shown beside them.
+  </p>
+  <p>
+  The <strong>Research Director</strong> can use any connected provider. The
+  first project asks for the research folder and saves it; change it later in
+  Settings, Projects, <strong>Research folder</strong>. Each project gets its
+  own dated subfolder there. <strong>BLIND REPORTS</strong> is on by default:
+  the Director sees reports as A, B, C without provider or model.
+  </p>
+  </>
+  ),
+  },
+  {
+  id: 'research-project',
+  group: 'Clusters',
+  title: 'Work in a research project',
+  body: (
+  <>
+  <p>
+  A research project opens like a cluster: the Research Director and one card
+  per researcher, each with its live state and <Code>STOP</Code>. A
+  researcher's card adds its letter, provider and model, isolation, the web
+  searches it made and its state in the latest round. Typing to a researcher
+  sends a targeted message, recorded in the round record.
+  </p>
+  <p>
+  The <strong>rounds strip</strong> above the cards shows the name, the
+  brief behind <Code>BRIEF</Code>, and one row per round; choose a row for each researcher's outcome and the
+  deadline. In the right panel, <strong>RESULTS</strong> opens the brief, the
+  summary, the Director log and each released round's reports. BOARD is not
+  shown in a research project.
+  </p>
+  <p>
+  While reports are blind, <Code>REVEAL</Code> writes which provider and model
+  wrote each report into the research folder and shows it to the Research
+  Director. You always see it on the cards. Reveal cannot be undone.
+  </p>
+  <p>
+  Closing the tab is the one moment of cleanup. Arco writes a one-page log
+  per researcher (searches, sources opened, failures) into the latest round
+  record, offers to move files a researcher saved but never sent into
+  sources/, then removes the researchers' workspaces and conversations. The
+  research folder and the Research Director's conversation are kept, and
+  Arco keeps a private record of which model wrote each report.
+  </p>
+  </>
+  ),
+  },
+  {
   id: 'cluster-roles',
   group: 'Clusters',
   title: 'Role presets',

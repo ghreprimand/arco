@@ -1,5 +1,5 @@
 import { normalizeClusterRoleText, type ArcoSkillRef, type ClusterSkillPin } from '@arco/shared';
-import { ClusterValidationError, MEMBER_ROLE_MAX, getClusterIdForWorkflow, readCluster, type ClusterState } from './clusterStore.js';
+import { ClusterValidationError, MEMBER_ROLE_MAX, getClusterIdForWorkflow, memberCwdFor, readCluster, type ClusterState } from './clusterStore.js';
 import { MAX_PINNED_SKILLS, isValidSlug, resolvePinnedSkills } from './skills.js';
 import { workflows } from './server/state.js';
 import { readMeta } from './workflowMeta.js';
@@ -45,7 +45,7 @@ export async function assertClusterSkillLimits(state: ClusterState): Promise<voi
   for (const role of roles) await assertSkillUnion(state, role, [], role ? `Role ${role}` : 'All members');
   for (const id of state.members) {
     const wf = workflows.get(id);
-    const own = wf?.config.pinnedSkills ?? (await readMeta(state.cwd, id).catch(() => null))?.pinnedSkills ?? [];
+    const own = wf?.config.pinnedSkills ?? (await readMeta(memberCwdFor(state, id), id).catch(() => null))?.pinnedSkills ?? [];
     await assertSkillUnion(state, state.memberRoles?.[id], own, wf?.config.name ?? `Member ${id.slice(0, 8)}`);
   }
 }

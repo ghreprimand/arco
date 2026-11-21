@@ -49,14 +49,20 @@ import { SavedClustersList } from '../SavedClustersList';
 import { requestClusterSnapshotSave } from '../../stores/clusterSnapshotsStore';
 
 import { CLUSTER_PANELS as TABS } from './panels';
+import { ResearchResultsTab } from '../research/ResearchResultsTab';
 
 type GroupId = 'workspace' | 'agent' | 'memory' | 'runtime';
 const GROUPS: { id: GroupId; label: string; tabs: SubTab[] }[] = [
   { id: 'workspace', label: 'WORKSPACE', tabs: ['members', 'files'] },
-  { id: 'agent', label: 'AGENT', tabs: ['activity', 'reviews', 'handoffs', 'plan', 'board', 'mailbox'] },
+  { id: 'agent', label: 'AGENT', tabs: ['results', 'activity', 'reviews', 'handoffs', 'plan', 'board', 'mailbox'] },
   { id: 'memory', label: 'MEMORY', tabs: ['history', 'usage'] },
   { id: 'runtime', label: 'RUNTIME', tabs: ['preview', 'config', 'github'] },
 ];
+// docs/RESEARCH.md - a research project shows RESULTS and hides BOARD;
+// every other cluster hides RESULTS.
+function groupsFor(research: boolean): typeof GROUPS {
+  return GROUPS.map((g) => ({ ...g, tabs: g.tabs.filter((t) => research ? t !== 'board' : t !== 'results') }));
+}
 const STORAGE_KEY = 'arco.clusterSidePanelTab.byCluster';
 const NARROW_PX = 360;
 
@@ -106,6 +112,12 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
   useEffect(() => { if (planTabRequest) setTab('plan'); }, [planTabRequest, cluster.clusterId]);
   useEffect(() => { if (membersTabRequest) setTab('members'); }, [membersTabRequest, cluster.clusterId]);
   useEffect(() => { if (tabRequest && TABS.some((t) => t.id === tabRequest.tab)) setTab(tabRequest.tab as SubTab); }, [tabRequest, cluster.clusterId]);
+  // docs/RESEARCH.md - a stored BOARD tab becomes RESULTS in a research
+  // project, and RESULTS falls back to MEMBERS elsewhere.
+  useEffect(() => {
+    if (cluster.research && tab === 'board') setTab('results');
+    else if (!cluster.research && tab === 'results') setTab('members');
+  }, [cluster.research, tab]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => {
     if (voicePanel?.id === cluster.clusterId && TABS.some((t) => t.id === voicePanel.panel)) setTab(voicePanel.panel as SubTab);
@@ -121,6 +133,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
   const jobs = useAppStore((s) => s.jobs);
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   const activeGroup = groupOf(tab);
+  const groups = groupsFor(!!cluster.research);
 
   // §10.7 P12.5 — peer→task bridge. Promote a pending peer message into a
   // durable board task via the operator task_ledger_create path (first member is
@@ -141,7 +154,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
       links: [{ kind: 'workflow', ref: fromWorkflowId }],
     });
   };
-  const activeGroupTabs = GROUPS.find((g) => g.id === activeGroup)?.tabs ?? [];
+  const activeGroupTabs = groups.find((g) => g.id === activeGroup)?.tabs ?? [];
   useEffect(() => {
     const el = rootRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -416,7 +429,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
         }}
       >
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px', padding: '2px 2px 0' }}>
-          {GROUPS.map((g) => {
+          {groups.map((g) => {
             const active = activeGroup === g.id;
             return (
               <button
@@ -460,7 +473,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                 fontFamily: 'var(--font-display)',
               }}
             >
-              {GROUPS.map((g) => (
+              {groups.map((g) => (
                 <optgroup key={g.id} label={g.label}>
                   {g.tabs.map((id) => (
                     <option key={id} value={id}>{labelOf(id)}</option>
@@ -478,6 +491,8 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                   ? 'cluster.right-panel.members'
                   : t === 'mailbox'
                     ? 'cluster.mailbox'
+                    : t === 'results'
+                    ? 'research.results'
                     : t === 'plan'
                       ? 'cluster.plan-tab'
                       : t === 'board'
@@ -858,6 +873,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
             <DetachedBoardPanel cluster={cluster} onSetMode={onSetTaskBoardMode} onAttach={onSetTaskBoardAttached} />
           )
         )}
+        {tab === 'results' && cluster.research && <ResearchResultsTab clusterId={cluster.clusterId} research={cluster.research} />}
         {tab === 'activity' && <ClusterActivityTab cluster={cluster} />}
         {tab === 'reviews' && <ClusterReviewsList cluster={cluster} onCancelReview={onCancelReview} />}
         {tab === 'handoffs' && <ClusterHandoffsTab cluster={cluster} onCancelHandoff={onCancelHandoff} onClearHandoffLock={onClearHandoffLock} />}

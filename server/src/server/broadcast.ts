@@ -6,6 +6,7 @@ import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // Phase 4 Milestone B; imports only leaf modules + ./state.js, never index.ts.
 // See docs/ARCHITECTURE.md.
 
+import { loadResearch, researchSummary } from '../research/researchState.js';
 import { WebSocket } from 'ws';
 import { reportCompaction } from '../compactionReport.js';
 import { observeConditionMessage } from '../voice/conditionFacts.js';
@@ -664,9 +665,11 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
   messageGuard?: import('@arco/shared').ClusterMessageGuard;
   progressTracking?: clusterStore.ClusterProgressMode;
   dispatcher?: ReturnType<typeof clusterStore.normalizeTaskDispatcherSettings>;
+  research?: import('@arco/shared').ClusterResearchSummary;
 } | null> {
   const state = await clusterStore.readCluster(clusterId).catch(() => null);
   if (!state) return null;
+  const research = state.research ? await loadResearch(clusterId).catch(() => null) : null;
   // resolve each member's displayName with a disk fallback to
   // meta.name when the workflow object isn't loaded into memory yet. Race
   // pattern: on first cluster_subscribe after server restart, some cluster
@@ -684,7 +687,7 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
     const accessMode = clusterStore.getMemberAccessMode(clusterId, wfid);
     let displayName = clusterStore.displayNameFor(wfid);
     if (!wf && displayName === wfid.slice(0, 8)) {
-      const meta = await readMeta(state.cwd, wfid).catch(() => null);
+      const meta = await readMeta(clusterStore.memberCwdFor(state, wfid), wfid).catch(() => null);
       if (meta?.name && meta.name.trim().length > 0) {
         displayName = meta.name.trim();
       }
@@ -742,6 +745,7 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
     // cluster-level gates arming echo (⛨ GATES chip). Absent ≡ OFF.
     ...(state.remoteGatesEnabled ? { remoteGatesEnabled: true } : {}),
     dispatcher: clusterStore.normalizeTaskDispatcherSettings(state.dispatcher),
+    ...(research ? { research: researchSummary(research) } : {}),
   };
 }
 

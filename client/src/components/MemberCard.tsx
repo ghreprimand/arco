@@ -44,6 +44,9 @@ interface Props {
   // tooltip and a
   // one-line reply.
   density?: 'standard' | 'compact';
+  // Research projects (docs/RESEARCH.md): letter, provider and model,
+  // isolation, searches and the state in the latest round.
+  researchLine?: string;
 }
 
 function useSettledPreview(job: JobState | undefined): string {
@@ -61,7 +64,7 @@ function useSettledPreview(job: JobState | undefined): string {
   return shown;
 }
 
-export function MemberCard({ job, displayName, status, role, pendingMail = 0, onNudge, nudged = false, newReply = false, focused, onClick, dragProps, dragOver, density = 'standard' }: Props) {
+export function MemberCard({ job, displayName, status, role, pendingMail = 0, onNudge, nudged = false, newReply = false, focused, onClick, dragProps, dragOver, density = 'standard', researchLine }: Props) {
   const clamp = density === 'compact' ? 1 : 0;
   const wfid = job?.id ?? '';
   const wfidShort = wfid.slice(0, 8);
@@ -179,6 +182,7 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
         {wfid && <BriefControl scope="worker" targetId={wfid} label="BRIEF" data-help="cluster.member-brief" testId="member-brief" title="A short synopsis of this member from facts Arco can see. Read-only; sends nothing." style={{ padding: '1px 5px', fontSize: '9px', flexShrink: 0 }} />}
       </div>
       <CodexLateCommandLine job={job} />
+      {researchLine && <div data-help="research.member-line" style={{ fontSize: '10px', color: 'var(--color-fg)', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{researchLine}</div>}
       {/* Line 2 — wfid prefix · role chip (when set). Folded into the
           tooltip and line 1 in the compact density. */}
       {density !== 'compact' && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '10px', letterSpacing: '1px' }}>

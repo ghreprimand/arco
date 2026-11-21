@@ -26,6 +26,14 @@ test('WorkerManager forwards primary file context and its configuration', async 
   assert.ok(emitted.some(event => event.type === 'worker_file_context' && event.receipt === snapshot.receipt));
 });
 
+test('WorkerManager forwards the Research Director flag so research_round is offered', async t => {
+  let config: any;
+  const fake = Object.assign(new EventEmitter(), { id: 'fixture', status: 'spawning', output: '', spawn() { queueMicrotask(() => { fake.status = 'completed'; fake.emit('result', { text: 'done', costUsd: 0, durationMs: 1 }); }); }, kill() {} });
+  t.mock.method(OllamaProvider, 'create', (_id: string, received: any) => { config = received; return fake as any; });
+  await new WorkerManager().spawn({ id: 'director', task: 'fixture', provider: 'ollama', model: 'fixture', effort: 'medium' } as any, () => undefined, { cwd: home, workflowId: 'wf-director', clusterId: 'cluster', clusterAccessMode: 'standard', clusterResearchDirector: true });
+  assert.equal(config.clusterResearchDirector, true);
+});
+
 test('Incognito broadcast records file references without writing a workflow', () => {
   const id = 'wf-private-context-bridge';
   const wf = { config: { incognito: true }, incognitoEvents: [], observers: new Set() } as any;

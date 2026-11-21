@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Run research projects from +NEW > RESEARCH: one question, several independent researchers on Claude, Ollama or llama.cpp, rounds released together and blind to a Research Director, RESULTS and REVEAL in the project tab, and cleanup with researcher logs when the tab closes.
+
 - Reopen saved workflows with a valid provider and model effort when an older saved value is invalid, and refuse unsupported new values.
 
 - Offer to empty unkept scratch when a conversation closes, with KEEP SCRATCH as the default; show scratch size and a configurable warning.

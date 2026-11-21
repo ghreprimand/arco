@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { extname } from 'node:path';
 import { unzipSync } from 'fflate';
 import * as clusterStore from '../clusterStore.js';
+import { isIsolatedAccessMode } from '@arco/shared';
 import { fileHeaderKind } from '../fileContent/detect.js';
 import { awaitModelImage } from '../providers/attachments.js';
 import { PORT, UUID_PATTERN } from '../server/constants.js';
@@ -73,7 +74,7 @@ function error(res: ServerResponse, status: number, message: string): void {
 function targetAvailable(id: string, wf: WorkflowState | undefined): wf is WorkflowState {
   if (!wf?.config.workingDirectory || wf.config.incognito) return false;
   const cluster = clusterStore.getClusterIdForWorkflow(id);
-  return !cluster || clusterStore.getMemberAccessMode(cluster, id) !== 'isolated';
+  return !cluster || !isIsolatedAccessMode(clusterStore.getMemberAccessMode(cluster, id));
 }
 
 function closeLink(link: UploadLink): void {

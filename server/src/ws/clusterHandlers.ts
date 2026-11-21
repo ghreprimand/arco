@@ -77,6 +77,8 @@ import { applyAutoHandoffDefault, deriveAutoHandoff, derivePrimaryConfig } from 
 import { acquireProjectSettingsWatcher, readSettings } from '../settings.js';
 import { applyAutoPickup } from '../smartPickup.js';
 import { setClusterPlanBody } from '../clusterPlanBridge.js';
+import * as researchCreate from '../research/researchCreate.js';
+import { startResearchDirector } from '../research/researchRounds.js';
 
 export interface ClusterHandlerDeps {
   handleUserMessage: (ws: WebSocket, session: Session, workflowId: string, content: string, clientMessageId: string | undefined, attachments: string[] | undefined, interjection: boolean, kind: 'steer' | 'follow-up' | 'interrupt' | undefined, primitive: 'docs' | 'git' | 'plan-review' | undefined) => Promise<void>;
@@ -1347,6 +1349,10 @@ export async function handleClusterMemberAdd(ws: WebSocket, clusterId: string, w
     send(ws, { type: 'error', message: `Unknown cluster ${clusterId.slice(0, 8)}` });
     return;
   }
+  if (cluster.research) {
+    send(ws, { type: 'error', message: 'cluster_member_add rejected: research_project' });
+    return;
+  }
   const wf = workflows.get(workflowId);
   if (!wf) {
     send(ws, { type: 'error', message: `Unknown workflow ${workflowId.slice(0, 8)}` });
@@ -1621,9 +1627,22 @@ export async function handleClusterCreateFromScratch(
 async function createClusterFromScratch(
   ws: WebSocket,
   session: Session,
-  msg: import('@arco/shared').ClusterCreateFromScratchMessage,
+  requested: import('@arco/shared').ClusterCreateFromScratchMessage,
 ): Promise<void> {
+  let msg = requested;
   if (!isClusterCreationSettings(msg)) { send(ws, { type: 'error', message: 'Invalid cluster creation settings' }); return; }
+  // A research project rewrites the request onto its new research folder
+  // before the ordinary checks run (docs/RESEARCH.md).
+  let research: researchCreate.PreparedResearch | undefined;
+  if (msg.research !== undefined) {
+    if (!msg.research || typeof msg.research !== 'object' || msg.initialPlanGoal || msg.initialPlanId) {
+      send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: invalid_research' }); return;
+    }
+    const prepared = await researchCreate.prepareResearchCreate(msg);
+    if ('refusal' in prepared) { send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: ${prepared.refusal}` }); return; }
+    research = prepared;
+    msg = prepared.msg;
+  }
   if (typeof msg.cwd !== 'string' || msg.cwd.trim().length === 0) {
     send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: invalid_cwd' });
     return;
@@ -1692,13 +1711,20 @@ async function createClusterFromScratch(
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] isolated_requires_claude_native` });
       return;
     }
+    if (accessMode === 'researcher' && !research) {
+      send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] researcher_requires_research_project` });
+      return;
+    }
   }
   const newWorkflowIds: string[] = [];
+  const memberCwds: Record<string, string> = {};
   for (let i = 0; i < msg.members.length; i++) {
-    const childConfig = await memberConfigFromSpec(msg.members[i], i, msg.cwd, resolveCodexAccount);
+    const memberCwd = research && i > 0 ? research.membersCwd : msg.cwd;
+    const childConfig = await memberConfigFromSpec(msg.members[i], i, memberCwd, resolveCodexAccount);
     try {
       const newId = await deps.createBlankNativeWorkflow(ws, session, childConfig, MEMBER_PENDING);
       newWorkflowIds.push(newId);
+      if (memberCwd !== msg.cwd) memberCwds[newId] = memberCwd;
     } catch (err) {
       console.error(`[arco] cluster_create_from_scratch: member ${i + 1} create failed:`, err);
       send(ws, { type: 'error', message: `cluster_create_from_scratch: member ${i + 1} create failed` });
@@ -1707,10 +1733,12 @@ async function createClusterFromScratch(
   }
   let cluster: clusterStore.ClusterState;
   try {
+    const { research: _researchSpec, ...creation } = msg;
     cluster = await clusterStore.createCluster({
-      ...msg,
+      ...creation,
       cwd: msg.cwd,
       memberWorkflowIds: newWorkflowIds,
+      ...(research ? { memberCwds, research: { projectId: research.projectId } } : {}),
     });
   } catch (err) {
     const code = (err as { code?: string })?.code ?? 'create_failed';
@@ -1739,6 +1767,15 @@ async function createClusterFromScratch(
   if (msg.name && msg.name.trim().length > 0) {
     await clusterStore.renameCluster(cluster.clusterId, msg.name).catch(() => { /* best-effort */ });
   }
+  let researchState: Awaited<ReturnType<typeof researchCreate.finishResearchCreate>> | undefined;
+  if (research) {
+    try {
+      researchState = await researchCreate.finishResearchCreate(research, cluster.clusterId, newWorkflowIds);
+    } catch (err) {
+      console.error('[arco] research project files could not be written:', err);
+      send(ws, { type: 'error', message: 'The research project was created, but its research files could not be written.' });
+    }
+  }
   if (msg.initialPlanId) {
     try {
       const attached = await clusterPlanBridge.attachExistingPlan(cluster.clusterId, msg.initialPlanId, msg.cwd);
@@ -1758,6 +1795,8 @@ async function createClusterFromScratch(
     if (goal && !director) send(ws, { type: 'error', message: 'The cluster was created, but its director role could not be saved. Set the director and draft the plan from the cluster.' });
   }
   console.log(`[arco] cluster ${cluster.clusterId.slice(0, 8)} created from scratch with ${newWorkflowIds.length} fresh members`);
+  // docs/RESEARCH.md - the Director starts on the brief at once.
+  if (researchState) startResearchDirector(researchState);
 }
 
 // Phase 2.5.1 — operator clicked "+ ADD WORKER" inside ClusterRightPanel
@@ -1773,6 +1812,10 @@ export async function handleClusterAddFreshWorkers(
   const cluster = await clusterStore.readCluster(msg.clusterId).catch(() => null);
   if (!cluster) {
     send(ws, { type: 'error', message: `cluster_add_fresh_workers rejected: unknown_cluster:${msg.clusterId.slice(0, 8)}` });
+    return;
+  }
+  if (cluster.research || msg.accessMode === 'researcher') {
+    send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: research_project' });
     return;
   }
   const templateId = cluster.members[0];
@@ -1974,6 +2017,10 @@ export async function handleClusterMemberReplace(
   }
   if (source.busy) {
     send(ws, { type: 'error', message: 'cluster_member_replace rejected: member_busy' });
+    return;
+  }
+  if (cluster.research || msg.accessMode === 'researcher') {
+    send(ws, { type: 'error', message: 'cluster_member_replace rejected: research_project' });
     return;
   }
   const accessMode = msg.accessMode ?? clusterStore.getMemberAccessMode(msg.clusterId, msg.workflowId);

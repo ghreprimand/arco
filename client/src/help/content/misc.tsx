@@ -438,14 +438,14 @@ export const miscHelp: Record<string, HelpEntry> = {
   'creator.plan-genesis': { title: 'Draft in Genesis first', body: <p>Draft a plan for this folder in Genesis. The creator keeps its fields and selects the saved plan on return.</p>, manualSection: 'cluster-plan' },
   'creator.plan-description': { title: 'Project description', body: <p>Describe the goal, completion, constraints, and what must not change so the director can draft a useful plan.</p>, manualSection: 'cluster-plan' },
   'creator.cluster-mode': {
-    title: 'Mode: Agent, Chat, Cluster or Genesis',
+    title: 'Mode: Agent, Chat, Cluster, Genesis or Research',
     body: (
       <>
         <p>
           Top-of-form toggle. <strong>SINGLE WORKFLOW</strong> creates one tab
           with one project agent. <strong>CHAT</strong> is a conversation with no
           project; <strong>GENESIS</strong> starts from an idea before scaffolding
-          a project. <strong>CLUSTER</strong>{' '}
+          a project; <strong>RESEARCH</strong> starts a research project. <strong>CLUSTER</strong>{' '}
           creates several member tabs that share one project folder, each
           configured per member (provider, model, effort, role, work size,
           permissions and tuning).
@@ -472,6 +472,24 @@ export const miscHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'create-cluster-from-new',
   },
+  'creator.research-mode': { title: 'Research', body: <p>Start a research project: one brief, several researchers working independently, and a Research Director who distils their reports and answers follow-up questions.</p>, manualSection: 'research-start' },
+  'creator.research-researcher': { title: 'Researcher row', body: <p>Provider, model and effort for one researcher. Researchers run on Claude, Ollama or llama.cpp, each alone in a private workspace with web research and no shell.</p>, manualSection: 'research-start' },
+  'creator.research-shortcuts': { title: 'Researcher shortcuts', body: <p>ONE OF EACH PROVIDER fills one row per connected researcher provider. SAME AS LAST TIME repeats your last panel. A saved panel fills the rows and the Research Director.</p>, manualSection: 'research-start' },
+  'creator.research-advanced': { title: 'Advanced researcher settings', body: <p>Only settings that change research results: web searches per turn for Claude, and the context size for Ollama.</p>, manualSection: 'research-start' },
+  'creator.research-panels': { title: 'Save panel', body: <p>Save the researcher rows and the Research Director under a name. Saved panels appear beside the shortcuts.</p>, manualSection: 'research-start' },
+  'creator.research-director': { title: 'Research Director', body: <p>Sends the rounds, reads the reports, writes the summary and answers your follow-up questions. It can use any connected provider.</p>, manualSection: 'research-start' },
+  'creator.research-folder': { title: 'Research folder', body: <p>Every research project gets its own dated subfolder in the research folder. It is asked for once and saved to Settings, Projects.</p>, manualSection: 'research-start' },
+  'creator.research-blind': { title: 'Blind reports', body: <p>On by default. The Research Director sees reports as A, B, C without provider or model until you reveal them. Researchers never see each other either way.</p>, manualSection: 'research-start' },
+  'creator.research-name': { title: 'Project name', body: <p>A short name of up to 60 characters. It names the project tab, the research folder and research.json.</p>, manualSection: 'research-start' },
+  'creator.research-brief': { title: 'Brief', body: <p>Everything the researchers should know: the question, budget, region, must-haves and sources to avoid. The Research Director receives it unchanged and starts on it as soon as the project opens.</p>, manualSection: 'research-start' },
+  'research.brief': { title: 'Brief', body: <p>Shows the brief you started the project with.</p>, manualSection: 'research-project' },
+  'creator.research-start': { title: 'Start research project', body: <p>Creates the research folder, the Research Director and the researchers, and opens the project.</p>, manualSection: 'research-start' },
+  'research.rounds': { title: 'Rounds strip', body: <p>One row per round with each researcher's state and the time taken. Choose a round to see who replied, failed, was stopped or timed out, and the deadline.</p>, manualSection: 'research-project' },
+  'research.round': { title: 'Round', body: <p>Shows each researcher's outcome in this round, whether a report was taken from a final reply, and how many targeted messages were recorded.</p>, manualSection: 'research-project' },
+  'research.reveal': { title: 'Reveal', body: <p>Writes which provider and model wrote each report into the research folder and shows it to the Research Director from now on. It cannot be undone.</p>, manualSection: 'research-project' },
+  'research.results': { title: 'Results', body: <p>The brief, the summary, the Director log and each released round's reports, opened from the research folder. Returned files are in sources/ under FILES.</p>, manualSection: 'research-project' },
+  'research.close': { title: 'Close research project', body: <p>Writes a one-page log per researcher into the latest round record, moves unsent files into sources/ if you keep the box ticked, then removes the researchers' workspaces and conversations. The research folder and the Research Director's conversation are kept.</p>, manualSection: 'research-project' },
+  'research.member-line': { title: 'Researcher line', body: <p>Letter, provider and model, isolation, web searches made in the loaded conversation, and the state in the latest round. Blind reports hide authors from the Research Director, not from you.</p>, manualSection: 'research-project' },
   'creator.cluster-presets': {
     title: 'Cluster presets',
     body: (

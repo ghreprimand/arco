@@ -726,6 +726,9 @@ export interface WorkerConfig {
   // real project via `persistenceCwd`.
   clusterAccessMode?: import('./clusters.js').ClusterMemberAccessMode;
   persistenceCwd?: string;
+  // The Research Director of a research project: research_round and the
+  // director's research instructions are added (docs/RESEARCH.md).
+  clusterResearchDirector?: boolean;
   // True only when this cluster is explicitly attached to the cwd-scoped
   // project task ledger. Peer/plan cluster tools still follow clusterId;
   // cluster_task_* tools additionally require this flag so same-cwd clusters

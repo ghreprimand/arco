@@ -48,6 +48,7 @@ export interface ClusterLoopbackCtx {
   cwd?: string;
   taskBoardAttached: boolean;
   accessMode?: ClusterMemberAccessMode;
+  researchDirector?: boolean;
   registryServers?: ResolvedMcpServer[];
   readOnly?: boolean;
   handoffHistoryToken?: string;
@@ -90,6 +91,7 @@ async function handleMcpRequest(entry: LoopbackEntry, req: IncomingMessage, res:
     arcoPort: entry.ctx.arcoPort,
     taskBoardAttached: entry.ctx.taskBoardAttached,
     accessMode: entry.ctx.accessMode,
+    researchDirector: entry.ctx.researchDirector === true,
     logErr: (...args: unknown[]) => console.error(tag(entry.ctx.workflowId), ...args),
   };
   const server = new McpServer({ name: 'arco-cluster', version: '1.0.0' });

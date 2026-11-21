@@ -61,6 +61,8 @@ export type ClusterMemberPrimaryUpdate = {
 // surface. GITHUB / FILES take only the cwd and so are pure cluster ops.
 export type SubTab =
   | 'members'
+  // docs/RESEARCH.md - research projects only.
+  | 'results'
   | 'mailbox'
   | 'plan'
   // §D3 — kanban view over the cluster cwd's task ledger. Sits next to PLAN

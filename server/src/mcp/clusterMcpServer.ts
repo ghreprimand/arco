@@ -28,7 +28,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { registerClusterTools } from './clusterMcpTools.js';
 
-const [, , CLUSTER_ID_RAW, WORKFLOW_ID_RAW, PORT_RAW, TASK_BOARD_RAW, ACCESS_MODE_RAW] = process.argv;
+const [, , CLUSTER_ID_RAW, WORKFLOW_ID_RAW, PORT_RAW, TASK_BOARD_RAW, ACCESS_MODE_RAW, RESEARCH_RAW] = process.argv;
 
 if (!CLUSTER_ID_RAW || !WORKFLOW_ID_RAW) {
   console.error('[arco-cluster-mcp] usage: clusterMcpServer.{ts|js} <clusterId> <workflowId> [<arcoPort>] [task-board-attached|task-board-detached]');
@@ -39,7 +39,7 @@ const CLUSTER_ID = CLUSTER_ID_RAW;
 const WORKFLOW_ID = WORKFLOW_ID_RAW;
 const ARCO_PORT = parseInt(PORT_RAW ?? process.env.ARCO_PORT ?? '3001', 10);
 const TASK_BOARD_ATTACHED = TASK_BOARD_RAW === 'task-board-attached';
-const ACCESS_MODE = ACCESS_MODE_RAW === 'blind' || ACCESS_MODE_RAW === 'isolated'
+const ACCESS_MODE = ACCESS_MODE_RAW === 'blind' || ACCESS_MODE_RAW === 'isolated' || ACCESS_MODE_RAW === 'researcher'
   ? ACCESS_MODE_RAW
   : 'standard';
 
@@ -55,6 +55,7 @@ async function main(): Promise<void> {
     arcoPort: ARCO_PORT,
     taskBoardAttached: TASK_BOARD_ATTACHED,
     accessMode: ACCESS_MODE,
+    researchDirector: RESEARCH_RAW === 'research-director',
     logErr,
   });
 

@@ -24,10 +24,78 @@ export function isClusterMemberProvider(v: unknown): v is ClusterMemberProvider 
 // surface except peer_send / peer_read. `isolated` additionally runs the
 // worker against a private scratch cwd; v1 is Claude-Native-only because its
 // file-tool root can be enforced by Arco and Bash can be removed.
-export const CLUSTER_MEMBER_ACCESS_MODES = ['standard', 'blind', 'isolated'] as const;
+// `researcher` is ISOLATED for a research project (docs/RESEARCH.md): the
+// same private workspace and fenced tools, research tools always on, mail
+// only with the Research Director, and Claude Native or a local model only.
+export const CLUSTER_MEMBER_ACCESS_MODES = ['standard', 'blind', 'isolated', 'researcher'] as const;
 export type ClusterMemberAccessMode = (typeof CLUSTER_MEMBER_ACCESS_MODES)[number];
 export function isClusterMemberAccessMode(v: unknown): v is ClusterMemberAccessMode {
   return typeof v === 'string' && (CLUSTER_MEMBER_ACCESS_MODES as readonly string[]).includes(v);
+}
+// Every mode that runs in the private isolated workspace.
+export function isIsolatedAccessMode(v: ClusterMemberAccessMode | undefined): boolean {
+  return v === 'isolated' || v === 'researcher';
+}
+// Providers whose tools Arco itself runs and can fence: Claude Native and
+// the local models. Codex, Claude CLI and Cursor researchers wait for the
+// operating-system sandbox.
+export const RESEARCHER_PROVIDERS = ['claude', 'ollama', 'llamacpp'] as const satisfies readonly ClusterMemberProvider[];
+export function isResearcherProvider(v: unknown): v is (typeof RESEARCHER_PROVIDERS)[number] {
+  return typeof v === 'string' && (RESEARCHER_PROVIDERS as readonly string[]).includes(v);
+}
+
+// ── Research projects (docs/RESEARCH.md) ──
+export const RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES = 30;
+export const RESEARCH_ROUND_TIMEOUT_MAX_MINUTES = 240;
+export const RESEARCH_MAX_RESEARCHERS = 26;
+export const RESEARCH_CONFIRM_ABOVE = 8;
+export type ResearchEntryState = 'waiting' | 'replied' | 'failed' | 'stopped' | 'timed_out';
+export interface ResearchRoundSummary {
+  n: number;
+  startedAt: string;
+  deadline: string;
+  releasedAt?: string;
+  // Keyed by report letter. `source` says whether the report came by mail or
+  // was taken from the researcher's final reply.
+  entries: Record<string, { state: ResearchEntryState; at?: string; reason?: string; source?: 'mail' | 'final_reply' }>;
+  targeted: number;
+}
+export interface ResearchResearcherSummary {
+  workflowId: string;
+  letter: string;
+  provider: ClusterMemberProvider;
+  model: string;
+  effort?: string;
+  isolation: 'tool-fenced';
+}
+// Operator-facing research state carried on cluster_state. The operator sees
+// providers and models; the Director never receives this payload.
+export interface ClusterResearchSummary {
+  projectId: string;
+  folder: string;
+  name: string;
+  brief: string;
+  blind: boolean;
+  revealedAt?: string;
+  directorWorkflowId: string;
+  researchers: ResearchResearcherSummary[];
+  rounds: ResearchRoundSummary[];
+}
+// Researcher row of the start dialog.
+export interface ResearchResearcherSpec {
+  provider: ClusterMemberProvider;
+  model: string;
+  effort?: string;
+  providerAccountRef?: string;
+}
+export interface ResearchCreateSpec {
+  // Short project name (tab, folder name, research.json); at most 60 characters.
+  name: string;
+  // Everything the operator wants researched, passed to the Director unchanged.
+  brief: string;
+  blind?: boolean;
+  // Where research projects are created. Saved to Settings the first time.
+  folderRoot?: string;
 }
 
 // docs/PROTOCOL_CLUSTER.md - peer messaging events.
@@ -312,6 +380,8 @@ export interface ClusterStatePayload {
   remoteEnabled?: boolean;
   // cluster-level gates arming echo (⛨ GATES chip). Absent ≡ OFF.
   remoteGatesEnabled?: boolean;
+  // Present only on research projects.
+  research?: ClusterResearchSummary;
 }
 
 export interface ClusterDispatcherState {
@@ -470,7 +540,14 @@ export interface ClusterCreateFromScratchMessage extends ClusterCreationSettings
     efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
     outputStyle?: import('../outputStyle.js').OutputStyle;
     accessMode?: ClusterMemberAccessMode;
+    // Research projects only (start dialog ADVANCED): Claude Native web
+    // searches per turn, and an Ollama researcher's context size.
+    webSearchMaxUses?: number;
+    contextSize?: number;
   }>;
+  // Creates a research project: the folder is made under the research
+  // folder, the director runs there and researcher members are isolated.
+  research?: ResearchCreateSpec;
 }
 
 // cluster presets. Operator-saved snapshot of a cluster's
@@ -499,6 +576,9 @@ export interface ClusterPresetMember {
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
   outputStyle?: import('../outputStyle.js').OutputStyle;
   accessMode?: ClusterMemberAccessMode;
+  // Research panels: a researcher's ADVANCED limits.
+  webSearchMaxUses?: number;
+  contextSize?: number;
 }
 
 export interface ClusterPreset {

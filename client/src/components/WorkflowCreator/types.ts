@@ -21,7 +21,10 @@ export interface ClusterCreatePayload extends ClusterCreationSettings {
     fastMode?: boolean;
     efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
     outputStyle?: import('@arco/shared').OutputStyle;
+    webSearchMaxUses?: number;
+    contextSize?: number;
   }>;
+  research?: import('@arco/shared').ResearchCreateSpec;
 }
 
 export interface Props {

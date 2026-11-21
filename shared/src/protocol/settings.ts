@@ -122,6 +122,10 @@ export interface ArcoSettings {
   // search order); otherwise a detected browser id ("brave", "vivaldi-flatpak")
   // or a program name or absolute path. Read by scripts/packaging/browsers.mjs.
   appWindowBrowser?: string;
+  // Settings > Research: the folder that holds every research project, one
+  // subfolder each (docs/RESEARCH.md). Absolute; asked for the first time
+  // research starts. Changing it affects only new projects.
+  researchFolder?: string;
   // Named discovery folders. Absent migrates the legacy single root; [] disables discovery.
   projectRoots?: Array<{ name: string; path: string }>;
   // Explicit project folders; registration never moves or deletes their files.

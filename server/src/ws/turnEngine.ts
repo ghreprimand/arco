@@ -6,7 +6,7 @@ import { deliverAfterTurnRevoked } from './taskLifecycle.js';
 import { resolveClaudeTransport } from '../claudeTransport.js';
 import { projectLocalFileReferences } from '../primitives/localFileContext.js';
 import { getEffectivePublicProjectChoice } from '../publicProjectChoice.js';
-import { buildMessageGuardPolicy } from '@arco/shared';
+import { buildMessageGuardPolicy, isIsolatedAccessMode } from '@arco/shared';
 import * as attention from '../attention.js';
 import { acquireCheckoutWriter, assertCheckoutAvailable, workflowWritePaths, observeCheckoutWriters } from '../checkoutOwnership.js';
 import { randomUUID } from 'node:crypto';
@@ -41,6 +41,10 @@ import { clusterToolsPending, CLUSTER_TOOLS_PENDING_NOTICE, CLUSTER_TOOLS_PENDIN
 import * as clusterStore from '../clusterStore.js';
 import * as clusterEfficiency from '../clusterEfficiency.js';
 import { BLIND_CLUSTER_DOCTRINE } from '../clusterAccessDoctrine.js';
+import { RESEARCHER_DOCTRINE, researchDirectorDoctrine } from '../research/researchDoctrine.js';
+import { loadResearch } from '../research/researchState.js';
+import * as researchRounds from '../research/researchRounds.js';
+import { RESEARCH_SYNTHETIC_SESSION } from '../research/researchState.js';
 import { buildProgressDoctrine } from '../clusterProgress.js';
 import { buildClusterDirectorDoctrine, isClusterDirectorRole, joinClusterDoctrines } from '../clusterDirector.js';
 import { buildDirectorOpenWork } from '../clusterOpenWork.js';
@@ -586,7 +590,7 @@ export function claimBusy(wf: WorkflowState, workerActivity = true): number {
   // members at their actual scratch cwd for turn-overlap reporting.
   const wfid = [...workflows].find(([, current]) => current === wf)?.[0];
   const clusterId = wfid ? clusterStore.getClusterIdForWorkflow(wfid) : undefined;
-  const observedPaths = clusterId && wfid && clusterStore.getMemberAccessMode(clusterId, wfid) === 'isolated'
+  const observedPaths = clusterId && wfid && isIsolatedAccessMode(clusterStore.getMemberAccessMode(clusterId, wfid))
     ? [clusterStore.isolatedWorkspaceFor(clusterId, wfid)] : undefined;
   const release = acquireCheckoutWriter(workflowWritePaths(wf), undefined, wf.manager, false, undefined, observedPaths);
   busyCheckoutLeases.get(wf)?.();
@@ -643,7 +647,15 @@ export function releaseBusy(wf: WorkflowState, token: number, outcome: 'finished
     if (failedId) attention.raise('failed', failedId, { name: wf.config?.name ?? '', incognito: !!wf.config?.incognito });
   }
   if (workerActivity) publishWorkerActivity(wf, outcome === 'finished' ? 'worker_finished' : outcome === 'failed' ? 'worker_failed' : 'worker_interrupted');
+  if (workerActivity && outcome !== 'interrupted') notifyResearchSettled(wf, outcome);
   return true;
+}
+
+// Research rounds learn when a researcher's or the Director's turn ends.
+function notifyResearchSettled(wf: WorkflowState, outcome: 'finished' | 'failed' | 'stopped'): void {
+  const id = [...workflows].find(([, current]) => current === wf)?.[0];
+  if (!id || !clusterStore.getClusterIdForWorkflow(id)) return;
+  void researchRounds.onMemberSettled(id, outcome).catch((error) => console.error('[arco] research round update failed:', error));
 }
 
 export function revokeBusy(wf: WorkflowState): void {
@@ -658,6 +670,7 @@ export function revokeBusy(wf: WorkflowState): void {
   if (token !== undefined) clearComputerBackgroundClaim([...workflows].find(([, current]) => current === wf)?.[0] ?? '', token);
   if (wf.config?.voiceOperator) computerProjectionChanged();
   if(token !== undefined)publishWorkerActivity(wf, 'worker_interrupted');
+  if (token !== undefined) notifyResearchSettled(wf, 'stopped');
 }
 
 // Start a turn from queued operator messages when nothing else holds the tab.
@@ -1422,7 +1435,7 @@ export async function handleUserMessage(
   const clusterAccessMode = memberClusterId
     ? clusterStore.getMemberAccessMode(memberClusterId, workflowId)
     : 'standard';
-  const isolatedMember = clusterAccessMode === 'isolated';
+  const isolatedMember = isIsolatedAccessMode(clusterAccessMode);
   const projectContextEnabled = !chatMode && !isolatedMember;
   if (chatMode && !CHAT_PROVIDERS.has(wf.primary.provider)) {
     send(ws, { type: 'error', workflowId, message: `${wf.primary.provider} is not available in Chat mode.` });
@@ -1433,12 +1446,21 @@ export async function handleUserMessage(
     && await isManagedBakeoffWorktree(configuredTrustSource, cwd).catch(() => false)
       ? configuredTrustSource
       : undefined;
-  if (isolatedMember && (wf.primary.provider !== 'claude' || wf.config.claudeTransport !== 'native')) {
+  const researcherLocal = clusterAccessMode === 'researcher' && (wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp');
+  if (isolatedMember && !researcherLocal && (wf.primary.provider !== 'claude' || wf.config.claudeTransport !== 'native')) {
     send(ws, {
       type: 'error',
-      message: 'isolated cluster members require the Claude Native transport',
+      message: clusterAccessMode === 'researcher'
+        ? 'researchers run on Claude Native or a local model'
+        : 'isolated cluster members require the Claude Native transport',
     });
     return;
+  }
+  // The operator typing to a researcher is recorded in the round record.
+  if (clusterAccessMode === 'researcher' && memberClusterId && !fromQueue && !opts?.automaticKind
+    && session.id !== RESEARCH_SYNTHETIC_SESSION && content.trim()) {
+    void researchRounds.recordTargeted(memberClusterId, workflowId, 'operator', content)
+      .catch((error) => console.error('[arco] research targeted message not recorded:', error));
   }
 
   // Explicit built-in slash commands are resolved before queueing, so queued
@@ -2276,6 +2298,9 @@ export async function handleUserMessage(
       // turn's resolution picks up the new body.
       let turnClusterPlan: string | undefined;
       let turnClusterRole: string | undefined;
+      // The Research Director of a research project (docs/RESEARCH.md).
+      const turnResearchDirector = !!turnClusterId && clusterAccessMode === 'standard'
+        && (await loadResearch(turnClusterId).catch(() => null))?.directorWorkflowId === workflowId;
       // per-cluster efficiency doctrine + level. The doctrine
       // (canned restraint text for the level + optional operator addendum)
       // injects alongside plan/role; the level itself also drives the
@@ -2352,14 +2377,15 @@ export async function handleUserMessage(
           finalSystemPrompt = buildLocalClusterSystemPrompt({
             base: finalSystemPrompt,
             clusterPlan: turnClusterPlan,
-            clusterRole: turnClusterRole,
+            clusterRole: turnResearchDirector ? `${turnClusterRole ?? ''}\n\n${researchDirectorDoctrine()}`.trim() : turnClusterRole,
             clusterEfficiencyDoctrine: turnClusterEfficiencyDoctrine,
             clusterProgressDoctrine: turnClusterProgressDoctrine,
           });
         } else {
+          const doctrine = clusterAccessMode === 'researcher' ? RESEARCHER_DOCTRINE : BLIND_CLUSTER_DOCTRINE;
           finalSystemPrompt = finalSystemPrompt
-            ? `${BLIND_CLUSTER_DOCTRINE}\n\n${turnClusterEfficiencyDoctrine}\n\n${finalSystemPrompt}`
-            : `${BLIND_CLUSTER_DOCTRINE}\n\n${turnClusterEfficiencyDoctrine}`;
+            ? `${doctrine}\n\n${turnClusterEfficiencyDoctrine}\n\n${finalSystemPrompt}`
+            : `${doctrine}\n\n${turnClusterEfficiencyDoctrine}`;
         }
       }
 
@@ -2403,10 +2429,15 @@ export async function handleUserMessage(
         const tailBlocks: string[] = [];
         if (clusterAccessMode !== 'standard') {
           tailBlocks.push(
-            clusterAccessMode === 'isolated'
+            clusterAccessMode === 'researcher'
+              ? RESEARCHER_DOCTRINE
+              : clusterAccessMode === 'isolated'
               ? 'ISOLATED cluster member: the project and cluster coordination state are intentionally hidden. Use only peer_send and peer_read for cluster communication.'
               : BLIND_CLUSTER_DOCTRINE,
           );
+        }
+        if (turnResearchDirector) {
+          tailBlocks.push(researchDirectorDoctrine());
         }
         if (turnClusterRole && turnClusterRole.length > 0) {
           tailBlocks.push(`Your role in this cluster: ${turnClusterRole}`);
@@ -2542,6 +2573,7 @@ export async function handleUserMessage(
               clusterId: turnClusterId,
               taskBoardAttached: turnClusterTaskBoardAttached,
               accessMode: clusterAccessMode,
+              researchDirector: turnResearchDirector,
               port: PORT,
               codebaseMemoryIndexPath: wantsCodebaseMemory
                 ? (cbm?.indexPath || cwd)
@@ -2701,6 +2733,7 @@ export async function handleUserMessage(
           toolPosture: wf.toolPosture,
           clusterId: turnClusterId,
           clusterAccessMode,
+          ...(turnResearchDirector ? { clusterResearchDirector: true } : {}),
           executionCwd: isolatedMember && turnClusterId
             ? clusterStore.isolatedWorkspaceFor(turnClusterId, workflowId)
             : undefined,

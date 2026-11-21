@@ -16,6 +16,7 @@ import { publishActivity } from './voice/activityBus.js';
 import { promises as fs } from 'node:fs';
 import { basename, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { isIsolatedAccessMode } from '@arco/shared';
 import { clusterMailboxRoot, getClusterIdForWorkflow, getMemberAccessMode, isolatedWorkspaceFor, readCluster } from './clusterStore.js';
 import { atomicWriteFile, withFileLock } from './atomicFile.js';
 import { noteSentPeerMessage } from './smartPickupThread.js';
@@ -156,10 +157,11 @@ export async function materializeArtifacts(
   if (!clusterId) throw new MailboxError('recipient_not_in_cluster', 'Peer artifact recipient is no longer a cluster member.');
   const state = await readCluster(clusterId);
   if (!state) throw new MailboxError('recipient_not_in_cluster', 'Peer artifact cluster is unavailable.');
-  const root = getMemberAccessMode(clusterId, wfId) === 'isolated'
+  const isolatedRecipient = isIsolatedAccessMode(getMemberAccessMode(clusterId, wfId));
+  const root = isolatedRecipient
     ? join(isolatedWorkspaceFor(clusterId, wfId), '.peer-artifacts', msg.msgId)
     : join(state.cwd, '.arco', 'peer-artifacts', msg.msgId);
-  if (getMemberAccessMode(clusterId, wfId) !== 'isolated') ensureProjectStateIgnore(state.cwd);
+  if (!isolatedRecipient) ensureProjectStateIgnore(state.cwd);
   await fs.mkdir(root, { recursive: true, mode: 0o700 });
   // Reserve a fresh directory so retries never overwrite an earlier delivery
   // or a recipient's edits. Ordinals also separate names after sanitization.

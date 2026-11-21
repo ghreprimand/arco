@@ -1041,6 +1041,16 @@ The live Arco *service* reporting workflows + applying reply/stop/continue. `ser
   that previously saw the project would leak retained context. ISOLATED rejects
   transcript import and task transfer. Replacement keeps the old workflow on
   disk, atomically swaps the cluster slot, and discards its mailbox.
+- **A held research reply must never reach the Director early.** During an
+  open round a researcher's `peer_send` is stored in Arco state
+  (`~/.arco/clusters/<id>/research.json`) and returns `heldForRound`; it is
+  not enqueued and raises no `peer_message_sent`, which would also wake the
+  Director through AUTO-PICKUP. Nothing about a researcher's outcome,
+  provider or model is written to the research folder before release (or,
+  for providers and models, before reveal): the Director works there.
+  Researchers' workflow folders live under `~/.arco/research/<projectId>/`
+  for the same reason (`ClusterState.memberCwds`); use
+  `clusterStore.memberCwdFor` wherever a member's `meta.json` is read.
 - **Isolated artifacts cross the boundary only through mailbox copies.**
   `peer_send artifact_paths` accepts paths rooted in the isolated workspace,
   at most 8 files / 256 KB total. On drain Arco writes copies under the

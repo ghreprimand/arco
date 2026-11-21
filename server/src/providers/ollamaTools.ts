@@ -1,4 +1,5 @@
 import { PORT } from '../server/constants.js';
+import { RESEARCH_ROUND_TOOL } from '../research/researchTools.js';
 import { HANDOFF_HISTORY_TOOL } from '../handoffHistoryProtocol.js';
 import { callHandoffHistory } from '../mcp/handoffHistoryMcpTools.js';
 import type { ClusterMemberAccessMode } from '@arco/shared';
@@ -968,6 +969,20 @@ const PeerSendTool: OllamaToolEntry = {
   }),
 };
 
+const ResearchRoundTool: OllamaToolEntry = {
+  clusterOnly: true,
+  def: { type: 'function', function: { name: RESEARCH_ROUND_TOOL.name, description: RESEARCH_ROUND_TOOL.description, parameters: RESEARCH_ROUND_TOOL.input_schema as OllamaToolDefinition['function']['parameters'] } },
+  execute: async (args, ctx) => clusterFetch(ctx, 'research_round', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: ctx.workflowId,
+      text: asString(args.text, 'text'),
+      ...(typeof args.timeout_minutes === 'number' ? { timeout_minutes: args.timeout_minutes } : {}),
+    }),
+  }),
+};
+
 const ClusterPlanReadTool: OllamaToolEntry = {
   clusterOnly: true,
   def: {
@@ -1106,13 +1121,20 @@ const REGISTRY: Record<string, OllamaToolEntry> = {
   peer_list: PeerListTool,
   peer_read: PeerReadTool,
   peer_send: PeerSendTool,
+  research_round: ResearchRoundTool,
   cluster_plan_read: ClusterPlanReadTool,
   cluster_plan_tick: ClusterPlanTickTool,
   cluster_plan_write: ClusterPlanWriteTool,
 };
 
-export function getOllamaToolDefinitions(opts?: { clusterEnabled?: boolean; mailboxOnly?: boolean; taskBoardAttached?: boolean; workflowEnabled?: boolean; historyEnabled?: boolean }): OllamaToolDefinition[] {
+// docs/RESEARCH.md - a local-model researcher: file tools fenced to its
+// private workspace, web research, and mail with the Research Director.
+export const RESEARCHER_LOCAL_TOOLS: ReadonlySet<string> = new Set(['Read', 'Glob', 'Grep', 'Write', 'WebSearch', 'WebFetch', 'peer_send', 'peer_read']);
+
+export function getOllamaToolDefinitions(opts?: { clusterEnabled?: boolean; mailboxOnly?: boolean; taskBoardAttached?: boolean; workflowEnabled?: boolean; historyEnabled?: boolean; researcher?: boolean; researchDirector?: boolean }): OllamaToolDefinition[] {
   return Object.values(REGISTRY)
+    .filter((entry) => !opts?.researcher || RESEARCHER_LOCAL_TOOLS.has(entry.def.function.name))
+    .filter((entry) => entry !== ResearchRoundTool || opts?.researchDirector === true)
     .filter(entry => entry.def.function.name !== 'handoff_history' || opts?.historyEnabled === true)
     .filter((entry) => !entry.workflowOnly || opts?.workflowEnabled === true)
     .filter((entry) => !entry.clusterOnly || opts?.clusterEnabled === true)
@@ -1144,6 +1166,9 @@ export async function executeOllamaTool(
   const entry = REGISTRY[name];
   if (!entry) {
     return `[error] unknown tool "${name}". Available: ${Object.keys(REGISTRY).join(', ')}`;
+  }
+  if (ctx.accessMode === 'researcher' && !RESEARCHER_LOCAL_TOOLS.has(name)) {
+    return `[error] access_denied: researchers have only ${[...RESEARCHER_LOCAL_TOOLS].join(', ')}.`;
   }
   try {
     return await entry.execute(args, ctx);

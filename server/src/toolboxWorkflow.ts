@@ -1,6 +1,7 @@
 import { effectiveClaudeTransport } from './claudeTransport.js';
 import { isChatWorkflow } from './chatMode.js';
 import * as clusterStore from './clusterStore.js';
+import { isIsolatedAccessMode } from '@arco/shared';
 import { isManagedBakeoffWorktree } from './gitBakeoff.js';
 import { gateManagedWorktreeResources, gateProjectResources } from './projectTrust.js';
 import { readSettings } from './settings.js';
@@ -14,7 +15,7 @@ export async function toolboxWorkflowRuntime(workflowId: string, workflow: Workf
   const cwd = workflow.config.workingDirectory || process.cwd();
   const account = workflow.config.providerAccountRef;
   const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
-  if (isChatWorkflow(workflow.config) || (clusterId && clusterStore.getMemberAccessMode(clusterId, workflowId) === 'isolated')) return { provider: '', cwd, account };
+  if (isChatWorkflow(workflow.config) || (clusterId && isIsolatedAccessMode(clusterStore.getMemberAccessMode(clusterId, workflowId)))) return { provider: '', cwd, account };
   let transport: string | undefined;
   if (provider === 'claude' || provider === 'codex') {
     const source = workflow.config.managedWorktreeSourceCwd;

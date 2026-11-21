@@ -33,6 +33,8 @@
 import { readSettings } from './settings.js';
 import { withFileLock } from './atomicFile.js';
 import { recipientContext, type RecipientContext } from './peerRecipientContext.js';
+import { loadResearch, researcherFor, researcherName } from './research/researchState.js';
+import { holdResearcherReply, recordTargeted, resolveResearcherRef, wakeForResearchMail } from './research/researchRounds.js';
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { basename, resolve, sep } from 'node:path';
@@ -46,7 +48,7 @@ import * as clusterPlanStore from './clusterPlanStore.js';
 import * as clusterPlanBridge from './clusterPlanBridge.js';
 import * as taskLedger from './project/taskLedger.js';
 import { appendLedgerComment, persistLedgerKernelMutation, persistLedgerMutation } from './ws/taskLedgerHandlers.js';
-import { isClusterDirector, isTaskApprovalCurrent, presetForText } from '@arco/shared';
+import { isClusterDirector, isIsolatedAccessMode, isTaskApprovalCurrent, presetForText } from '@arco/shared';
 import type { ServerMessage, MemberTier, LedgerTask, LedgerTaskStatus, TaskComment, TaskDetails, TaskLink, TaskRun, TaskSignoff, TaskSignoffState } from '@arco/shared';
 
 // peer_send dedupe — guards against the orphan-tool-use retry pattern:
@@ -112,6 +114,8 @@ export interface PeerSendResult {
   msgId: string;
   to: string;
   deliveredImmediately: false;
+  // Research projects: the reply is held until this round is released.
+  heldForRound?: number;
   recipientContext?: RecipientContext;
   guard?: clusterBudget.BudgetDecision & { warning?: string };
 }
@@ -139,7 +143,16 @@ export async function peerList(ctx: PeerOpsContext): Promise<PeerListEntry[]> {
   const members = clusterStore.getMembers(ctx.clusterId) ?? [];
   const peers = members.filter((wfid) => wfid !== ctx.workflowId);
   const rows: PeerListEntry[] = [];
+  // A research project shows researchers by letter only: no provider, model,
+  // mailbox depth or other activity (docs/RESEARCH.md).
+  const research = await loadResearch(ctx.clusterId).catch(() => null);
   for (const wfid of peers) {
+    const researcher = research ? researcherFor(research, wfid) : undefined;
+    if (researcher) {
+      rows.push({ workflowId: wfid, displayName: researcherName(researcher.letter), pendingForThem: 0, role: 'Researcher',
+        ...(!research!.blind || research!.revealedAt ? { focus: `${researcher.provider}, ${researcher.model}` } : {}) });
+      continue;
+    }
     const depth = await clusterMailbox.depthFor(wfid).catch(() => 0);
     const role = clusterStore.getMemberRole(ctx.clusterId, wfid);
     const tier = clusterStore.tierFor(wfid);
@@ -169,8 +182,15 @@ export async function peerSend(
   args: { to: string; content: string; artifactPaths?: string[]; confirm?: boolean; taskId?: string },
   opts?: { bypassBudget?: boolean; bypassDedupe?: boolean; maxContentBytes?: number },
 ): Promise<PeerSendResult | PeerSendRejection> {
+  // Research projects: a researcher's mail always goes to the Research
+  // Director, and the Director can name a researcher by letter.
+  const research = await loadResearch(ctx.clusterId).catch(() => null);
+  const senderResearcher = research ? researcherFor(research, ctx.workflowId) : undefined;
+  const directorOfResearch = !!research && research.directorWorkflowId === ctx.workflowId;
   // Primary path: full workflowId or unambiguous 8-char prefix (plan §0).
-  let resolved = clusterStore.resolvePeer(ctx.clusterId, args.to);
+  let resolved = senderResearcher
+    ? research!.directorWorkflowId
+    : (directorOfResearch ? resolveResearcherRef(research!, args.to) : undefined) ?? clusterStore.resolvePeer(ctx.clusterId, args.to);
   // 2026-05-11 bug fix — fall back to displayName matching when the model
   // types a friendly name ("Harbor", "Harbor #2") instead of a wfid
   // prefix. Resolution order: case-insensitive exact displayName match
@@ -351,7 +371,7 @@ export async function peerSend(
   const fromDisplayName = clusterStore.displayNameFor(ctx.workflowId);
   let artifacts: clusterMailbox.PeerArtifact[] | undefined;
   if (args.artifactPaths?.length) {
-    if (clusterStore.getMemberAccessMode(ctx.clusterId, ctx.workflowId) !== 'isolated') {
+    if (!isIsolatedAccessMode(clusterStore.getMemberAccessMode(ctx.clusterId, ctx.workflowId))) {
       rollback();
       return { ok: false, code: 'enqueue_failed', message: 'artifact_paths is available only to isolated members' };
     }
@@ -378,6 +398,14 @@ export async function peerSend(
     }
   }
   const createdAt = new Date().toISOString();
+  if (senderResearcher) {
+    // A reply during an open round is held until the round is released; it
+    // is not enqueued and raises no mail event the Director could see.
+    const heldForRound = await holdResearcherReply(ctx.clusterId, ctx.workflowId, args.content, artifacts);
+    if (heldForRound !== undefined) {
+      return { ok: true, msgId, to: resolved, deliveredImmediately: false, heldForRound };
+    }
+  }
   try {
     await clusterMailbox.enqueue(resolved, {
       msgId,
@@ -423,7 +451,15 @@ export async function peerSend(
   const warning = guard && clusterBudget.takeWarning(ctx.workflowId, guard, guardDecision!.count)
     ? `Warn-only threshold exceeded: ${guardDecision!.count}/${guard.threshold} peer messages this primary turn. Mail accepted. Consolidate related same-recipient information; required work and review still apply.`
     : undefined;
-  const context = await recipientContext(ctx.clusterId, ctx.workflowId, resolved).catch(() => undefined);
+  const recipientResearcher = research ? researcherFor(research, resolved) : undefined;
+  if (directorOfResearch && recipientResearcher) {
+    await recordTargeted(ctx.clusterId, resolved, 'director', args.content)
+      .catch((err) => console.error('[arco] research targeted message not recorded:', err));
+  }
+  if (research && (senderResearcher || recipientResearcher)) wakeForResearchMail(resolved, !!recipientResearcher);
+  const context = senderResearcher || recipientResearcher
+    ? undefined
+    : await recipientContext(ctx.clusterId, ctx.workflowId, resolved).catch(() => undefined);
   return { ok: true, msgId, to: resolved, deliveredImmediately: false,
     ...(context ? { recipientContext: context } : {}),
     ...(guardDecision ? { guard: { ...guardDecision, ...(warning ? { warning } : {}) } } : {}),

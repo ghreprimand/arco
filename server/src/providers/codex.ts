@@ -310,6 +310,7 @@ class CodexWorkerProcess extends EventEmitter implements ProviderProcess {
           clusterId: this.config.clusterId,
           taskBoardAttached: this.config.clusterTaskBoardAttached === true,
           accessMode: this.config.clusterAccessMode,
+          researchDirector: this.config.clusterResearchDirector === true,
           port,
           codebaseMemoryIndexPath: this.config.codebaseMemoryAttached
             ? this.config.codebaseMemoryIndexPath

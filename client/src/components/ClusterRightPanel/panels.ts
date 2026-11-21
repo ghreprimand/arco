@@ -3,6 +3,7 @@ import type { SubTab } from './types';
 export const CLUSTER_PANELS: { id: SubTab; label: string }[] = [
   { id: 'members', label: 'MEMBERS' },
   { id: 'files', label: 'FILES' },
+  { id: 'results', label: 'RESULTS' },
   { id: 'activity', label: 'ACTIVITY' },
   { id: 'reviews', label: 'REVIEWS' },
   { id: 'handoffs', label: 'HANDOFFS' },

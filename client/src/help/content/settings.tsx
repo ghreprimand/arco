@@ -194,6 +194,11 @@ export const settingsHelp: Record<string, HelpEntry> = {
     title: 'Default browsing location',
     body: <p>The starting location for folder navigation. Type an absolute path or Browse location, then Save browsing location. This does not add project locations or bookmark folders. Project locations are managed separately. Leave blank to use the server default, then the home folder if unavailable.</p>,
   },
+  'settings.research-folder': {
+    title: 'Research folder',
+    body: <p>Each research project gets its own dated subfolder here. Type an absolute path or Browse research folder, then Save research folder. Changing it affects only new projects. Arco never deletes a research folder.</p>,
+    manualSection: 'research-start',
+  },
   'settings.media-unconfined': {
     title: 'Media access',
     body: (

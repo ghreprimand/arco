@@ -120,6 +120,8 @@ export interface McpConfigOptions {
   // only when the operator explicitly attached this cluster to the cwd board.
   taskBoardAttached?: boolean;
   accessMode?: ClusterMemberAccessMode;
+  // The Research Director of a research project gets research_round.
+  researchDirector?: boolean;
   // Arco HTTP port for the cluster MCP child to call back into.
   port: number;
   // docs/PROVIDERS.md - when set, includes the codebase-memory
@@ -170,6 +172,7 @@ export async function writeFor(
         String(opts.port),
         opts.taskBoardAttached === true ? 'task-board-attached' : 'task-board-detached',
         opts.accessMode ?? 'standard',
+        ...(opts.researchDirector ? ['research-director'] : []),
       ],
     };
   }
@@ -254,6 +257,7 @@ export function buildCodexMcpOverrides(
       String(opts.port),
       opts.taskBoardAttached === true ? 'task-board-attached' : 'task-board-detached',
       opts.accessMode ?? 'standard',
+      ...(opts.researchDirector ? ['research-director'] : []),
     ];
     out.push(
       '-c', `mcp_servers.arco-cluster.command=${JSON.stringify(command)}`,

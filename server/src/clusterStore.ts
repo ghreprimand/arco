@@ -46,6 +46,7 @@ import {
   type MemberTier,
   isMemberTier,
   isClusterMemberAccessMode,
+  isIsolatedAccessMode,
   autoPickupWakes,
   isSmartPickupMode,
   resolveAutoPickupMode,
@@ -99,6 +100,13 @@ export interface ClusterState {
   // cluster surface; isolated members additionally execute in a private
   // scratch cwd under this cluster's durable directory.
   memberAccessModes?: Record<string, Exclude<ClusterMemberAccessMode, 'standard'>>;
+  // Sparse: members whose workflow folder lives outside `cwd`. Researchers
+  // keep their conversations in Arco state, not in the research folder the
+  // Research Director works in (docs/RESEARCH.md).
+  memberCwds?: Record<string, string>;
+  // Present on research projects; the rest of the research state lives in
+  // research.json beside meta.json (server/src/research/researchState.ts).
+  research?: { projectId: string };
   // Phase 5 — operator-armed idle nudger. Default OFF (absent or false).
   // When true, the server detector emits cluster_member_nudged when a
   // member matches the idle+pending predicate. See clusterIdleNudger.ts.
@@ -216,6 +224,8 @@ export function setMemberJoinedListener(listener: (clusterId: string, workflowId
 export async function createCluster(opts: {
   cwd: string;
   memberWorkflowIds: string[];
+  memberCwds?: Record<string, string>;
+  research?: { projectId: string };
 } & ClusterCreationSettings): Promise<ClusterState> {
   const cwd = opts.cwd;
   const members = [...new Set(opts.memberWorkflowIds)];
@@ -256,6 +266,8 @@ export async function createCluster(opts: {
     progressTracking: opts.progressTracking ?? 'both',
     taskBoardMode: opts.taskBoardMode ?? 'cluster',
     taskBoardAttached: opts.taskBoardMode !== 'none',
+    ...(opts.memberCwds && Object.keys(opts.memberCwds).length > 0 ? { memberCwds: { ...opts.memberCwds } } : {}),
+    ...(opts.research ? { research: { projectId: opts.research.projectId } } : {}),
   };
   await fs.mkdir(clusterDir(clusterId), { recursive: true });
   await fs.mkdir(clusterMailboxRoot(clusterId), { recursive: true });
@@ -372,9 +384,17 @@ export async function deleteCluster(clusterId: string): Promise<void> {
   await withClusterMetaLock(clusterId, () => deleteClusterUnlocked(clusterId));
 }
 
+// docs/RESEARCH.md - runs before a cluster directory is removed, whatever
+// path deletes it, so a research project is closed (logs, unsent files, the
+// author record) before its Arco-side state goes. Errors are logged by the
+// hook; deletion continues.
+let beforeDelete: ((state: ClusterState) => Promise<void>) | null = null;
+export function setBeforeClusterDelete(hook: ((state: ClusterState) => Promise<void>) | null): void { beforeDelete = hook; }
+
 async function deleteClusterUnlocked(clusterId: string): Promise<void> {
   const state = await readCluster(clusterId);
   if (!state) return;
+  if (beforeDelete) await beforeDelete(state).catch((err) => console.error(`[arco] before-delete hook failed for cluster ${clusterId}:`, err));
   cache.delete(clusterId);
   dropPlanCache(clusterId);
   for (const m of state.members) {
@@ -483,6 +503,11 @@ export function getMemberAccessMode(clusterId: string, workflowId: string): Clus
   return cache.get(clusterId)?.memberAccessModes?.[workflowId] ?? 'standard';
 }
 
+// The folder that holds a member's workflow state (.arco/workflows/<id>).
+export function memberCwdFor(state: Pick<ClusterState, 'cwd' | 'memberCwds'>, workflowId: string): string {
+  return state.memberCwds?.[workflowId] ?? state.cwd;
+}
+
 export async function setMemberAccessMode(
   clusterId: string,
   workflowId: string,
@@ -497,7 +522,7 @@ export async function setMemberAccessMode(
     const next: ClusterState = Object.keys(nextModes).length === 0
       ? { ...state, memberAccessModes: undefined }
       : { ...state, memberAccessModes: nextModes };
-    if (mode === 'isolated') {
+    if (isIsolatedAccessMode(mode)) {
       await fs.mkdir(isolatedWorkspaceFor(clusterId, workflowId), { recursive: true, mode: 0o700 });
     }
     await writeMetaAtomic(next);
@@ -603,7 +628,7 @@ export async function replaceMember(
       next.memberRoles = Object.keys(roles).length ? roles : undefined;
     }
     if (next.skillPins?.length) await (await import('./clusterSkills.js')).assertClusterSkillLimits(next);
-    if (nextMode === 'isolated') {
+    if (isIsolatedAccessMode(nextMode)) {
       await fs.mkdir(isolatedWorkspaceFor(clusterId, newWorkflowId), { recursive: true, mode: 0o700 });
     }
     // Serialize against enqueue/drain/discard so a send already in flight either

@@ -26,6 +26,8 @@ import { onVoiceDialog } from '../voice/dialogs';
 import { useAppStore, type ClusterCardLayout } from '../stores/appStore';
 import { MemberPane } from './MemberPane';
 import { MemberCard } from './MemberCard';
+import { ResearchRoundsStrip } from './research/ResearchRoundsStrip';
+import { researchRailLabel, researcherCardLine } from './research/researchView';
 import { useMessageBoxSize, messageBoxMinHeight } from '../utils/messageBoxSize';
 import { findDirector, hasNewReply, initialFocus, latestReplyId, orderMembers } from './clusterSurface.helpers';
 import { NeedsYouBadge } from './NeedsYouBadge';
@@ -81,6 +83,8 @@ const RIGHT_STRIP = [
   { id: 'files', label: 'FILES' },
   { id: 'more', label: 'MORE' },
 ];
+// docs/RESEARCH.md - a research project has RESULTS where others have BOARD.
+const RESEARCH_RIGHT_STRIP = RIGHT_STRIP.map((item) => item.id === 'board' ? { id: 'results', label: 'RESULTS' } : item);
 
 interface Props {
   clusterId: string;
@@ -923,7 +927,8 @@ export function ClusterTab({
                   </div>
 
                   {directorMember && <ProjectStateNotice cwd={jobs[directorMember.workflowId]?.config.workingDirectory ?? ''} skip={directorMember.accessMode === 'isolated'} />}
-                  {!cluster.plan && !planHintHidden && (() => {
+                  {cluster.research && <ResearchRoundsStrip clusterId={clusterId} research={cluster.research} />}
+                  {!cluster.plan && !planHintHidden && !cluster.research && (() => {
                     // Compact: one line, with MORE for the rest.
                     const short = compactLayout && !planHintMore;
                     return <div data-help="cluster.no-plan-hint" style={{ display: 'flex', flexWrap: short ? 'nowrap' : 'wrap', alignItems: 'center', gap: short ? '3px' : '7px', padding: '5px 8px', color: 'var(--color-fg-muted)', fontSize: short ? '10px' : '11px', overflow: short ? 'hidden' : undefined }}>
@@ -974,6 +979,7 @@ export function ClusterTab({
                         newReply={directorNewReply && m.workflowId === directorMember?.workflowId}
                         focused={focusedMemberId === m.workflowId}
                         density={cardDensity}
+                        researchLine={cluster.research ? researcherCardLine(cluster.research, m.workflowId, jobs[m.workflowId]) : undefined}
                         onClick={() => { setClusterFocusedMember(clusterId, m.workflowId); setMemberListOpen(false); }}
                         dragOver={dragOverId === m.workflowId && dragId !== null && dragId !== m.workflowId}
                         dragProps={onReorderMembers ? {
@@ -1030,7 +1036,7 @@ export function ClusterTab({
                             className="display-font"
                             style={{ width: '32px', height: '32px', flexShrink: 0, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', cursor: 'pointer', background: focused ? 'var(--color-accent-primary-a08)' : 'transparent', color: focused ? 'var(--color-accent-primary)' : 'var(--color-fg)', border: `1px solid ${focused ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}` }}
                           >
-                            {m.displayName.replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '?'}
+                            {(cluster.research && researchRailLabel(cluster.research, m.workflowId)) || m.displayName.replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase() || '?'}
                             <span aria-hidden="true" style={{ position: 'absolute', right: '-3px', top: '-3px', width: '7px', height: '7px', borderRadius: '50%', background: mail ? 'var(--color-warning)' : busy ? 'var(--color-accent-primary)' : 'transparent', border: mail || busy ? 'none' : '1px solid var(--color-fg-muted)' }} />
                           </button>
                         );
@@ -1181,7 +1187,7 @@ export function ClusterTab({
           }}
         />}
 
-        {widthRange === 'narrow' && <PanelStrip items={RIGHT_STRIP} active={rightSlide} onOpen={(id) => {
+        {widthRange === 'narrow' && <PanelStrip items={cluster.research ? RESEARCH_RIGHT_STRIP : RIGHT_STRIP} active={rightSlide} onOpen={(id) => {
           if (id !== 'more') setRightTabRequest((prev) => ({ tab: id, n: (prev?.n ?? 0) + 1 }));
           setRightSlide(id);
         }} />}

@@ -15,6 +15,7 @@ import { TaskChildComposer } from './TaskChildComposer';
 import { ProjectStateNotice } from './ProjectStateNotice';
 import type { JobState } from '../stores/appStore';
 import type { ProviderName, ModelName, EffortLevel, WorkflowConfig, ReviewContextRef, PreviewCaptureKind, PreviewViewport, ArcoSkillRef, BakeoffAttemptSpec } from '@arco/shared';
+import { isIsolatedAccessMode } from '@arco/shared';
 import type { McpSenders } from './RightPanel/McpRegistrySection';
 import type { TaskLedgerPatch } from './RightPanel/types';
 import type { UploadResult } from '../utils/uploadAttachment';
@@ -143,7 +144,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
   const taskRunning = taskEntries.filter((task) => task.phase === 'running').length;
   const taskQueued = taskEntries.filter((task) => task.phase === 'queued').length;
   const taskFailed = taskEntries.filter((task) => task.phase === 'error').length;
-  const isolatedMember = useAppStore((s) => Object.values(s.clusters).some((c) => c.members.some((m) => m.workflowId === job.id && m.accessMode === 'isolated')));
+  const isolatedMember = useAppStore((s) => Object.values(s.clusters).some((c) => c.members.some((m) => m.workflowId === job.id && isIsolatedAccessMode(m.accessMode))));
   const { range: widthRange } = useLayout();
   const widthRangeRef = useRef(widthRange);
   widthRangeRef.current = widthRange;

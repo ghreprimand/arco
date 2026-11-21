@@ -1,5 +1,10 @@
 import { existingClusterMemberRefusal } from '../existingClusterMembers.js';
 import { recipientContext } from '../peerRecipientContext.js';
+import { isResearchMemberBusy, revealResearch, startRound } from '../research/researchRounds.js';
+import { closeResearch, unsentFiles } from '../research/researchClose.js';
+import { researchSummaries } from '../research/researchFolder.js';
+import { loadResearch } from '../research/researchState.js';
+import { formatResearchRoundResult, researchHeldNote } from '../research/researchTools.js';
 import { spawn } from 'child_process';
 import { disabledClusterProvider, localCapacityRefusal, memberProvider } from '../localCapacity.js';
 import { promises as fs } from 'fs';
@@ -37,6 +42,45 @@ export async function tryHandleClusterRoutes(
   // while ~/.arco/clusters is authoritative; this read-only surface lets an
   // operator reopen an intact cluster whose localStorage tab was lost without
   // forking from an older snapshot.
+  // docs/RESEARCH.md - the operator's Reveal of a blind research project.
+  const reveal = req.method === 'POST' && req.url ? /^\/api\/research\/([0-9a-f-]{36})\/reveal$/.exec(req.url) : null;
+  if (reveal) {
+    const ok = await revealResearch(reveal[1]).catch(() => false);
+    res.writeHead(ok ? 200 : 409, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(ok ? { revealed: true } : { error: 'not_blind_or_unknown' }));
+    return true;
+  }
+  // docs/RESEARCH.md - which summaries exist, for RESULTS.
+  const summaries = req.method === 'GET' && req.url ? /^\/api\/research\/([0-9a-f-]{36})\/summaries$/.exec(req.url) : null;
+  if (summaries) {
+    const state = await loadResearch(summaries[1]).catch(() => null);
+    if (!state) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'unknown_research' })); return true; }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(await researchSummaries(state)));
+    return true;
+  }
+  // docs/RESEARCH.md - closing a research tab: what the close dialog shows,
+  // then the cleanup itself.
+  const closing = req.url ? /^\/api\/research\/([0-9a-f-]{36})\/(close-preview|close)$/.exec(req.url) : null;
+  if (closing && ((closing[2] === 'close-preview' && req.method === 'GET') || (closing[2] === 'close' && req.method === 'POST'))) {
+    const send = (status: number, body: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+    try {
+      if (closing[2] === 'close-preview') {
+        const state = await loadResearch(closing[1]);
+        if (!state) { send(404, { error: 'unknown_research' }); return true; }
+        send(200, { unsent: await unsentFiles(state) });
+        return true;
+      }
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) chunks.push(chunk as Buffer);
+      const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { moveUnsent?: unknown } : {};
+      const result = await closeResearch(closing[1], { moveUnsent: body.moveUnsent === true, isBusy: isResearchMemberBusy });
+      send(result.ok ? 200 : result.error === 'unknown_research' ? 404 : 409, result);
+    } catch (error) {
+      send(500, { error: 'close_failed', message: error instanceof Error ? error.message : String(error) });
+    }
+    return true;
+  }
   if (req.url === '/api/clusters' && req.method === 'GET') {
     try {
       // `open`: in the server-authoritative workspace (some browser has the
@@ -223,7 +267,22 @@ export async function tryHandleClusterRoutes(
             return true;
           }
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately, ...(result.recipientContext ? { recipientContext: result.recipientContext } : {}), ...(result.guard ? { guard: result.guard } : {}) }));
+          res.end(JSON.stringify({ msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately, ...(result.heldForRound !== undefined ? { heldForRound: result.heldForRound, note: researchHeldNote(result.heldForRound) } : {}), ...(result.recipientContext ? { recipientContext: result.recipientContext } : {}), ...(result.guard ? { guard: result.guard } : {}) }));
+          return true;
+        }
+        if (op === 'research_round' && req.method === 'POST') {
+          const chunks: Buffer[] = [];
+          for await (const chunk of req) chunks.push(chunk as Buffer);
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}') as { from?: string; text?: string; timeout_minutes?: number };
+          const from = typeof body.from === 'string' ? body.from : '';
+          if (!from || !cluster.members.includes(from)) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'from must be a cluster member' }));
+            return true;
+          }
+          const result = await startRound(clusterId, from, typeof body.text === 'string' ? body.text : '', typeof body.timeout_minutes === 'number' ? body.timeout_minutes : undefined);
+          res.writeHead(result.ok ? 200 : 400, { 'Content-Type': 'application/json' });
+          res.end(result.ok ? formatResearchRoundResult(result) : JSON.stringify({ error: result.code, message: result.message }));
           return true;
         }
         if (op === 'read' && req.method === 'POST') {

@@ -42,6 +42,7 @@
 
 - [Task ledger](TASK_LEDGER.md): project tasks, cluster boards, peer tools, and saved worktrees.
 - [Cluster protocol](PROTOCOL_CLUSTER.md): cluster messages and state.
+- [Research projects](RESEARCH.md): researchers, rounds with replies held until all are in, blind reports and the research folder.
 - [Protocol primitives](PROTOCOL_PRIMITIVES.md): wire contracts for bounded workflows.
 
 ## Operations and configuration

@@ -1,0 +1,205 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import * as clusterMailbox from '../clusterMailbox.js';
+import * as clusterPeerOps from '../clusterPeerOps.js';
+import * as clusterStore from '../clusterStore.js';
+import { createResearchFolder } from './researchFolder.js';
+import { configureResearch, onMemberSettled, revealResearch, startResearchDirector, startRound, timeoutRound } from './researchRounds.js';
+import { initResearch, loadResearch } from './researchState.js';
+import { closeResearch, closedResearchRecordPath, installResearchCloseOnDelete, sweepClosedResearch, unsentFiles } from './researchClose.js';
+import { setBeforeClusterDelete } from '../clusterStore.js';
+import { researchMembersRoot } from './researchCreate.js';
+
+async function project() {
+  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-'));
+  const folder = await createResearchFolder(join(root, 'research'), 'Which heat pump?', new Date('2026-11-21T00:00:00Z'));
+  const membersCwd = join(root, 'members');
+  const [director, a, b] = [randomUUID(), randomUUID(), randomUUID()];
+  const cluster = await clusterStore.createCluster({ cwd: folder, memberWorkflowIds: [director, a, b], memberCwds: { [a]: membersCwd, [b]: membersCwd }, research: { projectId: 'p1' }, taskBoardMode: 'none' });
+  await clusterStore.setMemberAccessMode(cluster.clusterId, a, 'researcher');
+  await clusterStore.setMemberAccessMode(cluster.clusterId, b, 'researcher');
+  await initResearch({
+    schemaVersion: 1, projectId: 'p1', clusterId: cluster.clusterId, folder, membersCwd, name: 'Heat pump', brief: 'Which heat pump?',
+    blind: true, createdAt: new Date().toISOString(), directorWorkflowId: director,
+    researchers: [{ workflowId: a, letter: 'A', provider: 'claude', model: 'claude-sonnet-4-6' }, { workflowId: b, letter: 'B', provider: 'ollama', model: 'qwen3:32b' }],
+    rounds: [], targetedBeforeRounds: [],
+  });
+  const woken: string[] = [];
+  const prompts: string[] = [];
+  configureResearch({
+    enqueue: (to, msg, opts) => clusterMailbox.enqueue(to, msg, opts),
+    mintMsgId: () => clusterMailbox.mintMsgId(),
+    wake: (wfid, prompt) => { woken.push(wfid); prompts.push(prompt); },
+    isBusy: () => false,
+    pendingMail: (wfid) => clusterMailbox.depthFor(wfid),
+    clusterIdFor: (wfid) => clusterStore.getClusterIdForWorkflow(wfid),
+    notify: () => undefined,
+    now: () => Date.now(),
+  });
+  const ctx = (workflowId: string): clusterPeerOps.PeerOpsContext => ({ workflowId, clusterId: cluster.clusterId, broadcastSender: () => undefined, broadcastRecipient: () => undefined });
+  return { root, folder, membersCwd, director, a, b, clusterId: cluster.clusterId, woken, prompts, ctx };
+}
+
+test('a round holds every reply until all researchers are done, then releases them blind together', async () => {
+  const p = await project();
+  try {
+    const started = await startRound(p.clusterId, p.director, 'Compare running costs. Cite sources.');
+    assert.equal(started.ok, true);
+    const mailA = await clusterMailbox.drain(p.a);
+    const mailB = await clusterMailbox.drain(p.b);
+    assert.equal(mailA.length, 1);
+    assert.equal(mailA[0].content, mailB[0].content);
+    assert.deepEqual(p.woken.sort(), [p.a, p.b].sort());
+    // The turn that starts a round quotes the brief, so a compaction that
+    // drops the peer_read result cannot leave the researcher without it.
+    assert.equal(p.prompts.filter((t) => t.includes('Compare running costs. Cite sources.')).length, 2);
+    assert.equal((await startRound(p.clusterId, p.director, 'again')).ok, false);
+    assert.equal((await startRound(p.clusterId, p.a, 'again')).ok, false);
+
+    // A researcher's report is held: nothing reaches the Director or the folder.
+    const sent = await clusterPeerOps.peerSend(p.ctx(p.a), { to: 'anyone', content: 'Report A: model X costs least.' });
+    assert.equal(sent.ok && sent.heldForRound, 1);
+    assert.deepEqual(await clusterMailbox.peek(p.director), []);
+    await assert.rejects(fs.access(join(p.folder, 'rounds', 'round-1', 'report-a.md')));
+
+    // B ends its turn without sending: its final reply becomes the report.
+    const logDir = join(p.membersCwd, '.arco', 'workflows', p.b);
+    await fs.mkdir(logDir, { recursive: true });
+    await fs.writeFile(join(logDir, 'events.jsonl'), [{ type: 'primary_turn_started' }, { type: 'primary_text', text: 'Report B: ' }, { type: 'primary_text', text: 'model Y.' }].map((e) => JSON.stringify(e)).join('\n') + '\n');
+    await onMemberSettled(p.b, 'finished');
+
+    const released = await clusterMailbox.peek(p.director);
+    assert.equal(released.length, 1);
+    assert.match(released[0].content, /Researcher A[\s\S]*model X costs least/);
+    assert.match(released[0].content, /Researcher B[\s\S]*taken from final reply[\s\S]*model Y/);
+    assert.doesNotMatch(released[0].content, /claude-sonnet|qwen3|ollama/);
+    assert.match(await fs.readFile(join(p.folder, 'rounds', 'round-1', 'report-b.md'), 'utf8'), /model Y/);
+    assert.doesNotMatch(await fs.readFile(join(p.folder, 'research.json'), 'utf8'), /claude-sonnet|qwen3|provider/);
+    assert.ok(p.woken.includes(p.director));
+
+    // The Director sees researchers by letter only, and can address one by letter.
+    const peers = await clusterPeerOps.peerList(p.ctx(p.director));
+    assert.deepEqual(peers.map((r) => r.displayName).sort(), ['Researcher A', 'Researcher B']);
+    const targeted = await clusterPeerOps.peerSend(p.ctx(p.director), { to: 'B', content: 'Verify your second source.' });
+    assert.equal(targeted.ok && targeted.to, p.b);
+    assert.match(await fs.readFile(join(p.folder, 'rounds', 'round-1', 'round.md'), 'utf8'), /Research Director to Researcher B[\s\S]*Verify your second source/);
+
+    // A round nobody answers is released as timed out at its deadline.
+    await clusterMailbox.drain(p.director);
+    assert.equal((await startRound(p.clusterId, p.director, 'Round two.', 5)).ok, true);
+    await timeoutRound(p.clusterId, 2);
+    const second = await clusterMailbox.peek(p.director);
+    assert.match(second[0].content, /Round 2[\s\S]*Researcher A: timed out[\s\S]*Researcher B: timed out/);
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
+test('Reveal writes providers into the folder and shows them to the Director only after the operator asks', async () => {
+  const p = await project();
+  try {
+    assert.equal((await startRound(p.clusterId, p.director, 'Brief.', 5)).ok, true);
+    await timeoutRound(p.clusterId, 1);
+    assert.equal((await clusterPeerOps.peerList(p.ctx(p.director))).some((r) => r.focus), false);
+    assert.equal(await revealResearch(p.clusterId), true);
+    assert.match(await fs.readFile(join(p.folder, 'research.json'), 'utf8'), /claude-sonnet-4-6[\s\S]*qwen3:32b/);
+    assert.match(await fs.readFile(join(p.folder, 'rounds', 'round-1', 'round.md'), 'utf8'), /qwen3:32b/);
+    const peers = await clusterPeerOps.peerList(p.ctx(p.director));
+    assert.equal(peers.find((r) => r.displayName === 'Researcher B')?.focus, 'ollama, qwen3:32b');
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
+test('closing a research tab logs each researcher, keeps unsent files on request and removes researcher folders', async () => {
+  const p = await project();
+  try {
+    assert.equal((await startRound(p.clusterId, p.director, 'Brief.', 5)).ok, true);
+    await timeoutRound(p.clusterId, 1);
+    const logDir = join(p.membersCwd, '.arco', 'workflows', p.a);
+    await fs.mkdir(logDir, { recursive: true });
+    await fs.writeFile(join(logDir, 'events.jsonl'), [
+      { type: 'primary_turn_started' },
+      { type: 'primary_tool_use', tool: 'web_search', input: JSON.stringify({ query: 'heat pump running cost' }), toolUseId: 't1' },
+      { type: 'primary_tool_use', tool: 'web_fetch', input: JSON.stringify({ url: 'https://example.org/costs' }), toolUseId: 't2', status: 'failed', output: 'HTTP 403' },
+    ].map((e) => JSON.stringify(e)).join('\n') + '\n');
+    const workspace = clusterStore.isolatedWorkspaceFor(p.clusterId, p.a);
+    await fs.mkdir(workspace, { recursive: true });
+    await fs.writeFile(join(workspace, 'notes.md'), 'never sent');
+
+    const state = (await loadResearch(p.clusterId))!;
+    assert.deepEqual((await unsentFiles(state)).map((f) => [f.letter, f.path]), [['A', 'notes.md']]);
+    const closed = await closeResearch(p.clusterId, { moveUnsent: true, isBusy: () => false });
+    assert.equal(closed.ok, true);
+    const roundMd = await fs.readFile(join(p.folder, 'rounds', 'round-1', 'round.md'), 'utf8');
+    assert.match(roundMd, /### Researcher A[\s\S]*Web searches: 1[\s\S]*heat pump running cost[\s\S]*Sources opened: 1[\s\S]*Failed tool calls Arco recorded: 1[\s\S]*HTTP 403/);
+    const sources = await fs.readdir(join(p.folder, 'sources'));
+    assert.equal(sources.filter((n) => n.endsWith('-notes.md')).length, 1);
+    await assert.rejects(fs.access(workspace));
+    await assert.rejects(fs.access(p.membersCwd));
+    assert.match(await fs.readFile(join(p.folder, 'research.json'), 'utf8'), /"status": "closed"/);
+
+    // Startup sweep: only researcher folders of projects with no cluster, never recent ones.
+    const live = randomUUID(), orphan = randomUUID(), fresh = randomUUID();
+    for (const id of [live, orphan, fresh]) await fs.mkdir(join(researchMembersRoot(), id), { recursive: true });
+    const old = new Date(Date.now() - 60 * 60_000);
+    await fs.utimes(join(researchMembersRoot(), orphan), old, old);
+    await fs.utimes(join(researchMembersRoot(), live), old, old);
+    assert.deepEqual(await sweepClosedResearch(new Set([live])), [orphan]);
+    await fs.access(join(researchMembersRoot(), live));
+    await fs.access(join(researchMembersRoot(), fresh));
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
+test('deleting a research cluster by any path closes it first and keeps the author record', async () => {
+  const p = await project();
+  installResearchCloseOnDelete(() => false);
+  try {
+    assert.equal((await startRound(p.clusterId, p.director, 'Brief.', 5)).ok, true);
+    await timeoutRound(p.clusterId, 1);
+    const workspace = clusterStore.isolatedWorkspaceFor(p.clusterId, p.b);
+    await fs.mkdir(workspace, { recursive: true });
+    await fs.writeFile(join(workspace, 'table.csv'), 'a,b\n');
+
+    await clusterStore.deleteCluster(p.clusterId);
+
+    const record = JSON.parse(await fs.readFile(closedResearchRecordPath('p1'), 'utf8'));
+    assert.equal(record.researchers.find((r: { letter: string }) => r.letter === 'B').model, 'qwen3:32b');
+    assert.ok(record.closedAt);
+    assert.match(await fs.readFile(join(p.folder, 'rounds', 'round-1', 'round.md'), 'utf8'), /## Researcher logs/);
+    assert.equal((await fs.readdir(join(p.folder, 'sources'))).filter((n) => n.endsWith('-table.csv')).length, 1);
+    assert.doesNotMatch(await fs.readFile(join(p.folder, 'research.json'), 'utf8'), /qwen3/);
+    assert.equal((await sweepClosedResearch(new Set(), Date.now() + 24 * 60 * 60_000)).includes('closed'), false);
+    await fs.access(closedResearchRecordPath('p1'));
+  } finally {
+    setBeforeClusterDelete(null);
+    configureResearch(null);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
+test('creating a research project starts the Director on the operator brief', async () => {
+  const p = await project();
+  try {
+    const state = (await loadResearch(p.clusterId))!;
+    assert.equal(startResearchDirector(state), true);
+    assert.deepEqual(p.woken, [p.director]);
+    assert.match(p.prompts[0], /Heat pump[\s\S]*research_round[\s\S]*one question[\s\S]*Which heat pump\?/);
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});

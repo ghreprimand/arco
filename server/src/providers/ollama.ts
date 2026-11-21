@@ -13,6 +13,7 @@ import { markAvailable } from '../quota.js';
 import {
   executeOllamaTool,
   getOllamaToolDefinitions,
+  RESEARCHER_LOCAL_TOOLS,
   isKnownOllamaTool,
   ToolLoopDetector,
   type OllamaToolDefinition,
@@ -115,7 +116,7 @@ const DEFAULT_BASE = 'http://localhost:11434';
 const OLLAMA_CHAT_WEB_TOOLS = new Set(['WebSearch', 'WebFetch']);
 
 export function ollamaToolCandidates(
-  config: Pick<WorkerConfig, 'cwd' | 'interactionMode' | 'chatWebAccess' | 'tools' | 'clusterId' | 'workflowId' | 'clusterAccessMode' | 'clusterTaskBoardAttached' | 'voiceOperator'>,
+  config: Pick<WorkerConfig, 'cwd' | 'interactionMode' | 'chatWebAccess' | 'tools' | 'clusterId' | 'workflowId' | 'clusterAccessMode' | 'clusterTaskBoardAttached' | 'voiceOperator' | 'clusterResearchDirector'>,
   registryTools: OllamaToolDefinition[] = [],
 ): OllamaToolDefinition[] | undefined {
   if (!config.cwd) return undefined;
@@ -130,7 +131,9 @@ export function ollamaToolCandidates(
     taskBoardAttached: config.clusterTaskBoardAttached,
     workflowEnabled: !!config.cwd && !!config.workflowId,
     mailboxOnly: config.clusterAccessMode !== undefined && config.clusterAccessMode !== 'standard',
-  })];
+    researcher: config.clusterAccessMode === 'researcher',
+    researchDirector: config.clusterResearchDirector === true,
+  })].filter((tool) => config.clusterAccessMode !== 'researcher' || RESEARCHER_LOCAL_TOOLS.has(tool.function.name));
   return config.tools
     ? all.filter((tool) => config.tools!.includes(tool.function.name))
     : all;

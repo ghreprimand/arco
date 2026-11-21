@@ -20,6 +20,7 @@ import { PEER_SEND_GUARD_DESCRIPTION } from '@arco/shared';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { ClusterMemberAccessMode } from '@arco/shared';
+import { RESEARCH_ROUND_TOOL } from '../research/researchTools.js';
 
 export interface ClusterMcpToolCtx {
   clusterId: string;
@@ -27,6 +28,8 @@ export interface ClusterMcpToolCtx {
   arcoPort: number;
   taskBoardAttached: boolean;
   accessMode?: ClusterMemberAccessMode;
+  // docs/RESEARCH.md - the Research Director also gets research_round.
+  researchDirector?: boolean;
   // Where diagnostics go. The stdio child MUST log to stderr (stdout is the MCP
   // wire); the in-process loopback passes a tagged console.error. Defaults to
   // console.error.
@@ -416,6 +419,35 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
       }
     },
   );
+
+  if (ctx.researchDirector) {
+    registerTool(
+      RESEARCH_ROUND_TOOL.name,
+      {
+        description: RESEARCH_ROUND_TOOL.description,
+        inputSchema: {
+          text: z.string().describe(RESEARCH_ROUND_TOOL.input_schema.properties.text.description),
+          timeout_minutes: z.number().optional().describe(RESEARCH_ROUND_TOOL.input_schema.properties.timeout_minutes.description),
+        },
+      },
+      async ({ text, timeout_minutes }) => {
+        try {
+          const r = await fetch(`${BASE_URL}/research_round`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from: workflowId, text, ...(typeof timeout_minutes === 'number' ? { timeout_minutes } : {}) }),
+          });
+          const body = await r.json().catch(() => ({})) as { error?: string; message?: string };
+          if (!r.ok) return textResult(`[error] ${body.error ?? `http_${r.status}`}: ${body.message ?? ''}`, true);
+          return textResult(body);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          logErr('research_round failed:', msg);
+          return textResult(`[error] research_round failed: ${msg}`, true);
+        }
+      },
+    );
+  }
 
   if (!taskBoardAttached) return;
 

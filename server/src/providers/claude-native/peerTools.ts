@@ -19,6 +19,8 @@ import { CLUSTER_TASK_TOOL_DEFINITIONS } from '../clusterTaskToolDefinitions.js'
 import type { ClusterMemberAccessMode, ServerMessage, LedgerTaskStatus, TaskLink } from '@arco/shared';
 import * as peerOps from '../../clusterPeerOps.js';
 import { formatBoardForModel } from '../../project/taskLedger.js';
+import { formatResearchRoundResult, RESEARCH_ROUND_TOOL, researchHeldNote } from '../../research/researchTools.js';
+import { startRound } from '../../research/researchRounds.js';
 
 export interface PeerToolContext {
   workflowId: string;     // calling member's workflowId
@@ -46,6 +48,7 @@ const PEER_TOOL_NAMES = new Set([
   'peer_list',
   'peer_send',
   'peer_read',
+  'research_round',
   'cluster_plan_read',
   'cluster_plan_tick',
   'cluster_plan_write',
@@ -85,6 +88,7 @@ export function isPeerTool(name: string): boolean {
 export function getPeerToolDefinitions(opts?: {
   taskBoardAttached?: boolean;
   accessMode?: ClusterMemberAccessMode;
+  researchDirector?: boolean;
 }): ClaudeToolDef[] {
   const defs: ClaudeToolDef[] = [
     {
@@ -169,6 +173,7 @@ export function getPeerToolDefinitions(opts?: {
   if (opts?.accessMode && opts.accessMode !== 'standard') {
     return defs.filter((def) => def.name === 'peer_send' || def.name === 'peer_read');
   }
+  if (opts?.researchDirector) defs.push(RESEARCH_ROUND_TOOL);
   return opts?.taskBoardAttached === true ? defs : defs.filter((def) => !TASK_TOOL_NAMES.has(def.name));
 }
 
@@ -223,7 +228,7 @@ export async function executePeerTool(
       });
       if (!result.ok) return `[error] ${result.message}`;
       return JSON.stringify(
-        { msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately, ...(result.recipientContext ? { recipientContext: result.recipientContext } : {}), ...(result.guard ? { guard: result.guard } : {}) },
+        { msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately, ...(result.heldForRound !== undefined ? { heldForRound: result.heldForRound, note: researchHeldNote(result.heldForRound) } : {}), ...(result.recipientContext ? { recipientContext: result.recipientContext } : {}), ...(result.guard ? { guard: result.guard } : {}) },
         null,
         2,
       );
@@ -231,6 +236,11 @@ export async function executePeerTool(
     case 'peer_read': {
       const projected = await peerOps.peerRead(opsCtx);
       return JSON.stringify(projected, null, 2);
+    }
+    case 'research_round': {
+      const result = await startRound(ctx.clusterId, ctx.workflowId, typeof args.text === 'string' ? args.text : '',
+        typeof args.timeout_minutes === 'number' ? args.timeout_minutes : undefined);
+      return formatResearchRoundResult(result);
     }
     case 'cluster_plan_read': {
       const result = await peerOps.peerPlanRead(opsCtx);

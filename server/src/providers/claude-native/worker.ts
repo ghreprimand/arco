@@ -1,7 +1,8 @@
 import { setMaxListeners } from 'node:events';
 import { assertNativeTaskAllowed, nativeTaskBatchApprovalReasons } from './taskAdmission.js';
 import { readSettings } from '../../settings.js';
-import { buildTurnWaitInstructions, resolveNativeSubagents, CLAUDE_MODELS, type NativeSubagentPolicy } from '@arco/shared';
+import { buildTurnWaitInstructions, resolveNativeSubagents, CLAUDE_MODELS, isIsolatedAccessMode, type NativeSubagentPolicy } from '@arco/shared';
+import { RESEARCHER_DOCTRINE, researchDirectorDoctrine } from '../../research/researchDoctrine.js';
 import { availableHandoffSources, executeHandoffHistory, HANDOFF_HISTORY_TOOL, HANDOFF_HISTORY_CONTEXT } from '../../handoffHistoryTool.js';
 import { mediaRetirementNotice } from './mediaRetirementNotice.js';
 import { nativeMediaLimits } from './mediaLimits.js';
@@ -359,7 +360,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   private async refreshHandoffHistory(): Promise<void> {
     this.handoffHistoryAvailable = this.config.interactionMode !== 'chat'
-      && this.config.clusterAccessMode !== 'blind' && this.config.clusterAccessMode !== 'isolated'
+      && this.config.clusterAccessMode !== 'blind' && !isIsolatedAccessMode(this.config.clusterAccessMode)
       && (await availableHandoffSources(this.workflowId).catch(() => [])).length > 0;
   }
 
@@ -1903,7 +1904,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       return this.config.chatWebAccess ? buildChatWebTools(this.config.webSearchMaxUses) : [];
     }
     const inCluster = this.config.clusterId !== undefined;
-    const isolated = this.config.clusterAccessMode === 'isolated';
+    const isolated = isIsolatedAccessMode(this.config.clusterAccessMode);
     const base = getNativeToolDefinitions({ taskDisabled: this.taskDisabled || inCluster, isolated });
     const extras: ReturnType<typeof getNativeToolDefinitions> = [];
     if (!isolated && this.config.cwd && this.workflowId) extras.push(...PLAN_TOOL_DEFINITIONS);
@@ -1912,6 +1913,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       extras.push(...getPeerToolDefinitions({
         taskBoardAttached: this.config.clusterTaskBoardAttached === true,
         accessMode: this.config.clusterAccessMode,
+        researchDirector: this.config.clusterResearchDirector === true,
       }));
     }
     // §E1 (E1-Native) — append the operator-allowed registry servers' tools.
@@ -1956,7 +1958,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   private buildSystemBlocks(): Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl?: string } }> {
     const blocks: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl?: string } }> = [];
-    const isolated = this.config.clusterAccessMode === 'isolated';
+    const isolated = isIsolatedAccessMode(this.config.clusterAccessMode);
 
     // Block ordering invariant (gotcha-tracked): FORCED_FIRST_BLOCK →
     // north-star → cluster plan → role → efficiency doctrine → delegation
@@ -2049,7 +2051,9 @@ export class ClaudeNativeWorker extends EventEmitter {
     // operator's instructions still win on conflict). Skipped when the
     // toggle is 'off' — no input-token cost when the operator hasn't
     // opted the tab in.
-    if (this.config.clusterAccessMode === 'isolated') {
+    if (this.config.clusterAccessMode === 'researcher') {
+      blocks.push({ type: 'text', text: RESEARCHER_DOCTRINE });
+    } else if (this.config.clusterAccessMode === 'isolated') {
       blocks.push({
         type: 'text',
         text:
@@ -2065,6 +2069,7 @@ export class ClaudeNativeWorker extends EventEmitter {
         text: BLIND_CLUSTER_DOCTRINE,
       });
     }
+    if (this.config.clusterResearchDirector) blocks.push({ type: 'text', text: researchDirectorDoctrine() });
 
     if (!isolated && (this.config.efficiencySandbox ?? 'off') === 'on') {
       blocks.push({
@@ -2177,7 +2182,7 @@ export class ClaudeNativeWorker extends EventEmitter {
   // Managed bake-off worktrees resolve trust on the worktree path (the source
   // cwd isn't on WorkerConfig), so their project hooks stay suppressed.
   private async discoverTrustedHooks(): Promise<HookConfig> {
-    if (this.config.interactionMode === 'chat' || this.config.clusterAccessMode === 'isolated') return { byEvent: {} };
+    if (this.config.interactionMode === 'chat' || isIsolatedAccessMode(this.config.clusterAccessMode)) return { byEvent: {} };
     const cwd = this.config.cwd ?? process.cwd();
     let includeProject = false;
     try {

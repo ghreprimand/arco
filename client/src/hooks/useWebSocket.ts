@@ -1098,7 +1098,10 @@ export function useWebSocket() {
       fastMode?: boolean;
       efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
       outputStyle?: import('@arco/shared').OutputStyle;
+      webSearchMaxUses?: number;
+      contextSize?: number;
     }>;
+    research?: import('@arco/shared').ResearchCreateSpec;
   }) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return false;
     try {
@@ -1115,6 +1118,7 @@ export function useWebSocket() {
         ...(payload.progressTracking ? { progressTracking: payload.progressTracking } : {}),
         ...(payload.efficiencyAddendum && payload.efficiencyAddendum.trim().length > 0 ? { efficiencyAddendum: payload.efficiencyAddendum.trim() } : {}),
         members: payload.members,
+        ...(payload.research ? { research: payload.research } : {}),
       }));
       return true;
     } catch { return false; }

@@ -675,6 +675,8 @@ function mergeWithDefaults(partial: Record<string, unknown>, resolveRoot: (p: st
   if (defaultWd) result.defaultWorkingDirectory = defaultWd;
   const appBrowser = sanitizeAppWindowBrowser(partial.appWindowBrowser);
   if (appBrowser) result.appWindowBrowser = appBrowser;
+  const researchFolder = sanitizeDefaultWorkingDirectory(partial.researchFolder);
+  if (researchFolder) result.researchFolder = researchFolder;
   const roots = sanitizeProjectRoots(partial.projectRoots, resolveRoot);
   if (roots !== undefined) result.projectRoots = roots;
   else if (defaultWd) result.projectRoots = sanitizeProjectRoots([{ name: path.basename(defaultWd), path: defaultWd }], resolveRoot);
@@ -917,6 +919,13 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
     else if (typeof patch.appWindowBrowser === 'string' && patch.appWindowBrowser.trim() && patch.appWindowBrowser.trim().toLowerCase() !== 'automatic') throw new Error('invalid appWindowBrowser');
   } else if (current.appWindowBrowser) {
     merged.appWindowBrowser = current.appWindowBrowser;
+  }
+  if ('researchFolder' in patch) {
+    const folder = sanitizeDefaultWorkingDirectory(patch.researchFolder);
+    if (folder) merged.researchFolder = folder;
+    // empty / non-absolute clears the field
+  } else if (current.researchFolder) {
+    merged.researchFolder = current.researchFolder;
   }
   if ('uiScale' in patch) {
     if (typeof patch.uiScale !== 'number' || !Number.isFinite(patch.uiScale)) throw new Error('invalid uiScale');

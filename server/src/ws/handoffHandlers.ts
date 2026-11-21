@@ -799,6 +799,7 @@ export function spawnIdentityProblem(identity: SpawnMemberIdentity | undefined, 
   if (identity.accessMode !== undefined && !isClusterMemberAccessMode(identity.accessMode)) return 'invalid_access_mode';
   if (identity.tier !== undefined && !isMemberTier(identity.tier)) return 'invalid_tier';
   const { role, accessMode } = cleanSpawnIdentity(identity);
+  if (accessMode === 'researcher') return 'researcher_requires_research_project';
   if (accessMode === 'isolated' && ((config.primaryProvider ?? 'claude') !== 'claude' || config.claudeTransport !== 'native')) return 'isolated_requires_claude_native';
   if (isClusterDirector(role)) {
     const problem = clusterDirectorProblem([...cluster.members.map((id) => cluster.memberRoles?.[id]), role]);
@@ -1637,7 +1638,7 @@ export async function handleClusterMemberRehydrate(
     // on "AWAITING REHYDRATE…". (Eager boot registration usually beats us here;
     // this stays as the on-demand safety net + the dynamic-add path.)
     const cluster = await clusterStore.readCluster(clusterId).catch(() => null);
-    const cwd = cluster?.cwd;
+    const cwd = cluster ? clusterStore.memberCwdFor(cluster, workflowId) : undefined;
     if (!cwd) {
       console.log(`[arco] [${workflowId.slice(0, 8)}] cluster_member_rehydrate: no cwd for cluster ${clusterId.slice(0, 8)}`);
       return;
@@ -1746,7 +1747,7 @@ export async function registerAllClusterMembersOnBoot(): Promise<number> {
   for (const cluster of clusters) {
     for (const wfid of cluster.members) {
       if (workflows.get(wfid)) continue; // already registered (client beat us)
-      const wf = await materializeMemberFromMeta(cluster.cwd, wfid).catch(() => null);
+      const wf = await materializeMemberFromMeta(clusterStore.memberCwdFor(cluster, wfid), wfid).catch(() => null);
       if (wf) n++;
     }
   }

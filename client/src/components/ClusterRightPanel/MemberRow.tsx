@@ -214,7 +214,9 @@ export function MemberRow({
               <span
                 className="display-font"
                 data-help="cluster.member-access"
-                title={member.accessMode === 'isolated'
+                title={member.accessMode === 'researcher'
+                  ? 'Researcher: private workspace, web research, mail only with the Research Director'
+                  : member.accessMode === 'isolated'
                   ? 'Private scratch workspace; mailbox-only cluster access'
                   : 'Project-visible, but mailbox-only cluster access'}
                 style={{

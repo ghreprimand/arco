@@ -3,7 +3,7 @@ import { queueSettingsPatch } from '../../utils/settingsRequests';
 import { confirmationSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
 import { useCallback, useState, useEffect, useRef, type CSSProperties } from 'react';
-import { AUTO_HANDOFF_MAX_COMPACTIONS, OUTPUT_STYLES, resolveOutputStyle, AUTO_HANDOFF_MIN_COMPACTIONS, CLAUDE_MODEL_LABELS, autoHandoffAvailability, clampAutoHandoffCompactions, normalizeAutoHandoff, resolveProviderAutoCompaction, type AutoHandoffConfig } from '@arco/shared';
+import { isIsolatedAccessMode, AUTO_HANDOFF_MAX_COMPACTIONS, OUTPUT_STYLES, resolveOutputStyle, AUTO_HANDOFF_MIN_COMPACTIONS, CLAUDE_MODEL_LABELS, autoHandoffAvailability, clampAutoHandoffCompactions, normalizeAutoHandoff, resolveProviderAutoCompaction, type AutoHandoffConfig } from '@arco/shared';
 import type { ProviderName, ModelName, EffortLevel, CliChangeEntry, OllamaPsAggregate, OllamaCompactionConfig } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
@@ -41,7 +41,7 @@ export function ConfigTab({
   const provider: ProviderName = c.primaryProvider ?? 'claude';
   const canEdit = Boolean(onUpdatePrimary);
   const isolatedMember = useAppStore((s) => Object.values(s.clusters).some((cluster) =>
-    cluster.members.some((member) => member.workflowId === job.id && member.accessMode === 'isolated')));
+    cluster.members.some((member) => member.workflowId === job.id && isIsolatedAccessMode(member.accessMode))));
 
   const settings = useAppStore((s) => s.settings);
 

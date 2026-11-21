@@ -1,4 +1,5 @@
 import { submitClusterCreation } from '../../utils/clusterCreation';
+import { ResearchStartForm, isResearchPanel } from './ResearchStartForm';
 import { readSavedSettings } from '../../utils/settingsRequests';
 import { TerminalSessions } from '../TerminalSessions';
 import { MessageGuardControl } from '../ClusterRightPanel/MessageGuardControl';
@@ -309,7 +310,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // NOT reset the shared fields (cwd / defaults stay).
   // Home pre-fill (mode/project/session) is read for the initial state here
   // and cleared once in the effect below; nothing launches by itself.
-  const [mode, setMode] = useState<'single' | 'chat' | 'cluster' | 'genesis'>(() => useAppStore.getState().creatorPrefill?.mode ?? 'single');
+  const [mode, setMode] = useState<'single' | 'chat' | 'cluster' | 'genesis' | 'research'>(() => useAppStore.getState().creatorPrefill?.mode ?? 'single');
   const [incognito, setIncognito] = useState(false);
   // docs/ARCHITECTURE.md - Genesis mode collects just a working name + the
   // Spark at creation; the staged conversation + the GENESIS right-panel tab
@@ -1089,7 +1090,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // I4 — centered heading reflects the selected cwd's folder name (high-signal
   // token; the full path is in the field below). No cwd yet ⇒ show the subtitle
   // text alone, never a stale "ARCO" (the wordmark already lives top-left).
-  const subtitleText = mode === 'cluster' ? 'NEW CLUSTER' : mode === 'genesis' ? 'NEW PROJECT · GENESIS' : mode === 'chat' ? 'NEW CONVERSATION' : 'NEW WORKFLOW';
+  const subtitleText = mode === 'research' ? 'NEW RESEARCH PROJECT' : mode === 'cluster' ? 'NEW CLUSTER' : mode === 'genesis' ? 'NEW PROJECT · GENESIS' : mode === 'chat' ? 'NEW CONVERSATION' : 'NEW WORKFLOW';
   const cwdBasename = projectNameForDirectory(workDir, projectChoices);
   const headingText = cwdBasename.length > 28 ? `${cwdBasename.slice(0, 27)}…` : cwdBasename;
   // Collapsed tuning summary so the config stays visible but quiet.
@@ -1146,8 +1147,35 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               <div>GENESIS</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>Describe your idea; create files later</div>
             </button>
+            <button data-help="creator.research-mode" onClick={() => setMode('research')} style={modePill(mode === 'research')}>
+              <div>RESEARCH</div>
+              <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>One question, several independent researchers</div>
+            </button>
           </div>
         </div>
+
+        {mode === 'research' && (
+          <ResearchStartForm
+            directorDefault={{ provider: primaryProvider, model: String(model), effort: String(effort) }}
+            claudeModelsForPicker={claudeModelsForPicker}
+            codexModelsForPicker={codexModelsForPicker}
+            ollamaModelsForPicker={ollamaModelsForPicker}
+            llamacppModelsForPicker={llamacppModelsForPicker}
+            cursorModelsForPicker={cursorModelsForPicker}
+            claudeNativeCatalog={claudeNativeCatalog}
+            codexCatalog={codexCatalog}
+            selectStyle={selectStyle}
+            labelStyle={labelStyle}
+            inputStyle={inputStyle}
+            hintStyle={hintStyle}
+            submitting={clusterCreationPending || !connected}
+            onCreate={(payload) => {
+              if (!onCreateCluster || useAppStore.getState().clusterCreationPending) return;
+              submitClusterCreation(requestId => onCreateCluster({ ...payload, requestId }));
+            }}
+          />
+        )}
+        {mode !== 'research' && <>
 
 
         {mode === 'chat' && (
@@ -1930,7 +1958,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
 
         {mode === 'cluster' && (
           <ClusterPresetsRow
-            presets={clusterPresets.presets}
+            presets={clusterPresets.presets.filter((preset) => !isResearchPanel(preset))}
             isLoading={clusterPresets.isLoading}
             error={clusterPresets.error}
             onApply={applyPreset}
@@ -2100,6 +2128,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           </button>
         )}
         </div>
+        </>}
       </div>
     </div>
   );

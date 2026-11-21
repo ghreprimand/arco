@@ -1092,6 +1092,15 @@ Block a task. Body: `{ workflowId, id, reason }`. Delegates to `clusterPeerOps.p
 
 Submit a completion report. Body: `{ workflowId, id, summary }`. Delegates to `clusterPeerOps.peerTaskComplete`, moves the task to `review`, appends a `COMPLETION REPORT` comment, and broadcasts a fresh snapshot. It never marks `done`; terminal statuses remain operator-only. Returns the updated task object, or `{ error: <code>, message }`.
 
+### Research projects
+
+See [RESEARCH.md](RESEARCH.md).
+
+- `POST /api/research/:clusterId/reveal`: the operator's Reveal of a blind project. `{ revealed: true }`, or 409 `not_blind_or_unknown`.
+- `GET /api/research/:clusterId/summaries`: `{ latest, rounds }`, whether `synthesis.md` exists and which `syntheses/round-N.md` files exist. 404 `unknown_research`.
+- `GET /api/research/:clusterId/close-preview`: `{ unsent: [{ letter, path, bytes }] }`, the researcher files not yet in `sources/`. 404 `unknown_research`.
+- `POST /api/research/:clusterId/close`: body `{ moveUnsent }`. Writes the researcher logs, moves unsent files when asked and removes the researchers' folders. `{ ok: true, logsWrittenTo, moved, removed }`; 409 `researcher_busy` with `letters`; 404 `unknown_research`.
+
 ---
 
 ## Cluster presets
