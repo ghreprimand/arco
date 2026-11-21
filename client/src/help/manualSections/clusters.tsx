@@ -444,12 +444,12 @@ export const clusters: Section[] = [
   reports back via <Code>peer_send</Code>.
   </li>
   <li>
-  <strong>REVIEWER</strong> - inspects another member's diff /
-  output and reports concerns.
+  <strong>REVIEWER</strong> - reviews diffs, designs and plans, reports
+  findings via <Code>peer_send</Code> and does not change files.
   </li>
   <li>
-  <strong>RESEARCHER</strong> - reads code / docs / external
-  material and answers focused questions.
+  <strong>RESEARCHER</strong> - researches any subject, cites sources and
+  reports via <Code>peer_send</Code> without project edits.
   </li>
   <li>
   <strong>TESTER</strong> - runs project checks and tests peer work
@@ -457,9 +457,8 @@ export const clusters: Section[] = [
   modifies test files only.
   </li>
   <li>
-  <strong>DOCUMENTER</strong> - reads peer work via{' '}
-  <Code>peer_read</Code> and writes / updates docs (README, guides,
-  comments); modifies docs only.
+  <strong>DOCUMENTER</strong> - writes and updates docs, manual, help text
+  and devlog for peer work; reports via <Code>peer_send</Code> and changes docs only.
   </li>
   <li>
   <strong>ADVISOR</strong> - gives the Director a second opinion on
@@ -467,8 +466,9 @@ export const clusters: Section[] = [
   no files, assigns no work and lands nothing; replies via <Code>peer_send</Code>.
   </li>
   <li>
-  <strong>DESIGNER</strong> - owns screen layout, states, wording and
-  accessibility. It changes UI files only and reports via <Code>peer_send</Code>.
+  <strong>DESIGNER</strong> - designs screens, states, wording and
+  accessibility, prototypes and reviews UI. Builders implement the screens;
+  it reports via <Code>peer_send</Code>.
   </li>
   </ul>
   <p>

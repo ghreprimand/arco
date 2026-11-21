@@ -22,6 +22,13 @@ const LEGACY_BUILDER_TEXT = 'Implementer role. Focus on your assigned scope. Use
 const FULL_VERIFICATION_TESTER_TEXT = 'Tester role. Write + run tests and full verification (e.g. landing gates); report via peer_send. Modify test files only.';
 const LEGACY_TESTER_TEXT = 'Tester role. Write + run tests against peer work. Report failures via peer_send. Modify test files only.';
 
+const LEGACY_ROLE_TEXTS: Record<string, RolePreset['key']> = {
+  "Reviewer role. Read peer output via peer_read and the cluster plan. Critique. Don't write code; write critiques.": 'reviewer',
+  "Researcher role. Investigate the codebase, produce findings as text. Don't modify files. Surface findings via peer_send.": 'researcher',
+  'Documenter role. Read peer work via peer_read; write + update docs (README, guides, comments). Modify docs only.': 'documenter',
+  'Designer role. Own screen layout, states, wording and accessibility. Change UI files only; report via peer_send.': 'designer',
+};
+
 export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'director',
@@ -36,12 +43,12 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'reviewer',
     label: 'REVIEWER',
-    text: "Reviewer role. Read peer output via peer_read and the cluster plan. Critique. Don't write code; write critiques.",
+    text: "Reviewer role. Review the diffs, designs and plans you are sent; report findings via peer_send. Don't change files.",
   },
   {
     key: 'researcher',
     label: 'RESEARCHER',
-    text: "Researcher role. Investigate the codebase, produce findings as text. Don't modify files. Surface findings via peer_send.",
+    text: "Researcher role. Research any subject: code, docs or the web. Cite sources; report via peer_send. No project edits.",
   },
   {
     key: 'tester',
@@ -52,7 +59,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'documenter',
     label: 'DOCUMENTER',
-    text: 'Documenter role. Read peer work via peer_read; write + update docs (README, guides, comments). Modify docs only.',
+    text: 'Documenter role. Write and update docs, manual, help text and devlog for peer work. Docs only; report via peer_send.',
   },
   {
     key: 'advisor',
@@ -62,7 +69,7 @@ export const ROLE_PRESETS: RolePreset[] = [
   {
     key: 'designer',
     label: 'DESIGNER',
-    text: 'Designer role. Own screen layout, states, wording and accessibility. Change UI files only; report via peer_send.',
+    text: 'Designer role. Design screens, states, wording and accessibility; prototype and review UI. Builders build; peer_send.',
   },
 ];
 
@@ -73,6 +80,8 @@ export function normalizeClusterRoleText(text: string): string {
   }
   if (trimmed === LEGACY_BUILDER_TEXT || trimmed === EVIDENCE_BUILDER_TEXT) return ROLE_PRESETS.find((p) => p.key === 'builder')?.text ?? trimmed;
   if (trimmed === LEGACY_TESTER_TEXT || trimmed === FULL_VERIFICATION_TESTER_TEXT) return ROLE_PRESETS.find((p) => p.key === 'tester')?.text ?? trimmed;
+  const legacyKey = Object.hasOwn(LEGACY_ROLE_TEXTS, trimmed) ? LEGACY_ROLE_TEXTS[trimmed] : undefined;
+  if (legacyKey) return ROLE_PRESETS.find((p) => p.key === legacyKey)?.text ?? trimmed;
   return trimmed;
 }
 

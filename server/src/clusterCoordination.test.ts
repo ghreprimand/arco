@@ -278,6 +278,22 @@ test('Advisor and Designer presets survive storage and remain ordinary cluster m
   assert.match(buildClusterDirectorDoctrine('Director role.')!, /has an Advisor.*consult it.*decision remains yours/);
 });
 
+test('previous role presets retain their labels while edited roles stay custom', () => {
+  const legacy: Array<[string, string]> = [
+    ['reviewer', "Reviewer role. Read peer output via peer_read and the cluster plan. Critique. Don't write code; write critiques."],
+    ['researcher', "Researcher role. Investigate the codebase, produce findings as text. Don't modify files. Surface findings via peer_send."],
+    ['documenter', 'Documenter role. Read peer work via peer_read; write + update docs (README, guides, comments). Modify docs only.'],
+    ['designer', 'Designer role. Own screen layout, states, wording and accessibility. Change UI files only; report via peer_send.'],
+  ];
+  for (const [key, text] of legacy) {
+    const current = ROLE_PRESETS.find((preset) => preset.key === key)!;
+    assert.ok(current.text.length <= 120);
+    assert.equal(normalizeClusterRoleText(`  ${text} `), current.text);
+    assert.equal(presetForText(text)?.label, current.label);
+    assert.equal(presetForText(`${text} Custom.`), undefined);
+  }
+});
+
 test('the previous unedited Builder preset keeps its preset, label and normalizes forward', () => {
   const legacy = 'Implementer role. Focus on your assigned scope. Use peer_send to report progress + blockers, not to direct peers.';
   const current = ROLE_PRESETS.find((p) => p.key === 'builder')!.text;
