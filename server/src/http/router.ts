@@ -134,7 +134,7 @@ flushAll as flushAllWorkflowEvents
 } from '../workflowStore.js';
 import { readFileForExplorer } from './fileRead.js';
 import { explorerRoot } from './explorerRoot.js';
-import { listBrowserDirectory, resolveBrowserRead } from './readConfinement.js';
+import { clusterArtifactMatches, listBrowserDirectory, resolveBrowserRead } from './readConfinement.js';
 import { confinedPath, safeDirectory, createReadAccessContext } from '../fileAccessPolicy.js';
 import { tryHandleClusterRoutes } from './clusterRoutes.js';
 import { tryHandleClusterSnapshotRoutes } from './clusterSnapshotRoutes.js';
@@ -2126,19 +2126,42 @@ export async function handleHttpRequest(
 
 
   if (req.url?.startsWith('/api/file-content') && req.method === 'GET') {
+    const url = new URL(req.url, `http://localhost:${PORT}`);
+    const asked = url.searchParams.get('path') || '';
+    const cwd = url.searchParams.get('cwd') || '';
+    const workflowId = url.searchParams.get('workflowId') || '';
+    const owner = url.searchParams.get('artifactOwner') || '';
     try {
-      const url = new URL(req.url, `http://localhost:${PORT}`);
-      const path = url.searchParams.get('path') || '';
-      const cwd = url.searchParams.get('cwd') || '';
-      const workflowId = url.searchParams.get('workflowId') || '';
-      const target = await resolveBrowserRead(path, cwd, workflowId);
+      let target: string;
+      let artifactOwner: string | undefined;
+      try {
+        target = await resolveBrowserRead(asked, cwd, workflowId);
+        if (owner) throw Object.assign(new Error('Artifact choice is no longer available.'), { code: 'EACCES' });
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT' || !workflowId || !cwd) throw err;
+        const found = await clusterArtifactMatches(cwd, workflowId, asked);
+        if (!found) throw err;
+        const choices = found.matches.map(({ workflowId: id, name }) => ({ workflowId: id, name }));
+        if (!owner && choices.length > 1) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ type: 'choices', choices }));
+          return;
+        }
+        const chosen = owner ? found.matches.find((match) => match.workflowId === owner) : found.matches[0];
+        if (!chosen) {
+          if (owner) throw Object.assign(new Error('Artifact choice is no longer available.'), { code: 'EACCES' });
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ type: 'error', error: `File not found: ${asked}. Searched the project and artifacts of: ${found.searched.map((m) => m.name).join(', ')}.` }));
+          return;
+        }
+        target = chosen.path;
+        artifactOwner = chosen.name;
+      }
       const payload = await readFileForExplorer(target);
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ...payload, resolvedPath: target }));
+      res.end(JSON.stringify({ ...payload, resolvedPath: target, ...(artifactOwner ? { artifactOwner } : {}) }));
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
-      const url = new URL(req.url, `http://localhost:${PORT}`);
-      const asked = url.searchParams.get('path') || '';
       // A missing file is reported by the name that was asked for, never by a
       // path the server or client composed.
       const message = code === 'ENOENT' ? `File not found: ${asked}` : (err instanceof Error ? err.message : String(err));

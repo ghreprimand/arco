@@ -476,6 +476,10 @@ export const clusters: Section[] = [
   decision or when the evidence is thin. The Director keeps the decision.
   Role hints guide the agent; they do not enforce file access.
   </p>
+  <p>A bare filename opened from a cluster conversation also searches the
+  members' artifact folders if the file is not found in the project or the
+  conversation's own artifacts. The viewer names the owner, asks which member
+  to open when several match, or names the folders searched.</p>
   <h4 className="manual-sub">Setting one</h4>
   <ol>
   <li>

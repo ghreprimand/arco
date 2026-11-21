@@ -168,3 +168,44 @@ test('LA07: short parent spelling admits only the registered worktree, not a rep
     t.mock.restoreAll(); syncBuiltinESMExports();
   }
 });
+
+
+test('cluster artifact fallback searches only member artifacts and refuses escaping links', async () => {
+  const { workflowCwds } = await import('../server/state.js');
+  const clusterStore = await import('../clusterStore.js');
+  const { clusterArtifactMatches } = await import('./readConfinement.js');
+  const root = join(home, 'cluster-artifact-project'); mkdirSync(root);
+  const [first, second, outsider] = ['cluster-first', 'cluster-second', 'cluster-outsider'];
+  for (const id of [first, second, outsider]) workflowCwds.set(id, root);
+  const cluster = await clusterStore.createCluster({ cwd: root, memberWorkflowIds: [first, second] });
+  const artifacts = (id: string) => join(root, '.arco', 'workflows', id, 'artifacts');
+  try {
+    for (const id of [first, second, outsider]) mkdirSync(artifacts(id), { recursive: true });
+    writeFileSync(join(artifacts(second), 'report.md'), 'second');
+    writeFileSync(join(artifacts(outsider), 'report.md'), 'outsider');
+    const found = await clusterArtifactMatches(root, first, 'report.md');
+    assert.deepEqual(found?.searched.map((m) => m.workflowId), [first, second]);
+    assert.deepEqual(found?.matches.map((m) => m.workflowId), [second]);
+    writeFileSync(join(artifacts(first), 'report.md'), 'first');
+    assert.deepEqual((await clusterArtifactMatches(root, first, 'report.md'))?.matches.map((m) => m.workflowId), [first, second]);
+    assert.equal((await clusterArtifactMatches(root, first, 'missing.md'))?.matches.length, 0);
+    assert.equal(await clusterArtifactMatches(root, first, '../report.md'), null);
+    assert.equal(await clusterArtifactMatches(root, outsider, 'report.md'), null);
+    const otherRoot = join(home, 'cluster-peer-worktree'); mkdirSync(otherRoot);
+    workflowCwds.set(second, otherRoot);
+    const otherArtifacts = join(otherRoot, '.arco', 'workflows', second, 'artifacts');
+    mkdirSync(otherArtifacts, { recursive: true });
+    writeFileSync(join(otherArtifacts, 'worktree.md'), 'peer worktree');
+    assert.deepEqual((await clusterArtifactMatches(root, first, 'worktree.md'))?.matches.map((m) => m.workflowId), [second]);
+    workflowCwds.set(second, root);
+    try {
+      symlinkSync(join(artifacts(outsider), 'report.md'), join(artifacts(second), 'escape.md'));
+      assert.equal((await clusterArtifactMatches(root, first, 'escape.md'))?.matches.length, 0);
+    } catch (error) {
+      if (!['EPERM', 'ENOTSUP'].includes((error as NodeJS.ErrnoException).code ?? '')) throw error;
+    }
+  } finally {
+    await clusterStore.deleteCluster(cluster.clusterId);
+    for (const id of [first, second, outsider]) workflowCwds.delete(id);
+  }
+});

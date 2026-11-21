@@ -8,6 +8,7 @@ import { UPLOADS_DIR } from '../server/constants.js';
 import { SCRATCH_ROOT } from '../media/scratch.js';
 import { artifactsDir } from '../workers/limits.js';
 import { resolveWorktreeFile } from './browserWorktrees.js';
+import * as clusterStore from '../clusterStore.js';
 
 export async function readRoots(cwd?: string | null, workflowId?: string | null): Promise<string[]> {
   const bound = await resolveBoundCwd(cwd, workflowId);
@@ -41,6 +42,35 @@ export async function resolveBrowserRead(p: string, cwd?: string | null, workflo
       || path.basename(p) !== p || p.includes('\\') || p.startsWith('.')) throw err;
     return confinedPath(path.join(artifactsDir(bound.cwd, workflowId), p), [bound.cwd]);
   }
+}
+
+// Search only a bound conversation's cluster members after ordinary resolution
+// has failed. Every candidate goes through the existing workflow-document guard.
+export async function clusterArtifactMatches(cwd: string, workflowId: string, name: string): Promise<{
+  searched: Array<{ workflowId: string; name: string }>;
+  matches: Array<{ workflowId: string; name: string; path: string }>;
+} | null> {
+  if (!name || path.basename(name) !== name || name.includes('\\') || name.startsWith('.')) return null;
+  const bound = await resolveBoundCwd(cwd, workflowId);
+  const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
+  const cluster = clusterId ? await clusterStore.readCluster(clusterId) : null;
+  if (!bound.ok || !cluster || !cluster.members.includes(workflowId)) return null;
+  const searched = cluster.members.map((id) => ({ workflowId: id, name: clusterStore.displayNameFor(id) }));
+  const matches: Array<{ workflowId: string; name: string; path: string }> = [];
+  for (const member of searched) {
+    try {
+      const memberBound = await resolveBoundCwd(cluster.cwd, member.workflowId);
+      const memberCwd = memberBound.ok ? memberBound.cwd : cluster.cwd;
+      const resolved = await resolveWorkflowDocument(memberCwd, member.workflowId, 'artifacts', name);
+      const root = artifactsDir(memberCwd, member.workflowId);
+      // Tracked outputs can resolve outside artifacts; this fallback cannot.
+      const checked = confinedPath(resolved, [root]);
+      matches.push({ ...member, path: checked });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'ENOENT' && !(err instanceof FileAccessError)) throw err;
+    }
+  }
+  return { searched, matches };
 }
 
 // The project picker grants directory names only, not file content. Ordinary

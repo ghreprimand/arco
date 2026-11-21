@@ -13,7 +13,9 @@ type FilePayload =
   | { type: 'image'; dataUrl: string; size: number; resolvedPath?: string }
   | { type: 'binary'; size: number; resolvedPath?: string }
   | { type: 'too-large'; size: number; kind: 'text' | 'image'; resolvedPath?: string }
+  | { type: 'choices'; choices: Array<{ workflowId: string; name: string }> }
   | { type: 'error'; error: string };
+type ViewerPayload = FilePayload & { artifactOwner?: string };
 
 interface Props {
   readUrl?: string;
@@ -77,8 +79,10 @@ function classifyFile(path: string, content: string): { kind: RenderKind; lang?:
 
 export function FileViewerModal({ path, onClose, fallback, editContext, startLine, readUrl, saveRequest, initialEditing = false }: Props) {
   const surface = useRef<HTMLDivElement>(null);
-  const [payload, setPayload] = useState<FilePayload | null>(null);
+  const [payload, setPayload] = useState<ViewerPayload | null>(null);
   const [rawMode, setRawMode] = useState(false);
+  const [artifactChoice, setArtifactChoice] = useState<string | null>(null);
+  useEffect(() => { setArtifactChoice(null); }, [path, fallback?.workflowId, fallback?.cwd]);
   // A6 editing state. `editing` flips the buffer writable + reveals Save;
   // default is Locked (read-only). `buffer` holds the live edit; `loadedText`
   // is the last-saved/loaded baseline so the dirty flag is a simple compare.
@@ -103,9 +107,10 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
     if (fallback) {
       params.set('cwd', fallback.cwd);
       params.set('workflowId', fallback.workflowId);
+      if (artifactChoice) params.set('artifactOwner', artifactChoice);
     }
     fetch(readUrl || `/api/file-content?${params.toString()}`)
-      .then((r) => r.json() as Promise<FilePayload>)
+      .then((r) => r.json() as Promise<ViewerPayload>)
       .then((p) => {
         if (cancelled) return;
         setPayload(p);
@@ -116,7 +121,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
       })
       .catch((e) => { if (!cancelled) setPayload({ type: 'error', error: String(e) }); });
     return () => { cancelled = true; };
-  }, [path, fallback?.cwd, fallback?.workflowId, readUrl, initialEditing]);
+  }, [path, fallback?.cwd, fallback?.workflowId, readUrl, initialEditing, artifactChoice]);
 
   const dirty = editing && buffer !== loadedText;
 
@@ -288,7 +293,7 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
               className="display-font glow-text-cyan"
               style={{ fontSize: '12px', letterSpacing: '1px' }}
             >
-              {filename}
+              {filename}{payload?.artifactOwner ? ` - ${payload.artifactOwner}` : ''}
             </div>
             <div
               style={{
@@ -532,6 +537,24 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
           {payload?.type === 'too-large' && (
             <div style={infoStyle}>
               {payload.kind === 'image' ? 'Image' : 'Text'} too large to preview ({formatSize(payload.size)}).
+            </div>
+          )}
+
+          {payload?.type === 'choices' && (
+            <div style={infoStyle}>
+              <p>Several cluster members have this artifact. Choose one:</p>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                {payload.choices.map((choice) => (
+                  <button
+                    key={choice.workflowId}
+                    type="button"
+                    onClick={() => { setPayload(null); setArtifactChoice(choice.workflowId); }}
+                    style={{ background: 'transparent', border: '1px solid var(--color-border-hairline)', borderRadius: '3px', color: 'var(--color-fg)', cursor: 'pointer', minHeight: '40px', padding: '8px 12px', textAlign: 'left' }}
+                  >
+                    {choice.name} ({choice.workflowId.slice(0, 8)})
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

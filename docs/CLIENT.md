@@ -568,7 +568,7 @@ Consumer today: **`MediaModalHost.tsx`** (`section="media-studio"`, in the heade
 
 ## Chat rendering pipeline
 
-Ordinary application JSON stays visible when it uses keys such as workers, stateMutations or qualityVerdicts. Only validated legacy envelopes are collapsed. Complete and streaming `arco-artifact` fences use artifact placeholders. Windows drive and UNC filenames can be opened from chat references.
+Ordinary application JSON stays visible when it uses keys such as workers, stateMutations or qualityVerdicts. Only validated legacy envelopes are collapsed. Complete and streaming `arco-artifact` fences use artifact placeholders. Windows drive and UNC filenames can be opened from chat references. When a bare filename is missing from the conversation and its own artifacts, a cluster conversation also searches the artifact folders of its members. The viewer names the owner, offers a choice for multiple matches, or lists the folders searched.
 
 `ChatPanel.tsx`'s `displayMessages` memoization is the linchpin. It runs only when `job.sessionChat` or `job.messages` change - the composer auto-grow on keystrokes does NOT invalidate this memo, so the virtualizer doesn't recalc and the chat doesn't jitter.
 
