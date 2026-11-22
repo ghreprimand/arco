@@ -118,6 +118,9 @@ export function observeResearchText(clusterId: string | undefined, workflowId: s
   return found;
 }
 
+// The sandbox home is mounted at /home/worker (workers/linuxWorkerSandbox.ts).
+export const CURSOR_OWN_OUTPUT = ['', 'home', 'worker', '.cursor', 'projects'].join('/');
+
 /** Flag explicit foreign paths and loopback addresses in the file and shell calls Arco receives. */
 export function researchToolBoundaryWarning(tool: string, input: string): boolean {
   const name = tool.split('__').at(-1) ?? tool;
@@ -133,7 +136,9 @@ export function researchToolBoundaryWarning(tool: string, input: string): boolea
   if (/(?:\b(?:127(?:\.\d{1,3}){3}|localhost)\b|\[::1\]|(?:^|[\s"'])::1(?:$|[\s"']))/i.test(inspected)) return true;
   if (/(?:^|[\s"'=])(?:~(?:\/|[\s"']|$)|\.\.(?:\/|[\s"']|$))/.test(inspected)) return true;
   const paths = inspected.match(/(?<![:/\w])\/(?:[^\s"'<>|;&)\\]|\\\/)+/g) ?? [];
-  const allowed = ['/work', '/usr', '/bin', '/lib', '/lib64', '/tmp', '/dev/null', '/etc/ssl'];
+  // Cursor keeps its own tool output and transcripts under its sandbox home
+  // (`.cursor/projects`); reading them back is not an access outside the sandbox.
+  const allowed = ['/work', '/usr', '/bin', '/lib', '/lib64', '/tmp', '/dev/null', '/etc/ssl', CURSOR_OWN_OUTPUT];
   return paths.some(raw => {
     const path = posix.normalize(raw.replace(/\\\//g, '/'));
     return !allowed.some(root => path === root || path.startsWith(`${root}/`));

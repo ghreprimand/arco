@@ -1647,22 +1647,31 @@ export async function handleClusterCreateFromScratch(
   session: Session,
   msg: import('@arco/shared').ClusterCreateFromScratchMessage,
 ): Promise<void> {
+  const outcome: ScratchOutcome = {};
   try {
-    await createClusterFromScratch(ws, session, msg);
+    await createClusterFromScratch(ws, session, msg, outcome);
   } catch (error) {
     send(ws, { type: 'error', message: 'cluster_create_from_scratch failed' });
     throw error;
   } finally {
+    // docs/RESEARCH.md - a research request refused after its folder was made
+    // leaves no empty dated folder behind.
+    if (outcome.research && !outcome.created && !outcome.research.reopen) {
+      await researchCreate.discardUnusedResearchFolder(outcome.research).catch(() => undefined);
+    }
     if (typeof msg.requestId === 'string' && msg.requestId.length > 0 && msg.requestId.length <= 128) {
       send(ws, { type: 'cluster_creation_finished', requestId: msg.requestId });
     }
   }
 }
 
+interface ScratchOutcome { research?: researchCreate.PreparedResearch; created?: boolean }
+
 async function createClusterFromScratch(
   ws: WebSocket,
   session: Session,
   requested: import('@arco/shared').ClusterCreateFromScratchMessage,
+  outcome: ScratchOutcome,
 ): Promise<void> {
   let msg = requested;
   if (!isClusterCreationSettings(msg)) { send(ws, { type: 'error', message: 'Invalid cluster creation settings' }); return; }
@@ -1678,6 +1687,7 @@ async function createClusterFromScratch(
       : await researchCreate.prepareResearchCreate(msg);
     if ('refusal' in prepared) { send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: ${prepared.refusal}` }); return; }
     research = prepared;
+    outcome.research = prepared;
     msg = prepared.msg;
   }
   if (typeof msg.cwd !== 'string' || msg.cwd.trim().length === 0) {
@@ -1801,6 +1811,7 @@ async function createClusterFromScratch(
       memberWebAccess: Object.fromEntries(msg.members.flatMap((m, i) => m.webAccess === false ? [[newWorkflowIds[i], false]] : [])),
       ...(research ? { memberCwds, research: { projectId: research.projectId } } : {}),
     });
+    outcome.created = true;
   } catch (err) {
     const code = (err as { code?: string })?.code ?? 'create_failed';
     send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: ${code}` });

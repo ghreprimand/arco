@@ -124,6 +124,23 @@ export function researcherMemberSpec(m: ResearcherRow, letter: string): Research
     ...(m.provider === 'ollama' && m.contextSize ? { contextSize: m.contextSize } : {}) };
 }
 
+// A research request refused after prepareResearchCreate made its folder:
+// removes the folder and the members folder only while they are still
+// empty (non-recursive removal, so nothing with content is ever deleted).
+export async function discardUnusedResearchFolder(prepared: Pick<PreparedResearch, 'folder' | 'membersCwd'>): Promise<boolean> {
+  await fs.rmdir(prepared.membersCwd).catch(() => undefined);
+  try {
+    for (const sub of await fs.readdir(prepared.folder)) {
+      if (!['rounds', 'syntheses', 'sources'].includes(sub)) return false;
+    }
+    for (const sub of ['rounds', 'syntheses', 'sources']) {
+      await fs.rmdir(join(prepared.folder, sub)).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; });
+    }
+    await fs.rmdir(prepared.folder);
+    return true;
+  } catch { return false; }
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 // docs/RESEARCH.md - REOPEN: the project comes back in its own folder with

@@ -95,7 +95,8 @@ async function logFacts(workflowDir: string): Promise<LogFacts> {
         if (e.status === 'failed') facts.failures.push(`${e.tool} failed${typeof e.output === 'string' ? `: ${e.output.slice(0, 160)}` : ''}`);
         if (seen.has(id)) continue;
         seen.add(id);
-        if (/^(web_search|WebSearch)$/.test(e.tool)) facts.searches.push(inputField(e.input, 'query') ?? '(query not recorded)');
+        // Cursor names the search text `searchTerm`.
+        if (/^(web_search|WebSearch)$/.test(e.tool)) facts.searches.push(inputField(e.input, 'query') ?? inputField(e.input, 'searchTerm') ?? '(query not recorded)');
         else if (/^(web_fetch|WebFetch)$/.test(e.tool)) facts.sources.push(inputField(e.input, 'url') ?? '(address not recorded)');
       }
     }
