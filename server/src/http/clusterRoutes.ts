@@ -1,11 +1,13 @@
 import { antigravityChatWorkspace } from '../chatMode.js';
+import { sendResearchToFolder, sendResearchToPlan, stageResearchForComposer, confirmResearchComposer } from '../research/sendToProject.js';
+import type { ResearchSelection } from '../research/resultSelection.js';
 import { existingClusterMemberRefusal } from '../existingClusterMembers.js';
 import { recipientContext } from '../peerRecipientContext.js';
 import { isResearchMemberBusy, revealResearch, startRound } from '../research/researchRounds.js';
 import { closeResearch, unsentFiles } from '../research/researchClose.js';
 import { researchSummaries } from '../research/researchFolder.js';
 import { loadResearch } from '../research/researchState.js';
-import { formatResearchRoundResult, researchHeldNote } from '../research/researchTools.js';
+import { formatResearchRoundResult, researchHeldNote, researchSendProposal, clearResearchSendProposal, proposeResearchSend } from '../research/researchTools.js';
 import { spawn } from 'child_process';
 import { disabledClusterProvider, localCapacityRefusal, memberProvider } from '../localCapacity.js';
 import { promises as fs } from 'fs';
@@ -65,7 +67,40 @@ export async function tryHandleClusterRoutes(
     const state = await loadResearch(summaries[1]).catch(() => null);
     if (!state) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'unknown_research' })); return true; }
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(await researchSummaries(state)));
+    res.end(JSON.stringify({ ...await researchSummaries(state), proposal: researchSendProposal(summaries[1]) ?? null }));
+    return true;
+  }
+  // Operator action: stage only released research for explicit destinations.
+  const researchSend = req.method === 'POST' && req.url ? /^\/api\/research\/([0-9a-f-]{36})\/(send-to-project|confirm-composer|dismiss-send-proposal)$/.exec(req.url) : null;
+  if (researchSend) {
+    const send = (status: number, body: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+    try {
+      const chunks: Buffer[] = []; let size = 0;
+      for await (const chunk of req) { const bytes = Buffer.from(chunk); size += bytes.length; if (size > 16384) throw new Error('Request is too large.'); chunks.push(bytes); }
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { selection?: ResearchSelection; destination?: string; folderCopy?: boolean; planId?: string; composerWorkflowId?: string; token?: string };
+      if (researchSend[2] === 'dismiss-send-proposal') { clearResearchSendProposal(researchSend[1]); send(200, { dismissed: true }); return true; }
+      if (researchSend[2] === 'confirm-composer') {
+        if (typeof body.token !== 'string') { send(400, { error: 'Missing attachment confirmation.' }); return true; }
+        await confirmResearchComposer(researchSend[1], body.token); send(200, { recorded: true }); return true;
+      }
+      if (!body.selection || (body.folderCopy !== true && !body.planId && typeof body.composerWorkflowId !== 'string')) { send(400, { error: 'Choose research and at least one destination.' }); return true; }
+      const state = await loadResearch(researchSend[1]);
+      if (!state) { send(404, { error: 'Research project not found.' }); return true; }
+      const result: Record<string, unknown> = {};
+      if (body.folderCopy) {
+        try { result.folder = await sendResearchToFolder(state, body.selection, body.destination ?? ''); }
+        catch (error) { result.folder = { written: [], error: error instanceof Error ? error.message : 'Folder copy failed.' }; }
+      }
+      if (body.planId) {
+        try { result.plan = await sendResearchToPlan(state, body.selection, body.destination ?? '', body.planId); }
+        catch (error) { result.plan = { written: [], error: error instanceof Error ? error.message : 'Plan reference failed.' }; }
+      }
+      if (body.composerWorkflowId) {
+        try { result.composer = await stageResearchForComposer(state, body.selection, body.composerWorkflowId); }
+        catch (error) { result.composer = { attachments: [], error: error instanceof Error ? error.message : 'Attachment failed.' }; }
+      }
+      send(200, result);
+    } catch (error) { send(400, { error: error instanceof Error ? error.message : 'Could not send research.' }); }
     return true;
   }
   // docs/RESEARCH.md - what REMOVE shows: files one researcher saved but never sent.
@@ -289,6 +324,15 @@ export async function tryHandleClusterRoutes(
           }
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately, ...(result.heldForRound !== undefined ? { heldForRound: Math.max(1, result.heldForRound), note: researchHeldNote(result.heldForRound) } : {}), ...(result.recipientContext ? { recipientContext: result.recipientContext } : {}), ...(result.guard ? { guard: result.guard } : {}) }));
+          return true;
+        }
+        if (op === 'research_send_to_project' && req.method === 'POST') {
+          const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(chunk as Buffer);
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { from?: string; selection?: ResearchSelection };
+          try {
+            await proposeResearchSend(clusterId, body.from ?? '', body.selection as ResearchSelection);
+            res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ proposed: true, message: 'The operator chooses a destination and sends it from RESULTS.' }));
+          } catch (error) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: error instanceof Error ? error.message : 'Could not propose sending results.' })); }
           return true;
         }
         if (op === 'research_round' && req.method === 'POST') {

@@ -34,7 +34,11 @@ test('write / list / read / delete a ref', async () => {
   assert.deepEqual(refs.map((r) => [r.slug, r.title]), [['auth-spec', 'Auth flow spec v2']]);
   const full = await readPlanRef(cwd, plan.id, 'auth-spec');
   assert.equal(full?.body, '# Auth flow spec v2\n');
+  const filesDir = path.join(planRefsDir(cwd, plan.id), 'auth-spec.files');
+  await fs.mkdir(filesDir);
+  await fs.writeFile(path.join(filesDir, 'source.txt'), 'source');
   assert.equal(await deletePlanRef(cwd, plan.id, 'auth-spec'), true);
+  await assert.rejects(fs.stat(filesDir), { code: 'ENOENT' });
   assert.equal(await deletePlanRef(cwd, plan.id, 'auth-spec'), false);
   assert.deepEqual(await listPlanRefs(cwd, plan.id), []);
 });

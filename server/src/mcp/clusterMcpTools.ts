@@ -20,7 +20,7 @@ import { PEER_SEND_GUARD_DESCRIPTION } from '@arco/shared';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import type { ClusterMemberAccessMode } from '@arco/shared';
-import { RESEARCH_ROUND_TOOL } from '../research/researchTools.js';
+import { RESEARCH_ROUND_TOOL, RESEARCH_SEND_TOOL } from '../research/researchTools.js';
 
 export interface ClusterMcpToolCtx {
   clusterId: string;
@@ -433,6 +433,16 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   );
 
   if (ctx.researchDirector) {
+    registerTool(RESEARCH_SEND_TOOL.name, {
+      description: RESEARCH_SEND_TOOL.description,
+      inputSchema: { kind: z.enum(['report', 'synthesis', 'project']), round: z.number().optional(), letter: z.string().optional(), catchUp: z.string().optional() },
+    }, async ({ kind, round, letter, catchUp }) => {
+      try {
+        const response = await hostFetch(`${BASE_URL}/research_send_to_project`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: workflowId, selection: { kind, round, letter, catchUp } }) });
+        const body = await response.json();
+        return textResult(body, !response.ok);
+      } catch (error) { return textResult(`[error] ${error instanceof Error ? error.message : String(error)}`, true); }
+    });
     registerTool(
       RESEARCH_ROUND_TOOL.name,
       {

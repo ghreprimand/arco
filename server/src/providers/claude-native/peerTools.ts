@@ -19,7 +19,8 @@ import { CLUSTER_TASK_TOOL_DEFINITIONS } from '../clusterTaskToolDefinitions.js'
 import type { ClusterMemberAccessMode, ServerMessage, LedgerTaskStatus, TaskLink } from '@arco/shared';
 import * as peerOps from '../../clusterPeerOps.js';
 import { formatBoardForModel } from '../../project/taskLedger.js';
-import { formatResearchRoundResult, RESEARCH_ROUND_TOOL, researchHeldNote } from '../../research/researchTools.js';
+import { formatResearchRoundResult, RESEARCH_ROUND_TOOL, RESEARCH_SEND_TOOL, proposeResearchSend, researchHeldNote } from '../../research/researchTools.js';
+import type { ResearchSelection } from '../../research/resultSelection.js';
 import { startRound } from '../../research/researchRounds.js';
 
 export interface PeerToolContext {
@@ -49,6 +50,7 @@ const PEER_TOOL_NAMES = new Set([
   'peer_send',
   'peer_read',
   'research_round',
+  'research_send_to_project',
   'cluster_plan_read',
   'cluster_plan_tick',
   'cluster_plan_write',
@@ -173,7 +175,7 @@ export function getPeerToolDefinitions(opts?: {
   if (opts?.accessMode && opts.accessMode !== 'standard') {
     return defs.filter((def) => def.name === 'peer_send' || def.name === 'peer_read');
   }
-  if (opts?.researchDirector) defs.push(RESEARCH_ROUND_TOOL);
+  if (opts?.researchDirector) defs.push(RESEARCH_ROUND_TOOL, RESEARCH_SEND_TOOL);
   return opts?.taskBoardAttached === true ? defs : defs.filter((def) => !TASK_TOOL_NAMES.has(def.name));
 }
 
@@ -241,6 +243,12 @@ export async function executePeerTool(
       const result = await startRound(ctx.clusterId, ctx.workflowId, typeof args.text === 'string' ? args.text : '',
         typeof args.timeout_minutes === 'number' ? args.timeout_minutes : undefined);
       return formatResearchRoundResult(result);
+    }
+    case 'research_send_to_project': {
+      try {
+        await proposeResearchSend(ctx.clusterId, ctx.workflowId, args as unknown as ResearchSelection);
+        return 'The proposal is in RESULTS. The operator chooses a destination and sends it.';
+      } catch (error) { return `[error] ${error instanceof Error ? error.message : String(error)}`; }
     }
     case 'cluster_plan_read': {
       const result = await peerOps.peerPlanRead(opsCtx);

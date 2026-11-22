@@ -605,6 +605,7 @@ export async function deletePlanRef(cwd: string, planId: string, slug: string): 
   return withIndexLock(cwd, async () => {
     try {
       await fs.unlink(refPath(cwd, planId, slug));
+      await fs.rm(projectDocumentPath(cwd, 'plans', `${planId}.refs`, `${slug}.files`), { recursive: true, force: true });
       return true;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false;

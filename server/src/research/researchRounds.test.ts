@@ -408,3 +408,121 @@ test('research clusters reject ordinary members, access changes, board and plans
     await assert.rejects(snapshots.saveSnapshot({ clusterId: p.clusterId, name: 'Fixture' }), /Research projects cannot be saved/);
   } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
 });
+
+test('result selection excludes unreleased reports and preserves only released source files', async () => {
+  const { selectResearchFiles } = await import('./resultSelection.js');
+  const { sourceFileName } = await import('./researchFolder.js');
+  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-selection-'));
+  try {
+    const artifact = { name: 'source.txt', contentBase64: Buffer.from('source').toString('base64'), byteLength: 6 };
+    await fs.mkdir(join(root, 'rounds', 'round-1'), { recursive: true });
+    await fs.mkdir(join(root, 'sources')); await fs.mkdir(join(root, 'syntheses'));
+    await fs.writeFile(join(root, 'rounds', 'round-1', 'report-a.md'), '# Released\n');
+    await fs.writeFile(join(root, 'sources', sourceFileName(artifact)), 'source');
+    const state = { folder: root, rounds: [
+      { n: 1, releasedAt: '2026-01-01', entries: { A: { state: 'replied', artifacts: [artifact] } } },
+      { n: 2, entries: { A: { state: 'replied', artifacts: [] } } },
+    ] } as never;
+    const files = await selectResearchFiles(state, { kind: 'report', round: 1, letter: 'A' });
+    assert.deepEqual(files.map(f => f.relativePath).sort(), [`rounds/round-1/report-a.md`, `sources/${sourceFileName(artifact)}`].sort());
+    await assert.rejects(selectResearchFiles(state, { kind: 'report', round: 2, letter: 'A' }), /not released/);
+    await assert.rejects(selectResearchFiles(state, { kind: 'project' }), /released/);
+    await fs.unlink(join(root, 'sources', sourceFileName(artifact)));
+    await fs.symlink(join(root, 'rounds', 'round-1', 'report-a.md'), join(root, 'sources', sourceFileName(artifact)));
+    await assert.rejects(selectResearchFiles(state, { kind: 'report', round: 1, letter: 'A' }), /unsafe/);
+    await fs.unlink(join(root, 'sources', sourceFileName(artifact)));
+    await fs.link(join(root, 'rounds', 'round-1', 'report-a.md'), join(root, 'sources', sourceFileName(artifact)));
+    await assert.rejects(selectResearchFiles(state, { kind: 'report', round: 1, letter: 'A' }), /unsafe/);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('send selections include released catch-ups and sources after a researcher is removed', async () => {
+  const { selectResearchFiles } = await import('./resultSelection.js');
+  const { sourceFileName } = await import('./researchFolder.js');
+  const root = await fs.mkdtemp(join(tmpdir(), 'arco-catch-up-send-'));
+  try {
+    const artifact = { name: 'source.txt', contentBase64: Buffer.from('source').toString('base64'), byteLength: 6 };
+    await fs.mkdir(join(root, 'rounds', 'catch-up-c'), { recursive: true });
+    await fs.mkdir(join(root, 'sources'));
+    for (const name of ['brief.md', 'research.json', 'director-log.md']) await fs.writeFile(join(root, name), 'fixture');
+    await fs.writeFile(join(root, 'rounds', 'catch-up-c', 'round.md'), 'catch-up');
+    await fs.writeFile(join(root, 'rounds', 'catch-up-c', 'report-c.md'), 'report');
+    await fs.writeFile(join(root, 'sources', sourceFileName(artifact)), 'source');
+    const state = { folder: root, researchers: [{ letter: 'C', removedAt: '2026-01-02' }], rounds: [], catchUps: [
+      { catchUp: 'C', releasedAt: '2026-01-01', entries: { C: { state: 'replied', artifacts: [artifact] } } },
+      { catchUp: 'D', entries: { D: { state: 'replied' } } },
+    ] } as never;
+    const expected = ['rounds/catch-up-c/report-c.md', `sources/${sourceFileName(artifact)}`].sort();
+    assert.deepEqual((await selectResearchFiles(state, { kind: 'report', catchUp: 'C' })).map(f => f.relativePath).sort(), expected);
+    await assert.rejects(selectResearchFiles(state, { kind: 'report', catchUp: 'D' }), /not released/);
+    const project = (await selectResearchFiles(state, { kind: 'project' })).map(f => f.relativePath);
+    for (const name of [...expected, 'rounds/catch-up-c/round.md']) assert.ok(project.includes(name), name);
+    assert.ok(!project.some(name => name.includes('catch-up-d')));
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('sending released research copies without overwrite and records successful destinations', async () => {
+  const { sendResearchToFolder, sendResearchToPlan } = await import('./sendToProject.js');
+  const { createPlan, readPlanRef, planRefsDir } = await import('../planStore.js');
+  const { sourceFileName } = await import('./researchFolder.js');
+  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-send-'));
+  try {
+    const source = join(root, 'source'), destination = join(root, 'project');
+    await fs.mkdir(join(source, 'rounds', 'round-1'), { recursive: true });
+    await fs.mkdir(destination); await fs.writeFile(join(source, 'exports.md'), '# Exports\n');
+    await fs.writeFile(join(source, 'rounds', 'round-1', 'report-a.md'), '# Report\n');
+    const state = { folder: source, name: 'Fixture', createdAt: '2026-01-01', rounds: [{ n: 1, releasedAt: '2026-01-01', entries: { A: { state: 'replied' } } }] } as never;
+    const selection = { kind: 'report', round: 1, letter: 'A' } as const;
+    const first = await sendResearchToFolder(state, selection, destination);
+    assert.equal(first.error, undefined); assert.deepEqual(first.written, ['rounds/round-1/report-a.md']);
+    const second = await sendResearchToFolder(state, selection, destination);
+    assert.notEqual(first.target, second.target);
+    assert.equal(await fs.readFile(join(first.target!, 'rounds', 'round-1', 'report-a.md'), 'utf8'), '# Report\n');
+    const log = await fs.readFile(join(source, 'exports.md'), 'utf8');
+    assert.ok(log.includes(first.target!)); assert.ok(log.includes(second.target!));
+    const plan = await createPlan(destination, { title: 'Fixture', body: '' });
+    const artifact = { name: 'source.txt', contentBase64: Buffer.from('source').toString('base64'), byteLength: 6 };
+    await fs.mkdir(join(source, 'sources'));
+    await fs.writeFile(join(source, 'sources', sourceFileName(artifact)), 'source');
+    await fs.writeFile(join(source, 'rounds', 'round-1', 'report-a.md'), `# Report\n[source](../../sources/${sourceFileName(artifact)})\n`);
+    (state as any).rounds[0].entries.A.artifacts = [artifact];
+    const withSource = await sendResearchToFolder(state, selection, destination);
+    assert.match(await fs.readFile(join(withSource.target!, 'rounds', 'round-1', 'report-a.md'), 'utf8'), /\]\(\.\.\/\.\.\/sources\//);
+    const planSend = await sendResearchToPlan(state, selection, destination, plan.id);
+    assert.equal(planSend.error, undefined);
+    assert.match((await readPlanRef(destination, plan.id, 'research-fixture'))!.body, /\]\(research-fixture\.files\//);
+    assert.equal(await fs.readFile(join(planRefsDir(destination, plan.id), 'research-fixture.files', sourceFileName(artifact)), 'utf8'), 'source');
+    await fs.mkdir(join(planRefsDir(destination, plan.id), 'research-fixture-2.files'));
+    const nextPlanSend = await sendResearchToPlan(state, selection, destination, plan.id);
+    assert.match(nextPlanSend.target!, /research-fixture-3\.md$/);
+    await fs.rm(join(destination, 'research'), { recursive: true });
+    await fs.symlink(source, join(destination, 'research'), 'dir');
+    await assert.rejects(sendResearchToFolder(state, selection, destination), /link|unavailable/);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('composer attachments are recorded only after the draft confirms them', async () => {
+  const { stageResearchForComposer, confirmResearchComposer } = await import('./sendToProject.js');
+  const { workflows } = await import('../server/state.js');
+  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-composer-'));
+  const workflowId = randomUUID(), clusterId = randomUUID();
+  let files: Array<{path:string}> = [];
+  try {
+    await fs.mkdir(join(root, 'rounds', 'round-1'), { recursive: true });
+    await fs.writeFile(join(root, 'rounds', 'round-1', 'report-a.md'), '# Report\n');
+    await fs.writeFile(join(root, 'exports.md'), '# Exports\n');
+    const state = { clusterId, folder: root, name: 'Fixture', rounds: [{ n: 1, releasedAt: '2026-01-01', entries: { A: { state: 'replied' } } }] } as never;
+    workflows.set(workflowId, { config: { incognito: false } } as never);
+    const staged = await stageResearchForComposer(state, { kind: 'report', round: 1, letter: 'A' }, workflowId);
+    files = staged.attachments;
+    assert.equal(files.length, 1); assert.ok(staged.token);
+    assert.doesNotMatch(await fs.readFile(join(root, 'exports.md'), 'utf8'), /composer/);
+    await confirmResearchComposer(clusterId, staged.token!);
+    assert.match(await fs.readFile(join(root, 'exports.md'), 'utf8'), /composer/);
+    await assert.rejects(confirmResearchComposer(clusterId, staged.token!), /expired/);
+  } finally {
+    workflows.delete(workflowId);
+    for (const file of files) await fs.rm(file.path, { force: true });
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});

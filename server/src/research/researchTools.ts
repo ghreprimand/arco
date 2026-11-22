@@ -3,6 +3,28 @@
 
 import { RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES, RESEARCH_ROUND_TIMEOUT_MAX_MINUTES } from '@arco/shared';
 import type { ResearchRoundResult } from './researchRounds.js';
+import { loadResearch } from './researchState.js';
+import { selectResearchFiles, type ResearchSelection } from './resultSelection.js';
+
+const sendProposals = new Map<string, ResearchSelection>();
+export function researchSendProposal(clusterId: string): ResearchSelection | undefined { return sendProposals.get(clusterId); }
+export function clearResearchSendProposal(clusterId: string): void { sendProposals.delete(clusterId); }
+export async function proposeResearchSend(clusterId: string, caller: string, selection: ResearchSelection): Promise<void> {
+  const state = await loadResearch(clusterId);
+  if (!state || state.directorWorkflowId !== caller) throw new Error('Only the Research Director can propose sending results.');
+  await selectResearchFiles(state, selection);
+  sendProposals.set(clusterId, selection);
+}
+export const RESEARCH_SEND_TOOL = {
+  name: 'research_send_to_project',
+  description: 'Propose sending a released report, synthesis or project. The operator chooses the destination and confirms in RESULTS; this tool does not write to another project.',
+  input_schema: { type: 'object' as const, properties: {
+    kind: { type: 'string', enum: ['report', 'synthesis', 'project'], description: 'The released result to send.' },
+    round: { type: 'number', description: 'Round number for a report or synthesis.' },
+    letter: { type: 'string', description: 'Researcher letter for a report.' },
+    catchUp: { type: 'string', description: 'Researcher letter for a catch-up report, instead of round and letter.' },
+  }, required: ['kind'] },
+};
 
 export const RESEARCH_ROUND_TOOL = {
   name: 'research_round',
