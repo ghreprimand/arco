@@ -34,7 +34,8 @@ test('Claude refresh waits for active isolated passes and renews before starting
 test('a researcher waits for a changed usable Claude sign-in and stops waiting on cancellation', async () => {
   const { waitForClaudeSignIn } = await import('./claudeAccessLease.js');
   let accessToken = 'old', pauses = 0, waiting = false;
-  const read = async () => ({ claudeAiOauth: { accessToken, expiresAt: Date.now() + 3_600_000,
+  const expiresAt = Date.now() + 3_600_000;
+  const read = async () => ({ claudeAiOauth: { accessToken, expiresAt,
     scopes: ['inference'], subscriptionType: 'plan', subscriptionTypeSource: 'source', rateLimitTier: 'tier' } });
   await waitForClaudeSignIn(new AbortController().signal, { read, onWaiting: async () => { waiting = true; },
     pause: async () => { pauses++; accessToken = 'new'; } });
