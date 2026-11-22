@@ -1200,7 +1200,9 @@ Only Gemini models advertised by the CLI are offered. Effort uses the ACP thinki
 
 For a saved Antigravity Chat, the working folder is `ARCO_HOME/chat-workspaces/<chat-id>`, separate from Chat history. OPEN FOLDER shows its files. Deleting the Chat also deletes this working folder; save wanted files elsewhere first. An Agent tab starts in its chosen working folder. The folder is a starting location, not a security boundary: with AUTO, tools can reach what the user's account can reach.
 
-Arco does not copy credentials or call Google for quota. ACP token and context usage are shown; remaining quota is visible in `agy` itself. This provider is not offered for research, clusters, reviewers or automatic turns. Handoff to Antigravity saves the document and places an editable line in the composer; review and send it to start the new session. The older `antigravity` provider remains retired and its saved work is not silently changed.
+The Versions menu shows the installed Antigravity CLI version and its latest available version. Selecting the row runs `agy update`. The G popover reads usage once when opened; REFRESH reads it again. It shows the available pools, percentage remaining and reset time, or a fallback when usage is unavailable. COMPACT sends `/compact` to the current Gemini session and reports the context size when available.
+
+Arco does not copy credentials or call Google for quota. ACP token and context usage are shown; remaining quota comes from the CLI usage command. This provider is not offered for research, clusters, reviewers or automatic turns. Handoff to Antigravity saves the document and places an editable line in the composer; review and send it to start the new session. The older `antigravity` provider remains retired and its saved work is not silently changed.
 
 ## Cursor
 

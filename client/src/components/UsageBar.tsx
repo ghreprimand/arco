@@ -60,9 +60,25 @@ export function UsageBar({ usage }: Props) {
 
 function AntigravityStatus() {
   const [open, setOpen] = useState(false);
+  const [pools, setPools] = useState<Array<{ name: string; percentLeft: number; reset: string }> | null>(null);
+  const [loading, setLoading] = useState(false);
+  const request = useRef(0);
+  const refresh = async () => {
+    const id = ++request.current;
+    setLoading(true);
+    try {
+      const response = await fetch('/api/antigravity-usage');
+      const data = response.ok ? await response.json() : null;
+      if (id === request.current) setPools(Array.isArray(data?.pools) ? data.pools : null);
+    } catch { if (id === request.current) setPools(null); }
+    finally { if (id === request.current) setLoading(false); }
+  };
   return <span style={{ position: 'relative' }}>
-    <button type="button" aria-label="Antigravity CLI usage" aria-expanded={open} onClick={() => setOpen(value => !value)} style={{ border: 0, padding: 0, background: 'transparent', color: 'var(--color-accent-secondary)', cursor: 'pointer' }}>● G</button>
-    {open && <span role="status" style={{ position: 'absolute', top: '100%', right: 0, zIndex: 100, minWidth: 220, padding: 10, color: 'var(--color-fg)', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)' }}>Token and context usage appear in the conversation. Remaining quota is visible in agy itself.</span>}
+    <button type="button" aria-label="Antigravity CLI usage" aria-expanded={open} onClick={() => { if (!open) void refresh(); setOpen(value => !value); }} style={{ border: 0, padding: 0, background: 'transparent', color: 'var(--color-accent-secondary)', cursor: 'pointer' }}>● G</button>
+    {open && <span role="status" style={{ position: 'absolute', top: '100%', right: 0, zIndex: 100, minWidth: 260, padding: 10, color: 'var(--color-fg)', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)' }}>
+      {loading ? 'Loading usage…' : pools ? pools.map(pool => <span key={pool.name} style={{ display: 'block' }}>{pool.name}: {pool.percentLeft}% left · resets {formatResetText(pool.reset)}</span>) : 'Usage unavailable here; run /usage in agy.'}
+      <button type="button" disabled={loading} onClick={() => void refresh()}>REFRESH</button>
+    </span>}
   </span>;
 }
 

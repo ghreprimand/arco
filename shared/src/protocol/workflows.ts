@@ -30,6 +30,7 @@ export function resolveAutoCompactionPolicy(
 
 // Leave ten percent of the context window for the compaction request itself.
 export function resolveProviderAutoCompaction(worker: AutoCompactionPolicy | undefined, cluster: AutoCompactionPolicy | undefined, provider: string, transport: string, serverCompact: boolean, savedOllamaPolicy = false): AutoCompactionPolicy | undefined {
+  if (provider === 'antigravity-cli') return undefined;
   const explicit = resolveAutoCompactionPolicy(worker, cluster);
   if (explicit) return explicit;
   if (provider === 'ollama' && savedOllamaPolicy) return undefined;

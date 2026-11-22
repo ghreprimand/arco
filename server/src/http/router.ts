@@ -1,3 +1,4 @@
+import { getAntigravityUsage } from '../providers/antigravity/usage.js';
 import { localRuntimeStatusService } from '../localRuntimeStatus.js';
 import { tryHandleHandoffHistoryRoute } from './handoffHistoryRoutes.js';
 import { UnsafeStorageRootError } from '../storageRoot.js';
@@ -1880,7 +1881,7 @@ export async function handleHttpRequest(
         res.end(JSON.stringify({ error: retired }));
         return;
       }
-      const provider: CliProvider = providerParam === 'codex' || providerParam === 'cursor'
+      const provider: CliProvider = providerParam === 'codex' || providerParam === 'cursor' || providerParam === 'antigravity-cli'
         ? providerParam
         : 'claude';
       const result = await runCliUpdate(deps.getCapabilities(), provider);
@@ -2088,6 +2089,13 @@ export async function handleHttpRequest(
       // safety net for the case where the pattern misses our pid.
       setTimeout(() => process.exit(0), 200);
     }, 50);
+    return;
+  }
+
+  if (req.url?.split('?')[0] === '/api/antigravity-usage' && req.method === 'GET') {
+    const pools = await getAntigravityUsage();
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ pools }));
     return;
   }
 

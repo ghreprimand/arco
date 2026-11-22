@@ -1,3 +1,6 @@
+import { AntigravityProvider, registerAntigravityCompact, clearAntigravityCompact } from '../providers/antigravity/index.js';
+import { antigravityChatWorkspace } from '../chatMode.js';
+import type { ProviderEvents } from '../providers/types.js';
 import { hasConversationHistory } from '../providerConversation.js';
 import { supportsManualCompact } from '../manualCompactCapability.js';
 // `compact_workflow` handler — operator-triggered native compaction. One WS
@@ -54,7 +57,7 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
   }
   const provider = wf.primary.provider;
   if (!supportsManualCompact(provider)) {
-    send(ws, { type: 'error', message: 'Native compact is available on Codex, Cursor, Claude Native, and Ollama — use Handoff on other providers.' });
+    send(ws, { type: 'error', message: 'Native compact is available on Codex, Cursor, Claude Native, Ollama, and Antigravity — use Handoff on other providers.' });
     return;
   }
   if (wf.busy) {
@@ -123,7 +126,7 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
   if (busyToken === false) return;
   if (!wf.config.incognito && !wf.config.voiceOperator) publishActivity({kind:'worker_compaction_started',workflowId,clusterId:clusterStore.getClusterIdForWorkflow(workflowId)});
   broadcastTransient(workflowId, { type: 'primary_turn_started', workflowId, startedAt });
-  const tag = provider === 'codex' ? '[codex]' : provider === 'cursor' ? '[cursor]' : '[claude]';
+  const tag = provider === 'codex' ? '[codex]' : provider === 'cursor' ? '[cursor]' : provider === 'antigravity-cli' ? '[gemini]' : '[claude]';
   broadcastWorkflow(workflowId, {
     type: 'system_notice',
     workflowId,
@@ -140,10 +143,11 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
       ? 'Codex app-server thread/compact/start'
       : provider === 'cursor'
           ? 'Cursor ACP native /compress'
-        : 'Claude Native in-place compact',
+        : provider === 'antigravity-cli' ? 'Gemini ACP /compact' : 'Claude Native in-place compact',
   });
 
-  let result: { ok: boolean; error?: string; foldedTurns?: number };
+  let result: { ok: boolean; error?: string; foldedTurns?: number; contextPercent?: number };
+  const beforeContext = wf.lastContextPercent;
   let compactedVia: 'codex-appserver' | 'cursor-acp' | 'claude-native' = 'claude-native';
   try {
     if (provider === 'codex') {
@@ -206,6 +210,32 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
           goal: wf.config.goal,
         }, wf.primarySessionId);
       }
+    } else if (provider === 'antigravity-cli') {
+      if (!expectedSessionId || !cwd) result = { ok: false, error: 'No saved Gemini session; run a turn first.' };
+      else if (clusterStore.getClusterIdForWorkflow(workflowId) || wf.config.incognito) result = { ok: false, error: 'Gemini compact is available in interactive tabs only.' };
+      else if (!ownsBusy(wf, busyToken) || wf.primarySessionId !== expectedSessionId || wf.primary.provider !== provider) result = { ok: false, error: 'compaction cancelled before dispatch' };
+      else {
+        const chat = isChatWorkflow(wf.config);
+        const process = AntigravityProvider.create(workflowId, {
+          provider, model: wf.primary.model, effort: wf.primary.effort, tools: wf.primary.tools,
+          cwd: chat ? antigravityChatWorkspace(workflowId) : cwd, workflowId,
+          skipPermissions: wf.primary.skipPermissions, resumeSessionId: expectedSessionId,
+          interactionMode: 'agent', antigravityInteractive: true, antigravityChatWorkspace: chat,
+        });
+        registerAntigravityCompact(workflowId, process);
+        result = await new Promise((resolve) => {
+          const timer = setTimeout(() => process.kill(), 120_000);
+          process.once('error', (error: string) => { clearTimeout(timer); resolve({ ok: false, error }); });
+          process.once('result', (outcome: Parameters<ProviderEvents['result']>[0]) => {
+            clearTimeout(timer);
+            const contextPercent = typeof outcome.lastPromptTokens === 'number' && outcome.modelContextWindow
+              ? Math.max(0, Math.min(100, Math.round(outcome.lastPromptTokens / outcome.modelContextWindow * 100))) : undefined;
+            resolve({ ok: true, contextPercent });
+          });
+          process.spawn('/compact');
+        });
+        clearAntigravityCompact(workflowId, process);
+      }
     } else {
       compactedVia = 'claude-native';
       result = await compactClaudeNativeWorker(workflowId, {
@@ -256,7 +286,9 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
     broadcastWorkflow(workflowId, {
       type: 'system_notice',
       workflowId,
-      content: provider === 'cursor'
+      content: provider === 'antigravity-cli'
+        ? `${tag} Compaction sent to Gemini. ${result.contextPercent === undefined ? 'Gemini did not report a new context size' : `context ${typeof beforeContext === 'number' ? `${beforeContext}% → ` : ''}${result.contextPercent}%`}.`
+        : provider === 'cursor'
         ? `${tag} Conversation compressed — Cursor summarized older context in place. The same ACP session continues with a smaller retained history.`
         : provider === 'codex'
         ? `${tag} Thread compacted — earlier history summarized server-side. Next turn continues against the reduced context.`

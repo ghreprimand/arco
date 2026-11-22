@@ -3102,6 +3102,7 @@ export async function handleUserMessage(
     // replaces any fold or compaction of this boundary; otherwise the cheap
     // deterministic Fold, then the auto-compaction policy.
     context: async () => {
+      if (wf.primary.provider === 'antigravity-cli') return 'continue';
       const clusterIdForPolicy = clusterStore.getClusterIdForWorkflow(workflowId);
       const explicitPolicy = resolveProviderAutoCompaction(wf.config.autoCompaction, clusterIdForPolicy ? clusterStore.getAutoCompaction(clusterIdForPolicy) : undefined, wf.primary.provider, claudeTransport, wf.config.claudeNativeCompact === true, cascade?.ollama?.compaction?.enabled !== undefined || cascade?.ollama?.compaction?.threshold !== undefined);
       if (explicitPolicy) {
@@ -3120,7 +3121,7 @@ export async function handleUserMessage(
     drainQueue: () => drainQueueIfIdle(workflowId),
     // docs/GOTCHAS.md - north-star auto-continue, last on purpose: fold,
     // handoff and compaction all reshape the context this tick would run against.
-    goalRun: () => maybeGoalRun(workflowId, wf, ws, session, lastTurnErrored),
+    goalRun: () => wf.primary.provider === 'antigravity-cli' ? Promise.resolve() : maybeGoalRun(workflowId, wf, ws, session, lastTurnErrored),
   });
   } finally {
     const remaining = (incomingMessages.get(wf) ?? 1) - 1;

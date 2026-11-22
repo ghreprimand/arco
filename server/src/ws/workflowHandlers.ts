@@ -1,3 +1,4 @@
+import { cancelAntigravityCompact } from '../providers/antigravity/index.js';
 import { allowedWorkflowEfforts, normalizedWorkflowEffort } from '../effortValidation.js';
 import { clearLocalFileMedia } from '../providers/localFileMedia.js';
 import { rehydrateOneWorkflow } from './handoffHandlers.js';
@@ -856,6 +857,7 @@ export function handleCancel(ws: WebSocket, workflowId: string): void {
   if (wf.activeHandoff) handleHandoffCancel(ws, workflowId, wf.activeHandoff.handoffId);
   cancelClaudeNativeCompaction(workflowId);
   cancelCodexAppServerCompaction(workflowId);
+  cancelAntigravityCompact(workflowId);
   // Revoke (not just clear) the busy claim: the killed turn's loop is still
   // unwinding post-settle awaits, and without the revoke its finally cleared
   // the busy flag of a turn the operator resent right after STOP.

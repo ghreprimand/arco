@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show Antigravity CLI usage and updates, run its updater from Versions, and send COMPACT to Gemini.
+
 - Hand off to Antigravity with a saved document and an editable composer draft.
 
 - Send Antigravity only the submitted message and attachments, with Arco file and plan tools available through MCP.

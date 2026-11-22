@@ -698,6 +698,7 @@ export interface Capabilities {
     claude?: string;
     codex?: string;
     cursor?: string;
+    'antigravity-cli'?: string;
     ollama?: string;
     strata?: string;
     xolotl?: string;

@@ -118,3 +118,8 @@ class AntigravityTurn extends EventEmitter implements ProviderProcess {
   }
 }
 export const AntigravityProvider: Provider = { create: (id, config) => new AntigravityTurn(id, config) };
+
+const compactProcesses = new Map<string, ProviderProcess>();
+export function registerAntigravityCompact(workflowId: string, process: ProviderProcess): void { compactProcesses.set(workflowId, process); }
+export function clearAntigravityCompact(workflowId: string, process: ProviderProcess): void { if (compactProcesses.get(workflowId) === process) compactProcesses.delete(workflowId); }
+export function cancelAntigravityCompact(workflowId: string): void { compactProcesses.get(workflowId)?.kill(); }

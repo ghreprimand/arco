@@ -28,8 +28,8 @@ const MODELS: ModelName[] = [...CLAUDE_MODELS] as ModelName[];
 // Provider we know how to check/update from Arco. Not a union with
 // ProviderName because Ollama isn't a CLI and doesn't ship with a version
 // flag in the same sense.
-export type CliProvider = 'claude' | 'codex' | 'cursor';
-const cliBinary = (provider: CliProvider): string => provider === 'cursor' ? 'cursor-agent' : provider;
+export type CliProvider = 'claude' | 'codex' | 'cursor' | 'antigravity-cli';
+const cliBinary = (provider: CliProvider): string => provider === 'cursor' ? 'cursor-agent' : provider === 'antigravity-cli' ? 'agy' : provider;
 
 // 'unknown' = the CLI isn't installed (the PROVIDERS popover hides those rows).
 // 'broken' = it IS installed but the version probe failed. Keeping them distinct
@@ -187,7 +187,7 @@ async function strataLatestRelease(): Promise<string | undefined> {
 }
 
 export async function probeLatestVersions(codexDecision = npmLatest('@openai/codex').then(probeCodexUpdate)): Promise<Capabilities['latestVersions']> {
-  const [claude, codex, ollama, strata, xolotl, llamacpp, cursor] = await Promise.all([
+  const [claude, codex, ollama, strata, xolotl, llamacpp, cursor, antigravity] = await Promise.all([
     npmLatest('@anthropic-ai/claude-code'),
     codexDecision.then((decision) => decision.targetVersion),
     ollamaLatestRelease(),
@@ -198,8 +198,12 @@ export async function probeLatestVersions(codexDecision = npmLatest('@openai/cod
     }),
     llamacppLatestRelease(),
     cursorLatestRelease(),
+    fetchJson('https://api.github.com/repos/google-antigravity/antigravity-cli/releases/latest').then(data => {
+      const tag = (data as { tag_name?: unknown } | null)?.tag_name;
+      return typeof tag === 'string' && /^v?\d+\.\d+\.\d+$/.test(tag) ? tag.replace(/^v/, '') : undefined;
+    }),
   ]);
-  return { claude, codex, ollama, strata, xolotl, llamacpp, cursor };
+  return { claude, codex, ollama, strata, xolotl, llamacpp, cursor, 'antigravity-cli': antigravity };
 }
 
 export interface UpdateResult {
@@ -221,7 +225,7 @@ export interface UpdateResult {
 }
 
 function versionForProvider(caps: Capabilities, provider: CliProvider): string {
-  return provider === 'claude' ? caps.cliVersion : provider === 'cursor' ? caps.cursorVersion ?? 'unknown' : caps.codexVersion ?? 'unknown';
+  return provider === 'claude' ? caps.cliVersion : provider === 'cursor' ? caps.cursorVersion ?? 'unknown' : provider === 'antigravity-cli' ? caps.antigravityVersion ?? 'unknown' : caps.codexVersion ?? 'unknown';
 }
 
 /**
@@ -316,7 +320,7 @@ async function runUpdateCommand(cmd: string, args: string[], provider: CliProvid
 
 const SNAPSHOT_DIR = join(arcoHome(), 'cli-snapshots');
 
-type HelpProvider = Exclude<CliProvider, 'cursor'>;
+type HelpProvider = Exclude<CliProvider, 'cursor' | 'antigravity-cli'>;
 const HELP_PROBES: Record<HelpProvider, string[][]> = {
   claude: [['--help'], ['config', '--help'], ['mcp', '--help']],
 

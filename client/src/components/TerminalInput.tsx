@@ -552,6 +552,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
     && (
       ((provider === 'codex' && resolvedCodexTransport === 'appserver'))
       || provider === 'cursor'
+      || provider === 'antigravity-cli'
       || (provider === 'claude' && resolvedClaudeTransport === 'native')
       // WP3 — Ollama has no transport requirement. The worker is stateless per
       // turn, so the button arms a force-compact that runs at the start of the
@@ -1281,7 +1282,9 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
             disabled={isBusy}
             data-help="composer.compact"
             className="display-font"
-            title={isBusy
+            title={provider === 'antigravity-cli'
+              ? 'Send /compact to Gemini in the current session.'
+              : isBusy
               ? 'Compact runs between turns: wait for the current turn to finish.'
               : provider === 'codex'
                 ? 'Native /compact: Codex summarizes earlier thread history server-side so the next turn starts with a smaller prompt. App-server compact path; far cheaper than a Handoff.'

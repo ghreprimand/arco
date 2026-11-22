@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { isAutoCompactionPolicy, resolveAutoCompactionPolicy } from './workflows.js';
+import { isAutoCompactionPolicy, resolveAutoCompactionPolicy, resolveProviderAutoCompaction } from './workflows.js';
 
 test('auto-compaction validates explicit bounded integer policy', () => {
   for (const n of [30, 50, 70, 95]) assert.equal(isAutoCompactionPolicy({ enabled: true, thresholdPercent: n }), true);
@@ -30,4 +30,8 @@ test('Provider policy selects safe defaults without overriding saved choices', a
   assert.equal(resolveProviderAutoCompaction(undefined, undefined, 'ollama', '', false, true), undefined);
   const off = { enabled: false, thresholdPercent: 75 };
   assert.deepEqual(resolveProviderAutoCompaction(off, undefined, 'claude', 'native', false), off);
+});
+
+test('Antigravity does not enable Arco automatic compaction through inherited or saved policy', () => {
+ assert.equal(resolveProviderAutoCompaction({enabled:true,thresholdPercent:80},{enabled:true,thresholdPercent:70},'antigravity-cli','',false),undefined);
 });

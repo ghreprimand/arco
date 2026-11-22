@@ -20,8 +20,8 @@ import { setProviderPanelOpen } from './providerPanelState';
 // store slices + owns the update-check + Ollama-releases-modal state that used
 // to sit in SystemHeader.
 
-type CliProvider = 'claude' | 'codex' | 'cursor';
-type VersionedProvider = CliProvider | 'antigravity-cli' | 'ollama' | 'llamacpp' | 'strata' | 'deepseek';
+type CliProvider = 'claude' | 'codex' | 'cursor' | 'antigravity-cli';
+type VersionedProvider = CliProvider | 'ollama' | 'llamacpp' | 'strata' | 'deepseek';
 
 // Lightweight semver compare — the four upstream sources we read all emit
 // dotted-numeric versions (npm registry + GitHub release tags after stripping
@@ -68,13 +68,13 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
     setReleasesRuntime(runtime);
   };
   const [checking, setChecking] = useState<CliProvider | null>(null);
-  const [checkResult, setCheckResult] = useState<Record<CliProvider, string | null>>({ claude: null, codex: null, cursor: null });
+  const [checkResult, setCheckResult] = useState<Record<CliProvider, string | null>>({ claude: null, codex: null, cursor: null, 'antigravity-cli': null });
   const [checkOutcome, setCheckOutcome] = useState<Partial<Record<CliProvider, CliUpdateOutcome>>>({});
   // The row's result slot is a narrow right-aligned chip, so the displayed
   // string is truncated hard. Keep the untruncated text for the tooltip —
   // an update failure ("Missing optional dependency @openai/codex-linux-x64…")
   // is only actionable if the operator can read the whole thing.
-  const [checkDetail, setCheckDetail] = useState<Record<CliProvider, string | null>>({ claude: null, codex: null, cursor: null });
+  const [checkDetail, setCheckDetail] = useState<Record<CliProvider, string | null>>({ claude: null, codex: null, cursor: null, 'antigravity-cli': null });
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -148,7 +148,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
     try {
       const res = await fetch(`/api/check-updates?provider=${provider}`, { method: 'POST' });
       const data = await res.json() as { outcome?: CliUpdateOutcome; currentVersion?: string; message?: string; capabilities?: Capabilities; error?: string; notice?: string };
-      const version = data.currentVersion ?? (provider === 'codex' ? capabilities?.codexVersion : provider === 'cursor' ? capabilities?.cursorVersion : capabilities?.cliVersion) ?? 'unknown';
+      const version = data.currentVersion ?? (provider === 'codex' ? capabilities?.codexVersion : provider === 'cursor' ? capabilities?.cursorVersion : provider === 'antigravity-cli' ? capabilities?.antigravityVersion : capabilities?.cliVersion) ?? 'unknown';
       let msg: string;
       const detail = data.error ?? data.message ?? data.notice ?? 'The version did not change. Arco could not check whether it is up to date.';
       // A notice means the server did something the version string alone doesn't
@@ -221,7 +221,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
       // an npm lookup. A broken
       // CLI has no parseable version either, so skip the compare rather than let
       // compareSemver read 'broken' as 0.0.0 and call it outdated.
-      const latest = broken ? undefined : r.provider === 'deepseek' ? capabilities?.latestVersions?.xolotl : r.provider === 'antigravity-cli' ? undefined : capabilities?.latestVersions?.[r.provider];
+      const latest = broken ? undefined : r.provider === 'deepseek' ? capabilities?.latestVersions?.xolotl : capabilities?.latestVersions?.[r.provider];
       const outdated = r.provider === 'codex' && capabilities?.codexUpdate
         ? capabilities.codexUpdate.updateAvailable
         : !!latest && (r.provider === 'deepseek' ? r.version !== latest : r.provider === 'llamacpp' ? (compareLlamacppBuild(r.version, latest) ?? 0) < 0 : r.provider === 'cursor' ? (compareCursorVersions(r.version, latest) ?? 0) < 0 : compareSemver(r.version, latest) < 0);
@@ -306,7 +306,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
             const isLlamacpp = provider === 'llamacpp';
             const isCursor = provider === 'cursor';
             const isAntigravity = provider === 'antigravity-cli';
-            const isCli = !isOllama && !isLlamacpp && !isStrata && !isDeepSeek && !isAntigravity;
+            const isCli = !isOllama && !isLlamacpp && !isStrata && !isDeepSeek;
             const busy = isCli && checking === (provider as CliProvider);
             const result = isCli ? checkResult[provider as CliProvider] : null;
             const detail = isCli ? checkDetail[provider as CliProvider] : null;
@@ -315,7 +315,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
             // For llama.cpp the lifecycle manager owns the spawned server, so we
             // know exactly which model is in VRAM — surface it on the row.
             const llamacppLoadedAlias = isLlamacpp ? (llamacppLive?.loadedModel ?? null) : null;
-            const baseTitle = isAntigravity ? `Antigravity CLI ${version}. Open Connections.` : broken
+            const baseTitle = isAntigravity ? `agy ${version}${outdated ? ` → ${latest} available` : ''} (click to run agy update)` : broken
               ? `${label} is installed but is not responding to --version: click for update options and the error`
               : isDeepSeek
                 ? `Xolotl checkout ${version}${outdated ? ' · upstream revision differs' : ''}. Click for source changes inside Arco. This does not update or rebuild the engine.`
@@ -334,9 +334,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
                 : outdated
                   ? `${label} CLI outdated: v${version} → v${latest} (click to install)`
                   : `${label} CLI v${version} (click to check for updates)`;
-            const onClick = isAntigravity
-              ? () => { setOpen(false); useStartupStore.getState().openConnections('antigravity-cli'); }
-              : isDeepSeek
+            const onClick = isDeepSeek
               ? () => openReleases('xolotl')
               : isStrata
               ? () => openReleases('strata')

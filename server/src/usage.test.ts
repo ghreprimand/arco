@@ -180,3 +180,13 @@ test('a cached poll joins an in-flight explicit check instead of returning the o
     assert.equal((await poll).session?.utilization, 80);
   } finally { release.resolve(); await forced; }
 });
+
+
+test('Antigravity usage reads structured pools and rejects invalid data', async () => {
+  const { parseAntigravityUsage } = await import('./providers/antigravity/usage.js');
+  const data = { status: 'SUCCESS', command: { name: 'usage', data: { groups: [{ name: 'Gemini', buckets: [{ name: 'Weekly', remaining_fraction: 0.42, reset_time: '2030-01-01T00:00:00Z' }] }] } } };
+  assert.deepEqual(parseAntigravityUsage(JSON.stringify(data)), [{ name: 'Gemini · Weekly', percentLeft: 42, reset: '2030-01-01T00:00:00Z' }]);
+  assert.equal(parseAntigravityUsage('{'), null);
+  data.command.data.groups[0].buckets[0].remaining_fraction = 2;
+  assert.equal(parseAntigravityUsage(JSON.stringify(data)), null);
+});

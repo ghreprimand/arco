@@ -179,3 +179,10 @@ test('Cursor row updates through its own route, keeps a separate changelog and r
     dom.window.close();
   }
 });
+
+test('Antigravity version row requests its updater and shows the latest version', async t => {
+ const dom=new JSDOM('<div id="root"></div>',{url:'http://localhost/',pretendToBeVisual:true});const saved=Object.getOwnPropertyDescriptors(globalThis);const before=useAppStore.getState();const storage=useAppStore.persist.getOptions().storage;const calls:string[]=[];
+ const values={window:dom.window,document:dom.window.document,Element:dom.window.Element,Node:dom.window.Node,KeyboardEvent:dom.window.KeyboardEvent,getComputedStyle:dom.window.getComputedStyle.bind(dom.window),ResizeObserver:class{observe(){} disconnect(){}},fetch:async(url:string)=>{calls.push(url);return url.includes('check-updates')?Response.json({outcome:'current',currentVersion:'1.5.14'}):new Response('{}',{status:503});},IS_REACT_ACT_ENVIRONMENT:true};
+ for(const [key,value] of Object.entries(values))Object.defineProperty(globalThis,key,{configurable:true,value});useAppStore.persist.setOptions({storage:{getItem:()=>null,setItem(){},removeItem(){}}});useAppStore.setState({settings:null,authStatus:null,capabilities:{antigravityVersion:'1.5.13',latestVersions:{'antigravity-cli':'1.5.14'}} as never,ollamaLive:null,llamacppLive:null});
+ t.mock.timers.enable({apis:['setTimeout']});const root=createRoot(document.getElementById('root')!);try{await act(async()=>root.render(<ProvidersPopover open/>));const chip=[...document.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(b=>b.textContent?.includes('ANTIGRAVITY'));assert.ok(chip);assert.match(chip.title,/1\.5\.14 available/);await act(async()=>chip.click());assert.ok(calls.includes('/api/check-updates?provider=antigravity-cli'));await act(async()=>t.mock.timers.tick(6001));}finally{await act(async()=>root.unmount());useAppStore.setState(before,true);useAppStore.persist.setOptions({storage});for(const key of Object.keys(values)){if(saved[key])Object.defineProperty(globalThis,key,saved[key]);else Reflect.deleteProperty(globalThis,key);}dom.window.close();}
+});

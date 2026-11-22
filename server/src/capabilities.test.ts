@@ -48,3 +48,12 @@ test('Cursor latest metadata reads only a bounded installer version and stays un
   t.mock.method(globalThis, 'fetch', async () => { throw new Error('offline'); });
   assert.equal((await probeLatestVersions(decision))?.cursor, undefined);
 });
+
+test('Antigravity version metadata and updater use agy', async t => {
+ const { mkdtempSync, writeFileSync, chmodSync, rmSync } = await import('node:fs'); const { tmpdir }=await import('node:os');const { join }=await import('node:path');
+ const { runCliUpdate }=await import('./capabilities.js');const dir=mkdtempSync(join(tmpdir(),'arco-agy-update-'));const bin=join(dir,'agy');writeFileSync(bin,'#!/bin/sh\necho 1.5.14\n');chmodSync(bin,0o755);const prior=process.env.PATH;process.env.PATH=`${dir}:${prior}`;t.after(()=>{process.env.PATH=prior;rmSync(dir,{recursive:true,force:true});});
+ t.mock.method(globalThis,'fetch',async (url:string)=>new Response(JSON.stringify(url.includes('/google-antigravity/antigravity-cli/releases/latest')?{tag_name:'1.5.14'}:{})));
+ const latest=await probeLatestVersions(Promise.resolve({kind:'unknown' as const}));assert.equal(latest?.['antigravity-cli'],'1.5.14');let command:string[]=[];
+ const result=await runCliUpdate({cliVersion:'unknown',models:[],efforts:[],antigravityVersion:'1.5.14',latestVersions:latest} as any,'antigravity-cli',async(cmd,args)=>{command=[cmd,...args];return {exitCode:0,output:'current'};});
+ assert.deepEqual(command,['agy','update']);assert.equal(result.currentVersion,'1.5.14');assert.equal(result.outcome,'current');
+});

@@ -138,7 +138,7 @@ export async function probeCodexUpdate(published?: string): Promise<CliUpdateDec
 export interface UpdateCommandResult { output: string; exitCode: number; }
 
 export function describeCliUpdate(provider: string, previous: string, current: string, target: string | undefined, command: UpdateCommandResult, notice?: string): { outcome: CliUpdateOutcome; message: string; updated: boolean; error?: string } {
-  const name = provider === 'codex' ? 'Codex' : provider === 'cursor' ? 'Cursor' : 'Claude CLI';
+  const name = provider === 'codex' ? 'Codex' : provider === 'cursor' ? 'Cursor' : provider === 'antigravity-cli' ? 'Antigravity CLI' : 'Claude CLI';
   const compare = provider === 'cursor' ? (a: string, b: string) => compareCursorVersions(a, b) ?? null : compareVersions;
   if (command.exitCode !== 0) {
     const error = `${name} update failed: ${command.output.trim().slice(0, 2000) || `exit code ${command.exitCode}`}`;
