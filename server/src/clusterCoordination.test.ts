@@ -195,6 +195,10 @@ test('role-aware coordination and all mail entry points preserve required review
     assert.match(director, /exact placement/); assert.match(director, /final diff/); assert.match(director, /concrete blockers/);
     assert.match(director, /Operator NOTE.*not a mode or budget/);
     const builder = buildClusterCoordination(level, undefined, 'Implementer role.');
+    // Project rules beat a conflicting assignment, and precedence covers more than testing.
+    assert.match(builder, /Before reporting work as done, check it against the project's own rules.*follow the project's rules and say so in the report/);
+    assert.doesNotMatch(director, /Before reporting work as done/);
+    for (const prompt of [director, builder]) assert.match(prompt, /project rules or plan take precedence over these instructions, for testing, commits, documentation and delivery alike/);
     const guardLine = 'Efficiency guides coordination and testing. Message guards, safety checks, operator-requested review and landing review stay unchanged.';
     const sendCheck = 'Before sending, check that the message gives the recipient something to act on or something it is waiting for. A closing note to a member whose work is finished (landed, thanks, nothing further) does neither; record it on the board instead.';
     const nextStep = "When a report states the sender's next step, no reply approves it; reply only to change that step, answer a question, or assign other work. Reports that continue on their own end with their next step.";

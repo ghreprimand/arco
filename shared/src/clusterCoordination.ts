@@ -37,6 +37,7 @@ export function buildClusterCoordination(level: ClusterEfficiencyLevel = 'thorou
     lines.push('Reconcile relevant tasks and new findings; read broader history when relevant or stale. Read the final diff and check that the project-required checks were run, then land accepted changes. Request more work only for concrete blockers or a changed relevant integration base.');
   } else {
     lines.push('Finish the assigned outcome and make authorized compatible decisions. Report one actionable unresolved blocker, or say what was done, what was run and what is not covered.');
+    lines.push("Before reporting work as done, check it against the project's own rules (its agent instructions and contributing rules: how commits land, changelog, documentation). Where an assignment conflicts with those rules, follow the project's rules and say so in the report.");
   }
   if (level === 'thorough') lines.push('Include explanatory context when it helps a decision; redundant cross-review is not required.');
   else lines.push('Group related work into coherent outcomes. Avoid acknowledgment and status-ping loops, duplicate verification and unnecessary handoffs. Do not reopen successful work without concrete contradictory findings.');
@@ -45,7 +46,7 @@ export function buildClusterCoordination(level: ClusterEfficiencyLevel = 'thorou
   if (level === 'lean') lines.push(`Testing: run only the tests for what you changed. Add a test only for a fault that was actually found. Do not run the full check or add suites, gates or CI checks unless the operator asks. ${proportion}`);
   else if (level === 'thorough') lines.push(`Testing: test new behaviour and each fault you fix, run the neighbouring tests, and run the full check before handing work over. Ask the operator before adding new suites, gates or CI checks. ${proportion}`);
   else lines.push(`Testing: add one test for each real fault you fix, at the level where it appeared. Prefer the lowest-level test that would catch the fault; use a browser or end-to-end test only for a user journey that needs a real screen, one per journey, not one per layout, theme or size. Run the tests for the area you changed; run the project's full check once before a release, not for each change. Do not add test matrices unless the operator asks. Ask the operator, with the operator-question tool where the cluster has it, before adding a suite, a gate, test tooling or a CI check. ${proportion} Keep the project's full check to about ten minutes; if it is longer, tell the operator and propose what to cut before adding tests. A flaky test is fixed or deleted, not retried.`);
-  lines.push("The operator's own project rules or plan take precedence when they ask for more or less testing.");
+  lines.push("The operator's own project rules or plan take precedence over these instructions, for testing, commits, documentation and delivery alike.");
   const addendum = (note ?? '').trim().slice(0, CLUSTER_EFFICIENCY_ADDENDUM_MAX);
   if (addendum) lines.push(`Operator NOTE (appended instruction, not a mode or budget): ${addendum}`);
   return lines.join('\n\n');

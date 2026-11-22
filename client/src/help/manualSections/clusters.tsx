@@ -1084,7 +1084,8 @@ export const clusters: Section[] = [
   Every level sorts product faults from test faults and states what a user
   would lose before a failure blocks work; product faults and faulty tests
   are fixed, while cosmetic or momentary faults are noted. Project rules and plans win
-  when they ask for more or less testing. Safety checks, message guards,
+  over these instructions for testing, commits, documentation and delivery.
+  Safety checks, message guards,
   requested review and landing review stay unchanged.
   </p>
   <p>

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Tell cluster Directors never to assign what the project's own rules forbid, and members to check their delivery against those rules before reporting done; project rules now take precedence for commits, documentation and delivery as well as testing.
+
 - Offer sandboxed Claude CLI and Codex researchers on supported Linux hosts, with sign-in recovery and independence warnings.
 
 - Keep researcher file attachments inside the workspace when paths contain links.
