@@ -1096,4 +1096,5 @@ export interface CreatorPrefill {
   mode: 'single' | 'chat' | 'cluster' | 'genesis';
   workDir?: string;
   resumeSessionId?: string;
+  researchStart?: { clusterId: string; token: string; seedPrompt: string };
 }

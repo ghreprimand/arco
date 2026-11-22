@@ -1864,6 +1864,7 @@ async function createClusterFromScratch(
     const directorId = directorIndex >= 0 ? newWorkflowIds[directorIndex] : undefined;
     const director = payload.members.find((member) => member.workflowId === directorId && isClusterDirector(member.role));
     send(ws, { type: 'cluster_created', clusterId: cluster.clusterId, state: payload,
+      ...(msg.requestId ? { requestId: msg.requestId } : {}),
       ...(goal && director ? { initialPlanDraft: { workflowId: director.workflowId, goal } } : {}) });
     if (goal && !director) send(ws, { type: 'error', message: 'The cluster was created, but its director role could not be saved. Set the director and draft the plan from the cluster.' });
   }

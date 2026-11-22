@@ -180,3 +180,44 @@ export async function confirmResearchComposer(clusterId: string, token: string):
   await recordResearchExport(pending.state, pending.selection, `composer ${pending.workflowId}`);
   pendingComposer.delete(token);
 }
+
+// Start from a released result without replacing an existing project file.
+// Copying and creating the conversation are separate so a failed or cancelled
+// creation leaves the copied files available for recovery.
+const pendingStarts = new Map<string, { state: ResearchState; selection: ResearchSelection; target: string; expires: number }>();
+export async function previewResearchStart(state: ResearchState, selection: ResearchSelection) {
+  const files = await selectResearchFiles(state, selection);
+  return files.map(file => ({ path: file.relativePath, size: file.bytes.length,
+    ...(/(?:^|\/)synthesis\.md$|^syntheses\/.*\.md$/i.test(file.relativePath) ? { preview: file.bytes.toString('utf8').slice(0, 4000) } : {}) }));
+}
+export async function prepareResearchStart(state: ResearchState, selection: ResearchSelection, parent: string, name: string, useExisting: boolean): Promise<FolderSendResult & { project: string; token?: string }> {
+  await selectResearchFiles(state, selection);
+  const base = await safeDirectory(parent);
+  if (typeof name !== 'string' || !name.trim() || name !== name.trim() || name === '.' || name === '..' || /[\\/\x00-\x1f]/.test(name)) throw new Error('Choose a valid folder name.');
+  const target = join(base, name);
+  assertSafePath(target);
+  try { await fs.mkdir(target); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    if (!useExisting) throw new Error('The folder already exists. Choose to use it or choose a new name.');
+  }
+  await safeDirectory(target);
+  let copy: FolderSendResult;
+  try { copy = await sendResearchToFolder(state, selection, target); }
+  catch (error) { return { project: target, written: [], error: error instanceof Error ? error.message : 'Copy failed.' }; }
+  if (copy.error || copy.receiptError || !copy.written.length) return { ...copy, project: target };
+  const token = randomUUID();
+  for (const [key, pending] of pendingStarts) if (pending.expires < Date.now()) pendingStarts.delete(key);
+  pendingStarts.set(token, { state, selection, target, expires: Date.now() + 24 * 60 * 60_000 });
+  return { ...copy, project: target, token };
+}
+export async function confirmResearchStart(clusterId: string, token: string, workflowId: string): Promise<void> {
+  const pending = pendingStarts.get(token);
+  const wf = workflows.get(workflowId);
+  if (!pending || pending.state.clusterId !== clusterId || pending.expires < Date.now()) throw new Error('The project confirmation expired.');
+  if (!wf || resolve(wf.config.workingDirectory || '') !== pending.target) throw new Error('The new conversation does not use the project folder.');
+  const cluster = clusterStore.getClusterIdForWorkflow(workflowId);
+  if (cluster && !isClusterDirector(clusterStore.getMemberRole(cluster, workflowId))) throw new Error('The new conversation is not the cluster Director.');
+  await recordResearchExport(pending.state, pending.selection, `started project ${pending.target}`);
+  pendingStarts.delete(token);
+}

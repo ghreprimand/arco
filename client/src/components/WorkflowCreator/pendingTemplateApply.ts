@@ -1,3 +1,4 @@
+import { isClusterDirector } from '@arco/shared';
 // Workbench Expansion §D4 — deferred template post-create actions.
 //
 // Mirrors terminalInput/research.ts pendingResearch: a one-shot map keyed by
@@ -13,6 +14,7 @@ export interface PendingTemplateApply {
   seedPrompt?: string;
   // Optional plan body (markdown) — POSTed to /api/plans (attach:true).
   plan?: string;
+  researchStart?: { clusterId: string; token: string };
 }
 
 const pending = new Map<string, PendingTemplateApply>();
@@ -32,4 +34,20 @@ export function takePendingTemplateApply(token: string | undefined): PendingTemp
   const req = pending.get(token);
   if (req) pending.delete(token);
   return req;
+}
+
+const pendingClusters = new Map<string, PendingTemplateApply>();
+export function registerPendingResearchCluster(requestId: string, value: PendingTemplateApply): void { pendingClusters.set(requestId, value); }
+export function takePendingResearchCluster(requestId: string | undefined): PendingTemplateApply | undefined {
+  if (!requestId) return undefined;
+  const value = pendingClusters.get(requestId); pendingClusters.delete(requestId); return value;
+}
+export function confirmStartedResearch(start: { clusterId: string; token: string }, workflowId: string, onFailure: () => void): void {
+  void fetch(`/api/research/${start.clusterId}/confirm-start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: start.token, workflowId }) })
+    .then(response => { if (!response.ok) throw new Error('receipt'); })
+    .catch(onFailure);
+}
+
+export function researchStartNeedsDirector(active: boolean, roles: string[]): boolean {
+  return active && !roles.some(isClusterDirector);
 }

@@ -35,7 +35,7 @@ import { formatTokPerSec, tokensPerSecond } from '../utils/format';
 import { narrativeEventFromMessage, trim80 } from '../utils/historyEvents';
 import { getStreamRef, streamingMsgs, looksLikePlan } from './streamState';
 import { takePendingResearch } from '../components/terminalInput/research';
-import { takePendingTemplateApply } from '../components/WorkflowCreator/pendingTemplateApply';
+import { takePendingTemplateApply, takePendingResearchCluster, confirmStartedResearch } from '../components/WorkflowCreator/pendingTemplateApply';
 import type { MutableRefObject } from 'react';
 
 export interface WsDeps {
@@ -327,6 +327,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
               if (pendingTemplate.seedPrompt) {
                 store.setDraft(msg.workflowId, pendingTemplate.seedPrompt);
               }
+              if (pendingTemplate.researchStart) confirmStartedResearch(pendingTemplate.researchStart, msg.workflowId, () => store.pushNotification('error', 'The project opened, but its research export log could not be updated.'));
               if (pendingTemplate.plan && msg.config.workingDirectory) {
                 const wfId = msg.workflowId;
                 const cwd = msg.config.workingDirectory;
@@ -2279,6 +2280,14 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           store.setClusterState(msg.clusterId, msg.state);
           requestMissingMemberJobs(msg.clusterId, msg.state, deps);
           store.setActiveCluster(msg.clusterId);
+          {
+            const pending = takePendingResearchCluster(msg.requestId);
+            const director = msg.state.members.find(member => isClusterDirector(member.role));
+            if (pending && director) {
+              if (pending.seedPrompt) store.setDraft(director.workflowId, pending.seedPrompt);
+              if (pending.researchStart) confirmStartedResearch(pending.researchStart, director.workflowId, () => store.pushNotification('error', 'The project opened, but its research export log could not be updated.'));
+            } else if (pending) store.pushNotification('error', 'The cluster opened without a Director. The copied research remains in the project folder.');
+          }
           if (msg.initialPlanDraft) {
             const draft = msg.initialPlanDraft;
             const cwd = store.jobs[draft.workflowId]?.config.workingDirectory ?? msg.state.cwd ?? '';

@@ -1072,6 +1072,7 @@ export interface ClusterCreationFinishedMessage {
 
 export interface ClusterCreatedMessage {
   type: 'cluster_created';
+  requestId?: string;
   clusterId: string;
   state: ClusterStatePayload;
   initialPlanDraft?: { workflowId: string; goal: string };

@@ -34,3 +34,11 @@ test('cluster creator starts with no plan and offers four choices', () => {
     dom.window.close();
   }
 });
+
+
+test('a cluster started from research requires a Director for its draft', async () => {
+  const { researchStartNeedsDirector } = await import('./pendingTemplateApply.js');
+  assert.equal(researchStartNeedsDirector(true, ['Builder', 'Researcher']), true);
+  assert.equal(researchStartNeedsDirector(true, ['Director', 'Builder']), false);
+  assert.equal(researchStartNeedsDirector(false, ['Builder', 'Researcher']), false);
+});

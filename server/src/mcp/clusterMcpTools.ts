@@ -435,10 +435,10 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   if (ctx.researchDirector) {
     registerTool(RESEARCH_SEND_TOOL.name, {
       description: RESEARCH_SEND_TOOL.description,
-      inputSchema: { kind: z.enum(['report', 'synthesis', 'project']), round: z.number().optional(), letter: z.string().optional(), catchUp: z.string().optional() },
-    }, async ({ kind, round, letter, catchUp }) => {
+      inputSchema: { action: z.enum(['send', 'start']).optional(), kind: z.enum(['report', 'synthesis', 'project']), round: z.number().optional(), letter: z.string().optional(), catchUp: z.string().optional() },
+    }, async ({ action, kind, round, letter, catchUp }) => {
       try {
-        const response = await hostFetch(`${BASE_URL}/research_send_to_project`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: workflowId, selection: { kind, round, letter, catchUp } }) });
+        const response = await hostFetch(`${BASE_URL}/research_send_to_project`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: workflowId, selection: { action, kind, round, letter, catchUp } }) });
         const body = await response.json();
         return textResult(body, !response.ok);
       } catch (error) { return textResult(`[error] ${error instanceof Error ? error.message : String(error)}`, true); }

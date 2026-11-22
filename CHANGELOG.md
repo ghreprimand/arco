@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Start an Agent tab or cluster project from released research with copied sources and a first draft.
+
 - Keep Arco state out of checkpoints and make long Activity labels wrap normally.
 
 - Stop flagging a Cursor researcher's own tool output as a sandbox access warning, record Cursor web search queries in the researcher logs, and remove the empty folder a refused research request made.

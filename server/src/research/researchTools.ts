@@ -6,10 +6,12 @@ import type { ResearchRoundResult } from './researchRounds.js';
 import { loadResearch } from './researchState.js';
 import { selectResearchFiles, type ResearchSelection } from './resultSelection.js';
 
-const sendProposals = new Map<string, ResearchSelection>();
-export function researchSendProposal(clusterId: string): ResearchSelection | undefined { return sendProposals.get(clusterId); }
+type ResearchProposal = ResearchSelection & { action?: 'send' | 'start' };
+const sendProposals = new Map<string, ResearchProposal>();
+export function researchSendProposal(clusterId: string): ResearchProposal | undefined { return sendProposals.get(clusterId); }
 export function clearResearchSendProposal(clusterId: string): void { sendProposals.delete(clusterId); }
-export async function proposeResearchSend(clusterId: string, caller: string, selection: ResearchSelection): Promise<void> {
+export async function proposeResearchSend(clusterId: string, caller: string, selection: ResearchProposal): Promise<void> {
+  if (selection.action !== undefined && selection.action !== 'send' && selection.action !== 'start') throw new Error('Choose a valid results action.');
   const state = await loadResearch(clusterId);
   if (!state || state.directorWorkflowId !== caller) throw new Error('Only the Research Director can propose sending results.');
   await selectResearchFiles(state, selection);
@@ -17,9 +19,10 @@ export async function proposeResearchSend(clusterId: string, caller: string, sel
 }
 export const RESEARCH_SEND_TOOL = {
   name: 'research_send_to_project',
-  description: 'Propose sending a released report, synthesis or project. The operator chooses the destination and confirms in RESULTS; this tool does not write to another project.',
+  description: 'Propose sending released research or starting a project from it. The operator chooses the destination and confirms in RESULTS; this tool does not write to another project.',
   input_schema: { type: 'object' as const, properties: {
-    kind: { type: 'string', enum: ['report', 'synthesis', 'project'], description: 'The released result to send.' },
+    action: { type: 'string', enum: ['send', 'start'], description: 'Send to an existing project or start a new project. Default send.' },
+    kind: { type: 'string', enum: ['report', 'synthesis', 'project'], description: 'The released result to use.' },
     round: { type: 'number', description: 'Round number for a report or synthesis.' },
     letter: { type: 'string', description: 'Researcher letter for a report.' },
     catchUp: { type: 'string', description: 'Researcher letter for a catch-up report, instead of round and letter.' },

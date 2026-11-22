@@ -1,5 +1,5 @@
 import { antigravityChatWorkspace } from '../chatMode.js';
-import { sendResearchToFolder, sendResearchToPlan, stageResearchForComposer, confirmResearchComposer } from '../research/sendToProject.js';
+import { sendResearchToFolder, sendResearchToPlan, stageResearchForComposer, confirmResearchComposer, previewResearchStart, prepareResearchStart, confirmResearchStart } from '../research/sendToProject.js';
 import type { ResearchSelection } from '../research/resultSelection.js';
 import { existingClusterMemberRefusal } from '../existingClusterMembers.js';
 import { recipientContext } from '../peerRecipientContext.js';
@@ -98,6 +98,24 @@ export async function tryHandleClusterRoutes(
     if (!state) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'unknown_research' })); return true; }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ...await researchSummaries(state), proposal: researchSendProposal(summaries[1]) ?? null }));
+    return true;
+  }
+  // A result starts a separate project only after the operator chooses its folder.
+  const researchStart = req.method === 'POST' && req.url ? /^\/api\/research\/([0-9a-f-]{36})\/(preview-start|prepare-start|confirm-start)$/.exec(req.url) : null;
+  if (researchStart) {
+    const reply = (status: number, body: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+    try {
+      const chunks: Buffer[] = []; let size = 0;
+      for await (const chunk of req) { const bytes = Buffer.from(chunk); size += bytes.length; if (size > 16384) throw new Error('Request is too large.'); chunks.push(bytes); }
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { selection?: ResearchSelection; parent?: string; name?: string; useExisting?: boolean; token?: string; workflowId?: string };
+      if (researchStart[2] === 'confirm-start') {
+        await confirmResearchStart(researchStart[1], body.token ?? '', body.workflowId ?? ''); reply(200, { recorded: true }); return true;
+      }
+      const state = await loadResearch(researchStart[1]);
+      if (!state || !body.selection) throw new Error('Choose released research.');
+      if (researchStart[2] === 'preview-start') reply(200, { files: await previewResearchStart(state, body.selection) });
+      else reply(200, await prepareResearchStart(state, body.selection, body.parent ?? '', body.name ?? '', body.useExisting === true));
+    } catch (error) { reply(400, { error: error instanceof Error ? error.message : 'Could not start the project.' }); }
     return true;
   }
   // Operator action: stage only released research for explicit destinations.

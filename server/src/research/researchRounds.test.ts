@@ -501,6 +501,33 @@ test('sending released research copies without overwrite and records successful 
   } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
 
+test('starting from research preserves existing files and records the opened project', async () => {
+  const { prepareResearchStart, confirmResearchStart, previewResearchStart } = await import('./sendToProject.js');
+  const { workflows } = await import('../server/state.js');
+  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-start-'));
+  const workflowId = randomUUID(), clusterId = randomUUID();
+  try {
+    const source = join(root, 'source'), parent = join(root, 'projects');
+    await fs.mkdir(join(source, 'rounds', 'round-1'), { recursive: true }); await fs.mkdir(parent);
+    await fs.writeFile(join(source, 'rounds', 'round-1', 'report-a.md'), '# Report\n');
+    await fs.writeFile(join(source, 'exports.md'), '# Exports\n');
+    const state = { clusterId, folder: source, name: 'Fixture', rounds: [{ n: 1, releasedAt: '2026-01-01', entries: { A: { state: 'replied' } } }] } as never;
+    const selection = { kind: 'report', round: 1, letter: 'A' } as const;
+    assert.deepEqual((await previewResearchStart(state, selection)).map(x => x.path), ['rounds/round-1/report-a.md']);
+    await fs.mkdir(join(parent, 'existing')); await fs.writeFile(join(parent, 'existing', 'keep.txt'), 'keep');
+    await assert.rejects(prepareResearchStart(state, selection, parent, 'existing', false), /already exists/);
+    const prepared = await prepareResearchStart(state, selection, parent, 'existing', true);
+    assert.ok(prepared.token); assert.equal(await fs.readFile(join(parent, 'existing', 'keep.txt'), 'utf8'), 'keep');
+    assert.equal(await fs.readFile(join(prepared.target!, 'rounds/round-1/report-a.md'), 'utf8'), '# Report\n');
+    assert.doesNotMatch(await fs.readFile(join(source, 'exports.md'), 'utf8'), /started project/);
+    workflows.set(workflowId, { config: { workingDirectory: join(parent, 'wrong') } } as never);
+    await assert.rejects(confirmResearchStart(clusterId, prepared.token!, workflowId), /project folder/);
+    workflows.set(workflowId, { config: { workingDirectory: prepared.project } } as never);
+    await confirmResearchStart(clusterId, prepared.token!, workflowId);
+    assert.match(await fs.readFile(join(source, 'exports.md'), 'utf8'), /started project/);
+  } finally { workflows.delete(workflowId); await fs.rm(root, { recursive: true, force: true }); }
+});
+
 test('composer attachments are recorded only after the draft confirms them', async () => {
   const { stageResearchForComposer, confirmResearchComposer } = await import('./sendToProject.js');
   const { workflows } = await import('../server/state.js');

@@ -29,7 +29,7 @@ import { ProjectPicker, type ProjectEntry } from './ProjectPicker';
 import type { HomeRoot } from '../../utils/homeModel';
 import { projectNameForDirectory } from './projectName';
 import { DirectoryBrowser } from '../media/DirectoryPicker';
-import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingTemplateApply';
+import { mintTemplateSpawnToken, registerPendingTemplateApply, registerPendingResearchCluster, researchStartNeedsDirector } from './pendingTemplateApply';
 import { deriveDisplayNames, CLAUDE_MODELS,  CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS} from './modelOptions';
 import type { Props, MemberDraft } from './types';
 import { memberAccessOptions } from './types';
@@ -50,6 +50,7 @@ const PROGRESS_LABELS: Record<ClusterProgressMode, string> = { both: 'Keep plan 
 
 export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, initialProvider: suppliedProvider }: Props) {
   const [initialProvider] = useState(() => suppliedProvider ?? useAppStore.getState().creatorPrefill?.provider);
+  const [researchStartPrefill] = useState(() => useAppStore.getState().creatorPrefill?.researchStart);
   const connected = useAppStore((s) => s.connected);
   const clusterCreationPending = useAppStore((s) => s.clusterCreationPending);
   const capabilities = useAppStore((s) => s.capabilities);
@@ -371,7 +372,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const [tmplSavingBusy, setTmplSavingBusy] = useState(false);
   // Set by applyTemplate so the deferred seedPrompt/plan land on the next tab
   // this creator mints. Drained when handleCreate threads it onto the spawn.
-  const pendingTemplateRef = useRef<{ seedPrompt?: string; plan?: string } | null>(null);
+  const pendingTemplateRef = useRef<{ seedPrompt?: string; plan?: string; researchStart?: { clusterId: string; token: string } } | null>(null);
   const [templateHasPlan, setTemplateHasPlan] = useState(false);
   // 2-col layout breakpoint. ≥1200px viewport => 2 columns,
   // otherwise single column (existing behaviour). Matched via matchMedia
@@ -411,6 +412,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     const prefill = useAppStore.getState().creatorPrefill;
     return prefill && prefill.mode !== 'chat' && prefill.mode !== 'genesis' ? prefill.workDir ?? '' : '';
   });
+  const initialResearchDir = useRef(workDir);
   const lastPlanFolder = useRef(workDir);
   const currentPlanFolder = useRef(workDir);
   currentPlanFolder.current = workDir;
@@ -539,6 +541,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   useEffect(() => {
     const prefill = useAppStore.getState().takeCreatorPrefill();
     if (!prefill) return;
+    if (prefill.researchStart) pendingTemplateRef.current = { seedPrompt: prefill.researchStart.seedPrompt, researchStart: { clusterId: prefill.researchStart.clusterId, token: prefill.researchStart.token } };
 
     const dir = prefill.mode === 'single' || prefill.mode === 'cluster' ? prefill.workDir : undefined;
     if (dir) setBrowserPath(dir);
@@ -590,7 +593,8 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // Subsequent flips back/forth preserve whatever they had built.
   useEffect(() => {
     if (mode === 'cluster' && members.length === 0) {
-      setMembers([draftFromDefaults(), draftFromDefaults()]);
+      const first = draftFromDefaults();
+      setMembers([researchStartPrefill ? { ...first, role: 'Director' } : first, draftFromDefaults()]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
@@ -672,7 +676,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     ? primaryProviderProblem(primaryProvider, authStatus, isProviderEnabled, PRIMARY_PROVIDER_LABELS[primaryProvider] ?? primaryProvider)
     : null;
   const providerReady = providerProblem === null;
-  const canLaunch = supportedProvider && providerReady && connected && workDir && (conversationMode !== 'resume' || (!sessionsLoading && sessionsPath === workDir && sessions.some((s) => s.sessionId === selectedSessionId)));
+  const canLaunch = (!researchStartPrefill || workDir === initialResearchDir.current) && supportedProvider && providerReady && connected && workDir && (conversationMode !== 'resume' || (!sessionsLoading && sessionsPath === workDir && sessions.some((s) => s.sessionId === selectedSessionId)));
   const canLaunchChat = !(incognito && primaryProvider === 'antigravity-cli') && supportedProvider && providerReady && connected && Boolean(model && String(model).trim()) && (!incognito || (primaryProvider !== 'cursor' && primaryProvider !== 'llamacpp' && primaryProvider !== 'strata' && primaryProvider !== 'deepseek'));
   const unavailableMembers = mode === 'cluster' ? members.flatMap((m, i) =>
     memberProviderAvailable(m.provider, authStatus, isProviderEnabled) ? [] : [`Member #${i + 1}${m.displayName.trim() ? ` (${m.displayName.trim()})` : ''}: ${MEMBER_PROVIDER_NAMES[m.provider]} ${!authStatus ? 'connection is being checked' : !isProviderEnabled(m.provider) ? 'is turned off in Settings' : 'is not connected'}.`]
@@ -681,9 +685,11 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     if (mode !== 'cluster') return [] as string[];
     const problems: string[] = [];
     if (!workDir) problems.push('Pick a shared project folder.');
+    if (researchStartPrefill && workDir !== initialResearchDir.current) problems.push('Choose the folder containing the copied research to keep its draft.');
     if (members.length < 2) problems.push('Cluster needs at least 2 members.');
     const directorProblem = clusterDirectorProblem(members.map((m) => m.role));
     if (directorProblem) problems.push(directorProblem);
+    if (researchStartNeedsDirector(!!researchStartPrefill && workDir === initialResearchDir.current, members.map(member => member.role))) problems.push('Choose a Director to receive the research draft.');
     if (draftInitialPlan && clusterPlanGoal.trim().split(/\s+/).filter(Boolean).length < 20) problems.push('Add more detail: the goal, what done looks like, constraints, and what must not change.');
     if (draftInitialPlan && !members.some((member) => isClusterDirector(member.role))) problems.push('Choose a director below to draft the plan.');
     if (planChoice === 'existing' && (!selectedPlan || selectedPlan.cwd !== workDir)) problems.push('Choose a plan to attach.');
@@ -813,9 +819,11 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     setOutputStyle(resolveOutputStyle(c.outputStyle));
     if (c.workingDirectory) setWorkDir(c.workingDirectory);
     setTemplateHasPlan(Boolean(t.plan));
-    pendingTemplateRef.current = (t.seedPrompt || t.plan)
-      ? { ...(t.seedPrompt ? { seedPrompt: t.seedPrompt } : {}), ...(t.plan ? { plan: t.plan } : {}) }
-      : null;
+    pendingTemplateRef.current = researchStartPrefill
+      ? { seedPrompt: [researchStartPrefill.seedPrompt, t.seedPrompt].filter(Boolean).join('\n\n'), researchStart: { clusterId: researchStartPrefill.clusterId, token: researchStartPrefill.token }, ...(t.plan ? { plan: t.plan } : {}) }
+      : (t.seedPrompt || t.plan)
+        ? { ...(t.seedPrompt ? { seedPrompt: t.seedPrompt } : {}), ...(t.plan ? { plan: t.plan } : {}) }
+        : null;
   };
 
   const deleteTemplateWithConfirm = async (t: WorkflowTemplate) => {
@@ -889,6 +897,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     if (mode === 'cluster') {
       if (!canLaunchCluster || !onCreateCluster || useAppStore.getState().clusterCreationPending) return;
       submitClusterCreation(requestId => {
+        if (pendingTemplateRef.current?.researchStart && workDir === initialResearchDir.current) registerPendingResearchCluster(requestId, pendingTemplateRef.current);
         const derived = deriveDisplayNames(members);
         return onCreateCluster({
           requestId,
@@ -978,7 +987,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     // spawn token and register the deferred apply; the workflow_created handler
     // drains it onto the real workflow id (composer + plan pre-fill, never
     // auto-sent). Cleared after one create so it never leaks onto a later tab.
-    const pendingTmpl = pendingTemplateRef.current;
+    const pendingTmpl = pendingTemplateRef.current?.researchStart && workDir !== initialResearchDir.current ? null : pendingTemplateRef.current;
     let templateSpawnToken: string | undefined;
     if (pendingTmpl) {
       templateSpawnToken = mintTemplateSpawnToken();
@@ -1138,7 +1147,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               <div>SINGLE WORKFLOW</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>One primary agent</div>
             </button>
-            <button data-help="creator.chat-mode" onClick={() => {
+            <button disabled={!!researchStartPrefill} title={researchStartPrefill ? 'The copied research needs an Agent or cluster project.' : undefined} data-help="creator.chat-mode" onClick={() => {
               setMode('chat');
 
             }} style={modePill(mode === 'chat')}>
@@ -1149,11 +1158,11 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               <div>CLUSTER</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>Several agents, one shared project folder</div>
             </button>
-            <button onClick={() => setMode('genesis')} style={modePill(mode === 'genesis')}>
+            <button disabled={!!researchStartPrefill} title={researchStartPrefill ? 'The copied research needs an Agent or cluster project.' : undefined} onClick={() => setMode('genesis')} style={modePill(mode === 'genesis')}>
               <div>GENESIS</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>Describe your idea; create files later</div>
             </button>
-            <button data-help="creator.research-mode" onClick={() => setMode('research')} style={modePill(mode === 'research')}>
+            <button disabled={!!researchStartPrefill} title={researchStartPrefill ? 'The copied research needs an Agent or cluster project.' : undefined} data-help="creator.research-mode" onClick={() => setMode('research')} style={modePill(mode === 'research')}>
               <div>RESEARCH</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>One question, several independent researchers</div>
             </button>
@@ -2040,6 +2049,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             )}
           </p>
         )}
+        {researchStartPrefill && workDir !== initialResearchDir.current && <p role="status">Choose the folder containing the copied research to keep its draft: {initialResearchDir.current}</p>}
         {mode === 'cluster' && unavailableMembers.length > 0 && (
           <p role="status" data-testid="cluster-provider-problem" style={{ margin: '0 0 8px', fontSize: '12px', lineHeight: 1.5, color: 'var(--color-accent-secondary-dim)', overflowWrap: 'anywhere' }}>
             {unavailableMembers.join(' ')}{' '}

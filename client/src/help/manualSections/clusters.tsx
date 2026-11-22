@@ -476,6 +476,7 @@ export const clusters: Section[] = [
   <p>
   Use <Code>SEND REPORT</Code>, <Code>SEND SUMMARY</Code> or <Code>SEND PROJECT</Code> in RESULTS to copy released research, including catch-up reports, into a project folder, add a reference to an existing plan, or attach it to an open conversation draft. Choose the destinations independently; the draft is not sent. A Research Director can propose a selection for <Code>REVIEW SEND</Code>. RESULTS reports partial copies and a failed export log separately.
   </p>
+  <p><Code>START PROJECT</Code> previews the latest summary and sources, then copies them into a new project folder and opens the usual Agent or cluster creator. Choose explicitly to use an existing folder; no existing file is overwritten. The first message stays in the new conversation draft. <Code>START FROM REPORT</Code> and <Code>START FROM SUMMARY</Code> use a particular released result.</p>
   <p>
   The strip shows where the project is
   saved; <Code>OPEN FOLDER</Code> opens FILES. The default location is in
