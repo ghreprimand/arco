@@ -498,7 +498,8 @@ function onTurnEnded(workflowId: string, wf: WorkflowState): void {
   if (clusterStore.isAutoTurnOnMailboxEnabled(endedClusterId)) {
     setImmediate(() => {
       void (async () => {
-        const pending = await clusterMailbox.peek(workflowId).catch(() => []);
+        // Mail from a Gemini member waits for the operator's NUDGE.
+        const pending = (await clusterMailbox.peek(workflowId).catch(() => [])).filter((m) => m.fromGemini !== true);
         if (pending.length === 0) return;
         clusterAutoTurn.onPeerMessageSent({
           clusterId: endedClusterId,

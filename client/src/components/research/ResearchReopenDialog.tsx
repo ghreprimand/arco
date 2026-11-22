@@ -63,7 +63,7 @@ export function ResearchReopenDialog({ projectId, onClose, onReopen }: { project
     setRows((usable.length ? usable : fallback ? [fallback] : []).map((r) => ({ ...r, key: seq++ })));
   }, [preview, avail.checked, authStatus]);
 
-  const directorProviders = CLUSTER_MEMBER_PROVIDERS.filter((p) => memberProviderAvailable(p, authStatus, isProviderEnabled));
+  const directorProviders = CLUSTER_MEMBER_PROVIDERS.filter((p) => p !== 'antigravity-cli' && memberProviderAvailable(p, authStatus, isProviderEnabled));
   const directorRow = (provider: ClusterMemberProvider, from?: { model?: string; effort?: string }) => {
     const offered = modelsForProvider(provider, catalogs).map(String);
     const model = from?.model && offered.includes(from.model) ? from.model : offered[0] ?? '';

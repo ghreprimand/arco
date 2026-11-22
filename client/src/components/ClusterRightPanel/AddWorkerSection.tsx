@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
-import { DEFAULT_CODEX_MODEL, ROLE_PRESETS, presetForText, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
+import { DEFAULT_CODEX_MODEL, GEMINI_MEMBER_CHOICE_NOTE, ROLE_PRESETS, presetForText, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
 import type { ClusterMemberAccessMode, ClusterMemberProvider, ClusterMemberTuning, ClusterStatePayload, EffortLevel, ModelName, ProviderName } from '@arco/shared';
 import { effortsForModel } from '../../utils/format';
 import { capDefaultEffort } from '../../utils/effortDefaults';
 import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
 import { CursorModelSelect } from '../CursorModelSelect';
 import { MemberSettingsFields } from './MemberSettingsFields';
+import { memberProviderAvailable } from '../WorkflowCreator/memberProviders';
 import { memberSettingsFrom, memberTuning, type MemberSettings } from './memberSettings';
 
 export type AddFreshOptions = { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: ClusterMemberAccessMode; name?: string; role?: string; webAccess?: boolean; claudeTransport?: 'native' | 'cli' } & ClusterMemberTuning;
@@ -37,6 +38,7 @@ export function AddWorkerSection({
   const clusters = useAppStore((s) => s.clusters);
   const settings = useAppStore((s) => s.settings);
   const authStatus = useAppStore((s) => s.authStatus);
+  const isProviderEnabled = useAppStore((s) => s.isProviderEnabled);
   const [mode, setMode] = useState<'idle' | 'fresh' | 'existing'>('idle');
   const [count, setCount] = useState(1);
   const [workerName, setWorkerName] = useState('');
@@ -127,6 +129,8 @@ export function AddWorkerSection({
             ? (authStatus?.ollama?.installedModels?.[0] ?? '')
           : next === 'cursor'
             ? (cursorCatalog?.models?.find((m) => m.isDefault)?.id ?? 'auto')
+          : next === 'antigravity-cli'
+            ? (authStatus?.['antigravity-cli']?.installedModels?.[0] ?? '')
             : (authStatus?.llamacpp?.installedModels?.[0] ?? '');
       setModel(firstModel);
       // Effort gets clamped post-hoc by effortOptions; pick 'medium' as the
@@ -281,7 +285,7 @@ export function AddWorkerSection({
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--color-fg-muted)', fontSize: '10px', letterSpacing: '1px' }}>PROVIDER</span>
-            {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
+            {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor', ...(provider === 'antigravity-cli' || memberProviderAvailable('antigravity-cli', authStatus, isProviderEnabled) ? ['antigravity-cli'] : [])] as ClusterMemberProvider[]).map((p) => (
               <button
                 key={p}
                 disabled={accessMode === 'isolated' && !isolatedUsable(p)}
@@ -299,10 +303,11 @@ export function AddWorkerSection({
                   letterSpacing: '1px',
                 }}
               >
-                {p === 'llamacpp' ? 'LLAMA' : p.toUpperCase()}
+                {p === 'llamacpp' ? 'LLAMA' : p === 'antigravity-cli' ? 'GEMINI' : p.toUpperCase()}
               </button>
             ))}
           </div>
+          {provider === 'antigravity-cli' && <div role="note" style={{ color: 'var(--color-fg-muted)', fontSize: '10px', lineHeight: 1.4 }}>{GEMINI_MEMBER_CHOICE_NOTE}</div>}
           {accessMode === 'isolated' && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
             {provider === 'claude' && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44 }}>Claude transport <select style={{ minHeight: 44 }} value={isolatedClaudeTransport} onChange={e => setIsolatedClaudeTransport(e.target.value as 'native' | 'cli')}><option value="native">Claude Native</option><option value="cli" disabled={!sandbox.claudeCli}>Claude CLI{sandbox.claudeCli ? '' : ' (unavailable)'}</option></select></label>}
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44 }}><input style={{ width: 22, height: 22 }} type="checkbox" checked={webAccess} onChange={e => setWebAccess(e.target.checked)} /> Web access</label>

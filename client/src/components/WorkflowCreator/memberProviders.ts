@@ -3,7 +3,7 @@ import type { AuthStatusByProvider, ClusterMemberProvider, ProviderName } from '
 
 // Providers that can be cluster members, in display order, with plain names.
 export const MEMBER_PROVIDER_NAMES: Record<ClusterMemberProvider, string> = {
-  claude: 'Claude', codex: 'Codex', cursor: 'Cursor', ollama: 'Ollama', llamacpp: 'llama.cpp',
+  claude: 'Claude', codex: 'Codex', cursor: 'Cursor', ollama: 'Ollama', llamacpp: 'llama.cpp', 'antigravity-cli': 'Gemini',
 };
 
 // A member provider is offered only when it is enabled in Settings and its
@@ -13,7 +13,9 @@ export function memberProviderAvailable(
   authStatus: AuthStatusByProvider | null | undefined,
   isProviderEnabled: (p: ProviderName) => boolean,
 ): boolean {
-  return isProviderEnabled(provider) && Boolean(authStatus?.[provider]?.loggedIn);
+  // Gemini (Antigravity) reports sign-in only after a turn; its model list
+  // shows that agy is installed, as for the primary provider below.
+  return isProviderEnabled(provider) && (provider === 'antigravity-cli' ? Boolean(authStatus?.[provider]?.installedModels?.length) : Boolean(authStatus?.[provider]?.loggedIn));
 }
 
 export function availableMemberProviders(

@@ -17,6 +17,7 @@
 // the turn goes through the ordinary operator turn path with a claim guard, so
 // STOP, operator questions and AUTO-PICKUP keep their behaviour. No retries.
 
+import { isGeminiMember } from './geminiMembers.js';
 import { randomUUID } from 'node:crypto';
 import {
   isTaskApprovalCurrent,
@@ -191,12 +192,16 @@ export function sendCurrentOffer(workflowId: string): void {
 export async function onDirectorTurnEnded(workflowId: string): Promise<void> {
   const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
   if (!clusterId || directorOf(clusterId) !== workflowId) return;
+  // A Gemini member takes turns only from the operator's NUDGE or typed
+  // message (docs/PROTOCOL_CLUSTER.md "Gemini members"): no CONTINUE DIRECTOR.
+  if (isGeminiMember(workflowId)) return;
   // The end of a turn is announced just before its busy flag clears; give it
   // a moment. Still busy after that means a queued message started a new turn.
   for (let i = 0; i < 10 && deps?.isBusy(workflowId); i++) await new Promise((r) => setTimeout(r, 200));
   if (deps?.isBusy(workflowId)) return;
   const state = await loadState(clusterId, workflowId);
-  const pick = state ? pickContinueOffer(state) : null;
+  const picked = state ? pickContinueOffer(state) : null;
+  const pick = picked?.kind === 'nudge' && isGeminiMember(picked.memberWorkflowId) ? null : picked;
   // The Director may have started another turn while the state loaded.
   if (deps?.isBusy(workflowId)) return;
   const current = offers.get(workflowId);

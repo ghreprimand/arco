@@ -1,7 +1,7 @@
 import type { ClusterStatePayload } from '@arco/shared';
 import type { PeerMessage } from './types';
 import { pickerSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 interface MailboxModalProps {
   cluster: ClusterStatePayload;
@@ -11,18 +11,30 @@ interface MailboxModalProps {
   error: string | null;
   onClose: () => void;
   onCancel: (msgId: string) => void;
+  // EDIT: rewrites a pending message in place; resolves false when the save
+  // was refused (for example, the message was already delivered).
+  onEdit?: (msgId: string, content: string) => Promise<boolean>;
   // §10.7 P12.5 — peer→task bridge. When provided, each message row renders a
   // → TASK button that promotes the message into a durable board task.
   onMakeTask?: (content: string, fromWorkflowId: string) => void;
 }
 
 // Mailbox inspect modal — operator-only surface. Lists pending peer messages
-// addressed to a specific cluster member, with a per-row CANCEL button that
-// discards a message before the recipient drains it. Once delivered the
+// addressed to a specific cluster member, with per-row EDIT (rewrite the text
+// before delivery) and CANCEL (discard before the recipient drains it). Once delivered the
 // message lives in events.jsonl forever; this modal only mutates the
 // transient mailbox file layer.
-export function MailboxModal({ cluster, wfid, messages, loading, error, onClose, onCancel, onMakeTask }: MailboxModalProps) {
+export function MailboxModal({ cluster, wfid, messages, loading, error, onClose, onCancel, onEdit, onMakeTask }: MailboxModalProps) {
   const surface = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState<{ msgId: string; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const save = async () => {
+    if (!editing || !onEdit) return;
+    setSaving(true);
+    const ok = await onEdit(editing.msgId, editing.text).catch(() => false);
+    setSaving(false);
+    if (ok) setEditing(null);
+  };
   const recipient = cluster.members.find((m) => m.workflowId === wfid);
   const recipientName = recipient?.displayName ?? wfid.slice(0, 8);
   const senderName = (fromWfid: string): string => {
@@ -56,7 +68,7 @@ export function MailboxModal({ cluster, wfid, messages, loading, error, onClose,
         <div style={{
           padding: '10px 14px',
           borderBottom: '1px solid var(--color-border-hairline)',
-          display: 'flex', alignItems: 'center', gap: '8px',
+          display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
         }}>
           <span className="display-font" style={{ color: 'var(--color-fg)', letterSpacing: '1px', fontSize: '11px' }}>
             MAILBOX · {recipientName.toUpperCase()}
@@ -105,7 +117,7 @@ export function MailboxModal({ cluster, wfid, messages, loading, error, onClose,
                 display: 'flex', flexDirection: 'column', gap: '4px',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span className="display-font" style={{ color: 'var(--color-accent-primary)', fontSize: '9px', letterSpacing: '1px' }}>
                   FROM {senderName(m.fromWorkflowId).toUpperCase()}
                 </span>
@@ -134,6 +146,26 @@ export function MailboxModal({ cluster, wfid, messages, loading, error, onClose,
                     → TASK
                   </button>
                 )}
+                {onEdit && editing?.msgId !== m.msgId && (
+                  <button
+                    type="button"
+                    data-help="cluster.mailbox-edit"
+                    onClick={() => setEditing({ msgId: m.msgId, text: m.content })}
+                    className="display-font"
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid var(--color-border-hairline)',
+                      color: 'var(--color-fg)',
+                      padding: '2px 7px',
+                      cursor: 'pointer',
+                      fontSize: '9px',
+                      letterSpacing: '1px',
+                    }}
+                    title="Edit this message before the recipient reads it"
+                  >
+                    EDIT
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => onCancel(m.msgId)}
@@ -157,7 +189,28 @@ export function MailboxModal({ cluster, wfid, messages, loading, error, onClose,
                   Recipient: {m.recipientContext.state} | Task: {m.recipientContext.task ? `${m.recipientContext.task.title} (${m.recipientContext.task.id.slice(0, 8)})` : 'none'} | Latest reply: {m.recipientContext.lastMessage ? `${m.recipientContext.lastMessage.firstLine} (${m.recipientContext.lastMessage.ageSeconds}s ago)` : 'none'}
                 </div>
               )}
-              <pre style={{
+              {editing?.msgId === m.msgId ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <textarea
+                    aria-label={`Edit message from ${senderName(m.fromWorkflowId)}`}
+                    value={editing.text}
+                    autoFocus
+                    onChange={(e) => setEditing({ msgId: m.msgId, text: e.target.value })}
+                    onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); setEditing(null); } }}
+                    style={{ minHeight: '160px', resize: 'vertical', fontFamily: 'inherit', fontSize: '11px', color: 'var(--color-fg)', background: 'var(--color-bg)', border: '1px solid var(--color-border-hairline)', padding: '6px 8px' }}
+                  />
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button type="button" className="display-font" disabled={saving || !editing.text.trim()} onClick={() => { void save(); }}
+                      style={{ minHeight: 44, background: 'transparent', border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)', padding: '2px 10px', cursor: 'pointer', fontSize: '9px', letterSpacing: '1px' }}>
+                      {saving ? 'SAVING' : 'SAVE'}
+                    </button>
+                    <button type="button" className="display-font" disabled={saving} onClick={() => setEditing(null)}
+                      style={{ minHeight: 44, background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg-muted)', padding: '2px 10px', cursor: 'pointer', fontSize: '9px', letterSpacing: '1px' }}>
+                      DISCARD EDIT
+                    </button>
+                  </div>
+                </div>
+              ) : <pre style={{
                 margin: 0,
                 whiteSpace: 'pre-wrap',
                 wordBreak: 'break-word',
@@ -168,7 +221,7 @@ export function MailboxModal({ cluster, wfid, messages, loading, error, onClose,
                 background: 'var(--color-bg)',
                 padding: '6px 8px',
                 border: '1px solid var(--color-border-hairline)',
-              }}>{m.content}</pre>
+              }}>{m.content}</pre>}
             </div>
           ))}
         </div>

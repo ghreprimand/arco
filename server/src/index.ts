@@ -34,6 +34,7 @@ ClientMessage,
 ServerMessage,
 WorkflowConfig
 } from '@arco/shared';
+import { GEMINI_OPERATOR_ONLY_REFUSAL, geminiNudgeText, isGeminiMember, issueGeminiSend } from './geminiMembers.js';
 import { hasGuardrails, isClusterMemberProvider, resolveOutputStyle } from '@arco/shared';
 import { getEffectivePublicProjectChoice } from './publicProjectChoice.js';
 import { spawnSync } from 'child_process';
@@ -793,8 +794,21 @@ wss.on('connection', (ws: WebSocket) => {
           send(ws, { type: 'error', workflowId: msg.workflowId, message: 'Attachments, skills, and workbench primitives are unavailable in strict Incognito Chat.' });
           return;
         }
+        // docs/PROTOCOL_CLUSTER.md "Gemini members": the operator's NUDGE or
+        // typed message gets a single-use ticket for this member and text. The
+        // first NUDGE carries the role and cluster instructions, visibly.
+        let geminiSend: string | undefined;
+        let content = msg.content;
+        if (isGeminiMember(msg.workflowId)) {
+          if (msg.primitive !== undefined || (msg.pickedSkills?.length ?? 0) > 0) {
+            send(ws, { type: 'error', workflowId: msg.workflowId, message: GEMINI_OPERATOR_ONLY_REFUSAL });
+            return;
+          }
+          if (msg.automaticKind === 'nudge') content = await geminiNudgeText(msg.workflowId, msg.content);
+          geminiSend = issueGeminiSend(msg.workflowId, content);
+        }
         (workflows.get(msg.workflowId)?.config.incognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() =>
-          handleUserMessage(ws, session, msg.workflowId, msg.content, msg.clientMessageId, msg.attachments, msg.interjection === true, msg.kind, msg.primitive, msg.pickedSkills, { automaticKind: msg.automaticKind === 'nudge' ? 'nudge' : undefined, operatorInitiated: msg.automaticKind !== 'nudge' }).catch((err) => {
+          handleUserMessage(ws, session, msg.workflowId, content, msg.clientMessageId, msg.attachments, msg.interjection === true, msg.kind, msg.primitive, msg.pickedSkills, { automaticKind: msg.automaticKind === 'nudge' ? 'nudge' : undefined, operatorInitiated: msg.automaticKind !== 'nudge' || geminiSend !== undefined, operatorAction: true, ...(geminiSend ? { geminiSend } : {}) }).catch((err) => {
             console.error('[arco] user_message handler failed:', err);
           // Tell the client the turn died — without this, the UI sits
           // mid-turn forever on any internal exception inside the handler.

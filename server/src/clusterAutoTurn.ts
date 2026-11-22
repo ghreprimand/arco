@@ -45,6 +45,10 @@ import { join } from 'node:path';
 import * as clusterStore from './clusterStore.js';
 import * as clusterMailbox from './clusterMailbox.js';
 import type { ServerMessage } from '@arco/shared';
+import { isGeminiMember } from './geminiMembers.js';
+
+export const GEMINI_AUTO_PICKUP_SKIP = 'Skipped a Gemini member: its mail waits for your NUDGE.';
+export const GEMINI_MAIL_SKIP = 'Mail from a Gemini member waits for your NUDGE.';
 
 // Per-recipient cooldown — once an auto-turn fires for R, the next auto-turn
 // for R is suppressed until this many ms have passed. Prevents tight A↔B
@@ -211,7 +215,7 @@ export async function pickupWaitingMail(clusterId: string, liveMembers = resolve
       continue;
     }
     if (!clusterStore.isAutoTurnOnMailboxEnabled(clusterId)) continue;
-    const pending = await clusterMailbox.peek(m.workflowId).catch(() => []);
+    const pending = (await clusterMailbox.peek(m.workflowId).catch(() => [])).filter((p) => p.fromGemini !== true);
     if (pending.length === 0) continue;
     onPeerMessageSent({
       clusterId,
@@ -310,7 +314,7 @@ function emitSkip(
   recipientWfid: string,
   senderWfid: string,
   chainDepth: number,
-  reason: 'rate_capped' | 'depth_capped' | 'cooldown' | 'recipient_busy' | 'disabled' | 'ack_only' | 'budget_paused' | 'member_capped' | 'pair_paused',
+  reason: 'rate_capped' | 'depth_capped' | 'cooldown' | 'recipient_busy' | 'disabled' | 'ack_only' | 'budget_paused' | 'member_capped' | 'pair_paused' | 'operator_send_only' | 'gemini_mail',
   now: number,
   notice?: string,
 ): void {
@@ -347,6 +351,16 @@ export function onPeerMessageSent(opts: {
   recipientWfid: string;
   incomingChainDepth: number;
 }): void {
+  // docs/PROTOCOL_CLUSTER.md "Gemini members": mail to or from a Gemini
+  // member waits for the operator's NUDGE on the recipient; no automatic
+  // wake or busy reminder.
+  const geminiRecipient = isGeminiMember(opts.recipientWfid);
+  if (geminiRecipient || isGeminiMember(opts.senderWfid)) {
+    if (clusterStore.isAutoTurnOnMailboxEnabled(opts.clusterId) && !clusterStore.isAutoPickupPaused(opts.clusterId)) {
+      emitSkip(opts.clusterId, opts.recipientWfid, opts.senderWfid, opts.incomingChainDepth, geminiRecipient ? 'operator_send_only' : 'gemini_mail', Date.now(), geminiRecipient ? GEMINI_AUTO_PICKUP_SKIP : GEMINI_MAIL_SKIP);
+    }
+    return;
+  }
   if (isBusyFn && dispatchBusyReminderFn) void remindBusyMember(opts.clusterId,opts.recipientWfid,{isBusy:isBusyFn,hasClusterTools:hasClusterToolsFn,dispatch:dispatchBusyReminderFn});
   if (!clusterStore.isAutoTurnOnMailboxEnabled(opts.clusterId)) return;
   if (opts.incomingChainDepth > pendingChainDepth(opts.recipientWfid)) pendingDepth.set(opts.recipientWfid, opts.incomingChainDepth);
@@ -355,7 +369,8 @@ export function onPeerMessageSent(opts: {
   const key = `${opts.clusterId}:${opts.recipientWfid}`;
   if (pendingChecks.has(key)) return;
   pendingChecks.add(key);
-  void clusterMailbox.peek(opts.recipientWfid).then((pending) => {
+  void clusterMailbox.peek(opts.recipientWfid).then((all) => {
+    const pending = all.filter((m) => m.fromGemini !== true);
     if (pending.length === 0) return;
     if (pending.every((m) => !m.artifacts?.length && isAutoPickupAcknowledgement(m.content))) {
       emitSkip(opts.clusterId, opts.recipientWfid, opts.senderWfid, opts.incomingChainDepth, 'ack_only', Date.now());
@@ -371,6 +386,11 @@ function fireRulePickup(opts: { clusterId: string; senderWfid: string; recipient
   if (!broadcastWorkflowFn || !dispatchAutoTurnFn || !isBusyFn) return;
   const { clusterId, senderWfid, recipientWfid, incomingChainDepth } = opts;
   const now = Date.now();
+
+  if (isGeminiMember(recipientWfid)) {
+    emitSkip(clusterId, recipientWfid, senderWfid, incomingChainDepth, 'operator_send_only', now, GEMINI_AUTO_PICKUP_SKIP);
+    return;
+  }
 
   // Guard 0: cluster toggle armed. Most clusters won't have this on; the
   // gate is the first check so the hot path is one map lookup when off.

@@ -11,9 +11,22 @@ export interface ClusterSkillPin extends ArcoSkillRef { role?: string }
 // MCP over http/sse only, not stdio). Local providers (ollama/llamacpp) use
 // Arco's in-process tool runtime and are serialized per provider to avoid
 // local model fights.
-export type ClusterMemberProvider = 'claude' | 'codex' | 'ollama' | 'llamacpp' | 'cursor';
+// Gemini (antigravity-cli) members take a turn only from the operator's
+// NUDGE or a message typed in their composer; AUTO-PICKUP skips them, and
+// mail they send waits for the operator's NUDGE on the recipient
+// (docs/PROTOCOL_CLUSTER.md "Gemini members").
+export type ClusterMemberProvider = 'claude' | 'codex' | 'ollama' | 'llamacpp' | 'cursor' | 'antigravity-cli';
 
-export const CLUSTER_MEMBER_PROVIDERS = ['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as const satisfies readonly ClusterMemberProvider[];
+export const CLUSTER_MEMBER_PROVIDERS = ['claude', 'codex', 'ollama', 'llamacpp', 'cursor', 'antigravity-cli'] as const satisfies readonly ClusterMemberProvider[];
+
+// Member turns that only the operator's NUDGE or typed message may start.
+export function isOperatorSendOnlyProvider(v: unknown): boolean {
+  return v === 'antigravity-cli';
+}
+export const GEMINI_MEMBER_NOTE = 'Mail to or from Gemini waits for your NUDGE; review or edit it in MAILBOX first. AUTO-PICKUP skips it.';
+// Shown where a Gemini member is chosen: it runs in the project folder.
+export const GEMINI_MEMBER_CHOICE_NOTE = `${GEMINI_MEMBER_NOTE} Gemini members are not isolated.`;
+
 
 export function isClusterMemberProvider(v: unknown): v is ClusterMemberProvider {
   return typeof v === 'string' && (CLUSTER_MEMBER_PROVIDERS as readonly string[]).includes(v);
@@ -1359,7 +1372,7 @@ export interface ClusterAutoTurnFiredMessage {
   workflowId: string;        // recipient (the workflow whose turn fires / would have fired)
   sender: string;            // sender workflowId of the triggering peer_message_sent
   chainDepth: number;        // depth this auto-turn lands at (sender's + 1 on fire; reported as-is on skip)
-  reason: 'mailbox_arrival' | 'rate_capped' | 'depth_capped' | 'cooldown' | 'recipient_busy' | 'disabled' | 'ack_only' | 'budget_paused' | 'member_capped' | 'pair_paused';
+  reason: 'mailbox_arrival' | 'rate_capped' | 'depth_capped' | 'cooldown' | 'recipient_busy' | 'disabled' | 'ack_only' | 'budget_paused' | 'member_capped' | 'pair_paused' | 'operator_send_only' | 'gemini_mail';
   notice?: string;           // operator-facing pause notice
   fired: boolean;            // true → a turn was dispatched; false → guard refused
 }

@@ -5,7 +5,7 @@ import { deriveDisplayNames } from './modelOptions';
 import { useAppStore } from '../../stores/appStore';
 import { CursorModelSelect } from '../CursorModelSelect';
 import { useStartupStore } from '../../stores/startupStore';
-import { CLUSTER_MEMBER_PROVIDERS } from '@arco/shared';
+import { CLUSTER_MEMBER_PROVIDERS, GEMINI_MEMBER_CHOICE_NOTE } from '@arco/shared';
 import { MEMBER_PROVIDER_NAMES, memberProviderAvailable } from './memberProviders';
 import { PERMISSION_AUTO_NOTE, PERMISSION_SAFE_NOTE } from './permissionNotes';
 import type { ClusterMembersSectionProps } from './types';
@@ -49,6 +49,7 @@ export function ClusterMembersSection({
     if (provider === 'ollama') return ollamaModelsForPicker;
     if (provider === 'llamacpp') return llamacppModelsForPicker;
     if (provider === 'cursor') return cursorModelsForPicker;
+    if (provider === 'antigravity-cli') return (authStatus?.['antigravity-cli']?.installedModels ?? []).map((id) => ({ value: id as ModelName, label: id }));
     return claudeModelsForPicker;
   };
   const dotSep = (
@@ -88,7 +89,7 @@ export function ClusterMembersSection({
         className="display-font"
         style={{ fontSize: '9px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px', lineHeight: 1.4 }}
       >
-        Members can use Claude, Codex, Cursor, Ollama or llama.cpp when the provider is enabled and connected. Other providers cannot join a cluster.{' '}
+        Members can use Claude, Codex, Cursor, Gemini, Ollama or llama.cpp when the provider is enabled and connected. Other providers cannot join a cluster.{' '}
         <button type="button" onClick={openConnections} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', cursor: 'pointer', font: 'inherit', textDecoration: 'underline' }}>Open Connections</button>
       </div>
 
@@ -266,10 +267,11 @@ export function ClusterMembersSection({
                         }}
                         style={{ ...selectStyle(m.provider === p), flex: 1, textAlign: 'center', padding: '6px 8px' }}
                       >
-                        {p === 'llamacpp' ? 'LLAMA' : p.toUpperCase()}{available(p) ? '' : ' (NOT CONNECTED)'}
+                        {p === 'llamacpp' ? 'LLAMA' : p === 'antigravity-cli' ? 'GEMINI' : p.toUpperCase()}{available(p) ? '' : ' (NOT CONNECTED)'}
                       </button>
                     ))}
                   </div>
+                  {m.provider === 'antigravity-cli' && <div role="note" style={{ ...hintStyle, overflowWrap: 'anywhere' }}>{GEMINI_MEMBER_CHOICE_NOTE}</div>}
                   <div style={{ ...hintStyle, overflowWrap: 'anywhere' }}>
                     Only enabled, connected providers are listed.{' '}
                     <button type="button" onClick={openConnections} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', cursor: 'pointer', font: 'inherit', textDecoration: 'underline' }}>Connect another provider</button>

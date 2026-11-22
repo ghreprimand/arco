@@ -45,7 +45,7 @@ class AntigravityTurn extends EventEmitter implements ProviderProcess {
   kill(): void { this.fail(new Error('Turn cancelled.')); }
   private async run(prompt: string): Promise<void> {
     const workflowId = this.config.workflowId;
-    if (!workflowId || this.config.antigravityInteractive !== true || this.config.interactionMode !== 'agent' || this.config.clusterId || this.config.sandbox || this.config.voiceOperator) throw new Error('Antigravity is available only in an interactive agent tab.');
+    if (!workflowId || this.config.antigravityInteractive !== true || this.config.interactionMode !== 'agent' || this.config.sandbox || this.config.voiceOperator) throw new Error('Antigravity runs only on an interactive message the operator sent.');
     if (!permittedAgyModel(this.config.model)) throw new Error('Antigravity requires a Gemini model.');
     if (!this.config.cwd) throw new Error('Antigravity needs the working folder chosen for this agent tab.');
     const cwd = await realpath(this.config.cwd);

@@ -11,6 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 import {
   isClusterMemberProvider,
+  isOperatorSendOnlyProvider,
   type ClusterDispatchFired,
   type ClusterDispatchSkipReason,
   type ClusterDispatchSkipped,
@@ -192,7 +193,8 @@ export async function dispatchOnce(opts: DispatchOnceOptions): Promise<DispatchO
       skip(skipped, task, 'member_busy');
       continue;
     }
-    if (!isClusterMemberProvider(wf.primary.provider)) {
+    // Gemini members take turns only from the operator's NUDGE or typed message.
+    if (!isClusterMemberProvider(wf.primary.provider) || isOperatorSendOnlyProvider(wf.primary.provider)) {
       skip(skipped, task, 'unsupported_provider', wf.primary.provider);
       continue;
     }

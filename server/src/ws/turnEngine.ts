@@ -36,6 +36,8 @@ import { createCheckpoint } from '../gitSnapshots.js';
 import { summarizeTurnChanges, timelyCheckpoint, shouldCaptureTurn } from '../turnChanges.js';
 import { isManagedBakeoffWorktree } from '../gitBakeoff.js';
 import * as clusterMailbox from '../clusterMailbox.js';
+import { consumeGeminiSend, geminiSendValid, GEMINI_OPERATOR_ONLY_REFUSAL, isGeminiMember } from '../geminiMembers.js';
+import { setTurnOrigin } from '../clusterTurnOrigin.js';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
 import { clusterToolsPending, CLUSTER_TOOLS_PENDING_NOTICE, CLUSTER_TOOLS_PENDING_AGENT } from '../clusterTurnTools.js';
 import * as clusterStore from '../clusterStore.js';
@@ -1402,7 +1404,7 @@ export async function handleUserMessage(
   pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>,
   // drainQueueIfIdle only: take the prompt from wf.queue at claim time
   // instead of `content` (items were echoed + expanded at enqueue).
-  opts?: { operatorInitiated?: boolean; clusterBusyReminder?: boolean; automaticKind?: import('@arco/shared').AutomaticMessageKind; fromQueue?: boolean; busyOnly?: boolean; busyOnlyGuard?: () => boolean; onBusyQueued?: () => void; backgroundEvent?: boolean; onBackgroundSettled?: (error?: string) => void; claimGuard?: (claim: () => boolean) => Promise<boolean> },
+  opts?: { operatorInitiated?: boolean; operatorAction?: boolean; geminiSend?: string; clusterBusyReminder?: boolean; automaticKind?: import('@arco/shared').AutomaticMessageKind; fromQueue?: boolean; busyOnly?: boolean; busyOnlyGuard?: () => boolean; onBusyQueued?: () => void; backgroundEvent?: boolean; onBackgroundSettled?: (error?: string) => void; claimGuard?: (claim: () => boolean) => Promise<boolean> },
 ): Promise<void> {
   const fromQueue = opts?.fromQueue === true;
   const wf = workflows.get(workflowId);
@@ -1410,10 +1412,20 @@ export async function handleUserMessage(
     send(ws, { type: 'error', message: `Unknown workflow ${workflowId.slice(0, 8)}` });
     return;
   }
+  // docs/PROTOCOL_CLUSTER.md "Gemini members": a Gemini member turn needs the
+  // single-use ticket of the operator's NUDGE or typed message for this
+  // member and this exact text, checked here and again when a queued message
+  // is taken. Other Antigravity turns accept only operator messages.
+  const geminiMember = wf.primary.provider === 'antigravity-cli' && isGeminiMember(workflowId);
+  const antigravityInputOk = (item: { operatorInitiated?: boolean; automaticKind?: string; geminiSend?: string; content: string }, check: typeof geminiSendValid): boolean =>
+    item.operatorInitiated === true && (geminiMember
+      ? (!item.automaticKind || item.automaticKind === 'nudge') && check(item.geminiSend, workflowId, item.content)
+      : !item.automaticKind);
   const queuedOperatorInput = fromQueue && [...wf.queue.steering, ...wf.queue.followUp].length > 0
-    && [...wf.queue.steering, ...wf.queue.followUp].every(item => item.operatorInitiated === true && !item.automaticKind);
-  if (wf.primary.provider === 'antigravity-cli' && (!(opts?.operatorInitiated === true || queuedOperatorInput) || opts?.automaticKind || opts?.backgroundEvent || primitive || (isChatWorkflow(wf.config) && wf.config.incognito) || clusterStore.getClusterIdForWorkflow(workflowId))) {
-    send(ws, { type: 'error', workflowId, message: 'Antigravity accepts only operator messages in an Agent tab or saved Chat.' });
+    && [...wf.queue.steering, ...wf.queue.followUp].every(item => antigravityInputOk(item, geminiSendValid));
+  const directOperatorInput = !fromQueue && antigravityInputOk({ operatorInitiated: opts?.operatorInitiated, automaticKind: opts?.automaticKind, geminiSend: opts?.geminiSend, content }, geminiSendValid);
+  if (wf.primary.provider === 'antigravity-cli' && (!(directOperatorInput || queuedOperatorInput) || opts?.backgroundEvent || primitive || (isChatWorkflow(wf.config) && wf.config.incognito))) {
+    send(ws, { type: 'error', workflowId, message: geminiMember ? GEMINI_OPERATOR_ONLY_REFUSAL : 'Antigravity accepts only operator messages in an Agent tab or saved Chat.' });
     return;
   }
   if (wf.primary.provider === 'antigravity-cli' && /^\s*\/schedule(?:\s|$)/i.test(content)) {
@@ -1638,7 +1650,7 @@ export async function handleUserMessage(
     }
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
     const queuedAttachments = [...new Set([...(attachments ?? []), ...contextAttachments])];
-    const queuedItem = { ...(wf.primary.provider === 'antigravity-cli' && opts?.operatorInitiated === true ? { operatorInitiated: true } : {}), clusterBusyReminder: opts?.clusterBusyReminder, automaticKind: opts?.automaticKind, content, attachments: isolatedMember || !queuedAttachments.length ? undefined : queuedAttachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
+    const queuedItem = { ...(wf.primary.provider === 'antigravity-cli' && opts?.operatorInitiated === true ? { operatorInitiated: true } : {}), ...(geminiMember && opts?.geminiSend ? { geminiSend: opts.geminiSend } : {}), ...(opts?.operatorAction === true ? { operatorAction: true } : {}), clusterBusyReminder: opts?.clusterBusyReminder, automaticKind: opts?.automaticKind, content, attachments: isolatedMember || !queuedAttachments.length ? undefined : queuedAttachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
     arr.push(queuedItem);
     opts?.onBusyQueued?.();
     send(ws, {
@@ -1721,13 +1733,16 @@ export async function handleUserMessage(
     send(ws, { type: 'error', workflowId, message: 'A phone attachment expired or belongs to another conversation.' });
     return;
   }
-  let activeAntigravityOperatorInput = opts?.operatorInitiated === true;
+  let activeAntigravityOperatorInput = !fromQueue && antigravityInputOk({ operatorInitiated: opts?.operatorInitiated, automaticKind: opts?.automaticKind, geminiSend: opts?.geminiSend, content }, consumeGeminiSend);
+  // The turn's origin decides what its peer_read may take (clusterTurnOrigin.ts).
+  if (!fromQueue) setTurnOrigin(workflowId, opts?.operatorAction === true);
   let activeOllamaInputSeqs: number[] = [];
   let activeInputClientIds: string[] = [];
   if (fromQueue) {
     const drained = takeQueuedTurn(wf.queue);
     if (drained.length === 0) return;
-    activeAntigravityOperatorInput = drained.every(item => item.operatorInitiated === true && !item.automaticKind);
+    activeAntigravityOperatorInput = drained.every(item => antigravityInputOk(item, consumeGeminiSend));
+    setTurnOrigin(workflowId, drained.some(item => item.operatorAction === true));
     if (!incognito) console.log(`[arco] [${workflowId.slice(0, 8)}] idle drain: flushing ${drained.length} queued message(s) as a fresh turn`);
     broadcastQueueUpdate(workflowId);
     const drainedClientIds = drained
@@ -1798,7 +1813,8 @@ export async function handleUserMessage(
 
   const loadQueuedPrompt = (append = false): void => {
     const drained = takeQueuedTurn(wf.queue);
-    activeAntigravityOperatorInput = drained.length > 0 && drained.every(item => item.operatorInitiated === true && !item.automaticKind);
+    activeAntigravityOperatorInput = drained.length > 0 && drained.every(item => antigravityInputOk(item, consumeGeminiSend));
+    if (drained.some(item => item.operatorAction === true)) setTurnOrigin(workflowId, true);
     broadcastQueueUpdate(workflowId);
     const ids = drained.flatMap((d) => d.clientMessageId ? [d.clientMessageId] : []);
     if (ids.length) send(ws, { type: 'queued_messages_drained', workflowId,

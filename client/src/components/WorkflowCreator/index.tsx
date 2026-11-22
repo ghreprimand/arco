@@ -125,6 +125,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     if (provider === 'ollama') return ollamaModelsForPicker;
     if (provider === 'llamacpp') return llamacppModelsForPicker;
     if (provider === 'cursor') return cursorModelsForPicker;
+    if (provider === 'antigravity-cli') return (authStatus?.['antigravity-cli']?.installedModels ?? []).map((id) => ({ value: id as ModelName, label: id }));
     return claudeModelsForPicker;
   };
   const defaultClusterModelForProvider = (provider: ClusterMemberProvider): ModelName => {

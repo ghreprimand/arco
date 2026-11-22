@@ -26,7 +26,8 @@ export async function remindBusyMember(clusterId: string, workflowId: string, de
   pending.add(key);
   try {
     const mail = await mailbox.peek(workflowId);
-    const actionable = mail.filter(m => m.artifacts?.length || !isAutoPickupAcknowledgement(m.content));
+    // Mail from a Gemini member waits for the operator's NUDGE (docs/PROTOCOL_CLUSTER.md).
+    const actionable = mail.filter(m => m.fromGemini !== true && (m.artifacts?.length || !isAutoPickupAcknowledgement(m.content)));
     const ids = new Set(actionable.map(m=>m.msgId));
     const prior = states.get(key) ?? {seen:new Set<string>()};
     // Forget read mail, retaining the rate limit across successive batches.

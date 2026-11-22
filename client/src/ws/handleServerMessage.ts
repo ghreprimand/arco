@@ -618,7 +618,9 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
                 timestamp: splitTimestamp,
               });
             }
-            store.updateMessage(msg.workflowId, msg.clientMessageId, { eventSeq: echoSeq, automaticKind: msg.automaticKind });
+            // A Gemini member's first NUDGE gains its role and cluster
+            // instructions on the server; show the text it received.
+            store.updateMessage(msg.workflowId, msg.clientMessageId, { eventSeq: echoSeq, automaticKind: msg.automaticKind, ...(msg.automaticKind === 'nudge' && typeof msg.content === 'string' ? { content: msg.content } : {}) });
             break;
           }
           store.addMessage(msg.workflowId, {
@@ -2376,6 +2378,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // (rate_capped / depth_capped / cooldown / recipient_busy).
           const display = msg.workflowId.slice(0, 8);
           if (msg.notice) store.pushNotification('info', `[CLUSTER] AUTO-PICKUP: ${msg.notice}`);
+          if (msg.reason === 'operator_send_only' || msg.reason === 'gemini_mail') break;
           if (msg.fired) {
             store.pushNotification(
               'info',

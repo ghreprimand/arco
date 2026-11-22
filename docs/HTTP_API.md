@@ -1214,6 +1214,15 @@ Discard a single pending message before the recipient drains it. The recipient n
 
 Once a message is delivered (drained via `peer_read`) the file no longer exists; the durable record lives in the recipient's `events.jsonl` as `peer_message_received`. This endpoint only mutates the transient mailbox file layer - there is no "cancel a delivered message" surface.
 
+### `PUT /api/clusters/:id/mailbox/:wfid/:msgId`
+
+Replace the text of one pending message (EDIT in the mailbox modal). Body: `{ "content": "..." }`, at most 32 KB. The rewrite happens under the mailbox lock and keeps the message id, sender, time, attachments and `fromGemini` marker.
+
+- `200 { "ok": true, "msgId": "..." }` - the pending message now carries the new text.
+- `400 { "error": "empty_message" }` - `content` is missing or blank.
+- `409 { "error": "already_delivered" }` - the message was already read or cancelled; nothing changed.
+- `404 { "error": "unknown_cluster_or_member" }` - `:id` / `:wfid` validation failed.
+
 ---
 
 ## Plans

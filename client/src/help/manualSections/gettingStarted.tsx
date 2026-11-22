@@ -373,7 +373,7 @@ export const gettingStarted: Section[] = [
   </p>
   <ul>
   <li>Display name (optional).</li>
-  <li>Provider - only enabled, connected Claude, Codex, Cursor, Ollama or llama.cpp. A saved or preset provider that is no longer connected stays visible, marked <Code>(not connected)</Code>. Creation waits until every member has an enabled, connected provider, with a reason and an Open Connections link.</li>
+  <li>Provider - only enabled, connected Claude, Codex, Cursor, Gemini, Ollama or llama.cpp. Mail to or from a Gemini member waits for your NUDGE. A saved or preset provider that is no longer connected stays visible, marked <Code>(not connected)</Code>. Creation waits until every member has an enabled, connected provider, with a reason and an Open Connections link.</li>
   <li>Model and effort (per-provider pickers).</li>
   <li>Role - free-form, up to 120 characters (for example "director" or "tester"); at most one director.</li>
   <li>Work size - light, standard, heavy or unset. It is a hint for the director and does not change model or effort.</li>

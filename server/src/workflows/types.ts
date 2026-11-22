@@ -206,6 +206,12 @@ export interface WorkflowState {
 export interface QueueItem {
   // Server-only: this item was accepted from an operator message.
   operatorInitiated?: boolean;
+  // Server-only: the operator's single-use SEND ticket of a Gemini member
+  // (geminiMembers.ts), checked again and consumed when the item is taken.
+  geminiSend?: string;
+  // Server-only: queued by the operator's own NUDGE or typed message
+  // (clusterTurnOrigin.ts).
+  operatorAction?: boolean;
   // Server-only provenance, never accepted from a browser message.
   clusterBusyReminder?: boolean;
   automaticKind?: import('@arco/shared').AutomaticMessageKind;

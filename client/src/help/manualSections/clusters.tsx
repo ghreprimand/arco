@@ -2191,9 +2191,27 @@ export const clusters: Section[] = [
   ),
   },
   {
+  id: 'cluster-gemini-members',
+  group: 'Clusters',
+  title: 'Gemini members',
+  body: (
+  <>
+  <p>
+  A Gemini model (Antigravity CLI) can be a cluster member in any role, including Director. Choose GEMINI as the provider when creating the cluster, in + ADD FRESH or in REPLACE.
+  </p>
+  <p>
+  Mail to or from a Gemini member waits until you press NUDGE on the recipient. AUTO-PICKUP, Smart pickup, busy reminders, CONTINUE DIRECTOR and messages to several members skip it. Review, edit or cancel the waiting mail in MAILBOX first; the recipient then reads it with <Code>peer_read</Code>.
+  </p>
+  <p>
+  A message typed in a Gemini member&apos;s own composer also starts its turn. Its first NUDGE starts with its role and cluster instructions, shown in the conversation. COMPACT works as in an Agent tab. Gemini members are not isolated and cannot be researchers. A Gemini replacement starts with no history.
+  </p>
+  </>
+  ),
+  },
+  {
   id: 'cluster-mailbox-modal',
   group: 'Clusters',
-  title: 'Mailbox modal - inspect + cancel',
+  title: 'Mailbox modal - inspect, edit + cancel',
   body: (
   <>
   <p>
@@ -2203,9 +2221,10 @@ export const clusters: Section[] = [
   </p>
   <p>
   The modal lists every pending peer message addressed to that member,
-  with sender + timestamp + full content. Each row has a{' '}
-  <Code>CANCEL</Code> button that discards the message before the
-  recipient drains it.
+  with sender + timestamp + full content. <Code>EDIT</Code> opens the
+  text in an editable box; <Code>SAVE</Code> replaces it and keeps the
+  sender, time and attachments. A message already read is not saved.{' '}
+  <Code>CANCEL</Code> discards the message before the recipient drains it.
   </p>
   <p>
   Malformed messages are preserved aside and logged once rather than listed

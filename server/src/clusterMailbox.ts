@@ -37,6 +37,9 @@ export interface PeerMessage {
   delivered: boolean;
   deliveredAt?: string;
   artifacts?: PeerArtifact[];
+  // Sent by a Gemini member (docs/PROTOCOL_CLUSTER.md "Gemini members"):
+  // delivered only in a turn the operator started.
+  fromGemini?: boolean;
 }
 
 // A 16 KB limit accommodates complete peer messages
@@ -258,8 +261,14 @@ export async function peek(wfId: string): Promise<PeerMessage[]> {
 // are the durable record — keeping mailbox files post-drain serves no purpose
 // in Phase 1). Caller must emit the events BEFORE the operator's
 // user_message_echo to satisfy the acceptance ordering.
-export async function drain(wfId: string, options?: { onlyFrom: string }): Promise<PeerMessage[]> {
-  if (options && (typeof options.onlyFrom !== 'string' || !options.onlyFrom)) throw new Error('A sender is required for filtered mail.');
+//
+// Mail a Gemini member sent stays waiting unless `operatorTurn` is true: the
+// recipient's current turn was started by the operator's NUDGE or typed
+// message (clusterTurnOrigin.ts). This is the one place that rule is applied.
+export async function drain(wfId: string, options?: { onlyFrom?: string; operatorTurn?: boolean }): Promise<PeerMessage[]> {
+  if (options && 'onlyFrom' in options && (typeof options.onlyFrom !== 'string' || !options.onlyFrom)) throw new Error('A sender is required for filtered mail.');
+  const wanted = (msg: PeerMessage): boolean => (!options?.onlyFrom || msg.fromWorkflowId === options.onlyFrom)
+    && (msg.fromGemini !== true || options?.operatorTurn === true);
   const clusterId = getClusterIdForWorkflow(wfId);
   if (!clusterId) return [];
   return withFileLock(clusterMailboxRoot(clusterId), async () => {
@@ -278,7 +287,7 @@ export async function drain(wfId: string, options?: { onlyFrom: string }): Promi
     // the durable mailbox records retain all original payloads for retry.
     try {
       for (const { msg } of pending) {
-        if (msg && !msg.delivered && (!options || msg.fromWorkflowId === options.onlyFrom)) await materializeArtifacts(wfId, msg);
+        if (msg && !msg.delivered && wanted(msg)) await materializeArtifacts(wfId, msg);
       }
     } catch (err) {
       for (const { msg } of pending) {
@@ -298,7 +307,7 @@ export async function drain(wfId: string, options?: { onlyFrom: string }): Promi
         await fs.unlink(path).catch(() => undefined);
         continue;
       }
-      if (options && msg.fromWorkflowId !== options.onlyFrom) continue;
+      if (!wanted(msg)) continue;
       msg.delivered = true;
       msg.deliveredAt = new Date().toISOString();
       out.push(msg);
@@ -331,6 +340,30 @@ export async function discard(toWfId: string, msgId: string): Promise<boolean> {
     }
   });
 }
+
+// Rewrite the text of one pending message in place: the operator's EDIT in
+// the mailbox modal. Its id, sender, time and attachments are kept. Returns
+// 'delivered' when the message is no longer waiting (already read or
+// cancelled), so an edit never reaches a recipient that has taken it.
+export async function editPending(toWfId: string, msgId: string, content: string): Promise<'ok' | 'delivered'> {
+  if (Buffer.byteLength(content, 'utf8') > OPERATOR_EDIT_MAX_BYTES) {
+    throw new MailboxError('content_too_large', `peer message exceeds ${OPERATOR_EDIT_MAX_BYTES} bytes`);
+  }
+  const clusterId = getClusterIdForWorkflow(toWfId);
+  if (!clusterId || !/^[A-Za-z0-9-]+$/.test(msgId)) return 'delivered';
+  return withFileLock(clusterMailboxRoot(clusterId), async () => {
+    if (getClusterIdForWorkflow(toWfId) !== clusterId) return 'delivered';
+    const path = messagePath(clusterId, toWfId, msgId);
+    const msg = await readMessageFile(path);
+    if (!msg || msg.delivered) return 'delivered';
+    msg.content = content;
+    await atomicWriteFile(path, JSON.stringify(msg, null, 2));
+    return 'ok';
+  });
+}
+
+// The operator's edit may use the operator-driven send cap (see enqueue).
+export const OPERATOR_EDIT_MAX_BYTES = 32 * 1024;
 
 // Mark a single message delivered without removing the file. Provided per
 // plan §6.1a's enumerated API; not used by the Phase 1 drain path (drain

@@ -1161,6 +1161,18 @@ Each offer is bound to the approval it was made for. CONTINUE DIRECTOR (`directo
 
 A new cluster or preset may have at most one director. Role text beginning with Director or Coordinator identifies a director. Existing clusters and saved presets remain readable without rewriting their roles. Assigning a director to another member is rejected. Legacy clusters that already have two directors remain intact, surface a warning on MEMBERS rows, and still allow REPLACE that preserves both directors' roles. The optional `tier` field is a work-size hint for the director: light for quick edits, standard for normal feature work, and heavy for large or architectural changes. It does not change model or effort and is most useful when several members can take the same work. Template review offers work size only for repeated roles.
 
+## Gemini members
+
+Gemini (the `antigravity-cli` provider) can be a cluster member in any role, including Director, chosen at cluster creation, + ADD FRESH or REPLACE. Gemini members are not isolated, are not offered as researchers or Research Directors, and a Gemini replacement starts with no history.
+
+A Gemini member takes a turn only from the operator's NUDGE on it or a message the operator types in its composer. Both arrive as a WebSocket `user_message`; the server issues a single-use ticket bound to that member and the exact text, and `handleUserMessage` starts a Gemini member turn only with a valid ticket, checked again and consumed when a queued message is taken. AUTO-PICKUP, Smart pickup, busy reminders, task dispatch, broadcasts, CONTINUE DIRECTOR, timers, retries and other automatic turns carry no ticket and start nothing. Rule-based AUTO-PICKUP records the skip with reason `operator_send_only`, Smart pickup records it without asking its evaluator, and a broadcast reports the member as `gemini_review`. Prompt templates, `@` references and picked skills are not applied to a Gemini message.
+
+The first NUDGE of a Gemini member, sent before its first turn, starts with its role and the cluster instructions as visible text, followed by the nudge; the conversation shows that full text. Later nudges carry the nudge text only. COMPACT on a Gemini member is the operator's own action: it sends `/compact` to the member's session in its working folder without a ticket, and Arco's automatic compaction stays off for Gemini. During its turns the member reads its mail with `peer_read` and uses `peer_send`, the board and the plan through Arco's MCP bridge, as other members do.
+
+Mail a Gemini member sends is stored with `fromGemini: true` and also waits for the operator. AUTO-PICKUP, Smart pickup and busy reminders never wake a recipient for it; Rule-based AUTO-PICKUP records reason `gemini_mail` and Smart pickup records `gemini_mail` once per session when only such mail is waiting. The mailbox drain delivers it only in a turn started by the operator's NUDGE or typed message: a `peer_read` in an automatic turn returns the other mail and leaves it waiting.
+
+Pending mail for any member can be edited in the mailbox modal: `PUT /api/clusters/:id/mailbox/:wfid/:msgId` with `{ content }` rewrites the message under the mailbox lock and keeps its id, sender, time and attachments. A message already delivered or cancelled is refused with `409 already_delivered`.
+
 ## Composer and task editor recovery
 
 A TO selection containing one member uses the per-member sender, preserving picked skills, steering intent and composer actions. Multiple recipients use broadcast. A successful single-recipient send returns TO to the member in view. The voice recipient chooser reads the latest selection and roster. Task editor RESET restores RELEASE together with title, notes and priority.

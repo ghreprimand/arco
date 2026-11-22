@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import {
   CLAUDE_MODELS,
   DEFAULT_CODEX_MODEL,
+  GEMINI_MEMBER_CHOICE_NOTE,
   ROLE_PRESETS,
   clusterDirectorProblem,
   isClusterDirector,
@@ -20,6 +21,7 @@ import { effortsForModel } from '../../utils/format';
 import { capDefaultEffort } from '../../utils/effortDefaults';
 import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
 import { MemberSettingsFields } from './MemberSettingsFields';
+import { memberProviderAvailable } from '../WorkflowCreator/memberProviders';
 import { requestTranscriptWorker } from '../../utils/transcriptWorkerRequest';
 import { memberSettingsFrom, memberTuning, type MemberSettings } from './memberSettings';
 import { ScratchCloseDialog } from '../ScratchCloseDialog';
@@ -53,6 +55,7 @@ export function ReplaceMemberDialog({
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   const settings = useAppStore((s) => s.settings);
   const authStatus = useAppStore((s) => s.authStatus);
+  const isProviderEnabled = useAppStore((s) => s.isProviderEnabled);
   const originalProvider = (job?.config.primaryProvider ?? 'claude') as ClusterMemberProvider;
   const originalModel = String(job?.config.primaryModel ?? '');
   const originalEffort = String(job?.config.primaryEffort ?? 'medium');
@@ -146,10 +149,14 @@ export function ReplaceMemberDialog({
             ? (authStatus?.ollama?.installedModels?.[0] ?? '')
             : next === 'llamacpp'
               ? (authStatus?.llamacpp?.installedModels?.[0] ?? '')
+            : next === 'antigravity-cli'
+              ? (authStatus?.['antigravity-cli']?.installedModels?.[0] ?? '')
               : (cursorCatalog?.models?.find((m) => m.isDefault)?.id ?? 'auto');
     setModel(first);
     setEffort('medium');
     setAccount(next === 'codex' ? codexAccounts[0]?.id : undefined);
+    // A Gemini replacement starts fresh; its first message is reviewed and sent.
+    if (next === 'antigravity-cli') setHistoryMode('none');
   };
 
   const pickAccess = (next: ClusterMemberAccessMode) => {
@@ -212,11 +219,12 @@ export function ReplaceMemberDialog({
           onChange={(e) => pickProvider(e.target.value as ClusterMemberProvider)}
           style={menuStyle}
         >
-          {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
-            <option key={p} value={p} disabled={accessMode === 'isolated' && !isolatedUsable(p)}>{p.toUpperCase()}</option>
+          {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor', ...(provider === 'antigravity-cli' || memberProviderAvailable('antigravity-cli', authStatus, isProviderEnabled) ? ['antigravity-cli'] : [])] as ClusterMemberProvider[]).map((p) => (
+            <option key={p} value={p} disabled={accessMode === 'isolated' && !isolatedUsable(p)}>{p === 'antigravity-cli' ? 'GEMINI' : p.toUpperCase()}</option>
           ))}
         </select>
       </label>
+      {provider === 'antigravity-cli' && <div role="note" style={{ fontSize: '10px', lineHeight: 1.4, color: 'var(--color-fg-muted)' }}>{GEMINI_MEMBER_CHOICE_NOTE} A Gemini replacement starts with no history.</div>}
       <label
         className="display-font"
         data-help="cluster.replace.model"
@@ -368,7 +376,7 @@ export function ReplaceMemberDialog({
       >
         HISTORY
         <select aria-label="Replacement history" data-help="cluster.replace.history" value={historyMode}
-          disabled={accessMode === 'isolated'} onChange={event => setHistoryMode(event.target.value as typeof historyMode)} style={menuStyle}>
+          disabled={accessMode === 'isolated' || provider === 'antigravity-cli'} onChange={event => setHistoryMode(event.target.value as typeof historyMode)} style={menuStyle}>
           <option value="none">NO HISTORY</option>
           <option value="recent">RECENT HISTORY</option>
           <option value="full">FULL HISTORY</option>

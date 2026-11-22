@@ -52,6 +52,8 @@ import * as taskLedger from './project/taskLedger.js';
 import { appendLedgerComment, persistLedgerKernelMutation, persistLedgerMutation } from './ws/taskLedgerHandlers.js';
 import { isClusterDirector, isIsolatedAccessMode, isTaskApprovalCurrent, presetForText } from '@arco/shared';
 import type { ServerMessage, MemberTier, LedgerTask, LedgerTaskStatus, TaskComment, TaskDetails, TaskLink, TaskRun, TaskSignoff, TaskSignoffState } from '@arco/shared';
+import { isGeminiMember } from './geminiMembers.js';
+import { isOperatorStartedTurn } from './clusterTurnOrigin.js';
 
 // peer_send dedupe — guards against the orphan-tool-use retry pattern:
 // a previous turn aborted mid-tool, leaving the model with no memory of
@@ -420,6 +422,7 @@ export async function peerSend(
       createdAt,
       delivered: false,
       ...(artifacts?.length ? { artifacts } : {}),
+      ...(isGeminiMember(ctx.workflowId) ? { fromGemini: true } : {}),
     }, opts?.maxContentBytes !== undefined ? { maxContentBytes: opts.maxContentBytes } : undefined);
   } catch (err) {
     rollback();
@@ -659,7 +662,9 @@ export async function peerPlanWrite(
 // peer_message_received event per drained item on the recipient's channel
 // so transcripts on both sides reproduce the delivery record.
 export async function peerRead(ctx: PeerOpsContext, options?: { onlyFrom: string }): Promise<PeerReadEntry[]> {
-  const drained = await clusterMailbox.drain(ctx.workflowId, options);
+  // Mail from a Gemini member is delivered only in a turn the operator
+  // started (clusterMailbox.drain, docs/PROTOCOL_CLUSTER.md "Gemini members").
+  const drained = await clusterMailbox.drain(ctx.workflowId, { ...(options ?? {}), operatorTurn: isOperatorStartedTurn(ctx.workflowId) });
   if (drained.length === 0) return [];
   const materialized = new Map<string, Array<{ name: string; path: string; byteLength: number }>>();
   for (const m of drained) {

@@ -14,6 +14,7 @@ import { isClusterOpen, workspaceAdoptFormerMembers, workspaceCloseCluster, work
 import { assertSkillUnion } from '../clusterSkills.js';
 import {
   isClusterMemberProvider,
+  isOperatorSendOnlyProvider,
   isIsolatedAccessMode,
   isClusterMemberAccessMode,
   isClusterEfficiencyLevel,
@@ -88,6 +89,8 @@ import { addResearcher, announceResearchReopen, isResearchMemberBusy, removeRese
 import { activeResearchers, loadResearch } from '../research/researchState.js';
 import { moveUnsentFiles, removeResearcherWorkspace } from '../research/researchClose.js';
 import { RESEARCH_MAX_RESEARCHERS } from '@arco/shared';
+import { antigravityStatus } from '../providers/antigravity/status.js';
+import { isGeminiMember } from '../geminiMembers.js';
 
 /** Providers Arco can run as ISOLATED members; each still needs its own checks below. */
 const isolatableProvider = (provider: string | undefined): provider is 'claude' | 'codex' | 'cursor' => provider === 'claude' || provider === 'codex' || provider === 'cursor';
@@ -371,6 +374,11 @@ export async function handleClusterBroadcast(
     const wf = workflows.get(wfid);
     if (!wf) {
       failed.push({ workflowId: wfid, reason: 'not_hydrated' });
+      continue;
+    }
+    // A Gemini member takes a turn only from its own NUDGE or composer.
+    if (isGeminiMember(wfid)) {
+      failed.push({ workflowId: wfid, reason: 'gemini_review' });
       continue;
     }
     // Mint a per-member clientMessageId so the optimistic-add path on the
@@ -1471,6 +1479,10 @@ export async function isKnownCatalogModel(provider: ClusterMemberProvider, model
       if (snap.models.length > 0) {
         return snap.models.some((m) => m.id === modelId);
       }
+    } else if (provider === 'antigravity-cli') {
+      // The models `agy models` lists; Gemini ids only.
+      const { installedModels } = await antigravityStatus();
+      return installedModels.includes(modelId);
     } else if (provider === 'llamacpp') {
       const catalog = await readLlamacppCatalog();
       if (catalog.models.length > 0) {
@@ -1765,6 +1777,10 @@ async function createClusterFromScratch(
     if (accessMode === 'isolated') {
       const reason = await isolatedProviderRefusal(m.provider, m.claudeTransport);
       if (reason) { send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] ${reason}` }); return; }
+    }
+    if (research && isOperatorSendOnlyProvider(m.provider)) {
+      send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] Gemini is not available in research projects yet.` });
+      return;
     }
     if (accessMode === 'researcher' && !research) {
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] researcher_requires_research_project` });
@@ -2237,6 +2253,12 @@ export async function handleClusterMemberReplace(
     }
   }
 
+  // A Gemini replacement starts fresh; its first NUDGE carries its role and
+  // cluster instructions (geminiMembers.ts).
+  if (historyMode !== 'none' && isOperatorSendOnlyProvider(providerResolution.provider)) {
+    send(ws, { type: 'error', message: 'cluster_member_replace rejected: A Gemini replacement starts fresh; its first NUDGE carries its role and cluster instructions.' });
+    return;
+  }
   let historySeed = '', historyNotice: string | undefined;
   if (historyMode !== 'none') {
     const turns = msg.historyTurns ?? 10;

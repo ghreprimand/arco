@@ -665,7 +665,10 @@ export function ClusterTab({
     const toastText = queued === 0
       ? `Sent to ${scopeLabel} members`
       : `Queued for ${queued} of ${targetMembers.length}${recipientList ? ` (of ${total})` : ''} members`;
-    setToasts((prev) => [...prev, { id: clientMessageId, text: toastText, expiresAt: Date.now() + 4500 }]);
+    // Gemini members are left out of a broadcast; each takes a turn only from its own NUDGE or composer.
+    const gemini = targetMembers.filter((m) => useAppStore.getState().jobs[m.workflowId]?.config.primaryProvider === 'antigravity-cli').length;
+    const geminiText = gemini ? ` ${gemini} Gemini ${gemini === 1 ? 'member was' : 'members were'} skipped; use NUDGE or its own composer.` : '';
+    setToasts((prev) => [...prev, { id: clientMessageId, text: toastText + geminiText, expiresAt: Date.now() + 4500 }]);
     setComposerRecipients(null);
     return true;
   };

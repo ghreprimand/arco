@@ -36,6 +36,9 @@ export interface SnapshotInput {
   // Set when the mailbox could not be read reliably (unreadable or invalid
   // records, or ids missing). Nothing is sent to the evaluator then.
   unreadable?: boolean;
+  // Messages from Gemini members left out of `messages`: they wait for the
+  // operator's NUDGE (docs/PROTOCOL_CLUSTER.md "Gemini members").
+  heldFromGemini?: number;
 }
 
 export interface BuiltSnapshot {

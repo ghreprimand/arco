@@ -127,7 +127,7 @@ export function ResearchStartForm(props: Pickers & {
   const sandboxedUnavailable = (p: ClusterMemberProvider) => (p === 'codex' && (!codexSandboxAvailable || !available('codex'))) || (p === 'cursor' && (!cursorSandboxAvailable || !available('cursor')));
   const cliAvailable = sandboxStatus === 'ready' && isProviderEnabled('claude') && claudeConnection(authStatus?.claude, 'cli').connected;
   const anyResearcherAvailable = researcherProviders.length > 0 || cliAvailable;
-  const directorProviders = CLUSTER_MEMBER_PROVIDERS.filter(available);
+  const directorProviders = CLUSTER_MEMBER_PROVIDERS.filter((p) => p !== 'antigravity-cli' && available(p));
   const rowFor = (provider: ClusterMemberProvider, from?: Partial<ResearchRow>): ResearchRow => {
     // A restored model or effort that is no longer offered falls back to the
     // provider's first model and its default effort, so Start never sends it.

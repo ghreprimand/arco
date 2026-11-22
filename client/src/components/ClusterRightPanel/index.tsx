@@ -211,6 +211,22 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
       setMailboxError(err instanceof Error ? err.message : String(err));
     }
   };
+  // EDIT in the mailbox modal: rewrite a pending message in place. A message
+  // already delivered or cancelled is refused with a short reason.
+  const onEditMessage = async (msgId: string, content: string): Promise<boolean> => {
+    if (!mailboxWfid) return false;
+    try {
+      const r = await fetch(`/api/clusters/${cluster.clusterId}/mailbox/${mailboxWfid}/${msgId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content }) });
+      const body = await r.json().catch(() => ({})) as { error?: string; message?: string };
+      if (!r.ok) { setMailboxError(body.message ?? body.error ?? `edit failed (${r.status})`); return false; }
+      setMailboxError(null);
+      setMailboxMsgs((prev) => prev?.map((m) => m.msgId === msgId ? { ...m, content } : m) ?? prev);
+      return true;
+    } catch (err) {
+      setMailboxError(err instanceof Error ? err.message : String(err));
+      return false;
+    }
+  };
   // Slice 6a — rename UI lives on the Members tab header. Edit mode toggles
   // an inline input pre-filled with the current effective name.
   const [renameOpen, setRenameOpen] = useState(false);
@@ -844,6 +860,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
             error={mailboxError}
             onClose={() => { setMailboxWfid(null); setMailboxMsgs(null); setMailboxError(null); }}
             onCancel={onCancelMessage}
+            onEdit={onEditMessage}
             onMakeTask={cluster.taskBoardMode !== 'none' && wsSendRaw ? onMakeTaskFromMessage : undefined}
           />
         )}

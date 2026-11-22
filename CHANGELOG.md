@@ -5,6 +5,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Add Gemini (Antigravity) cluster members in any role; mail to or from a Gemini member waits for your NUDGE on the recipient, and AUTO-PICKUP skips it.
+
+- Edit pending peer messages in MAILBOX before the recipient reads them.
+
 - Show Antigravity CLI usage and updates, run its updater from Versions, and send COMPACT to Gemini.
 
 - Hand off to Antigravity with a saved document and an editable composer draft.

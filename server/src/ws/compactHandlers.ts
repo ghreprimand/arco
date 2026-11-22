@@ -212,7 +212,7 @@ export async function handleCompactWorkflow(ws: WebSocket, session: Session, msg
       }
     } else if (provider === 'antigravity-cli') {
       if (!expectedSessionId || !cwd) result = { ok: false, error: 'No saved Gemini session; run a turn first.' };
-      else if (clusterStore.getClusterIdForWorkflow(workflowId) || wf.config.incognito) result = { ok: false, error: 'Gemini compact is available in interactive tabs only.' };
+      else if (wf.config.incognito) result = { ok: false, error: 'Gemini compact is unavailable in Incognito.' };
       else if (!ownsBusy(wf, busyToken) || wf.primarySessionId !== expectedSessionId || wf.primary.provider !== provider) result = { ok: false, error: 'compaction cancelled before dispatch' };
       else {
         const chat = isChatWorkflow(wf.config);

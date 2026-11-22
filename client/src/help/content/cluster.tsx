@@ -320,7 +320,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Pending mail',
     body: (
       <>
-        <p>Lists the messages waiting for one member, with sender, time and text. Messages from the same sender share one streamed history lookup, including sealed history; delivered-reply history is read as one bounded preview. Each row also shows whether that member is mid-turn, its current board task, and its latest reply to the sender. <C>CANCEL</C> on a row discards that message before delivery; the member never sees it.</p>
+        <p>Lists the messages waiting for one member, with sender, time and text. Messages from the same sender share one streamed history lookup, including sealed history; delivered-reply history is read as one bounded preview. Each row also shows whether that member is mid-turn, its current board task, and its latest reply to the sender. <C>EDIT</C> on a row rewrites its text before delivery. <C>CANCEL</C> discards that message before delivery; the member never sees it.</p>
         <p>Only undelivered mail appears here. Once the member reads its mail, the messages leave this list and stay in both members&apos; history. When a board is attached, the <C>TASK</C> button on a row turns that message into a new to-do task.</p>
         <p>Unreadable mail or failed attachment writes leave the pending batch available for retry. Attachments with matching names remain separate, and existing delivered files are preserved. Malformed records or attachment metadata are preserved aside and logged once, allowing valid mail to continue.</p>
       </>
@@ -1184,6 +1184,16 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'MAILBOX',
     body: <><p>How many undelivered messages each member has waiting. Click a row with pending mail to read those messages or cancel them before delivery. Delivered mail leaves this count and stays in each member&apos;s history.</p><p>Unreadable mail or failed attachment writes leave the pending batch available for retry. Attachments with matching names remain separate, and existing delivered files are preserved. Malformed records or attachment metadata are preserved aside and logged once, allowing valid mail to continue.</p></>,
     manualSection: 'cluster-peer-messaging',
+  },
+  'cluster.gemini-members': {
+    title: 'Gemini members',
+    body: <><p>Mail to or from a Gemini member waits until you press NUDGE on the recipient. AUTO-PICKUP, Smart pickup and busy reminders skip it. Review, edit or cancel the waiting mail in MAILBOX first.</p><p>A message you type in a Gemini member&apos;s own composer also starts its turn. Its first NUDGE starts with its role and cluster instructions.</p></>,
+    manualSection: 'cluster-gemini-members',
+  },
+  'cluster.mailbox-edit': {
+    title: 'Edit waiting mail',
+    body: <><p>Opens the full text of this pending message in an editable box. SAVE replaces the text; the sender, time and attachments stay. The recipient reads the edited text.</p><p>A message already read or cancelled is not saved, and a short notice says so.</p></>,
+    manualSection: 'cluster-mailbox-modal',
   },
   'cluster.mailbox-inspect': {
     title: 'Inspect waiting mail',

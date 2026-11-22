@@ -26,6 +26,7 @@ import { withFileLock } from './atomicFile.js';
 import { buildClusterAutoPickup } from '@arco/shared';
 import { evaluatorAdapter, isStartupFailure } from './smartPickupAdapters.js';
 import { recentSentTo } from './smartPickupThread.js';
+import { isGeminiMember } from './geminiMembers.js';
 
 export interface ObservedDecision {
   clusterId: string;
@@ -103,12 +104,15 @@ export async function readSnapshotInput(clusterId: string, workflowId: string, b
   const recipientRole = roleLabel(clusterId, workflowId);
   let unreadable = false;
   let messages: SnapshotInput['messages'] = [];
+  let heldFromGemini = 0;
   try {
     const strict = await clusterMailbox.pendingIdsStrict(clusterId, workflowId);
     const pending = await clusterMailbox.peek(workflowId);
     const ids = pending.map((m) => m.msgId).sort();
     if (ids.length !== strict.length || ids.some((id, i) => id !== strict[i])) unreadable = true;
-    messages = pending.map((m) => ({ id: m.msgId, senderId: m.fromWorkflowId, senderRole: roleLabel(clusterId, m.fromWorkflowId), body: m.content, createdAt: m.createdAt }));
+    const live = pending.filter((m) => m.fromGemini !== true);
+    heldFromGemini = pending.length - live.length;
+    messages = live.map((m) => ({ id: m.msgId, senderId: m.fromWorkflowId, senderRole: roleLabel(clusterId, m.fromWorkflowId), body: m.content, createdAt: m.createdAt }));
   } catch {
     unreadable = true;
   }
@@ -121,7 +125,7 @@ export async function readSnapshotInput(clusterId: string, workflowId: string, b
   }
   const sentTo = [...new Set(messages.map((m) => m.senderId).filter((id): id is string => Boolean(id)))]
     .flatMap((to) => recentSentTo(workflowId, to).map((m) => ({ to, body: m.body, createdAt: m.createdAt })));
-  return { recipientRole, recipientStatus: busy ? 'busy' : 'idle', messages, tasks, ...(sentTo.length ? { sentTo } : {}), ...(unreadable ? { unreadable: true } : {}) };
+  return { recipientRole, recipientStatus: busy ? 'busy' : 'idle', messages, tasks, ...(sentTo.length ? { sentTo } : {}), ...(unreadable ? { unreadable: true } : {}), ...(heldFromGemini ? { heldFromGemini } : {}) };
 }
 
 // Armed Smart session for a cluster, or null.
@@ -174,11 +178,20 @@ export async function evaluateOnce(clusterId: string, workflowId: string): Promi
   // Busy members are not evaluated; the turn in progress reads its mail.
   if (deps.isBusy(workflowId)) return null;
   const limits = sanitizeSmartPickupLimits(state.smartPickup?.limits);
-  const snapshot = buildSnapshot(await deps.readSnapshot(clusterId, workflowId, false), limits.maxInputBytes);
-  if (snapshot.messageCount === 0 && !snapshot.preDecision?.reason.startsWith('unverifiable')) return null;
+  const input = await deps.readSnapshot(clusterId, workflowId, false);
+  const snapshot = buildSnapshot(input, limits.maxInputBytes);
   const k = key(clusterId, workflowId);
   const prior = decided.get(k);
   const base = { clusterId, recipientWorkflowId: workflowId, sessionId: arm.sessionId, fingerprint: snapshot.fingerprint };
+  // Only mail from Gemini members is waiting: it waits for the operator's
+  // NUDGE; recorded once per session.
+  if (snapshot.messageCount === 0 && !input.unreadable && input.heldFromGemini) {
+    if (prior?.sessionId === arm.sessionId && prior.reason === 'gemini_mail') return null;
+    const d = { ...base, action: null, reason: 'gemini_mail', outcome: 'skipped' };
+    await record(d);
+    return d;
+  }
+  if (snapshot.messageCount === 0 && !snapshot.preDecision?.reason.startsWith('unverifiable')) return null;
   if (prior && prior.sessionId === arm.sessionId && prior.fingerprint === snapshot.fingerprint) {
     // An admitted-in-principle wake that was blocked by a passing condition
     // (busy, cooldown) is retried without asking the evaluator again.
@@ -190,6 +203,13 @@ export async function evaluateOnce(clusterId: string, workflowId: string): Promi
     // evaluation refused by a passing limit is attempted again.
     const deferLapsed = prior.action === 'defer' && prior.deferUntil !== undefined && deps.now() >= prior.deferUntil;
     if (!deferLapsed && !prior.retryEvaluation) return null;
+  }
+  // docs/PROTOCOL_CLUSTER.md "Gemini members": its mail waits for the operator's
+  // NUDGE; Smart pickup neither evaluates nor wakes it.
+  if (isGeminiMember(workflowId)) {
+    const d = { ...base, action: null, reason: 'operator_send_only', outcome: 'skipped' };
+    await record(d);
+    return d;
   }
   // STOP hold: mail the member already had when STOP was pressed is left
   // alone; an unreadable hold record counts as a hold.
@@ -322,13 +342,18 @@ async function gateWake(p: ObservedDecision, arm: { sessionId: string }): Promis
       if (!clusterStore.getClusterCached(clusterId)?.members.includes(wfid)) { refusal = 'member_changed'; return false; }
       let ids: string[];
       try { ids = await clusterMailbox.pendingIdsStrict(clusterId, wfid); } catch { refusal = 'unverifiable'; return false; }
+      // Mail from Gemini members is outside the evaluated snapshot.
+      try {
+        const held = new Set((await clusterMailbox.peek(wfid)).filter((m) => m.fromGemini === true).map((m) => m.msgId));
+        if (held.size) ids = ids.filter((id) => !held.has(id));
+      } catch { refusal = 'unverifiable'; return false; }
       if (mailFingerprint(ids) !== p.fingerprint) { refusal = 'mail_changed'; return false; }
       if (p.action === null) {
         // Ordinary pickup ignores bare acknowledgements. Re-read the same
         // exact mailbox under its lock; unreadable or empty mail cannot
         // authorise fallback, and attachments retain their normal exception.
         let pending: Awaited<ReturnType<typeof clusterMailbox.peek>>;
-        try { pending = await clusterMailbox.peek(wfid); } catch { refusal = 'unverifiable'; return false; }
+        try { pending = (await clusterMailbox.peek(wfid)).filter((m) => m.fromGemini !== true); } catch { refusal = 'unverifiable'; return false; }
         if (ids.length === 0 || pending.length !== ids.length || pending.some((m) => !ids.includes(m.msgId))) { refusal = 'unverifiable'; return false; }
         if (pending.every((m) => !m.artifacts?.length && isAutoPickupAcknowledgement(m.content))) { refusal = 'ack_only'; return false; }
       }

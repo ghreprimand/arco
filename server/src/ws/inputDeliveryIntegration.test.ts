@@ -21,7 +21,7 @@ async function fixture(provider:'claude'|'codex'|'ollama'|'llamacpp'|'lmstudio'|
  const wf={config:{name:'Fixture',workingDirectory:cwd,primaryProvider:provider,primaryModel:provider==='claude'?'haiku':'gpt-6-luna',primaryEffort:'low',claudeTransport:'native',codexTransport:'appserver',autoCompaction:{enabled:false},autoHandoff:{enabled:false,afterCompactions:5}},primary:{provider,model:provider==='claude'?'haiku':'gpt-6-luna',effort:'low',skipPermissions:false},manager,busy:false,observers:new Set([ws]),queue:{steering:[],followUp:[]},autoHandoff:{enabled:false,afterCompactions:5,compactions:0,fired:false},lastContextPercent:0} as any;
  workflows.set(id,wf);workflowCwds.set(id,cwd);await initWorkflowStore(cwd,id);
  const wait=async(n:number)=>{for(let i=0;i<600&&pending.length<n;i++)await new Promise(resolve=>setTimeout(resolve,5));assert.equal(pending.length,n,JSON.stringify(messages).slice(-4000));};
- return{id,cwd,ws,session,wf,pending,wait,close:async()=>{workflows.delete(id);workflowCwds.delete(id);await settleProjectWrites();}};
+ return{id,cwd,ws,session,wf,pending,wait,messages:()=>messages,close:async()=>{workflows.delete(id);workflowCwds.delete(id);await settleProjectWrites();}};
 }
 for(const provider of ['claude','codex'] as const)test(`${provider} records a combined queued dispatch without corrupting completed replay`,async()=>{
  const f=await fixture(provider);let run:Promise<void>|undefined;
@@ -273,5 +273,30 @@ test('Antigravity dispatches only the operator text when Arco prompt expansions 
  const f=await fixture('antigravity-cli');let run:Promise<void>|undefined;
  try{writeFileSync(join(f.cwd,'fixture.txt'),'HIDDEN FILE CONTENT');f.wf.config.goal='HIDDEN GOAL';const input='Read @file:fixture.txt exactly';
  run=engine.handleUserMessage(f.ws,f.session,f.id,input,'prompt',undefined,false,undefined,undefined,[{scope:'builtin',slug:'grill-me'}],{operatorInitiated:true});await f.wait(1);assert.equal(f.pending[0].spec.task,input);f.pending[0].finish('done');await run;
+ }finally{if(f.wf.busy)engine.revokeBusy(f.wf);for(const pending of f.pending)pending.finish('cleanup');await run;await f.close();}
+});
+
+test('a Gemini cluster member starts a turn only from the operator NUDGE or typed-message ticket for that exact text', async()=>{
+ const f=await fixture('antigravity-cli');let run:Promise<void>|undefined;
+ const store=await import('../clusterStore.js');const gemini=await import('../geminiMembers.js');
+ try{
+  f.wf.config.primaryModel='gemini-test';f.wf.primary.model='gemini-test';
+  await store.createCluster({cwd:f.cwd,memberWorkflowIds:[f.id,randomUUID()]});
+  const errors=()=>f.messages().filter((m:any)=>m.type==='error'&&m.message===gemini.GEMINI_OPERATOR_ONLY_REFUSAL).length;
+  // A refused call returns at once; a started turn would wait for the fake provider.
+  const refused=(run:Promise<void>)=>Promise.race([run,new Promise<void>(r=>setTimeout(r,2000))]);
+  // Automatic wakes carry no ticket: AUTO-PICKUP, a server-side nudge (busy reminder), a plain message.
+  await refused(engine.handleUserMessage(f.ws,f.session,f.id,'AUTO PICKUP',undefined,undefined,false,undefined,undefined,undefined,{automaticKind:'auto-pickup'}));
+  await refused(engine.handleUserMessage(f.ws,f.session,f.id,'(nudge) REMINDER',undefined,undefined,false,undefined,undefined,undefined,{automaticKind:'nudge'}));
+  await refused(engine.handleUserMessage(f.ws,f.session,f.id,'TYPED',undefined,undefined,false,undefined,undefined,undefined,{operatorInitiated:true}));
+  const ticket=gemini.issueGeminiSend(f.id,'(nudge) READ MAIL');
+  await refused(engine.handleUserMessage(f.ws,f.session,f.id,'(nudge) OTHER TEXT',undefined,undefined,false,undefined,undefined,undefined,{automaticKind:'nudge',operatorInitiated:true,operatorAction:true,geminiSend:ticket}));
+  assert.equal(f.pending.length,0);assert.equal(errors(),4);
+  // The operator's NUDGE starts exactly one turn.
+  run=engine.handleUserMessage(f.ws,f.session,f.id,'(nudge) READ MAIL','nudge',undefined,false,undefined,undefined,undefined,{automaticKind:'nudge',operatorInitiated:true,operatorAction:true,geminiSend:ticket});await f.wait(1);
+  assert.equal(f.pending[0].spec.task,'(nudge) READ MAIL');assert.equal(f.pending[0].options.antigravityInteractive,true);
+  f.pending[0].finish('done');await run;
+  await engine.handleUserMessage(f.ws,f.session,f.id,'(nudge) READ MAIL','again',undefined,false,undefined,undefined,undefined,{automaticKind:'nudge',operatorInitiated:true,operatorAction:true,geminiSend:ticket});
+  assert.equal(f.pending.length,1,'a used ticket cannot start a second turn');assert.equal(errors(),5);
  }finally{if(f.wf.busy)engine.revokeBusy(f.wf);for(const pending of f.pending)pending.finish('cleanup');await run;await f.close();}
 });

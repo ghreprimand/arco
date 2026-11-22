@@ -51,6 +51,21 @@ test('filtered peer and pre-turn reads preserve mail and attachments from other 
   } finally { rmSync(f.root, { recursive: true, force: true }); }
 });
 
+test('an automatic turn leaves mail from a Gemini member waiting; an operator-started turn receives it', async () => {
+  const f = await fixture();
+  try {
+    const { setTurnOrigin } = await import('./clusterTurnOrigin.js');
+    await mailbox.enqueue(f.recipient, { ...f.message('from gemini', []), fromGemini: true });
+    await mailbox.enqueue(f.recipient, f.message('from codex', []));
+    setTurnOrigin(f.recipient, false);
+    assert.deepEqual((await peerRead(f.ctx)).map(m => m.content), ['from codex']);
+    assert.deepEqual((await mailbox.peek(f.recipient)).map(m => m.content), ['from gemini']);
+    setTurnOrigin(f.recipient, true);
+    assert.deepEqual((await peerRead(f.ctx)).map(m => m.content), ['from gemini']);
+    assert.deepEqual(await mailbox.peek(f.recipient), []);
+  } finally { rmSync(f.root, { recursive: true, force: true }); }
+});
+
 for (const names of [['report.md', 'report.md'], ['a?.md', 'a*.md'], ['.', '..']]) {
   test(`B132: colliding attachment names preserve both payloads (${names.join(', ')})`, async () => {
     const f = await fixture();

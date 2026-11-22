@@ -898,6 +898,7 @@ export async function tryHandleClusterRoutes(
   // Mailbox tab's expand → modal flow.
   //   GET    /api/clusters/:id/mailbox/:wfid          → peek (no drain)
   //   DELETE /api/clusters/:id/mailbox/:wfid/:msgId   → discard pending msg
+  //   PUT    /api/clusters/:id/mailbox/:wfid/:msgId   → edit pending msg text
   // Peek is destructive-free (drain is the model's path); discard removes the
   // file and pushes a fresh cluster_state so the depth indicator follows.
   if (req.url?.startsWith('/api/clusters/') && req.url.includes('/mailbox')) {
@@ -923,6 +924,28 @@ export async function tryHandleClusterRoutes(
           }
           const enriched = pending.map((m) => ({ ...m, recipientContext: contexts.get(m.fromWorkflowId) }));
           res.end(JSON.stringify(enriched));
+          return true;
+        }
+        if (segs.length === 7 && req.method === 'PUT') {
+          // EDIT in the mailbox modal: rewrite one pending message in place,
+          // under the mailbox lock. A delivered message is refused.
+          const msgId = segs[6];
+          const chunks: Buffer[] = []; let size = 0;
+          for await (const chunk of req) { const bytes = Buffer.from(chunk); size += bytes.length; if (size > clusterMailbox.OPERATOR_EDIT_MAX_BYTES * 2) throw new Error('Request is too large.'); chunks.push(bytes); }
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { content?: unknown };
+          if (typeof body.content !== 'string' || !body.content.trim()) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'empty_message', message: 'The message cannot be empty.' }));
+            return true;
+          }
+          const result = await clusterMailbox.editPending(wfid, msgId, body.content);
+          if (result === 'delivered') {
+            res.writeHead(409, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'already_delivered', message: 'Not saved: the message was already read or cancelled.' }));
+            return true;
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: true, msgId }));
           return true;
         }
         if (segs.length === 7 && req.method === 'DELETE') {
