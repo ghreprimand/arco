@@ -257,7 +257,7 @@ export function AddWorkerSection({
                   ? 'Normal cluster context and project access'
                   : access === 'blind'
                     ? 'Project access, but only mailbox cluster tools and no plan/board/roster context'
-                    : 'Private scratch workspace outside the project; Claude Native; mailbox tools only'}
+                    : 'Private scratch workspace outside the project; mailbox tools only'}
                 style={{
                   padding: '3px 8px',
                   background: accessMode === access ? 'var(--color-accent-primary-a10)' : 'transparent',

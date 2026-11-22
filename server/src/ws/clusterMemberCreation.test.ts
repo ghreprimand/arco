@@ -159,6 +159,10 @@ test('each creation path builds the new member from its request', async () => {
     { configs: [], errors: ['cluster_create_from_scratch rejected: member[0] unknown_account:gone'] });
   assert.deepEqual(await run(() => h.handleClusterCreateFromScratch(ws, session, { cwd, members: [{ provider: 'claude', model: 'sonnet', accessMode: 'isolated' }] } as never)),
     { configs: [], errors: ['cluster_create_from_scratch rejected: too_few_members'] });
+  // Cursor can be isolated: the request reaches Cursor's own sandbox checks
+  // instead of the refusal for providers Arco cannot fence.
+  const cursorIsolated = await run(() => h.handleClusterAddFreshWorkers(ws, session, { clusterId: c.clusterId, count: 1, accessMode: 'isolated', provider: 'cursor', model: 'auto', webAccess: false } as never));
+  assert.ok(!cursorIsolated.errors.some((error) => error.includes('isolated_provider_unavailable')), JSON.stringify(cursorIsolated.errors));
   assert.ok(announced.length >= 10 && announced.every(Boolean), 'every path announces its new members as pending cluster members');
 });
 

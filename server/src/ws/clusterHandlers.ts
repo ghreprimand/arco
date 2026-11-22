@@ -85,9 +85,12 @@ import { setClusterPlanBody } from '../clusterPlanBridge.js';
 import * as researchCreate from '../research/researchCreate.js';
 import { startResearchDirector } from '../research/researchRounds.js';
 
+/** Providers Arco can run as ISOLATED members; each still needs its own checks below. */
+const isolatableProvider = (provider: string | undefined): provider is 'claude' | 'codex' | 'cursor' => provider === 'claude' || provider === 'codex' || provider === 'cursor';
+
 async function isolatedProviderRefusal(provider: ClusterMemberProvider, transport?: 'native' | 'cli'): Promise<string | undefined> {
   if (provider === 'claude' && transport !== 'cli') return undefined;
-  if (provider !== 'claude' && provider !== 'codex' && provider !== 'cursor') return 'This provider cannot be isolated.';
+  if (!isolatableProvider(provider)) return 'This provider cannot be isolated.';
   if (provider === 'codex') {
     const reason = codexResearchVersionReason(installedCodexVersion());
     if (reason) return reason.replace('Codex researchers', 'Isolated Codex members');
@@ -1732,7 +1735,7 @@ async function createClusterFromScratch(
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] invalid_access_mode` });
       return;
     }
-    if (accessMode === 'isolated' && m.provider !== 'claude' && m.provider !== 'codex') {
+    if (accessMode === 'isolated' && !isolatableProvider(m.provider)) {
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] isolated_provider_unavailable` });
       return;
     }
@@ -1887,7 +1890,7 @@ export async function handleClusterAddFreshWorkers(
   if (msg.effort !== undefined && !allowedWorkflowEfforts(choice.provider, msg.model ?? template.config.primaryModel).some((level) => level === msg.effort)) {
     send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: invalid_effort' }); return;
   }
-  if (accessMode === 'isolated' && providerResolution.provider !== 'claude' && providerResolution.provider !== 'codex') {
+  if (accessMode === 'isolated' && !isolatableProvider(providerResolution.provider)) {
     send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: isolated_provider_unavailable' });
     return;
   }
@@ -2080,7 +2083,7 @@ export async function handleClusterMemberReplace(
   }
   const replaceDisabled = await disabledClusterProvider([providerResolution.provider]);
   if (replaceDisabled) { send(ws, { type: 'error', message: `cluster_member_replace rejected: ${replaceDisabled}` }); return; }
-  if (accessMode === 'isolated' && providerResolution.provider !== 'claude' && providerResolution.provider !== 'codex') {
+  if (accessMode === 'isolated' && !isolatableProvider(providerResolution.provider)) {
     send(ws, { type: 'error', message: 'cluster_member_replace rejected: isolated_provider_unavailable' });
     return;
   }

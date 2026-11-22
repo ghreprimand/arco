@@ -1252,8 +1252,9 @@ once and says so; a failed fence self-check never retries.
   to deny reads outside the workspace before the agent starts; this proves the sandbox works in the fence,
   not which read boundary Cursor chooses. Cursor 2026.11.22 or later is required; because Cursor updates
   itself, the preflight before every turn is the guard that fails closed, not an exact version.
-- **Sub-agents.** A `Task` sub-agent runs in the same fenced process, but whether Cursor applies its
-  sandbox to the sub-agent's shell has not been checked in a real run.
+- **Sub-agents.** A `Task` sub-agent runs inside the same fence, and Cursor applies its sandbox to
+  the sub-agent's shell: in a real run its home writes, the outer home and web access with web off were
+  refused, and writes in the workspace succeeded.
 
 ### Auth and stale ACP recovery
 
