@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show each cluster Director how many messages members sent each other since its previous turn, and tell it to ask for one report per assignment and to keep routine coordination off mail.
+
 - Run research projects from +NEW > RESEARCH: one question, several independent researchers on Claude, Ollama or llama.cpp, rounds released together and blind to a Research Director, RESULTS and REVEAL in the project tab, and cleanup with researcher logs when the tab closes.
 
 - Reopen saved workflows with a valid provider and model effort when an older saved value is invalid, and refuse unsupported new values.

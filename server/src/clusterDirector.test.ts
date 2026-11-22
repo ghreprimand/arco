@@ -16,6 +16,7 @@ test('director doctrine requires stay-available handoff and no long waits', () =
   assert.match(combined, /report what is running, and end the turn/);
   assert.match(text!, /Do not write or edit product code or tests yourself/);
   assert.match(text!, /a second implementation of existing logic, a wrapper that only passes calls through/);
+  assert.match(text!, /When you assign work, ask for one report at the end, or one at an agreed milestone, plus blockers.*Never ask members to coordinate with each other by message for routine things/);
 });
 
 test('non-director roles get no director doctrine', () => {

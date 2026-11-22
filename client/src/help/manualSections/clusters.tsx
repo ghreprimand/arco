@@ -1110,6 +1110,14 @@ export const clusters: Section[] = [
   remain independent.
   </p>
   <p>
+  Each director turn also shows how many messages each member sent to each
+  other member since its previous turn. This tally is feedback only: it
+  limits, warns about and blocks nothing, and it starts again when the
+  server restarts. The director is told to ask for one report per
+  assignment and to use a lock, a file or the board, not mail, for routine
+  coordination.
+  </p>
+  <p>
   NOTE appends an operator instruction, not a mode or budget. Style and
   NOTE apply next turn; guard edits apply on the next send without
   resetting the count. Existing clusters without guard fields keep their

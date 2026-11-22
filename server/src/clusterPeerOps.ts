@@ -44,6 +44,7 @@ import { resolveLinkedRefs, planItemContextFor } from './planRefContext.js';
 import { parsePlan } from './primitives/reviewContent.js';
 import * as clusterMailbox from './clusterMailbox.js';
 import * as clusterBudget from './clusterBudget.js';
+import * as clusterMailTally from './clusterMailTally.js';
 import * as clusterPlanStore from './clusterPlanStore.js';
 import * as clusterPlanBridge from './clusterPlanBridge.js';
 import * as taskLedger from './project/taskLedger.js';
@@ -434,6 +435,7 @@ export async function peerSend(
       message: `${code}: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
+  clusterMailTally.recordDelivery(ctx.clusterId, ctx.workflowId, resolved);
   ctx.broadcastSender({
     type: 'peer_message_sent',
     workflowId: ctx.workflowId,

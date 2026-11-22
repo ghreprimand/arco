@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { LedgerTask } from '@arco/shared';
 import { buildDirectorOpenWork } from './clusterOpenWork.js';
+import { recordDelivery, takeTally } from './clusterMailTally.js';
 
 function task(over: Partial<LedgerTask> & Pick<LedgerTask, 'id' | 'title' | 'status'>): LedgerTask {
   return { links: [], notes: '', priority: 0, parentIds: [], blockedReason: '', reviewRequired: false, goalMode: false, createdAt: 1, updatedAt: 1, ...over };
@@ -41,4 +42,23 @@ test('the Director open-work block lists operator blockers by id only and stays 
 
   assert.equal(buildDirectorOpenWork([tasks[4]]), undefined);
   assert.match(buildDirectorOpenWork(tasks, { ...mail, autoPickupWakes: true })!, /AUTO-PICKUP is on: it may wake an idle member when mail reaches it, but its limits or its evaluator can hold a wake back\./);
+});
+
+// The member mail tally counts deliveries by sender and recipient, leaves out
+// the Director's own sends, starts again when the Director's turn reads it,
+// and adds no line when members sent nothing.
+test('the Director block counts member mail since its last turn by sender and recipient', () => {
+  const [director, a, b, c] = ['d0d0d0d0-0000-4000-8000-000000000000', 'a1a1a1a1-0000-4000-8000-000000000001', 'b2b2b2b2-0000-4000-8000-000000000002', 'c3c3c3c3-0000-4000-8000-000000000003'];
+  for (let i = 0; i < 3; i++) recordDelivery('k1', a, b);
+  recordDelivery('k1', a, director); recordDelivery('k1', a, director);
+  recordDelivery('k1', c, director);
+  recordDelivery('k1', director, a);
+  recordDelivery('k2', b, a);
+  const pairs = takeTally('k1', director).map((p) => ({ ...p, to: p.to === director ? 'you' : p.to }));
+  const text = buildDirectorOpenWork([], { autoPickupWakes: true, members: [], exchanged: pairs })!;
+  assert.match(text, new RegExp(`Member mail since your last turn: ${a} sent 3 messages to ${b} and 2 to you; ${c} sent 1 message to you\\.`));
+  assert.doesNotMatch(text, new RegExp(`${director} sent`));
+  assert.deepEqual(takeTally('k1', director), []);
+  assert.equal(buildDirectorOpenWork([], { autoPickupWakes: true, members: [], exchanged: [] }), undefined);
+  assert.equal(takeTally('k2', director).length, 1);
 });

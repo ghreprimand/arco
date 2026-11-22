@@ -23,6 +23,28 @@ const SAFE_ID = /^[0-9A-Za-z-]{1,64}$/;
 export interface OpenWorkMail {
   members: Array<{ workflowId: string; unread: number; busy?: boolean }>;
   autoPickupWakes: boolean;
+  /** peer_send deliveries between members since the Director's previous
+   * turn, largest first; `to` is a workflow id or "you" for the Director. */
+  exchanged?: Array<{ from: string; to: string; count: number }>;
+}
+
+const TALLY_MAX_PAIRS = 6;
+
+// One line, grouped by sender in order of the largest pair, for example
+// "a sent 12 messages to b and 8 to you; c sent 1 to you".
+function tallyLine(pairs: NonNullable<OpenWorkMail['exchanged']>): string | undefined {
+  const safe = pairs.filter((p) => SAFE_ID.test(p.from) && SAFE_ID.test(p.to) && Number.isInteger(p.count) && p.count > 0);
+  if (safe.length === 0) return undefined;
+  const shown = safe.slice(0, TALLY_MAX_PAIRS);
+  const bySender = new Map<string, string[]>();
+  for (const p of shown) {
+    const parts = bySender.get(p.from) ?? [];
+    parts.push(`${p.count}${parts.length === 0 ? (p.count === 1 ? ' message' : ' messages') : ''} to ${p.to}`);
+    bySender.set(p.from, parts);
+  }
+  const groups = [...bySender].map(([from, parts]) => `${from} sent ${parts.join(' and ')}`);
+  const more = safe.length - shown.length;
+  return `Member mail since your last turn: ${groups.join('; ')}${more > 0 ? `; and ${more} more pair${more === 1 ? '' : 's'}` : ''}.`;
 }
 
 /** Build the block from a cluster board and mail state. Undefined when
@@ -43,7 +65,8 @@ export function buildDirectorOpenWork(tasks: readonly LedgerTask[], mail?: OpenW
     { title: 'In review', lines: newest.filter((t) => t.status === 'review').map(line) },
   ];
   const notStarted = newest.filter((t) => t.status === 'triage' || t.status === 'todo' || t.status === 'ready').length;
-  if (sections.every((s) => s.lines.length === 0) && notStarted === 0) return undefined;
+  const tally = mail?.exchanged ? tallyLine(mail.exchanged) : undefined;
+  if (sections.every((s) => s.lines.length === 0) && notStarted === 0 && !tally) return undefined;
 
   // Lines are dropped from the end (lowest section, oldest first) until the
   // block fits; the operator section comes first so it is the last to go.
@@ -53,6 +76,7 @@ export function buildDirectorOpenWork(tasks: readonly LedgerTask[], mail?: OpenW
     if (mail) out.push(mail.autoPickupWakes
       ? 'AUTO-PICKUP is on: it may wake an idle member when mail reaches it, but its limits or its evaluator can hold a wake back.'
       : 'AUTO-PICKUP is off or paused: an idle member, including one you send mail to in this turn, wakes only when the operator nudges it.');
+    if (tally) out.push(tally);
     for (const s of sections) if (s.lines.length > 0) out.push(`${s.title}:`, ...s.lines);
     if (notStarted > 0) out.push(`Not started: ${notStarted} task${notStarted === 1 ? '' : 's'} (backlog; new work waits for the operator's approval).`);
     if (omitted > 0) out.push(`${omitted} more not shown; call cluster_task_list.`);

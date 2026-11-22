@@ -48,6 +48,7 @@ import { RESEARCH_SYNTHETIC_SESSION } from '../research/researchState.js';
 import { buildProgressDoctrine } from '../clusterProgress.js';
 import { buildClusterDirectorDoctrine, isClusterDirectorRole, joinClusterDoctrines } from '../clusterDirector.js';
 import { buildDirectorOpenWork } from '../clusterOpenWork.js';
+import { takeTally } from '../clusterMailTally.js';
 import { loadClusterBoardTasks } from '../clusterPeerOps.js';
 import * as projectTrust from '../projectTrust.js';
 import { parsePromptInvocation, expandPromptCommand, projectPromptExists } from '../prompts.js';
@@ -2354,6 +2355,9 @@ export async function handleUserMessage(
               .filter((id) => id !== workflowId)
               .map(async (id) => ({ workflowId: id, unread: await clusterMailbox.depthFor(id).catch(() => 0), busy: workflows.get(id)?.busy }))),
             autoPickupWakes: clusterStore.isAutoPickupWaking(turnClusterId) && !clusterStore.isAutoPickupPaused(turnClusterId),
+            // Member mail since the Director's previous turn; reading it
+            // starts the next count (see clusterMailTally.ts).
+            exchanged: takeTally(turnClusterId, workflowId).map((p) => ({ ...p, to: p.to === workflowId ? 'you' : p.to })),
           }
           : undefined;
         const turnOpenWork = openWorkTasks ? buildDirectorOpenWork(openWorkTasks, openWorkMail) : undefined;
