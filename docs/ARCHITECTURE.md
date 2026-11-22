@@ -787,9 +787,7 @@ forks fresh IDs and leaves all runtime arming off.
 **Member access postures.** STANDARD gets the normal project + cluster
 surface. BLIND keeps the project cwd but receives no plan/board/roster/role/
 focus/efficiency/progress context and only the `peer_send` / `peer_read`
-cluster tools. ISOLATED is Claude-Native-only: it uses the private scratch cwd,
-removes project-derived prompts/resources and shell/project tools, and retains
-only those two mailbox tools. An isolated sender may attach up to 8
+cluster tools. ISOLATED uses a private scratch cwd and removes project-derived prompts and resources. Claude Native has no shell; Claude CLI and Codex run inside the checked Linux sandbox. Only the two mailbox tools cross the cluster boundary. The per-member web setting applies on the next turn; CLI web-off permits provider hosts only, and Native and local web tools are omitted. An isolated sender may attach up to 8
 scratch-rooted files / 256 KB total through `peer_send artifact_paths`; drain
 copies them into the recipient's `.arco/peer-artifacts/<msgId>/`.
 

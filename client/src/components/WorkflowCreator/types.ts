@@ -2,6 +2,14 @@ import type { ClusterCreationSettings } from '@arco/shared';
 import type { useAppStore } from '../../stores/appStore';
 import type { WorkflowConfig, ModelName, EffortLevel, ProviderName, ArcoSettings, MemberTier, ClusterPreset, ClusterMemberProvider, WorkflowTemplate } from '@arco/shared';
 
+export function memberAccessOptions(member: { accessMode?: import('@arco/shared').ClusterMemberAccessMode; webAccess?: boolean; claudeTransport?: 'native' | 'cli' }) {
+  return {
+    ...(member.accessMode ? { accessMode: member.accessMode } : {}),
+    ...(member.webAccess === false ? { webAccess: false } : {}),
+    ...(member.claudeTransport ? { claudeTransport: member.claudeTransport } : {}),
+  };
+}
+
 export interface ClusterCreatePayload extends ClusterCreationSettings {
   requestId?: string;
   cwd: string;
@@ -21,9 +29,12 @@ export interface ClusterCreatePayload extends ClusterCreationSettings {
     fastMode?: boolean;
     efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
     outputStyle?: import('@arco/shared').OutputStyle;
+    accessMode?: import('@arco/shared').ClusterMemberAccessMode;
     webSearchMaxUses?: number;
     contextSize?: number;
     researchClaudeTransport?: 'native' | 'cli';
+    webAccess?: boolean;
+    claudeTransport?: 'native' | 'cli';
   }>;
   research?: import('@arco/shared').ResearchCreateSpec;
 }
@@ -51,6 +62,9 @@ export interface MemberDraft {
   model: ModelName;
   effort: EffortLevel;
   providerAccountRef?: string;
+  accessMode?: import('@arco/shared').ClusterMemberAccessMode;
+  webAccess?: boolean;
+  claudeTransport?: 'native' | 'cli';
   displayName: string;
   role: string;
   tier: MemberTier | '';

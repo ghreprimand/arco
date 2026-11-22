@@ -33,10 +33,11 @@ export interface ResearchRow {
   webSearchMaxUses?: number;
   contextSize?: number;
   researchClaudeTransport?: 'native' | 'cli';
+  webAccess?: boolean;
 }
 /** Switching provider replaces provider-specific options instead of retaining the old row's values. */
 export function replaceResearchProvider(current: ResearchRow, next: ResearchRow): ResearchRow {
-  return { ...current, ...next, key: current.key, advanced: current.advanced,
+  return { ...current, ...next, key: current.key, advanced: current.advanced, webAccess: current.webAccess,
     researchClaudeTransport: next.researchClaudeTransport, webSearchMaxUses: next.webSearchMaxUses, contextSize: next.contextSize };
 }
 type Pickers = Pick<ClusterMembersSectionProps, 'claudeModelsForPicker' | 'codexModelsForPicker' | 'ollamaModelsForPicker' | 'llamacppModelsForPicker' | 'cursorModelsForPicker' | 'claudeNativeCatalog' | 'codexCatalog' | 'selectStyle' | 'labelStyle' | 'inputStyle' | 'hintStyle'>;
@@ -62,6 +63,7 @@ export function researchCreatePayload(input: {
     ...(r.provider === 'claude' && r.researchClaudeTransport !== 'cli' && r.webSearchMaxUses ? { webSearchMaxUses: r.webSearchMaxUses } : {}),
     ...(r.provider === 'ollama' && r.contextSize ? { contextSize: r.contextSize } : {}),
     ...(r.provider === 'claude' && r.researchClaudeTransport === 'cli' ? { researchClaudeTransport: 'cli' as const } : {}),
+    ...(r.webAccess === false ? { webAccess: false } : {}),
   });
   return {
     ...(input.requestId ? { requestId: input.requestId } : {}),
@@ -115,7 +117,7 @@ export function ResearchStartForm(props: Pickers & {
     const model = from?.model && offered.includes(from.model) ? from.model : offered[0] ?? '';
     const efforts = effortsForModel(provider, model as ModelName, props.claudeNativeCatalog, props.codexCatalog);
     const effort = from?.effort && efforts.includes(from.effort as never) ? from.effort : efforts.includes('medium' as never) ? 'medium' : efforts[0] ?? '';
-    return { key: newKey(), provider, model, effort, advanced: false,
+    return { key: newKey(), provider, model, effort, advanced: false, webAccess: from?.webAccess !== false,
       ...(from?.webSearchMaxUses ? { webSearchMaxUses: from.webSearchMaxUses } : {}), ...(from?.contextSize ? { contextSize: from.contextSize } : {}),
       ...(provider === 'claude' && from?.researchClaudeTransport === 'cli' ? { researchClaudeTransport: 'cli' as const } : {}) };
   };
@@ -147,9 +149,9 @@ export function ResearchStartForm(props: Pickers & {
 
   const update = (key: string, patch: Partial<ResearchRow>) => setRows((all) => all.map((r) => r.key === key ? { ...r, ...patch } : r));
   const changeProvider = (r: ResearchRow, provider: ClusterMemberProvider): ResearchRow => replaceResearchProvider(r, rowFor(provider));
-  const fromSaved = (members: Array<{ provider: ClusterMemberProvider; model: string; effort?: string; webSearchMaxUses?: number; contextSize?: number; researchClaudeTransport?: 'native' | 'cli' }>) =>
+  const fromSaved = (members: Array<{ provider: ClusterMemberProvider; model: string; effort?: string; webSearchMaxUses?: number; contextSize?: number; researchClaudeTransport?: 'native' | 'cli'; webAccess?: boolean }>) =>
     members.filter((m) => (RESEARCHER_PROVIDERS as readonly string[]).includes(m.provider) && (available(m.provider) || m.provider === 'codex' || (m.provider === 'claude' && m.researchClaudeTransport === 'cli')))
-      .map((m) => rowFor(m.provider, { model: m.model, effort: m.effort, webSearchMaxUses: m.webSearchMaxUses, contextSize: m.contextSize, researchClaudeTransport: m.researchClaudeTransport }));
+      .map((m) => rowFor(m.provider, { model: m.model, effort: m.effort, webSearchMaxUses: m.webSearchMaxUses, contextSize: m.contextSize, researchClaudeTransport: m.researchClaudeTransport, webAccess: m.webAccess }));
   const lastPanel = (): ResearchRow[] | null => {
     try { const saved = JSON.parse(localStorage.getItem(LAST_PANEL_KEY) ?? 'null'); return Array.isArray(saved) && saved.length ? fromSaved(saved) : null; } catch { return null; }
   };
@@ -169,7 +171,7 @@ export function ResearchStartForm(props: Pickers & {
     if (problems.length || props.submitting) return;
     if (rows.length > RESEARCH_CONFIRM_ABOVE && !confirmMany) { setConfirmMany(true); return; }
     setConfirmMany(false);
-    try { localStorage.setItem(LAST_PANEL_KEY, JSON.stringify(rows.map(({ provider, model, effort, webSearchMaxUses, contextSize, researchClaudeTransport }) => ({ provider, model, effort, webSearchMaxUses, contextSize, researchClaudeTransport })))); } catch { /* best effort */ }
+    try { localStorage.setItem(LAST_PANEL_KEY, JSON.stringify(rows.map(({ provider, model, effort, webSearchMaxUses, contextSize, researchClaudeTransport, webAccess }) => ({ provider, model, effort, webSearchMaxUses, contextSize, researchClaudeTransport, webAccess })))); } catch { /* best effort */ }
     props.onCreate(researchCreatePayload({ name, brief, blind, folderRoot: folderSet ? undefined : folderRoot, director, rows }));
   };
   const savePanel = async () => {
@@ -178,6 +180,7 @@ export function ResearchStartForm(props: Pickers & {
       await presets.save({ name: panelName.trim(), members: [
         { provider: director.provider, model: director.model, effort: director.effort, role: 'Research Director' },
         ...rows.map((r) => ({ provider: r.provider, model: r.model, effort: r.effort, accessMode: 'researcher' as const,
+          ...(r.webAccess === false ? { webAccess: false } : {}),
           ...(r.researchClaudeTransport === 'cli' ? { researchClaudeTransport: 'cli' as const } : {}),
           ...(r.researchClaudeTransport !== 'cli' && r.webSearchMaxUses ? { webSearchMaxUses: r.webSearchMaxUses } : {}), ...(r.contextSize ? { contextSize: r.contextSize } : {}) })),
       ] });
@@ -231,6 +234,7 @@ export function ResearchStartForm(props: Pickers & {
         {rows.map((r, i) => (
           <div key={r.key} style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingBottom: 6, borderBottom: '1px solid var(--color-border-hairline)' }}>
             {rowEditor(r, researcherProviders, (next) => update(r.key, next), `Researcher ${i + 1}`, { help: 'creator.research-researcher', researcher: true, extra: <>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44 }}><input style={{ width: 22, height: 22 }} type="checkbox" checked={r.webAccess !== false} onChange={e => update(r.key, { webAccess: e.target.checked })} /> Web access</label>
               <button type="button" style={small} aria-label={`Duplicate researcher ${i + 1}`} onClick={() => setRows((all) => [...all.slice(0, i + 1), { ...r, key: newKey(), advanced: false }, ...all.slice(i + 1)])}>DUPLICATE</button>
               <button type="button" style={small} aria-label={`Remove researcher ${i + 1}`} onClick={() => setRows((all) => all.filter((x) => x.key !== r.key))}>REMOVE</button>
               {((r.provider === 'claude' && r.researchClaudeTransport !== 'cli') || r.provider === 'ollama') && <button type="button" style={small} aria-expanded={r.advanced} onClick={() => update(r.key, { advanced: !r.advanced })}>ADVANCED</button>}

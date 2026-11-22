@@ -116,7 +116,7 @@ const DEFAULT_BASE = 'http://localhost:11434';
 const OLLAMA_CHAT_WEB_TOOLS = new Set(['WebSearch', 'WebFetch']);
 
 export function ollamaToolCandidates(
-  config: Pick<WorkerConfig, 'cwd' | 'interactionMode' | 'chatWebAccess' | 'tools' | 'clusterId' | 'workflowId' | 'clusterAccessMode' | 'clusterTaskBoardAttached' | 'voiceOperator' | 'clusterResearchDirector'>,
+  config: Pick<WorkerConfig, 'cwd' | 'interactionMode' | 'chatWebAccess' | 'tools' | 'clusterId' | 'workflowId' | 'clusterAccessMode' | 'clusterWebAccess' | 'clusterTaskBoardAttached' | 'voiceOperator' | 'clusterResearchDirector'>,
   registryTools: OllamaToolDefinition[] = [],
 ): OllamaToolDefinition[] | undefined {
   if (!config.cwd) return undefined;
@@ -133,7 +133,7 @@ export function ollamaToolCandidates(
     mailboxOnly: config.clusterAccessMode !== undefined && config.clusterAccessMode !== 'standard',
     researcher: config.clusterAccessMode === 'researcher',
     researchDirector: config.clusterResearchDirector === true,
-  })].filter((tool) => config.clusterAccessMode !== 'researcher' || RESEARCHER_LOCAL_TOOLS.has(tool.function.name));
+  })].filter((tool) => (config.clusterAccessMode !== 'researcher' || RESEARCHER_LOCAL_TOOLS.has(tool.function.name)) && (config.clusterWebAccess !== false || !OLLAMA_CHAT_WEB_TOOLS.has(tool.function.name)));
   return config.tools
     ? all.filter((tool) => config.tools!.includes(tool.function.name))
     : all;
@@ -150,12 +150,13 @@ export function ollamaToolsAutoExecute(
 }
 
 export function ollamaToolCallAllowed(
-  config: Pick<WorkerConfig, 'interactionMode' | 'chatWebAccess' | 'voiceOperator'>,
+  config: Pick<WorkerConfig, 'interactionMode' | 'chatWebAccess' | 'voiceOperator' | 'clusterWebAccess'>,
   toolName: string,
 ): boolean {
   // Enforce Chat's web-only boundary again at dispatch. A model can hallucinate
   // a known tool that was absent from tools[] (or from the fenced prompt); the
   // advertised allowlist alone is therefore not a security boundary.
+  if (config.clusterWebAccess === false && OLLAMA_CHAT_WEB_TOOLS.has(toolName)) return false;
   if (config.interactionMode !== 'chat') return true;
   if (config.voiceOperator) return computerToolDefinitions().some((t) => t.function.name === toolName);
   return config.chatWebAccess === true && OLLAMA_CHAT_WEB_TOOLS.has(toolName);
@@ -164,9 +165,11 @@ export function ollamaToolCallAllowed(
 // Tool-call rules for Ollama (see localToolDispatch.ts). Computer chats run
 // every call through Computer first; the loop coach never ends the turn
 // because Ollama has no final-summary path.
-const OLLAMA_TOOL_RULES = (config: Pick<WorkerConfig, 'interactionMode' | 'chatWebAccess' | 'voiceOperator'>): LocalToolRules => ({
+const OLLAMA_TOOL_RULES = (config: Pick<WorkerConfig, 'interactionMode' | 'chatWebAccess' | 'voiceOperator' | 'clusterWebAccess'>): LocalToolRules => ({
   computer: 'first',
-  boundary: (name) => ollamaToolCallAllowed(config, name) ? null : `[error] tool "${name}" is unavailable in Arco Chat. Only armed WebSearch/WebFetch calls are allowed.`,
+  boundary: (name) => ollamaToolCallAllowed(config, name) ? null : config.clusterWebAccess === false && OLLAMA_CHAT_WEB_TOOLS.has(name)
+    ? '[error] Web access is off for this cluster member.'
+    : `[error] tool "${name}" is unavailable in Arco Chat. Only armed WebSearch/WebFetch calls are allowed.`,
   unknownTool: (name) => `[error] unknown tool "${name}". The Ollama tool runtime is on a strict allowlist; see docs/PROVIDERS.md §Ollama for the v1 set.`,
   endTurnOnRepeat: false,
 });

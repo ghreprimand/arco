@@ -10,7 +10,7 @@ import { CursorModelSelect } from '../CursorModelSelect';
 import { MemberSettingsFields } from './MemberSettingsFields';
 import { memberSettingsFrom, memberTuning, type MemberSettings } from './memberSettings';
 
-export type AddFreshOptions = { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: ClusterMemberAccessMode; name?: string; role?: string } & ClusterMemberTuning;
+export type AddFreshOptions = { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: ClusterMemberAccessMode; name?: string; role?: string; webAccess?: boolean; claudeTransport?: 'native' | 'cli' } & ClusterMemberTuning;
 
 // Phase 2.5.1 — in-cluster add-worker affordance. Lives above the member
 // list in the Members sub-tab. Two modes:
@@ -43,6 +43,15 @@ export function AddWorkerSection({
   const [workerRole, setWorkerRole] = useState('');
   const hasDirector = cluster.members.some((m) => isClusterDirector(m.role));
   const [accessMode, setAccessMode] = useState<ClusterMemberAccessMode>('standard');
+  const [isolatedClaudeTransport, setIsolatedClaudeTransport] = useState<'native' | 'cli'>('native');
+  const [webAccess, setWebAccess] = useState(true);
+  const [sandbox, setSandbox] = useState<{ claudeCli?: boolean; codex?: boolean; codexVersionReason?: string }>({});
+  useEffect(() => {
+    if (accessMode !== 'isolated') return;
+    const controller = new AbortController();
+    void fetch('/api/diagnostics/research-sandbox', { signal: controller.signal }).then(r => r.ok ? r.json() : {}).then(setSandbox).catch(() => {});
+    return () => controller.abort();
+  }, [accessMode]);
 
   // picker state for FRESH-spawn provider/model/effort overrides.
   // Anchor = cluster template (members[0]). Defaults clone the template's
@@ -100,7 +109,7 @@ export function AddWorkerSection({
   // catalog (the inherited template name is wrong for the new provider) and
   // clamps effort. Anchor-default reuse only when provider matches anchor's.
   const onPickProvider = (next: ClusterMemberProvider) => {
-    if (accessMode === 'isolated' && next !== 'claude') return;
+    if (accessMode === 'isolated' && next !== 'claude' && next !== 'codex') return;
     setProvider(next);
     if (next === templateProvider) {
       setModel(String(templateModel));
@@ -136,7 +145,8 @@ export function AddWorkerSection({
 
   // Submit guard — if the operator flipped provider away from the anchor's,
   // model must be non-empty (server enforces; UI mirrors).
-  const submitDisabled = (provider !== templateProvider && !model) || (isClusterDirector(workerRole) && (hasDirector || count > 1));
+  const sandboxUnavailable = accessMode === 'isolated' && ((provider === 'codex' && !sandbox.codex) || (provider === 'claude' && isolatedClaudeTransport === 'cli' && !sandbox.claudeCli));
+  const submitDisabled = sandboxUnavailable || (provider !== templateProvider && !model) || (isClusterDirector(workerRole) && (hasDirector || count > 1));
 
   const memberIds = useMemo(() => new Set(cluster.members.map((m) => m.workflowId)), [cluster.members]);
 
@@ -237,7 +247,7 @@ export function AddWorkerSection({
                 data-help="cluster.fresh.access"
                 onClick={() => {
                   setAccessMode(access);
-                  if (access === 'isolated' && provider !== 'claude') onPickProvider('claude');
+                  if (access === 'isolated' && provider !== 'claude' && provider !== 'codex') onPickProvider('claude');
                 }}
                 className="display-font"
                 title={access === 'standard'
@@ -263,7 +273,7 @@ export function AddWorkerSection({
             <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px', lineHeight: 1.4 }}>
               {accessMode === 'blind'
                 ? 'BLIND hides cluster plan, board, roster, role/focus, coordination doctrine, and task tools. The project cwd remains available; board transitions must be handed back by peer mail.'
-                : 'ISOLATED runs a fresh Claude Native worker in a private durable scratch directory. No project files, shell, project instructions, or cluster surfaces beyond mail.'}
+                : 'ISOLATED uses a private workspace and mailbox-only cluster access. Claude CLI and Codex require a working sandbox.'}
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -271,7 +281,7 @@ export function AddWorkerSection({
             {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
               <button
                 key={p}
-                disabled={accessMode === 'isolated' && p !== 'claude'}
+                disabled={accessMode === 'isolated' && (p !== 'claude' && p !== 'codex' || p === 'codex' && !sandbox.codex)}
                 data-help="cluster.fresh.provider"
                 onClick={() => onPickProvider(p)}
                 className="display-font"
@@ -280,8 +290,8 @@ export function AddWorkerSection({
                   background: provider === p ? 'var(--color-accent-primary-a10)' : 'transparent',
                   border: `1px solid ${provider === p ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,
                   color: provider === p ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
-                  cursor: accessMode === 'isolated' && p !== 'claude' ? 'not-allowed' : 'pointer',
-                  opacity: accessMode === 'isolated' && p !== 'claude' ? 0.35 : 1,
+                  cursor: accessMode === 'isolated' && p !== 'claude' && p !== 'codex' ? 'not-allowed' : 'pointer',
+                  opacity: accessMode === 'isolated' && p !== 'claude' && p !== 'codex' ? 0.35 : 1,
                   fontSize: '10px',
                   letterSpacing: '1px',
                 }}
@@ -290,6 +300,13 @@ export function AddWorkerSection({
               </button>
             ))}
           </div>
+          {accessMode === 'isolated' && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+            {provider === 'claude' && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44 }}>Claude transport <select style={{ minHeight: 44 }} value={isolatedClaudeTransport} onChange={e => setIsolatedClaudeTransport(e.target.value as 'native' | 'cli')}><option value="native">Claude Native</option><option value="cli" disabled={!sandbox.claudeCli}>Claude CLI{sandbox.claudeCli ? '' : ' (unavailable)'}</option></select></label>}
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44 }}><input style={{ width: 22, height: 22 }} type="checkbox" checked={webAccess} onChange={e => setWebAccess(e.target.checked)} /> Web access</label>
+          </div>}
+          {sandboxUnavailable && <div role="status">{provider === 'codex' && sandbox.codexVersionReason ? sandbox.codexVersionReason.replace('Codex researchers', 'Isolated Codex members') : 'Sandbox checking or unavailable. Check the provider, bubblewrap and socat.'}</div>}
+          {accessMode === 'isolated' && !sandbox.codex && provider !== 'codex' && <div role="status">{sandbox.codexVersionReason?.replace('Codex researchers', 'Isolated Codex members') ?? 'Codex sandbox checking or unavailable.'}</div>}
+          {accessMode === 'isolated' && provider === 'claude' && sandbox.claudeCli === false && <div role="status">Claude CLI sandbox unavailable. Check Claude CLI, bubblewrap and socat.</div>}
           <div data-help="cluster.fresh.model" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--color-fg-muted)', fontSize: '10px', letterSpacing: '1px' }}>MODEL</span>
             {provider === 'cursor' && cursorCatalog?.models?.length ? (
@@ -473,6 +490,7 @@ export function AddWorkerSection({
                 if (effort && effort !== String(templateEffort)) opts.effort = effort;
                 if (provider === 'codex' && providerAccountRef && providerAccountRef !== templateAccountRef) opts.providerAccountRef = providerAccountRef;
                 if (accessMode !== 'standard') opts.accessMode = accessMode;
+                if (accessMode === 'isolated') { opts.webAccess = webAccess; if (provider === 'claude') opts.claudeTransport = isolatedClaudeTransport; }
                 if (workerName.trim()) opts.name = workerName.trim();
                 if (workerRole.trim()) opts.role = workerRole.trim();
                 onAddFresh(cluster.clusterId, count, opts);

@@ -424,7 +424,10 @@ export const clusters: Section[] = [
   <Code>DUPLICATE</Code>, <Code>REMOVE</Code> and <Code>ADVANCED</Code>.
   Researchers run on Claude Native, Ollama or llama.cpp. Claude CLI and Codex
   are also offered on Linux when signed in and their sandbox checks pass.
-  They can use a shell inside the sandbox. Codex requires CLI version 0.171.0;
+  </p>
+  <p>
+  They can use a shell inside the sandbox. Each researcher row has a web
+  access switch, on by default. Codex requires CLI version 0.171.0;
   the picker identifies an incompatible installed version.
   </p>
   <p>
@@ -803,15 +806,19 @@ export const clusters: Section[] = [
   local APIs or workflow storage to recover the withheld state.
   </li>
   <li>
-  <strong>ISOLATED</strong> - Claude Native only. The worker runs in
+  <strong>ISOLATED</strong> - Claude Native uses fenced tools. Claude CLI and Codex
+  require a passing Linux sandbox check and can use a shell inside it. The worker runs in
   a private durable scratch directory at{' '}
   <Code>
   ~/.arco/clusters/&lt;clusterId&gt;/isolates/&lt;wfid&gt;/workspace
   </Code>{' '}
   and cannot read the project cwd, project instructions, knowledge,
-  attachments, hooks, registry MCPs, or use a shell. It receives
+  attachments, hooks or registry MCPs. It receives
   only mailbox send/read for cluster communication. History and
-  task transfer are forced OFF.
+  task transfer are forced OFF. The member row reports sandbox status and
+  offers WEB ON/OFF for the next turn. Off keeps provider connections but
+  blocks public web. Changing Codex web access restarts its app-server and
+  can stop its background commands.
   </li>
   </ul>
   <p>

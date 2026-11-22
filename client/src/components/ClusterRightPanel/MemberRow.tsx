@@ -161,7 +161,7 @@ export function MemberRow({
             outline: 'none',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
             {renameOpen ? (
               <input
                 autoFocus
@@ -230,6 +230,15 @@ export function MemberRow({
                 {member.accessMode.toUpperCase()}
               </span>
             )}
+            {!renameOpen && wsSendRaw && (member.accessMode === 'isolated' || member.accessMode === 'researcher') && (
+              <button type="button" data-help="cluster.member-access" aria-pressed={member.webAccess !== false} title="Web access changes on the next turn" onKeyDown={event => event.stopPropagation()} onClick={(event) => {
+                event.stopPropagation();
+                wsSendRaw({ type: 'cluster_member_web_set', clusterId: cluster.clusterId, workflowId: member.workflowId, enabled: member.webAccess === false });
+              }} style={{ minHeight: 44, minWidth: 44 }}>
+                WEB {member.webAccess === false ? 'OFF' : 'ON'}
+              </button>
+            )}
+            {!renameOpen && member.isolation && <span title={member.isolationReason} role="status">{member.isolation.toUpperCase()}{member.isolationReason ? `: ${member.isolationReason}` : ''}</span>}
           </div>
           {!renameOpen && (
             <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>

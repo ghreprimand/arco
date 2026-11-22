@@ -1030,10 +1030,11 @@ The live Arco *service* reporting workflows + applying reply/stop/continue. `ser
 
 - **BLIND is context isolation, ISOLATED is filesystem isolation.** BLIND
   keeps the project cwd but receives no plan/board/roster/role/focus/efficiency
-  or progress context and gets only `peer_send` / `peer_read`. ISOLATED is
-  Claude-Native-only, executes in
-  `~/.arco/clusters/<clusterId>/isolates/<wfid>/workspace`, removes Bash,
-  hooks, project prompts/refs/attachments/settings/skills/knowledge/goal,
+  or progress context and gets only `peer_send` / `peer_read`. ISOLATED uses
+  fenced Native tools or a checked CLI sandbox in
+  `~/.arco/clusters/<clusterId>/isolates/<wfid>/workspace`. Native omits Bash;
+  CLI shell access stays within its sandbox. Isolation removes hooks,
+  project prompts/refs/attachments/settings/skills/knowledge/goal,
   codebase memory and registry MCPs, and still persists events/meta under the
   real project workflow directory. Do not weaken this to a prompt-only rule.
 - **A BLIND member cannot transition its assigned board task; completion returns by mail.** Task assignment/transfer may still point at a BLIND workflow so the operator and STANDARD members can track ownership, but every plan/task tool is intentionally absent and the shared peer-ops layer returns `access_denied` if the member guesses the real REST shim. The member must finish the substantive work, `peer_send` its report, and ask a STANDARD member/operator to update the board. `BLIND_CLUSTER_DOCTRINE` is shared by Native, local, and string-form providers and explicitly forbids probing Arco HTTP APIs/workflow storage to recover hidden state. Keep this centralized: a blind member cannot update task status, so it returns `access_denied` and requires escalation through the supported peer-report path rather than probing routes.

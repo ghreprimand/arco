@@ -61,15 +61,17 @@ test('tuning from the dialog overrides the template; a replacement can be rename
   assert.equal((await memberConfigFromTemplate({ template: TEMPLATE, cwd: '/p', kind: 'replacement', name: '  ', choice: claude, isolated: false, resolveCodexAccount: accounts })).name, 'Lead');
 });
 
-test('an isolated member is a Claude Native tab without an account', async () => {
+test('isolated members keep the selected fenced provider and fresh context', async () => {
   for (const kind of ['fresh', 'replacement'] as const) {
     const c = await memberConfigFromTemplate({ template: { ...TEMPLATE, primaryProvider: 'codex' }, cwd: '/p', kind, name: 'N', choice: { inherited: 'codex', provider: 'codex', requested: false }, isolated: true, resolveCodexAccount: accounts });
-    assert.equal(c.primaryProvider, undefined, kind);
+    assert.equal(c.primaryProvider, 'codex', kind);
     assert.equal(c.claudeTransport, 'native');
     assert.equal(c.ultracode, false);
-    assert.equal(c.providerAccountRef, undefined);
+    assert.equal(c.codexTransport, 'appserver');
     assert.equal(c.resumeSessionId, undefined);
   }
+  const cli = await memberConfigFromTemplate({ template: TEMPLATE, cwd: '/p', kind: 'fresh', choice: claude, isolated: true, claudeTransport: 'cli', resolveCodexAccount: accounts });
+  assert.equal(cli.claudeTransport, 'cli');
 });
 
 test('a from-scratch member uses only its list entry, with defaults', async () => {

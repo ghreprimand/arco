@@ -78,8 +78,8 @@ test('each creation path builds the new member from its request', async () => {
     { configs: [{ name: 'Reviewer #1', ...KEPT, claudeTransport: 'native', ultracode: false, researchSpawnToken: 'r', templateSpawnToken: 't' }], errors: [] });
   assert.equal(store.getMemberAccessMode(c.clusterId, await last(c.clusterId)), 'isolated');
   assert.equal((await store.readCluster(c.clusterId))!.memberRoles?.[await last(c.clusterId)], 'Reviewer');
-  assert.deepEqual(await run(() => h.handleClusterAddFreshWorkers(ws, session, { clusterId: c.clusterId, count: 1, accessMode: 'isolated', provider: 'codex', model: 'gpt-5.5' } as never)),
-    { configs: [], errors: ['cluster_add_fresh_workers rejected: isolated_requires_claude_native'] });
+  assert.deepEqual(await run(() => h.handleClusterAddFreshWorkers(ws, session, { clusterId: c.clusterId, count: 1, accessMode: 'isolated', provider: 'cursor', model: 'auto' } as never)),
+    { configs: [], errors: ['cluster_add_fresh_workers rejected: isolated_provider_unavailable'] });
   assert.deepEqual(await run(() => h.handleClusterAddFreshWorkers(ws, session, { clusterId: c.clusterId, count: 1, model: '' } as never)),
     { configs: [], errors: ['cluster_add_fresh_workers rejected: missing_model'] });
   assert.deepEqual(await run(() => h.handleClusterAddFreshWorkers(ws, session, { clusterId: c.clusterId, count: 1, provider: 'claude', model: 'gpt-5.5' } as never)),
@@ -157,8 +157,8 @@ test('each creation path builds the new member from its request', async () => {
     { configs: [], errors: ['cluster_create_from_scratch rejected: member[0] missing_model'] });
   assert.deepEqual(await run(() => h.handleClusterCreateFromScratch(ws, session, { cwd, members: [{ provider: 'codex', model: 'gpt-5.5', providerAccountRef: 'gone' }] } as never)),
     { configs: [], errors: ['cluster_create_from_scratch rejected: member[0] unknown_account:gone'] });
-  assert.deepEqual(await run(() => h.handleClusterCreateFromScratch(ws, session, { cwd, members: [{ provider: 'codex', model: 'gpt-5.5', accessMode: 'isolated' }] } as never)),
-    { configs: [], errors: ['cluster_create_from_scratch rejected: member[0] isolated_requires_claude_native'] });
+  assert.deepEqual(await run(() => h.handleClusterCreateFromScratch(ws, session, { cwd, members: [{ provider: 'claude', model: 'sonnet', accessMode: 'isolated' }] } as never)),
+    { configs: [], errors: ['cluster_create_from_scratch rejected: too_few_members'] });
   assert.ok(announced.length >= 10 && announced.every(Boolean), 'every path announces its new members as pending cluster members');
 });
 

@@ -34,7 +34,7 @@ import { closeOpenSpansForWorkflow, reconcilePlanFile, isValidPlanId } from '../
 import * as clusterStore from '../clusterStore.js';
 import { autoPickupStateFor } from '../smartPickup.js';
 import { onSmartPickupMail } from '../smartPickupObserver.js';
-import { isSmartPickupMode } from '@arco/shared';
+import { isIsolatedAccessMode, isSmartPickupMode } from '@arco/shared';
 import { workspaceCloseCluster, workspaceOpenCluster, workspaceOpenWorkflow } from '../workspace.js';
 import * as clusterMailbox from '../clusterMailbox.js';
 import * as clusterPlanBridge from '../clusterPlanBridge.js';
@@ -662,6 +662,9 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
     tier?: clusterStore.MemberTier;
     focus?: string;
     accessMode?: import('@arco/shared').ClusterMemberAccessMode;
+    webAccess?: boolean;
+    isolation?: 'checking' | 'sandboxed' | 'tool-fenced' | 'unavailable';
+    isolationReason?: string;
   }>;
   mailboxDepth: Record<string, number>;
   createdAt: string;
@@ -714,6 +717,8 @@ export async function buildClusterStatePayload(clusterId: string): Promise<{
       ...(tier ? { tier } : {}),
       ...(focus && focus.length > 0 ? { focus } : {}),
       ...(accessMode !== 'standard' ? { accessMode } : {}),
+      ...(isIsolatedAccessMode(accessMode) ? { webAccess: clusterStore.getMemberWebAccess(clusterId, wfid) } : {}),
+      ...(accessMode === 'isolated' ? (clusterStore.memberFenceState(wfid) ?? { isolation: wf?.primary.provider === 'claude' && wf.config.claudeTransport === 'native' ? 'tool-fenced' as const : 'checking' as const }) : {}),
     };
   }));
   const mailboxDepth: Record<string, number> = {};

@@ -14,6 +14,7 @@ import { isClusterOpen, workspaceAdoptFormerMembers, workspaceCloseCluster, work
 import { assertSkillUnion } from '../clusterSkills.js';
 import {
   isClusterMemberProvider,
+  isIsolatedAccessMode,
   isClusterMemberAccessMode,
   isClusterEfficiencyLevel,
   isClusterTaskBoardMode,
@@ -54,6 +55,9 @@ import { readMeta, latestCliSessionFor, workflowConfigFromMeta } from '../workfl
 import { isValidPlanId, readPlan } from '../planStore.js';
 import { configuredAccounts, resolveProviderAccount } from '../providerAccounts.js';
 import { inferClusterProviderFromModel, memberAccountRefusal, memberConfigFromSpec, memberConfigFromTemplate, memberModelRefusal, memberTuningRefusal, templateModelRefusal, type CodexAccountCheck, type CodexAccountResolver } from './clusterMembers.js';
+import { researchSandboxAvailable } from '../workers/researchSandboxAvailability.js';
+import { codexResearchVersionReason, installedCodexVersion } from '../providers/codexVersion.js';
+
 import { getCatalog as getClaudeNativeCatalog } from '../providers/claude-native/catalog.js';
 import { getCodexCatalog } from '../providers/codex-appserver/catalog.js';
 import {
@@ -79,6 +83,16 @@ import { applyAutoPickup } from '../smartPickup.js';
 import { setClusterPlanBody } from '../clusterPlanBridge.js';
 import * as researchCreate from '../research/researchCreate.js';
 import { startResearchDirector } from '../research/researchRounds.js';
+
+async function isolatedProviderRefusal(provider: ClusterMemberProvider, transport?: 'native' | 'cli'): Promise<string | undefined> {
+  if (provider === 'claude' && transport !== 'cli') return undefined;
+  if (provider !== 'claude' && provider !== 'codex') return 'This provider cannot be isolated.';
+  if (provider === 'codex') {
+    const reason = codexResearchVersionReason(installedCodexVersion());
+    if (reason) return reason.replace('Codex researchers', 'Isolated Codex members');
+  }
+  return await researchSandboxAvailable(provider) ? undefined : `The ${provider === 'claude' ? 'Claude CLI' : 'Codex'} sandbox is unavailable; check the provider, bubblewrap and socat.`;
+}
 
 export interface ClusterHandlerDeps {
   handleUserMessage: (ws: WebSocket, session: Session, workflowId: string, content: string, clientMessageId: string | undefined, attachments: string[] | undefined, interjection: boolean, kind: 'steer' | 'follow-up' | 'interrupt' | undefined, primitive: 'docs' | 'git' | 'plan-review' | undefined) => Promise<void>;
@@ -1595,9 +1609,7 @@ export async function handleClusterCreateWithFreshWorkers(
 //
 // Validation order (server-side floor — client UI enforces stricter):
 //   1. cwd is a non-empty string
-//   2. ≥1 member (client enforces ≥2; we keep the server bottom at 1 for
-//      defence-in-depth and let clusterStore.createCluster's own ≥2 rule
-//      do the final rejection if the array is too short)
+//   2. ≥2 members, before any member workflow is created
 //   3. each member's provider is ClusterMemberProvider (cluster fence)
 //   4. each member's model is known per isKnownCatalogModel (cold-catalog
 //      falls back to non-empty-string, matching the existing pattern)
@@ -1707,15 +1719,22 @@ async function createClusterFromScratch(
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] invalid_access_mode` });
       return;
     }
-    if (accessMode === 'isolated' && m.provider !== 'claude') {
-      send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] isolated_requires_claude_native` });
+    if (accessMode === 'isolated' && m.provider !== 'claude' && m.provider !== 'codex') {
+      send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] isolated_provider_unavailable` });
       return;
+    }
+    if (m.webAccess !== undefined && (typeof m.webAccess !== 'boolean' || !isIsolatedAccessMode(accessMode))) { send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] invalid_web_access` }); return; }
+    if (m.claudeTransport !== undefined && !['native', 'cli'].includes(m.claudeTransport)) { send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] invalid_claude_transport` }); return; }
+    if (accessMode === 'isolated') {
+      const reason = await isolatedProviderRefusal(m.provider, m.claudeTransport);
+      if (reason) { send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] ${reason}` }); return; }
     }
     if (accessMode === 'researcher' && !research) {
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] researcher_requires_research_project` });
       return;
     }
   }
+  if (msg.members.length < 2) { send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: too_few_members' }); return; }
   const newWorkflowIds: string[] = [];
   const memberCwds: Record<string, string> = {};
   for (let i = 0; i < msg.members.length; i++) {
@@ -1738,6 +1757,8 @@ async function createClusterFromScratch(
       ...creation,
       cwd: msg.cwd,
       memberWorkflowIds: newWorkflowIds,
+      memberAccessModes: Object.fromEntries(msg.members.flatMap((m, i) => m.accessMode && m.accessMode !== 'standard' ? [[newWorkflowIds[i], m.accessMode]] : [])),
+      memberWebAccess: Object.fromEntries(msg.members.flatMap((m, i) => m.webAccess === false ? [[newWorkflowIds[i], false]] : [])),
       ...(research ? { memberCwds, research: { projectId: research.projectId } } : {}),
     });
   } catch (err) {
@@ -1759,9 +1780,6 @@ async function createClusterFromScratch(
     }
     if (m.focus && m.focus.trim().length > 0) {
       await clusterStore.setMemberFocus(cluster.clusterId, wfid, m.focus).catch(() => { /* best-effort */ });
-    }
-    if (m.accessMode && m.accessMode !== 'standard') {
-      await clusterStore.setMemberAccessMode(cluster.clusterId, wfid, m.accessMode).catch(() => { /* best-effort */ });
     }
   }
   if (msg.name && msg.name.trim().length > 0) {
@@ -1856,9 +1874,15 @@ export async function handleClusterAddFreshWorkers(
   if (msg.effort !== undefined && !allowedWorkflowEfforts(choice.provider, msg.model ?? template.config.primaryModel).some((level) => level === msg.effort)) {
     send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: invalid_effort' }); return;
   }
-  if (accessMode === 'isolated' && providerResolution.provider !== 'claude') {
-    send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: isolated_requires_claude_native' });
+  if (accessMode === 'isolated' && providerResolution.provider !== 'claude' && providerResolution.provider !== 'codex') {
+    send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: isolated_provider_unavailable' });
     return;
+  }
+  if (msg.webAccess !== undefined && (typeof msg.webAccess !== 'boolean' || accessMode !== 'isolated')) { send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: invalid_web_access' }); return; }
+  if (msg.claudeTransport !== undefined && !['native', 'cli'].includes(msg.claudeTransport)) { send(ws, { type: 'error', message: 'cluster_add_fresh_workers rejected: invalid_claude_transport' }); return; }
+  if (accessMode === 'isolated') {
+    const reason = await isolatedProviderRefusal(providerResolution.provider, msg.claudeTransport);
+    if (reason) { send(ws, { type: 'error', message: `cluster_add_fresh_workers rejected: ${reason}` }); return; }
   }
   const n = Math.max(1, Math.min(4, Math.floor(msg.count)));
   const addFreshProviders = Array.from({ length: n }, () => providerResolution.provider as string);
@@ -1938,7 +1962,7 @@ export async function handleClusterAddFreshWorkers(
     }
     const childConfig = await memberConfigFromTemplate({
       template: template.config, cwd: cluster.cwd, kind: 'fresh', name: childName, choice,
-      model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: accessMode === 'isolated', resolveCodexAccount,
+      model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: accessMode === 'isolated', claudeTransport: msg.claudeTransport, resolveCodexAccount,
       tuning: msg,
     });
     try { await assertSkillUnion(cluster, newRole || undefined, childConfig.pinnedSkills ?? [], childName); }
@@ -1954,10 +1978,7 @@ export async function handleClusterAddFreshWorkers(
   }
   for (const newId of newIds) {
     try {
-      await clusterStore.addMember(msg.clusterId, newId);
-      if (accessMode !== 'standard') {
-        await clusterStore.setMemberAccessMode(msg.clusterId, newId, accessMode);
-      }
+      await clusterStore.addMember(msg.clusterId, newId, { accessMode, webAccess: msg.webAccess });
       if (newRole) await clusterStore.setMemberRole(msg.clusterId, newId, newRole);
       if (msg.tier) await clusterStore.setMemberTier(msg.clusterId, newId, msg.tier);
       if (msg.focus?.trim()) await clusterStore.setMemberFocus(msg.clusterId, newId, msg.focus);
@@ -2046,9 +2067,14 @@ export async function handleClusterMemberReplace(
   }
   const replaceDisabled = await disabledClusterProvider([providerResolution.provider]);
   if (replaceDisabled) { send(ws, { type: 'error', message: `cluster_member_replace rejected: ${replaceDisabled}` }); return; }
-  if (accessMode === 'isolated' && providerResolution.provider !== 'claude') {
-    send(ws, { type: 'error', message: 'cluster_member_replace rejected: isolated_requires_claude_native' });
+  if (accessMode === 'isolated' && providerResolution.provider !== 'claude' && providerResolution.provider !== 'codex') {
+    send(ws, { type: 'error', message: 'cluster_member_replace rejected: isolated_provider_unavailable' });
     return;
+  }
+  if (msg.claudeTransport !== undefined && !['native', 'cli'].includes(msg.claudeTransport)) { send(ws, { type: 'error', message: 'cluster_member_replace rejected: invalid_claude_transport' }); return; }
+  if (accessMode === 'isolated') {
+    const reason = await isolatedProviderRefusal(providerResolution.provider, msg.claudeTransport);
+    if (reason) { send(ws, { type: 'error', message: `cluster_member_replace rejected: ${reason}` }); return; }
   }
   const choice = { inherited: inheritedClusterProvider, provider: providerResolution.provider, requested: msg.provider !== undefined };
   const modelProblem = await templateModelRefusal(choice, msg.model, isKnownCatalogModel)
@@ -2090,7 +2116,7 @@ export async function handleClusterMemberReplace(
 
   const childConfig = await memberConfigFromTemplate({
     template: source.config, cwd: cluster.cwd, kind: 'replacement', name: msg.name, choice,
-    model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: accessMode === 'isolated', resolveCodexAccount,
+    model: msg.model, effort: msg.effort, accountRef: msg.providerAccountRef, isolated: accessMode === 'isolated', claudeTransport: msg.claudeTransport, resolveCodexAccount,
     tuning: msg,
   });
   try { await assertSkillUnion(cluster, msg.role ?? clusterStore.getMemberRole(msg.clusterId, msg.workflowId), childConfig.pinnedSkills ?? [], childConfig.name ?? 'Replacement'); }
@@ -2400,6 +2426,21 @@ export async function handleClusterMemberFocusSet(
   }
   const stored = updated.memberFocuses?.[workflowId];
   console.log(`[arco] cluster ${clusterId.slice(0, 8)} member ${workflowId.slice(0, 8)} focus ${stored ? `→ "${stored.slice(0, 40)}${stored.length > 40 ? '…' : ''}"` : 'cleared'}`);
+}
+
+export async function handleClusterMemberWebSet(ws: WebSocket, clusterId: string, workflowId: string, enabled: boolean): Promise<void> {
+  if (typeof enabled !== 'boolean') {
+    send(ws, { type: 'error', message: 'cluster_member_web_set rejected: invalid web setting' });
+    return;
+  }
+  const updated = await clusterStore.setMemberWebAccess(clusterId, workflowId, enabled).catch(() => null);
+  if (!updated) {
+    send(ws, { type: 'error', message: 'cluster_member_web_set rejected: unknown or non-isolated member' });
+    return;
+  }
+  if (clusterStore.memberFenceState(workflowId)) clusterStore.setMemberFenceState(workflowId, 'checking');
+  const payload = await buildClusterStatePayload(clusterId);
+  if (payload) broadcastCluster(clusterId, { type: 'cluster_state', clusterId, state: payload });
 }
 
 // docs/PROTOCOL_CLUSTER.md - operator flipped the idle-nudger chip in

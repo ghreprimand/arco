@@ -154,16 +154,21 @@ function normalizeMember(raw: unknown, idx: number): ClusterPresetMember {
     if (!isClusterMemberAccessMode(r.accessMode)) {
       throw new PresetValidationError(400, `members[${idx}].accessMode must be standard/blind/isolated`);
     }
-    if (r.accessMode === 'isolated' && provider !== 'claude') {
-      throw new PresetValidationError(400, `members[${idx}].accessMode isolated requires provider claude`);
+    if (r.accessMode === 'isolated' && provider !== 'claude' && provider !== 'codex') {
+      throw new PresetValidationError(400, `members[${idx}].accessMode isolated requires provider claude or codex`);
     }
     if (r.accessMode === 'researcher' && !isResearcherProvider(provider)) {
       throw new PresetValidationError(400, `members[${idx}].accessMode researcher requires provider claude, ollama or llamacpp`);
     }
     if (r.accessMode !== 'standard') out.accessMode = r.accessMode;
   }
+  if (out.accessMode === 'isolated') {
+    if (r.webAccess === false) out.webAccess = false;
+    if (provider === 'claude' && (r.claudeTransport === 'native' || r.claudeTransport === 'cli')) out.claudeTransport = r.claudeTransport;
+  }
   // Research panels keep each researcher's ADVANCED limits (docs/RESEARCH.md).
   if (out.accessMode === 'researcher') {
+    if (r.webAccess === false) out.webAccess = false;
     if (provider === 'claude' && (r.researchClaudeTransport === 'native' || r.researchClaudeTransport === 'cli')) out.researchClaudeTransport = r.researchClaudeTransport;
     if (provider === 'claude' && Number.isInteger(r.webSearchMaxUses) && (r.webSearchMaxUses as number) >= 1 && (r.webSearchMaxUses as number) <= 50) out.webSearchMaxUses = r.webSearchMaxUses as number;
     if (provider === 'ollama' && Number.isInteger(r.contextSize) && (r.contextSize as number) >= 2048 && (r.contextSize as number) <= 1_048_576) out.contextSize = r.contextSize as number;

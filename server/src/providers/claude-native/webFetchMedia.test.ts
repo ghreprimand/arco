@@ -43,7 +43,7 @@ for(const kind of ['image','document'] as const)test(`Native URL ${kind} reaches
  }finally{await worker.dispose();}
 });
 test('Native portable URL reader obeys web permission, posture and per-turn call limits',async()=>{
- for(const config of [{interactionMode:'chat',chatWebAccess:false},{toolPosture:'coding'}]){
+ for(const config of [{interactionMode:'chat',chatWebAccess:false},{toolPosture:'coding'},{clusterAccessMode:'isolated',clusterWebAccess:false}]){
   const worker=fixture(config);let deniedCalls=0;worker.fetchUrlContent=async()=>{deniedCalls++;throw new Error('must not fetch');};try{const r=await worker.dispatchTool({id:'blocked',name:'read_url',input:{url:'https://example.invalid/image.png'}});assert.equal(r.isError,true);assert.equal(deniedCalls,0);}finally{await worker.dispose();}
  }
  const worker=fixture({interactionMode:'chat',chatWebAccess:true,webSearchMaxUses:1});let calls=0;

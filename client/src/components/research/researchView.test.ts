@@ -18,10 +18,11 @@ test('a researcher card counts web searches from tool activity, once per call', 
 
 test('a Claude CLI researcher keeps its transport without a Native-only search limit', () => {
   const director = { key: 'd', provider: 'claude' as const, model: 'sonnet', effort: 'medium', advanced: false };
-  const researcher = { ...director, key: 'r', researchClaudeTransport: 'cli' as const, webSearchMaxUses: 5 };
+  const researcher = { ...director, key: 'r', researchClaudeTransport: 'cli' as const, webSearchMaxUses: 5, webAccess: false };
   const payload = researchCreatePayload({ name: 'Fixture', brief: 'Compare.', blind: true, director, rows: [researcher] });
   assert.equal(payload.members[1].researchClaudeTransport, 'cli');
   assert.equal(payload.members[1].webSearchMaxUses, undefined);
+  assert.equal(payload.members[1].webAccess, false);
   const codex = { ...director, key: 'c', provider: 'codex' as const, model: 'gpt-5.5' };
   const codexPayload = researchCreatePayload({ name: 'Fixture', brief: 'Compare.', blind: true, director, rows: [codex] });
   assert.equal(codexPayload.members[1].provider, 'codex');

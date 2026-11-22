@@ -211,6 +211,7 @@ export class WorkerManager {
       // registers peer_* tools. Other transports ignore for now.
       clusterId?: WorkerConfig['clusterId'];
       clusterAccessMode?: WorkerConfig['clusterAccessMode'];
+      clusterWebAccess?: WorkerConfig['clusterWebAccess'];
       // docs/RESEARCH.md - the Research Director gets research_round.
       clusterResearchDirector?: WorkerConfig['clusterResearchDirector'];
       clusterTaskBoardAttached?: WorkerConfig['clusterTaskBoardAttached'];
@@ -327,6 +328,7 @@ export class WorkerManager {
       toolPosture: options?.toolPosture,
       clusterId: options?.clusterId,
       clusterAccessMode: options?.clusterAccessMode,
+      clusterWebAccess: options?.clusterWebAccess,
       ...(options?.clusterResearchDirector ? { clusterResearchDirector: true } : {}),
       clusterTaskBoardAttached: options?.clusterTaskBoardAttached,
       clusterPlan: options?.clusterPlan,

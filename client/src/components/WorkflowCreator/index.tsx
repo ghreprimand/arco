@@ -32,6 +32,7 @@ import { DirectoryBrowser } from '../media/DirectoryPicker';
 import { mintTemplateSpawnToken, registerPendingTemplateApply } from './pendingTemplateApply';
 import { deriveDisplayNames, CLAUDE_MODELS,  CODEX_MODELS_UI_FALLBACK, MODELS, EFFORT_LABELS, FALLBACK_EFFORTS} from './modelOptions';
 import type { Props, MemberDraft } from './types';
+import { memberAccessOptions } from './types';
 import { PublicProjectBox } from '../PublicProjectBox';
 import { PlanChooser } from '../plans/PlanChooser';
 import { startPlanGenesis } from '../plans/startPlanGenesis';
@@ -714,6 +715,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       model: m.model as ModelName,
       effort: capDefaultEffort((m.effort as EffortLevel | undefined) ?? 'medium', m.provider, m.model as ModelName, claudeNativeCatalog, codexCatalog),
       providerAccountRef: m.provider === 'codex' ? m.providerAccountRef : undefined,
+      ...memberAccessOptions(m),
       displayName: m.displayName ?? '',
       role: m.role ?? '',
       tier: (m.tier as MemberTier | undefined) ?? '',
@@ -761,6 +763,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
       model: String(m.model),
       ...(m.effort ? { effort: m.effort } : {}),
       ...(m.provider === 'codex' && m.providerAccountRef ? { providerAccountRef: m.providerAccountRef } : {}),
+      ...memberAccessOptions(m),
       displayName: derived[i]!,
       ...(m.role.trim().length > 0 ? { role: m.role.trim() } : {}),
       ...(m.tier ? { tier: m.tier } : {}),
@@ -901,6 +904,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             model: String(m.model),
             ...(m.effort ? { effort: m.effort } : {}),
             ...(m.provider === 'codex' && m.providerAccountRef ? { providerAccountRef: m.providerAccountRef } : {}),
+            ...memberAccessOptions(m),
             displayName: derived[i]!,
             ...(m.role.trim().length > 0 ? { role: m.role.trim() } : {}),
             ...(m.tier ? { tier: m.tier } : {}),

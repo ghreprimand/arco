@@ -155,11 +155,15 @@ test('snapshot restore retains explicit choices and old-format omitted fallback 
   const skill = await writeSkill({ scope: 'project', name: 'Snapshot fixture', description: '', body: 'Preserve this standing fixture.' }, c.cwd);
   const skillPins = [{ scope: 'project' as const, slug: skill.slug }];
   await store.setSkillPins(c.clusterId, skillPins);
+  await store.setMemberAccessMode(c.clusterId, c.members[1], 'isolated');
+  await store.setMemberWebAccess(c.clusterId, c.members[1], false);
   for (const id of c.members) await writeMeta(c.cwd, { workflowId: id, name: 'Fixture', cwd: c.cwd, createdAt: 1, lastActiveAt: 1, primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'medium', cliSessions: [], operator: 'fixture', lastEventSeq: null, lastTranscriptSeq: null, compactedAt: null });
   const snapshot = await snapshots.saveSnapshot({ clusterId: c.clusterId, name: 'Coordination fixture' });
   const restored = await snapshots.restoreSnapshot(snapshot.id, c.cwd);
   const state = await store.readCluster(restored.cluster.clusterId); assert.ok(state);
   assert.equal(state.efficiencyLevel, 'lean'); assert.equal(state.progressTracking, 'board');
+  assert.equal(store.getMemberAccessMode(state.clusterId, state.members[1]), 'isolated');
+  assert.equal(store.getMemberWebAccess(state.clusterId, state.members[1]), false);
   assert.deepEqual(state.skillPins, skillPins);
   assert.equal(store.normalizeTaskBoardMode(state), 'project'); assert.deepEqual(state.messageGuard, guard('hard', 31));
   const path = join(process.env.ARCO_HOME!, 'cluster-snapshots', snapshot.id, 'manifest.json');

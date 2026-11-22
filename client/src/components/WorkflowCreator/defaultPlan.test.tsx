@@ -5,6 +5,13 @@ import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { WorkflowCreator } from './index.js';
 import { useAppStore } from '../../stores/appStore.js';
+import { memberAccessOptions } from './types.js';
+
+test('a saved isolated member retains web-off and transport when sent for creation', () => {
+  const saved = { accessMode: 'isolated' as const, webAccess: false, claudeTransport: 'cli' as const };
+  const draft = memberAccessOptions(saved);
+  assert.deepEqual(memberAccessOptions(draft), saved);
+});
 
 test('cluster creator starts with no plan and offers four choices', () => {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/' });

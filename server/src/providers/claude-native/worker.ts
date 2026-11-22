@@ -1937,7 +1937,8 @@ export class ClaudeNativeWorker extends EventEmitter {
     const serverTools = this.config.webSearchMaxUses !== undefined
       ? buildClaudeServerTools(this.config.webSearchMaxUses)
       : CLAUDE_CODE_SERVER_TOOLS;
-    const all = [...base, ...extras, ...serverTools];
+    const all = [...base, ...extras, ...serverTools].filter(tool =>
+      !isolated || this.config.clusterWebAccess !== false || !['web_search', 'web_fetch', 'read_url', 'code_execution'].includes(tool.name));
     // §4.1 — posture filter. 'full'/unset is a no-op (returns `all`). A bundle
     // drops its omitted core/server tools (dynamic opt-ins always survive),
     // scrubs dangling "X still available" cross-refs in survivors, and falls

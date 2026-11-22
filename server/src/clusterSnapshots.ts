@@ -103,6 +103,7 @@ export interface SnapshotMemberConfig {
   tier?: string;
   focus?: string;
   accessMode?: ClusterMemberAccessMode;
+  webAccess?: boolean;
   // New snapshots carry the complete durable operator configuration, including
   // client-only fields meta.json cannot reconstruct (advanced/fast mode,
   // permission posture, provider allowlist, fallbacks). Restore sanitizes
@@ -438,6 +439,7 @@ export async function saveSnapshot(input: SaveSnapshotInput): Promise<ClusterSna
         ...(cluster.memberTiers?.[oldWfid] ? { tier: cluster.memberTiers[oldWfid] } : {}),
         ...(cluster.memberFocuses?.[oldWfid] ? { focus: cluster.memberFocuses[oldWfid] } : {}),
         ...(cluster.memberAccessModes?.[oldWfid] ? { accessMode: cluster.memberAccessModes[oldWfid] } : {}),
+        ...(cluster.memberWebAccess?.[oldWfid] === false ? { webAccess: false } : {}),
         ...(input.memberConfigs?.[oldWfid]
           ? { workflowConfig: portableWorkflowConfig(input.memberConfigs[oldWfid]) }
           : {}),
@@ -779,7 +781,10 @@ export async function restoreSnapshot(snapshotId: string, targetCwdInput?: strin
   // passes; createCluster only mints the clusterId + writes cluster meta and
   // does NOT require the member workflow dirs to exist yet.
   const newMemberIds = oldIds.map((oldId) => idMap.get(oldId)!);
-  const cluster = await clusterStore.createCluster({ cwd: targetCwd, memberWorkflowIds: newMemberIds });
+  const cluster = await clusterStore.createCluster({ cwd: targetCwd, memberWorkflowIds: newMemberIds,
+    memberAccessModes: Object.fromEntries(manifest.members.flatMap(m => m.accessMode && m.accessMode !== 'standard' ? [[idMap.get(m.oldWorkflowId)!, m.accessMode]] : [])),
+    memberWebAccess: Object.fromEntries(manifest.members.flatMap(m => m.webAccess === false ? [[idMap.get(m.oldWorkflowId)!, false]] : [])),
+  });
   idMap.set(manifest.clusterState.clusterId, cluster.clusterId);
 
   const restoredMembers: RestoredMember[] = [];

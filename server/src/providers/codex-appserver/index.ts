@@ -194,6 +194,7 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
       .catch((err: unknown) => {
         if (this.settled) return;
         const msg = err instanceof Error ? err.message : String(err);
+        if (this.config.clusterAccessMode === 'isolated') void import('../../clusterStore.js').then(({ setMemberFenceState }) => setMemberFenceState(this.workflowId, 'unavailable', /Codex researchers need Codex/.test(msg) ? msg.replace('Codex researchers', 'Isolated Codex members') : 'Sandbox could not start; check Codex, its sign-in, bubblewrap and socat.')).catch(() => undefined);
         if (this.waitForResearchSignIn(msg, () => this.startAttempt(prompt))) return;
         // Bootstrap failure that did NOT come through `fatal` (handshake RPC
         // error, thread/start rejection, …). Count it toward the spawn-failure
@@ -235,7 +236,7 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
   }
 
   private retryResearchAuthentication(message: string): boolean {
-    if (this.config.clusterAccessMode !== 'researcher' || this.researchAuthRetried || !isResearchAuthFailure(message)) return false;
+    if (!isIsolatedAccessMode(this.config.clusterAccessMode) || this.researchAuthRetried || !isResearchAuthFailure(message)) return false;
     this.researchAuthRetried = true;
     const resume = () => {
       void (async () => {

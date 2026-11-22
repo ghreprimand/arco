@@ -63,6 +63,14 @@ export function ReplaceMemberDialog({
   const [effort, setEffort] = useState<EffortLevel>(capDefaultEffort(originalEffort as EffortLevel));
   const [account, setAccount] = useState<string | undefined>(originalAccount);
   const [accessMode, setAccessMode] = useState<ClusterMemberAccessMode>(member.accessMode ?? 'standard');
+  const [isolatedClaudeTransport, setIsolatedClaudeTransport] = useState<'native' | 'cli'>(job?.config.claudeTransport === 'cli' ? 'cli' : 'native');
+  const [sandbox, setSandbox] = useState<{ claudeCli?: boolean; codex?: boolean; codexVersionReason?: string }>({});
+  useEffect(() => {
+    if (accessMode !== 'isolated') return;
+    const controller = new AbortController();
+    void fetch('/api/diagnostics/research-sandbox', { signal: controller.signal }).then(r => r.ok ? r.json() : {}).then(setSandbox).catch(() => {});
+    return () => controller.abort();
+  }, [accessMode]);
   // Name, role, work size, focus and tuning start from the old member; the
   // request carries all of them, so nothing is forced to stay.
   const originalName = job?.config.name ?? '';
@@ -119,7 +127,7 @@ export function ReplaceMemberDialog({
   }, [effortOptions, effort]);
 
   const pickProvider = (next: ClusterMemberProvider) => {
-    if (accessMode === 'isolated' && next !== 'claude') return;
+    if (accessMode === 'isolated' && next !== 'claude' && next !== 'codex') return;
     setProvider(next);
     if (next === originalProvider) {
       setModel(originalModel);
@@ -144,14 +152,15 @@ export function ReplaceMemberDialog({
   const pickAccess = (next: ClusterMemberAccessMode) => {
     setAccessMode(next);
     if (next === 'isolated') {
-      if (provider !== 'claude') pickProvider('claude');
+      if (provider !== 'claude' && provider !== 'codex') pickProvider('claude');
       setHistoryMode('none');
       setTransferTasks(false);
     }
   };
 
   const directorBlocked = isClusterDirector(role) && otherDirector;
-  const ready = !!model && !directorBlocked && (historyMode === 'none' || (!!historyPreview && !historyLoading && !historyError));
+  const sandboxUnavailable = accessMode === 'isolated' && ((provider === 'codex' && !sandbox.codex) || (provider === 'claude' && isolatedClaudeTransport === 'cli' && !sandbox.claudeCli));
+  const ready = !sandboxUnavailable && !!model && !directorBlocked && (historyMode === 'none' || (!!historyPreview && !historyLoading && !historyError));
   const submit = () => {
     if (!wsSendRaw || !ready) return;
     wsSendRaw({
@@ -163,6 +172,7 @@ export function ReplaceMemberDialog({
       ...(effort !== originalEffort ? { effort } : {}),
       ...(provider === 'codex' && account !== originalAccount ? { providerAccountRef: account } : {}),
       accessMode,
+      ...(accessMode === 'isolated' && provider === 'claude' ? { claudeTransport: isolatedClaudeTransport } : {}),
       ...(name.trim() && name.trim() !== originalName ? { name: name.trim() } : {}),
       role: role.trim(),
       ...memberTuning(memberSettings, provider),
@@ -200,7 +210,7 @@ export function ReplaceMemberDialog({
           style={menuStyle}
         >
           {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
-            <option key={p} value={p} disabled={accessMode === 'isolated' && p !== 'claude'}>{p.toUpperCase()}</option>
+            <option key={p} value={p} disabled={accessMode === 'isolated' && (p !== 'claude' && p !== 'codex' || p === 'codex' && !sandbox.codex)}>{p.toUpperCase()}</option>
           ))}
         </select>
       </label>
@@ -342,8 +352,12 @@ export function ReplaceMemberDialog({
           ? 'Normal cluster context and project access.'
           : accessMode === 'blind'
             ? 'Project access remains, but only peer_send / peer_read and no cluster coordination context or task tools. A standard member must perform board transitions from mailed completion reports.'
-            : 'Claude Native in a private scratch workspace outside the project. No history or task transfer.'}
+            : 'Private workspace outside the project. No history or task transfer; CLI providers require a working sandbox.'}
       </div>
+      {accessMode === 'isolated' && provider === 'claude' && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44 }}>Claude transport <select style={{ minHeight: 44 }} value={isolatedClaudeTransport} onChange={e => setIsolatedClaudeTransport(e.target.value as 'native' | 'cli')}><option value="native">Claude Native</option><option value="cli" disabled={!sandbox.claudeCli}>Claude CLI{sandbox.claudeCli ? '' : ' (unavailable)'}</option></select></label>}
+      {sandboxUnavailable && <div role="status">{provider === 'codex' && sandbox.codexVersionReason ? sandbox.codexVersionReason.replace('Codex researchers', 'Isolated Codex members') : 'Sandbox checking or unavailable. Check the provider, bubblewrap and socat.'}</div>}
+      {accessMode === 'isolated' && !sandbox.codex && provider !== 'codex' && <div role="status">{sandbox.codexVersionReason?.replace('Codex researchers', 'Isolated Codex members') ?? 'Codex sandbox checking or unavailable.'}</div>}
+      {accessMode === 'isolated' && provider === 'claude' && sandbox.claudeCli === false && <div role="status">Claude CLI sandbox unavailable. Check Claude CLI, bubblewrap and socat.</div>}
       <label
         className="display-font"
         data-help="cluster.replace.history"

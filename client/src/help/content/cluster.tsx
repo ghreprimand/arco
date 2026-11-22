@@ -440,14 +440,14 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>Chooses what the new worker may see, before it is created. <C>STANDARD</C> gets the usual project and cluster context. <C>BLIND</C> can read the project but gets no plan, board, roster, role, focus or coordination settings; its only cluster tools send and read mail, including with llama.cpp and LM Studio. Cursor retains separately attached file, workflow-plan and configured tools under their own access checks.</p>
-        <p><C>ISOLATED</C> needs Claude. It works in its own private folder outside the project and cannot read project files, project instructions, knowledge or attachments, and has no shell, hooks or extra tool servers. It talks to the cluster only by mail and can attach small files from its folder to a message.</p>
+        <p><C>ISOLATED</C> uses a private folder and mailbox-only cluster access. Claude Native has no shell; Claude CLI and Codex use a checked Linux sandbox. Web access can be turned off for the next turn.</p>
       </>
     ),
     manualSection: 'cluster-member-replacement',
   },
   'cluster.member-access': {
     title: 'Member access',
-    body: <p>Shown when a member has limited access. <C>BLIND</C> can read the project but sees no cluster coordination context. <C>ISOLATED</C> is a Claude worker in a private folder with no project access; it talks to the cluster only by mail.</p>,
+    body: <p>Shown when a member has limited access. <C>BLIND</C> can read the project but sees no cluster coordination context. <C>ISOLATED</C> uses a private folder and mailbox-only cluster access. The row shows its fence status and web switch; the web choice applies on the next turn.</p>,
     manualSection: 'cluster-member-replacement',
   },
   'cluster.member-replace': {
@@ -562,8 +562,8 @@ export const clusterHelp: Record<string, HelpEntry> = {
           <C>peer_read</C> as cluster tools. Cursor keeps separately attached file, workflow-plan and configured tools under their own access checks.
         </p>
         <p>
-          <C>ISOLATED</C> creates a Claude Native worker in a private scratch
-          workspace outside the project. It cannot import history or inherit
+          <C>ISOLATED</C> creates a worker in a private scratch
+          workspace outside the project. CLI providers require a passing Linux sandbox check. It cannot import history or inherit
           active task assignments.
         </p>
       </>

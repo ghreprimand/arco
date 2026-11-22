@@ -179,6 +179,7 @@ handleClusterTaskBoardAttachSet,
 handleClusterTaskBoardModeSet,
 handleClusterMemberAdd,
 handleClusterMemberFocusSet,
+handleClusterMemberWebSet,
 handleClusterMemberRemove,
 handleClusterMemberReplace,
 handleClusterMemberRoleSet,
@@ -1344,6 +1345,11 @@ wss.on('connection', (ws: WebSocket) => {
       case 'cluster_member_focus_set':
         handleClusterMemberFocusSet(ws, msg.clusterId, msg.workflowId, msg.focus).catch((err) => {
           console.error('[arco] cluster_member_focus_set handler failed:', err);
+        });
+        break;
+      case 'cluster_member_web_set':
+        handleClusterMemberWebSet(ws, msg.clusterId, msg.workflowId, msg.enabled).catch((err) => {
+          console.error('[arco] cluster_member_web_set handler failed:', err);
         });
         break;
       case 'cluster_idle_nudger_toggle':

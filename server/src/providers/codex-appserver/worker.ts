@@ -572,7 +572,7 @@ export class CodexAppServerWorker extends EventEmitter {
       let lease: Awaited<ReturnType<typeof broker.acquire>> | undefined = await broker.acquire(this.isolationAbort.signal);
       try {
         const prepared = await prepareCodexIsolatedLaunch({ clusterId: this.config.clusterId, workflowId: this.workflowId,
-          arcoPort: parseInt(process.env.ARCO_PORT || '3001', 10), binary: executable, credentials: lease.credentials, webAccess: true, sourceHome: codexSignInHome(this.config.codexHome), ...mode });
+          arcoPort: parseInt(process.env.ARCO_PORT || '3001', 10), binary: executable, credentials: lease.credentials, webAccess: this.config.clusterWebAccess !== false, sourceHome: codexSignInHome(this.config.codexHome), ...mode });
         const fingerprint = (value: unknown) => {
           const pass = JSON.parse(workerAccessPass('codex', value)) as { tokens: { access_token: string; account_id: string } };
           return createHash('sha256').update(pass.tokens.access_token).update('\0').update(pass.tokens.account_id).digest('hex');
@@ -802,6 +802,7 @@ export class CodexAppServerWorker extends EventEmitter {
     // `worker_model` event lands before any text/thinking deltas.
     this.emit('init', { model: this.resolvedModel ?? this.config.model, sessionId: this.threadId });
     if (this.config.clusterAccessMode === 'researcher' && this.config.clusterId) void setResearcherIsolation(this.config.clusterId, this.workflowId, 'sandboxed').catch(() => undefined);
+    if (this.config.clusterAccessMode === 'isolated') void import('../../clusterStore.js').then(({ setMemberFenceState }) => setMemberFenceState(this.workflowId, 'sandboxed')).catch(() => undefined);
 
     const params: TurnStartParams = {
       threadId: this.threadId,

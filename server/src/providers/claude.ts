@@ -225,6 +225,9 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
 
   private failLaunch(error: unknown): void {
     const message = String(error);
+    if (this.config.clusterAccessMode === 'isolated' && this.config.workflowId) {
+      void import('../clusterStore.js').then(({ setMemberFenceState }) => setMemberFenceState(this.config.workflowId!, 'unavailable', /sign-in needs renewing/i.test(message) ? 'Claude sign-in needs renewing.' : 'Sandbox could not start; check Claude CLI, bubblewrap and socat.')).catch(() => undefined);
+    }
     if (this.config.clusterAccessMode === 'researcher' && this.config.clusterId && this.config.workflowId
       && /Claude sign-in needs renewing\./.test(message) && !this.isolationAbort.signal.aborted) {
       if (this._waitingForSignIn) return;
@@ -254,9 +257,9 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     this.emit('error', message);
   }
 
-  /** Reissue the current access pass after a researcher authentication failure. */
+  /** Reissue the current access pass after an isolated authentication failure. */
   private retryResearchAuthentication(): boolean {
-    if (this.config.clusterAccessMode !== 'researcher') return false;
+    if (!isIsolatedAccessMode(this.config.clusterAccessMode)) return false;
     if (this._researchAuthRetryPending) return true;
     if (this._researchAuthRetried || !this.process) return false;
     this._researchAuthRetried = true;
@@ -341,7 +344,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       try {
         if (this.config.clusterAccessMode === 'researcher') await setResearcherSignInWaiting(this.config.clusterId, this.config.workflowId, false);
         const prepared = await prepareClaudeIsolatedLaunch({ clusterId: this.config.clusterId, workflowId: this.config.workflowId,
-          arcoPort: PORT, binary: executable, credentials: lease.credentials, webAccess: true, ...mode, args });
+          arcoPort: PORT, binary: executable, credentials: lease.credentials, webAccess: this.config.clusterWebAccess !== false, ...mode, args });
         launch = { ...prepared, close: async () => { try { await prepared.close(); } finally { lease.release(); } } };
       } catch (error) { lease.release(); throw error; }
       if (this._status === 'failed' || this._status === 'completed') { await launch.close(); return; }
@@ -469,8 +472,8 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       // Fatal — either no transient signal, or we've exhausted attempts.
       this._status = 'failed';
       if (isolated && isClaudeCliAuthFailure(this._stderrBuf)) {
-        if (this.config.clusterAccessMode === 'researcher' && this._researchAuthRetried) {
-          this.emit('error', 'Claude researcher authentication failed after a fresh access pass.');
+        if (this._researchAuthRetried) {
+          this.emit('error', 'Claude isolated authentication failed after a fresh access pass.');
           return;
         }
         this.emit('system_notice', '[AUTH:claude] Claude sign-in needs renewing. Re-login to continue.');
@@ -676,6 +679,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     if (!this.parser) return;
 
     this.parser.on('init', (data) => {
+      if (this.config.clusterAccessMode === 'isolated' && this.config.workflowId) void import('../clusterStore.js').then(({ setMemberFenceState }) => setMemberFenceState(this.config.workflowId!, 'sandboxed')).catch(() => undefined);
       if (this.config.clusterAccessMode === 'researcher' && this.config.clusterId && this.config.workflowId) {
         void setResearcherIsolation(this.config.clusterId, this.config.workflowId, 'sandboxed').catch(() => undefined);
       }
@@ -778,8 +782,8 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
           if (this.retryResearchAuthentication()) return;
           this._gotResult = true;
           this._status = 'failed';
-          if (this.config.clusterAccessMode === 'researcher' && this._researchAuthRetried) {
-            this.emit('error', 'Claude researcher authentication failed after a fresh access pass.');
+          if (this._researchAuthRetried) {
+            this.emit('error', 'Claude isolated authentication failed after a fresh access pass.');
           } else {
             this.emit('system_notice', '[AUTH:claude] Claude sign-in needs renewing. Re-login to continue.');
             this.emit('error', 'Claude sign-in needs renewing.');

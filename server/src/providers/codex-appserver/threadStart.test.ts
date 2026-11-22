@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { WorkerConfig } from '@arco/shared';
-import { buildThreadStartParams } from './worker.js';
+import { buildThreadStartParams, bootstrapSurfaceKey } from './worker.js';
+import { codexWebSearchMode } from '../codexWebSearch.js';
 
 // The workflow worker's thread/start request is pinned: the one-shot evaluator
 // adapter has its own locked-down request and must not change this one.
@@ -21,4 +22,7 @@ test('workflow worker thread/start keeps its sandbox, approvals, web search and 
   const isolated = buildThreadStartParams({ ...config, clusterAccessMode: 'isolated', sandbox: 'danger-full-access' } as WorkerConfig, {});
   assert.equal(isolated.sandbox, null);
   assert.equal(isolated.cwd, '/work');
+  const off = { ...config, clusterAccessMode: 'isolated', clusterWebAccess: false } as WorkerConfig;
+  assert.equal(codexWebSearchMode(off), 'disabled');
+  assert.notEqual(bootstrapSurfaceKey(off), bootstrapSurfaceKey({ ...off, clusterWebAccess: true }));
 });

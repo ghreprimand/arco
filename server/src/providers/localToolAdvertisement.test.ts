@@ -9,6 +9,16 @@ installIsolatedTestHome(home);
 test.after(() => rmSync(home, { recursive: true, force: true }));
 const { LlamacppProvider } = await import('./llamacpp.js');
 const { OpenAIHttpWorkerProcess } = await import('./lmstudio.js');
+const { ollamaToolCandidates, ollamaToolCallAllowed } = await import('./ollama.js');
+
+test('web-off researchers cannot advertise or dispatch public web tools', () => {
+  const config = { cwd: home, interactionMode: 'agent' as const, clusterAccessMode: 'researcher' as const, clusterWebAccess: false };
+  const names = (ollamaToolCandidates(config) ?? []).map(tool => tool.function.name);
+  for (const name of ['WebSearch', 'WebFetch']) {
+    assert.equal(names.includes(name), false);
+    assert.equal(ollamaToolCallAllowed(config, name), false);
+  }
+});
 
 const response = () => new Response('data: '+JSON.stringify({choices:[{delta:{content:'ok'},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n', {headers:{'Content-Type':'text/event-stream'}});
 

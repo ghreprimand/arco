@@ -725,6 +725,7 @@ export interface WorkerConfig {
   // Claude Native in a private cwd and also keep persistence rooted at the
   // real project via `persistenceCwd`.
   clusterAccessMode?: import('./clusters.js').ClusterMemberAccessMode;
+  clusterWebAccess?: boolean;
   persistenceCwd?: string;
   // The Research Director of a research project: research_round and the
   // director's research instructions are added (docs/RESEARCH.md).

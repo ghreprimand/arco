@@ -49,6 +49,7 @@ export async function prepareResearchCreate(msg: ClusterCreateFromScratchMessage
   if (members.length - 1 > RESEARCH_MAX_RESEARCHERS) return { refusal: 'too_many_researchers' };
   for (let i = 1; i < members.length; i++) {
     if (!isResearcherProvider(members[i].provider)) return { refusal: `member[${i}] researcher_provider_unavailable:${String(members[i].provider)}` };
+    if (members[i].webAccess !== undefined && typeof members[i].webAccess !== 'boolean') return { refusal: `member[${i}] invalid_web_access` };
     if (members[i].researchClaudeTransport !== undefined && (members[i].provider !== 'claude'
       || !['native', 'cli'].includes(members[i].researchClaudeTransport!))) return { refusal: `member[${i}] invalid_research_transport` };
     const { webSearchMaxUses: web, contextSize: ctx } = members[i];
@@ -86,6 +87,7 @@ export async function prepareResearchCreate(msg: ClusterCreateFromScratchMessage
         ? { ...m, webSearchMaxUses: undefined, contextSize: undefined, role: RESEARCH_DIRECTOR_ROLE, displayName: RESEARCH_DIRECTOR_ROLE, accessMode: 'standard' as const, tier: undefined, focus: undefined }
         : { provider: m.provider, model: m.model, effort: m.effort, providerAccountRef: m.providerAccountRef,
             role: RESEARCHER_ROLE, displayName: researcherName(researchLetter(i - 1)), accessMode: 'researcher' as const,
+            ...(m.webAccess === false ? { webAccess: false } : {}),
             ...(m.provider === 'claude' && m.researchClaudeTransport ? { researchClaudeTransport: m.researchClaudeTransport } : {}),
             ...(m.provider === 'claude' && m.webSearchMaxUses ? { webSearchMaxUses: m.webSearchMaxUses } : {}),
             ...(m.provider === 'ollama' && m.contextSize ? { contextSize: m.contextSize } : {}) }),

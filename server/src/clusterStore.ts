@@ -100,6 +100,8 @@ export interface ClusterState {
   // cluster surface; isolated members additionally execute in a private
   // scratch cwd under this cluster's durable directory.
   memberAccessModes?: Record<string, Exclude<ClusterMemberAccessMode, 'standard'>>;
+  // Sparse: an absent entry permits web access.
+  memberWebAccess?: Record<string, boolean>;
   // Sparse: members whose workflow folder lives outside `cwd`. Researchers
   // keep their conversations in Arco state, not in the research folder the
   // Research Director works in (docs/RESEARCH.md).
@@ -225,6 +227,8 @@ export async function createCluster(opts: {
   cwd: string;
   memberWorkflowIds: string[];
   memberCwds?: Record<string, string>;
+  memberAccessModes?: ClusterState['memberAccessModes'];
+  memberWebAccess?: ClusterState['memberWebAccess'];
   research?: { projectId: string };
 } & ClusterCreationSettings): Promise<ClusterState> {
   const cwd = opts.cwd;
@@ -234,6 +238,12 @@ export async function createCluster(opts: {
   }
   if (members.length < 2) {
     throw new ClusterValidationError('too_few_members', 'a cluster requires at least 2 members');
+  }
+  for (const [id, mode] of Object.entries(opts.memberAccessModes ?? {})) {
+    if (!members.includes(id) || !isClusterMemberAccessMode(mode) || String(mode) === 'standard') throw new ClusterValidationError('invalid_access_mode', 'Invalid member access mode.');
+  }
+  for (const [id, enabled] of Object.entries(opts.memberWebAccess ?? {})) {
+    if (!members.includes(id) || typeof enabled !== 'boolean' || !isIsolatedAccessMode(opts.memberAccessModes?.[id])) throw new ClusterValidationError('invalid_web_access', 'Invalid member web setting.');
   }
   // Hard fence (plan §6.2): no depth-2 clusters; no cross-cluster membership.
   for (const wfid of members) {
@@ -267,10 +277,13 @@ export async function createCluster(opts: {
     taskBoardMode: opts.taskBoardMode ?? 'cluster',
     taskBoardAttached: opts.taskBoardMode !== 'none',
     ...(opts.memberCwds && Object.keys(opts.memberCwds).length > 0 ? { memberCwds: { ...opts.memberCwds } } : {}),
+    ...(opts.memberAccessModes ? { memberAccessModes: { ...opts.memberAccessModes } } : {}),
+    ...(opts.memberWebAccess ? { memberWebAccess: { ...opts.memberWebAccess } } : {}),
     ...(opts.research ? { research: { projectId: opts.research.projectId } } : {}),
   };
   await fs.mkdir(clusterDir(clusterId), { recursive: true });
   await fs.mkdir(clusterMailboxRoot(clusterId), { recursive: true });
+  for (const id of members) if (isIsolatedAccessMode(state.memberAccessModes?.[id])) await fs.mkdir(isolatedWorkspaceFor(clusterId, id), { recursive: true, mode: 0o700 });
   await writeMetaAtomic(state);
   rebuildIndexFor(state);
   for (const id of members) memberJoined?.(clusterId, id);
@@ -398,6 +411,7 @@ async function deleteClusterUnlocked(clusterId: string): Promise<void> {
   cache.delete(clusterId);
   dropPlanCache(clusterId);
   for (const m of state.members) {
+    memberFence.delete(m);
     if (memberIndex.get(m) === clusterId) memberIndex.delete(m);
   }
   // Remove the cluster directory entirely (mailbox files + meta.json + the
@@ -448,6 +462,7 @@ export async function removeMember(
       return { clusterDeleted: false, remaining: state.members };
     }
     const remaining = state.members.filter((m) => m !== workflowId);
+    memberFence.delete(workflowId);
     if (memberIndex.get(workflowId) === clusterId) memberIndex.delete(workflowId);
     // Wipe the leaving member's mailbox dir; pending peer messages lose their
     // recipient context and don't make sense to keep.
@@ -462,7 +477,8 @@ export async function removeMember(
       await deleteClusterUnlocked(clusterId);
       return { clusterDeleted: true, remaining };
     }
-    const next: ClusterState = { ...state, members: remaining };
+    const web = { ...state.memberWebAccess }; delete web[workflowId];
+    const next: ClusterState = { ...state, members: remaining, memberWebAccess: Object.keys(web).length ? web : undefined };
     await writeMetaAtomic(next);
     rebuildIndexFor(next);
     try { await (await import('./workers/isolatedCliHome.js')).removeIsolatedCliHome(clusterId, workflowId); }
@@ -480,6 +496,7 @@ export async function removeMember(
 export async function addMember(
   clusterId: string,
   workflowId: string,
+  options?: { accessMode?: ClusterMemberAccessMode; webAccess?: boolean },
 ): Promise<ClusterState | null> {
   return withClusterMetaLock(clusterId, async () => {
     const state = await readCluster(clusterId);
@@ -492,7 +509,12 @@ export async function addMember(
         `workflow ${workflowId} is already a member of cluster ${existing}; cross-cluster membership is rejected`,
       );
     }
-    const next: ClusterState = { ...state, members: [...state.members, workflowId] };
+    const mode = options?.accessMode ?? 'standard';
+    if (!isClusterMemberAccessMode(mode) || (options?.webAccess !== undefined && (typeof options.webAccess !== 'boolean' || !isIsolatedAccessMode(mode)))) throw new ClusterValidationError('invalid_member_access', 'Invalid member access settings.');
+    const next: ClusterState = { ...state, members: [...state.members, workflowId],
+      ...(mode !== 'standard' ? { memberAccessModes: { ...state.memberAccessModes, [workflowId]: mode } } : {}),
+      ...(options?.webAccess === false ? { memberWebAccess: { ...state.memberWebAccess, [workflowId]: false } } : {}) };
+    if (isIsolatedAccessMode(mode)) await fs.mkdir(isolatedWorkspaceFor(clusterId, workflowId), { recursive: true, mode: 0o700 });
     if (next.skillPins?.length) await (await import('./clusterSkills.js')).assertClusterSkillLimits(next);
     await writeMetaAtomic(next);
     rebuildIndexFor(next);
@@ -503,6 +525,31 @@ export async function addMember(
 
 export function getMemberAccessMode(clusterId: string, workflowId: string): ClusterMemberAccessMode {
   return cache.get(clusterId)?.memberAccessModes?.[workflowId] ?? 'standard';
+}
+
+export function getMemberWebAccess(clusterId: string, workflowId: string): boolean {
+  return cache.get(clusterId)?.memberWebAccess?.[workflowId] !== false;
+}
+
+const memberFence = new Map<string, { isolation: 'checking' | 'sandboxed' | 'unavailable'; isolationReason?: string }>();
+export function memberFenceState(workflowId: string) { return memberFence.get(workflowId); }
+export function setMemberFenceState(workflowId: string, isolation: 'checking' | 'sandboxed' | 'unavailable', isolationReason?: string): void {
+  if (!memberIndex.has(workflowId)) return;
+  memberFence.set(workflowId, { isolation, ...(isolationReason ? { isolationReason } : {}) });
+  void import('./server/broadcast.js').then(({ notifyClusterStateForWorkflow }) => notifyClusterStateForWorkflow(workflowId)).catch(() => undefined);
+}
+
+export async function setMemberWebAccess(clusterId: string, workflowId: string, enabled: boolean): Promise<ClusterState | null> {
+  return withClusterMetaLock(clusterId, async () => {
+    const state = await readCluster(clusterId);
+    if (!state || !state.members.includes(workflowId) || !isIsolatedAccessMode(state.memberAccessModes?.[workflowId])) return null;
+    const web = { ...state.memberWebAccess };
+    if (enabled) delete web[workflowId]; else web[workflowId] = false;
+    const next = { ...state, memberWebAccess: Object.keys(web).length ? web : undefined };
+    await writeMetaAtomic(next);
+    rebuildIndexFor(next);
+    return next;
+  });
 }
 
 // The folder that holds a member's workflow state (.arco/workflows/<id>).
@@ -619,6 +666,7 @@ export async function replaceMember(
       memberTiers: remapSparse(state.memberTiers, oldWorkflowId, newWorkflowId),
       memberFocuses: remapSparse(state.memberFocuses, oldWorkflowId, newWorkflowId),
       memberAccessModes: Object.keys(nextModes).length > 0 ? nextModes : undefined,
+      memberWebAccess: remapSparse(state.memberWebAccess, oldWorkflowId, newWorkflowId),
     };
     if (role !== undefined) {
       const roles = { ...next.memberRoles };
@@ -641,6 +689,7 @@ export async function replaceMember(
       // succeed. A failed copy can then be retried without losing a recipient.
       await reassignPendingMailbox(clusterId, oldWorkflowId, newWorkflowId);
       await writeMetaAtomic(next);
+      memberFence.delete(oldWorkflowId);
       if (memberIndex.get(oldWorkflowId) === clusterId) memberIndex.delete(oldWorkflowId);
       rebuildIndexFor(next);
       await fs.rm(join(clusterMailboxRoot(clusterId), oldWorkflowId), { recursive: true, force: true });

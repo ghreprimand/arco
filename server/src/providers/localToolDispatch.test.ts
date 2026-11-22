@@ -82,6 +82,8 @@ test('Chat turns refuse tools, each provider with its own wording and order', as
   const chat = { cwd: dir, interactionMode: 'chat' as const, chatWebAccess: false };
   assert.equal((await run('ollama', chat, [call('ollama', 'Bash', { command: 'touch x' })])).out[0].content,
     '[error] tool "Bash" is unavailable in Arco Chat. Only armed WebSearch/WebFetch calls are allowed.');
+  assert.equal((await run('ollama', { cwd: dir, interactionMode: 'agent', clusterWebAccess: false }, [call('ollama', 'WebFetch', { url: 'https://example.invalid' })])).out[0].content,
+    '[error] Web access is off for this cluster member.');
   for (const kind of ['lmstudio', 'llamacpp', 'strata'] as Kind[]) {
     assert.equal((await run(kind, chat, [call(kind, 'Bash', { command: 'touch x' })], { advertised: OFFERED })).out[0].content, '[error] tool "Bash" is not enabled for this turn.', kind);
   }

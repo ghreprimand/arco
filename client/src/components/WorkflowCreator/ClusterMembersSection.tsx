@@ -136,6 +136,7 @@ export function ClusterMembersSection({
                 </span>
                 {dotSep}
                 <span style={{ color: available(m.provider) ? 'var(--color-fg-muted)' : 'var(--color-warning)' }}>{providerLabel}</span>
+                {m.accessMode && m.accessMode !== 'standard' && <>{dotSep}<span>{m.accessMode.toUpperCase()}{m.webAccess === false ? ' · WEB OFF' : ''}</span></>}
                 {accountLabel && (
                   <>
                     {dotSep}

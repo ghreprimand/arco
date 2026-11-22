@@ -1438,6 +1438,7 @@ export async function handleUserMessage(
     ? clusterStore.getMemberAccessMode(memberClusterId, workflowId)
     : 'standard';
   const isolatedMember = isIsolatedAccessMode(clusterAccessMode);
+  const clusterWebAccess = !isolatedMember || !memberClusterId || clusterStore.getMemberWebAccess(memberClusterId, workflowId);
   const projectContextEnabled = !chatMode && !isolatedMember;
   if (chatMode && !CHAT_PROVIDERS.has(wf.primary.provider)) {
     send(ws, { type: 'error', workflowId, message: `${wf.primary.provider} is not available in Chat mode.` });
@@ -1449,8 +1450,9 @@ export async function handleUserMessage(
       ? configuredTrustSource
       : undefined;
   const researcherLocal = clusterAccessMode === 'researcher' && (wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp');
-  const researcherClaudeCli = clusterAccessMode === 'researcher' && wf.primary.provider === 'claude' && wf.config.claudeTransport === 'cli';
-  const researcherCodex = clusterAccessMode === 'researcher' && wf.primary.provider === 'codex' && wf.config.codexTransport === 'appserver';
+  const researcherClaudeCli = isolatedMember && wf.primary.provider === 'claude' && wf.config.claudeTransport === 'cli';
+  const researcherCodex = isolatedMember && wf.primary.provider === 'codex' && wf.config.codexTransport === 'appserver';
+  if (clusterAccessMode === 'isolated' && (researcherClaudeCli || researcherCodex)) clusterStore.setMemberFenceState(workflowId, 'checking');
   if (clusterAccessMode === 'researcher') {
     const research = await loadResearch(memberClusterId).catch(() => null);
     const researcher = research && researcherFor(research, workflowId);
@@ -1466,7 +1468,7 @@ export async function handleUserMessage(
       type: 'error',
       message: clusterAccessMode === 'researcher'
         ? 'researchers run on Claude Native, sandboxed Claude CLI, sandboxed Codex or a local model'
-        : 'isolated cluster members require the Claude Native transport',
+        : 'isolated cluster members require Claude Native, sandboxed Claude CLI or sandboxed Codex',
     });
     return;
   }
@@ -2750,6 +2752,7 @@ export async function handleUserMessage(
           toolPosture: wf.toolPosture,
           clusterId: turnClusterId,
           clusterAccessMode,
+          clusterWebAccess,
           ...(turnResearchDirector ? { clusterResearchDirector: true } : {}),
           executionCwd: isolatedMember && turnClusterId
             ? clusterStore.isolatedWorkspaceFor(turnClusterId, workflowId)

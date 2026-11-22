@@ -616,10 +616,9 @@ Plus 11 board-gated `cluster_task_*` task-board tools (list / show / create / cl
 **Restricted cluster members.** A BLIND member keeps its project cwd but the
 turn engine withholds the normal cluster plan/board/roster/role/focus/
 efficiency/progress context and registers only `peer_send` / `peer_read` from
-the cluster surface. llama.cpp and LM Studio advertise only those cluster tools to BLIND members. ISOLATED is a stricter Claude-Native-only bootstrap: the
+the cluster surface. llama.cpp and LM Studio advertise only those cluster tools to BLIND members. ISOLATED uses a private workspace with Claude Native, or a checked Linux sandbox with Claude CLI or Codex. The
 worker cwd becomes
-`~/.arco/clusters/<clusterId>/isolates/<wfid>/workspace`; Bash, KillShell,
-Task, project prompt/resource discovery, attachments, hooks, skills,
+`~/.arco/clusters/<clusterId>/isolates/<wfid>/workspace`; Native omits shell tools and CLI providers keep a sandboxed shell. Task, project prompt/resource discovery, attachments, hooks, skills,
 knowledge/goal/codebase memory, and registry MCPs are omitted. The worker can
 export bounded scratch files only through `peer_send artifact_paths`, which
 copies them across the boundary on mailbox drain. Because a previously

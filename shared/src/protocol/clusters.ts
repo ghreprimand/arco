@@ -208,6 +208,10 @@ export interface ClusterMember {
   // Absent on old servers/records means standard. Blind/isolated modes are
   // operator-selected and persist in the cluster record, not WorkflowConfig.
   accessMode?: ClusterMemberAccessMode;
+  // Absent means web access is on; false applies from the next turn.
+  webAccess?: boolean;
+  isolation?: 'checking' | 'sandboxed' | 'tool-fenced' | 'unavailable';
+  isolationReason?: string;
 }
 
 // Focus cap. 160 lets operators write a useful specialty line without
@@ -545,6 +549,8 @@ export interface ClusterCreateFromScratchMessage extends ClusterCreationSettings
     efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
     outputStyle?: import('../outputStyle.js').OutputStyle;
     accessMode?: ClusterMemberAccessMode;
+    webAccess?: boolean;
+    claudeTransport?: 'native' | 'cli';
     // Research projects only (start dialog ADVANCED): Claude Native web
     // searches per turn, and an Ollama researcher's context size.
     webSearchMaxUses?: number;
@@ -583,6 +589,8 @@ export interface ClusterPresetMember {
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
   outputStyle?: import('../outputStyle.js').OutputStyle;
   accessMode?: ClusterMemberAccessMode;
+  webAccess?: boolean;
+  claudeTransport?: 'native' | 'cli';
   // Research panels: a researcher's ADVANCED limits.
   webSearchMaxUses?: number;
   contextSize?: number;
@@ -746,6 +754,8 @@ export interface ClusterAddFreshWorkersMessage extends ClusterMemberTuning {
   effort?: 'low' | 'medium' | 'high' | string;
   providerAccountRef?: string;
   accessMode?: ClusterMemberAccessMode;
+  webAccess?: boolean;
+  claudeTransport?: 'native' | 'cli';
   // Optional identity for the new workers. `name` is used as typed for one
   // worker and gets " #k" appended per worker for several. `role` goes through
   // the member role-set validation (at most one director); a refused role
@@ -770,6 +780,7 @@ export interface ClusterMemberReplaceMessage extends ClusterMemberTuning {
   effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | string;
   providerAccountRef?: string;
   accessMode?: ClusterMemberAccessMode;
+  claudeTransport?: 'native' | 'cli';
   // A non-empty name renames the new member; an empty or absent one keeps the old name.
   name?: string;
   // Absent keeps the old role; an empty string clears it.
@@ -841,6 +852,13 @@ export interface ClusterMemberFocusSetMessage {
   clusterId: string;
   workflowId: string;
   focus: string | null;
+}
+
+export interface ClusterMemberWebSetMessage {
+  type: 'cluster_member_web_set';
+  clusterId: string;
+  workflowId: string;
+  enabled: boolean;
 }
 
 // MASTER_REFACTOR §3.3 F5 (2026-05-11) — operator renamed a workflow.

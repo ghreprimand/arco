@@ -43,6 +43,7 @@ export interface TemplateMemberRequest {
   effort?: string;
   accountRef?: string;
   isolated: boolean;
+  claudeTransport?: 'native' | 'cli';
   // 'fresh' (CREATE WITH FRESH WORKERS, ADD WORKERS): a new name, no
   // auto-compaction override, and no account unless the member is Codex.
   // 'replacement' (REPLACE): the old member's name and auto-compaction are
@@ -71,9 +72,8 @@ export async function memberConfigFromTemplate(r: TemplateMemberRequest): Promis
   if (r.model !== undefined) config.primaryModel = r.model as ModelName;
   if (r.effort !== undefined) config.primaryEffort = r.effort as EffortLevel;
   if (r.isolated) {
-    // An isolated member is a Claude Native tab with no project access.
-    config.primaryProvider = undefined;
-    config.claudeTransport = 'native';
+    config.claudeTransport = r.claudeTransport ?? 'native';
+    if (r.choice.provider === 'codex') config.codexTransport = 'appserver';
     config.ultracode = false;
     if (r.kind === 'fresh') { config.resumeSessionId = undefined; config.resumeWorkflowId = undefined; }
     else config.providerAccountRef = undefined;
@@ -107,6 +107,7 @@ export interface ScratchMemberSpec {
   webSearchMaxUses?: number;
   contextSize?: number;
   researchClaudeTransport?: 'native' | 'cli';
+  claudeTransport?: 'native' | 'cli';
 }
 
 // CREATE FROM SCRATCH: only what the creator's list says, with defaults
@@ -130,7 +131,8 @@ export async function memberConfigFromSpec(m: ScratchMemberSpec, index: number, 
     if (m.provider === 'codex') config.codexTransport = 'appserver';
   }
   if (m.accessMode === 'isolated' || m.accessMode === 'researcher') {
-    config.claudeTransport = m.accessMode === 'researcher' && m.provider === 'claude' && m.researchClaudeTransport === 'cli' ? 'cli' : 'native';
+    config.claudeTransport = m.provider === 'claude' && (m.researchClaudeTransport === 'cli' || m.claudeTransport === 'cli') ? 'cli' : 'native';
+    if (m.provider === 'codex') config.codexTransport = 'appserver';
     config.ultracode = false;
   }
   if (m.provider === 'codex') {

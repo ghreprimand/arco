@@ -1132,7 +1132,7 @@ export function useWebSocket() {
   const addClusterFreshWorkers = useCallback((
     clusterId: string,
     count: number,
-    opts?: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: import('@arco/shared').ClusterMemberAccessMode; name?: string; role?: string } & import('@arco/shared').ClusterMemberTuning,
+    opts?: { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: import('@arco/shared').ClusterMemberAccessMode; name?: string; role?: string; webAccess?: boolean; claudeTransport?: 'native' | 'cli' } & import('@arco/shared').ClusterMemberTuning,
   ) => {
     if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     wsRef.current.send(JSON.stringify({
@@ -1146,6 +1146,8 @@ export function useWebSocket() {
       ...(opts?.efficiencyToolFilter !== undefined ? { efficiencyToolFilter: opts.efficiencyToolFilter } : {}),
       ...(opts?.fastMode !== undefined ? { fastMode: opts.fastMode } : {}),
       ...(opts?.autoCompaction !== undefined ? { autoCompaction: opts.autoCompaction } : {}),
+      ...(opts?.webAccess !== undefined ? { webAccess: opts.webAccess } : {}),
+      ...(opts?.claudeTransport !== undefined ? { claudeTransport: opts.claudeTransport } : {}),
       ...(opts?.provider ? { provider: opts.provider } : {}),
       ...(opts?.model ? { model: opts.model } : {}),
       ...(opts?.effort ? { effort: opts.effort } : {}),
