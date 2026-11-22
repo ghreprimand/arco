@@ -132,3 +132,10 @@ for (const provider of ['cursor', 'codex'] as const) test(`${provider} cached pr
   assert.equal(spawns, 2); assert.equal(disposedAtSeed, true); assert.equal(tokenAtSeed, true); assert.equal(freshAtSeed, true);
  } finally { await disposeProviderResources(f.id); await f.close(); }
 });
+
+test('handoff to Antigravity saves a document and waits for the draft to be sent', async()=>{
+ const { readFileSync }=await import('node:fs');const f=await fixture();let spawns=0;f.wf.manager.spawn=async(spec:any)=>{spawns++;return result(spec.id,'fixture brief');};
+ try{await handleHandoffRequest(f.ws,f.session,{type:'handoff_request',workflowId:f.id,mode:'quick',newPrimary:{provider:'antigravity-cli',model:'gemini-fixture',effort:'low'}} as any);
+ const complete=f.messages.find(m=>m.type==='handoff_complete');assert.ok(complete);assert.equal(spawns,0);assert.equal(f.wf.primary.provider,'antigravity-cli');assert.match(complete.draft,/^Read the handoff document at \.arco\/workflows\//);const file=complete.draft.match(/at (.+) and continue/)[1];assert.ok(readFileSync(join(f.cwd,file),'utf8').includes('fixture task'));assert.equal(f.messages.some(m=>m.type==='user_message_echo'),false);assert.equal(f.wf.busy,false);
+ }finally{await f.close();}
+});

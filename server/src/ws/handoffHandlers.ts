@@ -568,6 +568,21 @@ export async function handleHandoffRequest(
   if (!handoffOwned()) return;
   handoffBody = await appendHandoffNotice(cwd, msg.workflowId, handle.artifactName, handoffBody, handoffSourceKey);
   if (!handoffOwned()) return;
+  if (wf.primary.provider === 'antigravity-cli') {
+    const handoffPath = `.arco/workflows/${msg.workflowId}/handoffs/${handle.artifactName}`;
+    send(ws, {
+      type: 'handoff_complete', workflowId: msg.workflowId, handoffId: handle.handoffId,
+      archived: { sessionId: oldSessionId ?? '', turnCount },
+      draft: `Read the handoff document at ${handoffPath} and continue.`,
+      completedAt: Date.now(),
+    });
+    resetCompactions(msg.workflowId, wf);
+    wf.calibration = undefined;
+    wf.lastContextPercent = 0;
+    resetAutoCompactionCycle(wf);
+    releaseHandoffBusy();
+    return { artifactName: handle.artifactName };
+  }
   const seedPrompt = `[HANDOFF — new session initialized for this tab. Read the document below carefully. Then in 2-3 sentences: (1) state where the project stands right now, and (2) what you believe the most useful next step is. Await the operator's instruction before beginning any work.]\n\n${handoffBody}`;
   send(ws, {
     type: 'user_message_echo',

@@ -67,9 +67,10 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
     effort !== currentConfig.primaryEffort ||
     accountChanged;
 
-  const availableProviders = (['claude', 'codex', 'cursor',   'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
+  const availableProviders = (['claude', 'codex', 'cursor', 'antigravity-cli', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).filter((p) => {
 
     if (!isProviderEnabled(p)) return false;
+    if (p === 'antigravity-cli') return !!authStatus?.[p]?.installedModels?.length;
     if (p === 'ollama') return !!authStatus?.ollama?.loggedIn && ollamaModels.length > 0;
     if (p === 'llamacpp') return !!authStatus?.llamacpp?.loggedIn && llamacppModels.length > 0;
     if (p === 'strata') return !!authStatus?.strata?.loggedIn && strataModels.length > 0;
@@ -272,7 +273,7 @@ export function HandoffDialog({ currentConfig, onConfirm, onCancel }: Props) {
           className="display-font"
           style={{ fontSize: '9px', color: 'var(--color-fg-muted)', marginBottom: '10px', letterSpacing: '0.5px', lineHeight: 1.5 }}
         >
-          Swap provider / model / effort for the post-handoff session. Leave unchanged to keep the current primary.
+          Swap provider / model / effort for the post-handoff session. Antigravity waits for you to review and send the draft.
         </div>
 
         <Field label="PROVIDER" helpKey="handoff.provider">

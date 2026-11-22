@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Hand off to Antigravity with a saved document and an editable composer draft.
+
 - Send Antigravity only the submitted message and attachments, with Arco file and plan tools available through MCP.
 
 - Rerun research with the current or an edited panel, and start research from an existing project.

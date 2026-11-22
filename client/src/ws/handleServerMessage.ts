@@ -1944,6 +1944,10 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           break;
 
         case 'handoff_complete':
+          if (msg.draft) {
+            const existing = useDraftStore.getState().drafts[msg.workflowId] ?? '';
+            if (!existing.includes(msg.draft)) useDraftStore.getState().setDraft(msg.workflowId, existing ? `${existing}\n\n${msg.draft}` : msg.draft);
+          }
           // docs/PROVIDERS.md - handoff is the natural
           // checkpoint where context resets. Reset the chip counter so
           // the operator doesn't immediately see the nudge again. Phase D
@@ -1968,7 +1972,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           store.addMessage(msg.workflowId, {
             id: crypto.randomUUID(),
             role: 'system',
-            content: `[HANDOFF] Session rotated: previous session archived (${msg.archived.turnCount} turn${msg.archived.turnCount === 1 ? '' : 's'}). New session ready.`,
+            content: msg.draft ? '[HANDOFF] Session rotated. Review the draft and send it when ready.' : `[HANDOFF] Session rotated: previous session archived (${msg.archived.turnCount} turn${msg.archived.turnCount === 1 ? '' : 's'}). New session ready.`,
             isStreaming: false,
             timestamp: msg.completedAt,
           });

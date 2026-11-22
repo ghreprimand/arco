@@ -128,6 +128,7 @@ export interface HandoffCompleteMessage {
     sessionId: string;
     turnCount: number;
   };
+  draft?: string;
   newSessionId?: string; // optional for providers without native session ids
   completedAt: number;
 }

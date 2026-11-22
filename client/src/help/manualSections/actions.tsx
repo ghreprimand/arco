@@ -161,6 +161,7 @@ export const actions: Section[] = [
         <p>
           Choose HANDOFF for an unrelated task, a worker on a wrong track, a provider or model switch, or a provider without compaction. Compaction is lossy but has no fixed limit. Plans, board, goal, artifacts and Git remain outside the conversation.
         </p>
+        <p>For Antigravity, the handoff document is saved in the project and an editable line is placed in the composer. Review it and send it to begin the new session.</p>
         <h4 className="manual-sub">Handoff choices</h4>
         <p>Choose a handoff mode:</p>
         <ul>

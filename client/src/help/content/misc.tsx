@@ -925,6 +925,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>HANDOFF starts a fresh session with a seed. Choose it for an unrelated task, a worker on a wrong track, a provider or model switch, or a provider without compaction. Compaction is lossy but has no fixed limit; the plan, board, goal, artifacts and Git remain outside the conversation.</p>
+        <p>For Antigravity, review and send the editable composer draft to begin the new session.</p>
         <p>QUICK builds a deterministic seed. ORIGINAL WORKER writes a reflection. FRESH SUMMARIZER uses a separate worker to write the seed. STOP during preparation prevents that worker from starting; cancellation never publishes a successful handoff.</p>
       <p>Cancelled preparation and pre-warm cannot later seed or complete into a newer turn, or dispose its provider worker.</p>
       </>

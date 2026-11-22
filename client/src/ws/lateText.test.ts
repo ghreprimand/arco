@@ -86,3 +86,12 @@ test('a new turn does not append onto the prior turn\'s late bubble', () => {
 
   assert.deepEqual(passthroughBubbles(wfid), ['late', 'next']);
 });
+
+test('handoff to Antigravity stages an editable draft without sending or losing existing text', async () => {
+ const { useDraftStore } = await import('../stores/draftStore.js');const id='handoff-draft-fixture';freshJob(id);useDraftStore.getState().setDraft(id,'existing text');
+ const draft='Read the handoff document at .arco/workflows/fixture/handoffs/handoff.md and continue.';
+ send({type:'handoff_complete',workflowId:id,handoffId:'handoff',archived:{sessionId:'old',turnCount:1},draft,completedAt:1000});
+ assert.equal(useDraftStore.getState().drafts[id],`existing text\n\n${draft}`);
+ send({type:'handoff_complete',workflowId:id,handoffId:'handoff',archived:{sessionId:'old',turnCount:1},draft,completedAt:1000});
+ assert.equal(useDraftStore.getState().drafts[id],`existing text\n\n${draft}`);
+});
