@@ -11,7 +11,7 @@ import {
   summarizeClaudeNativePriorTurns,
   type ClaudeResumeMessage,
 } from './resumeSummary.js';
-import { projectCompactSummaryMessages, projectKeptTail } from './workerHelpers.js';
+import { compactSplit, projectCompactSummaryMessages, projectKeptTail, SUMMARY_TOOL_RESULT_MAX_CHARS } from './workerHelpers.js';
 import type { MessageParam } from './contentBlocks.js';
 import { REPLACEMENT_RECENT_BYTES } from '../../replacementHistory.js';
 
@@ -170,7 +170,12 @@ test('compact keep-tail: drops leading assistant so alternation after the ack st
   ]);
 });
 
-test('compact summary projection drops tool protocol blocks before summarizer request', () => {
+// The summarizer never receives tool blocks or tool ids (an unpaired call
+// would make the request fail), but completed tool work reaches it as capped
+// text: a summary that loses what a tool returned once led an agent to claim
+// it never read a brief it had answered.
+test('compact summary projection sends tool work as capped text, never tool blocks or ids', () => {
+  const page = 'Go 1.27.4 released 2026-11-10. '.repeat(200);
   const liveMessages: MessageParam[] = [
     { role: 'user', content: 'please inspect src/core/mod.rs' },
     {
@@ -180,21 +185,58 @@ test('compact summary projection drops tool protocol blocks before summarizer re
         { type: 'tool_use', id: 'tu_orphan', name: 'Read', input: { file_path: 'src/core/mod.rs' } },
       ] as unknown as MessageParam['content'],
     },
-    // This result belongs to an earlier completed tool call and must not be
-    // re-sent to the compact summarizer.
     { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu_old', content: 'old file body' }] as unknown as MessageParam['content'] },
-    { role: 'assistant', content: [{ type: 'text', text: 'The relevant split is in the core module.' }] },
+    {
+      role: 'assistant',
+      content: [
+        { type: 'server_tool_use', id: 'srv_1', name: 'web_fetch', input: { url: 'https://go.dev/dl/' } },
+        { type: 'web_fetch_tool_result', tool_use_id: 'srv_1', content: { type: 'web_fetch_result', url: 'https://go.dev/dl/', content: { type: 'document', source: { type: 'text', media_type: 'text/plain', data: page } } } },
+        { type: 'server_tool_use', id: 'srv_2', name: 'web_search', input: { query: 'go release date' } },
+        { type: 'web_search_tool_result', tool_use_id: 'srv_2', content: [{ type: 'web_search_result', title: 'Go releases', url: 'https://go.dev/doc/devel/release', encrypted_content: 'zzz' }] },
+        { type: 'text', text: 'The relevant split is in the core module.' },
+      ] as unknown as MessageParam['content'],
+    },
   ];
 
   const projected = projectCompactSummaryMessages(liveMessages);
-  assert.deepEqual(projected, [
-    { role: 'user', content: 'please inspect src/core/mod.rs' },
-    {
-      role: 'assistant',
-      content: [{ type: 'text', text: 'I will read the file first.\n\nThe relevant split is in the core module.' }],
-    },
-  ]);
-  assert.doesNotMatch(JSON.stringify(projected), /tool_use|tool_result|tu_orphan|tu_old/);
+  const text = JSON.stringify(projected);
+  assert.deepEqual(projected.map((m) => m.role), ['user', 'assistant', 'user', 'assistant']);
+  assert.doesNotMatch(text, /tool_use|tool_result|tu_orphan|tu_old|srv_\d|encrypted|zzz/);
+  assert.match(text, /\[Tool call Read \{\\"file_path\\":\\"src\/core\/mod.rs\\"\}\]/);
+  assert.match(text, /\[Tool result: old file body\]/);
+  assert.match(text, /\[Web fetch: https:\/\/go.dev\/dl\/\]/);
+  assert.match(text, /\[Web fetch result https:\/\/go.dev\/dl\/:\\nGo 1.27.4 released 2026-11-10/);
+  assert.match(text, new RegExp(`\\[cut at ${SUMMARY_TOOL_RESULT_MAX_CHARS} of ${page.trim().length} characters\\]`));
+  assert.match(text, /\[Web search: go release date\][\s\S]*Go releases https:\/\/go.dev\/doc\/devel\/release/);
+  assert.ok(text.length < page.length);
+});
+
+// The kept tail holds clean text only. Cutting tail.length raw messages off
+// the end dropped a tool result that sat among them from both the summary
+// and the tail; a real run summarized a turn that had read a brief as
+// "nothing executed yet".
+test('a compaction summarizes the tool messages its text-only tail skips', () => {
+  const brief: MessageParam[] = [
+    { role: 'user', content: 'research the brief in your mail' },
+    { role: 'assistant', content: [{ type: 'tool_use', id: 'tu_1', name: 'peer_read', input: {} }] as unknown as MessageParam['content'] },
+    { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tu_1', content: 'Brief: latest Go release' }] as unknown as MessageParam['content'] },
+  ];
+  brief.push({ role: 'assistant', content: [{ type: 'text', text: 'Report sent.' }] }, { role: 'user', content: 'now check the date' });
+  const tail = projectKeptTail(brief, 3);
+  const split = compactSplit(brief, tail);
+  assert.equal(split.summarize.length, 5);
+  assert.match(JSON.stringify(projectCompactSummaryMessages(split.summarize)), /Brief: latest Go release/);
+  // The latest messages stay word for word even when everything is summarized.
+  assert.deepEqual(split.tail, tail);
+  assert.equal((split.tail.at(-1) as { content: string }).content, 'now check the date');
+
+  const plain: MessageParam[] = [
+    { role: 'user', content: 'one' },
+    { role: 'assistant', content: [{ type: 'text', text: 'two' }] },
+    { role: 'user', content: 'three' },
+    { role: 'assistant', content: [{ type: 'text', text: 'four' }] },
+  ];
+  assert.deepEqual(compactSplit(plain, projectKeptTail(plain, 2)).summarize, plain.slice(0, 2));
 });
 
 test('large resume uses cached older summary plus exact recent tail', async (t) => {

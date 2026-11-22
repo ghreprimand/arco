@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep completed tool calls, their results and web search and fetch results in Claude Native compaction summaries, so an agent no longer loses work it did before a compaction.
+
 - Show each cluster Director how many messages members sent each other since its previous turn, and tell it to ask for one report per assignment and to keep routine coordination off mail.
 
 - Run research projects from +NEW > RESEARCH: one question, several independent researchers on Claude, Ollama or llama.cpp, rounds released together and blind to a Research Director, RESULTS and REVEAL in the project tab, and cleanup with researcher logs when the tab closes.

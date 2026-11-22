@@ -85,6 +85,68 @@ function flattenConversationalText(content: string | AnyContentBlock[]): string 
     .join('');
 }
 
+// Text for the compact summarizer only. Completed tool work is kept as plain
+// text so a summary can say what was read, fetched or sent: the call's name
+// and input, then its capped result. No tool blocks or tool ids are sent, so
+// an unpaired call cannot make the summary request fail. The kept tail and
+// replay still use flattenConversationalText, which must stay byte-stable.
+export const SUMMARY_TOOL_RESULT_MAX_CHARS = 2_000;
+const SUMMARY_TOOL_INPUT_MAX_CHARS = 500;
+
+function capSummaryText(text: string, max: number): string {
+  const trimmed = text.trim();
+  return trimmed.length <= max ? trimmed : `${trimmed.slice(0, max)} [cut at ${max} of ${trimmed.length} characters]`;
+}
+
+function summaryInput(input: unknown): string {
+  if (input === undefined || input === null) return '';
+  const text = typeof input === 'string' ? input : JSON.stringify(input);
+  return text && text !== '{}' ? ` ${capSummaryText(text, SUMMARY_TOOL_INPUT_MAX_CHARS)}` : '';
+}
+
+function serverResultText(block: { type: string; content?: unknown }): string {
+  const content = block.content as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
+  if (block.type === 'web_search_tool_result') {
+    if (!Array.isArray(content)) return `[Web search failed: ${String((content as Record<string, unknown> | undefined)?.error_code ?? 'unknown error')}]`;
+    const lines = content.map((r) => `- ${String(r.title ?? '')} ${String(r.url ?? '')}`.trimEnd());
+    return `[Web search results:\n${capSummaryText(lines.join('\n'), SUMMARY_TOOL_RESULT_MAX_CHARS)}]`;
+  }
+  if (block.type === 'web_fetch_tool_result') {
+    const c = content && !Array.isArray(content) ? content : undefined;
+    if (!c || c.type !== 'web_fetch_result') return `[Web fetch failed: ${String(c?.error_code ?? 'unknown error')}]`;
+    const doc = c.content as { source?: { type?: string; data?: unknown } } | undefined;
+    const body = doc?.source?.type === 'text' && typeof doc.source.data === 'string'
+      ? capSummaryText(doc.source.data, SUMMARY_TOOL_RESULT_MAX_CHARS) : '(document not shown)';
+    return `[Web fetch result ${String(c.url ?? '')}:\n${body}]`;
+  }
+  const text = typeof block.content === 'string' ? block.content : JSON.stringify(block.content ?? '');
+  return `[${block.type.replace(/_/g, ' ')}: ${capSummaryText(text, SUMMARY_TOOL_RESULT_MAX_CHARS)}]`;
+}
+
+function flattenSummaryText(content: string | AnyContentBlock[]): string {
+  if (typeof content === 'string') return content;
+  return content
+    .flatMap((b) => {
+      if (isTextBlock(b)) return [b.text];
+      const r = b as unknown as { type: string; name?: string; input?: unknown; content?: ToolResultContent; is_error?: boolean };
+      if (r.type === 'tool_use') return [`\n[Tool call ${r.name ?? 'tool'}${summaryInput(r.input)}]\n`];
+      if (r.type === 'tool_result') {
+        if (Array.isArray(r.content) && r.content.some(c => (c.type === 'image' || c.type === 'document'))) return [`[Read image receipt: ${toolResultText(r.content)}; inspect with Read again if needed.]`];
+        const text = r.content === undefined ? '' : toolResultText(r.content);
+        return [`\n[Tool result${r.is_error ? ' (error)' : ''}: ${capSummaryText(text, SUMMARY_TOOL_RESULT_MAX_CHARS) || '(empty)'}]\n`];
+      }
+      if (r.type === 'server_tool_use') {
+        const input = (r.input ?? {}) as Record<string, unknown>;
+        if (r.name === 'web_search') return [`\n[Web search: ${String(input.query ?? '')}]\n`];
+        if (r.name === 'web_fetch') return [`\n[Web fetch: ${String(input.url ?? '')}]\n`];
+        return [`\n[Server tool ${r.name ?? 'tool'}${summaryInput(r.input)}]\n`];
+      }
+      if (r.type.endsWith('_tool_result')) return [`\n${serverResultText(r)}\n`];
+      return [];
+    })
+    .join('');
+}
+
 function setResumeMessageText(msg: ClaudeResumeMessage, text: string): void {
   if (msg.role === 'user') {
     msg.content = text;
@@ -117,15 +179,16 @@ export function planParserAdvisories(plan: string): string[] {
 // can contain Anthropic tool protocol internals (`assistant.tool_use` followed
 // by `user.tool_result`) that are valuable while a turn is executing but toxic
 // after an interrupted/cancelled tool loop: one missing result makes the
-// summarizer request 400 before it can compact anything. The summary needs the
-// visible conversation, not raw tool ids, so preserve text blocks, skip pure
-// tool/image plumbing, merge consecutive same-role text, and start on a user
-// boundary.
+// summarizer request 400 before it can compact anything. So no tool block or
+// tool id is sent: text blocks are kept, completed tool calls and their capped
+// results (local tools, web search and web fetch) become plain text (see
+// flattenSummaryText), images become receipts, consecutive same-role text is
+// merged, and the result starts on a user boundary.
 export function projectCompactSummaryMessages(messages: MessageParam[]): ClaudeResumeMessage[] {
   const projected: ClaudeResumeMessage[] = [];
   for (const msg of messages) {
     if (msg.role !== 'user' && msg.role !== 'assistant') continue;
-    const text = flattenConversationalText(msg.content).trim();
+    const text = flattenSummaryText(msg.content).trim();
     if (!text) continue;
     if (projected.length === 0 && msg.role !== 'user') continue;
 
@@ -145,6 +208,27 @@ export function projectCompactSummaryMessages(messages: MessageParam[]): ClaudeR
     );
   }
   return projected;
+}
+
+// What a compaction summarizes and the verbatim tail it keeps. The tail
+// holds only clean text messages, so cutting the last tail.length raw messages
+// off is right only when those messages are exactly the tail. When tool calls,
+// tool results or collapsed same-role text sit among them, that cut would drop
+// them from both the summary and the tail (a turn that had read a brief was
+// summarized as "nothing executed yet"); then everything is summarized and the
+// tail is still kept, repeating a little of what the summary covers, so the
+// latest messages stay word for word.
+export function compactSplit(messages: MessageParam[], keptTail: ClaudeResumeMessage[]): { summarize: MessageParam[]; tail: ClaudeResumeMessage[] } {
+  const k = keptTail.length;
+  if (k === 0 || k >= messages.length) return { summarize: messages, tail: [] };
+  const last = messages.slice(-k);
+  const exact = last.every((m, i) => {
+    if (m.role !== keptTail[i].role) return false;
+    if (typeof m.content === 'string') return m.content.trim() === resumeMessageText(keptTail[i]);
+    return m.content.every((b) => isTextBlock(b as AnyContentBlock))
+      && flattenConversationalText(m.content).trim() === resumeMessageText(keptTail[i]);
+  });
+  return { summarize: exact ? messages.slice(0, messages.length - k) : messages, tail: keptTail };
 }
 
 // NATIVE_COMPACTION_PLAN Phase 2 — project the keep-last-N verbatim tail for

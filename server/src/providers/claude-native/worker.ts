@@ -110,6 +110,7 @@ import {
   truncateOutput,
   planParserAdvisories,
   projectCompactSummaryMessages,
+  compactSplit,
   projectKeptTail,
   projectKeptTailByTokens,
   sleepWithSignal,
@@ -918,10 +919,9 @@ export class ClaudeNativeWorker extends EventEmitter {
       this.scrubEmptyTextContent();
       this.stripTrailingThinkingBlocks();
       const keptTail = projectKeptTail(this.messages, COMPACT_KEEP_LAST_MESSAGES);
-      const rawPrefix = keptTail.length > 0 && keptTail.length < this.messages.length
-        ? this.messages.slice(0, this.messages.length - keptTail.length) : this.messages;
-      prefix = projectCompactSummaryMessages(rawPrefix) as MessageParam[];
-      tailForSeed = rawPrefix.length === this.messages.length ? [] : keptTail;
+      const split = compactSplit(this.messages, keptTail);
+      prefix = projectCompactSummaryMessages(split.summarize) as MessageParam[];
+      tailForSeed = split.tail;
     } finally {
       this.messages = originalMessages;
     }
@@ -1349,10 +1349,9 @@ export class ClaudeNativeWorker extends EventEmitter {
       this.scrubEmptyTextContent();
       this.stripTrailingThinkingBlocks();
       const keptTail = projectKeptTail(this.messages, COMPACT_KEEP_LAST_MESSAGES);
-      const rawPrefix = keptTail.length > 0 && keptTail.length < this.messages.length
-        ? this.messages.slice(0, this.messages.length - keptTail.length) : this.messages;
-      prefix = projectCompactSummaryMessages(rawPrefix) as MessageParam[];
-      tailForSeed = rawPrefix.length === this.messages.length ? [] : keptTail;
+      const split = compactSplit(this.messages, keptTail);
+      prefix = projectCompactSummaryMessages(split.summarize) as MessageParam[];
+      tailForSeed = split.tail;
     } finally {
       this.messages = originalMessages;
     }
