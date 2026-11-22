@@ -218,7 +218,7 @@ export function researchSummary(state: ResearchState): ClusterResearchSummary {
     ...(state.preRoundBoundaryWarning ? { preRoundBoundaryWarning: true } : {}),
     researchers: state.researchers.map((r) => ({
       workflowId: r.workflowId, letter: r.letter, provider: r.provider, model: r.model,
-      ...(r.effort ? { effort: r.effort } : {}), isolation: r.claudeTransport === 'cli' || r.provider === 'codex' ? (r.isolation ?? 'checking') : 'tool-fenced' as const,
+      ...(r.effort ? { effort: r.effort } : {}), isolation: r.claudeTransport === 'cli' || r.provider === 'codex' || r.provider === 'cursor' ? (r.isolation ?? 'checking') : 'tool-fenced' as const,
       ...(r.signInNeeded ? { signInNeeded: r.signInNeeded } : {}),
       ...(r.provider === 'claude' ? { claudeTransport: r.claudeTransport ?? 'native' } : {}),
       ...(r.joinedFromRound ? { joinedFromRound: r.joinedFromRound } : {}),

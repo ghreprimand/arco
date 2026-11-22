@@ -225,6 +225,20 @@ test('a round holds every reply until all researchers are done, then releases th
   }
 });
 
+test('a Cursor researcher is shown as sandboxed, not tool-fenced', async () => {
+  const p = await project();
+  try {
+    await updateResearch(p.clusterId, (state) => { state.researchers[1].provider = 'cursor'; });
+    assert.equal(researchSummary((await loadResearch(p.clusterId))!).researchers[1].isolation, 'checking');
+    await updateResearch(p.clusterId, (state) => { state.researchers[1].isolation = 'sandboxed'; });
+    assert.equal(researchSummary((await loadResearch(p.clusterId))!).researchers[1].isolation, 'sandboxed');
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
 test('a late researcher answers the round 1 text alone, then gets the round that waited for it; a removed one is left out', async () => {
   const p = await project();
   try {
