@@ -478,6 +478,7 @@ export const clusters: Section[] = [
   </p>
   <p><Code>START PROJECT</Code> previews the latest summary and sources, then copies them into a new project folder and opens the usual Agent or cluster creator. Choose explicitly to use an existing folder; no existing file is overwritten. The first message stays in the new conversation draft. <Code>START FROM REPORT</Code> and <Code>START FROM SUMMARY</Code> use a particular released result.</p>
   <p><Code>CONTINUE IN CHAT</Code> opens a saved Chat with the summary and returned files attached; the operator sends the first message. <Code>EXPORT</Code> copies Markdown, downloads a selected file or downloads a ZIP of the research folder. ZIP waits for rounds and catch-ups to finish and excludes Arco and provider state. The export log records a started download, not confirmation that a file was saved.</p>
+  <p><Code>RERUN</Code> loads the original round text and current panel. Start another round or edit a copy of the panel for a new research project. To change the current panel before another round, use MEMBERS first. From an Agent project, <Code>RESEARCH THIS</Code> copies the draft into a new research brief and remembers the project as the default destination for results.</p>
   <p>
   The strip shows where the project is
   saved; <Code>OPEN FOLDER</Code> opens FILES. The default location is in

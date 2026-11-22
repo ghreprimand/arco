@@ -88,6 +88,7 @@ export interface ClusterResearchSummary {
   blind: boolean;
   revealedAt?: string;
   directorWorkflowId: string;
+  sourceProject?: string;
   preRoundContaminated?: boolean;
   preRoundBoundaryWarning?: boolean;
   researchers: ResearchResearcherSummary[];
@@ -110,6 +111,10 @@ export interface ResearchCreateSpec {
   blind?: boolean;
   // Where research projects are created. Saved to Settings the first time.
   folderRoot?: string;
+  // Originating project, kept in Arco state for result destinations.
+  sourceProject?: string;
+  // Source research cluster whose panel is being rerun as a new project.
+  rerunFrom?: string;
   // docs/RESEARCH.md - REOPEN from the Research library: the project with
   // this id comes back in its own folder. Name, brief and blind then come
   // from Arco's record of the project, not from this message. With

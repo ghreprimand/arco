@@ -68,6 +68,7 @@ export interface ResearchState {
   folder: string;
   // Arco-state folder holding the researchers' workflow folders.
   membersCwd: string;
+  sourceProject?: string;
   name: string;
   brief: string;
   blind: boolean;
@@ -212,6 +213,7 @@ export function researchSummary(state: ResearchState): ClusterResearchSummary {
   return {
     projectId: state.projectId,
     folder: state.folder,
+    ...(state.sourceProject ? { sourceProject: state.sourceProject } : {}),
     name: state.name,
     brief: state.brief,
     blind: state.blind,

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Rerun research with the current or an edited panel, and start research from an existing project.
+
 - Continue research summaries in Chat and export released research as Markdown, a file or a ZIP.
 
 - Start an Agent tab or cluster project from released research with copied sources and a first draft.

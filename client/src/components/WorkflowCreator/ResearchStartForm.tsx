@@ -9,6 +9,7 @@ import {
   type ModelName,
 } from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
+import type { ResearchStartPrefill } from '../../stores/appStore.types';
 import { useStartupStore } from '../../stores/startupStore';
 import { useClusterPresets } from '../../hooks/useClusterPresets';
 import { effortsForModel } from '../../utils/format';
@@ -33,12 +34,13 @@ export interface ResearchRow {
   webSearchMaxUses?: number;
   contextSize?: number;
   researchClaudeTransport?: 'native' | 'cli';
+  providerAccountRef?: string;
   webAccess?: boolean;
 }
 /** Switching provider replaces provider-specific options instead of retaining the old row's values. */
 export function replaceResearchProvider(current: ResearchRow, next: ResearchRow): ResearchRow {
   return { ...current, ...next, key: current.key, advanced: current.advanced, webAccess: current.webAccess,
-    researchClaudeTransport: next.researchClaudeTransport, webSearchMaxUses: next.webSearchMaxUses, contextSize: next.contextSize };
+    providerAccountRef: next.providerAccountRef, researchClaudeTransport: next.researchClaudeTransport, webSearchMaxUses: next.webSearchMaxUses, contextSize: next.contextSize };
 }
 type Pickers = Pick<ClusterMembersSectionProps, 'claudeModelsForPicker' | 'codexModelsForPicker' | 'ollamaModelsForPicker' | 'llamacppModelsForPicker' | 'cursorModelsForPicker' | 'claudeNativeCatalog' | 'codexCatalog' | 'selectStyle' | 'labelStyle' | 'inputStyle' | 'hintStyle'>;
 
@@ -58,6 +60,7 @@ export function isResearchPanel(preset: Pick<ClusterPreset, 'members'>): boolean
 export function researchMember(r: Omit<ResearchRow, 'key' | 'advanced'>) {
   return {
     provider: r.provider, model: r.model, ...(r.effort ? { effort: r.effort } : {}),
+    ...(r.provider === 'codex' && r.providerAccountRef ? { providerAccountRef: r.providerAccountRef } : {}),
     ...(r.provider === 'claude' && r.researchClaudeTransport !== 'cli' && r.webSearchMaxUses ? { webSearchMaxUses: r.webSearchMaxUses } : {}),
     ...(r.provider === 'ollama' && r.contextSize ? { contextSize: r.contextSize } : {}),
     ...(r.provider === 'claude' && r.researchClaudeTransport === 'cli' ? { researchClaudeTransport: 'cli' as const } : {}),
@@ -67,7 +70,7 @@ export function researchMember(r: Omit<ResearchRow, 'key' | 'advanced'>) {
 
 export function researchCreatePayload(input: {
   requestId?: string; name: string; brief: string; blind: boolean; folderRoot?: string;
-  director: ResearchRow; rows: ResearchRow[];
+  director: ResearchRow; rows: ResearchRow[]; sourceProject?: string; rerunFrom?: string;
 }): ClusterCreatePayload & { research: NonNullable<import('@arco/shared').ClusterCreateFromScratchMessage['research']> } {
   const member = researchMember;
   return {
@@ -79,6 +82,8 @@ export function researchCreatePayload(input: {
       brief: input.brief.trim(),
       blind: input.blind,
       ...(input.folderRoot?.trim() ? { folderRoot: input.folderRoot.trim() } : {}),
+      ...(input.sourceProject ? { sourceProject: input.sourceProject } : {}),
+      ...(input.rerunFrom ? { rerunFrom: input.rerunFrom } : {}),
     },
   };
 }
@@ -86,6 +91,7 @@ export function researchCreatePayload(input: {
 export function ResearchStartForm(props: Pickers & {
   onCreate: (payload: ReturnType<typeof researchCreatePayload>) => boolean | void;
   submitting: boolean;
+  initial?: ResearchStartPrefill;
   // The creator's current provider, model and effort: the Director's default.
   directorDefault?: { provider: string; model: string; effort?: string };
 }) {
@@ -133,13 +139,13 @@ export function ResearchStartForm(props: Pickers & {
       ...(from?.webSearchMaxUses ? { webSearchMaxUses: from.webSearchMaxUses } : {}), ...(from?.contextSize ? { contextSize: from.contextSize } : {}),
       ...(provider === 'claude' && from?.researchClaudeTransport === 'cli' ? { researchClaudeTransport: 'cli' as const } : {}) };
   };
-  const [name, setName] = useState('');
-  const [brief, setBrief] = useState('');
-  const [blind, setBlind] = useState(true);
+  const [name, setName] = useState(props.initial?.name ?? '');
+  const [brief, setBrief] = useState(props.initial?.brief ?? '');
+  const [blind, setBlind] = useState(props.initial?.blind ?? true);
   const [folderRoot, setFolderRoot] = useState('');
   const [browser, setBrowser] = useState(false);
-  const [rows, setRows] = useState<ResearchRow[]>(() => researcherProviders.length ? [rowFor(researcherProviders[0]), rowFor(researcherProviders[0])] : []);
-  const seededRows = useRef(false);
+  const [rows, setRows] = useState<ResearchRow[]>(() => props.initial?.researchers ? props.initial.researchers.map(r => ({ ...r, effort: r.effort ?? '', key: newKey(), advanced: false })) : researcherProviders.length ? [rowFor(researcherProviders[0]), rowFor(researcherProviders[0])] : []);
+  const seededRows = useRef(!!props.initial?.researchers);
   useEffect(() => {
     if (seededRows.current || !authStatus || sandboxStatus === 'checking' || !anyResearcherAvailable) return;
     seededRows.current = true;
@@ -148,6 +154,7 @@ export function ResearchStartForm(props: Pickers & {
       : [rowFor('claude', { researchClaudeTransport: 'cli' }), rowFor('claude', { researchClaudeTransport: 'cli' })]);
   }, [authStatus, sandboxStatus, codexSandboxAvailable, cursorSandboxAvailable]);
   const [director, setDirector] = useState<ResearchRow>(() => {
+    if (props.initial?.director) return { ...props.initial.director, effort: props.initial.director.effort ?? '', key: newKey(), advanced: false };
     const preferred = props.directorDefault && (directorProviders as readonly string[]).includes(props.directorDefault.provider) ? props.directorDefault : undefined;
     return preferred
       ? rowFor(preferred.provider as ClusterMemberProvider, { model: preferred.model, effort: preferred.effort })
@@ -185,7 +192,7 @@ export function ResearchStartForm(props: Pickers & {
     if (rows.length > RESEARCH_CONFIRM_ABOVE && !confirmMany) { setConfirmMany(true); return; }
     setConfirmMany(false);
     try { localStorage.setItem(LAST_PANEL_KEY, JSON.stringify(rows.map(({ provider, model, effort, webSearchMaxUses, contextSize, researchClaudeTransport, webAccess }) => ({ provider, model, effort, webSearchMaxUses, contextSize, researchClaudeTransport, webAccess })))); } catch { /* best effort */ }
-    props.onCreate(researchCreatePayload({ name, brief, blind, folderRoot: folderSet ? undefined : folderRoot, director, rows }));
+    props.onCreate(researchCreatePayload({ name, brief, blind, folderRoot: folderSet ? undefined : folderRoot, director, rows, sourceProject: props.initial?.sourceProject, rerunFrom: props.initial?.rerunFrom }));
   };
   const savePanel = async () => {
     setPanelError('');
@@ -211,6 +218,7 @@ export function ResearchStartForm(props: Pickers & {
       </select>
       <select className="arco-field" aria-label={`${label} model`} value={r.model} onChange={(e) => onChange({ ...r, model: e.target.value })} style={{ maxWidth: 220 }}>
         {modelsFor(r.provider).length === 0 && <option value="">No models</option>}
+        {r.model && !modelsFor(r.provider).some(model => String(model.value) === r.model) && <option value={r.model}>{r.model} (not in catalog)</option>}
         {modelsFor(r.provider).map((m) => <option key={String(m.value)} value={String(m.value)}>{m.label}</option>)}
       </select>
       {effortsFor(r).length > 0 && <select className="arco-field" aria-label={`${label} effort`} value={r.effort} onChange={(e) => onChange({ ...r, effort: e.target.value })}>
@@ -227,6 +235,7 @@ export function ResearchStartForm(props: Pickers & {
         <input id="research-name" data-help="creator.research-name" className="arco-field" value={name} onChange={(e) => setName(e.target.value)} maxLength={RESEARCH_NAME_MAX} placeholder="65-inch TV and sound" style={{ ...inputStyle, width: '100%', minHeight: 44 }} />
         <label className="display-font" style={{ ...labelStyle, marginTop: 8 }} htmlFor="research-brief">BRIEF</label>
         <textarea id="research-brief" data-help="creator.research-brief" className="arco-field" value={brief} onChange={(e) => setBrief(e.target.value)} maxLength={RESEARCH_BRIEF_MAX} rows={8} placeholder="What should the researchers find out? Include budget, region, must-haves and sources to avoid." style={{ ...inputStyle, width: '100%', resize: 'vertical' }} />
+        {props.initial?.sourceProject && <div style={hintStyle}>Results default to the originating project: <code>{props.initial.sourceProject}</code>.</div>}
         <div style={hintStyle}>The Research Director starts on this brief as soon as the project opens. {brief.length > RESEARCH_BRIEF_MAX * 0.9 ? `${brief.length} of ${RESEARCH_BRIEF_MAX} characters.` : ''}</div>
       </div>
 

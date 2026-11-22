@@ -1093,11 +1093,22 @@ export type ClusterCardLayout = 'auto' | 'rows' | 'columns' | 'grid';
 
 export type ResearchResultSelection = { kind: 'report'; round: number; letter: string } | { kind: 'report'; catchUp: string } | { kind: 'synthesis'; round: number } | { kind: 'project' };
 
+export interface ResearchStartPrefill {
+  name?: string;
+  brief?: string;
+  blind?: boolean;
+  sourceProject?: string;
+  rerunFrom?: string;
+  director?: { provider: import('@arco/shared').ClusterMemberProvider; model: string; effort?: string; providerAccountRef?: string };
+  researchers?: Array<{ provider: import('@arco/shared').ClusterMemberProvider; model: string; effort?: string; providerAccountRef?: string; researchClaudeTransport?: 'native' | 'cli'; webAccess?: boolean; webSearchMaxUses?: number; contextSize?: number }>;
+}
+
 export interface CreatorPrefill {
   provider?: ProviderName;
-  mode: 'single' | 'chat' | 'cluster' | 'genesis';
+  mode: 'single' | 'chat' | 'cluster' | 'genesis' | 'research';
   workDir?: string;
   resumeSessionId?: string;
   researchStart?: { clusterId: string; token: string; seedPrompt: string };
   researchContinue?: { clusterId: string; selection: ResearchResultSelection };
+  researchPrefill?: ResearchStartPrefill;
 }

@@ -11,14 +11,14 @@ type Attachment = { path: string; filename: string; isImage: boolean };
 type CopyResult = { target?: string; written: string[]; error?: string; receiptError?: string };
 type Result = { error?: string; folder?: CopyResult; plan?: CopyResult; composer?: { attachments: Attachment[]; token?: string; error?: string } };
 
-export function SendResearchDialog({ clusterId, selection, onClose }: { clusterId: string; selection: ResearchSelection; onClose: () => void }) {
+export function SendResearchDialog({ clusterId, selection, onClose, defaultDestination }: { clusterId: string; selection: ResearchSelection; onClose: () => void; defaultDestination?: string }) {
   const jobs = useAppStore(s => s.jobs), clusters = useAppStore(s => s.clusters);
   const choices = useMemo(() => Object.values(jobs).filter(job => {
     if (job.config.incognito) return false;
     const cluster = Object.values(clusters).find(c => c.members.some(m => m.workflowId === job.id));
     return !cluster || cluster.members.some(m => m.workflowId === job.id && isClusterDirector(m.role));
   }), [jobs, clusters]);
-  const [destination, setDestination] = useState('');
+  const [destination, setDestination] = useState(defaultDestination ?? '');
   const [target, setTarget] = useState('');
   const [choosing, setChoosing] = useState(false);
   const [copyFolder, setCopyFolder] = useState(true);

@@ -44,6 +44,25 @@ async function project() {
   return { root, folder, membersCwd, director, a, b, clusterId: cluster.clusterId, woken, prompts, ctx };
 }
 
+test('the originating project stays in Arco state and is exposed as the results default', async () => {
+  const { renderManifest } = await import('./researchFolder.js');
+  const p = await project();
+  try {
+    await updateResearch(p.clusterId, state => { state.sourceProject = join(p.root, 'origin'); });
+    const state = (await loadResearch(p.clusterId))!;
+    assert.equal(researchSummary(state).sourceProject, join(p.root, 'origin'));
+    assert.doesNotMatch(renderManifest(state), /origin/);
+    const invalid = await prepareResearchCreate({ type: 'cluster_create_from_scratch', cwd: '', research: { name: 'Fixture', brief: 'Compare.', sourceProject: 'relative' }, members: [
+      { provider: 'claude', model: 'sonnet' }, { provider: 'ollama', model: 'fixture' },
+    ] });
+    assert.deepEqual(invalid, { refusal: 'invalid_source_project' });
+    const invalidRerun = await prepareResearchCreate({ type: 'cluster_create_from_scratch', cwd: '', research: { name: 'Fixture', brief: 'Compare.', rerunFrom: '../outside' }, members: [
+      { provider: 'claude', model: 'sonnet' }, { provider: 'ollama', model: 'fixture' },
+    ] });
+    assert.deepEqual(invalidRerun, { refusal: 'invalid_rerun_source' });
+  } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
 test('research creation rejects a CLI-only setting on a different provider', async () => {
   const result = await prepareResearchCreate({ type: 'cluster_create_from_scratch', cwd: '', research: { name: 'Fixture', brief: 'Compare.' }, members: [
     { provider: 'claude', model: 'sonnet' },

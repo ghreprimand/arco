@@ -1,6 +1,6 @@
 import { previewResearchExport, prepareResearchExport, confirmResearchExport } from '../research/exportResults.js';
 import { antigravityChatWorkspace } from '../chatMode.js';
-import { sendResearchToFolder, sendResearchToPlan, stageResearchForComposer, confirmResearchComposer, previewResearchStart, prepareResearchStart, confirmResearchStart } from '../research/sendToProject.js';
+import { sendResearchToFolder, sendResearchToPlan, stageResearchForComposer, confirmResearchComposer, recordResearchExport, previewResearchStart, prepareResearchStart, confirmResearchStart } from '../research/sendToProject.js';
 import type { ResearchSelection } from '../research/resultSelection.js';
 import { existingClusterMemberRefusal } from '../existingClusterMembers.js';
 import { recipientContext } from '../peerRecipientContext.js';
@@ -29,7 +29,7 @@ import {
   workflowCwds,
   workflows,
 } from '../server/state.js';
-import { updateMeta } from '../workflowMeta.js';
+import { readMeta, updateMeta } from '../workflowMeta.js';
 import { formatBoardForModel } from '../project/taskLedger.js';
 import type { HttpDeps } from './router.js';
 import type { LedgerTaskStatus, TaskLink } from '@arco/shared';
@@ -99,6 +99,43 @@ export async function tryHandleClusterRoutes(
     if (!state) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'unknown_research' })); return true; }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ ...await researchSummaries(state), proposal: researchSendProposal(summaries[1]) ?? null }));
+    return true;
+  }
+  // Operator-initiated reruns preserve the current panel for a new round or
+  // return its settings for review before starting a separate project.
+  const rerun = req.url ? /^\/api\/research\/([0-9a-f-]{36})\/(rerun-preview|rerun-round)$/.exec(req.url) : null;
+  if (rerun) {
+    const reply = (status: number, body: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+    try {
+      const state = await loadResearch(rerun[1]);
+      if (!state || state.closedAt) throw new Error('Research project is not open.');
+      if (rerun[2] === 'rerun-preview' && req.method === 'GET') {
+        await clusterStore.readCluster(state.clusterId);
+        const config = workflows.get(state.directorWorkflowId)?.config ?? await readMeta(state.folder, state.directorWorkflowId).catch(() => null);
+        const director = config && { provider: config.primaryProvider ?? 'claude', model: config.primaryModel, effort: config.primaryEffort, providerAccountRef: config.providerAccountRef };
+        const researchers = await Promise.all(state.researchers.filter(r => !r.removedAt).map(async r => {
+          const wf = workflows.get(r.workflowId)?.config ?? await readMeta(state.membersCwd, r.workflowId).catch(() => null);
+          return { provider: r.provider, model: r.model, effort: r.effort, researchClaudeTransport: r.claudeTransport, providerAccountRef: wf?.providerAccountRef,
+            webAccess: clusterStore.getMemberWebAccess(state.clusterId, r.workflowId),
+            ...(wf?.webSearchMaxUses ? { webSearchMaxUses: wf.webSearchMaxUses } : {}),
+            ...(typeof wf?.ollamaParams?.num_ctx === 'number' ? { contextSize: wf.ollamaParams.num_ctx } : {}) };
+        }));
+        reply(200, { name: state.name, brief: state.rounds[0]?.text ?? state.brief, blind: state.blind, sourceProject: state.sourceProject, director, researchers }); return true;
+      }
+      if (rerun[2] === 'rerun-round' && req.method === 'POST') {
+        const chunks: Buffer[] = []; let size = 0;
+        for await (const chunk of req) { const bytes = Buffer.from(chunk); size += bytes.length; if (size > 32768) throw new Error('Request is too large.'); chunks.push(bytes); }
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { brief?: unknown };
+        const brief = typeof body.brief === 'string' ? body.brief.trim() : '';
+        if (brief.length > 20000) throw new Error('The brief is too long.');
+        const result = await startRound(state.clusterId, state.directorWorkflowId, brief);
+        if (!result.ok) { reply(400, { error: result.message }); return true; }
+        let receiptError = false;
+        try { await recordResearchExport(state, { kind: 'project' }, `rerun as round ${result.round}`); } catch { receiptError = true; }
+        reply(200, { round: result.round, ...(receiptError ? { receiptError: 'The round started, but the export log could not be updated.' } : {}) }); return true;
+      }
+      reply(405, { error: 'Method not allowed.' });
+    } catch (error) { reply(400, { error: error instanceof Error ? error.message : 'Could not rerun research.' }); }
     return true;
   }
   // Exports use a confirmation after the browser starts the requested action.

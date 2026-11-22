@@ -6,12 +6,12 @@ import type { ResearchRoundResult } from './researchRounds.js';
 import { loadResearch } from './researchState.js';
 import { selectResearchFiles, type ResearchSelection } from './resultSelection.js';
 
-type ResearchProposal = ResearchSelection & { action?: 'send' | 'start' | 'chat' | 'export' };
+type ResearchProposal = ResearchSelection & { action?: 'send' | 'start' | 'chat' | 'export' | 'rerun' };
 const sendProposals = new Map<string, ResearchProposal>();
 export function researchSendProposal(clusterId: string): ResearchProposal | undefined { return sendProposals.get(clusterId); }
 export function clearResearchSendProposal(clusterId: string): void { sendProposals.delete(clusterId); }
 export async function proposeResearchSend(clusterId: string, caller: string, selection: ResearchProposal): Promise<void> {
-  if (selection.action !== undefined && selection.action !== 'send' && selection.action !== 'start' && selection.action !== 'chat' && selection.action !== 'export') throw new Error('Choose a valid results action.');
+  if (selection.action !== undefined && selection.action !== 'send' && selection.action !== 'start' && selection.action !== 'chat' && selection.action !== 'export' && selection.action !== 'rerun') throw new Error('Choose a valid results action.');
   if (selection.action === 'chat' && selection.kind !== 'synthesis') throw new Error('Choose a released summary for Chat.');
   const state = await loadResearch(clusterId);
   if (!state || state.directorWorkflowId !== caller) throw new Error('Only the Research Director can propose sending results.');
@@ -20,9 +20,9 @@ export async function proposeResearchSend(clusterId: string, caller: string, sel
 }
 export const RESEARCH_SEND_TOOL = {
   name: 'research_send_to_project',
-  description: 'Propose sending or exporting released research, starting a project, or continuing a summary in Chat. The operator chooses the destination and confirms in RESULTS; this tool does not write to another project.',
+  description: 'Propose sending or exporting released research, starting a project, or continuing a summary in Chat, or rerunning research. The operator chooses the destination and confirms in RESULTS; this tool does not write to another project.',
   input_schema: { type: 'object' as const, properties: {
-    action: { type: 'string', enum: ['send', 'start', 'chat', 'export'], description: 'Send, start a project, continue a summary in Chat, or export. Default send.' },
+    action: { type: 'string', enum: ['send', 'start', 'chat', 'export', 'rerun'], description: 'Send, start a project, continue a summary in Chat, export, or rerun. Default send.' },
     kind: { type: 'string', enum: ['report', 'synthesis', 'project'], description: 'The released result to use.' },
     round: { type: 'number', description: 'Round number for a report or synthesis.' },
     letter: { type: 'string', description: 'Researcher letter for a report.' },

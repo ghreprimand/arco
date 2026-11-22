@@ -417,6 +417,11 @@ export const composerHelp: Record<string, HelpEntry> = {
     ),
     manualSection: 'composer-research',
   },
+  'composer.research-this': {
+    title: 'RESEARCH THIS',
+    body: <p>Open a new research project for this project. The current composer draft is copied into the editable brief and remains in the original draft. Research starts in the research folder, and this project becomes the default destination when sending results.</p>,
+    manualSection: 'research-project',
+  },
   'composer.research.topic': {
     title: 'Research topic',
     body: (

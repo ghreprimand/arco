@@ -52,6 +52,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   const [initialProvider] = useState(() => suppliedProvider ?? useAppStore.getState().creatorPrefill?.provider);
   const [researchStartPrefill] = useState(() => useAppStore.getState().creatorPrefill?.researchStart);
   const [researchContinuePrefill] = useState(() => useAppStore.getState().creatorPrefill?.researchContinue);
+  const [researchPrefill] = useState(() => useAppStore.getState().creatorPrefill?.researchPrefill);
   const connected = useAppStore((s) => s.connected);
   const clusterCreationPending = useAppStore((s) => s.clusterCreationPending);
   const capabilities = useAppStore((s) => s.capabilities);
@@ -1175,6 +1176,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
 
         {mode === 'research' && (
           <ResearchStartForm
+            initial={researchPrefill}
             directorDefault={{ provider: primaryProvider, model: String(model), effort: String(effort) }}
             claudeModelsForPicker={claudeModelsForPicker}
             codexModelsForPicker={codexModelsForPicker}

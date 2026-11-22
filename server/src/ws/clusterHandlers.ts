@@ -1843,7 +1843,10 @@ async function createClusterFromScratch(
       if (research.reopen) {
         reopened = await researchCreate.finishResearchReopen(research, cluster.clusterId, newWorkflowIds);
         researchState = reopened.state;
-      } else researchState = await researchCreate.finishResearchCreate(research, cluster.clusterId, newWorkflowIds);
+      } else {
+        researchState = await researchCreate.finishResearchCreate(research, cluster.clusterId, newWorkflowIds);
+        if (research.rerunReceiptError) send(ws, { type: 'error', message: 'The new research project opened, but the original export log could not be updated.' });
+      }
     } catch (err) {
       console.error('[arco] research project files could not be written:', err);
       send(ws, { type: 'error', message: 'The research project was created, but its research files could not be written.' });

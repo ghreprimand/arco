@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ClusterResearchSummary } from '@arco/shared';
 import { SendResearchDialog, type ResearchSelection } from './SendResearchDialog';
+import { RerunResearchDialog } from './RerunResearchDialog';
 import { ExportResearchDialog } from './ExportResearchDialog';
 import { useAppStore } from '../../stores/appStore';
 import { StartResearchProjectDialog } from './StartResearchProjectDialog';
@@ -12,16 +13,17 @@ import { ENTRY_WORDS, roundsAndCatchUps } from './researchView';
 // the summary, each released round's reports and the sources folder.
 export function ResearchResultsTab({ clusterId, research }: { clusterId: string; research: ClusterResearchSummary }) {
   const [open, setOpen] = useState<string | null>(null);
+  const [rerun, setRerun] = useState(false);
   const [exporting, setExporting] = useState<ResearchSelection | null>(null);
   const continueChat = (selection: ResearchSelection) => useAppStore.getState().openCreatorWith({ mode: 'chat', researchContinue: { clusterId, selection } });
   const [start, setStart] = useState<ResearchSelection | null>(null);
   const [send, setSend] = useState<ResearchSelection | null>(null);
-  const [summaries, setSummaries] = useState<{ latest: boolean; rounds: number[]; proposal?: (ResearchSelection & { action?: 'send' | 'start' | 'chat' | 'export' }) | null } | null>(null);
+  const [summaries, setSummaries] = useState<{ latest: boolean; rounds: number[]; proposal?: (ResearchSelection & { action?: 'send' | 'start' | 'chat' | 'export' | 'rerun' }) | null } | null>(null);
   const releasedKey = roundsAndCatchUps(research).map((r) => `${r.n}:${r.releasedAt ?? ''}`).join('|');
   useEffect(() => {
     let live = true;
     const load = () => fetch(`/api/research/${clusterId}/summaries`)
-      .then(async (res) => (res.ok ? await res.json() as { latest: boolean; rounds: number[]; proposal?: (ResearchSelection & { action?: 'send' | 'start' | 'chat' | 'export' }) | null } : null))
+      .then(async (res) => (res.ok ? await res.json() as { latest: boolean; rounds: number[]; proposal?: (ResearchSelection & { action?: 'send' | 'start' | 'chat' | 'export' | 'rerun' }) | null } : null))
       .then((body) => { if (live && body) setSummaries(body); }).catch(() => undefined);
     void load();
     const timer = setInterval(load, 5_000);
@@ -37,11 +39,11 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
   const authors = !research.blind || !!research.revealedAt;
   return (
     <div data-help="research.results" style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12, color: 'var(--color-fg)' }}>
-      {summaries?.proposal && <div role="status">The Research Director proposed {summaries.proposal.action === 'start' ? 'starting a project from' : summaries.proposal.action === 'chat' ? 'continuing in Chat with' : summaries.proposal.action === 'export' ? 'exporting' : 'sending'} {summaries.proposal.kind}. <button type="button" className="display-font" style={touchButton} onClick={() => {
-        if (summaries.proposal!.action === 'start') setStart(summaries.proposal!); else if (summaries.proposal!.action === 'chat') continueChat(summaries.proposal!); else if (summaries.proposal!.action === 'export') setExporting(summaries.proposal!); else setSend(summaries.proposal!);
+      {summaries?.proposal && <div role="status">The Research Director proposed {summaries.proposal.action === 'start' ? 'starting a project from' : summaries.proposal.action === 'chat' ? 'continuing in Chat with' : summaries.proposal.action === 'export' ? 'exporting' : summaries.proposal.action === 'rerun' ? 'rerunning' : 'sending'} {summaries.proposal.kind}. <button type="button" className="display-font" style={touchButton} onClick={() => {
+        if (summaries.proposal!.action === 'start') setStart(summaries.proposal!); else if (summaries.proposal!.action === 'chat') continueChat(summaries.proposal!); else if (summaries.proposal!.action === 'export') setExporting(summaries.proposal!); else if (summaries.proposal!.action === 'rerun') setRerun(true); else setSend(summaries.proposal!);
         setSummaries({ ...summaries, proposal: null });
         void fetch(`/api/research/${clusterId}/dismiss-send-proposal`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-      }}>{summaries.proposal.action === 'start' ? 'REVIEW START' : summaries.proposal.action === 'chat' ? 'REVIEW CHAT' : summaries.proposal.action === 'export' ? 'REVIEW EXPORT' : 'REVIEW SEND'}</button></div>}
+      }}>{summaries.proposal.action === 'start' ? 'REVIEW START' : summaries.proposal.action === 'chat' ? 'REVIEW CHAT' : summaries.proposal.action === 'export' ? 'REVIEW EXPORT' : summaries.proposal.action === 'rerun' ? 'REVIEW RERUN' : 'REVIEW SEND'}</button></div>}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
         {link('Brief', join('brief.md'))}
         {summaries?.latest ? link('Summary', join('synthesis.md')) : <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Awaiting summary</span>}
@@ -51,6 +53,7 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
         <button type="button" className="display-font" style={touchButton} onClick={() => setStart(summaries?.latest && lastReleased ? { kind: 'synthesis', round: lastReleased } : { kind: 'project' })}>START PROJECT</button>
         {summaries?.latest && lastReleased && <button type="button" className="display-font" style={touchButton} onClick={() => continueChat({ kind: 'synthesis', round: lastReleased })}>CONTINUE IN CHAT</button>}
         <button type="button" className="display-font" style={touchButton} onClick={() => setExporting({ kind: 'project' })}>EXPORT</button>
+        <button type="button" className="display-font" style={touchButton} onClick={() => setRerun(true)}>RERUN</button>
       </div>
       {research.rounds.length === 0 && <div style={{ color: 'var(--color-fg)' }}>No round yet.</div>}
       {roundsAndCatchUps(research).reverse().map((round) => {
@@ -73,9 +76,10 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
         );
       })}
       <div style={{ color: 'var(--color-fg)' }}>Returned files are in <code>sources/</code>; open them from FILES.</div>
+      {rerun && <RerunResearchDialog clusterId={clusterId} onClose={() => setRerun(false)} />}
       {exporting && <ExportResearchDialog clusterId={clusterId} selection={exporting} onClose={() => setExporting(null)} />}
       {start && <StartResearchProjectDialog clusterId={clusterId} selection={start} onClose={() => setStart(null)} />}
-      {send && <SendResearchDialog clusterId={clusterId} selection={send} onClose={() => setSend(null)} />}
+      {send && <SendResearchDialog clusterId={clusterId} selection={send} defaultDestination={research.sourceProject} onClose={() => setSend(null)} />}
       {open && <FileViewerModal path={open} onClose={() => setOpen(null)} fallback={{ cwd: research.folder, workflowId: research.directorWorkflowId }} />}
     </div>
   );

@@ -1582,6 +1582,15 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
           </button>
         )}
 
+        {job.config.kind !== 'chat' && job.config.workingDirectory && !clusterForJob?.research && (
+          <button type="button" className="display-font" data-help="composer.research-this"
+            title="Open a new research project for this project. The current draft is copied into its brief."
+            onClick={() => useAppStore.getState().openCreatorWith({ mode: 'research', researchPrefill: { sourceProject: job.config.workingDirectory, brief: readDraft() } })}
+            style={{ padding: '3px 8px', background: 'transparent', border: '1px solid var(--color-border-hairline)', borderRadius: 3, color: 'var(--color-accent-secondary-dim)', cursor: 'pointer', fontSize: 10, letterSpacing: '1px', whiteSpace: 'nowrap' }}>
+            RESEARCH THIS
+          </button>
+        )}
+
         {/* §B1 — COMPARE: race one prompt across N read-only legs. Store-driven
             (no prop) so the handler stays out of this near-cap file; the dialog
             + grid are globally mounted. */}

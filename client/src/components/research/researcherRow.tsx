@@ -78,6 +78,7 @@ export function ResearcherRowFields({ row, onChange, avail, label, extra }: {
       </select>
       <select className="arco-field" aria-label={`${prefix}Model`} style={{ minHeight: 44, maxWidth: 220 }} value={row.model} onChange={(e) => onChange({ ...row, model: e.target.value })}>
         {avail.models(row.provider).length === 0 && <option value="">No models</option>}
+        {row.model && !avail.models(row.provider).includes(row.model) && <option value={row.model}>{row.model} (not in catalog)</option>}
         {avail.models(row.provider).map((m) => <option key={m} value={m}>{m}</option>)}
       </select>
       {avail.efforts(row).length > 0 && <select className="arco-field" aria-label={`${prefix}Effort`} style={{ minHeight: 44 }} value={row.effort} onChange={(e) => onChange({ ...row, effort: e.target.value })}>

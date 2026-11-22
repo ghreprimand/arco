@@ -33,3 +33,15 @@ test('a Claude CLI researcher keeps its transport without a Native-only search l
   assert.equal(switched.webSearchMaxUses, undefined);
   assert.equal(switched.key, researcher.key);
 });
+
+
+test('research creation carries its originating project and rerun source', () => {
+  const director = { key: 'd', provider: 'claude' as const, model: 'sonnet', effort: 'medium', advanced: false };
+  const payload = researchCreatePayload({ name: 'Fixture', brief: 'Compare.', blind: true, director, rows: [director], sourceProject: 'fixture-project', rerunFrom: 'fixture-research' });
+  assert.equal(payload.research.sourceProject, 'fixture-project');
+  assert.equal(payload.research.rerunFrom, 'fixture-research');
+  const codex = { ...director, provider: 'codex' as const, providerAccountRef: 'account-fixture' };
+  const withAccount = researchCreatePayload({ name: 'Fixture', brief: 'Compare.', blind: true, director: codex, rows: [codex] });
+  assert.equal(withAccount.members[0].providerAccountRef, 'account-fixture');
+  assert.equal(withAccount.members[1].providerAccountRef, 'account-fixture');
+});

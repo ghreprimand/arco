@@ -12,6 +12,7 @@ import {
   type ClusterCreateFromScratchMessage,
   type ClusterMemberProvider,
 } from '@arco/shared';
+import { assertSafePath } from '../fileAccessPolicy.js';
 import { arcoHome } from '../arcoHome.js';
 import { patchSettings, readSettings } from '../settings.js';
 import { researchSandboxAvailable } from '../workers/researchSandboxAvailability.js';
@@ -20,7 +21,8 @@ import { codexResearchVersionReason, installedCodexVersion } from '../providers/
 import { readMeta } from '../workflowMeta.js';
 import { createResearchFolder, writeInitialFiles, writeProjectFiles, writeReleasedRound } from './researchFolder.js';
 import { addToLibrary, reopenSource } from './researchLibrary.js';
-import { initResearch, researchLetter, researcherName, type ResearchRound, type ResearchState } from './researchState.js';
+import { recordResearchExport } from './sendToProject.js';
+import { loadResearch, initResearch, researchLetter, researcherName, type ResearchRound, type ResearchState } from './researchState.js';
 
 export const RESEARCH_DIRECTOR_ROLE = 'Research Director';
 export const RESEARCHER_ROLE = 'Researcher';
@@ -34,6 +36,8 @@ export interface PreparedResearch {
   name: string;
   brief: string;
   blind: boolean;
+  sourceProject?: string;
+  rerunReceiptError?: boolean;
   msg: ClusterCreateFromScratchMessage;
   // REOPEN from the Research library (docs/RESEARCH.md).
   reopen?: { record: ResearchState; resumeDirectorId?: string };
@@ -58,6 +62,13 @@ export async function prepareResearchCreate(msg: ClusterCreateFromScratchMessage
   }
   const sandbox = await researcherSandboxRefusal(members.slice(1));
   if (sandbox) return { refusal: sandbox };
+  let sourceProject: string | undefined;
+  if (spec.sourceProject !== undefined) {
+    if (typeof spec.sourceProject !== 'string' || !isAbsolute(spec.sourceProject)) return { refusal: 'invalid_source_project' };
+    try { assertSafePath(spec.sourceProject); sourceProject = await fs.realpath(spec.sourceProject); assertSafePath(sourceProject); if (!(await fs.stat(sourceProject)).isDirectory()) return { refusal: 'invalid_source_project' }; }
+    catch { return { refusal: 'invalid_source_project' }; }
+  }
+  if (spec.rerunFrom !== undefined && (typeof spec.rerunFrom !== 'string' || !UUID.test(spec.rerunFrom) || !await loadResearch(spec.rerunFrom))) return { refusal: 'invalid_rerun_source' };
   const settings = await readSettings();
   const requested = typeof spec.folderRoot === 'string' ? spec.folderRoot.trim() : '';
   if (requested && !isAbsolute(requested)) return { refusal: 'invalid_research_folder' };
@@ -70,7 +81,7 @@ export async function prepareResearchCreate(msg: ClusterCreateFromScratchMessage
   await fs.mkdir(membersCwd, { recursive: true, mode: 0o700 });
   const blind = spec.blind !== false;
   return {
-    projectId, folder, membersCwd, name, brief, blind,
+    projectId, folder, membersCwd, name, brief, blind, ...(sourceProject ? { sourceProject } : {}),
     msg: {
       ...msg,
       cwd: folder,
@@ -242,6 +253,7 @@ export async function finishResearchCreate(prepared: PreparedResearch, clusterId
     clusterId,
     folder: prepared.folder,
     membersCwd: prepared.membersCwd,
+    ...(prepared.sourceProject ? { sourceProject: prepared.sourceProject } : {}),
     name: prepared.name,
     brief: prepared.brief,
     blind: prepared.blind,
@@ -260,6 +272,11 @@ export async function finishResearchCreate(prepared: PreparedResearch, clusterId
   };
   await initResearch(state);
   await writeInitialFiles(state);
+  if (prepared.msg.research?.rerunFrom) {
+    const source = await loadResearch(prepared.msg.research.rerunFrom);
+    if (source) { try { await recordResearchExport(source, { kind: 'project' }, `rerun as research project ${state.projectId}`); } catch { prepared.rerunReceiptError = true; } }
+    else prepared.rerunReceiptError = true;
+  }
   await addToLibrary({ projectId: state.projectId, folder: state.folder, name: state.name, createdAt: state.createdAt })
     .catch((error) => console.error('[arco] research library entry could not be written:', error));
   return state;
