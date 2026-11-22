@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- List research projects on Home in a Research library, and reopen a closed project with its saved or a new Research Director and new researchers; find a moved project folder with Locate.
+
 - Offer interactive Antigravity CLI Agent tabs and saved Chats through agy ACP.
 
 - Add and remove researchers in a running research project; a late researcher can answer the round 1 text alone first.

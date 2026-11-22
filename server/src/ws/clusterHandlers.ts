@@ -83,7 +83,8 @@ import { acquireProjectSettingsWatcher, readSettings } from '../settings.js';
 import { applyAutoPickup } from '../smartPickup.js';
 import { setClusterPlanBody } from '../clusterPlanBridge.js';
 import * as researchCreate from '../research/researchCreate.js';
-import { addResearcher, isResearchMemberBusy, removeResearcher, startResearchDirector } from '../research/researchRounds.js';
+import { liveResearchClusters } from '../research/researchLibrary.js';
+import { addResearcher, announceResearchReopen, isResearchMemberBusy, removeResearcher, startResearchDirector } from '../research/researchRounds.js';
 import { activeResearchers, loadResearch } from '../research/researchState.js';
 import { moveUnsentFiles, removeResearcherWorkspace } from '../research/researchClose.js';
 import { RESEARCH_MAX_RESEARCHERS } from '@arco/shared';
@@ -111,6 +112,9 @@ export interface ClusterHandlerDeps {
   createBlankNativeWorkflow: (ws: WebSocket, session: Session, config: WorkflowConfig, options?: { clusterMemberPending?: boolean }) => Promise<string>;
   assertAllMembersClaudeOrCodex: (memberIds: string[]) => Promise<string | null>;
   catalogModelKnown?: (provider: ClusterMemberProvider, modelId: string) => Promise<boolean>;
+  // Registers a saved workflow from its meta.json (a reopened research
+  // project's Research Director). False when there is no saved workflow.
+  materializeWorkflow?: (cwd: string, workflowId: string) => Promise<boolean>;
 }
 let deps: ClusterHandlerDeps;
 export function initClusterHandlers(d: ClusterHandlerDeps): void { deps = d; }
@@ -1669,7 +1673,9 @@ async function createClusterFromScratch(
     if (!msg.research || typeof msg.research !== 'object' || msg.initialPlanGoal || msg.initialPlanId) {
       send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: invalid_research' }); return;
     }
-    const prepared = await researchCreate.prepareResearchCreate(msg);
+    const prepared = msg.research.reopen !== undefined
+      ? await researchCreate.prepareResearchReopen(msg, await liveResearchClusters())
+      : await researchCreate.prepareResearchCreate(msg);
     if ('refusal' in prepared) { send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: ${prepared.refusal}` }); return; }
     research = prepared;
     msg = prepared.msg;
@@ -1720,13 +1726,15 @@ async function createClusterFromScratch(
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] unknown_provider:${m.provider}` });
       return;
     }
-    const modelProblem = await memberModelRefusal(m.provider, m.model, isKnownCatalogModel)
+    // A resumed Research Director keeps its saved settings, as any reopened tab does.
+    const resumed = i === 0 && !!research?.reopen?.resumeDirectorId;
+    const modelProblem = resumed ? undefined : await memberModelRefusal(m.provider, m.model, isKnownCatalogModel)
       ?? await memberAccountRefusal(m.provider, m.providerAccountRef, msg.cwd, isKnownCodexAccount);
     if (modelProblem) {
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] ${modelProblem}` });
       return;
     }
-    if (m.effort !== undefined && !allowedWorkflowEfforts(m.provider, m.model).some((level) => level === m.effort)) {
+    if (!resumed && m.effort !== undefined && !allowedWorkflowEfforts(m.provider, m.model).some((level) => level === m.effort)) {
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] invalid_effort` }); return;
     }
     if (m.tier !== undefined && !clusterStore.isMemberTier(m.tier)) {
@@ -1754,9 +1762,22 @@ async function createClusterFromScratch(
     }
   }
   if (msg.members.length < 2) { send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: too_few_members' }); return; }
+  const resumeDirectorId = research?.reopen?.resumeDirectorId;
+  if (resumeDirectorId) {
+    // A Director tab still open (its cluster was dissolved elsewhere) joins as
+    // it is; a closed one is registered again from its folder.
+    const live = workflows.get(resumeDirectorId);
+    const busyOrTaken = clusterStore.getClusterIdForWorkflow(resumeDirectorId) ? 'director_in_another_cluster'
+      : live?.busy ? 'director_busy' : live ? existingClusterMemberRefusal([resumeDirectorId]) : null;
+    if (busyOrTaken) { send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: ${busyOrTaken}` }); return; }
+    if (!await deps.materializeWorkflow?.(msg.cwd, resumeDirectorId)) {
+      send(ws, { type: 'error', message: 'cluster_create_from_scratch rejected: director_conversation_missing' }); return;
+    }
+  }
   const newWorkflowIds: string[] = [];
   const memberCwds: Record<string, string> = {};
   for (let i = 0; i < msg.members.length; i++) {
+    if (i === 0 && resumeDirectorId) { newWorkflowIds.push(resumeDirectorId); continue; }
     const memberCwd = research && i > 0 ? research.membersCwd : msg.cwd;
     const childConfig = await memberConfigFromSpec(msg.members[i], i, memberCwd, resolveCodexAccount);
     try {
@@ -1805,9 +1826,13 @@ async function createClusterFromScratch(
     await clusterStore.renameCluster(cluster.clusterId, msg.name).catch(() => { /* best-effort */ });
   }
   let researchState: Awaited<ReturnType<typeof researchCreate.finishResearchCreate>> | undefined;
+  let reopened: Awaited<ReturnType<typeof researchCreate.finishResearchReopen>> | undefined;
   if (research) {
     try {
-      researchState = await researchCreate.finishResearchCreate(research, cluster.clusterId, newWorkflowIds);
+      if (research.reopen) {
+        reopened = await researchCreate.finishResearchReopen(research, cluster.clusterId, newWorkflowIds);
+        researchState = reopened.state;
+      } else researchState = await researchCreate.finishResearchCreate(research, cluster.clusterId, newWorkflowIds);
     } catch (err) {
       console.error('[arco] research project files could not be written:', err);
       send(ws, { type: 'error', message: 'The research project was created, but its research files could not be written.' });
@@ -1832,8 +1857,10 @@ async function createClusterFromScratch(
     if (goal && !director) send(ws, { type: 'error', message: 'The cluster was created, but its director role could not be saved. Set the director and draft the plan from the cluster.' });
   }
   console.log(`[arco] cluster ${cluster.clusterId.slice(0, 8)} created from scratch with ${newWorkflowIds.length} fresh members`);
-  // docs/RESEARCH.md - the Director starts on the brief at once.
-  if (researchState) startResearchDirector(researchState);
+  // docs/RESEARCH.md - the Director starts on the brief at once; a reopened
+  // project's Director is told what changed and sends no round by itself.
+  if (reopened) await announceResearchReopen(reopened.state, !!resumeDirectorId, reopened.released).catch((err) => console.error('[arco] research reopen notice failed:', err));
+  else if (researchState) startResearchDirector(researchState);
 }
 
 // Phase 2.5.1 — operator clicked "+ ADD WORKER" inside ClusterRightPanel

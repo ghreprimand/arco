@@ -110,6 +110,53 @@ export interface ResearchCreateSpec {
   blind?: boolean;
   // Where research projects are created. Saved to Settings the first time.
   folderRoot?: string;
+  // docs/RESEARCH.md - REOPEN from the Research library: the project with
+  // this id comes back in its own folder. Name, brief and blind then come
+  // from Arco's record of the project, not from this message. With
+  // `resumeDirector` the saved Research Director conversation rejoins as the
+  // first member and members[0] is ignored.
+  reopen?: { projectId: string; resumeDirector: boolean };
+}
+
+// docs/RESEARCH.md - one row of the Research library on Home.
+export type ResearchLibraryStatus = 'open' | 'closed' | 'missing';
+export interface ResearchLibraryRow {
+  projectId: string;
+  name: string;
+  folder: string;
+  status: ResearchLibraryStatus;
+  // First line of the brief; empty when the folder is missing.
+  question: string;
+  createdAt: string;
+  closedAt?: string;
+  researchers: number;
+  rounds: number;
+  // The live cluster of an open project.
+  clusterId?: string;
+}
+// docs/RESEARCH.md - what the REOPEN dialog needs.
+export interface ResearchReopenPreview {
+  projectId: string;
+  name: string;
+  folder: string;
+  // Can REOPEN run at all; `reason` says why not.
+  reopenable: boolean;
+  reason?: string;
+  director: {
+    resumable: boolean;
+    // Why the saved Research Director cannot be resumed.
+    reason?: string;
+    provider?: ClusterMemberProvider;
+    model?: string;
+    effort?: string;
+  };
+  // The earlier panel. In a blind project that is not revealed the rows are
+  // sorted by provider and model, so their order does not tell the letters.
+  researchers: Array<{ provider: ClusterMemberProvider; model: string; effort?: string; claudeTransport?: 'native' | 'cli' }>;
+  // The first letter the new researchers get.
+  nextLetter: string;
+  // How many new researchers still fit (letters run to Z).
+  slots: number;
 }
 
 // docs/PROTOCOL_CLUSTER.md - peer messaging events.

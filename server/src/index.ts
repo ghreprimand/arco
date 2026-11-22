@@ -293,6 +293,7 @@ import {
   handleHandoffRequest,
   handleRehydrateWorkflows,
   handleClusterMemberRehydrate,
+  materializeMemberFromMeta,
   registerAllClusterMembersOnBoot,
   handleSpawnFromHere,
   initHandoffHandlers,
@@ -525,6 +526,7 @@ initClusterHandlers({
   handleRemoveWorkflow,
   createBlankNativeWorkflow,
   assertAllMembersClaudeOrCodex,
+  materializeWorkflow: async (cwd, workflowId) => !!await materializeMemberFromMeta(cwd, workflowId).catch(() => null),
 });
 initBakeoffHandlers({
   handleUserMessage,

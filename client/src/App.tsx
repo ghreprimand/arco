@@ -685,7 +685,9 @@ ${scopeBody}
           {showGithub ? (
             <GitHubPanel />
           ) : showHome ? (
-            <HomeView onResume={createWorkflow} />
+            <HomeView onResume={createWorkflow}
+              onOpenCluster={(clusterId) => { subscribeCluster(clusterId); useAppStore.getState().setActiveCluster(clusterId); }}
+              onReopenResearch={createClusterFromScratch} />
           ) : activeClusterId ? (
             <ClusterTab
               key={activeClusterId}

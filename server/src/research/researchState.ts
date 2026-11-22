@@ -74,6 +74,9 @@ export interface ResearchState {
   revealedAt?: string;
   // Set when the operator closed the research tab (docs/RESEARCH.md).
   closedAt?: string;
+  // Set when the project was last reopened from the Research library.
+  // Researchers removed at or before it belong to the earlier panel.
+  reopenedAt?: string;
   createdAt: string;
   directorWorkflowId: string;
   researchers: ResearchResearcher[];

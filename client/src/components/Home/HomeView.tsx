@@ -13,6 +13,8 @@ import { ProjectCard } from './ProjectCard';
 import { LocationDialog } from './LocationDialog';
 import { AddProject } from './AddProject';
 import { HomeStatus } from './HomeStatus';
+import { ResearchLibrary } from './ResearchLibrary';
+import type { ResearchReopenPayload } from '../research/ResearchReopenDialog';
 import { defaultModelForProvider, useModelCatalogs } from '../../utils/modelCatalog';
 import { clampEffortForModel } from '../../utils/format';
 import { KIND_LABEL, when } from './homeStyles';
@@ -41,7 +43,7 @@ const WORK_ROWS = 2;
 // opens the existing creator, or explicitly resumes a saved session. Rendering
 // sends no prompt. Incognito tabs never appear (see utils/homeModel.ts).
 
-export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => void } = {}) {
+export function HomeView({ onResume, onOpenCluster, onReopenResearch }: { onResume?: (config: WorkflowConfig) => void; onOpenCluster?: (clusterId: string) => void; onReopenResearch?: (payload: ResearchReopenPayload) => boolean | void } = {}) {
   const catalogs = useModelCatalogs();
   const projectSettingsKey = useAppStore(s => JSON.stringify([s.settings?.projectRoots, s.settings?.projects, s.settings?.defaultWorkingDirectory]));
   const jobs = useAppStore((s) => s.jobs);
@@ -253,6 +255,7 @@ export function HomeView({ onResume }: { onResume?: (config: WorkflowConfig) => 
         {work.length > workLimit && <button type="button" className="home-show-all" aria-expanded={workExpanded} aria-controls="home-open-list" onClick={() => setWorkExpanded(open => !open)}>{workExpanded ? 'Show fewer' : `Show all ${work.length}`}</button>}
       </section>}
 
+      <ResearchLibrary onOpenCluster={onOpenCluster} onReopen={onReopenResearch} />
 
       {showProjects && <section aria-labelledby="home-projects" data-help="home.projects">
         <div className="home-project-tools"><h2 id="home-projects">Projects</h2>

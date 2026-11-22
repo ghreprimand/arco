@@ -17,6 +17,7 @@ import {
   activeResearchers,
   cachedResearch,
   catchUpKey,
+  catchUpLetter,
   loadResearch,
   nextResearchLetter,
   openCatchUp,
@@ -602,4 +603,35 @@ export function startResearchDirector(state: Pick<ResearchState, 'name' | 'brief
   if (!deps) return false;
   d().wake(state.directorWorkflowId, directorStartPrompt(state));
   return true;
+}
+
+// docs/RESEARCH.md - a project reopened from the Research library. A new
+// Research Director starts by reading the project files; a resumed one gets
+// a note in its mail. Neither sends a round until the operator asks.
+export function directorReopenPrompt(state: ResearchState, released: number[]): string {
+  const letters = activeResearchers(state).map((r) => r.letter).join(', ');
+  return [
+    `(research) Reopened project: ${state.name}`,
+    'This research project was worked on earlier and has been reopened. You are its new Research Director.',
+    'Before anything else, read research.json, brief.md, synthesis.md (if it exists) and director-log.md in the project folder, then the latest round folder under rounds/.',
+    `Then tell the operator in a few lines where the project stands and what could be researched next. Send no round until the operator asks for one. The earlier researchers are gone; rounds now go to ${letters}.`,
+    ...(released.length ? [releasedNote(released)] : []),
+  ].join('\n');
+}
+
+function releasedNote(released: number[]): string {
+  const names = released.map((n) => roundTitle({ n, ...(n < 0 ? { catchUp: catchUpLetter(n) } : {}) }));
+  return `${names.join(' and ')} ${names.length === 1 ? 'was' : 'were'} still open when the project closed and ${names.length === 1 ? 'is' : 'are'} now released with the replies that had arrived; read ${names.length === 1 ? 'its' : 'their'} files.`;
+}
+
+export async function announceResearchReopen(state: ResearchState, resumed: boolean, released: number[]): Promise<void> {
+  if (!deps) return;
+  if (!resumed) { d().wake(state.directorWorkflowId, directorReopenPrompt(state, released)); d().notify(state.clusterId); return; }
+  const letters = activeResearchers(state).map((r) => r.letter).join(', ');
+  await noteDirector(state, [
+    `This project was reopened on ${state.reopenedAt ?? iso(d().now())}. The earlier researchers are gone; rounds now go to ${letters}.`,
+    'Continue from synthesis.md. Send no round until the operator asks for one.',
+    ...(released.length ? [releasedNote(released)] : []),
+  ].join(' '));
+  d().notify(state.clusterId);
 }

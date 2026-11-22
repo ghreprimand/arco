@@ -44,11 +44,14 @@ export function renderManifest(state: ResearchState, status: 'open' | 'closed' =
   const authors = showAuthors(state);
   return JSON.stringify({
     schemaVersion: 1,
+    // Matches the folder to its Research library entry (docs/RESEARCH.md).
+    projectId: state.projectId,
     name: state.name,
     brief: state.brief,
     status,
     createdAt: state.createdAt,
     ...(state.closedAt ? { closedAt: state.closedAt } : {}),
+    ...(state.reopenedAt ? { reopenedAt: state.reopenedAt } : {}),
     blind: state.blind,
     ...(state.revealedAt ? { revealedAt: state.revealedAt } : {}),
     researchers: state.researchers.map((r) => ({

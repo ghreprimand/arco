@@ -90,6 +90,18 @@ export const miscHelp: Record<string, HelpEntry> = {
     ),
   },
 
+  'home.research-library': {
+    title: 'Research library',
+    body: <p>Lists the research projects Arco knows, newest first, with the question, status, dates, researchers and rounds. Projects in the research folder (Settings, Projects) appear even when they were made before the library. Open returns to an open project. Reopen starts a closed one again. A Missing project's folder was moved or deleted: Locate points Arco at the folder holding its research.json, and Forget removes it from the list without touching any file.</p>,
+    manualSection: 'research-project',
+  },
+
+  'home.research-reopen': {
+    title: 'Reopen a research project',
+    body: <p>The saved Research Director continues when its conversation is still in the project folder and its provider is signed in; otherwise the dialog says why and a new Research Director reads the project files first. Either way it sends no round until you ask. New researchers continue the letters and start from the earlier panel; edit, add or remove rows before REOPEN.</p>,
+    manualSection: 'research-project',
+  },
+
   'home.projects': {
     title: 'Projects',
     body: (

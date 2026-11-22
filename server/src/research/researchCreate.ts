@@ -17,8 +17,10 @@ import { patchSettings, readSettings } from '../settings.js';
 import { researchSandboxAvailable } from '../workers/researchSandboxAvailability.js';
 import { cursorIsolationReason } from '../providers/cursor/isolatedVersion.js';
 import { codexResearchVersionReason, installedCodexVersion } from '../providers/codexVersion.js';
-import { createResearchFolder, writeInitialFiles } from './researchFolder.js';
-import { initResearch, researchLetter, researcherName, type ResearchState } from './researchState.js';
+import { readMeta } from '../workflowMeta.js';
+import { createResearchFolder, writeInitialFiles, writeProjectFiles, writeReleasedRound } from './researchFolder.js';
+import { addToLibrary, reopenSource } from './researchLibrary.js';
+import { initResearch, researchLetter, researcherName, type ResearchRound, type ResearchState } from './researchState.js';
 
 export const RESEARCH_DIRECTOR_ROLE = 'Research Director';
 export const RESEARCHER_ROLE = 'Researcher';
@@ -33,6 +35,8 @@ export interface PreparedResearch {
   brief: string;
   blind: boolean;
   msg: ClusterCreateFromScratchMessage;
+  // REOPEN from the Research library (docs/RESEARCH.md).
+  reopen?: { record: ResearchState; resumeDirectorId?: string };
 }
 
 export function researchMembersRoot(): string { return join(arcoHome(), 'research'); }
@@ -120,6 +124,100 @@ export function researcherMemberSpec(m: ResearcherRow, letter: string): Research
     ...(m.provider === 'ollama' && m.contextSize ? { contextSize: m.contextSize } : {}) };
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+// docs/RESEARCH.md - REOPEN: the project comes back in its own folder with
+// new researchers whose letters continue after the earlier ones. With
+// `resumeDirector` the saved Research Director conversation rejoins;
+// members[0] then takes its saved provider and model.
+export async function prepareResearchReopen(msg: ClusterCreateFromScratchMessage, liveClusters: Map<string, string>): Promise<PreparedResearch | { refusal: string }> {
+  const reopen = msg.research?.reopen;
+  if (!reopen || typeof reopen.projectId !== 'string' || !UUID.test(reopen.projectId) || typeof reopen.resumeDirector !== 'boolean') return { refusal: 'invalid_reopen' };
+  const source = await reopenSource(reopen.projectId, liveClusters);
+  if ('reason' in source) return { refusal: `research_reopen_unavailable: ${source.reason}` };
+  const { record } = source;
+  const members = Array.isArray(msg.members) ? msg.members : [];
+  if (members.length < 2) return { refusal: 'no_researchers' };
+  if (record.researchers.length + members.length - 1 > RESEARCH_MAX_RESEARCHERS) return { refusal: 'too_many_researchers' };
+  for (let i = 1; i < members.length; i++) {
+    const refusal = researcherSpecRefusal(members[i]);
+    if (refusal) return { refusal: `member[${i}] ${refusal}` };
+  }
+  const sandbox = await researcherSandboxRefusal(members.slice(1));
+  if (sandbox) return { refusal: sandbox };
+  let director = members[0];
+  let resumeDirectorId: string | undefined;
+  if (reopen.resumeDirector) {
+    const meta = await readMeta(record.folder, record.directorWorkflowId).catch(() => null);
+    if (!meta) return { refusal: 'director_conversation_missing' };
+    resumeDirectorId = record.directorWorkflowId;
+    director = { provider: meta.primaryProvider as ClusterMemberProvider, model: String(meta.primaryModel ?? ''), ...(meta.primaryEffort ? { effort: meta.primaryEffort } : {}) } as typeof director;
+  }
+  const membersCwd = join(researchMembersRoot(), record.projectId);
+  await fs.mkdir(membersCwd, { recursive: true, mode: 0o700 });
+  const first = record.researchers.length;
+  return {
+    projectId: record.projectId, folder: record.folder, membersCwd, name: record.name, brief: record.brief, blind: record.blind,
+    reopen: { record, ...(resumeDirectorId ? { resumeDirectorId } : {}) },
+    msg: {
+      ...msg,
+      cwd: record.folder,
+      name: `Research: ${record.name}`,
+      taskBoardMode: 'none',
+      members: [
+        { ...director, webSearchMaxUses: undefined, contextSize: undefined, role: RESEARCH_DIRECTOR_ROLE, displayName: RESEARCH_DIRECTOR_ROLE, accessMode: 'standard' as const, tier: undefined, focus: undefined },
+        ...members.slice(1).map((m, i) => researcherMemberSpec(m, researchLetter(first + i))),
+      ],
+    },
+  };
+}
+
+// Restores the research state from the kept record. The earlier researchers
+// stay for the records, marked removed at the close; a round that was open
+// at the close is released with the replies that had arrived.
+export async function finishResearchReopen(prepared: PreparedResearch, clusterId: string, workflowIds: string[], now = new Date()): Promise<{ state: ResearchState; released: number[] }> {
+  const record = prepared.reopen!.record;
+  const at = now.toISOString();
+  const state: ResearchState = structuredClone(record);
+  const closedAt = record.closedAt ?? at;
+  delete state.closedAt;
+  state.clusterId = clusterId;
+  state.folder = prepared.folder;
+  state.membersCwd = prepared.membersCwd;
+  state.reopenedAt = at;
+  state.directorWorkflowId = workflowIds[0];
+  for (const r of state.researchers) {
+    if (!r.removedAt) r.removedAt = closedAt;
+    delete r.signInNeeded; delete r.signInRemainingMs;
+  }
+  const released: ResearchRound[] = [];
+  for (const round of [...state.rounds, ...(state.catchUps ?? [])]) {
+    if (round.releasedAt) continue;
+    for (const entry of Object.values(round.entries)) {
+      delete entry.deferred;
+      if (entry.state === 'waiting') Object.assign(entry, { state: 'stopped', at, reason: 'The project was closed before this researcher replied.' });
+    }
+    round.releasedAt = at;
+    released.push(round);
+  }
+  const fromRound = state.rounds.length + 1;
+  state.researchers.push(...prepared.msg.members.slice(1).map((m, i) => ({
+    workflowId: workflowIds[i + 1],
+    letter: researchLetter(record.researchers.length + i),
+    provider: m.provider as ClusterMemberProvider,
+    model: m.model,
+    ...(m.effort ? { effort: String(m.effort) } : {}),
+    ...(m.provider === 'claude' && m.researchClaudeTransport ? { claudeTransport: m.researchClaudeTransport } : {}),
+    joinedAt: at,
+    joinedFromRound: fromRound,
+  })));
+  await initResearch(state);
+  for (const round of released) await writeReleasedRound(state, round);
+  await writeProjectFiles(state);
+  await addToLibrary({ projectId: state.projectId, folder: state.folder, name: state.name, createdAt: state.createdAt });
+  return { state, released: released.map((r) => r.n) };
+}
+
 export async function finishResearchCreate(prepared: PreparedResearch, clusterId: string, workflowIds: string[]): Promise<ResearchState> {
   const state: ResearchState = {
     schemaVersion: 1,
@@ -145,5 +243,7 @@ export async function finishResearchCreate(prepared: PreparedResearch, clusterId
   };
   await initResearch(state);
   await writeInitialFiles(state);
+  await addToLibrary({ projectId: state.projectId, folder: state.folder, name: state.name, createdAt: state.createdAt })
+    .catch((error) => console.error('[arco] research library entry could not be written:', error));
   return state;
 }

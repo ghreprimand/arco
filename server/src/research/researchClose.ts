@@ -111,7 +111,8 @@ function list(items: string[]): string[] {
 // One page per researcher: turns, searches made, sources opened, failures.
 export async function researcherLogs(state: ResearchState, heading: '#' | '##' = '##'): Promise<string> {
   const lines = [...(heading === '##' ? [''] : []), `${heading} Researcher logs`, '', 'Written when the research tab was closed; the researchers\' conversations were then removed.', ''];
-  for (const r of state.researchers) {
+  // A reopened project's earlier panel was logged when it first closed.
+  for (const r of state.researchers.filter((x) => !(state.reopenedAt && x.removedAt && x.removedAt <= state.reopenedAt))) {
     const f = await logFacts(join(state.membersCwd, '.arco', 'workflows', r.workflowId));
     lines.push(`${heading}# ${researcherName(r.letter)}`, '',
       `- Turns: ${f.turns}`,

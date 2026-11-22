@@ -7,6 +7,7 @@ import { isResearchMemberBusy, revealResearch, startRound } from '../research/re
 import { closeResearch, unsentFiles } from '../research/researchClose.js';
 import { researchSummaries } from '../research/researchFolder.js';
 import { loadResearch } from '../research/researchState.js';
+import { forgetProject, libraryRows, liveResearchClusters, locateProject, reopenPreview } from '../research/researchLibrary.js';
 import { formatResearchRoundResult, researchHeldNote, researchSendProposal, clearResearchSendProposal, proposeResearchSend } from '../research/researchTools.js';
 import { spawn } from 'child_process';
 import { disabledClusterProvider, localCapacityRefusal, memberProvider } from '../localCapacity.js';
@@ -53,6 +54,35 @@ export async function tryHandleClusterRoutes(
   // while ~/.arco/clusters is authoritative; this read-only surface lets an
   // operator reopen an intact cluster whose localStorage tab was lost without
   // forking from an older snapshot.
+  // docs/RESEARCH.md - the Research library on Home: list, the REOPEN
+  // dialog's preview, LOCATE and FORGET. None of these touches a folder.
+  const library = req.url ? /^\/api\/research\/library(?:\/([0-9a-f-]{36})\/(reopen|locate|forget))?(?:\?.*)?$/.exec(req.url) : null;
+  if (library) {
+    const reply = (status: number, body: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); };
+    const [, projectId, action] = library;
+    try {
+      if (!projectId && req.method === 'GET') { reply(200, { rows: await libraryRows(await liveResearchClusters()) }); return true; }
+      if (action === 'reopen' && req.method === 'GET') {
+        const preview = await reopenPreview(projectId, await liveResearchClusters(), async (p) => disabledClusterProvider([p]));
+        reply(preview ? 200 : 404, preview ?? { error: 'unknown_project' }); return true;
+      }
+      if (action === 'forget' && req.method === 'POST') {
+        if ((await liveResearchClusters()).has(projectId)) { reply(409, { error: 'project_open' }); return true; }
+        reply((await forgetProject(projectId)) ? 200 : 404, { forgotten: true }); return true;
+      }
+      if (action === 'locate' && req.method === 'POST') {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) chunks.push(chunk as Buffer);
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { folder?: unknown };
+        const result = await locateProject(projectId, typeof body.folder === 'string' ? body.folder : '');
+        reply(result.ok ? 200 : result.code === 'unknown_project' ? 404 : 400, result); return true;
+      }
+      reply(405, { error: 'method_not_allowed' });
+    } catch (error) {
+      reply(500, { error: 'library_failed', message: error instanceof Error ? error.message : String(error) });
+    }
+    return true;
+  }
   // docs/RESEARCH.md - the operator's Reveal of a blind research project.
   const reveal = req.method === 'POST' && req.url ? /^\/api\/research\/([0-9a-f-]{36})\/reveal$/.exec(req.url) : null;
   if (reveal) {

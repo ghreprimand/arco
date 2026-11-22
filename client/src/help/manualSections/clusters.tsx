@@ -524,6 +524,32 @@ export const clusters: Section[] = [
   research folder and the Research Director's conversation are kept, and
   Arco keeps a private record of which model wrote each report.
   </p>
+  <h4 className="manual-sub">Research library and reopening</h4>
+  <p>
+  Home lists research projects under <strong>Research library</strong>:
+  name, question, status, dates, researchers and rounds. Projects in the
+  research folder appear even if made before the library. <Code>Open</Code>
+  brings back an open project&apos;s tab.
+  </p>
+  <p>
+  <Code>Reopen</Code> on a closed project asks who continues. The saved
+  Research Director resumes when its conversation is still in the folder and
+  its provider is signed in; otherwise the dialog says why and offers a new
+  one, which reads the project files first. Neither sends a round until you
+  ask.
+  </p>
+  <p>
+  A reopened project gets new researchers, prefilled from the earlier panel.
+  Letters continue, so a project closed with A and B reopens with C and D.
+  Earlier reports stay; a round left open at the close is released with the
+  replies that had arrived.
+  </p>
+  <p>
+  A moved or deleted folder shows <strong>Missing</strong>. <Code>Locate</Code>
+  points Arco at the folder that now holds its research.json;
+  <Code>Forget</Code> removes it from the library only. Arco never moves or
+  deletes a research folder.
+  </p>
   </>
   ),
   },

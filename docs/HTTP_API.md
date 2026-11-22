@@ -1106,6 +1106,10 @@ See [RESEARCH.md](RESEARCH.md).
 - `GET /api/research/:clusterId/summaries`: `{ latest, rounds }`, whether `synthesis.md` exists and which `syntheses/round-N.md` files exist. 404 `unknown_research`.
 - `GET /api/research/:clusterId/researchers/:letter/unsent`: `{ unsent: [{ letter, path, bytes }] }` for one researcher, shown by REMOVE. 404 `unknown_research`.
 - `GET /api/research/:clusterId/close-preview`: `{ unsent: [{ letter, path, bytes }] }`, the researcher files not yet in `sources/`. 404 `unknown_research`.
+- `GET /api/research/library`: `{ rows: [{ projectId, name, folder, status, question, createdAt, closedAt?, researchers, rounds, clusterId? }] }`, the Research library on Home, newest first. `status` is `open`, `closed` or `missing`. Scans the configured research folder for projects the index does not know.
+- `GET /api/research/library/:projectId/reopen`: what the REOPEN dialog needs: `{ reopenable, reason?, director: { resumable, reason?, provider?, model?, effort? }, researchers, nextLetter, slots }`. 404 `unknown_project`.
+- `POST /api/research/library/:projectId/locate`: body `{ folder }`. Accepts only a folder whose `research.json` belongs to the project and updates the library and the closed record. 400 `invalid_folder` or `not_this_project`; 404 `unknown_project`.
+- `POST /api/research/library/:projectId/forget`: removes the project from the library only. 409 `project_open`; 404 when unknown.
 - `POST /api/research/:clusterId/close`: body `{ moveUnsent }`. Writes the researcher logs, moves unsent files when asked and removes the researchers' folders. `{ ok: true, logsWrittenTo, moved, removed }`; 409 `researcher_busy` with `letters`; 404 `unknown_research`.
 
 ---
