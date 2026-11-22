@@ -580,6 +580,9 @@ export const providers: Section[] = [
   <p>
   The full roster comes from a live <Code>cursor-agent models</Code> catalog
   (1h server cache, 30-min client poll). <Code>auto</Code> is the default.
+  Cursor sessions can offer models that list leaves out, such as GLM 5.3.
+  Arco saves the models each session offers and adds the missing ones, so
+  they appear after one Cursor conversation has run on this computer.
   </p>
   <p>
   Cursor bakes reasoning effort <em>into the model id</em> (<Code>-low</Code> /{' '}

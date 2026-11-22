@@ -30,7 +30,7 @@ import { AcpJsonRpcClient, AcpReplyError, JsonRpcRequestError, type JsonRpcNotif
 import { commandArgs } from '../../windowsCommand.js';
 import { SegmentJoiner } from './acpSegments.js';
 import { describeAcpModel, isAutoModel, resolveCatalogModel, setAcpSessionModel } from './modelMap.js';
-import { getCursorCatalog } from './catalog.js';
+import { getCursorCatalog, noteAcpModels } from './catalog.js';
 import { noteCursorAuthOk, noteCursorAuthRejected, isCursorAuthErrorText } from './authState.js';
 
 // Hard-kill fallback if `session/cancel` doesn't settle the turn (Codex parity).
@@ -695,6 +695,8 @@ export class CursorAcpWorker extends EventEmitter {
     this.availableModels = list
       .filter((m): m is { modelId: string; name?: string } => typeof m?.modelId === 'string')
       .map((m) => ({ modelId: m.modelId, name: m.name }));
+    // The catalog offers models the text list leaves out (see catalog.ts).
+    void noteAcpModels(this.availableModels);
   }
 
   // Catalog ids from `cursor-agent models` (cached for an hour); empty when

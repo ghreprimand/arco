@@ -34,8 +34,12 @@ function normEffort(v: string): string {
   return s === 'extra-high' || s === 'extra_high' || s === 'extrahigh' ? 'xhigh' : s;
 }
 
-function tokens(s: string): string[] {
-  return s.toLowerCase().split(/[-._\s]+/).filter(Boolean);
+// The text catalog prefixes some models with the vendor (`cursor-grok-4.6-high`)
+// while ACP advertises them without it (`grok-4.6[...]`), so a leading
+// `cursor` word is dropped on both sides before comparing model names.
+function modelTokens(s: string): string[] {
+  const t = s.toLowerCase().split(/[-._\s]+/).filter(Boolean);
+  return t.length > 1 && t[0] === 'cursor' ? t.slice(1) : t;
 }
 
 export function isAutoModel(id: string): boolean {
@@ -47,7 +51,7 @@ export function isAutoModel(id: string): boolean {
 // picker's parseCursorModelId (shared), any token may be the effort and
 // `minimal` counts as one, so every catalog id splits into name and settings.
 export function parseCatalogId(id: string): Variant {
-  const t = tokens(id);
+  const t = modelTokens(id);
   const base: string[] = [];
   let effort: string | null = null, fast = false, thinking = false;
   for (let i = 0; i < t.length; i++) {
@@ -77,7 +81,7 @@ function acpVariant(id: string): Variant & { hasThinking: boolean } {
   const { base, params } = parseAcpModelId(id);
   const key = EFFORT_KEYS.find((k) => k in params);
   return {
-    base: tokens(base),
+    base: modelTokens(base),
     effort: key ? normEffort(params[key]) : null,
     fast: params.fast === 'true',
     thinking: params.thinking === 'true',

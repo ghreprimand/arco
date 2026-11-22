@@ -17,9 +17,14 @@
 // a cold catalog does not imply a login problem.
 
 import { spawn } from 'node:child_process';
+import { promises as fs } from 'node:fs';
+import { join } from 'node:path';
 import type { CursorCatalogModel, CursorCatalogSnapshot } from '@arco/shared';
+import { arcoHome } from '../../arcoHome.js';
+import { atomicWriteFile } from '../../atomicFile.js';
 import { commandArgs } from '../../windowsCommand.js';
 import { isCursorAuthErrorText, noteCursorAuthRejected } from './authState.js';
+import { isAutoModel, parseAcpModelId, parseCatalogId, type AcpModel } from './modelMap.js';
 
 export type { CursorCatalogModel, CursorCatalogSnapshot } from '@arco/shared';
 
@@ -54,9 +59,91 @@ export function parseCursorModels(stdout: string): CursorCatalogModel[] {
   return models;
 }
 
+// Models the Cursor program offers over ACP but leaves out of `cursor-agent
+// models` (GLM 5.3 was one). Each Cursor session's session/new lists every
+// model the sign-in may use; the worker passes that list here, it is saved in
+// the Arco home so a restart keeps it, and every model with no variant in the
+// text list joins the catalog as one entry: its ACP base name as the id (the
+// mapping in modelMap.ts resolves it to the advertised id) and a readable
+// name. No session is ever started just to read the list, so such a model
+// appears once a Cursor session has run on this machine.
+const ACP_MODELS_FILE = 'cursor-acp-models.json';
+let acpModels: AcpModel[] | null = null;
+
+function acpModelsPath(): string { return join(arcoHome(), ACP_MODELS_FILE); }
+
+async function savedAcpModels(): Promise<AcpModel[]> {
+  if (acpModels) return acpModels;
+  try {
+    const parsed = JSON.parse(await fs.readFile(acpModelsPath(), 'utf8')) as { models?: unknown };
+    acpModels = Array.isArray(parsed.models)
+      ? parsed.models.filter((m): m is AcpModel => typeof (m as AcpModel)?.modelId === 'string')
+        .map((m) => ({ modelId: m.modelId, ...(typeof m.name === 'string' ? { name: m.name } : {}) }))
+      : [];
+  } catch {
+    acpModels = [];
+  }
+  return acpModels;
+}
+
+/** Record the models a Cursor ACP session advertised. */
+export async function noteAcpModels(list: readonly AcpModel[]): Promise<void> {
+  const models = list.filter((m) => typeof m?.modelId === 'string' && m.modelId.trim())
+    .map((m) => ({ modelId: m.modelId, ...(typeof m.name === 'string' ? { name: m.name } : {}) }));
+  if (models.length === 0) return;
+  const before = await savedAcpModels();
+  if (JSON.stringify(before) === JSON.stringify(models)) return;
+  acpModels = models;
+  await atomicWriteFile(acpModelsPath(), `${JSON.stringify({ savedAt: new Date().toISOString(), models }, null, 2)}\n`)
+    .catch((err) => console.warn('[cursor:catalog] could not save the ACP model list:', err instanceof Error ? err.message : err));
+}
+
+// `glm-5p3-flash` -> `GLM 5.3 Flash`: short letter words in capitals, `5p3`
+// as 5.3, other words capitalised.
+export function readableCursorModelName(name: string): string {
+  const words = name.split(/[-_\s]+/).filter(Boolean).map((w) => {
+    if (/^\d+p\d+$/i.test(w)) return w.replace(/p/i, '.');
+    if (/^[a-z]{1,3}$/i.test(w)) return w.toUpperCase();
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  });
+  // `claude-haiku-4-5` -> Claude Haiku 4.5: neighbouring numbers are one version.
+  return words.reduce<string[]>((out, w) => {
+    if (/^\d+$/.test(w) && out.length > 0 && /^\d+(\.\d+)*$/.test(out[out.length - 1])) out[out.length - 1] += `.${w}`;
+    else out.push(w);
+    return out;
+  }, []).join(' ');
+}
+
+const sameTokens = (a: string[], b: string[]): boolean => a.length === b.length && [...a].sort().every((x, i) => x === [...b].sort()[i]);
+
+/** The text catalog plus one entry for each ACP model it has no variant of. */
+export function mergeAcpModels(textModels: readonly CursorCatalogModel[], acp: readonly AcpModel[]): CursorCatalogModel[] {
+  const out = [...textModels];
+  const bases = textModels.map((m) => parseCatalogId(m.id).base);
+  for (const m of acp) {
+    if (isAutoModel(m.modelId)) continue;
+    const base = parseAcpModelId(m.modelId).base;
+    const tokens = parseCatalogId(base).base;
+    if (!base || tokens.length === 0 || bases.some((b) => sameTokens(b, tokens))) continue;
+    if (out.some((x) => x.id === base)) continue;
+    out.push({ id: base, displayName: readableCursorModelName(m.name?.trim() || base), isDefault: false });
+    bases.push(tokens);
+  }
+  return out;
+}
+
+async function withAcpModels(snapshot: CursorCatalogSnapshot): Promise<CursorCatalogSnapshot> {
+  const acp = await savedAcpModels();
+  return acp.length === 0 ? snapshot : { ...snapshot, models: mergeAcpModels(snapshot.models, acp) };
+}
+
 // Public accessor. Returns cached snapshot; refreshes if older than
 // REFRESH_INTERVAL_MS or never fetched. Failures degrade to stale cache.
 export async function getCursorCatalog(force = false): Promise<CursorCatalogSnapshot> {
+  return withAcpModels(await getTextCatalog(force));
+}
+
+async function getTextCatalog(force: boolean): Promise<CursorCatalogSnapshot> {
   const now = Date.now();
   if (!force && cache && now - cache.fetchedAt < REFRESH_INTERVAL_MS) return cache;
   if (inFlight) return inFlight;

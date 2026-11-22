@@ -322,9 +322,9 @@ export interface CursorCatalogSnapshot {
 //     so only ONE trailing effort token is ever stripped
 //   - `(NO ZDR)` in the display name is a per-family property (fable), not a
 //     selectable variant — surfaced as a family badge, never a toggle.
-export type CursorEffort = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type CursorEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
-const CURSOR_EFFORT_TOKENS = new Set<string>(['none', 'low', 'medium', 'high', 'xhigh', 'max']);
+const CURSOR_EFFORT_TOKENS = new Set<string>(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 
 export interface CursorParsedModel {
   family: string;               // id stem, e.g. 'claude-opus-4-8', 'grok-4.5', 'gpt-5.6-sol', 'auto'
@@ -363,9 +363,9 @@ export function parseCursorModelId(id: string): CursorParsedModel {
 
 // Display rank / labels for the effort dropdown. `null` (bare) sorts as the
 // family default, between medium and high in the few families that ship it.
-export const CURSOR_EFFORT_ORDER: (CursorEffort | null)[] = ['none', 'low', 'medium', null, 'high', 'xhigh', 'max'];
+export const CURSOR_EFFORT_ORDER: (CursorEffort | null)[] = ['none', 'minimal', 'low', 'medium', null, 'high', 'xhigh', 'max'];
 export const CURSOR_EFFORT_LABELS: Record<string, string> = {
-  none: 'None', low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Extra High', max: 'Max', default: 'Default',
+  none: 'None', minimal: 'Minimal', low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Extra High', max: 'Max', default: 'Default',
 };
 export function cursorEffortKey(effort: CursorEffort | null): string {
   return effort ?? 'default';

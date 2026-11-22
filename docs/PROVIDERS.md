@@ -1332,7 +1332,9 @@ as two tokens `-extra-high`; `-fast` is trailing everywhere except grok (`grok-4
 `-thinking` sits before the effort for opus-4-8 but after it for sonnet-4.6; a family name can itself end
 in an effort word (`gpt-5.1-codex-max` is a family, `-max-low` = that family at low), so only ONE
 trailing effort token is ever stripped; `(NO ZDR)` is a per-family display property (fable), not a
-selectable variant.
+selectable variant. `minimal` counts as an effort (`muse-spark-1.3-minimal` belongs to the Muse Spark family).
+
+**Models the text list leaves out.** `cursor-agent models` can omit models that Cursor sessions offer (GLM 5.3 and GLM 5.3 Flash were missing while ACP `session/new` advertised them). Each ACP session's `availableModels` is passed to `catalog.ts` (`noteAcpModels`) and saved as `cursor-acp-models.json` in the Arco home. `getCursorCatalog` adds every advertised model with no variant in the text list as one entry: its ACP base name as the id (`glm-5p3`, which `modelMap.ts` resolves to the advertised `glm-5p3[reasoning=high]`) and a readable name (`GLM 5.3`). No ACP session is started only to read the list, so such a model appears once a Cursor session has run on the machine. When names are compared, a leading `cursor` word is ignored on both sides: the text list writes `cursor-grok-4.6-high`, ACP writes `grok-4.6[...]`.
 
 - **Parser (`shared/src/protocol/models.ts`).** `parseCursorModelId(id) → {family, effort, fast,
   thinking}` (pure, total - unknown ids degrade, never throw); `buildCursorModelIndex(models)` groups the

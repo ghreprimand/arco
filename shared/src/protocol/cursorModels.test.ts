@@ -45,6 +45,8 @@ test('parser handles the known-irregular ids exactly', () => {
   assert.deepEqual(parseCursorModelId('gpt-5.1'), { family: 'gpt-5.1', effort: null, fast: false, thinking: false });
   assert.deepEqual(parseCursorModelId('gpt-5.3-codex'), { family: 'gpt-5.3-codex', effort: null, fast: false, thinking: false });
   assert.deepEqual(parseCursorModelId('composer-2.5'), { family: 'composer-2.5', effort: null, fast: false, thinking: false });
+  // `minimal` is an effort, so Muse Spark Minimal joins the Muse Spark family
+  assert.deepEqual(parseCursorModelId('muse-spark-1.3-minimal'), { family: 'muse-spark-1.3', effort: 'minimal', fast: false, thinking: false });
 });
 
 test('parse is injective across the full live catalog (no key collisions)', () => {

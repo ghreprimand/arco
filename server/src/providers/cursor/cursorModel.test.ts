@@ -11,6 +11,7 @@ import { once } from 'node:events';
 import { buildTurnWaitInstructions, type WorkerConfig } from '@arco/shared';
 import fx from './fixtures/acp-models.json' with { type: 'json' };
 import { catalogIds, resolveCatalogModel, acpMatchesCatalog, describeAcpModel } from './modelMap.js';
+import { mergeAcpModels } from './catalog.js';
 
 const root = mkdtempSync(join(tmpdir(), 'arco-cursor-model-'));
 const bin = join(root, 'bin');
@@ -101,6 +102,24 @@ test('catalog ids resolve by effort, fast and thinking, never by name alone', ()
   assert.deepEqual(resolveCatalogModel('claude-4.6-sonnet-medium-thinking', avail, cat).kind, 'exact');
   assert.deepEqual(resolveCatalogModel('claude-4.6-sonnet-medium', avail, cat).kind, 'other-variant');
   assert.deepEqual(resolveCatalogModel('no-such-model', avail, cat), { kind: 'unavailable' });
+  // The text catalog prefixes Grok with the vendor; ACP does not.
+  assert.deepEqual(resolveCatalogModel('cursor-grok-4.6-high-fast', [{ modelId: 'grok-4.6[effort=high,fast=true]' }], ['cursor-grok-4.6-high', 'cursor-grok-4.6-high-fast']),
+    { kind: 'exact', acpId: 'grok-4.6[effort=high,fast=true]' });
+});
+
+// `cursor-agent models` left out models its sessions offer (GLM 5.3); the
+// catalog adds each advertised model with no text variant, and choosing it
+// selects the advertised id.
+test('models a Cursor session advertises but the text list omits join the catalog and resolve', () => {
+  const text = [{ id: 'glm-5.2-high', displayName: 'GLM 5.2', isDefault: false }, { id: 'cursor-grok-4.6-high', displayName: 'Grok 4.6', isDefault: false }];
+  const acp = [{ modelId: 'default[]' }, { modelId: 'glm-5.2[reasoning=high]', name: 'glm-5.2' }, { modelId: 'grok-4.6[effort=high]', name: 'grok-4.6' },
+    { modelId: 'glm-5p3[reasoning=high]', name: 'glm-5p3' }, { modelId: 'claude-haiku-4-5[thinking=true]', name: 'claude-haiku-4-5' }];
+  const merged = mergeAcpModels(text, acp);
+  assert.deepEqual(merged.slice(text.length), [
+    { id: 'glm-5p3', displayName: 'GLM 5.3', isDefault: false },
+    { id: 'claude-haiku-4-5', displayName: 'Claude Haiku 4.5', isDefault: false },
+  ]);
+  assert.deepEqual(resolveCatalogModel('glm-5p3', acp, merged.map((m) => m.id)), { kind: 'exact', acpId: 'glm-5p3[reasoning=high]' });
 });
 
 test('a new session selects the configured model explicitly and confirms it', { timeout: 30_000 }, async () => {
