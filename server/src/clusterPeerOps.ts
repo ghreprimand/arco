@@ -152,7 +152,7 @@ export async function peerList(ctx: PeerOpsContext): Promise<PeerListEntry[]> {
     const researcher = research ? researcherFor(research, wfid) : undefined;
     if (researcher) {
       rows.push({ workflowId: wfid, displayName: researcherName(researcher.letter), pendingForThem: 0, role: 'Researcher',
-        ...(!research!.blind || research!.revealedAt ? { focus: `${researcher.provider}, ${researcher.model}` } : {}) });
+        ...(!research!.blind || research!.revealedAt ? { focus: `${researcher.provider}${researcher.claudeTransport ? ` ${researcher.claudeTransport}` : ''}, ${researcher.model}` } : {}) });
       continue;
     }
     const depth = await clusterMailbox.depthFor(wfid).catch(() => 0);
@@ -658,8 +658,8 @@ export async function peerPlanWrite(
 // seedWorker.ts, but called explicitly by the model via peer_read. Emits a
 // peer_message_received event per drained item on the recipient's channel
 // so transcripts on both sides reproduce the delivery record.
-export async function peerRead(ctx: PeerOpsContext): Promise<PeerReadEntry[]> {
-  const drained = await clusterMailbox.drain(ctx.workflowId);
+export async function peerRead(ctx: PeerOpsContext, options?: { onlyFrom: string }): Promise<PeerReadEntry[]> {
+  const drained = await clusterMailbox.drain(ctx.workflowId, options);
   if (drained.length === 0) return [];
   const materialized = new Map<string, Array<{ name: string; path: string; byteLength: number }>>();
   for (const m of drained) {

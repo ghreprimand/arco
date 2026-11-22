@@ -89,8 +89,9 @@ export interface TurnHandle {
 export async function drainPeerMailbox(
   workflowId: string,
   broadcast: (msg: ServerMessage) => void,
+  options?: { onlyFrom: string },
 ): Promise<string | undefined> {
-  const drained = await clusterMailbox.drain(workflowId).catch(() => []);
+  const drained = await clusterMailbox.drain(workflowId, options).catch(() => []);
   if (drained.length === 0) return undefined;
   const artifactPaths = new Map<string, Array<{ name: string; path: string; byteLength: number }>>();
   for (const m of drained) {

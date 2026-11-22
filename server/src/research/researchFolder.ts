@@ -53,11 +53,13 @@ export function renderManifest(state: ResearchState, status: 'open' | 'closed' =
     ...(state.revealedAt ? { revealedAt: state.revealedAt } : {}),
     researchers: state.researchers.map((r) => ({
       letter: r.letter,
-      ...(authors ? { provider: r.provider, model: r.model, ...(r.effort ? { effort: r.effort } : {}) } : {}),
+      ...(authors ? { provider: r.provider, model: r.model, ...(r.effort ? { effort: r.effort } : {}), ...(r.claudeTransport ? { transport: r.claudeTransport } : {}) } : {}),
     })),
     rounds: state.rounds.map((round) => ({
       n: round.n,
       startedAt: round.startedAt,
+      ...(round.contaminated ? { contaminated: true } : {}),
+      ...(round.boundaryWarning ? { boundaryWarning: true } : {}),
       ...(round.releasedAt ? { releasedAt: round.releasedAt } : {}),
       // Per-researcher outcome appears only once the round is released.
       ...(round.releasedAt ? { reports: Object.fromEntries(Object.entries(round.entries).map(([l, e]) => [l, e.state])) } : {}),
@@ -87,7 +89,10 @@ const STATE_WORDS: Record<string, string> = {
 export function renderRound(state: ResearchState, round: ResearchRound): string {
   const authors = showAuthors(state);
   const lines = [`# Round ${round.n}`, '', `Started: ${round.startedAt}`, `Deadline: ${round.deadline}`,
-    `Released: ${round.releasedAt ?? 'not yet'}`, '', '## Asked', '', round.text, '', '## Researchers', ''];
+    `Released: ${round.releasedAt ?? 'not yet'}`,
+    ...(round.contaminated ? ['Independence check failed: treat this round as contaminated.'] : []),
+    ...(round.boundaryWarning ? ['A researcher attempted access outside the sandbox; check its activity.'] : []),
+    '', '## Asked', '', round.text, '', '## Researchers', ''];
   for (const r of state.researchers) {
     const entry = round.entries[r.letter];
     if (!entry) continue;
@@ -95,7 +100,7 @@ export function renderRound(state: ResearchState, round: ResearchRound): string 
     const outcome = round.releasedAt
       ? `${STATE_WORDS[entry.state] ?? entry.state}${entry.source === 'final_reply' ? ' (taken from final reply)' : ''}${entry.reason ? ` - ${entry.reason}` : ''}`
       : 'held until the round is released';
-    lines.push(`- ${researcherName(r.letter)}${authors ? ` (${r.provider}, ${r.model})` : ''}: ${outcome}`);
+    lines.push(`- ${researcherName(r.letter)}${authors ? ` (${r.provider}${r.claudeTransport ? ` ${r.claudeTransport}` : ''}, ${r.model})` : ''}: ${outcome}`);
   }
   lines.push('', '## Targeted messages', '');
   if (round.targeted.length === 0) lines.push('None.');

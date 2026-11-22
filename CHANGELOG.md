@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Offer sandboxed Claude CLI and Codex researchers on supported Linux hosts, with sign-in recovery and independence warnings.
+
 - Keep researcher file attachments inside the workspace when paths contain links.
 
 - Offer Cursor models that Cursor sessions advertise but its model list omits, such as GLM 5.3; select Cursor Grok models correctly; group Minimal efforts with their model.

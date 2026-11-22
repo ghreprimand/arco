@@ -38,6 +38,8 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
       {[...research.rounds].reverse().map((round) => (
         <div key={round.n}>
           <div className="display-font" style={{ letterSpacing: 1, marginBottom: 4 }}>ROUND {round.n} {link('round record', join('rounds', `round-${round.n}`, 'round.md'))}{roundSummary(round.n) ? <> · {link('summary', roundSummary(round.n)!)}</> : null}</div>
+          {round.contaminated && <div role="alert" style={{ color: 'var(--color-warning)' }}>Independence check failed: this round contains another researcher's marker. Treat its reports as contaminated.</div>}
+          {round.boundaryWarning && <div role="alert" style={{ color: 'var(--color-warning)' }}>A researcher attempted to use a path or local address outside its sandbox. Check its activity.</div>}
           {!round.releasedAt && <div style={{ color: 'var(--color-fg)' }}>Still collecting replies; reports appear here when the round is released.</div>}
           {round.releasedAt && <ul style={{ margin: 0, paddingLeft: 16 }}>
             {[...research.researchers].sort((x, y) => x.letter.localeCompare(y.letter)).filter((r) => round.entries[r.letter]).map((r) => {

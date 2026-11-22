@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
+import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import dns from 'node:dns/promises';
@@ -11,6 +12,50 @@ test.after(() => rm(home, { recursive: true, force: true }));
 const { registerFileTools } = await import('./fileMcpTools.js');
 const { executeOllamaTool } = await import('../providers/ollamaTools.js');
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
+
+test('worker web proxy refuses non-public targets, mixed DNS results and disabled web access', async () => {
+  const { isWorkerProxyPublicAddress, startWorkerWebProxy } = await import('../workers/workerWebProxy.js');
+  const ip4 = (...octets: number[]) => octets.join('.');
+  const loopback = ip4(127, 0, 0, 1);
+  const publicAddress = ip4(8, 8, 8, 8);
+  const mappedLoopback = ['', '', 'ffff', loopback].join(':');
+  for (const ip of [loopback, ip4(10, 0, 0, 1), ip4(100, 64, 0, 1), ip4(169, 254, 1, 1), ip4(192, 0, 2, 1), ip4(198, 18, 0, 1), ip4(224, 0, 0, 1), ['', '', '1'].join(':'), mappedLoopback, ['2001', 'db8', '', '1'].join(':'), ['2002', '', '1'].join(':'), ['fe80', '', '1'].join(':')]) {
+    assert.equal(isWorkerProxyPublicAddress(ip), false, ip);
+  }
+  for (const ip of [publicAddress, ['2606', '4700', '4700', '', '1111'].join(':')]) assert.equal(isWorkerProxyPublicAddress(ip), true, ip);
+  let resolutions = 0;
+  const proxy = await startWorkerWebProxy({ parentDir: home, webAccess: true, providerHosts: [], lookup: async () => {
+    resolutions++; return [{ address: publicAddress, family: 4 }, { address: loopback, family: 4 }];
+  } });
+  async function ask(socketPath: string, request: string): Promise<string> {
+    return await new Promise((resolve, reject) => {
+      const socket = createConnection(socketPath); let data = '';
+      socket.setTimeout(3000, () => socket.destroy(new Error('proxy request timed out')));
+      socket.on('connect', () => socket.write(request)); socket.on('data', chunk => { data += chunk.toString(); });
+      socket.once('end', () => resolve(data)); socket.once('error', reject);
+    });
+  }
+  let closedProxy = false;
+  try {
+    assert.equal((await stat(proxy.socketPath)).mode & 0o777, 0o600);
+    for (const authority of [`${loopback}:443`, `[${mappedLoopback}]:443`, 'example.com:443']) {
+      assert.match(await ask(proxy.socketPath, `CONNECT ${authority} HTTP/1.1\r\nHost: ${authority}\r\nConnection: close\r\n\r\n`), /^HTTP\/1\.1 403/);
+    }
+    assert.equal(resolutions, 1, 'literal IP addresses do not need DNS');
+    assert.match(await ask(proxy.socketPath, `GET http://${loopback}/ HTTP/1.1\r\nHost: ${loopback}\r\nConnection: close\r\n\r\n`), /^HTTP\/1\.1 403/);
+    const hanging = createConnection(proxy.socketPath);
+    await new Promise<void>((resolve, reject) => { hanging.once('connect', resolve); hanging.once('error', reject); });
+    const disconnected = new Promise<void>((resolve) => hanging.once('close', () => resolve()));
+    await proxy.close(); closedProxy = true;
+    await disconnected;
+    await assert.rejects(stat(proxy.socketPath));
+  } finally { if (!closedProxy) await proxy.close(); }
+  const offOptions = { parentDir: home, webAccess: false, providerHosts: ['provider.example'], lookup: async () => { throw new Error('web-off must reject before DNS'); } };
+  const off = await startWorkerWebProxy(offOptions);
+  offOptions.webAccess = true;
+  try { assert.match(await ask(off.socketPath, 'CONNECT example.com:443 HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n'), /^HTTP\/1\.1 403/); }
+  finally { await off.close(); }
+});
 
 test('portable file server exposes guarded URL media to every CLI transport', async (t) => {
   const handlers = new Map<string, (args: any) => Promise<any>>();

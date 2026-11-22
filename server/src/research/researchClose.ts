@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { clusterDir, isolatedWorkspaceFor, setBeforeClusterDelete } from '../clusterStore.js';
+import { forgetResearchTripwires, RESEARCH_CANARY_FILE } from './researchTripwires.js';
 import { atomicWriteFile } from '../atomicFile.js';
 import { readLogLines } from '../eventLog.js';
 import { researchMembersRoot } from './researchCreate.js';
@@ -57,6 +58,7 @@ export async function unsentFiles(state: ResearchState): Promise<UnsentFile[]> {
   for (const r of state.researchers) {
     const root = workspaceOf(state, r);
     for (const path of await walk(root)) {
+      if (state.isolationCanaries?.[r.workflowId] && path === join(root, RESEARCH_CANARY_FILE)) continue;
       const stat = await fs.stat(path).catch(() => null);
       if (!stat) continue;
       const hash = await hashFile(path).catch(() => '');
@@ -247,6 +249,7 @@ export function installResearchCloseOnDelete(isBusy: (workflowId: string) => boo
       if (!result.ok && result.error !== 'unknown_research') console.error(`[arco] research close before delete failed: ${result.error}`);
     } finally {
       forgetResearch(cluster.clusterId);
+      forgetResearchTripwires(cluster.clusterId);
     }
   });
 }

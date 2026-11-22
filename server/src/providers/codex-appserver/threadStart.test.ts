@@ -18,4 +18,7 @@ test('workflow worker thread/start keeps its sandbox, approvals, web search and 
   assert.equal(buildThreadStartParams({ ...config, sandbox: 'danger-full-access', incognito: true } as WorkerConfig, {}).sandbox, 'danger-full-access');
   assert.equal(buildThreadStartParams({ ...config, incognito: true } as WorkerConfig, {}).ephemeral, true);
   assert.equal(buildThreadStartParams({ ...config, sandbox: 'read-only' } as WorkerConfig, {}).sandbox, 'read-only');
+  const isolated = buildThreadStartParams({ ...config, clusterAccessMode: 'isolated', sandbox: 'danger-full-access' } as WorkerConfig, {});
+  assert.equal(isolated.sandbox, null);
+  assert.equal(isolated.cwd, '/work');
 });

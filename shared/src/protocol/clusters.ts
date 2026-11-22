@@ -36,10 +36,9 @@ export function isClusterMemberAccessMode(v: unknown): v is ClusterMemberAccessM
 export function isIsolatedAccessMode(v: ClusterMemberAccessMode | undefined): boolean {
   return v === 'isolated' || v === 'researcher';
 }
-// Providers whose tools Arco itself runs and can fence: Claude Native and
-// the local models. Codex, Claude CLI and Cursor researchers wait for the
-// operating-system sandbox.
-export const RESEARCHER_PROVIDERS = ['claude', 'ollama', 'llamacpp'] as const satisfies readonly ClusterMemberProvider[];
+// Native and local researchers use Arco's fenced tools. Claude CLI and Codex
+// researchers require a passing operating-system sandbox; Cursor is not offered.
+export const RESEARCHER_PROVIDERS = ['claude', 'codex', 'ollama', 'llamacpp'] as const satisfies readonly ClusterMemberProvider[];
 export function isResearcherProvider(v: unknown): v is (typeof RESEARCHER_PROVIDERS)[number] {
   return typeof v === 'string' && (RESEARCHER_PROVIDERS as readonly string[]).includes(v);
 }
@@ -55,6 +54,8 @@ export interface ResearchRoundSummary {
   startedAt: string;
   deadline: string;
   releasedAt?: string;
+  contaminated?: boolean;
+  boundaryWarning?: boolean;
   // Keyed by report letter. `source` says whether the report came by mail or
   // was taken from the researcher's final reply.
   entries: Record<string, { state: ResearchEntryState; at?: string; reason?: string; source?: 'mail' | 'final_reply' }>;
@@ -66,7 +67,9 @@ export interface ResearchResearcherSummary {
   provider: ClusterMemberProvider;
   model: string;
   effort?: string;
-  isolation: 'tool-fenced';
+  isolation: 'tool-fenced' | 'checking' | 'sandboxed';
+  signInNeeded?: 'claude' | 'codex';
+  claudeTransport?: 'native' | 'cli';
 }
 // Operator-facing research state carried on cluster_state. The operator sees
 // providers and models; the Director never receives this payload.
@@ -78,6 +81,8 @@ export interface ClusterResearchSummary {
   blind: boolean;
   revealedAt?: string;
   directorWorkflowId: string;
+  preRoundContaminated?: boolean;
+  preRoundBoundaryWarning?: boolean;
   researchers: ResearchResearcherSummary[];
   rounds: ResearchRoundSummary[];
 }
@@ -544,6 +549,8 @@ export interface ClusterCreateFromScratchMessage extends ClusterCreationSettings
     // searches per turn, and an Ollama researcher's context size.
     webSearchMaxUses?: number;
     contextSize?: number;
+    // Research-only transport; CLI requires a passing sandbox check.
+    researchClaudeTransport?: 'native' | 'cli';
   }>;
   // Creates a research project: the folder is made under the research
   // folder, the director runs there and researcher members are isolated.
@@ -579,6 +586,7 @@ export interface ClusterPresetMember {
   // Research panels: a researcher's ADVANCED limits.
   webSearchMaxUses?: number;
   contextSize?: number;
+  researchClaudeTransport?: 'native' | 'cli';
 }
 
 export interface ClusterPreset {

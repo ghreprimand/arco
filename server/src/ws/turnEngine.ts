@@ -42,7 +42,8 @@ import * as clusterStore from '../clusterStore.js';
 import * as clusterEfficiency from '../clusterEfficiency.js';
 import { BLIND_CLUSTER_DOCTRINE } from '../clusterAccessDoctrine.js';
 import { RESEARCHER_DOCTRINE, researchDirectorDoctrine } from '../research/researchDoctrine.js';
-import { loadResearch } from '../research/researchState.js';
+import { cliResearcherDoctrine } from '../workers/cliResearcherDoctrine.js';
+import { loadResearch, researcherFor } from '../research/researchState.js';
 import * as researchRounds from '../research/researchRounds.js';
 import { RESEARCH_SYNTHETIC_SESSION } from '../research/researchState.js';
 import { buildProgressDoctrine } from '../clusterProgress.js';
@@ -1448,11 +1449,23 @@ export async function handleUserMessage(
       ? configuredTrustSource
       : undefined;
   const researcherLocal = clusterAccessMode === 'researcher' && (wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp');
-  if (isolatedMember && !researcherLocal && (wf.primary.provider !== 'claude' || wf.config.claudeTransport !== 'native')) {
+  const researcherClaudeCli = clusterAccessMode === 'researcher' && wf.primary.provider === 'claude' && wf.config.claudeTransport === 'cli';
+  const researcherCodex = clusterAccessMode === 'researcher' && wf.primary.provider === 'codex' && wf.config.codexTransport === 'appserver';
+  if (clusterAccessMode === 'researcher') {
+    const research = await loadResearch(memberClusterId).catch(() => null);
+    const researcher = research && researcherFor(research, workflowId);
+    const transport = wf.config.ultracode ? 'cli' : wf.config.claudeTransport;
+    if (!researcher || researcher.provider !== wf.primary.provider
+      || (wf.primary.provider === 'claude' && transport !== (researcher.claudeTransport ?? 'native'))) {
+      send(ws, { type: 'error', workflowId, message: 'The researcher provider or transport differs from its research project.' });
+      return;
+    }
+  }
+  if (isolatedMember && !researcherLocal && !researcherClaudeCli && !researcherCodex && (wf.primary.provider !== 'claude' || wf.config.claudeTransport !== 'native')) {
     send(ws, {
       type: 'error',
       message: clusterAccessMode === 'researcher'
-        ? 'researchers run on Claude Native or a local model'
+        ? 'researchers run on Claude Native, sandboxed Claude CLI, sandboxed Codex or a local model'
         : 'isolated cluster members require the Claude Native transport',
     });
     return;
@@ -2434,7 +2447,7 @@ export async function handleUserMessage(
         if (clusterAccessMode !== 'standard') {
           tailBlocks.push(
             clusterAccessMode === 'researcher'
-              ? RESEARCHER_DOCTRINE
+              ? ((researcherClaudeCli && claudeTransport === 'cli') || researcherCodex ? cliResearcherDoctrine(RESEARCHER_DOCTRINE) : RESEARCHER_DOCTRINE)
               : clusterAccessMode === 'isolated'
               ? 'ISOLATED cluster member: the project and cluster coordination state are intentionally hidden. Use only peer_send and peer_read for cluster communication.'
               : BLIND_CLUSTER_DOCTRINE,

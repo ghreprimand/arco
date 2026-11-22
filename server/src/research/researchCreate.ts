@@ -14,6 +14,8 @@ import {
 } from '@arco/shared';
 import { arcoHome } from '../arcoHome.js';
 import { patchSettings, readSettings } from '../settings.js';
+import { researchSandboxAvailable } from '../workers/researchSandboxAvailability.js';
+import { codexResearchVersionReason, installedCodexVersion } from '../providers/codexVersion.js';
 import { createResearchFolder, writeInitialFiles } from './researchFolder.js';
 import { initResearch, researchLetter, researcherName, type ResearchState } from './researchState.js';
 
@@ -47,9 +49,20 @@ export async function prepareResearchCreate(msg: ClusterCreateFromScratchMessage
   if (members.length - 1 > RESEARCH_MAX_RESEARCHERS) return { refusal: 'too_many_researchers' };
   for (let i = 1; i < members.length; i++) {
     if (!isResearcherProvider(members[i].provider)) return { refusal: `member[${i}] researcher_provider_unavailable:${String(members[i].provider)}` };
+    if (members[i].researchClaudeTransport !== undefined && (members[i].provider !== 'claude'
+      || !['native', 'cli'].includes(members[i].researchClaudeTransport!))) return { refusal: `member[${i}] invalid_research_transport` };
     const { webSearchMaxUses: web, contextSize: ctx } = members[i];
+    if (members[i].researchClaudeTransport === 'cli' && web !== undefined) return { refusal: `member[${i}] cli_web_search_limit_unsupported` };
     if (web !== undefined && (!Number.isInteger(web) || web < 1 || web > 50)) return { refusal: `member[${i}] invalid_web_search_limit` };
     if (ctx !== undefined && (!Number.isInteger(ctx) || ctx < 2048 || ctx > 1_048_576)) return { refusal: `member[${i}] invalid_context_size` };
+  }
+  if (members.some((member, i) => i > 0 && member.researchClaudeTransport === 'cli') && !await researchSandboxAvailable('claude')) {
+    return { refusal: 'claude_research_sandbox_unavailable' };
+  }
+  if (members.some((member, i) => i > 0 && member.provider === 'codex')) {
+    const reason = codexResearchVersionReason(installedCodexVersion());
+    if (reason) return { refusal: reason };
+    if (!await researchSandboxAvailable('codex')) return { refusal: 'codex_research_sandbox_unavailable' };
   }
   const settings = await readSettings();
   const requested = typeof spec.folderRoot === 'string' ? spec.folderRoot.trim() : '';
@@ -73,6 +86,7 @@ export async function prepareResearchCreate(msg: ClusterCreateFromScratchMessage
         ? { ...m, webSearchMaxUses: undefined, contextSize: undefined, role: RESEARCH_DIRECTOR_ROLE, displayName: RESEARCH_DIRECTOR_ROLE, accessMode: 'standard' as const, tier: undefined, focus: undefined }
         : { provider: m.provider, model: m.model, effort: m.effort, providerAccountRef: m.providerAccountRef,
             role: RESEARCHER_ROLE, displayName: researcherName(researchLetter(i - 1)), accessMode: 'researcher' as const,
+            ...(m.provider === 'claude' && m.researchClaudeTransport ? { researchClaudeTransport: m.researchClaudeTransport } : {}),
             ...(m.provider === 'claude' && m.webSearchMaxUses ? { webSearchMaxUses: m.webSearchMaxUses } : {}),
             ...(m.provider === 'ollama' && m.contextSize ? { contextSize: m.contextSize } : {}) }),
     },
@@ -97,6 +111,7 @@ export async function finishResearchCreate(prepared: PreparedResearch, clusterId
       provider: m.provider as ClusterMemberProvider,
       model: m.model,
       ...(m.effort ? { effort: String(m.effort) } : {}),
+      ...(m.provider === 'claude' && m.researchClaudeTransport ? { claudeTransport: m.researchClaudeTransport } : {}),
     })),
     rounds: [],
     targetedBeforeRounds: [],

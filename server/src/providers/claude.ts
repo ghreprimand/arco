@@ -1,4 +1,7 @@
-import { buildTurnWaitInstructions } from '@arco/shared';
+import { buildTurnWaitInstructions, isIsolatedAccessMode } from '@arco/shared';
+import { loadResearch, researcherFor } from '../research/researchState.js';
+import { ensureResearchTripwires, observeResearchText } from '../research/researchTripwires.js';
+import { setResearcherIsolation, setResearcherSignInWaiting } from '../research/researchRounds.js';
 import { prepareProviderHistory } from './handoffHistoryBinding.js';
 import { prepareLocalFileContext, combineChatAttachments } from './localFileMedia.js';
 import { cliFileReadGuidance, prepareProviderAttachments, type PreparedAttachments } from './providerFileContent.js';
@@ -24,6 +27,11 @@ import { reportCompaction } from '../compactionReport.js';
 import type { Provider, ProviderProcess } from './types.js';
 import { commandArgs } from '../windowsCommand.js';
 import { builtinSkillsRoot } from '../skills.js';
+import { findDiagnosticExecutable } from '../diagnostics/executableLookup.js';
+import { prepareClaudeIsolatedLaunch } from '../workers/claudeIsolatedLaunch.js';
+import { claudeAccessLeaseBroker, claudeSignInFingerprint, waitForClaudeSignIn } from '../workers/claudeAccessLease.js';
+import { PORT } from '../server/constants.js';
+import { resolve as resolvePath } from 'node:path';
 
 // Claude normalizes Windows drive paths to /c/... before applying // rules.
 // Escape gitignore metacharacters so a home directory cannot widen this grant.
@@ -50,6 +58,11 @@ function effectiveAppendSystemPrompt(config: WorkerConfig): string | undefined {
   const parts = [buildTurnWaitInstructions(config.clusterRole), goalBlock(config.goal), config.appendSystemPrompt, cliFileReadGuidance(config), outputStyleAddendum(config.outputStyle)]
     .filter((s): s is string => typeof s === 'string' && s.length > 0);
   return parts.length > 0 ? parts.join('\n\n') : undefined;
+}
+
+/** Recognize authentication failures without sending provider output or tokens to the client. */
+export function isClaudeCliAuthFailure(text: string): boolean {
+  return /failed to authenticate|oauth token revoked|authentication_error|authentication failed|unauthorized|invalid[_ ](?:access[_ ])?token/i.test(text);
 }
 
 // Slot 4 — Claude CLI throttle detection. Stderr patterns observed in the
@@ -133,6 +146,8 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
   readonly id: string;
   readonly config: WorkerConfig;
   private process: ChildProcess | null = null;
+  private isolationCleanup: Promise<void> = Promise.resolve();
+  private isolationAbort = new AbortController();
   private parser: StreamParser | null = null;
   private _status: WorkerStatus = 'spawning';
   private _output = '';
@@ -156,6 +171,10 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
   private _attempts = 0;
   private _gotResult = false;
   private _lastTransientError: string | null = null;
+  private _researchAuthRetried = false;
+  private _researchAuthRetryPending = false;
+  private _signInFingerprint: string | undefined;
+  private _waitingForSignIn = false;
   private _retryTimer: NodeJS.Timeout | null = null;
   // Current attempt reached `init` — on a pinned session that means the CLI
   // owns the session file and has (or is about to have) the user turn.
@@ -201,22 +220,80 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     // session re-sends it verbatim (otherwise it continues — see
     // RETRY_CONTINUE_PROMPT), so the session holds one canonical user turn.
     this._prompt = prompt;
-    void this._launch().catch(error => { this._status = 'failed'; this.emit('error', String(error)); });
+    void this._launch().catch(error => this.failLaunch(error));
+  }
+
+  private failLaunch(error: unknown): void {
+    const message = String(error);
+    if (this.config.clusterAccessMode === 'researcher' && this.config.clusterId && this.config.workflowId
+      && /Claude sign-in needs renewing\./.test(message) && !this.isolationAbort.signal.aborted) {
+      if (this._waitingForSignIn) return;
+      this._waitingForSignIn = true;
+      const clusterId = this.config.clusterId, workflowId = this.config.workflowId;
+      void waitForClaudeSignIn(this.isolationAbort.signal, {
+        initial: this._signInFingerprint ?? null,
+        onWaiting: async () => {
+          await setResearcherSignInWaiting(clusterId, workflowId, true);
+          this.emit('system_notice', 'Claude sign-in needs renewing. Use RE-LOGIN in the research window; the researcher continues after sign-in.');
+        },
+      }).then(async () => {
+        this._waitingForSignIn = false;
+        await setResearcherSignInWaiting(clusterId, workflowId, false);
+        if (!this.isolationAbort.signal.aborted) void this._launch().catch(error => this.failLaunch(error));
+      }).catch(error => {
+        this._waitingForSignIn = false;
+        void setResearcherSignInWaiting(clusterId, workflowId, false).catch(() => undefined);
+        if (!this.isolationAbort.signal.aborted) { this._status = 'failed'; this.emit('error', String(error)); }
+      });
+      return;
+    }
+    this._status = 'failed';
+    if (isIsolatedAccessMode(this.config.clusterAccessMode) && /Claude sign-in needs renewing\./.test(message)) {
+      this.emit('system_notice', '[AUTH:claude] Claude sign-in needs renewing. Re-login to continue.');
+    }
+    this.emit('error', message);
+  }
+
+  /** Reissue the current access pass after a researcher authentication failure. */
+  private retryResearchAuthentication(): boolean {
+    if (this.config.clusterAccessMode !== 'researcher') return false;
+    if (this._researchAuthRetryPending) return true;
+    if (this._researchAuthRetried || !this.process) return false;
+    this._researchAuthRetried = true;
+    this._researchAuthRetryPending = true;
+    this._gotResult = true;
+    const previous = this.process;
+    if (this._sawInit && !this.config.incognito && (this.config.resumeSessionId || this.config.sessionId)) this._resumeOnRetry = true;
+    const resume = () => {
+      if (this.process !== previous || this._status === 'failed' || this.isolationAbort.signal.aborted) return;
+      this._researchAuthRetryPending = false;
+      this._stderrBuf = '';
+      this._gotResult = false;
+      this._sawInit = false;
+      this._stdoutClosed = false;
+      this._lastTransientError = null;
+      this.process = null;
+      this.parser = null;
+      void this._launch().catch(error => this.failLaunch(error));
+    };
+    previous.once('close', resume);
+    return true;
   }
 
   private async _launch(): Promise<void> {
+    await this.isolationCleanup;
     await prepareProviderHistory(this.config);
     if (this._status === 'failed' || this._status === 'completed') return;
     if (!this._resumeOnRetry && (this.config.attachments?.length || (this.config.interactionMode === 'chat' && !this.config.voiceOperator && !this.config.resumeSessionId && this.config.priorFiles?.length))) {
       void prepareProviderAttachments(this.config.attachments, true, undefined, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator).then(async (prepared) => {
         if (this.config.interactionMode === 'chat' && !this.config.voiceOperator && !this.config.resumeSessionId) prepared = combineChatAttachments(prepared, await prepareLocalFileContext(this.config, true));
         if (this._status === 'failed' || this._status === 'completed') return;
-        this._launchPrepared(prepared);
-      }).catch((error) => { this._status = 'failed'; this.emit('error', String(error)); });
-    } else this._launchPrepared();
+        await this._launchPrepared(prepared);
+      }).catch(error => this.failLaunch(error));
+    } else await this._launchPrepared();
   }
 
-  private _launchPrepared(prepared?: PreparedAttachments): void {
+  private async _launchPrepared(prepared?: PreparedAttachments): Promise<void> {
     // docs/PROVIDERS.md - prepend the `ultracode` keyword so the CLI's
     // workflow keyword-trigger fires (the documented opt-in; equivalent to
     // typing "ultracode: …" in the interactive client). _prompt stays raw so
@@ -246,16 +323,40 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     const useStreamJson = images.length > 0 || documents.length > 0;
     const args = this.buildArgs({ streamJsonInput: useStreamJson });
 
-    this.process = spawn(...commandArgs('claude', args), {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env },
-      cwd: this.config.cwd || undefined,
-      // detached:true makes the child a process group leader — required so
-      // killProcessTree can reach descendants (runaway shells / finds / etc.)
-      // via process.kill(-pid, signal). Stdio still piped, so this doesn't
-      // change how we read events.
-      detached: true,
-    });
+    const isolated = isIsolatedAccessMode(this.config.clusterAccessMode);
+    let launch: Awaited<ReturnType<typeof prepareClaudeIsolatedLaunch>> | undefined;
+    if (isolated) {
+      const binary = findDiagnosticExecutable('claude');
+      if (!binary || !this.config.clusterId || !this.config.workflowId) throw new Error('Claude isolation is unavailable.');
+      const executable = resolvePath(binary);
+      const research = this.config.clusterAccessMode === 'researcher' ? await loadResearch(this.config.clusterId) : null;
+      if (this.config.clusterAccessMode === 'researcher' && (!research || !researcherFor(research, this.config.workflowId))) throw new Error('Research identity is unavailable.');
+      const mode = research ? { mode: 'researcher' as const, directorWorkflowId: research.directorWorkflowId } : { mode: 'isolated' as const };
+      if (research) {
+        await ensureResearchTripwires(this.config.clusterId);
+        await setResearcherIsolation(this.config.clusterId, this.config.workflowId, 'checking');
+      }
+      this._signInFingerprint = await claudeSignInFingerprint();
+      const lease = await claudeAccessLeaseBroker(executable).acquire(this.isolationAbort.signal);
+      try {
+        if (this.config.clusterAccessMode === 'researcher') await setResearcherSignInWaiting(this.config.clusterId, this.config.workflowId, false);
+        const prepared = await prepareClaudeIsolatedLaunch({ clusterId: this.config.clusterId, workflowId: this.config.workflowId,
+          arcoPort: PORT, binary: executable, credentials: lease.credentials, webAccess: true, ...mode, args });
+        launch = { ...prepared, close: async () => { try { await prepared.close(); } finally { lease.release(); } } };
+      } catch (error) { lease.release(); throw error; }
+      if (this._status === 'failed' || this._status === 'completed') { await launch.close(); return; }
+    }
+    try {
+      this.process = isolated && launch
+        ? spawn(launch.command.file, launch.command.args, { stdio: ['pipe', 'pipe', 'pipe'], env: { PATH: '/usr/bin:/bin' }, cwd: '/', detached: true })
+        : spawn(...commandArgs('claude', args), { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env }, cwd: this.config.cwd || undefined, detached: true });
+    } catch (error) { await launch?.close(); throw error; }
+    if (launch) {
+      const owned = launch;
+      this.isolationCleanup = new Promise<void>((resolve) => {
+        this.process!.once('close', () => { void owned.close().catch(() => { this.emit('system_notice', 'Worker isolation cleanup failed.'); }).finally(resolve); });
+      });
+    }
 
     this.process.stdin?.on('error', () => { /* Early exit: process events report the failure. */ });
 
@@ -319,6 +420,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       }
       if (this._status !== 'running' && this._status !== 'spawning') return;
       if (this._gotResult) return;
+      if (isolated && isClaudeCliAuthFailure(this._stderrBuf) && this.retryResearchAuthentication()) return;
       if (code === 0 || code === null) {
         // Clean exit with no `result`: settle now if stdout already closed;
         // otherwise the parser's 'done' settles when it does.
@@ -359,13 +461,22 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
           this._stdoutClosed = false;
           this.process = null;
           this.parser = null;
-          void this._launch().catch(error => { this._status = 'failed'; this.emit('error', String(error)); });
+          void this._launch().catch(error => this.failLaunch(error));
         }, backoff);
         return;
       }
 
       // Fatal — either no transient signal, or we've exhausted attempts.
       this._status = 'failed';
+      if (isolated && isClaudeCliAuthFailure(this._stderrBuf)) {
+        if (this.config.clusterAccessMode === 'researcher' && this._researchAuthRetried) {
+          this.emit('error', 'Claude researcher authentication failed after a fresh access pass.');
+          return;
+        }
+        this.emit('system_notice', '[AUTH:claude] Claude sign-in needs renewing. Re-login to continue.');
+        this.emit('error', 'Claude sign-in needs renewing.');
+        return;
+      }
       this._checkThrottle();
       const suffix = this._attempts > 0 ? ` after ${this._attempts} retry attempt(s)` : '';
       this.emit('error', `Process exited with code ${code}${suffix}`);
@@ -384,6 +495,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
   }
 
   kill(): void {
+    this.isolationAbort.abort();
     const wasRunning = this._status === 'running' || this._status === 'spawning';
     // Clear any pending retry timer so a CANCEL during backoff doesn't let a
     // zombie respawn fire after the operator's moved on.
@@ -450,7 +562,9 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     }
 
     // AUTO mode maps to --dangerously-skip-permissions; SAFE mode defaults.
-    if (this.config.skipPermissions) {
+    if (isIsolatedAccessMode(this.config.clusterAccessMode)) {
+      // The isolated launcher adds its own mandatory sandbox and tool policy.
+    } else if (this.config.skipPermissions) {
       args.push('--dangerously-skip-permissions');
     } else {
       // WEB Chat must permit its exposed pair in this non-interactive CLI.
@@ -482,6 +596,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     // pre-feature behavior).
     const effectiveAppendSP = effectiveAppendSystemPrompt(this.config);
     if (effectiveAppendSP && !this.config.incognito) {
+      if (effectiveAppendSP.length > APPEND_SP_ARG_MAX && isIsolatedAccessMode(this.config.clusterAccessMode)) throw new Error('Isolated Claude context is too large.');
       if (effectiveAppendSP.length > APPEND_SP_ARG_MAX) {
         try {
           mkdirSync(APPEND_SP_TMPDIR, { recursive: true });
@@ -514,7 +629,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       args.push('--tools', this.config.chatWebAccess ? 'WebSearch,WebFetch' : '');
       args.push('--strict-mcp-config');
       if (this.config.disableProviderHooks) args.push('--settings', '{"disableAllHooks":true}');
-    } else if (this.config.tools && this.config.tools.length > 0) {
+    } else if (!isIsolatedAccessMode(this.config.clusterAccessMode) && this.config.tools && this.config.tools.length > 0) {
       // docs/PROVIDERS.md - the WorkflowTool is a built-in available by default
       // (no --tools flag = all tools). We only need to intervene when a
       // restricted allowlist is set: ensure `Workflow` survives it, else the
@@ -529,7 +644,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       args.push('--fallback-model', this.config.fallbackModel);
     }
 
-    if (this.config.additionalDirectories?.length) {
+    if (!isIsolatedAccessMode(this.config.clusterAccessMode) && this.config.additionalDirectories?.length) {
       args.push('--add-dir', ...this.config.additionalDirectories);
     }
 
@@ -540,7 +655,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     // mailbox prologue + cluster plan + member role flow through
     // `--append-system-prompt` (handled above) — they are not the MCP
     // server's responsibility.
-    if (this.config.interactionMode !== 'chat' && this.config.clusterMcpConfigPath) {
+    if (!isIsolatedAccessMode(this.config.clusterAccessMode) && this.config.interactionMode !== 'chat' && this.config.clusterMcpConfigPath) {
       args.push('--mcp-config', this.config.clusterMcpConfigPath);
     }
 
@@ -550,7 +665,7 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     // from the model's available set entirely; non-listed tools of the same
     // server still work). So the dangerous-tool denylist is REAL on CLI Claude
     // even in AUTO mode, not a no-op.
-    if (this.config.mcpDisallowedTools && this.config.mcpDisallowedTools.length > 0) {
+    if (!isIsolatedAccessMode(this.config.clusterAccessMode) && this.config.mcpDisallowedTools && this.config.mcpDisallowedTools.length > 0) {
       args.push('--disallowedTools', this.config.mcpDisallowedTools.join(','));
     }
 
@@ -561,6 +676,9 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     if (!this.parser) return;
 
     this.parser.on('init', (data) => {
+      if (this.config.clusterAccessMode === 'researcher' && this.config.clusterId && this.config.workflowId) {
+        void setResearcherIsolation(this.config.clusterId, this.config.workflowId, 'sandboxed').catch(() => undefined);
+      }
       this._status = 'running';
       this._sawInit = true;
       // Slot 4 — successful init means the CLI connected to the API; clears
@@ -602,8 +720,12 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
     this.parser.on('tool_use', (data: { name: string; input: string }) => {
       this.emit('tool_use', data);
     });
+    this.parser.on('tool_result', (text: string) => {
+      if (this.config.clusterAccessMode === 'researcher' && this.config.workflowId) observeResearchText(this.config.clusterId, this.config.workflowId, text);
+    });
 
     this.parser.on('result', (data: { text: string; costUsd: number; durationMs: number; usage?: Record<string, number> }) => {
+      if (this._status === 'failed' || this._researchAuthRetryPending) return;
       this._gotResult = true;
       this._status = 'completed';
       this._output = data.text;
@@ -652,6 +774,18 @@ class ClaudeWorkerProcess extends EventEmitter implements ProviderProcess {
       // system_notice italics. Do NOT set _lastTransientError — auth errors
       // must not trigger the retry path.
       if (data.errorType === 'authentication_error') {
+        if (isIsolatedAccessMode(this.config.clusterAccessMode)) {
+          if (this.retryResearchAuthentication()) return;
+          this._gotResult = true;
+          this._status = 'failed';
+          if (this.config.clusterAccessMode === 'researcher' && this._researchAuthRetried) {
+            this.emit('error', 'Claude researcher authentication failed after a fresh access pass.');
+          } else {
+            this.emit('system_notice', '[AUTH:claude] Claude sign-in needs renewing. Re-login to continue.');
+            this.emit('error', 'Claude sign-in needs renewing.');
+          }
+          return;
+        }
         const detail = data.message || 'Invalid authentication credentials';
         this.emit('system_notice', `[AUTH:claude] Claude authentication failed: ${detail}. Re-login to continue.`);
         return;

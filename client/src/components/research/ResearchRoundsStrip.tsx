@@ -4,6 +4,7 @@ import { useAppStore } from '../../stores/appStore';
 import { DialogShell } from '../DialogShell';
 import { touchButton } from './ResearchCloseDialog';
 import { ENTRY_WORDS, elapsedLabel, roundSummaryLine } from './researchView';
+import { AuthReloginNotice } from '../AuthReloginNotice';
 
 // docs/RESEARCH.md - the rounds strip above a research project's member
 // cards: one row per round with each researcher's state, time, failures,
@@ -43,6 +44,9 @@ export function ResearchRoundsStrip({ clusterId, research }: { clusterId: string
         {blind && <button type="button" data-help="research.reveal" style={touchButton} disabled={busy} onClick={() => setConfirmReveal(true)}>REVEAL</button>}
       </div>
       {questionOpen && <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 240, overflowY: 'auto', border: '1px solid var(--color-border-hairline)', padding: 6 }}>{research.brief}</div>}
+      {research.researchers.filter(r => r.signInNeeded).map(r => <div key={r.workflowId} data-help="research.signin"><AuthReloginNotice provider={r.signInNeeded!} workflowId={r.workflowId} {...(r.signInNeeded === 'claude' ? { authRecovery: { transport: 'cli' as const } } : {})} autoContinue body={`${r.signInNeeded === 'claude' ? 'Claude' : 'Codex'} sign-in needs renewing. Researcher ${r.letter} continues after sign-in.`} /></div>)}
+      {research.preRoundContaminated && <div role="alert" style={{ color: 'var(--color-warning)' }}>INDEPENDENCE CHECK FAILED BEFORE THE FIRST ROUND</div>}
+      {research.preRoundBoundaryWarning && <div role="alert" style={{ color: 'var(--color-warning)' }}>SANDBOX ACCESS WARNING BEFORE THE FIRST ROUND</div>}
       {research.rounds.length === 0 && <div>No round yet. The Research Director starts on the brief when the project opens.</div>}
       {rounds.map((round) => {
         const expanded = openRound === round.n;
@@ -57,6 +61,8 @@ export function ResearchRoundsStrip({ clusterId, research }: { clusterId: string
                 return <span key={l} title={`Researcher ${l}: ${ENTRY_WORDS[state]}`} style={{ border: `1px solid ${color}`, color, padding: '0 4px', fontSize: 10 }}>{l} {ENTRY_WORDS[state]}</span>;
               })}
               <span>{roundSummaryLine(round)} · {elapsedLabel(round.startedAt, round.releasedAt, now)}</span>
+              {round.contaminated && <span role="alert" style={{ color: 'var(--color-warning)' }}>INDEPENDENCE CHECK FAILED</span>}
+              {round.boundaryWarning && <span role="alert" style={{ color: 'var(--color-warning)' }}>SANDBOX ACCESS WARNING</span>}
             </button>
             {expanded && <ul style={{ margin: '4px 0 2px 16px', padding: 0 }}>
               {letters.filter((l) => round.entries[l]).map((l) => {

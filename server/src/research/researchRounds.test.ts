@@ -8,11 +8,13 @@ import * as clusterMailbox from '../clusterMailbox.js';
 import * as clusterPeerOps from '../clusterPeerOps.js';
 import * as clusterStore from '../clusterStore.js';
 import { createResearchFolder } from './researchFolder.js';
-import { configureResearch, onMemberSettled, revealResearch, startResearchDirector, startRound, timeoutRound } from './researchRounds.js';
-import { initResearch, loadResearch } from './researchState.js';
+import { configureResearch, holdResearcherReply, onMemberSettled, revealResearch, setResearcherSignInWaiting, startResearchDirector, startRound, timeoutRound } from './researchRounds.js';
+import { initResearch, loadResearch, researchSummary, updateResearch } from './researchState.js';
+import { ensureResearchTripwires, observeResearchText, observeResearchTool, RESEARCH_CANARY_FILE, researchToolBoundaryWarning } from './researchTripwires.js';
 import { closeResearch, closedResearchRecordPath, installResearchCloseOnDelete, sweepClosedResearch, unsentFiles } from './researchClose.js';
 import { setBeforeClusterDelete } from '../clusterStore.js';
 import { researchMembersRoot } from './researchCreate.js';
+import { prepareResearchCreate } from './researchCreate.js';
 
 async function project() {
   const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-'));
@@ -44,6 +46,89 @@ async function project() {
   return { root, folder, membersCwd, director, a, b, clusterId: cluster.clusterId, woken, prompts, ctx };
 }
 
+test('research creation rejects a CLI-only setting on a different provider', async () => {
+  const result = await prepareResearchCreate({ type: 'cluster_create_from_scratch', cwd: '', research: { name: 'Fixture', brief: 'Compare.' }, members: [
+    { provider: 'claude', model: 'sonnet' },
+    { provider: 'ollama', model: 'fixture', researchClaudeTransport: 'cli' },
+  ] });
+  assert.deepEqual(result, { refusal: 'member[1] invalid_research_transport' });
+});
+
+test('research creation explains an unsupported Codex version', { skip: process.platform === 'win32' }, async () => {
+  const root = await fs.mkdtemp(join(tmpdir(), 'arco-codex-version-'));
+  const previousPath = process.env.PATH;
+  try {
+    const executable = join(root, 'codex');
+    await fs.writeFile(executable, '#!/bin/sh\nprintf "codex-cli 0.172.0\\n"\n', { mode: 0o755 });
+    process.env.PATH = root;
+    const result = await prepareResearchCreate({ type: 'cluster_create_from_scratch', cwd: '', research: { name: 'Fixture', brief: 'Compare.' }, members: [
+      { provider: 'claude', model: 'sonnet' }, { provider: 'codex', model: 'fixture' },
+    ] });
+    assert.deepEqual(result, { refusal: 'Codex researchers need Codex 0.171.0; 0.172.0 is installed.' });
+  } finally {
+    if (previousPath === undefined) delete process.env.PATH; else process.env.PATH = previousPath;
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('a foreign synthetic marker in split researcher output marks the round contaminated', async () => {
+  const p = await project();
+  try {
+    await updateResearch(p.clusterId, state => { state.researchers[0].claudeTransport = 'cli'; });
+    assert.equal((await startRound(p.clusterId, p.director, 'Compare the fixtures.')).ok, true);
+    const state = (await loadResearch(p.clusterId))!;
+    const own = state.isolationCanaries![p.a];
+    const foreign = state.isolationCanaries![p.b];
+    assert.equal(await fs.readFile(join(clusterStore.isolatedWorkspaceFor(p.clusterId, p.a), RESEARCH_CANARY_FILE), 'utf8'), own.workspace);
+    assert.equal(await fs.readFile(join(clusterStore.clusterDir(p.clusterId), 'isolates', p.a, 'cli-home', RESEARCH_CANARY_FILE), 'utf8'), own.home);
+    assert.notEqual(own.workspace, foreign.workspace);
+    assert.notEqual(own.home, foreign.home);
+    assert.equal(observeResearchText(p.clusterId, p.a, own.workspace), false);
+    assert.equal(observeResearchText(p.clusterId, p.a, foreign.workspace.slice(0, 30), true), false);
+    assert.equal(observeResearchText(p.clusterId, p.a, foreign.workspace.slice(30), true), true);
+    assert.equal(researchToolBoundaryWarning('Bash', JSON.stringify({ command: 'cat /work/notes.txt' })), false);
+    assert.equal(researchToolBoundaryWarning('Bash', JSON.stringify({ command: 'curl https://example.org/page' })), false);
+    assert.equal(researchToolBoundaryWarning('Write', JSON.stringify({ file_path: '/work/notes', content: 'localhost /root/canary' })), false);
+    assert.equal(observeResearchTool(p.clusterId, p.a, 'Bash', JSON.stringify({ command: 'cat /root/canary' })), true);
+    assert.equal(researchToolBoundaryWarning('Bash', JSON.stringify({ command: `curl http://${[127, 0, 0, 1].join('.')}:3001/` })), true);
+    await holdResearcherReply(p.clusterId, p.a, 'First report.', undefined);
+    await holdResearcherReply(p.clusterId, p.b, 'Second report.', undefined);
+    const result = (await loadResearch(p.clusterId))!;
+    assert.equal(result.rounds[0].contaminated, true);
+    assert.equal(result.rounds[0].boundaryWarning, true);
+    assert.equal(researchSummary(result).rounds[0].contaminated, true);
+    assert.equal(JSON.stringify(researchSummary(result)).includes(foreign.workspace), false);
+    assert.deepEqual(await unsentFiles(result), [], 'internal markers are not offered as researcher files');
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
+test('a researcher waiting for sign-in is not timed out and gets its remaining time after sign-in', async () => {
+  const p = await project();
+  try {
+    assert.equal((await startRound(p.clusterId, p.director, 'Compare the fixtures.', 5)).ok, true);
+    await setResearcherSignInWaiting(p.clusterId, p.a, true);
+    await timeoutRound(p.clusterId, 1);
+    let state = (await loadResearch(p.clusterId))!;
+    assert.equal(state.rounds[0].entries.A.state, 'waiting');
+    assert.equal(state.rounds[0].entries.B.state, 'timed_out');
+    assert.equal(researchSummary(state).researchers[0].signInNeeded, 'claude');
+    await setResearcherSignInWaiting(p.clusterId, p.a, false);
+    state = (await loadResearch(p.clusterId))!;
+    assert.equal(state.researchers[0].signInNeeded, undefined);
+    assert.ok(Date.parse(state.rounds[0].deadline) > Date.now());
+    await holdResearcherReply(p.clusterId, p.a, 'Finished after sign-in.', undefined);
+    assert.equal((await loadResearch(p.clusterId))!.rounds[0].entries.A.state, 'replied');
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
 test('researcher attachments cannot escape their workspace through a symlink', { skip: process.platform === 'win32' }, async () => {
   const p = await project();
   try {
@@ -68,6 +153,21 @@ test('researcher attachments cannot escape their workspace through a symlink', {
   }
 });
 
+test('an independence breach before the first round carries into the round', async () => {
+  const p = await project();
+  try {
+    await updateResearch(p.clusterId, state => { state.researchers[0].claudeTransport = 'cli'; });
+    await ensureResearchTripwires(p.clusterId);
+    const state = (await loadResearch(p.clusterId))!;
+    assert.equal(observeResearchText(p.clusterId, p.a, state.isolationCanaries![p.b].home), true);
+    assert.equal((await startRound(p.clusterId, p.director, 'Compare the fixtures.')).ok, true);
+    assert.equal((await loadResearch(p.clusterId))!.rounds[0].contaminated, true);
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
 
 test('a round holds every reply until all researchers are done, then releases them blind together', async () => {
   const p = await project();

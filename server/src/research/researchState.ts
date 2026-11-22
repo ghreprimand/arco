@@ -33,6 +33,8 @@ export interface ResearchRound {
   releasedAt?: string;
   entries: Record<string, ResearchEntry>;
   targeted: ResearchTargeted[];
+  contaminated?: boolean;
+  boundaryWarning?: boolean;
 }
 
 export interface ResearchResearcher {
@@ -41,6 +43,10 @@ export interface ResearchResearcher {
   provider: ClusterMemberProvider;
   model: string;
   effort?: string;
+  claudeTransport?: 'native' | 'cli';
+  isolation?: 'checking' | 'sandboxed';
+  signInNeeded?: 'claude' | 'codex';
+  signInRemainingMs?: number;
 }
 
 export interface ResearchState {
@@ -63,6 +69,10 @@ export interface ResearchState {
   rounds: ResearchRound[];
   // Targeted messages sent before the first round.
   targetedBeforeRounds: ResearchTargeted[];
+  // Synthetic markers stay in Arco state, never in the Director's summary.
+  isolationCanaries?: Record<string, { workspace: string; home: string }>;
+  preRoundContaminated?: boolean;
+  preRoundBoundaryWarning?: boolean;
 }
 
 const cache = new Map<string, ResearchState>();
@@ -158,15 +168,21 @@ export function researchSummary(state: ResearchState): ClusterResearchSummary {
     blind: state.blind,
     ...(state.revealedAt ? { revealedAt: state.revealedAt } : {}),
     directorWorkflowId: state.directorWorkflowId,
+    ...(state.preRoundContaminated ? { preRoundContaminated: true } : {}),
+    ...(state.preRoundBoundaryWarning ? { preRoundBoundaryWarning: true } : {}),
     researchers: state.researchers.map((r) => ({
       workflowId: r.workflowId, letter: r.letter, provider: r.provider, model: r.model,
-      ...(r.effort ? { effort: r.effort } : {}), isolation: 'tool-fenced' as const,
+      ...(r.effort ? { effort: r.effort } : {}), isolation: r.claudeTransport === 'cli' || r.provider === 'codex' ? (r.isolation ?? 'checking') : 'tool-fenced' as const,
+      ...(r.signInNeeded ? { signInNeeded: r.signInNeeded } : {}),
+      ...(r.provider === 'claude' ? { claudeTransport: r.claudeTransport ?? 'native' } : {}),
     })),
     rounds: state.rounds.map((round) => ({
       n: round.n,
       startedAt: round.startedAt,
       deadline: round.deadline,
       ...(round.releasedAt ? { releasedAt: round.releasedAt } : {}),
+      ...(round.contaminated ? { contaminated: true } : {}),
+      ...(round.boundaryWarning ? { boundaryWarning: true } : {}),
       entries: Object.fromEntries(Object.entries(round.entries).map(([letter, entry]) => [letter, {
         state: entry.state,
         ...(entry.at ? { at: entry.at } : {}),

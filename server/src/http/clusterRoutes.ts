@@ -242,7 +242,7 @@ export async function tryHandleClusterRoutes(
           const chunks: Buffer[] = [];
           for await (const chunk of req) chunks.push(chunk as Buffer);
           const body = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}') as {
-            from?: string; to?: string; content?: string; confirm?: boolean; taskId?: string;
+            from?: string; to?: string; content?: string; confirm?: boolean; taskId?: string; artifactPaths?: unknown;
           };
           const from = typeof body.from === 'string' ? body.from : '';
           const to = typeof body.to === 'string' ? body.to : '';
@@ -257,7 +257,11 @@ export async function tryHandleClusterRoutes(
             res.end(JSON.stringify({ error: 'to and content are required' }));
             return true;
           }
-          const result = await clusterPeerOps.peerSend(makeCtx(from), { to, content, confirm: body.confirm === true, ...(typeof body.taskId === 'string' ? { taskId: body.taskId } : {}) });
+          if (body.artifactPaths !== undefined && (!Array.isArray(body.artifactPaths) || body.artifactPaths.length > 8
+            || body.artifactPaths.some(path => typeof path !== 'string' || !path || path.length > 4096 || path.includes('\0')))) {
+            res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid artifact paths' })); return true;
+          }
+          const result = await clusterPeerOps.peerSend(makeCtx(from), { to, content, confirm: body.confirm === true, ...(typeof body.taskId === 'string' ? { taskId: body.taskId } : {}), ...(Array.isArray(body.artifactPaths) ? { artifactPaths: body.artifactPaths as string[] } : {}) });
           if (!result.ok) {
             // 400 for policy rejections — the MCP child translates these
             // into `isError: true` MCP results so the model sees a tool
@@ -290,6 +294,7 @@ export async function tryHandleClusterRoutes(
           for await (const chunk of req) chunks.push(chunk as Buffer);
           const body = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}') as {
             workflowId?: string;
+            onlyFrom?: string;
           };
           const workflowId = typeof body.workflowId === 'string' ? body.workflowId : '';
           if (!workflowId || !cluster.members.includes(workflowId)) {
@@ -297,7 +302,12 @@ export async function tryHandleClusterRoutes(
             res.end(JSON.stringify({ error: 'workflowId must be a cluster member' }));
             return true;
           }
-          const drained = await clusterPeerOps.peerRead(makeCtx(workflowId));
+          if (body.onlyFrom !== undefined && (typeof body.onlyFrom !== 'string' || !cluster.members.includes(body.onlyFrom))) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'onlyFrom must be a cluster member' }));
+            return true;
+          }
+          const drained = await clusterPeerOps.peerRead(makeCtx(workflowId), body.onlyFrom ? { onlyFrom: body.onlyFrom } : undefined);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify(drained));
           return true;

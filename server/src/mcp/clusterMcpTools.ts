@@ -30,6 +30,8 @@ export interface ClusterMcpToolCtx {
   accessMode?: ClusterMemberAccessMode;
   // docs/RESEARCH.md - the Research Director also gets research_round.
   researchDirector?: boolean;
+  signal?: AbortSignal;
+  onlyRecipientWorkflowId?: string;
   // Where diagnostics go. The stdio child MUST log to stderr (stdout is the MCP
   // wire); the in-process loopback passes a tagged console.error. Defaults to
   // console.error.
@@ -74,19 +76,20 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   const { clusterId, workflowId, arcoPort, taskBoardAttached } = ctx;
   const logErr = ctx.logErr ?? ((...args: unknown[]) => console.error('[arco-cluster-mcp]', ...args));
   const BASE_URL = `http://127.0.0.1:${arcoPort}/api/clusters/${encodeURIComponent(clusterId)}/peer`;
+  const hostFetch: typeof fetch = (input, init) => fetch(input, { ...init, signal: ctx.signal ?? init?.signal });
 
   async function callPeerList(): Promise<unknown> {
     const url = `${BASE_URL}/list?workflowId=${encodeURIComponent(workflowId)}`;
-    const r = await fetch(url, { method: 'GET' });
+    const r = await hostFetch(url, { method: 'GET' });
     if (!r.ok) throw new Error(`peer_list http_${r.status}: ${await r.text()}`);
     return r.json();
   }
 
-  async function callPeerSend(args: { to: string; content: string; confirm?: boolean; taskId?: string }): Promise<{ ok: true; body: unknown } | { ok: false; err: PeerSendUpstreamError }> {
-    const r = await fetch(`${BASE_URL}/send`, {
+  async function callPeerSend(args: { to: string; content: string; confirm?: boolean; taskId?: string; artifactPaths?: string[] }): Promise<{ ok: true; body: unknown } | { ok: false; err: PeerSendUpstreamError }> {
+    const r = await hostFetch(`${BASE_URL}/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: workflowId, to: args.to, content: args.content, confirm: args.confirm, ...(args.taskId ? { taskId: args.taskId } : {}) }),
+      body: JSON.stringify({ from: workflowId, to: args.to, content: args.content, confirm: args.confirm, ...(args.taskId ? { taskId: args.taskId } : {}), ...(args.artifactPaths ? { artifactPaths: args.artifactPaths } : {}) }),
     });
     const body = await r.json().catch(() => ({})) as PeerSendUpstreamError | unknown;
     if (!r.ok) return { ok: false, err: body as PeerSendUpstreamError };
@@ -94,17 +97,17 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   }
 
   async function callPeerRead(): Promise<unknown> {
-    const r = await fetch(`${BASE_URL}/read`, {
+    const r = await hostFetch(`${BASE_URL}/read`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workflowId }),
+      body: JSON.stringify({ workflowId, ...(ctx.onlyRecipientWorkflowId ? { onlyFrom: ctx.onlyRecipientWorkflowId } : {}) }),
     });
     if (!r.ok) throw new Error(`peer_read http_${r.status}: ${await r.text()}`);
     return r.json();
   }
 
   async function callPlanRead(): Promise<unknown> {
-    const r = await fetch(`${BASE_URL}/plan-read`, {
+    const r = await hostFetch(`${BASE_URL}/plan-read`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workflowId }),
@@ -114,7 +117,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   }
 
   async function callPlanWrite(body: string): Promise<{ ok: true; body: unknown } | { ok: false; err: PlanWriteUpstreamError }> {
-    const r = await fetch(`${BASE_URL}/plan-write`, {
+    const r = await hostFetch(`${BASE_URL}/plan-write`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workflowId, body }),
@@ -128,7 +131,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     const payload: Record<string, unknown> = { workflowId };
     if (typeof args.lineIndex === 'number') payload.lineIndex = args.lineIndex;
     if (typeof args.taskText === 'string') payload.taskText = args.taskText;
-    const r = await fetch(`${BASE_URL}/plan-tick`, {
+    const r = await hostFetch(`${BASE_URL}/plan-tick`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -140,14 +143,14 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
 
   async function callTaskList(): Promise<unknown> {
     const url = `${BASE_URL}/task-list?workflowId=${encodeURIComponent(workflowId)}`;
-    const r = await fetch(url, { method: 'GET' });
+    const r = await hostFetch(url, { method: 'GET' });
     if (!r.ok) throw new Error(`cluster_task_list http_${r.status}: ${await r.text()}`);
     return r.json();
   }
 
   async function callTaskShow(id: string): Promise<unknown> {
     const url = `${BASE_URL}/task-show?workflowId=${encodeURIComponent(workflowId)}&id=${encodeURIComponent(id)}`;
-    const r = await fetch(url, { method: 'GET' });
+    const r = await hostFetch(url, { method: 'GET' });
     if (!r.ok) throw new Error(`cluster_task_show http_${r.status}: ${await r.text()}`);
     return r.json();
   }
@@ -176,7 +179,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     if (typeof args.goalMode === 'boolean') payload.goalMode = args.goalMode;
     if (typeof args.goalMaxTurns === 'number') payload.goalMaxTurns = args.goalMaxTurns;
     if (typeof args.release === 'string') payload.release = args.release;
-    const r = await fetch(`${BASE_URL}/task-create`, {
+    const r = await hostFetch(`${BASE_URL}/task-create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -187,7 +190,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   }
 
   async function callTaskClaim(id: string): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
-    const r = await fetch(`${BASE_URL}/task-claim`, {
+    const r = await hostFetch(`${BASE_URL}/task-claim`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workflowId, id }),
@@ -204,7 +207,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     if (typeof args.release === 'string') payload.release = args.release;
     if (args.signoff && typeof args.signoff === 'object') payload.signoff = args.signoff;
     if (args.completePlan) payload.completePlan = args.completePlan;
-    const r = await fetch(`${BASE_URL}/task-update`, {
+    const r = await hostFetch(`${BASE_URL}/task-update`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -217,7 +220,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   async function callTaskHeartbeat(args: { id: string; note?: string }): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
     const payload: Record<string, unknown> = { workflowId, id: args.id };
     if (typeof args.note === 'string') payload.note = args.note;
-    const r = await fetch(`${BASE_URL}/task-heartbeat`, {
+    const r = await hostFetch(`${BASE_URL}/task-heartbeat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -228,7 +231,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   }
 
   async function callTaskComment(args: { id: string; body: string }): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
-    const r = await fetch(`${BASE_URL}/task-comment`, {
+    const r = await hostFetch(`${BASE_URL}/task-comment`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workflowId, id: args.id, body: args.body }),
@@ -239,7 +242,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   }
 
   async function callTaskLink(args: { parentId: string; childId: string }): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
-    const r = await fetch(`${BASE_URL}/task-link`, {
+    const r = await hostFetch(`${BASE_URL}/task-link`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workflowId, parentId: args.parentId, childId: args.childId }),
@@ -250,7 +253,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   }
 
   async function callTaskUnlink(args: { parentId: string; childId: string }): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
-    const r = await fetch(`${BASE_URL}/task-unlink`, {
+    const r = await hostFetch(`${BASE_URL}/task-unlink`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workflowId, parentId: args.parentId, childId: args.childId }),
@@ -261,7 +264,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   }
 
   async function callTaskBlock(args: { id: string; reason: string }): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
-    const r = await fetch(`${BASE_URL}/task-block`, {
+    const r = await hostFetch(`${BASE_URL}/task-block`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workflowId, id: args.id, reason: args.reason }),
@@ -272,7 +275,7 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
   }
 
   async function callTaskComplete(args: { id: string; summary: string }): Promise<{ ok: true; body: unknown } | { ok: false; err: TaskUpstreamError }> {
-    const r = await fetch(`${BASE_URL}/task-complete`, {
+    const r = await hostFetch(`${BASE_URL}/task-complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ workflowId, id: args.id, summary: args.summary }),
@@ -305,17 +308,26 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
     'peer_send',
     {
       description:
-        'Send a short note to a peer in your cluster. `to` accepts the peer\'s full workflowId, unique 8-char prefix, unique displayName, or unique role text such as "Coordinator" when only one peer has that role. Prefer peer_list first, then use displayName/workflowId when possible. `content` is up to 16 KB. The recipient sees the message as a system block prepended to their next operator turn. ' + PEER_SEND_GUARD_DESCRIPTION,
+        (ctx.onlyRecipientWorkflowId
+          ? `Send a short note only to the Research Director. Set \`to\` to the exact workflowId ${ctx.onlyRecipientWorkflowId}; board-task handoffs are unavailable. `
+          : 'Send a short note to a peer in your cluster. `to` accepts the peer\'s full workflowId, unique 8-char prefix, unique displayName, or unique role text such as "Coordinator" when only one peer has that role. Prefer peer_list first, then use displayName/workflowId when possible. ') +
+        '`content` is up to 16 KB. The recipient sees the message as a system block prepended to their next operator turn. ' + PEER_SEND_GUARD_DESCRIPTION,
       inputSchema: {
         to: z.string().describe('Peer full workflowId, unique 8-char prefix, unique displayName, or unique role text.'),
         content: z.string().describe('Message body (≤ 16 KB UTF-8).'),
         confirm: z.boolean().optional().describe('Deliver a status-only message after the first send asks for confirmation.'),
         task_id: z.string().optional().describe("When this message hands a board task to the recipient, the task's full id from cluster_task_list. Arco records the handoff on the task so it can tell the operator the task reached that member. An id not on this cluster's board is refused and nothing is sent."),
+        artifact_paths: z.array(z.string().min(1).max(4096)).max(8).optional().describe('For an isolated researcher, up to eight regular files in its workspace; paths may be relative to the workspace or start with /work/.'),
       },
     },
     async (args) => {
       try {
-        const r = await callPeerSend({ to: args.to, content: args.content, confirm: args.confirm, taskId: args.task_id });
+        if (ctx.onlyRecipientWorkflowId && args.to !== ctx.onlyRecipientWorkflowId) {
+          return textResult(`[error] This researcher may send mail only to the Research Director (${ctx.onlyRecipientWorkflowId}).`, true);
+        }
+        if (ctx.onlyRecipientWorkflowId && args.task_id) return textResult('[error] Researchers cannot hand off board tasks.', true);
+        const artifactPaths = ctx.onlyRecipientWorkflowId ? args.artifact_paths?.map(path => path.startsWith('/work/') ? path.slice(6) : path) : args.artifact_paths;
+        const r = await callPeerSend({ to: args.to, content: args.content, confirm: args.confirm, taskId: args.task_id, artifactPaths });
         if (!r.ok) {
           // Translate the REST 400 into an MCP isError result so the model
           // sees a tool error (same shape Native's peer_send returns).

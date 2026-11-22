@@ -556,6 +556,12 @@ See `docs/DIAGNOSTICS.md`.
 
 ---
 
+### `GET /api/diagnostics/research-sandbox`
+
+Returns `{ claudeCli: boolean, codex: boolean, codexVersionReason?: string }` after short Linux sandbox availability checks. The optional reason names an unsupported or unknown installed Codex version. The checks use temporary files and a scoped mailbox fixture, do not open a sign-in or start a model, and cache their results briefly. A researcher still runs its own preflight before starting. The research start dialog offers each CLI provider only when its check succeeds and it is signed in; Codex requires the supported CLI version.
+
+---
+
 ### `GET /api/diagnostics/support-bundle`
 
 Operations A2. **Operator-triggered**, **read-only**. Returns a paste-ready,
@@ -1034,7 +1040,7 @@ Send a peer message. Body: `{ workflowId, to, content }`. Delegates to `clusterP
 
 ### `POST /api/clusters/:id/peer/read`
 
-Drain the calling member's mailbox. Body: `{ workflowId }`. Fires `peer_message_received` events for each drained message. Returns the drained messages array.
+Drain the calling member's mailbox. Body: `{ workflowId, onlyFrom? }`. When `onlyFrom` is a cluster member ID, only that sender's messages are drained; other messages and their attachments stay pending. Fires `peer_message_received` events for each drained message. Returns the drained messages array.
 
 ### `POST /api/clusters/:id/peer/plan-read`
 

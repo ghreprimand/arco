@@ -258,7 +258,8 @@ export async function peek(wfId: string): Promise<PeerMessage[]> {
 // are the durable record — keeping mailbox files post-drain serves no purpose
 // in Phase 1). Caller must emit the events BEFORE the operator's
 // user_message_echo to satisfy the acceptance ordering.
-export async function drain(wfId: string): Promise<PeerMessage[]> {
+export async function drain(wfId: string, options?: { onlyFrom: string }): Promise<PeerMessage[]> {
+  if (options && (typeof options.onlyFrom !== 'string' || !options.onlyFrom)) throw new Error('A sender is required for filtered mail.');
   const clusterId = getClusterIdForWorkflow(wfId);
   if (!clusterId) return [];
   return withFileLock(clusterMailboxRoot(clusterId), async () => {
@@ -277,7 +278,7 @@ export async function drain(wfId: string): Promise<PeerMessage[]> {
     // the durable mailbox records retain all original payloads for retry.
     try {
       for (const { msg } of pending) {
-        if (msg && !msg.delivered) await materializeArtifacts(wfId, msg);
+        if (msg && !msg.delivered && (!options || msg.fromWorkflowId === options.onlyFrom)) await materializeArtifacts(wfId, msg);
       }
     } catch (err) {
       for (const { msg } of pending) {
@@ -297,6 +298,7 @@ export async function drain(wfId: string): Promise<PeerMessage[]> {
         await fs.unlink(path).catch(() => undefined);
         continue;
       }
+      if (options && msg.fromWorkflowId !== options.onlyFrom) continue;
       msg.delivered = true;
       msg.deliveredAt = new Date().toISOString();
       out.push(msg);

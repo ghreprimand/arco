@@ -1,6 +1,15 @@
 import { spawnSync } from 'node:child_process';
 import { commandArgs } from '../windowsCommand.js';
 
+export const RESEARCH_CODEX_VERSION = '0.171.0';
+
+export function codexResearchVersionReason(version: string): string | undefined {
+  if (version === RESEARCH_CODEX_VERSION) return undefined;
+  return version === 'unknown'
+    ? `Codex researchers need Codex ${RESEARCH_CODEX_VERSION}; the installed version could not be determined.`
+    : `Codex researchers need Codex ${RESEARCH_CODEX_VERSION}; ${version} is installed.`;
+}
+
 let cached: { version: string; expires: number } | undefined;
 export function installedCodexVersion(): string {
   if (cached && cached.expires > Date.now()) return cached.version;

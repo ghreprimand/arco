@@ -465,6 +465,8 @@ export async function removeMember(
     const next: ClusterState = { ...state, members: remaining };
     await writeMetaAtomic(next);
     rebuildIndexFor(next);
+    try { await (await import('./workers/isolatedCliHome.js')).removeIsolatedCliHome(clusterId, workflowId); }
+    catch { console.warn('[arco] Could not remove an isolated CLI home.'); }
     return { clusterDeleted: false, remaining };
   });
 }
@@ -643,6 +645,8 @@ export async function replaceMember(
       rebuildIndexFor(next);
       await fs.rm(join(clusterMailboxRoot(clusterId), oldWorkflowId), { recursive: true, force: true });
     });
+    try { await (await import('./workers/isolatedCliHome.js')).removeIsolatedCliHome(clusterId, oldWorkflowId); }
+    catch { console.warn('[arco] Could not remove an isolated CLI home.'); }
     return next;
   });
 }

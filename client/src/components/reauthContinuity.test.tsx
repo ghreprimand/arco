@@ -171,6 +171,17 @@ test('explicit CLI notice and a later workflow transport change retain the origi
   } finally { await f.close(); }
 });
 
+test('a research sign-in notice uses the normal CLI login and explains automatic continuation', async () => {
+  const f = await fixture();
+  try {
+    await act(async () => f.root.render(createElement(AuthReloginNotice, { provider: 'claude', body: 'Claude sign-in needs renewing.', workflowId: 'origin', authRecovery: { transport: 'cli' }, autoContinue: true })));
+    await f.click('RE-LOGIN');
+    assert.ok(f.calls.includes('/api/auth-login?provider=claude'));
+    assert.match(f.text(), /researcher continues after sign-in/);
+    assert.doesNotMatch(f.text(), /REVIEW ORIGINAL WORKFLOW/);
+  } finally { await f.close(); }
+});
+
 
 test('a Settings flow supersedes an inline completion refresh that is still in flight', async () => {
   const f = await fixture(); let release!: (value: Response) => void;

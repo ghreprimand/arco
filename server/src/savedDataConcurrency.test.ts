@@ -66,6 +66,19 @@ test('B14: concurrent preset saves both remain', async () => {
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
+test('a research panel preserves its Claude CLI transport', async () => {
+  const { root } = sandbox('research-transport');
+  try {
+    const presets = await import('./clusterPresets.js');
+    await presets.savePreset({ name: 'Research', members: [
+      { provider: 'claude', model: 'm', role: 'Research Director' },
+      { provider: 'claude', model: 'm', accessMode: 'researcher', researchClaudeTransport: 'cli' },
+    ] });
+    const saved = (await presets.listPresets()).find(preset => preset.name === 'Research');
+    assert.equal(saved?.members[1].researchClaudeTransport, 'cli');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
 test('B14b: a preset save overlapping a delete keeps the save and the delete', async () => {
   const { root } = sandbox('b14b');
   try {

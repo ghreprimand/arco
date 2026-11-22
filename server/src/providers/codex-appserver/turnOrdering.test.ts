@@ -7,7 +7,7 @@ import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
 import type { SteerItem, WorkerConfig } from '@arco/shared';
 import { CodexAppServerWorker, bootstrapSurfaceKey } from './worker.js';
-import { CodexAppServerTurn } from './index.js';
+import { CodexAppServerProvider, CodexAppServerTurn, disposeCodexAppServerWorker } from './index.js';
 import { HELD_BATCH_MS, HELD_WAIT_LIMIT_MS } from './heldCommands.js';
 const config={provider:'codex',model:'fixture',effort:'low'} as WorkerConfig;
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -83,6 +83,7 @@ function heldTurn(extra: Partial<WorkerConfig> = {}) {
   const w = worker as any;
   w.threadId = 'thread';
   worker.ensureStarted = async () => {};
+  worker.prepareIsolatedTurn = async () => {};
   const starts: string[] = []; const steers: string[] = []; const markers: Array<{ id: string; state: string; waiting?: boolean }> = [];
   const text = (params: any) => params.input.map((part: any) => part.text ?? '').join('\n');
   w.rpc = { request: async (method: string, params: any) => {
@@ -100,9 +101,23 @@ function heldTurn(extra: Partial<WorkerConfig> = {}) {
     commandActions: [], aggregatedOutput: done ? done.output : null, exitCode: done ? done.exitCode : null, durationMs: null } });
   const finalAnswer = (turnId: string) => notify('item/started', { turnId, item: { type: 'agentMessage', id: `final-${turnId}`, text: '', phase: 'final_answer', memoryCitation: null } });
   const complete = (turnId: string) => notify('turn/completed', { turn: { id: turnId, status: 'completed', items: [], error: null } });
+  const failAuth = (turnId: string) => notify('turn/completed', { turn: { id: turnId, status: 'failed', items: [], error: { message: 'unauthorized', codexErrorInfo: 'unauthorized' } } });
   turn.spawn('work');
-  return { worker, turn, starts, steers, markers, results, errors, notices, command, finalAnswer, complete };
+  return { worker, turn, starts, steers, markers, results, errors, notices, command, finalAnswer, complete, failAuth };
 }
+
+test('a Codex researcher retries one authentication failure before reporting it', async () => {
+  const h = heldTurn({ clusterAccessMode: 'researcher' });
+  await settle();
+  h.failAuth('turn-1'); await settle();
+  assert.equal(h.starts.length, 2);
+  assert.match(h.starts[1], /Continue the task without repeating completed tool actions/);
+  assert.deepEqual(h.errors, []);
+  assert.equal(h.notices.some(notice => notice.startsWith('[AUTH:codex]')), false);
+  h.failAuth('turn-2'); await settle();
+  assert.equal(h.starts.length, 2);
+  assert.equal(h.errors.length, 1);
+});
 
 test('a command that outlives its Codex turn continues the agent once with its result', async (t) => {
   t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
@@ -178,4 +193,40 @@ test('a dev server is shown running but never waited on, and the wait limit ends
   assert.equal(long.markers.at(-1)?.waiting, undefined);
   long.command('turn-1', 'soak', './soak-test.sh', { exitCode: 0, output: '' }); await settle();
   assert.equal(long.starts.length, 1);
+});
+
+
+test('isolated Codex keeps a long-running command alive after the turn', async () => {
+  const cfg = { ...config, workflowId: 'isolated-late-fixture', clusterAccessMode: 'isolated' } as WorkerConfig;
+  const turn = CodexAppServerProvider.create('turn', cfg) as CodexAppServerTurn;
+  const worker = (turn as any).worker as CodexAppServerWorker;
+  const w = worker as any;
+  let disposed = false;
+  worker.ensureStarted = async () => {};
+  worker.prepareIsolatedTurn = async () => {};
+  worker.dispose = async () => { disposed = true; };
+  w.threadId = 'thread';
+  w.rpc = { request: async () => ({ turn: { id: 'turn-1' } }) };
+  const result = new Promise<void>((resolve, reject) => { turn.on('result', () => resolve()); turn.on('error', reject); });
+  try {
+    turn.spawn('work'); await settle();
+    w.onNotification({ method: 'item/started', params: { threadId: 'thread', turnId: 'turn-1', item: { type: 'commandExecution', id: 'server', command: 'npm run dev -- --port 5173', cwd: '/work', status: 'inProgress' } } });
+    w.onNotification({ method: 'turn/completed', params: { threadId: 'thread', turn: { id: 'turn-1', status: 'completed', items: [], error: null } } });
+    await result;
+    assert.equal(disposed, false, 'the running command keeps its app-server');
+    assert.ok(worker.runningLateCommands.some(command => command.itemId === 'server'));
+  } finally { disposeCodexAppServerWorker('isolated-late-fixture'); }
+});
+
+test('a retained isolated Codex worker reissues its pass for the next Arco turn', async () => {
+  const worker = new CodexAppServerWorker('fixture-reissue', { ...config, clusterAccessMode: 'researcher' } as WorkerConfig, undefined);
+  let reissues = 0;
+  (worker as any).reissueIsolationPass = async () => { reissues++; };
+  await worker.prepareIsolatedTurn();
+  assert.equal(reissues, 0, 'startup already prepared the first pass');
+  await worker.prepareIsolatedTurn();
+  assert.equal(reissues, 1, 'the next turn gets a new pass without disposing the worker');
+  const abort = new AbortController(); abort.abort();
+  await assert.rejects(worker.prepareIsolatedTurn(abort.signal), /stopped/);
+  assert.equal(reissues, 1);
 });

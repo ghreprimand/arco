@@ -164,6 +164,7 @@ function normalizeMember(raw: unknown, idx: number): ClusterPresetMember {
   }
   // Research panels keep each researcher's ADVANCED limits (docs/RESEARCH.md).
   if (out.accessMode === 'researcher') {
+    if (provider === 'claude' && (r.researchClaudeTransport === 'native' || r.researchClaudeTransport === 'cli')) out.researchClaudeTransport = r.researchClaudeTransport;
     if (provider === 'claude' && Number.isInteger(r.webSearchMaxUses) && (r.webSearchMaxUses as number) >= 1 && (r.webSearchMaxUses as number) <= 50) out.webSearchMaxUses = r.webSearchMaxUses as number;
     if (provider === 'ollama' && Number.isInteger(r.contextSize) && (r.contextSize as number) >= 2048 && (r.contextSize as number) <= 1_048_576) out.contextSize = r.contextSize as number;
   }

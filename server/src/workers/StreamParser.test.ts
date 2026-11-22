@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { Readable } from 'node:stream';
 import { StreamParser } from './StreamParser.js';
 
 test('snapshot fallback emits every block once and preserves a shorter final answer', () => {
@@ -60,4 +61,34 @@ test('a result repeating the final snapshot block is not appended twice', () => 
   ] } });
   send({ type: 'result', result: 'Second.' });
   assert.equal(text.join(''), 'A long first paragraph.Second.');
+});
+
+
+test('a revoked OAuth pass in an error result is reported as authentication failure', async () => {
+  const parser = new StreamParser();
+  let authenticationError = false, finalText = 'not received', emittedText = '';
+  parser.on('text', text => { emittedText += text; });
+  parser.on('stream_error', error => { authenticationError = error.errorType === 'authentication_error'; });
+  parser.on('result', result => { finalText = result.text; });
+  const message = 'Failed to authenticate: OAuth token revoked. Please log in again or contact your administrator.';
+  parser.parse(Readable.from([
+    JSON.stringify({ type: 'assistant', message: { id: 'failure', content: [{ type: 'text', text: message }] } }) + '\n',
+    JSON.stringify({ type: 'result', subtype: 'success', is_error: true, result: message }) + '\n',
+  ]));
+  await new Promise<void>(resolve => parser.once('done', resolve));
+  assert.equal(authenticationError, true);
+  assert.equal(emittedText, '');
+  assert.equal(finalText, '');
+});
+
+test('Claude CLI tool results are available for the research independence check', async () => {
+  const parser = new StreamParser();
+  const results: string[] = [];
+  parser.on('tool_result', text => results.push(text));
+  parser.parse(Readable.from([JSON.stringify({ type: 'user', message: { content: [
+    { type: 'tool_result', content: 'fixture result' },
+    { type: 'tool_result', content: [{ type: 'text', text: 'second result' }] },
+  ] } }) + '\n']));
+  await new Promise<void>(resolve => parser.once('done', resolve));
+  assert.deepEqual(results, ['fixture result', 'second result']);
 });

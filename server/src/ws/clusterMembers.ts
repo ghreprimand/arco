@@ -106,6 +106,7 @@ export interface ScratchMemberSpec {
   accessMode?: string;
   webSearchMaxUses?: number;
   contextSize?: number;
+  researchClaudeTransport?: 'native' | 'cli';
 }
 
 // CREATE FROM SCRATCH: only what the creator's list says, with defaults
@@ -126,9 +127,10 @@ export async function memberConfigFromSpec(m: ScratchMemberSpec, index: number, 
   if (m.accessMode === 'researcher') {
     if (m.webSearchMaxUses) config.webSearchMaxUses = m.webSearchMaxUses;
     if (m.contextSize && m.provider === 'ollama') config.ollamaParams = { num_ctx: m.contextSize };
+    if (m.provider === 'codex') config.codexTransport = 'appserver';
   }
   if (m.accessMode === 'isolated' || m.accessMode === 'researcher') {
-    config.claudeTransport = 'native';
+    config.claudeTransport = m.accessMode === 'researcher' && m.provider === 'claude' && m.researchClaudeTransport === 'cli' ? 'cli' : 'native';
     config.ultracode = false;
   }
   if (m.provider === 'codex') {

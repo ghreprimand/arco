@@ -422,8 +422,14 @@ export const clusters: Section[] = [
   <p>
   Each researcher row has only Provider, Model and Effort, with
   <Code>DUPLICATE</Code>, <Code>REMOVE</Code> and <Code>ADVANCED</Code>.
-  Researchers run on Claude, Ollama or llama.cpp. <strong>ADVANCED</strong>{' '}
-  sets web searches per turn for Claude and the context size for Ollama.
+  Researchers run on Claude Native, Ollama or llama.cpp. Claude CLI and Codex
+  are also offered on Linux when signed in and their sandbox checks pass.
+  They can use a shell inside the sandbox. Codex requires CLI version 0.171.0;
+  the picker identifies an incompatible installed version.
+  </p>
+  <p>
+  <strong>ADVANCED</strong>{' '}
+  sets web searches per turn for Claude Native and the context size for Ollama.
   More than 8 researchers asks once before starting.
   </p>
   <p>
@@ -465,6 +471,17 @@ export const clusters: Section[] = [
   <p>
   Files a researcher sends as attachments must be regular workspace files.
   Symbolic links, hard links and paths outside its workspace are refused.
+  </p>
+  <p>
+  If a round shows <strong>INDEPENDENCE CHECK FAILED</strong>, treat its
+  reports as contaminated. A <strong>SANDBOX ACCESS WARNING</strong> means
+  a researcher attempted a protected path or local address; inspect its
+  activity before relying on the round.
+  </p>
+  <p>
+  If Claude CLI or Codex sign-in needs renewing, use <Code>RE-LOGIN</Code> in the research
+  window. The researcher continues when sign-in completes, and keeps its
+  remaining round time while waiting.
   </p>
   <p>
   While reports are blind, <Code>REVEAL</Code> writes which provider and model

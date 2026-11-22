@@ -30,6 +30,27 @@ async function fixture() {
   return { root, project, recipient, ctx, dir, message };
 }
 
+test('filtered peer and pre-turn reads preserve mail and attachments from other senders', async () => {
+  const f = await fixture();
+  try {
+    const { drainPeerMailbox } = await import('./primitives/seedWorker.js');
+    const allowed = f.message('director');
+    const other = { ...f.message('other researcher'), fromWorkflowId: randomUUID(), fromDisplayName: 'Other' };
+    await mailbox.enqueue(f.recipient, allowed);
+    await mailbox.enqueue(f.recipient, other);
+    const first = await peerRead(f.ctx, { onlyFrom: allowed.fromWorkflowId });
+    assert.deepEqual(first.map(m => m.content), ['director']);
+    assert.deepEqual((await mailbox.peek(f.recipient)).map(m => m.content), ['other researcher']);
+    await assert.rejects(fs.access(join(f.project, '.arco', 'peer-artifacts', other.msgId)));
+    await mailbox.enqueue(f.recipient, f.message('director follow-up'));
+    const prologue = await drainPeerMailbox(f.recipient, () => {}, { onlyFrom: allowed.fromWorkflowId });
+    assert.ok(prologue?.includes('director follow-up'));
+    assert.ok(!prologue?.includes('other researcher'));
+    assert.deepEqual((await mailbox.peek(f.recipient)).map(m => m.content), ['other researcher']);
+    assert.deepEqual((await peerRead(f.ctx)).map(m => m.content), ['other researcher']);
+  } finally { rmSync(f.root, { recursive: true, force: true }); }
+});
+
 for (const names of [['report.md', 'report.md'], ['a?.md', 'a*.md'], ['.', '..']]) {
   test(`B132: colliding attachment names preserve both payloads (${names.join(', ')})`, async () => {
     const f = await fixture();

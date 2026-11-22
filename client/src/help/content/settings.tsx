@@ -334,7 +334,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           credentials are stored. <C>Credentials present; execution unverified</C>
           means stored credentials were detected, not that a model request succeeded.
           <C>CLAUDE CLI (ANTHROPIC)</C> is the sign-in of the installed Claude CLI. Signing in to
-          one does not sign in to the other. The transport used for new work is chosen under Transport defaults.
+          one does not sign in to the other. The transport used for new work is chosen under Transport defaults. If Claude CLI reports a revoked sign-in, use RE-LOGIN in its notice, then review and resend the turn.
         </p>
         <p>Connections opens here from its Claude panel, with this group highlighted.</p>
       </>

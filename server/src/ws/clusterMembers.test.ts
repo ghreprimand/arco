@@ -79,6 +79,12 @@ test('a from-scratch member uses only its list entry, with defaults', async () =
     { name: 'Scout', primaryProvider: 'codex', primaryModel: 'gpt-5.5', primaryEffort: 'high', skipPermissions: false, workingDirectory: '/p', fastMode: true, efficiencyToolFilter: 'conservative', outputStyle: 'terse', providerAccountRef: 'known' });
   const isolated = await memberConfigFromSpec({ provider: 'claude', model: 'sonnet', accessMode: 'isolated', efficiencyToolFilter: 'off', outputStyle: 'normal' }, 0, '/p', accounts);
   assert.equal(isolated.claudeTransport, 'native');
+  const researcher = await memberConfigFromSpec({ provider: 'claude', model: 'sonnet', accessMode: 'researcher', researchClaudeTransport: 'cli' }, 0, '/p', accounts);
+  assert.equal(researcher.claudeTransport, 'cli');
+  const defaultResearcher = await memberConfigFromSpec({ provider: 'claude', model: 'sonnet', accessMode: 'researcher' }, 0, '/p', accounts);
+  assert.equal(defaultResearcher.claudeTransport, 'native');
+  const codexResearcher = await memberConfigFromSpec({ provider: 'codex', model: 'gpt-5.5', accessMode: 'researcher' }, 0, '/p', accounts);
+  assert.equal(codexResearcher.codexTransport, 'appserver');
   assert.equal(isolated.efficiencyToolFilter, undefined);
   assert.equal(isolated.outputStyle, 'normal', 'an explicit NORMAL is kept');
   for (const [given, stored] of [['plain', undefined], ['lite', undefined], [undefined, undefined], ['caveman', 'terse']] as const) {

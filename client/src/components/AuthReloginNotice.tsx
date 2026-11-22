@@ -30,9 +30,10 @@ interface Props {
   workflowId?: string;
   messageId?: string;
   authRecovery?: AuthRecoveryContext;
+  autoContinue?: boolean;
 }
 
-export function AuthReloginNotice({ provider, body, workflowId, messageId, authRecovery }: Props) {
+export function AuthReloginNotice({ provider, body, workflowId, messageId, authRecovery, autoContinue }: Props) {
   const [state, setState] = useState<'idle' | 'pending' | 'sent' | 'error'>('idle');
   const [hint, setHint] = useState<string | null>(null);
   const [command, setCommand] = useState<string | null>(null);
@@ -73,10 +74,10 @@ export function AuthReloginNotice({ provider, body, workflowId, messageId, authR
       if (data.command) {
         setState('sent');
         setCommand(data.command);
-        setHint('Finish the login in the terminal, then review the original workflow before sending explicitly.');
+        setHint(autoContinue ? 'Finish the login in the terminal. The researcher continues after sign-in.' : 'Finish the login in the terminal, then review the original workflow before sending explicitly.');
       } else if (data.started) {
         setState('sent');
-        setHint('Complete the OAuth flow in the browser tab that just opened, then try again.');
+        setHint(autoContinue ? 'Complete the OAuth flow. The researcher continues after sign-in.' : 'Complete the OAuth flow in the browser tab that just opened, then try again.');
       } else if (data.manual) {
         setState('sent');
         setHint(data.manual);
@@ -177,7 +178,7 @@ export function AuthReloginNotice({ provider, body, workflowId, messageId, authR
           <LoginCommand command={command} />
         </div>
       )}
-      {!claudeNative && state === 'sent' && workflowId && job && <p>Original workflow execution: {job.busy ? 'running' : job.lastTurnCancelledAt ? 'interrupted' : 'idle'}. Sign-in completion is not verified here. <button onClick={() => useAppStore.getState().setActiveJob(workflowId)}>REVIEW ORIGINAL WORKFLOW</button></p>}
+      {!autoContinue && !claudeNative && state === 'sent' && workflowId && job && <p>Original workflow execution: {job.busy ? 'running' : job.lastTurnCancelledAt ? 'interrupted' : 'idle'}. Sign-in completion is not verified here. <button onClick={() => useAppStore.getState().setActiveJob(workflowId)}>REVIEW ORIGINAL WORKFLOW</button></p>}
       {claudeNative && <NativeLoginControls key={nativeLogin.session?.flow?.id} login={nativeLogin} />}
       {complete && <p>Original workflow: {job?.config.name ?? workflowId ?? 'unavailable'}. Execution: {!job ? 'workflow unavailable' : job.busy ? 'running' : job.lastTurnCancelledAt ? 'interrupted' : 'idle'}. Draft retained. Review the transcript and send explicitly from the composer; nothing was replayed.</p>}
     </div>

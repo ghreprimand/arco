@@ -2,6 +2,8 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { runDiagnostics } from '../diagnostics/checks.js';
 import { buildSupportBundle } from '../diagnostics/supportBundle.js';
 import { buildModelHealthReport } from '../diagnostics/modelHealth.js';
+import { researchSandboxAvailable } from '../workers/researchSandboxAvailability.js';
+import { codexResearchVersionReason, installedCodexVersion } from '../providers/codexVersion.js';
 import type { DiagnosticsReport, ModelHealthReport, SupportBundleResponse } from '@arco/shared';
 
 // docs/ARCHITECTURE.md A3 - Diagnostics routes.
@@ -39,6 +41,11 @@ export async function tryHandleDiagnosticsRoutes(
 
   // Strip any query string before matching the path.
   const path = req.url.split('?')[0];
+
+  if (path === '/api/diagnostics/research-sandbox') {
+    const [claudeCli, codex] = await Promise.all([researchSandboxAvailable('claude'), researchSandboxAvailable('codex')]);
+    return send(200, { claudeCli, codex, codexVersionReason: codexResearchVersionReason(installedCodexVersion()) });
+  }
 
   if (path === '/api/diagnostics/support-bundle') {
     try {

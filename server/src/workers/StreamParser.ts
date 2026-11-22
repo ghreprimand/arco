@@ -12,6 +12,7 @@ export interface StreamEvents {
   text: (text: string) => void;
   thinking: (text: string) => void;
   tool_use: (data: { name: string; input: string }) => void;
+  tool_result: (text: string) => void;
   result: (data: { text: string; costUsd: number; durationMs: number; usage?: Record<string, number>; permissionDenials?: PermissionDenial[] }) => void;
   error: (error: string) => void;
   // Transient API error captured from a top-level `{"type":"error",...}` line
@@ -62,6 +63,9 @@ function tryParseCliAuthError(text: string):
   | { errorType: string; message: string; transient: boolean }
   | null {
   const trimmed = text.trimStart();
+  if (/^Failed to authenticate:\s*OAuth token revoked\. Please log in again or contact your administrator\.$/i.test(trimmed.trimEnd())) {
+    return { errorType: 'authentication_error', message: 'Claude sign-in needs renewing', transient: false };
+  }
   if (!/^Failed to authenticate\.?\s+API Error:\s*401\b/i.test(trimmed)) return null;
   let message = 'Invalid authentication credentials';
   const jsonStart = trimmed.indexOf('{');
@@ -147,6 +151,19 @@ export class StreamParser extends EventEmitter {
         // We use them as a fallback if stream_events didn't give us text.
         this.handleAssistantSnapshot(event);
         break;
+
+      case 'user': {
+        const message = event.message as { content?: unknown } | undefined;
+        if (!Array.isArray(message?.content)) break;
+        for (const item of message.content) {
+          if (!item || typeof item !== 'object' || item.type !== 'tool_result') continue;
+          if (typeof item.content === 'string') this.emit('tool_result', item.content);
+          else if (Array.isArray(item.content)) {
+            for (const block of item.content) if (block?.type === 'text' && typeof block.text === 'string') this.emit('tool_result', block.text);
+          }
+        }
+        break;
+      }
 
       case 'result':
         this.handleResult(event);
@@ -352,7 +369,9 @@ export class StreamParser extends EventEmitter {
     // only place they appear — no top-level error line, no prior text_delta).
     // Route through stream_error and zero the text so the final `result` event
     // doesn't render the raw 401 as an assistant turn.
-    const authFromResult = result ? tryParseCliAuthError(result) : null;
+    const revokedPass = event.is_error === true && result && /^Failed to authenticate:\s*OAuth token revoked\./i.test(result.trimStart())
+      ? { errorType: 'authentication_error', message: 'Claude sign-in needs renewing', transient: false } : null;
+    const authFromResult = revokedPass ?? (result ? tryParseCliAuthError(result) : null);
     const authFromAccum = !authFromResult ? tryParseCliAuthError(this.accumulatedText) : null;
     const authErr = authFromResult ?? authFromAccum;
     if (authErr) {

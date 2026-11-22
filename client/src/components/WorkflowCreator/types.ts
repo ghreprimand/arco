@@ -23,6 +23,7 @@ export interface ClusterCreatePayload extends ClusterCreationSettings {
     outputStyle?: import('@arco/shared').OutputStyle;
     webSearchMaxUses?: number;
     contextSize?: number;
+    researchClaudeTransport?: 'native' | 'cli';
   }>;
   research?: import('@arco/shared').ResearchCreateSpec;
 }

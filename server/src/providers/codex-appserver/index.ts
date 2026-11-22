@@ -1,5 +1,8 @@
+import { isIsolatedAccessMode } from '@arco/shared';
 import { prepareProviderHistory } from '../handoffHistoryBinding.js';
 import { providerSessionScope } from '../sessionScope.js';
+import { codexSignInFingerprint, codexSignInHome, waitForCodexSignIn } from '../../workers/codexAccessLease.js';
+import { setResearcherSignInWaiting } from '../../research/researchRounds.js';
 // Phase 6a + 6b — Codex `app-server` transport entry.
 //
 // The long-lived `CodexAppServerWorker` is cached per workflowId. Each
@@ -60,6 +63,7 @@ function awaitRetired(workflowId: string): Promise<void> {
 // worker, so a tab close + reopen also resets.
 const MAX_CONSECUTIVE_SPAWN_FAILURES = 3;
 const failureStateByWorkflow = new Map<string, { count: number; lastError: string }>();
+const isResearchAuthFailure = (message: string): boolean => /\b401\b|unauthorized|invalid[ _-]*(?:access[ _-]*)?token|token.{0,30}expired|authentication.{0,30}failed/i.test(message);
 
 function bumpFailureCount(workflowId: string, reason: string): number {
   const state = failureStateByWorkflow.get(workflowId) ?? { count: 0, lastError: '' };
@@ -109,6 +113,11 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
   // Interrupt & send: the wait ends, but the commands stay held so the
   // operator's next turn receives their results.
   private interrupting = false;
+  private keepIsolatedWorkerForCommands = false;
+  private readonly preparationAbort = new AbortController();
+  private researchAuthRetried = false;
+  private waitingForSignIn = false;
+  private signInFingerprint?: string;
 
   constructor(
     id: string,
@@ -146,6 +155,10 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
       this.stopToolObserver = observeVoiceTools(this.workflowId, (event) => this.watchdog?.tool(event));
     }
 
+    this.startAttempt(prompt);
+  }
+
+  private startAttempt(prompt: string): void {
     let bootstrapped = false;
     // kill() during bootstrap settles this wrapper synchronously (synthetic
     // "Worker killed"), but the promise chain kept going: the turn started
@@ -156,11 +169,17 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
         if (this.settled) throw new Error('Worker killed');
         await prepareProviderHistory(this.config);
         if (this.settled) return Promise.reject(new Error('Worker killed'));
+        if (this.config.clusterAccessMode === 'researcher') this.signInFingerprint = await codexSignInFingerprint(codexSignInHome(this.config.codexHome));
+        if (this.settled) return Promise.reject(new Error('Worker killed'));
         if (this.config.voiceOperator) allowVoiceTools(this.workflowId);
         return this.worker.ensureStarted();
       })
       .then(async () => {
         bootstrapped = true;
+        if (this.settled) return;
+        await this.worker.prepareIsolatedTurn(this.preparationAbort.signal);
+        if (this.settled) return;
+        if (this.config.clusterAccessMode === 'researcher' && this.config.clusterId) await setResearcherSignInWaiting(this.config.clusterId, this.workflowId, false, 'codex');
         if (this.settled) return;
         await this.worker.beginTurn(prompt, this.config.appendSystemPrompt);
         // Killed while turn/start was in flight: the synthetic settle already
@@ -175,6 +194,7 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
       .catch((err: unknown) => {
         if (this.settled) return;
         const msg = err instanceof Error ? err.message : String(err);
+        if (this.waitForResearchSignIn(msg, () => this.startAttempt(prompt))) return;
         // Bootstrap failure that did NOT come through `fatal` (handshake RPC
         // error, thread/start rejection, …). Count it toward the spawn-failure
         // circuit breaker; `fatal` paths already bumped the counter via the
@@ -190,8 +210,51 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
       });
   }
 
+  private waitForResearchSignIn(message: string, resume: () => void): boolean {
+    if (this.config.clusterAccessMode !== 'researcher' || !this.config.clusterId
+      || !/Codex sign-in needs renewing\./.test(message) || this.preparationAbort.signal.aborted) return false;
+    if (this.waitingForSignIn) return true;
+    this.waitingForSignIn = true;
+    const clusterId = this.config.clusterId, home = codexSignInHome(this.config.codexHome);
+    void waitForCodexSignIn(home, this.preparationAbort.signal, {
+      initial: this.signInFingerprint ?? null,
+      onWaiting: async () => {
+        await setResearcherSignInWaiting(clusterId, this.workflowId, true, 'codex');
+        this.emit('system_notice', 'Codex sign-in needs renewing. Use RE-LOGIN in the research window; the researcher continues after sign-in.');
+      },
+    }).then(async () => {
+      this.waitingForSignIn = false;
+      await setResearcherSignInWaiting(clusterId, this.workflowId, false, 'codex');
+      if (!this.settled) resume();
+    }).catch(error => {
+      this.waitingForSignIn = false;
+      void setResearcherSignInWaiting(clusterId, this.workflowId, false, 'codex').catch(() => undefined);
+      if (!this.settled && !this.preparationAbort.signal.aborted) this.fail(String(error));
+    });
+    return true;
+  }
+
+  private retryResearchAuthentication(message: string): boolean {
+    if (this.config.clusterAccessMode !== 'researcher' || this.researchAuthRetried || !isResearchAuthFailure(message)) return false;
+    this.researchAuthRetried = true;
+    const resume = () => {
+      void (async () => {
+        this.signInFingerprint = await codexSignInFingerprint(codexSignInHome(this.config.codexHome));
+        await this.worker.prepareIsolatedTurn(this.preparationAbort.signal);
+        if (!this.settled) await this.worker.beginTurn('[Arco retry] Authentication interrupted this turn. Continue the task without repeating completed tool actions.', this.config.appendSystemPrompt);
+      })().catch(error => {
+        if (this.settled) return;
+        const detail = error instanceof Error ? error.message : String(error);
+        if (!this.waitForResearchSignIn(detail, resume)) this.fail(detail);
+      });
+    };
+    resume();
+    return true;
+  }
+
   async interrupt(): Promise<void> {
     if (this.settled) return;
+    this.preparationAbort.abort();
     this.interrupting = true;
     this.stopWaitClock();
     await this.worker.cancelCurrentTurn();
@@ -199,6 +262,7 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
 
   kill(): void {
     if (this.settled) return;
+    this.preparationAbort.abort();
     this.stopped = true;
     this.stopWaitClock();
     this.worker.abandonHeldCommands();
@@ -242,6 +306,7 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
     const onSettled = (data: { error?: string; result?: TurnSettleData }) => {
       if (this.settled) return;
       if (data.error) {
+        if (this.retryResearchAuthentication(data.error)) return;
         this.fail(this.timeoutReason ?? data.error);
         return;
       }
@@ -322,9 +387,12 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
     this.settled = true;
     this._status = 'failed';
     this.unwire();
+    this.worker.releaseIsolatedTurn();
     // After Interrupt & send the operator's message runs next and takes the
     // results; any other failure leaves nobody to deliver them to.
+    if (this.worker.runningLateCommands.length > 0) this.keepIsolatedWorkerForCommands = true;
     if (!this.interrupting) this.worker.abandonHeldCommands();
+    this.retireIdleIsolatedWorker();
     this.emit('error', reason);
   }
 
@@ -444,11 +512,22 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
 
   private giveUp(line: string): void {
     const running = this.worker.heldCommands;
+    if (running.length > 0) this.keepIsolatedWorkerForCommands = true;
     this.worker.abandonHeldCommands();
     this.emit('system_notice', running.length
       ? `${line} Still running: ${running.map(item => `\`${shortCommand(item.command)}\``).join(', ')}. Its row records how it ends.`
       : line);
     this.finish();
+  }
+
+  private retireIdleIsolatedWorker(): void {
+    // Researcher shells may have background children after their command item ends.
+    // Keep the fenced worker until the research project closes; reissue its pass per turn.
+    if (this.config.clusterAccessMode === 'researcher') return;
+    if (!isIsolatedAccessMode(this.config.clusterAccessMode) || this.keepIsolatedWorkerForCommands || this.worker.runningLateCommands.length > 0 || this.worker.hasHeldResults()) return;
+    if (workersByWorkflow.get(this.workflowId) !== this.worker) return;
+    workersByWorkflow.delete(this.workflowId);
+    retireWorker(this.workflowId, this.worker, 'isolated turn complete');
   }
 
   private finish(): void {
@@ -458,6 +537,8 @@ export class CodexAppServerTurn extends EventEmitter implements ProviderProcess 
     this.settled = true;
     this._status = 'completed';
     this.unwire();
+    this.worker.releaseIsolatedTurn();
+    this.retireIdleIsolatedWorker();
     this.emit('result', {
       text: this._output.length >= r.text.length ? this._output : r.text,
       costUsd: this.costUsd,

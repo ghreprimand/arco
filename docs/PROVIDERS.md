@@ -14,7 +14,7 @@ For the abstract interface, see `server/src/providers/types.ts`. For when these 
 
 ## Child process input failures
 
-If a provider CLI, sign-in process, language server or MCP server closes its input early, Arco handles the input-stream error and stays running. Existing exit reporting and request timeouts still apply; failed requests are not automatically resent.
+If a provider CLI, sign-in process, language server or MCP server closes its input early, Arco handles the input-stream error and stays running. Existing exit reporting and request timeouts still apply; failed requests are not automatically resent. A revoked Claude CLI OAuth token can also arrive inside a successful-looking result; Arco shows the sign-in recovery notice instead of treating that message as an answer.
 
 ## Diagnostic executable lookup
 

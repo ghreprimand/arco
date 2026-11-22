@@ -142,6 +142,7 @@ export const providers: Section[] = [
   <p>Claude Native can also be cancelled while startup loads handoff history and sub-agent settings. An interrupted correction that has not entered history is kept for the next prompt.</p>
   <p>Selected one-shot skills also accompany mid-turn steering. Busy messages keep the same skill context whether consumed during the turn or delivered afterward.</p>
   <Sub>Sign-in</Sub>
+  <p>If Claude CLI reports a revoked sign-in, use RE-LOGIN in the notice, then review and resend the turn.</p>
   <ul>
   <li>
   <strong>CLI transport</strong> uses <Code>claude auth login</Code>, run in

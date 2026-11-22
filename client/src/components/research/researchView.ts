@@ -42,7 +42,8 @@ export function researcherCardLine(research: ClusterResearchSummary, workflowId:
   const latest = research.rounds.at(-1);
   const entry = latest?.entries[r.letter];
   const searches = searchCount(job);
-  return [`${r.letter}`, `${r.provider}, ${r.model}`, r.isolation, `${searches} search${searches === 1 ? '' : 'es'}`,
+  const provider = r.provider === 'claude' ? (r.claudeTransport === 'cli' ? 'Claude CLI' : 'Claude Native') : r.provider;
+  return [`${r.letter}`, `${provider}, ${r.model}`, r.isolation, `${searches} search${searches === 1 ? '' : 'es'}`,
     ...(latest && entry ? [`round ${latest.n}: ${ENTRY_WORDS[entry.state]}`] : [])].join(' · ');
 }
 

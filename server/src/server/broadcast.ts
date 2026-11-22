@@ -7,6 +7,7 @@ import { ensureProjectStateIgnore } from '../projectStateIgnore.js';
 // See docs/ARCHITECTURE.md.
 
 import { loadResearch, researchSummary } from '../research/researchState.js';
+import { observeResearchText, observeResearchTool, startResearchTripwireTurn } from '../research/researchTripwires.js';
 import { WebSocket } from 'ws';
 import { reportCompaction } from '../compactionReport.js';
 import { observeConditionMessage } from '../voice/conditionFacts.js';
@@ -167,6 +168,17 @@ function recordLiveTurnStart(wf: WorkflowState | undefined, message: ServerMessa
   if (wf?.busy && message.type === 'primary_turn_started' && Number.isFinite(message.startedAt)) wf.turnStartedAt = message.startedAt;
 }
 
+function observeResearchMessage(workflowId: string, message: ServerMessage): void {
+  const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
+  if (message.type === 'primary_turn_started') startResearchTripwireTurn(clusterId, workflowId);
+  if (message.type === 'primary_text') observeResearchText(clusterId, workflowId, message.text, true);
+  if (message.type === 'primary_thinking') observeResearchText(clusterId, workflowId, message.text, true, 'thinking');
+  if (message.type === 'primary_tool_use') {
+    if (message.input) { observeResearchText(clusterId, workflowId, message.input); observeResearchTool(clusterId, workflowId, message.tool, message.input); }
+    if (message.output) observeResearchText(clusterId, workflowId, message.output);
+  }
+}
+
 export function send(ws: WebSocket, message: ServerMessage): void {
   // Persist workflow-scoped messages BEFORE checking ws state. events.jsonl
   // is the authoritative log; a closed socket must not lose events (replay
@@ -176,6 +188,7 @@ export function send(ws: WebSocket, message: ServerMessage): void {
   const wfid = (message as { workflowId?: string }).workflowId;
   let stamped = message;
   if (typeof wfid === 'string') {
+    observeResearchMessage(wfid, message);
     const source = workflows.get(wfid);
     recordLiveTurnStart(source, message);
     if (source && !source.config.incognito && !source.config.voiceOperator) observeConditionMessage(wfid, clusterStore.getClusterIdForWorkflow(wfid), message);
@@ -501,6 +514,7 @@ function onTurnEnded(workflowId: string, wf: WorkflowState): void {
 export function broadcastWorkflow(workflowId: string, message: ServerMessage): void {
   const wf = workflows.get(workflowId);
   if (!wf) return;
+  observeResearchMessage(workflowId, message);
   recordLiveTurnStart(wf, message);
   if (!wf.config.incognito && !wf.config.voiceOperator) observeConditionMessage(workflowId, clusterStore.getClusterIdForWorkflow(workflowId), message);
   // docs/PROTOCOL_CLUSTER.md - stamp chainDepth on outbound

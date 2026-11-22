@@ -1,3 +1,7 @@
+import { isIsolatedAccessMode } from '@arco/shared';
+import { loadResearch, researcherFor } from '../../research/researchState.js';
+import { ensureResearchTripwires } from '../../research/researchTripwires.js';
+import { setResearcherIsolation } from '../../research/researchRounds.js';
 import { CodexLateCommands, type HeldCommandResult } from './lateCommands.js';
 import { historyBinding } from '../handoffHistoryBinding.js';
 import { codexWebSearchMode } from '../codexWebSearch.js';
@@ -70,6 +74,13 @@ import type { SandboxMode } from './bindings/v2/SandboxMode.js';
 import type { ReasoningEffort } from './bindings/ReasoningEffort.js';
 import type { JsonValue } from './bindings/serde_json/JsonValue.js';
 import { commandArgs } from '../../windowsCommand.js';
+import { findDiagnosticExecutable } from '../../diagnostics/executableLookup.js';
+import { codexResearchVersionReason, installedCodexVersion } from '../codexVersion.js';
+import { prepareCodexIsolatedLaunch } from '../../workers/codexIsolatedLaunch.js';
+import { codexAccessLeaseBroker, codexSignInHome } from '../../workers/codexAccessLease.js';
+import { workerAccessPass } from '../../workers/workerAccessPass.js';
+import { isExpectedCodexIsolationConfig } from '../../workers/codexIsolatedPolicy.js';
+import { resolve as resolvePath } from 'node:path';
 
 // Pinned Codex CLI version this worker was validated against. See
 // docs/PROVIDERS.md - bump the constant + regen the
@@ -194,10 +205,10 @@ export function buildThreadStartParams(config: WorkerConfig, threadConfig: Recor
     model: config.model,
     modelProvider: null,
     serviceTier: null,
-    cwd: config.cwd ?? null,
+    cwd: isIsolatedAccessMode(config.clusterAccessMode) ? '/work' : config.cwd ?? null,
     approvalPolicy: 'never',
     approvalsReviewer: null,
-    sandbox: mapSandbox(config),
+    sandbox: isIsolatedAccessMode(config.clusterAccessMode) ? null : mapSandbox(config),
     permissions: null,
     config: threadConfig,
     serviceName: null,
@@ -434,6 +445,11 @@ export class CodexAppServerWorker extends EventEmitter {
   private compactTimeoutMs = COMPACT_TIMEOUT_MS;
   // True once initialize() + thread/start (or thread/resume) succeeded.
   private bootstrapped = false;
+  private isolationAbort = new AbortController();
+  private isolationCleanup: Promise<void> = Promise.resolve();
+  private reissueIsolationPass?: (signal?: AbortSignal) => Promise<void>;
+  private releaseIsolationLease?: () => void;
+  private issuedIsolationTurn = false;
   // Set when the child has been disposed; new turns refuse.
   private disposed = false;
   // Cancellation invalidates attachment preparation before any provider request.
@@ -500,7 +516,8 @@ export class CodexAppServerWorker extends EventEmitter {
     // spawn them per-turn). Operator's `~/.codex/config.toml` mcp_servers
     // entries are unaffected because TOML overrides only set the specific
     // dotted keys.
-    const registryServers = this.config.mcpRegistryServers ?? [];
+    const isolated = isIsolatedAccessMode(this.config.clusterAccessMode);
+    const registryServers = isolated ? [] : this.config.mcpRegistryServers ?? [];
     const spawnArgs: string[] = this.config.interactionMode === 'chat'
       ? ['-c', 'mcp_servers={}']
       : [];
@@ -515,7 +532,7 @@ export class CodexAppServerWorker extends EventEmitter {
       : undefined;
     // The workflow-scoped `arco` plan entry applies to every workflow with a
     // cwd, so this is no longer gated on cluster / codebase-memory.
-    if (this.config.interactionMode !== 'chat' && (this.config.cwd || this.config.clusterId || codebaseMemoryIndexPath || registryServers.length > 0)) {
+    if (!isolated && this.config.interactionMode !== 'chat' && (this.config.cwd || this.config.clusterId || codebaseMemoryIndexPath || registryServers.length > 0)) {
       const port = parseInt(process.env.ARCO_PORT || '3001', 10);
       spawnArgs.push(
         ...buildCodexMcpOverrides(this.workflowId, {
@@ -532,21 +549,75 @@ export class CodexAppServerWorker extends EventEmitter {
         }),
       );
       this.bootstrappedSignature = computeMcpSignature(this.config.clusterId, this.config.clusterTaskBoardAttached === true, codebaseMemoryIndexPath, this.config.providerAccountRef, this.config.codexHome, this.config.clusterAccessMode, this.config.clusterRole, this.config.model, this.config.codexContextPolicy, codexContextWindowOverride(this.config), bootstrapSurfaceKey(this.config));
+    } else if (isolated) {
+      this.bootstrappedSignature = computeMcpSignature(this.config.clusterId, this.config.clusterTaskBoardAttached === true, codebaseMemoryIndexPath, this.config.providerAccountRef, this.config.codexHome, this.config.clusterAccessMode, this.config.clusterRole, this.config.model, this.config.codexContextPolicy, codexContextWindowOverride(this.config), bootstrapSurfaceKey(this.config));
     } else {
       this.bootstrappedSignature = computeMcpSignature(undefined, false, undefined, this.config.providerAccountRef, this.config.codexHome, undefined, undefined, this.config.model, this.config.codexContextPolicy, codexContextWindowOverride(this.config), bootstrapSurfaceKey(this.config));
     }
     if (this.config.incognito) spawnArgs.push('-c', 'history.persistence="none"', '-c', 'analytics.enabled=false');
     spawnArgs.push('app-server');
 
-    this.proc = spawn(...commandArgs('codex', spawnArgs), {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        ...(this.config.codexHome ? { CODEX_HOME: this.config.codexHome } : {}),
-      },
-      cwd: this.config.cwd || undefined,
-      detached: true,
-    });
+    let launch: Awaited<ReturnType<typeof prepareCodexIsolatedLaunch>> | undefined;
+    if (isolated) {
+      const binary = findDiagnosticExecutable('codex');
+      const versionReason = codexResearchVersionReason(installedCodexVersion());
+      if (versionReason) throw new Error(versionReason);
+      if (!binary || !this.config.clusterId) throw new Error('Codex isolation is unavailable for this installation.');
+      const executable = resolvePath(binary);
+      const research = this.config.clusterAccessMode === 'researcher' ? await loadResearch(this.config.clusterId) : null;
+      if (this.config.clusterAccessMode === 'researcher' && (!research || !researcherFor(research, this.workflowId))) throw new Error('Research identity is unavailable.');
+      const mode = research ? { mode: 'researcher' as const, directorWorkflowId: research.directorWorkflowId } : { mode: 'isolated' as const };
+      if (research) { await ensureResearchTripwires(this.config.clusterId); await setResearcherIsolation(this.config.clusterId, this.workflowId, 'checking'); }
+      const broker = codexAccessLeaseBroker(executable, this.config.codexHome);
+      let lease: Awaited<ReturnType<typeof broker.acquire>> | undefined = await broker.acquire(this.isolationAbort.signal);
+      try {
+        const prepared = await prepareCodexIsolatedLaunch({ clusterId: this.config.clusterId, workflowId: this.workflowId,
+          arcoPort: parseInt(process.env.ARCO_PORT || '3001', 10), binary: executable, credentials: lease.credentials, webAccess: true, sourceHome: codexSignInHome(this.config.codexHome), ...mode });
+        const fingerprint = (value: unknown) => {
+          const pass = JSON.parse(workerAccessPass('codex', value)) as { tokens: { access_token: string; account_id: string } };
+          return createHash('sha256').update(pass.tokens.access_token).update('\0').update(pass.tokens.account_id).digest('hex');
+        };
+        const initialPass = JSON.parse(workerAccessPass('codex', lease.credentials)) as { tokens: { account_id: string } };
+        const accountId = initialPass.tokens.account_id;
+        let loaded = fingerprint(lease.credentials), closed = false;
+        this.releaseIsolationLease = () => { lease?.release(); lease = undefined; };
+        this.issuedIsolationTurn = false;
+        this.reissueIsolationPass = async signal => {
+          if (closed) throw new Error('Codex isolation has stopped.');
+          const abort = signal ? AbortSignal.any([signal, this.isolationAbort.signal]) : this.isolationAbort.signal;
+          this.releaseIsolationLease?.();
+          const next = await broker.acquire(abort);
+          try {
+            const pass = JSON.parse(workerAccessPass('codex', next.credentials)) as { tokens: { access_token: string; account_id: string } };
+            if (pass.tokens.account_id !== accountId) throw new Error('Codex account changed while a command is running.');
+            const expected = fingerprint(next.credentials);
+            await prepared.replacePass(next.credentials);
+            if (closed || abort.aborted || !this.rpc) throw new Error('Codex isolation has stopped.');
+            if (expected !== loaded) {
+              const status = await this.rpc.request<{ authToken?: string | null }>('getAuthStatus', { includeToken: true, refreshToken: true }).catch(() => { throw new Error('Codex could not load the renewed access pass.'); });
+              const expectedToken = createHash('sha256').update(pass.tokens.access_token).digest('hex');
+              const actual = typeof status.authToken === 'string' ? createHash('sha256').update(status.authToken).digest('hex') : '';
+              if (actual !== expectedToken) throw new Error('Codex could not load the renewed access pass.');
+            }
+            if (abort.aborted) throw new Error('Codex isolation has stopped.');
+            loaded = expected; lease = next;
+          } catch (error) { next.release(); throw error; }
+        };
+        launch = { ...prepared, close: async () => { closed = true; this.reissueIsolationPass = undefined; try { await prepared.close(); } finally { this.releaseIsolationLease?.(); this.releaseIsolationLease = undefined; } } };
+      } catch (error) { lease?.release(); throw error; }
+      if (this.disposed) { await launch.close(); throw new Error('codex app-server worker disposed'); }
+    }
+    try {
+      this.proc = isolated && launch
+        ? spawn(launch.command.file, launch.command.args, { stdio: ['pipe', 'pipe', 'pipe'], env: { PATH: '/usr/bin:/bin' }, cwd: '/', detached: true })
+        : spawn(...commandArgs('codex', spawnArgs), { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, ...(this.config.codexHome ? { CODEX_HOME: this.config.codexHome } : {}) }, cwd: this.config.cwd || undefined, detached: true });
+    } catch (error) { await launch?.close(); throw error; }
+    if (launch) {
+      const owned = launch;
+      this.isolationCleanup = new Promise<void>(resolve => {
+        this.proc!.once('close', () => { void owned.close().catch(() => { this.emit('system_notice', 'Worker isolation cleanup failed.'); }).finally(resolve); });
+      });
+    }
 
     this.proc.on('exit', (code, signal) => {
       const reason = code !== null ? `code ${code}` : `signal ${signal ?? 'unknown'}`;
@@ -608,6 +679,10 @@ export class CodexAppServerWorker extends EventEmitter {
       // silently miss installed plugin skills.
       this.rpc.notify('initialized');
       console.log(`[appserver:${this.workflowId.slice(0, 8)}] initialized — ${init.userAgent}`);
+      if (isolated) {
+        const effective = await this.rpc.request<{ config?: unknown }>('config/read', { includeLayers: false, cwd: '/work' });
+        if (!launch || !isExpectedCodexIsolationConfig(effective.config, launch.mailUrl)) throw new Error('Codex isolation profile did not match.');
+      }
 
       const threadConfig = await buildThreadConfigOverrides(this.config);
       if (this.config.incognito && this.resumeSessionId) throw new Error('Incognito Computer cannot resume a provider thread.');
@@ -619,10 +694,10 @@ export class CodexAppServerWorker extends EventEmitter {
           model: this.config.model,
           modelProvider: null,
           serviceTier: null,
-          cwd: this.config.cwd ?? null,
+          cwd: isolated ? '/work' : this.config.cwd ?? null,
           approvalPolicy: 'never',
           approvalsReviewer: null,
-          sandbox: mapSandbox(this.config),
+          sandbox: isolated ? null : mapSandbox(this.config),
           permissions: null,
           config: threadConfig,
           baseInstructions: this.config.interactionMode === 'chat' ? (this.config.voiceOperator === true ? VOICE_OPERATOR_PROMPT : this.config.systemPrompt ?? this.config.appendSystemPrompt ?? null) : null,
@@ -648,10 +723,23 @@ export class CodexAppServerWorker extends EventEmitter {
     } catch (err) {
       // Bootstrap failed — tear down so the next operator turn can retry
       // from scratch. Surface the error to the caller.
+      if (isolated) this.hardKill();
       this.teardownProcess();
+      if (isolated) await this.isolationCleanup;
       throw err;
     }
   }
+
+  /** Reissue the pass before a new Arco turn when a running command keeps this worker alive. */
+  async prepareIsolatedTurn(signal?: AbortSignal): Promise<void> {
+    if (!isIsolatedAccessMode(this.config.clusterAccessMode)) return;
+    if (signal?.aborted) throw new Error('Codex isolation has stopped.');
+    if (!this.reissueIsolationPass) throw new Error('Codex isolation is unavailable.');
+    if (!this.issuedIsolationTurn) { this.issuedIsolationTurn = true; return; }
+    await this.reissueIsolationPass(signal);
+  }
+
+  releaseIsolatedTurn(): void { this.releaseIsolationLease?.(); }
 
   // Best-effort `thread/goal/clear`. Never throws — an older app-server
   // without the method, or a thread that has no goal, must not fail bootstrap.
@@ -713,16 +801,17 @@ export class CodexAppServerWorker extends EventEmitter {
     // Surface init for the per-turn wrapper. Fired pre-turn so the
     // `worker_model` event lands before any text/thinking deltas.
     this.emit('init', { model: this.resolvedModel ?? this.config.model, sessionId: this.threadId });
+    if (this.config.clusterAccessMode === 'researcher' && this.config.clusterId) void setResearcherIsolation(this.config.clusterId, this.workflowId, 'sandboxed').catch(() => undefined);
 
     const params: TurnStartParams = {
       threadId: this.threadId,
       input,
       responsesapiClientMetadata: null,
       environments: null,
-      cwd: this.config.cwd ?? null,
+      cwd: isIsolatedAccessMode(this.config.clusterAccessMode) ? '/work' : this.config.cwd ?? null,
       approvalPolicy: 'never',
       approvalsReviewer: null,
-      sandboxPolicy: this.buildSandboxPolicy(),
+      sandboxPolicy: isIsolatedAccessMode(this.config.clusterAccessMode) ? null : this.buildSandboxPolicy(),
       permissions: null,
       model: this.config.model,
       serviceTier: null,
@@ -1004,6 +1093,7 @@ export class CodexAppServerWorker extends EventEmitter {
   // any) is force-settled.
   async dispose(): Promise<void> {
     if (this.disposed) return;
+    this.isolationAbort.abort();
     this.disposed = true;
     this.operatorQuestions.cancel('The worker was disposed.');
     // Force a settle if a turn is in flight — caller (workflow remove)
@@ -1035,7 +1125,7 @@ export class CodexAppServerWorker extends EventEmitter {
       }, 500);
     }
     this.teardownProcess();
-    await Promise.all([exited, this.retiredProcessExit]);
+    await Promise.all([exited, this.retiredProcessExit, this.isolationCleanup]);
   }
 
   // Wire the SandboxPolicy field on `turn/start`. Defaults to the same
@@ -1578,7 +1668,7 @@ export class CodexAppServerWorker extends EventEmitter {
       const reason = p.turn.error?.message ?? 'turn failed (no message)';
       const info = p.turn.error?.codexErrorInfo;
       if (info) this.applyCodexErrorInfo(info, reason);
-      this.settleTurn({ error: reason });
+      this.settleTurn({ error: info === 'unauthorized' && this.config.clusterAccessMode === 'researcher' ? 'Codex authentication failed.' : reason });
       return;
     }
     // Completed cleanly. Build the Arco-shape result.
@@ -1658,6 +1748,7 @@ export class CodexAppServerWorker extends EventEmitter {
       return;
     }
     if (info === 'unauthorized') {
+      if (this.config.clusterAccessMode === 'researcher') return;
       // [AUTH:<provider>] sentinel — see GOTCHAS.md "Auth-expired notices".
       this.emit('system_notice', `[AUTH:${appServerProvider(this.config)}] ${fallbackMsg}`);
       return;
