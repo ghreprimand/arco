@@ -25,5 +25,5 @@ export async function detectInitialProviders(
   const ids = ['claude', 'codex', 'cursor', 'ollama', 'lmstudio', 'llamacpp'] as const;
   const statuses = await Promise.all(ids.map(id => check(id).then(status => status.loggedIn).catch(() => false)));
   const binaries = await Promise.all(['ollama', 'lms', 'llama-server'].map(name => binary(name).catch(() => false)));
-  return { claude: statuses[0], codex: statuses[1], cursor: statuses[2], ollama: statuses[3] || binaries[0], lmstudio: statuses[4] || binaries[1], llamacpp: statuses[5] || binaries[2], strata: false, deepseek: false };
+  return { claude: statuses[0], codex: statuses[1], cursor: statuses[2], ollama: statuses[3] || binaries[0], lmstudio: statuses[4] || binaries[1], llamacpp: statuses[5] || binaries[2], strata: false, deepseek: false, 'antigravity-cli': false };
 }

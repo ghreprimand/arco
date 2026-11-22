@@ -683,6 +683,7 @@ export interface Capabilities {
   // semver, and not npm-installed. Its own updater handles row clicks; latest
   // metadata is read as text from the public installer without executing it.
   cursorVersion?: string;
+  antigravityVersion?: string;
   // Live engine version, falling back to prepared engine/BUILD.json while stopped.
   strataVersion?: string;
   // Xolotl checkout revision; source tracking, not a claim about a rebuilt binary.
@@ -811,6 +812,7 @@ export interface AuthStatusByProvider {
   // token maintained by `cursor-agent`. No Arco-managed login flow; the
   // operator runs `cursor-agent login` once.
   cursor: AuthStatus;
+  'antigravity-cli'?: AuthStatus;
 }
 
 // Fired on WS connect when the server has detected one or more CLI help

@@ -283,7 +283,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
         <p>Native sign-in keeps its PKCE verifier on the server. Browser sign-in and callback URLs use an independent random state. Local callback and manual paste share the same flow checks.</p>
         <p>Saved Native login tokens use Anthropic unless <C>claudeNative.baseUrl</C> is set in the global settings file. Project settings and inherited <C>ANTHROPIC_BASE_URL</C> cannot redirect them. Saved-login requests do not forward an unrelated environment API key. A custom endpoint receives the saved token; configure only a trusted destination. Remove the setting to restore Anthropic.</p>
         <p>
-          The sign-in rows show provider status and sign-in controls. Claude
+          Antigravity CLI LOG IN runs agy's own account-wide sign-in and accepts its code or return URL; a successful login updates the status. Use it only for interactive work on one account. The sign-in rows show provider status and sign-in controls. Claude
           Native, Claude CLI, Codex profiles and Cursor use separate sign-ins.
           GitHub sign-in is also available in Connections. Cursor LOG IN runs
           the same sign-in as Connections under its row: open the link, and the

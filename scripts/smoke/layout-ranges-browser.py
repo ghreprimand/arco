@@ -91,10 +91,12 @@ TASKS = [{'id': f'task-{i}', 'title': title, 'status': status, 'links': [], 'not
          for i, (title, status) in enumerate([('Review the release checklist', 'review'), ('Verify the project list', 'in_progress')], 1)]
 
 
-async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False, no_director=False, research=False):
-    context = await browser.new_context(viewport={'width': width, 'height': height})
+async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False, no_director=False, research=False, antigravity=False, touch=False):
+    context = await browser.new_context(viewport={'width': width, 'height': height}, has_touch=touch)
     snapshot = json.dumps({'type': 'task_ledger_snapshot', 'workflowId': 'worker-0', 'cwd': '/projects/harbor', 'boardKey': 'demo', 'tasks': TASKS})
     fixture = single_state() if single else fixture_state()
+    if antigravity:
+        fixture['state']['jobs']['worker-1']['config'].update({'kind': 'chat', 'primaryProvider': 'antigravity-cli', 'primaryModel': 'gemini-fixture'})
     if no_director: fixture['state']['clusters']['demo-cluster']['members'][0]['role'] = 'Builder'
     if research:
         cluster = fixture['state']['clusters']['demo-cluster']
@@ -129,6 +131,7 @@ async def open_page(browser, base, width, scale=1.0, layout=None, height=800, si
             response = await route.fetch()
             data = await response.json()
             data.update({'uiScale': scale, 'onboardingComplete': True, 'updateCheck': False})
+            if antigravity: data.setdefault('enabledProviders', {})['antigravity-cli'] = True
             await route.fulfill(response=response, json=data); return
         # The UI store/socket uses synthetic workflow IDs, not server workflows.
         # Supply the skill catalog for this layout-only fixture as well.
@@ -136,10 +139,15 @@ async def open_page(browser, base, width, scale=1.0, layout=None, height=800, si
             await route.fulfill(json={'project': [], 'global': [], 'builtin': [
                 {'slug': 'architecture-review', 'name': 'Architecture review', 'description': 'Inspect a synthetic project.'}
             ]}); return
+        if antigravity and u.path.startswith('/api/antigravity-chat-folder/'):
+            await route.fulfill(json={'path': '/projects/harbor'}); return
         if u.path == '/api/toolbox' and route.request.method == 'GET':
             await route.fulfill(json={'supported': True, 'entries': []}); return
         if u.path in ('/api/auth-status', '/api/capabilities') or u.path.endswith('/catalog'):
-            await route.fulfill(json=api_data(u.path, scale)); return
+            data = api_data(u.path, scale)
+            if antigravity and u.path == '/api/auth-status': data['antigravity-cli'] = {'loggedIn': False, 'probeFailed': True, 'installedModels': ['gemini-fixture']}
+            if antigravity and u.path == '/api/capabilities': data['antigravityVersion'] = '1.5.14'
+            await route.fulfill(json=data); return
         await route.continue_()
     await context.route('**/*', route_request)
     page = await context.new_page()
@@ -379,6 +387,18 @@ async def run(base):
                 assert not errors, errors
                 await context.unroute_all(behavior='wait')
                 await context.close()
+            # Antigravity owns its tools; the Chat must not claim it has no web access.
+            context, page, errors = await open_page(browser, base, 1024, single=True, antigravity=True)
+            await expect(page.get_by_text('AGY TOOLS', exact=True)).to_be_visible()
+            await expect(page.get_by_role('button', name='OPEN FOLDER')).to_be_visible()
+            await page.get_by_role('button', name='OPEN FOLDER').click()
+            await expect(page.get_by_role('dialog', name='Antigravity Chat working folder')).to_be_visible()
+            await page.keyboard.press('Escape')
+            await expect(page.get_by_text('○ NO WEB', exact=True)).to_have_count(0)
+            await expect(page.get_by_text('No web access', exact=False)).to_have_count(0)
+            assert not errors, errors
+            await context.unroute_all(behavior='wait')
+            await context.close()
             # Research projects expose their own controls and folder, not generic member management.
             context, page, errors = await open_page(browser, base, 2000, layout='standard', research=True)
             await expect(page.get_by_role('button', name='OPEN FOLDER')).to_be_visible()

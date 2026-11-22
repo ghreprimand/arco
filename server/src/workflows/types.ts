@@ -204,6 +204,8 @@ export interface WorkflowState {
 // per-item cancel and queue-strip [×]). The wire `queue_update` snapshot
 // re-projects to QueueEntry (content + clientMessageId + interrupt intent).
 export interface QueueItem {
+  // Server-only: this item was accepted from an operator message.
+  operatorInitiated?: boolean;
   // Server-only provenance, never accepted from a browser message.
   clusterBusyReminder?: boolean;
   automaticKind?: import('@arco/shared').AutomaticMessageKind;

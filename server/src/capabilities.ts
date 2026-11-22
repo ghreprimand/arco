@@ -79,17 +79,18 @@ export async function probeCapabilities(): Promise<Capabilities> {
   }
 
   const codexDecision = npmLatest('@openai/codex').then(probeCodexUpdate);
-  const [cliVersion, codexVersion, cursorVersion, strataVersion, xolotlRevision, latestVersions, codexUpdate] = await Promise.all([
+  const [cliVersion, codexVersion, cursorVersion, antigravityVersion, strataVersion, xolotlRevision, latestVersions, codexUpdate] = await Promise.all([
     probeVersion('claude'),
     probeVersion('codex'),
     probeVersion('cursor-agent'),
+    probeVersion('agy'),
     probeStrataVersion(await getStrataBase()),
     installedXolotlRevision(await getDeepSeekBase()),
     probeLatestVersions(codexDecision),
     codexDecision,
   ]);
 
-  return { efforts, models: MODELS, cliVersion, codexVersion, cursorVersion, strataVersion, xolotlRevision, latestVersions,
+  return { efforts, models: MODELS, cliVersion, codexVersion, cursorVersion, antigravityVersion, strataVersion, xolotlRevision, latestVersions,
     codexUpdate: { kind: codexUpdate.kind, updateAvailable: !!codexUpdate.targetVersion && (compareVersions(codexVersion, codexUpdate.targetVersion) ?? 0) < 0, instruction: codexUpdate.message ?? codexUpdate.notice } };
 }
 

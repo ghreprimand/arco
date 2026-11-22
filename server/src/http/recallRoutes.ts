@@ -34,7 +34,7 @@ const WFID_PATTERN = /^[a-zA-Z0-9-]{1,64}$/;
 // Record<ProviderName, true> so adding a provider to the union fails the
 const PROVIDER_FLAGS: Record<ProviderName, true> = {
   claude: true, codex: true,  ollama: true, llamacpp: true,
-   lmstudio: true, strata: true, deepseek: true, cursor: true,
+   lmstudio: true, strata: true, deepseek: true, cursor: true, 'antigravity-cli': true,
 };
 const PROVIDERS = new Set<ProviderName>(Object.keys(PROVIDER_FLAGS) as ProviderName[]);
 

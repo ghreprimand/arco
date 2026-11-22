@@ -212,6 +212,8 @@ export function runPrimaryTurn(
     // byte-stable text — anything dynamic invalidates the prefix cache.
     systemPrompt?: string;
     interactionMode?: WorkerConfig['interactionMode'];
+    antigravityInteractive?: boolean;
+    antigravityChatWorkspace?: boolean;
     disableProviderHooks?: boolean;
     // Chat-only: arm the provider's web tools for this turn.
     chatWebAccess?: boolean;
@@ -399,6 +401,8 @@ export function runPrimaryTurn(
     fallbackModel: primary.fallbackModel,
     attachments,
     interactionMode,
+    antigravityInteractive: args.antigravityInteractive,
+    antigravityChatWorkspace: args.antigravityChatWorkspace,
     disableProviderHooks,
     chatWebAccess,
     voiceOperator,
@@ -458,7 +462,7 @@ export function runPrimaryTurn(
     else if (claudeNewSessionId) spawnOptions.sessionId = claudeNewSessionId;
   } else if ((primary.provider === 'codex') && !incognito) {
     if (resumeSessionId) spawnOptions.resumeSessionId = resumeSessionId;
-  } else if (primary.provider === 'cursor') {
+  } else if (primary.provider === 'cursor' || primary.provider === 'antigravity-cli') {
     // Cursor (ACP): the worker persists its sessionId via the `init` event
     // (onInit above → primarySessionId). On a later turn we thread that id
     // back so the worker attempts ACP `session/load` before falling back to

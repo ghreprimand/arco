@@ -45,6 +45,31 @@ const GIT_MAX_BUFFER = 16 * 1024 * 1024;
 // snapshot so a long session can't grow refs/arco unbounded.
 const MAX_CHECKPOINTS_PER_WORKFLOW = 50;
 
+// Provider account and conversation state is not project work. Exclude it
+// only at its real home location; project-local configuration stays in scope.
+async function providerHomePaths(cwd: string): Promise<string[]> {
+  const root = await fs.realpath(cwd);
+  const home = await fs.realpath(homedir());
+  const result: string[] = [];
+  for (const name of ['.claude', '.claude.json', '.codex', '.cursor', '.gemini']) {
+    const target = path.join(home, name);
+    const rel = path.relative(root, target);
+    if (!rel || (!rel.startsWith(`..${path.sep}`) && rel !== '..' && !path.isAbsolute(rel))) result.push(rel.split(path.sep).join('/') || '.');
+    else {
+      const within = path.relative(target, root);
+      if (!within || (!within.startsWith(`..${path.sep}`) && within !== '..' && !path.isAbsolute(within))) result.push('.');
+    }
+  }
+  return result;
+}
+
+async function protectedTree(cwd: string, gitDir: string, tree: string, root: string): Promise<boolean> {
+  const protectedPaths = await providerHomePaths(root);
+  if (!protectedPaths.length) return false;
+  const paths = await listTreePaths(cwd, gitDir, tree);
+  return !paths || protectedPaths.includes('.') || paths.some(file => protectedPaths.some(folder => pathsOverlap(file, folder)));
+}
+
 export interface CreateCheckpointArgs {
   cwd: string;
   workflowId: string;
@@ -182,6 +207,8 @@ async function createGitCheckpoint(
   // what the operator would see). On an unborn HEAD (fresh repo, no commits)
   // skip the read-tree and let add -A build the index from scratch.
   const snapEnv: NodeJS.ProcessEnv = { GIT_INDEX_FILE: snapIndex };
+  const protectedPaths = await providerHomePaths(await gitCheckpointWorkTree(cwd, gitDir));
+  if (protectedPaths.includes('.')) return null;
   const headExists = (await runGit(cwd, ['--git-dir', gitDir, 'rev-parse', '--verify', 'HEAD'])).code === 0;
 
   try {
@@ -193,10 +220,14 @@ async function createGitCheckpoint(
       }
     }
     // Stage the whole working tree into the SEPARATE index (never the user's).
-    const add = await runGit(cwd, ['--git-dir', gitDir, 'add', '-A'], snapEnv);
+    const add = await runGit(cwd, ['--git-dir', gitDir, 'add', '-A', '--', ':/', ...protectedPaths.map(p => `:(top,exclude,literal)${p}`)], snapEnv);
     if (add.code !== 0) {
       console.error(`[arco] gitSnapshots add -A failed: ${add.stderr.trim()}`);
       return null;
+    }
+    if (protectedPaths.length) {
+      const drop = await runGit(cwd, ['--git-dir', gitDir, 'rm', '--cached', '-r', '-q', '--ignore-unmatch', '--', ...protectedPaths.map(p => `:(top,literal)${p}`)], snapEnv);
+      if (drop.code !== 0) return null;
     }
     const writeTree = await runGit(cwd, ['--git-dir', gitDir, 'write-tree'], snapEnv);
     if (writeTree.code !== 0) {
@@ -326,6 +357,8 @@ async function collectSnapshotFiles(
   totalCap: number,
 ): Promise<SnapshotWalk> {
   const files: string[] = [];
+  const protectedPaths = await providerHomePaths(root);
+  if (protectedPaths.includes('.')) return { files, skippedLargePaths: [], exceededTotal: false, exceededScan: true };
   const skippedLargePaths: string[] = [];
   const skippedNestedPaths: string[] = [];
   let total = 0;
@@ -345,6 +378,7 @@ async function collectSnapshotFiles(
       if (ent.name === '.git') continue;
       if (rel === '' && ent.name === '.arco') continue;
       const relPath = rel ? `${rel}/${ent.name}` : ent.name;
+      if (protectedPaths.includes(relPath)) continue;
       if (ent.isDirectory()) {
         stack.push(relPath);
       } else if (ent.isSymbolicLink()) {
@@ -711,7 +745,7 @@ interface PreparedRestore {
   limitation?: string;
 }
 
-type PrepareOutcome = PreparedRestore | { problem: 'missing' | 'legacy' | 'failed' | 'too-large' | 'capped-overlap' | 'nested-overlap' | 'legacy-overlap'; limitation?: string };
+type PrepareOutcome = PreparedRestore | { problem: 'missing' | 'legacy' | 'failed' | 'too-large' | 'capped-overlap' | 'nested-overlap' | 'legacy-overlap' | 'provider-overlap'; limitation?: string };
 
 function scratchIndex(cwd: string, workflowId: string, seq: number): string {
   // CRUCIAL: OUTSIDE the working tree. `read-tree -u --reset` sweeps
@@ -728,6 +762,9 @@ async function prepareGitRestore(cwd: string, gitDir: string, workflowId: string
     console.error(`[arco] gitSnapshots revert: checkpoint ${ref} not found (pruned?)`);
     return { problem: 'missing' };
   }
+  const root = await gitCheckpointWorkTree(cwd, gitDir);
+  if (await protectedTree(cwd, gitDir, tree, root)) return { problem: 'provider-overlap' };
+  const protectedPaths = await providerHomePaths(root);
   const index = scratchIndex(cwd, workflowId, seq);
   const env: NodeJS.ProcessEnv = { GIT_INDEX_FILE: index };
   await fs.rm(index, { force: true }).catch(() => {});
@@ -760,7 +797,7 @@ async function prepareGitRestore(cwd: string, gitDir: string, workflowId: string
   // does NOT ignore it. Both must succeed — a seeded .arco would be swept
   // from the working tree by `read-tree -u --reset` (it's absent from every
   // checkpoint tree).
-  const add = await runGit(cwd, ['--git-dir', gitDir, 'add', '-A'], env);
+  const add = await runGit(cwd, ['--git-dir', gitDir, 'add', '-A', '--', ':/', ...protectedPaths.map(p => `:(top,exclude,literal)${p}`)], env);
   if (add.code !== 0) {
     console.error(`[arco] gitSnapshots revert seed add -A failed: ${add.stderr.trim()}`);
     await fs.rm(index, { force: true }).catch(() => {});
@@ -768,7 +805,7 @@ async function prepareGitRestore(cwd: string, gitDir: string, workflowId: string
   }
   const drop = await runGit(
     cwd,
-    ['--git-dir', gitDir, 'rm', '--cached', '-r', '-q', '--ignore-unmatch', '--', '.arco'],
+    ['--git-dir', gitDir, 'rm', '--cached', '-r', '-q', '--ignore-unmatch', '--', '.arco', ...protectedPaths.map(p => `:(top,literal)${p}`)],
     env,
   );
   if (drop.code !== 0) {
@@ -792,7 +829,7 @@ async function prepareShadowRestore(cwd: string, workflowId: string, seq: number
   if (!tree) {
     // Not in the shadow store: a legacy tar checkpoint, or pruned.
     const tar = await fs.access(path.join(checkpointStoreRoot(cwd), `${workflowId}.${seq}.tar`)).then(() => true, () => false);
-    return { problem: tar ? 'legacy' : 'missing' };
+    return { problem: tar && (await providerHomePaths(cwd)).length ? 'provider-overlap' : tar ? 'legacy' : 'missing' };
   }
   const walk = await collectSnapshotFiles(cwd, fileCapBytes(), totalCapBytes());
   if (walk.exceededTotal || walk.exceededScan) {
@@ -801,6 +838,7 @@ async function prepareShadowRestore(cwd: string, workflowId: string, seq: number
   }
   const targetPaths = await listTreePaths(cwd, gitDir, tree);
   if (!targetPaths) return { problem: 'failed' };
+  if ((await providerHomePaths(cwd)).some(folder => folder === '.' || targetPaths.some(file => pathsOverlap(file, folder)))) return { problem: 'provider-overlap' };
   const nestedOverlap = (walk.skippedNestedPaths ?? []).filter(folder => targetPaths.some(file => pathsOverlap(folder, file)));
   if (nestedOverlap.length) return { problem: 'nested-overlap', limitation: nestedScopeNotice(nestedOverlap) };
   // Never overwrite a file that is currently over cap. If the target tree
@@ -888,6 +926,7 @@ const PREVIEW_PROBLEMS: Record<Exclude<PrepareOutcome, PreparedRestore>['problem
   'nested-overlap': 'A nested repository overlaps this checkpoint. Those files are not included, so nothing was changed.',
   'legacy-overlap': 'An unrecorded folder overlaps this older checkpoint. Nothing was changed.',
   'capped-overlap': 'A file now over the per-file checkpoint size limit is part of this checkpoint, so a revert would be refused.',
+  'provider-overlap': 'This checkpoint contains provider account or conversation state, so a revert would be refused.',
 };
 
 /** What REVERT TO HERE would change, without changing anything. */
@@ -953,6 +992,7 @@ async function revertTarCheckpoint(
   workflowId: string,
   seq: number,
 ): Promise<RevertResult | null> {
+  if ((await providerHomePaths(cwd)).length) return null;
   const root = checkpointStoreRoot(cwd);
   const tarName = `${workflowId}.${seq}.tar`;
   const tarPath = path.join(root, tarName);

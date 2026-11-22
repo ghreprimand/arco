@@ -5,6 +5,8 @@ Legacy tar checkpoints are staged and checked before restoring any project file.
 Automatic working-tree snapshots taken **before and after file-mutating operator turns**, so the
 operator can undo what an agent did independent of their own git history. The model never sees them.
 
+Both checkpoint backends exclude provider account and conversation state at the user's home: `.claude`, `.claude.json`, `.codex`, `.cursor` and `.gemini`. Project-local folders with the same names remain in scope. An older checkpoint that contains home provider state cannot be restored; legacy tar restores are refused when the working tree contains that state. This prevents undo from replacing a provider's live session or sign-in files.
+
 ## Mechanism (`server/src/gitSnapshots.ts`)
 
 `createCheckpoint({ cwd, workflowId, seq, label })`:

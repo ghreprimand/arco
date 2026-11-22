@@ -28,7 +28,7 @@ import { checkpointRestoreScopes, createCheckpoint, revertToCheckpoint } from '.
 import { acquireCheckoutRestore, CheckoutInUseError, workflowWritePaths } from '../checkoutOwnership.js';
 import { rememberCwd } from '../crashRecovery.js';
 import { genesisScratchDir } from '../genesis/scaffold.js';
-import { CHAT_PROVIDERS, INCOGNITO_CHAT_PROVIDERS, chatStorageDir, incognitoChatCwd, isChatWorkflow } from '../chatMode.js';
+import { CHAT_PROVIDERS, INCOGNITO_CHAT_PROVIDERS, chatStorageDir, incognitoChatCwd, isChatWorkflow, prepareAntigravityChatWorkspace } from '../chatMode.js';
 import { registerPrivateLogToken } from '../server/logger.js';
 import { assessGenesisReadiness } from '../genesis/stages.js';
 import { nextFieldPrompt } from '../genesis/prompts.js';
@@ -185,6 +185,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       primaryProvider: saved.primaryProvider,
       primaryModel: saved.primaryModel,
       primaryEffort: saved.primaryEffort,
+      ...(saved.primaryProvider === 'antigravity-cli' ? { skipPermissions: saved.antigravitySkipPermissions === true } : {}),
       autoCompaction: resolveAutoCompactionPolicy(saved.autoCompaction, undefined) ?? (saved.efficiencyAutoCompact === 'conservative' ? { enabled: true, thresholdPercent: 80 } : saved.efficiencyAutoCompact === 'aggressive' ? { enabled: true, thresholdPercent: 70 } : undefined),
       ...(saved.providerAccountRef ? { providerAccountRef: saved.providerAccountRef } : {}),
       ...(saved.claudeTransport
@@ -312,7 +313,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       return;
     }
     if (config.incognito && !INCOGNITO_CHAT_PROVIDERS.has(primary.provider)) {
-      send(ws, { type: 'error', message: `${primary.provider} cannot guarantee a non-persistent CLI session in Incognito Chat.` });
+      send(ws, { type: 'error', message: primary.provider === 'antigravity-cli' ? 'Antigravity keeps its own conversation history, so Arco cannot offer an incognito chat.' : `${primary.provider} cannot guarantee a non-persistent CLI session in Incognito Chat.` });
       return;
     }
     if (config.voiceOperator) {
@@ -324,7 +325,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       if (primary.provider === 'claude') config.claudeTransport = 'native';
       config.computerContext ??= { keepContext: false, resets: 0 };
     }
-    config.skipPermissions = false;
+    if (primary.provider !== 'antigravity-cli') config.skipPermissions = false;
     if (config.incognito) {
       // A provider process still needs an existing cwd. The bare OS temp root
       // is shared + world-writable (another user's /tmp/CLAUDE.md, AGENTS.md,
@@ -344,6 +345,7 @@ export async function handleCreateWorkflow(ws: WebSocket, session: Session, conf
       try {
         config.workingDirectory = chatStorageDir(workflowId);
         await fsPromises.mkdir(config.workingDirectory, { recursive: true });
+        if (primary.provider === 'antigravity-cli') await prepareAntigravityChatWorkspace(workflowId, resumed);
       } catch (err) {
         console.error('[arco] chat storage dir create failed:', err);
         send(ws, { type: 'error', message: 'Could not create the private Chat storage directory.' });

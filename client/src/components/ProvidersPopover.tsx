@@ -21,7 +21,7 @@ import { setProviderPanelOpen } from './providerPanelState';
 // to sit in SystemHeader.
 
 type CliProvider = 'claude' | 'codex' | 'cursor';
-type VersionedProvider = CliProvider | 'ollama' | 'llamacpp' | 'strata' | 'deepseek';
+type VersionedProvider = CliProvider | 'antigravity-cli' | 'ollama' | 'llamacpp' | 'strata' | 'deepseek';
 
 // Lightweight semver compare — the four upstream sources we read all emit
 // dotted-numeric versions (npm registry + GitHub release tags after stripping
@@ -201,6 +201,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
     // npm registry latest to compare against). Its public installer supplies
     // latest metadata; a row click runs its updater and the changelog stays separate.
     { provider: 'cursor' as VersionedProvider, label: 'CURSOR', version: capabilities?.cursorVersion ?? 'unknown' },
+    { provider: 'antigravity-cli' as VersionedProvider, label: 'ANTIGRAVITY', version: capabilities?.antigravityVersion ?? 'unknown' },
   ] as const)
     .filter(({ provider, version }) => {
       // Hide providers the operator disabled in settings (null = fail-open during
@@ -220,7 +221,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
       // an npm lookup. A broken
       // CLI has no parseable version either, so skip the compare rather than let
       // compareSemver read 'broken' as 0.0.0 and call it outdated.
-      const latest = broken ? undefined : r.provider === 'deepseek' ? capabilities?.latestVersions?.xolotl : capabilities?.latestVersions?.[r.provider];
+      const latest = broken ? undefined : r.provider === 'deepseek' ? capabilities?.latestVersions?.xolotl : r.provider === 'antigravity-cli' ? undefined : capabilities?.latestVersions?.[r.provider];
       const outdated = r.provider === 'codex' && capabilities?.codexUpdate
         ? capabilities.codexUpdate.updateAvailable
         : !!latest && (r.provider === 'deepseek' ? r.version !== latest : r.provider === 'llamacpp' ? (compareLlamacppBuild(r.version, latest) ?? 0) < 0 : r.provider === 'cursor' ? (compareCursorVersions(r.version, latest) ?? 0) < 0 : compareSemver(r.version, latest) < 0);
@@ -304,7 +305,8 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
             const isDeepSeek = provider === 'deepseek';
             const isLlamacpp = provider === 'llamacpp';
             const isCursor = provider === 'cursor';
-            const isCli = !isOllama && !isLlamacpp && !isStrata && !isDeepSeek;
+            const isAntigravity = provider === 'antigravity-cli';
+            const isCli = !isOllama && !isLlamacpp && !isStrata && !isDeepSeek && !isAntigravity;
             const busy = isCli && checking === (provider as CliProvider);
             const result = isCli ? checkResult[provider as CliProvider] : null;
             const detail = isCli ? checkDetail[provider as CliProvider] : null;
@@ -313,7 +315,7 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
             // For llama.cpp the lifecycle manager owns the spawned server, so we
             // know exactly which model is in VRAM — surface it on the row.
             const llamacppLoadedAlias = isLlamacpp ? (llamacppLive?.loadedModel ?? null) : null;
-            const baseTitle = broken
+            const baseTitle = isAntigravity ? `Antigravity CLI ${version}. Open Connections.` : broken
               ? `${label} is installed but is not responding to --version: click for update options and the error`
               : isDeepSeek
                 ? `Xolotl checkout ${version}${outdated ? ' · upstream revision differs' : ''}. Click for source changes inside Arco. This does not update or rebuild the engine.`
@@ -332,7 +334,9 @@ export function ProvidersPopover({ open: controlledOpen, onOpenChange }: { open?
                 : outdated
                   ? `${label} CLI outdated: v${version} → v${latest} (click to install)`
                   : `${label} CLI v${version} (click to check for updates)`;
-            const onClick = isDeepSeek
+            const onClick = isAntigravity
+              ? () => { setOpen(false); useStartupStore.getState().openConnections('antigravity-cli'); }
+              : isDeepSeek
               ? () => openReleases('xolotl')
               : isStrata
               ? () => openReleases('strata')

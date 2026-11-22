@@ -27,3 +27,20 @@ test('conditional claim fences cancellation, removal and a concurrent operator t
     assert.equal(wf.busy,false); assert.deepEqual(wf.queue,{steering:[],followUp:[]});
   } finally { workflows.delete(id); }
 });
+
+test('Antigravity refuses automatic, internal and scheduling turns before dispatch', async () => {
+  const id = 'antigravity-guard-fixture';
+  const session = { id:'test', workflowIds:new Set([id]), clusterIds:new Set(), clusterObserved:new Map() } as Session;
+  const sent: Array<{type:string;message?:string}> = [];
+  const ws = { readyState:1, send:(raw:string)=>sent.push(JSON.parse(raw)) } as unknown as WebSocket;
+  const wf = { config:{kind:'workflow',workingDirectory:'/fixture'}, primary:{provider:'antigravity-cli',model:'gemini-fixture'}, busy:false, queue:{steering:[],followUp:[]}, observers:new Set() } as unknown as WorkflowState;
+  workflows.set(id,wf);
+  try {
+    await handleUserMessage(ws,session,id,'automatic',undefined,undefined,false,undefined,undefined,undefined,{automaticKind:'nudge'});
+    await handleUserMessage(ws,session,id,'internal',undefined,undefined,false,undefined,undefined);
+    await handleUserMessage(ws,session,id,'/schedule later',undefined,undefined,false,undefined,undefined,undefined,{operatorInitiated:true});
+    assert.equal(wf.busy,false); assert.equal(sent.length,3);
+    assert.ok(sent.every(event=>event.type==='error'));
+    assert.match(sent[2].message ?? '', /scheduling.*unavailable/i);
+  } finally { workflows.delete(id); }
+});

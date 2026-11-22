@@ -1,3 +1,4 @@
+import { antigravityChatWorkspace } from '../chatMode.js';
 import { existingClusterMemberRefusal } from '../existingClusterMembers.js';
 import { recipientContext } from '../peerRecipientContext.js';
 import { isResearchMemberBusy, revealResearch, startRound } from '../research/researchRounds.js';
@@ -38,6 +39,14 @@ export async function tryHandleClusterRoutes(
   res: ServerResponse,
   deps: HttpDeps,
 ): Promise<boolean> {
+  const chatFolder = req.method === 'GET' && req.url ? /^\/api\/antigravity-chat-folder\/([0-9a-f-]{36})$/.exec(req.url) : null;
+  if (chatFolder) {
+    const wf = workflows.get(chatFolder[1]);
+    if (!wf || wf.config.kind !== 'chat' || wf.primary.provider !== 'antigravity-cli' || wf.config.incognito) { res.writeHead(404); res.end(); return true; }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ path: antigravityChatWorkspace(chatFolder[1]) }));
+    return true;
+  }
   // Durable live-cluster catalog. Cluster tabs are a browser-side working set,
   // while ~/.arco/clusters is authoritative; this read-only surface lets an
   // operator reopen an intact cluster whose localStorage tab was lost without

@@ -299,7 +299,7 @@ export const workspace: Section[] = [
           captured checkpoint diff. UNDO THIS TURN uses the existing restore
           confirmation and safety snapshot; restoring also reverts later work
           in that folder. After it runs the line reads Undone and
-          UNDO THIS TURN stays disabled.
+          UNDO THIS TURN stays disabled. Provider account and conversation state in the home folder is excluded. An older checkpoint containing that state cannot be restored.
         </p>
         <h4 className="manual-sub">Chat controls</h4>
         <p>

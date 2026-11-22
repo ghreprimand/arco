@@ -14,7 +14,7 @@ test('new home saves only detected providers and existing choices stay intact', 
   const file = join(home, 'settings.json');
   const claudeOnly = () => detectInitialProviders(async id => ({ loggedIn: id === 'claude' }), async () => false);
   assert.equal(await initializeProviderSettings(claudeOnly), true);
-  const expected = { claude: true, codex: false, cursor: false, ollama: false, lmstudio: false, llamacpp: false, strata: false, deepseek: false };
+  const expected = { claude: true, codex: false, cursor: false, ollama: false, lmstudio: false, llamacpp: false, strata: false, deepseek: false, 'antigravity-cli': false };
   assert.deepEqual((await readSettings()).enabledProviders, expected);
   assert.deepEqual(JSON.parse(readFileSync(file, 'utf8')).enabledProviders, expected);
   assert.equal(await initializeProviderSettings(async () => { throw new Error('unexpected probe'); }), false);
@@ -25,7 +25,7 @@ test('new home saves only detected providers and existing choices stay intact', 
   assert.equal(local.lmstudio, true); assert.equal(local.llamacpp, true); assert.equal(local.ollama, false);
   writeFileSync(file, JSON.stringify({ textBrightness: 10 }));
   assert.equal(await initializeProviderSettings(claudeOnly), false);
-  assert.ok(Object.values((await readSettings()).enabledProviders).every(Boolean));
+  { const enabled = (await readSettings()).enabledProviders; assert.equal(enabled['antigravity-cli'], false); assert.ok(Object.entries(enabled).filter(([id]) => id !== 'antigravity-cli').every(([, value]) => value)); }
   writeFileSync(file, JSON.stringify({ enabledProviders: { claude: false, cursor: true } }));
   assert.equal(await initializeProviderSettings(claudeOnly), false);
   assert.equal((await readSettings()).enabledProviders.claude, false);
@@ -33,5 +33,5 @@ test('new home saves only detected providers and existing choices stay intact', 
   rmSync(file);
   writeFileSync(join(home, 'known-cwds.json'), '["fixture"]');
   assert.equal(await initializeProviderSettings(claudeOnly), false);
-  assert.ok(Object.values((await readSettings()).enabledProviders).every(Boolean));
+  { const enabled = (await readSettings()).enabledProviders; assert.equal(enabled['antigravity-cli'], false); assert.ok(Object.entries(enabled).filter(([id]) => id !== 'antigravity-cli').every(([, value]) => value)); }
 });

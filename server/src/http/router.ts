@@ -1843,6 +1843,7 @@ export async function handleHttpRequest(
         : raw === 'ollama' ? 'ollama'
         : raw === 'codex' ? 'codex'
         : raw === 'cursor' ? 'cursor'
+        : raw === 'antigravity-cli' ? 'antigravity-cli'
         : 'claude';
       const account = url.searchParams.get('account') || undefined;
       const result = await triggerAuthLogin(provider, account);

@@ -98,6 +98,7 @@ function buildProviderTheme(p: ProviderPalette): Theme {
 
 // Per-provider brand palettes. Keyed by ProviderName.
 export const PROVIDER_THEMES: Record<ProviderName, Theme> = {
+  'antigravity-cli': buildProviderTheme({ id: 'provider-antigravity-cli', name: 'Antigravity CLI', description: 'Antigravity: cool blue', bg: '#1a1a1a', panel: 'rgba(38, 38, 38, 0.95)', input: 'rgba(26, 26, 26, 0.97)', elevated: 'rgba(48, 48, 48, 0.96)', fg: '#ececec', fgRgb: [236, 236, 236], fgMuted: 0.55, primary: '#73a7fa', primaryRgb: [115, 167, 250], primaryDim: '#456da8', primaryTint: '#17253d', secondary: '#a9b8cf', secondaryRgb: [169, 184, 207], secondaryDim: '#69778d', secondaryBright: '#d7e1ef', danger: '#ef4444', warning: '#e0b341', warningDim: '#94762c', success: '#19c37d' }),
   claude: buildProviderTheme({
     id: 'provider-claude', name: 'Claude', description: "Anthropic: warm graphite and clay",
     bg: '#262624', panel: 'rgba(48, 48, 46, 0.95)', input: 'rgba(34, 34, 32, 0.97)', elevated: 'rgba(58, 58, 55, 0.96)',

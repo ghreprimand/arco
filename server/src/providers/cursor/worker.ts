@@ -26,7 +26,7 @@ import { killProcessTree } from '../../workers/processKill.js';
 import { goalBlock } from '../goalBlock.js';
 import { outputStyleAddendum } from '../outputStyle.js';
 import { ensureClusterLoopbackMcp, closeClusterLoopbackMcp } from '../../mcp/clusterMcpLoopback.js';
-import { AcpJsonRpcClient, AcpReplyError, JsonRpcRequestError, type JsonRpcNotification, type IncomingRequest } from './acpJsonRpc.js';
+import { AcpJsonRpcClient, AcpReplyError, JsonRpcRequestError, type JsonRpcNotification, type IncomingRequest } from '../acp/acpJsonRpc.js';
 import { commandArgs } from '../../windowsCommand.js';
 import { SegmentJoiner } from './acpSegments.js';
 import { describeAcpModel, isAutoModel, resolveCatalogModel, setAcpSessionModel } from './modelMap.js';

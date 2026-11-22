@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { cancelLoginSession, getLoginSession, parseLoginOutput, startLoginSession } from './authLoginSession.js';
 import { windowsTreeKillArgs } from './workers/processKill.js';
 
@@ -19,6 +19,11 @@ test('parses the Claude authorize link and notices the paste prompt', () => {
   assert.equal(parsed.awaitingCode, true);
 });
 
+test('parses the Antigravity browser link and authorization-code prompt', () => {
+  const out = 'Open this link in a browser to log in with Google:\n https://example.invalid/authorize\nThen paste the authorization code, or the full URL of the page you land on, and press Enter:';
+  assert.deepEqual(parseLoginOutput(out), { url: 'https://example.invalid/authorize', awaitingCode: true });
+});
+
 test('accepts codes with more than one hyphen-joined group', () => {
   assert.equal(parseLoginOutput('2. Enter this one-time code\n   ARCO-FIXTURE-CODE\n').code, 'ARCO-FIXTURE-CODE');
 });
@@ -32,6 +37,20 @@ test('reports nothing for output without a link', () => {
 
 const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catch { return false; } };
 const waitFor = async (check: () => boolean, ms: number) => { const end = Date.now() + ms; while (Date.now() < end) { if (check()) return true; await new Promise((r) => setTimeout(r, 50)); } return check(); };
+
+test('successful Antigravity login immediately updates provider status', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'arco-agy-login-'));
+  const original = process.env.PATH;
+  t.after(() => { process.env.PATH = original; rmSync(dir, { recursive: true, force: true }); });
+  const fake = join(dir, process.platform === 'win32' ? 'agy.cmd' : 'agy');
+  writeFileSync(fake, process.platform === 'win32' ? '@exit /b 0\r\n' : '#!/bin/sh\nexit 0\n');
+  if (process.platform !== 'win32') chmodSync(fake, 0o755);
+  process.env.PATH = `${dir}${delimiter}${original}`;
+  startLoginSession('antigravity-cli', 'unused');
+  assert.equal(await waitFor(() => getLoginSession('antigravity-cli')?.status === 'completed', 5000), true);
+  const { antigravityStatus } = await import('./providers/antigravity/status.js');
+  assert.equal((await antigravityStatus()).loggedIn, true);
+});
 
 test('cancelling a login ends the provider process the shell started, not only the shell', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'arco-login-tree-'));

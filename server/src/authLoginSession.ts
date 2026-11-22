@@ -4,6 +4,7 @@
 // back, which the operator pastes into Arco. Credentials land in the server's
 // own home, so a Docker user never needs a terminal. One session per provider;
 // the command fallback stays available for everything else.
+import { noteAntigravityLoginCompleted } from './providers/antigravity/status.js';
 import { spawn, type ChildProcess } from 'child_process';
 import type { AuthLoginSession, AuthLoginTarget } from '@arco/shared';
 import { killProcessTree } from './workers/processKill.js';
@@ -19,6 +20,7 @@ export const IN_APP_LOGIN: Partial<Record<AuthLoginTarget, { needsCode: boolean;
   claude: { needsCode: true },
   // Prints a link and finishes on its own once the page confirms, like Codex.
   cursor: { needsCode: false, command: 'cursor-agent login', env: { NO_OPEN_BROWSER: '1' } },
+  'antigravity-cli': { needsCode: true, command: 'agy acp --login' },
 };
 
 export function parseLoginOutput(text: string): { url?: string; code?: string; awaitingCode: boolean } {
@@ -26,7 +28,7 @@ export function parseLoginOutput(text: string): { url?: string; code?: string; a
   const url = /https?:\/\/[^\s"'<>]+/.exec(clean)?.[0]?.replace(/[.,)]+$/, '');
   // A line that is only hyphen-joined groups of letters and digits.
   const code = /^\s*([A-Z0-9]{4,}(?:-[A-Z0-9]{4,})+)\s*$/m.exec(clean)?.[1];
-  return { ...(url ? { url } : {}), ...(code ? { code } : {}), awaitingCode: /paste code here/i.test(clean) };
+  return { ...(url ? { url } : {}), ...(code ? { code } : {}), awaitingCode: /paste code here|paste the authorization code/i.test(clean) };
 }
 
 interface Live {
@@ -101,7 +103,7 @@ export function startLoginSession(provider: AuthLoginTarget, command: string): A
   child.on('error', (err) => finish(entry, 'failed', err.message));
   child.on('exit', (code) => {
     if (entry.cancelled) return finish(entry, 'cancelled');
-    if (code === 0) return finish(entry, 'completed');
+    if (code === 0) { if (provider === 'antigravity-cli') noteAntigravityLoginCompleted(); return finish(entry, 'completed'); }
     const tail = entry.output.replace(ANSI, '').trim().split('\n').filter((l) => l.trim()).slice(-3).join(' ');
     finish(entry, 'failed', tail || `login exited with code ${code}`);
   });

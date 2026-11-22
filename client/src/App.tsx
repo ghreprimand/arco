@@ -10,7 +10,7 @@ import { parseConnectionStatus } from './components/Connections/model';
 import { useConnectionsDeepLinks } from './components/Connections/Connections';
 import { useSettingsDeepLinks } from './components/settings/SettingsLayout';
 import { useStartupStore } from './stores/startupStore';
-import { anyPrimaryProviderConnected, fetchInstallationHistory, startupGate } from './utils/startupGate';
+import { anyPrimaryProviderConnected, antigravityAvailableForStart, fetchInstallationHistory, startupGate } from './utils/startupGate';
 import { ProviderOutageBanner } from './components/ProviderOutageBanner';
 import { FirstRun } from './components/FirstRun';
 import { VoiceControl } from './components/VoiceControl';
@@ -177,7 +177,7 @@ function AppBody() {
   // replaces an established workspace: the full-screen setup appears only
   // when nothing (open tabs or clusters, the server's record of earlier
   // workflows, or a deferral in this tab) says the installation is in use.
-  const providerConnected = anyPrimaryProviderConnected(authStatus, (p) => settings?.enabledProviders?.[p] !== false, settings?.claude?.transport);
+  const providerConnected = anyPrimaryProviderConnected(authStatus, (p) => settings?.enabledProviders?.[p] !== false, settings?.claude?.transport) || antigravityAvailableForStart(authStatus, settings?.enabledProviders?.['antigravity-cli'] === true);
   const hasOpenWork = useAppStore((s) => Object.keys(s.jobs).length > 0 || Object.keys(s.clusters).length > 0);
   const workspaceSynced = useStartupStore((s) => s.workspaceSynced);
   const setupDeferred = useStartupStore((s) => s.setupDeferred);

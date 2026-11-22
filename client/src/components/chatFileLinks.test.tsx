@@ -62,3 +62,8 @@ test('a filename inside a sentence links only when it is a known file', async ()
   const links = await render('See known.md and also other.md for details.', index);
   assert.equal(links, 'known.md=>/work/proj/.arco/workflows/wf/artifacts/known.md');
 });
+
+test('Antigravity replies use the ordinary agent label', async () => {
+  const { assistantLabel } = await import('./chatMessageLabel');
+  assert.equal(assistantLabel(false, true, true), assistantLabel(false, false, false));
+});

@@ -209,3 +209,24 @@ test('cluster artifact fallback searches only member artifacts and refuses escap
     for (const id of [first, second, outsider]) workflowCwds.delete(id);
   }
 });
+
+test('Antigravity Chat files open within the managed workspace without exposing Arco state', async () => {
+  const { workflows } = await import('../server/state.js');
+  const { arcoHome } = await import('../arcoHome.js');
+  const { prepareAntigravityChatWorkspace } = await import('../chatMode.js');
+  const { listBrowserDirectory, resolveBrowserRead } = await import('./readConfinement.js');
+  const id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  mkdirSync(arcoHome(), { recursive: true });
+  const workspace = await prepareAntigravityChatWorkspace(id, false);
+  const file = join(workspace, 'answer.txt'); writeFileSync(file, 'fixture result');
+  const privateFile = join(arcoHome(), 'settings.json'); writeFileSync(privateFile, '{}');
+  symlinkSync(privateFile, join(workspace, 'outside.txt'));
+  workflows.set(id, { config: { kind: 'chat', workingDirectory: join(arcoHome(), 'chats', id) }, primary: { provider: 'antigravity-cli' } } as never);
+  try {
+    const listing = await listBrowserDirectory(workspace, false);
+    assert.deepEqual(listing.entries.map(x => x.name), ['answer.txt']);
+    assert.equal(await resolveBrowserRead(file), realpathSync(file));
+    await assert.rejects(resolveBrowserRead(join(workspace, 'outside.txt')));
+    await assert.rejects(resolveBrowserRead(privateFile));
+  } finally { workflows.delete(id); rmSync(workspace, { recursive: true, force: true }); }
+});

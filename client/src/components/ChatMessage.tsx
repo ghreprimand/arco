@@ -27,6 +27,7 @@ import { useOperatorLabel } from '../utils/operatorLabel';
 import { useTerminalStore } from '../stores/terminalStore';
 import { detectCommand } from './Terminal/detectCommand';
 import { DialogShell } from './DialogShell';
+import { assistantLabel } from './chatMessageLabel';
 
 // Thresholds above which an operator message auto-collapses into a pill.
 // Either dimension triggers — a single 2000-char paragraph is as intrusive
@@ -268,6 +269,7 @@ interface Props {
 }
 
 function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued, onMakeTask, presentation = 'workbench', retryText, retryAttachments, onEditMessage, onRetryMessage }: Props) {
+  const isAntigravity = useAppStore(s => !!jobId && s.jobs[jobId]?.config.primaryProvider === 'antigravity-cli');
   const latestSeedId = useAppStore(s => jobId ? latestHandoffSeed(s.jobs[jobId]?.messages ?? [])?.id : undefined);
   const batchQuestionClosed = useAppStore((s) => {
     const job = jobId ? s.jobs[jobId] : undefined;
@@ -544,9 +546,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
     ? chatPresentation ? 'YOU' : `> ${operatorLabel}`
     : isSystem
       ? '[SYSTEM]'
-      : phase === 'passthrough'
-        ? chatPresentation ? 'ARCO' : '< ARCO :: PASSTHROUGH'
-        : chatPresentation ? 'ARCO' : '< ARCO';
+      : assistantLabel(chatPresentation, phase === 'passthrough', isAntigravity);
 
   const roleClass = isUser ? 'glow-text-cyan' : isSystem ? '' : 'glow-text';
 

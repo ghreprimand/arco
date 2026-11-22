@@ -8,7 +8,7 @@ const home = realpathSync(mkdtempSync(join(tmpdir(), 'arco-local-status-')));
 process.env.ARCO_HOME = join(home, 'state'); process.env.HOME = home; process.env.USERPROFILE = home;
 after(() => rmSync(home, { recursive: true, force: true }));
 const { LocalRuntimeStatusService, probeEngineStatus } = await import('./localRuntimeStatus.js');
-const flags = (enabled: string[]): ArcoSettings => ({ enabledProviders: { claude: false, codex: false, cursor: false, ollama: enabled.includes('ollama'), llamacpp: enabled.includes('llamacpp'), lmstudio: enabled.includes('lmstudio'), strata: enabled.includes('strata'), deepseek: enabled.includes('deepseek') } });
+const flags = (enabled: string[]): ArcoSettings => ({ enabledProviders: { claude: false, codex: false, cursor: false, ollama: enabled.includes('ollama'), llamacpp: enabled.includes('llamacpp'), lmstudio: enabled.includes('lmstudio'), strata: enabled.includes('strata'), deepseek: enabled.includes('deepseek'), 'antigravity-cli': false } });
 const installed = { strataVersion: '1.0.0', xolotlRevision: 'fixture' };
 const row = (provider: LocalStatusProvider, state: LocalRuntimeStatus['state']): LocalRuntimeStatus => ({ provider, state, models: [] });
 

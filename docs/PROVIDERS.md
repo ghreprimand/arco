@@ -1190,6 +1190,16 @@ Validation: `test:operator-questions`, `test:operator-questions-ui`, and
 inference). Browser acceptance: `scripts/smoke/operator-questions-browser.py`
 against isolated Vite with all API/WebSocket traffic stubbed.
 
+## Antigravity CLI
+
+Antigravity CLI runs the installed `agy acp` program for an interactive Agent tab or a saved Chat that uses tools. Enable it in Settings, then use LOG IN under Authentication or Connections. The provider owns one account-wide Google sign-in used by its tabs. The in-app flow shows the CLI's link and accepts the authorization code or return URL. A successful login command updates the sign-in status; after a server restart the status remains unknown until another login or successful turn. Incognito is unavailable because the CLI retains its own conversation history.
+
+Only Gemini models advertised by the CLI are offered. Effort uses the ACP thinking level. Permission requests follow the tab's AUTO or SAFE setting. AUTO approves once; SAFE asks. Tool activity appears in the conversation. Scheduling is not offered in Arco's command menu, and a scheduling permission request is refused. The CLI can perform operations without a permission request according to its own configuration, so Arco cannot promise to stop every unattended action.
+
+For a saved Antigravity Chat, the working folder is `ARCO_HOME/chat-workspaces/<chat-id>`, separate from Chat history. OPEN FOLDER shows its files. Deleting the Chat also deletes this working folder; save wanted files elsewhere first. An Agent tab starts in its chosen working folder. The folder is a starting location, not a security boundary: with AUTO, tools can reach what the user's account can reach.
+
+Consumer-account use is limited to a private, single-user interactive ACP client on the provider's own sign-in. Do not use this integration for unattended jobs, account rotation, headless wrappers or as an Arco sub-agent. Violations can cost account access. Arco does not copy credentials or call Google for quota. ACP token and context usage are shown; remaining quota is visible in `agy` itself. This provider is not offered for research, clusters, reviewers, handoffs or automatic turns. The older `antigravity` provider remains retired and its saved work is not silently changed.
+
 ## Cursor
 
 In the PROVIDERS panel, clicking CURSOR runs the existing `cursor-agent update`
@@ -1209,7 +1219,7 @@ published version can be compared and confirms it.
 ACP and print output decode UTF-8 across pipe chunks, preserving multibyte text and filenames. Cancelling native compression finishes its cancellation wait when compression settles; its fallback timer cannot kill a later turn.
 
 `server/src/providers/cursor/` - a long-lived per-workflow ACP worker (`worker.ts`) driving
-`cursor-agent acp` over JSON-RPC (`acpJsonRpc.ts`), a per-turn wrapper + worker cache (`index.ts`),
+`cursor-agent acp` over the shared JSON-RPC transport (`providers/acp/acpJsonRpc.ts`), a per-turn wrapper + worker cache (`index.ts`),
 a `cursor-agent models` catalog (`catalog.ts`), and a stateless `cursor-agent -p --mode ask` one-shot
 for read-only primitives (`print.ts`). Cursor is a metered subscription fronting ~150 models across
 every major lab behind one login. **This section covers auth recovery, usage, compression, the model picker and cluster membership.**
@@ -2279,7 +2289,7 @@ not the app tag; current details are in [STRATA.md](STRATA.md#engine-and-compone
 
 ## Retired provider history
 
-Z.ai, Antigravity, and Gemini support have been removed. Existing workflow
+Z.ai, the older Antigravity provider, and the dedicated Gemini provider have been removed. Existing workflow
 metadata, transcripts, artifacts and provider identity remain readable through
 the normal history tools. A retired provider cannot start or resume work; choose
 a supported provider explicitly for new work. Arco does not uninstall external

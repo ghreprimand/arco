@@ -1,3 +1,4 @@
+import { resolveAcpPermission } from './providers/acp/permissionGate.js';
 import { installResearchCloseOnDelete, researchProjectIdsOnDisk, sweepClosedResearch } from './research/researchClose.js';
 import { releaseProjectSettingsWatcher } from './settings.js';
 import { initTranscriptWorkerHandlers, handleTranscriptWorkerPreview, handleTranscriptWorkerCreate } from './ws/transcriptWorkerHandlers.js';
@@ -399,6 +400,7 @@ async function periodicCapabilityProbe(): Promise<void> {
       next.cliVersion !== capabilities.cliVersion ||
       next.codexVersion !== capabilities.codexVersion ||
       next.cursorVersion !== capabilities.cursorVersion ||
+      next.antigravityVersion !== capabilities.antigravityVersion ||
       next.strataVersion !== capabilities.strataVersion ||
       next.xolotlRevision !== capabilities.xolotlRevision ||
       lvNext.claude !== lvPrev.claude ||
@@ -790,7 +792,7 @@ wss.on('connection', (ws: WebSocket) => {
           return;
         }
         (workflows.get(msg.workflowId)?.config.incognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() =>
-          handleUserMessage(ws, session, msg.workflowId, msg.content, msg.clientMessageId, msg.attachments, msg.interjection === true, msg.kind, msg.primitive, msg.pickedSkills, { automaticKind: msg.automaticKind === 'nudge' ? 'nudge' : undefined }).catch((err) => {
+          handleUserMessage(ws, session, msg.workflowId, msg.content, msg.clientMessageId, msg.attachments, msg.interjection === true, msg.kind, msg.primitive, msg.pickedSkills, { automaticKind: msg.automaticKind === 'nudge' ? 'nudge' : undefined, operatorInitiated: msg.automaticKind !== 'nudge' }).catch((err) => {
             console.error('[arco] user_message handler failed:', err);
           // Tell the client the turn died — without this, the UI sits
           // mid-turn forever on any internal exception inside the handler.
@@ -1043,7 +1045,7 @@ wss.on('connection', (ws: WebSocket) => {
         // review gate. First try the live in-process park; if none (the gate
         // survived a server restart, so its Promise is gone), fall back to the
         // durable sidecar and feed the approved action as the next-turn input.
-        const ok = routeClaudeNativeGateReply(msg.workflowId, msg.gateId, msg.decision, msg.finalArgs, msg.remember);
+        const ok = resolveAcpPermission(msg.workflowId, msg.gateId, msg.decision, !!msg.finalArgs || !!msg.remember) || routeClaudeNativeGateReply(msg.workflowId, msg.gateId, msg.decision, msg.finalArgs, msg.remember);
         if (!ok) {
           resolveOrphanedGate(ws, session, msg.workflowId, msg.gateId, msg.decision, msg.finalArgs)
             .then((handled) => {

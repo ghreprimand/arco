@@ -25,6 +25,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   'write-outside-cwd': 'WRITE OUTSIDE PROJECT',
   'kill-shell': 'KILL BACKGROUND SHELL',
   'hook-ask': 'HOOK ASKS TO CONFIRM',
+  'acp-permission': 'ANTIGRAVITY PERMISSION',
 };
 
 export function GateApprovalNotice({ workflowId, input }: Props) {
@@ -49,6 +50,7 @@ export function GateApprovalNotice({ workflowId, input }: Props) {
 
   const resolved = status === 'approve' || status === 'reject';
   const edited = text !== original;
+  const acpPermission = category === 'acp-permission';
   const accent = status === 'reject' ? 'var(--color-error, #e0524f)' : 'var(--color-accent-primary)';
 
   const resolve = (decision: 'approve' | 'reject') => {
@@ -66,7 +68,7 @@ export function GateApprovalNotice({ workflowId, input }: Props) {
     setSubmitting(decision);
     // "approve all like this" only on an UNEDITED approve — the server stores
     // the signature of what runs, and an edit is a one-off.
-    const rememberThis = decision === 'approve' && remember && !edited;
+    const rememberThis = !acpPermission && decision === 'approve' && remember && !edited;
     sendRaw({
       type: 'gate_reply',
       workflowId,
@@ -118,7 +120,7 @@ export function GateApprovalNotice({ workflowId, input }: Props) {
           color: 'var(--color-accent-primary)',
         }}
       >
-        <span>[GATE: REVIEW SAFE-MODE]</span>
+        <span>{acpPermission ? '[PERMISSION]' : '[GATE: REVIEW SAFE-MODE]'}</span>
         {category && (
           <span style={{ color: 'var(--color-fg-muted)', letterSpacing: '0.5px' }}>{CATEGORY_LABEL[category] ?? category}</span>
         )}
@@ -132,10 +134,11 @@ export function GateApprovalNotice({ workflowId, input }: Props) {
         }}
       >
         <div style={{ color: 'var(--color-text-primary)', fontSize: '12px', fontFamily: 'var(--font-body)', lineHeight: '1.5', marginBottom: '8px' }}>
-          {reason} Review and edit the call below, then approve or reject.
+          {reason} {acpPermission ? 'Review the call below, then approve or reject.' : 'Review and edit the call below, then approve or reject.'}
         </div>
         <textarea
           value={text}
+          readOnly={acpPermission}
           onChange={(e) => { setText(e.target.value); if (parseError) setParseError(null); }}
           spellCheck={false}
           rows={Math.min(12, Math.max(2, text.split('\n').length))}
@@ -169,7 +172,7 @@ export function GateApprovalNotice({ workflowId, input }: Props) {
             {parseError}
           </div>
         )}
-        {!edited && (
+        {!edited && !acpPermission && (
           <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', cursor: 'pointer' }}>
             <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} style={{ cursor: 'pointer' }} />
             approve all identical {isShellToolName(toolName) ? 'commands' : `${toolName} calls`} this session (skip the gate for an exact match)

@@ -153,3 +153,30 @@ test('a finished Cursor sign-in in Settings publishes the explicit check to the 
     useAppStore.setState({ authStatus: saved });
   }
 });
+
+test('Antigravity LOG IN in Settings relays the browser link and code prompt at its row', async () => {
+  const saved = useAppStore.getState().authStatus;
+  useAppStore.setState({ authStatus: { claude: { loggedIn: true }, 'antigravity-cli': { loggedIn: false, probeFailed: true } } as never });
+  const realFetch = globalThis.fetch;
+  try {
+    await mounted(false, async (container, requests) => {
+      const page = [...container.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Providers and models');
+      assert.ok(page); await act(async () => page.click());
+      const inner = globalThis.fetch;
+      globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+        if (String(url).startsWith('/api/auth-login')) {
+          requests.push({ url: String(url) });
+          return { ok: true, json: async () => ({ started: true, command: 'agy acp --login', session: { provider: 'antigravity-cli', status: 'pending', needsCode: true, awaitingCode: true, startedAt: Date.now(), url: 'https://example.invalid/authorize' } }) };
+        }
+        return inner(url as string, init);
+      }) as typeof fetch;
+      const row = [...container.querySelectorAll('[data-help="settings.authentication"] span')].find(s => s.textContent === 'ANTIGRAVITY CLI')?.closest('div')?.parentElement;
+      const login = [...(row?.querySelectorAll('button') ?? [])].find(b => b.textContent === 'LOG IN');
+      assert.ok(login); await act(async () => login.click());
+      assert.ok(requests.some(r => r.url === '/api/auth-login?provider=antigravity-cli&inApp=1'));
+      const flow = container.querySelector('[data-testid="settings-antigravity-login"]');
+      assert.ok(flow); assert.equal(flow.querySelector('a')?.getAttribute('href'), 'https://example.invalid/authorize');
+      assert.ok(flow.querySelector('input')); assert.match(flow.textContent ?? '', /PREFER A TERMINAL\?/);
+    });
+  } finally { globalThis.fetch = realFetch; useAppStore.setState({ authStatus: saved }); }
+});

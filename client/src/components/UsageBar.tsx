@@ -41,7 +41,7 @@ export function UsageBar({ usage }: Props) {
   const input = { auth: authStatus, capabilities, claudeTransport: selectedClaudeTransport(tabTransport, settings?.claude?.transport, forceCli), codexAccount };
   // An enabled provider keeps its slot whatever its state; a disabled one
   // disappears, as in the Versions list. Only a ready provider shows usage.
-  const slot = (provider: 'claude' | 'codex' | 'cursor', ready: () => ReactElement) => {
+  const slot = (provider: 'claude' | 'codex' | 'cursor' | 'antigravity-cli', ready: () => ReactElement) => {
     if (!providerShown(settings, provider)) return null;
     const view = providerIndicator(provider, input);
     return view.state === 'ready' ? ready() : <ProviderNeeds key={provider} view={view} />;
@@ -52,9 +52,18 @@ export function UsageBar({ usage }: Props) {
       {slot('claude', () => <ClaudeStatus usage={usage} />)}
       {slot('codex', () => <CodexStatus usage={codexUsage} />)}
       {slot('cursor', () => <CursorStatus usage={cursorUsage} />)}
+      {slot('antigravity-cli', () => <AntigravityStatus />)}
       <LocalRuntimeIndicator />
     </div>
   );
+}
+
+function AntigravityStatus() {
+  const [open, setOpen] = useState(false);
+  return <span style={{ position: 'relative' }}>
+    <button type="button" aria-label="Antigravity CLI usage" aria-expanded={open} onClick={() => setOpen(value => !value)} style={{ border: 0, padding: 0, background: 'transparent', color: 'var(--color-accent-secondary)', cursor: 'pointer' }}>● G</button>
+    {open && <span role="status" style={{ position: 'absolute', top: '100%', right: 0, zIndex: 100, minWidth: 220, padding: 10, color: 'var(--color-fg)', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)' }}>Token and context usage appear in the conversation. Remaining quota is visible in agy itself.</span>}
+  </span>;
 }
 
 // A provider that is not ready: the same letter and slot, a dot coloured by

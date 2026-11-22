@@ -77,6 +77,7 @@ export interface WorkflowMeta {
   primaryProvider: ProviderName;
   primaryModel: ModelName;
   primaryEffort: EffortLevel;
+  antigravitySkipPermissions?: boolean;
   providerAccountRef?: string;
   // See CURRENT_SCHEMA_VERSION above. Optional on read for back-compat with
   // pre-Phase-0 meta.json files (treated as 1); always set on write.
@@ -301,7 +302,8 @@ export interface WorkflowMeta {
 // silently run a Native member on CLI, `codexTransport` an appserver member on
 // exec, etc. Client-only fields absent from meta (`advanced`, `fastMode`,
 // `allowedProviders`, `skipPermissions`) cannot be recovered — `skipPermissions`
-// defaults `true` (the cluster-member default) and the rest reset. Legacy
+// defaults `true` (the cluster-member default) and the rest reset. Antigravity
+// stores its permission choice separately and defaults missing values to SAFE. Legacy
 // output-style values are aliased (`lite` to `plain`, `caveman` to `terse`).
 export function workflowConfigFromMeta(meta: WorkflowMeta, cwd: string): WorkflowConfig {
   return {
@@ -312,7 +314,7 @@ export function workflowConfigFromMeta(meta: WorkflowMeta, cwd: string): Workflo
     primaryProvider: meta.primaryProvider === 'claude' ? undefined : meta.primaryProvider,
     primaryModel: meta.primaryModel,
     primaryEffort: normalizedWorkflowEffort(meta.primaryProvider, meta.primaryModel, meta.primaryEffort),
-    skipPermissions: true,
+    skipPermissions: meta.primaryProvider === 'antigravity-cli' ? meta.antigravitySkipPermissions === true : true,
     ...(meta.providerAccountRef ? { providerAccountRef: meta.providerAccountRef } : {}),
     // — transport overrides (HIGH: dropping these runs the WRONG transport) —
     ...(meta.claudeTransport ? { claudeTransport: meta.claudeTransport } : {}),
@@ -718,6 +720,7 @@ export function workflowMetaSeed(
     primaryProvider: primary.provider,
     primaryModel: primary.model,
     primaryEffort: primary.effort,
+    ...(primary.provider === 'antigravity-cli' ? { antigravitySkipPermissions: config.skipPermissions === true } : {}),
     ...(config.providerAccountRef ? { providerAccountRef: config.providerAccountRef } : {}),
     cliSessions: [],
     operator: 'local',

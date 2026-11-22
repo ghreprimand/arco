@@ -1,3 +1,4 @@
+import { antigravityStatus } from './providers/antigravity/status.js';
 import { authLoginInstructions } from './authLoginInstructions.js';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
@@ -77,6 +78,7 @@ export interface AuthStatusByProvider {
   // that `cursor-agent` maintains. Arco doesn't run the login flow — the
   // operator authenticates once via `cursor-agent login`.
   cursor: AuthStatus;
+  'antigravity-cli'?: AuthStatus;
 }
 
 // Shell out to `claude auth status --json`. Safe to call repeatedly; the
@@ -361,7 +363,7 @@ async function getCursorAuthStatus(explicit = false): Promise<AuthStatus> {
 }
 
 export async function getAuthStatus(): Promise<AuthStatusByProvider> {
-  const [claude, ollama, codex, github, llamacpp, lmstudio, strata, deepseek, cursor] = await Promise.all([
+  const [claude, ollama, codex, github, llamacpp, lmstudio, strata, deepseek, cursor, antigravity] = await Promise.all([
     getClaudeAuthStatus(),
     getOllamaAuthStatus(),
     getCodexAuthStatus(),
@@ -371,8 +373,9 @@ export async function getAuthStatus(): Promise<AuthStatusByProvider> {
     getStrataAuthStatus(),
     getDeepSeekAuthStatus(),
     getCursorAuthStatus(),
+    antigravityStatus(),
   ]);
-  return { claude, ollama, codex, github, llamacpp, lmstudio, strata, deepseek, cursor };
+  return { claude, ollama, codex, github, llamacpp, lmstudio, strata, deepseek, cursor, 'antigravity-cli': antigravity };
 }
 
 // Explicit Connections check: probe only the operator-selected integration.
@@ -380,6 +383,7 @@ export async function getAuthStatus(): Promise<AuthStatusByProvider> {
 export async function getConnectionStatus(provider: AuthLoginTarget): Promise<AuthStatus> {
   const probes: Record<AuthLoginTarget, () => Promise<AuthStatus>> = {
     claude:getClaudeAuthStatus, codex:getCodexAuthStatus,  github:getGithubAuthStatus, cursor:() => getCursorAuthStatus(true),
+    'antigravity-cli': antigravityStatus,
     ollama:getOllamaAuthStatus, lmstudio:getLmstudioAuthStatus, strata:getStrataAuthStatus,
     llamacpp:getLlamacppAuthStatus, deepseek:getDeepSeekAuthStatus,
   };
@@ -421,6 +425,10 @@ export async function triggerAuthLogin(provider: AuthLoginTarget = 'claude', acc
     const command = `${account?.codexHome ? `env CODEX_HOME=${shellQuote(account.codexHome)} ` : ''}codex login --device-auth`;
     const label = account?.profile.label ? ` Sign in with the ${account.profile.label} ChatGPT account.` : '';
     return authLoginInstructions(command, `Open the link and enter the one-time code.${label}`);
+  }
+
+  if (provider === 'antigravity-cli') {
+    return authLoginInstructions('agy acp --login', 'Open the link, then paste the authorization code or return URL.');
   }
 
   if (provider === 'cursor') {

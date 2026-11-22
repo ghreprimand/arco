@@ -24,7 +24,7 @@ export function availableMemberProviders(
 }
 
 // Primary providers in the creator's picker order.
-export const PRIMARY_PROVIDER_ORDER: ProviderName[] = ['claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'];
+export const PRIMARY_PROVIDER_ORDER: ProviderName[] = ['claude', 'codex', 'cursor', 'antigravity-cli', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'];
 
 // The same availability rule as members, for the single-workflow and chat
 // primary provider: enabled in Settings and reported connected.
@@ -33,7 +33,7 @@ export function primaryProviderAvailable(
   authStatus: AuthStatusByProvider | null | undefined,
   isProviderEnabled: (p: ProviderName) => boolean,
 ): boolean {
-  return isProviderEnabled(provider) && Boolean(authStatus?.[provider]?.loggedIn);
+  return isProviderEnabled(provider) && (provider === 'antigravity-cli' ? Boolean(authStatus?.[provider]?.installedModels?.length) : Boolean(authStatus?.[provider]?.loggedIn));
 }
 
 export function availablePrimaryProviders(
@@ -74,6 +74,7 @@ export function primaryProviderProblem(
 ): string | null {
   if (!authStatus) return 'Checking provider connections.';
   if (!isProviderEnabled(provider)) return `${displayName} is turned off in Settings. Choose a connected provider or turn it on.`;
+  if (provider === 'antigravity-cli' && authStatus[provider]?.installedModels?.length) return null;
   if (!authStatus[provider]?.loggedIn) {
     return availablePrimaryProviders(authStatus, isProviderEnabled).length === 0
       ? `No provider is connected. Connect one in Connections to launch.`

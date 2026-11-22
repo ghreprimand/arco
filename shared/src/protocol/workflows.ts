@@ -515,6 +515,9 @@ export type FileContextReference =
   | { kind: 'memory'; name: string; key: string; media: 'image' | 'text'; originalPaths?: string[] };
 
 export interface WorkerConfig {
+  // Server-only authorization for an operator-initiated interactive ACP turn.
+  antigravityInteractive?: boolean;
+  antigravityChatWorkspace?: boolean;
   // Server-local primary replay context. These fields are not worker settings.
   priorFiles?: FileContextReference[];
   fileContextCwd?: string;

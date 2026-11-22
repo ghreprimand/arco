@@ -9,7 +9,7 @@ import { LoginCommand } from './LoginCommand';
 // terminal command stays behind a toggle for anyone who prefers it.
 const POLL_MS = 1500;
 
-const LABEL: Record<string, string> = { claude: 'Claude', codex: 'Codex', github: 'GitHub',  cursor: 'Cursor', ollama: 'Ollama' };
+const LABEL: Record<string, string> = { claude: 'Claude', codex: 'Codex', github: 'GitHub',  cursor: 'Cursor', ollama: 'Ollama', 'antigravity-cli': 'Antigravity' };
 
 interface Props {
   result: AuthLoginResult;
@@ -103,7 +103,7 @@ export function LoginFlow({ result, onRestart, onComplete }: Props) {
                 </>
               ) : session.needsCode ? (
                 <>
-                  <span style={{ fontSize: '12px', fontFamily: 'var(--font-body)' }}>The page shows a code when you finish. Paste it here.</span>
+                  <span style={{ fontSize: '12px', fontFamily: 'var(--font-body)' }}>The page shows a code when you finish. Paste it here, or paste the return URL if requested.</span>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <input
                       type="text"

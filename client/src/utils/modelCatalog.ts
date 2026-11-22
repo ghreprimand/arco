@@ -20,6 +20,7 @@ export interface ModelCatalogs {
   lmstudioModels: string[];
   strataModels: string[];
   deepseekModels?: string[];
+  antigravityModels?: string[];
   deepseekLabels?: Record<string, string>;
   strataLabels?: Record<string, string>;
 }
@@ -46,6 +47,7 @@ export function modelsForProvider(provider: ProviderName, c: ModelCatalogs): Mod
 
 
 
+  if (provider === 'antigravity-cli') return (c.antigravityModels ?? []) as ModelName[];
   if (provider === 'ollama') return c.ollamaModels as ModelName[];
   if (provider === 'llamacpp') return c.llamacppModels as ModelName[];
   if (provider === 'deepseek') return (c.deepseekModels ?? []) as ModelName[];
@@ -73,6 +75,7 @@ export function defaultModelForProvider(provider: ProviderName, c: ModelCatalogs
 
 
 
+  if (provider === 'antigravity-cli') return (c.antigravityModels?.[0] ?? '') as ModelName;
   if (provider === 'ollama') return (c.ollamaModels[0] ?? '') as ModelName;
   if (provider === 'llamacpp') return (c.llamacppModels[0] ?? '') as ModelName;
   if (provider === 'deepseek') return (c.deepseekModels?.[0] ?? '') as ModelName;
@@ -112,6 +115,7 @@ export function useModelCatalogs(overrides?: Partial<ModelCatalogs>): ModelCatal
     ollamaModels: authStatus?.ollama?.installedModels ?? [],
     llamacppModels: authStatus?.llamacpp?.installedModels ?? [],
     deepseekModels: authStatus?.deepseek?.installedModels ?? [],
+    antigravityModels: authStatus?.['antigravity-cli']?.installedModels ?? [],
     deepseekLabels: authStatus?.deepseek?.installedModelLabels,
     strataModels: authStatus?.strata?.installedModels ?? [],
     strataLabels: authStatus?.strata?.installedModelLabels,

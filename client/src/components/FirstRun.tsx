@@ -36,6 +36,7 @@ export function FirstRun() {
   const enabled = (p: typeof PRIMARY_PROVIDERS[number]) => settings?.enabledProviders[p] !== false;
   const connected = (p: typeof PRIMARY_PROVIDERS[number]) => p === 'claude' ? anyPrimaryProviderConnected(auth, q => q === 'claude', settings?.claude?.transport) : auth?.[p]?.loggedIn === true;
   const providerConnected = anyPrimaryProviderConnected(auth, enabled, settings?.claude?.transport);
+  const antigravityAvailable = enabled('antigravity-cli') && !!auth?.['antigravity-cli']?.installedModels?.length;
   const provider = PRIMARY_PROVIDERS.find(p => p === selectedProvider && enabled(p) && connected(p))
     ?? PRIMARY_PROVIDERS.find(p => enabled(p) && connected(p));
   useEffect(() => { title.current?.focus(); }, [step]);
@@ -120,7 +121,7 @@ export function FirstRun() {
     finally { setBusy(false); }
   };
   const complete = () => { setStep('complete'); setNote(''); };
-  if (step === 'provider') return <Connections mode="gate" onSkip={complete} onContinue={complete} canContinue={providerConnected} />;
+  if (step === 'provider') return <Connections mode="gate" onSkip={complete} onContinue={complete} canContinue={providerConnected || antigravityAvailable} />;
   return <div className="connections-backdrop">
     <div className={`connections-dialog first-run-dialog${step === 'folder' ? ' first-run-folder-step' : ''}`} style={step === 'folder' ? pickerSurfaceSize : step === 'complete' ? confirmationSurfaceSize : formSurfaceSize()} ref={dialog} role="dialog" aria-modal="true" aria-labelledby="first-run-title" data-help="welcome.steps" onKeyDown={e => {
       if (e.key === 'Escape') { e.stopPropagation(); void finish(); }
@@ -165,7 +166,7 @@ export function FirstRun() {
         {summary}
         <p>Name: {settings?.operatorName || 'OPERATOR'}</p>
         <label>Chat folder (optional)<select aria-label="Chat folder" value={project} onChange={e => setProject(e.target.value)}><option value="">No folder - start a chat</option>{projects.map(folder => <option key={folder.path} value={folder.path}>{folder.name}</option>)}</select></label>
-        <p>Provider: {provider ? `${PROVIDER_LABELS[provider]} connected` : 'none yet, connect later in Connections'}</p>
+        <p>Provider: {provider ? `${PROVIDER_LABELS[provider]} connected` : antigravityAvailable ? 'Antigravity CLI available; sign-in status is unknown until a turn' : 'none yet, connect later in Connections'}</p>
         <details data-help="welcome.utility-agent" onToggle={e => setUtilityOpen((e.currentTarget as HTMLDetailsElement).open)}>
           <summary>Utility agent (optional)</summary>
           <p>Pick a fast, low-cost agent for short side jobs such as summaries. Leave this unset to skip it; it can be changed later in Settings &gt; Agents and clusters.</p>

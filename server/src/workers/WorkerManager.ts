@@ -131,6 +131,8 @@ export class WorkerManager {
       // skipPermissions when set. Reviewers pass 'read-only'.
       sandbox?: WorkerConfig['sandbox'];
       interactionMode?: WorkerConfig['interactionMode'];
+      antigravityInteractive?: boolean;
+      antigravityChatWorkspace?: boolean;
       disableProviderHooks?: boolean;
       // Chat-only web-tool arming; ignored by agent-mode spawns.
       chatWebAccess?: boolean;
@@ -289,6 +291,8 @@ export class WorkerManager {
       attachments: options?.attachments,
       sandbox: options?.sandbox,
       interactionMode: options?.interactionMode,
+      antigravityInteractive: options?.antigravityInteractive,
+      antigravityChatWorkspace: options?.antigravityChatWorkspace,
       disableProviderHooks: options?.disableProviderHooks,
       chatWebAccess: options?.chatWebAccess,
       voiceOperator: options?.voiceOperator,

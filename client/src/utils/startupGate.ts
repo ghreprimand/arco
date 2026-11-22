@@ -56,6 +56,11 @@ export async function fetchInstallationHistory(fetcher: typeof fetch = fetch): P
   }
 }
 
+// Availability is not proof of a sign-in: agy reports models before a turn.
+export function antigravityAvailableForStart(auth: Partial<AuthStatusByProvider> | null | undefined, enabled: boolean): boolean {
+  return enabled && !!auth?.['antigravity-cli']?.installedModels?.length;
+}
+
 export function anyPrimaryProviderConnected(
   authStatus: Partial<AuthStatusByProvider> | null | undefined,
   isEnabled: (provider: ProviderName) => boolean,
@@ -72,6 +77,7 @@ export const PROVIDER_LABELS: Record<ProviderName, string> = {
   codex: 'Codex (OpenAI)',
 
   cursor: 'Cursor',
+  'antigravity-cli': 'Antigravity CLI',
 
   ollama: 'Ollama (local)',
   lmstudio: 'LM Studio (local)',

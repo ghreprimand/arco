@@ -24,6 +24,7 @@ import { readSettings } from '../settings.js';
 import { safeDirectory, assertSafePath, type ReadAccessContext } from '../fileAccessPolicy.js';
 import { resolveWithinCwd } from '../providers/ollamaTools.js';
 import { projectRoots } from '../projects.js';
+import { antigravityChatWorkspace } from '../chatMode.js';
 import { arcoHome } from '../arcoHome.js';
 
 const WFID_RE = /^[A-Za-z0-9._-]{1,64}$/;
@@ -47,9 +48,17 @@ export async function knownRoots(access?: ReadAccessContext, settingsSnapshot?: 
   const out = new Set<string>();
   const add = (root: string) => { if (!out.has(root)) { out.add(root); onRoot?.(root); } };
   for (const cwd of workflowCwds.values()) if (cwd) add(path.resolve(cwd));
-  for (const wf of workflows.values()) {
+  for (const [id, wf] of workflows.entries()) {
     const cwd = wf.config.workingDirectory;
     if (cwd) add(path.resolve(cwd));
+    if (wf.config.kind === 'chat' && wf.primary?.provider === 'antigravity-cli') {
+      try {
+        const workspace = antigravityChatWorkspace(id);
+        const root = await fs.lstat(path.dirname(workspace));
+        const folder = await fs.lstat(workspace);
+        if (!root.isSymbolicLink() && folder.isDirectory() && !folder.isSymbolicLink()) add(path.resolve(workspace));
+      } catch { /* A missing or replaced workspace is not an accessible root. */ }
+    }
   }
   for (const id of clusterStore.listKnownClusterIds()) {
     const cwd = clusterStore.getClusterCached(id)?.cwd;

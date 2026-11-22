@@ -6,7 +6,7 @@ export const KINDS = [
   { id:'local', label:'Local models', description:'Connect a separately installed runtime. No models are installed by this screen.' },
   { id:'tool', label:'Tool accounts', description:'Accounts for features such as GitHub. These do not provide AI models.' },
 ] as const;
-const IDS = ['claude','codex','cursor','ollama','lmstudio','strata','llamacpp','deepseek','github'];
+const IDS = ['claude','codex','cursor','ollama','lmstudio','strata','llamacpp','deepseek','github','antigravity-cli'];
 export function parseConnectionCatalog(body: unknown): ConnectionCatalog | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as ConnectionCatalog;
@@ -16,7 +16,7 @@ export function parseConnectionCatalog(body: unknown): ConnectionCatalog | null 
     if (!p || !IDS.includes(p.id) || ids.has(p.id) || !KINDS.some(k=>k.id===p.kind) || !['label','access','prerequisite','recovery','settingsSection'].every(k=>typeof p[k as keyof ConnectionDefinition]==='string')) return null;
     ids.add(p.id);
   }
-  if (ids.size !== IDS.length) return null;
+  if (!IDS.filter(id => id !== 'antigravity-cli').every(id => ids.has(id))) return null;
   const text = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
   if ((b.commandShellProblem === undefined || typeof b.commandShellProblem === 'string') && (b.commandShellNotice === undefined || typeof b.commandShellNotice === 'string')) return b;
   return { ...b, commandShellProblem: text(b.commandShellProblem), commandShellNotice: text(b.commandShellNotice) };

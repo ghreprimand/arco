@@ -5,6 +5,10 @@ import type { TokenUsage, ProviderName, ModelName, EffortLevel, ClaudeCatalogSna
 // (appStore.setAuthStatus). A module registry rather than another parameter:
 // effortsForModel has ~30 call sites and the levels only matter for Ollama.
 let ollamaThinking: Record<string, OllamaThinkingInfo> = {};
+let antigravityThinking: Record<string, EffortLevel[]> = {};
+export function setAntigravityThinkingCatalog(caps: Record<string, { thinkingLevels?: string[] }> | undefined): void {
+  antigravityThinking = Object.fromEntries(Object.entries(caps ?? {}).map(([model, c]) => [model, (c.thinkingLevels ?? []).filter((level): level is EffortLevel => ['low', 'medium', 'high', 'xhigh'].includes(level))]));
+}
 export function setOllamaThinkingCatalog(
   caps: Record<string, { thinkingLevels?: string[]; thinkingCanDisable?: boolean }> | undefined,
 ): void {
@@ -117,6 +121,7 @@ export const DEFAULT_AUTO_COMPACT_THRESHOLD = 80_000;
 // An empty result means the UI should not show a separate effort control.
 export function effortsForProvider(provider: ProviderName | undefined): EffortLevel[] {
   if (provider === 'claude') return [...CLAUDE_EFFORTS];
+  if (provider === 'antigravity-cli') return ['low', 'medium', 'high', 'xhigh'];
   if (provider === 'codex') return ['low', 'medium', 'high'];
 
   // Ollama: `low` injects `/no_think` into the system prompt so Qwen-family
@@ -189,6 +194,7 @@ export function effortsForModel(
     const info = CODEX_MODEL_INFO[id];
     if (info?.supportedEfforts) return info.supportedEfforts;
   }
+  if (provider === 'antigravity-cli' && id && Object.hasOwn(antigravityThinking, id)) return antigravityThinking[id];
   if (provider === 'ollama' && id) return ollamaEffortsFor(ollamaThinking[id]);
   if (provider === 'claude' && id) {
     const explicit = CLAUDE_MODEL_EFFORTS[id];

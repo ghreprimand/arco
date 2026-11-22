@@ -29,7 +29,7 @@ import type { SmartPickupEvaluatorCapability, SmartPickupEvaluatorProvider } fro
 import { SMART_PICKUP_EVALUATOR_PROVIDERS, SMART_PICKUP_REASONS } from '@arco/shared';
 import { commandArgs } from './windowsCommand.js';
 import { killProcessTree } from './workers/processKill.js';
-import { AcpJsonRpcClient, AcpReplyError, type IncomingRequest, type JsonRpcNotification } from './providers/cursor/acpJsonRpc.js';
+import { AcpJsonRpcClient, AcpReplyError, type IncomingRequest, type JsonRpcNotification } from './providers/acp/acpJsonRpc.js';
 import { resolveCatalogModel, setAcpSessionModel, type AcpModel } from './providers/cursor/modelMap.js';
 import { getCursorCatalog } from './providers/cursor/catalog.js';
 import { JsonRpcClient } from './providers/codex-appserver/jsonRpc.js';

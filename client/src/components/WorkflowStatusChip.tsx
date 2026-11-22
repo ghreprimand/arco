@@ -10,6 +10,7 @@ const PROVIDER_LABEL: Record<ProviderName, string> = {
 
   codex: 'CODEX',
   cursor: 'CURSOR',
+  'antigravity-cli': 'ANTIGRAVITY',
   ollama: 'OLLAMA',
   llamacpp: 'LLAMA',
   lmstudio: 'LMSTUDIO',

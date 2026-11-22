@@ -24,7 +24,7 @@ test('fresh homes get 110%, existing settings and saved work keep their scale', 
   mkdirSync(join(state, 'uploads'));
   assert.equal((await readSettings()).uiScale, 1.1, 'new home uses 110%');
   assert.equal(existsSync(settingsFile), false, 'reading a new home does not write settings');
-  assert.equal(await initializeProviderSettings(async () => ({ claude: true, codex: false, cursor: false, ollama: false, llamacpp: false, lmstudio: false, strata: false, deepseek: false })), true);
+  assert.equal(await initializeProviderSettings(async () => ({ claude: true, codex: false, cursor: false, ollama: false, llamacpp: false, lmstudio: false, strata: false, deepseek: false, 'antigravity-cli': false })), true);
   assert.equal((await readSettings()).uiScale, 1.1, 'first-run provider initialization keeps 110%');
 
   for (const saved of [{ uiScale: 1 }, {}, { uiScale: 'invalid' }]) {

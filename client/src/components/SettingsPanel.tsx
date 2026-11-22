@@ -190,6 +190,7 @@ export function SettingsPanel({ onClose }: Props) {
         strata: settings?.enabledProviders.strata !== false,
         deepseek: settings?.enabledProviders.deepseek !== false,
         cursor: settings?.enabledProviders.cursor !== false,
+        'antigravity-cli': settings?.enabledProviders['antigravity-cli'] === true,
         [provider]: !current,
       },
     };
@@ -445,13 +446,13 @@ export function SettingsPanel({ onClose }: Props) {
 
   // A finished in-app sign-in gives way to the row's LIVE state.
   useEffect(() => {
-    if (inAppLogin?.session && authStatus?.[inAppLogin.session.provider]?.loggedIn) setInAppLogin(null);
+    if (inAppLogin?.session && inAppLogin.session.provider !== 'antigravity-cli' && authStatus?.[inAppLogin.session.provider]?.loggedIn) setInAppLogin(null);
   }, [authStatus, inAppLogin]);
 
   // Clear loginPending once the target provider flips to loggedIn.
   useEffect(() => {
     if (!loginPending || !authStatus) return;
-    if (authStatus[loginPending]?.loggedIn) {
+    if (loginPending !== 'antigravity-cli' && authStatus[loginPending]?.loggedIn) {
       setLoginPending(null);
     }
   }, [authStatus, loginPending]);
@@ -462,7 +463,7 @@ export function SettingsPanel({ onClose }: Props) {
     setLoginCommand(null);
     setInAppLogin(null);
     setInAppNote(null);
-    const inApp = provider === 'cursor';
+    const inApp = provider === 'cursor' || provider === 'antigravity-cli';
     try {
       const res = await fetch(`/api/auth-login?provider=${provider}${inApp ? '&inApp=1' : ''}`, { method: 'POST' });
       const data = (await res.json()) as AuthLoginResult;
@@ -766,11 +767,12 @@ export function SettingsPanel({ onClose }: Props) {
             ENABLED PROVIDERS
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
-            {(['claude',  'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).map((p) => {
+            {(['claude',  'codex', 'cursor', 'antigravity-cli', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).map((p) => {
               const enabled = settings?.enabledProviders[p] !== false;
               const label = p === 'claude' ? 'CLAUDE'
                 : p === 'codex' ? 'CODEX'
                 : p === 'cursor' ? 'CURSOR'
+                : p === 'antigravity-cli' ? 'ANTIGRAVITY CLI'
                 : p === 'ollama' ? 'OLLAMA'
                 : p === 'deepseek' ? 'XOLOTL' : p === 'strata' ? 'STRATA' : p === 'lmstudio' ? 'LM STUDIO'
                 : 'LLAMA.CPP';
@@ -780,6 +782,7 @@ export function SettingsPanel({ onClose }: Props) {
                   ? 'Local worker provider: manual model registry, vision-capable'
                   : p === 'deepseek' ? 'DeepSeek V4.1 Flash · Exact / Light · local inference' : p === 'strata' ? 'Standalone Qwen inference: web and image input' : p === 'lmstudio'
                     ? 'Local worker provider: OpenAI-compatible endpoint (default :1234)'
+                  : p === 'antigravity-cli' ? 'Interactive agent tabs through agy ACP'
                   : p === 'cursor'
                     ? 'ACP Agent; print Chat/review: live model catalog (cursor-agent login)'
                   : p === 'codex'
@@ -870,6 +873,18 @@ export function SettingsPanel({ onClose }: Props) {
                   onRestart={() => void startLogin('cursor')}
                   onComplete={() => { void finishInAppLogin('cursor'); }}
                 />
+              </div>
+            )}
+            <ProviderRow
+              label="ANTIGRAVITY CLI"
+              provider="antigravity-cli"
+              status={authStatus?.['antigravity-cli']}
+              loginPending={loginPending === 'antigravity-cli'}
+              onLogin={() => startLogin('antigravity-cli')}
+            />
+            {inAppLogin?.session?.provider === 'antigravity-cli' && (
+              <div data-testid="settings-antigravity-login" style={{ padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>
+                <LoginFlow result={inAppLogin} onRestart={() => void startLogin('antigravity-cli')} onComplete={() => { void finishInAppLogin('antigravity-cli'); }} />
               </div>
             )}
             {inAppNote && (
@@ -1933,7 +1948,7 @@ function ProjectTrustSection({ activeCwd }: { activeCwd: string }) {
 
 interface ProviderRowProps {
   label: string;
-  provider?: ProviderName;
+  provider?: AuthLoginTarget;
   status?: AuthStatus;
   loginPending: boolean;
   onLogin: () => void;

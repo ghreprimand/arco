@@ -1,3 +1,5 @@
+import { FileExplorer } from './FileExplorer';
+import { DialogShell } from './DialogShell';
 import { PhoneUploadButton } from './PhoneUpload';
 import { TidyComposer } from './TidyComposer';
 import { useMessageBoxSize, messageBoxMinHeight, messageBoxMaxHeight } from '../utils/messageBoxSize';
@@ -53,6 +55,14 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
   const busy = job.busy === true || streaming;
   const provider = (job.config.primaryProvider ?? 'claude') as ProviderName;
   const incognito = job.config.incognito === true;
+  const [agyFolder, setAgyFolder] = useState('');
+  const [agyFolderOpen, setAgyFolderOpen] = useState(false);
+  useEffect(() => {
+    if (provider !== 'antigravity-cli') return;
+    let active = true;
+    void fetch(`/api/antigravity-chat-folder/${job.id}`).then(r => r.ok ? r.json() : null).then(data => { if (active && typeof data?.path === 'string') setAgyFolder(data.path); }).catch(() => undefined);
+    return () => { active = false; };
+  }, [provider, job.id]);
 
   const catalogs = useModelCatalogs();
   const modelOptions = useMemo(() => modelsForProvider(provider, catalogs), [provider, catalogs]);
@@ -183,8 +193,10 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
 
   return (
     <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      {agyFolderOpen && agyFolder && <DialogShell title="Antigravity Chat working folder" onClose={() => setAgyFolderOpen(false)}><FileExplorer cwd={agyFolder} onClose={() => setAgyFolderOpen(false)} /></DialogShell>}
       <header data-help="chat.mode-status" style={{ padding: '14px 24px 10px', borderBottom: '1px solid var(--color-border-hairline)', textAlign: 'center' }}>
         <div className="display-font" style={{ color: 'var(--color-fg-primary)', fontSize: '14px', letterSpacing: '1.8px' }}>{job.config.name || job.id.slice(0, 8)}</div>
+        {provider === 'antigravity-cli' && agyFolder && <div style={{ overflowWrap: 'anywhere', fontSize: 11 }}>Working folder: {agyFolder} <button type="button" onClick={() => setAgyFolderOpen(true)}>OPEN FOLDER</button></div>}
         <div
           className="display-font"
           style={{
@@ -192,7 +204,7 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
             gap: '8px', marginTop: '6px', color: 'var(--color-fg-muted)', fontSize: '9px', letterSpacing: '1.3px',
           }}
         >
-          <span>CHAT · {provider === 'deepseek' ? 'XOLOTL' : provider.toUpperCase()}</span>
+          <span>CHAT · {provider === 'deepseek' ? 'XOLOTL' : provider.toUpperCase()}{provider === 'antigravity-cli' ? ` · USES TOOLS · ${job.config.skipPermissions ? 'AUTO' : 'SAFE'}` : ''}</span>
           {provider === 'codex' && !job.config.voiceOperator && <span data-help="chat.codex-transport" title="Codex Chat uses exec with attachment-only access. There is no mid-turn steering; send the next message after the reply.">EXEC</span>}
           {onUpdatePrimary && modelOptions.length > 0 ? (
             <span data-help="chat.model" style={{ display: 'inline-flex' }}><select
@@ -248,6 +260,8 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
             >
               {webArmed ? '◉ WEB' : '○ WEB OFF'}
             </button></span>
+          ) : provider === 'antigravity-cli' ? (
+            <span title="Web tools are controlled by Antigravity.">AGY TOOLS</span>
           ) : (
             <span title={`${provider} chat has no web tool Arco can arm`} style={{ opacity: 0.6 }}>○ NO WEB</span>
           )}
@@ -389,7 +403,7 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
           Enter to send · Shift+Enter for a new line
           {canAttach ? ' · paste or drop a file to attach' : ' · attachments off in incognito'}
           {' · '}{incognito ? 'Incognito: closing or refreshing erases this chat' : 'Saved to Past Chats'}
-          {' · '}{webArmed ? 'Web search on' : 'No web access'} · No project
+          {' · '}{provider === 'antigravity-cli' ? 'Tools controlled by agy' : webArmed ? 'Web search on' : 'No web access'} · No project
           <GenerationSpeedReadout job={job} />
         <PendingQuestionsButton workflowId={job.id} />
         </div>

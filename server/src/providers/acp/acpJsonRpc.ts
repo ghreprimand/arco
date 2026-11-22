@@ -134,12 +134,12 @@ export class AcpJsonRpcClient extends EventEmitter {
       return;
     }
 
-    const hasId = typeof msg.id === 'number';
+    const hasId = typeof msg.id === 'number' || typeof msg.id === 'string';
     const hasMethod = typeof msg.method === 'string';
 
     // Server→client REQUEST: both method and id. Answer or the turn hangs.
     if (hasId && hasMethod) {
-      void this.handleIncomingRequest(msg.id as number, msg.method as string, msg.params);
+      void this.handleIncomingRequest(msg.id as string | number, msg.method as string, msg.params);
       return;
     }
 
@@ -175,7 +175,7 @@ export class AcpJsonRpcClient extends EventEmitter {
     this.emit('protocol_error', `unrecognized message shape: ${line.slice(0, 200)}`);
   }
 
-  private async handleIncomingRequest(id: number, method: string, params: unknown): Promise<void> {
+  private async handleIncomingRequest(id: string | number, method: string, params: unknown): Promise<void> {
     let result: unknown;
     try {
       result = await this.onRequest({ method, params });

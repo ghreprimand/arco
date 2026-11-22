@@ -9,13 +9,13 @@ export type ModelName = 'haiku' | 'sonnet' | 'opus' | (string & {});
 // Claude/local model lists it, so nothing else can select it.
 // Strata exposes none explicitly; other providers keep their own picker sets.
 export type EffortLevel = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra';
-export type ProviderName = 'claude' | 'ollama' | 'codex' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek' | 'cursor';
+export type ProviderName = 'claude' | 'ollama' | 'codex' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek' | 'cursor' | 'antigravity-cli';
 
 // Lite: only 'passthrough' remains — primary-worker output mirrored to chat.
 // The old 'planning'/'synthesis' phases are gone with the orchestrator.
 export type PrimaryPhase = 'passthrough';
 
-export const PRIMARY_PROVIDERS: ProviderName[] = ['claude',  'codex',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
+export const PRIMARY_PROVIDERS: ProviderName[] = ['claude',  'codex',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor', 'antigravity-cli'];
 
 export type AuthLoginTarget = ProviderName | 'github';
 

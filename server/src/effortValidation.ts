@@ -10,6 +10,7 @@ export function allowedWorkflowEfforts(provider: ProviderName | undefined, model
     if (live?.length) return known ? CLAUDE_EFFORTS.filter((level) => known.includes(level) || live.includes(level)) : live;
     return known ?? CLAUDE_EFFORTS;
   }
+  if (provider === 'antigravity-cli') return ['low', 'medium', 'high', 'xhigh'];
   if (provider === 'codex') {
     const live = getCachedCodexModelCapabilities(model)?.supportedReasoningEfforts;
     const supported = live?.filter((level): level is EffortLevel => level !== 'none' && Object.hasOwn(EFFORT_RANK, level));

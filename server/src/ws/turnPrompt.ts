@@ -48,7 +48,9 @@ export function composeBasePrompts(p: BasePromptParts): { systemPrompt: string |
     else if (p.provider !== 'codex') append = [VOICE_OPERATOR_PROMPT, append].filter(Boolean).join('\n\n');
   }
   if (p.chatMode && !p.computerChat) {
-    const chatPrompt = chatSystemPrompt(p.chatWeb);
+    const chatPrompt = p.provider === 'antigravity-cli'
+      ? 'You are in an interactive Arco Chat with a private working folder. Provider tools are available under the selected permission setting. Do not schedule unattended work.'
+      : chatSystemPrompt(p.chatWeb);
     if (systemField) systemPrompt = chatPrompt;
     else append = append ? `${chatPrompt}\n\n${append}` : chatPrompt;
   }

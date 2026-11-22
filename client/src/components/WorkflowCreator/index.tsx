@@ -43,7 +43,7 @@ import { PERMISSION_AUTO_NOTE, PERMISSION_SAFE_NOTE } from './permissionNotes';
 import { availableMemberProviders, firstAvailablePrimaryProvider, memberProviderAvailable, MEMBER_PROVIDER_NAMES, primaryProviderAvailable, primaryProviderOptions, primaryProviderProblem } from './memberProviders';
 
 const PRIMARY_PROVIDER_LABELS: Partial<Record<ProviderName, string>> = {
-  claude: 'Claude', codex: 'Codex', cursor: 'Cursor', ollama: 'Ollama', llamacpp: 'llama.cpp', lmstudio: 'LM Studio', strata: 'Strata', deepseek: 'Xolotl',
+  claude: 'Claude', codex: 'Codex', cursor: 'Cursor', 'antigravity-cli': 'Antigravity CLI', ollama: 'Ollama', llamacpp: 'llama.cpp', lmstudio: 'LM Studio', strata: 'Strata', deepseek: 'Xolotl',
 };
 const BOARD_LABELS: Record<ClusterTaskBoardMode, string> = { cluster: 'Cluster-local board', project: 'Project board', none: 'No task board' };
 const PROGRESS_LABELS: Record<ClusterProgressMode, string> = { both: 'Keep plan and board current', plan: 'Keep plan current', board: 'Keep board current' };
@@ -245,6 +245,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     if (!PRIMARY_PROVIDERS.includes(primaryProvider) || primaryProvider === 'cursor') return null;
 
     if (primaryProvider === 'codex') return codexModelsForPicker;
+    if (primaryProvider === 'antigravity-cli') return (authStatus?.['antigravity-cli']?.installedModels ?? []).map(m => ({ value: m as ModelName, label: m }));
 
     if (primaryProvider === 'ollama') return ollamaModelsForPicker;
     if (primaryProvider === 'llamacpp') return llamacppModelsForPicker;
@@ -650,6 +651,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     if (p === 'codex') setModel(DEFAULT_CODEX_MODEL);
 
     if (p === 'cursor') setModel('auto');
+    if (p === 'antigravity-cli') setModel((authStatus?.['antigravity-cli']?.installedModels?.[0] ?? '') as ModelName);
 
     // Default to the first installed local model so single-model
     // setups need no second pick; fall back to the historical
@@ -671,7 +673,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     : null;
   const providerReady = providerProblem === null;
   const canLaunch = supportedProvider && providerReady && connected && workDir && (conversationMode !== 'resume' || (!sessionsLoading && sessionsPath === workDir && sessions.some((s) => s.sessionId === selectedSessionId)));
-  const canLaunchChat = supportedProvider && providerReady && connected && Boolean(model && String(model).trim()) && (!incognito || (primaryProvider !== 'cursor' && primaryProvider !== 'llamacpp' && primaryProvider !== 'strata' && primaryProvider !== 'deepseek'));
+  const canLaunchChat = !(incognito && primaryProvider === 'antigravity-cli') && supportedProvider && providerReady && connected && Boolean(model && String(model).trim()) && (!incognito || (primaryProvider !== 'cursor' && primaryProvider !== 'llamacpp' && primaryProvider !== 'strata' && primaryProvider !== 'deepseek'));
   const unavailableMembers = mode === 'cluster' ? members.flatMap((m, i) =>
     memberProviderAvailable(m.provider, authStatus, isProviderEnabled) ? [] : [`Member #${i + 1}${m.displayName.trim() ? ` (${m.displayName.trim()})` : ''}: ${MEMBER_PROVIDER_NAMES[m.provider]} ${!authStatus ? 'connection is being checked' : !isProviderEnabled(m.provider) ? 'is turned off in Settings' : 'is not connected'}.`]
   ) : [];
@@ -699,7 +701,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   })();
   const canLaunchCluster = connected && clusterSubmitProblems.length === 0 && unavailableMembers.length === 0;
   // Genesis launches with no cwd — gate on a working name + a Spark instead.
-  const canLaunchGenesis = supportedProvider && providerReady && connected && name.trim().length > 0 && spark.trim().length > 0;
+  const canLaunchGenesis = primaryProvider !== 'antigravity-cli' && supportedProvider && providerReady && connected && name.trim().length > 0 && spark.trim().length > 0;
 
   // apply a saved preset: overwrite the MEMBERS list and
   // (if the operator hasn't typed a cluster name yet) seed clusterName from
@@ -945,7 +947,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         ...(primaryProvider !== 'claude' && { primaryProvider }),
         primaryModel: model,
         primaryEffort: effort,
-        skipPermissions: false,
+        skipPermissions: primaryProvider === 'antigravity-cli' ? skipPermissions : false,
         workingDirectory: '',
         ...(incognito ? { incognito: true } : {}),
         ...(providerAccountRef ? { providerAccountRef } : {}),
@@ -1231,6 +1233,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
           <label data-help="creator.incognito" style={{ ...spanBoth, display: 'flex', gap: '10px', alignItems: 'flex-start', cursor: 'pointer', padding: '10px 12px', border: `1px solid ${incognito ? 'var(--color-accent-secondary)' : 'var(--color-border-hairline)'}`, borderRadius: '5px' }}>
             <input
               type="checkbox"
+              disabled={primaryProvider === 'antigravity-cli'}
               checked={incognito}
               onChange={(e) => {
                 const checked = e.target.checked;
@@ -1245,7 +1248,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             <span>
               <span className="display-font" style={{ display: 'block', color: incognito ? 'var(--color-accent-secondary)' : 'var(--color-fg-primary)', fontSize: '11px', letterSpacing: '1px' }}>INCOGNITO CHAT</span>
               <span style={{ display: 'block', marginTop: '4px', color: 'var(--color-fg-muted)', fontSize: '10px', lineHeight: 1.45 }}>
-                Strict mode: Arco writes no transcript, metadata, operational log, notification, or worker registry entry. Closing or refreshing loses it, and it never appears in Past Chats. Provider-side API retention is governed by that provider.
+                {primaryProvider === 'antigravity-cli' ? 'Antigravity keeps its own conversation history, so Arco cannot offer an incognito chat.' : 'Strict mode: Arco writes no transcript, metadata, operational log, notification, or worker registry entry. Closing or refreshing loses it, and it never appears in Past Chats. Provider-side API retention is governed by that provider.'}
               </span>
             </span>
           </label>
@@ -1499,12 +1502,12 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
                   is not, so a saved choice stays visible instead of being
                   replaced. */}
               {primaryProviderOptions(primaryProvider, authStatus, isProviderEnabled)
-                .filter((p) => PRIMARY_PROVIDERS.includes(p))
+                .filter((p) => PRIMARY_PROVIDERS.includes(p) && (p !== 'antigravity-cli' || mode === 'single' || (mode === 'chat' && !incognito)))
                 .filter((p) => p === primaryProvider || !(mode === 'chat' && incognito && (p === 'cursor' || p === 'llamacpp' || p === 'strata' || p === 'deepseek')))
                 .map((p) => {
                 const authed = primaryProviderAvailable(p, authStatus, isProviderEnabled);
-                const label = p === 'claude' ? 'CLAUDE' : p === 'codex' ? 'CODEX' : p === 'cursor' ? 'CURSOR' : p === 'ollama' ? 'OLLAMA' : p === 'deepseek' ? 'XOLOTL' : p === 'strata' ? 'STRATA' : p === 'lmstudio' ? 'LM STUDIO' : 'LLAMA';
-                const sub = p === 'claude' ? 'default' : p === 'codex' ? 'GPT' : p === 'cursor' ? '~153 models' : p === 'ollama' ? 'local' : p === 'deepseek' ? 'DeepSeek · Exact / Light' : p === 'strata' ? 'Qwen · web · vision' : p === 'lmstudio' ? 'local · OpenAI-compat' : 'local · vision';
+                const label = p === 'claude' ? 'CLAUDE' : p === 'codex' ? 'CODEX' : p === 'cursor' ? 'CURSOR' : p === 'antigravity-cli' ? 'ANTIGRAVITY CLI' : p === 'ollama' ? 'OLLAMA' : p === 'deepseek' ? 'XOLOTL' : p === 'strata' ? 'STRATA' : p === 'lmstudio' ? 'LM STUDIO' : 'LLAMA';
+                const sub = p === 'claude' ? 'default' : p === 'codex' ? 'GPT' : p === 'cursor' ? '~153 models' : p === 'antigravity-cli' ? 'interactive Gemini' : p === 'ollama' ? 'local' : p === 'deepseek' ? 'DeepSeek · Exact / Light' : p === 'strata' ? 'Qwen · web · vision' : p === 'lmstudio' ? 'local · OpenAI-compat' : 'local · vision';
                 return (
                   <option key={p} value={p}>
                     {label}: {sub}{authed ? '' : ' (not connected)'}
@@ -1669,7 +1672,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
 
         {/* Permissions — agent-execution config, paired with EFFORT so the AGENT
             band reads as a symmetric 2×2 (provider | model / effort | perms). */}
-        {mode !== 'chat' && <div data-help="creator.permissions">
+        {(mode !== 'chat' || primaryProvider === 'antigravity-cli') && <div data-help="creator.permissions">
           <label className="display-font" style={labelStyle}>PERMISSIONS</label>
           <div style={{ display: 'flex', gap: '6px' }}>
             <button onClick={() => setSkipPermissions(true)} style={{ ...selectStyle(skipPermissions), flex: 1, textAlign: 'center', padding: '6px 8px' }}>

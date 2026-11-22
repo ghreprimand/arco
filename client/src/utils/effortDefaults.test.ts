@@ -36,3 +36,12 @@ test('explicit MAX resets to HIGH with a note after a model switch; ultracode ke
   assert.deepEqual(effortAfterModelChange('high', { explicit: true, ultracode: false, provider: 'claude', model: 'sonnet' }), { effort: 'high', note: null });
   assert.equal(effortAfterModelChange('xhigh', { explicit: true, ultracode: true, provider: 'claude', model: 'opus' }).effort, 'xhigh');
 });
+
+test('Antigravity thinking choices follow the selected model advertised by agy', async () => {
+  const { setAntigravityThinkingCatalog, effortsForModel } = await import('./format.js');
+  setAntigravityThinkingCatalog({ 'gemini-fixture': { thinkingLevels: ['low', 'high'] }, 'gemini-orchestrator': { thinkingLevels: [] } });
+  assert.deepEqual(effortsForModel('antigravity-cli', 'gemini-fixture'), ['low', 'high']);
+  assert.deepEqual(effortsForModel('antigravity-cli', 'gemini-orchestrator'), []);
+  assert.equal(capDefaultEffort('medium', 'antigravity-cli', 'gemini-fixture'), 'low');
+  setAntigravityThinkingCatalog(undefined);
+});

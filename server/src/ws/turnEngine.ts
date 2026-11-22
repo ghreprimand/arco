@@ -98,7 +98,7 @@ OLLAMA_PRIMARY_SYSTEM_PROMPT,
 withPreviewNudge
 } from '../server/prompts.js';
 import { buildGenesisSystemBlock } from '../genesis/prompts.js';
-import { CHAT_PROVIDERS, chatSystemPrompt, chatWebArmed, isChatWorkflow } from '../chatMode.js';
+import { CHAT_PROVIDERS, chatSystemPrompt, chatWebArmed, isChatWorkflow, antigravityChatWorkspace } from '../chatMode.js';
 import { resolveNativeInTurnCompactPercent, resolveTurnSettings } from './turnSettings.js';
 import { composeBasePrompts } from './turnPrompt.js';
 import { runAfterTurn } from './afterTurn.js';
@@ -1402,12 +1402,22 @@ export async function handleUserMessage(
   pickedSkills?: Array<{ scope: 'project' | 'global' | 'builtin'; slug: string }>,
   // drainQueueIfIdle only: take the prompt from wf.queue at claim time
   // instead of `content` (items were echoed + expanded at enqueue).
-  opts?: { clusterBusyReminder?: boolean; automaticKind?: import('@arco/shared').AutomaticMessageKind; fromQueue?: boolean; busyOnly?: boolean; busyOnlyGuard?: () => boolean; onBusyQueued?: () => void; backgroundEvent?: boolean; onBackgroundSettled?: (error?: string) => void; claimGuard?: (claim: () => boolean) => Promise<boolean> },
+  opts?: { operatorInitiated?: boolean; clusterBusyReminder?: boolean; automaticKind?: import('@arco/shared').AutomaticMessageKind; fromQueue?: boolean; busyOnly?: boolean; busyOnlyGuard?: () => boolean; onBusyQueued?: () => void; backgroundEvent?: boolean; onBackgroundSettled?: (error?: string) => void; claimGuard?: (claim: () => boolean) => Promise<boolean> },
 ): Promise<void> {
   const fromQueue = opts?.fromQueue === true;
   const wf = workflows.get(workflowId);
   if (!wf) {
     send(ws, { type: 'error', message: `Unknown workflow ${workflowId.slice(0, 8)}` });
+    return;
+  }
+  const queuedOperatorInput = fromQueue && [...wf.queue.steering, ...wf.queue.followUp].length > 0
+    && [...wf.queue.steering, ...wf.queue.followUp].every(item => item.operatorInitiated === true && !item.automaticKind);
+  if (wf.primary.provider === 'antigravity-cli' && (!(opts?.operatorInitiated === true || queuedOperatorInput) || opts?.automaticKind || opts?.backgroundEvent || primitive || (isChatWorkflow(wf.config) && wf.config.incognito) || clusterStore.getClusterIdForWorkflow(workflowId))) {
+    send(ws, { type: 'error', workflowId, message: 'Antigravity accepts only operator messages in an Agent tab or saved Chat.' });
+    return;
+  }
+  if (wf.primary.provider === 'antigravity-cli' && /^\s*\/schedule(?:\s|$)/i.test(content)) {
+    send(ws, { type: 'error', workflowId, message: 'Antigravity scheduling is unavailable in Arco because it runs unattended.' });
     return;
   }
   if (storageMigrations.has(wf)) {
@@ -1628,7 +1638,7 @@ export async function handleUserMessage(
     }
     const arr = bucket === 'steer' ? wf.queue.steering : wf.queue.followUp;
     const queuedAttachments = [...new Set([...(attachments ?? []), ...contextAttachments])];
-    const queuedItem = { clusterBusyReminder: opts?.clusterBusyReminder, automaticKind: opts?.automaticKind, content, attachments: isolatedMember || !queuedAttachments.length ? undefined : queuedAttachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
+    const queuedItem = { ...(wf.primary.provider === 'antigravity-cli' && opts?.operatorInitiated === true ? { operatorInitiated: true } : {}), clusterBusyReminder: opts?.clusterBusyReminder, automaticKind: opts?.automaticKind, content, attachments: isolatedMember || !queuedAttachments.length ? undefined : queuedAttachments, clientMessageId, expandedContext, pickedSkills, editPickedSkills, ollamaInputSeq: undefined as number | undefined, ...(interrupt ? { interrupt: true } : {}) };
     arr.push(queuedItem);
     opts?.onBusyQueued?.();
     send(ws, {
@@ -1711,11 +1721,13 @@ export async function handleUserMessage(
     send(ws, { type: 'error', workflowId, message: 'A phone attachment expired or belongs to another conversation.' });
     return;
   }
+  let activeAntigravityOperatorInput = opts?.operatorInitiated === true;
   let activeOllamaInputSeqs: number[] = [];
   let activeInputClientIds: string[] = [];
   if (fromQueue) {
     const drained = takeQueuedTurn(wf.queue);
     if (drained.length === 0) return;
+    activeAntigravityOperatorInput = drained.every(item => item.operatorInitiated === true && !item.automaticKind);
     if (!incognito) console.log(`[arco] [${workflowId.slice(0, 8)}] idle drain: flushing ${drained.length} queued message(s) as a fresh turn`);
     broadcastQueueUpdate(workflowId);
     const drainedClientIds = drained
@@ -1786,6 +1798,7 @@ export async function handleUserMessage(
 
   const loadQueuedPrompt = (append = false): void => {
     const drained = takeQueuedTurn(wf.queue);
+    activeAntigravityOperatorInput = drained.length > 0 && drained.every(item => item.operatorInitiated === true && !item.automaticKind);
     broadcastQueueUpdate(workflowId);
     const ids = drained.flatMap((d) => d.clientMessageId ? [d.clientMessageId] : []);
     if (ids.length) send(ws, { type: 'queued_messages_drained', workflowId,
@@ -2701,7 +2714,9 @@ export async function handleUserMessage(
           disableRssGuard: wf.disableRssGuard,
           appendSystemPrompt: finalAppend,
           systemPrompt: finalSystemPrompt,
-          interactionMode: chatMode || (firstIteration && primitive === 'plan-review') ? 'chat' : 'agent',
+          interactionMode: (chatMode && wf.primary.provider !== 'antigravity-cli') || (firstIteration && primitive === 'plan-review') ? 'chat' : 'agent',
+          antigravityInteractive: wf.primary.provider === 'antigravity-cli' && activeAntigravityOperatorInput,
+          antigravityChatWorkspace: chatMode && wf.primary.provider === 'antigravity-cli',
           disableProviderHooks: firstIteration && primitive === 'plan-review',
           chatWebAccess: firstIteration && primitive === 'plan-review' ? false : chatWeb,
           voiceOperator: chatMode && wf.config.voiceOperator === true,
@@ -2755,10 +2770,10 @@ export async function handleUserMessage(
           clusterAccessMode,
           clusterWebAccess,
           ...(turnResearchDirector ? { clusterResearchDirector: true } : {}),
-          executionCwd: isolatedMember && turnClusterId
+          executionCwd: chatMode && wf.primary.provider === 'antigravity-cli' ? antigravityChatWorkspace(workflowId) : isolatedMember && turnClusterId
             ? clusterStore.isolatedWorkspaceFor(turnClusterId, workflowId)
             : undefined,
-          persistenceCwd: isolatedMember ? cwd : undefined,
+          persistenceCwd: isolatedMember || (chatMode && wf.primary.provider === 'antigravity-cli') ? cwd : undefined,
           clusterTaskBoardAttached: turnClusterTaskBoardAttached,
           clusterPlan: turnClusterPlan,
           clusterRole: turnClusterRole,
@@ -2953,6 +2968,9 @@ export async function handleUserMessage(
             crossed: crossedThresholds(budget.pct, thresholds),
           });
         }
+      } else if (wf.primary.provider === 'antigravity-cli' && typeof outcome.lastPromptTokens === 'number' && outcome.modelContextWindow) {
+        const est = promptContextEstimate(outcome.lastPromptTokens, outcome.modelContextWindow, Date.now());
+        if (est) { wf.lastContextPercent = est.percentOfWindow; broadcastTransient(workflowId, { type: 'context_usage', workflowId, ...est }); }
       } else if (wf.primary.provider === 'ollama' && typeof outcome.lastPromptTokens === 'number') {
         // M6 — Ollama has no session JSONL. The worker's settled outcome carries
         // the LAST turn's prompt_eval_count (ground truth: the exact prompt the

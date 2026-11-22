@@ -3,8 +3,8 @@ import test from 'node:test';
 import { mkdtemp, mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CHAT_PROVIDERS, CHAT_SYSTEM_PROMPT, CHAT_WEB_PROVIDERS, INCOGNITO_CHAT_PROVIDERS, chatStorageDir, chatSystemPrompt, chatWebArmed, incognitoChatCwd, isChatWorkflow, listSavedChats } from './chatMode.js';
-import { workflowConfigFromMeta, type WorkflowMeta } from './workflowMeta.js';
+import { CHAT_PROVIDERS, CHAT_SYSTEM_PROMPT, CHAT_WEB_PROVIDERS, INCOGNITO_CHAT_PROVIDERS, chatStorageDir, chatSystemPrompt, chatWebArmed, incognitoChatCwd, isChatWorkflow, listSavedChats, antigravityChatWorkspace, prepareAntigravityChatWorkspace } from './chatMode.js';
+import { workflowConfigFromMeta, workflowMetaSeed, type WorkflowMeta } from './workflowMeta.js';
 import { arcoHome } from './arcoHome.js';
 import { ClaudeProvider } from './providers/claude.js';
 import { CodexProvider } from './providers/codex.js';
@@ -24,6 +24,29 @@ test('chat support excludes Gemini and Antigravity', () => {
   for (const provider of ['claude', 'codex', 'ollama', 'lmstudio'] as const) {
     assert.equal(INCOGNITO_CHAT_PROVIDERS.has(provider), true, `incognito ${provider}`);
   }
+});
+
+test('Antigravity saved chats receive separate working folders and cannot use Incognito', async () => {
+  assert.equal(CHAT_PROVIDERS.has('antigravity-cli'), true);
+  assert.equal(INCOGNITO_CHAT_PROVIDERS.has('antigravity-cli'), false);
+  const first = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const second = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const a = await prepareAntigravityChatWorkspace(first, false);
+  const b = await prepareAntigravityChatWorkspace(second, false);
+  assert.notEqual(a, b); assert.notEqual(a, chatStorageDir(first));
+  assert.equal(a, antigravityChatWorkspace(first));
+  assert.equal(await prepareAntigravityChatWorkspace(first, true), a);
+  await rm(a, { recursive: true }); await rm(b, { recursive: true });
+  await assert.rejects(prepareAntigravityChatWorkspace(first, true));
+});
+
+test('saved Antigravity permissions survive reopen and missing values fail safe', () => {
+  const config = { kind: 'chat', name: 'Fixture', workingDirectory: '/fixture', primaryProvider: 'antigravity-cli', primaryModel: 'gemini-fixture', primaryEffort: 'low', skipPermissions: false } as const;
+  const primary = { provider: 'antigravity-cli', model: 'gemini-fixture', effort: 'low' } as const;
+  const meta = workflowMetaSeed('/fixture', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', config, primary);
+  assert.equal(workflowConfigFromMeta(meta, '/fixture').skipPermissions, false);
+  assert.equal(workflowConfigFromMeta({ ...meta, antigravitySkipPermissions: true }, '/fixture').skipPermissions, true);
+  assert.equal(workflowConfigFromMeta({ ...meta, antigravitySkipPermissions: undefined }, '/fixture').skipPermissions, false);
 });
 
 test('chat web access defaults on for saved chats, off for incognito and tool-less providers', () => {

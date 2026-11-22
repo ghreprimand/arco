@@ -14,6 +14,7 @@ import { DeepSeekProvider } from './deepseek.js';
 import { StrataProvider } from './strata.js';
 import { LmstudioProvider } from './lmstudio.js';
 import { CursorProvider, disposeCursorWorker } from './cursor/index.js';
+import { AntigravityProvider } from './antigravity/index.js';
 import { CursorPrintProvider } from './cursor/print.js';
 import { CursorIsolatedProvider } from './cursor/isolated.js';
 import { disposeLocalShells } from './localShellLifecycle.js';
@@ -31,6 +32,7 @@ const PROVIDERS: Record<ProviderName, Provider> = {
   strata: StrataProvider,
   deepseek: DeepSeekProvider,
   cursor: CursorProvider,
+  'antigravity-cli': AntigravityProvider,
 };
 
 // M13 — LM Studio joins ollama/llamacpp on the serial local queue. LM Studio's
@@ -170,5 +172,5 @@ export function disposeProviderResources(workflowId: string): Promise<void> {
 }
 
 export function isKnownProvider(name: string): name is ProviderName {
-  return name === 'claude' || name === 'ollama' || name === 'codex' || name === 'llamacpp' || name === 'lmstudio' || name === 'strata' || name === 'deepseek' || name === 'cursor';
+  return name === 'claude' || name === 'ollama' || name === 'codex' || name === 'llamacpp' || name === 'lmstudio' || name === 'strata' || name === 'deepseek' || name === 'cursor' || name === 'antigravity-cli';
 }

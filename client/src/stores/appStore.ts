@@ -22,7 +22,7 @@ import {
 } from './memoryTrim';
 import { debouncedJSONStorage } from './persistence';
 import { getAppMemoryStats } from './selectors';
-import { setOllamaThinkingCatalog } from '../utils/format';
+import { setOllamaThinkingCatalog, setAntigravityThinkingCatalog } from '../utils/format';
 import {
   mergeTokens, compareHistoryEntries,
 } from './appStore.types';
@@ -293,6 +293,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
 
   setAuthStatus: (authStatus) => {
     setOllamaThinkingCatalog(authStatus?.ollama?.installedModelCapabilities);
+    setAntigravityThinkingCatalog(authStatus?.['antigravity-cli']?.installedModelCapabilities);
     set((state) => {
       if (state.authStatus && JSON.stringify([state.authStatus.claude?.native?.binding, state.authStatus.claude?.cli?.binding])
         !== JSON.stringify([authStatus.claude?.native?.binding, authStatus.claude?.cli?.binding])) invalidateClaudeAllowanceRequests();

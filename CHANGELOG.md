@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Offer interactive Antigravity CLI Agent tabs and saved Chats through agy ACP.
+
 - Add and remove researchers in a running research project; a late researcher can answer the round 1 text alone first.
 
 - Offer sandboxed Cursor researchers and isolated members on supported Linux hosts: each turn runs Cursor in print mode with its own sandbox inside Arco's fence.

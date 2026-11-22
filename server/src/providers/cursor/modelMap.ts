@@ -15,7 +15,7 @@
 // `claude-4.6-sonnet`, ACP `claude-sonnet-4-6`) and those three settings.
 // Context sizes are not part of catalog ids and are ignored.
 
-import { JsonRpcRequestError } from './acpJsonRpc.js';
+import { JsonRpcRequestError } from '../acp/acpJsonRpc.js';
 
 export interface AcpModel { modelId: string; name?: string }
 

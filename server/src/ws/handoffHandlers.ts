@@ -1402,7 +1402,7 @@ function enforceIncognitoOnRehydrate(config: WorkflowConfig): string | null {
   }
   const provider = derivePrimaryConfig(config).provider;
   if (!INCOGNITO_CHAT_PROVIDERS.has(provider)) {
-    return `${provider} cannot guarantee a non-persistent CLI session in Incognito Chat.`;
+    return provider === 'antigravity-cli' ? 'Antigravity keeps its own conversation history, so Arco cannot offer an incognito chat.' : `${provider} cannot guarantee a non-persistent CLI session in Incognito Chat.`;
   }
   if (config.voiceOperator) {
     if (!['codex', 'claude', 'ollama', 'strata'].includes(provider)) return 'Computer supports Codex, Claude, Ollama and Strata.';

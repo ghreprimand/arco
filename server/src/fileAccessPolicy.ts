@@ -77,6 +77,7 @@ export function assertSpellingSafe(target: string, pathApi = path): void {
 
 function runtimePathAllowed(parts: string[], allowUploads = false): boolean {
   return (allowUploads && parts[0] === 'uploads' && parts.length <= 2)
+    || (parts[0] === 'chat-workspaces' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(parts[1] || ''))
     || parts[0] === 'plans' || parts[0] === 'media-scratch'
     || (parts[0] === 'workflows' && /^[a-z0-9_-]+$/.test(parts[1] || '') && ['artifacts', 'handoffs'].includes(parts[2]))
     || (['chats', 'genesis'].includes(parts[0]) && /^[a-z0-9_-]+$/.test(parts[1] || ''));

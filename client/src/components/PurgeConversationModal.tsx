@@ -88,7 +88,7 @@ export function PurgeConversationModal({ workflowId, cwd, name, onClose, onPurge
         </div>
         <div style={{ fontSize: '12px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
           Permanently delete <strong style={{ color: 'var(--color-fg)' }}>{name}</strong> and everything
-          associated with it: transcript, events, checkpoints, artifacts, recall entry. <strong style={{ color: 'var(--color-warning)' }}>This cannot be undone.</strong>
+          associated with it: transcript, events, checkpoints, artifacts, recall entry. For an Antigravity Chat, its working folder and files are also deleted. Save any wanted files elsewhere first. <strong style={{ color: 'var(--color-warning)' }}>This cannot be undone.</strong>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

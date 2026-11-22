@@ -11,10 +11,10 @@ export function providerShown(settings: Pick<ArcoSettings, 'enabledProviders'> |
 // Whether the runtime a provider needs is installed, as the Versions list
 // reads it: 'unknown' means not installed, 'broken' means installed but the
 // version probe failed. Claude Native needs no CLI.
-export function providerRuntime(provider: 'claude' | 'codex' | 'cursor', capabilities: Capabilities | null | undefined, claudeTransport: 'native' | 'cli'): 'installed' | 'missing' | 'broken' | 'checking' {
+export function providerRuntime(provider: 'claude' | 'codex' | 'cursor' | 'antigravity-cli', capabilities: Capabilities | null | undefined, claudeTransport: 'native' | 'cli'): 'installed' | 'missing' | 'broken' | 'checking' {
   if (!capabilities) return 'checking';
   if (provider === 'claude' && claudeTransport === 'native') return 'installed';
-  const version = provider === 'claude' ? capabilities.cliVersion : provider === 'codex' ? capabilities.codexVersion : capabilities.cursorVersion;
+  const version = provider === 'claude' ? capabilities.cliVersion : provider === 'codex' ? capabilities.codexVersion : provider === 'cursor' ? capabilities.cursorVersion : capabilities.antigravityVersion;
   if (!version || version === 'unknown') return 'missing';
   return version === 'broken' ? 'broken' : 'installed';
 }
@@ -22,8 +22,8 @@ export function providerRuntime(provider: 'claude' | 'codex' | 'cursor', capabil
 export type IndicatorState = 'checking' | 'unknown' | 'ready' | 'sign-in' | 'rejected' | 'runtime';
 
 export interface ProviderIndicator {
-  provider: 'claude' | 'codex' | 'cursor';
-  letter: 'A' | 'C' | 'X';
+  provider: 'claude' | 'codex' | 'cursor' | 'antigravity-cli';
+  letter: 'A' | 'C' | 'X' | 'G';
   name: string;
   state: IndicatorState;
   // What the provider needs, in words, without the provider name; the
@@ -33,8 +33,8 @@ export interface ProviderIndicator {
   attention: boolean;
 }
 
-const NAMES = { claude: 'Claude', codex: 'Codex', cursor: 'Cursor' } as const;
-const LETTERS = { claude: 'A', codex: 'C', cursor: 'X' } as const;
+const NAMES = { claude: 'Claude', codex: 'Codex', cursor: 'Cursor', 'antigravity-cli': 'Antigravity CLI' } as const;
+const LETTERS = { claude: 'A', codex: 'C', cursor: 'X', 'antigravity-cli': 'G' } as const;
 
 export interface IndicatorInput {
   auth: AuthStatusByProvider | null | undefined;
@@ -51,7 +51,7 @@ function codexStatus(auth: AuthStatus | undefined, account?: string): AuthStatus
   return entry ? { ...auth, loggedIn: entry.loggedIn, email: entry.email, error: entry.error } : auth;
 }
 
-export function providerIndicator(provider: 'claude' | 'codex' | 'cursor', input: IndicatorInput): ProviderIndicator {
+export function providerIndicator(provider: 'claude' | 'codex' | 'cursor' | 'antigravity-cli', input: IndicatorInput): ProviderIndicator {
   const base = { provider, letter: LETTERS[provider], name: NAMES[provider] };
   const runtime = providerRuntime(provider, input.capabilities, input.claudeTransport);
   if (runtime === 'missing') return { ...base, state: 'runtime', attention: true, text: 'CLI not installed. Open Connections to set it up.' };
@@ -68,7 +68,7 @@ export function providerIndicator(provider: 'claude' | 'codex' | 'cursor', input
     if (view.dotState === 'live' || view.nativeAvailable || view.showDot) return { ...base, state: 'ready', attention: false, text: `${transport} ready` };
     return { ...base, state: 'checking', attention: false, text: `${transport} status unknown` };
   }
-  const status = provider === 'codex' ? codexStatus(input.auth.codex, input.codexAccount) : input.auth.cursor;
+  const status = provider === 'codex' ? codexStatus(input.auth.codex, input.codexAccount) : provider === 'cursor' ? input.auth.cursor : input.auth['antigravity-cli'];
   if (!status) return { ...base, state: 'checking', attention: false, text: 'Checking status' };
   if (status.loggedIn) return { ...base, state: 'ready', attention: false, text: 'ready' };
   // A finished check that could not tell (a locked keyring, say) has a

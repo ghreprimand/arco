@@ -16,7 +16,7 @@ export const providers: Section[] = [
   pick one by transport, session resume, tool use and reasoning controls.
   </p>
   <p>
-  Eight providers ship for Agent workflows. Chat has a smaller provider set,
+  Nine providers ship for Agent workflows. Chat has a smaller provider set,
   and Incognito narrows it further (see Chat in Workflows &amp; sessions).
   </p>
   <Table
@@ -24,6 +24,7 @@ export const providers: Section[] = [
   rows={[
   ['Claude', <>cli subprocess or native <Code>@anthropic-ai/sdk</Code></>, 'UUID', 'rich', 'yes', '5'],
   ['Codex', <>exec subprocess or long-lived <Code>app-server</Code></>, 'thread_id', 'yes', 'yes', 'model-dependent; Astra up to ultra'],
+  ['Antigravity CLI', <>ACP (<Code>agy acp</Code>)</>, 'session/load', 'provider-owned tools', 'yes', 'low / medium / high / xhigh'],
   ['Cursor', <>ACP (<Code>cursor-agent acp</Code>, JSON-RPC over stdio)</>, 'session/load', 'yes (fs + permission callbacks)', 'model-dependent', 'baked into model id'],
   ['Ollama', 'HTTP', 'none (transcript replay)', 'yes (server-side allowlist)', 'model-dependent', 'low plus model-advertised levels'],
   ['llama.cpp', 'HTTP (singleton llama-server)', 'none (transcript replay)', 'yes (OpenAI-format + XML fallback)', 'model-dependent', 'low / high thinking toggle'],
@@ -33,12 +34,15 @@ export const providers: Section[] = [
   ]}
   />
   <Note>
-  Z.ai, Gemini (dedicated Google paths) and Antigravity support have been
+  Z.ai, Gemini (dedicated Google paths) and the older Antigravity provider have been
   removed. Existing history that named them remains readable; new work
   must use a supported provider. Details are in{' '}
   <DocRef path="docs/PROVIDERS.md">docs/PROVIDERS.md</DocRef> under
   retired provider history.
   </Note>
+  <p>Antigravity CLI uses the official <Code>agy acp</Code> program and its own account-wide Google sign-in. Settings and Connections offer LOG IN and a terminal fallback. A successful in-app login updates the sign-in status. Only Gemini models are offered. Agent tabs and saved Chats can use provider tools; Incognito, clusters, research, reviewers, handoffs and automatic turns are unavailable.</p>
+  <p>SAFE asks on permission requests; AUTO approves them once. Scheduling requests are refused when the CLI asks, but Arco cannot stop every action the CLI performs without a request. A Chat has its own working folder with OPEN FOLDER. The folder is not a fence: AUTO tools can reach anything the user's account can. Deleting the Chat deletes that folder and its files.</p>
+  <p>Google permits a private single-user interactive ACP client for eligible accounts. Do not use it for unattended work, account rotation, headless wrappers or as an Arco sub-agent; violating the terms can cost account access. Token and context usage appear in Arco; remaining quota is visible in <Code>agy</Code>.</p>
   <Note kind="tip">
   The most common operator pattern: <strong>Claude as primary</strong>, with
   Codex for cross-family review. Pick the family that tends to disagree most

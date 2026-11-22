@@ -26,6 +26,7 @@ import { purgeMailboxForWorkflow } from '../clusterMailbox.js';
 import { genesisScratchDir } from '../genesis/scaffold.js';
 import { findCodexRolloutPath } from './transcripts.js';
 import { encodeProjectDir } from '../http/fileRead.js';
+import { antigravityChatWorkspace, chatStorageDir } from '../chatMode.js';
 import { handleRemoveWorkflow } from '../ws/workflowHandlers.js';
 import { getClusterIdForWorkflow } from '../clusterStore.js';
 import { handleClusterMemberRemove } from '../ws/clusterHandlers.js';
@@ -139,12 +140,23 @@ export async function purgeWorkflow(
       }
     }
 
+    const chatMeta = cwd === chatStorageDir(wfid) ? await readMeta(cwd, wfid).catch(() => null) : null;
+
     // 1. In-memory teardown (no-op if the workflow isn't currently loaded).
     try {
       handleRemoveWorkflow(wfid);
     } catch (err) {
       console.error(`[arco] purge: in-memory teardown failed for ${wfid.slice(0, 8)}:`, err);
     }
+
+    if (chatMeta?.kind === 'chat' && chatMeta.primaryProvider === 'antigravity-cli') {
+      const workspace = antigravityChatWorkspace(wfid);
+      const root = await lstat(join(workspace, '..')).catch(() => null);
+      if (root?.isSymbolicLink()) throw new Error('Chat workspace root is a link; workspace was not deleted.');
+      await rm(workspace, { recursive: true, force: true });
+      removed.push('Antigravity Chat working folder');
+    }
+
 
     // 2. The workflow directory tree (events.jsonl, meta.json, artifacts,
     //    handoffs, sandbox.db, mcp-config, attachments, …).

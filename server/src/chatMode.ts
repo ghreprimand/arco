@@ -6,7 +6,7 @@ import { readMeta, workflowConfigFromMeta } from './workflowMeta.js';
 import { arcoHome } from './arcoHome.js';
 
 export const CHAT_PROVIDERS = new Set<ProviderName>([
-  'claude', 'codex', 'cursor', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek',
+  'claude', 'codex', 'cursor', 'antigravity-cli', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek',
 ]);
 
 // Cursor's CLI has no ephemeral-session switch. llama.cpp is served by a
@@ -91,6 +91,10 @@ export function incognitoChatCwd(): string {
   return dir;
 }
 
+export function isIncognitoChatCwd(cwd: string): boolean {
+  return incognitoCwd !== null && (cwd === incognitoCwd || cwd.startsWith(incognitoCwd + path.sep));
+}
+
 export function chatRootDir(): string {
   return path.join(arcoHome(), 'chats');
 }
@@ -120,4 +124,22 @@ export async function listSavedChats(root = chatRootDir()): Promise<SavedChatSum
     });
   }
   return chats.sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+}
+
+// A tool-using Antigravity Chat has a private working directory separate from
+// Arco's history tree. Never point agy at the Chat persistence folder.
+export function antigravityChatWorkspace(workflowId: string): string {
+  if (!/^[0-9a-f-]{36}$/i.test(workflowId)) throw new Error('Invalid Chat id.');
+  return path.join(arcoHome(), 'chat-workspaces', workflowId);
+}
+
+export async function prepareAntigravityChatWorkspace(workflowId: string, resume: boolean): Promise<string> {
+  const workspace = antigravityChatWorkspace(workflowId);
+  const root = path.dirname(workspace);
+  await fs.mkdir(root, { recursive: true, mode: 0o700 });
+  if ((await fs.lstat(root)).isSymbolicLink()) throw new Error('The Chat workspace root is a link.');
+  if (!resume) await fs.mkdir(workspace, { mode: 0o700 });
+  const stat = await fs.lstat(workspace);
+  if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('The Chat working folder is missing or is a link.');
+  return workspace;
 }

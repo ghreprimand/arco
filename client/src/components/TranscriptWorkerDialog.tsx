@@ -11,7 +11,7 @@ import { DirectoryBrowser } from './media/DirectoryPicker';
 
 const field: CSSProperties = { width: '100%', minWidth: 0, display: 'block' };
 const button: CSSProperties = { padding: '5px 10px', cursor: 'pointer', fontSize: '11px', letterSpacing: '1px' };
-const labels: Record<ProviderName, string> = { claude: 'Claude', codex: 'Codex', cursor: 'Cursor', ollama: 'Ollama', llamacpp: 'llama.cpp', lmstudio: 'LM Studio', strata: 'Strata', deepseek: 'DeepSeek' };
+const labels: Record<ProviderName, string> = { claude: 'Claude', codex: 'Codex', cursor: 'Cursor', ollama: 'Ollama', llamacpp: 'llama.cpp', lmstudio: 'LM Studio', strata: 'Strata', deepseek: 'DeepSeek', 'antigravity-cli': 'Antigravity CLI' };
 
 export function TranscriptWorkerDialog({ workflowId, onCancel, onMembers }: { workflowId: string; onCancel: () => void; onMembers?: () => void }) {
   const job = useAppStore(s => s.jobs[workflowId]);
@@ -46,7 +46,7 @@ export function TranscriptWorkerDialog({ workflowId, onCancel, onMembers }: { wo
   useEffect(() => {
     if (!offeredEfforts.includes(effort)) setEffort(offeredEfforts.includes('medium') ? 'medium' : offeredEfforts[0]);
   }, [provider, model, offeredEfforts.join('|'), effort]);
-  const providers = PRIMARY_PROVIDERS.filter(value => enabled(value) && !!auth?.[value]?.loggedIn);
+  const providers = PRIMARY_PROVIDERS.filter(value => value !== 'antigravity-cli' && enabled(value) && !!auth?.[value]?.loggedIn);
   const prefaceBytes = new TextEncoder().encode(preface).length;
   const inputKey = JSON.stringify([turns, includePartial, preface]);
   const invalidate = () => { setPreview(null); setError(''); };

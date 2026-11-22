@@ -34,6 +34,13 @@ test('Chat turns: the Chat preamble replaces the system prompt or leads the appe
   assert.deepEqual(composeBasePrompts(parts({ chatMode: true })), { systemPrompt: undefined, appendSystemPrompt: chatSystemPrompt(false) });
 });
 
+test('Antigravity Chat receives its tool-capable prompt while ordinary Chat stays tool-free', () => {
+  const agy = composeBasePrompts(parts({ provider: 'antigravity-cli', chatMode: true })).appendSystemPrompt ?? '';
+  assert.match(agy, /Provider tools are available/);
+  assert.doesNotMatch(agy, /Do not use backend tools/);
+  assert.match(composeBasePrompts(parts({ provider: 'claude', chatMode: true })).appendSystemPrompt ?? '', /Do not use backend tools/);
+});
+
 test('Computer chats get their own instructions; Codex carries them elsewhere', () => {
   assert.deepEqual(composeBasePrompts(parts({ provider: 'lmstudio', chatMode: true, computerChat: true, systemPrompt: 'BASE', appendSystemPrompt: 'HISTORY' })),
     { systemPrompt: VOICE_OPERATOR_PROMPT, appendSystemPrompt: 'HISTORY' });

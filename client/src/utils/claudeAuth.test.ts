@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { AuthStatus } from '@arco/shared';
 import { claudeConnection } from './claudeAuth';
-import { anyPrimaryProviderConnected } from './startupGate';
+import { anyPrimaryProviderConnected, antigravityAvailableForStart } from './startupGate';
 import { connectionState } from '../components/Connections/model';
 
 const NOW = Date.now();
@@ -63,4 +63,11 @@ test('Connections names the selected transport state', () => {
   assert.equal(connectionState(claude, status('missing', true), true, false, 'cli'), 'CLI connected');
   assert.equal(connectionState(claude, status('present', false), true, false, 'native'), 'Native credentials detected');
   assert.equal(connectionState(claude, status('present', false), true, false, 'cli'), 'CLI: sign-in needed');
+});
+
+test('an available Antigravity CLI permits setup without claiming its sign-in is known', () => {
+  const status = { 'antigravity-cli': { loggedIn: false, probeFailed: true, installedModels: ['gemini-fixture'] } };
+  assert.equal(antigravityAvailableForStart(status, true), true);
+  assert.equal(anyPrimaryProviderConnected(status, () => true), false);
+  assert.equal(antigravityAvailableForStart(status, false), false);
 });

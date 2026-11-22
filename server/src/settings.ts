@@ -35,7 +35,7 @@ const GLOBAL_SETTINGS_PATH = path.join(GLOBAL_SETTINGS_DIR, GLOBAL_SETTINGS_BASE
 const PROJECT_SETTINGS_DIRNAME = '.arco';
 const PROJECT_SETTINGS_BASENAME = 'settings.json';
 
-const ALL_PROVIDERS: ProviderName[] = ['claude',  'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor'];
+const ALL_PROVIDERS: ProviderName[] = ['claude',  'ollama', 'codex',  'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor', 'antigravity-cli'];
 const EFFORT_LEVELS: EffortLevel[] = ['none', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
 
 function defaults(): ArcoSettings {
@@ -45,7 +45,7 @@ function defaults(): ArcoSettings {
     codex: { transport: 'appserver' },
     claude: { transport: 'native' },
     uiScale: DEFAULT_UI_SCALE,
-    enabledProviders: { claude: true,  ollama: true, codex: true,  llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true },
+    enabledProviders: { claude: true,  ollama: true, codex: true,  llamacpp: true, lmstudio: true, strata: true, deepseek: true, cursor: true, 'antigravity-cli': false },
   };
 }
 
