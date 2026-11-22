@@ -92,11 +92,16 @@ export function ResearchStartForm(props: Pickers & {
   const [sandboxStatus, setSandboxStatus] = useState<'checking' | 'ready' | 'unavailable'>('checking');
   const [codexSandboxAvailable, setCodexSandboxAvailable] = useState(false);
   const [codexVersionReason, setCodexVersionReason] = useState<string>();
+  const [cursorSandboxAvailable, setCursorSandboxAvailable] = useState(false);
+  const [cursorVersionReason, setCursorVersionReason] = useState<string>();
   useEffect(() => {
     const controller = new AbortController();
     void fetch('/api/diagnostics/research-sandbox', { signal: controller.signal })
-      .then(async response => response.ok ? await response.json() as { claudeCli?: boolean; codex?: boolean; codexVersionReason?: string } : null)
-      .then(result => { setSandboxStatus(result?.claudeCli ? 'ready' : 'unavailable'); setCodexSandboxAvailable(result?.codex === true); setCodexVersionReason(result?.codexVersionReason); })
+      .then(async response => response.ok ? await response.json() as { claudeCli?: boolean; codex?: boolean; cursor?: boolean; codexVersionReason?: string; cursorVersionReason?: string } : null)
+      .then(result => {
+        setSandboxStatus(result?.claudeCli ? 'ready' : 'unavailable'); setCodexSandboxAvailable(result?.codex === true); setCodexVersionReason(result?.codexVersionReason);
+        setCursorSandboxAvailable(result?.cursor === true); setCursorVersionReason(result?.cursorVersionReason);
+      })
       .catch(() => { if (!controller.signal.aborted) setSandboxStatus('unavailable'); });
     return () => controller.abort();
   }, []);
@@ -106,7 +111,9 @@ export function ResearchStartForm(props: Pickers & {
       : p === 'llamacpp' ? props.llamacppModelsForPicker : p === 'cursor' ? props.cursorModelsForPicker : props.claudeModelsForPicker;
   const effortsFor = (r: ResearchRow) => effortsForModel(r.provider, r.model as ModelName, props.claudeNativeCatalog, props.codexCatalog);
   const researcherProviders = RESEARCHER_PROVIDERS.filter(p => p === 'claude'
-    ? isProviderEnabled('claude') && claudeConnection(authStatus?.claude, 'native').connected : p === 'codex' ? codexSandboxAvailable && available(p) : available(p));
+    ? isProviderEnabled('claude') && claudeConnection(authStatus?.claude, 'native').connected : p === 'codex' ? codexSandboxAvailable && available(p)
+      : p === 'cursor' ? cursorSandboxAvailable && available(p) : available(p));
+  const sandboxedUnavailable = (p: ClusterMemberProvider) => (p === 'codex' && (!codexSandboxAvailable || !available('codex'))) || (p === 'cursor' && (!cursorSandboxAvailable || !available('cursor')));
   const cliAvailable = sandboxStatus === 'ready' && isProviderEnabled('claude') && claudeConnection(authStatus?.claude, 'cli').connected;
   const anyResearcherAvailable = researcherProviders.length > 0 || cliAvailable;
   const directorProviders = CLUSTER_MEMBER_PROVIDERS.filter(available);
@@ -134,7 +141,7 @@ export function ResearchStartForm(props: Pickers & {
     setRows(all => all.length ? all : researcherProviders.length
       ? [rowFor(researcherProviders[0]), rowFor(researcherProviders[0])]
       : [rowFor('claude', { researchClaudeTransport: 'cli' }), rowFor('claude', { researchClaudeTransport: 'cli' })]);
-  }, [authStatus, sandboxStatus, codexSandboxAvailable]);
+  }, [authStatus, sandboxStatus, codexSandboxAvailable, cursorSandboxAvailable]);
   const [director, setDirector] = useState<ResearchRow>(() => {
     const preferred = props.directorDefault && (directorProviders as readonly string[]).includes(props.directorDefault.provider) ? props.directorDefault : undefined;
     return preferred
@@ -150,7 +157,7 @@ export function ResearchStartForm(props: Pickers & {
   const update = (key: string, patch: Partial<ResearchRow>) => setRows((all) => all.map((r) => r.key === key ? { ...r, ...patch } : r));
   const changeProvider = (r: ResearchRow, provider: ClusterMemberProvider): ResearchRow => replaceResearchProvider(r, rowFor(provider));
   const fromSaved = (members: Array<{ provider: ClusterMemberProvider; model: string; effort?: string; webSearchMaxUses?: number; contextSize?: number; researchClaudeTransport?: 'native' | 'cli'; webAccess?: boolean }>) =>
-    members.filter((m) => (RESEARCHER_PROVIDERS as readonly string[]).includes(m.provider) && (available(m.provider) || m.provider === 'codex' || (m.provider === 'claude' && m.researchClaudeTransport === 'cli')))
+    members.filter((m) => (RESEARCHER_PROVIDERS as readonly string[]).includes(m.provider) && (available(m.provider) || m.provider === 'codex' || m.provider === 'cursor' || (m.provider === 'claude' && m.researchClaudeTransport === 'cli')))
       .map((m) => rowFor(m.provider, { model: m.model, effort: m.effort, webSearchMaxUses: m.webSearchMaxUses, contextSize: m.contextSize, researchClaudeTransport: m.researchClaudeTransport, webAccess: m.webAccess }));
   const lastPanel = (): ResearchRow[] | null => {
     try { const saved = JSON.parse(localStorage.getItem(LAST_PANEL_KEY) ?? 'null'); return Array.isArray(saved) && saved.length ? fromSaved(saved) : null; } catch { return null; }
@@ -164,6 +171,7 @@ export function ResearchStartForm(props: Pickers & {
     rows.some((r) => !r.model) || !director.model ? 'Choose a model for every row.' : '',
     rows.some(r => r.researchClaudeTransport === 'cli' && !cliAvailable) ? 'Claude CLI researcher is unavailable. Check the sign-in and sandbox.' : '',
     rows.some(r => r.provider === 'codex' && (!codexSandboxAvailable || !available('codex'))) ? codexVersionReason ?? 'Codex researcher is unavailable. Check the sign-in and sandbox.' : '',
+    rows.some(r => r.provider === 'cursor' && (!cursorSandboxAvailable || !available('cursor'))) ? cursorVersionReason ?? 'Cursor researcher is unavailable. Check the sign-in and sandbox.' : '',
     !folderSet && !folderRoot.trim() ? 'Choose the research folder.' : '',
   ].filter(Boolean);
 
@@ -193,7 +201,7 @@ export function ResearchStartForm(props: Pickers & {
     <div key={r.key} data-help={help} style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
       <span className="display-font" style={{ minWidth: 92, fontSize: 10, letterSpacing: 1, color: 'var(--color-fg-muted)' }}>{label}</span>
       <select className="arco-field" aria-label={`${label} provider`} value={researcher && r.provider === 'claude' && r.researchClaudeTransport === 'cli' ? 'claude-cli' : r.provider} onChange={(e) => onChange(e.target.value === 'claude-cli' ? replaceResearchProvider(r, rowFor('claude', { researchClaudeTransport: 'cli' })) : changeProvider(r, e.target.value as ClusterMemberProvider))}>
-        {[...new Set([...providers, ...(r.researchClaudeTransport === 'cli' ? [] : [r.provider])])].map((p) => <option key={p} value={p} disabled={researcher && p === 'codex' && (!codexSandboxAvailable || !available('codex'))}>{p === 'claude' && researcher ? 'Claude Native' : p === 'codex' && researcher && (!codexSandboxAvailable || !available('codex')) ? 'Codex (unavailable)' : MEMBER_PROVIDER_NAMES[p]}</option>)}
+        {[...new Set([...providers, ...(r.researchClaudeTransport === 'cli' ? [] : [r.provider])])].map((p) => <option key={p} value={p} disabled={researcher && sandboxedUnavailable(p)}>{p === 'claude' && researcher ? 'Claude Native' : researcher && sandboxedUnavailable(p) ? `${MEMBER_PROVIDER_NAMES[p]} (unavailable)` : MEMBER_PROVIDER_NAMES[p]}</option>)}
         {researcher && (cliAvailable || r.researchClaudeTransport === 'cli') && <option value="claude-cli" disabled={!cliAvailable}>Claude CLI{cliAvailable ? '' : ' (unavailable)'}</option>}
       </select>
       <select className="arco-field" aria-label={`${label} model`} value={r.model} onChange={(e) => onChange({ ...r, model: e.target.value })} style={{ maxWidth: 220 }}>
@@ -228,6 +236,7 @@ export function ResearchStartForm(props: Pickers & {
           </div>
         </div>
         {codexVersionReason && isProviderEnabled('codex') && <div role="status" style={{ ...hintStyle, color: 'var(--color-warning)' }}>{codexVersionReason}</div>}
+        {cursorVersionReason && isProviderEnabled('cursor') && <div role="status" style={{ ...hintStyle, color: 'var(--color-warning)' }}>{cursorVersionReason}</div>}
         {!anyResearcherAvailable && <div role="status" style={{ ...hintStyle, color: 'var(--color-warning)' }}>
           No supported researcher is available. Check connections and the sandbox. <button type="button" onClick={() => useStartupStore.getState().openConnections()}>Open Connections</button>
         </div>}
@@ -245,7 +254,7 @@ export function ResearchStartForm(props: Pickers & {
               <input className="arco-field" type="number" min={2048} step={1024} value={r.contextSize ?? ''} placeholder="Model default" onChange={(e) => update(r.key, { contextSize: e.target.value ? Math.max(2048, Number(e.target.value)) : undefined })} style={{ width: 110 }} /></label>}
           </div>
         ))}
-        <div style={hintStyle}>Every researcher works alone in a private workspace with web research. Claude CLI and Codex can use a sandboxed shell. Local models run one at a time because they share the GPU.</div>
+        <div style={hintStyle}>Every researcher works alone in a private workspace with web research. Claude CLI, Codex and Cursor can use a sandboxed shell. Local models run one at a time because they share the GPU.</div>
         <div data-help="creator.research-panels" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
           {!panelOpen && <button type="button" style={small} disabled={rows.length === 0} onClick={() => setPanelOpen(true)}>+ SAVE PANEL</button>}
           {panelOpen && <form onSubmit={(e) => { e.preventDefault(); void savePanel(); }} style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

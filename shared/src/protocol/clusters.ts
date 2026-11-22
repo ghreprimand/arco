@@ -36,9 +36,9 @@ export function isClusterMemberAccessMode(v: unknown): v is ClusterMemberAccessM
 export function isIsolatedAccessMode(v: ClusterMemberAccessMode | undefined): boolean {
   return v === 'isolated' || v === 'researcher';
 }
-// Native and local researchers use Arco's fenced tools. Claude CLI and Codex
-// researchers require a passing operating-system sandbox; Cursor is not offered.
-export const RESEARCHER_PROVIDERS = ['claude', 'codex', 'ollama', 'llamacpp'] as const satisfies readonly ClusterMemberProvider[];
+// Native and local researchers use Arco's fenced tools. Claude CLI, Codex and
+// Cursor researchers require a passing operating-system sandbox.
+export const RESEARCHER_PROVIDERS = ['claude', 'codex', 'cursor', 'ollama', 'llamacpp'] as const satisfies readonly ClusterMemberProvider[];
 export function isResearcherProvider(v: unknown): v is (typeof RESEARCHER_PROVIDERS)[number] {
   return typeof v === 'string' && (RESEARCHER_PROVIDERS as readonly string[]).includes(v);
 }

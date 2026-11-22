@@ -422,13 +422,15 @@ export const clusters: Section[] = [
   <p>
   Each researcher row has only Provider, Model and Effort, with
   <Code>DUPLICATE</Code>, <Code>REMOVE</Code> and <Code>ADVANCED</Code>.
-  Researchers run on Claude Native, Ollama or llama.cpp. Claude CLI and Codex
-  are also offered on Linux when signed in and their sandbox checks pass.
+  Researchers run on Claude Native, Ollama or llama.cpp. Claude CLI, Codex
+  and Cursor are also offered on Linux when signed in and their sandbox checks pass.
   </p>
   <p>
   They can use a shell inside the sandbox. Each researcher row has a web
-  access switch, on by default. Codex requires CLI version 0.171.0;
-  the picker identifies an incompatible installed version.
+  access switch, on by default. Codex requires CLI version 0.171.0 and
+  Cursor 2026.11.22 or later; the picker identifies an incompatible version.
+  A Cursor researcher searches with Cursor&apos;s web search while web access
+  is on and fetches pages with its shell.
   </p>
   <p>
   <strong>ADVANCED</strong>{' '}
@@ -814,7 +816,7 @@ export const clusters: Section[] = [
   local APIs or workflow storage to recover the withheld state.
   </li>
   <li>
-  <strong>ISOLATED</strong> - Claude Native uses fenced tools. Claude CLI and Codex
+  <strong>ISOLATED</strong> - Claude Native uses fenced tools. Claude CLI, Codex and Cursor
   require a passing Linux sandbox check and can use a shell inside it. The worker runs in
   a private durable scratch directory at{' '}
   <Code>

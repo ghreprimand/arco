@@ -440,7 +440,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>Chooses what the new worker may see, before it is created. <C>STANDARD</C> gets the usual project and cluster context. <C>BLIND</C> can read the project but gets no plan, board, roster, role, focus or coordination settings; its only cluster tools send and read mail, including with llama.cpp and LM Studio. Cursor retains separately attached file, workflow-plan and configured tools under their own access checks.</p>
-        <p><C>ISOLATED</C> uses a private folder and mailbox-only cluster access. Claude Native has no shell; Claude CLI and Codex use a checked Linux sandbox. Web access can be turned off for the next turn.</p>
+        <p><C>ISOLATED</C> uses a private folder and mailbox-only cluster access. Claude Native has no shell; Claude CLI, Codex and Cursor use a checked Linux sandbox. Web access can be turned off for the next turn.</p>
       </>
     ),
     manualSection: 'cluster-member-replacement',

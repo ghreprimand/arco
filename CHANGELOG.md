@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Offer sandboxed Cursor researchers and isolated members on supported Linux hosts: each turn runs Cursor in print mode with its own sandbox inside Arco's fence.
+
 - Make research projects show research-specific wake labels, relevant controls and their saved folder.
 
 - Offer sandboxed Claude CLI and Codex isolated members on supported Linux hosts, and give isolated members and researchers a per-member web switch.

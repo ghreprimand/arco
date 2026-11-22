@@ -558,7 +558,7 @@ See `docs/DIAGNOSTICS.md`.
 
 ### `GET /api/diagnostics/research-sandbox`
 
-Returns `{ claudeCli: boolean, codex: boolean, codexVersionReason?: string }` after short Linux sandbox availability checks. The optional reason names an unsupported or unknown installed Codex version. The checks use temporary files and a scoped mailbox fixture, do not open a sign-in or start a model, and cache their results briefly. A researcher still runs its own preflight before starting. The research start dialog offers each CLI provider only when its check succeeds and it is signed in; Codex requires the supported CLI version.
+Returns `{ claudeCli: boolean, codex: boolean, cursor: boolean, codexVersionReason?: string, cursorVersionReason?: string }` after short Linux sandbox availability checks. The optional reasons name an unsupported or unknown installed Codex or Cursor version, or a missing Cursor agent. The checks use temporary files and a scoped mailbox fixture, do not open a sign-in or start a model, and cache their results briefly. A researcher still runs its own preflight before starting. The research start dialog offers each CLI provider only when its check succeeds and it is signed in; Codex requires the supported CLI version.
 
 ---
 

@@ -46,8 +46,17 @@ function targetFromAuthority(authority: string): Target {
   return { hostname: url.hostname.replace(/^\[|\]$/g, '').toLowerCase(), port };
 }
 
+/** An entry starting with a dot allows every subdomain of that domain, not the domain itself. */
+export function workerProviderHostAllowed(providerHosts: ReadonlySet<string>, hostname: string): boolean {
+  if (providerHosts.has(hostname)) return true;
+  for (const entry of providerHosts) {
+    if (entry.startsWith('.') && entry.length > 1 && hostname.length > entry.length && hostname.endsWith(entry)) return true;
+  }
+  return false;
+}
+
 async function resolveTarget(target: Target, webAccess: boolean, providerHosts: ReadonlySet<string>, lookup: Lookup): Promise<Address> {
-  if (!webAccess && !providerHosts.has(target.hostname)) throw new Error('Web access is disabled.');
+  if (!webAccess && !workerProviderHostAllowed(providerHosts, target.hostname)) throw new Error('Web access is disabled.');
   const family = isIP(target.hostname);
   const addresses = family ? [{ address: target.hostname, family }] : await new Promise<Address[]>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('DNS timeout.')), 5000);

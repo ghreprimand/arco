@@ -10,10 +10,12 @@ import { discoverProviderRuntime } from './providerRuntimeDiscovery.js';
 import { startWorkerWebProxy } from './workerWebProxy.js';
 import { makeWorkerSocketDirectory } from './workerSocketDirectory.js';
 import { codexResearchVersionReason, installedCodexVersion } from '../providers/codexVersion.js';
+import { cursorIsolationVersionReason, installedCursorRuntimeVersion } from '../providers/cursor/isolatedVersion.js';
+import { CURSOR_PROVIDER_HOSTS, cursorSandboxHelper } from './cursorIsolatedLaunch.js';
 
 // A short-lived, shared availability probe does not read a sign-in or launch a model.
 // Every actual worker still runs its own same-namespace preflight before a turn.
-type CliResearchProvider = 'claude' | 'codex';
+type CliResearchProvider = 'claude' | 'codex' | 'cursor';
 const current = new Map<CliResearchProvider, Promise<boolean>>();
 const last = new Map<CliResearchProvider, { result: boolean; at: number }>();
 export async function researchSandboxAvailable(provider: CliResearchProvider): Promise<boolean> {
@@ -27,10 +29,11 @@ export async function researchSandboxAvailable(provider: CliResearchProvider): P
 }
 async function check(provider: CliResearchProvider): Promise<boolean> {
   if (process.platform !== 'linux') return false;
-  const binary = findDiagnosticExecutable(provider);
+  const binary = findDiagnosticExecutable(provider === 'cursor' ? 'cursor-agent' : provider);
   if (!binary) return false;
   if (provider === 'codex' && codexResearchVersionReason(installedCodexVersion())) return false;
-  await discoverProviderRuntime(provider, resolve(binary));
+  if (provider === 'cursor' && cursorIsolationVersionReason(installedCursorRuntimeVersion(binary))) return false;
+  const runtime = await discoverProviderRuntime(provider, resolve(binary));
   const root = await makeWorkerSocketDirectory('arco-research-availability-');
   const workspace = join(root, 'work'), privateHome = join(root, 'home'), mailPath = join(root, 'mail.sock');
   const mail = createServer((req, res) => {
@@ -44,8 +47,10 @@ async function check(provider: CliResearchProvider): Promise<boolean> {
     await Promise.all([mkdir(workspace, { mode: 0o700 }), mkdir(privateHome, { mode: 0o700 })]);
     await new Promise<void>((resolve, reject) => { mail.once('error', reject); mail.listen(mailPath, resolve); });
     await chmod(mailPath, 0o600);
-    web = await startWorkerWebProxy({ parentDir: root, webAccess: true, providerHosts: provider === 'claude' ? ['api.anthropic.com'] : ['chatgpt.com', 'api.openai.com'] });
-    prepared = await prepareCheckedLinuxWorker({ workspace, privateHome, executable: '/usr/bin/true', args: () => [],
+    web = await startWorkerWebProxy({ parentDir: root, webAccess: true, providerHosts: provider === 'claude' ? ['api.anthropic.com'] : provider === 'cursor' ? CURSOR_PROVIDER_HOSTS : ['chatgpt.com', 'api.openai.com'] });
+    // Cursor's check also starts its own sandbox inside the fence and proves that it denies a read.
+    const nested = provider === 'cursor' ? { runtimeMounts: runtime.mounts, nestedSandboxHelper: cursorSandboxHelper(runtime) } : {};
+    prepared = await prepareCheckedLinuxWorker({ workspace, privateHome, executable: '/usr/bin/true', args: () => [], ...nested,
       webSocket: web.socketPath, mailSocket: mailPath, mailToken: randomBytes(32).toString('hex'), webAccess: true, arcoPort: PORT });
     return await new Promise<boolean>(resolve => {
       execFile(prepared!.command.file, prepared!.command.args, { timeout: 25_000, env: { PATH: '/usr/bin:/bin' } }, error => resolve(!error));

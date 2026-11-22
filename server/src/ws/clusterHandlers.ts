@@ -56,6 +56,7 @@ import { isValidPlanId, readPlan } from '../planStore.js';
 import { configuredAccounts, resolveProviderAccount } from '../providerAccounts.js';
 import { inferClusterProviderFromModel, memberAccountRefusal, memberConfigFromSpec, memberConfigFromTemplate, memberModelRefusal, memberTuningRefusal, templateModelRefusal, type CodexAccountCheck, type CodexAccountResolver } from './clusterMembers.js';
 import { researchSandboxAvailable } from '../workers/researchSandboxAvailability.js';
+import { cursorIsolationReason } from '../providers/cursor/isolatedVersion.js';
 import { codexResearchVersionReason, installedCodexVersion } from '../providers/codexVersion.js';
 
 import { getCatalog as getClaudeNativeCatalog } from '../providers/claude-native/catalog.js';
@@ -86,12 +87,16 @@ import { startResearchDirector } from '../research/researchRounds.js';
 
 async function isolatedProviderRefusal(provider: ClusterMemberProvider, transport?: 'native' | 'cli'): Promise<string | undefined> {
   if (provider === 'claude' && transport !== 'cli') return undefined;
-  if (provider !== 'claude' && provider !== 'codex') return 'This provider cannot be isolated.';
+  if (provider !== 'claude' && provider !== 'codex' && provider !== 'cursor') return 'This provider cannot be isolated.';
   if (provider === 'codex') {
     const reason = codexResearchVersionReason(installedCodexVersion());
     if (reason) return reason.replace('Codex researchers', 'Isolated Codex members');
   }
-  return await researchSandboxAvailable(provider) ? undefined : `The ${provider === 'claude' ? 'Claude CLI' : 'Codex'} sandbox is unavailable; check the provider, bubblewrap and socat.`;
+  if (provider === 'cursor') {
+    const reason = cursorIsolationReason();
+    if (reason) return reason;
+  }
+  return await researchSandboxAvailable(provider) ? undefined : `The ${provider === 'claude' ? 'Claude CLI' : provider === 'cursor' ? 'Cursor' : 'Codex'} sandbox is unavailable; check the provider, bubblewrap and socat.`;
 }
 
 export interface ClusterHandlerDeps {

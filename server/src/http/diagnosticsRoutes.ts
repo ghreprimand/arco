@@ -3,6 +3,7 @@ import { runDiagnostics } from '../diagnostics/checks.js';
 import { buildSupportBundle } from '../diagnostics/supportBundle.js';
 import { buildModelHealthReport } from '../diagnostics/modelHealth.js';
 import { researchSandboxAvailable } from '../workers/researchSandboxAvailability.js';
+import { cursorIsolationReason } from '../providers/cursor/isolatedVersion.js';
 import { codexResearchVersionReason, installedCodexVersion } from '../providers/codexVersion.js';
 import type { DiagnosticsReport, ModelHealthReport, SupportBundleResponse } from '@arco/shared';
 
@@ -43,8 +44,8 @@ export async function tryHandleDiagnosticsRoutes(
   const path = req.url.split('?')[0];
 
   if (path === '/api/diagnostics/research-sandbox') {
-    const [claudeCli, codex] = await Promise.all([researchSandboxAvailable('claude'), researchSandboxAvailable('codex')]);
-    return send(200, { claudeCli, codex, codexVersionReason: codexResearchVersionReason(installedCodexVersion()) });
+    const [claudeCli, codex, cursor] = await Promise.all([researchSandboxAvailable('claude'), researchSandboxAvailable('codex'), researchSandboxAvailable('cursor')]);
+    return send(200, { claudeCli, codex, cursor, codexVersionReason: codexResearchVersionReason(installedCodexVersion()), cursorVersionReason: cursorIsolationReason() });
   }
 
   if (path === '/api/diagnostics/support-bundle') {

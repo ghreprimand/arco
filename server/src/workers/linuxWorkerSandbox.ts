@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readlinkSync } from 'node:fs';
 import { lstat, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
@@ -36,6 +36,38 @@ async function privateControlPath(path: string, kind: 'socket' | 'file'): Promis
   return realpath(path);
 }
 
+const ID_MAP_HELPERS = new Set(['newuidmap', 'newgidmap']);
+
+/**
+ * Mount one system path for a fence without the ID-map helpers. A top-level
+ * link such as /bin -> usr/bin stays a link, so the helpers cannot reappear
+ * through it. A binary folder that holds a helper becomes a tmpfs with one
+ * read-only bind per remaining entry: links into the folder would resolve
+ * outside the system paths some providers accept. Dangling links are skipped
+ * because bubblewrap cannot bind them.
+ */
+export function hiddenHelperMount(path: string): string[] {
+  const entry = lstatSync(path);
+  if (entry.isSymbolicLink()) {
+    const target = readlinkSync(path);
+    if (!/^[a-zA-Z0-9._/-]+$/.test(target)) throw new Error('Unsupported system path link.');
+    return ['--symlink', target, path];
+  }
+  const args = ['--ro-bind', path, path];
+  for (const folder of [`${path}/bin`, `${path}/sbin`]) {
+    if (!existsSync(folder) || lstatSync(folder).isSymbolicLink()) continue;
+    const names = readdirSync(folder);
+    if (!names.some((name) => ID_MAP_HELPERS.has(name))) continue;
+    args.push('--tmpfs', folder);
+    for (const name of names.sort()) {
+      const source = `${folder}/${name}`;
+      if (ID_MAP_HELPERS.has(name) || !existsSync(source)) continue;
+      args.push('--ro-bind', source, source);
+    }
+  }
+  return args;
+}
+
 /**
  * Build the minimal Linux process fence. This does not start a worker and
  * must not be used as an isolation claim: the network and tool bridges and
@@ -53,6 +85,12 @@ export async function linuxWorkerSandboxCommand(options: {
   proxyUrl?: string;
   /** Private access-only pass prepared by the server, never the real sign-in. */
   accessPass?: WorkerAccessPass;
+  /**
+   * Present system binary folders without the setuid ID-map helpers. A
+   * provider's own nested sandbox then maps its namespace directly; the
+   * helpers cannot work inside this fence and their failure path is fatal.
+   */
+  hideIdMapHelpers?: boolean;
 }): Promise<LinuxWorkerSandboxCommand> {
   options = { ...options, args: [...options.args], runtimeMounts: options.runtimeMounts?.map((mount) => ({ ...mount })), controlMounts: options.controlMounts ? { ...options.controlMounts } : undefined };
   if (process.platform !== 'linux') throw new Error('Linux worker sandbox is unavailable on this platform.');
@@ -91,7 +129,7 @@ export async function linuxWorkerSandboxCommand(options: {
   for (const mount of mounts) {
     for (let parent = dirname(mount.target); parent.startsWith('/opt/arco-runtime/'); parent = dirname(parent)) runtimeDirectories.add(parent);
   }
-  const systemMounts = ['/usr', '/bin', '/lib', '/lib64'].filter(existsSync).flatMap((path) => ['--ro-bind', path, path]);
+  const systemMounts = ['/usr', '/bin', '/lib', '/lib64'].filter(existsSync).flatMap((path) => options.hideIdMapHelpers ? hiddenHelperMount(path) : ['--ro-bind', path, path]);
   if (!existsSync('/usr') || !existsSync('/bin')) throw new Error('Required sandbox runtime is unavailable.');
   systemMounts.push('--dir', '/etc');
   if (existsSync('/etc/ssl/certs')) systemMounts.push('--dir', '/etc/ssl', '--ro-bind', '/etc/ssl/certs', '/etc/ssl/certs');

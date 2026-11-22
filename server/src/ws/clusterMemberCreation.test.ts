@@ -78,7 +78,7 @@ test('each creation path builds the new member from its request', async () => {
     { configs: [{ name: 'Reviewer #1', ...KEPT, claudeTransport: 'native', ultracode: false, researchSpawnToken: 'r', templateSpawnToken: 't' }], errors: [] });
   assert.equal(store.getMemberAccessMode(c.clusterId, await last(c.clusterId)), 'isolated');
   assert.equal((await store.readCluster(c.clusterId))!.memberRoles?.[await last(c.clusterId)], 'Reviewer');
-  assert.deepEqual(await run(() => h.handleClusterAddFreshWorkers(ws, session, { clusterId: c.clusterId, count: 1, accessMode: 'isolated', provider: 'cursor', model: 'auto' } as never)),
+  assert.deepEqual(await run(() => h.handleClusterAddFreshWorkers(ws, session, { clusterId: c.clusterId, count: 1, accessMode: 'isolated', provider: 'ollama', model: 'qwen3:8b' } as never)),
     { configs: [], errors: ['cluster_add_fresh_workers rejected: isolated_provider_unavailable'] });
   assert.deepEqual(await run(() => h.handleClusterAddFreshWorkers(ws, session, { clusterId: c.clusterId, count: 1, model: '' } as never)),
     { configs: [], errors: ['cluster_add_fresh_workers rejected: missing_model'] });

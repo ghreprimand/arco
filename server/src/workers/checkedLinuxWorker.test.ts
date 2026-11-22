@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { execFile, spawnSync } from 'node:child_process';
-import { chmod, mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { createServer, type Server } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -98,6 +98,33 @@ test('same-namespace preflight starts the worker only when network and mailbox c
     await rm(join(workspace, 'started')); webOff = false;
     const unexpectedlyOpen = await run();
     assert.ok(unexpectedlyOpen.error); assert.match(unexpectedlyOpen.stderr, /Worker isolation self-check failed/);
+    await assert.rejects(stat(join(workspace, 'started')));
+    await prepared.close(); prepared = undefined;
+    webOff = false;
+
+    // A provider's nested sandbox: the fence hides the ID-map helpers, and the
+    // worker starts only when the helper denies reads outside the workspace.
+    const helpers = join(root, 'helpers'); await mkdir(helpers);
+    const helperScript = (deny: boolean) => ['#!/bin/sh', 'test -f "$2" || exit 9', 'shift 2', 'test "$1" = --preflight-only && exit 0', 'shift',
+      ...(deny ? ['case "$*" in *arco-check.json*|*/home/worker*) exit 1;; esac'] : []), 'exec "$@"', ''].join('\n');
+    for (const [name, deny] of [['denying', true], ['open', false]] as const) {
+      await mkdir(join(helpers, name)); await writeFile(join(helpers, name, 'cursorsandbox'), helperScript(deny), { mode: 0o700 });
+    }
+    const nestedArgs = () => ['-c', 'test ! -e /usr/bin/newuidmap && test ! -e /bin/newuidmap && test ! -e /usr/bin/newgidmap && test -x /usr/bin/ls && touch /work/started'];
+    const nested = (name: string) => prepareCheckedLinuxWorker({ workspace, privateHome, executable: '/usr/bin/sh', args: nestedArgs,
+      runtimeMounts: [{ source: join(helpers, name, 'cursorsandbox'), target: '/opt/arco-runtime/fake/cursorsandbox' }], nestedSandboxHelper: '/opt/arco-runtime/fake/cursorsandbox',
+      webSocket: join(root, 'web.sock'), mailSocket: join(root, 'mail.sock'), mailToken: token, webAccess: true, arcoPort: address.port });
+    await assert.rejects(prepareCheckedLinuxWorker({ workspace, privateHome, executable: '/usr/bin/sh', args: nestedArgs, nestedSandboxHelper: '/usr/bin/true',
+      webSocket: join(root, 'web.sock'), mailSocket: join(root, 'mail.sock'), mailToken: token, webAccess: true, arcoPort: address.port }), /nested sandbox helper/);
+    prepared = await nested('denying');
+    const fenced = await run();
+    assert.equal(fenced.error, null, fenced.stderr);
+    assert.ok(await stat(join(workspace, 'started')));
+    await rm(join(workspace, 'started'));
+    await prepared.close(); prepared = undefined;
+    prepared = await nested('open');
+    const permissive = await run();
+    assert.ok(permissive.error); assert.match(permissive.stderr, /Worker isolation self-check failed/);
     await assert.rejects(stat(join(workspace, 'started')));
   } finally {
     if (prepared) await prepared.close();

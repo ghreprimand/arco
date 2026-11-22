@@ -73,6 +73,25 @@ async function main() {
   if (mail.status !== 200) throw new Error('mail bridge unavailable');
   const names = JSON.parse(mail.data).result.tools.map(tool => tool.name).sort();
   if (JSON.stringify(names) !== JSON.stringify(['peer_read','peer_send'])) throw new Error('mail scope did not match');
+  if (c.nestedHelper) nested(c.nestedHelper);
+}
+// The provider's own sandbox must start inside this fence and must deny a read
+// outside the workspace that this fence still allows. The helper deletes its
+// policy file after reading it, so each run gets a fresh copy.
+function nested(helper) {
+  const { spawnSync } = require('node:child_process');
+  const policy = JSON.stringify({sandbox:{type:'workspace_readwrite', cwd:'/work', readBoundary:'workspace',
+    hardcodedReadPaths:['/usr','/bin','/lib','/lib64','/etc','/opt/arco-runtime'], networkAccess:false, ignoreMapping:{},
+    additionalReadwritePaths:[], disableTmpWrite:false}});
+  const run = (command) => {
+    const file = '/tmp/.arco-nested-' + crypto.randomBytes(12).toString('hex');
+    fs.writeFileSync(file, policy, {mode:0o600, flag:'wx'});
+    try { return spawnSync(helper, ['--policy', file, ...command], {stdio:'ignore', timeout:10000, env:{PATH:'/usr/bin:/bin'}}).status; }
+    finally { fs.rmSync(file, {force:true}); }
+  };
+  if (run(['--preflight-only', '--', '/bin/true']) !== 0) throw new Error('nested sandbox unavailable');
+  if (run(['--', '/usr/bin/ls', '/work']) !== 0) throw new Error('nested sandbox did not run');
+  if (run(['--', '/usr/bin/cat', '/run/arco-check.json']) === 0 || run(['--', '/usr/bin/ls', '/home/worker']) === 0) throw new Error('nested sandbox did not deny a read');
 }
 main().then(() => { clearTimeout(deadline); }, () => { clearTimeout(deadline); console.error('Worker isolation self-check failed.'); process.exitCode = 1; });
 `;
@@ -111,6 +130,12 @@ export async function prepareCheckedLinuxWorker(options: {
   /** Required when web is off, to check that the provider route still works. */
   providerProbeHost?: string;
   arcoPort: number;
+  /**
+   * The provider's own sandbox helper inside a mounted runtime. When set, the
+   * fence hides the ID-map helpers and the self-check proves that the nested
+   * sandbox starts and denies a read outside the workspace.
+   */
+  nestedSandboxHelper?: string;
 }): Promise<CheckedLinuxWorker> {
   options = { ...options, runtimeMounts: options.runtimeMounts?.map((mount) => ({ ...mount })), hiddenDirectories: options.hiddenDirectories ? [...options.hiddenDirectories] : [] };
   if (!/^[a-f0-9]{64}$/.test(options.mailToken) || !Number.isInteger(options.arcoPort) || options.arcoPort < 1 || options.arcoPort > 65535) {
@@ -126,6 +151,10 @@ export async function prepareCheckedLinuxWorker(options: {
   });
   if ((!options.executable.startsWith('/usr/') && !inRuntime) || normalize(options.executable) !== options.executable) {
     throw new Error('The provider executable must be in a mounted runtime.');
+  }
+  if (options.nestedSandboxHelper !== undefined && (normalize(options.nestedSandboxHelper) !== options.nestedSandboxHelper
+    || !options.runtimeMounts?.some(({ target }) => target === options.nestedSandboxHelper))) {
+    throw new Error('The nested sandbox helper must be in a mounted runtime.');
   }
   const node = await realpath(process.execPath);
   if (!node.startsWith('/usr/')) throw new Error('Worker isolation requires a mounted Node runtime.');
@@ -154,7 +183,7 @@ export async function prepareCheckedLinuxWorker(options: {
     while ([options.arcoPort, fixture.port, webPort].includes(mailPort)) mailPort = randomInt(20000, 60000);
     while ([options.arcoPort, fixture.port, mailPort].includes(webPort)) webPort = randomInt(20000, 60000);
     const mailUrl = `http://${loopback}:${mailPort}/mcp/${options.mailToken}`;
-    await writeFile(config, JSON.stringify({ hiddenCanaries: [canary], hiddenDirectories: options.hiddenDirectories, hostPorts: [options.arcoPort, fixture.port], webPort, mailPort, webAccess: options.webAccess === true, providerProbeHost: options.providerProbeHost, mailToken: options.mailToken }), { mode: 0o600, flag: 'wx' });
+    await writeFile(config, JSON.stringify({ hiddenCanaries: [canary], hiddenDirectories: options.hiddenDirectories, hostPorts: [options.arcoPort, fixture.port], webPort, mailPort, webAccess: options.webAccess === true, providerProbeHost: options.providerProbeHost, mailToken: options.mailToken, nestedHelper: options.nestedSandboxHelper }), { mode: 0o600, flag: 'wx' });
     const proxy = `http://${loopback}:${webPort}`;
     const command = await linuxWorkerSandboxCommand({
       workspace: options.workspace,
@@ -162,6 +191,7 @@ export async function prepareCheckedLinuxWorker(options: {
       executable: '/usr/bin/sh',
       runtimeMounts: options.runtimeMounts,
       accessPass: options.accessPass,
+      hideIdMapHelpers: options.nestedSandboxHelper !== undefined,
       controlMounts: { webSocket: options.webSocket, mailSocket: options.mailSocket, configFile: config, hostsFile: hosts },
       proxyUrl: proxy,
       args: ['-c', WRAPPER, 'arco-worker', String(webPort), String(mailPort), node, PROBE, loopback, socat, options.executable, ...options.args(mailUrl, { webProxyPort: webPort })],

@@ -8,7 +8,7 @@ import { join } from 'node:path';
 const MINIMUM_VALIDITY_MS = 5 * 60 * 1000;
 
 /** Prepare provider-specific access-only credentials. This does not write or refresh a sign-in. */
-export function workerAccessPass(provider: 'codex' | 'claude', input: unknown, now = Date.now()): string {
+export function workerAccessPass(provider: 'codex' | 'claude' | 'cursor', input: unknown, now = Date.now()): string {
   const fail = (): never => { throw new Error('Provider sign-in needs renewing.'); };
   const record = (value: unknown): Record<string, unknown> => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return fail();
@@ -32,6 +32,15 @@ export function workerAccessPass(provider: 'codex' | 'claude', input: unknown, n
     return JSON.stringify({ auth_mode: 'chatgpt', OPENAI_API_KEY: null,
       tokens: { access_token: token, id_token: token, refresh_token: '', account_id: accountId }, last_refresh: lastRefresh });
   }
+  if (provider === 'cursor') {
+    // Cursor issues one session token, used as both access and refresh token.
+    // Its CLI requires both fields; no separate renewal key exists to withhold.
+    const token = text(root.accessToken);
+    let expiry: unknown;
+    try { expiry = record(JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString('utf8'))).exp; } catch { return fail(); }
+    if (typeof expiry !== 'number' || !Number.isFinite(expiry) || expiry * 1000 <= now + MINIMUM_VALIDITY_MS) return fail();
+    return JSON.stringify({ accessToken: token, refreshToken: token });
+  }
   if (provider !== 'claude') return fail();
   const oauth = record(root.claudeAiOauth);
   const accessToken = text(oauth.accessToken);
@@ -45,19 +54,28 @@ export function workerAccessPass(provider: 'codex' | 'claude', input: unknown, n
     scopes, subscriptionType, subscriptionTypeSource, rateLimitTier } });
 }
 
-export interface WorkerAccessPass { readonly path: string; readonly directory?: string; replace?(input: unknown): Promise<void>; close(): Promise<void> }
+export interface WorkerAccessPass { readonly path: string; readonly directory?: string; replace?(input: unknown): Promise<void>; withdraw?(): Promise<void>; close(): Promise<void> }
 const preparedPasses = new WeakSet<WorkerAccessPass>();
 export function isPreparedWorkerAccessPass(pass: WorkerAccessPass): boolean { return preparedPasses.has(pass); }
 
 /** Own a private temporary file until the worker has exited. The launcher must mount it read-only. */
-export async function prepareWorkerAccessPass(provider: 'codex' | 'claude', input: unknown): Promise<WorkerAccessPass> {
+export async function prepareWorkerAccessPass(provider: 'codex' | 'claude' | 'cursor', input: unknown): Promise<WorkerAccessPass> {
   const content = workerAccessPass(provider, input);
   const root = await mkdtemp(join(tmpdir(), 'arco-worker-access-'));
   try {
     const path = join(root, 'access.json');
     await writeFile(path, content, { mode: 0o400, flag: 'wx' });
     let closed = false;
-    const pass: WorkerAccessPass = Object.freeze({ path, ...(provider === 'codex' ? { directory: root,
+    // Cursor reads its sign-in once at start and keeps it in memory. Its file
+    // tools may be able to read every path the fence shows, so the launcher
+    // empties the pass as soon as the agent has started.
+    const withdraw = async () => {
+      if (closed || !preparedPasses.has(pass)) return;
+      const temporary = join(root, `next-${randomUUID()}`);
+      try { await writeFile(temporary, '{}', { mode: 0o400, flag: 'wx' }); await rename(temporary, path); }
+      finally { await rm(temporary, { force: true }); }
+    };
+    const pass: WorkerAccessPass = Object.freeze({ path, ...(provider === 'cursor' ? { directory: root, withdraw } : {}), ...(provider === 'codex' ? { directory: root,
       replace: async (next: unknown) => {
         if (closed || !preparedPasses.has(pass)) throw new Error('Worker access pass is closed.');
         const replacement = workerAccessPass('codex', next);

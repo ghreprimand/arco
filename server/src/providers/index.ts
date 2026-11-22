@@ -1,4 +1,4 @@
-import { effectiveCodexTransport, removedProviderReason } from '@arco/shared';
+import { effectiveCodexTransport, isIsolatedAccessMode, removedProviderReason } from '@arco/shared';
 import type { ProviderName, WorkerConfig } from '@arco/shared';
 import { EventEmitter } from 'events';
 import type { Provider, ProviderProcess } from './types.js';
@@ -15,6 +15,7 @@ import { StrataProvider } from './strata.js';
 import { LmstudioProvider } from './lmstudio.js';
 import { CursorProvider, disposeCursorWorker } from './cursor/index.js';
 import { CursorPrintProvider } from './cursor/print.js';
+import { CursorIsolatedProvider } from './cursor/isolated.js';
 import { disposeLocalShells } from './localShellLifecycle.js';
 
 export type { Provider, ProviderProcess } from './types.js';
@@ -114,6 +115,11 @@ export function createProviderProcess(id: string, config: WorkerConfig): Provide
     Object.assign(refused, { id, status: 'failed', output: '', kill() {},
       spawn() { refused.emit('error', localModelBusyMessage()); } });
     return refused;
+  }
+  // Researchers and isolated members never use the ACP worker or an unfenced
+  // print process: Cursor applies its sandbox only in print mode, inside Arco's fence.
+  if (name === 'cursor' && isIsolatedAccessMode(config.clusterAccessMode)) {
+    return CursorIsolatedProvider.create(id, config);
   }
   if (name === 'cursor' && config.interactionMode === 'chat') {
     return CursorPrintProvider.create(id, config);

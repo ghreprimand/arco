@@ -616,7 +616,7 @@ Plus 11 board-gated `cluster_task_*` task-board tools (list / show / create / cl
 **Restricted cluster members.** A BLIND member keeps its project cwd but the
 turn engine withholds the normal cluster plan/board/roster/role/focus/
 efficiency/progress context and registers only `peer_send` / `peer_read` from
-the cluster surface. llama.cpp and LM Studio advertise only those cluster tools to BLIND members. ISOLATED uses a private workspace with Claude Native, or a checked Linux sandbox with Claude CLI or Codex. The
+the cluster surface. llama.cpp and LM Studio advertise only those cluster tools to BLIND members. ISOLATED uses a private workspace with Claude Native, or a checked Linux sandbox with Claude CLI, Codex or Cursor. The
 worker cwd becomes
 `~/.arco/clusters/<clusterId>/isolates/<wfid>/workspace`; Native omits shell tools and CLI providers keep a sandboxed shell. Task, project prompt/resource discovery, attachments, hooks, skills,
 knowledge/goal/codebase memory, and registry MCPs are omitted. The worker can
@@ -1218,6 +1218,42 @@ Incognito (its CLI has no ephemeral-session flag). Attachments: the ACP worker s
 content blocks when `initialize` advertises `promptCapabilities.image` (cursor-agent 2026.09 does);
 `print` (Chat + read-only primitives) has no image flag, so it passes path refs and `--add-dir`s the
 upload dir so ask-mode's read tool can open them. Non-images are path refs on both.
+
+### Sandboxed researchers and isolated members
+
+Cursor applies its own sandbox only in print mode; its ACP mode ignores it. Researchers and
+ISOLATED members on Cursor therefore never use the ACP worker: `providers/index.ts` routes them to
+`isolated.ts`, which runs one `cursor-agent --print --output-format stream-json --trust --sandbox enabled`
+process per turn inside Arco's checked Linux fence (`workers/cursorIsolatedLaunch.ts`) and continues the
+conversation with `--resume <session>`. If a saved session cannot be resumed, the turn starts a new one
+once and says so; a failed fence self-check never retries.
+
+- **Settings.** The member's private home holds `CURSOR_CONFIG_DIR` (`~/.cursor`), rewritten before each
+  turn with `sandbox: { mode: enabled, readBoundary: workspace, networkAccess: enabled }`, an allowlist of
+  the two mailbox tools and a deny rule for `WebFetch(*)`. Cursor's sandbox keeps shell writes inside the
+  workspace, and print mode rejects file-tool writes elsewhere. Cursor applies `readBoundary: workspace`
+  only when one of its server-side feature flags is on and already loaded; otherwise its shell and Read
+  tool can read everything the fence shows, including the member's private home with Cursor's settings
+  (which name the Cursor account) and its own conversation store.
+- **Approval.** No `--force`, `--yolo`, `--auto-review` or `--approve-mcps`; print mode cannot ask, so any
+  tool call that is not allowed is rejected. The launcher accepts only `--model` and `--resume`.
+- **Mailbox.** The scoped mailbox is a user-level `~/.cursor/mcp.json` in the private home. Cursor does
+  not ask to approve user-level servers, and the sandboxed agent cannot change the file.
+- **Web.** Cursor's web search runs on Cursor's servers and would bypass Arco's web filter, so
+  `autoAcceptWebSearch` is on only while the member's web switch is on. Web fetch stays denied; pages are
+  fetched with the shell through the filtered proxy. With web off the proxy admits only `api2.cursor.sh`
+  and subdomains of `cursor.sh`.
+- **Sign-in.** Cursor issues one 60-day session token, stored as both access and refresh token. The pass
+  is a read-only copy of that token in a mounted directory. Cursor reads it once at start; when the agent
+  reports its start, before the model can call a tool, Arco empties the pass, and a failure stops the turn.
+  The token then remains only in the agent process's memory, which its tools cannot read.
+- **Fence.** The fence hides `newuidmap` and `newgidmap`, which cannot work inside it and make Cursor's
+  sandbox helper fail. The preflight also starts the helper with a workspace-only policy and requires it
+  to deny reads outside the workspace before the agent starts; this proves the sandbox works in the fence,
+  not which read boundary Cursor chooses. Cursor 2026.11.22 or later is required; because Cursor updates
+  itself, the preflight before every turn is the guard that fails closed, not an exact version.
+- **Sub-agents.** A `Task` sub-agent runs in the same fenced process, but whether Cursor applies its
+  sandbox to the sub-agent's shell has not been checked in a real run.
 
 ### Auth and stale ACP recovery
 

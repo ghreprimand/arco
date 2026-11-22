@@ -15,6 +15,7 @@ import {
 import { arcoHome } from '../arcoHome.js';
 import { patchSettings, readSettings } from '../settings.js';
 import { researchSandboxAvailable } from '../workers/researchSandboxAvailability.js';
+import { cursorIsolationReason } from '../providers/cursor/isolatedVersion.js';
 import { codexResearchVersionReason, installedCodexVersion } from '../providers/codexVersion.js';
 import { createResearchFolder, writeInitialFiles } from './researchFolder.js';
 import { initResearch, researchLetter, researcherName, type ResearchState } from './researchState.js';
@@ -59,6 +60,11 @@ export async function prepareResearchCreate(msg: ClusterCreateFromScratchMessage
   }
   if (members.some((member, i) => i > 0 && member.researchClaudeTransport === 'cli') && !await researchSandboxAvailable('claude')) {
     return { refusal: 'claude_research_sandbox_unavailable' };
+  }
+  if (members.some((member, i) => i > 0 && member.provider === 'cursor')) {
+    const reason = cursorIsolationReason();
+    if (reason) return { refusal: reason };
+    if (!await researchSandboxAvailable('cursor')) return { refusal: 'cursor_research_sandbox_unavailable' };
   }
   if (members.some((member, i) => i > 0 && member.provider === 'codex')) {
     const reason = codexResearchVersionReason(installedCodexVersion());

@@ -45,7 +45,10 @@ export function AddWorkerSection({
   const [accessMode, setAccessMode] = useState<ClusterMemberAccessMode>('standard');
   const [isolatedClaudeTransport, setIsolatedClaudeTransport] = useState<'native' | 'cli'>('native');
   const [webAccess, setWebAccess] = useState(true);
-  const [sandbox, setSandbox] = useState<{ claudeCli?: boolean; codex?: boolean; codexVersionReason?: string }>({});
+  const [sandbox, setSandbox] = useState<{ claudeCli?: boolean; codex?: boolean; cursor?: boolean; codexVersionReason?: string; cursorVersionReason?: string }>({});
+  // Providers an ISOLATED member can use; Codex and Cursor need a passing sandbox check.
+  const isolatedProvider = (p: ClusterMemberProvider) => p === 'claude' || p === 'codex' || p === 'cursor';
+  const isolatedUsable = (p: ClusterMemberProvider) => p === 'claude' || (p === 'codex' && !!sandbox.codex) || (p === 'cursor' && !!sandbox.cursor);
   useEffect(() => {
     if (accessMode !== 'isolated') return;
     const controller = new AbortController();
@@ -109,7 +112,7 @@ export function AddWorkerSection({
   // catalog (the inherited template name is wrong for the new provider) and
   // clamps effort. Anchor-default reuse only when provider matches anchor's.
   const onPickProvider = (next: ClusterMemberProvider) => {
-    if (accessMode === 'isolated' && next !== 'claude' && next !== 'codex') return;
+    if (accessMode === 'isolated' && !isolatedProvider(next)) return;
     setProvider(next);
     if (next === templateProvider) {
       setModel(String(templateModel));
@@ -145,7 +148,7 @@ export function AddWorkerSection({
 
   // Submit guard — if the operator flipped provider away from the anchor's,
   // model must be non-empty (server enforces; UI mirrors).
-  const sandboxUnavailable = accessMode === 'isolated' && ((provider === 'codex' && !sandbox.codex) || (provider === 'claude' && isolatedClaudeTransport === 'cli' && !sandbox.claudeCli));
+  const sandboxUnavailable = accessMode === 'isolated' && ((provider === 'codex' && !sandbox.codex) || (provider === 'cursor' && !sandbox.cursor) || (provider === 'claude' && isolatedClaudeTransport === 'cli' && !sandbox.claudeCli));
   const submitDisabled = sandboxUnavailable || (provider !== templateProvider && !model) || (isClusterDirector(workerRole) && (hasDirector || count > 1));
 
   const memberIds = useMemo(() => new Set(cluster.members.map((m) => m.workflowId)), [cluster.members]);
@@ -247,7 +250,7 @@ export function AddWorkerSection({
                 data-help="cluster.fresh.access"
                 onClick={() => {
                   setAccessMode(access);
-                  if (access === 'isolated' && provider !== 'claude' && provider !== 'codex') onPickProvider('claude');
+                  if (access === 'isolated' && !isolatedProvider(provider)) onPickProvider('claude');
                 }}
                 className="display-font"
                 title={access === 'standard'
@@ -273,7 +276,7 @@ export function AddWorkerSection({
             <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px', lineHeight: 1.4 }}>
               {accessMode === 'blind'
                 ? 'BLIND hides cluster plan, board, roster, role/focus, coordination doctrine, and task tools. The project cwd remains available; board transitions must be handed back by peer mail.'
-                : 'ISOLATED uses a private workspace and mailbox-only cluster access. Claude CLI and Codex require a working sandbox.'}
+                : 'ISOLATED uses a private workspace and mailbox-only cluster access. Claude CLI, Codex and Cursor require a working sandbox.'}
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -281,7 +284,7 @@ export function AddWorkerSection({
             {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
               <button
                 key={p}
-                disabled={accessMode === 'isolated' && (p !== 'claude' && p !== 'codex' || p === 'codex' && !sandbox.codex)}
+                disabled={accessMode === 'isolated' && !isolatedUsable(p)}
                 data-help="cluster.fresh.provider"
                 onClick={() => onPickProvider(p)}
                 className="display-font"
@@ -290,8 +293,8 @@ export function AddWorkerSection({
                   background: provider === p ? 'var(--color-accent-primary-a10)' : 'transparent',
                   border: `1px solid ${provider === p ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,
                   color: provider === p ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
-                  cursor: accessMode === 'isolated' && p !== 'claude' && p !== 'codex' ? 'not-allowed' : 'pointer',
-                  opacity: accessMode === 'isolated' && p !== 'claude' && p !== 'codex' ? 0.35 : 1,
+                  cursor: accessMode === 'isolated' && !isolatedUsable(p) ? 'not-allowed' : 'pointer',
+                  opacity: accessMode === 'isolated' && !isolatedUsable(p) ? 0.35 : 1,
                   fontSize: '10px',
                   letterSpacing: '1px',
                 }}
@@ -304,7 +307,7 @@ export function AddWorkerSection({
             {provider === 'claude' && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44 }}>Claude transport <select style={{ minHeight: 44 }} value={isolatedClaudeTransport} onChange={e => setIsolatedClaudeTransport(e.target.value as 'native' | 'cli')}><option value="native">Claude Native</option><option value="cli" disabled={!sandbox.claudeCli}>Claude CLI{sandbox.claudeCli ? '' : ' (unavailable)'}</option></select></label>}
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44 }}><input style={{ width: 22, height: 22 }} type="checkbox" checked={webAccess} onChange={e => setWebAccess(e.target.checked)} /> Web access</label>
           </div>}
-          {sandboxUnavailable && <div role="status">{provider === 'codex' && sandbox.codexVersionReason ? sandbox.codexVersionReason.replace('Codex researchers', 'Isolated Codex members') : 'Sandbox checking or unavailable. Check the provider, bubblewrap and socat.'}</div>}
+          {sandboxUnavailable && <div role="status">{provider === 'codex' && sandbox.codexVersionReason ? sandbox.codexVersionReason.replace('Codex researchers', 'Isolated Codex members') : provider === 'cursor' && sandbox.cursorVersionReason ? sandbox.cursorVersionReason : 'Sandbox checking or unavailable. Check the provider, bubblewrap and socat.'}</div>}
           {accessMode === 'isolated' && !sandbox.codex && provider !== 'codex' && <div role="status">{sandbox.codexVersionReason?.replace('Codex researchers', 'Isolated Codex members') ?? 'Codex sandbox checking or unavailable.'}</div>}
           {accessMode === 'isolated' && provider === 'claude' && sandbox.claudeCli === false && <div role="status">Claude CLI sandbox unavailable. Check Claude CLI, bubblewrap and socat.</div>}
           <div data-help="cluster.fresh.model" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>

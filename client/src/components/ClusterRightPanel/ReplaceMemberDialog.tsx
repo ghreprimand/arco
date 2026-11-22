@@ -64,7 +64,10 @@ export function ReplaceMemberDialog({
   const [account, setAccount] = useState<string | undefined>(originalAccount);
   const [accessMode, setAccessMode] = useState<ClusterMemberAccessMode>(member.accessMode ?? 'standard');
   const [isolatedClaudeTransport, setIsolatedClaudeTransport] = useState<'native' | 'cli'>(job?.config.claudeTransport === 'cli' ? 'cli' : 'native');
-  const [sandbox, setSandbox] = useState<{ claudeCli?: boolean; codex?: boolean; codexVersionReason?: string }>({});
+  const [sandbox, setSandbox] = useState<{ claudeCli?: boolean; codex?: boolean; cursor?: boolean; codexVersionReason?: string; cursorVersionReason?: string }>({});
+  // Providers an ISOLATED member can use; Codex and Cursor need a passing sandbox check.
+  const isolatedProvider = (p: ClusterMemberProvider) => p === 'claude' || p === 'codex' || p === 'cursor';
+  const isolatedUsable = (p: ClusterMemberProvider) => p === 'claude' || (p === 'codex' && !!sandbox.codex) || (p === 'cursor' && !!sandbox.cursor);
   useEffect(() => {
     if (accessMode !== 'isolated') return;
     const controller = new AbortController();
@@ -127,7 +130,7 @@ export function ReplaceMemberDialog({
   }, [effortOptions, effort]);
 
   const pickProvider = (next: ClusterMemberProvider) => {
-    if (accessMode === 'isolated' && next !== 'claude' && next !== 'codex') return;
+    if (accessMode === 'isolated' && !isolatedProvider(next)) return;
     setProvider(next);
     if (next === originalProvider) {
       setModel(originalModel);
@@ -152,14 +155,14 @@ export function ReplaceMemberDialog({
   const pickAccess = (next: ClusterMemberAccessMode) => {
     setAccessMode(next);
     if (next === 'isolated') {
-      if (provider !== 'claude' && provider !== 'codex') pickProvider('claude');
+      if (!isolatedProvider(provider)) pickProvider('claude');
       setHistoryMode('none');
       setTransferTasks(false);
     }
   };
 
   const directorBlocked = isClusterDirector(role) && otherDirector;
-  const sandboxUnavailable = accessMode === 'isolated' && ((provider === 'codex' && !sandbox.codex) || (provider === 'claude' && isolatedClaudeTransport === 'cli' && !sandbox.claudeCli));
+  const sandboxUnavailable = accessMode === 'isolated' && ((provider === 'codex' && !sandbox.codex) || (provider === 'cursor' && !sandbox.cursor) || (provider === 'claude' && isolatedClaudeTransport === 'cli' && !sandbox.claudeCli));
   const ready = !sandboxUnavailable && !!model && !directorBlocked && (historyMode === 'none' || (!!historyPreview && !historyLoading && !historyError));
   const submit = () => {
     if (!wsSendRaw || !ready) return;
@@ -210,7 +213,7 @@ export function ReplaceMemberDialog({
           style={menuStyle}
         >
           {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor'] as ClusterMemberProvider[]).map((p) => (
-            <option key={p} value={p} disabled={accessMode === 'isolated' && (p !== 'claude' && p !== 'codex' || p === 'codex' && !sandbox.codex)}>{p.toUpperCase()}</option>
+            <option key={p} value={p} disabled={accessMode === 'isolated' && !isolatedUsable(p)}>{p.toUpperCase()}</option>
           ))}
         </select>
       </label>
@@ -355,7 +358,7 @@ export function ReplaceMemberDialog({
             : 'Private workspace outside the project. No history or task transfer; CLI providers require a working sandbox.'}
       </div>
       {accessMode === 'isolated' && provider === 'claude' && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minHeight: 44 }}>Claude transport <select style={{ minHeight: 44 }} value={isolatedClaudeTransport} onChange={e => setIsolatedClaudeTransport(e.target.value as 'native' | 'cli')}><option value="native">Claude Native</option><option value="cli" disabled={!sandbox.claudeCli}>Claude CLI{sandbox.claudeCli ? '' : ' (unavailable)'}</option></select></label>}
-      {sandboxUnavailable && <div role="status">{provider === 'codex' && sandbox.codexVersionReason ? sandbox.codexVersionReason.replace('Codex researchers', 'Isolated Codex members') : 'Sandbox checking or unavailable. Check the provider, bubblewrap and socat.'}</div>}
+      {sandboxUnavailable && <div role="status">{provider === 'codex' && sandbox.codexVersionReason ? sandbox.codexVersionReason.replace('Codex researchers', 'Isolated Codex members') : provider === 'cursor' && sandbox.cursorVersionReason ? sandbox.cursorVersionReason : 'Sandbox checking or unavailable. Check the provider, bubblewrap and socat.'}</div>}
       {accessMode === 'isolated' && !sandbox.codex && provider !== 'codex' && <div role="status">{sandbox.codexVersionReason?.replace('Codex researchers', 'Isolated Codex members') ?? 'Codex sandbox checking or unavailable.'}</div>}
       {accessMode === 'isolated' && provider === 'claude' && sandbox.claudeCli === false && <div role="status">Claude CLI sandbox unavailable. Check Claude CLI, bubblewrap and socat.</div>}
       <label

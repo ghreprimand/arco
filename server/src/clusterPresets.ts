@@ -154,11 +154,11 @@ function normalizeMember(raw: unknown, idx: number): ClusterPresetMember {
     if (!isClusterMemberAccessMode(r.accessMode)) {
       throw new PresetValidationError(400, `members[${idx}].accessMode must be standard/blind/isolated`);
     }
-    if (r.accessMode === 'isolated' && provider !== 'claude' && provider !== 'codex') {
-      throw new PresetValidationError(400, `members[${idx}].accessMode isolated requires provider claude or codex`);
+    if (r.accessMode === 'isolated' && provider !== 'claude' && provider !== 'codex' && provider !== 'cursor') {
+      throw new PresetValidationError(400, `members[${idx}].accessMode isolated requires provider claude, codex or cursor`);
     }
     if (r.accessMode === 'researcher' && !isResearcherProvider(provider)) {
-      throw new PresetValidationError(400, `members[${idx}].accessMode researcher requires provider claude, ollama or llamacpp`);
+      throw new PresetValidationError(400, `members[${idx}].accessMode researcher requires provider claude, codex, cursor, ollama or llamacpp`);
     }
     if (r.accessMode !== 'standard') out.accessMode = r.accessMode;
   }
