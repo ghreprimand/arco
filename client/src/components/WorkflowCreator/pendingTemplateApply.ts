@@ -1,3 +1,4 @@
+import type { ResearchResultSelection } from '../../stores/appStore.types';
 import { isClusterDirector } from '@arco/shared';
 // Workbench Expansion §D4 — deferred template post-create actions.
 //
@@ -15,6 +16,7 @@ export interface PendingTemplateApply {
   // Optional plan body (markdown) — POSTed to /api/plans (attach:true).
   plan?: string;
   researchStart?: { clusterId: string; token: string };
+  researchContinue?: { clusterId: string; selection: ResearchResultSelection };
 }
 
 const pending = new Map<string, PendingTemplateApply>();

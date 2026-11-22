@@ -5,7 +5,8 @@ import { touchButton } from './ResearchCloseDialog';
 import { DialogShell } from '../DialogShell';
 import { DirectoryBrowser } from '../media/DirectoryPicker';
 
-export type ResearchSelection = { kind: 'report'; round: number; letter: string } | { kind: 'report'; catchUp: string } | { kind: 'synthesis'; round: number } | { kind: 'project' };
+export type { ResearchResultSelection as ResearchSelection } from '../../stores/appStore.types';
+import type { ResearchResultSelection as ResearchSelection } from '../../stores/appStore.types';
 type Attachment = { path: string; filename: string; isImage: boolean };
 type CopyResult = { target?: string; written: string[]; error?: string; receiptError?: string };
 type Result = { error?: string; folder?: CopyResult; plan?: CopyResult; composer?: { attachments: Attachment[]; token?: string; error?: string } };

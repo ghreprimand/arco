@@ -137,10 +137,11 @@ export async function sendResearchToFolder(state: ResearchState, selection: Rese
 }
 
 export interface ComposerSendResult { attachments: Array<{ path: string; filename: string; isImage: boolean }>; token?: string; error?: string }
-const pendingComposer = new Map<string, { state: ResearchState; selection: ResearchSelection; workflowId: string; expires: number }>();
-export async function stageResearchForComposer(state: ResearchState, selection: ResearchSelection, workflowId: string): Promise<ComposerSendResult> {
+const pendingComposer = new Map<string, { state: ResearchState; selection: ResearchSelection; workflowId: string; expires: number; purpose?: 'continue' }>();
+export async function stageResearchForComposer(state: ResearchState, selection: ResearchSelection, workflowId: string, purpose?: 'continue'): Promise<ComposerSendResult> {
   const wf = workflows.get(workflowId);
   if (!wf || wf.config.incognito) throw new Error('Choose an open, saved conversation.');
+  if (purpose === 'continue' && (wf.config.kind !== 'chat' || selection.kind !== 'synthesis')) throw new Error('Choose a saved Chat and a released summary.');
   const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
   if (clusterId && !isClusterDirector(clusterStore.getMemberRole(clusterId, workflowId))) throw new Error('Choose the cluster Director.');
   const files = await selectResearchFiles(state, selection);
@@ -168,7 +169,7 @@ export async function stageResearchForComposer(state: ResearchState, selection: 
   const token = attachments.length ? randomUUID() : undefined;
   if (token) {
     for (const [key, pending] of pendingComposer) if (pending.expires < Date.now()) pendingComposer.delete(key);
-    pendingComposer.set(token, { state, selection, workflowId, expires: Date.now() + 10 * 60_000 });
+    pendingComposer.set(token, { state, selection, workflowId, expires: Date.now() + 10 * 60_000, ...(purpose ? { purpose } : {}) });
   }
   return { attachments, ...(token ? { token } : {}), ...(error ? { error } : {}) };
 }
@@ -177,7 +178,7 @@ export async function confirmResearchComposer(clusterId: string, token: string):
   const pending = pendingComposer.get(token);
   if (!pending || pending.state.clusterId !== clusterId || pending.expires < Date.now()) throw new Error('The staged attachment confirmation expired.');
   if (!workflows.has(pending.workflowId)) throw new Error('The destination conversation is no longer open.');
-  await recordResearchExport(pending.state, pending.selection, `composer ${pending.workflowId}`);
+  await recordResearchExport(pending.state, pending.selection, `${pending.purpose === 'continue' ? 'continued in Chat' : 'composer'} ${pending.workflowId}`);
   pendingComposer.delete(token);
 }
 

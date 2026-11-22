@@ -51,6 +51,7 @@ const PROGRESS_LABELS: Record<ClusterProgressMode, string> = { both: 'Keep plan 
 export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, initialProvider: suppliedProvider }: Props) {
   const [initialProvider] = useState(() => suppliedProvider ?? useAppStore.getState().creatorPrefill?.provider);
   const [researchStartPrefill] = useState(() => useAppStore.getState().creatorPrefill?.researchStart);
+  const [researchContinuePrefill] = useState(() => useAppStore.getState().creatorPrefill?.researchContinue);
   const connected = useAppStore((s) => s.connected);
   const clusterCreationPending = useAppStore((s) => s.clusterCreationPending);
   const capabilities = useAppStore((s) => s.capabilities);
@@ -677,7 +678,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     : null;
   const providerReady = providerProblem === null;
   const canLaunch = (!researchStartPrefill || workDir === initialResearchDir.current) && supportedProvider && providerReady && connected && workDir && (conversationMode !== 'resume' || (!sessionsLoading && sessionsPath === workDir && sessions.some((s) => s.sessionId === selectedSessionId)));
-  const canLaunchChat = !(incognito && primaryProvider === 'antigravity-cli') && supportedProvider && providerReady && connected && Boolean(model && String(model).trim()) && (!incognito || (primaryProvider !== 'cursor' && primaryProvider !== 'llamacpp' && primaryProvider !== 'strata' && primaryProvider !== 'deepseek'));
+  const canLaunchChat = (!researchContinuePrefill || !incognito) && !(incognito && primaryProvider === 'antigravity-cli') && supportedProvider && providerReady && connected && Boolean(model && String(model).trim()) && (!incognito || (primaryProvider !== 'cursor' && primaryProvider !== 'llamacpp' && primaryProvider !== 'strata' && primaryProvider !== 'deepseek'));
   const unavailableMembers = mode === 'cluster' ? members.flatMap((m, i) =>
     memberProviderAvailable(m.provider, authStatus, isProviderEnabled) ? [] : [`Member #${i + 1}${m.displayName.trim() ? ` (${m.displayName.trim()})` : ''}: ${MEMBER_PROVIDER_NAMES[m.provider]} ${!authStatus ? 'connection is being checked' : !isProviderEnabled(m.provider) ? 'is turned off in Settings' : 'is not connected'}.`]
   ) : [];
@@ -950,8 +951,11 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     }
     if (mode === 'chat') {
       if (!canLaunchChat) return;
+      let templateSpawnToken: string | undefined;
+      if (researchContinuePrefill) { templateSpawnToken = mintTemplateSpawnToken(); registerPendingTemplateApply(templateSpawnToken, { researchContinue: researchContinuePrefill }); }
       onCreate({
         kind: 'chat',
+        ...(templateSpawnToken ? { templateSpawnToken } : {}),
         name: name.trim() || 'New chat',
         ...(primaryProvider !== 'claude' && { primaryProvider }),
         primaryModel: model,
@@ -1143,7 +1147,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         <div data-help="creator.cluster-mode">
           <label className="display-font" style={labelStyle}>MODE</label>
           <div style={{ display: 'flex', gap: '6px' }}>
-            <button onClick={() => setMode('single')} style={modePill(mode === 'single')}>
+            <button disabled={!!researchContinuePrefill} onClick={() => setMode('single')} style={modePill(mode === 'single')}>
               <div>SINGLE WORKFLOW</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>One primary agent</div>
             </button>
@@ -1154,15 +1158,15 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               <div>CHAT</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>Conversation, no project</div>
             </button>
-            <button onClick={() => setMode('cluster')} style={modePill(mode === 'cluster')}>
+            <button disabled={!!researchContinuePrefill} onClick={() => setMode('cluster')} style={modePill(mode === 'cluster')}>
               <div>CLUSTER</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>Several agents, one shared project folder</div>
             </button>
-            <button disabled={!!researchStartPrefill} title={researchStartPrefill ? 'The copied research needs an Agent or cluster project.' : undefined} onClick={() => setMode('genesis')} style={modePill(mode === 'genesis')}>
+            <button disabled={!!researchStartPrefill || !!researchContinuePrefill} title={researchStartPrefill ? 'The copied research needs an Agent or cluster project.' : undefined} onClick={() => setMode('genesis')} style={modePill(mode === 'genesis')}>
               <div>GENESIS</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>Describe your idea; create files later</div>
             </button>
-            <button disabled={!!researchStartPrefill} title={researchStartPrefill ? 'The copied research needs an Agent or cluster project.' : undefined} data-help="creator.research-mode" onClick={() => setMode('research')} style={modePill(mode === 'research')}>
+            <button disabled={!!researchStartPrefill || !!researchContinuePrefill} title={researchStartPrefill ? 'The copied research needs an Agent or cluster project.' : undefined} data-help="creator.research-mode" onClick={() => setMode('research')} style={modePill(mode === 'research')}>
               <div>RESEARCH</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>One question, several independent researchers</div>
             </button>
@@ -2049,6 +2053,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             )}
           </p>
         )}
+        {researchContinuePrefill && incognito && <p role="status">Turn off Incognito to attach the research to this Chat.</p>}
         {researchStartPrefill && workDir !== initialResearchDir.current && <p role="status">Choose the folder containing the copied research to keep its draft: {initialResearchDir.current}</p>}
         {mode === 'cluster' && unavailableMembers.length > 0 && (
           <p role="status" data-testid="cluster-provider-problem" style={{ margin: '0 0 8px', fontSize: '12px', lineHeight: 1.5, color: 'var(--color-accent-secondary-dim)', overflowWrap: 'anywhere' }}>

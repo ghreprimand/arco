@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { ClusterResearchSummary } from '@arco/shared';
 import { SendResearchDialog, type ResearchSelection } from './SendResearchDialog';
+import { ExportResearchDialog } from './ExportResearchDialog';
+import { useAppStore } from '../../stores/appStore';
 import { StartResearchProjectDialog } from './StartResearchProjectDialog';
 import { FileViewerModal } from '../FileViewerModal';
 import { touchButton } from './ResearchCloseDialog';
@@ -10,14 +12,16 @@ import { ENTRY_WORDS, roundsAndCatchUps } from './researchView';
 // the summary, each released round's reports and the sources folder.
 export function ResearchResultsTab({ clusterId, research }: { clusterId: string; research: ClusterResearchSummary }) {
   const [open, setOpen] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<ResearchSelection | null>(null);
+  const continueChat = (selection: ResearchSelection) => useAppStore.getState().openCreatorWith({ mode: 'chat', researchContinue: { clusterId, selection } });
   const [start, setStart] = useState<ResearchSelection | null>(null);
   const [send, setSend] = useState<ResearchSelection | null>(null);
-  const [summaries, setSummaries] = useState<{ latest: boolean; rounds: number[]; proposal?: (ResearchSelection & { action?: 'send' | 'start' }) | null } | null>(null);
+  const [summaries, setSummaries] = useState<{ latest: boolean; rounds: number[]; proposal?: (ResearchSelection & { action?: 'send' | 'start' | 'chat' | 'export' }) | null } | null>(null);
   const releasedKey = roundsAndCatchUps(research).map((r) => `${r.n}:${r.releasedAt ?? ''}`).join('|');
   useEffect(() => {
     let live = true;
     const load = () => fetch(`/api/research/${clusterId}/summaries`)
-      .then(async (res) => (res.ok ? await res.json() as { latest: boolean; rounds: number[]; proposal?: (ResearchSelection & { action?: 'send' | 'start' }) | null } : null))
+      .then(async (res) => (res.ok ? await res.json() as { latest: boolean; rounds: number[]; proposal?: (ResearchSelection & { action?: 'send' | 'start' | 'chat' | 'export' }) | null } : null))
       .then((body) => { if (live && body) setSummaries(body); }).catch(() => undefined);
     void load();
     const timer = setInterval(load, 5_000);
@@ -33,11 +37,11 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
   const authors = !research.blind || !!research.revealedAt;
   return (
     <div data-help="research.results" style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12, color: 'var(--color-fg)' }}>
-      {summaries?.proposal && <div role="status">The Research Director proposed {summaries.proposal.action === 'start' ? 'starting a project from' : 'sending'} {summaries.proposal.kind}. <button type="button" className="display-font" style={touchButton} onClick={() => {
-        if (summaries.proposal!.action === 'start') setStart(summaries.proposal!); else setSend(summaries.proposal!);
+      {summaries?.proposal && <div role="status">The Research Director proposed {summaries.proposal.action === 'start' ? 'starting a project from' : summaries.proposal.action === 'chat' ? 'continuing in Chat with' : summaries.proposal.action === 'export' ? 'exporting' : 'sending'} {summaries.proposal.kind}. <button type="button" className="display-font" style={touchButton} onClick={() => {
+        if (summaries.proposal!.action === 'start') setStart(summaries.proposal!); else if (summaries.proposal!.action === 'chat') continueChat(summaries.proposal!); else if (summaries.proposal!.action === 'export') setExporting(summaries.proposal!); else setSend(summaries.proposal!);
         setSummaries({ ...summaries, proposal: null });
         void fetch(`/api/research/${clusterId}/dismiss-send-proposal`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-      }}>{summaries.proposal.action === 'start' ? 'REVIEW START' : 'REVIEW SEND'}</button></div>}
+      }}>{summaries.proposal.action === 'start' ? 'REVIEW START' : summaries.proposal.action === 'chat' ? 'REVIEW CHAT' : summaries.proposal.action === 'export' ? 'REVIEW EXPORT' : 'REVIEW SEND'}</button></div>}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
         {link('Brief', join('brief.md'))}
         {summaries?.latest ? link('Summary', join('synthesis.md')) : <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Awaiting summary</span>}
@@ -45,6 +49,8 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
         {link('Exports', join('exports.md'))}
         <button type="button" className="display-font" style={touchButton} onClick={() => setSend({ kind: 'project' })}>SEND PROJECT</button>
         <button type="button" className="display-font" style={touchButton} onClick={() => setStart(summaries?.latest && lastReleased ? { kind: 'synthesis', round: lastReleased } : { kind: 'project' })}>START PROJECT</button>
+        {summaries?.latest && lastReleased && <button type="button" className="display-font" style={touchButton} onClick={() => continueChat({ kind: 'synthesis', round: lastReleased })}>CONTINUE IN CHAT</button>}
+        <button type="button" className="display-font" style={touchButton} onClick={() => setExporting({ kind: 'project' })}>EXPORT</button>
       </div>
       {research.rounds.length === 0 && <div style={{ color: 'var(--color-fg)' }}>No round yet.</div>}
       {roundsAndCatchUps(research).reverse().map((round) => {
@@ -52,7 +58,7 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
         const dir = round.catchUp ? `catch-up-${round.catchUp.toLowerCase()}` : `round-${round.n}`;
         return (
         <div key={round.catchUp ? `catch-up-${round.catchUp}` : `round-${round.n}`}>
-          <div className="display-font" style={{ letterSpacing: 1, marginBottom: 4 }}>{round.catchUp ? `CATCH-UP ${round.catchUp}` : `ROUND ${round.n}`} {link('round record', join('rounds', dir, 'round.md'))}{!round.catchUp && roundSummary(round.n) ? <> · {link('summary', roundSummary(round.n)!)} {round.releasedAt && <button type="button" className="display-font" style={touchButton} onClick={() => setSend({ kind: 'synthesis', round: round.n })}>SEND SUMMARY</button>} {round.releasedAt && <button type="button" className="display-font" style={touchButton} onClick={() => setStart({ kind: 'synthesis', round: round.n })}>START FROM SUMMARY</button>}</> : null}</div>
+          <div className="display-font" style={{ letterSpacing: 1, marginBottom: 4 }}>{round.catchUp ? `CATCH-UP ${round.catchUp}` : `ROUND ${round.n}`} {link('round record', join('rounds', dir, 'round.md'))}{!round.catchUp && roundSummary(round.n) ? <> · {link('summary', roundSummary(round.n)!)} {round.releasedAt && <button type="button" className="display-font" style={touchButton} onClick={() => setSend({ kind: 'synthesis', round: round.n })}>SEND SUMMARY</button>} {round.releasedAt && <button type="button" className="display-font" style={touchButton} onClick={() => setStart({ kind: 'synthesis', round: round.n })}>START FROM SUMMARY</button>} {round.releasedAt && <button type="button" className="display-font" style={touchButton} onClick={() => continueChat({ kind: 'synthesis', round: round.n })}>CONTINUE IN CHAT</button>} {round.releasedAt && <button type="button" className="display-font" style={touchButton} onClick={() => setExporting({ kind: 'synthesis', round: round.n })}>EXPORT SUMMARY</button>}</> : null}</div>
           {round.contaminated && <div role="alert" style={{ color: 'var(--color-warning)' }}>Independence check failed: this round contains another researcher's marker. Treat its reports as contaminated.</div>}
           {round.boundaryWarning && <div role="alert" style={{ color: 'var(--color-warning)' }}>A researcher attempted to use a path or local address outside its sandbox. Check its activity.</div>}
           {!round.releasedAt && <div style={{ color: 'var(--color-fg)' }}>Still collecting replies; reports appear here when the round is released.</div>}
@@ -60,13 +66,14 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
             {[...research.researchers].sort((x, y) => x.letter.localeCompare(y.letter)).filter((r) => round.entries[r.letter]).map((r) => {
               const e = round.entries[r.letter];
               const who = `Researcher ${r.letter}${authors ? ` (${r.provider}, ${r.model})` : ''}`;
-              return <li key={r.letter}>{e.state === 'replied' ? <>{link(`${who} report`, join('rounds', dir, `report-${r.letter.toLowerCase()}.md`))} <button type="button" className="display-font" style={touchButton} onClick={() => setSend(round.catchUp ? { kind: 'report', catchUp: round.catchUp } : { kind: 'report', round: round.n, letter: r.letter })}>SEND REPORT</button> <button type="button" className="display-font" style={touchButton} onClick={() => setStart(round.catchUp ? { kind: 'report', catchUp: round.catchUp } : { kind: 'report', round: round.n, letter: r.letter })}>START FROM REPORT</button></> : `${who}: ${ENTRY_WORDS[e.state]}`}</li>;
+              return <li key={r.letter}>{e.state === 'replied' ? <>{link(`${who} report`, join('rounds', dir, `report-${r.letter.toLowerCase()}.md`))} <button type="button" className="display-font" style={touchButton} onClick={() => setSend(round.catchUp ? { kind: 'report', catchUp: round.catchUp } : { kind: 'report', round: round.n, letter: r.letter })}>SEND REPORT</button> <button type="button" className="display-font" style={touchButton} onClick={() => setStart(round.catchUp ? { kind: 'report', catchUp: round.catchUp } : { kind: 'report', round: round.n, letter: r.letter })}>START FROM REPORT</button> <button type="button" className="display-font" style={touchButton} onClick={() => setExporting(round.catchUp ? { kind: 'report', catchUp: round.catchUp } : { kind: 'report', round: round.n, letter: r.letter })}>EXPORT REPORT</button></> : `${who}: ${ENTRY_WORDS[e.state]}`}</li>;
             })}
           </ul>}
         </div>
         );
       })}
       <div style={{ color: 'var(--color-fg)' }}>Returned files are in <code>sources/</code>; open them from FILES.</div>
+      {exporting && <ExportResearchDialog clusterId={clusterId} selection={exporting} onClose={() => setExporting(null)} />}
       {start && <StartResearchProjectDialog clusterId={clusterId} selection={start} onClose={() => setStart(null)} />}
       {send && <SendResearchDialog clusterId={clusterId} selection={send} onClose={() => setSend(null)} />}
       {open && <FileViewerModal path={open} onClose={() => setOpen(null)} fallback={{ cwd: research.folder, workflowId: research.directorWorkflowId }} />}

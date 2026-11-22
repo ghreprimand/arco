@@ -1,3 +1,4 @@
+import { previewResearchExport, prepareResearchExport, confirmResearchExport } from '../research/exportResults.js';
 import { antigravityChatWorkspace } from '../chatMode.js';
 import { sendResearchToFolder, sendResearchToPlan, stageResearchForComposer, confirmResearchComposer, previewResearchStart, prepareResearchStart, confirmResearchStart } from '../research/sendToProject.js';
 import type { ResearchSelection } from '../research/resultSelection.js';
@@ -100,6 +101,22 @@ export async function tryHandleClusterRoutes(
     res.end(JSON.stringify({ ...await researchSummaries(state), proposal: researchSendProposal(summaries[1]) ?? null }));
     return true;
   }
+  // Exports use a confirmation after the browser starts the requested action.
+  const researchExport = req.method === 'POST' && req.url ? /^\/api\/research\/([0-9a-f-]{36})\/(preview-export|prepare-export|confirm-export)$/.exec(req.url) : null;
+  if (researchExport) {
+    const reply = (status: number, body: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+    try {
+      const chunks: Buffer[] = []; let size = 0;
+      for await (const chunk of req) { const bytes = Buffer.from(chunk); size += bytes.length; if (size > 16384) throw new Error('Request is too large.'); chunks.push(bytes); }
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { selection?: ResearchSelection; kind?: 'markdown' | 'file' | 'zip'; path?: string; token?: string };
+      if (researchExport[2] === 'confirm-export') { await confirmResearchExport(researchExport[1], body.token ?? ''); reply(200, { recorded: true }); return true; }
+      const state = await loadResearch(researchExport[1]);
+      if (!state || !body.selection) throw new Error('Choose released research.');
+      if (researchExport[2] === 'preview-export') reply(200, { files: await previewResearchExport(state, body.selection) });
+      else reply(200, await prepareResearchExport(state, body.selection, body.kind!, body.path));
+    } catch (error) { reply(400, { error: error instanceof Error ? error.message : 'Could not export research.' }); }
+    return true;
+  }
   // A result starts a separate project only after the operator chooses its folder.
   const researchStart = req.method === 'POST' && req.url ? /^\/api\/research\/([0-9a-f-]{36})\/(preview-start|prepare-start|confirm-start)$/.exec(req.url) : null;
   if (researchStart) {
@@ -125,7 +142,7 @@ export async function tryHandleClusterRoutes(
     try {
       const chunks: Buffer[] = []; let size = 0;
       for await (const chunk of req) { const bytes = Buffer.from(chunk); size += bytes.length; if (size > 16384) throw new Error('Request is too large.'); chunks.push(bytes); }
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { selection?: ResearchSelection; destination?: string; folderCopy?: boolean; planId?: string; composerWorkflowId?: string; token?: string };
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { selection?: ResearchSelection; destination?: string; folderCopy?: boolean; planId?: string; composerWorkflowId?: string; continueChat?: boolean; token?: string };
       if (researchSend[2] === 'dismiss-send-proposal') { clearResearchSendProposal(researchSend[1]); send(200, { dismissed: true }); return true; }
       if (researchSend[2] === 'confirm-composer') {
         if (typeof body.token !== 'string') { send(400, { error: 'Missing attachment confirmation.' }); return true; }
@@ -144,7 +161,7 @@ export async function tryHandleClusterRoutes(
         catch (error) { result.plan = { written: [], error: error instanceof Error ? error.message : 'Plan reference failed.' }; }
       }
       if (body.composerWorkflowId) {
-        try { result.composer = await stageResearchForComposer(state, body.selection, body.composerWorkflowId); }
+        try { result.composer = await stageResearchForComposer(state, body.selection, body.composerWorkflowId, body.continueChat === true ? 'continue' : undefined); }
         catch (error) { result.composer = { attachments: [], error: error instanceof Error ? error.message : 'Attachment failed.' }; }
       }
       send(200, result);

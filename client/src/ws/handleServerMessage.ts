@@ -327,6 +327,22 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
               if (pendingTemplate.seedPrompt) {
                 store.setDraft(msg.workflowId, pendingTemplate.seedPrompt);
               }
+              if (pendingTemplate.researchContinue) {
+                const pending = pendingTemplate.researchContinue;
+                const workflowId = msg.workflowId;
+                void fetch(`/api/research/${pending.clusterId}/send-to-project`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ selection: pending.selection, composerWorkflowId: workflowId, continueChat: true }) })
+                  .then(async response => {
+                    const result = await response.json() as { error?: string; composer?: { attachments: Array<{ path: string; filename: string; isImage: boolean }>; token?: string; error?: string } };
+                    if (!response.ok || result.error || !result.composer) throw new Error(result.error || 'No research attachments.');
+                    const latest = useAppStore.getState();
+                    if (!latest.jobs[workflowId]) throw new Error('The Chat closed.');
+                    for (const file of result.composer.attachments) latest.addAttachment(workflowId, file);
+                    const attached = result.composer.attachments.filter(file => useAppStore.getState().attachments[workflowId]?.some(item => item.path === file.path));
+                    if (result.composer.error || !result.composer.token || attached.length !== result.composer.attachments.length || !attached.length) throw new Error(`${attached.length} attachments staged. ${result.composer.error || 'The Chat changed while attaching research.'}`);
+                    const confirmed = await fetch(`/api/research/${pending.clusterId}/confirm-composer`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: result.composer.token }) });
+                    if (!confirmed.ok) throw new Error('The research export log could not be updated.');
+                  }).catch(error => store.pushNotification('error', `The Chat opened, but research could not be fully attached or recorded: ${error instanceof Error ? error.message : 'unknown error'}`));
+              }
               if (pendingTemplate.researchStart) confirmStartedResearch(pendingTemplate.researchStart, msg.workflowId, () => store.pushNotification('error', 'The project opened, but its research export log could not be updated.'));
               if (pendingTemplate.plan && msg.config.workingDirectory) {
                 const wfId = msg.workflowId;

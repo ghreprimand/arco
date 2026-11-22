@@ -16,7 +16,7 @@ const MAX_FILE = 16 * 1024 * 1024;
 const MAX_TOTAL = 64 * 1024 * 1024;
 const MAX_FILES = 300;
 
-async function readChecked(root: string, name: string): Promise<Buffer> {
+export async function readChecked(root: string, name: string): Promise<Buffer> {
   const path = join(root, name);
   const rel = relative(root, path);
   if (!rel || rel === '..' || rel.startsWith('..' + sep)) throw new Error('Invalid research file.');
@@ -95,4 +95,30 @@ export async function selectResearchFiles(state: ResearchState, selection: Resea
     out.push({ relativePath: name.split(sep).join('/'), bytes });
   }
   return out;
+}
+
+// ZIP includes the research folder, not Arco's private runtime or unreleased
+// researcher workspace. Refuse unsafe links and bound reads before compression.
+export async function researchFolderForZip(state: ResearchState): Promise<SelectedResearchFile[]> {
+  if (state.rounds.some(round => !round.releasedAt) || (state.catchUps ?? []).some(round => !round.releasedAt)) throw new Error('Wait until the current round and catch-ups are released.');
+  const root = await fs.realpath(state.folder);
+  const out: SelectedResearchFile[] = []; let total = 0; let visited = 0;
+  const stack: Array<{ name: string; depth: number }> = [{ name: '', depth: 0 }];
+  while (stack.length) {
+    const current = stack.pop()!;
+    if (current.depth > 12) throw new Error('The research folder is too deep to export.');
+    const directory = await fs.opendir(join(root, current.name));
+    for await (const entry of directory) {
+      if (++visited > MAX_FILES * 4) throw new Error('The research folder has too many entries to export.');
+      if (['.arco', '.git', '.claude', '.claude.json', '.codex', '.cursor', '.gemini', 'node_modules'].includes(entry.name)) continue;
+      const name = join(current.name, entry.name);
+      if (entry.isSymbolicLink()) throw new Error(`The research folder contains a link: ${name}`);
+      if (entry.isDirectory()) { stack.push({ name, depth: current.depth + 1 }); continue; }
+      if (!entry.isFile()) throw new Error(`The research folder contains an unsupported file: ${name}`);
+      const bytes = await readChecked(root, name); total += bytes.length;
+      if (out.length >= MAX_FILES || total > MAX_TOTAL) throw new Error('The research folder is too large to export.');
+      out.push({ relativePath: name.split(sep).join('/'), bytes });
+    }
+  }
+  return out.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 }

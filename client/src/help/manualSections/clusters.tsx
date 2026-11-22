@@ -477,6 +477,7 @@ export const clusters: Section[] = [
   Use <Code>SEND REPORT</Code>, <Code>SEND SUMMARY</Code> or <Code>SEND PROJECT</Code> in RESULTS to copy released research, including catch-up reports, into a project folder, add a reference to an existing plan, or attach it to an open conversation draft. Choose the destinations independently; the draft is not sent. A Research Director can propose a selection for <Code>REVIEW SEND</Code>. RESULTS reports partial copies and a failed export log separately.
   </p>
   <p><Code>START PROJECT</Code> previews the latest summary and sources, then copies them into a new project folder and opens the usual Agent or cluster creator. Choose explicitly to use an existing folder; no existing file is overwritten. The first message stays in the new conversation draft. <Code>START FROM REPORT</Code> and <Code>START FROM SUMMARY</Code> use a particular released result.</p>
+  <p><Code>CONTINUE IN CHAT</Code> opens a saved Chat with the summary and returned files attached; the operator sends the first message. <Code>EXPORT</Code> copies Markdown, downloads a selected file or downloads a ZIP of the research folder. ZIP waits for rounds and catch-ups to finish and excludes Arco and provider state. The export log records a started download, not confirmation that a file was saved.</p>
   <p>
   The strip shows where the project is
   saved; <Code>OPEN FOLDER</Code> opens FILES. The default location is in

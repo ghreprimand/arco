@@ -528,6 +528,31 @@ test('starting from research preserves existing files and records the opened pro
   } finally { workflows.delete(workflowId); await fs.rm(root, { recursive: true, force: true }); }
 });
 
+test('research exports exclude private state and unreleased rounds and record confirmation', async () => {
+  const { prepareResearchExport, confirmResearchExport } = await import('./exportResults.js');
+  const { unzipSync } = await import('fflate');
+  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-export-'));
+  const clusterId = randomUUID();
+  try {
+    await fs.mkdir(join(root, 'rounds', 'round-1'), { recursive: true });
+    await fs.mkdir(join(root, '.arco')); await fs.writeFile(join(root, '.arco', 'private'), 'secret');
+    for (const name of ['brief.md', 'research.json', 'director-log.md', 'exports.md']) await fs.writeFile(join(root, name), 'fixture');
+    await fs.writeFile(join(root, 'rounds', 'round-1', 'round.md'), 'round');
+    await fs.writeFile(join(root, 'rounds', 'round-1', 'report-a.md'), 'report');
+    const state = { clusterId, folder: root, rounds: [{ n: 1, releasedAt: '2026-01-01', entries: { A: { state: 'replied' } } }] } as never;
+    const selection = { kind: 'project' } as const;
+    const archive = await prepareResearchExport(state, selection, 'zip');
+    const files = unzipSync(Buffer.from(archive.data, 'base64'));
+    assert.ok(files['rounds/round-1/report-a.md']); assert.ok(files['exports.md']);
+    assert.ok(!Object.keys(files).some(name => name.startsWith('.arco/')));
+    assert.doesNotMatch(await fs.readFile(join(root, 'exports.md'), 'utf8'), /download started/);
+    await confirmResearchExport(clusterId, archive.token);
+    assert.match(await fs.readFile(join(root, 'exports.md'), 'utf8'), /zip download started/);
+    (state as any).catchUps = [{ catchUp: 'B', entries: { B: { state: 'waiting' } } }];
+    await assert.rejects(prepareResearchExport(state, selection, 'zip'), /released/);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});
+
 test('composer attachments are recorded only after the draft confirms them', async () => {
   const { stageResearchForComposer, confirmResearchComposer } = await import('./sendToProject.js');
   const { workflows } = await import('../server/state.js');
