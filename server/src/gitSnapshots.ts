@@ -45,14 +45,22 @@ const GIT_MAX_BUFFER = 16 * 1024 * 1024;
 // snapshot so a long session can't grow refs/arco unbounded.
 const MAX_CHECKPOINTS_PER_WORKFLOW = 50;
 
-// Provider account and conversation state is not project work. Exclude it
-// only at its real home location; project-local configuration stays in scope.
+// Provider state and Arco state are not project work. Only the actual home
+// locations are protected; similarly named project folders stay in scope.
+async function realpathWithMissingLeaf(target: string): Promise<string> {
+  try { return await fs.realpath(target); } catch (error) {
+    if (!['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) throw error;
+    const parent = path.dirname(target);
+    if (parent === target) return target;
+    return path.join(await realpathWithMissingLeaf(parent), path.basename(target));
+  }
+}
 async function providerHomePaths(cwd: string): Promise<string[]> {
   const root = await fs.realpath(cwd);
   const home = await fs.realpath(homedir());
   const result: string[] = [];
-  for (const name of ['.claude', '.claude.json', '.codex', '.cursor', '.gemini']) {
-    const target = path.join(home, name);
+  const targets = [...['.claude', '.claude.json', '.codex', '.cursor', '.gemini'].map(name => path.join(home, name)), await realpathWithMissingLeaf(arcoHome())];
+  for (const target of targets) {
     const rel = path.relative(root, target);
     if (!rel || (!rel.startsWith(`..${path.sep}`) && rel !== '..' && !path.isAbsolute(rel))) result.push(rel.split(path.sep).join('/') || '.');
     else {
@@ -926,7 +934,7 @@ const PREVIEW_PROBLEMS: Record<Exclude<PrepareOutcome, PreparedRestore>['problem
   'nested-overlap': 'A nested repository overlaps this checkpoint. Those files are not included, so nothing was changed.',
   'legacy-overlap': 'An unrecorded folder overlaps this older checkpoint. Nothing was changed.',
   'capped-overlap': 'A file now over the per-file checkpoint size limit is part of this checkpoint, so a revert would be refused.',
-  'provider-overlap': 'This checkpoint contains provider account or conversation state, so a revert would be refused.',
+  'provider-overlap': 'This checkpoint contains Arco state or provider account or conversation state, so a revert would be refused.',
 };
 
 /** What REVERT TO HERE would change, without changing anything. */

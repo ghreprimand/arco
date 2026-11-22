@@ -52,6 +52,40 @@ test('home provider state is excluded from change summaries and never reverted',
   }
 });
 
+test('relocated Arco state inside the workspace stays outside checkpoints and restores', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'arco-state-inside-'));
+  const previous = process.env.ARCO_HOME;
+  try {
+    for (const mode of ['shadow', 'git']) {
+      const cwd = join(root, mode), state = join(cwd, 'runtime-state');
+      await mkdir(cwd); await mkdir(state);
+      process.env.ARCO_HOME = state;
+      if (mode === 'git') execFileSync('git', ['init', '--quiet'], { cwd });
+      await writeFile(join(state, 'session.json'), 'before');
+      await writeFile(join(cwd, 'work.txt'), 'before');
+      const first = await createCheckpoint({ cwd, workflowId: 'fixture', seq: 1 }); assert.ok(first);
+      await writeFile(join(state, 'session.json'), 'after'); await writeFile(join(cwd, 'work.txt'), 'after');
+      const second = await createCheckpoint({ cwd, workflowId: 'fixture', seq: 2 }); assert.ok(second);
+      assert.deepEqual((await summarizeTurnChanges(cwd, first.ref, second.ref))?.paths, ['work.txt']);
+      assert.ok(await revertToCheckpoint({ cwd, workflowId: 'fixture', seq: 1 }));
+      assert.equal(await readFile(join(state, 'session.json'), 'utf8'), 'after');
+      assert.equal(await readFile(join(cwd, 'work.txt'), 'utf8'), 'before');
+      assert.equal(await createCheckpoint({ cwd: state, workflowId: 'fixture', seq: 5 }), null);
+      if (mode === 'git') {
+        execFileSync('git', ['add', '--', 'runtime-state/session.json'], { cwd });
+        execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture'], { cwd });
+        execFileSync('git', ['update-ref', 'refs/arco/fixture/3', 'HEAD'], { cwd });
+        assert.equal((await previewCheckpointRevert({ cwd, workflowId: 'fixture', seq: 3 })).ok, false);
+        assert.equal(await revertToCheckpoint({ cwd, workflowId: 'fixture', seq: 3 }), null);
+        assert.equal(await readFile(join(state, 'session.json'), 'utf8'), 'after');
+      }
+    }
+  } finally {
+    if (previous === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = previous;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('non-git checkpoints render an immutable shadow-store diff', async () => {
   const root = await mkdtemp(join(tmpdir(), 'arco-shadow-diff-'));
   const prior = process.env.ARCO_HOME;

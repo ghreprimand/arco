@@ -683,14 +683,17 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
             fontSize: '9px',
             letterSpacing: '1.5px',
             color: 'var(--color-accent-secondary)',
-            minWidth: '48px',
+            flex: '0 1 45%',
+            minWidth: 0,
+            overflowWrap: 'anywhere',
+            whiteSpace: 'normal',
             paddingTop: '2px',
           }}
         >
           {label}
           {entry.status && entry.status !== 'completed' ? ` · ${entry.status.toUpperCase()}` : ''}
         </span>
-        <span style={{ flex: 1, color: 'var(--color-fg-muted)', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+        <span style={{ flex: 1, minWidth: 0, color: 'var(--color-fg-muted)', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>
           {abbreviateToolInput(entry.tool, entry.input)}
           {entry.text ? ` ×${entry.text}` : ''}
           {typeof entry.exitCode === 'number' && entry.exitCode !== 0 ? ` · exit ${entry.exitCode}` : ''}
