@@ -4,8 +4,13 @@ import type { JobState } from '../../stores/appStore';
 // docs/RESEARCH.md - pure helpers for the research project screen.
 
 export const ENTRY_WORDS: Record<ResearchEntryState, string> = {
-  waiting: 'working', replied: 'replied', failed: 'failed', stopped: 'stopped', timed_out: 'timed out',
+  waiting: 'working', replied: 'replied', failed: 'failed', stopped: 'stopped', timed_out: 'timed out', removed: 'removed',
 };
+
+// Rounds and catch-ups in the order they started, for the rounds strip.
+export function roundsAndCatchUps(research: Pick<ClusterResearchSummary, 'rounds' | 'catchUps'>): ResearchRoundSummary[] {
+  return [...research.rounds, ...(research.catchUps ?? [])].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+}
 
 const SEARCH_TOOLS = new Set(['web_search', 'WebSearch']);
 

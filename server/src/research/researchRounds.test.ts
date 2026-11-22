@@ -8,8 +8,8 @@ import * as clusterMailbox from '../clusterMailbox.js';
 import * as clusterPeerOps from '../clusterPeerOps.js';
 import * as clusterStore from '../clusterStore.js';
 import { createResearchFolder } from './researchFolder.js';
-import { configureResearch, holdResearcherReply, onMemberSettled, revealResearch, setResearcherSignInWaiting, startResearchDirector, startRound, timeoutRound } from './researchRounds.js';
-import { initResearch, loadResearch, researchSummary, updateResearch } from './researchState.js';
+import { addResearcher, configureResearch, holdResearcherReply, removeResearcher, onMemberSettled, revealResearch, setResearcherSignInWaiting, startResearchDirector, startRound, timeoutRound } from './researchRounds.js';
+import { catchUpKey, initResearch, loadResearch, researchSummary, updateResearch } from './researchState.js';
 import { ensureResearchTripwires, observeResearchText, observeResearchTool, RESEARCH_CANARY_FILE, researchToolBoundaryWarning } from './researchTripwires.js';
 import { closeResearch, closedResearchRecordPath, installResearchCloseOnDelete, sweepClosedResearch, unsentFiles } from './researchClose.js';
 import { setBeforeClusterDelete } from '../clusterStore.js';
@@ -218,6 +218,58 @@ test('a round holds every reply until all researchers are done, then releases th
     await timeoutRound(p.clusterId, 2);
     const second = await clusterMailbox.peek(p.director);
     assert.match(second[0].content, /Round 2[\s\S]*Researcher A: timed out[\s\S]*Researcher B: timed out/);
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
+test('a late researcher answers the round 1 text alone, then gets the round that waited for it; a removed one is left out', async () => {
+  const p = await project();
+  try {
+    assert.equal((await startRound(p.clusterId, p.director, 'Round one text.')).ok, true);
+    await clusterPeerOps.peerSend(p.ctx(p.a), { to: 'x', content: 'Report A1.' });
+    await clusterPeerOps.peerSend(p.ctx(p.b), { to: 'x', content: 'Report B1.' });
+    await Promise.all([p.a, p.b, p.director].map((id) => clusterMailbox.drain(id)));
+
+    // C joins with a catch-up: the round 1 text and nothing else.
+    const c = randomUUID();
+    await clusterStore.addResearchMember(p.clusterId, c, p.membersCwd, true);
+    assert.deepEqual(await addResearcher(p.clusterId, { workflowId: c, provider: 'ollama', model: 'fixture' }, true), { letter: 'C', fromRound: 2, catchUp: true });
+    const catchUpMail = await clusterMailbox.drain(c);
+    assert.equal(catchUpMail.length, 1);
+    assert.match(catchUpMail[0].content, /catch-up on round 1[\s\S]*Round one text\./);
+    assert.doesNotMatch(catchUpMail[0].content, /Report A1|Report B1/);
+    assert.match((await clusterMailbox.drain(p.director))[0].content, /Researcher C joined\. It is included from round 2\. A catch-up/);
+
+    // Round 2 starts during the catch-up: C's entry waits for its catch-up.
+    assert.equal((await startRound(p.clusterId, p.director, 'Round two text.')).ok, true);
+    assert.deepEqual(await clusterMailbox.drain(c), []);
+    await clusterPeerOps.peerSend(p.ctx(p.a), { to: 'x', content: 'Report A2.' });
+    const held = await clusterPeerOps.peerSend(p.ctx(c), { to: 'x', content: 'Report C on round one.' });
+    assert.equal(held.ok && held.heldForRound, catchUpKey('C'));
+    const catchUpRelease = await clusterMailbox.drain(p.director);
+    assert.equal(catchUpRelease.length, 1);
+    assert.match(catchUpRelease[0].content, /Catch-up report from Researcher C[\s\S]*after round 1[\s\S]*Report C on round one/);
+    assert.doesNotMatch(catchUpRelease[0].content, /Report A2/);
+    assert.match(await fs.readFile(join(p.folder, 'rounds', 'catch-up-c', 'report-c.md'), 'utf8'), /Report C on round one/);
+    assert.match((await clusterMailbox.drain(c))[0].content, /round 2[\s\S]*Round two text\./);
+
+    // B is removed while round 2 waits for it; letters are never reused.
+    assert.deepEqual(await removeResearcher(p.clusterId, 'B'), { ok: true, workflowId: p.b, releasedRound: 2 });
+    assert.match((await clusterMailbox.drain(p.director))[0].content, /Researcher B was removed\. Its earlier reports stay\. Round 2 is released without it\. Later rounds go to A, C\./);
+    await clusterPeerOps.peerSend(p.ctx(c), { to: 'x', content: 'Report C2.' });
+    const second = await clusterMailbox.drain(p.director);
+    assert.match(second[0].content, /Round 2 replies[\s\S]*Researcher B: removed \(Removed by the operator\.\)[\s\S]*Report C2/);
+    assert.ok((await startRound(p.clusterId, p.director, 'Round three.')).ok);
+    assert.deepEqual(Object.keys((await loadResearch(p.clusterId))!.rounds[2].entries), ['A', 'C']);
+    const d = randomUUID();
+    await clusterStore.addResearchMember(p.clusterId, d, p.membersCwd, true);
+    assert.equal((await addResearcher(p.clusterId, { workflowId: d, provider: 'ollama', model: 'fixture' }, false))?.letter, 'D');
+    assert.equal((await removeResearcher(p.clusterId, 'A')).ok, true);
+    assert.equal((await removeResearcher(p.clusterId, 'C')).ok, true);
+    assert.deepEqual(await removeResearcher(p.clusterId, 'D'), { ok: false, code: 'last_researcher' });
   } finally {
     configureResearch(null);
     await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);

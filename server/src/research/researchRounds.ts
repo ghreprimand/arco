@@ -14,19 +14,26 @@ import {
 import type { PeerArtifact, PeerMessage } from '../clusterMailbox.js';
 import { readLogLines } from '../eventLog.js';
 import {
+  activeResearchers,
   cachedResearch,
+  catchUpKey,
   loadResearch,
+  nextResearchLetter,
+  openCatchUp,
   openRound,
+  replyRound,
+  roundByKey,
   researcherByRef,
   researcherFor,
   researcherName,
   updateResearch,
+  type ResearchResearcher,
   type ResearchRound,
   type ResearchState,
   type ResearchTargeted,
 } from './researchState.js';
 import { atomicWriteFile } from '../atomicFile.js';
-import { appendDirectorLog, renderRound, roundDir, writeProjectFiles, writeReleasedRound, writeRoundStart } from './researchFolder.js';
+import { appendDirectorLog, renderRound, roundDir, roundTitle, writeProjectFiles, writeReleasedRound, writeRoundStart } from './researchFolder.js';
 import { clearResearchTripwireTails, containsForeignCanary, ensureResearchTripwires, researchBoundaryHit, researchTripwireHit, setResearchTripwireReporter } from './researchTripwires.js';
 
 export interface ResearchDeps {
@@ -57,7 +64,7 @@ export function configureResearch(next: ResearchDeps | null): void {
         changed = true;
         return;
       }
-      const round = state.rounds.find(entry => entry.n === n);
+      const round = roundByKey(state, n);
       if (!round || (kind === 'contaminated' ? round.contaminated : round.boundaryWarning)) return false;
       if (kind === 'contaminated') round.contaminated = true;
       else round.boundaryWarning = true;
@@ -65,17 +72,17 @@ export function configureResearch(next: ResearchDeps | null): void {
     }).then(async state => {
       if (!changed || !state) return;
       next.notify(clusterId);
-      const round = state.rounds.find(entry => entry.n === n);
+      const round = roundByKey(state, n);
       if (!round?.releasedAt) return;
       const content = kind === 'contaminated'
-        ? `Round ${n}: the independence check failed after release. Treat its reports as contaminated.`
-        : `Round ${n}: a researcher attempted access outside the sandbox after release. Check its activity.`;
+        ? `${roundTitle(round)}: the independence check failed after release. Treat its reports as contaminated.`
+        : `${roundTitle(round)}: a researcher attempted access outside the sandbox after release. Check its activity.`;
       await next.enqueue(state.directorWorkflowId, {
         msgId: next.mintMsgId(), fromWorkflowId: state.directorWorkflowId, fromDisplayName: 'Arco research',
         toWorkflowId: state.directorWorkflowId, content, createdAt: iso(next.now()), delivered: false,
       }, { maxContentBytes: RELEASE_MAX_BYTES });
       if (next.isBusy(state.directorWorkflowId)) directorWakes.add(clusterId);
-      else next.wake(state.directorWorkflowId, directorWakePrompt(n));
+      else next.wake(state.directorWorkflowId, directorWakePrompt(n > 0 ? n : undefined));
     }).catch(error => console.error('[arco] research independence warning failed:', error));
   } : undefined);
   if (!next) {
@@ -105,7 +112,7 @@ export async function startRound(clusterId: string, callerWorkflowId: string, te
   if (callerWorkflowId !== state.directorWorkflowId) return { ok: false, code: 'access_denied', message: 'Only the Research Director can send a round.' };
   const brief = text.trim();
   if (!brief) return { ok: false, code: 'empty_text', message: 'The round text is empty.' };
-  if (state.researchers.length === 0) return { ok: false, code: 'no_researchers', message: 'The project has no researchers.' };
+  if (activeResearchers(state).length === 0) return { ok: false, code: 'no_researchers', message: 'The project has no researchers.' };
   const open = openRound(state);
   if (open) return { ok: false, code: 'round_open', message: `Round ${open.n} is still collecting replies; it is released when every researcher has replied, failed, been stopped or timed out (deadline ${open.deadline}).` };
   if (state.researchers.some(r => r.claudeTransport === 'cli' || r.provider === 'codex')) await ensureResearchTripwires(clusterId);
@@ -119,7 +126,9 @@ export async function startRound(clusterId: string, callerWorkflowId: string, te
       text: brief,
       startedAt: iso(now),
       deadline: iso(now + minutes * 60_000),
-      entries: Object.fromEntries(s.researchers.map((r) => [r.letter, { state: 'waiting' as const }])),
+      // A researcher still on its catch-up gets this text when the catch-up
+      // settles, against the same deadline (docs/RESEARCH.md).
+      entries: Object.fromEntries(activeResearchers(s).map((r) => [r.letter, { state: 'waiting' as const, ...(openCatchUp(s, r.letter) ? { deferred: true } : {}) }])),
       targeted: [],
       ...(s.preRoundContaminated || researchTripwireHit(clusterId, 0) ? { contaminated: true } : {}),
       ...(s.preRoundBoundaryWarning || researchBoundaryHit(clusterId, 0) ? { boundaryWarning: true } : {}),
@@ -128,30 +137,34 @@ export async function startRound(clusterId: string, callerWorkflowId: string, te
   });
   if (!next || !round || next.rounds.at(-1)?.n !== round.n) return { ok: false, code: 'round_open', message: 'Another round started first.' };
   await writeRoundStart(next, round);
-  const content = `Research brief, round ${round.n}. Answer it independently, then send your report with peer_send.\n\n${brief}`;
-  for (const r of next.researchers) {
-    await d().enqueue(r.workflowId, {
-      msgId: d().mintMsgId(),
-      fromWorkflowId: next.directorWorkflowId,
-      fromDisplayName: 'Research Director',
-      toWorkflowId: r.workflowId,
-      content,
-      createdAt: iso(now),
-      delivered: false,
-    }, { maxContentBytes: RELEASE_MAX_BYTES });
-    if (!d().isBusy(r.workflowId)) d().wake(r.workflowId, researcherWakePrompt(round.n, brief));
-  }
+  const sentTo = activeResearchers(next).filter((r) => round!.entries[r.letter]);
+  for (const r of sentTo) if (!round.entries[r.letter].deferred) await sendRoundText(next, round, r);
   schedule(clusterId, round);
   d().notify(clusterId);
-  return { ok: true, round: round.n, researchers: next.researchers.map((r) => researcherName(r.letter)), deadline: round.deadline };
+  return { ok: true, round: round.n, researchers: sentTo.map((r) => researcherName(r.letter)), deadline: round.deadline };
+}
+
+// The round (or catch-up) text as mail plus a turn message.
+async function sendRoundText(state: ResearchState, round: ResearchRound, r: ResearchResearcher): Promise<void> {
+  const label = round.catchUp ? 'catch-up on round 1' : `round ${round.n}`;
+  await d().enqueue(r.workflowId, {
+    msgId: d().mintMsgId(),
+    fromWorkflowId: state.directorWorkflowId,
+    fromDisplayName: 'Research Director',
+    toWorkflowId: r.workflowId,
+    content: `Research brief, ${label}. Answer it independently, then send your report with peer_send.\n\n${round.text}`,
+    createdAt: iso(d().now()),
+    delivered: false,
+  }, { maxContentBytes: RELEASE_MAX_BYTES });
+  if (!d().isBusy(r.workflowId)) d().wake(r.workflowId, researcherWakePrompt(round, round.text));
 }
 
 // The brief is quoted in the turn message as well as sent as mail: mail is
 // consumed by peer_read, and a compaction during the round can drop that
 // result, which once led a researcher that had already reported to tell
 // the Director it never saw the brief. The turn message survives compaction.
-function researcherWakePrompt(n: number, brief: string): string {
-  return `(research round ${n}) The Research Director's brief is below; the same text is in your mail. Research it and send your report with peer_send.\n\n${brief}`;
+function researcherWakePrompt(round: Pick<ResearchRound, 'n' | 'catchUp'>, brief: string): string {
+  return `(research ${round.catchUp ? 'catch-up on round 1' : `round ${round.n}`}) The Research Director's brief is below; the same text is in your mail. Research it and send your report with peer_send.\n\n${brief}`;
 }
 
 function schedule(clusterId: string, round: ResearchRound): void {
@@ -166,8 +179,8 @@ function schedule(clusterId: string, round: ResearchRound): void {
 export async function timeoutRound(clusterId: string, n: number): Promise<void> {
   const at = iso(d().now());
   await updateResearch(clusterId, (s) => {
-    const round = openRound(s);
-    if (!round || round.n !== n) return false;
+    const round = roundByKey(s, n);
+    if (!round || round.releasedAt) return false;
     let changed = false;
     for (const [letter, entry] of Object.entries(round.entries)) {
       if (entry.state !== 'waiting') continue;
@@ -176,7 +189,7 @@ export async function timeoutRound(clusterId: string, n: number): Promise<void> 
     }
     return changed;
   });
-  await maybeRelease(clusterId);
+  await maybeRelease(clusterId, n);
 }
 
 /** Keep the researcher and its round waiting while the normal sign-in is renewed. */
@@ -224,8 +237,8 @@ export async function holdResearcherReply(clusterId: string, workflowId: string,
   let held: number | undefined;
   const at = iso(d().now());
   await updateResearch(clusterId, (s) => {
-    const round = openRound(s);
     const r = researcherFor(s, workflowId);
+    const round = r && replyRound(s, r.letter);
     const entry = r && round?.entries[r.letter];
     if (!round || !entry) return false;
     if (containsForeignCanary(s, workflowId, content) || researchTripwireHit(clusterId, round.n)
@@ -239,7 +252,7 @@ export async function holdResearcherReply(clusterId: string, workflowId: string,
   });
   if (held !== undefined) {
     d().notify(clusterId);
-    await maybeRelease(clusterId);
+    await maybeRelease(clusterId, held);
   }
   return held;
 }
@@ -272,21 +285,23 @@ export async function onMemberSettled(workflowId: string, outcome: 'finished' | 
     return;
   }
   const researcher = researcherFor(state, workflowId);
-  const round = openRound(state);
+  const round = researcher && replyRound(state, researcher.letter);
   if (!researcher || !round || round.entries[researcher.letter]?.state !== 'waiting') return;
+  const n = round.n;
+  const openEntry = (s: ResearchState) => { const r = roundByKey(s, n); return r && !r.releasedAt ? r.entries[researcher.letter] : undefined; };
   const at = iso(d().now());
   if (outcome === 'finished' && await d().pendingMail(workflowId) > 0 && (round.entries[researcher.letter].wakes ?? 0) < MAX_WAKES) {
     await updateResearch(clusterId, (s) => {
-      const entry = openRound(s)?.entries[researcher.letter];
+      const entry = openEntry(s);
       if (!entry || entry.state !== 'waiting') return false;
       entry.wakes = (entry.wakes ?? 0) + 1;
     });
-    d().wake(workflowId, researcherWakePrompt(round.n, round.text));
+    d().wake(workflowId, researcherWakePrompt(round, round.text));
     return;
   }
   const reply = outcome === 'finished' ? await finalReplyText(join(state.membersCwd, '.arco', 'workflows', workflowId)) : '';
   await updateResearch(clusterId, (s) => {
-    const entry = openRound(s)?.entries[researcher.letter];
+    const entry = openEntry(s);
     if (!entry || entry.state !== 'waiting') return false;
     entry.at = at;
     if (outcome === 'stopped') { entry.state = 'stopped'; entry.reason = 'Stopped by the operator.'; }
@@ -295,7 +310,7 @@ export async function onMemberSettled(workflowId: string, outcome: 'finished' | 
     else { entry.state = 'failed'; entry.reason = 'The turn ended without a report.'; }
   });
   d().notify(clusterId);
-  await maybeRelease(clusterId);
+  await maybeRelease(clusterId, n);
 }
 
 function directorWakePrompt(round?: number): string {
@@ -304,7 +319,10 @@ function directorWakePrompt(round?: number): string {
 
 export function buildReleaseMessage(state: ResearchState, round: ResearchRound, written: Record<string, { reportPath?: string; sources: string[] }>): string {
   const rel = (path: string): string => path.startsWith(state.folder) ? path.slice(state.folder.length + 1) : path;
-  const header = [`Round ${round.n} replies, released together.`,
+  const after = state.rounds.filter((r) => r.releasedAt).at(-1)?.n;
+  const header = [round.catchUp
+    ? `Catch-up report from ${researcherName(round.catchUp)} on the original brief (the round 1 text), released alone.${after ? ` It arrived after round ${after}.` : ''} Add it to synthesis.md and say that it arrived later.`
+    : `Round ${round.n} replies, released together.`,
     ...(round.contaminated ? ['Independence check failed: treat this round as contaminated.'] : []),
     ...(round.boundaryWarning ? ['A researcher attempted access outside the sandbox; check its activity.'] : []), ''];
   const status = state.researchers.filter((r) => round.entries[r.letter]).map((r) => {
@@ -325,27 +343,30 @@ export function buildReleaseMessage(state: ResearchState, round: ResearchRound, 
   return Buffer.byteLength(trimmed, 'utf8') <= RELEASE_INLINE_BYTES ? trimmed : [...header, ...status, '', 'Read the report files listed above.'].join('\n');
 }
 
-export async function maybeRelease(clusterId: string): Promise<boolean> {
+// Releases the round (or catch-up) with key `n`, or the open round, once no
+// entry is still waiting.
+export async function maybeRelease(clusterId: string, n?: number): Promise<boolean> {
   let released: ResearchRound | undefined;
   const at = iso(d().now());
   const state = await updateResearch(clusterId, (s) => {
-    const round = openRound(s);
-    if (!round || Object.values(round.entries).some((e) => e.state === 'waiting')) return false;
+    const round = n === undefined ? openRound(s) : roundByKey(s, n);
+    if (!round || round.releasedAt || Object.values(round.entries).some((e) => e.state === 'waiting')) return false;
     if (researchTripwireHit(clusterId, round.n)) round.contaminated = true;
     if (researchBoundaryHit(clusterId, round.n)) round.boundaryWarning = true;
     round.releasedAt = at;
     released = round;
   });
   if (!state || !released) return false;
-  const n = released.n;
-  clearResearchTripwireTails(clusterId, n);
-  clearTimeout(timers.get(`${clusterId}:${n}`));
-  timers.delete(`${clusterId}:${n}`);
+  const key = released.n;
+  clearResearchTripwireTails(clusterId, key);
+  clearTimeout(timers.get(`${clusterId}:${key}`));
+  timers.delete(`${clusterId}:${key}`);
   const latest = await loadResearch(clusterId);
-  const round = latest?.rounds.find(r => r.n === n);
+  const round = latest && roundByKey(latest, key);
   if (!latest || !round) return false;
   const written = await writeReleasedRound(latest, round);
   await writeProjectFiles(latest);
+  if (round.catchUp) return await finishCatchUp(latest, round, written);
   await d().enqueue(latest.directorWorkflowId, {
     msgId: d().mintMsgId(),
     fromWorkflowId: latest.directorWorkflowId,
@@ -359,6 +380,121 @@ export async function maybeRelease(clusterId: string): Promise<boolean> {
   else d().wake(latest.directorWorkflowId, directorWakePrompt(round.n));
   d().notify(clusterId);
   return true;
+}
+
+// A catch-up settled: a report goes to the Director alone and wakes it; a
+// failure is one line. Then the researcher gets the round that waited for it.
+async function finishCatchUp(state: ResearchState, round: ResearchRound, written: Record<string, { reportPath?: string; sources: string[] }>): Promise<boolean> {
+  const letter = round.catchUp!;
+  const entry = round.entries[letter];
+  if (entry?.state === 'replied') {
+    await noteDirector(state, buildReleaseMessage(state, round, written));
+    if (d().isBusy(state.directorWorkflowId)) directorWakes.add(state.clusterId);
+    else d().wake(state.directorWorkflowId, `(research) The catch-up report from ${researcherName(letter)} is in your mail. Add it to synthesis.md and say that it arrived later.`);
+  } else if (entry && entry.state !== 'removed') {
+    await noteDirector(state, `${researcherName(letter)}'s catch-up on the original brief ended without a report (${(entry.state).replace('_', ' ')}).`);
+  }
+  let waiting: ResearchRound | undefined;
+  const next = await updateResearch(state.clusterId, (s) => {
+    const open = openRound(s);
+    const deferred = open?.entries[letter];
+    if (!open || !deferred?.deferred) return false;
+    delete deferred.deferred;
+    waiting = open;
+  });
+  const researcher = next && researcherFor(next, state.researchers.find((r) => r.letter === letter)?.workflowId ?? '');
+  if (next && waiting && researcher) await sendRoundText(next, waiting, researcher);
+  d().notify(state.clusterId);
+  return true;
+}
+
+// Arco's own line to the Research Director, read on its next turn.
+async function noteDirector(state: ResearchState, content: string): Promise<void> {
+  await d().enqueue(state.directorWorkflowId, {
+    msgId: d().mintMsgId(), fromWorkflowId: state.directorWorkflowId, fromDisplayName: 'Arco research',
+    toWorkflowId: state.directorWorkflowId, content, createdAt: iso(d().now()), delivered: false,
+  }, { maxContentBytes: RELEASE_MAX_BYTES });
+}
+
+export interface JoiningResearcher {
+  workflowId: string;
+  provider: ResearchResearcher['provider'];
+  model: string;
+  effort?: string;
+  claudeTransport?: 'native' | 'cli';
+}
+
+// docs/RESEARCH.md - a researcher added to a running project. It is left
+// out of a round already in flight and included from the next one. With
+// `catchUp` and at least one round sent, the round 1 text runs for it alone.
+export async function addResearcher(clusterId: string, joining: JoiningResearcher, catchUp: boolean, timeoutMinutes = RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES): Promise<{ letter: string; fromRound: number; catchUp: boolean } | null> {
+  const now = d().now();
+  let added: { letter: string; fromRound: number; catchUp: boolean } | undefined;
+  let run: ResearchRound | undefined;
+  const state = await updateResearch(clusterId, (s) => {
+    const letter = nextResearchLetter(s);
+    const open = openRound(s);
+    const fromRound = open ? open.n + 1 : s.rounds.length + 1;
+    s.researchers.push({ workflowId: joining.workflowId, letter, provider: joining.provider, model: joining.model,
+      ...(joining.effort ? { effort: joining.effort } : {}), ...(joining.claudeTransport ? { claudeTransport: joining.claudeTransport } : {}),
+      joinedAt: iso(now), joinedFromRound: fromRound });
+    const first = s.rounds[0];
+    if (catchUp && first) {
+      run = { n: catchUpKey(letter), text: first.text, startedAt: iso(now), deadline: iso(now + timeoutMinutes * 60_000),
+        entries: { [letter]: { state: 'waiting' } }, targeted: [], catchUp: letter };
+      s.catchUps = [...(s.catchUps ?? []), run];
+    }
+    added = { letter, fromRound, catchUp: !!run };
+  });
+  if (!state || !added) return null;
+  const researcher = researcherFor(state, joining.workflowId)!;
+  const name = researcherName(added.letter);
+  await noteDirector(state, run
+    ? `${name} joined. It is included from round ${added.fromRound}. A catch-up on the original brief is running; its report will be released to you alone.`
+    : `${name} joined. It is included from round ${added.fromRound}.${state.rounds.length ? ' It has not seen the original brief.' : ''}`);
+  if (run) {
+    const current = roundByKey(state, run.n)!;
+    if (researcher.claudeTransport === 'cli' || researcher.provider === 'codex') await ensureResearchTripwires(clusterId);
+    await writeRoundStart(state, current);
+    await sendRoundText(state, current, researcher);
+    schedule(clusterId, current);
+  } else await writeProjectFiles(state);
+  d().notify(clusterId);
+  return added;
+}
+
+export type RemoveResearcherResult = { ok: true; workflowId: string; releasedRound?: number } | { ok: false; code: 'not_research' | 'unknown_researcher' | 'last_researcher' };
+
+// docs/RESEARCH.md - the operator removes a researcher. Its earlier reports
+// stay; a round in flight is released without it; an open catch-up closes.
+export async function removeResearcher(clusterId: string, letter: string): Promise<RemoveResearcherResult> {
+  const at = iso(d().now());
+  let result = { ok: false, code: 'not_research' } as RemoveResearcherResult;
+  let openN: number | undefined;
+  const state = await updateResearch(clusterId, (s) => {
+    const r = activeResearchers(s).find((x) => x.letter === letter.toUpperCase());
+    if (!r) { result = { ok: false, code: 'unknown_researcher' }; return false; }
+    if (activeResearchers(s).length === 1) { result = { ok: false, code: 'last_researcher' }; return false; }
+    r.removedAt = at;
+    const removed = { state: 'removed' as const, at, reason: 'Removed by the operator.' };
+    const catchUp = openCatchUp(s, r.letter);
+    if (catchUp) { catchUp.entries[r.letter] = removed; catchUp.releasedAt = at; }
+    const open = openRound(s);
+    if (open?.entries[r.letter]?.state === 'waiting') { open.entries[r.letter] = removed; openN = open.n; }
+    result = { ok: true, workflowId: r.workflowId, ...(openN ? { releasedRound: openN } : {}) };
+  });
+  if (!state || !result.ok) return result;
+  const key = catchUpKey(letter.toUpperCase());
+  clearTimeout(timers.get(`${clusterId}:${key}`));
+  timers.delete(`${clusterId}:${key}`);
+  const rest = activeResearchers(state).map((r) => r.letter);
+  await noteDirector(state, `${researcherName(letter.toUpperCase())} was removed. Its earlier reports stay.${openN ? ` Round ${openN} is released without it.` : ''} Later rounds go to ${rest.join(', ')}.`);
+  await writeProjectFiles(state);
+  const catchUp = state.catchUps?.find((c) => c.n === key);
+  if (catchUp) await atomicWriteFile(join(roundDir(state.folder, key), 'round.md'), renderRound(state, catchUp)).catch(() => undefined);
+  if (openN) await maybeRelease(clusterId, openN);
+  d().notify(clusterId);
+  return result;
 }
 
 // A targeted message from the Director or the operator to one researcher,
@@ -388,6 +524,7 @@ export function resolveResearcherRef(state: ResearchState, ref: string): string 
 export async function restoreResearchTimers(clusterIds: Iterable<string>): Promise<void> {
   for (const clusterId of clusterIds) {
     const state = await loadResearch(clusterId).catch(() => null);
+    for (const catchUp of state?.catchUps ?? []) if (!catchUp.releasedAt) schedule(clusterId, catchUp);
     const round = state && openRound(state);
     if (round) {
       schedule(clusterId, round);

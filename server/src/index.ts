@@ -152,6 +152,8 @@ Session
 import {
 detachClusterObservers,
 handleClusterAddFreshWorkers,
+handleResearchResearcherAdd,
+handleResearchResearcherRemove,
 handleClusterAutoTurnToggle,
 handleClusterAutoPickupSet,
 handleClusterBroadcast,
@@ -1310,6 +1312,16 @@ wss.on('connection', (ws: WebSocket) => {
       case 'cluster_add_fresh_workers':
         handleClusterAddFreshWorkers(ws, session, msg).catch((err) => {
           console.error('[arco] cluster_add_fresh_workers handler failed:', err);
+        });
+        break;
+      case 'research_researcher_add':
+        handleResearchResearcherAdd(ws, session, msg).catch((err) => {
+          console.error('[arco] research_researcher_add handler failed:', err);
+        });
+        break;
+      case 'research_researcher_remove':
+        handleResearchResearcherRemove(ws, msg).catch((err) => {
+          console.error('[arco] research_researcher_remove handler failed:', err);
         });
         break;
       case 'cluster_member_replace':

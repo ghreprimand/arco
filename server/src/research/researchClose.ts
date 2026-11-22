@@ -52,10 +52,11 @@ function workspaceOf(state: ResearchState, r: ResearchResearcher): string {
 }
 
 // Files in a researcher's workspace whose content is not already in sources/.
-export async function unsentFiles(state: ResearchState): Promise<UnsentFile[]> {
+export async function unsentFiles(state: ResearchState, letters?: string[]): Promise<UnsentFile[]> {
   const sent = new Set((await fs.readdir(join(state.folder, 'sources')).catch(() => [] as string[])).map((name) => name.slice(0, 12)));
   const out: UnsentFile[] = [];
   for (const r of state.researchers) {
+    if (letters && !letters.includes(r.letter)) continue;
     const root = workspaceOf(state, r);
     for (const path of await walk(root)) {
       if (state.isolationCanaries?.[r.workflowId] && path === join(root, RESEARCH_CANARY_FILE)) continue;
@@ -139,6 +140,31 @@ export type CloseResult =
   | { ok: true; logsWrittenTo: string; moved: string[]; removed: number }
   | { ok: false; error: 'unknown_research' | 'researcher_busy'; letters?: string[] };
 
+// Copies files researchers saved but never sent into sources/; returns
+// their project-relative names.
+export async function moveUnsentFiles(state: ResearchState, letters?: string[]): Promise<string[]> {
+  const moved: string[] = [];
+  await fs.mkdir(join(state.folder, 'sources'), { recursive: true });
+  for (const file of await unsentFiles(state, letters)) {
+    const r = state.researchers.find((x) => x.letter === file.letter)!;
+    const from = join(workspaceOf(state, r), ...file.path.split('/'));
+    const hash = await hashFile(from);
+    const safe = file.path.split('/').at(-1)!.replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^\.+/, '').slice(0, 80) || 'file';
+    const name = `${hash}-${safe}`;
+    await fs.copyFile(from, join(state.folder, 'sources', name), fs.constants.COPYFILE_EXCL).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== 'EEXIST') throw error;
+    });
+    moved.push(`sources/${name}`);
+  }
+  return moved;
+}
+
+// A removed researcher's private workspace and provider home.
+export async function removeResearcherWorkspace(state: ResearchState, workflowId: string): Promise<void> {
+  const r = state.researchers.find((x) => x.workflowId === workflowId);
+  if (r) await fs.rm(dirname(workspaceOf(state, r)), { recursive: true, force: true });
+}
+
 // `force` (a cluster deleted by another path) closes even while a
 // researcher's turn is still settling.
 export async function closeResearch(clusterId: string, opts: { moveUnsent: boolean; isBusy: (workflowId: string) => boolean; now?: () => number; waitMs?: number; force?: boolean }): Promise<CloseResult> {
@@ -158,21 +184,7 @@ export async function closeResearch(clusterId: string, opts: { moveUnsent: boole
   }
   if (busy.length && !opts.force) return { ok: false, error: 'researcher_busy', letters: busy.map((r) => r.letter) };
 
-  const moved: string[] = [];
-  if (opts.moveUnsent) {
-    await fs.mkdir(join(state.folder, 'sources'), { recursive: true });
-    for (const file of await unsentFiles(state)) {
-      const r = state.researchers.find((x) => x.letter === file.letter)!;
-      const from = join(workspaceOf(state, r), ...file.path.split('/'));
-      const hash = await hashFile(from);
-      const safe = file.path.split('/').at(-1)!.replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^\.+/, '').slice(0, 80) || 'file';
-      const name = `${hash}-${safe}`;
-      await fs.copyFile(from, join(state.folder, 'sources', name), fs.constants.COPYFILE_EXCL).catch((error: NodeJS.ErrnoException) => {
-        if (error.code !== 'EEXIST') throw error;
-      });
-      moved.push(`sources/${name}`);
-    }
-  }
+  const moved = opts.moveUnsent ? await moveUnsentFiles(state) : [];
 
   const latest = state.rounds.at(-1);
   const logsPath = latest ? join(roundDir(state.folder, latest.n), 'round.md') : join(state.folder, 'researcher-logs.md');

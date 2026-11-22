@@ -59,6 +59,14 @@ export async function tryHandleClusterRoutes(
     res.end(JSON.stringify(await researchSummaries(state)));
     return true;
   }
+  // docs/RESEARCH.md - what REMOVE shows: files one researcher saved but never sent.
+  const removing = req.method === 'GET' && req.url ? /^\/api\/research\/([0-9a-f-]{36})\/researchers\/([A-Za-z])\/unsent$/.exec(req.url) : null;
+  if (removing) {
+    const state = await loadResearch(removing[1]).catch(() => null);
+    res.writeHead(state ? 200 : 404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(state ? { unsent: await unsentFiles(state, [removing[2].toUpperCase()]) } : { error: 'unknown_research' }));
+    return true;
+  }
   // docs/RESEARCH.md - closing a research tab: what the close dialog shows,
   // then the cleanup itself.
   const closing = req.url ? /^\/api\/research\/([0-9a-f-]{36})\/(close-preview|close)$/.exec(req.url) : null;
@@ -271,7 +279,7 @@ export async function tryHandleClusterRoutes(
             return true;
           }
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately, ...(result.heldForRound !== undefined ? { heldForRound: result.heldForRound, note: researchHeldNote(result.heldForRound) } : {}), ...(result.recipientContext ? { recipientContext: result.recipientContext } : {}), ...(result.guard ? { guard: result.guard } : {}) }));
+          res.end(JSON.stringify({ msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately, ...(result.heldForRound !== undefined ? { heldForRound: Math.max(1, result.heldForRound), note: researchHeldNote(result.heldForRound) } : {}), ...(result.recipientContext ? { recipientContext: result.recipientContext } : {}), ...(result.guard ? { guard: result.guard } : {}) }));
           return true;
         }
         if (op === 'research_round' && req.method === 'POST') {

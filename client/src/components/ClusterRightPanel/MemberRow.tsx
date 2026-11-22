@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { ROLE_PRESETS, presetForText, MEMBER_TIERS, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
 import type { ClusterStatePayload, MemberTier } from '@arco/shared';
+import { ResearchRemoveDialog } from '../research/ResearchRemoveDialog';
 import { ReplaceMemberDialog } from './ReplaceMemberDialog';
 import { useKeepInWindow } from '../../layout/keepInWindow';
 import { ScratchCloseDialog } from '../ScratchCloseDialog';
@@ -22,6 +23,7 @@ export function MemberRow({
   onSetTier,
   onSetFocus,
   onDetach,
+  onRemoveResearcher,
 }: {
   cluster: ClusterStatePayload;
   member: ClusterStatePayload['members'][number];
@@ -31,6 +33,7 @@ export function MemberRow({
   onSetTier?: (clusterId: string, workflowId: string, tier: MemberTier | null) => void;
   onSetFocus?: (clusterId: string, workflowId: string, focus: string | null) => void;
   onDetach?: (clusterId: string, workflowId: string) => void;
+  onRemoveResearcher?: (clusterId: string, letter: string, moveUnsent: boolean) => void;
 }) {
   // Two distinct UI modes share the role surface:
   //   popoverOpen → preset list (8 presets + CLEAR + Custom…) anchored to SET
@@ -50,6 +53,8 @@ export function MemberRow({
   const [focusDraft, setFocusDraft] = useState(member.focus ?? '');
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [detachScratch, setDetachScratch] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const researchLetter = cluster.research?.researchers.find((r) => r.workflowId === member.workflowId && !r.removedAt)?.letter;
 
   // F5 — per-member rename. Pencil-edit toggles inline input pre-filled
   // with the operator-set name (empty if not set, so the placeholder shows
@@ -351,6 +356,15 @@ export function MemberRow({
           )}
         </div>
       )}
+      {researchLetter && onRemoveResearcher && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button type="button" onClick={() => setRemoveOpen(true)} data-help="research.remove-researcher" className="display-font"
+            style={{ minHeight: 32, padding: '2px 8px', background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-warning)', cursor: 'pointer', fontSize: '9px', letterSpacing: '1px' }}
+            title={`Remove Researcher ${researchLetter} from this research project`}>REMOVE</button>
+        </div>
+      )}
+      {removeOpen && researchLetter && <ResearchRemoveDialog clusterId={cluster.clusterId} letter={researchLetter} onCancel={() => setRemoveOpen(false)}
+        onRemove={(moveUnsent) => { setRemoveOpen(false); onRemoveResearcher?.(cluster.clusterId, researchLetter, moveUnsent); }} />}
       {replaceOpen && (
         <ReplaceMemberDialog cluster={cluster} member={member} onClose={() => setReplaceOpen(false)} />
       )}

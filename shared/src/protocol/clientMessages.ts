@@ -89,6 +89,8 @@ import type {
   ClusterCreateWithFreshWorkersMessage,
   ClusterCreateFromScratchMessage,
   ClusterAddFreshWorkersMessage,
+  ResearchResearcherAddMessage,
+  ResearchResearcherRemoveMessage,
   ClusterMemberReplaceMessage,
   ClusterPlanSetMessage,
   ClusterPlanAttachMessage,
@@ -593,6 +595,8 @@ export type ClientMessage =
   | ClusterCreateWithFreshWorkersMessage
   | ClusterCreateFromScratchMessage
   | ClusterAddFreshWorkersMessage
+  | ResearchResearcherAddMessage
+  | ResearchResearcherRemoveMessage
   | ClusterMemberReplaceMessage
   | ClusterPlanSetMessage
   | ClusterPlanAttachMessage

@@ -54,17 +54,22 @@ export function isResearchPanel(preset: Pick<ClusterPreset, 'members'>): boolean
   return preset.members.length >= 2 && preset.members.slice(1).every((m) => m.accessMode === 'researcher');
 }
 
-export function researchCreatePayload(input: {
-  requestId?: string; name: string; brief: string; blind: boolean; folderRoot?: string;
-  director: ResearchRow; rows: ResearchRow[];
-}): ClusterCreatePayload & { research: NonNullable<import('@arco/shared').ClusterCreateFromScratchMessage['research']> } {
-  const member = (r: ResearchRow) => ({
+// One row as the server takes it, at project start and in ADD RESEARCHER.
+export function researchMember(r: Omit<ResearchRow, 'key' | 'advanced'>) {
+  return {
     provider: r.provider, model: r.model, ...(r.effort ? { effort: r.effort } : {}),
     ...(r.provider === 'claude' && r.researchClaudeTransport !== 'cli' && r.webSearchMaxUses ? { webSearchMaxUses: r.webSearchMaxUses } : {}),
     ...(r.provider === 'ollama' && r.contextSize ? { contextSize: r.contextSize } : {}),
     ...(r.provider === 'claude' && r.researchClaudeTransport === 'cli' ? { researchClaudeTransport: 'cli' as const } : {}),
     ...(r.webAccess === false ? { webAccess: false } : {}),
-  });
+  };
+}
+
+export function researchCreatePayload(input: {
+  requestId?: string; name: string; brief: string; blind: boolean; folderRoot?: string;
+  director: ResearchRow; rows: ResearchRow[];
+}): ClusterCreatePayload & { research: NonNullable<import('@arco/shared').ClusterCreateFromScratchMessage['research']> } {
+  const member = researchMember;
   return {
     ...(input.requestId ? { requestId: input.requestId } : {}),
     cwd: '',

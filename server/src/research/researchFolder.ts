@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { atomicWriteFile } from '../atomicFile.js';
 import type { ResearchArtifact, ResearchRound, ResearchState } from './researchState.js';
-import { researcherName } from './researchState.js';
+import { catchUpLetter, researcherName } from './researchState.js';
 
 export function researchSlug(name: string): string {
   const words = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s-]/g, ' ').split(/[\s-]+/).filter(Boolean);
@@ -54,17 +54,24 @@ export function renderManifest(state: ResearchState, status: 'open' | 'closed' =
     researchers: state.researchers.map((r) => ({
       letter: r.letter,
       ...(authors ? { provider: r.provider, model: r.model, ...(r.effort ? { effort: r.effort } : {}), ...(r.claudeTransport ? { transport: r.claudeTransport } : {}) } : {}),
+      ...(r.joinedAt ? { joinedAt: r.joinedAt, includedFromRound: r.joinedFromRound } : {}),
+      ...(r.removedAt ? { removedAt: r.removedAt } : {}),
     })),
-    rounds: state.rounds.map((round) => ({
-      n: round.n,
+    rounds: state.rounds.map(manifestRound),
+    ...(state.catchUps?.length ? { catchUps: state.catchUps.map(manifestRound) } : {}),
+  }, null, 2) + '\n';
+}
+
+function manifestRound(round: ResearchRound) {
+  return {
+      ...(round.catchUp ? { catchUp: round.catchUp } : { n: round.n }),
       startedAt: round.startedAt,
       ...(round.contaminated ? { contaminated: true } : {}),
       ...(round.boundaryWarning ? { boundaryWarning: true } : {}),
       ...(round.releasedAt ? { releasedAt: round.releasedAt } : {}),
       // Per-researcher outcome appears only once the round is released.
       ...(round.releasedAt ? { reports: Object.fromEntries(Object.entries(round.entries).map(([l, e]) => [l, e.state])) } : {}),
-    })),
-  }, null, 2) + '\n';
+  };
 }
 
 export function renderBrief(state: ResearchState): string {
@@ -83,12 +90,17 @@ export function renderBrief(state: ResearchState): string {
 }
 
 const STATE_WORDS: Record<string, string> = {
-  waiting: 'waiting', replied: 'replied', failed: 'failed', stopped: 'stopped', timed_out: 'timed out',
+  waiting: 'waiting', replied: 'replied', failed: 'failed', stopped: 'stopped', timed_out: 'timed out', removed: 'removed',
 };
+
+// "Round 2", or "Catch-up, Researcher C" for a researcher that joined late.
+export function roundTitle(round: Pick<ResearchRound, 'n' | 'catchUp'>): string {
+  return round.catchUp ? `Catch-up, ${researcherName(round.catchUp)}` : `Round ${round.n}`;
+}
 
 export function renderRound(state: ResearchState, round: ResearchRound): string {
   const authors = showAuthors(state);
-  const lines = [`# Round ${round.n}`, '', `Started: ${round.startedAt}`, `Deadline: ${round.deadline}`,
+  const lines = [`# ${roundTitle(round)}`, '', ...(round.catchUp ? ['The round 1 text, sent to this researcher alone after it joined.', ''] : []), `Started: ${round.startedAt}`, `Deadline: ${round.deadline}`,
     `Released: ${round.releasedAt ?? 'not yet'}`,
     ...(round.contaminated ? ['Independence check failed: treat this round as contaminated.'] : []),
     ...(round.boundaryWarning ? ['A researcher attempted access outside the sandbox; check its activity.'] : []),
@@ -110,7 +122,10 @@ export function renderRound(state: ResearchState, round: ResearchRound): string 
   return lines.join('\n') + '\n';
 }
 
-export function roundDir(folder: string, n: number): string { return join(folder, 'rounds', `round-${n}`); }
+// A catch-up has a negative key in place of a round number (catchUpKey).
+export function roundDir(folder: string, n: number): string {
+  return join(folder, 'rounds', n < 0 ? `catch-up-${catchUpLetter(n).toLowerCase()}` : `round-${n}`);
+}
 
 export function sourceFileName(artifact: ResearchArtifact): string {
   const data = Buffer.from(artifact.contentBase64, 'base64');
@@ -141,7 +156,7 @@ export async function writeReleasedRound(state: ResearchState, round: ResearchRo
     let reportPath: string | undefined;
     if (entry.state === 'replied' && entry.report) {
       reportPath = join(dir, `report-${r.letter.toLowerCase()}.md`);
-      const header = [`# Round ${round.n}, ${researcherName(r.letter)}`, '',
+      const header = [round.catchUp ? `# Catch-up on round 1, ${researcherName(r.letter)}` : `# Round ${round.n}, ${researcherName(r.letter)}`, '',
         ...(entry.source === 'final_reply' ? ['Taken from the researcher\'s final reply; no report was sent.', ''] : []),
         ...(sources.length ? ['Returned files:', ...sources.map((s) => `- ${s}`), ''] : []), ''];
       await atomicWriteFile(reportPath, header.join('\n') + entry.report.trim() + '\n');

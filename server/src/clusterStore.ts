@@ -524,6 +524,27 @@ export async function addMember(
   });
 }
 
+// docs/RESEARCH.md - ADD RESEARCHER: a RESEARCHER member whose workflow
+// folder lives in Arco state, like the researchers made at project start.
+export async function addResearchMember(clusterId: string, workflowId: string, memberCwd: string, webAccess: boolean): Promise<ClusterState | null> {
+  return withClusterMetaLock(clusterId, async () => {
+    const state = await readCluster(clusterId);
+    if (!state?.research) return null;
+    if (state.members.includes(workflowId)) return state;
+    const existing = memberIndex.get(workflowId);
+    if (existing && existing !== clusterId) throw new ClusterValidationError('member_already_in_cluster', `workflow ${workflowId} is already a member of cluster ${existing}`);
+    const next: ClusterState = { ...state, members: [...state.members, workflowId],
+      memberAccessModes: { ...state.memberAccessModes, [workflowId]: 'researcher' },
+      memberCwds: { ...state.memberCwds, [workflowId]: memberCwd },
+      ...(webAccess ? {} : { memberWebAccess: { ...state.memberWebAccess, [workflowId]: false } }) };
+    await fs.mkdir(isolatedWorkspaceFor(clusterId, workflowId), { recursive: true, mode: 0o700 });
+    await writeMetaAtomic(next);
+    rebuildIndexFor(next);
+    memberJoined?.(clusterId, workflowId);
+    return next;
+  });
+}
+
 export function getMemberAccessMode(clusterId: string, workflowId: string): ClusterMemberAccessMode {
   return cache.get(clusterId)?.memberAccessModes?.[workflowId] ?? 'standard';
 }

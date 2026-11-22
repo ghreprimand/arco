@@ -48,7 +48,7 @@ export const RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES = 30;
 export const RESEARCH_ROUND_TIMEOUT_MAX_MINUTES = 240;
 export const RESEARCH_MAX_RESEARCHERS = 26;
 export const RESEARCH_CONFIRM_ABOVE = 8;
-export type ResearchEntryState = 'waiting' | 'replied' | 'failed' | 'stopped' | 'timed_out';
+export type ResearchEntryState = 'waiting' | 'replied' | 'failed' | 'stopped' | 'timed_out' | 'removed';
 export interface ResearchRoundSummary {
   n: number;
   startedAt: string;
@@ -56,6 +56,9 @@ export interface ResearchRoundSummary {
   releasedAt?: string;
   contaminated?: boolean;
   boundaryWarning?: boolean;
+  // Set on a catch-up: the letter of the researcher that joined late and
+  // answers the round 1 text alone.
+  catchUp?: string;
   // Keyed by report letter. `source` says whether the report came by mail or
   // was taken from the researcher's final reply.
   entries: Record<string, { state: ResearchEntryState; at?: string; reason?: string; source?: 'mail' | 'final_reply' }>;
@@ -70,6 +73,10 @@ export interface ResearchResearcherSummary {
   isolation: 'tool-fenced' | 'checking' | 'sandboxed';
   signInNeeded?: 'claude' | 'codex';
   claudeTransport?: 'native' | 'cli';
+  // Added after the project started: the first round sent to it.
+  joinedFromRound?: number;
+  // Removed by the operator; kept so earlier rounds keep the letter.
+  removedAt?: string;
 }
 // Operator-facing research state carried on cluster_state. The operator sees
 // providers and models; the Director never receives this payload.
@@ -85,6 +92,8 @@ export interface ClusterResearchSummary {
   preRoundBoundaryWarning?: boolean;
   researchers: ResearchResearcherSummary[];
   rounds: ResearchRoundSummary[];
+  // Catch-ups for researchers added after round 1.
+  catchUps: ResearchRoundSummary[];
 }
 // Researcher row of the start dialog.
 export interface ResearchResearcherSpec {
@@ -731,6 +740,27 @@ export interface ClusterMemberTuning {
   efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive';
   fastMode?: boolean;
   autoCompaction?: AutoCompactionPolicy | null;
+}
+
+// docs/RESEARCH.md - the operator adds a researcher to a running research
+// project. `catchUp` runs the round 1 text for it alone.
+export interface ResearchResearcherAddMessage {
+  type: 'research_researcher_add';
+  clusterId: string;
+  researcher: ResearchResearcherSpec & {
+    webAccess?: boolean;
+    webSearchMaxUses?: number;
+    contextSize?: number;
+    researchClaudeTransport?: 'native' | 'cli';
+  };
+  catchUp: boolean;
+}
+// The operator removes a researcher; its earlier reports stay.
+export interface ResearchResearcherRemoveMessage {
+  type: 'research_researcher_remove';
+  clusterId: string;
+  letter: string;
+  moveUnsent?: boolean;
 }
 
 // Phase 2.5.1 — operator clicked "+ ADD WORKER" in ClusterRightPanel

@@ -1158,6 +1158,16 @@ export function useWebSocket() {
     }));
   }, []);
 
+  // docs/RESEARCH.md - ADD RESEARCHER and REMOVE in a research project.
+  const addResearchResearcher = useCallback((clusterId: string, request: { researcher: import('@arco/shared').ResearchResearcherAddMessage['researcher']; catchUp: boolean }) => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: 'research_researcher_add', clusterId, researcher: request.researcher, catchUp: request.catchUp }));
+  }, []);
+  const removeResearchResearcher = useCallback((clusterId: string, letter: string, moveUnsent: boolean) => {
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: 'research_researcher_remove', clusterId, letter, moveUnsent }));
+  }, []);
+
   // Phase 2.6 — operator saved the shared cluster plan from ClusterPlanTab
   // (or PROMOTE TO CLUSTER from a per-workflow PLAN tab). Server caps body
   // at 32768 chars; the UI hard-rejects above that and soft-warns at 28672
@@ -1480,6 +1490,8 @@ export function useWebSocket() {
     createClusterWithFreshWorkers,
     createClusterFromScratch,
     addClusterFreshWorkers,
+    addResearchResearcher,
+    removeResearchResearcher,
     setClusterPlan,
     attachClusterPlan,
     clearClusterPlan,

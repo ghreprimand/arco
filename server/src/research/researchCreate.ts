@@ -49,28 +49,11 @@ export async function prepareResearchCreate(msg: ClusterCreateFromScratchMessage
   if (members.length < 2) return { refusal: 'no_researchers' };
   if (members.length - 1 > RESEARCH_MAX_RESEARCHERS) return { refusal: 'too_many_researchers' };
   for (let i = 1; i < members.length; i++) {
-    if (!isResearcherProvider(members[i].provider)) return { refusal: `member[${i}] researcher_provider_unavailable:${String(members[i].provider)}` };
-    if (members[i].webAccess !== undefined && typeof members[i].webAccess !== 'boolean') return { refusal: `member[${i}] invalid_web_access` };
-    if (members[i].researchClaudeTransport !== undefined && (members[i].provider !== 'claude'
-      || !['native', 'cli'].includes(members[i].researchClaudeTransport!))) return { refusal: `member[${i}] invalid_research_transport` };
-    const { webSearchMaxUses: web, contextSize: ctx } = members[i];
-    if (members[i].researchClaudeTransport === 'cli' && web !== undefined) return { refusal: `member[${i}] cli_web_search_limit_unsupported` };
-    if (web !== undefined && (!Number.isInteger(web) || web < 1 || web > 50)) return { refusal: `member[${i}] invalid_web_search_limit` };
-    if (ctx !== undefined && (!Number.isInteger(ctx) || ctx < 2048 || ctx > 1_048_576)) return { refusal: `member[${i}] invalid_context_size` };
+    const refusal = researcherSpecRefusal(members[i]);
+    if (refusal) return { refusal: `member[${i}] ${refusal}` };
   }
-  if (members.some((member, i) => i > 0 && member.researchClaudeTransport === 'cli') && !await researchSandboxAvailable('claude')) {
-    return { refusal: 'claude_research_sandbox_unavailable' };
-  }
-  if (members.some((member, i) => i > 0 && member.provider === 'cursor')) {
-    const reason = cursorIsolationReason();
-    if (reason) return { refusal: reason };
-    if (!await researchSandboxAvailable('cursor')) return { refusal: 'cursor_research_sandbox_unavailable' };
-  }
-  if (members.some((member, i) => i > 0 && member.provider === 'codex')) {
-    const reason = codexResearchVersionReason(installedCodexVersion());
-    if (reason) return { refusal: reason };
-    if (!await researchSandboxAvailable('codex')) return { refusal: 'codex_research_sandbox_unavailable' };
-  }
+  const sandbox = await researcherSandboxRefusal(members.slice(1));
+  if (sandbox) return { refusal: sandbox };
   const settings = await readSettings();
   const requested = typeof spec.folderRoot === 'string' ? spec.folderRoot.trim() : '';
   if (requested && !isAbsolute(requested)) return { refusal: 'invalid_research_folder' };
@@ -91,14 +74,50 @@ export async function prepareResearchCreate(msg: ClusterCreateFromScratchMessage
       taskBoardMode: 'none',
       members: members.map((m, i) => i === 0
         ? { ...m, webSearchMaxUses: undefined, contextSize: undefined, role: RESEARCH_DIRECTOR_ROLE, displayName: RESEARCH_DIRECTOR_ROLE, accessMode: 'standard' as const, tier: undefined, focus: undefined }
-        : { provider: m.provider, model: m.model, effort: m.effort, providerAccountRef: m.providerAccountRef,
-            role: RESEARCHER_ROLE, displayName: researcherName(researchLetter(i - 1)), accessMode: 'researcher' as const,
-            ...(m.webAccess === false ? { webAccess: false } : {}),
-            ...(m.provider === 'claude' && m.researchClaudeTransport ? { researchClaudeTransport: m.researchClaudeTransport } : {}),
-            ...(m.provider === 'claude' && m.webSearchMaxUses ? { webSearchMaxUses: m.webSearchMaxUses } : {}),
-            ...(m.provider === 'ollama' && m.contextSize ? { contextSize: m.contextSize } : {}) }),
+        : researcherMemberSpec(m, researchLetter(i - 1))),
     },
   };
+}
+
+type ResearcherRow = ClusterCreateFromScratchMessage['members'][number];
+
+// One researcher row as the start dialog and ADD RESEARCHER send it.
+export function researcherSpecRefusal(m: ResearcherRow): string | undefined {
+  if (!isResearcherProvider(m.provider)) return `researcher_provider_unavailable:${String(m.provider)}`;
+  if (m.webAccess !== undefined && typeof m.webAccess !== 'boolean') return 'invalid_web_access';
+  if (m.researchClaudeTransport !== undefined && (m.provider !== 'claude'
+    || !['native', 'cli'].includes(m.researchClaudeTransport))) return 'invalid_research_transport';
+  const { webSearchMaxUses: web, contextSize: ctx } = m;
+  if (m.researchClaudeTransport === 'cli' && web !== undefined) return 'cli_web_search_limit_unsupported';
+  if (web !== undefined && (!Number.isInteger(web) || web < 1 || web > 50)) return 'invalid_web_search_limit';
+  if (ctx !== undefined && (!Number.isInteger(ctx) || ctx < 2048 || ctx > 1_048_576)) return 'invalid_context_size';
+  return undefined;
+}
+
+// The sandbox each sandboxed provider among the rows needs.
+export async function researcherSandboxRefusal(rows: ResearcherRow[]): Promise<string | undefined> {
+  if (rows.some((m) => m.researchClaudeTransport === 'cli') && !await researchSandboxAvailable('claude')) return 'claude_research_sandbox_unavailable';
+  if (rows.some((m) => m.provider === 'cursor')) {
+    const reason = cursorIsolationReason();
+    if (reason) return reason;
+    if (!await researchSandboxAvailable('cursor')) return 'cursor_research_sandbox_unavailable';
+  }
+  if (rows.some((m) => m.provider === 'codex')) {
+    const reason = codexResearchVersionReason(installedCodexVersion());
+    if (reason) return reason;
+    if (!await researchSandboxAvailable('codex')) return 'codex_research_sandbox_unavailable';
+  }
+  return undefined;
+}
+
+// The member a researcher row becomes: fixed name, role and access.
+export function researcherMemberSpec(m: ResearcherRow, letter: string): ResearcherRow {
+  return { provider: m.provider, model: m.model, effort: m.effort, providerAccountRef: m.providerAccountRef,
+    role: RESEARCHER_ROLE, displayName: researcherName(letter), accessMode: 'researcher' as const,
+    ...(m.webAccess === false ? { webAccess: false } : {}),
+    ...(m.provider === 'claude' && m.researchClaudeTransport ? { researchClaudeTransport: m.researchClaudeTransport } : {}),
+    ...(m.provider === 'claude' && m.webSearchMaxUses ? { webSearchMaxUses: m.webSearchMaxUses } : {}),
+    ...(m.provider === 'ollama' && m.contextSize ? { contextSize: m.contextSize } : {}) };
 }
 
 export async function finishResearchCreate(prepared: PreparedResearch, clusterId: string, workflowIds: string[]): Promise<ResearchState> {

@@ -3,7 +3,7 @@ import type { ClusterResearchSummary } from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
 import { DialogShell } from '../DialogShell';
 import { touchButton } from './ResearchCloseDialog';
-import { ENTRY_WORDS, elapsedLabel, roundSummaryLine } from './researchView';
+import { ENTRY_WORDS, elapsedLabel, roundSummaryLine, roundsAndCatchUps } from './researchView';
 import { AuthReloginNotice } from '../AuthReloginNotice';
 
 // docs/RESEARCH.md - the rounds strip above a research project's member
@@ -16,14 +16,15 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
   const [busy, setBusy] = useState(false);
   const [confirmReveal, setConfirmReveal] = useState(false);
   const [questionOpen, setQuestionOpen] = useState(false);
-  const collecting = research.rounds.some((r) => !r.releasedAt);
+  const listed = roundsAndCatchUps(research);
+  const collecting = listed.some((r) => !r.releasedAt);
   useEffect(() => {
     if (!collecting) return;
     const timer = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(timer);
   }, [collecting]);
   const letters = research.researchers.map((r) => r.letter);
-  const rounds = all ? research.rounds : research.rounds.slice(-3);
+  const rounds = all ? listed : listed.slice(-3);
   const blind = research.blind && !research.revealedAt;
   const reveal = async () => {
     setConfirmReveal(false);
@@ -59,7 +60,7 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
           <div key={round.n}>
             <button type="button" data-help="research.round" aria-expanded={expanded} onClick={() => setOpenRound(expanded ? null : round.n)}
               style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', width: '100%', minHeight: 44, background: 'none', border: 'none', padding: 0, color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="display-font" style={{ letterSpacing: 1, color: 'var(--color-fg)' }}>ROUND {round.n}</span>
+              <span className="display-font" style={{ letterSpacing: 1, color: 'var(--color-fg)' }}>{round.catchUp ? `CATCH-UP ${round.catchUp}` : `ROUND ${round.n}`}</span>
               {letters.filter((l) => round.entries[l]).map((l) => {
                 const state = round.entries[l].state;
                 const color = state === 'replied' ? 'var(--color-accent-primary)' : state === 'waiting' ? 'var(--color-fg)' : 'var(--color-warning)';
@@ -84,7 +85,7 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
         <p style={{ marginTop: 0 }}>Reveal which provider and model wrote each report?</p>
         <p>You see them on the cards already. Reveal also writes them into research.json and every round record, and shows them to the Research Director from now on. This cannot be undone.</p>
       </DialogShell>}
-      {research.rounds.length > 3 && <button type="button" onClick={() => setAll(!all)} style={{ ...touchButton, alignSelf: 'flex-start' }}>{all ? 'LATEST ROUNDS' : `ALL ${research.rounds.length} ROUNDS`}</button>}
+      {listed.length > 3 && <button type="button" onClick={() => setAll(!all)} style={{ ...touchButton, alignSelf: 'flex-start' }}>{all ? 'LATEST ROUNDS' : `ALL ${listed.length} ROUNDS`}</button>}
     </div>
   );
 }

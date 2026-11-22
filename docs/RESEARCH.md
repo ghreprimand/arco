@@ -33,6 +33,16 @@ If a Claude CLI or Codex researcher cannot renew its existing sign-in, the resea
 
 **Targeted messages.** The Director can `peer_send` to `Researcher B` (or `B`). The operator can type to a researcher in its pane. Both are recorded in the latest round's `round.md`. A researcher's reply outside an open round is delivered at once. Mail between the Director and a researcher starts a turn on an idle recipient whatever the cluster's AUTO-PICKUP setting.
 
+## Adding and removing researchers
+
+`+ ADD RESEARCHER` in MEMBERS (`client/src/components/research/AddResearcherSection.tsx`) sends `research_researcher_add` with one start-dialog row (provider, model, effort, web switch, Advanced) and `catchUp`. `REMOVE` on a researcher card asks in an Arco confirmation (`ResearchRemoveDialog.tsx`) and sends `research_researcher_remove`. Both are handled in `server/src/ws/clusterHandlers.ts`; the round logic is in `researchRounds.ts` (`addResearcher`, `removeResearcher`).
+
+- **Adding.** The row is checked like a start-dialog row, including the sandbox checks, and the member is made like the researchers at project start: RESEARCHER access, a workflow folder in Arco state and the name `Researcher <next letter>`. Letters are never reused, and at most 26 are used in total. The researcher is left out of a round in flight and is included from the next round; `research.json` records `joinedAt` and `includedFromRound`.
+- **Catch-up.** With `catchUp` and at least one round sent, the round 1 text runs for the new researcher alone, with the default 30-minute deadline. It gets that text and nothing else: no reports, later round texts or summary. Its reply is held for the catch-up, not for an open round. On release Arco writes `rounds/catch-up-<letter>/` (same layout as a round), sends the report to the Director alone with an instruction to add it to `synthesis.md` and say it arrived later, and starts a Director turn. A catch-up that ends without a report is one line to the Director, without a turn. The rounds strip and RESULTS show a `CATCH-UP <letter>` row.
+- **A round during a catch-up.** The new researcher's entry in that round waits, and it receives the round text when its catch-up settles, against the round's own deadline. It therefore works on one brief at a time.
+- **Removing.** The researcher stays in `research.json` with `removedAt`, so earlier rounds keep its letter, and its earlier reports, round records and summaries are unchanged. A waiting entry in the open round becomes `removed` and the round is released as soon as everyone else has finished; an open catch-up closes without a message. Its tab closes, which stops a running turn, and its private workspace and provider home are deleted, after moving files it never sent into `sources/` when the operator asks (`GET /api/research/<clusterId>/researchers/<letter>/unsent` lists them). The last researcher cannot be removed.
+- **The Director** gets one "Arco research" line on each change, read on its next turn: who joined and from which round, whether a catch-up runs, or who was removed and which researchers later rounds go to. In a blind project the line names the letter only.
+
 ## Blind reports
 
 Blind is on by default. While blind:

@@ -28,6 +28,8 @@ export function formatResearchRoundResult(result: ResearchRoundResult): string {
   }, null, 2);
 }
 
+// A negative number is a catch-up (catchUpKey): the round 1 text, answered alone.
 export function researchHeldNote(round: number): string {
+  if (round < 0) return 'Received for your catch-up on the round 1 brief. It is delivered to the Research Director on its own.';
   return `Received for round ${round}. It is held until every researcher has replied, then delivered to the Research Director with the others.`;
 }

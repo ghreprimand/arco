@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { posix } from 'node:path';
 import * as clusterStore from '../clusterStore.js';
 import { prepareIsolatedCliHome } from '../workers/isolatedCliHome.js';
-import { cachedResearch, researcherFor, updateResearch, type ResearchState } from './researchState.js';
+import { cachedResearch, replyRound, researcherFor, roundByKey, updateResearch, type ResearchState } from './researchState.js';
 
 export const RESEARCH_CANARY_FILE = '.arco-independence-canary';
 const token = () => `arco-canary-${randomBytes(32).toString('hex')}`;
@@ -34,6 +34,7 @@ export async function ensureResearchTripwires(clusterId: string): Promise<Resear
     return await updateResearch(clusterId, async state => {
       const canaries = state.isolationCanaries ?? {};
       for (const researcher of state.researchers) {
+        if (researcher.removedAt) continue;
         const pair = canaries[researcher.workflowId] ?? { workspace: token(), home: token() };
         const home = await prepareIsolatedCliHome(clusterId, researcher.workflowId);
         await marker(join(clusterStore.isolatedWorkspaceFor(clusterId, researcher.workflowId), RESEARCH_CANARY_FILE), pair.workspace, created);
@@ -66,8 +67,11 @@ export function setResearchTripwireReporter(reporter?: (clusterId: string, round
 export function startResearchTripwireTurn(clusterId: string | undefined, workflowId: string): void {
   if (!clusterId) return;
   const state = cachedResearch(clusterId);
-  if (state && researcherFor(state, workflowId)) {
-    const n = state.rounds.at(-1)?.n ?? 0;
+  const researcher = state && researcherFor(state, workflowId);
+  if (state && researcher) {
+    // A catch-up turn is keyed by its catch-up, so a hit never marks an
+    // unrelated round.
+    const n = replyRound(state, researcher.letter)?.n ?? state.rounds.at(-1)?.n ?? 0;
     const old = turnRounds.get(`${clusterId}:${workflowId}`);
     if (old !== undefined && old !== n) {
       const prefix = `${clusterId}:${old}:${workflowId}:`;
@@ -85,7 +89,7 @@ export function forgetResearchTripwires(clusterId: string): void {
 }
 function observedRound(state: ResearchState, workflowId: string) {
   const n = turnRounds.get(`${state.clusterId}:${workflowId}`);
-  return n === undefined ? state.rounds.at(-1) : state.rounds.find(round => round.n === n);
+  return n === undefined ? state.rounds.at(-1) : roundByKey(state, n);
 }
 export function researchTripwireHit(clusterId: string, round: number): boolean { return hits.has(`${clusterId}:${round}`); }
 export function researchBoundaryHit(clusterId: string, round: number): boolean { return boundaryHits.has(`${clusterId}:${round}`); }

@@ -47,7 +47,7 @@ export function ResearchCloseDialog({ clusterId, research, onCloseResearcher, on
   async function close() {
     setWorking(true); setError('');
     try {
-      for (const r of research.researchers) onCloseResearcher(r.workflowId);
+      for (const r of research.researchers) if (!r.removedAt) onCloseResearcher(r.workflowId);
       const res = await fetch(`/api/research/${clusterId}/close`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ moveUnsent: move && !!unsent?.length }),

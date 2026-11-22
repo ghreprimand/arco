@@ -50,6 +50,7 @@ import { requestClusterSnapshotSave } from '../../stores/clusterSnapshotsStore';
 
 import { CLUSTER_PANELS as TABS } from './panels';
 import { ResearchResultsTab } from '../research/ResearchResultsTab';
+import { AddResearcherSection } from '../research/AddResearcherSection';
 
 type GroupId = 'workspace' | 'agent' | 'memory' | 'runtime';
 const GROUPS: { id: GroupId; label: string; tabs: SubTab[] }[] = [
@@ -90,7 +91,7 @@ function tabForCluster(map: Record<string, SubTab>, clusterId: string): SubTab {
   return 'members';
 }
 
-export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest, planTabRequest, membersTabRequest, onFocusMember, onRename, onAddFreshWorkers, onAddExistingMember, onSetPlan, onAttachPlan, onClearPlan, onSetMemberRole, onSetMemberTier, onSetMemberFocus, onDetachMember, onToggleIdleNudger, onToggleAutoTurn, onSetTaskBoardMode, onSetTaskBoardAttached, onSetEfficiency, onSetAutoCompaction, onSetRemote, onSetGates, onSetProgress, onDispatchOnce, onToggleDispatcher, onUpdateDispatcherSettings, onUpdateTaskStatus, onReassignTask, onReclaimRun, onTerminateRun, onCreateSwarm, onSpawnPhase, onReviewMember, onCancelReview, onCancelHandoff, onClearHandoffLock, onReviewViaMember, onAttachPlanToMember, onUpdateMemberPrimary, onAttachCodebaseMemory, onDetachCodebaseMemory, mcp }: Props) {
+export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest, planTabRequest, membersTabRequest, onFocusMember, onRename, onAddFreshWorkers, onAddExistingMember, onSetPlan, onAttachPlan, onClearPlan, onSetMemberRole, onSetMemberTier, onSetMemberFocus, onDetachMember, onAddResearcher, onRemoveResearcher, onToggleIdleNudger, onToggleAutoTurn, onSetTaskBoardMode, onSetTaskBoardAttached, onSetEfficiency, onSetAutoCompaction, onSetRemote, onSetGates, onSetProgress, onDispatchOnce, onToggleDispatcher, onUpdateDispatcherSettings, onUpdateTaskStatus, onReassignTask, onReclaimRun, onTerminateRun, onCreateSwarm, onSpawnPhase, onReviewMember, onCancelReview, onCancelHandoff, onClearHandoffLock, onReviewViaMember, onAttachPlanToMember, onUpdateMemberPrimary, onAttachCodebaseMemory, onDetachCodebaseMemory, mcp }: Props) {
   const hubConnected = useHubLinkStore(s => s.known && s.connected);
   const rootRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
@@ -752,7 +753,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                 </button>
               </div>
             )}
-            {cluster.research && <p>Researchers are managed by the research project.</p>}
+            {cluster.research && onAddResearcher && <AddResearcherSection research={cluster.research} onAdd={(request) => onAddResearcher(cluster.clusterId, request)} />}
             {!cluster.research && (onAddFreshWorkers || onAddExistingMember) && (
               <AddWorkerSection
                 cluster={cluster}
@@ -771,6 +772,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                 onSetTier={onSetMemberTier}
                 onSetFocus={onSetMemberFocus}
                 onDetach={onDetachMember}
+                onRemoveResearcher={onRemoveResearcher}
               />
             ))}
             {/* SAVED CLUSTERS — restore a previously captured snapshot as a

@@ -83,7 +83,10 @@ import { acquireProjectSettingsWatcher, readSettings } from '../settings.js';
 import { applyAutoPickup } from '../smartPickup.js';
 import { setClusterPlanBody } from '../clusterPlanBridge.js';
 import * as researchCreate from '../research/researchCreate.js';
-import { startResearchDirector } from '../research/researchRounds.js';
+import { addResearcher, isResearchMemberBusy, removeResearcher, startResearchDirector } from '../research/researchRounds.js';
+import { activeResearchers, loadResearch } from '../research/researchState.js';
+import { moveUnsentFiles, removeResearcherWorkspace } from '../research/researchClose.js';
+import { RESEARCH_MAX_RESEARCHERS } from '@arco/shared';
 
 /** Providers Arco can run as ISOLATED members; each still needs its own checks below. */
 const isolatableProvider = (provider: string | undefined): provider is 'claude' | 'codex' | 'cursor' => provider === 'claude' || provider === 'codex' || provider === 'cursor';
@@ -2025,6 +2028,87 @@ export async function handleClusterAddFreshWorkers(
     broadcastCluster(msg.clusterId, { type: 'cluster_state', clusterId: msg.clusterId, state: payload });
   }
   console.log(`[arco] cluster ${msg.clusterId.slice(0, 8)} grew by ${newIds.length} fresh workers`);
+}
+
+// docs/RESEARCH.md - ADD RESEARCHER in a running research project. The row
+// is checked like a start dialog row; the member is made exactly like the
+// researchers made at project start.
+export async function handleResearchResearcherAdd(
+  ws: WebSocket,
+  session: Session,
+  msg: import('@arco/shared').ResearchResearcherAddMessage,
+): Promise<void> {
+  const refuse = (code: string) => send(ws, { type: 'error', message: `research_researcher_add rejected: ${code}` });
+  const cluster = await clusterStore.readCluster(msg.clusterId).catch(() => null);
+  const state = cluster?.research ? await loadResearch(msg.clusterId).catch(() => null) : null;
+  if (!cluster || !state || state.closedAt) return refuse('not_research');
+  if (state.researchers.length >= RESEARCH_MAX_RESEARCHERS) return refuse('too_many_researchers');
+  const row = msg.researcher;
+  if (!row || typeof row !== 'object' || typeof msg.catchUp !== 'boolean') return refuse('invalid_request');
+  const rowProblem = researchCreate.researcherSpecRefusal(row);
+  if (rowProblem) return refuse(rowProblem);
+  if (!isClusterMemberProvider(row.provider)) return refuse(`unknown_provider:${String(row.provider)}`);
+  const modelProblem = await memberModelRefusal(row.provider, row.model, isKnownCatalogModel)
+    ?? await memberAccountRefusal(row.provider, row.providerAccountRef, state.membersCwd, isKnownCodexAccount);
+  if (modelProblem) return refuse(modelProblem);
+  if (row.effort !== undefined && !allowedWorkflowEfforts(row.provider, row.model).some((level) => level === row.effort)) return refuse('invalid_effort');
+  const disabled = await disabledClusterProvider([row.provider]);
+  if (disabled) return refuse(disabled);
+  const capacity = await localCapacityRefusal([...cluster.members.map(memberProvider), row.provider], [row.provider]);
+  if (capacity) return refuse(capacity);
+  const sandbox = await researchCreate.researcherSandboxRefusal([row]);
+  if (sandbox) return refuse(sandbox);
+  const letter = String.fromCharCode(65 + state.researchers.length);
+  const spec = researchCreate.researcherMemberSpec(row, letter);
+  const config = await memberConfigFromSpec(spec, cluster.members.length, state.membersCwd, resolveCodexAccount);
+  let workflowId: string;
+  try { workflowId = await deps.createBlankNativeWorkflow(ws, session, config, MEMBER_PENDING); }
+  catch (err) { console.error('[arco] research_researcher_add: create failed:', err); return refuse('create_failed'); }
+  try {
+    await clusterStore.addResearchMember(msg.clusterId, workflowId, state.membersCwd, row.webAccess !== false);
+    await clusterStore.setMemberRole(msg.clusterId, workflowId, researchCreate.RESEARCHER_ROLE);
+  } catch (err) {
+    deps.handleRemoveWorkflow(workflowId);
+    return refuse((err as { code?: string })?.code ?? 'add_failed');
+  }
+  attachNewMemberToClusterObservers(msg.clusterId, workflowId);
+  const added = await addResearcher(msg.clusterId, {
+    workflowId, provider: row.provider, model: row.model,
+    ...(row.effort ? { effort: String(row.effort) } : {}),
+    ...(row.provider === 'claude' && row.researchClaudeTransport ? { claudeTransport: row.researchClaudeTransport } : {}),
+  }, msg.catchUp);
+  if (!added) return refuse('add_failed');
+  broadcastCluster(msg.clusterId, { type: 'cluster_member_added', clusterId: msg.clusterId, member: {
+    workflowId, displayName: clusterStore.displayNameFor(workflowId), status: 'idle', role: researchCreate.RESEARCHER_ROLE, accessMode: 'researcher',
+  } });
+  const payload = await buildClusterStatePayload(msg.clusterId);
+  if (payload) broadcastCluster(msg.clusterId, { type: 'cluster_state', clusterId: msg.clusterId, state: payload });
+  console.log(`[arco] research ${msg.clusterId.slice(0, 8)}: Researcher ${added.letter} joined from round ${added.fromRound}${added.catchUp ? ' with a catch-up' : ''}`);
+}
+
+// docs/RESEARCH.md - REMOVE on a researcher card. Its earlier reports stay;
+// a round in flight is released without it; its workspace is deleted after
+// the optional move of files it never sent.
+export async function handleResearchResearcherRemove(
+  ws: WebSocket,
+  msg: import('@arco/shared').ResearchResearcherRemoveMessage,
+): Promise<void> {
+  const refuse = (code: string) => send(ws, { type: 'error', message: `research_researcher_remove rejected: ${code}` });
+  const state = await loadResearch(msg.clusterId).catch(() => null);
+  if (!state || state.closedAt) return refuse('not_research');
+  const letter = typeof msg.letter === 'string' ? msg.letter.trim().toUpperCase() : '';
+  const researcher = activeResearchers(state).find((r) => r.letter === letter);
+  if (!researcher) return refuse('unknown_researcher');
+  if (msg.moveUnsent === true) await moveUnsentFiles(state, [letter]).catch((err) => console.error('[arco] research: unsent files could not be moved:', err));
+  const result = await removeResearcher(msg.clusterId, letter);
+  if (!result.ok) return refuse(result.code);
+  // Leaves the cluster and its tab closes, which cancels a running turn.
+  await handleClusterMemberRemove(msg.clusterId, researcher.workflowId);
+  const deadline = Date.now() + 10_000;
+  while (isResearchMemberBusy(researcher.workflowId) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 250));
+  await removeResearcherWorkspace(state, researcher.workflowId).catch(() => undefined);
+  const payload = await buildClusterStatePayload(msg.clusterId);
+  if (payload) broadcastCluster(msg.clusterId, { type: 'cluster_state', clusterId: msg.clusterId, state: payload });
 }
 
 // The name and role a REPLACE request carries, as a refusal code or null.

@@ -482,6 +482,18 @@ export const clusters: Section[] = [
   and SKILLS.
   </p>
   <p>
+  <Code>+ ADD RESEARCHER</Code> in MEMBERS adds the next lettered researcher
+  with the start dialog&apos;s row. It is left out of a round in progress and
+  joins from the next one. With <strong>Give it the original brief now</strong>,
+  it first answers the round 1 text alone; the strip shows a
+  <Code>CATCH-UP</Code> row and the report reaches the Research Director on its own.
+  </p>
+  <p>
+  <Code>REMOVE</Code> on a researcher card asks first. Earlier reports stay,
+  a round in progress is released without it and its workspace is deleted.
+  The last researcher cannot be removed, and letters are never reused.
+  </p>
+  <p>
   Files a researcher sends as attachments must be regular workspace files.
   Symbolic links, hard links and paths outside its workspace are refused.
   </p>

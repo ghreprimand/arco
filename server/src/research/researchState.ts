@@ -21,6 +21,9 @@ export interface ResearchEntry {
   report?: string;
   artifacts?: ResearchArtifact[];
   wakes?: number;
+  // The researcher is still on its catch-up: the round text is sent when
+  // the catch-up settles, against the same deadline.
+  deferred?: boolean;
 }
 
 export interface ResearchTargeted { at: string; from: 'director' | 'operator'; letter: string; text: string }
@@ -35,6 +38,9 @@ export interface ResearchRound {
   targeted: ResearchTargeted[];
   contaminated?: boolean;
   boundaryWarning?: boolean;
+  // A catch-up: the round 1 text run alone for the researcher with this
+  // letter, which joined after round 1. Its `n` is catchUpKey(letter).
+  catchUp?: string;
 }
 
 export interface ResearchResearcher {
@@ -47,6 +53,11 @@ export interface ResearchResearcher {
   isolation?: 'checking' | 'sandboxed';
   signInNeeded?: 'claude' | 'codex';
   signInRemainingMs?: number;
+  // Added after the project started (docs/RESEARCH.md).
+  joinedAt?: string;
+  joinedFromRound?: number;
+  // Removed by the operator. It stays here so earlier rounds keep the letter.
+  removedAt?: string;
 }
 
 export interface ResearchState {
@@ -67,6 +78,8 @@ export interface ResearchState {
   directorWorkflowId: string;
   researchers: ResearchResearcher[];
   rounds: ResearchRound[];
+  // Catch-ups for researchers added after round 1.
+  catchUps?: ResearchRound[];
   // Targeted messages sent before the first round.
   targetedBeforeRounds: ResearchTargeted[];
   // Synthetic markers stay in Arco state, never in the Director's summary.
@@ -143,21 +156,54 @@ export function openRound(state: ResearchState): ResearchRound | undefined {
   return last && !last.releasedAt ? last : undefined;
 }
 
+// Researchers still in the project; removed ones stay in `researchers` for
+// the records only.
+export function activeResearchers(state: ResearchState): ResearchResearcher[] {
+  return state.researchers.filter((r) => !r.removedAt);
+}
+
 export function researcherFor(state: ResearchState, workflowId: string): ResearchResearcher | undefined {
-  return state.researchers.find((r) => r.workflowId === workflowId);
+  return state.researchers.find((r) => r.workflowId === workflowId && !r.removedAt);
+}
+
+// A catch-up's key in place of a round number: negative, one per letter, so
+// timers and independence checks never mix it up with a round.
+export function catchUpKey(letter: string): number { return 64 - letter.charCodeAt(0); }
+export function catchUpLetter(key: number): string { return String.fromCharCode(64 - key); }
+
+export function openCatchUp(state: ResearchState, letter: string): ResearchRound | undefined {
+  return state.catchUps?.find((c) => c.catchUp === letter && !c.releasedAt);
+}
+
+// A round or catch-up by its number or key.
+export function roundByKey(state: ResearchState, n: number): ResearchRound | undefined {
+  return n < 0 ? state.catchUps?.find((c) => c.n === n) : state.rounds.find((r) => r.n === n);
+}
+
+// Where a researcher's reply belongs: its open catch-up, else the open
+// round when that round's text has been sent to it.
+export function replyRound(state: ResearchState, letter: string): ResearchRound | undefined {
+  const catchUp = openCatchUp(state, letter);
+  if (catchUp) return catchUp;
+  const round = openRound(state);
+  const entry = round?.entries[letter];
+  return entry && !entry.deferred ? round : undefined;
 }
 
 // "B", "b", "Researcher B" or a researcher's workflow id.
 export function researcherByRef(state: ResearchState, ref: string): ResearchResearcher | undefined {
   const text = ref.trim();
   const letter = /^(?:researcher\s+)?([a-z])$/i.exec(text)?.[1]?.toUpperCase();
-  if (letter) return state.researchers.find((r) => r.letter === letter);
-  return state.researchers.find((r) => r.workflowId === text);
+  if (letter) return activeResearchers(state).find((r) => r.letter === letter);
+  return activeResearchers(state).find((r) => r.workflowId === text);
 }
 
 export function researcherName(letter: string): string { return `Researcher ${letter}`; }
 
 export function researchLetter(index: number): string { return String.fromCharCode(65 + index); }
+
+// Letters are never reused: removed researchers keep theirs.
+export function nextResearchLetter(state: ResearchState): string { return researchLetter(state.researchers.length); }
 
 export function researchSummary(state: ResearchState): ClusterResearchSummary {
   return {
@@ -175,8 +221,16 @@ export function researchSummary(state: ResearchState): ClusterResearchSummary {
       ...(r.effort ? { effort: r.effort } : {}), isolation: r.claudeTransport === 'cli' || r.provider === 'codex' ? (r.isolation ?? 'checking') : 'tool-fenced' as const,
       ...(r.signInNeeded ? { signInNeeded: r.signInNeeded } : {}),
       ...(r.provider === 'claude' ? { claudeTransport: r.claudeTransport ?? 'native' } : {}),
+      ...(r.joinedFromRound ? { joinedFromRound: r.joinedFromRound } : {}),
+      ...(r.removedAt ? { removedAt: r.removedAt } : {}),
     })),
-    rounds: state.rounds.map((round) => ({
+    rounds: state.rounds.map(roundSummary),
+    catchUps: (state.catchUps ?? []).map(roundSummary),
+  };
+}
+
+function roundSummary(round: ResearchRound): ClusterResearchSummary['rounds'][number] {
+  return {
       n: round.n,
       startedAt: round.startedAt,
       deadline: round.deadline,
@@ -190,7 +244,7 @@ export function researchSummary(state: ResearchState): ClusterResearchSummary {
         ...(entry.source ? { source: entry.source } : {}),
       }])),
       targeted: round.targeted.length,
-    })),
+      ...(round.catchUp ? { catchUp: round.catchUp } : {}),
   };
 }
 

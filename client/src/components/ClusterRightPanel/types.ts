@@ -134,6 +134,8 @@ export interface Props {
   // bottom-row × on the tab bar). Same wire (`cluster_member_remove`);
   // guarded by window.confirm at the call site.
   onDetachMember?: (clusterId: string, workflowId: string) => void;
+  onAddResearcher?: (clusterId: string, request: import('../research/AddResearcherSection').ResearcherAddRequest) => void;
+  onRemoveResearcher?: (clusterId: string, letter: string, moveUnsent: boolean) => void;
   // Phase 5 — operator-armed idle-nudger toggle. The chip in the cluster
   // header makes the armed state visible at all times so it's never
   // invisible (autonomy-test answer #4: reversibility surfaced).

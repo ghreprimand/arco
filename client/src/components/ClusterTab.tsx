@@ -135,6 +135,8 @@ interface Props {
   // bottom-row tab does the same thing; this is the explicit affordance
   // for operators driving from the right-panel Members list.
   onDetachMember?: (clusterId: string, workflowId: string) => void;
+  onAddResearcher?: (clusterId: string, request: import('./research/AddResearcherSection').ResearcherAddRequest) => void;
+  onRemoveResearcher?: (clusterId: string, letter: string, moveUnsent: boolean) => void;
   // Phase 5 — operator armed/disarmed the idle-nudger from the cluster
   // header chip. Default OFF.
   onToggleIdleNudger?: (clusterId: string, enabled: boolean) => void;
@@ -262,6 +264,8 @@ export function ClusterTab({
   onSetMemberTier,
   onSetMemberFocus,
   onDetachMember,
+  onAddResearcher,
+  onRemoveResearcher,
   onToggleIdleNudger,
   onToggleAutoTurn,
   onSetTaskBoardMode,
@@ -1210,6 +1214,8 @@ export function ClusterTab({
           onSetMemberTier={onSetMemberTier}
           onSetMemberFocus={onSetMemberFocus}
           onDetachMember={onDetachMember}
+          onAddResearcher={onAddResearcher}
+          onRemoveResearcher={onRemoveResearcher}
           onToggleIdleNudger={onToggleIdleNudger}
           onToggleAutoTurn={onToggleAutoTurn}
           onSetTaskBoardMode={onSetTaskBoardMode}
