@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep researcher file attachments inside the workspace when paths contain links.
+
 - Offer Cursor models that Cursor sessions advertise but its model list omits, such as GLM 5.3; select Cursor Grok models correctly; group Minimal efforts with their model.
 
 - Keep completed tool calls, their results and web search and fetch results in Claude Native compaction summaries, so an agent no longer loses work it did before a compaction.

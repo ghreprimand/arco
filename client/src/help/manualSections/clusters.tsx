@@ -463,6 +463,10 @@ export const clusters: Section[] = [
   shown in a research project.
   </p>
   <p>
+  Files a researcher sends as attachments must be regular workspace files.
+  Symbolic links, hard links and paths outside its workspace are refused.
+  </p>
+  <p>
   While reports are blind, <Code>REVEAL</Code> writes which provider and model
   wrote each report into the research folder and shows it to the Research
   Director. You always see it on the cards. Reveal cannot be undone.

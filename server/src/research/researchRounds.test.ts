@@ -44,6 +44,31 @@ async function project() {
   return { root, folder, membersCwd, director, a, b, clusterId: cluster.clusterId, woken, prompts, ctx };
 }
 
+test('researcher attachments cannot escape their workspace through a symlink', { skip: process.platform === 'win32' }, async () => {
+  const p = await project();
+  try {
+    await startRound(p.clusterId, p.director, 'Compare the fixtures.');
+    const workspace = clusterStore.isolatedWorkspaceFor(p.clusterId, p.a);
+    const outside = join(p.root, 'outside.txt');
+    await fs.writeFile(outside, 'private fixture');
+    await fs.symlink(outside, join(workspace, 'escape.txt'));
+    const denied = await clusterPeerOps.peerSend(p.ctx(p.a), { to: p.director, content: 'Attempt', artifactPaths: ['escape.txt'] });
+    assert.equal(denied.ok, false);
+    assert.equal((await loadResearch(p.clusterId))!.rounds[0].entries.A.state, 'waiting');
+    await fs.symlink(p.root, join(workspace, 'escape-dir'), 'dir');
+    const deniedDirectory = await clusterPeerOps.peerSend(p.ctx(p.a), { to: p.director, content: 'Another attempt', artifactPaths: ['escape-dir/outside.txt'] });
+    assert.equal(deniedDirectory.ok, false);
+    await fs.writeFile(join(workspace, 'inside.txt'), 'public fixture');
+    const accepted = await clusterPeerOps.peerSend(p.ctx(p.a), { to: p.director, content: 'Report', artifactPaths: ['inside.txt'] });
+    assert.equal(accepted.ok, true);
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
+
 test('a round holds every reply until all researchers are done, then releases them blind together', async () => {
   const p = await project();
   try {

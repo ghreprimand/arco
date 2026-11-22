@@ -489,7 +489,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   'research.reveal': { title: 'Reveal', body: <p>Writes which provider and model wrote each report into the research folder and shows it to the Research Director from now on. It cannot be undone.</p>, manualSection: 'research-project' },
   'research.results': { title: 'Results', body: <p>The brief, the summary, the Director log and each released round's reports, opened from the research folder. Returned files are in sources/ under FILES.</p>, manualSection: 'research-project' },
   'research.close': { title: 'Close research project', body: <p>Writes a one-page log per researcher into the latest round record, moves unsent files into sources/ if you keep the box ticked, then removes the researchers' workspaces and conversations. The research folder and the Research Director's conversation are kept.</p>, manualSection: 'research-project' },
-  'research.member-line': { title: 'Researcher line', body: <p>Letter, provider and model, isolation, web searches made in the loaded conversation, and the state in the latest round. Blind reports hide authors from the Research Director, not from you.</p>, manualSection: 'research-project' },
+  'research.member-line': { title: 'Researcher line', body: <p>Letter, provider and model, isolation, web searches made in the loaded conversation, and the state in the latest round. Blind reports hide authors from the Research Director, not from you. Returned file attachments must be regular workspace files; links and outside paths are refused.</p>, manualSection: 'research-project' },
   'creator.cluster-presets': {
     title: 'Cluster presets',
     body: (

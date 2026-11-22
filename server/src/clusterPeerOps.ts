@@ -35,6 +35,7 @@ import { withFileLock } from './atomicFile.js';
 import { recipientContext, type RecipientContext } from './peerRecipientContext.js';
 import { loadResearch, researcherFor, researcherName } from './research/researchState.js';
 import { holdResearcherReply, recordTargeted, resolveResearcherRef, wakeForResearchMail } from './research/researchRounds.js';
+import { IsolatedArtifactTooLarge, readIsolatedArtifact } from './research/isolatedArtifact.js';
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { basename, resolve, sep } from 'node:path';
@@ -385,10 +386,12 @@ export async function peerSend(
         rollback();
         return { ok: false, code: 'enqueue_failed', message: `artifact path escapes isolated workspace: ${rawPath}` };
       }
-      const data = await fs.readFile(abs).catch(() => null);
-      if (!data) {
+      let data: Buffer;
+      try { data = await readIsolatedArtifact(root, rawPath, clusterMailbox.MAX_ARTIFACT_BYTES - total); }
+      catch (error) {
         rollback();
-        return { ok: false, code: 'enqueue_failed', message: `artifact not found: ${rawPath}` };
+        if (error instanceof IsolatedArtifactTooLarge) return { ok: false, code: 'content_too_large', message: `artifacts exceed ${clusterMailbox.MAX_ARTIFACT_BYTES} bytes` };
+        return { ok: false, code: 'enqueue_failed', message: `artifact is unavailable or not a bounded regular file: ${rawPath}` };
       }
       total += data.byteLength;
       if (total > clusterMailbox.MAX_ARTIFACT_BYTES) {

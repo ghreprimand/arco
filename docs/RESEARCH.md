@@ -25,6 +25,8 @@ The Director's worker gets the tool from the `clusterResearchDirector` flag, whi
 
 Only one round is open at a time. `timeout_minutes` defaults to 30 and is capped at 240. Deadlines survive a restart.
 
+Researcher file attachments must be regular files in the researcher's workspace. Symbolic links, hard links and paths outside the workspace are refused.
+
 **Targeted messages.** The Director can `peer_send` to `Researcher B` (or `B`). The operator can type to a researcher in its pane. Both are recorded in the latest round's `round.md`. A researcher's reply outside an open round is delivered at once. Mail between the Director and a researcher starts a turn on an idle recipient whatever the cluster's AUTO-PICKUP setting.
 
 ## Blind reports
