@@ -117,3 +117,31 @@ test('Antigravity refuses noninteractive, non-Gemini and Arco-home launches', as
  assert.match(await failure({ ...base, model:'claude-fixture' }), /Gemini/);
  assert.match(await failure(base), /Arco home/);
 });
+
+test('Antigravity sends the submitted text and attachment without Arco prompt instructions', async t => {
+ const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync } = await import('node:fs');
+ const { tmpdir } = await import('node:os'); const { join } = await import('node:path');
+ const { AntigravityProvider } = await import('../antigravity/index.js');
+ const dir = mkdtempSync(join(tmpdir(), 'arco-agy-prompt-')), root = join(dir, 'state'); mkdirSync(root);
+ const attachment = join(dir, 'note.txt'), capture = join(dir, 'prompt.json'); writeFileSync(attachment, 'ATTACHMENT CONTENT');
+ const bin = join(dir, 'agy'); writeFileSync(bin, `#!${process.execPath}\nconst fs=require('fs');const rl=require('readline').createInterface({input:process.stdin});rl.on('line',line=>{const m=JSON.parse(line);let result={};if(m.method==='session/new')result={sessionId:'s',configOptions:[{id:'model',options:[{value:'gemini-fixture'}]},{id:'mode',options:[{value:'default'}]}]};if(m.method==='session/prompt'){fs.writeFileSync(${JSON.stringify(capture)},JSON.stringify(m.params.prompt));result={stopReason:'end_turn'}};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n')});`); chmodSync(bin,0o755);
+ const priorPath=process.env.PATH, priorHome=process.env.ARCO_HOME;process.env.PATH=`${dir}:${priorPath}`;process.env.ARCO_HOME=root;
+ t.after(()=>{process.env.PATH=priorPath;process.env.ARCO_HOME=priorHome;rmSync(dir,{recursive:true,force:true});});
+ const { WorkerManager } = await import('../../workers/WorkerManager.js');
+ const manager = new WorkerManager();
+ const result = await manager.spawn({id:'fixture',task:'  OPERATOR TEXT\n',provider:'antigravity-cli',model:'gemini-fixture',effort:'low',appendSystemPrompt:'HIDDEN ARCO INSTRUCTIONS'} as any,()=>{}, {cwd:dir,workflowId:'prompt-fixture',interactionMode:'agent',antigravityInteractive:true,outputStyle:'terse',attachments:[attachment]});
+ assert.equal(result.error, undefined);
+ const sent=JSON.parse(readFileSync(capture,'utf8'));assert.equal(sent[0].text,'  OPERATOR TEXT\n');assert.match(sent[1].text,/ATTACHMENT CONTENT/);assert.doesNotMatch(JSON.stringify(sent),/HIDDEN ARCO INSTRUCTIONS/);
+});
+
+test('Antigravity passes scoped MCP servers to new and resumed ACP sessions', async t => {
+ const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync } = await import('node:fs');
+ const { tmpdir } = await import('node:os'); const { join } = await import('node:path');
+ const { AntigravityProvider } = await import('../antigravity/index.js');
+ const dir=mkdtempSync(join(tmpdir(),'arco-agy-mcp-')), root=join(dir,'state');mkdirSync(root);const capture=join(dir,'sessions.jsonl');
+ const bin=join(dir,'agy');writeFileSync(bin, `#!${process.execPath}\nconst fs=require('fs');const rl=require('readline').createInterface({input:process.stdin});rl.on('line',line=>{const m=JSON.parse(line);let result={};if(m.method==='session/new'||m.method==='session/load'){fs.appendFileSync(${JSON.stringify(capture)},JSON.stringify({method:m.method,params:m.params})+'\\n');result={sessionId:'s',configOptions:[{id:'model',options:[{value:'gemini-fixture'}]},{id:'mode',options:[{value:'default'}]}]}}if(m.method==='session/prompt')result={stopReason:'end_turn'};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n')});`);chmodSync(bin,0o755);
+ const priorPath=process.env.PATH,priorHome=process.env.ARCO_HOME;process.env.PATH=`${dir}:${priorPath}`;process.env.ARCO_HOME=root;
+ t.after(()=>{process.env.PATH=priorPath;process.env.ARCO_HOME=priorHome;rmSync(dir,{recursive:true,force:true});});
+ for(const resumeSessionId of [undefined,'previous']){const proc=AntigravityProvider.create('fixture',{provider:'antigravity-cli',model:'gemini-fixture',effort:'low',cwd:dir,workflowId:'mcp-fixture',interactionMode:'agent',antigravityInteractive:true,resumeSessionId} as WorkerConfig);const done=new Promise<void>((resolve,reject)=>{proc.once('result',()=>resolve());proc.once('error',reject)});proc.spawn('hello');await done;}
+ const rows=readFileSync(capture,'utf8').trim().split('\n').map(line => JSON.parse(line));assert.deepEqual(rows.map((r:any)=>r.method),['session/new','session/load']);for(const row of rows){assert.equal(row.params.mcpServers.length,1);assert.equal(row.params.mcpServers[0].type,'http');assert.match(row.params.mcpServers[0].url,/\/mcp\/[0-9a-f]{32}$/);}
+});

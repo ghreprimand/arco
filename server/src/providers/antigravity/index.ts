@@ -1,4 +1,5 @@
-import { outputStyleAddendum } from '../outputStyle.js';
+import { historyBinding } from '../handoffHistoryBinding.js';
+import { ensureClusterLoopbackMcp, closeClusterLoopbackMcp } from '../../mcp/clusterMcpLoopback.js';
 import { prepareProviderAttachments } from '../providerFileContent.js';
 import { noteAntigravityTurnSuccess, noteAntigravitySignInRequired } from './status.js';
 import { lstat, realpath } from 'node:fs/promises';
@@ -36,6 +37,7 @@ class AntigravityTurn extends EventEmitter implements ProviderProcess {
     const message = error instanceof Error ? error.message : String(error);
     if (/authentication required|sign in to continue|login required/i.test(message)) noteAntigravitySignInRequired();
     cancelAcpPermissions(this.config.workflowId ?? '');
+    if (this.config.workflowId) closeClusterLoopbackMcp(this.config.workflowId);
     this.rpc?.close('turn finished');
     if (this.proc?.pid) killProcessTree(this.proc.pid, { graceMs: 1000, label: 'Antigravity turn' });
     this.emit('error', message);
@@ -81,7 +83,18 @@ class AntigravityTurn extends EventEmitter implements ProviderProcess {
       else if (update.sessionUpdate === 'tool_call' || update.sessionUpdate === 'tool_call_update') this.emit('tool_use', { id: update.toolCallId, name: update.title ?? 'Antigravity tool', input: JSON.stringify(update.rawInput ?? {}), status: update.status === 'completed' ? 'completed' : update.status === 'failed' ? 'failed' : 'in_progress', ...(update.rawOutput !== undefined ? { output: JSON.stringify(update.rawOutput) } : {}) });
     });
     await rpc.request('initialize', { protocolVersion: 1, clientCapabilities: {}, clientInfo: { name: 'Arco', version: '1' } });
-    const args = { cwd, mcpServers: [] };
+    const bridge = await ensureClusterLoopbackMcp({
+      workflowId, clusterId: this.config.clusterId ?? '', cwd,
+      arcoPort: parseInt(process.env.ARCO_PORT || '3001', 10),
+      taskBoardAttached: this.config.clusterTaskBoardAttached === true,
+      accessMode: this.config.clusterAccessMode,
+      researchDirector: this.config.clusterResearchDirector === true,
+      registryServers: this.config.mcpRegistryServers,
+      handoffHistoryToken: historyBinding(this.config)?.token,
+      readOnly: this.config.sandbox === 'read-only',
+    });
+    if (this.finished) { closeClusterLoopbackMcp(workflowId); return; }
+    const args = { cwd, mcpServers: [{ type: 'http', name: bridge.name, url: bridge.url, headers: [] }] };
     const result = await rpc.request<{ sessionId: string; configOptions?: Array<{ id: string; options?: Array<{ value: string }> }> }>(this.config.resumeSessionId ? 'session/load' : 'session/new', this.config.resumeSessionId ? { ...args, sessionId: this.config.resumeSessionId } : args);
     const mode = result.configOptions?.find(x => x.id === 'mode');
     if (mode?.options?.some(x => x.value === 'default')) await rpc.request('session/set_config_option', { sessionId: result.sessionId, configId: 'mode', value: 'default' });
@@ -94,15 +107,13 @@ class AntigravityTurn extends EventEmitter implements ProviderProcess {
     if (effort) await rpc.request('session/set_config_option', { sessionId: result.sessionId, configId: 'thought_level', value: this.config.effort });
     this._status = 'running'; this.emit('init', { model: this.config.model, sessionId: result.sessionId });
     const prepared = await prepareProviderAttachments(this.config.attachments, true, undefined, false, true);
-    const body = prepared.text ? `${prompt}\n\n${prepared.text}` : prompt;
-    const prefix = [this.config.appendSystemPrompt, outputStyleAddendum(this.config.outputStyle)].filter(part => typeof part === 'string' && part.trim()).join('\n\n');
-    const text = prefix ? `${prefix}\n\n---\n\n${body}` : body;
-    const content = [{ type: 'text', text }, ...prepared.images.map(image => ({ type: 'image', mimeType: image.mediaType, data: image.data }))];
+    const content = [{ type: 'text', text: prompt }, ...(prepared.text ? [{ type: 'text', text: prepared.text }] : []), ...prepared.images.map(image => ({ type: 'image', mimeType: image.mediaType, data: image.data }))];
     const answer = await rpc.request<{ usage?: Record<string, number>; stopReason?: string }>('session/prompt', { sessionId: result.sessionId, prompt: content });
     if (answer.stopReason === 'cancelled') throw new Error('Turn cancelled.');
     if (this.finished) return;
     this.finished = true; this._status = 'completed'; noteAntigravityTurnSuccess();
     this.emit('result', { text: this._output, costUsd: 0, durationMs: Date.now() - this.startedAt, usage: answer.usage ? { input_tokens: answer.usage.inputTokens ?? 0, output_tokens: answer.usage.outputTokens ?? 0, cache_read_input_tokens: answer.usage.cachedReadTokens ?? 0, cache_creation_input_tokens: answer.usage.cachedWriteTokens ?? 0, reasoning_output_tokens: answer.usage.thoughtTokens ?? 0, total_tokens: answer.usage.totalTokens ?? 0 } : undefined, modelContextWindow: this.contextSize, lastPromptTokens: this.contextUsed });
+    closeClusterLoopbackMcp(workflowId);
     rpc.close('turn completed'); if (proc.pid) killProcessTree(proc.pid, { graceMs: 1000, label: 'Antigravity turn' });
   }
 }

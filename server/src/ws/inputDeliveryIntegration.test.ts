@@ -268,3 +268,10 @@ test('Antigravity delivers a busy operator message as a follow-up without allowi
   for(const pending of f.pending)pending.finish('cleanup'); await run; await f.close();
  }
 });
+
+test('Antigravity dispatches only the operator text when Arco prompt expansions are available', async()=>{
+ const f=await fixture('antigravity-cli');let run:Promise<void>|undefined;
+ try{writeFileSync(join(f.cwd,'fixture.txt'),'HIDDEN FILE CONTENT');f.wf.config.goal='HIDDEN GOAL';const input='Read @file:fixture.txt exactly';
+ run=engine.handleUserMessage(f.ws,f.session,f.id,input,'prompt',undefined,false,undefined,undefined,[{scope:'builtin',slug:'grill-me'}],{operatorInitiated:true});await f.wait(1);assert.equal(f.pending[0].spec.task,input);f.pending[0].finish('done');await run;
+ }finally{if(f.wf.busy)engine.revokeBusy(f.wf);for(const pending of f.pending)pending.finish('cleanup');await run;await f.close();}
+});

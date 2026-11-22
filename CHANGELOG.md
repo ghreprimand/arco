@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Send Antigravity only the submitted message and attachments, with Arco file and plan tools available through MCP.
+
 - Rerun research with the current or an edited panel, and start research from an existing project.
 
 - Continue research summaries in Chat and export released research as Markdown, a file or a ZIP.

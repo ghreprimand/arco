@@ -1492,7 +1492,7 @@ export async function handleUserMessage(
 
   // Explicit built-in slash commands are resolved before queueing, so queued
   // turns retain the same pick. A trusted project or global copy takes priority.
-  if (projectContextEnabled && !fromQueue) {
+  if (projectContextEnabled && wf.primary.provider !== 'antigravity-cli' && !fromQueue) {
     const invocation = /^\/(grill-me|grill-with-docs|wait-what|retro|improve-codebase-architecture)(?:\s|$)/i.exec(content);
     if (invocation) {
       const requested = invocation[1].toLowerCase();
@@ -1516,7 +1516,7 @@ export async function handleUserMessage(
   // project-scope template is gated behind DD7 trust (key on the raw decision —
   // a cloned repo's `.arco/prompts/*.md` is an injection vector). No matching
   // template ⇒ the text passes through untouched as a normal turn.
-  if (projectContextEnabled && !fromQueue) {
+  if (projectContextEnabled && wf.primary.provider !== 'antigravity-cli' && !fromQueue) {
     const invocation = parsePromptInvocation(content);
     if (invocation) {
       const trustStatus = await projectTrust.resolveTrustStatus(
@@ -1554,7 +1554,7 @@ export async function handleUserMessage(
   // for queued). A system_notice summarizes the expansion so it's visible +
   // reviewable in events.jsonl (the four-question test). Never throws — the
   // expander converts every failure to a notice.
-  const contextExpansion: ContextExpansion = !projectContextEnabled || fromQueue
+  const contextExpansion: ContextExpansion = !projectContextEnabled || wf.primary.provider === 'antigravity-cli' || fromQueue
     ? { block: '', notices: [], expandedCount: 0 }
     : await expandContextRefs(cwd, content, { windowSize: lookupCtx(wf.primary.model) }).catch((err) => {
     console.error(`[arco] [${workflowId.slice(0, 8)}] context-ref expansion failed:`, err);
@@ -2708,7 +2708,7 @@ export async function handleUserMessage(
         },
         {
           primary: wf.primary,
-          prompt: promptWithPlan,
+          prompt: wf.primary.provider === 'antigravity-cli' ? prompt : promptWithPlan,
           resumeSessionId: incognito ? undefined : wf.primarySessionId,
           attachments: promptAttachments,
           disableRssGuard: wf.disableRssGuard,

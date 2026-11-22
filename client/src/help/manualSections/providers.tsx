@@ -41,8 +41,9 @@ export const providers: Section[] = [
   retired provider history.
   </Note>
   <p>Antigravity CLI uses the official <Code>agy acp</Code> program and its own account-wide Google sign-in. Settings and Connections offer LOG IN and a terminal fallback. A successful in-app login updates the sign-in status. Only Gemini models are offered. Agent tabs and saved Chats can use provider tools; Incognito, clusters, research, reviewers, handoffs and automatic turns are unavailable.</p>
+  <p>Arco sends the submitted text and attachments without its own instructions or selected Arco skills. The CLI reads the project's <Code>AGENTS.md</Code> and <Code>GEMINI.md</Code> and its installed skills itself. Arco file and plan tools are available through MCP. Install native skills through the CLI.</p>
   <p>SAFE asks on permission requests; AUTO approves them once. Scheduling requests are refused when the CLI asks, but Arco cannot stop every action the CLI performs without a request. A Chat has its own working folder with OPEN FOLDER. The folder is not a fence: AUTO tools can reach anything the user's account can. Deleting the Chat deletes that folder and its files.</p>
-  <p>Google permits a private single-user interactive ACP client for eligible accounts. Do not use it for unattended work, account rotation, headless wrappers or as an Arco sub-agent; violating the terms can cost account access. Token and context usage appear in Arco; remaining quota is visible in <Code>agy</Code>.</p>
+  <p>Token and context usage appear in Arco; remaining quota is visible in <Code>agy</Code>.</p>
   <Note kind="tip">
   The most common operator pattern: <strong>Claude as primary</strong>, with
   Codex for cross-family review. Pick the family that tends to disagree most

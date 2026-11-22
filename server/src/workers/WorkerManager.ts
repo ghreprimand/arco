@@ -531,7 +531,7 @@ export class WorkerManager {
       });
     });
 
-    const footer = options?.interactionMode === 'chat'
+    const footer = options?.interactionMode === 'chat' || spec.provider === 'antigravity-cli'
       ? ''
       : buildWorkerSafetyFooter(options?.cwd, options?.workflowId);
     worker.spawn(spec.task + footer);
