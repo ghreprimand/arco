@@ -1,8 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CURSOR_OWN_OUTPUT, researchToolBoundaryWarning } from './researchTripwires.js';
-
-const home = CURSOR_OWN_OUTPUT.replace(/\/\.cursor\/projects$/, '');
+import { WORKER_SANDBOX_HOME as home } from '../workers/linuxWorkerSandbox.js';
 
 test('a Cursor researcher reading its own tool output raises no sandbox access warning', () => {
   const ownOutput = JSON.stringify({ pattern: '330|antenna', path: `${CURSOR_OWN_OUTPUT}/work/agent-tools/a416ab0d.txt` });

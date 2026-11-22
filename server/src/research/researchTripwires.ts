@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { posix } from 'node:path';
 import * as clusterStore from '../clusterStore.js';
 import { prepareIsolatedCliHome } from '../workers/isolatedCliHome.js';
+import { WORKER_SANDBOX_HOME } from '../workers/linuxWorkerSandbox.js';
 import { cachedResearch, replyRound, researcherFor, roundByKey, updateResearch, type ResearchState } from './researchState.js';
 
 export const RESEARCH_CANARY_FILE = '.arco-independence-canary';
@@ -118,8 +119,9 @@ export function observeResearchText(clusterId: string | undefined, workflowId: s
   return found;
 }
 
-// The sandbox home is mounted at /home/worker (workers/linuxWorkerSandbox.ts).
-export const CURSOR_OWN_OUTPUT = ['', 'home', 'worker', '.cursor', 'projects'].join('/');
+// Cursor's own tool output and transcripts inside its sandbox home. Typed as
+// string so the emitted declaration does not spell the path out.
+export const CURSOR_OWN_OUTPUT: string = `${WORKER_SANDBOX_HOME}/.cursor/projects`;
 
 /** Flag explicit foreign paths and loopback addresses in the file and shell calls Arco receives. */
 export function researchToolBoundaryWarning(tool: string, input: string): boolean {

@@ -5,6 +5,9 @@ import { dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'no
 import { arcoHome } from '../arcoHome.js';
 import { isPreparedWorkerAccessPass, type WorkerAccessPass } from './workerAccessPass.js';
 
+// Where a sandboxed worker's private home is mounted inside the sandbox.
+export const WORKER_SANDBOX_HOME = '/home/worker';
+
 /** A command line for bubblewrap; it is not a successful isolation check. */
 export interface LinuxWorkerSandboxCommand {
   file: 'bwrap';
@@ -179,11 +182,11 @@ export async function linuxWorkerSandboxCommand(options: {
       ...systemMounts,
       '--proc', '/proc', '--dev', '/dev', '--tmpfs', '/tmp',
       '--dir', '/work', '--bind', workspace, '/work',
-      '--dir', '/home', '--bind', home, '/home/worker',
+      '--dir', '/home', '--bind', home, WORKER_SANDBOX_HOME,
       ...controls,
       ...[...runtimeDirectories].sort((a, b) => a.length - b.length).flatMap((path) => ['--dir', path]),
       ...mounts.flatMap(({ source, target }) => ['--ro-bind', source, target]),
-      '--setenv', 'HOME', '/home/worker', '--setenv', 'PATH', '/usr/local/bin:/usr/bin:/bin',
+      '--setenv', 'HOME', WORKER_SANDBOX_HOME, '--setenv', 'PATH', '/usr/local/bin:/usr/bin:/bin',
       '--chdir', '/work', '--', options.executable, ...options.args,
     ],
   };
