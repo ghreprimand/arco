@@ -100,6 +100,15 @@ test('real plan routes retain agent authoring and refuse operator changes before
     assert.deepEqual(detached,[planId]);
     assert.equal((await send('DELETE','/api/plans/refs',{planId,slug:'fixture'},undefined,cookie)).status,200);
     assert.equal((await send('DELETE','/api/plans',{planId},undefined,cookie)).status,200);
+    const clusterStore = await import('../clusterStore.js');
+    const research = await clusterStore.createCluster({cwd,memberWorkflowIds:[id,randomUUID()],research:{projectId:'fixture'},taskBoardMode:'none'});
+    try {
+      const beforePlans = await plans.listPlansWithTaskCounts(cwd);
+      assert.equal((await send('POST','/api/plans/attach',{planId:extra.planId,workflowId:id})).status,400);
+      assert.equal((await send('POST','/api/plans',{}, {title:'No plan',body:'- [ ] Task',attach:true,workflowId:id})).status,400);
+      assert.equal((await plans.listPlansWithTaskCounts(cwd)).length,beforePlans.length);
+    } finally { await clusterStore.deleteCluster(research.clusterId); }
+
   } finally {workflowCwds.delete(id);await fs.rm(cwd,{recursive:true,force:true});}
 });
 after(async()=>{await fs.rm(root,{recursive:true,force:true});});

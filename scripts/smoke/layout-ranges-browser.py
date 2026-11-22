@@ -91,11 +91,20 @@ TASKS = [{'id': f'task-{i}', 'title': title, 'status': status, 'links': [], 'not
          for i, (title, status) in enumerate([('Review the release checklist', 'review'), ('Verify the project list', 'in_progress')], 1)]
 
 
-async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False, no_director=False):
+async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False, no_director=False, research=False):
     context = await browser.new_context(viewport={'width': width, 'height': height})
     snapshot = json.dumps({'type': 'task_ledger_snapshot', 'workflowId': 'worker-0', 'cwd': '/projects/harbor', 'boardKey': 'demo', 'tasks': TASKS})
     fixture = single_state() if single else fixture_state()
     if no_director: fixture['state']['clusters']['demo-cluster']['members'][0]['role'] = 'Builder'
+    if research:
+        cluster = fixture['state']['clusters']['demo-cluster']
+        cluster.update({'taskBoardMode': 'none', 'taskBoardAttached': False, 'research': {
+            'projectId': 'fixture', 'folder': '/projects/harbor', 'name': 'Fixture', 'brief': 'Compare.',
+            'blind': True, 'directorWorkflowId': 'worker-0',
+            'researchers': [{'workflowId': f'worker-{i}', 'letter': chr(64+i), 'provider': 'claude', 'model': 'sonnet', 'isolation': 'tool-fenced'} for i in range(1,5)], 'rounds': [],
+        }})
+        for member in cluster['members'][1:]: member['accessMode'] = 'researcher'
+
     layout_line = f"localStorage.setItem('arco.layoutMode', {json.dumps(layout)});" if layout else ''
     await context.add_init_script(f"""if (!sessionStorage.getItem('fixture-seeded')) {{
         sessionStorage.setItem('fixture-seeded', '1');
@@ -269,6 +278,13 @@ async def run(base):
             await page.keyboard.press('Escape')
             await expect(right).to_have_count(0)
 
+            # At phone width conversation content must not cover the panel strip.
+            await page.set_viewport_size({'width': 360, 'height': 800})
+            await page.get_by_test_id('layout-panel-strip').get_by_role('button', name='MORE').click()
+            await expect(page.get_by_test_id('right-panel-slide-out')).to_be_visible()
+            await page.keyboard.press('Escape')
+            await expect(page.get_by_test_id('right-panel-slide-out')).to_have_count(0)
+
             # Standard from the command palette: the original layout at every width, at once.
             await page.set_viewport_size({'width': 1280, 'height': 800})
             await palette(page, 'Layout: Standard')
@@ -363,6 +379,27 @@ async def run(base):
                 assert not errors, errors
                 await context.unroute_all(behavior='wait')
                 await context.close()
+            # Research projects expose their own controls and folder, not generic member management.
+            context, page, errors = await open_page(browser, base, 2000, layout='standard', research=True)
+            await expect(page.get_by_role('button', name='OPEN FOLDER')).to_be_visible()
+            await expect(page.get_by_text('Saved in', exact=False)).to_have_count(1)
+            await expect(page.get_by_text('Auto-compaction:', exact=False)).to_be_visible()
+            for label in ('MAIL ALERTS', 'AUTO-PICKUP', 'EFFICIENCY', 'KEEP CURRENT', 'BOARD'):
+                await expect(page.get_by_text(label, exact=True)).to_have_count(0)
+            await page.get_by_role('button', name='MEMBERS', exact=True).click()
+            await expect(page.get_by_text('Researchers are managed by the research project.')).to_be_visible()
+            for label in ('+ ADD FRESH', '+ ADD EXISTING', 'REPLACE', 'DETACH'):
+                await expect(page.get_by_text(label, exact=True)).to_have_count(0)
+            await page.get_by_role('button', name='OPEN FOLDER').click()
+            for label in ('CHANGES', 'SOURCE', 'REMOTE'):
+                await expect(page.get_by_text(label, exact=True)).to_have_count(0)
+            await page.get_by_role('button', name='RUNTIME', exact=True).click()
+            await page.get_by_role('button', name='CONFIG', exact=True).click()
+            assert await page.locator('[data-help="cluster.right-panel.config-member"] select option').count() == 5
+            await expect(page.get_by_text('CWD', exact=True)).to_have_count(0)
+            assert not errors, errors
+            await context.unroute_all(behavior='wait')
+            await context.close()
             # A single tab under 1100 px: the right panel is a strip; FILES opens it over the chat.
             context, page, errors = await open_page(browser, base, 1024, single=True)
             strip = page.get_by_test_id('layout-panel-strip')

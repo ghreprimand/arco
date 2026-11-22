@@ -12,7 +12,7 @@ export interface ClusterComposerControls {
   pendingMembers: number;
   // Members nudged that have not started their turn yet.
   nudgedCount?: number;
-  onNudge: () => void;
+  onNudge?: () => void;
 }
 
 export function ClusterComposerButtons({ controls }: { controls: ClusterComposerControls }) {
@@ -35,7 +35,7 @@ export function ClusterComposerButtons({ controls }: { controls: ClusterComposer
       >
         TO: {recipientLabel} {'\u25BE'}
       </button>
-      <button
+      {onNudge && <button
         type="button"
         className="display-font"
         data-help="cluster.broadcast.nudge"
@@ -51,7 +51,7 @@ export function ClusterComposerButtons({ controls }: { controls: ClusterComposer
         }}
       >
         {nudgedCount > 0 ? `NUDGED ${nudgedCount}` : `NUDGE${pendingTotal > 0 ? ` ${pendingTotal}` : ''}`}
-      </button>
+      </button>}
     </>
   );
 }

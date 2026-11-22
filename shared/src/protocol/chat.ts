@@ -5,7 +5,7 @@ import type { OperatorQuestionState } from './operatorQuestions.js';
 import type { AuthRecoveryContext } from './models.js';
 import type { PrimaryPhase } from './providers.js';
 
-export type AutomaticMessageKind = 'nudge' | 'auto-pickup';
+export type AutomaticMessageKind = 'nudge' | 'auto-pickup' | 'research';
 
 export interface ChatMessage {
   /** Saved source key for this handoff seed; absent when linking failed. */

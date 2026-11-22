@@ -795,6 +795,7 @@ function cleanSpawnIdentity(identity: SpawnMemberIdentity | undefined): { role: 
 
 /** Reasons a spawn-into-cluster identity is refused before anything is created; null when it is fine. */
 export function spawnIdentityProblem(identity: SpawnMemberIdentity | undefined, cluster: clusterStore.ClusterState, config: WorkflowConfig): string | null {
+  if (cluster.research) return 'research_project';
   if (identity === undefined) return null;
   if (identity.accessMode !== undefined && !isClusterMemberAccessMode(identity.accessMode)) return 'invalid_access_mode';
   if (identity.tier !== undefined && !isMemberTier(identity.tier)) return 'invalid_tier';

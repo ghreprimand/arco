@@ -362,6 +362,7 @@ export async function saveSnapshot(input: SaveSnapshotInput): Promise<ClusterSna
   if (!cluster) {
     throw new SnapshotValidationError('unknown_cluster', `unknown cluster ${input.clusterId.slice(0, 8)}`);
   }
+  if (cluster.research) throw new SnapshotValidationError('research_project', 'Research projects cannot be saved as cluster snapshots.');
 
   // Case-insensitive duplicate-name fence (mirrors clusterPresets). Replacement
   // requires the exact id returned by the conflict response; a bare boolean

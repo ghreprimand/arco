@@ -84,7 +84,7 @@ const RIGHT_STRIP = [
   { id: 'more', label: 'MORE' },
 ];
 // docs/RESEARCH.md - a research project has RESULTS where others have BOARD.
-const RESEARCH_RIGHT_STRIP = RIGHT_STRIP.map((item) => item.id === 'board' ? { id: 'results', label: 'RESULTS' } : item);
+const RESEARCH_RIGHT_STRIP = RIGHT_STRIP.filter((item) => item.id !== 'plan').map((item) => item.id === 'board' ? { id: 'results', label: 'RESULTS' } : item);
 
 interface Props {
   clusterId: string;
@@ -927,7 +927,7 @@ export function ClusterTab({
                   </div>
 
                   {directorMember && <ProjectStateNotice cwd={jobs[directorMember.workflowId]?.config.workingDirectory ?? ''} skip={directorMember.accessMode === 'isolated'} />}
-                  {cluster.research && <ResearchRoundsStrip clusterId={clusterId} research={cluster.research} />}
+                  {cluster.research && <ResearchRoundsStrip clusterId={clusterId} research={cluster.research} onOpenFolder={() => { setRightTabRequest((prev) => ({ tab: 'files', n: (prev?.n ?? 0) + 1 })); if (widthRange === 'narrow') setRightSlide('files'); }} />}
                   {!cluster.plan && !planHintHidden && !cluster.research && (() => {
                     // Compact: one line, with MORE for the rest.
                     const short = compactLayout && !planHintMore;
@@ -972,9 +972,9 @@ export function ClusterTab({
                         job={jobs[m.workflowId]}
                         displayName={m.displayName}
                         status={m.status}
-                        role={m.role}
+                        role={cluster.research ? undefined : m.role}
                         pendingMail={pendingByMember[cluster.members.indexOf(m)]}
-                        onNudge={() => nudgeMembers(new Set([m.workflowId]), false)}
+                        onNudge={cluster.research ? undefined : () => nudgeMembers(new Set([m.workflowId]), false)}
                         nudged={nudgedAt[m.workflowId] !== undefined}
                         newReply={directorNewReply && m.workflowId === directorMember?.workflowId}
                         focused={focusedMemberId === m.workflowId}
@@ -1081,6 +1081,7 @@ export function ClusterTab({
                     <MemberPane
                       key={focusedMember.workflowId}
                       job={focusedJob}
+                      researchProject={!!cluster.research}
                       displayName={focusedMember.displayName}
                       status={focusedMember.status}
                       role={focusedMember.role}
@@ -1088,26 +1089,26 @@ export function ClusterTab({
                       onSend={(content, attachments, kind, primitive, pickedSkills) =>
                         sendFromComposer(focusedMember.workflowId, content, attachments, kind, primitive, pickedSkills)
                       }
-                      clusterControls={{ clusterId, recipientLabel, placeholder: composerPlaceholder, onChooseRecipients: openRecipients, pendingTotal, pendingMembers, nudgedCount, onNudge: openNudgeModal }}
-                      onAttachPlan={onAttachPlanToMember ? (planId) => onAttachPlanToMember(focusedMember.workflowId, planId) : undefined}
-                      onAttachToCluster={onSetClusterPlan ? (body) => onSetClusterPlan(clusterId, body) : undefined}
+                      clusterControls={{ clusterId, recipientLabel, placeholder: composerPlaceholder, onChooseRecipients: openRecipients, pendingTotal, pendingMembers, nudgedCount, onNudge: cluster.research ? undefined : openNudgeModal }}
+                      onAttachPlan={!cluster.research && onAttachPlanToMember ? (planId) => onAttachPlanToMember(focusedMember.workflowId, planId) : undefined}
+                      onAttachToCluster={!cluster.research && onSetClusterPlan ? (body) => onSetClusterPlan(clusterId, body) : undefined}
                       onCancel={() => onCancelMember(focusedMember.workflowId)}
                       onCancelQueued={(cid) => onCancelQueuedForMember(focusedMember.workflowId, cid)}
                       onUpload={onUpload}
                       onLoadEarlier={onLoadEarlier ? () => onLoadEarlier(focusedMember.workflowId) : undefined}
                       onReview={
-                        onReviewMember
+                        !cluster.research && onReviewMember
                           ? (reviewer, contextRef, includeGitDiff) =>
                               onReviewMember(focusedMember.workflowId, reviewer, contextRef, includeGitDiff)
                           : undefined
                       }
                       onHandoff={
-                        onHandoffMember
+                        !cluster.research && onHandoffMember
                           ? (mode, newPrimary, summarizer) => onHandoffMember(focusedMember.workflowId, mode, newPrimary, summarizer)
                           : undefined
                       }
                       onSpawn={
-                        onSpawnMember
+                        !cluster.research && onSpawnMember
                           ? (newConfig, newDirection, includePlan, joinClusterId, memberIdentity) =>
                               onSpawnMember(focusedMember.workflowId, newConfig, newDirection, includePlan, joinClusterId, memberIdentity)
                           : undefined
@@ -1125,7 +1126,7 @@ export function ClusterTab({
                           : undefined
                       }
                       onArmPlanMode={
-                        onArmPlanModeMember ? () => onArmPlanModeMember(focusedMember.workflowId) : undefined
+                        !cluster.research && onArmPlanModeMember ? () => onArmPlanModeMember(focusedMember.workflowId) : undefined
                       }
                       onTranscriptSend={
                         onTranscriptSendFromMember
@@ -1134,7 +1135,7 @@ export function ClusterTab({
                           : undefined
                       }
                       onReviewViaMember={
-                        onReviewViaMember
+                        !cluster.research && onReviewViaMember
                           ? (reviewerWfid, contextRef, includeGitDiff) =>
                               onReviewViaMember(focusedMember.workflowId, reviewerWfid, contextRef, includeGitDiff)
                           : undefined

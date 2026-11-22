@@ -53,15 +53,15 @@ import { ResearchResultsTab } from '../research/ResearchResultsTab';
 
 type GroupId = 'workspace' | 'agent' | 'memory' | 'runtime';
 const GROUPS: { id: GroupId; label: string; tabs: SubTab[] }[] = [
-  { id: 'workspace', label: 'WORKSPACE', tabs: ['members', 'files'] },
-  { id: 'agent', label: 'AGENT', tabs: ['results', 'activity', 'reviews', 'handoffs', 'plan', 'board', 'mailbox'] },
+  { id: 'workspace', label: 'WORKSPACE', tabs: ['results', 'members', 'files'] },
+  { id: 'agent', label: 'AGENT', tabs: ['activity', 'reviews', 'handoffs', 'plan', 'board', 'mailbox'] },
   { id: 'memory', label: 'MEMORY', tabs: ['history', 'usage'] },
   { id: 'runtime', label: 'RUNTIME', tabs: ['preview', 'config', 'github'] },
 ];
 // docs/RESEARCH.md - a research project shows RESULTS and hides BOARD;
 // every other cluster hides RESULTS.
 function groupsFor(research: boolean): typeof GROUPS {
-  return GROUPS.map((g) => ({ ...g, tabs: g.tabs.filter((t) => research ? t !== 'board' : t !== 'results') }));
+  return GROUPS.map((g) => ({ ...g, tabs: g.tabs.filter((t) => research ? !['board', 'plan', 'reviews', 'handoffs', 'mailbox', 'github'].includes(t) : t !== 'results') }));
 }
 const STORAGE_KEY = 'arco.clusterSidePanelTab.byCluster';
 const NARROW_PX = 360;
@@ -95,7 +95,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
   const rootRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
   const [tabsByCluster, setTabsByCluster] = useState<Record<string, SubTab>>(loadTabsByCluster);
-  const tab = tabForCluster(tabsByCluster, cluster.clusterId);
+  const tab = cluster.research && !tabsByCluster[cluster.clusterId] ? 'results' : tabForCluster(tabsByCluster, cluster.clusterId);
   const setTab = (next: SubTab) => {
     setTabsByCluster((prev) => {
       const updated = { ...prev, [cluster.clusterId]: next };
@@ -115,7 +115,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
   // docs/RESEARCH.md - a stored BOARD tab becomes RESULTS in a research
   // project, and RESULTS falls back to MEMBERS elsewhere.
   useEffect(() => {
-    if (cluster.research && tab === 'board') setTab('results');
+    if (cluster.research && ['board', 'plan', 'reviews', 'handoffs', 'mailbox', 'github'].includes(tab)) setTab('results');
     else if (!cluster.research && tab === 'results') setTab('members');
   }, [cluster.research, tab]);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -175,6 +175,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
   const [mailboxLoading, setMailboxLoading] = useState(false);
   const [mailboxError, setMailboxError] = useState<string | null>(null);
   const [filesSubTab, setFilesSubTab] = useState<ClusterFilesSubTab>('files');
+  useEffect(() => { if (cluster.research && tabRequest?.tab === 'files') setFilesSubTab('files'); }, [tabRequest, cluster.research]);
   useOutputNavigation(cluster.members.map(member => member.workflowId), () => { setTab('files'); setFilesSubTab('outputs'); });
   useWorktreeNavigation(cluster.members.map(member => member.workflowId), () => { setTab('files'); setFilesSubTab('changes'); });
   const selectedDepth = mailboxWfid ? (cluster.mailboxDepth[mailboxWfid] ?? 0) : 0;
@@ -256,7 +257,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
           server caps + suppression invariants live there. The
           efficiency selector rides the same bar. The bar renders when either
           arming surface is wired (both come from the same parent). */}
-      {compactSettings && (onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (() => {
+      {!cluster.research && compactSettings && (onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (() => {
         // Medium and wide layouts: one summary line; SETTINGS opens the full block.
         const pickupState = autoPickupStateOf(cluster);
         const pickup = `${AUTO_PICKUP_MODE_LABELS[pickupState.mode].chip}${pickupState.paused ? ' - PAUSED' : ''}`;
@@ -275,7 +276,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
           </div>
         );
       })()}
-      {(!compactSettings || settingsOpen) && (onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (
+      {(!!cluster.research || !compactSettings || settingsOpen) && (onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (
         <div
           style={{
             display: 'flex',
@@ -287,7 +288,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
             flexWrap: 'wrap',
           }}
         >
-          {onToggleIdleNudger && (
+          {!cluster.research && onToggleIdleNudger && (
           <>
           <span
             className="display-font"
@@ -334,13 +335,13 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
           {/* AUTO-PICKUP mode chip and dialog. Off, Rule-based and the two
               Smart modes; see AutoPickupControl. Shown where the legacy
               toggle was offered. */}
-          {onToggleAutoTurn && <AutoPickupControl cluster={cluster} />}
+          {!cluster.research && onToggleAutoTurn && <AutoPickupControl cluster={cluster} />}
           {onSetAutoCompaction && (
             <label title="Provider: Claude CLI and Codex compact themselves; Claude Native and Ollama compact automatically near the limit." className="arco-field-label">Auto-compaction: <select className="arco-field" aria-label="Cluster auto-compaction" value={cluster.autoCompaction ? (cluster.autoCompaction.enabled ? 'on' : 'off') : 'legacy'} onChange={(e) => onSetAutoCompaction(cluster.clusterId, e.target.value === 'legacy' ? null : { enabled: e.target.value === 'on', thresholdPercent: cluster.autoCompaction?.thresholdPercent ?? 80 })}>
               <option value="legacy">Provider</option><option value="off">Off</option><option value="on">On</option>
             </select>{cluster.autoCompaction && <AutoCompactionThreshold key={`${cluster.clusterId}:${cluster.autoCompaction.enabled}`} label="Cluster auto-compaction threshold percent" value={cluster.autoCompaction.thresholdPercent} onCommit={(thresholdPercent) => onSetAutoCompaction(cluster.clusterId, { ...cluster.autoCompaction!, thresholdPercent })} />} </label>
           )}
-          {onSetEfficiency && (
+          {!cluster.research && onSetEfficiency && (
             <EfficiencyControl
               clusterId={cluster.clusterId}
               level={cluster.efficiencyLevel ?? 'thorough'}
@@ -352,15 +353,15 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
           <SkillsControl cluster={cluster} />
           {/* DD7 — cluster-wide project trust for the pinned cwd. Self-hiding
               when the repo ships nothing the gate suppresses. */}
-          <ProjectTrustChip cwd={cluster.cwd} />
-          {onSetProgress && (
+          {!cluster.research && <ProjectTrustChip cwd={cluster.cwd} />}
+          {!cluster.research && onSetProgress && (
             <ProgressControl
               clusterId={cluster.clusterId}
               mode={cluster.progressTracking ?? 'both'}
               onSetProgress={onSetProgress}
             />
           )}
-          {hubConnected && onSetRemote && (
+          {!cluster.research && hubConnected && onSetRemote && (
             <button
               className="display-font"
               data-help="cluster.remote"
@@ -383,7 +384,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
               {cluster.remoteEnabled ? '◉ REMOTE' : '◎ REMOTE: OFF'}
             </button>
           )}
-          {hubConnected && onSetGates && cluster.remoteEnabled && (
+          {!cluster.research && hubConnected && onSetGates && cluster.remoteEnabled && (
             <button
               className="display-font"
               data-help="cluster.remote-gates"
@@ -406,7 +407,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
               {cluster.remoteGatesEnabled ? '⛨ GATES' : '⛨ GATES: DESK'}
             </button>
           )}
-          {(onSetTaskBoardMode || onSetTaskBoardAttached) && (
+          {!cluster.research && (onSetTaskBoardMode || onSetTaskBoardAttached) && (
             <BoardModeControl
               cluster={cluster}
               onSetMode={onSetTaskBoardMode}
@@ -639,7 +640,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                       RENAME
                     </button>
                   )}
-                  <button
+                  {!cluster.research && <button
                     onClick={() => { setSnapshotDraft(effectiveName); setSnapshotOpen(true); }}
                     disabled={!anchorWfid}
                     data-help="cluster.save-state"
@@ -658,7 +659,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                     }}
                   >
                     SAVE STATE
-                  </button>
+                  </button>}
                 </>
               )}
             </div>
@@ -751,7 +752,8 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                 </button>
               </div>
             )}
-            {(onAddFreshWorkers || onAddExistingMember) && (
+            {cluster.research && <p>Researchers are managed by the research project.</p>}
+            {!cluster.research && (onAddFreshWorkers || onAddExistingMember) && (
               <AddWorkerSection
                 cluster={cluster}
                 onAddFresh={onAddFreshWorkers}
@@ -776,9 +778,9 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                 broadcast, so the new cluster tab opens with members + full
                 history replayed. No targetCwd here → restores into the
                 snapshot's original cwd. */}
-            <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--color-border-hairline)' }}>
+            {!cluster.research && <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--color-border-hairline)' }}>
               <SavedClustersList scopeCwd={cluster.cwd} />
-            </div>
+            </div>}
           </div>
         )}
 
@@ -888,7 +890,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
             covers every member. */}
         {tab === 'history' && <ClusterAnchoredHistory cluster={cluster} />}
         {tab === 'preview' && <ClusterAnchoredPreview cluster={cluster} />}
-        {tab === 'usage' && <ProjectUsageTab cwd={cluster.cwd} note="Covers every conversation saved in this project folder, all members included." scratchMembers={cluster.members.map((member) => ({ id: member.workflowId, name: member.displayName }))} />}
+        {tab === 'usage' && <ProjectUsageTab cwd={cluster.cwd} note="Covers every conversation saved in this project folder, all members included." scratchMembers={cluster.research ? undefined : cluster.members.map((member) => ({ id: member.workflowId, name: member.displayName }))} />}
         {tab === 'config' && (
           <ClusterConfigTab
             cluster={cluster}
@@ -1102,6 +1104,7 @@ function ClusterConfigTab({
       </div>
       <ConfigTab
         job={job}
+        hideCwd={!!cluster.research}
         onUpdatePrimary={onUpdateMemberPrimary
           ? (update) => onUpdateMemberPrimary(effectiveWfid, update)
           : undefined}

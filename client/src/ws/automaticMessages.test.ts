@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { AutomaticMessage } from '../components/AutomaticMessage';
 import { test } from 'node:test';
 import type { ServerMessage, WorkflowConfig } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
@@ -95,4 +98,16 @@ test('a typed prompt identical to an automatic reminder stays visible when CLI j
   ]) handleServerMessage(event as unknown as ServerMessage, deps);
   const rows = projectChatMessages(useAppStore.getState().jobs[id]).filter(row => row.role === 'user');
   assert.deepEqual(rows.map(row => [row.content, row.automaticKind]), [[text, undefined], [text, 'nudge']]);
+});
+
+
+test('research wake summaries show the brief or released round and stay folded', () => {
+  const brief = renderToStaticMarkup(createElement(AutomaticMessage, { kind: 'research', content: '(research) Brief for Fixture\nPrivate brief' }));
+  assert.match(brief, /\(research\) Brief for Fixture/);
+  assert.doesNotMatch(brief, /Peer mail waiting|Private brief/);
+  const punctuation = renderToStaticMarkup(createElement(AutomaticMessage, { kind: 'research', content: '(research) Brief for Film; TV\nBrief' }));
+  assert.match(punctuation, /Brief for Film; TV/);
+  const round = renderToStaticMarkup(createElement(AutomaticMessage, { kind: 'research', content: '(research) Round 1 released; the reports are in your mail.' }));
+  assert.match(round, /\(research\) Round 1 released/);
+  assert.doesNotMatch(round, /Peer mail waiting/);
 });

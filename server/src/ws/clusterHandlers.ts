@@ -417,11 +417,18 @@ export async function handleClusterDispatchOnce(
   await broadcastTaskDispatchResult(result);
 }
 
+async function refuseResearchSetting(ws: WebSocket, clusterId: string): Promise<boolean> {
+  if (!(await clusterStore.readCluster(clusterId).catch(() => null))?.research) return false;
+  send(ws, { type: 'error', message: 'This setting is not available in a research project.' });
+  return true;
+}
+
 export async function handleClusterTaskBoardAttachSet(
   ws: WebSocket,
   clusterId: string,
   attached: boolean,
 ): Promise<void> {
+  if (await refuseResearchSetting(ws, clusterId)) return;
   const updated = await clusterStore.setTaskBoardAttached(clusterId, attached === true);
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_task_board_attach_set rejected: unknown_cluster` });
@@ -459,6 +466,7 @@ export async function handleClusterTaskBoardModeSet(
     send(ws, { type: 'error', message: `cluster_task_board_mode_set rejected: invalid_mode` });
     return;
   }
+  if (await refuseResearchSetting(ws, clusterId)) return;
   const updated = await clusterStore.setTaskBoardMode(clusterId, mode);
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_task_board_mode_set rejected: unknown_cluster` });
@@ -2350,6 +2358,7 @@ export async function handleClusterMemberRoleSet(ws: WebSocket, clusterId: strin
     send(ws, { type: 'error', message: 'cluster_member_role_set requires a string role' });
     return;
   }
+  if (await refuseResearchSetting(ws, clusterId)) return;
   let updated: clusterStore.ClusterState | null;
   try {
     updated = await clusterStore.setMemberRole(clusterId, workflowId, role);
@@ -2389,6 +2398,7 @@ export async function handleClusterMemberTierSet(
     send(ws, { type: 'error', message: `cluster_member_tier_set rejected: invalid tier (must be one of ${clusterStore.MEMBER_TIERS.join(' / ')} or null)` });
     return;
   }
+  if (await refuseResearchSetting(ws, clusterId)) return;
   const updated = await clusterStore.setMemberTier(clusterId, workflowId, tier).catch(() => null);
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_member_tier_set rejected: unknown_cluster_or_member` });
@@ -2415,6 +2425,7 @@ export async function handleClusterMemberFocusSet(
     send(ws, { type: 'error', message: `cluster_member_focus_set rejected: invalid focus (must be string or null)` });
     return;
   }
+  if (await refuseResearchSetting(ws, clusterId)) return;
   const updated = await clusterStore.setMemberFocus(clusterId, workflowId, focus).catch(() => null);
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_member_focus_set rejected: unknown_cluster_or_member` });
@@ -2453,6 +2464,7 @@ export async function handleClusterIdleNudgerToggle(
   clusterId: string,
   enabled: boolean,
 ): Promise<void> {
+  if (await refuseResearchSetting(ws, clusterId)) return;
   const updated = await clusterStore.setIdleNudgerEnabled(clusterId, enabled === true).catch(() => null);
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_idle_nudger_toggle rejected: unknown_cluster` });
@@ -2497,6 +2509,7 @@ export async function handleClusterEfficiencySet(
     send(ws, { type: 'error', message: 'cluster_efficiency_set rejected: invalid_message_guard' });
     return;
   }
+  if (await refuseResearchSetting(ws, clusterId)) return;
   const updated = await clusterStore.setEfficiency(clusterId, level, addendum, messageGuard).catch(() => null);
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_efficiency_set rejected: unknown_cluster` });
@@ -2529,6 +2542,7 @@ export async function handleClusterRemoteSet(
   clusterId: string,
   enabled: boolean,
 ): Promise<void> {
+  if (await refuseResearchSetting(ws, clusterId)) return;
   const updated = await clusterStore.setRemoteEnabled(clusterId, enabled === true).catch(() => null);
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_remote_set rejected: unknown_cluster` });
@@ -2550,6 +2564,7 @@ export async function handleClusterGatesSet(
   clusterId: string,
   enabled: boolean,
 ): Promise<void> {
+  if (await refuseResearchSetting(ws, clusterId)) return;
   const updated = await clusterStore.setRemoteGatesEnabled(clusterId, enabled === true).catch(() => null);
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_gates_set rejected: unknown_cluster` });
@@ -2602,6 +2617,7 @@ export async function handleClusterProgressSet(
     send(ws, { type: 'error', message: `cluster_progress_set rejected: unknown_mode` });
     return;
   }
+  if (await refuseResearchSetting(ws, clusterId)) return;
   const updated = await clusterStore.setProgressTracking(clusterId, mode).catch(() => null);
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_progress_set rejected: unknown_cluster` });
@@ -2625,6 +2641,7 @@ export async function handleClusterAutoTurnToggle(
   clusterId: string,
   enabled: boolean,
 ): Promise<void> {
+  if (await refuseResearchSetting(ws, clusterId)) return;
   const updated = await clusterStore.setAutoTurnOnMailbox(clusterId, enabled === true).catch(() => null);
   if (!updated) {
     send(ws, { type: 'error', message: `cluster_auto_turn_toggle rejected: unknown_cluster` });
@@ -2646,6 +2663,7 @@ export async function handleClusterAutoPickupSet(
   ws: WebSocket,
   msg: { clusterId: string; mode: unknown; paused?: unknown; evaluator?: unknown; limits?: unknown; ruleLimits?: unknown; resumeRule?: boolean; remindBusy?: boolean },
 ): Promise<void> {
+  if (await refuseResearchSetting(ws, msg.clusterId)) return;
   const settings = await readSettings().catch(() => null);
   const result = await applyAutoPickup(
     msg.clusterId,

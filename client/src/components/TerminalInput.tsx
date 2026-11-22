@@ -140,6 +140,7 @@ export interface Props {
   // present ⇒ new-tab path (App creates the workflow + defers the
   // research_request via the spawn-token registry); absent ⇒ in-tab dispatch
   // against this workflow. App wires this off requestResearch / createWorkflow.
+  researchProject?: boolean;
   onResearch?: (
     researcher: { provider: ProviderName; model: ModelName; effort: EffortLevel; providerAccountRef?: string },
     topic: string,
@@ -321,7 +322,7 @@ function ComposerSendButtons({ jobId, blocked, hasAttachments, busy, canInterrup
   </>;
 }
 
-export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload, onReview, onHandoff, onSpawn, onUpdatePrimary, onCompact, onFold, onSetToolPosture, onSetProjectTrust, onArmPlanMode, onBackToCluster, clusterControls, clusterContext, memberRole, onTranscriptSend, onReviewViaMember, onResearch }: Props) {
+export function TerminalInput({ job, researchProject = false, onSend, onCancel, onCancelQueued, onUpload, onReview, onHandoff, onSpawn, onUpdatePrimary, onCompact, onFold, onSetToolPosture, onSetProjectTrust, onArmPlanMode, onBackToCluster, clusterControls, clusterContext, memberRole, onTranscriptSend, onReviewViaMember, onResearch }: Props) {
   // Composer text lives in the store keyed by job.id so each tab keeps its
   // own draft across tab switches. Empty tab reads back as ''.
   // NOT a subscription — see the ComposerTextarea note above. Handlers read the
@@ -478,7 +479,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
       case 'review': if (!onReview) return false; setShowReviewDialog(true); return true;
       case 'handoff': if (!onHandoff) return false; setShowHandoffDialog(true); return true;
       case 'spawn': if (!onSpawn) return false; setShowSpawnDialog(true); return true;
-      case 'plan': setShowPlanDialog(true); return true;
+      case 'plan': if (researchProject) return false; setShowPlanDialog(true); return true;
       case 'docs': if (!onSpawn) return false; setShowDocsDialog(true); return true;
       case 'git': if (!job.config.workingDirectory || !onSpawn) return false; setShowGitDialog(true); return true;
       case 'tuneup': setShowTuneupDialog(true); return true;
@@ -1473,7 +1474,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
 
         <BriefControl scope="worker" targetId={job.id} clusterId={clusterControls ? clusterControls.clusterId : undefined} label="BRIEF" data-help="composer.brief" testId="composer-brief" title="A short synopsis of this worker from facts Arco can see. Read-only; sends nothing." />
 
-        <button
+        {!researchProject && <button
           onClick={() => setShowPlanDialog(true)}
           data-help="composer.plan"
           className="display-font"
@@ -1491,7 +1492,7 @@ export function TerminalInput({ job, onSend, onCancel, onCancelQueued, onUpload,
           }}
         >
           ☰ PLAN
-        </button>
+        </button>}
 
         {onSpawn && (
         <button

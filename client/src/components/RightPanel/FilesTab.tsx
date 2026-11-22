@@ -148,11 +148,13 @@ export function ClusterFilesTabBody({
   const selectedMember = members.find((m) => m.workflowId === effectiveWfid);
   const tabs: Array<{ id: ClusterFilesSubTab; label: string; help?: string }> = [
     { id: 'files', label: 'FILES', help: 'rightpanel.tab.files' },
-    { id: 'outputs', label: 'OUTPUTS', help: 'rightpanel.outputs' },
-    { id: 'live', label: 'LIVE', help: 'rightpanel.files.live' },
-    { id: 'changes', label: 'CHANGES', help: 'rightpanel.files.changes' },
-    { id: 'source', label: 'SOURCE', help: 'rightpanel.files.source' },
-    { id: 'remote', label: 'REMOTE', help: 'rightpanel.files.remote' },
+    ...(!cluster.research ? [
+      { id: 'outputs' as const, label: 'OUTPUTS', help: 'rightpanel.outputs' },
+      { id: 'live' as const, label: 'LIVE', help: 'rightpanel.files.live' },
+      { id: 'changes' as const, label: 'CHANGES', help: 'rightpanel.files.changes' },
+      { id: 'source' as const, label: 'SOURCE', help: 'rightpanel.files.source' },
+      { id: 'remote' as const, label: 'REMOTE', help: 'rightpanel.files.remote' },
+    ] : []),
   ];
   const effectiveSub = tabs.some((t) => t.id === subTab) ? subTab : 'files';
   const needsMember = effectiveSub !== 'files' && effectiveSub !== 'outputs';

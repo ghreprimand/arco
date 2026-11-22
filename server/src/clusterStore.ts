@@ -510,6 +510,7 @@ export async function addMember(
       );
     }
     const mode = options?.accessMode ?? 'standard';
+    if (state.research) throw new ClusterValidationError('research_project', 'Use research project controls to add a researcher.');
     if (!isClusterMemberAccessMode(mode) || (options?.webAccess !== undefined && (typeof options.webAccess !== 'boolean' || !isIsolatedAccessMode(mode)))) throw new ClusterValidationError('invalid_member_access', 'Invalid member access settings.');
     const next: ClusterState = { ...state, members: [...state.members, workflowId],
       ...(mode !== 'standard' ? { memberAccessModes: { ...state.memberAccessModes, [workflowId]: mode } } : {}),
@@ -564,7 +565,7 @@ export async function setMemberAccessMode(
 ): Promise<ClusterState | null> {
   return withClusterMetaLock(clusterId, async () => {
     const state = await readCluster(clusterId);
-    if (!state || !state.members.includes(workflowId) || !isClusterMemberAccessMode(mode)) return null;
+    if (!state || state.research || !state.members.includes(workflowId) || !isClusterMemberAccessMode(mode)) return null;
     const nextModes = { ...(state.memberAccessModes ?? {}) };
     if (mode === 'standard') delete nextModes[workflowId];
     else nextModes[workflowId] = mode;
@@ -711,7 +712,7 @@ export function getPlanId(clusterId: string): string | undefined {
 export async function setPlanId(clusterId: string, planId: string): Promise<ClusterState | null> {
   return withClusterMetaLock(clusterId, async () => {
     const state = await readCluster(clusterId);
-    if (!state) return null;
+    if (!state || state.research) return null;
     const next: ClusterState = { ...state, planId };
     await writeMetaAtomic(next);
     rebuildIndexFor(next);
@@ -1282,7 +1283,7 @@ export async function setTaskBoardMode(
   return withClusterMetaLock(clusterId, async () => {
     if (!isClusterTaskBoardMode(mode)) return null;
     const state = await readCluster(clusterId);
-    if (!state) return null;
+    if (!state || state.research) return null;
     const current = normalizeTaskDispatcherSettings(state.dispatcher);
     const next: ClusterState = {
       ...state,

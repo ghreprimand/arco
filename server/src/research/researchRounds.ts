@@ -75,7 +75,7 @@ export function configureResearch(next: ResearchDeps | null): void {
         toWorkflowId: state.directorWorkflowId, content, createdAt: iso(next.now()), delivered: false,
       }, { maxContentBytes: RELEASE_MAX_BYTES });
       if (next.isBusy(state.directorWorkflowId)) directorWakes.add(clusterId);
-      else next.wake(state.directorWorkflowId, directorWakePrompt());
+      else next.wake(state.directorWorkflowId, directorWakePrompt(n));
     }).catch(error => console.error('[arco] research independence warning failed:', error));
   } : undefined);
   if (!next) {
@@ -267,7 +267,7 @@ export async function onMemberSettled(workflowId: string, outcome: 'finished' | 
   if (workflowId === state.directorWorkflowId) {
     await logDirectorTurn(state, workflowId).catch((error) => console.error('[arco] research director log failed:', error));
     if (directorWakes.delete(clusterId) && outcome !== 'stopped' && await d().pendingMail(workflowId) > 0) {
-      d().wake(workflowId, directorWakePrompt());
+      d().wake(workflowId, directorWakePrompt(state.rounds.filter(r => r.releasedAt).at(-1)?.n));
     }
     return;
   }
@@ -298,8 +298,8 @@ export async function onMemberSettled(workflowId: string, outcome: 'finished' | 
   await maybeRelease(clusterId);
 }
 
-function directorWakePrompt(): string {
-  return '(research) A research round has been released; the reports are in your mail. Distil them, update synthesis.md and give the operator the answer.';
+function directorWakePrompt(round?: number): string {
+  return `(research) ${round ? `Round ${round} released` : 'Research mail ready'}; the reports are in your mail. Distil them, update synthesis.md and give the operator the answer.`;
 }
 
 export function buildReleaseMessage(state: ResearchState, round: ResearchRound, written: Record<string, { reportPath?: string; sources: string[] }>): string {
@@ -356,7 +356,7 @@ export async function maybeRelease(clusterId: string): Promise<boolean> {
     delivered: false,
   }, { maxContentBytes: RELEASE_MAX_BYTES });
   if (d().isBusy(latest.directorWorkflowId)) directorWakes.add(clusterId);
-  else d().wake(latest.directorWorkflowId, directorWakePrompt());
+  else d().wake(latest.directorWorkflowId, directorWakePrompt(round.n));
   d().notify(clusterId);
   return true;
 }
@@ -452,7 +452,7 @@ export function isResearchMemberBusy(workflowId: string): boolean { return deps?
 // prompt is the Director's visible first message.
 export function directorStartPrompt(state: Pick<ResearchState, 'name' | 'brief'>): string {
   return [
-    `(research) New research project: ${state.name}.`,
+    `(research) Brief for ${state.name}`,
     'If the brief below is clear enough to research, send round 1 now with research_round, built from it. If it is too unclear to research, ask the operator one question first and send no round.',
     '',
     'Brief from the operator:',

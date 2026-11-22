@@ -36,3 +36,19 @@ for(const {provider,blind} of [...(['ollama','llamacpp','lmstudio','strata','dee
  const prompt=captured.systemPrompt??'';if(blind){assert.doesNotMatch(prompt,/PLAN_MARKER/);return;}assert.equal((prompt.match(/PLAN_MARKER/g)??[]).length,1);assert.equal((prompt.match(/ROLE_MARKER/g)??[]).length,1);assert.equal((prompt.match(/--- Cluster progress tracking ---/g)??[]).length,1);
  }finally{releaseClusterPlansWatcher(cluster.clusterId);await store.deleteCluster(cluster.clusterId);workflows.delete(id);workflowCwds.delete(id);await settleProjectWrites();}
 });
+
+
+test('Research Director gets research doctrine without cluster efficiency or progress doctrine', async t => {
+ t.mock.method(globalThis, 'fetch', async () => Response.json({ models: [{ name: 'fixture', model: 'fixture' }] }));
+ const id=randomUUID(),peer=randomUUID(),cwd=join(root,id);mkdirSync(cwd,{recursive:true});const messages:any[]=[];let captured:any;
+ const ws={readyState:1,bufferedAmount:0,send:(raw:string)=>messages.push(JSON.parse(raw))} as any;
+ const session={id:'fixture',workflowIds:new Set([id]),clusterIds:new Set(),clusterObserved:new Map()} as any;
+ const manager={spawn:async(spec:any,emit:any,options:any)=>{captured={...options,systemPrompt:spec.systemPrompt};emit({type:'worker_text',text:'fixture answer'});emit({type:'worker_complete',costUsd:0,durationMs:1});return {id:spec.id,text:'fixture answer',costUsd:0,durationMs:1};},getWorkerPid:()=>undefined};
+ const wf={config:{name:'Research Director',workingDirectory:cwd,primaryProvider:'ollama',primaryModel:'fixture',primaryEffort:'low',autoCompaction:{enabled:false},autoHandoff:{enabled:false,afterCompactions:5}},primary:{provider:'ollama',model:'fixture',effort:'low',skipPermissions:false},manager,busy:false,observers:new Set([ws]),queue:{steering:[],followUp:[]},autoHandoff:{enabled:false,afterCompactions:5,compactions:0,fired:false},lastContextPercent:0} as any;
+ workflows.set(id,wf);workflowCwds.set(id,cwd);await initWorkflowStore(cwd,id);
+ const cluster=await store.createCluster({cwd,memberWorkflowIds:[id,peer],memberAccessModes:{[peer]:'researcher'},research:{projectId:'fixture'},taskBoardMode:'none'});
+ const {initResearch}=await import('../research/researchState.js');
+ await initResearch({schemaVersion:1,projectId:'fixture',clusterId:cluster.clusterId,folder:cwd,membersCwd:join(root,'members'),name:'Fixture',brief:'Compare',blind:true,createdAt:new Date().toISOString(),directorWorkflowId:id,researchers:[{workflowId:peer,letter:'A',provider:'ollama',model:'fixture'}],rounds:[],targetedBeforeRounds:[]});
+ try { await engine.handleUserMessage(ws,session,id,'fixture task','fixture-input',undefined,false,undefined,undefined);assert.ok(captured,JSON.stringify(messages));assert.match(captured.systemPrompt,/You run a research project/);assert.doesNotMatch(captured.systemPrompt,/Cluster efficiency|Cluster progress tracking|Cluster message guard/); }
+ finally {releaseClusterPlansWatcher(cluster.clusterId);await store.deleteCluster(cluster.clusterId);workflows.delete(id);workflowCwds.delete(id);await settleProjectWrites();}
+});

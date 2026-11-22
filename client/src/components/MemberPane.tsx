@@ -32,6 +32,7 @@ import type { UploadResult } from '../utils/uploadAttachment';
 
 interface Props {
   job: JobState;
+  researchProject?: boolean;
   // Identity strip
   displayName: string;
   status: 'idle' | 'busy';
@@ -82,6 +83,7 @@ interface Props {
 
 export function MemberPane({
   job,
+  researchProject = false,
   displayName,
   status,
   role,
@@ -182,9 +184,10 @@ export function MemberPane({
           clusterContext={clusterContext}
         />
         <RuntimeStateBanner job={job} onCancel={onCancel} />
-        <div data-help="composer.plan"><PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachToCluster} onSend={onSend} /></div>
+        {!researchProject && <div data-help="composer.plan"><PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachToCluster} onSend={onSend} /></div>}
         <TerminalInput
           job={job}
+          researchProject={researchProject}
           onSend={(content, attachments, kind, primitive, pickedSkills) => onSend(content, attachments, kind, primitive, pickedSkills)}
           onCancel={onCancel}
           onCancelQueued={onCancelQueued}

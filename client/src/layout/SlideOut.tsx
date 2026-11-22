@@ -53,7 +53,7 @@ interface StripProps {
 // A 34 px strip of vertical buttons on the right edge (narrow range).
 export function PanelStrip({ items, active, onOpen }: StripProps) {
   return (
-    <div data-help="layout.right-strip" data-testid="layout-panel-strip" style={{ flex: '0 0 34px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '8px 0', borderLeft: '1px solid var(--color-border-hairline)' }}>
+    <div data-help="layout.right-strip" data-testid="layout-panel-strip" style={{ position: 'relative', zIndex: 20, background: 'var(--color-bg-panel)', flex: '0 0 34px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '8px 0', borderLeft: '1px solid var(--color-border-hairline)' }}>
       {items.map((item) => (
         <button
           key={item.id}

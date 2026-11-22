@@ -27,7 +27,6 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
   const authors = !research.blind || !!research.revealedAt;
   return (
     <div data-help="research.results" style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12, color: 'var(--color-fg)' }}>
-      <div style={{ color: 'var(--color-fg)', overflowWrap: 'anywhere' }}>Research folder: <code>{research.folder}</code></div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
         {link('Brief', join('brief.md'))}
         {summaries?.latest ? link('Summary', join('synthesis.md')) : <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44 }}>Awaiting summary</span>}

@@ -468,8 +468,16 @@ export const clusters: Section[] = [
   The <strong>rounds strip</strong> above the cards shows the name, the
   brief behind <Code>BRIEF</Code>, and one row per round; choose a row for each researcher's outcome and the
   deadline. In the right panel, <strong>RESULTS</strong> opens the brief, the
-  summary, the Director log and each released round's reports. BOARD is not
-  shown in a research project.
+  summary, the Director log and each released round's reports. BOARD and PLAN
+  are not shown in a research project.
+  </p>
+  <p>
+  The strip shows where the project is
+  saved; <Code>OPEN FOLDER</Code> opens FILES. The default location is in
+  Settings &gt; Projects &gt; Research folder. Research wakes are folded under
+  a label for the brief or the released round. MEMBERS does not offer the
+  generic add, replace or detach controls; the cluster bar offers Auto-compaction
+  and SKILLS.
   </p>
   <p>
   Files a researcher sends as attachments must be regular workspace files.

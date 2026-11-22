@@ -18,7 +18,7 @@ interface Props {
 interface QueueItem {
   kind: 'steer' | 'follow-up' | 'interrupt';
   content: string;
-  automaticKind?: 'nudge' | 'auto-pickup';
+  automaticKind?: 'nudge' | 'auto-pickup' | 'research';
   clientMessageId?: string;
   // Position within the kind's array. Used as a stable React key when no
   // clientMessageId is available (e.g., post-reload entries reconstructed

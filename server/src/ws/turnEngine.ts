@@ -2324,7 +2324,7 @@ export async function handleUserMessage(
       // operator level-change lands on the NEXT turn (in-flight turns are
       // untouched). Legacy omitted styles remain Thorough; guards resolve
       // independently and are included even for mailbox-only members.
-      let turnClusterEfficiencyDoctrine: string | undefined = turnClusterId ? buildMessageGuardPolicy(clusterStore.getMessageGuard(turnClusterId)) : undefined;
+      let turnClusterEfficiencyDoctrine: string | undefined = turnClusterId && !turnResearchDirector ? buildMessageGuardPolicy(clusterStore.getMessageGuard(turnClusterId)) : undefined;
       let turnClusterEfficiencyLevel: ClusterEfficiencyLevel = 'thorough';
       let turnClusterTaskBoardAttached = false;
       // per-cluster progress-tracking doctrine. Built from the
@@ -2334,7 +2334,7 @@ export async function handleUserMessage(
       // mode-change lands on the NEXT turn (in-flight turns untouched). Undefined
       // when there is nothing to keep current (e.g. mode 'plan' but no plan).
       let turnClusterProgressDoctrine: string | undefined;
-      if (turnClusterId && clusterAccessMode === 'standard') {
+      if (turnClusterId && clusterAccessMode === 'standard' && !turnResearchDirector) {
         const planRec = await clusterPlanBridge.readClusterPlan(turnClusterId).catch(() => null);
         turnClusterPlan = planRec?.body;
         // Plan reference docs ride as one trailing heading line — a heading so

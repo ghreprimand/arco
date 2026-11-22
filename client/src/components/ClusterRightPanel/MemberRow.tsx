@@ -304,7 +304,7 @@ export function MemberRow({
         )}
       </div>
 
-      {(wsSendRaw || onDetach) && (
+      {!cluster.research && (wsSendRaw || onDetach) && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
           {wsSendRaw && (
             <button
@@ -356,7 +356,7 @@ export function MemberRow({
       )}
       {detachScratch && <ScratchCloseDialog targets={[{ id: member.workflowId, name: memberName }]} onCancel={() => setDetachScratch(false)} onContinue={() => { setDetachScratch(false); onDetach?.(cluster.clusterId, member.workflowId); }} />}
 
-      {onSetRole && (
+      {!cluster.research && onSetRole && (
         <div data-help="cluster.right-panel.role-custom" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', position: 'relative' }}>
           {isClusterDirector(member.role) && otherDirector && <span role="alert">{clusterDirectorProblem(['Director', 'Director'])}</span>}
           <span style={{ color: 'var(--color-fg-muted)', letterSpacing: '1px' }} className="display-font">
@@ -541,7 +541,7 @@ export function MemberRow({
         </div>
       )}
 
-      {onSetTier && !isClusterDirector(member.role) && (
+      {!cluster.research && onSetTier && !isClusterDirector(member.role) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
           <span
             className="display-font"
@@ -602,7 +602,7 @@ export function MemberRow({
         </div>
       )}
 
-      {onSetFocus && (
+      {!cluster.research && onSetFocus && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
           <span
             className="display-font"

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Make research projects show research-specific wake labels, relevant controls and their saved folder.
+
 - Offer sandboxed Claude CLI and Codex isolated members on supported Linux hosts, and give isolated members and researchers a per-member web switch.
 
 - Tell cluster Directors never to assign what the project's own rules forbid, and members to check their delivery against those rules before reporting done; project rules now take precedence for commits, documentation and delivery as well as testing.

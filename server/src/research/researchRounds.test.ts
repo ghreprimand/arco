@@ -21,9 +21,7 @@ async function project() {
   const folder = await createResearchFolder(join(root, 'research'), 'Which heat pump?', new Date('2026-11-21T00:00:00Z'));
   const membersCwd = join(root, 'members');
   const [director, a, b] = [randomUUID(), randomUUID(), randomUUID()];
-  const cluster = await clusterStore.createCluster({ cwd: folder, memberWorkflowIds: [director, a, b], memberCwds: { [a]: membersCwd, [b]: membersCwd }, research: { projectId: 'p1' }, taskBoardMode: 'none' });
-  await clusterStore.setMemberAccessMode(cluster.clusterId, a, 'researcher');
-  await clusterStore.setMemberAccessMode(cluster.clusterId, b, 'researcher');
+  const cluster = await clusterStore.createCluster({ cwd: folder, memberWorkflowIds: [director, a, b], memberCwds: { [a]: membersCwd, [b]: membersCwd }, memberAccessModes: { [a]: 'researcher', [b]: 'researcher' }, research: { projectId: 'p1' }, taskBoardMode: 'none' });
   await initResearch({
     schemaVersion: 1, projectId: 'p1', clusterId: cluster.clusterId, folder, membersCwd, name: 'Heat pump', brief: 'Which heat pump?',
     blind: true, createdAt: new Date().toISOString(), directorWorkflowId: director,
@@ -205,6 +203,7 @@ test('a round holds every reply until all researchers are done, then releases th
     assert.match(await fs.readFile(join(p.folder, 'rounds', 'round-1', 'report-b.md'), 'utf8'), /model Y/);
     assert.doesNotMatch(await fs.readFile(join(p.folder, 'research.json'), 'utf8'), /claude-sonnet|qwen3|provider/);
     assert.ok(p.woken.includes(p.director));
+    assert.ok(p.prompts.some(prompt => prompt.startsWith('(research) Round 1 released;')));
 
     // The Director sees researchers by letter only, and can address one by letter.
     const peers = await clusterPeerOps.peerList(p.ctx(p.director));
@@ -321,10 +320,25 @@ test('creating a research project starts the Director on the operator brief', as
     const state = (await loadResearch(p.clusterId))!;
     assert.equal(startResearchDirector(state), true);
     assert.deepEqual(p.woken, [p.director]);
-    assert.match(p.prompts[0], /Heat pump[\s\S]*research_round[\s\S]*one question[\s\S]*Which heat pump\?/);
+    assert.match(p.prompts[0], /^\(research\) Brief for Heat pump\n[\s\S]*research_round[\s\S]*one question[\s\S]*Which heat pump\?/);
   } finally {
     configureResearch(null);
     await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
     await fs.rm(p.root, { recursive: true, force: true });
   }
+});
+
+
+test('research clusters reject ordinary members, access changes, board and plans', async () => {
+  const p = await project();
+  try {
+    const bridge = await import('../clusterPlanBridge.js');
+    await assert.rejects(clusterStore.addMember(p.clusterId, randomUUID()), /research project controls/);
+    assert.equal(await clusterStore.setMemberAccessMode(p.clusterId, p.a, 'standard'), null);
+    assert.equal(await clusterStore.setTaskBoardMode(p.clusterId, 'project'), null);
+    assert.equal(await clusterStore.setPlanId(p.clusterId, randomUUID()), null);
+    assert.equal(await bridge.setClusterPlanBody(p.clusterId, '# Unexpected plan'), null);
+    const snapshots = await import('../clusterSnapshots.js');
+    await assert.rejects(snapshots.saveSnapshot({ clusterId: p.clusterId, name: 'Fixture' }), /Research projects cannot be saved/);
+  } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
 });

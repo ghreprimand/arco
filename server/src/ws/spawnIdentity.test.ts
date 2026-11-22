@@ -22,3 +22,5 @@ test('unknown tier or access mode is refused', () => {
   assert.equal(spawnIdentityProblem({ tier: 'huge' as never }, cluster, codex), 'invalid_tier');
   assert.equal(spawnIdentityProblem({ accessMode: 'wide' as never }, cluster, codex), 'invalid_access_mode');
 });
+
+test('a standard member cannot be spawned into a research project', () => assert.equal(spawnIdentityProblem(undefined, { members: ['a'], research: { projectId: 'fixture' } } as never, claudeNative), 'research_project'));

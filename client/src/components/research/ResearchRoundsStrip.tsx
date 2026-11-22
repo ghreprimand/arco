@@ -9,7 +9,7 @@ import { AuthReloginNotice } from '../AuthReloginNotice';
 // docs/RESEARCH.md - the rounds strip above a research project's member
 // cards: one row per round with each researcher's state, time, failures,
 // and the project's Reveal control.
-export function ResearchRoundsStrip({ clusterId, research }: { clusterId: string; research: ClusterResearchSummary }) {
+export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clusterId: string; research: ClusterResearchSummary; onOpenFolder: () => void }) {
   const [now, setNow] = useState(() => Date.now());
   const [openRound, setOpenRound] = useState<number | null>(null);
   const [all, setAll] = useState(false);
@@ -42,6 +42,11 @@ export function ResearchRoundsStrip({ clusterId, research }: { clusterId: string
         <button type="button" data-help="research.brief" aria-expanded={questionOpen} onClick={() => setQuestionOpen(!questionOpen)} style={touchButton}>{questionOpen ? 'HIDE BRIEF' : 'BRIEF'}</button>
         <span>{blind ? 'Blind' : research.revealedAt ? 'Revealed' : 'Not blind'}</span>
         {blind && <button type="button" data-help="research.reveal" style={touchButton} disabled={busy} onClick={() => setConfirmReveal(true)}>REVEAL</button>}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+        <span style={{ overflowWrap: 'anywhere' }}>Saved in <code>{research.folder}</code></span>
+        <button type="button" style={touchButton} onClick={onOpenFolder}>OPEN FOLDER</button>
+        <span>Default location: Settings &gt; Projects &gt; Research folder.</span>
       </div>
       {questionOpen && <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 240, overflowY: 'auto', border: '1px solid var(--color-border-hairline)', padding: 6 }}>{research.brief}</div>}
       {research.researchers.filter(r => r.signInNeeded).map(r => <div key={r.workflowId} data-help="research.signin"><AuthReloginNotice provider={r.signInNeeded!} workflowId={r.workflowId} {...(r.signInNeeded === 'claude' ? { authRecovery: { transport: 'cli' as const } } : {})} autoContinue body={`${r.signInNeeded === 'claude' ? 'Claude' : 'Codex'} sign-in needs renewing. Researcher ${r.letter} continues after sign-in.`} /></div>)}

@@ -26,12 +26,14 @@ function filledControlStyle(active: boolean): CSSProperties {
 
 export function ConfigTab({
   job,
+  hideCwd = false,
   onUpdatePrimary,
   onAttachCodebaseMemory,
   onDetachCodebaseMemory,
   mcp,
 }: {
   job: JobState;
+  hideCwd?: boolean;
   onUpdatePrimary?: (update: { model?: ModelName; effort?: EffortLevel; autoHandoff?: import('@arco/shared').AutoHandoffConfig; autoFold?: { enabled: boolean; foldAt: number; tailBudget?: number }; autoCompaction?: import('@arco/shared').AutoCompactionPolicy | null; codexTransport?: 'exec' | 'appserver'; codexContextPolicy?: 'max' | 'standard'; claudeTransport?: 'cli' | 'native'; ultracode?: boolean; webSearchMaxUses?: number; claudeNativeCompact?: boolean; claudeNativeForceInterleavedThinkingBeta?: boolean; claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates'; nativeSubagents?: import('@arco/shared').NativeSubagentPolicy | null; nativeCompactAutoContinue?: boolean; efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive'; efficiencyFactForce?: 'on' | 'off'; efficiencyConfigProtection?: 'on' | 'off'; efficiencySandbox?: 'off' | 'on'; reviewSafeMode?: 'off' | 'on'; outputStyle?: import('@arco/shared').OutputStyle; goal?: string; ollamaParams?: Record<string, unknown> }) => void;
   onAttachCodebaseMemory?: (workflowId: string, indexPath?: string) => void;
   onDetachCodebaseMemory?: (workflowId: string) => void;
@@ -58,7 +60,7 @@ export function ConfigTab({
   };
 
   const staticRows: Array<[string, string]> = [
-    ['CWD', c.workingDirectory || '-'],
+    ...(!hideCwd ? [['CWD', c.workingDirectory || '-'] as [string, string]] : []),
     ['PROVIDER', provider === 'deepseek' ? 'XOLOTL' : provider.toUpperCase()],
     ...(codexAccountRow() ? [codexAccountRow()!] : []),
   ];

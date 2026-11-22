@@ -1687,6 +1687,10 @@ async function handleRecalibrateRequest(ws: WebSocket, workflowId: string): Prom
 // workflow-scoped broadcasts (persisted to events.jsonl) so reconnects
 // replay them and the Plan tab stays in sync across windows.
 async function handlePlanAttach(workflowId: string, planId: string): Promise<void> {
+  const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
+  if (clusterId && clusterStore.getClusterCached(clusterId)?.research) {
+    throw new Error('Plans cannot be attached to a research project.');
+  }
   const wf = workflows.get(workflowId);
   if (!wf) return;
   const cwd = wf.config.workingDirectory;
@@ -2556,7 +2560,7 @@ function onListening() {
     wake: (wfid, prompt) => {
       const fakeWs = { readyState: WebSocket.CLOSED, send: () => undefined } as unknown as WebSocket;
       const fakeSession: Session = { id: RESEARCH_SYNTHETIC_SESSION, workflowIds: new Set([wfid]), clusterIds: new Set(), clusterObserved: new Map() };
-      handleUserMessage(fakeWs, fakeSession, wfid, prompt, undefined, undefined, false, undefined, undefined, undefined, { automaticKind: 'auto-pickup' })
+      handleUserMessage(fakeWs, fakeSession, wfid, prompt, undefined, undefined, false, undefined, undefined, undefined, { automaticKind: 'research' })
         .catch((err) => console.error(`[arco] research turn failed to start for ${wfid.slice(0, 8)}:`, err));
     },
     isBusy: (wfid) => workflows.get(wfid)?.busy === true,
