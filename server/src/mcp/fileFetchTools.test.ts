@@ -57,6 +57,27 @@ test('worker web proxy refuses non-public targets, mixed DNS results and disable
   finally { await off.close(); }
 });
 
+test('worker web proxy keeps an established tunnel through silence longer than the handshake limit', async () => {
+  const { startWorkerWebProxy } = await import('../workers/workerWebProxy.js');
+  const { createServer } = await import('node:net');
+  // A model stream: one chunk, a silence longer than the handshake limit, then the rest.
+  const upstream = createServer((socket) => { socket.on('error', () => {}); socket.write('first'); setTimeout(() => socket.end('second'), 800); });
+  await new Promise<void>((resolve) => upstream.listen(0, '127.0.0.1', () => resolve()));
+  const port = (upstream.address() as { port: number }).port;
+  const proxy = await startWorkerWebProxy({ parentDir: home, webAccess: true, providerHosts: [], lookup: async () => [{ address: '8.8.8.8', family: 4 }],
+    dial: () => createConnection({ host: '127.0.0.1', port }), timeouts: { handshakeMs: 300, streamIdleMs: 5000 } });
+  try {
+    const received = await new Promise<string>((resolve, reject) => {
+      const socket = createConnection(proxy.socketPath); let data = '';
+      socket.on('connect', () => socket.write('CONNECT model.example:443 HTTP/1.1\r\nHost: model.example:443\r\n\r\n'));
+      socket.on('data', (chunk) => { data += chunk.toString(); });
+      socket.once('close', () => resolve(data)); socket.once('error', reject);
+    });
+    assert.match(received, /^HTTP\/1\.1 200/);
+    assert.ok(received.endsWith('firstsecond'), received);
+  } finally { await proxy.close(); upstream.close(); }
+});
+
 test('portable file server exposes guarded URL media to every CLI transport', async (t) => {
   const handlers = new Map<string, (args: any) => Promise<any>>();
   registerFileTools({ registerTool: (name: string, _schema: unknown, callback: any) => handlers.set(name, callback) } as any, home);

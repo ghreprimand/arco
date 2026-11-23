@@ -32,8 +32,17 @@ type Address = { address: string; family: number };
 type Lookup = (name: string) => Promise<Address[]>;
 const defaultLookup: Lookup = async (name) => lookupDns(name, { all: true });
 const MAX_CONNECTIONS = 32;
+// One plain-HTTP request or response body.
 const MAX_BYTES = 64 * 1024 * 1024;
-const TIMEOUT_MS = 30_000;
+// Each direction of one CONNECT tunnel over its whole life. A provider keeps
+// one TLS connection open for a long session and sends its full context with
+// every request, so this bounds a runaway transfer without ending sessions.
+const MAX_TUNNEL_BYTES = 1024 * 1024 * 1024;
+// Until a request is read and its upstream connection is made.
+const HANDSHAKE_TIMEOUT_MS = 30_000;
+// Silence allowed on an established tunnel or a streamed response: a model can
+// think for minutes between streamed chunks.
+const STREAM_IDLE_TIMEOUT_MS = 10 * 60_000;
 const HOP_HEADERS = new Set(['connection', 'proxy-authorization', 'proxy-authenticate', 'proxy-connection', 'keep-alive', 'te', 'trailer', 'transfer-encoding', 'upgrade']);
 
 interface Target { hostname: string; port: number }
@@ -83,10 +92,16 @@ export async function startWorkerWebProxy(options: {
   providerHosts: readonly string[];
   /** Allows deterministic DNS policy tests; production uses the system resolver. */
   lookup?: Lookup;
+  /** Tests only: where the checked address is dialled, and shorter time limits. */
+  dial?: (address: Address, port: number) => Socket;
+  timeouts?: { handshakeMs?: number; streamIdleMs?: number };
 }): Promise<{ socketPath: string; close: () => Promise<void> }> {
   const allowed = new Set(options.providerHosts.map((host) => host.toLowerCase()));
   const webAccess = options.webAccess === true;
   const lookup = options.lookup ?? defaultLookup;
+  const dial = options.dial ?? ((address: Address, port: number) => connect({ host: address.address, family: address.family, port }));
+  const handshakeMs = options.timeouts?.handshakeMs ?? HANDSHAKE_TIMEOUT_MS;
+  const streamIdleMs = options.timeouts?.streamIdleMs ?? STREAM_IDLE_TIMEOUT_MS;
   const directory = await mkdtemp(join(options.parentDir, 'worker-proxy-'));
   const socketPath = join(directory, 'web.sock');
   const active = new Set<Socket>();
@@ -94,9 +109,9 @@ export async function startWorkerWebProxy(options: {
   const server = createServer({ maxHeaderSize: 8192 });
   server.maxConnections = MAX_CONNECTIONS;
   server.headersTimeout = 10_000;
-  server.requestTimeout = TIMEOUT_MS;
+  server.requestTimeout = handshakeMs;
   server.on('connection', (socket) => {
-    active.add(socket); socket.setTimeout(TIMEOUT_MS, () => socket.destroy());
+    active.add(socket); socket.setTimeout(handshakeMs, () => socket.destroy());
     socket.once('close', () => active.delete(socket));
   });
   server.on('clientError', (_error, socket) => socket.destroy());
@@ -106,9 +121,9 @@ export async function startWorkerWebProxy(options: {
     socket.once('close', () => outbound.delete(socket));
   }
 
-  function limitedPipe(source: Readable, destination: Writable): void {
+  function limitedPipe(source: Readable, destination: Writable, limit: number): void {
     let bytes = 0;
-    source.on('data', (chunk: Buffer) => { bytes += chunk.length; if (bytes > MAX_BYTES) { source.destroy(); destination.destroy(); } });
+    source.on('data', (chunk: Buffer) => { bytes += chunk.length; if (bytes > limit) { source.destroy(); destination.destroy(); } });
     source.on('error', () => destination.destroy());
     destination.on('error', () => source.destroy());
     source.pipe(destination);
@@ -119,15 +134,17 @@ export async function startWorkerWebProxy(options: {
       const target = targetFromAuthority(req.url ?? '');
       const address = await resolveTarget(target, webAccess, allowed, lookup);
       if (client.destroyed) return;
-      const upstream = connect({ host: address.address, family: address.family, port: target.port });
+      const upstream = dial(address, target.port);
       trackOutbound(upstream);
-      upstream.setTimeout(TIMEOUT_MS, () => upstream.destroy());
+      upstream.setTimeout(handshakeMs, () => upstream.destroy());
       upstream.once('error', () => client.destroy());
       client.once('close', () => upstream.destroy());
       upstream.once('connect', () => {
         client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
         if (head.length) upstream.write(head);
-        limitedPipe(client, upstream); limitedPipe(upstream, client);
+        // Established: only long silence ends the tunnel.
+        upstream.setTimeout(streamIdleMs); req.socket.setTimeout(streamIdleMs);
+        limitedPipe(client, upstream, MAX_TUNNEL_BYTES); limitedPipe(upstream, client, MAX_TUNNEL_BYTES);
       });
     })().catch(() => { if (!client.destroyed) client.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n'); });
   });
@@ -143,7 +160,7 @@ export async function startWorkerWebProxy(options: {
       const nominated = String(req.headers.connection ?? '').toLowerCase().split(',').map((v) => v.trim());
       const headers = Object.fromEntries(Object.entries(req.headers).filter(([name]) => !HOP_HEADERS.has(name) && !nominated.includes(name)));
       headers.host = url.host;
-      const upstream = httpRequest({ host: address.address, family: address.family, port: target.port, path: url.pathname + url.search, method: req.method, headers, timeout: TIMEOUT_MS, agent: false });
+      const upstream = httpRequest({ host: address.address, family: address.family, port: target.port, path: url.pathname + url.search, method: req.method, headers, timeout: handshakeMs, agent: false });
       upstream.once('socket', trackOutbound);
       upstream.once('timeout', () => upstream.destroy());
       upstream.once('error', () => { if (!res.headersSent) res.writeHead(502); res.end(); });
@@ -151,7 +168,9 @@ export async function startWorkerWebProxy(options: {
       upstream.once('response', (response) => {
         const responseNominated = String(response.headers.connection ?? '').toLowerCase().split(',').map((v) => v.trim());
         const clean = Object.fromEntries(Object.entries(response.headers).filter(([name]) => !HOP_HEADERS.has(name) && !responseNominated.includes(name)));
-        res.writeHead(response.statusCode ?? 502, clean); limitedPipe(response, res);
+        // Streaming: only long silence ends the response.
+        upstream.setTimeout(streamIdleMs); req.socket.setTimeout(streamIdleMs);
+        res.writeHead(response.statusCode ?? 502, clean); limitedPipe(response, res, MAX_BYTES);
       });
       let bytes = 0;
       req.on('data', (chunk: Buffer) => { bytes += chunk.length; if (bytes > MAX_BYTES) { req.destroy(); upstream.destroy(); } });
