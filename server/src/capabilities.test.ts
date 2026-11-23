@@ -57,3 +57,13 @@ test('Antigravity version metadata and updater use agy', async t => {
  const result=await runCliUpdate({cliVersion:'unknown',models:[],efforts:[],antigravityVersion:'1.5.14',latestVersions:latest} as any,'antigravity-cli',async(cmd,args)=>{command=[cmd,...args];return {exitCode:0,output:'current'};});
  assert.deepEqual(command,['agy','update']);assert.equal(result.currentVersion,'1.5.14');assert.equal(result.outcome,'current');
 });
+
+
+test('old Antigravity warns once when a named sub-agent call starts', async () => {
+  const { AntigravitySubagentNotice } = await import('./providers/antigravity/index.js');
+  const old = new AntigravitySubagentNotice('1.5.14');
+  assert.equal(old.observe({ sessionUpdate: 'tool_call', name: 'other' }), undefined);
+  assert.match(old.observe({ sessionUpdate: 'tool_call', name: 'invoke_subagent' })!, /Versions menu/);
+  assert.equal(old.observe({ sessionUpdate: 'tool_call', name: 'invoke_subagent' }), undefined);
+  assert.equal(new AntigravitySubagentNotice('1.5.15').observe({ sessionUpdate: 'tool_call', name: 'invoke_subagent' }), undefined);
+});

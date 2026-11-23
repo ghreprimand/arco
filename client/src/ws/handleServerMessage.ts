@@ -1246,6 +1246,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             id: crypto.randomUUID(),
             kind: 'tool_use',
             eventSeq: (msg as { seq?: number }).seq,
+            eventAt: (msg as { eventTs?: number }).eventTs,
             tool: msg.tool,
             input: msg.input,
             status: msg.status,

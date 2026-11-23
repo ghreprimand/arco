@@ -10,7 +10,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'runtime.waiting-subagents': {
     title: 'Waiting for sub-agents',
-    body: <p>The Native parent is awaiting Task replies. The strip counts running and queued children instead of labelling their wait as a stuck worker. CANCEL TURN stops the parent and its children; each queued or running task also has its own CANCEL. The parent resumes when its Task calls settle.</p>,
+    body: <p>For Gemini, this turn has started sub-agents and remains open while they work. Their own tool calls are not shown over ACP and are not gated by SAFE permission requests. For Claude Native, the parent is awaiting Task replies. The strip counts running and queued children instead of labelling their wait as a stuck worker. CANCEL TURN stops the parent and its children; each queued or running task also has its own CANCEL. The parent resumes when its Task calls settle.</p>,
     manualSection: 'settings-providers',
   },
   'palette.results': {

@@ -22,6 +22,20 @@ import { AcpJsonRpcClient, AcpReplyError, type IncomingRequest, type JsonRpcNoti
 import { cancelAcpPermissions, requestAcpPermission } from '../acp/permissionGate.js';
 import { commandArgs } from '../../windowsCommand.js';
 import { killProcessTree } from '../../workers/processKill.js';
+import { probeVersion } from '../../capabilities.js';
+import { compareVersions } from '../../updateCheck.js';
+
+export class AntigravitySubagentNotice {
+  private shown = false;
+  constructor(private version: string) {}
+  observe(update: { sessionUpdate?: string; name?: string }): string | undefined {
+    if (this.shown || update.sessionUpdate !== 'tool_call' || update.name !== 'invoke_subagent') return;
+    const comparison = compareVersions(this.version, '1.5.15');
+    if (comparison === null || comparison >= 0) return;
+    this.shown = true;
+    return 'This Antigravity CLI version can end the turn before sub-agents report. Update Antigravity from the Versions menu.';
+  }
+}
 
 export function permittedAgyModel(id: string): boolean { return /^gemini-[a-z0-9.-]+$/.test(id); }
 
@@ -76,6 +90,8 @@ class AntigravityTurn extends EventEmitter implements ProviderProcess {
     const workflowId = this.config.workflowId;
     if (!workflowId || this.config.antigravityInteractive !== true || this.config.interactionMode !== 'agent' || this.config.sandbox || this.config.voiceOperator) throw new Error('Antigravity runs only on an interactive message the operator sent.');
     if (!permittedAgyModel(this.config.model)) throw new Error('Antigravity requires a Gemini model.');
+    const subagentNotice = new AntigravitySubagentNotice(await probeVersion('agy'));
+    if (this.finished) return;
     const researcher = this.config.clusterAccessMode === 'researcher';
     let fenced: Awaited<ReturnType<typeof prepareAntigravityIsolatedLaunch>> | undefined;
     let cwd: string;
@@ -121,7 +137,11 @@ class AntigravityTurn extends EventEmitter implements ProviderProcess {
       if (update.sessionUpdate === 'agent_message_chunk' && typeof update.content?.text === 'string') { this._output += update.content.text; this.emit('text', update.content.text); }
       else if (update.sessionUpdate === 'agent_thought_chunk' && typeof update.content?.text === 'string') this.emit('thinking', update.content.text);
       else if (update.sessionUpdate === 'usage_update') { this.contextSize = typeof update.size === 'number' ? update.size : undefined; this.contextUsed = typeof update.used === 'number' ? update.used : undefined; }
-      else if (update.sessionUpdate === 'tool_call' || update.sessionUpdate === 'tool_call_update') this.emit('tool_use', { id: update.toolCallId, name: update.title ?? 'Antigravity tool', input: JSON.stringify(update.rawInput ?? {}), status: update.status === 'completed' ? 'completed' : update.status === 'failed' ? 'failed' : 'in_progress', ...(update.rawOutput !== undefined ? { output: JSON.stringify(update.rawOutput) } : {}) });
+      else if (update.sessionUpdate === 'tool_call' || update.sessionUpdate === 'tool_call_update') {
+        const notice = subagentNotice.observe(update);
+        if (notice) this.emit('system_notice', notice);
+        this.emit('tool_use', { id: update.toolCallId, name: update.name === 'invoke_subagent' ? 'invoke_subagent' : update.title ?? 'Antigravity tool', input: JSON.stringify(update.rawInput ?? {}), status: update.status === 'completed' ? 'completed' : update.status === 'failed' ? 'failed' : 'in_progress', ...(update.rawOutput !== undefined ? { output: JSON.stringify(update.rawOutput) } : {}) });
+      }
     });
     await rpc.request('initialize', { protocolVersion: 1, clientCapabilities: {}, clientInfo: { name: 'Arco', version: '1' } });
     const bridge = fenced ? { name: 'arco-cluster', url: fenced.mailUrl } : await ensureClusterLoopbackMcp({

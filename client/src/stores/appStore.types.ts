@@ -125,6 +125,8 @@ export interface ActivityEntry {
   eventSeq?: number;
   // Latest update sequence; the card stays anchored at eventSeq.
   eventEndSeq?: number;
+  // Server event time, used to distinguish turns across browser clock offsets.
+  eventAt?: number;
   id: string;
   kind: 'tool_use' | 'thinking' | 'native_event';
   tool?: string;         // set when kind === 'tool_use'

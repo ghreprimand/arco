@@ -171,3 +171,25 @@ test('child send keeps its exact draft through a socket failure, disconnect and 
     for (const key of Object.keys(globals)) { if (saved[key]) Object.defineProperty(globalThis, key, saved[key]); else Reflect.deleteProperty(globalThis, key); }
   }
 });
+
+
+test('Gemini waiting strip only uses sub-agent activity from the current turn', async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost', pretendToBeVisual: true });
+  const saved = Object.getOwnPropertyDescriptors(globalThis), before = useAppStore.getState(), storage = useAppStore.persist.getOptions().storage;
+  const globals = { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, React, IS_REACT_ACT_ENVIRONMENT: true };
+  for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { configurable: true, value });
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
+  const root = createRoot(document.getElementById('root')!);
+  try {
+    useAppStore.setState({ connectionState: 'online' } as never);
+    const entry = { id: 'old', kind: 'tool_use', tool: 'invoke_subagent', eventAt: 101, at: 5000 };
+    const job = { id: 'gemini', config: { primaryProvider: 'antigravity-cli' }, busy: true, turnStartedAt: 100, lastPrimaryEventAt: Date.now(), activity: [entry] };
+    await act(async () => root.render(<RuntimeStateBanner job={job as never} />));
+    assert.match(document.body.textContent!, /Gemini is waiting for its sub-agents/);
+    await act(async () => root.render(<RuntimeStateBanner job={{ ...job, turnStartedAt: 200 } as never} />));
+    assert.doesNotMatch(document.body.textContent!, /Gemini is waiting/);
+  } finally {
+    await act(async () => root.unmount()); useAppStore.setState(before, true); useAppStore.persist.setOptions({ storage }); dom.window.close();
+    for (const key of Object.keys(globals)) { if (saved[key]) Object.defineProperty(globalThis, key, saved[key]); else Reflect.deleteProperty(globalThis, key); }
+  }
+});

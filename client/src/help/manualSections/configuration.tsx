@@ -15,6 +15,7 @@ export const configuration: Section[] = [
   lives in the CONFIG tab on the right pane.
   </p>
   <p>In Connections, clear <strong>Model server address</strong> and choose <strong>Save endpoint</strong> to restore the runtime default. Other Ollama options stay saved. Use <strong>Test connection</strong> to check the resulting address.</p>
+  <p>Antigravity CLI 1.5.15 or later keeps a turn open for its sub-agents. Update from the Versions menu if an older version is installed. A sub-agent's own tool calls are not shown over ACP and are not gated by SAFE permission requests.</p>
   <Sub>Claude Native sub-agents</Sub>
   <p>Open Settings - Agents and clusters - Claude Native sub-agents. About this setting includes help for each of the three controls.</p>
   <p>Settings - Agents and clusters and the tab's CONFIG panel offer Maximum running at once (default 4), Maximum starts per turn (default 8), and Sub-agent model. Both limits apply to existing installs on the next parent turn. Blank tab limits inherit Settings; blank Settings limits use 4 and 8.</p>
