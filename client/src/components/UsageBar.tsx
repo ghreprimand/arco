@@ -65,7 +65,6 @@ function AntigravityStatus() {
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const request = useRef(0);
-  const lastRead = useRef(0);
   const inFlight = useRef(false);
   const refresh = async () => {
     if (inFlight.current) return;
@@ -79,12 +78,11 @@ function AntigravityStatus() {
         const next = Array.isArray(data?.pools) ? data.pools : null;
         setPools(next);
         setFailed(!next);
-        lastRead.current = Date.now();
       }
-    } catch { if (id === request.current) { setPools(null); setFailed(true); lastRead.current = Date.now(); } }
+    } catch { if (id === request.current) { setPools(null); setFailed(true); } }
     finally { inFlight.current = false; if (id === request.current) setLoading(false); }
   };
-  useEffect(() => { if (open && Date.now() - lastRead.current > 60_000) void refresh(); }, [open]);
+  useEffect(() => { if (open) void refresh(); }, [open]);
   const groups = new Map<string, Array<{ name: string; percentLeft: number; reset: string }>>();
   for (const pool of pools ?? []) {
     const [family, ...rest] = pool.name.split(' · ');
@@ -103,6 +101,7 @@ function AntigravityStatus() {
     {open && <div ref={placeRef} role="tooltip" style={{ position: 'absolute', top: '100%', right: 0, boxSizing: 'border-box', minWidth: 'min(340px, calc(100vw / var(--ui-scale, 1) - 48px))', padding: '10px 14px', background: 'var(--color-bg-panel)', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)', fontFamily: 'var(--font-content)', zIndex: 30 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px', lineHeight: 1.45 }}>
         <UsageTitle name="Antigravity CLI" onRefresh={() => void refresh()} busy={loading} failed={failed} />
+        {loading && pools && <span role="status">Updating usage...</span>}
         {loading && !pools ? <span>Loading usage...</span> : pools ? [...groups].map(([family, rows]) => <div key={family} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <span>{family}</span>
           {rows.map((row, index) => <UsageRow key={`${row.name}-${index}`} label={row.name} util={100 - row.percentLeft} resetsAt={row.reset} />)}

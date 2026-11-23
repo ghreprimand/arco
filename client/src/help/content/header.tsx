@@ -486,7 +486,7 @@ export const headerHelp: Record<string, HelpEntry> = {
         <p>An enabled remote provider keeps its letter when it is not ready. Hover or focus says what it needs: status still being checked, sign-in needed, a sign-in the provider rejected, or a CLI that is missing or does not run. The dot is dashed amber for sign-in, red for the CLI, and hollow grey while checking. Click or tap a letter that needs attention to open its Connections entry. A status check that could not tell reads as unknown, never as signed out; when it names a reason, such as a locked keyring, the letter also opens Connections.</p>
         <p>Claude and Codex include a refresh button beside the provider name. Sign-in and account detail is in Connections and Settings.</p>
         <p>If Cursor event pages are incomplete, monthly totals are unavailable and the error points to the dashboard.</p>
-        <p>The Claude letter follows the selected transport and is the only Claude sign-in warning in the top bar. Usage-limits errors describe the meter and do not invalidate execution authentication. Codex follows the profile of the active Codex tab.</p>
+        <p>The Claude letter follows the selected transport and is the only Claude sign-in warning in the top bar. Usage-limits errors describe the meter and do not invalidate execution authentication. Codex follows the profile of the active Codex tab. Opening G reads Antigravity usage again and keeps the previous reading visible while updating.</p>
         <p>A usage limits snapshot is retained as stale only for unchanged credentials, and the refresh button asks for a fresh check. CLI refresh remains owned by Claude CLI.</p>
       </>
     ),

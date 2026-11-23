@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Refresh Antigravity usage each time the G panel opens, keeping the previous reading visible while updating.
+
 - Guide researchers to attach long source lists and notes instead of cutting sources to fit a message.
 
 - Show provider refusals and available last messages in failed research round outcomes.

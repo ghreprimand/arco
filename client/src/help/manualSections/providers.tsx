@@ -46,7 +46,7 @@ export const providers: Section[] = [
   <p>The reminder names edits since the last successful turn. TUNE MD defaults to <Code>AGENTS.md</Code>. The CLI reads the project's <Code>AGENTS.md</Code> and <Code>GEMINI.md</Code> and its installed skills itself. Arco file and plan tools, and cluster tools for members, are available through MCP. Install native skills through the CLI.</p>
   <p>Arco skill picks, tab pins and cluster pins are not sent to Gemini.</p>
   <p>SAFE asks on permission requests; AUTO approves them once. Scheduling requests are refused when the CLI asks, but Arco cannot stop every action the CLI performs without a request. A Chat has its own working folder with OPEN FOLDER. The folder is not a fence: AUTO tools can reach anything the user's account can. Deleting the Chat deletes that folder and its files.</p>
-  <p>The Versions menu shows the installed and latest Antigravity CLI versions; select the row to run its updater. Hover or focus G to see usage bars; touch or click also opens them. A recent reading is reused, and REFRESH reads usage again. COMPACT sends the CLI command to the current Gemini session and reports its context size when available.</p>
+  <p>The Versions menu shows the installed and latest Antigravity CLI versions; select the row to run its updater. Hover or focus G to see usage bars; touch or click also opens them. Each opening and REFRESH reads usage again; the previous reading stays visible while updating. COMPACT sends the CLI command to the current Gemini session and reports its context size when available.</p>
   <p>Token and context usage appear in Arco; remaining quota is visible in <Code>agy</Code>.</p>
   <Note kind="tip">
   The most common operator pattern: <strong>Claude as primary</strong>, with
