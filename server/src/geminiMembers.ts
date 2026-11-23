@@ -18,6 +18,8 @@ import { buildClusterDirectorDoctrine } from './clusterDirector.js';
 import { buildProgressDoctrine } from './clusterProgress.js';
 import { readClusterPlan } from './clusterPlanBridge.js';
 import { workflows } from './server/state.js';
+import { listSkills, buildSkillsManifest } from './skills.js';
+import { gateProjectResources } from './projectTrust.js';
 
 export const GEMINI_PROVIDER = 'antigravity-cli';
 export const GEMINI_OPERATOR_ONLY_REFUSAL = 'A Gemini member turn starts only from your NUDGE or a message you type in its composer.';
@@ -81,13 +83,22 @@ export async function geminiClusterInstructions(clusterId: string, workflowId: s
   return parts.filter((part): part is string => !!part && part.trim().length > 0).join('\n\n');
 }
 
-// The text of a Gemini member's NUDGE: before its first turn (a new member,
-// or a replacement), the role and cluster instructions come first, visible in
-// the conversation; later nudges are unchanged.
+// Each NUDGE asks the member to read its current plan and mail before acting.
+// Before the first turn, the visible role instructions and skill list lead
+// the message; later nudges keep the same reminder without repeating them.
 export async function geminiNudgeText(workflowId: string, nudge: string): Promise<string> {
   const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
   const wf = workflows.get(workflowId);
-  if (!clusterId || !wf || wf.primarySessionId) return nudge;
+  if (!clusterId || !wf) return nudge;
+  const reminder = 'Read the current plan and your mail with peer_read before acting.';
+  if (wf.primarySessionId) return `${reminder}\n\n${nudge}`;
   const instructions = await geminiClusterInstructions(clusterId, workflowId);
-  return instructions.trim() ? `${instructions}\n\n---\n\n${nudge}` : nudge;
+  const cwd = wf.config.workingDirectory;
+  let skills = '';
+  if (cwd) {
+    const trust = await gateProjectResources(cwd).catch(() => ({ includeProject: false }));
+    const catalog = await listSkills(cwd, { includeProject: trust.includeProject }).catch(() => null);
+    if (catalog) skills = buildSkillsManifest(catalog);
+  }
+  return [instructions, skills, reminder, nudge].filter(part => part.trim()).join('\n\n---\n\n');
 }

@@ -1689,13 +1689,13 @@ async function handleRecalibrateRequest(ws: WebSocket, workflowId: string): Prom
   }
 }
 
-// Build the plan-header prefix to prepend to the next primary turn's prompt.
-// Returns '' when no plan is attached. When a plan is attached, includes a
-// one-line "active plan" header. When the plan body has been edited since
-// the last injection (planLastSeenUpdatedAt < plan.updatedAt), also includes
-// the full plan body once so the agent picks up the operator's edits.
-// Side-effect: bumps meta.planLastSeenUpdatedAt to the plan's current
-// updatedAt so the full-body refresh fires exactly once per edit.
+// Plan reminders are built by turnEngine before each primary dispatch. The
+// active plan header names the file and notes edits since the last successful
+// turn, without embedding the full plan body. The turn captures the revision
+// it sent and records it only after the provider completes successfully while
+// the workflow still owns the turn. Failed or stopped turns leave the prior
+// revision in place so the next reminder continues to identify pending edits.
+// Gemini uses a shorter visible line for the same plan and revision state.
 
 // Plans-directory watcher. One FSWatcher per cwd; reference-counted by the
 // number of in-memory workflows currently attached to a plan in that cwd.

@@ -269,10 +269,10 @@ test('Antigravity delivers a busy operator message as a follow-up without allowi
  }
 });
 
-test('Antigravity dispatches only the operator text when Arco prompt expansions are available', async()=>{
+test('Antigravity omits unrelated Arco prompt expansions', async()=>{
  const f=await fixture('antigravity-cli');let run:Promise<void>|undefined;
  try{writeFileSync(join(f.cwd,'fixture.txt'),'HIDDEN FILE CONTENT');f.wf.config.goal='HIDDEN GOAL';const input='Read @file:fixture.txt exactly';
- run=engine.handleUserMessage(f.ws,f.session,f.id,input,'prompt',undefined,false,undefined,undefined,[{scope:'builtin',slug:'grill-me'}],{operatorInitiated:true});await f.wait(1);assert.equal(f.pending[0].spec.task,input);f.pending[0].finish('done');await run;
+ run=engine.handleUserMessage(f.ws,f.session,f.id,input,'prompt',undefined,false,undefined,undefined,[{scope:'builtin',slug:'grill-me'}],{operatorInitiated:true});await f.wait(1);assert.ok(f.pending[0].spec.task.endsWith(input));assert.doesNotMatch(f.pending[0].spec.task,/HIDDEN FILE CONTENT|HIDDEN GOAL/);f.pending[0].finish('done');await run;
  }finally{if(f.wf.busy)engine.revokeBusy(f.wf);for(const pending of f.pending)pending.finish('cleanup');await run;await f.close();}
 });
 
@@ -282,6 +282,9 @@ test('a Gemini cluster member starts a turn only from the operator NUDGE or type
  try{
   f.wf.config.primaryModel='gemini-test';f.wf.primary.model='gemini-test';
   await store.createCluster({cwd:f.cwd,memberWorkflowIds:[f.id,randomUUID()]});
+  const skill=join(root,'state','skills','nudge-fixture');mkdirSync(skill,{recursive:true});writeFileSync(join(skill,'SKILL.md'),'---\nname: Nudge Skill\ndescription: Example skill\n---\nUse it.\n');
+  const firstNudge=await gemini.geminiNudgeText(f.id,'(nudge) READ MAIL');assert.match(firstNudge,/current plan and your mail with peer_read/);assert.match(firstNudge,/name="Nudge Skill"[^>]*SKILL\.md/);
+  f.wf.primarySessionId='existing';const nextNudge=await gemini.geminiNudgeText(f.id,'(nudge) READ MAIL');assert.match(nextNudge,/current plan and your mail with peer_read/);assert.doesNotMatch(nextNudge,/Nudge Skill/);f.wf.primarySessionId=undefined;
   const errors=()=>f.messages().filter((m:any)=>m.type==='error'&&m.message===gemini.GEMINI_OPERATOR_ONLY_REFUSAL).length;
   // A refused call returns at once; a started turn would wait for the fake provider.
   const refused=(run:Promise<void>)=>Promise.race([run,new Promise<void>(r=>setTimeout(r,2000))]);
@@ -299,4 +302,26 @@ test('a Gemini cluster member starts a turn only from the operator NUDGE or type
   await engine.handleUserMessage(f.ws,f.session,f.id,'(nudge) READ MAIL','again',undefined,false,undefined,undefined,undefined,{automaticKind:'nudge',operatorInitiated:true,operatorAction:true,geminiSend:ticket});
   assert.equal(f.pending.length,1,'a used ticket cannot start a second turn');assert.equal(errors(),5);
  }finally{if(f.wf.busy)engine.revokeBusy(f.wf);for(const pending of f.pending)pending.finish('cleanup');await run;await f.close();}
+});
+
+
+test('Antigravity sends the visible attached plan on each turn and the skill list once', async () => {
+ const f=await fixture('antigravity-cli');let run:Promise<void>|undefined;
+ const { createPlan, updatePlan } = await import('../planStore.js');
+ const { persistInitialMeta, updateMeta, readMeta } = await import('../workflowMeta.js');
+ try {
+  const skill=join(root,'state','skills','fixture-skill');mkdirSync(skill,{recursive:true});writeFileSync(join(skill,'SKILL.md'),'---\nname: Fixture Skill\ndescription: Example skill\n---\nUse the fixture.\n');
+  const plan=await createPlan(f.cwd,{title:'Fixture plan',body:'- [ ] First'});f.wf.planId=plan.id;
+  await persistInitialMeta(f.cwd,f.id,f.wf.config,{...f.wf.primary,effort:'low'});await updateMeta(f.cwd,f.id,meta=>{meta.planId=plan.id;});
+  run=engine.handleUserMessage(f.ws,f.session,f.id,'FIRST','first',undefined,false,undefined,undefined,undefined,{operatorInitiated:true});await f.wait(1);
+  assert.match(f.pending[0].spec.task,/Plan: "Fixture plan".*Re-read it before acting on plan items/);
+  assert.match(f.pending[0].spec.task,/<skill name="Fixture Skill"[^>]*path="[^"]*SKILL\.md"/);
+  f.pending[0].finish('first');await run;
+  assert.equal((await readMeta(f.cwd,f.id))?.planLastSeenUpdatedAt,plan.updatedAt);
+  f.wf.primarySessionId='fixture-session';await new Promise(resolve=>setTimeout(resolve,5));await updatePlan(f.cwd,plan.id,{body:'- [ ] Changed'});
+  run=engine.handleUserMessage(f.ws,f.session,f.id,'SECOND','second',undefined,false,undefined,undefined,undefined,{operatorInitiated:true});await f.wait(2);
+  assert.match(f.pending[1].spec.task,/edited since your last turn/);assert.doesNotMatch(f.pending[1].spec.task,/<arco-skills>/);
+  f.pending[1].finish('second');await run;
+  const events=await replayEvents(f.cwd,f.id,0);assert.ok(events.some((event:any)=>event.type==='system_notice'&&/edited since your last turn/.test(event.content)));
+ } finally {if(f.wf.busy)engine.revokeBusy(f.wf);for(const pending of f.pending)pending.finish('cleanup');await run;await f.close();}
 });

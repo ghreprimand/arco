@@ -2203,7 +2203,7 @@ export const clusters: Section[] = [
   Mail to or from a Gemini member waits until you press NUDGE on the recipient. AUTO-PICKUP, Smart pickup, busy reminders, CONTINUE DIRECTOR and messages to several members skip it. Review, edit or cancel the waiting mail in MAILBOX first; the recipient then reads it with <Code>peer_read</Code>.
   </p>
   <p>
-  A message typed in a Gemini member&apos;s own composer also starts its turn. Its first NUDGE starts with its role and cluster instructions, shown in the conversation. COMPACT works as in an Agent tab. Gemini members are not isolated and cannot be researchers. A Gemini replacement starts with no history.
+  A message typed in a Gemini member&apos;s own composer also starts its turn. Its first NUDGE starts with its role, cluster instructions and available skill list, shown in the conversation. Every NUDGE asks it to read the current plan and mail before acting. COMPACT works as in an Agent tab. Gemini members are not isolated and cannot be researchers. A Gemini replacement starts with no history.
   </p>
   </>
   ),

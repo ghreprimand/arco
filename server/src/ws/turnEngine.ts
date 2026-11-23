@@ -1160,10 +1160,13 @@ function planAuthoringNote(cwd: string, workflowId: string, publicProject = fals
   );
 }
 
+export interface SeenPlanSnapshot { id: string; title: string; updatedAt: number; wasEdited: boolean }
+
 export async function buildPlanPrefix(
   cwd: string,
   wf: WorkflowState,
   workflowId: string,
+  onPlan?: (snapshot: SeenPlanSnapshot) => void,
 ): Promise<string> {
   if (!cwd) return '';
   if (!wf.planId) {
@@ -1192,6 +1195,7 @@ export async function buildPlanPrefix(
   } catch { /* best-effort */ }
   const isFirstAttach = lastSeen === 0;
   const wasEdited = !isFirstAttach && plan.updatedAt > lastSeen;
+  onPlan?.({ id: plan.id, title: plan.title, updatedAt: plan.updatedAt, wasEdited });
   // Refs ride the same one line — slugs only (charset [a-z0-9-], so they
   // can't break the single-line PLAN_PREFIX_RE), capped so a ref-heavy plan
   // doesn't bloat every turn.
@@ -1214,15 +1218,22 @@ export async function buildPlanPrefix(
   } else {
     header = `[Active project plan: "${plan.title}" — file: .arco/plans/${plan.id}.md.${refsNote} ${livingDocNote}]\n\n`;
   }
-  // Bump lastSeen so the next turn sees the stable form unless there's
-  // another edit between now and then. Best-effort — a meta write failure
-  // just means the agent sees the "edited" hint twice, harmless.
+  return header;
+}
+
+export async function recordPlanSeen(cwd: string, workflowId: string, wf: WorkflowState, snapshot: SeenPlanSnapshot | undefined, successful: boolean): Promise<void> {
+  if (!successful || !snapshot || wf.planId !== snapshot.id) return;
   try {
     await updateMeta(cwd, workflowId, (meta) => {
-      meta.planLastSeenUpdatedAt = plan.updatedAt;
+      if (meta.planId !== snapshot.id) return false;
+      meta.planLastSeenUpdatedAt = snapshot.updatedAt;
     });
-  } catch { /* best-effort */ }
-  return header;
+  } catch { /* A later turn can repeat the reminder. */ }
+}
+
+export function geminiPlanLine(plan: SeenPlanSnapshot, cwd: string, chatMode: boolean): string {
+  const file = chatMode ? path.join(cwd, '.arco', 'plans', `${plan.id}.md`) : `.arco/plans/${plan.id}.md`;
+  return `Plan: ${JSON.stringify(plan.title)}, file ${file}${plan.wasEdited ? ' (edited since your last turn)' : ''}. Re-read it before acting on plan items.`;
 }
 
 export function projectQueue(items: QueueItem[]): Array<{ content: string; clientMessageId?: string; interrupt?: boolean; automaticKind?: import('@arco/shared').AutomaticMessageKind }> {
@@ -2074,13 +2085,16 @@ export async function handleUserMessage(
         });
       }
 
-      // Plan header injection. When a plan is attached, prepend a brief
-      // "active plan" reminder to the prompt before forwarding to the
-      // provider — the operator's echo'd transcript stays clean. If the
-      // plan body was edited since the last turn that injected it, also
-      // include the full body once so the agent picks up the change. The
-      // operator's transcript is unaffected (echo already sent above).
-      const planPrefix = projectContextEnabled ? await buildPlanPrefix(cwd, wf, workflowId) : '';
+      // Plan header injection. When a plan is attached, prepare a brief
+      // "active plan" reminder to send with the provider prompt. The plan
+      // body stays in its file and the header identifies edits since the
+      // last successful turn. Gemini receives a shorter visible line instead
+      // of the ordinary prefix. Capture the revision now, and record it only
+      // after the dispatched turn succeeds while this workflow still owns it.
+      let planSnapshot: SeenPlanSnapshot | undefined;
+      const geminiPlan = wf.primary.provider === 'antigravity-cli' && !!wf.planId;
+      const planPrefix = projectContextEnabled || geminiPlan ? await buildPlanPrefix(cwd, wf, workflowId, snapshot => { planSnapshot = snapshot; }) : '';
+      const visibleGeminiPlan = geminiPlan && planSnapshot ? geminiPlanLine(planSnapshot, cwd, chatMode) : '';
       const promptWithRefs = promptExpandedContext ? prompt + promptExpandedContext : prompt;
       // DD8 — inline the picks owned by this prompt, after explicit refs.
       // Model-facing only; each queued prompt carries its own picks.
@@ -2130,11 +2144,11 @@ export async function handleUserMessage(
       // Re-scanning per turn means edits / deletes via the UI take effect on
       // the next turn without restarting anything.
       let primarySkillsManifest = '';
-      if (projectContextEnabled) try {
+      if (projectContextEnabled || (wf.primary.provider === 'antigravity-cli' && !wf.primarySessionId)) try {
         const catalog = await listSkills(cwd, { includeProject });
         // A pinned body is already present in full; omit its progressive-
         // disclosure metadata to avoid duplicate/conflicting instructions.
-        const pinnedKeys = new Set((effectivePins?.refs ?? []).map((s) => `${s.scope}:${s.slug}`));
+        const pinnedKeys = new Set((wf.primary.provider === 'antigravity-cli' ? [] : effectivePins?.refs ?? []).map((s) => `${s.scope}:${s.slug}`));
         primarySkillsManifest = buildSkillsManifest({
           project: catalog.project.filter((s) => !pinnedKeys.has(`project:${s.slug}`)),
           global: catalog.global.filter((s) => !pinnedKeys.has(`global:${s.slug}`)),
@@ -2704,6 +2718,9 @@ export async function handleUserMessage(
       const executionInputClientIds = [...activeInputClientIds];
       let dispatchedWorkerId: string | undefined;
       const dispatchCurrent = () => workflows.get(workflowId) === wf && ownsBusy(wf, busyToken) && (dispatchedWorkerId === undefined || primaryTurn.workerId === dispatchedWorkerId);
+      const geminiSkills = wf.primary.provider === 'antigravity-cli' && (!memberClusterId || opts?.automaticKind !== 'nudge') && !wf.primarySessionId ? primarySkillsManifest : '';
+      const geminiAdditions = [visibleGeminiPlan, geminiSkills].filter(Boolean).join('\n\n');
+      if (geminiAdditions && dispatchCurrent()) broadcastWorkflow(workflowId, { type: 'system_notice', workflowId, content: geminiAdditions });
       const turn = runPrimaryTurn(
         {
           workflowId,
@@ -2724,7 +2741,7 @@ export async function handleUserMessage(
         },
         {
           primary: wf.primary,
-          prompt: wf.primary.provider === 'antigravity-cli' ? prompt : promptWithPlan,
+          prompt: wf.primary.provider === 'antigravity-cli' ? [geminiAdditions, prompt].filter(Boolean).join('\n\n') : promptWithPlan,
           resumeSessionId: incognito ? undefined : wf.primarySessionId,
           attachments: promptAttachments,
           disableRssGuard: wf.disableRssGuard,
@@ -2904,6 +2921,7 @@ export async function handleUserMessage(
         }
       }
       activeTurnObservation?.stop(); activeTurnObservation = undefined;
+      if (planSnapshot) await recordPlanSeen(cwd, workflowId, wf, planSnapshot, !outcome.error && ownsBusy(wf, busyToken));
       console.log(`[arco] [${workflowId.slice(0, 8)}] turn settled${outcome.error ? ' with error: ' + outcome.error : ''}`);
       if (scratchNotice && !outcome.error && ownsBusy(wf, busyToken)) {
         await updateMeta(cwd, workflowId, (meta) => {

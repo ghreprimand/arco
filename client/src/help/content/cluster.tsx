@@ -1187,7 +1187,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.gemini-members': {
     title: 'Gemini members',
-    body: <><p>Mail to or from a Gemini member waits until you press NUDGE on the recipient. AUTO-PICKUP, Smart pickup and busy reminders skip it. Review, edit or cancel the waiting mail in MAILBOX first.</p><p>A message you type in a Gemini member&apos;s own composer also starts its turn. Its first NUDGE starts with its role and cluster instructions.</p></>,
+    body: <><p>Mail to or from a Gemini member waits until you press NUDGE on the recipient. AUTO-PICKUP, Smart pickup and busy reminders skip it. Review, edit or cancel the waiting mail in MAILBOX first.</p><p>A message you type in a Gemini member&apos;s own composer also starts its turn. Its first NUDGE starts with its role, cluster instructions and available skill list. Every NUDGE asks it to read the current plan and mail before acting.</p></>,
     manualSection: 'cluster-gemini-members',
   },
   'cluster.mailbox-edit': {

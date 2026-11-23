@@ -24,3 +24,32 @@ test('an agent without an attached plan is told to add privacy rules for a publi
   await setPublicProjectChoice(cwd, false);
   assert.equal(await buildPlanPrefix(cwd, workflow, 'fixture'), plain);
 });
+
+
+test('a plan edit remains unseen after failure and is recorded only after success', async () => {
+  const { randomUUID } = await import('node:crypto');
+  const { createPlan, updatePlan } = await import('../planStore.js');
+  const { persistInitialMeta, updateMeta, readMeta } = await import('../workflowMeta.js');
+  const { recordPlanSeen, geminiPlanLine } = await import('./turnEngine.js');
+  const cwd = join(root, 'seen-project'); mkdirSync(cwd);
+  const id = randomUUID();
+  const config = { name: 'Fixture', workingDirectory: cwd, primaryProvider: 'codex', primaryModel: 'fixture', primaryEffort: 'low' } as any;
+  await persistInitialMeta(cwd, id, config, { provider: 'codex', model: 'fixture', effort: 'low' });
+  const plan = await createPlan(cwd, { title: 'Fixture plan', body: '- [ ] Task' });
+  await updateMeta(cwd, id, meta => { meta.planId = plan.id; meta.planLastSeenUpdatedAt = plan.updatedAt - 1; });
+  const wf = { planId: plan.id } as WorkflowState;
+  let snapshot: any;
+  const first = await buildPlanPrefix(cwd, wf, id, value => { snapshot = value; });
+  assert.match(first, /edited since last turn/);
+  assert.match(geminiPlanLine(snapshot, cwd, false), /edited since your last turn/);
+  await recordPlanSeen(cwd, id, wf, snapshot, false);
+  assert.equal((await readMeta(cwd, id))?.planLastSeenUpdatedAt, plan.updatedAt - 1);
+  assert.match(await buildPlanPrefix(cwd, wf, id), /edited since last turn/);
+  await recordPlanSeen(cwd, id, wf, snapshot, true);
+  assert.equal((await readMeta(cwd, id))?.planLastSeenUpdatedAt, plan.updatedAt);
+  assert.doesNotMatch(await buildPlanPrefix(cwd, wf, id), /edited since last turn/);
+  await new Promise(resolve => setTimeout(resolve, 5));
+  const edit = await updatePlan(cwd, plan.id, { body: '- [ ] Changed' });
+  assert.ok(edit && edit.updatedAt > plan.updatedAt);
+  assert.match(await buildPlanPrefix(cwd, wf, id), /edited since last turn/);
+});

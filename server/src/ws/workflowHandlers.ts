@@ -2034,7 +2034,7 @@ export async function handleDocEditRequest(
 }
 
 function tuneupBaseNameForProvider(provider: string): 'CLAUDE.md' | 'AGENTS.md' {
-  if (provider === 'codex') return 'AGENTS.md';
+  if (provider === 'codex' || provider === 'antigravity-cli') return 'AGENTS.md';
 
   return 'CLAUDE.md';
 }
