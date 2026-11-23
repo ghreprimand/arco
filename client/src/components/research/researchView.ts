@@ -56,3 +56,9 @@ export function researchRailLabel(research: Pick<ClusterResearchSummary, 'direct
   if (workflowId === research.directorWorkflowId) return 'RD';
   return research.researchers.find((r) => r.workflowId === workflowId)?.letter;
 }
+
+// A researcher's card preview: a markdown link to a path inside its sandbox
+// (/work/...) cannot be opened from the host, so only its text is shown.
+export function withoutSandboxLinks(text: string): string {
+  return text.replace(/\[([^\]\n]*)\]\(\/work\/[^)\s]*\)/g, '$1');
+}

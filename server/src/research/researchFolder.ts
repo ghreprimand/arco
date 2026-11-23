@@ -3,11 +3,10 @@
 // Director, so nothing unreleased and, while blind, no provider or model.
 
 import { promises as fs } from 'node:fs';
-import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { atomicWriteFile } from '../atomicFile.js';
-import type { ResearchArtifact, ResearchRound, ResearchState } from './researchState.js';
-import { catchUpLetter, researcherName } from './researchState.js';
+import type { ResearchRound, ResearchState } from './researchState.js';
+import { catchUpLetter, researcherName, sourceFileName } from './researchState.js';
 
 export function researchSlug(name: string): string {
   const words = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s-]/g, ' ').split(/[\s-]+/).filter(Boolean);
@@ -131,12 +130,7 @@ export function roundDir(folder: string, n: number): string {
   return join(folder, 'rounds', n < 0 ? `catch-up-${catchUpLetter(n).toLowerCase()}` : `round-${n}`);
 }
 
-export function sourceFileName(artifact: ResearchArtifact): string {
-  const data = Buffer.from(artifact.contentBase64, 'base64');
-  const hash = createHash('sha256').update(data).digest('hex').slice(0, 12);
-  const safe = artifact.name.replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^\.+/, '').slice(0, 80) || 'file';
-  return `${hash}-${safe}`;
-}
+export { sourceFileName };
 
 // Writes the released round: one report file per researcher that replied,
 // returned files into sources/ (de-duplicated by content) and round.md.

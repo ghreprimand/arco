@@ -5,6 +5,8 @@ import { DialogShell } from '../DialogShell';
 import { touchButton } from './ResearchCloseDialog';
 import { ENTRY_WORDS, elapsedLabel, roundSummaryLine, roundsAndCatchUps } from './researchView';
 import { AuthReloginNotice } from '../AuthReloginNotice';
+import { FileViewerModal } from '../FileViewerModal';
+import { ResearchFileLink, reportPath, researcherLabel } from './researchLinks';
 
 // docs/RESEARCH.md - the rounds strip above a research project's member
 // cards: one row per round with each researcher's state, time, failures,
@@ -16,6 +18,7 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
   const [busy, setBusy] = useState(false);
   const [confirmReveal, setConfirmReveal] = useState(false);
   const [questionOpen, setQuestionOpen] = useState(false);
+  const [openFile, setOpenFile] = useState<string | null>(null);
   const listed = roundsAndCatchUps(research);
   const collecting = listed.some((r) => !r.releasedAt);
   useEffect(() => {
@@ -103,7 +106,8 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
                 const e = round.entries[l];
                 const active = research.researchers.some((r) => r.letter === l && !r.removedAt);
                 const retryable = !round.catchUp && active && !e.retrying && (e.state === 'failed' || e.state === 'timed_out');
-                return <li key={l}>Researcher {l}: {e.retrying ? 'retrying' : ENTRY_WORDS[e.state]}{e.source === 'final_reply' ? ' (taken from final reply)' : ''}{e.late ? ' (late report)' : ''}{e.reason && e.state !== 'replied' ? `: ${e.reason}` : ''}{e.at ? ` at ${new Date(e.at).toLocaleTimeString()}` : ''}
+                const label = researcherLabel(research, l);
+                return <li key={l}>{e.state === 'replied' && round.releasedAt ? <ResearchFileLink label={`${label}: replied`} path={reportPath(research, round, l)} onOpen={setOpenFile} /> : <>{label}: {e.retrying ? 'retrying' : ENTRY_WORDS[e.state]}</>}{e.source === 'final_reply' ? ' (taken from final reply)' : ''}{e.late ? ' (late report)' : ''}{e.reason && e.state !== 'replied' ? `: ${e.reason}` : ''}{e.at ? ` at ${new Date(e.at).toLocaleTimeString()}` : ''}
                   {retryable && <> <button type="button" data-help="research.retry" style={touchButton} disabled={busy} aria-label={`Retry researcher ${l} in round ${round.n}`} onClick={() => void retry(round.n, l)}>RETRY</button></>}</li>;
               })}
               <li>Deadline {new Date(round.deadline).toLocaleTimeString()}{round.targeted ? ` · ${round.targeted} targeted message${round.targeted === 1 ? '' : 's'} recorded` : ''}</li>
@@ -116,6 +120,7 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
         <p style={{ marginTop: 0 }}>Reveal which provider and model wrote each report?</p>
         <p>You see them on the cards already. Reveal also writes them into research.json and every round record, and shows them to the Research Director from now on. This cannot be undone.</p>
       </DialogShell>}
+      {openFile && <FileViewerModal path={openFile} onClose={() => setOpenFile(null)} fallback={{ cwd: research.folder, workflowId: research.directorWorkflowId }} />}
       {listed.length > 3 && <button type="button" onClick={() => setAll(!all)} style={{ ...touchButton, alignSelf: 'flex-start' }}>{all ? 'LATEST ROUNDS' : `ALL ${listed.length} ROUNDS`}</button>}
     </div>
   );

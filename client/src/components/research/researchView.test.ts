@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { ActivityEntry } from '../../stores/appStore.types';
-import { searchCount } from './researchView';
+import { searchCount, withoutSandboxLinks } from './researchView';
 import { replaceResearchProvider, researchCreatePayload } from '../WorkflowCreator/ResearchStartForm';
 import { unavailableQuickStatus } from './SavedQuickKeep';
 
@@ -55,4 +55,8 @@ test('research creation carries its originating project and rerun source', () =>
   const withAccount = researchCreatePayload({ name: 'Fixture', brief: 'Compare.', blind: true, director: codex, rows: [codex] });
   assert.equal(withAccount.members[0].providerAccountRef, 'account-fixture');
   assert.equal(withAccount.members[1].providerAccountRef, 'account-fixture');
+});
+
+test('a researcher card preview shows sandbox links as their text only', () => {
+  assert.equal(withoutSandboxLinks('Sent: [report.md](/work/artifacts/report.md) and [site](https://example.com).'), 'Sent: report.md and [site](https://example.com).');
 });

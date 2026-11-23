@@ -8,6 +8,7 @@ import { StartResearchProjectDialog } from './StartResearchProjectDialog';
 import { FileViewerModal } from '../FileViewerModal';
 import { touchButton } from './ResearchCloseDialog';
 import { ENTRY_WORDS, roundsAndCatchUps } from './researchView';
+import { ResearchFileLink, reportPath, researchPath, researcherLabel, roundFolder } from './researchLinks';
 
 // docs/RESEARCH.md - RESULTS in a research project's right panel: the brief,
 // the summary, each released round's reports and the sources folder.
@@ -32,11 +33,8 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
   const lastRound = research.rounds.at(-1)?.n;
   const lastReleased = research.rounds.filter(round => !!round.releasedAt).at(-1)?.n;
   const roundSummary = (n: number): string | null => summaries?.rounds.includes(n) ? join('syntheses', `round-${n}.md`) : n === lastRound && summaries?.latest ? join('synthesis.md') : null;
-  const join = (...parts: string[]) => [research.folder.replace(/[\\/]+$/, ''), ...parts].join('/');
-  const link = (label: string, path: string) => (
-    <button type="button" onClick={() => setOpen(path)} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 44, background: 'none', border: 'none', padding: 0, color: 'var(--color-accent-secondary)', textDecoration: 'underline', cursor: 'pointer', font: 'inherit', textAlign: 'left' }}>{label}</button>
-  );
-  const authors = !research.blind || !!research.revealedAt;
+  const join = (...parts: string[]) => researchPath(research, ...parts);
+  const link = (label: string, path: string) => <ResearchFileLink label={label} path={path} onOpen={setOpen} />;
   return (
     <div data-help="research.results" style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12, color: 'var(--color-fg)' }}>
       {summaries?.proposal && <div role="status">The Research Director proposed {summaries.proposal.action === 'start' ? 'starting a project from' : summaries.proposal.action === 'chat' ? 'continuing in Chat with' : summaries.proposal.action === 'export' ? 'exporting' : summaries.proposal.action === 'rerun' ? 'rerunning' : 'sending'} {summaries.proposal.kind}. <button type="button" className="display-font" style={touchButton} onClick={() => {
@@ -58,7 +56,7 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
       {research.rounds.length === 0 && <div style={{ color: 'var(--color-fg)' }}>No round yet.</div>}
       {roundsAndCatchUps(research).reverse().map((round) => {
         // A catch-up is the round 1 text answered by one late researcher.
-        const dir = round.catchUp ? `catch-up-${round.catchUp.toLowerCase()}` : `round-${round.n}`;
+        const dir = roundFolder(round);
         return (
         <div key={round.catchUp ? `catch-up-${round.catchUp}` : `round-${round.n}`}>
           <div className="display-font" style={{ letterSpacing: 1, marginBottom: 4 }}>{round.catchUp ? `CATCH-UP ${round.catchUp}` : `ROUND ${round.n}`} {link('round record', join('rounds', dir, 'round.md'))}{!round.catchUp && roundSummary(round.n) ? <> · {link('summary', roundSummary(round.n)!)} {round.releasedAt && <button type="button" className="display-font" style={touchButton} onClick={() => setSend({ kind: 'synthesis', round: round.n })}>SEND SUMMARY</button>} {round.releasedAt && <button type="button" className="display-font" style={touchButton} onClick={() => setStart({ kind: 'synthesis', round: round.n })}>START FROM SUMMARY</button>} {round.releasedAt && <button type="button" className="display-font" style={touchButton} onClick={() => continueChat({ kind: 'synthesis', round: round.n })}>CONTINUE IN CHAT</button>} {round.releasedAt && <button type="button" className="display-font" style={touchButton} onClick={() => setExporting({ kind: 'synthesis', round: round.n })}>EXPORT SUMMARY</button>}</> : null}</div>
@@ -68,14 +66,15 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
           {round.releasedAt && <ul style={{ margin: 0, paddingLeft: 16 }}>
             {[...research.researchers].sort((x, y) => x.letter.localeCompare(y.letter)).filter((r) => round.entries[r.letter]).map((r) => {
               const e = round.entries[r.letter];
-              const who = `Researcher ${r.letter}${authors ? ` (${r.provider}, ${r.model})` : ''}`;
-              return <li key={r.letter}>{e.state === 'replied' ? <>{link(`${who} report`, join('rounds', dir, `report-${r.letter.toLowerCase()}.md`))}{e.late ? ' (late)' : ''} <button type="button" className="display-font" style={touchButton} onClick={() => setSend(round.catchUp ? { kind: 'report', catchUp: round.catchUp } : { kind: 'report', round: round.n, letter: r.letter })}>SEND REPORT</button> <button type="button" className="display-font" style={touchButton} onClick={() => setStart(round.catchUp ? { kind: 'report', catchUp: round.catchUp } : { kind: 'report', round: round.n, letter: r.letter })}>START FROM REPORT</button> <button type="button" className="display-font" style={touchButton} onClick={() => setExporting(round.catchUp ? { kind: 'report', catchUp: round.catchUp } : { kind: 'report', round: round.n, letter: r.letter })}>EXPORT REPORT</button></> : `${who}: ${ENTRY_WORDS[e.state]}`}</li>;
+              const who = researcherLabel(research, r.letter);
+              return <li key={r.letter}>{e.state === 'replied' ? <>{link(`${who} report`, reportPath(research, round, r.letter))}{e.late ? ' (late)' : ''} <button type="button" className="display-font" style={touchButton} onClick={() => setSend(round.catchUp ? { kind: 'report', catchUp: round.catchUp } : { kind: 'report', round: round.n, letter: r.letter })}>SEND REPORT</button> <button type="button" className="display-font" style={touchButton} onClick={() => setStart(round.catchUp ? { kind: 'report', catchUp: round.catchUp } : { kind: 'report', round: round.n, letter: r.letter })}>START FROM REPORT</button> <button type="button" className="display-font" style={touchButton} onClick={() => setExporting(round.catchUp ? { kind: 'report', catchUp: round.catchUp } : { kind: 'report', round: round.n, letter: r.letter })}>EXPORT REPORT</button>
+                {e.sources?.length ? <ul aria-label={`${who} returned files`} style={{ margin: 0, paddingLeft: 16 }}>{e.sources.map((s) => <li key={s.path}>{link(s.name, join(s.path))}</li>)}</ul> : null}</> : `${who}: ${ENTRY_WORDS[e.state]}`}</li>;
             })}
           </ul>}
         </div>
         );
       })}
-      <div style={{ color: 'var(--color-fg)' }}>Returned files are in <code>sources/</code>; open them from FILES.</div>
+      <div style={{ color: 'var(--color-fg)' }}>Returned files are listed under each report and kept in <code>sources/</code>.</div>
       {rerun && <RerunResearchDialog clusterId={clusterId} onClose={() => setRerun(false)} />}
       {exporting && <ExportResearchDialog clusterId={clusterId} selection={exporting} onClose={() => setExporting(null)} />}
       {start && <StartResearchProjectDialog clusterId={clusterId} selection={start} onClose={() => setStart(null)} />}

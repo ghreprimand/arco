@@ -14,6 +14,7 @@ import type { JobState } from '../stores/appStore';
 import { hasWaitingQuestion } from '../questions/waitingQuestion';
 import { presetForText } from '@arco/shared';
 import { BriefControl } from './BriefControl';
+import { withoutSandboxLinks } from './research/researchView';
 
 interface Props {
   job: JobState | undefined;
@@ -71,7 +72,8 @@ export function MemberCard({ job, displayName, status, role, pendingMail = 0, on
   const busy = status === 'busy';
   const lateCommand = runningCodexCommand(job);
   const waitingQuestion = hasWaitingQuestion(job);
-  const bodyText = useSettledPreview(job);
+  const settled = useSettledPreview(job);
+  const bodyText = researchLine ? withoutSandboxLinks(settled) : settled;
   const bodyDim = bodyText === '[no turns]';
 
   // Role chip label: matching preset → its short label; non-empty free-form

@@ -6,6 +6,7 @@
 // released. The research folder receives only what the Director may read.
 
 import { promises as fs } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import type { ClusterMemberProvider, ClusterResearchSummary, ResearchEntryState } from '@arco/shared';
 import { atomicWriteFile, withFileLock } from '../atomicFile.js';
@@ -232,6 +233,15 @@ export function researcherByRef(state: ResearchState, ref: string): ResearchRese
 
 export function researcherName(letter: string): string { return `Researcher ${letter}`; }
 
+// A returned file's name in the research folder's sources/: content hash
+// plus the sanitized original name, so equal files share one copy.
+export function sourceFileName(artifact: ResearchArtifact): string {
+  const data = Buffer.from(artifact.contentBase64, 'base64');
+  const hash = createHash('sha256').update(data).digest('hex').slice(0, 12);
+  const safe = artifact.name.replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^\.+/, '').slice(0, 80) || 'file';
+  return `${hash}-${safe}`;
+}
+
 export function researchLetter(index: number): string { return String.fromCharCode(65 + index); }
 
 // Letters are never reused: removed researchers keep theirs.
@@ -277,6 +287,8 @@ function roundSummary(round: ResearchRound, state: ResearchState): ClusterResear
         ...(entry.reason ? { reason: entry.reason } : {}),
         ...(entry.source ? { source: entry.source } : {}),
         ...(entry.late ? { late: entry.late } : {}),
+        // Returned files as writeReleasedRound copied them into sources/.
+        ...(round.releasedAt && entry.state === 'replied' && entry.artifacts?.length ? { sources: entry.artifacts.map((a) => ({ name: a.name, path: `sources/${sourceFileName(a)}` })) } : {}),
         ...(retrying(state, round, letter, entry) ? { retrying: true } : {}),
       }])),
       targeted: round.targeted.length,

@@ -1113,3 +1113,26 @@ test('a saved Quick Chat can become a project and its deletion removes only Chat
     await fs.rm(source, { recursive: true, force: true }); await fs.rm(chatStorageDir(id), { recursive: true, force: true });
   }
 });
+
+test('the summary lists each replied researcher\'s returned files where the released round wrote them', async () => {
+  const { writeReleasedRound } = await import('./researchFolder.js');
+  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-sources-'));
+  try {
+    const artifact = { name: 'evidence notes.md', contentBase64: Buffer.from('evidence').toString('base64'), byteLength: 8 };
+    const released = { n: 1, startedAt: '2026-01-01', deadline: '2026-01-01', releasedAt: '2026-01-01', targeted: [], entries: {
+      A: { state: 'replied', report: 'Report.', artifacts: [artifact] },
+      B: { state: 'failed', artifacts: [artifact] },
+    } };
+    const open = { n: 2, startedAt: '2026-01-02', deadline: '2026-01-02', targeted: [], entries: { A: { state: 'replied', report: 'Next.', artifacts: [artifact] } } };
+    const state = { folder: root, name: 'Fixture', brief: 'Brief', blind: true, directorWorkflowId: 'director', researchers: [
+      { letter: 'A', workflowId: 'a', provider: 'claude', model: 'haiku' },
+      { letter: 'B', workflowId: 'b', provider: 'claude', model: 'haiku' },
+    ], rounds: [released, open] } as never;
+    const written = await writeReleasedRound(state, released as never);
+    const summary = researchSummary(state);
+    assert.deepEqual(summary.rounds[0].entries.A.sources, [{ name: 'evidence notes.md', path: written.A.sources[0] }]);
+    await fs.access(join(root, written.A.sources[0]));
+    assert.equal(summary.rounds[0].entries.B.sources, undefined, 'no report, no file list');
+    assert.equal(summary.rounds[1].entries.A.sources, undefined, 'nothing listed before release');
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
+});

@@ -486,13 +486,16 @@ export const clusters: Section[] = [
   </p>
   <p>
   The <strong>rounds strip</strong> above the cards shows the name, the
-  brief behind <Code>BRIEF</Code>, and one row per round; choose a row for each researcher's outcome and the
-  deadline. In the right panel, <strong>RESULTS</strong> opens the brief, the
-  summary, the Director log and each released round's reports.
-  Failed outcomes include a provider refusal or last message when available.
+  brief behind <Code>BRIEF</Code>, and one row per round; a row opens each outcome and the
+  deadline. In a released round, each replied line opens that report.
+  <strong>RESULTS</strong> opens the brief, the summary, the
+  Director log, each released report and, under it, the files that researcher
+  returned. Failed outcomes include a provider refusal or last message when
+  available.
   </p>
   <p>
-  Researchers can attach long source lists and notes to their reports; returned files appear in sources/.
+  Researchers can attach long source lists and notes to their reports; RESULTS
+  lists them under the report, and copies are kept in sources/.
   </p>
   <p>
   A researcher marked failed or timed out shows <Code>RETRY</Code> in its
