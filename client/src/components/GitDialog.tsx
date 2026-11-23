@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { forgetGitDialog, recallGitDialog, rememberGitDialog } from '../utils/gitDialogMemory';
+import { gitBranchMark } from '../utils/gitBranchMark';
 import { upstreamForFinalBranch } from '../utils/gitPushTarget';
 import { GitOtherWork } from './GitOtherWork';
 import type { WorkflowConfig, ProviderName, ModelName, EffortLevel } from '@arco/shared';
@@ -24,6 +25,7 @@ interface GitBranchSummary {
   hasUpstream: boolean;
   upstream: string | null;
   isCurrent: boolean;
+  upstreamGone?: boolean;
 }
 
 interface GitRemoteSummary {
@@ -225,6 +227,7 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
       ahead: status.ahead,
       behind: status.behind,
       upstream: upstreamForFinalBranch(status, finalBranch, creatingNew),
+      upstreamGone: !creatingNew && Boolean(status.branches.find((b) => b.name === finalBranch)?.upstreamGone),
       remote: status.remotes.find((r) => r.name === 'origin')?.name ?? status.remotes[0]?.name ?? 'origin',
       hasGitHubRemote: status.hasGitHubRemote,
       commitSubject: commitSubject.trim(),
@@ -328,7 +331,7 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
                   {status.branches.length === 0 && <option value="">(no branches)</option>}
                   {status.branches.map((b) => (
                     <option key={b.name} value={b.name}>
-                      {b.name}{b.isCurrent ? ' (current)' : ''}{b.hasUpstream ? '' : ' [no upstream]'}
+                      {b.name}{b.isCurrent ? ' (current)' : ''}{gitBranchMark(b.upstreamGone, b.hasUpstream)}
                     </option>
                   ))}
                 </select>
@@ -431,19 +434,21 @@ export function GitDialog({ cwd, wfid, parentConfig, onConfirm, onSpawn, onCance
 
 function RepoLine({ status }: { status: GitStatus }) {
   const branchLabel = status.currentBranch ?? '(detached HEAD)';
+  const upstreamGone = status.branches.some((branch) => branch.isCurrent && branch.upstreamGone);
   return (
     <div style={{ marginBottom: '10px', fontSize: '11px', color: 'var(--color-fg-muted)', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
       <span>
         <span style={{ color: 'var(--color-accent-primary-dim)' }}>BRANCH</span>{' '}
         <span style={{ color: 'var(--color-accent-primary)' }}>{branchLabel}</span>
       </span>
-      {status.upstream && (
+      {status.upstream && !upstreamGone && (
         <span>
           <span style={{ color: 'var(--color-accent-primary-dim)' }}>↑</span> {status.ahead} ·{' '}
           <span style={{ color: 'var(--color-accent-primary-dim)' }}>↓</span> {status.behind}
           {' '}<span style={{ opacity: 0.6 }}>vs {status.upstream}</span>
         </span>
       )}
+      {upstreamGone && <span style={{ color: 'var(--color-warning)' }}>{status.upstream} no longer exists on the remote</span>}
       {!status.upstream && status.currentBranch && (
         <span style={{ color: 'var(--color-warning)' }}>no upstream</span>
       )}
@@ -492,6 +497,7 @@ function uniqueFiles(files: GitStatusFile[]): GitStatusFile[] {
 }
 
 function GitStateSummary({ status }: { status: GitStatus }) {
+  const upstreamGone = status.branches.some((branch) => branch.isCurrent && branch.upstreamGone);
   const toPush = status.toPushFiles ?? [];
   const toPull = status.toPullFiles ?? [];
   const localFiles = uniqueFiles([...(status.stagedFiles ?? []), ...(status.dirtyFiles ?? [])]);
@@ -510,24 +516,24 @@ function GitStateSummary({ status }: { status: GitStatus }) {
       <StatusSection
         title="TO PUSH"
         tone={status.ahead > 0 ? 'accent' : 'muted'}
-        summary={status.upstream
+        summary={upstreamGone ? `${status.upstream} no longer exists on the remote` : status.upstream
           ? status.ahead > 0
             ? `${status.ahead} local commit${status.ahead === 1 ? '' : 's'} not on ${status.upstream}`
             : `Nothing waiting to push to ${status.upstream}`
           : 'No upstream is configured for this branch'}
         files={toPush}
-        empty="No committed file changes waiting to push."
+        empty={upstreamGone ? "Comparison unavailable." : "No committed file changes waiting to push."}
       />
       <StatusSection
         title="TO PULL"
         tone={status.behind > 0 ? 'warning' : 'muted'}
-        summary={status.upstream
+        summary={upstreamGone ? `${status.upstream} no longer exists on the remote` : status.upstream
           ? status.behind > 0
             ? `${status.behind} remote commit${status.behind === 1 ? '' : 's'} not local`
             : 'Remote has no newer commits.'
           : 'No upstream is configured for this branch'}
         files={toPull}
-        empty="No remote file changes waiting to pull."
+        empty={upstreamGone ? "Comparison unavailable." : "No remote file changes waiting to pull."}
       />
       <StatusSection
         title="LOCAL UNCOMMITTED"
@@ -762,6 +768,7 @@ function buildPrompt(args: {
   ahead: number;
   behind: number;
   upstream: string | null;
+  upstreamGone: boolean;
   remote: string;
   hasGitHubRemote: boolean;
   commitSubject: string;
@@ -779,6 +786,8 @@ function buildPrompt(args: {
   lines.push(`**Branch:** \`${args.branch}\``);
   if (args.branchWasCreated && args.branchBase) {
     lines.push(`**Branch context:** Just created from \`${args.branchBase}\`: fresh branch, no upstream yet.`);
+  } else if (args.upstreamGone) {
+    lines.push(`**Branch context:** The upstream branch \`${args.upstream}\` no longer exists on the remote (as of the last fetch).`);
   } else if (args.branchWasSwitched) {
     lines.push(`**Branch context:** Just switched to this branch.`);
   } else if (args.upstream) {

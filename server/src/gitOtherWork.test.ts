@@ -5,8 +5,17 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseLeftRight, surveyOtherWork } from './gitOtherWork.js';
+import { parseGitBranches } from './git.js';
 
 const git = (cwd: string, ...args: string[]) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.test', ...args], { cwd, stdio: 'pipe' }).toString();
+
+test('branch parser identifies a deleted upstream', () => {
+  assert.deepEqual(parseGitBranches('old\torigin/old\t[gone]\torigin\nplain\t\t\t\nlocal\tbase\t[gone]\t.\n', 'old'), [
+    { name: 'old', upstream: 'origin/old', hasUpstream: true, isCurrent: true, upstreamGone: true },
+    { name: 'plain', upstream: null, hasUpstream: false, isCurrent: false, upstreamGone: false },
+    { name: 'local', upstream: 'base', hasUpstream: true, isCurrent: false, upstreamGone: false },
+  ]);
+});
 
 test('parseLeftRight reads behind then ahead', () => {
   assert.deepEqual(parseLeftRight('2\t5\n'), { behind: 2, ahead: 5 });

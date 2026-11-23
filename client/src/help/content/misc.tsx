@@ -1782,6 +1782,8 @@ export const miscHelp: Record<string, HelpEntry> = {
           and behind the default branch, the number of uncommitted files in a
           checked-out worktree, and its open pull request when the GitHub CLI is
           available. Without it, or offline, pull requests are simply not shown.
+          <C>[deleted on remote]</C> marks an upstream missing as of the last
+          fetch; this list does not fetch or delete it.
         </p>
         <p>
           <C>VIEW CHANGES</C> closes this dialog and opens the FILES tab&apos;s

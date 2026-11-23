@@ -289,6 +289,7 @@ export interface FetchRemoteResponse {
 // with no working tree has no uncommitted count).
 export interface OtherWorkRow {
   branch: string | null;
+  upstreamGone?: boolean;
   /** Checkout path when the branch (or a detached HEAD) is checked out somewhere. */
   worktreePath: string | null;
   isMain: boolean;

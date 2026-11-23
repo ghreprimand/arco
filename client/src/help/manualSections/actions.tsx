@@ -492,6 +492,10 @@ export const actions: Section[] = [
           out).
         </p>
         <p>
+          A branch marked <Code>[deleted on remote]</Code> has an upstream
+          missing as of the last fetch. Arco does not fetch or delete it.
+        </p>
+        <p>
           <Code>VIEW CHANGES</Code> opens the FILES tab&apos;s CHANGES view
           on that worktree. It is read-only: no merge, delete or switch actions.
         </p>

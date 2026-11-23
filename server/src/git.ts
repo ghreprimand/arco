@@ -20,6 +20,7 @@ export interface GitBranchSummary {
   hasUpstream: boolean;
   upstream: string | null;       // e.g. "origin/windows-port"
   isCurrent: boolean;
+  upstreamGone: boolean;
 }
 
 export interface GitRemoteSummary {
@@ -81,6 +82,18 @@ export async function runGit(cwd: string, args: string[]): Promise<{ stdout: str
   }
 }
 
+export function parseGitBranches(raw: string, currentBranch: string | null): GitBranchSummary[] {
+  return raw.split('\n').filter(Boolean).map((line) => {
+    const [name, upstream = '', track = '', remote = ''] = line.split('\t');
+    return { name, upstream: upstream || null, hasUpstream: Boolean(upstream), isCurrent: name === currentBranch, upstreamGone: track.trim() === '[gone]' && remote !== '.' };
+  }).filter((branch) => Boolean(branch.name));
+}
+
+export async function readGitBranches(cwd: string, currentBranch: string | null = null): Promise<GitBranchSummary[]> {
+  const refs = await runGit(cwd, ['for-each-ref', '--format=%(refname:short)\t%(upstream:short)\t%(upstream:track)\t%(upstream:remotename)', 'refs/heads/']);
+  return refs.code === 0 ? parseGitBranches(refs.stdout, currentBranch) : [];
+}
+
 function parseNameStatus(raw: string): GitStatusFile[] {
   const out: GitStatusFile[] = [];
   const toks = raw.split('\0');
@@ -135,6 +148,11 @@ export async function getGitStatus(cwd: string): Promise<GitStatus> {
   const headName = head.stdout.trim();
   const currentBranch = headName === 'HEAD' || headName === '' ? null : headName;
 
+  // Local branches with their upstream (if any). One git call, parsed
+  // line-by-line. Format: "<name>\t<upstream-or-empty>\t<track-state>\t<remote>".
+  const branches = await readGitBranches(cwd, currentBranch);
+  const currentUpstream = branches.find((branch) => branch.isCurrent);
+
   // Upstream tracking branch for the current branch (e.g. origin/main).
   // Errors when there's no upstream — we don't treat that as fatal.
   let upstream: string | null = null;
@@ -142,7 +160,8 @@ export async function getGitStatus(cwd: string): Promise<GitStatus> {
   let behind = 0;
   let toPushFiles: GitStatusFile[] = [];
   let toPullFiles: GitStatusFile[] = [];
-  if (currentBranch) {
+  if (currentUpstream?.upstreamGone) upstream = currentUpstream.upstream;
+  else if (currentBranch) {
     const ups = await runGit(cwd, ['rev-parse', '--abbrev-ref', '@{upstream}']);
     if (ups.code === 0) {
       upstream = ups.stdout.trim() || null;
@@ -173,27 +192,6 @@ export async function getGitStatus(cwd: string): Promise<GitStatus> {
   const stagedCount = stagedFiles.length;
   const dirtyCount = dirtyFiles.length;
 
-  // Local branches with their upstream (if any). One git call, parsed
-  // line-by-line. Format: "<name>\t<upstream-or-empty>".
-  const branchesOut = await runGit(cwd, [
-    'for-each-ref',
-    '--format=%(refname:short)\t%(upstream:short)',
-    'refs/heads/',
-  ]);
-  const branches: GitBranchSummary[] = [];
-  if (branchesOut.code === 0) {
-    for (const line of branchesOut.stdout.split('\n')) {
-      if (!line) continue;
-      const [name, ups] = line.split('\t');
-      if (!name) continue;
-      branches.push({
-        name,
-        hasUpstream: Boolean(ups && ups.trim()),
-        upstream: ups && ups.trim() ? ups.trim() : null,
-        isCurrent: name === currentBranch,
-      });
-    }
-  }
   // Stable order: current branch first, then alpha. Matches how operators
   // scan a branch list in their head — "where am I, then everything else."
   branches.sort((a, b) => {

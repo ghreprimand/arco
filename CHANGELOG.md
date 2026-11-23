@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Mark branches whose upstream was deleted on the remote in the GIT dialog.
+
 - Return from Claude Native shell commands when a detached process keeps their output open.
 
 - Open each researcher's report from the research rounds strip, and list its returned files under the report in RESULTS.

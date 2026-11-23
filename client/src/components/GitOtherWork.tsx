@@ -1,3 +1,4 @@
+import { gitBranchMark } from '../utils/gitBranchMark';
 import { useEffect, useMemo, useState } from 'react';
 import type { OtherWorkResponse, OtherWorkRow } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
@@ -74,7 +75,7 @@ function Row({ row, base, tabs, onView }: { row: OtherWorkRow; base: string | nu
   const counts = row.ahead !== null && row.behind !== null && base ? `${row.ahead} ahead, ${row.behind} behind ${base}` : '';
   return (
     <div data-testid="git-other-work-row" style={{ display: 'flex', alignItems: 'baseline', gap: '10px', padding: '4px 0', borderTop: '1px solid var(--color-border-hairline)', fontSize: '11px', flexWrap: 'wrap' }}>
-      <span style={{ color: 'var(--color-fg)', fontWeight: 600 }}>{row.branch ?? '(detached)'}</span>
+      <span style={{ color: 'var(--color-fg)', fontWeight: 600 }}>{row.branch ?? '(detached)'}{gitBranchMark(row.upstreamGone)}</span>
       <span style={small}>{row.worktreePath ? (row.isMain ? 'main checkout' : 'worktree') : 'branch only'}</span>
       {tabs.length > 0 && <span style={{ ...small, color: 'var(--color-accent-primary)' }}>tab: {tabs.join(', ')}</span>}
       {counts && <span style={small}>{counts}</span>}

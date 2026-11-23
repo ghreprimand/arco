@@ -7,7 +7,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { OtherWorkResponse, OtherWorkRow } from '@arco/shared';
-import { runGit } from './git.js';
+import { readGitBranches, runGit } from './git.js';
 import { listWorktrees } from './project/taskWorktree.js';
 
 const execFileAsync = promisify(execFile);
@@ -55,8 +55,9 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
 export async function surveyOtherWork(cwd: string): Promise<OtherWorkResponse> {
   const inside = await runGit(cwd, ['rev-parse', '--is-inside-work-tree']);
   if (inside.code !== 0 || inside.stdout.trim() !== 'true') return { isRepo: false, defaultBranch: null, rows: [], prStatus: 'unavailable', truncated: false };
-  const refs = await runGit(cwd, ['for-each-ref', '--format=%(refname:short)', 'refs/heads']);
-  const branches = refs.code === 0 ? refs.stdout.split('\n').map((l) => l.trim()).filter(Boolean) : [];
+  const branchInfo = await readGitBranches(cwd);
+  const branches = branchInfo.map((branch) => branch.name);
+  const goneBranches = new Set(branchInfo.filter((branch) => branch.upstreamGone).map((branch) => branch.name));
   const defaultBranch = await defaultBranchOf(cwd, branches);
   const worktrees = await listWorktrees(cwd);
   const own = await runGit(cwd, ['rev-parse', '--show-toplevel']);
@@ -92,7 +93,7 @@ export async function surveyOtherWork(cwd: string): Promise<OtherWorkResponse> {
       const st = await runGit(t.worktreePath, ['status', '--porcelain']);
       if (st.code === 0) dirtyCount = st.stdout.split('\n').filter((l) => l.trim()).length;
     }
-    return { branch: t.branch, worktreePath: t.worktreePath, isMain: t.isMain, ahead, behind, dirtyCount, pr: t.branch ? prs?.get(t.branch) ?? null : null };
+    return { branch: t.branch, upstreamGone: t.branch !== null && goneBranches.has(t.branch), worktreePath: t.worktreePath, isMain: t.isMain, ahead, behind, dirtyCount, pr: t.branch ? prs?.get(t.branch) ?? null : null };
   });
   return { isRepo: true, defaultBranch, rows, prStatus: prs ? 'ok' : 'unavailable', truncated };
 }
