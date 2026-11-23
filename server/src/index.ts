@@ -2600,6 +2600,9 @@ function onListening() {
     notify: pushClusterState,
     now: () => Date.now(),
   });
+  clusterMailbox.setDeliveryListener((wfid, msgs) => {
+    void researchRounds.onRoundMailRead(wfid, msgs.map((m) => m.msgId)).catch((err) => console.error('[arco] research deadline update failed:', err));
+  });
   installResearchCloseOnDelete((wfid) => workflows.get(wfid)?.busy === true);
   // docs/RESEARCH.md - after a crash, remove researcher folders that belong
   // to research tabs already closed (no cluster left). Never a research folder.

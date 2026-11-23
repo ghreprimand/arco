@@ -8,7 +8,7 @@ import * as clusterMailbox from '../clusterMailbox.js';
 import * as clusterPeerOps from '../clusterPeerOps.js';
 import * as clusterStore from '../clusterStore.js';
 import { createResearchFolder } from './researchFolder.js';
-import { addResearcher, configureResearch, holdResearcherReply, removeResearcher, onMemberSettled, revealResearch, setResearcherSignInWaiting, startResearchDirector, startRound, timeoutRound } from './researchRounds.js';
+import { addResearcher, configureResearch, holdResearcherReply, removeResearcher, onMemberSettled, onRoundMailRead, revealResearch, setResearcherSignInWaiting, startResearchDirector, startRound, timeoutRound } from './researchRounds.js';
 import { catchUpKey, initResearch, loadResearch, researchSummary, updateResearch } from './researchState.js';
 import { ensureResearchTripwires, observeResearchText, observeResearchTool, RESEARCH_CANARY_FILE, researchToolBoundaryWarning } from './researchTripwires.js';
 import { closeResearch, closedResearchRecordPath, installResearchCloseOnDelete, sweepClosedResearch, unsentFiles } from './researchClose.js';
@@ -92,6 +92,46 @@ test('a Gemini Research Director gets its turn text as waiting mail, and its rou
       assert.equal(mail[0].fromGemini, true);
     }
   } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
+test('a researcher held by a Gemini Research Director is not timed out before it reads the round, then gets the full time limit', async () => {
+  const p = await project();
+  let now = Date.parse('2026-11-23T00:00:00Z');
+  try {
+    configureResearch({
+      enqueue: (to, msg, opts) => clusterMailbox.enqueue(to, msg, opts),
+      mintMsgId: () => clusterMailbox.mintMsgId(),
+      wake: (wfid, prompt) => { p.woken.push(wfid); p.prompts.push(prompt); },
+      operatorOnly: (wfid) => wfid === p.director,
+      isBusy: () => false,
+      pendingMail: (wfid) => clusterMailbox.depthFor(wfid),
+      clusterIdFor: (wfid) => clusterStore.getClusterIdForWorkflow(wfid),
+      notify: () => undefined,
+      now: () => now,
+    });
+    clusterMailbox.setDeliveryListener((wfid, msgs) => { void onRoundMailRead(wfid, msgs.map((m) => m.msgId)); });
+    assert.equal((await startRound(p.clusterId, p.director, 'Compare two heat pumps.', 5)).ok, true);
+    now += 60 * 60_000;
+    await timeoutRound(p.clusterId, 1);
+    let state = (await loadResearch(p.clusterId))!;
+    assert.equal(state.rounds[0].entries.A.state, 'waiting', 'a researcher not yet nudged keeps waiting past the deadline');
+    assert.equal(state.rounds[0].entries.B.state, 'waiting');
+    assert.equal((await clusterMailbox.drain(p.a, { operatorTurn: true })).length, 1);
+    for (let i = 0; i < 50 && (await loadResearch(p.clusterId))!.rounds[0].entries.A.heldMsgId; i++) await new Promise((r) => setTimeout(r, 10));
+    state = (await loadResearch(p.clusterId))!;
+    assert.equal(state.rounds[0].entries.A.heldMsgId, undefined);
+    assert.equal(Date.parse(state.rounds[0].deadline), now + 5 * 60_000, 'the full limit counts from the read');
+    now += 6 * 60_000;
+    await timeoutRound(p.clusterId, 1);
+    state = (await loadResearch(p.clusterId))!;
+    assert.equal(state.rounds[0].entries.A.state, 'timed_out');
+    assert.equal(state.rounds[0].entries.B.state, 'waiting', 'the researcher still waiting for its NUDGE is not timed out');
+  } finally {
+    clusterMailbox.setDeliveryListener(null);
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
 });
 
 test('research creation rejects a CLI-only setting on a different provider', async () => {

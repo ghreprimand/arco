@@ -148,6 +148,7 @@ export async function startRound(clusterId: string, callerWorkflowId: string, te
       text: brief,
       startedAt: iso(now),
       deadline: iso(now + minutes * 60_000),
+      timeoutMs: minutes * 60_000,
       // A researcher still on its catch-up gets this text when the catch-up
       // settles, against the same deadline (docs/RESEARCH.md).
       entries: Object.fromEntries(activeResearchers(s).map((r) => [r.letter, { state: 'waiting' as const, ...(openCatchUp(s, r.letter) ? { deferred: true } : {}) }])),
@@ -172,8 +173,17 @@ async function sendRoundText(state: ResearchState, round: ResearchRound, r: Rese
   // A round from a Gemini Research Director is mail from a Gemini member: it
   // waits for the operator's NUDGE on each researcher.
   const held = d().operatorOnly?.(state.directorWorkflowId) === true;
+  const msgId = d().mintMsgId();
+  // Recorded before the mail is queued, so a read that follows at once finds it.
+  if (held) {
+    await updateResearch(state.clusterId, (s) => {
+      const entry = roundByKey(s, round.n)?.entries[r.letter];
+      if (!entry || entry.state !== 'waiting') return false;
+      entry.heldMsgId = msgId;
+    });
+  }
   await d().enqueue(r.workflowId, {
-    msgId: d().mintMsgId(),
+    msgId,
     fromWorkflowId: state.directorWorkflowId,
     fromDisplayName: 'Research Director',
     toWorkflowId: r.workflowId,
@@ -209,13 +219,45 @@ export async function timeoutRound(clusterId: string, n: number): Promise<void> 
     if (!round || round.releasedAt) return false;
     let changed = false;
     for (const [letter, entry] of Object.entries(round.entries)) {
-      if (entry.state !== 'waiting') continue;
+      if (entry.state !== 'waiting' || entry.heldMsgId) continue;
       if (s.researchers.find(researcher => researcher.letter === letter)?.signInNeeded) continue;
       entry.state = 'timed_out'; entry.at = at; entry.reason = 'No reply before the deadline.'; changed = true;
     }
     return changed;
   });
   await maybeRelease(clusterId, n);
+}
+
+/**
+ * A researcher read held round mail from a Gemini Research Director: its
+ * entry can time out again, and the round deadline is at least the round's
+ * full time limit from now (docs/RESEARCH.md "Gemini Research Director").
+ */
+export async function onRoundMailRead(workflowId: string, msgIds: string[]): Promise<void> {
+  if (!deps || msgIds.length === 0) return;
+  const clusterId = deps.clusterIdFor(workflowId);
+  if (!clusterId) return;
+  const now = deps.now();
+  const touched: ResearchRound[] = [];
+  const state = await updateResearch(clusterId, (s) => {
+    const researcher = researcherFor(s, workflowId);
+    if (!researcher) return false;
+    for (const round of [...s.rounds, ...(s.catchUps ?? [])]) {
+      const entry = round.entries[researcher.letter];
+      if (round.releasedAt || !entry?.heldMsgId || !msgIds.includes(entry.heldMsgId)) continue;
+      delete entry.heldMsgId;
+      const limit = round.timeoutMs ?? Math.max(0, Date.parse(round.deadline) - Date.parse(round.startedAt));
+      round.deadline = iso(Math.max(Date.parse(round.deadline), now + limit));
+      touched.push(round);
+    }
+    if (touched.length === 0) return false;
+  });
+  if (!state) return;
+  for (const round of touched) {
+    const current = roundByKey(state, round.n);
+    if (current && !current.releasedAt) schedule(clusterId, current);
+  }
+  deps.notify(clusterId);
 }
 
 /** Keep the researcher and its round waiting while the normal sign-in is renewed. */
@@ -466,7 +508,7 @@ export async function addResearcher(clusterId: string, joining: JoiningResearche
       joinedAt: iso(now), joinedFromRound: fromRound });
     const first = s.rounds[0];
     if (catchUp && first) {
-      run = { n: catchUpKey(letter), text: first.text, startedAt: iso(now), deadline: iso(now + timeoutMinutes * 60_000),
+      run = { n: catchUpKey(letter), text: first.text, startedAt: iso(now), deadline: iso(now + timeoutMinutes * 60_000), timeoutMs: timeoutMinutes * 60_000,
         entries: { [letter]: { state: 'waiting' } }, targeted: [], catchUp: letter };
       s.catchUps = [...(s.catchUps ?? []), run];
     }

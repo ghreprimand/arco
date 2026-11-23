@@ -265,6 +265,11 @@ export async function peek(wfId: string): Promise<PeerMessage[]> {
 // Mail a Gemini member sent stays waiting unless `operatorTurn` is true: the
 // recipient's current turn was started by the operator's NUDGE or typed
 // message (clusterTurnOrigin.ts). This is the one place that rule is applied.
+// One listener learns which messages a drain delivered (research rounds use
+// it to start a held researcher's deadline, docs/RESEARCH.md).
+let deliveryListener: ((wfId: string, msgs: PeerMessage[]) => void) | null = null;
+export function setDeliveryListener(fn: ((wfId: string, msgs: PeerMessage[]) => void) | null): void { deliveryListener = fn; }
+
 export async function drain(wfId: string, options?: { onlyFrom?: string; operatorTurn?: boolean }): Promise<PeerMessage[]> {
   if (options && 'onlyFrom' in options && (typeof options.onlyFrom !== 'string' || !options.onlyFrom)) throw new Error('A sender is required for filtered mail.');
   const wanted = (msg: PeerMessage): boolean => (!options?.onlyFrom || msg.fromWorkflowId === options.onlyFrom)
@@ -314,6 +319,9 @@ export async function drain(wfId: string, options?: { onlyFrom?: string; operato
       await fs.unlink(path).catch(() => undefined);
     }
     if (out.length) publishActivity({ kind: 'mail_read', clusterId, workflowId: wfId });
+    if (out.length && deliveryListener) {
+      try { deliveryListener(wfId, out); } catch (error) { console.error('[arco] mail delivery listener failed:', error); }
+    }
     return out;
   });
 }

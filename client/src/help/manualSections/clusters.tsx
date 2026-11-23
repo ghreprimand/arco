@@ -445,8 +445,9 @@ export const clusters: Section[] = [
   </p>
   <p>
   A Gemini Research Director waits for your NUDGE at every step, and the
-  rounds it sends wait for your NUDGE on each researcher. NUDGE and
-  MAILBOX then appear, so that mail can be reviewed or edited first.
+  rounds it sends wait for your NUDGE on each researcher. A researcher's
+  time limit starts when it reads the round. NUDGE and MAILBOX then appear,
+  so that mail can be reviewed or edited first.
   </p>
   <p>
   The <strong>Research Director</strong> can use any connected provider. The

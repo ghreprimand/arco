@@ -24,6 +24,10 @@ export interface ResearchEntry {
   // The researcher is still on its catch-up: the round text is sent when
   // the catch-up settles, against the same deadline.
   deferred?: boolean;
+  // The round mail from a Gemini Research Director still waits for the
+  // operator's NUDGE: this entry does not time out, and the round deadline
+  // counts from when the researcher reads that mail (docs/RESEARCH.md).
+  heldMsgId?: string;
 }
 
 export interface ResearchTargeted { at: string; from: 'director' | 'operator'; letter: string; text: string }
@@ -33,6 +37,9 @@ export interface ResearchRound {
   text: string;
   startedAt: string;
   deadline: string;
+  // The round's time limit, kept so a held researcher gets the full limit
+  // from when it reads the round mail.
+  timeoutMs?: number;
   releasedAt?: string;
   entries: Record<string, ResearchEntry>;
   targeted: ResearchTargeted[];
