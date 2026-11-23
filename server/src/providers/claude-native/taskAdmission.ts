@@ -28,7 +28,7 @@ export function assertNativeTaskAllowed(context: { interactionMode?: string; inC
   }
 }
 const aborted = () => new Error('AbortError: Task cancelled');
-interface Waiter { enter(): void; cancel(): void }
+interface Waiter { background: boolean; enter(): void; cancel(): void }
 export class NativeTaskAdmission {
   private turn?: AbortSignal;
   private limits: NativeTaskLimits = { maxRunning: 4, maxStarts: 8 };
@@ -36,11 +36,16 @@ export class NativeTaskAdmission {
   private active = 0;
   private queue: Waiter[] = [];
 
-  async acquire(turn: AbortSignal, limits: NativeTaskLimits, request: AbortSignal = turn): Promise<{ started(): void; release(): void }> {
-    if (turn.aborted || request.aborted) throw aborted();
+  // `turn` counts starts. A background request (docs/PROVIDERS.md "Background
+  // sub-agents") passes the parent tab's `lifetime`: it survives the end of
+  // the turn and a new turn, and still occupies a running place until it ends.
+  async acquire(turn: AbortSignal, limits: NativeTaskLimits, request: AbortSignal = turn, lifetime?: AbortSignal): Promise<{ started(): void; release(): void }> {
+    const life = lifetime ?? turn;
+    const background = life !== turn;
+    if (turn.aborted || request.aborted || life.aborted) throw aborted();
     if (this.turn !== turn) {
       this.turn = turn;
-      for (const queued of [...this.queue]) queued.cancel();
+      for (const queued of this.queue.filter((q) => !q.background)) queued.cancel();
       this.limits = { ...limits };
       this.reserved = 0;
     }
@@ -50,7 +55,7 @@ export class NativeTaskAdmission {
     this.reserved++;
     return await new Promise((resolve, reject) => {
       let finished = false;
-      const cleanup = () => { turn.removeEventListener('abort', cancel); request.removeEventListener('abort', cancel); };
+      const cleanup = () => { life.removeEventListener('abort', cancel); request.removeEventListener('abort', cancel); };
       const cancel = () => {
         if (finished) return;
         finished = true; cleanup();
@@ -59,9 +64,9 @@ export class NativeTaskAdmission {
         reject(aborted());
         this.drain();
       };
-      const waiter: Waiter = { cancel, enter: () => {
+      const waiter: Waiter = { background, cancel, enter: () => {
         if (finished) return;
-        if (turn.aborted || request.aborted || this.turn !== turn) { cancel(); return; }
+        if (life.aborted || request.aborted || (!background && this.turn !== turn)) { cancel(); return; }
         finished = true; cleanup(); this.active++;
         let started = false; let released = false;
         resolve({ started: () => { started = true; }, release: () => {
@@ -71,8 +76,8 @@ export class NativeTaskAdmission {
           this.drain();
         } });
       } };
-      turn.addEventListener('abort', cancel, { once: true });
-      if (request !== turn) request.addEventListener('abort', cancel, { once: true });
+      life.addEventListener('abort', cancel, { once: true });
+      if (request !== life) request.addEventListener('abort', cancel, { once: true });
       this.queue.push(waiter);
       this.drain();
     });

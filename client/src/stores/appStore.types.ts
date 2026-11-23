@@ -553,6 +553,8 @@ export interface TaskChildEntry {
   toolUseId: string;
   description: string;
   phase: 'queued' | 'running' | 'done' | 'error' | 'cancelled';
+  // Started with run_in_background (docs/PROVIDERS.md "Background sub-agents").
+  background?: boolean;
   startedAt: number;
   settledAt?: number;
   elapsedMs?: number;
@@ -1044,6 +1046,7 @@ export interface AppState {
     toolUseId: string;
     description: string;
     startedAt: number;
+    background?: boolean;
   }) => void;
   recordTaskStatus: (jobId: string, payload: {
     taskId: string;

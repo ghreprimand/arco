@@ -52,8 +52,19 @@ export function NativeSubagentControls({ value, defaults, onChange, inherit = fa
           {models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
         </select>
       </label>
+      <label data-help="settings.native-subagents-background">Background sub-agents
+        <select aria-label="Background sub-agents" style={control} value={value?.background === undefined ? (inherit ? '__inherit__' : 'allowed') : value.background ? 'allowed' : 'off'} onChange={(e) => {
+          const next = { ...value };
+          if (e.target.value === '__inherit__') delete next.background; else next.background = e.target.value === 'allowed';
+          onChange(next, 'background');
+        }}>
+          {inherit && <option value="__inherit__">Use Settings ({inherited.background ? 'Allowed' : 'Off'})</option>}
+          <option value="allowed">Allowed</option>
+          <option value="off">Off</option>
+        </select>
+      </label>
     </div>
-    <p style={{ margin: '8px 0 0' }}>Blank limits use {inherit ? 'Settings' : 'the defaults'}: {inherited.maxRunning} running, {inherited.maxStarts} starts per turn. Extra admitted tasks queue; a batch beyond the turn limit is refused. A selected model overrides the agent's request. Separately, a batch asks before exceeding four starts or using a model with unknown relative cost.</p>
+    <p style={{ margin: '8px 0 0' }}>Blank limits use {inherit ? 'Settings' : 'the defaults'}: {inherited.maxRunning} running, {inherited.maxStarts} starts per turn. Extra admitted tasks queue; a batch beyond the turn limit is refused. A selected model overrides the agent's request. Background sub-agents: Allowed lets the agent start a sub-agent and keep working; Off makes every call wait. Separately, a batch asks before exceeding four starts or using a model with unknown relative cost.</p>
     {error && <p role="alert">{error}</p>}
   </fieldset>;
 }

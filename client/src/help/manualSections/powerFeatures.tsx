@@ -44,6 +44,18 @@ export const powerFeatures: Section[] = [
   not build autonomous orchestration trees, and one level is the right ceiling
   for an operator-visible spawn.
   </p>
+  <Sub>Background sub-agents</Sub>
+  <p>
+  The agent can start a sub-agent in the background and keep working with you.
+  Its row is labelled BACKGROUND. When it finishes, its result arrives as an
+  automatic message; an idle tab starts one turn for it. Several finishing
+  together share one message.
+  </p>
+  <p>
+  A new message or INTERRUPT &amp; SEND leaves background sub-agents running.
+  STOP, the row's CANCEL and closing the tab end them. Turn them off in
+  Settings, Agents and clusters, <strong>Background sub-agents</strong>.
+  </p>
   <p>
   Cancelling the parent cancels all of its children, and the parent's agent loop
   sees a clean cancellation. Every unfinished card shows <Code>cancelled</Code>{' '}

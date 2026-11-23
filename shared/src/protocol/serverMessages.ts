@@ -1398,6 +1398,8 @@ export interface TaskStartedMessage {
   toolUseId: string;
   description: string;
   startedAt: number;
+  // Started with run_in_background: tied to the parent tab, not its turn.
+  background?: boolean;
 }
 
 // Phase 7b — settle/error/cancelled signal for a Task child. v1 fires

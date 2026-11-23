@@ -5,7 +5,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   'config.subagent-provider': { title: 'Sub-agent controls', body: <p>Claude Native has Arco-managed Task limits, model choice and child cancellation. Codex, Cursor and Antigravity manage their own sub-agents; Arco does not set their child count or model. Local providers have no built-in Arco sub-agent runner. STOP stops the parent turn.</p>, manualSection: 'provider-claude' },
   'runtime.subagent-list': {
     title: 'Sub-agents',
-    body: <p>Expand the row to see Task children and their status. VIEW IN TAB opens the same child; closing that view hides it without stopping the task. CANCEL stops one child and CANCEL ALL stops pending children. A running Native child can receive a text steer; a draft stays until the server confirms receipt. Receipt clears the draft but does not confirm delivery to the child. If delivery is unconfirmed, check the conversation before sending again. Completed children are read-only.</p>,
+    body: <p>Expand the row to see Task children and their status. VIEW IN TAB opens the same child; closing that view hides it without stopping the task. CANCEL stops one child and CANCEL ALL stops pending children, background ones included. A BACKGROUND child keeps running through new messages until it ends, STOP or the tab closes. A running Native child can receive a text steer; a draft stays until the server confirms receipt. Receipt clears the draft but does not confirm delivery to the child. If delivery is unconfirmed, check the conversation before sending again. Completed children are read-only.</p>,
     manualSection: 'tasks-tab',
   },
   'runtime.waiting-subagents': {
@@ -297,8 +297,8 @@ export const miscHelp: Record<string, HelpEntry> = {
     manualSection: 'chat-panel',
   },
   'chat.automatic-message': {
-    title: 'Automatic mailbox message',
-    body: <p>Automatic nudges and pickup reminders start folded. Use + to read the full message and - to fold it again. The member receives the full text. Typed messages stay visible.</p>,
+    title: 'Automatic message',
+    body: <p>Automatic nudges, pickup reminders and background sub-agent results start folded. Use + to read the full message and - to fold it again. The member receives the full text. Typed messages stay visible.</p>,
     manualSection: 'cluster-peer-read-tool',
   },
   'chat.message.user': {

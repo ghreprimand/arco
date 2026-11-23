@@ -289,6 +289,9 @@ export interface TaskSpawnArgs {
   parentWorkflowId: string;
   taskId?: string;
   turnSignal?: AbortSignal;
+  // A background child (run_in_background) ends with this signal instead of
+  // turnSignal: the parent tab's STOP, close or dispose.
+  lifetimeSignal?: AbortSignal;
   signal?: AbortSignal;
   policy?: NativeSubagentPolicy;
   onQueued?: (model: string) => void;
@@ -516,6 +519,15 @@ export class ClaudeNativeWorker extends EventEmitter {
   private taskBatchRefusal = 'Task not started: the operator denied the batch.';
   private taskPolicy = resolveNativeSubagents();
   private taskRequests = new Map<string, AbortController>();
+  // docs/PROVIDERS.md "Background sub-agents": children started with
+  // run_in_background belong to the tab. Only STOP, the row's CANCEL and
+  // closing the tab end them; their results reach the parent as one notice.
+  private backgroundLife = new AbortController();
+  private backgroundTaskIds = new Set<string>();
+  private backgroundNotices: string[] = [];
+  private backgroundNoticeTimer: NodeJS.Timeout | null = null;
+  private taskNoticeHandler: ((text: string) => void) | null = null;
+  private backgroundNoticeGatherMs = 2000;
   // docs/PROVIDERS.md - generic workflow-scoped event sink for
   // hook_rewrote_input / tool_gate_triggered / ctx_action. Wired by
   // ClaudeNativeProvider; no-op when absent (e.g. tests).
@@ -588,6 +600,12 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   setTaskHandler(fn: TaskSpawnHandler): void {
     this.taskHandler = fn;
+  }
+
+  // Delivers finished background sub-agents to the parent: a steer while a
+  // turn runs, otherwise one automatic turn (server/src/index.ts).
+  setTaskNoticeHandler(fn: (text: string) => void): void {
+    this.taskNoticeHandler = fn;
   }
 
   // Starts a turn for an asyncRewake hook that exits 2 while the tab is idle.
@@ -2317,8 +2335,9 @@ export class ClaudeNativeWorker extends EventEmitter {
     return text;
   }
 
-  // Operator clicks CANCEL / RSS guard / tab close.
-  cancel(): void {
+  // Operator clicks CANCEL / RSS guard / tab close. INTERRUPT & SEND keeps
+  // background sub-agents running (keepBackground).
+  cancel(opts: { keepBackground?: boolean } = {}): void {
     this.cancelCompaction();
     this.cancelRequested = true;
     try { this.tokenCountAbort?.abort(); } catch { /* already aborted */ }
@@ -2336,25 +2355,84 @@ export class ClaudeNativeWorker extends EventEmitter {
         try { g.reject(new Error('AbortError: turn cancelled')); } catch { /* ignore */ }
       }
     }
-    this.cancelPendingTasks();
+    this.cancelPendingTasks(opts.keepBackground !== true);
   }
 
-  private cancelPendingTasks(): void {
-    // Settle before the parent error/result unwires lifecycle forwarding.
-    const active = [...this.unsettledTasks.keys()];
-    for (const [taskId, task] of this.unsettledTasks) {
-      this.emit('task_status', { taskId, toolUseId: task.toolUseId, phase: 'cancelled', elapsedMs: Date.now() - task.startedAt, summary: 'Cancelled.' });
+  // Foreground children end with the turn; background children only when
+  // `includeBackground` (STOP, close, dispose).
+  private cancelPendingTasks(includeBackground = false): void {
+    const kept = (id: string) => !includeBackground && this.backgroundTaskIds.has(id);
+    if (includeBackground) {
+      this.backgroundLife.abort();
+      this.backgroundLife = new AbortController();
+      setMaxListeners(0, this.backgroundLife.signal);
     }
-    this.unsettledTasks.clear();
+    // Settle before the parent error/result unwires lifecycle forwarding.
+    const active = [...this.unsettledTasks.keys()].filter((id) => !kept(id));
+    for (const taskId of active) {
+      const task = this.unsettledTasks.get(taskId)!;
+      this.emitTaskEvent('task_status', { taskId, toolUseId: task.toolUseId, phase: 'cancelled', elapsedMs: Date.now() - task.startedAt, summary: 'Cancelled.' });
+      this.unsettledTasks.delete(taskId);
+    }
     this.taskTurn.abort();
-    for (const request of this.taskRequests.values()) request.abort();
+    for (const [id, request] of this.taskRequests) if (!kept(id)) request.abort();
     for (const id of active) {
       try { this.tasksByTaskId.get(id)?.cancel(); } catch { /* already gone */ }
     }
   }
 
+  // A background child's lifecycle event can arrive between turns, when the
+  // turn's listeners are unwired; it then goes straight to the workflow.
+  private emitTaskEvent(event: 'task_started' | 'task_status', data: Record<string, unknown>): void {
+    const id = typeof data.taskId === 'string' ? data.taskId : '';
+    if (this.backgroundTaskIds.has(id) && !this.turnRunning) {
+      this.workflowEventBroadcast({ type: event, workflowId: this.workflowId, ...data } as ServerMessage);
+      return;
+    }
+    this.emit(event, data);
+  }
+
+  // docs/PROVIDERS.md "Background sub-agents": children settling within two
+  // seconds of each other share one notice. A STOP or close sends none.
+  private noteBackgroundSettled(taskId: string, description: string, phase: 'done' | 'error' | 'cancelled', text: string): void {
+    const LIMIT = 16 * 1024;
+    const body = text.length <= LIMIT ? text : `${text.slice(0, LIMIT)}\n[${text.length - LIMIT} more characters: read them with TaskOutput ${taskId}, or open the sub-agent's tab.]`;
+    const outcome = phase === 'done' ? 'finished' : phase === 'error' ? 'failed' : 'was cancelled';
+    this.backgroundNotices.push(`Background sub-agent ${outcome}: ${description} (${taskId})\n${body || '(no reply)'}`);
+    if (this.backgroundNoticeTimer) return;
+    this.backgroundNoticeTimer = setTimeout(() => this.flushBackgroundNotices(), this.backgroundNoticeGatherMs);
+    this.backgroundNoticeTimer.unref?.();
+  }
+
+  private flushBackgroundNotices(): void {
+    this.backgroundNoticeTimer = null;
+    const notices = this.backgroundNotices.splice(0);
+    if (!notices.length) return;
+    const head = notices.length === 1 ? notices[0].split('\n', 1)[0] : `${notices.length} background sub-agents settled.`;
+    this.taskNoticeHandler?.(notices.length === 1 ? notices[0] : `${head}\n\n${notices.join('\n\n')}`);
+  }
+
+  // Starts a background child and returns at once; the result arrives later
+  // as a notice (noteBackgroundSettled).
+  private startBackgroundTask(args: { description: string; prompt: string; subagentType?: string; model?: string; toolUseId: string }): string {
+    const requestId = `task-${crypto.randomUUID()}`;
+    this.backgroundTaskIds.add(requestId);
+    const life = this.backgroundLife;
+    void this.handleSpawnTask({ ...args, requestId, background: true }).then(
+      (text) => ({ text, phase: /^\[error\] Task /.test(text) ? 'error' as const : / the operator cancelled this sub-agent\./.test(text) ? 'cancelled' as const : 'done' as const }),
+      (err: unknown) => ({ text: err instanceof Error ? err.message : String(err), phase: /AbortError/.test(String(err)) ? 'cancelled' as const : 'error' as const }),
+    ).then(({ text, phase }) => {
+      this.backgroundTaskIds.delete(requestId);
+      if (life.signal.aborted) return;
+      this.noteBackgroundSettled(requestId, args.description, phase, text);
+    });
+    return `Task ${requestId} is running in the background: ${args.description}. Continue with other work; a notice with its result arrives when it finishes. TaskOutput ${requestId} reads its progress. Do not wait for it or start it again.`;
+  }
+
   async dispose(): Promise<void> {
     this.cancel();
+    if (this.backgroundNoticeTimer) { clearTimeout(this.backgroundNoticeTimer); this.backgroundNoticeTimer = null; }
+    this.backgroundNotices = [];
     this.clearIdleNotification();
     this.hookLifetime.abort();
     // Kill any leftover background shells, and wait below until they have ended.
@@ -2622,7 +2700,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   override emit(event: string | symbol, ...args: unknown[]): boolean {
     // The adapter unwires on result/error, so deliver the aggregate first.
-    if (event === 'result' || event === 'error') { this.cancelPendingTasks(); this.flushMediaRetirementNotice(); }
+    if (event === 'result' || event === 'error') { this.cancelPendingTasks(false); this.flushMediaRetirementNotice(); }
     return super.emit(event, ...args);
   }
 
@@ -3710,7 +3788,11 @@ export class ClaudeNativeWorker extends EventEmitter {
       // Capture the parent assistant's tool_use block id in closure so the
       // task_started/task_status broadcasts can reference it for chat-side
       // lookup (the inline Task card matches on toolUseId).
-      spawnTask: async (args) => this.handleSpawnTask({ ...args, toolUseId: block.id }),
+      spawnTask: async ({ runInBackground, ...args }) => {
+        if (runInBackground && this.taskPolicy.background) return this.startBackgroundTask({ ...args, toolUseId: block.id });
+        const text = await this.handleSpawnTask({ ...args, toolUseId: block.id });
+        return runInBackground ? `${text}\n\nBackground sub-agents are off in Settings, so this call waited for the result.` : text;
+      },
       readTaskOutput: async (taskId) => this.handleReadTaskOutput(taskId),
     };
 
@@ -4269,14 +4351,18 @@ export class ClaudeNativeWorker extends EventEmitter {
     });
   }
 
-  private async handleSpawnTask(args: { description: string; prompt: string; subagentType?: string; model?: string; toolUseId: string }): Promise<string> {
+  private async handleSpawnTask(args: { description: string; prompt: string; subagentType?: string; model?: string; toolUseId: string; requestId?: string; background?: boolean }): Promise<string> {
     assertNativeTaskAllowed({ interactionMode: this.config.interactionMode, inCluster: this.config.clusterId !== undefined, taskDisabled: this.taskDisabled });
     if (!this.taskHandler) throw new Error('Task handler not registered');
     const turn = this.taskTurn;
+    // A foreground child ends with the turn; a background one with the tab.
+    const background = args.background === true;
+    const life = background ? this.backgroundLife : turn;
+    const fenced = () => life.signal.aborted || (!background && this.taskTurn !== turn);
     const batchModel = this.approvedTaskModels.get(args.toolUseId)?.model;
     const spawnPolicy = batchModel ? { ...this.taskPolicy, model: batchModel } : this.taskPolicy;
     const request = new AbortController();
-    const requestId = `task-${crypto.randomUUID()}`;
+    const requestId = args.requestId ?? `task-${crypto.randomUUID()}`;
     this.taskRequests.set(requestId, request);
     const operatorCancellation = () => `Task ${requestId}: the operator cancelled this sub-agent. Do not start a replacement unless the operator asks. Count this task as cancelled in your final reply.`;
     let queued = false;
@@ -4285,25 +4371,25 @@ export class ClaudeNativeWorker extends EventEmitter {
     try {
       handle = await this.taskHandler({
         parentWorkflowId: this.workflowId,
-        taskId: requestId, turnSignal: turn.signal, signal: request.signal,
+        taskId: requestId, turnSignal: turn.signal, ...(background ? { lifetimeSignal: life.signal } : {}), signal: request.signal,
         policy: spawnPolicy,
         description: args.description, prompt: args.prompt, subagentType: args.subagentType, model: args.model,
         onStarted: () => { if (this.taskTurn === turn) this.taskStartsThisTurn++; },
         onQueued: (model) => {
-          if (turn.signal.aborted || request.signal.aborted) throw new Error('AbortError: Task cancelled');
+          if (life.signal.aborted || request.signal.aborted) throw new Error('AbortError: Task cancelled');
           chosenModel = model; queued = true;
           const startedAt = Date.now();
           this.unsettledTasks.set(requestId, { toolUseId: args.toolUseId, startedAt });
-          this.emit('task_started', { taskId: requestId, toolUseId: args.toolUseId, description: args.description, startedAt, phase: 'queued', model });
+          this.emitTaskEvent('task_started', { taskId: requestId, toolUseId: args.toolUseId, description: args.description, startedAt, phase: 'queued', model, ...(background ? { background: true } : {}) });
         },
         onModel: (model) => {
           chosenModel = model;
           if (this.tasksByTaskId.has(requestId) && this.unsettledTasks.has(requestId)) {
-            this.emit('task_status', { taskId: requestId, toolUseId: args.toolUseId, phase: 'running', elapsedMs: 0, model });
+            this.emitTaskEvent('task_status', { taskId: requestId, toolUseId: args.toolUseId, phase: 'running', elapsedMs: 0, model });
           }
         },
       });
-      if (turn.signal.aborted || request.signal.aborted || this.taskTurn !== turn) {
+      if (request.signal.aborted || fenced()) {
         handle.finalText.catch(() => {});
         handle.cancel();
         throw new Error('AbortError: Task cancelled during initialization');
@@ -4311,10 +4397,10 @@ export class ClaudeNativeWorker extends EventEmitter {
     } catch (err) {
       if (queued && this.unsettledTasks.delete(requestId)) {
         const text = String(err);
-        this.emit('task_status', { taskId: requestId, toolUseId: args.toolUseId, phase: /AbortError/.test(text) ? 'cancelled' : 'error', elapsedMs: 0, summary: text.slice(0, 200) });
+        this.emitTaskEvent('task_status', { taskId: requestId, toolUseId: args.toolUseId, phase: /AbortError/.test(text) ? 'cancelled' : 'error', elapsedMs: 0, summary: text.slice(0, 200) });
       }
       this.taskRequests.delete(requestId);
-      if (request.signal.aborted && !turn.signal.aborted) return operatorCancellation();
+      if (request.signal.aborted && !life.signal.aborted) return operatorCancellation();
       throw err;
     }
     this.taskRequests.delete(requestId);
@@ -4325,7 +4411,8 @@ export class ClaudeNativeWorker extends EventEmitter {
     this.unsettledTasks.set(handle.taskId, { toolUseId: args.toolUseId, startedAt });
     // Lifecycle broadcast — picked up by ClaudeNativeTurn → WorkerManager →
     // seedWorker.ts which adds workflowId and forwards as `task_started`.
-    this.emit('task_started', {
+    this.emitTaskEvent('task_started', {
+      ...(background ? { background: true } : {}),
       taskId: handle.taskId,
       childWorkflowId: handle.childWorkflowId,
       toolUseId: args.toolUseId,
@@ -4341,7 +4428,7 @@ export class ClaudeNativeWorker extends EventEmitter {
       const phase: 'cancelled' | 'error' = /AbortError/i.test(msg) ? 'cancelled' : 'error';
       // Already reported by cancel().
       if (this.unsettledTasks.delete(handle.taskId)) {
-        this.emit('task_status', {
+        this.emitTaskEvent('task_status', {
           taskId: handle.taskId,
           toolUseId: args.toolUseId,
           phase,
@@ -4349,13 +4436,13 @@ export class ClaudeNativeWorker extends EventEmitter {
           summary: phase === 'cancelled' ? 'Cancelled.' : msg.slice(0, 200),
         });
       }
-      if (request.signal.aborted && !turn.signal.aborted) return operatorCancellation();
+      if (request.signal.aborted && !life.signal.aborted) return operatorCancellation();
       return `[error] Task ${handle.taskId} failed: ${msg.slice(0, 500)}`;
     } finally {
       this.taskRequests.delete(handle.taskId);
     }
     if (!this.unsettledTasks.delete(handle.taskId)) return finalText;
-    this.emit('task_status', {
+    this.emitTaskEvent('task_status', {
       taskId: handle.taskId,
       toolUseId: args.toolUseId,
       phase: 'done',
@@ -4383,6 +4470,7 @@ export class ClaudeNativeWorker extends EventEmitter {
 
   private async handleReadTaskOutput(taskId: string): Promise<string> {
     const handle = this.tasksByTaskId.get(taskId);
+    if (!handle && this.backgroundTaskIds.has(taskId)) return `[queued] task ${taskId} is waiting for a running place.`;
     if (!handle) return `[error] no such task: ${taskId}`;
     const { output, settled } = handle.read();
     const head = settled ? '[settled]' : '[in-flight]';

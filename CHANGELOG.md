@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Let Claude Native start sub-agents in the background (`run_in_background`): the parent keeps working, each result arrives as an automatic message (an idle tab starts one turn for it), the SUB-AGENTS row labels them BACKGROUND, and STOP, CANCEL or closing the tab ends them. Settings > Agents and clusters > Background sub-agents turns this off.
+
 - Show Gemini skill and sub-agent activity compactly, match its usage panel to the other providers, and hide the unsupported output style, north star and goal run.
 
 - Show Gemini sub-agent waiting and warn when an older Antigravity CLI can end the turn before results arrive.

@@ -44,6 +44,11 @@ export function setClaudeNativeTaskHandler(fn: TaskSpawnHandler): void {
 // An asyncRewake hook that exits 2 while the tab is idle starts a turn with
 // its report. Server wires this to the workflow's follow-up queue.
 let hookWakeFn: ((workflowId: string, text: string) => void) | null = null;
+let taskNoticeFn: ((workflowId: string, text: string) => void) | null = null;
+// docs/PROVIDERS.md "Background sub-agents": finished children reach the parent.
+export function setClaudeNativeTaskNoticeHandler(fn: (workflowId: string, text: string) => void): void {
+  taskNoticeFn = fn;
+}
 export function setClaudeNativeHookWakeHandler(fn: (workflowId: string, text: string) => void): void {
   hookWakeFn = fn;
 }
@@ -141,7 +146,8 @@ class ClaudeNativeTurn extends EventEmitter implements ProviderProcess {
   }
 
   async interrupt(): Promise<boolean> {
-    this.kill();
+    // INTERRUPT & SEND: background sub-agents keep running.
+    if (!this.settled) this.worker.cancel({ keepBackground: true });
     await this.running;
     return this.worker.turnInputAccepted;
   }
@@ -284,6 +290,7 @@ function acquireWorker(workflowId: string, config: WorkerConfig): ClaudeNativeWo
   if (planBroadcastFactory) fresh.setPlanBroadcast(planBroadcastFactory(workflowId));
   if (taskHandlerFn) fresh.setTaskHandler(taskHandlerFn);
   fresh.setHookWakeHandler((text) => hookWakeFn?.(workflowId, text));
+  fresh.setTaskNoticeHandler((text) => taskNoticeFn?.(workflowId, text));
   if (workflowEventBroadcast) {
     const wfid = workflowId;
     fresh.setWorkflowEventBroadcast((msg) => { workflowEventBroadcast?.(wfid, msg); });

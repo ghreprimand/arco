@@ -31,6 +31,7 @@ import { extractReadPath, recordSkillRead } from '../skillUsage.js';
 import { addGoalRunTokens } from '../goalRun.js';
 import { workflows } from '../server/state.js';
 import { isShellToolName } from '@arco/shared';
+import { taskStartedBroadcast } from '../ws/taskLifecycle.js';
 
 export interface PrimaryConfig {
   provider: ProviderName;
@@ -738,17 +739,7 @@ export function runPrimaryTurn(
         // Phase 7b — Task tool spawned a child workflow. Broadcast on the
         // PARENT so the inline chat card + right-panel TASKS tab can render
         // without subscribing to the child's own event stream.
-        ctx.broadcast({
-          type: 'task_started',
-          workflowId: ctx.workflowId,
-          taskId: ev.taskId,
-          childWorkflowId: ev.childWorkflowId,
-          phase: ev.phase,
-          model: ev.model,
-          toolUseId: ev.toolUseId,
-          description: ev.description,
-          startedAt: ev.startedAt,
-        });
+        ctx.broadcast(taskStartedBroadcast(ctx.workflowId, ev));
         return;
       case 'task_status':
         ctx.broadcast({

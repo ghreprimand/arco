@@ -1287,6 +1287,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
             toolUseId: msg.toolUseId,
             description: msg.description,
             startedAt: msg.startedAt,
+            ...(msg.background ? { background: true } : {}),
           });
           break;
 

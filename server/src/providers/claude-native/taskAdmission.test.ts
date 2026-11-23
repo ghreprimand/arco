@@ -210,3 +210,66 @@ test('Task replies add a model notice only for an actual operator override of an
     } finally { await worker.dispose(); }
   }
 });
+
+test('a background child keeps its running place across parent turns, and its queued start survives a new turn', async () => {
+  const admission = new NativeTaskAdmission();
+  const tab = new AbortController();
+  const turn = new AbortController();
+  const running = await admission.acquire(turn.signal, policy, new AbortController().signal, tab.signal); running.started();
+  let queuedEntered = false;
+  const queued = admission.acquire(turn.signal, policy, new AbortController().signal, tab.signal).then((p) => { queuedEntered = true; return p; });
+  turn.abort();
+  const nextTurn = new AbortController();
+  let foregroundEntered = false;
+  const foreground = admission.acquire(nextTurn.signal, policy).then((p) => { foregroundEntered = true; return p; });
+  await tick();
+  assert.equal(queuedEntered, false, 'the running background child still holds the only place');
+  assert.equal(foregroundEntered, false);
+  running.release();
+  const second = await queued; second.started();
+  await tick();
+  assert.equal(foregroundEntered, false, 'the background child admitted from the earlier turn counts in the new turn');
+  second.release();
+  (await foreground).release();
+  tab.abort();
+  await assert.rejects(admission.acquire(nextTurn.signal, policy, new AbortController().signal, tab.signal), /AbortError/);
+});
+
+test('a background child outlives a new parent turn, settled children share one notice, and STOP ends the rest without one', async () => {
+  const worker: any = new ClaudeNativeWorker({ workflowId: 'fixture', config: { model: 'haiku', effort: 'low' } });
+  worker.backgroundNoticeGatherMs = 20;
+  const children: Array<{ finish: (text: string) => void; cancelled: boolean; lifetime?: AbortSignal }> = [];
+  worker.setTaskHandler(async (args: any) => {
+    let finish!: (text: string) => void;
+    const finalText = new Promise<string>((resolve) => { finish = resolve; });
+    const child = { finish, cancelled: false, lifetime: args.lifetimeSignal };
+    children.push(child);
+    args.onStarted?.();
+    return { taskId: args.taskId, childWorkflowId: `child-${children.length}`, finalText, read: () => ({ output: '', settled: false }), cancel() { child.cancelled = true; } };
+  });
+  const notices: string[] = [];
+  worker.setTaskNoticeHandler((text: string) => notices.push(text));
+  try {
+    const reply = worker.startBackgroundTask({ description: 'Survey A', prompt: 'work', toolUseId: 'tool-a' });
+    worker.startBackgroundTask({ description: 'Survey B', prompt: 'work', toolUseId: 'tool-b' });
+    assert.match(reply, /running in the background/);
+    await tick(); await tick();
+    assert.equal(children.length, 2);
+    // What runTurn does at the start and end of every parent turn.
+    worker.cancelPendingTasks(false);
+    worker.taskTurn = new AbortController();
+    assert.equal(children.some((c) => c.cancelled || c.lifetime?.aborted), false, 'a new parent turn does not cancel a background child');
+    children[0].finish('Report A');
+    children[1].finish('Report B');
+    await new Promise((r) => setTimeout(r, 60));
+    assert.equal(notices.length, 1, 'children settling together share one notice');
+    assert.match(notices[0], /Report A/);
+    assert.match(notices[0], /Report B/);
+    worker.startBackgroundTask({ description: 'Survey C', prompt: 'work', toolUseId: 'tool-c' });
+    await tick(); await tick();
+    worker.cancel();
+    assert.equal(children[2].cancelled, true, 'STOP ends a background child');
+    await new Promise((r) => setTimeout(r, 60));
+    assert.equal(notices.length, 1, 'STOP sends no notice');
+  } finally { await worker.dispose(); }
+});

@@ -79,6 +79,7 @@ setClaudeNativeClusterEventBroadcast,
 setClaudeNativePlanBroadcast,
 setClaudeNativeTaskHandler,
 setClaudeNativeHookWakeHandler,
+setClaudeNativeTaskNoticeHandler,
 setClaudeNativeTodosBroadcast,
 setClaudeNativeWorkflowEventBroadcast,
 debugSeedNativeCompactProbe,
@@ -669,6 +670,24 @@ setClaudeNativeHookWakeHandler((workflowId, text) => {
   broadcastWorkflow(workflowId, { type: 'user_message_echo', workflowId, content: text, timestamp: Date.now(), kind: 'follow-up' });
   broadcastQueueUpdate(workflowId);
   void drainQueueIfIdle(workflowId).catch((err) => console.warn(`[arco] [${workflowId.slice(0, 8)}] hook wake dispatch failed:`, err));
+});
+// docs/PROVIDERS.md "Background sub-agents": a finished child's notice joins
+// a waiting notice, steers a running parent turn at its next round, or starts
+// one automatic turn on an idle parent.
+const SUBAGENT_NOTICE_SESSION = 'subagent-notice';
+setClaudeNativeTaskNoticeHandler((workflowId, text) => {
+  const wf = workflows.get(workflowId);
+  if (!wf) return;
+  const waiting = [...wf.queue.steering, ...wf.queue.followUp].find((item) => item.automaticKind === 'subagent');
+  if (waiting) {
+    waiting.content = `${waiting.content}\n\n${text}`;
+    broadcastQueueUpdate(workflowId);
+    return;
+  }
+  const fakeWs = { readyState: WebSocket.CLOSED, send: () => undefined } as unknown as WebSocket;
+  const fakeSession: Session = { id: SUBAGENT_NOTICE_SESSION, workflowIds: new Set([workflowId]), clusterIds: new Set(), clusterObserved: new Map() };
+  handleUserMessage(fakeWs, fakeSession, workflowId, text, undefined, undefined, true, 'steer', undefined, undefined, { automaticKind: 'subagent' })
+    .catch((err) => console.warn(`[arco] [${workflowId.slice(0, 8)}] sub-agent notice failed:`, err));
 });
 setOperatorQuestionPublisher((workflowId, question) => broadcastWorkflow(workflowId, { type: 'operator_question', workflowId, question }));
 // docs/VOICE.md - voice tool calls go to the Computer chat's observers;
@@ -2275,14 +2294,16 @@ function confirmNativeChildInput(childId: string, state: NativeChildInput): void
 // final assistant text. Depth-1 only — the child carries `claudeNativeTaskDisabled`
 // so its tool registry drops `Task`.
 const nativeTaskAdmissions = new WeakMap<object, NativeTaskAdmission>();
-setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subagentType, model, taskId: requestedTaskId, signal, turnSignal, policy: capturedPolicy, onQueued, onModel, onStarted }): Promise<TaskSpawnHandle> => {
+setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subagentType, model, taskId: requestedTaskId, signal, turnSignal, lifetimeSignal, policy: capturedPolicy, onQueued, onModel, onStarted }): Promise<TaskSpawnHandle> => {
+  // A background child (lifetimeSignal) outlives the parent turn that started it.
+  const lifeSignal = lifetimeSignal ?? turnSignal;
   const parent = workflows.get(parentWorkflowId);
   if (!parent) throw new Error(`Task: parent workflow ${parentWorkflowId.slice(0, 8)} not found`);
   const parentCwd = parent.config.workingDirectory;
   if (!parentCwd) throw new Error('Task: parent has no working directory');
   const assertActive = () => {
     assertNativeTaskAllowed({ interactionMode: parent.config.kind === 'chat' ? 'chat' : 'agent', inCluster: !!clusterStore.getClusterIdForWorkflow(parentWorkflowId), taskDisabled: parent.config.claudeNativeTaskDisabled });
-    if (signal?.aborted || turnSignal?.aborted || workflows.get(parentWorkflowId) !== parent) throw new Error('AbortError: Task parent no longer active');
+    if (signal?.aborted || lifeSignal?.aborted || workflows.get(parentWorkflowId) !== parent) throw new Error('AbortError: Task parent no longer active');
   };
   assertActive();
   const defaults = capturedPolicy ? undefined : await readSettings(parentCwd);
@@ -2298,7 +2319,7 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
   let admission = nativeTaskAdmissions.get(parent);
   if (!admission) { admission = new NativeTaskAdmission(); nativeTaskAdmissions.set(parent, admission); }
   const turn = turnSignal ?? new AbortController().signal;
-  const acquiring = admission.acquire(turn, policy, signal ?? turn);
+  const acquiring = admission.acquire(turn, policy, signal ?? lifeSignal ?? turn, lifetimeSignal);
   // Attach rejection immediately, before publishing the queued row.
   acquiring.catch(() => {});
   let permit: Awaited<typeof acquiring>;
@@ -2440,8 +2461,8 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
       if (!settled) { settled = true; rejectFinal(new Error('AbortError: task cancelled')); }
     };
     signal?.addEventListener('abort', cancelChild, { once: true });
-    turnSignal?.addEventListener('abort', cancelChild, { once: true });
-    if (signal?.aborted || turnSignal?.aborted) cancelChild();
+    lifeSignal?.addEventListener('abort', cancelChild, { once: true });
+    if (signal?.aborted || lifeSignal?.aborted) cancelChild();
     // The cancellation result can arrive before the child finishes stopping.
     // Keep capacity until WorkerManager's turn settlement, not finalText.
     finalText.catch(() => {});
@@ -2456,7 +2477,7 @@ setClaudeNativeTaskHandler(async ({ parentWorkflowId, description, prompt, subag
       finishNativeChildInput(childWorkflowId, childInput);
       nativeChildInputs.delete(childWorkflowId);
       signal?.removeEventListener('abort', cancelChild);
-      turnSignal?.removeEventListener('abort', cancelChild);
+      lifeSignal?.removeEventListener('abort', cancelChild);
       const wf = workflows.get(childWorkflowId);
       if (wf) wf.busy = false;
       permit.release();

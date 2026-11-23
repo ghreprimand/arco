@@ -14,7 +14,7 @@ export function AutomaticMessage({ kind, content }: { kind: AutomaticMessageKind
         style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', padding: '2px 5px' }}>
         {expanded ? '-' : '+'}
       </button>
-      <span>{kind === 'research' ? researchLabel : `(${kind}) Peer mail waiting`}</span>
+      <span>{kind === 'research' ? researchLabel : kind === 'subagent' ? firstLine : `(${kind}) Peer mail waiting`}</span>
       {expanded && <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', padding: '4px 8px' }}>{content}</div>}
     </div>
   );

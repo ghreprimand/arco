@@ -110,7 +110,7 @@ export interface NativeToolContext {
   enterPlanMode?: (plan: string) => Promise<{ warnings: string[] }>;
   exitPlanMode?: (summary: string | undefined) => Promise<void>;
   askUserQuestion?: (question: string, options: string[] | undefined) => Promise<string>;
-  spawnTask?: (args: { description: string; prompt: string; subagentType?: string; model?: string }) => Promise<string>;
+  spawnTask?: (args: { description: string; prompt: string; subagentType?: string; model?: string; runInBackground?: boolean }) => Promise<string>;
   readTaskOutput?: (taskId: string) => Promise<string>;
   // Phase 7b — Task tool depth cap. The worker that mints a child sets this
   // to true on the child's context; the child's tool registry refuses to
@@ -939,7 +939,7 @@ const AskUserQuestionTool: Entry = {
 const TaskTool: Entry = {
   def: {
     name: 'Task',
-    description: 'Spawn a child agent in a new tab to handle a self-contained sub-task. The child runs with the operator\'s visibility (its own tab) and inherits the parent\'s transport. Returns the child\'s final assistant reply when it settles. Depth-1 only — a child cannot itself call Task. Cancel of the parent cancels the child. Instruct the child to END with a concise, verifiable self-report: what it changed (files/paths), what it ran to verify (commands + outcome), and anything left undone or uncertain — so you can trust the result without re-deriving it.',
+    description: 'Spawn a child agent in a new tab to handle a self-contained sub-task. The child runs with the operator\'s visibility (its own tab) and inherits the parent\'s transport. Returns the child\'s final assistant reply when it settles. With run_in_background true, returns at once with the taskId; the result arrives later as a notice, and TaskOutput reads its progress meanwhile. Depth-1 only — a child cannot itself call Task. Stopping the parent cancels the child. Instruct the child to END with a concise, verifiable self-report: what it changed (files/paths), what it ran to verify (commands + outcome), and anything left undone or uncertain — so you can trust the result without re-deriving it.',
     input_schema: {
       type: 'object',
       properties: {
@@ -947,6 +947,7 @@ const TaskTool: Entry = {
         prompt: { type: 'string', description: 'The seed prompt for the child agent.' },
         subagent_type: { type: 'string', description: 'Optional subagent label (informational; child still runs as the parent\'s configured provider).' },
         model: { type: 'string', description: 'Optional child model. The operator\'s Sub-agent model setting overrides this when set; otherwise an omitted model inherits the parent.' },
+        run_in_background: { type: 'boolean', description: 'Run the child in the background and continue working; its result arrives as a notice when it finishes. Default false waits for the result.' },
       },
       required: ['description', 'prompt'],
     },
@@ -958,7 +959,8 @@ const TaskTool: Entry = {
     const prompt = asString(args.prompt, 'prompt');
     const subagentType = asOptString(args.subagent_type, 'subagent_type');
     const model = asOptString(args.model, 'model');
-    return await ctx.spawnTask({ description, prompt, subagentType, model });
+    const runInBackground = args.run_in_background === true;
+    return await ctx.spawnTask({ description, prompt, subagentType, model, runInBackground });
   },
 };
 

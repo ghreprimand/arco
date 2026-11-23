@@ -1757,6 +1757,7 @@ export const useAppStore = create<AppState>()(persist((set, get) => ({
         phase: payload.phase ?? 'running',
         model: payload.model,
         startedAt: payload.startedAt,
+        ...(payload.background || existing[payload.taskId]?.background ? { background: true } : {}),
       };
       return {
         taskChildren: {

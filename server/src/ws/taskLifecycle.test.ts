@@ -6,7 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deliverAfterTurnRevoked, unsettledTaskStatuses } from './taskLifecycle.js';
+import { deliverAfterTurnRevoked, taskStartedBroadcast, unsettledTaskStatuses } from './taskLifecycle.js';
 
 test('only task status passes the stale-turn gate', () => {
   assert.equal(deliverAfterTurnRevoked({ type: 'task_status' }), true);
@@ -45,4 +45,10 @@ test('reload preserves a live queued Task and cancels an orphaned queue row', ()
   const orphaned = unsettledTaskStatuses('p', events, () => false, () => false);
   assert.equal(orphaned.length, 1);
   assert.equal(orphaned[0].phase, 'cancelled');
+});
+
+test('a background Task start keeps its background mark on the parent broadcast', () => {
+  const base = { taskId: 't', childWorkflowId: 'c', toolUseId: 'u', description: 'D', startedAt: 1 };
+  assert.equal(taskStartedBroadcast('p', { ...base, background: true }).background, true);
+  assert.equal('background' in taskStartedBroadcast('p', base), false);
 });

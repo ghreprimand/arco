@@ -115,6 +115,7 @@ export function TasksPanel({ job }: Props) {
               >
                 {entry.description}
               </span>
+              {entry.background && <span className="display-font" title="Runs while you keep working; STOP, CANCEL or closing the tab ends it." style={{ fontSize: '10px', letterSpacing: '0.5px', border: '1px solid var(--color-border-hairline)', padding: '0 4px' }}>BACKGROUND</span>}
               <span
                 className="display-font"
                 style={{ fontSize: '10px', letterSpacing: '0.5px', color: phaseColor(entry.phase) }}
