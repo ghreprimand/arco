@@ -85,7 +85,7 @@ const RIGHT_STRIP = [
   { id: 'more', label: 'MORE' },
 ];
 // docs/RESEARCH.md - a research project has RESULTS where others have BOARD.
-const RESEARCH_RIGHT_STRIP = RIGHT_STRIP.filter((item) => item.id !== 'plan').map((item) => item.id === 'board' ? { id: 'results', label: 'RESULTS' } : item);
+const RESEARCH_RIGHT_STRIP = RIGHT_STRIP.map((item) => item.id === 'board' ? { id: 'results', label: 'RESULTS' } : item);
 
 interface Props {
   clusterId: string;
@@ -325,9 +325,9 @@ export function ClusterTab({
   // panels; it opens full width over the chat (docs/CLIENT.md "Mobile view").
   useEffect(() => {
     if (!phone) return;
-    usePhoneStore.getState().setPanels(RIGHT_STRIP);
+    usePhoneStore.getState().setPanels(cluster?.research ? RESEARCH_RIGHT_STRIP : RIGHT_STRIP);
     return () => usePhoneStore.getState().setPanels([]);
-  }, [phone]);
+  }, [phone, !!cluster?.research]);
   const widthRangeRef = useRef(widthRange);
   widthRangeRef.current = widthRange;
   const compactLayout = widthRange !== 'standard';
@@ -344,7 +344,7 @@ export function ClusterTab({
   const [rightTabRequest, setRightTabRequest] = useState<{ tab: string; n: number } | null>(null);
   const [planHintMore, setPlanHintMore] = useState(false);
   useEffect(() => { if (widthRange !== 'narrow') { setMemberListOpen(false); setRightSlide(null); } }, [widthRange]);
-  usePhonePanelRequests(phone, RIGHT_STRIP.map((item) => item.id), (id) => {
+  usePhonePanelRequests(phone, [...RIGHT_STRIP, ...RESEARCH_RIGHT_STRIP].map((item) => item.id), (id) => {
     if (id !== 'more') setRightTabRequest((prev) => ({ tab: id, n: (prev?.n ?? 0) + 1 }));
     setRightSlide(id);
   }, () => { setRightSlide(null); setMemberListOpen(false); });

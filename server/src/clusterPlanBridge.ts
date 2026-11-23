@@ -78,7 +78,7 @@ export async function readClusterPlan(clusterId: string): Promise<ClusterPlanRec
 
 async function readClusterPlanUnlocked(clusterId: string): Promise<ClusterPlanRecord | null> {
   const state = await clusterStore.readCluster(clusterId);
-  if (!state || state.research) return null;
+  if (!state) return null;
 
   if (state.planId) {
     const plan = await readPlan(state.cwd, state.planId);
@@ -99,7 +99,7 @@ async function readClusterPlanUnlocked(clusterId: string): Promise<ClusterPlanRe
 export async function attachExistingPlan(clusterId: string, planId: string, expectedCwd?: string): Promise<ClusterPlanRecord | null> {
   return withClusterPlanLock(clusterId, async () => {
     const state = await clusterStore.readCluster(clusterId);
-    if (!state || state.research || (expectedCwd !== undefined && state.cwd !== expectedCwd)) return null;
+    if (!state || (expectedCwd !== undefined && state.cwd !== expectedCwd)) return null;
     const plan = await readPlan(state.cwd, planId);
     if (!plan) return null;
     if (plan.body.length > PLAN_MAX_BYTES) throw new PlanTooLargeError(plan.body.length);
@@ -115,7 +115,7 @@ export async function setClusterPlanBody(clusterId: string, body: string): Promi
 async function setClusterPlanBodyUnlocked(clusterId: string, body: string): Promise<ClusterPlanRecord | null> {
   assertBodyWritable(body);
   const state = await clusterStore.readCluster(clusterId);
-  if (!state || state.research) return null;
+  if (!state) return null;
 
   const existing = await readClusterPlanUnlocked(clusterId);
   if (existing) {
@@ -139,7 +139,7 @@ export async function writeModelPlan(
   return withClusterPlanLock(clusterId, async () => {
     assertBodyWritable(body);
     const state = await clusterStore.readCluster(clusterId);
-    if (!state || state.research) return null;
+    if (!state) return null;
     const existing = await readClusterPlanUnlocked(clusterId);
     if (!existing) {
       validate('');

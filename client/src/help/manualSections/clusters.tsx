@@ -486,8 +486,11 @@ export const clusters: Section[] = [
   The <strong>rounds strip</strong> above the cards shows the name, the
   brief behind <Code>BRIEF</Code>, and one row per round; choose a row for each researcher's outcome and the
   deadline. In the right panel, <strong>RESULTS</strong> opens the brief, the
-  summary, the Director log and each released round's reports. BOARD and PLAN
-  are not shown in a research project.
+  summary, the Director log and each released round's reports.
+  </p>
+  <p>
+  PLAN lets the Research Director attach and edit the plan; researchers cannot
+  read or change it. BOARD is not shown in a research project.
   </p>
   <p>
   Use <Code>SEND REPORT</Code>, <Code>SEND SUMMARY</Code> or <Code>SEND PROJECT</Code> in RESULTS to copy released research, including catch-up reports, into a project folder, add a reference to an existing plan, or attach it to an open conversation draft. Choose the destinations independently; the draft is not sent. A Research Director can propose a selection for <Code>REVIEW SEND</Code>. RESULTS reports partial copies and a failed export log separately.

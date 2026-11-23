@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Give research projects a Director-only PLAN while keeping plans out of researcher state.
+
 - Allow Gemini researchers on Linux: each runs in the worker sandbox with a separate sign-in, Settings > Connections > GEMINI FOR RESEARCH, that is kept as a file in Arco's folder instead of the system keyring, and takes each round only on the operator's NUDGE.
 
 - Add Settings > Projects > Research time limit (30 to 240 minutes, default 30) for every research round and catch-up; the Research Director no longer sets it.

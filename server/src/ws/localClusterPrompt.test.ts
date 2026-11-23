@@ -49,6 +49,7 @@ test('Research Director gets research doctrine without cluster efficiency or pro
  const cluster=await store.createCluster({cwd,memberWorkflowIds:[id,peer],memberAccessModes:{[peer]:'researcher'},research:{projectId:'fixture'},taskBoardMode:'none'});
  const {initResearch}=await import('../research/researchState.js');
  await initResearch({schemaVersion:1,projectId:'fixture',clusterId:cluster.clusterId,folder:cwd,membersCwd:join(root,'members'),name:'Fixture',brief:'Compare',blind:true,createdAt:new Date().toISOString(),directorWorkflowId:id,researchers:[{workflowId:peer,letter:'A',provider:'ollama',model:'fixture'}],rounds:[],targetedBeforeRounds:[]});
- try { await engine.handleUserMessage(ws,session,id,'fixture task','fixture-input',undefined,false,undefined,undefined);assert.ok(captured,JSON.stringify(messages));assert.match(captured.systemPrompt,/You run a research project/);assert.doesNotMatch(captured.systemPrompt,/Cluster efficiency|Cluster progress tracking|Cluster message guard/); }
+ const plan=await createPlan(cwd,{title:'Research plan',body:'- [ ] RESEARCH_PLAN_MARKER'});await store.setPlanId(cluster.clusterId,plan.id);
+ try { await engine.handleUserMessage(ws,session,id,'fixture task','fixture-input',undefined,false,undefined,undefined);assert.ok(captured,JSON.stringify(messages));assert.match(captured.systemPrompt,/You run a research project/);assert.match(captured.systemPrompt,/RESEARCH_PLAN_MARKER/);assert.doesNotMatch(captured.systemPrompt,/Cluster efficiency|Cluster progress tracking|Cluster message guard/); }
  finally {releaseClusterPlansWatcher(cluster.clusterId);await store.deleteCluster(cluster.clusterId);workflows.delete(id);workflowCwds.delete(id);await settleProjectWrites();}
 });

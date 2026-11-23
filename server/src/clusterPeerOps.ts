@@ -506,6 +506,7 @@ export async function peerPlanRead(
   ctx: PeerOpsContext,
 ): Promise<PeerPlanReadOk | PeerPlanReadRejection> {
   if (mailboxOnly(ctx)) return { ok: false, code: 'access_denied', message: 'blind members cannot read cluster plans' };
+  if (clusterStore.getClusterCached(ctx.clusterId)?.research && (await loadResearch(ctx.clusterId))?.directorWorkflowId !== ctx.workflowId) return { ok: false, code: 'access_denied', message: 'Only the Research Director can read the research plan.' };
   const rec = await clusterPlanBridge.readClusterPlan(ctx.clusterId);
   if (!rec || rec.body.length === 0) {
     return { ok: false, code: 'no_plan', message: 'no plan is attached to this cluster' };
@@ -556,6 +557,7 @@ export async function peerPlanTick(
   broadcastCluster: (msg: ServerMessage) => void,
 ): Promise<PeerPlanTickOk | PeerPlanTickRejection> {
   if (mailboxOnly(ctx)) return { ok: false, code: 'access_denied', message: 'blind members cannot update cluster plans' };
+  if (clusterStore.getClusterCached(ctx.clusterId)?.research && (await loadResearch(ctx.clusterId))?.directorWorkflowId !== ctx.workflowId) return { ok: false, code: 'access_denied', message: 'Only the Research Director can update the research plan.' };
   let selected: number | { taskText: string };
   if ('lineIndex' in matcher && typeof matcher.lineIndex === 'number') selected = matcher.lineIndex;
   else if ('taskText' in matcher && typeof matcher.taskText === 'string') selected = { taskText: matcher.taskText };
@@ -608,6 +610,7 @@ export async function peerPlanWrite(
   broadcastCluster: (msg: ServerMessage) => void,
 ): Promise<PeerPlanWriteOk | PeerPlanWriteRejection> {
   if (mailboxOnly(ctx)) return { ok: false, code: 'access_denied', message: 'blind members cannot write cluster plans' };
+  if (clusterStore.getClusterCached(ctx.clusterId)?.research && (await loadResearch(ctx.clusterId))?.directorWorkflowId !== ctx.workflowId) return { ok: false, code: 'access_denied', message: 'Only the Research Director can write the research plan.' };
   const trimmed = typeof body === 'string' ? body : '';
   if (trimmed.trim().length === 0) {
     return {

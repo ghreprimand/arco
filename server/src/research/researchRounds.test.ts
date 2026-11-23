@@ -554,15 +554,35 @@ test('creating a research project starts the Director on the operator brief', as
 });
 
 
-test('research clusters reject ordinary members, access changes, board and plans', async () => {
+test('research plans are available to the Director and never readable by researchers', async () => {
   const p = await project();
   try {
     const bridge = await import('../clusterPlanBridge.js');
     await assert.rejects(clusterStore.addMember(p.clusterId, randomUUID()), /research project controls/);
     assert.equal(await clusterStore.setMemberAccessMode(p.clusterId, p.a, 'standard'), null);
     assert.equal(await clusterStore.setTaskBoardMode(p.clusterId, 'project'), null);
-    assert.equal(await clusterStore.setPlanId(p.clusterId, randomUUID()), null);
-    assert.equal(await bridge.setClusterPlanBody(p.clusterId, '# Unexpected plan'), null);
+    const plan = await bridge.setClusterPlanBody(p.clusterId, '# Director plan\n- [ ] Private task');
+    assert.ok(plan);
+    const director = await clusterPeerOps.peerPlanRead(p.ctx(p.director));
+    assert.equal(director.ok, true);
+    const researcher = await clusterPeerOps.peerPlanRead(p.ctx(p.a));
+    assert.equal(researcher.ok, false); if (!researcher.ok) assert.equal(researcher.code, 'access_denied');
+    const deniedWrite = await clusterPeerOps.peerPlanWrite(p.ctx(p.a), '# Changed', () => {});
+    assert.equal(deniedWrite.ok, false); if (!deniedWrite.ok) assert.equal(deniedWrite.code, 'access_denied');
+    assert.match((await bridge.readClusterPlan(p.clusterId))!.body, /Private task/);
+    const { workflows, workflowCwds } = await import('../server/state.js');
+    const { initWorkflowStore, flushWorkflowBuffer, replayEvents } = await import('../workflowStore.js');
+    const { broadcastCluster } = await import('../server/broadcast.js');
+    for (const [id, cwd] of [[p.director, p.folder], [p.a, p.membersCwd]] as const) {
+      workflows.set(id, { config: { workingDirectory: cwd }, observers: new Set() } as any);
+      workflowCwds.set(id, cwd); await initWorkflowStore(cwd, id);
+    }
+    try {
+      broadcastCluster(p.clusterId, { type: 'cluster_plan_changed', clusterId: p.clusterId, body: plan!.body, bodyLength: plan!.body.length, updatedAt: Date.now() });
+      await flushWorkflowBuffer(p.folder, p.director); await flushWorkflowBuffer(p.membersCwd, p.a);
+      assert.ok((await replayEvents(p.folder, p.director, 0)).some(event => event.type === 'cluster_plan_changed'));
+      assert.ok(!(await replayEvents(p.membersCwd, p.a, 0)).some(event => event.type === 'cluster_plan_changed'));
+    } finally { for (const id of [p.director, p.a]) { workflows.delete(id); workflowCwds.delete(id); } }
     const snapshots = await import('../clusterSnapshots.js');
     await assert.rejects(snapshots.saveSnapshot({ clusterId: p.clusterId, name: 'Fixture' }), /Research projects cannot be saved/);
   } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }

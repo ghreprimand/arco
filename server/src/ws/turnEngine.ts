@@ -2387,6 +2387,10 @@ export async function handleUserMessage(
       // mode-change lands on the NEXT turn (in-flight turns untouched). Undefined
       // when there is nothing to keep current (e.g. mode 'plan' but no plan).
       let turnClusterProgressDoctrine: string | undefined;
+      if (turnClusterId && turnResearchDirector) {
+        const plan = await clusterPlanBridge.readClusterPlan(turnClusterId).catch(() => null);
+        turnClusterPlan = plan?.body;
+      }
       if (turnClusterId && clusterAccessMode === 'standard' && !turnResearchDirector) {
         const planRec = await clusterPlanBridge.readClusterPlan(turnClusterId).catch(() => null);
         turnClusterPlan = planRec?.body;

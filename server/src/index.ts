@@ -1,5 +1,6 @@
 import { resolveAcpPermission } from './providers/acp/permissionGate.js';
 import { installResearchCloseOnDelete, researchProjectIdsOnDisk, sweepClosedResearch } from './research/researchClose.js';
+import { loadResearch } from './research/researchState.js';
 import { releaseProjectSettingsWatcher } from './settings.js';
 import { initTranscriptWorkerHandlers, handleTranscriptWorkerPreview, handleTranscriptWorkerCreate } from './ws/transcriptWorkerHandlers.js';
 import { NativeTaskAdmission, assertNativeTaskAllowed } from './providers/claude-native/taskAdmission.js';
@@ -1718,8 +1719,9 @@ async function handleRecalibrateRequest(ws: WebSocket, workflowId: string): Prom
 // replay them and the Plan tab stays in sync across windows.
 async function handlePlanAttach(workflowId: string, planId: string): Promise<void> {
   const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
-  if (clusterId && clusterStore.getClusterCached(clusterId)?.research) {
-    throw new Error('Plans cannot be attached to a research project.');
+  if (clusterId && clusterStore.getClusterCached(clusterId)?.research
+      && (await loadResearch(clusterId))?.directorWorkflowId !== workflowId) {
+    throw new Error('Only the Research Director can attach a plan.');
   }
   const wf = workflows.get(workflowId);
   if (!wf) return;
@@ -1733,6 +1735,11 @@ async function handlePlanAttach(workflowId: string, planId: string): Promise<voi
       message: `Plan ${planId.slice(0, 8)} not found in this workspace.`,
     });
     return;
+  }
+  if (clusterId && clusterStore.getClusterCached(clusterId)?.research) {
+    const attached = await clusterPlanBridge.attachExistingPlan(clusterId, planId, cwd);
+    if (!attached) throw new Error('The research plan could not be attached.');
+    broadcastCluster(clusterId, { type: 'cluster_plan_changed', clusterId, body: attached.body, updatedAt: attached.updatedAt, bodyLength: attached.body.length });
   }
   // Switching plans: close the previous plan's open span (and drop its
   // watcher reference) before opening the new one.

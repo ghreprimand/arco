@@ -733,7 +733,7 @@ export function getPlanId(clusterId: string): string | undefined {
 export async function setPlanId(clusterId: string, planId: string): Promise<ClusterState | null> {
   return withClusterMetaLock(clusterId, async () => {
     const state = await readCluster(clusterId);
-    if (!state || state.research) return null;
+    if (!state) return null;
     const next: ClusterState = { ...state, planId };
     await writeMetaAtomic(next);
     rebuildIndexFor(next);

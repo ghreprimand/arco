@@ -66,7 +66,7 @@ function groupsFor(research: boolean, gemini = false): typeof GROUPS {
   return GROUPS.map((g) => ({ ...g, tabs: g.tabs.filter((t) => research ? !researchHidden(t, gemini) : t !== 'results') }));
 }
 function researchHidden(t: string, gemini: boolean): boolean {
-  return ['board', 'plan', 'reviews', 'handoffs', 'github'].includes(t) || (t === 'mailbox' && !gemini);
+  return ['board', 'reviews', 'handoffs', 'github'].includes(t) || (t === 'mailbox' && !gemini);
 }
 const STORAGE_KEY = 'arco.clusterSidePanelTab.byCluster';
 const NARROW_PX = 360;

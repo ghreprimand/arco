@@ -1,3 +1,4 @@
+import { loadResearch } from '../research/researchState.js';
 import { availableHandoffSources } from '../handoffHistoryTool.js';
 import { historyAccessAllowed, safeHistoryMeta } from '../handoffHistory.js';
 import { requireProjectBinding } from './projectBinding.js';
@@ -749,9 +750,10 @@ export async function tryHandleWorkflowDataRoutes(
         return true;
       }
       const clusterId = clusterStore.getClusterIdForWorkflow(workflowId);
-      if (clusterId && clusterStore.getClusterCached(clusterId)?.research) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Plans cannot be attached to a research project.' }));
+      if (clusterId && clusterStore.getClusterCached(clusterId)?.research
+          && (await loadResearch(clusterId))?.directorWorkflowId !== workflowId) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Only the Research Director can attach a plan.' }));
         return true;
       }
       const wfCwd = workflowCwds.get(workflowId);
@@ -790,9 +792,10 @@ export async function tryHandleWorkflowDataRoutes(
       for await (const chunk of req) body += chunk;
       const parsed = JSON.parse(body || '{}') as { title?: string; body?: string; workflowId?: string; attach?: boolean };
       const clusterId = parsed.attach && parsed.workflowId ? clusterStore.getClusterIdForWorkflow(parsed.workflowId) : undefined;
-      if (clusterId && clusterStore.getClusterCached(clusterId)?.research) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Plans cannot be attached to a research project.' }));
+      if (clusterId && clusterStore.getClusterCached(clusterId)?.research
+          && (await loadResearch(clusterId))?.directorWorkflowId !== parsed.workflowId) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Only the Research Director can attach a plan.' }));
         return true;
       }
       const publicProject = await getEffectivePublicProjectChoice(cwd);

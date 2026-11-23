@@ -619,7 +619,11 @@ export function broadcastCluster(clusterId: string, message: ServerMessage): voi
     // P7.2: the audit copy carries the body's hash; the body itself is
     // stored once in the project's plan history (never deleted with plans).
     const hashes = new Map<string, string | null>();
-    for (const wfid of members) broadcastWorkflow(wfid, planAuditCopy(message, workflowCwds.get(wfid), hashes));
+    for (const wfid of members) {
+      // Researcher state must never receive a copy of the Director's plan.
+      if (clusterStore.getClusterCached(clusterId)?.research && clusterStore.getMemberAccessMode(clusterId, wfid) !== 'standard') continue;
+      broadcastWorkflow(wfid, planAuditCopy(message, workflowCwds.get(wfid), hashes));
+    }
   }
 }
 
