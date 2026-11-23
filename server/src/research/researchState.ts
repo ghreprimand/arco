@@ -28,6 +28,11 @@ export interface ResearchEntry {
   // operator's NUDGE: this entry does not time out, and the round deadline
   // counts from when the researcher reads that mail (docs/RESEARCH.md).
   heldMsgId?: string;
+  // The operator's RETRY (docs/RESEARCH.md "Retry"): when it was pressed, and
+  // for a released round the key of the retry run that answers it alone.
+  retry?: { at: string; key?: number };
+  // A report from a retry that settled after its round was released.
+  late?: string;
 }
 
 export interface ResearchTargeted { at: string; from: 'director' | 'operator'; letter: string; text: string }
@@ -48,6 +53,9 @@ export interface ResearchRound {
   // A catch-up: the round 1 text run alone for the researcher with this
   // letter, which joined after round 1. Its `n` is catchUpKey(letter).
   catchUp?: string;
+  // A retry run: the round `round` text again for researcher `letter` alone,
+  // after that round was released. Its `n` is retryKey(round, letter).
+  lateFor?: { round: number; letter: string };
 }
 
 export interface ResearchResearcher {
@@ -93,6 +101,8 @@ export interface ResearchState {
   rounds: ResearchRound[];
   // Catch-ups for researchers added after round 1.
   catchUps?: ResearchRound[];
+  // Retry runs for researchers whose round was already released.
+  retries?: ResearchRound[];
   // Targeted messages sent before the first round.
   targetedBeforeRounds: ResearchTargeted[];
   // Synthetic markers stay in Arco state, never in the Director's summary.
@@ -188,15 +198,24 @@ export function openCatchUp(state: ResearchState, letter: string): ResearchRound
   return state.catchUps?.find((c) => c.catchUp === letter && !c.releasedAt);
 }
 
-// A round or catch-up by its number or key.
+// A retry run's key: negative and below every catch-up key, one per round
+// and letter.
+export function retryKey(round: number, letter: string): number { return -(1000 + round * 32 + (letter.charCodeAt(0) - 65)); }
+
+export function openRetry(state: ResearchState, letter: string): ResearchRound | undefined {
+  return state.retries?.find((r) => r.lateFor?.letter === letter && !r.releasedAt);
+}
+
+// A round, catch-up or retry run by its number or key.
 export function roundByKey(state: ResearchState, n: number): ResearchRound | undefined {
+  if (n <= -1000) return state.retries?.find((r) => r.n === n);
   return n < 0 ? state.catchUps?.find((c) => c.n === n) : state.rounds.find((r) => r.n === n);
 }
 
-// Where a researcher's reply belongs: its open catch-up, else the open
-// round when that round's text has been sent to it.
+// Where a researcher's reply belongs: its open catch-up or retry run, else
+// the open round when that round's text has been sent to it.
 export function replyRound(state: ResearchState, letter: string): ResearchRound | undefined {
-  const catchUp = openCatchUp(state, letter);
+  const catchUp = openCatchUp(state, letter) ?? openRetry(state, letter);
   if (catchUp) return catchUp;
   const round = openRound(state);
   const entry = round?.entries[letter];
@@ -239,12 +258,12 @@ export function researchSummary(state: ResearchState): ClusterResearchSummary {
       ...(r.joinedFromRound ? { joinedFromRound: r.joinedFromRound } : {}),
       ...(r.removedAt ? { removedAt: r.removedAt } : {}),
     })),
-    rounds: state.rounds.map(roundSummary),
-    catchUps: (state.catchUps ?? []).map(roundSummary),
+    rounds: state.rounds.map((round) => roundSummary(round, state)),
+    catchUps: (state.catchUps ?? []).map((round) => roundSummary(round, state)),
   };
 }
 
-function roundSummary(round: ResearchRound): ClusterResearchSummary['rounds'][number] {
+function roundSummary(round: ResearchRound, state: ResearchState): ClusterResearchSummary['rounds'][number] {
   return {
       n: round.n,
       startedAt: round.startedAt,
@@ -257,10 +276,20 @@ function roundSummary(round: ResearchRound): ClusterResearchSummary['rounds'][nu
         ...(entry.at ? { at: entry.at } : {}),
         ...(entry.reason ? { reason: entry.reason } : {}),
         ...(entry.source ? { source: entry.source } : {}),
+        ...(entry.late ? { late: entry.late } : {}),
+        ...(retrying(state, round, letter, entry) ? { retrying: true } : {}),
       }])),
       targeted: round.targeted.length,
       ...(round.catchUp ? { catchUp: round.catchUp } : {}),
   };
+}
+
+// A RETRY still running for this entry: back to waiting in its open round,
+// or a retry run for its released round.
+function retrying(state: ResearchState, round: ResearchRound, letter: string, entry: ResearchEntry): boolean {
+  if (!entry.retry) return false;
+  if (entry.retry.key === undefined) return !round.releasedAt && entry.state === 'waiting';
+  return !!state.retries?.some((r) => r.n === entry.retry!.key && !r.releasedAt);
 }
 
 // Session id of the turns Arco starts for research rounds, so they are not

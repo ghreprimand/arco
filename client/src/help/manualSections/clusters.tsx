@@ -491,6 +491,13 @@ export const clusters: Section[] = [
   summary, the Director log and each released round's reports.
   </p>
   <p>
+  A researcher marked failed or timed out shows <Code>RETRY</Code> in its
+  round's details. Arco sends it a file with its work so far and asks it to
+  finish. An open round takes the report as usual. For a released round, the
+  report is added as a late report, marked late in RESULTS, and the Research
+  Director is asked to add it to the summary.
+  </p>
+  <p>
   PLAN lets the Research Director attach and edit the plan; researchers cannot
   read or change it. BOARD is not shown in a research project.
   </p>

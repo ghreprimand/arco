@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Add RETRY for a failed or timed-out researcher: it gets its work so far and finishes the round, or adds a late report to a released round.
+
 - Add +15 MIN to the research rounds strip for a round about to time out, and raise the default research time limit to 45 minutes.
 
 - Refresh Cursor's model list immediately after a successful sign-in or connection check.

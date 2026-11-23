@@ -9,7 +9,7 @@ import * as clusterPeerOps from '../clusterPeerOps.js';
 import * as clusterStore from '../clusterStore.js';
 import { createResearchFolder } from './researchFolder.js';
 import { RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES, RESEARCH_ROUND_TIMEOUT_MAX_MINUTES } from '@arco/shared';
-import { addResearcher, configureResearch, extendRound, timeoutRoundIfDue, holdResearcherReply, removeResearcher, onMemberSettled, onRoundMailRead, revealResearch, setResearcherSignInWaiting, startResearchDirector, startRound, timeoutRound } from './researchRounds.js';
+import { addResearcher, configureResearch, extendRound, retryResearcher, timeoutRoundIfDue, holdResearcherReply, removeResearcher, onMemberSettled, onRoundMailRead, revealResearch, setResearcherSignInWaiting, startResearchDirector, startRound, timeoutRound } from './researchRounds.js';
 import { catchUpKey, initResearch, loadResearch, researchSummary, updateResearch } from './researchState.js';
 import { ensureResearchTripwires, observeResearchText, observeResearchTool, RESEARCH_CANARY_FILE, researchToolBoundaryWarning } from './researchTripwires.js';
 import { closeResearch, closedResearchRecordPath, installResearchCloseOnDelete, sweepClosedResearch, unsentFiles } from './researchClose.js';
@@ -233,6 +233,55 @@ test('+15 MIN keeps a waiting researcher open past the old deadline, tells the D
     assert.deepEqual(await extendRound(p.clusterId, 1), { ok: false, code: 'not_extendable' }, `245 minutes would pass the ${RESEARCH_ROUND_TIMEOUT_MAX_MINUTES}-minute maximum`);
     state = (await loadResearch(p.clusterId))!;
     assert.equal(Date.parse(state.rounds[0].deadline), Date.parse(state.rounds[0].startedAt) + 230 * 60_000);
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
+test('RETRY after release sends the work so far and files the late report in the released round', async () => {
+  const p = await project();
+  const now = Date.parse('2026-11-23T00:00:00Z');
+  try {
+    configureResearch({
+      enqueue: (to, msg, opts) => clusterMailbox.enqueue(to, msg, opts),
+      mintMsgId: () => clusterMailbox.mintMsgId(),
+      wake: (wfid, prompt) => { p.woken.push(wfid); p.prompts.push(prompt); },
+      isBusy: () => false,
+      pendingMail: (wfid) => clusterMailbox.depthFor(wfid),
+      clusterIdFor: (wfid) => clusterStore.getClusterIdForWorkflow(wfid),
+      notify: () => undefined,
+      now: () => now,
+    });
+    assert.equal((await startRound(p.clusterId, p.director, 'Compare two heat pumps.')).ok, true);
+    const log = join(p.membersCwd, '.arco', 'workflows', p.b);
+    await fs.mkdir(log, { recursive: true });
+    await fs.writeFile(join(log, 'events.jsonl'), [
+      { seq: 1, ts: now + 1000, type: 'primary_thinking', text: 'Search the efficiency ratings first.' },
+      { seq: 2, ts: now + 2000, type: 'primary_tool_use', tool: 'web_search', input: '{"query":"heat pump SCOP ratings"}', status: 'started', itemId: 't1' },
+      { seq: 3, ts: now + 3000, type: 'primary_tool_use', tool: 'web_search', input: '{"query":"heat pump SCOP ratings"}', status: 'completed', itemId: 't1', output: 'Rating table' },
+    ].map((e) => JSON.stringify(e)).join('\n') + '\n');
+    assert.notEqual(await holdResearcherReply(p.clusterId, p.a, 'Report A', undefined), undefined);
+    await onMemberSettled(p.b, 'failed');
+    let state = (await loadResearch(p.clusterId))!;
+    assert.ok(state.rounds[0].releasedAt, 'the round is released without B');
+    await clusterMailbox.drain(p.director);
+    const retry = await retryResearcher(p.clusterId, 1, 'B');
+    assert.deepEqual(retry, { ok: true, late: true, file: 'work-so-far-round-1.md' });
+    assert.equal(researchSummary((await loadResearch(p.clusterId))!).rounds[0].entries.B.retrying, true);
+    const mail = (await clusterMailbox.drain(p.b)).at(-1)!;
+    assert.match(mail.content, /Read that file first/);
+    const file = Buffer.from(mail.artifacts![0].contentBase64, 'base64').toString('utf8');
+    for (const part of ['Compare two heat pumps.', 'Search the efficiency ratings first.', 'heat pump SCOP ratings', 'Rating table', 'The turn failed.']) assert.ok(file.includes(part), part);
+    assert.equal((await retryResearcher(p.clusterId, 1, 'B')).ok, false, 'one retry at a time');
+    assert.notEqual(await holdResearcherReply(p.clusterId, p.b, 'Late report B', undefined), undefined);
+    state = (await loadResearch(p.clusterId))!;
+    assert.equal(state.rounds[0].entries.B.state, 'replied');
+    assert.ok(state.rounds[0].entries.B.late);
+    assert.match(await fs.readFile(join(p.folder, 'rounds', 'round-1', 'report-b.md'), 'utf8'), /Late report[\s\S]*Late report B/);
+    const notes = (await clusterMailbox.drain(p.director)).map((m) => m.content);
+    assert.ok(notes.some((c) => c.startsWith('Late report from Researcher B for round 1') && c.includes('Add it to synthesis.md')));
   } finally {
     configureResearch(null);
     await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);

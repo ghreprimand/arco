@@ -47,7 +47,7 @@ export function researcherCardLine(research: ClusterResearchSummary, workflowId:
   const searches = searchCount(job);
   const provider = r.provider === 'claude' ? (r.claudeTransport === 'cli' ? 'Claude CLI' : 'Claude Native') : r.provider;
   return [`${r.letter}`, `${provider}, ${r.model}`, r.isolation, `${searches} search${searches === 1 ? '' : 'es'}`,
-    ...(latest && entry ? [`round ${latest.n}: ${ENTRY_WORDS[entry.state]}`] : [])].join(' · ');
+    ...(latest && entry ? [`round ${latest.n}: ${entry.retrying ? 'retrying' : `${ENTRY_WORDS[entry.state]}${entry.late ? ' (late)' : ''}`}`] : [])].join(' · ');
 }
 
 // The narrow member rail: RD for the Research Director.

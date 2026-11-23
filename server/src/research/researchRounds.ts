@@ -18,7 +18,9 @@ import {
   loadResearch,
   nextResearchLetter,
   openCatchUp,
+  openRetry,
   openRound,
+  retryKey,
   replyRound,
   roundByKey,
   researcherByRef,
@@ -32,6 +34,7 @@ import {
 } from './researchState.js';
 import { atomicWriteFile } from '../atomicFile.js';
 import { appendDirectorLog, renderRound, roundDir, roundTitle, writeProjectFiles, writeReleasedRound, writeRoundStart } from './researchFolder.js';
+import { readWorkSoFar, workSoFarFile } from './researchRetry.js';
 import { clearResearchTripwireTails, containsForeignCanary, ensureResearchTripwires, researchBoundaryHit, researchTripwireHit, setResearchTripwireReporter } from './researchTripwires.js';
 
 export interface ResearchDeps {
@@ -155,7 +158,7 @@ export async function startRound(clusterId: string, callerWorkflowId: string, te
       timeoutMs: minutes * 60_000,
       // A researcher still on its catch-up gets this text when the catch-up
       // settles, against the same deadline (docs/RESEARCH.md).
-      entries: Object.fromEntries(activeResearchers(s).map((r) => [r.letter, { state: 'waiting' as const, ...(openCatchUp(s, r.letter) ? { deferred: true } : {}) }])),
+      entries: Object.fromEntries(activeResearchers(s).map((r) => [r.letter, { state: 'waiting' as const, ...(openCatchUp(s, r.letter) || openRetry(s, r.letter) ? { deferred: true } : {}) }])),
       targeted: [],
       ...(s.preRoundContaminated || researchTripwireHit(clusterId, 0) ? { contaminated: true } : {}),
       ...(s.preRoundBoundaryWarning || researchBoundaryHit(clusterId, 0) ? { boundaryWarning: true } : {}),
@@ -287,7 +290,7 @@ export async function onRoundMailRead(workflowId: string, msgIds: string[]): Pro
   const state = await updateResearch(clusterId, (s) => {
     const researcher = researcherFor(s, workflowId);
     if (!researcher) return false;
-    for (const round of [...s.rounds, ...(s.catchUps ?? [])]) {
+    for (const round of [...s.rounds, ...(s.catchUps ?? []), ...(s.retries ?? [])]) {
       const entry = round.entries[researcher.letter];
       if (round.releasedAt || !entry?.heldMsgId || !msgIds.includes(entry.heldMsgId)) continue;
       delete entry.heldMsgId;
@@ -477,6 +480,7 @@ export async function maybeRelease(clusterId: string, n?: number): Promise<boole
   const latest = await loadResearch(clusterId);
   const round = latest && roundByKey(latest, key);
   if (!latest || !round) return false;
+  if (round.lateFor) return await finishRetry(latest, round);
   const written = await writeReleasedRound(latest, round);
   await writeProjectFiles(latest);
   if (round.catchUp) return await finishCatchUp(latest, round, written);
@@ -507,6 +511,13 @@ async function finishCatchUp(state: ResearchState, round: ResearchRound, written
   } else if (entry && entry.state !== 'removed') {
     await noteDirector(state, `${researcherName(letter)}'s catch-up on the original brief ended without a report (${(entry.state).replace('_', ' ')}).`);
   }
+  await sendDeferredRound(state, letter);
+  d().notify(state.clusterId);
+  return true;
+}
+
+// The open round that waited for this researcher's catch-up or retry run.
+async function sendDeferredRound(state: ResearchState, letter: string): Promise<void> {
   let waiting: ResearchRound | undefined;
   const next = await updateResearch(state.clusterId, (s) => {
     const open = openRound(s);
@@ -517,6 +528,107 @@ async function finishCatchUp(state: ResearchState, round: ResearchRound, written
   });
   const researcher = next && researcherFor(next, state.researchers.find((r) => r.letter === letter)?.workflowId ?? '');
   if (next && waiting && researcher) await sendRoundText(next, waiting, researcher);
+}
+
+export type RetryResult = { ok: true; late: boolean; file: string } | { ok: false; code: 'not_research' | 'unknown_round' | 'unknown_researcher' | 'not_retryable' | 'busy'; message: string };
+
+/**
+ * docs/RESEARCH.md "Retry": the operator's RETRY on a researcher marked failed
+ * or timed out in a round. Writes the work-so-far file from Arco's record of
+ * the researcher's turns and sends it with one message. An open round takes
+ * the report as usual; a released round gets it as a late report through a
+ * retry run with its own deadline.
+ */
+export async function retryResearcher(clusterId: string, n: number, letterRef: string): Promise<RetryResult> {
+  const state = await loadResearch(clusterId);
+  if (!state) return { ok: false, code: 'not_research', message: 'Not a research project.' };
+  const letter = letterRef.toUpperCase();
+  const round = n > 0 ? state.rounds.find((r) => r.n === n) : undefined;
+  if (!round) return { ok: false, code: 'unknown_round', message: 'RETRY applies to a round.' };
+  const researcher = activeResearchers(state).find((r) => r.letter === letter);
+  const entry = round.entries[letter];
+  if (!researcher || !entry) return { ok: false, code: 'unknown_researcher', message: `${researcherName(letter)} is not in round ${n}.` };
+  if (entry.state !== 'failed' && entry.state !== 'timed_out') return { ok: false, code: 'not_retryable', message: 'RETRY applies to a researcher marked failed or timed out.' };
+  if (openRetry(state, letter) || openCatchUp(state, letter) || d().isBusy(researcher.workflowId)) return { ok: false, code: 'busy', message: `${researcherName(letter)} is still working. Try again when it is idle.` };
+  const reason = entry.reason ?? (entry.state === 'timed_out' ? 'No reply before the deadline.' : 'The turn failed.');
+  const blocks = await readWorkSoFar(join(state.membersCwd, '.arco', 'workflows', researcher.workflowId), Date.parse(round.startedAt));
+  const fileName = `work-so-far-round-${n}.md`;
+  const file = workSoFarFile({ title: `Round ${n}`, letter, roundText: round.text, reason, blocks });
+  const late = !!round.releasedAt;
+  const now = d().now();
+  const minutes = late ? await timeLimit() : 0;
+  const key = retryKey(n, letter);
+  let accepted = false;
+  const next = await updateResearch(clusterId, (s) => {
+    const current = s.rounds.find((r) => r.n === n);
+    const e = current?.entries[letter];
+    if (!current || !e || (e.state !== 'failed' && e.state !== 'timed_out') || openRetry(s, letter) || openCatchUp(s, letter)) return false;
+    if (!current.releasedAt) {
+      current.entries[letter] = { ...e, state: 'waiting', retry: { at: iso(now) } };
+      delete current.entries[letter].at; delete current.entries[letter].reason; delete current.entries[letter].wakes;
+    } else {
+      e.retry = { at: iso(now), key };
+      s.retries = [...(s.retries ?? []).filter((r) => r.n !== key), {
+        n: key, text: current.text, startedAt: iso(now), deadline: iso(now + minutes * 60_000), timeoutMs: minutes * 60_000,
+        entries: { [letter]: { state: 'waiting' } }, targeted: [], lateFor: { round: n, letter },
+      }];
+    }
+    accepted = true;
+  });
+  if (!next || !accepted) return { ok: false, code: 'busy', message: `${researcherName(letter)} changed state. Try again.` };
+  const text = `(research retry) Round ${n}: your turn ended before you sent your report (${reason}). Arco saved your work so far in the attached file ${fileName}. Read that file first, then continue from where you stopped. Do not repeat searches already done unless you need their results again. Then send your report with peer_send.${late ? ' The round was already released; your report is added to it as a late report.' : ''}\n\nThe round text:\n\n${round.text}`;
+  const held = d().operatorOnly?.(researcher.workflowId) === true;
+  const msgId = d().mintMsgId();
+  const runKey = late ? key : n;
+  if (held) {
+    await updateResearch(clusterId, (s) => {
+      const e = roundByKey(s, runKey)?.entries[letter];
+      if (!e || e.state !== 'waiting') return false;
+      e.heldMsgId = msgId;
+    });
+  }
+  const bytes = Buffer.from(file, 'utf8');
+  await d().enqueue(researcher.workflowId, {
+    msgId, fromWorkflowId: state.directorWorkflowId, fromDisplayName: 'Arco research', toWorkflowId: researcher.workflowId,
+    content: text, createdAt: iso(now), delivered: false,
+    artifacts: [{ name: fileName, contentBase64: bytes.toString('base64'), byteLength: bytes.length }],
+  }, { maxContentBytes: RELEASE_MAX_BYTES });
+  if (!held && !d().isBusy(researcher.workflowId)) wakeMember(researcher.workflowId, `(research retry) Round ${n}: Arco research sent you your work so far and a message about this round; both are in your mail. Read them, continue and send your report with peer_send.`);
+  const latest = await loadResearch(clusterId);
+  const run = latest && roundByKey(latest, runKey);
+  if (late && run) schedule(clusterId, run);
+  d().notify(clusterId);
+  return { ok: true, late, file: fileName };
+}
+
+// A retry run for a released round settled: its report joins that round as a
+// late report and the Director is told to add it; a failure is one line.
+async function finishRetry(state: ResearchState, run: ResearchRound): Promise<boolean> {
+  const { round: n, letter } = run.lateFor!;
+  const entry = run.entries[letter];
+  const name = researcherName(letter);
+  if (entry?.state === 'replied') {
+    const next = await updateResearch(state.clusterId, (s) => {
+      const round = s.rounds.find((r) => r.n === n);
+      if (!round) return false;
+      round.entries[letter] = { state: 'replied', at: entry.at, source: entry.source, report: entry.report, ...(entry.artifacts ? { artifacts: entry.artifacts } : {}), late: run.releasedAt ?? entry.at };
+      if (run.contaminated) round.contaminated = true;
+      if (run.boundaryWarning) round.boundaryWarning = true;
+    });
+    const round = next?.rounds.find((r) => r.n === n);
+    if (next && round) {
+      const written = await writeReleasedRound(next, round);
+      await writeProjectFiles(next);
+      const path = written[letter]?.reportPath;
+      const rel = path?.startsWith(next.folder) ? path.slice(next.folder.length + 1) : path;
+      await noteDirector(next, `Late report from ${name} for round ${n}${rel ? ` (${rel})` : ''}. Add it to synthesis.md and say that it arrived later.${run.contaminated ? ' Independence check failed: treat it as contaminated.' : ''}\n\n${(entry.report ?? '').trim()}`.slice(0, RELEASE_INLINE_BYTES));
+      if (d().isBusy(next.directorWorkflowId)) directorWakes.add(next.clusterId);
+      else wakeMember(next.directorWorkflowId, `(research) A late report from ${name} for round ${n} is in your mail. Add it to synthesis.md and say that it arrived later.`);
+    }
+  } else if (entry && entry.state !== 'removed') {
+    await noteDirector(state, `${name}'s retry for round ${n} ended without a report (${entry.state.replace('_', ' ')}${entry.reason ? `: ${entry.reason}` : ''}).`);
+  }
+  await sendDeferredRound(state, letter);
   d().notify(state.clusterId);
   return true;
 }
@@ -585,6 +697,7 @@ export async function removeResearcher(clusterId: string, letter: string): Promi
   const at = iso(d().now());
   let result = { ok: false, code: 'not_research' } as RemoveResearcherResult;
   let openN: number | undefined;
+  let retryRun: number | undefined;
   const state = await updateResearch(clusterId, (s) => {
     const r = activeResearchers(s).find((x) => x.letter === letter.toUpperCase());
     if (!r) { result = { ok: false, code: 'unknown_researcher' }; return false; }
@@ -593,14 +706,15 @@ export async function removeResearcher(clusterId: string, letter: string): Promi
     const removed = { state: 'removed' as const, at, reason: 'Removed by the operator.' };
     const catchUp = openCatchUp(s, r.letter);
     if (catchUp) { catchUp.entries[r.letter] = removed; catchUp.releasedAt = at; }
+    const retry = openRetry(s, r.letter);
+    if (retry) { retry.entries[r.letter] = removed; retry.releasedAt = at; retryRun = retry.n; }
     const open = openRound(s);
     if (open?.entries[r.letter]?.state === 'waiting') { open.entries[r.letter] = removed; openN = open.n; }
     result = { ok: true, workflowId: r.workflowId, ...(openN ? { releasedRound: openN } : {}) };
   });
   if (!state || !result.ok) return result;
   const key = catchUpKey(letter.toUpperCase());
-  clearTimeout(timers.get(`${clusterId}:${key}`));
-  timers.delete(`${clusterId}:${key}`);
+  for (const k of [key, ...(retryRun !== undefined ? [retryRun] : [])]) { clearTimeout(timers.get(`${clusterId}:${k}`)); timers.delete(`${clusterId}:${k}`); }
   const rest = activeResearchers(state).map((r) => r.letter);
   await noteDirector(state, `${researcherName(letter.toUpperCase())} was removed. Its earlier reports stay.${openN ? ` Round ${openN} is released without it.` : ''} Later rounds go to ${rest.join(', ')}.`);
   await writeProjectFiles(state);
@@ -638,7 +752,7 @@ export function resolveResearcherRef(state: ResearchState, ref: string): string 
 export async function restoreResearchTimers(clusterIds: Iterable<string>): Promise<void> {
   for (const clusterId of clusterIds) {
     const state = await loadResearch(clusterId).catch(() => null);
-    for (const catchUp of state?.catchUps ?? []) if (!catchUp.releasedAt) schedule(clusterId, catchUp);
+    for (const catchUp of [...(state?.catchUps ?? []), ...(state?.retries ?? [])]) if (!catchUp.releasedAt) schedule(clusterId, catchUp);
     const round = state && openRound(state);
     if (round) {
       schedule(clusterId, round);

@@ -93,7 +93,9 @@ export interface ResearchRoundSummary {
   catchUp?: string;
   // Keyed by report letter. `source` says whether the report came by mail or
   // was taken from the researcher's final reply.
-  entries: Record<string, { state: ResearchEntryState; at?: string; reason?: string; source?: 'mail' | 'final_reply' }>;
+  // `late`: a report from RETRY that arrived after release; `retrying`: a
+  // RETRY is running for this entry (docs/RESEARCH.md "Retry").
+  entries: Record<string, { state: ResearchEntryState; at?: string; reason?: string; source?: 'mail' | 'final_reply'; late?: string; retrying?: boolean }>;
   targeted: number;
 }
 export interface ResearchResearcherSummary {

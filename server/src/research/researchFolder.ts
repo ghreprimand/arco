@@ -114,7 +114,7 @@ export function renderRound(state: ResearchState, round: ResearchRound): string 
     if (!entry) continue;
     // Before release the Director may read this file, so outcomes stay hidden.
     const outcome = round.releasedAt
-      ? `${STATE_WORDS[entry.state] ?? entry.state}${entry.source === 'final_reply' ? ' (taken from final reply)' : ''}${entry.reason ? ` - ${entry.reason}` : ''}`
+      ? `${STATE_WORDS[entry.state] ?? entry.state}${entry.source === 'final_reply' ? ' (taken from final reply)' : ''}${entry.late ? ` (late: arrived ${entry.late}, after release)` : ''}${entry.reason && entry.state !== 'replied' ? ` - ${entry.reason}` : ''}`
       : 'held until the round is released';
     lines.push(`- ${researcherName(r.letter)}${authors ? ` (${r.provider}${r.claudeTransport ? ` ${r.claudeTransport}` : ''}, ${r.model})` : ''}: ${outcome}`);
   }
@@ -162,6 +162,7 @@ export async function writeReleasedRound(state: ResearchState, round: ResearchRo
       reportPath = join(dir, `report-${r.letter.toLowerCase()}.md`);
       const header = [round.catchUp ? `# Catch-up on round 1, ${researcherName(r.letter)}` : `# Round ${round.n}, ${researcherName(r.letter)}`, '',
         ...(entry.source === 'final_reply' ? ['Taken from the researcher\'s final reply; no report was sent.', ''] : []),
+        ...(entry.late ? [`Late report: it arrived at ${entry.late}, after the round was released, from a retry.`, ''] : []),
         ...(sources.length ? ['Returned files:', ...sources.map((s) => `- ${s}`), ''] : []), ''];
       await atomicWriteFile(reportPath, header.join('\n') + entry.report.trim() + '\n');
     }

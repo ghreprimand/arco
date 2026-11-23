@@ -34,6 +34,16 @@ If a Claude CLI or Codex researcher cannot renew its existing sign-in, the resea
 
 **Targeted messages.** The Director can `peer_send` to `Researcher B` (or `B`). The operator can type to a researcher in its pane. Both are recorded in the latest round's `round.md`. A researcher's reply outside an open round is delivered at once. Mail between the Director and a researcher starts a turn on an eligible idle recipient whatever the cluster's AUTO-PICKUP setting; mail to or from Gemini waits for NUDGE.
 
+### Retry
+
+A researcher marked failed or timed out in a round shows **RETRY** in the rounds strip's round details. Only the operator can press it (`POST /api/research/<cluster>/rounds/<n>/retry/<letter>`); the Director has no tool for it. A retry is refused while that researcher is working, has a catch-up running or already has a retry running.
+
+- **Work-so-far file.** At retry time Arco writes `work-so-far-round-<n>.md` once, from its own record of the researcher's turns since the round started (the researcher's workflow event log): the round text as sent, then in order the researcher's reasoning, each tool call with its input, each tool output Arco recorded, any text it wrote, and the reason the turn ended. Tool outputs longer than 2,000 characters are cut with a marked cut; reasoning and tool inputs are kept whole. Provider-private files, such as a CLI's own transcript in the researcher's home, are not read. Gemini does not report search results to Arco, so a Gemini file holds its queries and reasoning but no results.
+- **Where the file goes.** The file is attached to one message from "Arco research" in the researcher's same conversation, so it is delivered like any peer attachment into the researcher's own workspace (`.peer-artifacts/` in the isolated workspace), the only place every researcher can read inside its fence. The message names the round, the recorded reason and the file, and asks the researcher to read it first, continue without repeating searches it has done unless it needs their results, and send its report with `peer_send`. A Gemini researcher's message waits in its mail for the operator's NUDGE, like its rounds.
+- **Round still open.** The entry goes back to working and its report joins the round as usual. The deadline does not change; +15 MIN still applies.
+- **Round already released.** The retry runs alone with its own deadline from the research time limit, like a catch-up. Its report is saved as `report-<letter>.md` in that round's folder, listed in `round.md` as late, and shown in RESULTS under that round marked late. The Director gets the report with one line asking it to add the report to `synthesis.md` and say that it arrived later, and a turn starts (or waits for NUDGE if the Director is Gemini). A retry that ends without a report is one line to the Director, without a turn. A round started during a retry waits for that researcher until the retry settles. Retry state is kept in `research.json` and its deadline survives a restart.
+- RETRY applies to rounds, not to catch-ups. Arco does not detect whether a provider resumed the same conversation or started a new one for the retry turn.
+
 ## Gemini researchers
 
 A Gemini (Antigravity CLI) researcher runs `agy acp` inside the Linux worker sandbox, like a Codex or Cursor researcher, with the research mail bridge as its only Arco tool server.

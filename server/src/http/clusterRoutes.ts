@@ -5,7 +5,7 @@ import { sendResearchToFolder, sendResearchToPlan, stageResearchForComposer, con
 import type { ResearchSelection } from '../research/resultSelection.js';
 import { existingClusterMemberRefusal } from '../existingClusterMembers.js';
 import { recipientContext } from '../peerRecipientContext.js';
-import { extendRound, isResearchMemberBusy, revealResearch, startRound } from '../research/researchRounds.js';
+import { extendRound, retryResearcher, isResearchMemberBusy, revealResearch, startRound } from '../research/researchRounds.js';
 import { closeResearch, unsentFiles } from '../research/researchClose.js';
 import { researchSummaries } from '../research/researchFolder.js';
 import { loadResearch } from '../research/researchState.js';
@@ -132,6 +132,14 @@ export async function tryHandleClusterRoutes(
     const result = await extendRound(extend[1], Number(extend[2])).catch(() => ({ ok: false as const, code: 'unknown_round' as const }));
     res.writeHead(result.ok ? 200 : result.code === 'unknown_round' ? 404 : 409, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(result.ok ? { deadline: result.deadline } : { error: result.code }));
+    return true;
+  }
+  // docs/RESEARCH.md "Retry" - the operator's RETRY on a failed or timed-out researcher.
+  const retry = req.method === 'POST' && req.url ? /^\/api\/research\/([0-9a-f-]{36})\/rounds\/(\d+)\/retry\/([A-Za-z])$/.exec(req.url) : null;
+  if (retry) {
+    const result = await retryResearcher(retry[1], Number(retry[2]), retry[3]).catch((error) => ({ ok: false as const, code: 'busy' as const, message: error instanceof Error ? error.message : String(error) }));
+    res.writeHead(result.ok ? 200 : result.code === 'not_research' || result.code === 'unknown_round' || result.code === 'unknown_researcher' ? 404 : 409, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result.ok ? { late: result.late, file: result.file } : { error: result.code, message: result.message }));
     return true;
   }
   // docs/RESEARCH.md - which summaries exist, for RESULTS.

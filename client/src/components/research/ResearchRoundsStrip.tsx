@@ -45,6 +45,18 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
     } catch { useAppStore.getState().pushNotification('error', 'The round could not be extended. It may have ended or reached the maximum time.'); }
     finally { setBusy(false); }
   };
+  // docs/RESEARCH.md "Retry": the operator's RETRY on one researcher.
+  const retry = async (n: number, letter: string) => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/research/${clusterId}/rounds/${n}/retry/${letter}`, { method: 'POST' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null) as { message?: string } | null;
+        throw new Error(body?.message ?? 'Retry failed.');
+      }
+    } catch (error) { useAppStore.getState().pushNotification('error', error instanceof Error ? error.message : 'Retry failed.'); }
+    finally { setBusy(false); }
+  };
   return (
     <div data-help="research.rounds" style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '5px 8px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: 11, color: 'var(--color-fg)' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -75,8 +87,9 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
               <span className="display-font" style={{ letterSpacing: 1, color: 'var(--color-fg)' }}>{round.catchUp ? `CATCH-UP ${round.catchUp}` : `ROUND ${round.n}`}</span>
               {letters.filter((l) => round.entries[l]).map((l) => {
                 const state = round.entries[l].state;
-                const color = state === 'replied' ? 'var(--color-accent-primary)' : state === 'waiting' ? 'var(--color-fg)' : 'var(--color-warning)';
-                return <span key={l} title={`Researcher ${l}: ${ENTRY_WORDS[state]}`} style={{ border: `1px solid ${color}`, color, padding: '0 4px', fontSize: 10 }}>{l} {ENTRY_WORDS[state]}</span>;
+                const word = round.entries[l].retrying ? 'retrying' : `${ENTRY_WORDS[state]}${round.entries[l].late ? ' late' : ''}`;
+                const color = state === 'replied' ? 'var(--color-accent-primary)' : state === 'waiting' || round.entries[l].retrying ? 'var(--color-fg)' : 'var(--color-warning)';
+                return <span key={l} title={`Researcher ${l}: ${word}`} style={{ border: `1px solid ${color}`, color, padding: '0 4px', fontSize: 10 }}>{l} {word}</span>;
               })}
               <span>{roundSummaryLine(round)} · {elapsedLabel(round.startedAt, round.releasedAt, now)}</span>
               {round.contaminated && <span role="alert" style={{ color: 'var(--color-warning)' }}>INDEPENDENCE CHECK FAILED</span>}
@@ -88,7 +101,10 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
             {expanded && <ul style={{ margin: '4px 0 2px 16px', padding: 0 }}>
               {letters.filter((l) => round.entries[l]).map((l) => {
                 const e = round.entries[l];
-                return <li key={l}>Researcher {l}: {ENTRY_WORDS[e.state]}{e.source === 'final_reply' ? ' (taken from final reply)' : ''}{e.reason ? `: ${e.reason}` : ''}{e.at ? ` at ${new Date(e.at).toLocaleTimeString()}` : ''}</li>;
+                const active = research.researchers.some((r) => r.letter === l && !r.removedAt);
+                const retryable = !round.catchUp && active && !e.retrying && (e.state === 'failed' || e.state === 'timed_out');
+                return <li key={l}>Researcher {l}: {e.retrying ? 'retrying' : ENTRY_WORDS[e.state]}{e.source === 'final_reply' ? ' (taken from final reply)' : ''}{e.late ? ' (late report)' : ''}{e.reason && e.state !== 'replied' ? `: ${e.reason}` : ''}{e.at ? ` at ${new Date(e.at).toLocaleTimeString()}` : ''}
+                  {retryable && <> <button type="button" data-help="research.retry" style={touchButton} disabled={busy} aria-label={`Retry researcher ${l} in round ${round.n}`} onClick={() => void retry(round.n, l)}>RETRY</button></>}</li>;
               })}
               <li>Deadline {new Date(round.deadline).toLocaleTimeString()}{round.targeted ? ` · ${round.targeted} targeted message${round.targeted === 1 ? '' : 's'} recorded` : ''}</li>
             </ul>}
