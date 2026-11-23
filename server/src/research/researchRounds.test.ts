@@ -94,6 +94,44 @@ test('a Gemini Research Director gets its turn text as waiting mail, and its rou
   } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
 });
 
+test('a Gemini researcher takes its round only on the operator\'s NUDGE, while other researchers start at once', async () => {
+  const p = await project();
+  try {
+    configureResearch({
+      enqueue: (to, msg, opts) => clusterMailbox.enqueue(to, msg, opts),
+      mintMsgId: () => clusterMailbox.mintMsgId(),
+      wake: (wfid, prompt) => { p.woken.push(wfid); p.prompts.push(prompt); },
+      operatorOnly: (wfid) => wfid === p.a,
+      isBusy: () => false,
+      pendingMail: (wfid) => clusterMailbox.depthFor(wfid),
+      clusterIdFor: (wfid) => clusterStore.getClusterIdForWorkflow(wfid),
+      notify: () => undefined,
+      now: () => Date.now(),
+    });
+    assert.equal((await startRound(p.clusterId, p.director, 'Compare two heat pumps.')).ok, true);
+    assert.deepEqual(p.woken, [p.b], 'only the non-Gemini researcher starts a turn');
+    const mail = await clusterMailbox.peek(p.a);
+    assert.equal(mail.length, 1);
+    assert.equal(mail[0].fromGemini, undefined, 'the round is not marked as mail from a Gemini member');
+    assert.ok((await loadResearch(p.clusterId))!.rounds[0].entries.A.heldMsgId, 'the deadline waits for the read');
+    await updateResearch(p.clusterId, (state) => { state.researchers[0].provider = 'antigravity-cli'; });
+    assert.equal(researchSummary((await loadResearch(p.clusterId))!).researchers[0].isolation, 'checking', 'a Gemini researcher is shown as sandboxed work, not tool-fenced');
+  } finally { configureResearch(null); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
+test('a fenced researcher, Gemini included, cannot see the research folder, another researcher\'s workspace or the Gemini research sign-in', async () => {
+  const { workerHiddenDirectories } = await import('../workers/workerHiddenDirectories.js');
+  const { geminiResearchRoot } = await import('../providers/antigravity/researchSignIn.js');
+  const p = await project();
+  try {
+    const cluster = (await clusterStore.readCluster(p.clusterId))!;
+    const hidden = workerHiddenDirectories(cluster);
+    assert.ok(hidden.includes(p.folder), 'reports are released into the research folder');
+    assert.ok(hidden.includes(clusterStore.isolatedWorkspaceFor(p.clusterId, p.b)), 'another researcher\'s workspace');
+    assert.ok(hidden.some((dir) => geminiResearchRoot().startsWith(dir + '/')), 'the stored research sign-in');
+  } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
 test('a researcher held by a Gemini Research Director is not timed out before it reads the round, then gets the full time limit', async () => {
   const p = await project();
   let now = Date.parse('2026-11-23T00:00:00Z');

@@ -6,7 +6,8 @@ import { access, readFile, stat } from 'fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 import {} from '@arco/shared';
-import type { ProviderName, AuthLoginTarget, AuthLoginResult, ClaudeCliAuthStatus, ClaudeNativeAuthStatus } from '@arco/shared';
+import { ensureGeminiResearchHome, geminiResearchLoginEnv } from './providers/antigravity/researchSignIn.js';
+import type { LoginSessionTarget, ProviderName, AuthLoginTarget, AuthLoginResult, ClaudeCliAuthStatus, ClaudeNativeAuthStatus } from '@arco/shared';
 import { getClaudeNativeAuthStatus } from './providers/claude-native/authStatus.js';
 import { getCliUsageBinding } from './usage.js';
 import { getOllamaBase, probeOllama } from './providers/ollama.js';
@@ -405,7 +406,7 @@ function shellQuote(s: string): string {
 
 const TERMINAL_HINT = 'Run it in Arco\'s terminal (TOOLS → TERMINAL) — it prints a link/code to open on whatever device you\'re using.';
 
-export async function triggerAuthLogin(provider: AuthLoginTarget = 'claude', accountRef?: string): Promise<AuthLoginResult> {
+export async function triggerAuthLogin(provider: LoginSessionTarget = 'claude', accountRef?: string): Promise<AuthLoginResult> {
   if (provider === 'claude') {
     // Prints the authorize URL + a "Paste code here" prompt when no browser
     // opens; at the desk it also opens the local browser and completes itself.
@@ -429,6 +430,15 @@ export async function triggerAuthLogin(provider: AuthLoginTarget = 'claude', acc
 
   if (provider === 'antigravity-cli') {
     return authLoginInstructions('agy acp --login', 'Open the link, then paste the authorization code or return URL.');
+  }
+
+  if (provider === 'gemini-research') {
+    // docs/RESEARCH.md "Gemini researchers": a separate sign-in stored as a
+    // file in Arco's own home, never the keyring or ~/.gemini.
+    const { home, run } = await ensureGeminiResearchHome();
+    const env = geminiResearchLoginEnv(home, run);
+    const command = `env ${env.unset.map((name) => `-u ${name} `).join('')}${Object.entries(env.set).map(([k, v]) => `${k}=${shellQuote(v)}`).join(' ')} agy acp --login`;
+    return authLoginInstructions(command, 'Open the link, then paste the authorization code or return URL. This sign-in is used only by Gemini researchers.');
   }
 
   if (provider === 'cursor') {

@@ -1778,11 +1778,6 @@ async function createClusterFromScratch(
       const reason = await isolatedProviderRefusal(m.provider, m.claudeTransport);
       if (reason) { send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] ${reason}` }); return; }
     }
-    // A Gemini Research Director is allowed (member 0); Gemini researchers are not.
-    if (research && i > 0 && isOperatorSendOnlyProvider(m.provider)) {
-      send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] Gemini researchers are not available.` });
-      return;
-    }
     if (accessMode === 'researcher' && !research) {
       send(ws, { type: 'error', message: `cluster_create_from_scratch rejected: member[${i}] researcher_requires_research_project` });
       return;

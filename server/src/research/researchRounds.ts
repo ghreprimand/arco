@@ -175,7 +175,9 @@ async function sendRoundText(state: ResearchState, round: ResearchRound, r: Rese
   const label = round.catchUp ? 'catch-up on round 1' : `round ${round.n}`;
   // A round from a Gemini Research Director is mail from a Gemini member: it
   // waits for the operator's NUDGE on each researcher.
-  const held = d().operatorOnly?.(state.directorWorkflowId) === true;
+  const fromGemini = d().operatorOnly?.(state.directorWorkflowId) === true;
+  // A Gemini researcher also takes this round only on the operator's NUDGE.
+  const held = fromGemini || d().operatorOnly?.(r.workflowId) === true;
   const msgId = d().mintMsgId();
   // Recorded before the mail is queued, so a read that follows at once finds it.
   if (held) {
@@ -193,7 +195,7 @@ async function sendRoundText(state: ResearchState, round: ResearchRound, r: Rese
     content: `Research brief, ${label}. Answer it independently, then send your report with peer_send.\n\n${round.text}`,
     createdAt: iso(d().now()),
     delivered: false,
-    ...(held ? { fromGemini: true } : {}),
+    ...(fromGemini ? { fromGemini: true } : {}),
   }, { maxContentBytes: RELEASE_MAX_BYTES });
   if (!held && !d().isBusy(r.workflowId)) wakeMember(r.workflowId, researcherWakePrompt(round, round.text));
 }

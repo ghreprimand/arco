@@ -16,6 +16,7 @@ import { assertSafePath } from '../fileAccessPolicy.js';
 import { arcoHome } from '../arcoHome.js';
 import { patchSettings, readSettings } from '../settings.js';
 import { researchSandboxAvailable } from '../workers/researchSandboxAvailability.js';
+import { geminiResearchSignInState } from '../providers/antigravity/researchSignIn.js';
 import { cursorIsolationReason } from '../providers/cursor/isolatedVersion.js';
 import { codexResearchVersionReason, installedCodexVersion } from '../providers/codexVersion.js';
 import { readMeta } from '../workflowMeta.js';
@@ -116,6 +117,11 @@ export async function researcherSandboxRefusal(rows: ResearcherRow[]): Promise<s
     const reason = cursorIsolationReason();
     if (reason) return reason;
     if (!await researchSandboxAvailable('cursor')) return 'cursor_research_sandbox_unavailable';
+  }
+  // docs/RESEARCH.md "Gemini researchers": fenced only, with the separate research sign-in.
+  if (rows.some((m) => m.provider === 'antigravity-cli')) {
+    if (!await researchSandboxAvailable('antigravity')) return 'gemini_research_sandbox_unavailable';
+    if (await geminiResearchSignInState() !== 'ready') return 'gemini_research_sign_in_needed';
   }
   if (rows.some((m) => m.provider === 'codex')) {
     const reason = codexResearchVersionReason(installedCodexVersion());

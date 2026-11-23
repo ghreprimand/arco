@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CLUSTER_MEMBER_PROVIDERS,
   GEMINI_RESEARCH_DIRECTOR_NOTE,
+  GEMINI_RESEARCHER_NOTE,
   RESEARCHER_PROVIDERS,
   RESEARCH_CONFIRM_ABOVE,
   RESEARCH_MAX_RESEARCHERS,
@@ -16,9 +17,10 @@ import { useClusterPresets } from '../../hooks/useClusterPresets';
 import { effortsForModel } from '../../utils/format';
 import { DirectoryBrowser } from '../media/DirectoryPicker';
 import { DialogShell } from '../DialogShell';
-import { MEMBER_PROVIDER_NAMES, memberProviderAvailable } from './memberProviders';
+import { MEMBER_PROVIDER_NAMES, memberModelOptions, memberProviderAvailable } from './memberProviders';
 import { EFFORT_LABELS } from './modelOptions';
 import { claudeConnection } from '../../utils/claudeAuth';
+import { geminiResearchReason } from '../research/researcherRow';
 import type { ClusterCreatePayload, ClusterMembersSectionProps } from './types';
 
 // docs/RESEARCH.md - the research start dialog. Researcher rows carry only
@@ -106,25 +108,26 @@ export function ResearchStartForm(props: Pickers & {
   const [codexVersionReason, setCodexVersionReason] = useState<string>();
   const [cursorSandboxAvailable, setCursorSandboxAvailable] = useState(false);
   const [cursorVersionReason, setCursorVersionReason] = useState<string>();
+  const [geminiReason, setGeminiReason] = useState<string | undefined>('Checking the Gemini research sandbox.');
   useEffect(() => {
     const controller = new AbortController();
     void fetch('/api/diagnostics/research-sandbox', { signal: controller.signal })
-      .then(async response => response.ok ? await response.json() as { claudeCli?: boolean; codex?: boolean; cursor?: boolean; codexVersionReason?: string; cursorVersionReason?: string } : null)
+      .then(async response => response.ok ? await response.json() as { claudeCli?: boolean; codex?: boolean; cursor?: boolean; gemini?: boolean; geminiSignIn?: 'missing' | 'ready' | 'expired'; codexVersionReason?: string; cursorVersionReason?: string } : null)
       .then(result => {
         setSandboxStatus(result?.claudeCli ? 'ready' : 'unavailable'); setCodexSandboxAvailable(result?.codex === true); setCodexVersionReason(result?.codexVersionReason);
         setCursorSandboxAvailable(result?.cursor === true); setCursorVersionReason(result?.cursorVersionReason);
+        setGeminiReason(geminiResearchReason(result ?? {}));
       })
       .catch(() => { if (!controller.signal.aborted) setSandboxStatus('unavailable'); });
     return () => controller.abort();
   }, []);
   const available = (p: ClusterMemberProvider) => memberProviderAvailable(p, authStatus, isProviderEnabled);
-  const modelsFor = (p: ClusterMemberProvider): ModelOption[] =>
-    p === 'codex' ? props.codexModelsForPicker : p === 'ollama' ? props.ollamaModelsForPicker
-      : p === 'llamacpp' ? props.llamacppModelsForPicker : p === 'cursor' ? props.cursorModelsForPicker : props.claudeModelsForPicker;
+  const modelsFor = (p: ClusterMemberProvider): ModelOption[] => memberModelOptions(p, { claude: props.claudeModelsForPicker, codex: props.codexModelsForPicker,
+    cursor: props.cursorModelsForPicker, ollama: props.ollamaModelsForPicker, llamacpp: props.llamacppModelsForPicker }, authStatus);
   const effortsFor = (r: ResearchRow) => effortsForModel(r.provider, r.model as ModelName, props.claudeNativeCatalog, props.codexCatalog);
   const researcherProviders = RESEARCHER_PROVIDERS.filter(p => p === 'claude'
     ? isProviderEnabled('claude') && claudeConnection(authStatus?.claude, 'native').connected : p === 'codex' ? codexSandboxAvailable && available(p)
-      : p === 'cursor' ? cursorSandboxAvailable && available(p) : available(p));
+      : p === 'cursor' ? cursorSandboxAvailable && available(p) : p === 'antigravity-cli' ? isProviderEnabled(p) && !geminiReason : available(p));
   const sandboxedUnavailable = (p: ClusterMemberProvider) => (p === 'codex' && (!codexSandboxAvailable || !available('codex'))) || (p === 'cursor' && (!cursorSandboxAvailable || !available('cursor')));
   const cliAvailable = sandboxStatus === 'ready' && isProviderEnabled('claude') && claudeConnection(authStatus?.claude, 'cli').connected;
   const anyResearcherAvailable = researcherProviders.length > 0 || cliAvailable;
@@ -185,6 +188,7 @@ export function ResearchStartForm(props: Pickers & {
     rows.some(r => r.researchClaudeTransport === 'cli' && !cliAvailable) ? 'Claude CLI researcher is unavailable. Check the sign-in and sandbox.' : '',
     rows.some(r => r.provider === 'codex' && (!codexSandboxAvailable || !available('codex'))) ? codexVersionReason ?? 'Codex researcher is unavailable. Check the sign-in and sandbox.' : '',
     rows.some(r => r.provider === 'cursor' && (!cursorSandboxAvailable || !available('cursor'))) ? cursorVersionReason ?? 'Cursor researcher is unavailable. Check the sign-in and sandbox.' : '',
+    rows.some(r => r.provider === 'antigravity-cli') && geminiReason ? geminiReason : '',
     !folderSet && !folderRoot.trim() ? 'Choose the research folder.' : '',
   ].filter(Boolean);
 
@@ -269,7 +273,8 @@ export function ResearchStartForm(props: Pickers & {
               <input className="arco-field" type="number" min={2048} step={1024} value={r.contextSize ?? ''} placeholder="Model default" onChange={(e) => update(r.key, { contextSize: e.target.value ? Math.max(2048, Number(e.target.value)) : undefined })} style={{ width: 110 }} /></label>}
           </div>
         ))}
-        <div style={hintStyle}>Every researcher works alone in a private workspace with web research. Claude CLI, Codex and Cursor can use a sandboxed shell. Local models run one at a time because they share the GPU.</div>
+        {rows.some(r => r.provider === 'antigravity-cli') && <div role="note" style={{ ...hintStyle, overflowWrap: 'anywhere' }}>{GEMINI_RESEARCHER_NOTE}</div>}
+        <div style={hintStyle}>Every researcher works alone in a private workspace with web research. Claude CLI, Codex, Cursor and Gemini can use a sandboxed shell. Local models run one at a time because they share the GPU.</div>
         <div data-help="creator.research-panels" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
           {!panelOpen && <button type="button" style={small} disabled={rows.length === 0} onClick={() => setPanelOpen(true)}>+ SAVE PANEL</button>}
           {panelOpen && <form onSubmit={(e) => { e.preventDefault(); void savePanel(); }} style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

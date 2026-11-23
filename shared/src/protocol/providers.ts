@@ -18,6 +18,9 @@ export type PrimaryPhase = 'passthrough';
 export const PRIMARY_PROVIDERS: ProviderName[] = ['claude',  'codex',  'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek', 'cursor', 'antigravity-cli'];
 
 export type AuthLoginTarget = ProviderName | 'github';
+// Login sessions also cover 'gemini-research', the separate Antigravity
+// sign-in used only by fenced Gemini researchers (docs/RESEARCH.md).
+export type LoginSessionTarget = AuthLoginTarget | 'gemini-research';
 
 // POST /api/auth-login response. `command` is the headless login command the
 // operator runs in Arco's own terminal (a shell on the server box): every
@@ -38,7 +41,7 @@ export interface AuthLoginResult {
 
 // One provider login run by the server (server/src/authLoginSession.ts).
 export interface AuthLoginSession {
-  provider: AuthLoginTarget;
+  provider: LoginSessionTarget;
   status: 'pending' | 'completed' | 'failed' | 'cancelled';
   // Claude: the browser shows a code the operator pastes back here.
   needsCode: boolean;

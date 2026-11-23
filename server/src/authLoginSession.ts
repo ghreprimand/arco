@@ -5,8 +5,9 @@
 // own home, so a Docker user never needs a terminal. One session per provider;
 // the command fallback stays available for everything else.
 import { noteAntigravityLoginCompleted } from './providers/antigravity/status.js';
+import { noteGeminiResearchSignInExpired } from './providers/antigravity/researchSignIn.js';
 import { spawn, type ChildProcess } from 'child_process';
-import type { AuthLoginSession, AuthLoginTarget } from '@arco/shared';
+import type { AuthLoginSession, LoginSessionTarget as AuthLoginTarget } from '@arco/shared';
 import { killProcessTree } from './workers/processKill.js';
 
 const SESSION_TTL_MS = 15 * 60_000;
@@ -15,12 +16,14 @@ const ANSI = /\x1b\[[0-9;]*[A-Za-z]/g;
 
 // `command` and `env` override the terminal command for the relayed session
 // (no `env VAR=...` prefix, which Windows shells lack).
-export const IN_APP_LOGIN: Partial<Record<AuthLoginTarget, { needsCode: boolean; command?: string; env?: Record<string, string> }>> = {
+export const IN_APP_LOGIN: Partial<Record<AuthLoginTarget, { needsCode: boolean; command?: string; env?: Record<string, string>; unsetEnv?: string[] }>> = {
   codex: { needsCode: false },
   claude: { needsCode: true },
   // Prints a link and finishes on its own once the page confirms, like Codex.
   cursor: { needsCode: false, command: 'cursor-agent login', env: { NO_OPEN_BROWSER: '1' } },
   'antigravity-cli': { needsCode: true, command: 'agy acp --login' },
+  // The relayed session runs the terminal command, which carries its own env.
+  'gemini-research': { needsCode: true, unsetEnv: ['DBUS_SESSION_BUS_ADDRESS'] },
 };
 
 export function parseLoginOutput(text: string): { url?: string; code?: string; awaitingCode: boolean } {
@@ -84,7 +87,7 @@ export function startLoginSession(provider: AuthLoginTarget, command: string): A
     // No browser exists where the server runs; the CLIs print the link anyway.
     // detached on POSIX makes the shell a process-group leader, so a cancel or
     // timeout reaches the provider CLI it started, not only the shell.
-    child = spawn(spec.command ?? command, { shell: true, detached: process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, BROWSER: 'true', NO_BROWSER: 'true', ...(spec.env ?? {}) } });
+    child = spawn(spec.command ?? command, { shell: true, detached: process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: Object.fromEntries(Object.entries({ ...process.env, BROWSER: 'true', NO_BROWSER: 'true', ...(spec.env ?? {}) }).filter(([name]) => !spec.unsetEnv?.includes(name))) });
   } catch (err) {
     finish(entry, 'failed', err instanceof Error ? err.message : String(err));
     return snapshot(entry);
@@ -103,7 +106,7 @@ export function startLoginSession(provider: AuthLoginTarget, command: string): A
   child.on('error', (err) => finish(entry, 'failed', err.message));
   child.on('exit', (code) => {
     if (entry.cancelled) return finish(entry, 'cancelled');
-    if (code === 0) { if (provider === 'antigravity-cli') noteAntigravityLoginCompleted(); return finish(entry, 'completed'); }
+    if (code === 0) { if (provider === 'antigravity-cli') noteAntigravityLoginCompleted(); if (provider === 'gemini-research') noteGeminiResearchSignInExpired(false); return finish(entry, 'completed'); }
     const tail = entry.output.replace(ANSI, '').trim().split('\n').filter((l) => l.trim()).slice(-3).join(' ');
     finish(entry, 'failed', tail || `login exited with code ${code}`);
   });

@@ -1,5 +1,5 @@
 import { CLUSTER_MEMBER_PROVIDERS } from '@arco/shared';
-import type { AuthStatusByProvider, ClusterMemberProvider, ProviderName } from '@arco/shared';
+import type { AuthStatusByProvider, ClusterMemberProvider, ModelName, ProviderName } from '@arco/shared';
 
 // Providers that can be cluster members, in display order, with plain names.
 export const MEMBER_PROVIDER_NAMES: Record<ClusterMemberProvider, string> = {
@@ -23,6 +23,18 @@ export function availableMemberProviders(
   isProviderEnabled: (p: ProviderName) => boolean,
 ): ClusterMemberProvider[] {
   return CLUSTER_MEMBER_PROVIDERS.filter((p) => memberProviderAvailable(p, authStatus, isProviderEnabled));
+}
+
+type ModelPick = { value: ModelName; label: string; subline?: string };
+// The model choices for a member or researcher row. Gemini lists the models
+// agy reports; every other provider uses its own picker list.
+export function memberModelOptions(
+  provider: ClusterMemberProvider,
+  pickers: { claude: ModelPick[]; codex: ModelPick[]; cursor: ModelPick[]; ollama: ModelPick[]; llamacpp: ModelPick[] },
+  authStatus: AuthStatusByProvider | null | undefined,
+): ModelPick[] {
+  if (provider === 'antigravity-cli') return (authStatus?.['antigravity-cli']?.installedModels ?? []).map((id) => ({ value: id as ModelName, label: id }));
+  return pickers[provider];
 }
 
 // Primary providers in the creator's picker order.

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { AuthStatusByProvider, ProviderName } from '@arco/shared';
-import { availableMemberProviders, availablePrimaryProviders, firstAvailablePrimaryProvider, memberProviderAvailable, primaryProviderOptions, primaryProviderProblem } from './memberProviders.js';
+import { availableMemberProviders, memberModelOptions, availablePrimaryProviders, firstAvailablePrimaryProvider, memberProviderAvailable, primaryProviderOptions, primaryProviderProblem } from './memberProviders.js';
 
 const auth = (loggedIn: Partial<Record<ProviderName, boolean>>) =>
   Object.fromEntries(Object.entries(loggedIn).map(([p, v]) => [p, { loggedIn: v }])) as unknown as AuthStatusByProvider;
@@ -35,4 +35,12 @@ test('an unavailable current provider stays listed and blocks launch with a plai
   assert.match(primaryProviderProblem('claude', auth({ claude: false }), all, 'Claude')!, /No provider is connected/);
   assert.match(primaryProviderProblem('claude', auth({ claude: true }), (p) => p !== 'claude', 'Claude')!, /turned off in Settings/);
   assert.match(primaryProviderProblem('claude', null, all, 'Claude')!, /Checking/);
+});
+
+test('a Gemini row lists the models agy reports, not the Claude list', () => {
+  const claude = [{ value: 'claude-fixture' as never, label: 'Claude fixture' }];
+  const pickers = { claude, codex: [], cursor: [], ollama: [], llamacpp: [] };
+  const status = { 'antigravity-cli': { loggedIn: false, installedModels: ['gemini-fixture'] } } as unknown as AuthStatusByProvider;
+  assert.deepEqual(memberModelOptions('antigravity-cli', pickers, status).map((m) => m.value), ['gemini-fixture']);
+  assert.deepEqual(memberModelOptions('claude', pickers, status), claude);
 });

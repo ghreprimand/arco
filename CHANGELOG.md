@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Allow Gemini researchers on Linux: each runs in the worker sandbox with a separate sign-in, Settings > Connections > GEMINI FOR RESEARCH, that is kept as a file in Arco's folder instead of the system keyring, and takes each round only on the operator's NUDGE.
+
 - Add Settings > Projects > Research time limit (30 to 240 minutes, default 30) for every research round and catch-up; the Research Director no longer sets it.
 
 - Add the mobile view at `/mobile`: a list of tabs with what needs you first (questions, approvals and review gates), then one conversation at a time with a back button, a decision line, a member strip in clusters, a one-row message box with SEND or STEER, STOP and QUEUE FOR AFTER, and PANELS opening each panel, Settings (category list first), the board (one task at a time), Recall, Media and System full screen with a way back. The phone's Back closes the top layer, colours follow the theme, conversation text is 16 px in the phone's font, controls are at least 44 px and the text size is set per phone. The workbench in a phone-sized window links to it and is otherwise unchanged. A cluster member's question can now be answered from a browser that opened the cluster without its own copy of the member tabs, such as a phone.

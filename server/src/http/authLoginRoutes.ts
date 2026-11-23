@@ -4,11 +4,11 @@
 //   POST /api/auth-login/cancel { provider }
 // Registered ahead of the prefix-matched POST /api/auth-login handler.
 import { IncomingMessage, ServerResponse } from 'http';
-import type { AuthLoginTarget } from '@arco/shared';
+import type { LoginSessionTarget as AuthLoginTarget } from '@arco/shared';
 import { cancelLoginSession, getLoginSession, submitLoginCode } from '../authLoginSession.js';
 import { PORT } from '../server/constants.js';
 
-const TARGETS = new Set<string>(['claude', 'codex',  'cursor', 'github', 'ollama', 'antigravity-cli']);
+const TARGETS = new Set<string>(['claude', 'codex',  'cursor', 'github', 'ollama', 'antigravity-cli', 'gemini-research']);
 
 function sendJson(res: ServerResponse, code: number, body: unknown): true {
   res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });

@@ -34,7 +34,7 @@ test('catalog reads metadata without probing an endpoint or reading retired secr
   writeFileSync(join(state,'provider-secrets.json'),JSON.stringify({ zaiApiKey: '!false' }));
   const res=await fetch(base+'/api/connections');const body=await res.json();
   assert.equal(res.status,200);assert.equal(res.headers.get('cache-control'),'no-store');
-  assert.equal(body.providers.length,9);assert.deepEqual(requested,[]);
+  assert.equal(body.providers.length,10);assert.deepEqual(requested,[]);
   assert.ok(!JSON.stringify(body).includes('!false'));
 });
 test('only an explicit supported check reaches the selected fixture runtime',async()=>{

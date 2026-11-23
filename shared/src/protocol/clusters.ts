@@ -27,7 +27,8 @@ export const GEMINI_MEMBER_NOTE = 'Mail to or from Gemini waits for your NUDGE; 
 // Shown where a Gemini member is chosen: it runs in the project folder.
 export const GEMINI_MEMBER_CHOICE_NOTE = `${GEMINI_MEMBER_NOTE} Gemini members are not isolated.`;
 // Shown where a Gemini Research Director is chosen.
-export const GEMINI_RESEARCH_DIRECTOR_NOTE = 'Each step of a Gemini Research Director waits for your NUDGE, and the rounds it sends wait for your NUDGE on each researcher. Review or edit them in MAILBOX first. Gemini researchers are not available.';
+export const GEMINI_RESEARCH_DIRECTOR_NOTE = 'Each step of a Gemini Research Director waits for your NUDGE, and the rounds it sends wait for your NUDGE on each researcher. Review or edit them in MAILBOX first.';
+export const GEMINI_RESEARCHER_NOTE = 'A Gemini researcher works in the Linux worker sandbox with the separate Gemini for research sign-in, and takes each round only on your NUDGE.';
 
 
 export function isClusterMemberProvider(v: unknown): v is ClusterMemberProvider {
@@ -53,7 +54,7 @@ export function isIsolatedAccessMode(v: ClusterMemberAccessMode | undefined): bo
 }
 // Native and local researchers use Arco's fenced tools. Claude CLI, Codex and
 // Cursor researchers require a passing operating-system sandbox.
-export const RESEARCHER_PROVIDERS = ['claude', 'codex', 'cursor', 'ollama', 'llamacpp'] as const satisfies readonly ClusterMemberProvider[];
+export const RESEARCHER_PROVIDERS = ['claude', 'codex', 'cursor', 'antigravity-cli', 'ollama', 'llamacpp'] as const satisfies readonly ClusterMemberProvider[];
 export function isResearcherProvider(v: unknown): v is (typeof RESEARCHER_PROVIDERS)[number] {
   return typeof v === 'string' && (RESEARCHER_PROVIDERS as readonly string[]).includes(v);
 }

@@ -14,11 +14,11 @@ import { SettingsLayout, SettingsSection } from './settings/SettingsLayout';
 import { MediaAccessSettings } from './MediaAccessSettings';
 import { VoiceSetupSettings } from './VoiceSetupSettings';
 import { DeepSeekControls } from './DeepSeekControls';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useStartupStore } from '../stores/startupStore';
 import { ClaudeNativeAuthRow } from './ClaudeNativeAuthRow';
-import type { AuthStatus, AuthStatusByProvider, AuthLoginTarget, AuthLoginResult, ArcoSettings, ProviderName, ModelName, EffortLevel, ProviderAccountProfile, DiscoveredEndpoint, EndpointDiscoverResponse } from '@arco/shared';
+import type { AuthStatus, AuthStatusByProvider, AuthLoginTarget, LoginSessionTarget, AuthLoginResult, ArcoSettings, ProviderName, ModelName, EffortLevel, ProviderAccountProfile, DiscoveredEndpoint, EndpointDiscoverResponse } from '@arco/shared';
 import { activeProjectCwd } from '../utils/activeProject';
 import { RunAsPicker, type RunAsSelection } from './RunAsPicker';
 import { LoginCommand } from './LoginCommand';
@@ -107,7 +107,18 @@ export function SettingsPanel({ onClose }: Props) {
   const capabilities = useAppStore((s) => s.capabilities);
   const ollamaLive = useAppStore((s) => s.ollamaLive);
   const llamacppLive = useAppStore((s) => s.llamacppLive);
-  const [loginPending, setLoginPending] = useState<AuthLoginTarget | null>(null);
+  const [loginPending, setLoginPending] = useState<LoginSessionTarget | null>(null);
+  // docs/RESEARCH.md "Gemini researchers": the separate research sign-in, shown when the sandbox can run Gemini.
+  const [geminiResearch, setGeminiResearch] = useState<{ available: boolean; signIn?: 'missing' | 'ready' | 'expired' } | null>(null);
+  const refreshGeminiResearch = useCallback(async () => {
+    try {
+      const response = await fetch('/api/diagnostics/research-sandbox');
+      if (!response.ok) return;
+      const result = await response.json() as { gemini?: boolean; geminiSignIn?: 'missing' | 'ready' | 'expired' };
+      setGeminiResearch({ available: result.gemini === true, signIn: result.geminiSignIn });
+    } catch { /* the row stays hidden */ }
+  }, []);
+  useEffect(() => { void refreshGeminiResearch(); }, [refreshGeminiResearch]);
   const [manualHint, setManualHint] = useState<string | null>(null);
   const [loginCommand, setLoginCommand] = useState<string | null>(null);
   // Providers whose sign-in runs inside Arco (the Connections flow) show it at
@@ -446,24 +457,25 @@ export function SettingsPanel({ onClose }: Props) {
 
   // A finished in-app sign-in gives way to the row's LIVE state.
   useEffect(() => {
-    if (inAppLogin?.session && inAppLogin.session.provider !== 'antigravity-cli' && authStatus?.[inAppLogin.session.provider]?.loggedIn) setInAppLogin(null);
+    const provider = inAppLogin?.session?.provider;
+    if (provider && provider !== 'antigravity-cli' && provider !== 'gemini-research' && authStatus?.[provider]?.loggedIn) setInAppLogin(null);
   }, [authStatus, inAppLogin]);
 
   // Clear loginPending once the target provider flips to loggedIn.
   useEffect(() => {
     if (!loginPending || !authStatus) return;
-    if (loginPending !== 'antigravity-cli' && authStatus[loginPending]?.loggedIn) {
+    if (loginPending !== 'antigravity-cli' && loginPending !== 'gemini-research' && authStatus[loginPending]?.loggedIn) {
       setLoginPending(null);
     }
   }, [authStatus, loginPending]);
 
-  const startLogin = async (provider: AuthLoginTarget) => {
+  const startLogin = async (provider: LoginSessionTarget) => {
     setLoginPending(provider);
     setManualHint(null);
     setLoginCommand(null);
     setInAppLogin(null);
     setInAppNote(null);
-    const inApp = provider === 'cursor' || provider === 'antigravity-cli';
+    const inApp = provider === 'cursor' || provider === 'antigravity-cli' || provider === 'gemini-research';
     try {
       const res = await fetch(`/api/auth-login?provider=${provider}${inApp ? '&inApp=1' : ''}`, { method: 'POST' });
       const data = (await res.json()) as AuthLoginResult;
@@ -488,7 +500,8 @@ export function SettingsPanel({ onClose }: Props) {
 
   // After an in-app sign-in, run the same explicit check as Connections and
   // publish it to the shared status, so the top bar and the pickers update now.
-  const finishInAppLogin = async (provider: AuthLoginTarget) => {
+  const finishInAppLogin = async (provider: LoginSessionTarget) => {
+    if (provider === 'gemini-research') { setInAppNote(null); await refreshGeminiResearch(); return; }
     const status = await checkProviderStatus(provider);
     if (!status) {
       setInAppNote('Sign-in finished, but Arco could not check the status. Press LOG IN to try again, or use Check connection in Connections.');
@@ -885,6 +898,21 @@ export function SettingsPanel({ onClose }: Props) {
             {inAppLogin?.session?.provider === 'antigravity-cli' && (
               <div data-testid="settings-antigravity-login" style={{ padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>
                 <LoginFlow result={inAppLogin} onRestart={() => void startLogin('antigravity-cli')} onComplete={() => { void finishInAppLogin('antigravity-cli'); }} />
+              </div>
+            )}
+            {geminiResearch?.available && settings?.enabledProviders['antigravity-cli'] === true && (
+              <div data-help="settings.gemini-research" data-testid="settings-gemini-research">
+                <ProviderRow
+                  label="GEMINI FOR RESEARCH"
+                  status={{ loggedIn: geminiResearch.signIn === 'ready', ...(geminiResearch.signIn === 'expired' ? { error: 'sign-in expired; sign in again' } : {}) }}
+                  loginPending={loginPending === 'gemini-research'}
+                  onLogin={() => startLogin('gemini-research')}
+                />
+              </div>
+            )}
+            {inAppLogin?.session?.provider === 'gemini-research' && (
+              <div data-testid="settings-gemini-research-login" style={{ padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>
+                <LoginFlow result={inAppLogin} onRestart={() => void startLogin('gemini-research')} onComplete={() => { void finishInAppLogin('gemini-research'); }} />
               </div>
             )}
             {inAppNote && (

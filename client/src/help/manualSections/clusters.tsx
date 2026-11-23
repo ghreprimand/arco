@@ -450,6 +450,11 @@ export const clusters: Section[] = [
   so that mail can be reviewed or edited first.
   </p>
   <p>
+  A Gemini researcher needs Linux and Settings, Connections,
+  <strong>GEMINI FOR RESEARCH</strong> signed in. It takes each round only
+  when you press NUDGE on it, whichever provider directs the project.
+  </p>
+  <p>
   The <strong>Research Director</strong> can use any connected provider. The
   first project asks for the research folder and saves it; change it later in
   Settings, Projects, <strong>Research folder</strong>. Each project gets its
@@ -2217,7 +2222,7 @@ export const clusters: Section[] = [
   A message typed in a Gemini member&apos;s own composer also starts its turn. Its first NUDGE starts with its role, cluster instructions and available skill list, shown in the conversation. Every NUDGE asks it to read the current plan and mail before acting. COMPACT works as in an Agent tab.
   </p>
   <p>
-  Gemini members are not isolated and cannot be researchers; a Gemini Research Director is allowed. A Gemini replacement starts with no history.
+  Gemini members are not isolated outside research. A Gemini Research Director is allowed, and on Linux a Gemini researcher runs in the worker sandbox with the separate Gemini for research sign-in. A Gemini replacement starts with no history.
   </p>
   </>
   ),

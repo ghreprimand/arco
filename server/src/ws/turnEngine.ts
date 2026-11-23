@@ -6,7 +6,7 @@ import { deliverAfterTurnRevoked } from './taskLifecycle.js';
 import { resolveClaudeTransport } from '../claudeTransport.js';
 import { projectLocalFileReferences } from '../primitives/localFileContext.js';
 import { getEffectivePublicProjectChoice } from '../publicProjectChoice.js';
-import { buildMessageGuardPolicy, isIsolatedAccessMode } from '@arco/shared';
+import { buildMessageGuardPolicy, isIsolatedAccessMode, type ClusterMemberAccessMode } from '@arco/shared';
 import * as attention from '../attention.js';
 import { acquireCheckoutWriter, assertCheckoutAvailable, workflowWritePaths, observeCheckoutWriters } from '../checkoutOwnership.js';
 import { randomUUID } from 'node:crypto';
@@ -1402,6 +1402,16 @@ export async function enqueueBusyReminder(workflowId: string, content: string, a
   return accepted;
 }
 
+/** Whether an ISOLATED or RESEARCHER member can run on this provider and transport. */
+export function fencedMemberProviderAllowed(accessMode: ClusterMemberAccessMode, provider: string, claudeTransport?: string, codexTransport?: string): boolean {
+  if (!isIsolatedAccessMode(accessMode)) return true;
+  if (provider === 'claude') return claudeTransport === 'native' || claudeTransport === 'cli';
+  if (provider === 'codex') return codexTransport === 'appserver';
+  if (provider === 'cursor') return true;
+  // Local models use fenced tools; Gemini (docs/RESEARCH.md "Gemini researchers") starts its own fence.
+  return accessMode === 'researcher' && (provider === 'ollama' || provider === 'llamacpp' || provider === 'antigravity-cli');
+}
+
 export async function handleUserMessage(
   ws: WebSocket,
   session: Session,
@@ -1482,7 +1492,6 @@ export async function handleUserMessage(
     && await isManagedBakeoffWorktree(configuredTrustSource, cwd).catch(() => false)
       ? configuredTrustSource
       : undefined;
-  const researcherLocal = clusterAccessMode === 'researcher' && (wf.primary.provider === 'ollama' || wf.primary.provider === 'llamacpp');
   const researcherClaudeCli = isolatedMember && wf.primary.provider === 'claude' && wf.config.claudeTransport === 'cli';
   const researcherCodex = isolatedMember && wf.primary.provider === 'codex' && wf.config.codexTransport === 'appserver';
   const researcherCursor = isolatedMember && wf.primary.provider === 'cursor';
@@ -1497,11 +1506,11 @@ export async function handleUserMessage(
       return;
     }
   }
-  if (isolatedMember && !researcherLocal && !researcherClaudeCli && !researcherCodex && !researcherCursor && (wf.primary.provider !== 'claude' || wf.config.claudeTransport !== 'native')) {
+  if (!fencedMemberProviderAllowed(clusterAccessMode, wf.primary.provider, wf.config.claudeTransport, wf.config.codexTransport)) {
     send(ws, {
       type: 'error',
       message: clusterAccessMode === 'researcher'
-        ? 'researchers run on Claude Native, sandboxed Claude CLI, sandboxed Codex, sandboxed Cursor or a local model'
+        ? 'researchers run on Claude Native, sandboxed Claude CLI, sandboxed Codex, sandboxed Cursor, sandboxed Gemini or a local model'
         : 'isolated cluster members require Claude Native, sandboxed Claude CLI, sandboxed Codex or sandboxed Cursor',
     });
     return;

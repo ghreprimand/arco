@@ -17,7 +17,8 @@ import * as clusterEfficiency from './clusterEfficiency.js';
 import { buildClusterDirectorDoctrine } from './clusterDirector.js';
 import { buildProgressDoctrine } from './clusterProgress.js';
 import { readClusterPlan } from './clusterPlanBridge.js';
-import { researchDirectorDoctrine } from './research/researchDoctrine.js';
+import { RESEARCHER_DOCTRINE, researchDirectorDoctrine } from './research/researchDoctrine.js';
+import { cliResearcherDoctrine } from './workers/cliResearcherDoctrine.js';
 import { loadResearch } from './research/researchState.js';
 import { workflows } from './server/state.js';
 import { listSkills, buildSkillsManifest } from './skills.js';
@@ -73,8 +74,10 @@ export async function geminiClusterInstructions(clusterId: string, workflowId: s
   const guard = clusterStore.getMessageGuard(clusterId);
   const roleLine = role ? `Your role in this cluster: ${role}` : undefined;
   const mailLine = 'Read your mail with the peer_read tool when nudged, and reply with peer_send. The board and plan tools work as usual.';
-  const parts = clusterStore.getMemberAccessMode(clusterId, workflowId) !== 'standard'
-    ? [roleLine, buildMessageGuardPolicy(guard), mailLine]
+  const access = clusterStore.getMemberAccessMode(clusterId, workflowId);
+  const parts = access !== 'standard'
+    // A Gemini researcher runs in the CLI fence, with a shell inside its workspace.
+    ? [roleLine, access === 'researcher' ? cliResearcherDoctrine(RESEARCHER_DOCTRINE) : undefined, buildMessageGuardPolicy(guard), access === 'researcher' ? undefined : mailLine]
     : [
       roleLine,
       clusterEfficiency.buildDoctrine(clusterStore.getEfficiencyLevel(clusterId), clusterStore.getEfficiencyAddendum(clusterId), role, guard),
@@ -94,6 +97,12 @@ export async function geminiNudgeText(workflowId: string, nudge: string): Promis
   const wf = workflows.get(workflowId);
   if (!clusterId || !wf) return nudge;
   const reminder = 'Read the current plan and your mail with peer_read before acting.';
+  const fenced = clusterStore.getMemberAccessMode(clusterId, workflowId) !== 'standard';
+  // A fenced researcher has no plan and cannot open host skill files.
+  if (fenced) {
+    const first = wf.primarySessionId ? '' : await geminiClusterInstructions(clusterId, workflowId);
+    return [first, 'Read your mail with peer_read before acting.', nudge].filter(part => part.trim()).join('\n\n---\n\n');
+  }
   if (wf.primarySessionId) return `${reminder}\n\n${nudge}`;
   const instructions = await geminiClusterInstructions(clusterId, workflowId);
   const cwd = wf.config.workingDirectory;

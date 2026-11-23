@@ -45,10 +45,16 @@ for (const restriction of ['eligible', 'chat', 'incognito', 'blind', 'isolated',
    assert.ok(captured, JSON.stringify(messages)); assert.ok(raw, 'turn engine writes the Claude MCP file');
    const config = JSON.parse(raw); assert.equal(config.mcpServers.arco.env?.ARCO_HANDOFF_HISTORY_TOKEN, restriction === 'eligible' ? token : undefined);
   } else {
-   // Chat never attaches project MCP; ISOLATED rejects CLI before dispatch.
+   // Chat never attaches project MCP; an ISOLATED member gets no history capability or project MCP file.
    assert.equal(raw, undefined); assert.equal(captured?.clusterMcpConfigPath, undefined);
-   if (restriction === 'isolated') assert.ok(messages.some(m => m.message === 'isolated cluster members require the Claude Native transport'));
-   else assert.ok(captured, JSON.stringify(messages));
+   if (restriction !== 'isolated') assert.ok(captured, JSON.stringify(messages));
   }
  } finally { if (clusterId) await clusters.deleteCluster(clusterId); workflows.delete(id); workflowCwds.delete(id); await settleProjectWrites(); }
+});
+test('a Gemini researcher may start a turn; Gemini stays refused as an ISOLATED member', () => {
+  assert.equal(engine.fencedMemberProviderAllowed('researcher', 'antigravity-cli'), true);
+  assert.equal(engine.fencedMemberProviderAllowed('isolated', 'antigravity-cli'), false);
+  assert.equal(engine.fencedMemberProviderAllowed('isolated', 'ollama'), false);
+  assert.equal(engine.fencedMemberProviderAllowed('researcher', 'claude', 'native'), true);
+  assert.equal(engine.fencedMemberProviderAllowed('researcher', 'codex', undefined, 'exec'), false);
 });

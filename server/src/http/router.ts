@@ -1845,6 +1845,7 @@ export async function handleHttpRequest(
         : raw === 'codex' ? 'codex'
         : raw === 'cursor' ? 'cursor'
         : raw === 'antigravity-cli' ? 'antigravity-cli'
+        : raw === 'gemini-research' ? 'gemini-research'
         : 'claude';
       const account = url.searchParams.get('account') || undefined;
       const result = await triggerAuthLogin(provider, account);

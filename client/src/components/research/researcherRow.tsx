@@ -13,7 +13,14 @@ import type { ResearchRow } from '../WorkflowCreator/ResearchStartForm';
 
 export type ResearcherRowValue = Omit<ResearchRow, 'key' | 'advanced'>;
 
-type Sandbox = { claudeCli?: boolean; codex?: boolean; cursor?: boolean; codexVersionReason?: string; cursorVersionReason?: string };
+type Sandbox = { claudeCli?: boolean; codex?: boolean; cursor?: boolean; gemini?: boolean; geminiSignIn?: 'missing' | 'ready' | 'expired'; codexVersionReason?: string; cursorVersionReason?: string };
+
+/** Why a Gemini researcher cannot run now, or undefined when it can. */
+export function geminiResearchReason(sandbox: Sandbox): string | undefined {
+  if (!sandbox.gemini) return 'Gemini researchers need the Linux worker sandbox.';
+  if (sandbox.geminiSignIn !== 'ready') return sandbox.geminiSignIn === 'expired' ? 'Gemini for research needs signing in again in Connections, Antigravity CLI.' : 'Sign in to Gemini for research in Connections, Antigravity CLI.';
+  return undefined;
+}
 
 export const rowButton: React.CSSProperties = { minHeight: 44, minWidth: 44, padding: '4px 10px', fontSize: '10px', letterSpacing: '1px', background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg)', cursor: 'pointer' };
 export const rowHint: React.CSSProperties = { color: 'var(--color-fg-muted)', fontSize: 11, lineHeight: 1.4 };
@@ -35,6 +42,7 @@ export function useResearcherAvailability(active: boolean) {
   }, [active]);
   const usable = (p: ClusterMemberProvider) => p === 'claude'
     ? isProviderEnabled('claude') && claudeConnection(authStatus?.claude, 'native').connected
+    : p === 'antigravity-cli' ? isProviderEnabled('antigravity-cli') && !geminiResearchReason(sandbox)
     : memberProviderAvailable(p, authStatus, isProviderEnabled) && (p === 'codex' ? !!sandbox.codex : p === 'cursor' ? !!sandbox.cursor : true);
   const cliUsable = !!sandbox.claudeCli && isProviderEnabled('claude') && claudeConnection(authStatus?.claude, 'cli').connected;
   const models = (p: ClusterMemberProvider) => modelsForProvider(p, catalogs).map(String);
@@ -49,7 +57,7 @@ export function useResearcherAvailability(active: boolean) {
     return { provider, model, effort, webAccess: from?.webAccess !== false, ...(cli ? { researchClaudeTransport: 'cli' as const } : {}) };
   };
   const rowUsable = (r: ResearcherRowValue) => r.researchClaudeTransport === 'cli' ? cliUsable : usable(r.provider);
-  const unavailableReason = (r: ResearcherRowValue) => r.provider === 'codex' ? sandbox.codexVersionReason : r.provider === 'cursor' ? sandbox.cursorVersionReason : undefined;
+  const unavailableReason = (r: ResearcherRowValue) => r.provider === 'codex' ? sandbox.codexVersionReason : r.provider === 'cursor' ? sandbox.cursorVersionReason : r.provider === 'antigravity-cli' ? geminiResearchReason(sandbox) : undefined;
   const firstUsable = (): ResearcherRowValue | null => {
     const first = RESEARCHER_PROVIDERS.find(usable);
     return first ? rowFor(first) : cliUsable ? rowFor('claude', true) : null;

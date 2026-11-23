@@ -2,7 +2,7 @@ import { access, lstat, open, opendir, realpath, stat } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join, relative, sep } from 'node:path';
 
-type CliProvider = 'claude' | 'codex' | 'cursor';
+type CliProvider = 'claude' | 'codex' | 'cursor' | 'antigravity';
 type RuntimeMount = { source: string; target: string };
 export interface ProviderRuntime {
   executable: string;
@@ -78,6 +78,12 @@ export async function discoverProviderRuntime(provider: CliProvider, binary: str
   await access(executable, constants.X_OK);
   if (provider === 'claude' && await isElf(executable)) {
     const target = '/opt/arco-runtime/claude';
+    return { executable: target, argsPrefix: [], mounts: [{ source: executable, target }] };
+  }
+  // The Antigravity CLI is one self-contained executable.
+  if (provider === 'antigravity') {
+    if (basename(executable) !== 'agy' || !await isElf(executable)) throw new Error('Unrecognized Antigravity runtime.');
+    const target = '/opt/arco-runtime/agy';
     return { executable: target, argsPrefix: [], mounts: [{ source: executable, target }] };
   }
   if (provider === 'codex' && basename(executable) === 'codex.js' && basename(dirname(executable)) === 'bin') {
