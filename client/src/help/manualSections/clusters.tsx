@@ -489,6 +489,7 @@ export const clusters: Section[] = [
   brief behind <Code>BRIEF</Code>, and one row per round; choose a row for each researcher's outcome and the
   deadline. In the right panel, <strong>RESULTS</strong> opens the brief, the
   summary, the Director log and each released round's reports.
+  Failed outcomes include a provider refusal or last message when available.
   </p>
   <p>
   A researcher marked failed or timed out shows <Code>RETRY</Code> in its

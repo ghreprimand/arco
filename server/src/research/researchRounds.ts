@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { RESEARCH_EXTEND_MINUTES, researchRoundExtendable, researchTimeLimitMinutes } from '@arco/shared';
 import type { PeerArtifact, PeerMessage } from '../clusterMailbox.js';
 import { readLogLines } from '../eventLog.js';
+import { flushWorkflowBuffer } from '../workflowStore.js';
 import {
   activeResearchers,
   cachedResearch,
@@ -374,17 +375,19 @@ export async function holdResearcherReply(clusterId: string, workflowId: string,
 }
 
 // The text a researcher wrote in its latest turn.
-export async function finalReplyText(workflowDir: string): Promise<string> {
+async function finalTurn(workflowDir: string): Promise<{ text: string; refusal: string | null | undefined }> {
   let text = '';
+  let refusal: string | null | undefined;
   try {
     for await (const line of readLogLines(workflowDir)) {
-      let event: { type?: string; text?: unknown };
+      let event: { type?: string; text?: unknown; category?: unknown };
       try { event = JSON.parse(line); } catch { continue; }
-      if (event.type === 'primary_turn_started') text = '';
+      if (event.type === 'primary_turn_started') { text = ''; refusal = undefined; }
       else if (event.type === 'primary_text' && typeof event.text === 'string') text += event.text;
+      else if (event.type === 'primary_refusal') refusal = typeof event.category === 'string' ? event.category : null;
     }
-  } catch { return ''; }
-  return text.trim();
+  } catch { return { text: '', refusal: undefined }; }
+  return { text: text.trim(), refusal };
 }
 
 // A member's turn ended. `stopped` is the operator's STOP.
@@ -415,14 +418,18 @@ export async function onMemberSettled(workflowId: string, outcome: 'finished' | 
     wakeMember(workflowId, researcherWakePrompt(round, round.text));
     return;
   }
-  const reply = outcome === 'finished' ? await finalReplyText(join(state.membersCwd, '.arco', 'workflows', workflowId)) : '';
+  if (outcome !== 'stopped') await flushWorkflowBuffer(state.membersCwd, workflowId);
+  const turn = outcome === 'stopped' ? { text: '', refusal: undefined } : await finalTurn(join(state.membersCwd, '.arco', 'workflows', workflowId));
+  const line = turn.text.replace(/^\s*⚠\uFE0F?\s*/, '').replace(/\s+/g, ' ').trim().slice(0, 500);
+  const networkNotice = researcher.provider === 'antigravity-cli' && /^there was a network issue connecting to the server\b/i.test(line);
   await updateResearch(clusterId, (s) => {
     const entry = openEntry(s);
     if (!entry || entry.state !== 'waiting') return false;
     entry.at = at;
     if (outcome === 'stopped') { entry.state = 'stopped'; entry.reason = 'Stopped by the operator.'; }
-    else if (outcome === 'failed') { entry.state = 'failed'; entry.reason = 'The turn failed.'; }
-    else if (reply) { entry.state = 'replied'; entry.source = 'final_reply'; entry.report = reply; }
+    else if (turn.refusal !== undefined) { entry.state = 'failed'; entry.reason = `The provider declined the request${turn.refusal ? ` (category: ${turn.refusal.replace(/\s+/g, ' ').trim().slice(0, 100)})` : ''}; rephrase the brief for this researcher.`; }
+    else if (outcome === 'failed' || networkNotice) { entry.state = 'failed'; entry.reason = line ? `The turn ended without a report. Last message: ${line}` : 'The turn failed.'; }
+    else if (turn.text) { entry.state = 'replied'; entry.source = 'final_reply'; entry.report = turn.text; }
     else { entry.state = 'failed'; entry.reason = 'The turn ended without a report.'; }
   });
   d().notify(clusterId);

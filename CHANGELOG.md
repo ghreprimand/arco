@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show provider refusals and available last messages in failed research round outcomes.
+
 - Avoid false research sandbox warnings for relative file globs.
 
 - Add RETRY for a failed or timed-out researcher: it gets its work so far and finishes the round, or adds a late report to a released round.

@@ -412,6 +412,54 @@ test('an independence breach before the first round carries into the round', asy
   }
 });
 
+test('settling a researcher reads a final reply still queued in the workflow buffer', async () => {
+  const { initWorkflowStore, persistAndStampSeq, hasPendingWorkflowWrites, flushWorkflowBuffer, forgetWorkflowBuffer } = await import('../workflowStore.js');
+  const p = await project();
+  try {
+    await startRound(p.clusterId, p.director, 'Compare the fixtures.');
+    await clusterMailbox.drain(p.a);
+    await initWorkflowStore(p.membersCwd, p.a);
+    persistAndStampSeq(p.membersCwd, p.a, { type: 'primary_turn_started', workflowId: p.a } as never);
+    persistAndStampSeq(p.membersCwd, p.a, { type: 'primary_text', workflowId: p.a, phase: 'passthrough', text: 'A complete report.' } as never);
+    assert.equal(hasPendingWorkflowWrites(p.membersCwd, p.a), true);
+    await onMemberSettled(p.a, 'finished');
+    const entry = (await loadResearch(p.clusterId))!.rounds[0].entries.A;
+    assert.equal(entry.state, 'replied');
+    assert.equal(entry.report, 'A complete report.');
+  } finally { await flushWorkflowBuffer(p.membersCwd, p.a); forgetWorkflowBuffer(p.membersCwd, p.a); configureResearch(null); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
+test('a provider refusal becomes a failed round reason even after partial output', async () => {
+  const p = await project();
+  try {
+    await startRound(p.clusterId, p.director, 'Compare the fixtures.');
+    await clusterMailbox.drain(p.a);
+    const logDir = join(p.membersCwd, '.arco', 'workflows', p.a);
+    await fs.mkdir(logDir, { recursive: true });
+    await fs.writeFile(join(logDir, 'events.jsonl'), [{ type: 'primary_turn_started' }, { type: 'primary_text', text: 'Partial answer' }, { type: 'primary_refusal', category: 'cyber' }].map(e => JSON.stringify(e)).join('\n') + '\n');
+    await onMemberSettled(p.a, 'finished');
+    const entry = (await loadResearch(p.clusterId))!.rounds[0].entries.A;
+    assert.equal(entry.state, 'failed');
+    assert.equal(entry.reason, 'The provider declined the request (category: cyber); rephrase the brief for this researcher.');
+  } finally { configureResearch(null); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
+test('a Gemini network notice becomes a one-line failed round reason', async () => {
+  const p = await project();
+  try {
+    await updateResearch(p.clusterId, state => { state.researchers[1].provider = 'antigravity-cli'; });
+    await startRound(p.clusterId, p.director, 'Compare the fixtures.');
+    await clusterMailbox.drain(p.b);
+    const logDir = join(p.membersCwd, '.arco', 'workflows', p.b);
+    await fs.mkdir(logDir, { recursive: true });
+    await fs.writeFile(join(logDir, 'events.jsonl'), [{ type: 'primary_turn_started' }, { type: 'primary_text', text: '⚠ There was a network issue connecting to the server,\n please try again.' }].map(e => JSON.stringify(e)).join('\n') + '\n');
+    await onMemberSettled(p.b, 'finished');
+    const entry = (await loadResearch(p.clusterId))!.rounds[0].entries.B;
+    assert.equal(entry.state, 'failed');
+    assert.equal(entry.reason, 'The turn ended without a report. Last message: There was a network issue connecting to the server, please try again.');
+  } finally { configureResearch(null); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
 test('a round holds every reply until all researchers are done, then releases them blind together', async () => {
   const p = await project();
   try {
