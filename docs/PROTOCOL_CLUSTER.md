@@ -506,7 +506,10 @@ Removing pins remains possible after a skill grows. On later turns missing,
 off or overgrown skills use the existing skipped-skill notice and bounded
 resolver. The popup keeps missing/off references visible instead of silently
 retargeting a moved or deleted skill. The count is configured entries, not a
-claim that every pin applies to every member. Running turns are unchanged.
+claim that every pin applies to every member. Antigravity CLI (Gemini) members
+do not receive picked or pinned Arco skill bodies; the first NUDGE may list
+available skills as conversation text, and the CLI loads its own installed
+skills. Running turns are unchanged.
 
 ### `cluster_progress_set` ->
 

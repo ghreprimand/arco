@@ -1433,9 +1433,12 @@ Distinct from `/api/toolbox`: these are **Arco-managed**, provider-agnostic
 skills authored by the operator from the SettingsPanel SKILLS section. They live
 under `<cwd>/.arco/skills/` (project) and `~/.arco/skills/` (global). The
 catalog (name + description) is injected into every primary turn's system prompt
-as an XML manifest. The same `SKILLS` menu offers **NEW SKILL**, **APPLY ONCE** (full body in the next user
-turn) and **PIN TO TAB** (durable reference; current full body is re-read and
-injected as a standing system instruction every turn until unpinned).
+as an XML manifest on supported providers. Antigravity CLI receives a first-turn
+skill list as a conversation line instead; Arco skill picks, tab pins and cluster
+pins are not sent to Gemini. The same `SKILLS` menu offers **NEW SKILL**,
+**APPLY ONCE** (full body in the next user turn on supported providers) and
+**PIN TO TAB** (durable reference; current full body is re-read and injected as a
+standing system instruction every turn until unpinned, except on Antigravity CLI).
 Backed by `server/src/skills.ts`.
 
 Each skill is a directory containing `SKILL.md` with YAML frontmatter:

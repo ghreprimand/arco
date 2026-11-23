@@ -12,12 +12,12 @@ conflate them:
 | Surface | Scope | Lifetime | What it is |
 |---|---|---|---|
 | **PLAN tab** | per-cwd | durable | A long-form markdown brief + plan-scoped review (whole / per-section). |
-| **TASKS panel** | one turn | transcript-bound | The Native worker's `Task` subagent children for the current turn. Depth-1. |
+| **TASKS panel** | parent tab | transcript-bound | The Native worker's `Task` subagent children on the parent tab (depth-1). Foreground children settle with the turn that started them; a BACKGROUND child (`run_in_background`) stays on the tab across later turns until it ends, STOP, CANCEL or the tab closes. |
 | **LEDGER tab** (this doc) | per-cwd | durable, cross-session | A versioned task-kernel snapshot of operator-managed tasks `{title, status, links, notes, priority, parents, review flags, assignee?}`. |
 
 The ledger is the only one that persists a free-standing task list across
-sessions. The PLAN tab is review-shaped; the TASKS panel evaporates with the
-turn.
+sessions. The PLAN tab is review-shaped; the TASKS panel follows `job.taskChildren`
+and stays visible while that map is non-empty (including BACKGROUND children).
 
 ## Storage
 

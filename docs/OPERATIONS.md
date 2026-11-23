@@ -1382,7 +1382,7 @@ The full schema is `ArcoSettings` in `shared/src/protocol/settings.ts` (barrel-e
 | `handoffPromptPath` | Override Handoff prompt file path (rare; the per-mode files at `<cwd>/.arco/handoff*.prompt.md` are the normal surface) | Yes |
 | `queueMode` (`'visible' \| 'hidden'`) | Queue UX mode | Yes |
 
-Per-workflow `meta.json` carries a few keys that are part of the same configuration story but not in `settings.json` (they're per-tab, not cascade-controlled): `autoHandoff: { enabled, afterCompactions, mode?, summarizer? }` with `autoHandoffCount` (off by default; providers whose compactions Arco can count), `claudeNativeCompact` (server-side compaction toggle, **off** unless explicitly `true`, gated on the active model's catalog capability flags), `codexContextPolicy` (`max` when absent), `goalRun` (never persisted across a restart), and `appserverWarningSeen` (one-shot warning gate when an operator first flips Codex transport to `appserver`).
+Per-workflow `meta.json` carries a few keys that are part of the same configuration story but not in `settings.json` (they're per-tab, not cascade-controlled): `autoHandoff: { enabled, afterCompactions, mode?, summarizer? }` with `autoHandoffCount` (off by default; providers whose compactions Arco can count), `claudeNativeCompact` (server-side compaction toggle, **off** unless explicitly `true`, gated on the active model's catalog capability flags), `codexContextPolicy` (`max` when absent), `nativeSubagents` (optional Claude Native Task policy override: `maxRunning`, `maxStarts`, `model`, `background`; absent fields inherit Settings), `goalRun` (never persisted across a restart), and `appserverWarningSeen` (one-shot warning gate when an operator first flips Codex transport to `appserver`).
 
 ---
 

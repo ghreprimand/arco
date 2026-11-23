@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Align the TASKS panel lifetime, restart-stopped background notice, Antigravity skill and goal limits, and Antigravity update help with the release tip.
+
 - Document Native sub-agent persistence, the live config field, and Antigravity limits for Background sub-agents.
 
 - Tell a Claude Native agent with its next turn when a server restart stopped its background sub-agents.

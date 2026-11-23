@@ -278,6 +278,7 @@ export const headerHelp: Record<string, HelpEntry> = {
           closing returns focus to the opening version control when available.
         </p>
         <p>Click CURSOR to run <C>cursor-agent update</C> and recheck its version. CURSOR CHANGELOG opens the CLI notes separately. The flag reads the dated version from the public installer without running it. If metadata is unavailable or builds on the same date have unordered hashes, no flag appears; the update action still works. Arco never installs a second copy as a fallback.</p>
+        <p>Click ANTIGRAVITY to run <C>agy update</C> and recheck its version when the CLI is detected.</p>
         <p>llama.cpp checks recent published numeric build tags and flags an
           older installed build. If a build cannot be read, no flag is shown.
           Click its row for upstream releases and update manually; the check
