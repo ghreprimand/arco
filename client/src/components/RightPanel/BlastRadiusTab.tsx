@@ -2,13 +2,12 @@ import type { JobState } from '../../stores/appStore';
 
 // docs/PROVIDERS.md - Files-tab "Blast radius" sub-tab. When the
 // operator has attached codebase memory to this tab, this surface renders
-// `detect_changes` output (importers / call sites / affected routes) for
-// the current `git diff` against the index.
+// the index status. The model can use `detect_changes` for importers, call
+// sites and affected routes through the attached MCP server.
 //
-// Spawn-site MCP wiring is deferred to a follow-up after Cluster Phase 3
-// ships `mcpConfigWriter`. Until then this sub-tab renders the placeholder
-// state explaining what's wired and what's pending. The empty state below
-// it covers the "memory not attached" branch.
+// Claude CLI and Codex Agent launches receive the attached server in their
+// MCP configuration. This sub-tab does not display the tool output. The empty
+// state below covers the "memory not attached" branch.
 export function BlastRadiusTab({ job }: { job: JobState }) {
   const attached = job.config.codebaseMemory?.attached === true;
   if (!attached) {
@@ -55,8 +54,7 @@ export function BlastRadiusTab({ job }: { job: JobState }) {
         {indexed ? (
           <>
             Index is ready at <code style={{ fontFamily: 'var(--font-code)' }}>{cm?.indexPath}</code>.
-            The model can query <code style={{ fontFamily: 'var(--font-code)' }}>detect_changes</code> once
-            spawn-site MCP wiring lands (deferred: follows Cluster Phase 3 <code style={{ fontFamily: 'var(--font-code)' }}>mcpConfigWriter</code>).
+            Claude CLI and Codex Agent tabs outside isolation can use <code style={{ fontFamily: 'var(--font-code)' }}>detect_changes</code> through the attached MCP server. Ask the agent to check the changes; this panel shows index status.
           </>
         ) : (
           <>

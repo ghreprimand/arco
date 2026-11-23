@@ -18,3 +18,13 @@ test('refine keeps the guardrails section only when the draft has it', () => {
   assert.ok(planRefinePrompt(draft, 'shorter', false, true).includes('## Privacy and public safety'));
   assert.ok(planRefinePrompt(insertGuardrails(draft), 'shorter').includes('Keep the "Privacy and public safety" section'));
 });
+
+
+test('a cluster draft offers only the cluster attachment in its dialog', async () => {
+  const { createElement } = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { PlanComposerDialog } = await import('../PlanComposerDialog');
+  const html = renderToStaticMarkup(createElement(PlanComposerDialog, { job: { config: {} } as never, onConfirm() {}, onCancel() {}, isClusterMember: true }));
+  assert.match(html, /attach the draft to the cluster/);
+  assert.doesNotMatch(html, /pick between attaching to the worker|save the reply immediately, no confirmation/);
+});

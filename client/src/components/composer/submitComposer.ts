@@ -180,7 +180,7 @@ export function submitComposer({ kind, compactAvailable, isCompacting, uploading
     // Phase 4 — `kind` only flows when busy. The hook ignores it on idle
     // sends (where there's no queue to land in). Pre-Phase-4 callers passed
     // no kind; the server still defaults to follow-up for back-compat.
-    const currentPicks = mergeDraftSkillPicks(readPickedSkills ? readPickedSkills() : pickedSkills)
+    const currentPicks = (provider === 'antigravity-cli' ? [] : mergeDraftSkillPicks(readPickedSkills ? readPickedSkills() : pickedSkills))
       .filter(p => !(job.config.pinnedSkills ?? []).some(pin => pin.scope === p.scope && pin.slug === p.slug));
     const sent = onSend(
       trimmed,

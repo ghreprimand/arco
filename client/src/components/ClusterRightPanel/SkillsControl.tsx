@@ -12,6 +12,7 @@ const sameRef = (a: ArcoSkillRef, b: ArcoSkillRef) => a.scope === b.scope && a.s
 export function SkillsControl({ cluster, memberId }: { cluster: ClusterStatePayload; memberId?: string }) {
   const send = useAppStore(s => s.wsSendRaw);
   const connected = useAppStore(s => s.connected);
+  const memberIsGemini = useAppStore(s => !!memberId && s.jobs[memberId]?.config.primaryProvider === 'antigravity-cli');
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState('');
@@ -40,10 +41,10 @@ export function SkillsControl({ cluster, memberId }: { cluster: ClusterStatePayl
       aria-label={`${memberId ? 'Skills inherited from cluster' : 'Cluster skills'}, ${count} ${count === 1 ? 'pin' : 'pins'}`} aria-haspopup="dialog" aria-expanded={open}
       onClick={() => setOpen(true)}>{memberId ? 'FROM CLUSTER' : 'SKILLS'} [{count}]</button>
     {open && !adding && !pinning && <DialogShell title="Cluster skills" dataHelp="cluster.skills" onClose={() => setOpen(false)} closeOnBackdrop width={620}
-      actions={<><button type="button" style={button} data-help="cluster.skills.add" disabled={catalog === null || !catalog.some(skill => !skill.off)} onClick={() => { setSelected(''); setAdding(true); }}>ADD SKILL</button><button type="button" style={button} data-help="cluster.skills" onClick={() => {
+      actions={<><button type="button" style={button} data-help="cluster.skills.add" disabled={memberIsGemini || catalog === null || !catalog.some(skill => !skill.off)} onClick={() => { setSelected(''); setAdding(true); }}>ADD SKILL</button><button type="button" style={button} data-help="cluster.skills" onClick={() => {
         setOpen(false); useStartupStore.getState().setSettingsSection('skills'); useAppStore.getState().setShowSettings(true);
       }}>SETTINGS &gt; SKILLS</button></>}>
-      <p>Full skill text is added to every turn for matching members, including new and replaced members. Only the operator changes these pins.</p>
+      {memberIsGemini ? <p>Cluster-pinned skill text is not sent to Gemini. Gemini uses skills installed in the Antigravity CLI.</p> : <p>Full skill text is added to every turn for matching members except Gemini, including new and replaced members. Only the operator changes these pins.</p>}
       {!pins.length && <p>No skills are pinned to this cluster. Select ADD SKILL to pin one.</p>}
       {error && <p role="alert">{error}</p>}
       {catalog && !catalog.some(skill => !skill.off) && <p>No available skills. Create or turn on a skill in Settings &gt; SKILLS.</p>}
@@ -56,7 +57,7 @@ export function SkillsControl({ cluster, memberId }: { cluster: ClusterStatePayl
             <div>{pin.role === undefined ? 'All members' : `Role: ${roleLabel(pin.role)}`}</div>
             <div style={{ color: 'var(--color-fg-muted)' }}>{status}</div>
           </div>
-          <button type="button" data-help="cluster.skills.unpin" style={button} disabled={!connected}
+          <button type="button" data-help="cluster.skills.unpin" style={button} disabled={!connected || memberIsGemini}
             aria-label={`Unpin ${skill?.name ?? pin.slug} from ${pin.role === undefined ? 'all members' : roleLabel(pin.role)}`}
             onClick={() => send?.({ type: 'cluster_skills_set', clusterId: cluster.clusterId, pins: pins.filter((_pin, n) => n !== index) })}>UNPIN</button>
         </div>;
@@ -82,7 +83,7 @@ export function PinSkillDialog({ skill, cwd, kind, onClose, onPinned, initialTar
   const connected = useAppStore(s => s.connected);
   const targets = kind === 'cluster'
     ? Object.values(clusters).filter(cluster => skill.scope === 'global' || cluster.cwd === cwd).map(cluster => ({ id: cluster.clusterId, name: cluster.name ?? `Cluster ${cluster.clusterId.slice(0, 8)}` }))
-    : Object.values(jobs).filter(job => job.config.kind !== 'chat' && (skill.scope === 'global' || job.config.workingDirectory === cwd)).map(job => ({ id: job.id, name: job.config.name || job.id.slice(0, 8) }));
+    : Object.values(jobs).filter(job => job.config.kind !== 'chat' && job.config.primaryProvider !== 'antigravity-cli' && (skill.scope === 'global' || job.config.workingDirectory === cwd)).map(job => ({ id: job.id, name: job.config.name || job.id.slice(0, 8) }));
   const activeTarget = initialTargetId ?? (kind === 'cluster' ? activeClusterId ?? Object.values(clusters).find(item => item.members.some(member => member.workflowId === activeJobId))?.clusterId : activeJobId);
   const [target, setTarget] = useState(targets.find(item => item.id === activeTarget)?.id ?? targets[0]?.id ?? '');
   const [scope, setScope] = useState('all');
@@ -117,7 +118,7 @@ export function PinSkillDialog({ skill, cwd, kind, onClose, onPinned, initialTar
         <option value="all">All members</option>{roles.map(saved => <option key={saved} value={`role:${saved}`}>Role: {roleLabel(saved)}</option>)}<option value="custom">Other role</option>
       </select></label>}
       {scope === 'custom' && <label>Exact saved role text<input className="arco-field" aria-label="Exact saved role text" data-help="settings.skills.pin" value={customRole} maxLength={120} onChange={event => setCustomRole(event.target.value)} style={{ display: 'block', width: '100%' }} /></label>}
-      <p>{cluster ? `Added to every turn for ${members} current ${members === 1 ? 'member' : 'members'}; new and replaced matching members inherit it.` : 'Added to every turn in this tab.'} The combined limit is 12 unique skills and 64 KiB with existing tab and cluster pins.</p>
+      <p>{cluster ? `Applies to ${members} matching ${members === 1 ? 'member' : 'members'}, including new and replaced members. Text is sent on every turn except to Gemini members.` : 'Added to every turn in this tab.'} The combined limit is 12 unique skills and 64 KiB with existing tab and cluster pins.</p>
       {skill.scope === 'project' && <p>Pinning applies this project's skill text even when project trust is off. Review the skill before pinning it.</p>}
     </>}
   </DialogShell>;

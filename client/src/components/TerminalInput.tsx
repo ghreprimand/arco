@@ -910,7 +910,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
       {clusterForJob && <div data-phone-option=""><SkillsControl cluster={clusterForJob} memberId={job.id} /></div>}
       {/* Standing pins persist in WorkflowConfig/meta.json and are re-injected
           every turn. They remain visible until explicitly removed. */}
-      {pinnedSkills.length > 0 && (
+      {job.config.primaryProvider !== 'antigravity-cli' && pinnedSkills.length > 0 && (
         <div data-phone-option="" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
             PINNED SKILLS:
@@ -938,7 +938,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
       )}
 
       {/* One-shot picks inline into the next turn only, then clear. */}
-      {pickedSkills.length > 0 && (
+      {job.config.primaryProvider !== 'antigravity-cli' && pickedSkills.length > 0 && (
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
           <span className="display-font" style={{ fontSize: '9px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
             INLINE SKILLS:
@@ -1851,7 +1851,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
           {/* DD8 — inline an Arco skill (incl. operator-only ones, hidden from
               the model manifest) into the next turn. */}
           {clusterControls && <ClusterComposerButtons controls={clusterControls} />}
-          <div ref={skillMenuRef} style={{ position: 'relative' }} data-help="composer.skills">
+          {job.config.primaryProvider === 'antigravity-cli' ? <span data-help="composer.skills" style={{ fontSize: '10px', color: 'var(--color-fg-muted)' }}>Gemini uses skills installed in the Antigravity CLI.</span> : <div ref={skillMenuRef} style={{ position: 'relative' }} data-help="composer.skills">
             <button
               onClick={() => setSkillMenuOpen((v) => !v)}
               title="Choose skills to apply once, pin to this tab, or insert a supported agent skill."
@@ -2004,6 +2004,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
               </div>
             )}
           </div>
+          }
           {!phone && <span>{isBusy ? '↵ STEER · ⌥↵ FOLLOW-UP' : 'ENTER TO SEND'}</span>}
         </div>
       </div>

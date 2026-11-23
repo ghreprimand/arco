@@ -160,3 +160,12 @@ test('Gemini goal commands cannot claim to arm an unavailable goal', () => {
   assert.match((events[0][2] as { content: string }).content, /not available for Antigravity/);
   assert.equal(events.some(event => event[0] === 'send'), false);
 });
+
+
+test('Gemini does not submit a previously picked Arco skill', () => {
+  const { options, events } = fixture({ provider: 'antigravity-cli', pickedSkills: [{ scope: 'global', slug: 'fixture', name: 'Fixture' }] });
+  submitComposer(options);
+  const sent = events.find(event => event[0] === 'send');
+  assert.ok(sent);
+  assert.equal(sent[5], undefined);
+});

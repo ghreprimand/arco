@@ -8,8 +8,8 @@ interface Props {
   onCancel: () => void;
   // When the host workflow is a cluster member the dialog shows an inline
   // note explaining that AUTOSAVE silently routes through the
-  // PlanCandidateBanner (review-mode) so the operator can pick between
-  // attaching to the worker vs the cluster's shared PLAN. The override is
+  // PlanCandidateBanner (review-mode) so the operator can attach the draft
+  // to the cluster's shared PLAN. The override is
   // applied in the caller (TerminalInput) — this flag only affects copy.
   isClusterMember?: boolean;
 }
@@ -38,7 +38,7 @@ export function PlanComposerDialog({ job, onConfirm, onCancel, isClusterMember }
     >
       <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', lineHeight: 1.5 }}>
         Asks the agent to synthesize this conversation into a project plan,
-        then captures the reply as a new plan and attaches it to this workflow.
+        then captures the reply as a new plan. {isClusterMember ? 'Review the draft and attach it to the cluster.' : 'The plan attaches to this workflow.'}
         {hasExistingPlan && (
           <span style={{ color: 'var(--color-warning)', display: 'block', marginTop: '6px' }}>
             A plan is already attached: saving will replace it.
@@ -50,8 +50,8 @@ export function PlanComposerDialog({ job, onConfirm, onCancel, isClusterMember }
             style={{ color: 'var(--color-accent-secondary-dim)', display: 'block', marginTop: '6px' }}
           >
             This workflow is in a cluster: AUTOSAVE routes through the
-            choice banner so you can pick between attaching to the worker
-            or the cluster's shared PLAN.
+            review banner so you can attach the draft to the cluster's
+            shared PLAN.
           </span>
         )}
       </div>
@@ -74,10 +74,10 @@ export function PlanComposerDialog({ job, onConfirm, onCancel, isClusterMember }
         data-help="plan.draft-autosave"
         className="display-font"
         style={secondaryBtn}
-        title="Inject the prompt; auto-save the agent's reply with no review step"
+        title={isClusterMember ? 'Inject the prompt; review the draft before attaching it to the cluster' : "Inject the prompt; auto-save the agent's reply with no review step"}
       >
         DRAFT &amp; AUTO-SAVE
-        <span style={hint}>save the reply immediately, no confirmation</span>
+        <span style={hint}>{isClusterMember ? 'review the draft before attaching to the cluster' : 'save the reply immediately, no confirmation'}</span>
       </button>
     </DialogShell>
   );

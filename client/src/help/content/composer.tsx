@@ -753,7 +753,7 @@ export const composerHelp: Record<string, HelpEntry> = {
   },
   'composer.skills': {
     title: 'Skills',
-    body: <p><C>SKILLS</C> lists the operator skills for this project and globally, including operator-only skills that the model does not see. Apply one to the next turn or pin it to every turn; the counter shows picked and pinned totals. One-shot choices stay with this tab across navigation. EDIT merges restored choices, and an accepted send clears them. <C>NEW SKILL</C> opens the editor. BUILT-IN lists the shipped skills. RUN applies one; EDITABLE COPY saves your version. Skills marked MODEL also appear in the agent list. Turn built-ins on or off in Settings; a same-name personal skill replaces the built-in. When the agent supports its own skills, the same menu also offers Claude CLI <C>/name</C> or Codex <C>$name</C> entries.</p>,
+    body: <p>Gemini uses skills installed in the Antigravity CLI; Arco skill picks and pins are not sent to Gemini. <C>SKILLS</C> lists the operator skills for this project and globally, including operator-only skills that the model does not see. Apply one to the next turn or pin it to every turn; the counter shows picked and pinned totals. One-shot choices stay with this tab across navigation. EDIT merges restored choices, and an accepted send clears them. <C>NEW SKILL</C> opens the editor. BUILT-IN lists the shipped skills. RUN applies one; EDITABLE COPY saves your version. Skills marked MODEL also appear in the agent list. Turn built-ins on or off in Settings; a same-name personal skill replaces the built-in. When the agent supports its own skills, the same menu also offers Claude CLI <C>/name</C> or Codex <C>$name</C> entries.</p>,
   },
   'composer.skills.import': {
     title: 'IMPORT a skill',

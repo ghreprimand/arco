@@ -28,11 +28,12 @@ after(async () => {
   for (const [name, descriptor] of before) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); }
 });
 
-async function mounted(pin: boolean, check: (container: HTMLElement, requests: Array<{ url: string; patch?: any }>) => Promise<void>) {
+let researchSignIn: 'missing' | 'ready' = 'missing';
+async function mounted(pin: boolean, check: (container: HTMLElement, requests: Array<{ url: string; patch?: any }>) => Promise<void>, research = false) {
   const requests: Array<{ url: string; patch?: any }> = [];
   useAppStore.setState({
     setSettings: (settings) => useAppStore.setState({ settings }),
-    settings: { enabledProviders: {}, autoHandoffDefaults: { enabled: true, mode: 'fresh-summarizer', afterCompactions: 5 }, ...(pin ? { handoffSummarizer: { provider: 'claude', model: 'sonnet', effort: 'medium' } } : {}) } as never,
+    settings: { enabledProviders: research ? { 'antigravity-cli': true } : {}, autoHandoffDefaults: { enabled: true, mode: 'fresh-summarizer', afterCompactions: 5 }, ...(pin ? { handoffSummarizer: { provider: 'claude', model: 'sonnet', effort: 'medium' } } : {}) } as never,
     activeJobId: null, activeClusterId: 'settings-fixture', jobs: {},
     clusters: { 'settings-fixture': { clusterId: 'settings-fixture', cwd: '/fixture/project', members: [] } } as never,
     authStatus: { claude: { loggedIn: true } } as never,
@@ -40,6 +41,7 @@ async function mounted(pin: boolean, check: (container: HTMLElement, requests: A
   globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
     const patch = init?.method === 'POST' ? JSON.parse(String(init.body)) : undefined;
     requests.push({ url: String(url), patch });
+    if (research && String(url) === '/api/diagnostics/research-sandbox') return { ok: true, json: async () => ({ gemini: true, geminiSignIn: researchSignIn }) };
     if (String(url) === '/api/auth-status') return { ok: true, json: async () => useAppStore.getState().authStatus };
     if (!patch && String(url) === '/api/settings') return { ok: true, json: async () => useAppStore.getState().settings };
     if (patch) {
@@ -179,4 +181,48 @@ test('Antigravity LOG IN in Settings relays the browser link and code prompt at 
       assert.ok(flow.querySelector('input')); assert.match(flow.textContent ?? '', /PREFER A TERMINAL\?/);
     });
   } finally { globalThis.fetch = realFetch; useAppStore.setState({ authStatus: saved }); }
+});
+
+
+test('a completed Antigravity login closes its Settings flow and publishes signed-in status', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    await mounted(false, async (container) => {
+      const page = [...container.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Providers and models');
+      assert.ok(page); await act(async () => page.click());
+      const inner = globalThis.fetch;
+      globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+        const u = String(url);
+        if (u.startsWith('/api/auth-login?provider=antigravity-cli')) return { ok: true, json: async () => ({ started: true, session: { provider: 'antigravity-cli', status: 'completed', needsCode: true, startedAt: Date.now() } }) };
+        if (u === '/api/connections/check?provider=antigravity-cli') return { ok: true, json: async () => ({ provider: 'antigravity-cli', status: { loggedIn: true } }) };
+        return inner(url as string, init);
+      }) as typeof fetch;
+      const row = [...container.querySelectorAll('[data-help="settings.authentication"] span')].find(s => s.textContent === 'ANTIGRAVITY CLI')?.closest('div')?.parentElement;
+      const login = [...(row?.querySelectorAll('button') ?? [])].find(b => b.textContent === 'LOG IN');
+      assert.ok(login); await act(async () => { login.click(); await new Promise(resolve => setTimeout(resolve, 20)); });
+      assert.equal(useAppStore.getState().authStatus?.['antigravity-cli']?.loggedIn, true);
+      assert.equal(container.querySelector('[data-testid="settings-antigravity-login"]'), null);
+    });
+  } finally { globalThis.fetch = realFetch; }
+});
+
+
+test('a completed Gemini research login closes its Settings flow and shows the ready row', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    await mounted(false, async (container) => {
+      const page = [...container.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Providers and models');
+      assert.ok(page); await act(async () => page.click());
+      const inner = globalThis.fetch;
+      globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+        if (String(url).startsWith('/api/auth-login?provider=gemini-research')) { researchSignIn = 'ready'; return { ok: true, json: async () => ({ started: true, session: { provider: 'gemini-research', status: 'completed', needsCode: true, startedAt: Date.now() } }) }; }
+        return inner(url as string, init);
+      }) as typeof fetch;
+      const row = container.querySelector('[data-testid="settings-gemini-research"]')!;
+      const login = [...row.querySelectorAll('button')].find(b => b.textContent?.includes('LOG IN'));
+      assert.ok(login); await act(async () => { login.click(); await new Promise(resolve => setTimeout(resolve, 20)); });
+      assert.equal(container.querySelector('[data-testid="settings-gemini-research-login"]'), null);
+      assert.match(row.textContent ?? '', /authenticated|LIVE/i);
+    }, true);
+  } finally { globalThis.fetch = realFetch; }
 });

@@ -9,7 +9,7 @@ import { LoginCommand } from './LoginCommand';
 // terminal command stays behind a toggle for anyone who prefers it.
 const POLL_MS = 1500;
 
-const LABEL: Record<string, string> = { claude: 'Claude', codex: 'Codex', github: 'GitHub',  cursor: 'Cursor', ollama: 'Ollama', 'antigravity-cli': 'Antigravity' };
+const LABEL: Record<string, string> = { claude: 'Claude', codex: 'Codex', github: 'GitHub',  cursor: 'Cursor', ollama: 'Ollama', 'antigravity-cli': 'Antigravity', 'gemini-research': 'Gemini for research' };
 
 interface Props {
   result: AuthLoginResult;
@@ -138,7 +138,7 @@ export function LoginFlow({ result, onRestart, onComplete }: Props) {
         </>
       )}
       {session.status === 'completed' && (
-        <div style={{ fontSize: '12px', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>Signed in to {name}. Connecting...</div>
+        <div style={{ fontSize: '12px', color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>Signed in to {name}.</div>
       )}
       {(session.status === 'failed' || session.status === 'cancelled') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -148,7 +148,7 @@ export function LoginFlow({ result, onRestart, onComplete }: Props) {
           <div><button className="display-font" style={btn} onClick={onRestart}>TRY AGAIN</button></div>
         </div>
       )}
-      {note && <div style={{ fontSize: '11px', color: 'var(--color-accent-secondary-dim)', fontFamily: 'var(--font-body)' }}>{note}</div>}
+      {note && session.status === 'pending' && <div style={{ fontSize: '11px', color: 'var(--color-accent-secondary-dim)', fontFamily: 'var(--font-body)' }}>{note}</div>}
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
         {session.status === 'pending' && <button className="display-font" style={dim} onClick={() => void cancel()}>CANCEL</button>}
         {result.command && (

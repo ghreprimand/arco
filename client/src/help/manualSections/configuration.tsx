@@ -1043,7 +1043,7 @@ export const configuration: Section[] = [
   tree). Distinct from the operator-curated KNOWLEDGE tab.
   </p>
   <ul>
-  <li>Attach points it at an index path; RE-INDEX rebuilds it.</li>
+  <li>Attach points it at an index path; RE-INDEX rebuilds it. Claude CLI and Codex Agent tabs outside isolation can ask the attached server to inspect changes.</li>
   <li>
   A <Code>BLAST RADIUS</Code> sub-tab appears under FILES while it&apos;s
   attached.

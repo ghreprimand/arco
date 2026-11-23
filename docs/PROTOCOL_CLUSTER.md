@@ -994,7 +994,7 @@ Sent rows additionally carry `targetWorkflowId: msg.to` (full recipient wfid). T
 
 ### `attach_codebase_memory` ->
 
- Operator toggled "Attach codebase memory" in the CONFIG tab. Server flips `WorkflowConfig.codebaseMemory.attached` + persists to meta.json + broadcasts `codebase_memory_state`. The actual `--mcp-config` write-in at CLI spawn time is deferred to a follow-up after Cluster Arco ships `mcpConfigWriter`. `indexPath` defaults to the workflow's `workingDirectory` when absent.
+ Operator toggled "Attach codebase memory" in the CONFIG tab. Server flips `WorkflowConfig.codebaseMemory.attached` + persists to meta.json + broadcasts `codebase_memory_state`. Claude CLI and Codex Agent turns receive the attached server through `mcpConfigWriter`; isolated members and Chat tabs do not. `indexPath` defaults to the workflow's `workingDirectory` when absent.
 
 ```ts
 { type: 'attach_codebase_memory', workflowId: string, indexPath?: string }

@@ -512,7 +512,19 @@ export function SettingsPanel({ onClose }: Props) {
   // After an in-app sign-in, run the same explicit check as Connections and
   // publish it to the shared status, so the top bar and the pickers update now.
   const finishInAppLogin = async (provider: LoginSessionTarget) => {
-    if (provider === 'gemini-research') { setInAppNote(null); await refreshGeminiResearch(); return; }
+    if (provider === 'gemini-research') {
+      setGeminiResearch(previous => previous ? { ...previous, signIn: 'ready' } : previous);
+      setInAppLogin(null); setInAppNote(null);
+      await refreshGeminiResearch();
+      return;
+    }
+    if (provider === 'antigravity-cli') {
+      const current = useAppStore.getState().authStatus;
+      if (current) setAuthStatus({ ...current, 'antigravity-cli': { ...current['antigravity-cli'], loggedIn: true, probeFailed: false, signInRejected: false, error: undefined } });
+      setInAppLogin(null); setInAppNote(null);
+      void checkProviderStatus(provider);
+      return;
+    }
     const status = await checkProviderStatus(provider);
     if (!status) {
       setInAppNote('Sign-in finished, but Arco could not check the status. Press LOG IN to try again, or use Check connection in Connections.');

@@ -970,7 +970,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
   },
   'rightpanel.files.blast-radius': {
     title: 'BLAST RADIUS',
-    body: <p>Shown when codebase memory is attached to this tab. Lists what the current uncommitted changes may affect, such as importers, call sites and routes, from the codebase index. Re-index from CONFIG &gt; Indexes and memory when the index is out of date.</p>,
+    body: <p>Shown when codebase memory is attached to this tab. Shows the index status. In a Claude CLI or Codex Agent tab outside isolation, ask the agent to use the attached server to inspect what changes may affect. Re-index from CONFIG &gt; Indexes and memory when the index is out of date.</p>,
   },
   'rightpanel.files.sandbox': {
     title: 'SANDBOX',
