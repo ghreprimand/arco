@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Avoid false research sandbox warnings for relative file globs.
+
 - Add RETRY for a failed or timed-out researcher: it gets its work so far and finishes the round, or adds a late report to a released round.
 
 - Add +15 MIN to the research rounds strip for a round about to time out, and raise the default research time limit to 45 minutes.

@@ -137,7 +137,7 @@ export function researchToolBoundaryWarning(tool: string, input: string): boolea
   } catch { /* Inspect the original provider input if it is not JSON. */ }
   if (/(?:\b(?:127(?:\.\d{1,3}){3}|localhost)\b|\[::1\]|(?:^|[\s"'])::1(?:$|[\s"']))/i.test(inspected)) return true;
   if (/(?:^|[\s"'=])(?:~(?:\/|[\s"']|$)|\.\.(?:\/|[\s"']|$))/.test(inspected)) return true;
-  const paths = inspected.match(/(?<![:/\w])\/(?:[^\s"'<>|;&)\\]|\\\/)+/g) ?? [];
+  const paths = Array.from(inspected.matchAll(/(?:^|[\s"'`=([{<>|;&,])((?:\/)(?:[^\s"'`<>|;&),}\\]|\\\/)+)/g), match => match[1]);
   // Cursor keeps its own tool output and transcripts under its sandbox home
   // (`.cursor/projects`); reading them back is not an access outside the sandbox.
   const allowed = ['/work', '/usr', '/bin', '/lib', '/lib64', '/tmp', '/dev/null', '/etc/ssl', CURSOR_OWN_OUTPUT];
