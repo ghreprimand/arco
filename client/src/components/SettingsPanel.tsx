@@ -134,6 +134,8 @@ export function SettingsPanel({ onClose }: Props) {
   const [operatorSaving, setOperatorSaving] = useState(false);
   const [ollamaBaseDraft, setOllamaBaseDraft] = useState<string>(settings?.ollama?.baseUrl ?? '');
   const [ollamaBaseSaving, setOllamaBaseSaving] = useState(false);
+  const [ollamaSmallSaving, setOllamaSmallSaving] = useState(false);
+  const [ollamaSmallError, setOllamaSmallError] = useState('');
   const [ollamaUtilitySaving, setOllamaUtilitySaving] = useState(false);
   // Free-text model + host drafts: the utility model may live on a REMOTE host
   // (not in the local /api/tags list), so a dropdown can't offer it — the
@@ -248,6 +250,15 @@ export function SettingsPanel({ onClose }: Props) {
     } finally {
       setOllamaBaseSaving(false);
     }
+  };
+
+  const setOllamaSmallContext = async (enabled: boolean) => {
+    setOllamaSmallSaving(true); setOllamaSmallError('');
+    try {
+      const response = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ollama: { smallContextTools: enabled } }) });
+      setSettings(await readSavedSettings(response));
+    } catch { setOllamaSmallError('Could not save the Ollama small-context setting.'); }
+    finally { setOllamaSmallSaving(false); }
   };
 
   // M7/M8 — global compaction utility model (settings.ollama.utility.model).
@@ -921,6 +932,12 @@ export function SettingsPanel({ onClose }: Props) {
               </div>
             )}
             <div id="connection-advanced-ollama" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
+              <label data-help="settings.ollama-small-context" style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 44 }}>
+                <input type="checkbox" disabled={ollamaSmallSaving} checked={settings?.ollama?.smallContextTools === true} onChange={e => void setOllamaSmallContext(e.target.checked)} />
+                Small-context tools for Ollama cluster members
+              </label>
+              <p style={{ margin: '0 0 8px', color: 'var(--color-fg-muted)' }}>Keeps file, shell, mailbox and plan reading. WebSearch, WebFetch, board changes and plan changes are unavailable to these members while this is on.</p>
+              {ollamaSmallError && <p role="alert">{ollamaSmallError}</p>}
               <label htmlFor="ollama-endpoint" className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
                 OLLAMA ENDPOINT
               </label>

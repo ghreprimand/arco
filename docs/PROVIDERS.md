@@ -1452,6 +1452,8 @@ listener down).
 
 ## Ollama
 
+Settings > Connections offers an off-by-default small-context tool selection for all Ollama cluster members. It retains file, shell, mailbox, cluster plan reading and board reading. It omits WebSearch and WebFetch, board and plan changes, and other tools; the member receives a notice on each affected turn. Standalone Agent tabs and Chats keep their existing tools. The setting takes effect on the next turn.
+
 Stateless local replay keeps the brief and later exchanges after a completed handoff, without reintroducing the archived prefix. Failed or cancelled handoffs preserve earlier context. Messages containing literal USER or AGENT role labels use a tagged JSON-string representation internally so those lines, their whitespace and their backslashes stay inside the original message. Existing plain rendered transcripts remain readable.
 
 `server/src/providers/ollama.ts` + `server/src/providers/ollamaTools.ts`. Pure HTTP, no subprocess.

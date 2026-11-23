@@ -23,6 +23,14 @@ test('attached standard members receive all board tools, including under Ollama 
   assert.ok(!getOllamaToolDefinitions().some(t => names.includes(t.function.name)));
 });
 
+test('small-context Ollama members keep file, shell, mail and plan reading without web or board changes', () => {
+  const selected = ollamaToolCandidates(config, [], true)!.map(tool => tool.function.name);
+  for (const name of ['Read', 'Write', 'Grep', 'Glob', 'Bash', 'peer_list', 'peer_read', 'peer_send', 'cluster_plan_read', 'cluster_task_list', 'cluster_task_show']) assert.ok(selected.includes(name), name);
+  for (const name of ['WebSearch', 'WebFetch', 'cluster_plan_tick', 'cluster_plan_write', ...names.slice(2)]) assert.ok(!selected.includes(name), name);
+  assert.ok(ollamaToolCandidates(config)!.some(tool => tool.function.name === 'cluster_task_update'));
+  assert.deepEqual(ollamaToolCandidates({ ...config, clusterId: undefined }, [], true), ollamaToolCandidates({ ...config, clusterId: undefined }));
+});
+
 test('board operations use the existing member REST routes and preserve errors', async t => {
   const requests: Array<{ url: URL; init?: RequestInit }> = [];
   t.mock.method(globalThis, 'fetch', async (input: string | URL | Request, init?: RequestInit) => {

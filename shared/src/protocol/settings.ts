@@ -257,6 +257,8 @@ export interface ArcoSettings {
   // configured `backends` like a normal turn. See docs/PROVIDERS.md §Ollama
   // utility model + Excellence LE-3.
   ollama?: {
+    // Opt-in schema reduction for Ollama cluster members.
+    smallContextTools?: boolean;
     baseUrl?: string;
     backends?: OllamaBackendConfig[];
     modelHostMap?: Record<string, string[]>;

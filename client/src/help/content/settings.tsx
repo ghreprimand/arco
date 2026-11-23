@@ -2,6 +2,11 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const settingsHelp: Record<string, HelpEntry> = {
+  'settings.ollama-small-context': {
+    title: 'Ollama small-context tools',
+    body: <p>Off by default. When enabled, all Ollama cluster members keep file, shell, mailbox, plan reading and board reading tools. WebSearch and WebFetch, board changes, plan changes and other tools are unavailable to those members. Turn this off to restore their usual tool selection. Ollama Agent tabs and Chats are unchanged.</p>,
+    manualSection: 'provider-ollama',
+  },
   'settings.skills.pin-tab': {
     title: 'Pin a skill to a tab',
     body: <p>Select an Agent tab to add the skill's full text on every turn. Project skills can be pinned within their project; global skills can be pinned anywhere. The tab's own pins and inherited cluster pins share one 12-skill, 64 KiB limit.</p>,

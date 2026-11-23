@@ -114,10 +114,12 @@ export function parseOllamaThrottle(_text: string): { resetsAt?: number } | null
 
 const DEFAULT_BASE = 'http://localhost:11434';
 const OLLAMA_CHAT_WEB_TOOLS = new Set(['WebSearch', 'WebFetch']);
+const OLLAMA_SMALL_CONTEXT_TOOLS = new Set(['Read', 'Write', 'Edit', 'Grep', 'Glob', 'Bash', 'peer_list', 'peer_read', 'peer_send', 'cluster_plan_read', 'cluster_task_list', 'cluster_task_show']);
 
 export function ollamaToolCandidates(
   config: Pick<WorkerConfig, 'cwd' | 'interactionMode' | 'chatWebAccess' | 'tools' | 'clusterId' | 'workflowId' | 'clusterAccessMode' | 'clusterWebAccess' | 'clusterTaskBoardAttached' | 'voiceOperator' | 'clusterResearchDirector'>,
   registryTools: OllamaToolDefinition[] = [],
+  smallContext = false,
 ): OllamaToolDefinition[] | undefined {
   if (!config.cwd) return undefined;
   if (config.interactionMode === 'chat') {
@@ -134,9 +136,8 @@ export function ollamaToolCandidates(
     researcher: config.clusterAccessMode === 'researcher',
     researchDirector: config.clusterResearchDirector === true,
   })].filter((tool) => (config.clusterAccessMode !== 'researcher' || RESEARCHER_LOCAL_TOOLS.has(tool.function.name)) && (config.clusterWebAccess !== false || !OLLAMA_CHAT_WEB_TOOLS.has(tool.function.name)));
-  return config.tools
-    ? all.filter((tool) => config.tools!.includes(tool.function.name))
-    : all;
+  return all.filter((tool) => (!config.tools || config.tools.includes(tool.function.name))
+    && (!smallContext || !config.clusterId || !config.workflowId || OLLAMA_SMALL_CONTEXT_TOOLS.has(tool.function.name)));
 }
 
 export function ollamaToolsAutoExecute(
@@ -703,6 +704,7 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
   private _status: WorkerStatus = 'spawning';
   private _output = '';
   private outputCapped = false;
+  private smallContextTools = false;
   // Injectable RNG for the weighted-shuffle backend selection. Defaults to
   // Math.random in production (zero behavior change); the offline smokes set a
   // deterministic source so multi-backend selection is reproducible (otherwise
@@ -1181,7 +1183,12 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
       const toolUseId = randomUUID();
       this.emit('tool_use', { name, input: JSON.stringify(args), toolUseId, id: toolUseId });
       // Malformed-JSON arguments arrive as argError from the stream parser.
-      const result = await decideLocalToolCall(name, { args, argError: call.argError }, OLLAMA_TOOL_RULES(this.config), rt);
+      const rules = OLLAMA_TOOL_RULES(this.config);
+      if (this.smallContextTools) {
+        const previous = rules.boundary;
+        rules.boundary = tool => previous(tool) ?? (OLLAMA_SMALL_CONTEXT_TOOLS.has(tool) ? null : `[error] tool "${tool}" is unavailable in Ollama small-context mode.`);
+      }
+      const result = await decideLocalToolCall(name, { args, argError: call.argError }, rules, rt);
       const mediaReceipt = await rememberLocalToolMedia(this.config, name, args, toolUseId, toolImages.slice(imageStart), toolDocuments.slice(documentStart), data => this.emit('file_context', data), text => this.emit('system_notice', text), this.abortController?.signal);
       if (this.config.voiceOperator) this.emit('tool_use', { name, input: JSON.stringify(args), id: toolUseId, toolUseId, status: result.startsWith('[error]') ? 'failed' : 'completed', output: this.config.voiceOperator ? result : mediaReceipt, ...(mediaReceipt ? { mediaReceipt } : {}) });
       return { role: 'tool', content: result } as OllamaChatMessage;
@@ -1902,7 +1909,11 @@ export class OllamaWorkerProcess extends EventEmitter implements ProviderProcess
     // subset either way ("subset first, then present" — M11 builds on M10).
     let tools: OllamaToolDefinition[] | undefined;
     let toolSubset: OllamaToolDefinition[] | undefined;
-    const gated = ollamaToolCandidates(this.config, registryTools);
+    const smallContext = !!this.config.clusterId && !!this.config.workflowId && this.config.interactionMode !== 'chat'
+      && (await readSettings().catch(() => null))?.ollama?.smallContextTools === true;
+    this.smallContextTools = smallContext;
+    const gated = ollamaToolCandidates(this.config, registryTools, smallContext);
+    if (smallContext) this.emit('system_notice', 'Ollama small-context tools are on: WebSearch, WebFetch, board changes and plan changes are unavailable for this member.');
     if (gated) {
       // M10 — trim the gated set to a relevant top-K for small local models.
       // CRITICAL: rank against the STABLE task context (system prompt +

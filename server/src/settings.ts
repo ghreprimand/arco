@@ -549,10 +549,11 @@ function sanitizeLmstudioConfig(raw: unknown): { baseUrl?: string } | undefined 
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
-function sanitizeOllamaConfig(raw: unknown): { baseUrl?: string; backends?: OllamaBackendConfig[]; modelHostMap?: Record<string, string[]>; utility?: OllamaUtilityConfig; compaction?: OllamaCompactionConfig } | undefined {
+function sanitizeOllamaConfig(raw: unknown): { smallContextTools?: boolean; baseUrl?: string; backends?: OllamaBackendConfig[]; modelHostMap?: Record<string, string[]>; utility?: OllamaUtilityConfig; compaction?: OllamaCompactionConfig } | undefined {
   if (!raw || typeof raw !== 'object') return undefined;
   const r = raw as Record<string, unknown>;
-  const out: { baseUrl?: string; backends?: OllamaBackendConfig[]; modelHostMap?: Record<string, string[]>; utility?: OllamaUtilityConfig; compaction?: OllamaCompactionConfig } = {};
+  const out: { smallContextTools?: boolean; baseUrl?: string; backends?: OllamaBackendConfig[]; modelHostMap?: Record<string, string[]>; utility?: OllamaUtilityConfig; compaction?: OllamaCompactionConfig } = {};
+  if (typeof r.smallContextTools === 'boolean') out.smallContextTools = r.smallContextTools;
   if (typeof r.baseUrl === 'string') {
     const v = sanitizeBaseUrlOrRef(r.baseUrl, /^https?:\/\/[^/\s]+(?::\d+)?$/);
     if (v) out.baseUrl = v;
