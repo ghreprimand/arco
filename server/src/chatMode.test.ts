@@ -53,10 +53,12 @@ test('chat web access defaults on for saved chats, off for incognito and tool-le
   const saved = { kind: 'chat' as const };
   assert.equal(chatWebArmed(saved, 'claude'), true);
   assert.equal(chatWebArmed(saved, 'codex'), true);
+  assert.equal(chatWebArmed(saved, 'cursor'), true);
+  assert.equal(chatWebArmed({ kind: 'chat', chatWebAccess: false }, 'cursor'), false);
   assert.equal(chatWebArmed(saved, 'ollama'), true);
   assert.equal(chatWebArmed(saved, 'strata'), true);
   // No web tool we can arm on these transports — never claim otherwise.
-  for (const provider of [ 'cursor', 'llamacpp', 'lmstudio'] as const) {
+  for (const provider of [ 'llamacpp', 'lmstudio'] as const) {
     assert.equal(chatWebArmed(saved, provider), false, provider);
     assert.equal(CHAT_WEB_PROVIDERS.has(provider), false, provider);
   }

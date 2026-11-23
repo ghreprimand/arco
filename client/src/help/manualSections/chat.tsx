@@ -24,7 +24,7 @@ export const chat: Section[] = [
   Cursor Chat does not attach Arco project-file tools; files attached to a
   message still use Arco&apos;s image and document decoder. Cursor Chat uses
   the CLI&apos;s plain-text output mode so replies can start on current Cursor
-  versions.
+  versions. WEB enables Cursor&apos;s web search and fetch; WEB OFF disables them.
   </p>
   <p>
   Open <strong>+ NEW</strong>, choose <strong>CHAT</strong>, pick a name,
@@ -54,7 +54,7 @@ export const chat: Section[] = [
   </ul>
   <p>
   WEB is on by default for a saved Chat and off for Incognito. It is available
-  on Claude, Codex, Ollama, Strata and DeepSeek.
+  on Claude, Codex, Cursor, Ollama, Strata and DeepSeek.
   </p>
   <p>
   Arco&apos;s direct public-URL reader limits text downloads to 128 KiB and

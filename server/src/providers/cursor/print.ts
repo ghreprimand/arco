@@ -1,7 +1,7 @@
 import { buildTurnWaitInstructions } from '@arco/shared';
 import { prepareProviderHistory, historyBinding } from '../handoffHistoryBinding.js';
 import { prepareLocalFileContext, combineChatAttachments } from '../localFileMedia.js';
-import { createChatSandbox, CHAT_FLAGS, CHAT_GUIDANCE } from './chatSandbox.js';
+import { createChatSandbox, CHAT_FLAGS, CHAT_WEB_FLAGS, CHAT_GUIDANCE, CHAT_WEB_GUIDANCE } from './chatSandbox.js';
 import { prepareProviderAttachments, persistProviderImages, FILE_READ_GUIDANCE, type PreparedAttachments } from '../providerFileContent.js';
 import { createFilePlugin } from './filePlugin.js';
 // Stateless one-shot Cursor process for read-only primitives — Phase 5.
@@ -75,7 +75,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     let prepared = await prepareProviderAttachments(this.config.attachments, true, this.preparationAbort.signal, false, this.config.interactionMode === 'chat' && !this.config.voiceOperator);
     if (this.config.interactionMode === 'chat' && !this.config.voiceOperator) prepared = combineChatAttachments(prepared, await prepareLocalFileContext(this.config, true, this.preparationAbort.signal));
     if (this.settled) return;
-    if (this.config.interactionMode === 'chat') this.chatSandbox = await createChatSandbox(prepared, this.preparationAbort.signal);
+    if (this.config.interactionMode === 'chat') this.chatSandbox = await createChatSandbox(prepared, this.preparationAbort.signal, this.config.chatWebAccess === true);
     const imagePaths = this.chatSandbox?.imagePaths ?? await persistProviderImages(prepared.images);
     if (this.config.cwd && this.config.interactionMode !== 'chat') this.filePlugin = await createFilePlugin(this.config.cwd, this.config.workflowId, historyBinding(this.config)?.token);
     if (this.settled) { await this.cleanup(); return; }
@@ -87,13 +87,14 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     const model = resolveModelId(this.config.model);
 
     // `-p` = print/headless. `--mode ask` = read-only Q&A (the safety contract).
-    // Reviews retain --force; Chat has an empty tool allowlist and explicit
-    // deny rules instead. `--output-format text` streams the assistant answer
+    // Reviews retain --force; offline Chat has an empty tool allowlist. Web
+    // Chat enables --force only with its web-only allowlist and explicit deny
+    // rules. `--output-format text` streams the assistant answer
     // to stdout — no JSON envelope to
     // parse; incremental chunks map straight to `text` events.
     const chat = this.config.interactionMode === 'chat';
     const args = ['-p', '--output-format', 'text', '--mode', 'ask', '--trust'];
-    if (chat) args.push(...CHAT_FLAGS);
+    if (chat) args.push(...(this.config.chatWebAccess ? CHAT_WEB_FLAGS : CHAT_FLAGS));
     else args.push('--force');
     // Partial-output deltas require stream-json; this transport consumes text.
     // Always pass the catalog id, `auto` included: `cursor-agent models` lists
@@ -112,7 +113,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
     // ACP worker's beginTurn. goalBlock is null-when-empty so the default primitive
     // path is byte-identical to a bare prompt.
     // The output-style addendum closes the prefix (null for normal).
-    const prefixParts = [buildTurnWaitInstructions(this.config.clusterRole), chat ? CHAT_GUIDANCE : undefined, goalBlock(this.config.goal), this.config.appendSystemPrompt, this.filePlugin ? FILE_READ_GUIDANCE : undefined, outputStyleAddendum(this.config.outputStyle)]
+    const prefixParts = [buildTurnWaitInstructions(this.config.clusterRole), chat ? this.config.chatWebAccess ? CHAT_WEB_GUIDANCE : CHAT_GUIDANCE : undefined, goalBlock(this.config.goal), this.config.appendSystemPrompt, this.filePlugin ? FILE_READ_GUIDANCE : undefined, outputStyleAddendum(this.config.outputStyle)]
       .filter((s): s is string => typeof s === 'string' && s.trim().length > 0);
     const prefix = prefixParts.length > 0 ? prefixParts.join('\n\n') : undefined;
     const body = [prompt, prepared?.text, chat ? undefined : withAttachmentRefs('', imagePaths)].filter(Boolean).join('\n\n');

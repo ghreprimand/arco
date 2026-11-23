@@ -34,7 +34,7 @@ const MAX_INPUT_HEIGHT_PX = 200;
 // Client mirror of the server's CHAT_WEB_PROVIDERS (server/src/chatMode.ts).
 // Only these transports have a web tool Arco can arm per turn — the rest
 // stay offline, and the header says so rather than showing a dead toggle.
-const WEB_CAPABLE: ReadonlySet<ProviderName> = new Set<ProviderName>(['claude', 'codex', 'ollama', 'strata', 'deepseek']);
+const WEB_CAPABLE: ReadonlySet<ProviderName> = new Set<ProviderName>(['claude', 'codex', 'cursor', 'ollama', 'strata', 'deepseek']);
 
 // Stable empty reference — a fresh `[]` from the selector would re-render on
 // every store tick (Zustand compares with Object.is).

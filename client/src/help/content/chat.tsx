@@ -47,7 +47,7 @@ export const chatHelp: Record<string, HelpEntry> = {
     title: 'Chat web access', manualSection: 'chat-mode',
     body: <p>Arms web search and fetch for this chat, including Native <C>read_url</C> for public file links.
       No local file tools, no shell, no project. On by default for a saved Chat, off for Incognito
-      (a search query leaves the machine). Available on Claude, Codex, Ollama, Strata and DeepSeek; other Chat providers have
+      (a search query leaves the machine). Available on Claude, Codex, Cursor, Ollama, Strata and DeepSeek; other Chat providers have
       no web tool to arm. Takes effect on the next message. When Arco&apos;s direct public-URL reader is used,
       text downloads stop at 128 KiB and media or document sources have a 512 MiB limit.
       Claude CLI Chat permits the enabled web pair without an extra permission prompt.

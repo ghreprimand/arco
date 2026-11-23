@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Enable Cursor's web search and fetch in saved Chats, controlled by WEB.
+
 - Offer an opt-in smaller tool set for Ollama cluster members, with its missing capabilities shown in Settings.
 
 - Run Quick research in a chat-style view, keep it as a project, and use research from the mobile view.

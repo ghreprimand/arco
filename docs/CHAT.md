@@ -66,6 +66,7 @@ Codex Chat disables sub-agent creation, persisted goals and nested builtin patch
 | Claude CLI | `--tools WebSearch,WebFetch --allowedTools WebSearch WebFetch` + `--strict-mcp-config` | `--tools ""` |
 | Claude Native | `buildChatWebTools()` - server `web_search` + `web_fetch` and portable `read_url` (no `code_execution`) | empty `tools` |
 | Codex exec | `web_search="live"` | `web_search="disabled"` |
+| Cursor | Cursor's web search and fetch, with file, shell and MCP denied | no tools |
 | Ollama | Arco's local SearXNG-backed `WebSearch` / `WebFetch` pair, re-checked at dispatch (`ollamaToolCallAllowed`) | no tools |
 | Strata | Same local web pair, with advertisement and dispatch allowlists | no tools |
 | Everything else | - (header shows `NO WEB`) | - |

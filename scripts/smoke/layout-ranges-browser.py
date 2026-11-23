@@ -91,12 +91,14 @@ TASKS = [{'id': f'task-{i}', 'title': title, 'status': status, 'links': [], 'not
          for i, (title, status) in enumerate([('Review the release checklist', 'review'), ('Verify the project list', 'in_progress')], 1)]
 
 
-async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False, no_director=False, research=False, antigravity=False, touch=False):
+async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False, no_director=False, research=False, antigravity=False, touch=False, cursor_chat=False):
     context = await browser.new_context(viewport={'width': width, 'height': height}, has_touch=touch)
     snapshot = json.dumps({'type': 'task_ledger_snapshot', 'workflowId': 'worker-0', 'cwd': '/projects/harbor', 'boardKey': 'demo', 'tasks': TASKS})
     fixture = single_state() if single else fixture_state()
     if antigravity:
         fixture['state']['jobs']['worker-1']['config'].update({'kind': 'chat', 'primaryProvider': 'antigravity-cli', 'primaryModel': 'gemini-fixture'})
+    if cursor_chat:
+        fixture['state']['jobs']['worker-1']['config'].update({'kind': 'chat', 'primaryProvider': 'cursor', 'primaryModel': 'auto', 'chatWebAccess': True})
     if no_director: fixture['state']['clusters']['demo-cluster']['members'][0]['role'] = 'Builder'
     if research:
         cluster = fixture['state']['clusters']['demo-cluster']
@@ -399,6 +401,20 @@ async def run(base):
             assert not errors, errors
             await context.unroute_all(behavior='wait')
             await context.close()
+            # Cursor Chat offers its web toggle while preserving the Chat surface.
+            context, page, errors = await open_page(browser, base, 1024, single=True, cursor_chat=True)
+            await expect(page.get_by_role('button', name='◉ WEB', exact=True)).to_be_visible()
+            await expect(page.get_by_text('○ NO WEB', exact=True)).to_have_count(0)
+            await palette(page, 'Enter focus mode')
+            await expect(page.get_by_role('button', name='◉ WEB', exact=True)).to_be_visible()
+            assert not errors, errors
+            await context.unroute_all(behavior='wait')
+            await context.close()
+            context, page, errors = await open_page(browser, base, 700, scale=1.1, single=True, cursor_chat=True, touch=True)
+            await page.get_by_role('button', name='◉ WEB', exact=True).tap()
+            assert not errors, errors
+            await context.unroute_all(behavior='wait')
+            await context.close()
             # Research projects expose their own controls and folder, not generic member management.
             context, page, errors = await open_page(browser, base, 2000, layout='standard', research=True)
             await expect(page.get_by_role('button', name='OPEN FOLDER')).to_be_visible()
@@ -412,7 +428,7 @@ async def run(base):
             for label in ('MAIL ALERTS', 'AUTO-PICKUP', 'EFFICIENCY', 'KEEP CURRENT', 'BOARD'):
                 await expect(page.get_by_text(label, exact=True)).to_have_count(0)
             await page.get_by_role('button', name='MEMBERS', exact=True).click()
-            await expect(page.get_by_text('Researchers are managed by the research project.')).to_be_visible()
+            await expect(page.get_by_role('button', name='+ ADD RESEARCHER')).to_be_visible()
             for label in ('+ ADD FRESH', '+ ADD EXISTING', 'REPLACE', 'DETACH'):
                 await expect(page.get_by_text(label, exact=True)).to_have_count(0)
             await page.get_by_role('button', name='OPEN FOLDER').click()

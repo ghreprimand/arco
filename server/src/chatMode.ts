@@ -22,7 +22,7 @@ export const INCOGNITO_CHAT_PROVIDERS = new Set<ProviderName>([
 // Codex use their provider web surfaces; Ollama gets only Arco's local
 // SearXNG-backed WebSearch/WebFetch pair, also used by Strata. Other
 // transports stay offline and the UI says so.
-export const CHAT_WEB_PROVIDERS = new Set<ProviderName>(['claude', 'codex', 'ollama', 'strata', 'deepseek']);
+export const CHAT_WEB_PROVIDERS = new Set<ProviderName>(['claude', 'codex', 'cursor', 'ollama', 'strata', 'deepseek']);
 
 // Is web access armed for this chat? Absent `chatWebAccess` means armed for a
 // saved Chat and disarmed for an Incognito one: a search query leaves the

@@ -66,6 +66,29 @@ test('Cursor print attaches the project reader to Agent turns and never Chat', a
   } finally { if (previousHome === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = previousHome; await rm(cwd, { recursive: true, force: true }); }
 });
 
+test('Cursor Chat enables only web tools with explicit file, shell and MCP denials', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'arco-cursor-web-boundary-'));
+  const previousHome = process.env.ARCO_HOME; process.env.ARCO_HOME = join(root, 'state');
+  const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough() });
+  let args: string[] = [], cwd = '', input = '';
+  child.stdin.on('data', data => { input += String(data); });
+  t.mock.method(childProcess, 'spawn', ((_cmd: string, argv: string[], options: any) => { args = argv; cwd = options.cwd; return child; }) as any);
+  t.mock.method(childProcess, 'execFile', ((_cmd: string, _args: string[], _opts: any, callback: any) => { queueMicrotask(() => callback(Object.assign(new Error('probe'), { code: 1 }), '', "error: unknown option '--arco-chat-capability-probe'")); return child; }) as any);
+  syncBuiltinESMExports();
+  try {
+    const worker = CursorPrintProvider.create('fixture', { provider: 'cursor', model: 'fixture', effort: 'low', interactionMode: 'chat', chatWebAccess: true, cwd: root });
+    worker.on('error', () => {}); worker.spawn('Search the web');
+    for (let i = 0; i < 200 && !args.length; i++) await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal(args[args.indexOf('--allowed-tools') + 1], 'web_search_tool_call,web_fetch_tool_call');
+    assert.ok(args.includes('--force')); assert.ok(args.includes('--disable-indexing')); assert.ok(args.includes('--disable-codebase-ref'));
+    assert.ok(!args.includes('--plugin-dir') && !args.includes('--add-dir'));
+    const config = JSON.parse(await readFile(join(cwd, '.cursor', 'cli.json'), 'utf8'));
+    for (const deny of ['Read(**)', 'Read(/**)', 'Write(**)', 'Write(/**)', 'Shell(*)', 'Mcp(*:*)']) assert.ok(config.permissions.deny.includes(deny), deny);
+    assert.ok(!config.permissions.deny.includes('WebFetch(*)')); assert.match(input, /Web search and web fetch are available/);
+    child.emit('close', 0, null);
+  } finally { t.mock.restoreAll(); syncBuiltinESMExports(); if (previousHome === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = previousHome; await rm(root, { recursive: true, force: true }); }
+});
+
 for (const scenario of ['image-refused', 'cancelled-probe'] as const) {
   test(`Cursor Chat never falls back to a file reader: ${scenario}`, async t => {
     const root = await mkdtemp(join(tmpdir(), 'arco-cursor-refusal-'));

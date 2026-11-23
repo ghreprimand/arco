@@ -682,8 +682,8 @@ export const providers: Section[] = [
   <Sub>Chat attachments</Sub>
   <p>Cursor Chat reads only the text and attachments sent with the message.
   Each turn uses a private folder, removed afterwards or at the next server
-  start after a crash. Cursor Chat has no web access and shows NO WEB. File reads, shell,
-  search, lint, browser and MCP tools are excluded. Relative paths, full paths
+  start after a crash. WEB enables Cursor&apos;s web search and fetch; WEB OFF disables them. File reads, shell,
+  code search, lint, browser and MCP tools are excluded. Relative paths, full paths
   and links do not grant access to computer files.</p>
   <p>Documents arrive as extracted text. Images arrive as fitted copies through
   Cursor&apos;s image input. Arco checks the installed version first and refuses

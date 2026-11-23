@@ -288,11 +288,12 @@ explicitly instead of inheriting a provider default:
   in plan-review turns, even with AUTO on.
 - **Cursor** - each Chat turn runs `-p --mode ask` in a private folder under
   the selected Arco home, removed when the turn ends. Startup removes abandoned
-  turn folders without following links. Cursor Chat has no web access; its
-  header shows `NO WEB` and offers no web toggle. It receives no project
-  plugin, additional read folders or `--force`. Explicit permissions deny all
-  reads, writes, shell, web fetches and MCP tools, including previously approved
-  servers. An empty `--allowed-tools` list excludes every built-in tool family;
+  turn folders without following links. WEB arms Cursor's search and fetch;
+  WEB OFF uses an empty tool allowlist. When WEB is armed, `--force` applies
+  only with the two web tool families allowed. It receives no project plugin
+  or additional read folders. Explicit permissions deny all reads, writes,
+  shell and MCP tools, including previously approved servers; WEB OFF also
+  denies web fetches. The allowlist excludes all other built-in tool families;
   indexing, semantic search and lint context are disabled. Workspace context
   comes from the private turn folder; the restricted workspace-exclusion flag
   is not used. Account, team or model refusals appear as one plain sentence
