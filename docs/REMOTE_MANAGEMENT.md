@@ -33,8 +33,7 @@ two connections by instance ID, tracks heartbeat state, routes signed lifecycle
 commands to the agent, and routes workflow actions back to the service. The
 full Arco frontend is not exposed remotely.
 
-Workflow controls (reply, wait, stop, approve, and deny) require the Arco
-service to be running. Service-lifecycle controls (start, stop, restart, and
+Workflow controls require the Arco service to be running. The console can reply, continue, stop, hand off, compact, fold, answer a question, resolve an enabled remote gate or cancel queued input where supported. Service-lifecycle controls (start, stop, restart, and
 logs) use the agent or the configured SSH fallback because a stopped service
 cannot receive its own restart request.
 
@@ -117,7 +116,7 @@ The UI distinguishes a stopped Arco process with a reachable agent or SSH target
 
 ## 5. Remote action model (workflow layer)
 
-The console offers exactly these workflow-scoped actions (see section 8):
+The request-oriented action type remains defined as:
 
 ```ts
 type RemoteManagementAction =
@@ -128,9 +127,7 @@ type RemoteManagementAction =
   | { type: 'deny';    workflowId: string; requestId: string; reason?: string };
 ```
 
-**The console allowlist is:** `reply`, `stop`, `approve` (continue), `deny` (decline), and
-`wait` (leave pending). Before an action is available, the console shows the current question, last-turn
-summary, provider and model, and context zone. Only these actions can be sent.
+The current workflow-action route uses `WorkflowActionType`: `reply`, `stop`, `continue`, `handoff`, `compact`, `fold`, `answer_question`, `gate_resolve` and `cancel_queued`. Availability depends on the live workflow and its remote settings. Gate resolution requires its separate remote permission.
 
 Flow: console -> hub signs + routes to the owning instance -> **local Arco re-validates** `requestId`
 against its *current* pending request (rejects if already answered/stale) -> applies -> appends to
@@ -254,7 +251,7 @@ Primary screens:
 >   with no chat turns shows "no conversation turns yet". *Limitation:* a pathologically ledger-snapshot-heavy
 >   tail can still push a real message past the 1MB window.
 > - **Handoff:** a **Handoff** button per idle workflow rotates the worker **in place
->   (same provider/model, `mode:'original-worker'`)** to free context, confirm-gated; rejected mid-turn
+>   (same provider/model, `mode:'quick'`)** to free context, confirm-gated; rejected mid-turn
 >   (`busy`). Routes as a `handoff` workflow action -> `initHubLink` -> `handleHandoffRequest`.
 > - **Transcript:** a **Transcript** link per workflow opens the **full conversation in a
 >   new tab**, a standalone read-only Arco-styled page (`GET /api/instances/:id/workflows/:wfid/transcript`).

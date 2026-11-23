@@ -318,7 +318,7 @@ export const actions: Section[] = [
           <li>
             <strong>Output style</strong> - <Code>normal</Code> /{' '}
             <Code>plain</Code> (default) / <Code>terse</Code> instruction on
-            how replies are written (every provider).
+            how replies are written (not offered for Antigravity CLI).
           </li>
           <li>
             <strong>RSS guard</strong> opt-out - for workflows that

@@ -16,8 +16,8 @@ export const providers: Section[] = [
   pick one by transport, session resume, tool use and reasoning controls.
   </p>
   <p>
-  Nine providers ship for Agent workflows. Chat has a smaller provider set,
-  and Incognito narrows it further (see Chat in Workflows &amp; sessions).
+  Nine providers are supported for Agent workflows and saved Chat. Incognito
+  supports a smaller set (see Chat in Workflows &amp; sessions).
   </p>
   <Table
   headers={['Provider', 'Transport', 'Resume', 'Tool use', 'Reasoning', 'Effort levels']}

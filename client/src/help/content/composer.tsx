@@ -311,7 +311,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           value.
         </p>
         <p>
-          Once set, it folds into the system prompt on <strong>every turn</strong>{' '}
+          Once set, it folds into the system prompt on <strong>supported turns</strong>{' '}
           so the agent stays oriented on the ultimate goal. Operator-only write,
           model read-only. Capped at 2048 bytes (soft-warns past 1536). Pure
           context: it carries no model authority and grants no autonomy.

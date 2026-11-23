@@ -1070,20 +1070,7 @@ an explicit fallback; a sample test does not establish microphone accuracy.
 
 An unavailable bundled acknowledgement cue leaves the visual capture acknowledgement and a notice.
 
-The local voices are Kokoro synthesis reading Luna text, not Luna producing
-native audio. Sentence-aware playback improves the local path but does not
-establish lifelike conversational quality. Native Codex voice remains research,
-not enabled. The installed Codex 0.163.0 successfully listed realtime voices. A bounded
-subscription-auth integration probe then failed with "realtime conversation
-requires API key auth"; no audio session was established. No API-key fallback
-is enabled. Official
-[ChatGPT Voice documentation](https://learn.chatgpt.com/docs/features/voice)
-describes GPT-Live managing voice while the selected task model handles work.
-[Pricing](https://learn.chatgpt.com/docs/pricing#how-much-does-voice-cost) states
-$0.05/minute from the existing Codex budget plus task-model usage; credit-based
-usage is 1.25 credits/minute. Desktop subscription voice is not established as an embeddable Arco
-transport. Any future integration must preserve the explicit Computer/End capture
-boundary, enforce a strict usage cap and retain the same privacy limits.
+Local voices use Kokoro synthesis for the text response. Native Codex voice is not enabled in Arco.
 
 The initial streaming Zipformer detector was replaced after review
 with [Vosk's small English model](https://alphacephei.com/vosk/models). Its

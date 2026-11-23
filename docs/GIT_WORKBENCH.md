@@ -138,9 +138,9 @@ is the point. This is the OPPOSITE of A2 checkpoints (`gitSnapshots.ts`), which
 NEVER touch the real index/HEAD (they write shadow refs under `refs/arco/`).
 The two code paths are kept strictly separate: **`server/src/gitOps.ts` never
 imports `gitSnapshots.ts` and vice versa.** Every operation requires an explicit
-user action, uses deterministic validation, is logged to `events.jsonl` as a
-`git_op_result` event, and can be reversed with the Git reflog, unstage, stash
-pop, or branch recreation.
+user action, uses deterministic validation, and is logged to `events.jsonl` as a
+`git_op_result` event. Local recovery may use the Git reflog, unstage, stash pop
+or branch recreation. A push changes the remote and may not be reversible.
 
 **The validator contract (the whole point of the phase).** Every git invocation
 goes through `execFile('git', argv, {cwd})`, **never a shell string, never

@@ -558,7 +558,7 @@ See `docs/DIAGNOSTICS.md`.
 
 ### `GET /api/diagnostics/research-sandbox`
 
-Returns `{ claudeCli: boolean, codex: boolean, cursor: boolean, codexVersionReason?: string, cursorVersionReason?: string }` after short Linux sandbox availability checks. The optional reasons name an unsupported or unknown installed Codex or Cursor version, or a missing Cursor agent. The checks use temporary files and a scoped mailbox fixture, do not open a sign-in or start a model, and cache their results briefly. A researcher still runs its own preflight before starting. The research start dialog offers each CLI provider only when its check succeeds and it is signed in; Codex requires the supported CLI version.
+Returns `{ claudeCli: boolean, codex: boolean, cursor: boolean, gemini: boolean, geminiSignIn: 'missing' | 'ready' | 'expired', codexVersionReason?: string, cursorVersionReason?: string }` after short Linux sandbox availability checks. `geminiSignIn` reports the separate Gemini research sign-in state. The optional reasons name an unsupported or unknown installed Codex or Cursor version, or a missing Cursor agent. The checks use temporary files and a scoped mailbox fixture, do not open a sign-in or start a model, and cache their results briefly. A researcher still runs its own preflight before starting. The research start dialog offers each CLI provider only when its check succeeds and it is signed in; Codex requires the supported CLI version.
 
 ---
 
@@ -994,7 +994,7 @@ It does not read or restore snapshots.
 
 ### `POST /api/clusters`
 
-Create a cluster. Requires at least two member workflows sharing a `cwd`. Each member's provider must be cluster-eligible - `claude` / `codex` / `ollama` / `llamacpp` / `cursor` (`CLUSTER_MEMBER_PROVIDERS`); the route pre-validates via `assertAllMembersClaudeOrCodex` (a stale name - it delegates to `isClusterMemberProvider`) and rejects any other provider with `400 { error: 'member_not_supported:<wfid>' }`. The store-level `createCluster` additionally enforces `cwd`, member count (≥2), and no nested/cross-cluster membership (`member_already_in_cluster`).
+Create a cluster. Requires at least two member workflows sharing a `cwd`. Each member's provider must be cluster-eligible - `claude` / `codex` / `ollama` / `llamacpp` / `cursor` / `antigravity-cli` (`CLUSTER_MEMBER_PROVIDERS`); the route pre-validates via `assertAllMembersClaudeOrCodex` (a stale name - it delegates to `isClusterMemberProvider`) and rejects any other provider with `400 { error: 'member_not_supported:<wfid>' }`. The store-level `createCluster` additionally enforces `cwd`, member count (≥2), and no nested/cross-cluster membership (`member_already_in_cluster`).
 
 **Body:**
 ```ts
@@ -1076,7 +1076,7 @@ Record worker activity for a task. Body: `{ workflowId, id, note? }`. Delegates 
 
 ### `POST /api/clusters/:id/peer/task-update`
 
-Update a ledger task's status/notes/sign-off. Body: `{ workflowId, id, status?, notes?, signoff? }`. `signoff` ( advisory director sign-off) is `{ state: 'met'|'not_met'|'partial', summary? } | null` - validated + author-stamped by `peerTaskUpdate`; **advisory only, never moves the task to a terminal status** (`done` stays operator-gated). An invalid `signoff.state` -> `400`. Delegates to `clusterPeerOps.peerTaskUpdate` and broadcasts the update. Returns the updated task object, or `{ error: <code>, message }` on failure.
+Update a ledger task's status/notes/sign-off. Body: `{ workflowId, id, status?, notes?, signoff? }`. `signoff` is `{ state: 'met'|'not_met'|'partial', summary? } | null` - validated and author-stamped by `peerTaskUpdate`. A Director met sign-off closes the task when Board auto-done is on; direct `done` and `archived` status changes remain operator-only. An invalid `signoff.state` -> `400`. Delegates to `clusterPeerOps.peerTaskUpdate` and broadcasts the update. Returns the updated task object, or `{ error: <code>, message }` on failure.
 
 ### `POST /api/clusters/:id/peer/task-link`
 
@@ -1367,11 +1367,13 @@ Returns the cached `Capabilities` snapshot (`shared/src/protocol/models.ts`):
   models: ModelName[],               // Claude CLI models
   cliVersion: string,                // `claude --version`
   codexVersion?: string,
-  cursorVersion?: string,            // date-stamped, not npm - display-only, no latestVersions.cursor / self-update
-  // Latest published upstream versions (npm for the npm-installed CLIs,
-  // GitHub Releases for Ollama / llama.cpp). Best-effort: a failed probe leaves
-  // the key undefined and the UI shows the installed version with no outdated mark.
-  latestVersions?: { claude?, codex?, ollama?, llamacpp? },
+  cursorVersion?: string,            // date-stamped Cursor CLI version
+  antigravityVersion?: string,
+  strataVersion?: string,
+  xolotlRevision?: string,
+  codexUpdate?: { kind, updateAvailable, instruction? },
+  // Best-effort update sources; a failed probe leaves its key undefined.
+  latestVersions?: { claude?, codex?, cursor?, 'antigravity-cli'?, ollama?, strata?, xolotl?, llamacpp? },
 }
 ```
 

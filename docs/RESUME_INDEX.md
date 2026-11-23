@@ -1,13 +1,9 @@
 # Resume index
 
-The Resume index is a project-local session list with generated titles and
-summaries, optional model-generated titles, and controls to pin, rename, archive,
-and filter sessions. Updates are recorded in the project state.
-
-Opening a project should show what was in progress, where each session left off,
-and when it was last active. The session index stores this metadata in a form the
-resume surface can read without rescanning every `meta.json` and provider JSONL
-file.
+The session index is a project-local projection of session titles and
+summaries. It remains available through the session-index API. The current
+resume controls use session discovery rather than this index; the former picker
+and its pin, rename, archive and filter controls are no longer present.
 
 The index is a deterministic **projection** of persisted session data, visible
 on disk and fully reversible (delete the file; it rebuilds itself).
@@ -52,7 +48,7 @@ the later session.
 | `tags?` | User tags. Preserved across derived upserts (never clobbered by a refresh). |
 | `pinned?` | User pin; sorts to the top of the picker. Preserved across refreshes. |
 | `archived?` | User archive flag; filtered out unless "show archived" is on. Preserved across refreshes. |
-| `contextPercent?`, `quotaLabel?` | Live-workflow telemetry for the picker. Not yet populated (see Deferred behavior). |
+| `contextPercent?`, `quotaLabel?` | Reserved live-workflow telemetry; not populated for inactive sessions (see Deferred behavior). |
 | `sourceHash?` | Cheap material-change marker (the workflow's `lastEventSeq` as a string). Model-title generation uses it to decide whether a cached title is stale. |
 | `lastSeq?` | mirrors `meta.lastEventSeq`. |
 
@@ -121,8 +117,7 @@ Title changes are written to the project-state review record using an
 append-only `title-events.jsonl` rather than minting a new per-workflow
 `events.jsonl` `ServerMessage` type. Each line is a `SessionTitleEvent`
 (`{ ts, workflowId, provider, sessionId, from, to, source, sourceHash? }`).
-Currently emitted only when a `model` title is applied (the generation event);
-Operator renames are also logged. Like `session-index.json` it's a rebuildable
+Model title applications and operator renames are logged. Like `session-index.json` it's a rebuildable
 projection that the `.arco/.gitignore` keeps out of Git.
 
 ## Update triggers
@@ -182,11 +177,7 @@ Each is an operator-initiated, reversible read-modify-write selected by the
 
 ### Deferred behavior
 
-The picker rows do **not** yet show live `waiting/running/idle` status or
-`contextPercent`/`quotaLabel`, those fields exist on the entry but nothing
-populates them for inactive sessions, and wiring live per-workflow runtime state
-into the picker is a follow-up. The picker is primarily for resuming *inactive*
-sessions, so the available actions are rename, pin, archive, and filter. Rows show the title, subtitle, provider, and last-active time. Live telemetry columns remain unpopulated.
+The index fields `contextPercent` and `quotaLabel` are not populated for inactive sessions. The removed picker did not show live status; the active resume controls use session discovery.
 
 ## Smoke
 

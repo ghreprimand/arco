@@ -203,8 +203,7 @@ async function sendRoundText(state: ResearchState, round: ResearchRound, r: Rese
 
 // The brief is quoted in the turn message as well as sent as mail: mail is
 // consumed by peer_read, and a compaction during the round can drop that
-// result, which once led a researcher that had already reported to tell
-// the Director it never saw the brief. The turn message survives compaction.
+// result. The turn message preserves the brief through compaction.
 function researcherWakePrompt(round: Pick<ResearchRound, 'n' | 'catchUp'>, brief: string): string {
   return `(research ${round.catchUp ? 'catch-up on round 1' : `round ${round.n}`}) The Research Director's brief is below; the same text is in your mail. Research it and send your report with peer_send.\n\n${brief}`;
 }

@@ -9,6 +9,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Finish Gemini sign-in in Settings without a reload, show how Gemini skills work, and correct the cluster plan draft wording.
 
+- Correct the task board reference and align research, provider, mobile and Native background-sub-agent documentation.
+
 - Show Gemini skill and sub-agent activity compactly, match its usage panel to the other providers, and hide the unsupported output style, north star and goal run.
 
 - Show Gemini sub-agent waiting and warn when an older Antigravity CLI can end the turn before results arrive.

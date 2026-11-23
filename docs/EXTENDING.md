@@ -4,7 +4,7 @@ Six recipes document how to add providers, primitives, skills, themes, shaders, 
 
 ## Adding a new provider
 
-Supported providers include Claude (`cli` and `native` transports), Codex (`exec` and `appserver` transports), Ollama, llama.cpp, LM Studio (OpenAI-compatible `/v1`), Strata (standalone `/v1`, shared HTTP worker), DeepSeek through Xolotl (provider key `deepseek`, the same shared HTTP worker), and Cursor (`cursor-agent` via the Agent Client Protocol; a long-lived `acp` worker plus a stateless `print` one-shot for read-only primitives; reasoning effort is part of the model id, with a catalog of about 150 models). To add a new one (let's call it `foo`):
+Supported providers include Claude (`cli` and `native` transports), Codex (`exec` and `appserver` transports), Ollama, llama.cpp, LM Studio (OpenAI-compatible `/v1`), Strata (standalone `/v1`, shared HTTP worker), DeepSeek through Xolotl (provider key `deepseek`, the same shared HTTP worker), Cursor (`cursor-agent` via the Agent Client Protocol, with ACP and print transports), and Antigravity CLI (`agy acp`). Cursor embeds reasoning effort in the model id and reports its catalog through the CLI. To add a new one (let's call it `foo`):
 
 > **Several providers use a subdirectory layout** rather than a single file (claude-native/, codex-appserver/, cursor/):
 > - `server/src/providers/claude-native/`: in-process Anthropic SDK worker. Read `docs/PROVIDERS.md` under `Claude Native` and `docs/GOTCHAS.md` under `Claude Native transport` before touching it; the forced-first-system-block, replay-on-restart pair-flush, and depth-1 Task cap are load-bearing.
@@ -18,7 +18,7 @@ Supported providers include Claude (`cli` and `native` transports), Codex (`exec
 In `shared/src/protocol/providers.ts` (the `ProviderName` union lives in the split protocol directory, re-exported via the `shared/src/protocol.ts` barrel):
 
 ```ts
-export type ProviderName = 'claude' | 'ollama' | 'codex' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek' | 'cursor' | 'foo';
+export type ProviderName = 'claude' | 'ollama' | 'codex' | 'llamacpp' | 'lmstudio' | 'strata' | 'deepseek' | 'cursor' | 'antigravity-cli' | 'foo';
 ```
 
 Add to `PRIMARY_PROVIDERS` if foo can be a primary.
@@ -102,8 +102,8 @@ In the WorkflowCreator's provider dropdown and the CONFIG tab's provider/model s
 
 Decide explicitly: nothing opts a provider in by default.
 
-- **Chat**: add it to `CHAT_PROVIDERS` in `server/src/chatMode.ts` only if the transport can honor `WorkerConfig.interactionMode:'chat'` (no project tools, isolated cwd). Web support means adding it to `CHAT_WEB_PROVIDERS` *and* making the transport state armed/disarmed explicitly (mirror the client's `WEB_CAPABLE` set in `ChatModeView.tsx`).
-- **Incognito**: add it to `INCOGNITO_CHAT_PROVIDERS` only if nothing the provider runs writes to disk (no session files, no daemon log). When in doubt, leave it out; Cursor and llama.cpp are excluded for exactly this.
+- **Chat**: add it to `CHAT_PROVIDERS` in `server/src/chatMode.ts` only if the transport can honor its Chat restrictions. Most use `WorkerConfig.interactionMode:'chat'` with no project tools and an isolated cwd; Antigravity CLI uses a separate workspace and its own tools as described in [Chat](CHAT.md). Web support means adding it to `CHAT_WEB_PROVIDERS` *and* making the transport state armed/disarmed explicitly (mirror the client's `WEB_CAPABLE` set in `ChatModeView.tsx`).
+- **Incognito**: add it to `INCOGNITO_CHAT_PROVIDERS` only if nothing the provider runs writes to disk (no session files, no daemon log). When in doubt, leave it out; Cursor, Antigravity CLI and llama.cpp are excluded.
 - **Clusters**: add it to `CLUSTER_MEMBER_PROVIDERS` (`shared/src/protocol/clusters.ts`, read by `isClusterMemberProvider`) + a peer-tool wiring path (in-process, stdio MCP, or loopback HTTP MCP). See [`docs/PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md).
 
 ### 8. Docs

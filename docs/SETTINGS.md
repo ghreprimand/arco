@@ -40,7 +40,7 @@ matching section the same way.
 On a new Arco home, detected Claude, Codex and Cursor sign-ins are enabled,
 as are detected Ollama, LM Studio and llama.cpp endpoints or binaries. An
 installed runtime may still need to be started or supplied with a model.
-Strata and DeepSeek through Xolotl start off and can be enabled explicitly.
+Antigravity CLI, Strata and DeepSeek through Xolotl start off and can be enabled explicitly.
 An explicit successful check in Connections enables that provider. Existing
 settings and saved provider choices are preserved. Use **Enabled providers**
 in Settings to change availability at any time.
@@ -72,7 +72,7 @@ Sections: 29.
 | `authentication` | Providers and models | Sign-in, accounts and local endpoints | Global | A Claude group (Native sign-in first, then CLI sign-in), Codex accounts and profiles, Cursor, Antigravity CLI and GEMINI FOR RESEARCH (the separate sign-in for Gemini researchers, shown when the Antigravity CLI is enabled and its sandbox check passes), then Ollama endpoint, discovery and utility model (compaction summaries, session titles), LM Studio endpoint, Strata endpoint, DeepSeek through Xolotl, and the Ollama, llama.cpp, LM Studio, Strata and GitHub rows |
 | `llamacpp-catalog` | Providers and models | llama.cpp model registry | Global | llama.cpp registry editor and preload (shown when llama.cpp is enabled and installed) |
 | `catalog` | Providers and models | Model catalog | Global | Model catalog editor |
-| `native-subagents` | Agents and clusters | Claude Native sub-agents | Global defaults, including existing workflows | Maximum running at once, maximum starts per turn and sub-agent model; each control opens this section from contextual help |
+| `native-subagents` | Agents and clusters | Claude Native sub-agents | Global defaults, including existing workflows | Maximum running at once, maximum starts per turn, sub-agent model and Background sub-agents (Allowed or Off); each control opens this section from contextual help |
 | `auto-handoff-defaults` | Agents and clusters | Auto-handoff defaults | Global, for new workflows | Off by default; hand off after N compactions (default 5, 1 to 20) and summarizer, with Quick or written modes |
 | `utility-agent` | Agents and clusters | Utility agent | Global | Provider and model for side jobs (Claude Native, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata, or DeepSeek through Xolotl); TEST, CLEAR; not chosen until saved. See [Utility agent](#utility-agent) |
 | `notification-channels` | Notifications | Desktop and phone notifications | Global (switches kept by the server; the desktop permission is per browser) | Events (finished, failed, waiting) by place (this computer, phone); browser permission and desktop TEST; SHOW IN BELL controls quiet notices for other tabs; ntfy server, topic with GENERATE, optional token, TEST; message text switch; cluster finished source. See [Notifications](NOTIFICATIONS.md) |
@@ -84,7 +84,7 @@ Sections: 29.
 | `preview-ports` | Advanced | Preview ports and remote access | Global, for new previews | PREVIEW PORTS, normally 4300-4309; ARCO_PREVIEW_PORTS override, lazy port use, firewall and forwarding guidance; the field waits for SAVE to finish before further editing |
 | `transport-defaults` | Advanced | Transport defaults | Global, for new workflows | Codex (default app-server) and Claude (default native) transport defaults for new workflows |
 | `app-window-browser` | Advanced | App window browser | Global | Automatic (first found, preserving the existing preference), a detected installation/channel, or another program name or path; used by `arco open`, the Arco shortcut and the explorer window; a missing choice falls back to Automatic |
-| `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release and date, CHECK NOW, update action or copyable command, Check for new releases, Updating Arco link; Claude, Codex CLI and Ollama daemon versions |
+| `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release and date, CHECK NOW, update action or copyable command, Check for new releases, Updating Arco link; Claude, Codex CLI and Ollama daemon versions, plus the providers popover for available provider updates |
 
 ## Appearance and browser rendering
 
@@ -132,8 +132,9 @@ Dismissal saves `updateCheckDismissed` for that version globally and survives
 reloads; a newer version can notify again. The checkbox saves `updateCheck`.
 The server first checks 30 seconds after boot, then every six hours. It never
 downloads or installs updates automatically. Packaged services on Linux, macOS,
-and Windows offer **UPDATE AND RESTART** from the version box, toast, or Settings.
-It confirms the release and stops running turns at restart. Linux source user
+and Windows offer **UPDATE AND RESTART** from the version box, toast, or Settings
+when the target version is available on npm. Availability is checked again before
+the service stops. It confirms the release and stops running turns at restart. Linux source user
 services offer the same action. Other run modes show a copyable command.
 
 ### Project location migration
@@ -222,7 +223,7 @@ limited to their project; global skills can target any open tab or cluster. The
 active tab or its cluster is selected when eligible. After a pin is saved,
 Settings shows the skill, destination and role in one line.
 The cluster SKILLS button beside EFFICIENCY lists sources, scope and availability.
-ADD SKILL pins an available skill to all members or one role; UNPIN removes a pin. New and replaced members inherit cluster pins automatically;
+ADD SKILL pins an available skill to all members or one role; UNPIN removes a pin. New and replaced members inherit cluster pins automatically; Antigravity CLI does not receive pinned Arco skill bodies;
 only the operator controls them. A member's FROM CLUSTER button opens the same
 list without mixing inherited pins into its direct tab settings.
 
@@ -244,7 +245,7 @@ A refused or incomplete global settings response leaves the previous settings an
 
 Workflow CONFIG reports a metadata write failure as a temporary change in the running tab. The change may be lost after restart; retry the save after storage is available. Auto-compaction retains its previous policy if its save fails.
 
-A combined north-star and goal-run update validates the new goal before changing settings. Clearing the goal while arming a run is refused. Fresh workers, replacements and Native Task children keep the standing goal but start without an armed run.
+A combined north-star and goal-run update validates the new goal before changing settings. Clearing the goal while arming a run is refused. Fresh workers, replacements and Native Task children keep the standing goal but start without an armed run. NORTH STAR and GOAL RUN are not offered for Antigravity CLI.
 
 
 App window browser lists separate supported builds, including stable, beta, dev,
@@ -265,6 +266,6 @@ No browser window opens while discovering programs or versions.
 
 ## Claude Native sub-agents
 
-The **Claude Native sub-agents** group in Settings - Agents and clusters controls existing and new Native Agent tabs. `nativeSubagents.maxRunning` defaults to 4 (1-32), `nativeSubagents.maxStarts` to 8 per parent turn (1-128), and `nativeSubagents.model` to Agent's choice. Per-tab CONFIG overrides individual fields. Blank tab limits inherit Settings; blank Settings limits use the defaults. The model picker offers Use Settings in a tab, explicit Agent's choice, or a catalog model. An empty saved model string means explicit Agent's choice even over a named Settings default.
+The **Claude Native sub-agents** group in Settings - Agents and clusters controls existing and new Native Agent tabs. `nativeSubagents.maxRunning` defaults to 4 (1-32), `nativeSubagents.maxStarts` to 8 per parent turn (1-128), `nativeSubagents.model` to Agent's choice, and `nativeSubagents.background` to Allowed. Per-tab CONFIG overrides individual fields. Blank tab limits inherit Settings; blank Settings limits use the defaults. The model picker offers Use Settings in a tab, explicit Agent's choice, or a catalog model. An empty saved model string means explicit Agent's choice even over a named Settings default. Background sub-agents offers Allowed or Off; a tab can inherit Settings.
 
-A selected model overrides agent requests. Agent's choice preserves parent inheritance unless the agent names another model. Admitted extra Tasks queue; calls beyond the turn budget are refused. Cancelling before start refunds a reserved place; started children keep counting. Settings apply next parent turn, including on existing installs. A running turn keeps its snapshot. These limits do not cap spending or add an ask-first prompt. CLI, Codex, Cursor and local providers do not use these Native settings; see [Providers](PROVIDERS.md#claude-native-sub-agent-controls).
+A selected model overrides agent requests. Agent's choice preserves parent inheritance unless the agent names another model. Admitted extra Tasks queue; calls beyond the turn budget are refused. Cancelling before start refunds a reserved place; started children keep counting. Allowed lets a `Task` call use `run_in_background` so the parent keeps working; Off makes every call wait for its result. Settings apply next parent turn, including on existing installs. A running turn keeps its snapshot. These limits do not cap spending. Separately, a batch that would exceed four starts in one turn or use a model with unknown relative cost asks for approval. Claude CLI, Codex, Cursor, Antigravity and local providers do not use these Native settings; see [Providers](PROVIDERS.md#claude-native-sub-agent-controls) and [Background sub-agents](PROVIDERS.md#background-sub-agents).

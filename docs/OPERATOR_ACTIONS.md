@@ -10,7 +10,7 @@ layout for workflow and cluster tabs. Deep contracts:
 | --- | --- |
 | **New project** | Opens a tab. The workflow creator opens a tab for the selected cwd, provider, model, effort, and tool allowlist. |
 | **Resume** | Lists existing native CLI sessions for the current cwd (`~/.claude/projects/...`, `~/.codex/sessions/...`). The selected session continues inside Arco. |
-| **Review** | Spawns an ephemeral reviewer (any provider/model) over the last turn or a plan slice. Output is a read-only artifact in the right pane. |
+| **Review** | Spawns an ephemeral reviewer (a supported provider and model) over the last turn or a plan slice. Output is a read-only artifact in the right pane. |
 | **SECOND OPINION** (formerly Compare) | Sends one question, or selected chat messages, to several provider/model legs; each drafts the reply the operator could send. With **Blind** on (the default) the model names stay hidden until one draft is picked; **USE THIS REPLY** puts a draft in the composer. Nothing is sent automatically. |
 | **Research** | Runs one bounded web-research turn; produces a cited markdown report in the RESEARCH tab. |
 | **Handoff** | Rotates the current tab's session. Quick builds a deterministic seed from recent conversation, the action digest and Git state; the new session starts in the same tab. A written handoff is optional and does not edit `DEVLOG.md`, `PLAN.md`, or other project files. |
@@ -41,6 +41,8 @@ same way as a normal tab:
 - **MEMORY** - HISTORY (the member in view), USAGE (every member's conversations in the project folder)
 - **RUNTIME** - PREVIEW, CONFIG, GITHUB
 
+A research project offers RESULTS in place of BOARD; PLAN belongs to the Research Director. See [Research projects](RESEARCH.md).
+
 FILES, HISTORY, PREVIEW, CONFIG and GITHUB mirror the single-worker tabs. Diagnostics / model-health / local-services
 live in the header SYSTEM modal, not the right pane.
 
@@ -49,9 +51,9 @@ live in the header SYSTEM modal, not the right pane.
 A cluster tab hosts N member workflows pinned to one cwd, with one message box
 (its TO chip picks the recipients; the director by default) and a shared
 peer-tool substrate. Use it for problems that
-benefit from multiple agents working alongside each other. The operator remains
-the only actor that advances a member's turn (unless the operator arms
-AUTO-PICKUP). Clusters are about peer-comms plumbing, not auto-orchestration.
+benefit from multiple agents working alongside each other. Ordinary clusters can advance members through operator actions or armed
+AUTO-PICKUP. Research projects also start researcher turns for rounds; Gemini
+turns wait for the operator. Clusters are about peer-comms plumbing, not auto-orchestration.
 
 ### Creating and replacing members
 
@@ -62,40 +64,36 @@ AUTO-PICKUP). Clusters are about peer-comms plumbing, not auto-orchestration.
 - **REPLACE** swaps one member slot to a brand-new workflow/provider session.
   The dialog starts from the old member and every choice can be changed:
   provider, model, effort, account, access, name, role, work size, focus, fast
-  mode, tool filter, output style and auto-compaction. Tab settings the dialog
-  does not show are copied. Prior transcript context and active task
-  assignments are independent choices.
+  mode, tool filter, output style and auto-compaction. OUTPUT STYLE is not offered
+  for Antigravity CLI. Tab settings the dialog does not show are copied. Prior
+  transcript context and active task assignments are independent choices.
 - **ADD FRESH** offers the same choices, starting from the first member's tab
   settings with no work size, focus or own auto-compaction.
 - Every path refuses an empty model, a model of another provider and a model
   the catalog does not list with the same message, and refuses a picked Codex
   account that is not set up in Settings instead of using another one.
 - Fresh and replacement workers can be STANDARD, BLIND (project-visible but no
-  cluster coordination context; mailbox only), or ISOLATED (Claude Native in a
-  private scratch cwd with no project access; mailbox only). Isolated workers
-  can return bounded scratch artifacts through `peer_send artifact_paths`.
+  cluster coordination context; mailbox only), or ISOLATED (a private scratch cwd with no project access; mailbox only). Claude Native uses fenced tools; Claude CLI, Codex and Cursor use a checked Linux sandbox. Isolated workers can return bounded scratch artifacts through `peer_send artifact_paths`.
 
 ### Peer messaging and plan
 
-Members register three tools: `peer_list` (roster + mailbox depth), `peer_send`
+Standard members register three tools: `peer_list` (roster + mailbox depth), `peer_send`
 (deliver to a peer's mailbox), `peer_read` (drain own mailbox). Pre-turn
-injection delivers pending peer messages as a system block before the
-operator's prompt. An independent message guard (Warn only / Hard limit / No
+Arco delivers pending peer messages at the next turn. Gemini members wait
+for the operator's NUDGE or typed message. An independent message guard (Warn only / Hard limit / No
 limit; new clusters default Warn only at 15) bounds sends per operator turn;
 50 pending per recipient; 16 KB per message (operator transcript-sends bypass
 to 32 KB).
 
 Author a cluster-wide plan in the PLAN sub-tab (32 KB cap, 28 KB soft warn);
-attach a free-form role hint per member (<=120 chars). Both ride as system
-blocks on every turn (Native via forced blocks, CLI / Codex via
-`--append-system-prompt`). A cluster may have at most one director; other role
-behavior stays emergent through conversation (no permission asymmetry beyond
-that limit). Work size is a director hint and does not change model or effort.
+attach a free-form role hint per member (<=120 chars). Standard members receive plan and role context on turns. Gemini receives
+its role and plan reminders as visible text when started by the operator. A
+cluster may have at most one director; access modes restrict available tools. Work size is a director hint and does not change model or effort.
 
 ### Provider support
 
 Cluster members are fenced to **claude** (CLI + Native), **codex** (`exec` +
-`app-server`), **cursor** (ACP), **ollama**, and **llamacpp**. Peer tools wire
+`app-server`), **cursor** (ACP), **antigravity-cli**, **ollama**, and **llamacpp**. Peer tools wire
 differently per provider:
 
 - Native Claude registers them in-process
@@ -105,6 +103,8 @@ differently per provider:
   loop
 - Cursor via an in-process loopback StreamableHTTP MCP server (ACP honors MCP
   over http/sse only, not stdio; fresh-only membership)
+- Antigravity CLI through ACP and scoped MCP tools; mail to or from a Gemini
+  member waits for the operator's NUDGE
 
 LM Studio / Strata / DeepSeek stay outside the cluster fence. How many members
 may use each local runtime is `localClusterCapacity` in Connections (default 1
@@ -148,7 +148,8 @@ run/attempt history, and statuses triage / todo / ready / in_progress / blocked 
 review / done / archived. New clusters start with their own cluster board; the creator and the board bar can choose the project board or none instead.
 Workers drive their own work through lifecycle peer-tools
 (`cluster_task_show` / `create` / `link` / `comment` / `heartbeat` / `block` /
-`complete`) but can only move work to `review`. `done` and `archived` stay
+`complete`) and move completed work to `review`. A Director met sign-off closes
+the task when Board auto-done is on; direct `done` and `archived` changes remain
 operator-only.
 
 The operational **BOARD** tab is a horizontal kanban (TODO -> ... -> DONE) with
@@ -177,7 +178,8 @@ one cwd can host many, and the same plan can attach to multiple workflows.
 
 - **PLAN button** in the composer opens a modal: `DRAFT → I'LL REVIEW` or
   **DRAFT & AUTO-SAVE**. Both inject a prompt synthesized from the conversation
-  (Goal / Current state / Open questions / Next steps with `- [ ]` items).
+  (Goal / Current state / Open questions / Next steps with `- [ ]` items). In a
+  cluster, the draft waits for ATTACH TO CLUSTER.
 - **PLAN tab** - list of plans with attachment counts; active inline, completed
   behind a toggle. Select a plan to attach it.
 - **Living document loop** - an fs watcher catches agent-driven `.md` edits

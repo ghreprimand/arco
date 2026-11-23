@@ -15,10 +15,10 @@ export const chat: Section[] = [
   <p>SEND waits for every pending attachment upload, including overlapping paste or drop batches. Completed files stay staged until the message is sent.</p>
   <p>EDIT replaces the draft text and attachments with the selected message. Editing a text-only message clears any staged attachments.</p>
   <p>
-  Chat is a plain conversation with a model, with no project attached. On every
-  provider it reads only what the user attaches to the message; relative and
-  absolute paths on the computer are refused. Use an Agent tab instead when the
-  work needs project files, commands or project tools.
+  Chat is a conversation with a model, with no project attached. Most providers
+  receive attached files rather than paths. Antigravity CLI uses tools in a
+  separate working folder; with AUTO, its tools can reach what the user account
+  can. OPEN FOLDER shows that workspace.
   </p>
   <p>
   Cursor Chat does not attach Arco project-file tools; files attached to a
@@ -31,11 +31,12 @@ export const chat: Section[] = [
   provider and model, then launch.
   </p>
   <p>
-  A Chat tab has no project tree, right-hand workbench, skills, CONFIG pane,
-  or Review/Handoff/Spawn actions.
+  A Chat tab has no project tree, right-hand workbench, CONFIG pane, or
+  Review/Handoff/Spawn actions. Antigravity CLI reads its own rules and installed
+  skills, and can use Arco file and plan tools through MCP.
   </p>
   <p>
-  Supported providers: <strong>Claude, Codex, Cursor, Ollama, llama.cpp,
+  Supported providers: <strong>Claude, Codex, Cursor, Antigravity CLI, Ollama, llama.cpp,
   LM Studio, Strata and DeepSeek</strong>. The creator only offers providers
   that are enabled, signed in and have models available.
   </p>
@@ -48,8 +49,8 @@ export const chat: Section[] = [
   </li>
   <li>
   <strong>WEB</strong> turns on web search and fetch, including Native
-  <Code>read_url</Code> for public image and document links. Chat has no local
-  file or shell tools.
+  <Code>read_url</Code> for public image and document links. Antigravity CLI
+  uses its own tools and does not have this WEB toggle.
   </li>
   </ul>
   <p>
@@ -126,9 +127,8 @@ export const chat: Section[] = [
   id: 'incognito-chat', group: 'Workflows & sessions', title: 'Incognito Chat - privacy and limits',
   body: <>
   <p>
-  Incognito Chat keeps a conversation in memory only, and nothing about it is
-  saved on this machine. It works only with providers that can turn off local
-  saving.
+  Arco keeps an Incognito Chat in memory and does not save its transcript.
+  It is offered only with providers that can turn off local session saving.
   </p>
   <p>
   Turn on <strong>INCOGNITO CHAT</strong> in the Chat creator{' '}
@@ -152,6 +152,7 @@ export const chat: Section[] = [
   </p>
   <ul>
   <li><strong>Cursor</strong> is excluded: its CLI cannot turn off session saving.</li>
+  <li><strong>Antigravity CLI</strong> is excluded because it retains its own history.</li>
   <li><strong>llama.cpp</strong> is excluded: its shared server writes a persistent log.</li>
   <li><strong>Strata</strong> and <strong>DeepSeek</strong> are excluded: their service logs and image cache persist.</li>
   </ul>

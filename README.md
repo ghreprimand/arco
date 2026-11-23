@@ -211,12 +211,14 @@ making it reachable elsewhere.
 ## Highlights
 
 - **Home:** the start page for project locations, bookmarks, open work, and saved sessions. Pin or archive projects, recover moved folders, and resume work. [Getting started](docs/GETTING_STARTED.md)
-- **Provider choice:** Claude, Codex, Cursor, Ollama, LM Studio, and llama.cpp. [Providers](docs/PROVIDERS.md)
+- **Provider choice:** Claude, Codex, Cursor, Gemini through Antigravity CLI, Ollama, LM Studio, and llama.cpp. [Providers](docs/PROVIDERS.md)
 - **Optional external services:** Strata and DeepSeek through Xolotl require separately installed services that Arco does not distribute. [Provider guide](docs/PROVIDERS.md)
 - **Utility agent:** one operator-chosen provider and model for short side jobs such as **BRIEF**, **CATCH ME UP**, and **TIDY**. Accepts Claude with Native sign-in, Codex, Cursor, Ollama, LM Studio, llama.cpp, and Strata or DeepSeek through Xolotl; never chosen silently. [Settings](docs/SETTINGS.md#utility-agent) | [Feature reference](docs/FEATURES.md)
 - **Conversation control:** interrupt an active Claude or Codex turn and send a correction next, preserving queued follow-ups. Mid-turn sends show Queued or Delivered; the conversation header names the current step and its elapsed time. PLAN FIRST arms a Native Claude turn to plan before editing, separately from the project plan. It is hidden for cluster roles that do not edit code. [Interrupt and send](docs/PROVIDERS.md#interrupt-and-send)
 - **Upload from phone:** **UPLOAD FROM PHONE** beside Attach puts photos and files from a phone on the same private network or Tailscale tailnet into the draft through a short-lived QR code and an upload-only listener when Arco stays on loopback. [Upload from phone](docs/OPERATIONS.md#upload-from-phone) | [Operations](docs/OPERATIONS.md)
 - **Operator actions:** Review, SECOND OPINION, Research, Handoff, and Spawn keep results visible and actions explicit. [Operator actions](docs/OPERATOR_ACTIONS.md)
+- **Research projects:** Independent researchers answer a brief in rounds; a Research Director synthesizes the released reports. Quick research runs one round and can be kept as a project. [Research projects](docs/RESEARCH.md)
+- **Phone view:** Open `/mobile` on the same server for one conversation at a time, with tab and cluster navigation and panels. [Phone view](docs/CLIENT.md#mobile-view)
 - **Clusters and plans:** size-ordered templates, at most one director, eight
   role presets including ADVISOR and DESIGNER, shared task boards, peer
   messages, plans, and optional operator-armed AUTO-PICKUP (Rule-based

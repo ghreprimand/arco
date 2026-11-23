@@ -17,9 +17,10 @@ export const configuration: Section[] = [
   <p>In Connections, clear <strong>Model server address</strong> and choose <strong>Save endpoint</strong> to restore the runtime default. Other Ollama options stay saved. Use <strong>Test connection</strong> to check the resulting address.</p>
   <p>Antigravity CLI 1.5.15 or later keeps a turn open for its sub-agents. Update from the Versions menu if an older version is installed. A sub-agent's own tool calls are not shown over ACP and are not gated by SAFE permission requests.</p>
   <Sub>Claude Native sub-agents</Sub>
-  <p>Open Settings - Agents and clusters - Claude Native sub-agents. About this setting includes help for each of the three controls.</p>
-  <p>Settings - Agents and clusters and the tab's CONFIG panel offer Maximum running at once (default 4), Maximum starts per turn (default 8), and Sub-agent model. Both limits apply to existing installs on the next parent turn. Blank tab limits inherit Settings; blank Settings limits use 4 and 8.</p>
+  <p>Open Settings - Agents and clusters - Claude Native sub-agents. About this setting includes help for each of the four controls.</p>
+  <p>Settings - Agents and clusters and the tab's CONFIG panel offer Maximum running at once (default 4), Maximum starts per turn (default 8), Sub-agent model, and Background sub-agents (Allowed by default, or Off). Both limits apply to existing installs on the next parent turn. Blank tab limits inherit Settings; blank Settings limits use 4 and 8.</p>
   <p>Agent's choice keeps the existing rule: use the parent's model unless the agent requests another. Choosing a catalog model overrides that request. A tab can inherit the Settings model or explicitly choose Agent's choice. Unavailable selections are refused. Limits do not bound token use or spending.</p>
+  <p>Allowed Background sub-agents lets the agent start a child with run_in_background and keep working; Off makes every call wait. STOP, the row's CANCEL and closing the tab end background children; a new message does not.</p>
   <p>Before a batch would exceed four starts in one turn or use a model with an unknown relative cost, Arco asks once. Choose ALLOW, ALLOW ON ANOTHER MODEL or DENY. The selected model applies only to that batch. All open pages share the decision. STOP cancels the question. A service restart closes an unanswered approval; no child starts from it.</p>
   <p>Admitted extra tasks show QUEUED and wait without starting a child. Calls beyond the turn budget are refused. Cancelling queued work releases its reserved place; started children count even when cancelled. Task rows retain their model after reload. The waiting strip counts pending sub-agents; CANCEL TURN stops them all. Individual CANCEL also works while queued.</p>
   <p>Its Task result tells the parent that the operator cancelled the sub-agent, to count it as cancelled, and not to start a replacement unless requested. This is an instruction to the model.</p>
@@ -490,12 +491,13 @@ export const configuration: Section[] = [
   <p>
   <strong>Skills</strong> are managed in Settings &gt; SKILLS and stored as
   folders with a <Code>SKILL.md</Code> under project <Code>.arco/skills/</Code>{' '}
-  or global <Code>~/.arco/skills/</Code>. The primary sees a compact manifest
-  each turn; it reads the full skill body on demand with normal file tools.
+  or global <Code>~/.arco/skills/</Code>. Supported providers receive a compact manifest each turn and can read skill
+  bodies with normal file tools. Antigravity CLI receives the available list on
+  its first turn.
   </p>
   <p>From the composer:</p>
   <ul>
-  <li><strong>APPLY ONCE</strong> inlines one body into the next turn. Choices stay with the tab across navigation; EDIT merges restored choices, and an accepted send clears them.</li>
+  <li><strong>APPLY ONCE</strong> inlines one body into the next turn for supported providers. Antigravity CLI does not receive picked or pinned Arco skill bodies. Choices stay with the tab across navigation; EDIT merges restored choices, and an accepted send clears them.</li>
   <li>
   <strong>PIN TO TAB</strong> keeps reapplying the current body every turn
   until its visible chip is removed.
@@ -537,7 +539,7 @@ export const configuration: Section[] = [
   <p>In Settings &gt; SKILLS, PIN TO TAB selects an Agent tab. PIN TO CLUSTER
   selects a cluster and All members or one role. A custom role must match its
   saved text exactly. Project skills stay within their project; global skills
-  can be pinned anywhere. Full text is added on every matching member's next turn.</p>
+  can be pinned anywhere. Full text is added on the next turn for matching members on supported providers; Antigravity CLI does not receive pinned bodies.</p>
   <p>The active tab or its cluster is selected when eligible. After a pin is
   saved, Settings names the skill, destination and role.</p>
   <p>The cluster SKILLS button beside EFFICIENCY shows the configured count.
@@ -816,7 +818,7 @@ export const configuration: Section[] = [
   <p>
   <strong>NORTH STAR</strong> - a per-tab free-text objective (operator-only
   write; the model sees it read-only). It is pinned into the system prompt
-  every turn on every transport that folds the cluster plan.
+  each turn on supported transports.
   </p>
   <ul>
   <li>Capped at 2048 bytes.</li>

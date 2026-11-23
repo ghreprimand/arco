@@ -39,7 +39,7 @@ A missing SQLite binding can leave the server running while Recall is unavailabl
 Requirements:
 
 - Node.js **24 or 26**. The SQLite and terminal bindings use Node-API. If a binding cannot load, reinstall dependencies with `npm ci --include=dev` and check platform compatibility.
-- One or more configured providers: Claude (`claude auth login`), Codex (`codex login`), Cursor (`cursor-agent login`), or a local backend (Ollama, LM Studio, or `llama-server` + `~/.arco/llamacpp.json`)
+- One or more configured providers: Claude (`claude auth login`), Codex (`codex login`), Cursor (`cursor-agent login`), Antigravity CLI (sign in through Settings), or a local backend (Ollama, LM Studio, or `llama-server` + `~/.arco/llamacpp.json`)
 - Linux, macOS or Windows (see the cross-platform notes in [`docs/GOTCHAS.md`](docs/GOTCHAS.md))
 
 `npm run dev` starts both the server (port 3001, `tsx watch`) and the client (port 5173, Vite) under `concurrently --kill-others`. If one dies, both die.
@@ -67,7 +67,7 @@ Arco/
 │   ├── providers/                   # claude, claude-native/, codex, codex-appserver/,
 │   │                                #   ollama, ollamaTools, llamacpp,
 │   │                                #   llamacppManager, llamacppRecovery, lmstudio,
-│   │                                #   cursor/ (acp worker + print.ts one-shot);
+│   │                                #   cursor/ (acp worker + print.ts one-shot), antigravity/;
 │   │                                #   shared: codexCodeMode, goalBlock, outputStyle
 │   ├── mcp/                         # MCP registry + clusterMcpServer/clusterMcpTools +
 │   │                                #   clusterMcpLoopback (Cursor) + osvCheck + safeEnv

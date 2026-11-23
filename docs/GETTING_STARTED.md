@@ -23,7 +23,7 @@ provider CLIs are already signed in on the machine.
    secondary option for a one-off folder outside the usual locations.
 3. Add one or more choices to the visible summary, then choose **Continue**.
    Adding the first choice does not advance the step or start work.
-4. Connect a provider through Connections. An existing CLI login is prefilled.
+4. Connect a provider through Connections. Existing CLI logins are detected where supported.
 5. On **Setup complete**, review the name, choices, and provider. Choose
    **Go to Home**, or **Start a chat** to open the normal creator.
 
@@ -50,6 +50,8 @@ location or search names and paths (press `/` to focus search). A project card
 shows its folder, activity, and open tabs. **New session** opens the creator
 with that folder. The **...** menu offers **New cluster**, **Saved sessions**,
 **Pin** or **Unpin**, and **Manage** for rename, archive, or bookmark removal. Use **Pinned** in the location filter to show pins. Relocate a missing folder under **Settings > Projects > Bookmarked folders** or **Missing folder references**. None of these actions moves or deletes files.
+
+Home also offers a **Research library** for reopening or locating saved research projects.
 
 Use **Add project location** for a named parent folder and **Open another
 folder** for a one-off session or an optional bookmark. The location filter
@@ -294,11 +296,9 @@ To attach a photo or file from a phone on the same private network without
 opening the full workbench, use **UPLOAD FROM PHONE** beside Attach. Prefer the
 worked paths under [Upload from phone](OPERATIONS.md#upload-from-phone).
 
-### Chat without project tools
+### Start a saved Chat
 
-For a plain saved conversation without file or project tools, choose **CHAT** in
-the creator and select **START CHAT**. Saved Chat is the default. Incognito Chat
-is memory-only in Arco and cannot be resumed after closing the tab.
+Choose **CHAT** in the creator and select **START CHAT**. Saved Chat is the default. Most providers receive attachments instead of local file paths. Antigravity CLI uses its own tools and Arco file and plan tools in a separate working folder; that folder is not a security fence. Incognito Chat is memory-only in Arco and cannot be resumed after closing the tab.
 
 ## Create a first cluster
 
@@ -306,7 +306,7 @@ A cluster is a group of workflow members that share one project folder. It needs
 at least two members, each with a model selected.
 
 1. Open the workflow creator from **HOME** and select **CLUSTER**.
-2. Set the shared folder in **PROJECT FOLDER**. All members use this same folder.
+2. Set the shared folder in **PROJECT FOLDER**. Standard members use it; isolated members use private workspaces.
 3. Optionally start from a template (Pair, Small team, Research, Medium team,
    Full team, Parallel build, Large team) or **Build my own**. Template review
    lists each member's role and a Recommended model line. Repeated roles offer

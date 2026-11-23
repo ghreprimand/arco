@@ -9,12 +9,12 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.skills': {
     title: 'Cluster skill pins',
-    body: <><p><C>SKILLS</C> beside EFFICIENCY shows configured cluster pins, including missing or off skills. Open it to see each skill's source and All members or role target. Full text is added each turn for matching members; new and replaced members inherit it.</p><p>Only the operator pins or unpins. Use ADD SKILL to choose a skill and pin it to all members or one role. Settings &gt; SKILLS also manages skills and pins. Tab, cluster and matching role pins share 12 unique skills and 64 KiB of text.</p></>,
+    body: <><p><C>SKILLS</C> beside EFFICIENCY shows configured cluster pins, including missing or off skills. Open it to see each skill's source and All members or role target. Full text is added each turn for matching members on supported providers; Antigravity CLI does not receive pinned skill bodies. New and replaced members inherit the pins.</p><p>Only the operator pins or unpins. Use ADD SKILL to choose a skill and pin it to all members or one role. Settings &gt; SKILLS also manages skills and pins. Tab, cluster and matching role pins share 12 unique skills and 64 KiB of text.</p></>,
     manualSection: 'skills',
   },
   'cluster.skills.add': {
     title: 'Add a cluster skill',
-    body: <p>Choose an available project or global skill, then choose all members or one role. Full text is included on matching members' next turns. Turn on or create skills in Settings &gt; SKILLS.</p>,
+    body: <p>Choose an available project or global skill, then choose all members or one role. Full text is included on matching members' next turns for supported providers; Antigravity CLI does not receive pinned skill bodies. Turn on or create skills in Settings &gt; SKILLS.</p>,
     manualSection: 'skills',
   },
   'cluster.skills.unpin': {
@@ -197,7 +197,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
         Who your next message goes to. It starts as the member in view. Click
         to choose one or several members (<C>EVERYONE</C> selects all). Idle
         members start a fresh turn; busy members receive it as a follow-up.
-        A message to one member preserves picked skills, steering intent and composer actions. Computer opens this chooser with the current selection. For several members, the toast reads <em>X of N members</em> to confirm scope. After a
+        A message to one member preserves picked skills, steering intent and composer actions. Gemini messages do not receive picked or pinned Arco skill bodies. Computer opens this chooser with the current selection. For several members, the toast reads <em>X of N members</em> to confirm scope. After a
         successful message the chip returns to the member in view. If disconnected, the draft, attachments and recipient selection remain for retry.
       </p>
     ),
@@ -497,7 +497,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.member.output-style': {
     title: 'Output style',
-    body: <p>How the worker&apos;s replies are written: NORMAL, PLAIN or TERSE. PLAIN is the default and is used when the member has no saved choice. Shown and applied for every provider.</p>,
+    body: <p>How the worker&apos;s replies are written: NORMAL, PLAIN or TERSE. PLAIN is the default and is used when the member has no saved choice. Not offered for Antigravity CLI.</p>,
     manualSection: 'cluster-member-replacement',
   },
   'cluster.member.auto-compaction': {
@@ -1261,7 +1261,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Project trust',
     body: (
       <>
-        <p>Whether this project&apos;s own instruction files, project skills and Arco project settings may shape member turns. For an untrusted project they are left out, so a cloned repository cannot quietly steer your workers. All members share the project folder, so one choice covers them all.</p>
+        <p>Whether this project&apos;s own instruction files, project skills and Arco project settings may shape member turns. For an untrusted project they are left out, so a cloned repository cannot quietly steer your workers. One choice covers the cluster; isolated members use separate workspaces.</p>
         <p>The chip appears only when the project actually has such files. Arco asks once, in whichever member&apos;s message box meets them first; this chip grants or withdraws trust later. Changes apply on each member&apos;s next turn.</p>
       </>
     ),

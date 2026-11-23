@@ -3,6 +3,8 @@
 Genesis turns a vague idea into a defined, scaffoldable project through a short staged
 conversation. Genesis uses a staged ideation lifecycle, anchored anti-hallucination field prompts, readiness checks, and a scaffold writer. It does not add a separate agent loop. Genesis uses Arco's existing primary agent, assembling its system blocks plus a next-field prompt. **No new loop, no second model, no separate orchestration layer, no new database.** It follows Arco's rules for operator-reviewed scaffolding: operator-initiated, deterministic, visible in `events.jsonl`, and reversible.
 
+Antigravity CLI is not available for launching a Genesis workflow; select another provider.
+
 ## The seed
 
 Field assistance keeps the selected provider, model, account and transport while using a separate provider session. Its suggestions remain attributed to the visible Genesis tab. The primary conversation and its cached worker stay unchanged, and the auxiliary session is disposed when the request settles.

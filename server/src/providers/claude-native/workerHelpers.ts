@@ -214,8 +214,7 @@ export function projectCompactSummaryMessages(messages: MessageParam[]): ClaudeR
 // holds only clean text messages, so cutting the last tail.length raw messages
 // off is right only when those messages are exactly the tail. When tool calls,
 // tool results or collapsed same-role text sit among them, that cut would drop
-// them from both the summary and the tail (a turn that had read a brief was
-// summarized as "nothing executed yet"); then everything is summarized and the
+// them from both the summary and the tail; then everything is summarized and the
 // tail is still kept, repeating a little of what the summary covers, so the
 // latest messages stay word for word.
 export function compactSplit(messages: MessageParam[], keptTail: ClaudeResumeMessage[]): { summarize: MessageParam[]; tail: ClaudeResumeMessage[] } {

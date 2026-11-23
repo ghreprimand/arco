@@ -13,7 +13,7 @@ Arco/
   server/src/
     index.ts                     # HTTP + WS server, workflow state machine
     providers/                   # claude / claude-native/ / codex / codex-appserver/ /
-                                 #   cursor/ / ollama / llamacpp
+                                 #   cursor/ / antigravity/ / ollama / llamacpp
                                  #   (+ Manager) / lmstudio, plus goalBlock,
                                  #   outputStyle, codexCodeMode, ragInjection, fallbackChain,
                                  #   errorClassifier
@@ -30,6 +30,7 @@ Arco/
     hardware/                    # hardware probe + model-fit math
     genesis/                     # scaffold / stages / creative / prompts
     knowledge/                   # distill + store (codebase memory)
+    research/                    # projects, rounds, library and researcher access
     recall/                      # search / summarize index
     terminal/                    # PTY manager + channel + PID registry
     media/                       # ffmpeg / demucs / scratch

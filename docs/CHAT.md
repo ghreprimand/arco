@@ -7,20 +7,22 @@ persistence and privacy boundaries.
 
 Choose **+ NEW → CHAT** for conversation without a project. Pick a name, provider,
 model and supported effort, then launch. Chat has no Agent CONFIG/right panel,
-file tree, skills, Review/Handoff/Spawn or project actions - use an Agent tab when
-you need those. Claude Native's `chat` **tool posture** is different: it is a
+file tree, Review/Handoff/Spawn or project actions - use an Agent tab when
+you need those. Antigravity CLI saved Chats use a separate working folder and
+have access to Arco file and plan tools through MCP. Claude Native's `chat` **tool posture** is different: it is a
 limited tool set inside a project Agent, not a Chat tab.
 
 | Mode | Providers | Local persistence | Reopen |
 |---|---|---|---|
-| Saved Chat | Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata, DeepSeek | Arco event/meta files and provider session storage where supported | + NEW → CHAT → PAST CHATS |
+| Saved Chat | Claude, Codex, Cursor, Antigravity CLI, Ollama, llama.cpp, LM Studio, Strata, DeepSeek | Arco event/meta files and provider session storage where supported | + NEW → CHAT → PAST CHATS |
 | Incognito Chat | Claude, Codex, Ollama, LM Studio | Memory-only in Arco; provider-local session persistence disabled | None after close/refresh/restart |
 
 For Chat tabs, provider enablement, authentication, and model availability gates
 apply. Cursor's CLI has no ephemeral-session flag and llama.cpp's shared daemon
 always logs to `~/.arco/llamacpp.log`, so both are rejected for Incognito. Strata
 and DeepSeek are also excluded from Incognito because their request logs or
-caches persist outside Arco.
+caches persist outside Arco. Antigravity CLI retains its own history and is also
+unavailable for Incognito.
 
 **Header.** Shows the tab name, a **model + effort picker** (same provider only;
 applies to the next message, the conversation carries over; an off-catalog model
@@ -52,8 +54,8 @@ Strata saved Chats use the same SearXNG `WebSearch` / `WebFetch` pair as Ollama.
 The header toggle defaults on; switching it off removes tools. Dispatch also
 rejects all project tools, even if the model invents an unadvertised tool call.
 
-A per-tab toggle (`WorkflowConfig.chatWebAccess`) arms web search + fetch, including Native `read_url` for public file links, and
-nothing else - no local file tools, shell, MCP or project. Absent means **on for a saved
+For providers listed below, a per-tab toggle (`WorkflowConfig.chatWebAccess`) arms web search + fetch, including Native `read_url` for public file links, and
+nothing else - no local file tools, shell, MCP or project. Antigravity CLI uses its own tools and has no Arco WEB toggle. Absent means **on for a saved
 chat, off for Incognito** (a search query leaves the machine, so Incognito opts
 in explicitly). `chatWebArmed()` in `server/src/chatMode.ts` is the single
 decider; every transport states the mode outright rather than inheriting a
@@ -84,7 +86,7 @@ tools it now has.
 
 ## Attachments
 
-On every provider, a Chat tab reads only what the user attaches to the message. Relative and absolute paths on the computer are refused; there is no project file tool. Attach images and documents instead.
+Most Chat providers receive attached files rather than paths. Antigravity CLI can use file and plan tools through MCP in its separate working folder. That folder is not a fence: with AUTO, its tools can reach what the user account can. Attach images and documents with the composer.
 
 Attach with **+**, paste, or drop anywhere on the view (the app-wide
 DragOverlay dispatches `arco:attach-files`; `ChatModeView` listens for it just
@@ -109,6 +111,8 @@ the message asks for it to be attached again. Images are fitted to the transport
 | Ollama | base64 `images` on vision-capable models |
 | llama.cpp | OpenAI `image_url` parts when the loadout declares vision + `mmprojPath`; otherwise an image note |
 | LM Studio | OpenAI `image_url` parts when native model metadata confirms vision; otherwise an image note |
+| Strata / DeepSeek | Image input when the configured model reports vision support; otherwise an image note |
+| Antigravity CLI | fitted ACP image blocks |
 | Cursor (Chat -> `print`) | explicit fitted image input in a private turn folder |
 | Cursor (Agent -> ACP) | native ACP `image` blocks when `initialize` advertises `promptCapabilities.image`; otherwise an image note |
 
@@ -116,8 +120,7 @@ Chat does not need a file tool to receive decoded attachment content. Cursor
 print supplies fitted images as explicit inputs in a private turn folder.
 
 **Image fitting.** Arco uses bundled image codecs to fit supported images within
-2,000 pixels per side and 5 MB base64. Large GIFs are fitted too. SVG attachments include source text. Image-capable models also receive a fitted preview when rendering succeeds; text-only models receive an image-omission note. The original
-upload stays unchanged; file references keep its name. ImageMagick or macOS
+2,000 pixels per side and 5 MB base64. Large GIFs are fitted too. SVG attachments include source text. Image-capable models also receive a fitted preview when rendering succeeds; text-only models receive an image-omission note. JPEG and PNG uploads over 1 MiB or 2,000 pixels on the long edge may be replaced at the same path by a smaller fitted copy; no full-size backup is kept. Smaller files, other formats and failed or non-saving conversions keep the original. The replacement omits PNG text chunks and colour profiles and JPEG metadata other than EXIF. File references keep the name. ImageMagick or macOS
 sips can accelerate decoding, but neither is required.
 
 `POST /upload` starts `queueModelImage` without delaying the upload response.

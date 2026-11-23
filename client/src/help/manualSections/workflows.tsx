@@ -316,7 +316,7 @@ codex exec resume <thread-id> "next prompt"
   <p>Field assistance uses a separate provider session while keeping the selected transport and account. Suggestions belong to this Genesis tab, while the primary conversation keeps its existing context and worker.</p>
   <p>
   <strong>Genesis</strong> starts a project from a vague idea instead of a folder.
-  Pick <Code>GENESIS</Code> in the new-workflow mode toggle, give a working name and
+  Antigravity CLI is not available for launching Genesis; select another provider. Pick <Code>GENESIS</Code> in the new-workflow mode toggle, give a working name and
   a <em>Spark</em> (the raw idea), and launch. No working directory is required.
   </p>
   <p>Seed controls are temporarily disabled while SAVE PLAN or CREATE ALTERNATIVE saves the public-project choice. Seed edits save automatically. Pending edits are sent when leaving GENESIS and before SAVE PLAN, CREATE &amp; SCAFFOLD or CREATE ALTERNATIVE.</p>

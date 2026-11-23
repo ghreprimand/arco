@@ -460,7 +460,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     title: 'Output style',
     body: (
       <p>
-        How this tab&apos;s replies are written, on every provider.{' '}
+        How this tab&apos;s replies are written. This setting is not offered for Antigravity CLI.{' '}
         <C>PLAIN</C>, the default, asks for clear sentences with the answer
         first, and ends every turn with a complete reply: what was done,
         checked and found, assumptions, risks, what is left and what needs
@@ -479,7 +479,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <p>If metadata cannot be saved, a notice identifies the change as temporary for this running tab; retry after storage is available.
         A durable, per-tab objective pinned into the system prompt every turn
-        until you clear it: it steers priorities and what "done" looks like.
+        until you clear it: it steers priorities and what "done" looks like. NORTH STAR is not offered for Antigravity CLI.
         Operator-only write, model read-only; capped at <C>2048</C> bytes
         (trimmed on save). Pure context, <strong>not</strong> an instruction to
         act autonomously: it never loops, grades work, or spawns anything.
@@ -495,7 +495,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>A combined goal-and-arm request uses the proposed goal. Clearing that goal while arming is refused. If metadata cannot be saved, a notice identifies the change as temporary for this running tab; retry after storage is available.
-          Keeps this tab working toward its north star without you retyping
+          GOAL RUN is not offered for Antigravity CLI. For supported providers, it keeps this tab working toward its north star without you retyping
           &quot;continue&quot;. Armed for a fixed number of iterations; after each
           turn settles, one automatic continuation turn is dispatched. Every
           iteration is an ordinary visible turn in the transcript, and a{' '}
@@ -808,7 +808,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
       <>
         <p>
           Open from <C>MEMORY &gt; USAGE</C> in a single-worker, chat or cluster tab
-          (a cluster tab covers all members, since they share one folder). Per-provider,
+          (a cluster tab covers conversations saved in the cluster project folder). Per-provider,
           per-day token-volume + cache-hit-ratio trends for every conversation under
           this project's cwd: a quota-pressure read of{' '}
           <em>which tab/model is eating your rolling window</em>, framed as token

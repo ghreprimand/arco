@@ -4,7 +4,7 @@ The Architecture review is a skill shipped with Arco. It finds places where a pr
 
 ## Running it
 
-In the composer, open **SKILLS**. Under **BUILT-IN**, **RUN** sends one message ("Run the Architecture review on this project.") with the skill attached, the same way **APPLY ONCE** attaches a skill. In a cluster tab the message goes to the member in view. **EDITABLE COPY** saves the skill text as an ordinary operator-only skill named "Architecture review (copy)", in the project's skills or, for a tab without a folder, the global skills.
+In the composer, open **SKILLS**. Under **BUILT-IN**, **RUN** sends one message ("Run the Architecture review on this project.") with the skill attached, the same way **APPLY ONCE** attaches a skill. In a cluster tab the message goes to the member in view. Picked and pinned Arco skill bodies are not inserted into Antigravity CLI messages. **EDITABLE COPY** saves the skill text as an ordinary operator-only skill named "Architecture review (copy)", in the project's skills or, for a tab without a folder, the global skills.
 
 ## Facts gathered by Arco
 

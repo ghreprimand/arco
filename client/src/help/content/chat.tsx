@@ -4,15 +4,13 @@ import type { HelpEntry } from './shared';
 export const chatHelp: Record<string, HelpEntry> = {
   'creator.chat-mode': {
     title: 'Chat: no project', manualSection: 'chat-mode',
-    body: <p>A conversation without project tools or the Agent workbench. Supports
-      Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata and DeepSeek. On every provider it reads only message attachments; paths on the computer are refused. Choose a model
-      here; use an Agent tab for project files, commands and project actions. Saved Chat supports image/file attachments.</p>,
+    body: <p>A conversation without the Agent workbench. Supports Claude, Codex, Cursor, Antigravity CLI, Ollama, llama.cpp, LM Studio, Strata and DeepSeek. Most providers receive attachments instead of paths. Antigravity CLI uses tools in a separate working folder; AUTO permissions let its tools reach what the user account can. Saved Chat supports image/file attachments.</p>,
   },
   'creator.incognito': {
     title: 'Incognito Chat', manualSection: 'incognito-chat',
     body: <p>Memory-only in Arco: no saved transcript, metadata, operational logs,
       notifications or browser-persisted chat. Closing, refreshing or restarting
-      loses it. Cursor, llama.cpp, Strata and DeepSeek cannot meet this boundary and are excluded.
+      loses it. Cursor, Antigravity CLI, llama.cpp, Strata and DeepSeek cannot meet this boundary and are excluded.
       Provider-side retention remains provider-controlled.</p>,
   },
   'creator.past-chats': {
@@ -25,7 +23,7 @@ export const chatHelp: Record<string, HelpEntry> = {
     title: 'Chat status', manualSection: 'chat-mode',
     body: <p>The provider, model, effort, web access and saved/incognito state for this
       projectless conversation. Model and effort swap live and apply to the next message;
-      the provider stays pinned. Cursor Chat receives plain-text CLI replies. Antigravity Chat sends the submitted message and attachments, a visible reminder for an attached plan, and an available skill list on the first turn. Expand the skill line to read it; each Gemini sub-agent start has its own conversation line. COMPACT sends /compact to the current Gemini session. The CLI reads its working folder rules and installed skills itself, and can use Arco file and plan tools through MCP. Antigravity Chat uses tools in a separate working folder; OPEN FOLDER shows its files. Its folder is not a fence, and AUTO permissions let tools reach what the user's account can. Incognito is unavailable because agy retains history. This is distinct from an Agent's limited <C>chat</C> tool posture.</p>,
+      the provider stays pinned. Cursor Chat receives plain-text CLI replies. Antigravity Chat sends the submitted message and attachments, a visible reminder for an attached plan, and an available skill list on the first turn. Expand the skill line to read it; each Gemini sub-agent start has its own conversation line. COMPACT sends /compact to the current Gemini session. Picked and pinned Arco skill bodies are not inserted into Gemini messages. The CLI reads its working folder rules and installed skills itself, and can use Arco file and plan tools through MCP. Antigravity Chat uses tools in a separate working folder; OPEN FOLDER shows its files. Its folder is not a fence, and AUTO permissions let tools reach what the user's account can. Incognito is unavailable because agy retains history. This is distinct from an Agent's limited <C>chat</C> tool posture.</p>,
   },
   'chat.codex-transport': {
     title: 'Codex Chat: exec', manualSection: 'chat-mode',
@@ -47,8 +45,7 @@ export const chatHelp: Record<string, HelpEntry> = {
     title: 'Chat web access', manualSection: 'chat-mode',
     body: <p>Arms web search and fetch for this chat, including Native <C>read_url</C> for public file links.
       No local file tools, no shell, no project. On by default for a saved Chat, off for Incognito
-      (a search query leaves the machine). Available on Claude, Codex, Cursor, Ollama, Strata and DeepSeek; other Chat providers have
-      no web tool to arm. Takes effect on the next message. When Arco&apos;s direct public-URL reader is used,
+      (a search query leaves the machine). Available on Claude, Codex, Cursor, Ollama, Strata and DeepSeek; Antigravity CLI uses its own tools without this switch. Takes effect on the next message. When Arco&apos;s direct public-URL reader is used,
       text downloads stop at 128 KiB and media or document sources have a 512 MiB limit.
       Claude CLI Chat permits the enabled web pair without an extra permission prompt.
       Private addresses and unsafe redirects are refused.</p>,
@@ -56,7 +53,7 @@ export const chatHelp: Record<string, HelpEntry> = {
   'chat.attach': {
     title: 'Attach to chat', manualSection: 'chat-mode',
     body: <p>Attach images or files to the next message; you can also paste them straight
-      into the composer or drop them anywhere on the window. Chat has no project file tool, so a path alone is refused; attach the file instead. Arco fits images and extracts text from PDFs, office documents and notebooks, including chats without file tools. Cursor Chat attaches no Arco project-file server; message attachments still work. Text-only models receive an image note; other binaries receive a file note. Each attachment is named before its content and marked at the end. Earlier uploads are restored within the same limits after restart, including when a parent folder is linked; attach them again if unavailable. Links at or inside uploads are refused. Uploads are saved on disk (the <C>uploads</C> folder in the Arco home for a package install, in the checkout for a source run), so Incognito chats
+      into the composer or drop them anywhere on the window. Most Chats do not have a project file tool, so attach a file instead of sending its path. Antigravity CLI uses its own tools and Arco file and plan tools in a separate working folder. Arco fits images and extracts text from PDFs, office documents and notebooks, including chats without file tools. Cursor Chat attaches no Arco project-file server; message attachments still work. Text-only models receive an image note; other binaries receive a file note. Each attachment is named before its content and marked at the end. Earlier uploads are restored within the same limits after restart, including when a parent folder is linked; attach them again if unavailable. Links at or inside uploads are refused. Uploads are saved on disk (the <C>uploads</C> folder in the Arco home for a package install, in the checkout for a source run), so Incognito chats
       have no attach button. SEND stays blocked until every overlapping upload batch finishes.</p>,
   },
   'chat.input': {

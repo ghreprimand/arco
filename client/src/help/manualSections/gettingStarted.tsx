@@ -18,8 +18,8 @@ export const gettingStarted: Section[] = [
   <li><strong>Clusters</strong> group project agents. Members share one folder and pass notes through peer-message tools between operator turns.</li>
   </ul>
   <p>
-  Providers include Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio, Strata
-  and DeepSeek via Xolotl, with mode-specific capabilities.
+  Providers include Claude, Codex, Cursor, Antigravity CLI, Ollama, llama.cpp,
+  LM Studio, Strata and DeepSeek via Xolotl, with mode-specific capabilities.
   </p>
   <Sub>What Arco will not do on its own</Sub>
   <p>
@@ -277,8 +277,8 @@ export const gettingStarted: Section[] = [
   Starting from a Home project card pre-fills its folder.
   </li>
   <li>
-  <strong>Provider</strong> - Claude, Codex, Cursor, Ollama, llama.cpp, LM Studio,
-  Strata or DeepSeek. The picker lists only providers that are enabled in Settings
+  <strong>Provider</strong> - Claude, Codex, Cursor, Antigravity CLI, Ollama,
+  llama.cpp, LM Studio, Strata or DeepSeek. The picker lists only providers that are enabled in Settings
   and connected. A saved default that is not connected stays selected, marked{' '}
   <Code>(not connected)</Code>. Launch stays disabled, with a plain reason and an{' '}
   <Code>Open Connections</Code> link, until a connected provider is chosen. The
@@ -340,7 +340,7 @@ export const gettingStarted: Section[] = [
   the top-of-form toggle to <strong>CLUSTER</strong>. The creator has these parts:
   </p>
   <ul>
-  <li><strong>Shared project folder</strong> - the same picker as the single workflow form. All members share this folder.</li>
+  <li><strong>Shared project folder</strong> - the same picker as the single workflow form. This is the cluster project folder; isolated members use separate workspaces.</li>
   <li><strong>Cluster name</strong> - optional, up to 64 characters. Empty falls back to the derived <Code>&lt;folder name&gt; · &lt;short-id&gt;</Code> default.</li>
   <li><strong>Start from a template</strong> - see below.</li>
   <li><strong>MEMBERS list</strong> - at least 2 rows; see below.</li>
@@ -377,7 +377,7 @@ export const gettingStarted: Section[] = [
   <li>Model and effort (per-provider pickers).</li>
   <li>Role - free-form, up to 120 characters (for example "director" or "tester"); at most one director.</li>
   <li>Work size - light, standard, heavy or unset. It is a hint for the director and does not change model or effort.</li>
-  <li>Permissions (with the AUTO / SAFE explanation), fast mode and filter where the provider supports them, and output style on every provider.</li>
+  <li>Permissions (with the AUTO / SAFE explanation), fast mode and filter where the provider supports them, and output style; it is not offered for Antigravity CLI.</li>
   </ul>
   <Note kind="tip">
   A cluster can have at most one director (roles beginning with Director or

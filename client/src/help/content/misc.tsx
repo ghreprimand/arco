@@ -2,7 +2,7 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const miscHelp: Record<string, HelpEntry> = {
-  'config.subagent-provider': { title: 'Sub-agent controls', body: <p>Claude Native has Arco-managed Task limits, model choice and child cancellation. Codex, Cursor and Antigravity manage their own sub-agents; Arco does not set their child count or model. Local providers have no built-in Arco sub-agent runner. STOP stops the parent turn.</p>, manualSection: 'provider-claude' },
+  'config.subagent-provider': { title: 'Sub-agent controls', body: <p>Claude Native has Arco-managed Task limits, model choice and child cancellation. Claude CLI, Codex, Cursor and Antigravity manage their own sub-agents; Arco does not set their child count or model. Local providers have no built-in Arco sub-agent runner. STOP stops the parent turn.</p>, manualSection: 'provider-claude' },
   'runtime.subagent-list': {
     title: 'Sub-agents',
     body: <p>Expand the row to see Task children and their status. VIEW IN TAB opens the same child; closing that view hides it without stopping the task. CANCEL stops one child and CANCEL ALL stops pending children, background ones included. A BACKGROUND child keeps running through new messages until it ends, STOP or the tab closes. A running Native child can receive a text steer; a draft stays until the server confirms receipt. Receipt clears the draft but does not confirm delivery to the child. If delivery is unconfirmed, check the conversation before sending again. Completed children are read-only.</p>,
@@ -390,7 +390,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Output style default',
     body: (
       <p>
-        Default reply style for new tabs, on every provider: <C>NORMAL</C>,{' '}
+        Default reply style for new tabs; not offered for Antigravity CLI: <C>NORMAL</C>,{' '}
         <C>PLAIN</C> or <C>TERSE</C>. Without a saved default, new tabs use
         Plain. Applies to the tab&apos;s own turns; Review, Handoff, DOCS and
         GIT stay Normal. A default saved as Lite before 0.1.5 loads as Plain.
@@ -861,7 +861,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         the provider is not connected, the reason and an Open Connections link
         appear above the button. A project workflow also needs a working
         directory; Chat does not. Chat launches a saved or Incognito conversation
-        according to the checkbox. Cluster requires every member provider to be enabled and connected; Genesis and Cluster have their own form gates. CREATE CLUSTER sends immediately, then shows Starting... until creation succeeds or fails. A failed send unlocks CREATE CLUSTER. If no response arrives, the wait ends with a notice; check saved clusters before retrying. A director plan draft refreshes the public-project choice after creation, before its model turn. A failed refresh leaves the cluster available; use DRAFT A PLAN to retry.
+        according to the checkbox. Cluster requires every member provider to be enabled and connected; Genesis and Cluster have their own form gates; Genesis cannot launch with Antigravity CLI. CREATE CLUSTER sends immediately, then shows Starting... until creation succeeds or fails. A failed send unlocks CREATE CLUSTER. If no response arrives, the wait ends with a notice; check saved clusters before retrying. A director plan draft refreshes the public-project choice after creation, before its model turn. A failed refresh leaves the cluster available; use DRAFT A PLAN to retry.
       </p>
     ),
     manualSection: 'creating-workflow',
@@ -1334,7 +1334,8 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         The agent's next reply will be its draft of the plan. A banner
         appears offering <C>SAVE & ATTACH</C> and <C>REFINE</C>: read first,
-        ask for changes, save only if happy. Slower but inspection-friendly.
+        ask for changes, save only if happy. In a cluster, the save action is
+        <C>ATTACH TO CLUSTER</C>.
       </p>
     ),
     manualSection: 'plan-creation',

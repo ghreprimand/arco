@@ -2,13 +2,13 @@
 
 A plan describes the goal, the work to do, and the rules the team should
 follow. A cluster shares its attached plan with its members. Use PLAN to
-review or attach it; a model-generated draft is not attached until approved.
+review or attach it. A draft normally waits for review; DRAFT & AUTO-SAVE saves it without a review step in a standalone tab when explicitly chosen. A cluster draft still waits for ATTACH TO CLUSTER.
 Review drafting turns have no project tools. Ordinary Claude CLI hooks are
 disabled for the draft; administrator-managed hooks can still run under
 provider policy.
 
 A board tracks individual tasks, who owns them, and what needs attention now.
-Members can update tasks, while the operator accepts completed work. A plan
+Members can update tasks. A Director met sign-off closes a task when Board auto-done is on; otherwise the operator accepts it. A plan
 and a board can be used together: the plan holds the shared direction and the
 board tracks the work in progress.
 

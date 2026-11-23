@@ -212,7 +212,7 @@ scripts/arco logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
   [<strong key="cl3">Peer tool</strong>, <span>One of <Code>peer_list</Code> / <Code>peer_send</Code> / <Code>peer_read</Code>. Available to every member for passing notes between operator turns.</span>],
   [<strong key="cl4">Mailbox</strong>, 'Per-recipient inbox at ~/.arco/clusters/<id>/mailbox/<wfid>/. One file per message, size-limited, emptied by peer_read.'],
   [<strong key="cl5">Role hint</strong>, "A free-form tag of up to 120 characters added to a member's instructions each turn. Presets: DIRECTOR, BUILDER, REVIEWER, RESEARCHER, TESTER, DOCUMENTER, ADVISOR, DESIGNER, plus CUSTOM. A cluster may have at most one director (a role beginning with Director or Coordinator)."],
-  [<strong key="dir">Director</strong>, 'A member whose role hint is DIRECTOR or begins with Director or Coordinator. By convention it creates tasks, assigns workers and watches progress. At most one per cluster for new work. It cannot mark tasks done; only the operator can.'],
+  [<strong key="dir">Director</strong>, 'A member whose role hint is DIRECTOR or begins with Director or Coordinator. By convention it creates tasks, assigns workers and watches progress. At most one per cluster for new work. A met sign-off closes a task when Board auto-done is on; direct done and archived changes remain operator-only.'],
   [<strong key="cl6">Cluster plan</strong>, "Shared text of up to 32 KB included in every member's instructions each turn. It is cached for about 5 minutes."],
   [<strong key="cl7">Idle nudger</strong>, 'An optional per-cluster toast (off by default) shown when a member has been idle for 10 seconds or more with unread mail. It never prompts workers.'],
   [<strong key="ws">Work size</strong>, 'Optional light / standard / heavy hint on a non-director member. Guides which tasks the director assigns; does not change model or effort. Template review offers it only for repeated roles.'],
@@ -224,9 +224,9 @@ scripts/arco logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
   <Table
   headers={['Term', 'Definition']}
   rows={[
-  [<strong key="tk">Task kernel</strong>, 'The server-side task system for a cwd: statuses (triage / todo / ready / in_progress / blocked / review / done / archived), dependencies, comments and run history. Only the operator can set done or archived.'],
+  [<strong key="tk">Task kernel</strong>, 'The server-side task system for a cwd: statuses (triage / todo / ready / in_progress / blocked / review / done / archived), dependencies, comments and run history. Direct done and archived changes are operator-only; a Director met sign-off can close a task when Board auto-done is on.'],
   [<strong key="rdt">Ready task</strong>, 'A task whose dependencies are all done and that has no open run. The dispatcher only assigns ready tasks.'],
-  [<strong key="rvs">Review (task status)</strong>, 'The worker believes the task is complete and asks for verification. Only the operator can move it from review to done. Distinct from the Review primitive.'],
+  [<strong key="rvs">Review (task status)</strong>, 'The worker believes the task is complete and asks for verification. A Director met sign-off closes it when Board auto-done is on; otherwise the operator accepts it. Distinct from the Review primitive.'],
   [<strong key="rn">Run</strong>, 'One attempt at a task, created when it is claimed. Records assignee, claim time, heartbeat and outcome. Several runs can build up after recovery.'],
   [<strong key="cl8">Claim</strong>, 'Reserving a task. Moves it to in_progress and creates a run. Stale claims can be recovered with task_run_recover.'],
   [<strong key="hb">Heartbeat</strong>, <span>A <Code>cluster_task_heartbeat</Code> call a long-running worker makes to show it is alive. A run with a stale heartbeat can be recovered.</span>],

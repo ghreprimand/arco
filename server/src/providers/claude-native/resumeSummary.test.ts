@@ -172,8 +172,7 @@ test('compact keep-tail: drops leading assistant so alternation after the ack st
 
 // The summarizer never receives tool blocks or tool ids (an unpaired call
 // would make the request fail), but completed tool work reaches it as capped
-// text: a summary that loses what a tool returned once led an agent to claim
-// it never read a brief it had answered.
+// text, preserving completed work in the summary.
 test('compact summary projection sends tool work as capped text, never tool blocks or ids', () => {
   const page = 'Go 1.27.4 released 2026-11-10. '.repeat(200);
   const liveMessages: MessageParam[] = [
@@ -213,8 +212,7 @@ test('compact summary projection sends tool work as capped text, never tool bloc
 
 // The kept tail holds clean text only. Cutting tail.length raw messages off
 // the end dropped a tool result that sat among them from both the summary
-// and the tail; a real run summarized a turn that had read a brief as
-// "nothing executed yet".
+// and the tail, causing the summary to omit the completed tool call.
 test('a compaction summarizes the tool messages its text-only tail skips', () => {
   const brief: MessageParam[] = [
     { role: 'user', content: 'research the brief in your mail' },

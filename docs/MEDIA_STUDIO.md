@@ -48,7 +48,7 @@ The real edits: trim/clip to the region, convert format, normalize, mono/stereo,
 
 ### Raw-media serve (deferred from H1/H5)
 
-`GET /api/media/raw?path=&cwd=&workflowId=`, confines `path` to cwd via the **same `resolveWithinCwd` guard**, streams the file read-only with a correct `Content-Type` (by extension) and **HTTP Range support** (`206` partial content) for `<audio>`/`<video>` seeking + wavesurfer's chunked fetch. This is what lets an **on-disk** audio file render a waveform. Rejects out-of-cwd (`403`).
+`GET /api/media/raw?path=&cwd=&workflowId=` checks the media access tiers described under N2 and streams the file read-only with a correct `Content-Type` (by extension) and **HTTP Range support** (`206` partial content) for audio and video seeking. Refused paths return 403.
 
 ### Client
 
@@ -165,11 +165,7 @@ Save-As uses a plain `window.prompt`.
 
 ## H4, image generation (Codex-only route) (shipped)
 
-**Route decided 2026-05-31:** image generation rides the **Codex app-server**
-`image_generation_call` path. No local diffusion, no separate image API key, no
-billing, it's the closest thing to "ChatGPT image gen through Arco," and it
-piggybacks the operator's Codex subscription. (The full local-diffusion / image-AI
-arc from earlier drafts is *not* this phase.)
+Image generation uses the **Codex app-server** `image_generation_call` path.
 
 ### Prompt -> image flow (alpha)
 
@@ -184,8 +180,8 @@ in CONFIG -> TRANSPORT (or set the Codex transport default).
 
 1. **Persist (server).** `server/src/providers/codex-appserver/worker.ts` handles
    the `imageGeneration` item on `item/completed` via an async
-   `handleImageGeneration()` (kicked off fire-and-forget so the `tryDrainSteer()`
-   drain hook still fires synchronously, see [Providers: Codex](PROVIDERS.md#codex). The
+   `handleImageGeneration()` (started without blocking the synchronous `tryDrainSteer()`
+   hook; the turn waits for the artifact before settling; see [Providers: Codex](PROVIDERS.md#codex)). The
    pure core lives in `server/src/providers/codex-appserver/imageGen.ts`
    (`resolveGeneratedImageTarget`): if the item carries a `savedPath` inside the
    workflow cwd it's surfaced as-is; otherwise the base64 `result` is decoded and

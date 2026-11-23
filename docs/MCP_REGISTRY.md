@@ -12,8 +12,8 @@ reusable MCP client + diagnostics + CLI-Claude/Codex wiring + management UI.
 , it opens a long-lived `McpSession` per allowed registry server (reusing the
 same dependency-free client) and enforces the dangerous-tool denylist
 **in-process, by omission** (a dangerous-unticked tool never appears in the
-worker's tool defs). This is the only transport that enforces the per-tool
-denylist in-process. See "Claude Native, denylist by omission" below.
+worker's tool defs). Local workers and the Cursor and Antigravity loopback bridge also enforce
+the per-tool allowlist when advertising and dispatching tools. See "Claude Native, denylist by omission" below.
 
 ## Registry safety contract
 
@@ -67,21 +67,18 @@ The registry exposes the **same servers** to every wired transport, but the
 | **CLI Claude** | `mcp-config.json` merge | **ENFORCED** via `--disallowedTools` |
 | **Codex** (`exec` + `app-server`) | `-c mcp_servers.*` TOML overrides | **ENFORCED** on Codex 0.167 and later; legacy warning below |
 | **Claude Native** | open `McpSession` per allowed server | **ENFORCED** in-process by omission from tool defs |
+| **Cursor / Antigravity CLI** | loopback MCP bridge | **ENFORCED** when advertising and dispatching registry tools |
+| **Local workers** | per-turn `LocalMcp` sessions | **ENFORCED** when advertising and dispatching registry tools |
 
-### CLI Claude, `--disallowedTools` (verified)
+### CLI Claude, `--disallowedTools`
 
 After `--mcp-config <path>`, the CLI provider appends
 `--disallowedTools "mcp__<key>__<tool>,..."` for every dangerous-and-unticked tool
 of the workflow's enabled registry servers.
 
-**Verified behavior** (Claude CLI 2.1.160): `--disallowedTools` **composes with
-`--dangerously-skip-permissions`**, the named tool is removed from the model's
-available set entirely (the model reports `No such tool available`), while
-non-listed tools of the same server still work. So the denylist is a **real
-mechanical enforcement** on CLI Claude even in AUTO mode, not a prompt-advisory
-no-op. The verification used a fake stdio MCP server exposing `read_thing` +
-`delete_thing`: with `--disallowedTools mcp__fake__delete_thing`, calling
-`delete_thing` was blocked and `read_thing` succeeded.
+`--disallowedTools` combines with `--dangerously-skip-permissions`. Named
+tools are removed from the model's available set, including in AUTO mode;
+other tools from the same server remain available.
 
 ### Codex tool filters
 
@@ -205,7 +202,7 @@ in the SDK transport machinery.
 ## Management UI
 
 `client/src/components/RightPanel/McpRegistrySection.tsx`, mounted in the CONFIG
-tab for Claude (CLI + Native) and Codex tabs. It can:
+tab on Agent transports, excluding isolated members. It can:
 
 - CRUD registry servers (add by command + args; toggle the global enable;
   remove).

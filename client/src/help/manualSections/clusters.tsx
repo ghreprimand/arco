@@ -54,7 +54,7 @@ export const clusters: Section[] = [
   title: 'The cluster tab',
   body: (
   <>
-  <p>Sending to one member through TO preserves picked skills, steering intent and composer actions, including when another member is in view. After a successful send, TO returns to the member in view. Computer opens the chooser with the current recipients. Question options keep literal pipes and backslashes in one answer.</p>
+  <p>Sending to one member through TO preserves picked skills, steering intent and composer actions, including when another member is in view. Gemini messages do not receive picked or pinned Arco skill bodies. After a successful send, TO returns to the member in view. Computer opens the chooser with the current recipients. Question options keep literal pipes and backslashes in one answer.</p>
   <p>After reconnecting, missing members are requested again if their rehydrate reply was lost. Other members keep their existing state.</p>
   <p>
   The cluster parent tab takes over the full main pane: a member-card
@@ -1090,8 +1090,9 @@ export const clusters: Section[] = [
   notes to each other between operator turns.
   </p>
   <p>
-  Every cluster member has three peer tools registered alongside its
-  normal tool kit:
+  Standard cluster members have three peer tools alongside their normal tool kit.
+  Blind and isolated members have only peer_send and peer_read; researchers
+  use the research mailbox:
   </p>
   <ul>
   <li>
@@ -1550,8 +1551,8 @@ export const clusters: Section[] = [
   body: (
   <>
   <p>
-  <Code>cluster_plan_tick</Code> is a fourth peer tool on every cluster
-  member, alongside <Code>peer_list</Code> / <Code>peer_send</Code> /{' '}
+  <Code>cluster_plan_tick</Code> is a peer tool on standard cluster
+  members, alongside <Code>peer_list</Code> / <Code>peer_send</Code> /{' '}
   <Code>peer_read</Code>. The <strong>model</strong> calls it mid-turn
   to toggle a single <Code>- [ ]</Code> / <Code>- [x]</Code> checkbox
   in the shared cluster plan.
@@ -1640,7 +1641,7 @@ export const clusters: Section[] = [
   <>
   <p>
   <Code>cluster_plan_write</Code> authors or rewrites the shared plan
-  body. It is registered on every cluster member alongside{' '}
+  body. It is registered on standard cluster members alongside{' '}
   <Code>peer_list</Code> / <Code>peer_send</Code> /{' '}
   <Code>peer_read</Code> / <Code>cluster_plan_read</Code> /{' '}
   <Code>cluster_plan_tick</Code>.

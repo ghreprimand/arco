@@ -110,9 +110,9 @@ A read-only exposure-posture readout: when is Arco reachable beyond this
 machine, and what does that imply? Informational only, **not** a multi-user
 admin system.
 
-The unifying rationale: Arco's HTTP/WS surface has **no auth** and exposes a
+Arco's HTTP/WS surface uses a session-cookie gate by default and exposes a
 shell (the PTY terminal), git/GitHub ops, filesystem read+write under cwd roots,
-and provider credentials. So **severity is conditioned on the bind address**:
+and provider credentials. The gate is not multi-user isolation, so **severity is conditioned on the bind address**:
 bound to loopback, only this machine can reach those powers (`ok`, informational
 detail); bound to a non-loopback address, the same powers are reachable by the
 LAN/tailnet (`warn`). The bind default is loopback (`ARCO_HOST` ->
