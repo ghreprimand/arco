@@ -74,6 +74,24 @@ test('Native Bash reports unavailable retention while returning its real newest 
   }finally{t.mock.restoreAll();syncBuiltinESMExports();rmSync(cwd,{recursive:true,force:true});}
 });
 
+test('Native Bash returns when a detached child retains its output', { skip: process.platform === 'win32' }, async () => {
+  const cwd = mkdtempSync(join(tmpdir(), 'arco-detached-output-'));
+  let pid: number | undefined;
+  try {
+    const script = "const c=require('node:child_process').spawn(process.execPath,['-e','setTimeout(()=>{},30000)'],{detached:true,stdio:'inherit'}); console.log(c.pid); c.unref()";
+    const start = Date.now();
+    const result = await executeNativeTool('Bash', { command: `"${process.execPath}" -e ${JSON.stringify(script)}`, timeout: 10000 }, context(cwd));
+    pid = Number(result.match(/--- output \(stdout\+stderr\) ---\s*(\d+)/)?.[1]);
+    assert.ok(pid);
+    assert.ok(Date.now() - start < 8000);
+    assert.match(result, /background process still holds the command output/);
+    assert.doesNotThrow(() => process.kill(pid!, 0));
+  } finally {
+    if (pid) { try { process.kill(pid); } catch { /* already exited */ } }
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 
 test('Native file guards identify linked aliases as the same file', t => {
   const cwd = mkdtempSync(join(tmpdir(), 'arco-guard-alias-'));

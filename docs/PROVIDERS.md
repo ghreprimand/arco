@@ -572,7 +572,7 @@ and an append-only prefix regardless of display mode. See `FABLE_51_APPEND_ONLY_
 
 #### Tool surface (7a)
 
-Read / Write / Edit / Bash / Grep / Glob / KillShell / TodoWrite. Path validation reuses `resolveWithinCwd`. Per-tool output cap 64 KB; Read gets 256 KB (looser than Ollama's 32 KB - Claude windows are larger). Edit refuses if the target file wasn't Read in this turn (Claude Code parity). Bash registers each spawned shell against the worker's per-turn shell map so KillShell + cancel can target it; `run_in_background:true` returns a `shellId` immediately. Closing or handing off the tab ends background shells still running (SIGTERM, then SIGKILL after 2 s; `taskkill` on Windows), and the worker waits until they have ended.
+Read / Write / Edit / Bash / Grep / Glob / KillShell / TodoWrite. Path validation reuses `resolveWithinCwd`. Per-tool output cap 64 KB; Read gets 256 KB (looser than Ollama's 32 KB - Claude windows are larger). Edit refuses if the target file wasn't Read in this turn (Claude Code parity). Bash registers each spawned shell against the worker's per-turn shell map so KillShell + cancel can target it; `run_in_background:true` returns a `shellId` immediately. Closing or handing off the tab ends background shells still running (SIGTERM, then SIGKILL after 2 s; `taskkill` on Windows), and the worker waits for their shell processes. If a background process keeps output open after the shell exits, the result warns that it was left running.
 
 CLI version and help probes stop after five seconds and cap output at 2 MB. Unanswered Codex app-server RPC requests expire after 30 seconds; interrupt and compaction deadlines also cover the initial acknowledgement.
 

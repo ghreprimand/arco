@@ -44,6 +44,7 @@ const BASH_TIMEOUT_MIN_MS = 1_000;
 const BASH_TAIL_MAX_LINES = 2_000;
 // DD2 — grace period between SIGTERM and the SIGKILL escalation in killTree.
 const KILL_GRACE_MS = 2_000;
+const SHELL_CLOSE_GRACE_MS = 2_500;
 
 // JS-walker fallback only — `rg` path is unbounded.
 const GREP_WALK_FILE_CAP = 5000;
@@ -629,6 +630,7 @@ interface BashRegistration {
   child: ChildProcess;
   killTree: () => void;
   ended: Promise<void>;
+  completion: Promise<{ code: number | null; signal: NodeJS.Signals | null; error?: Error; leftOpen: boolean }>;
 }
 
 // The shell is commandShell(): /bin/sh on Linux and macOS, Git Bash on
@@ -643,26 +645,41 @@ function spawnShell(command: string, cwd: string): BashRegistration {
     env: { ...process.env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  child.once('close', run.cleanup);
+  let startCloseGrace: () => void = () => {};
+  const completion = new Promise<{ code: number | null; signal: NodeJS.Signals | null; error?: Error; leftOpen: boolean }>((resolve) => {
+    let code: number | null = null;
+    let signal: NodeJS.Signals | null = null;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let settled = false;
+    const finish = (leftOpen: boolean, error?: Error): void => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      if (leftOpen) { child.stdout?.destroy(); child.stderr?.destroy(); }
+      run.cleanup();
+      resolve({ code, signal, error, leftOpen });
+    };
+    startCloseGrace = () => { if (!timer && !settled) timer = setTimeout(() => finish(true), SHELL_CLOSE_GRACE_MS); };
+    child.once('exit', (exitCode, exitSignal) => { code = exitCode; signal = exitSignal; startCloseGrace(); });
+    child.once('close', (exitCode, exitSignal) => { code = exitCode; signal = exitSignal; finish(false); });
+    child.once('error', (error) => finish(false, error));
+  });
   // DD2 — terminate gracefully (SIGTERM) then escalate to SIGKILL after a grace
   // period if the tree is still alive. A flat SIGKILL gives the child no chance
   // to flush/clean up (orphaned lockfiles, half-written output); SIGTERM-first
   // matches how a shell's Ctrl-C behaves. The escalation timer is unref'd so it
   // never keeps the server process alive on its own.
   const kills: Promise<void>[] = [];
-  const exited = new Promise<void>((resolve) => {
-    child.once('close', () => resolve());
-    child.once('error', () => resolve());
-  });
   const killTree = (): void => {
+    startCloseGrace();
     const signalTree = (sig: NodeJS.Signals): void => { kills.push(signalChildTree(child, sig)); };
     signalTree('SIGTERM');
     const t = setTimeout(() => signalTree('SIGKILL'), KILL_GRACE_MS);
     if (typeof t.unref === 'function') t.unref();
   };
-  // Closed, and the kills sent until then have finished.
-  const ended = exited.then(() => Promise.all(kills)).then(() => undefined, () => undefined);
-  return { child, killTree, ended };
+  // Completion and any signals sent by then have finished.
+  const ended = completion.then(() => Promise.all(kills)).then(() => undefined, () => undefined);
+  return { child, killTree, ended, completion };
 }
 
 async function runBashForeground(
@@ -670,7 +687,7 @@ async function runBashForeground(
   timeoutMs: number,
   ctx: NativeToolContext,
 ): Promise<NativeToolOutcome> {
-  const { child, killTree, ended } = spawnShell(command, ctx.cwd);
+  const { child, killTree, ended, completion } = spawnShell(command, ctx.cwd);
   const shellId = ctx.shells.mintId();
   ctx.shells.byId.set(shellId, { kill: killTree, backgrounded: false, ended });
 
@@ -714,7 +731,7 @@ async function runBashForeground(
     child.stdout?.on('data', (b: Buffer) => acc.push(b));
     child.stderr?.on('data', (b: Buffer) => acc.push(b));
 
-    const finish = (exitDescription: string, exitCode: number | null, signal: string | null, spawnError = false): void => {
+    const finish = (exitDescription: string, exitCode: number | null, signal: string | null, spawnError = false, leftOpen = false): void => {
       if (finished) return;
       finished = true;
       clearTimeout(timer);
@@ -725,6 +742,7 @@ async function runBashForeground(
       const parts: string[] = [];
       if (timedOut) parts.push(`[timed out after ${timeoutMs}ms]`);
       if (aborted) parts.push('[aborted]');
+      if (leftOpen) parts.push('[A background process still holds the command output and was left running.]');
       if (r.truncated) {
         const total = r.truncatedBy === 'lines' ? `${r.totalLines} lines` : `${r.totalBytes.toLocaleString()} bytes`;
         const tailKb = Math.round(MAX_TOOL_OUTPUT_BYTES / 1024);
@@ -738,21 +756,21 @@ async function runBashForeground(
       else parts.push('(no output)');
       resolveResult({text: parts.join('\n'), isError: spawnError || timedOut || aborted || exitCode !== 0, exitCode, signal, timedOut, aborted});
     };
-    child.on('error', (err) => finish(`[error] failed to spawn shell: ${err.message}`, null, null, true));
-    child.on('close', (code, signal) => {
+    void completion.then(({ code, signal, error, leftOpen }) => {
+      if (error) { finish(`[error] failed to spawn shell: ${error.message}`, null, null, true); return; }
       const desc = code === null ? `exit signal: ${signal ?? 'unknown'}` : `exit code: ${code}`;
-      finish(desc,code,signal);
+      finish(desc, code, signal, false, leftOpen);
     });
   });
 }
 
 function runBashBackground(command: string, ctx: NativeToolContext): string {
-  const { child, killTree, ended } = spawnShell(command, ctx.cwd);
+  const { child, killTree, ended, completion } = spawnShell(command, ctx.cwd);
   const shellId = ctx.shells.mintId();
   ctx.shells.byId.set(shellId, { kill: killTree, backgrounded: true, ended });
   // Auto-deregister on natural exit so KillShell on a finished bg job
   // returns the "no such shell" message rather than reporting success.
-  child.on('close', () => { ctx.shells.byId.delete(shellId); });
+  void completion.then(() => { ctx.shells.byId.delete(shellId); });
   // Don't accumulate output for background — the caller asked for a
   // detached shell. Drain to /dev/null so the pipe buffer doesn't
   // back-pressure the child.
@@ -764,7 +782,7 @@ function runBashBackground(command: string, ctx: NativeToolContext): string {
 const BashTool: Entry = {
   def: {
     name: 'Bash',
-    description: 'Run a shell command in the workflow cwd via sh -c. Foreground: returns stdout+stderr (combined cap 64 KB) + exit code. Default timeout 60s; max 600s. With run_in_background:true, returns a shellId immediately — the command keeps running until it finishes or KillShell terminates it.',
+    description: 'Run a shell command in the workflow cwd via sh -c. Foreground: returns stdout+stderr (combined cap 64 KB) + exit code. If a background process keeps output open after the shell exits, the result warns that it was left running. Default timeout 60s; max 600s. With run_in_background:true, returns a shellId immediately — the command keeps running until it finishes or KillShell terminates it.',
     input_schema: {
       type: 'object',
       properties: {
