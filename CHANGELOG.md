@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Tell a Claude Native agent with its next turn when a server restart stopped its background sub-agents.
+
 - Let Claude Native start sub-agents in the background (`run_in_background`): the parent keeps working, each result arrives as an automatic message (an idle tab starts one turn for it), the SUB-AGENTS row labels them BACKGROUND, and STOP, CANCEL or closing the tab ends them. Settings > Agents and clusters > Background sub-agents turns this off.
 
 - Finish Gemini sign-in in Settings without a reload, show how Gemini skills work, and correct the cluster plan draft wording.

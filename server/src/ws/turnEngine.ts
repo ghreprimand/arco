@@ -2,7 +2,7 @@ import { normalizedWorkflowEffort } from '../effortValidation.js';
 import { resolveWorkflowSkillPins } from '../clusterSkills.js';
 import { ensureWorkflowMetadata, providerConversationState, saveProviderSession, announceReplacementConversation, markConversationReading, reportHistoryLoadFailure } from '../providerConversation.js';
 import { mintHandoffHistoryCapability } from '../http/handoffHistoryRoutes.js';
-import { deliverAfterTurnRevoked } from './taskLifecycle.js';
+import { deliverAfterTurnRevoked, restartStoppedBackgroundTasks, restartStoppedNotice } from './taskLifecycle.js';
 import { resolveClaudeTransport } from '../claudeTransport.js';
 import { projectLocalFileReferences } from '../primitives/localFileContext.js';
 import { getEffectivePublicProjectChoice } from '../publicProjectChoice.js';
@@ -128,12 +128,13 @@ persistInitialMeta,readMeta,updateMeta,workflowDir
 } from '../workflowMeta.js';
 import {
 currentSeq as currentWorkflowSeq,
-replayEvents as replayWorkflowEvents
+replayEvents as replayWorkflowEvents,
+scanEventsOfTypes
 } from '../workflowStore.js';
 import {
 latestCodexTokenSnapshot
 } from '../workflows/transcripts.js';
-import { foldClaudeNativeWorker } from '../providers/claude-native/index.js';
+import { foldClaudeNativeWorker, isClaudeNativeTaskActive } from '../providers/claude-native/index.js';
 import { maybeFreshComputerContext } from '../voice/computerContext.js';
 import type {
 QueueItem,
@@ -2333,6 +2334,20 @@ export async function handleUserMessage(
         const notice = `Scratch was emptied when this tab closed. Intermediate files may need to be recreated; ${scratchNotice.keptItems ? 'kept files remain' : 'no files were kept'}.`;
         if (nativeClaudeTurn) turnNoticeParts.push(notice);
         else promptWithPlan = `${notice}\n\n${promptWithPlan}`;
+      }
+      // docs/PROVIDERS.md "Background sub-agents": the first Native turn after
+      // a restart records the stopped background children once and tells the
+      // agent with this turn; it never starts a turn by itself.
+      if (nativeClaudeTurn && firstIteration && !incognito && cwd && !wf.backgroundRestartChecked) {
+        wf.backgroundRestartChecked = true;
+        const taskEvents = await scanEventsOfTypes(cwd, workflowId, ['task_started', 'task_status']).catch(() => []);
+        const stopped = restartStoppedBackgroundTasks(taskEvents, (taskId) => isClaudeNativeTaskActive(workflowId, taskId));
+        if (stopped.length > 0) {
+          for (const task of stopped) broadcastWorkflow(workflowId, { type: 'task_status', workflowId, taskId: task.taskId, toolUseId: task.toolUseId, phase: 'cancelled', elapsedMs: 0, summary: 'Stopped by restart.' });
+          const notice = restartStoppedNotice(stopped);
+          broadcastWorkflow(workflowId, { type: 'user_message_echo', workflowId, content: notice, timestamp: Date.now(), automaticKind: 'subagent' });
+          turnNoticeParts.push(notice);
+        }
       }
       let armPlanMode = false;
       if (wf.pendingPlanModeEntry) {

@@ -6,7 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deliverAfterTurnRevoked, taskStartedBroadcast, unsettledTaskStatuses } from './taskLifecycle.js';
+import { deliverAfterTurnRevoked, restartStoppedBackgroundTasks, restartStoppedNotice, taskStartedBroadcast, unsettledTaskStatuses } from './taskLifecycle.js';
 
 test('only task status passes the stale-turn gate', () => {
   assert.equal(deliverAfterTurnRevoked({ type: 'task_status' }), true);
@@ -51,4 +51,20 @@ test('a background Task start keeps its background mark on the parent broadcast'
   const base = { taskId: 't', childWorkflowId: 'c', toolUseId: 'u', description: 'D', startedAt: 1 };
   assert.equal(taskStartedBroadcast('p', { ...base, background: true }).background, true);
   assert.equal('background' in taskStartedBroadcast('p', base), false);
+});
+
+test('background children a restart stopped are reported once, then never again', () => {
+  const events: unknown[] = [
+    { type: 'task_started', taskId: 'r', toolUseId: 'ur', description: 'Sleep R', startedAt: 1, phase: 'queued', background: true },
+    { type: 'task_started', taskId: 'r', childWorkflowId: 'cr', toolUseId: 'ur', description: 'Sleep R', startedAt: 1, background: true },
+    { type: 'task_started', taskId: 'done', childWorkflowId: 'cd', toolUseId: 'ud', description: 'Done', startedAt: 1, background: true },
+    { type: 'task_status', taskId: 'done', toolUseId: 'ud', phase: 'done' },
+    { type: 'task_started', taskId: 'fg', childWorkflowId: 'cf', toolUseId: 'uf', description: 'Foreground', startedAt: 1 },
+    { type: 'task_started', taskId: 'live', childWorkflowId: 'cl', toolUseId: 'ul', description: 'Live', startedAt: 1, background: true },
+  ];
+  const stopped = restartStoppedBackgroundTasks(events, (id) => id === 'live');
+  assert.deepEqual(stopped, [{ taskId: 'r', toolUseId: 'ur', description: 'Sleep R' }]);
+  assert.match(restartStoppedNotice(stopped), /^Background sub-agent stopped by a server restart: Sleep R \(r\)\nIts result was not received/);
+  events.push({ type: 'task_status', taskId: 'r', toolUseId: 'ur', phase: 'cancelled', summary: 'Stopped by restart.' });
+  assert.deepEqual(restartStoppedBackgroundTasks(events, () => false).map((t) => t.taskId), ['live']);
 });

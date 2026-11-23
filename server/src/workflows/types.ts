@@ -74,6 +74,9 @@ export interface WorkflowState {
   // Each enqueue / drain / cancel broadcasts a `queue_update` (persisted to
   // events.jsonl) so a reconnect's replay reconstructs the visible queue.
   queue: { steering: QueueItem[]; followUp: QueueItem[] };
+  // Set once the first Claude Native turn of this server lifetime has settled
+  // background sub-agents a restart stopped (taskLifecycle.ts).
+  backgroundRestartChecked?: boolean;
   // All client WebSockets observing this workflow. Multi-valued so two
   // browser windows pointed at the same workflow both receive live events;
   // added on `create_workflow` / `rehydrate_workflows` / `spawn_from_here`,

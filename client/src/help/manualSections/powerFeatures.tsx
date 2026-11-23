@@ -57,6 +57,11 @@ export const powerFeatures: Section[] = [
   Settings, Agents and clusters, <strong>Background sub-agents</strong>.
   </p>
   <p>
+  A server restart stops background sub-agents. Their rows read Stopped by
+  restart, and the agent is told with your next message that their results
+  were not received.
+  </p>
+  <p>
   Cancelling the parent cancels all of its children, and the parent's agent loop
   sees a clean cancellation. Every unfinished card shows <Code>cancelled</Code>{' '}
   at once, in every open browser and after a reload.
