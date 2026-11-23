@@ -69,6 +69,7 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
     : 0;
   const promoted = childJob?.promoted === true;
   const canCancel = entry && (phase === 'running' || phase === 'queued');
+  const output = (childJob?.messages ?? []).filter(message => message.role === 'assistant' && !message.toolUse && message.content.trim());
 
   const handleCancel = () => {
     if (!entry || !wsSendRaw) return;
@@ -107,6 +108,8 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          aria-label={expanded ? 'Collapse task' : 'Expand task'}
           title={expanded ? 'Collapse' : 'Expand'}
           style={{
             background: 'transparent',
@@ -138,6 +141,7 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             flex: 1,
+            minWidth: 0,
           }}
           title={description}
         >
@@ -217,6 +221,12 @@ export function TaskCard({ parentJobId, toolUseId, fallbackDescription }: Props)
               {entry.summary}
             </span>
           )}
+          {output.length > 0 && <div aria-label="Sub-agent output" style={{ flexBasis: '100%', maxHeight: 220, overflowY: 'auto', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>
+            {output.map((message, index) => <div key={message.id}>
+              {index > 0 && <hr aria-label="Next output round" />}
+              {message.content}
+            </div>)}
+          </div>}
         </div>
       )}
     </div>

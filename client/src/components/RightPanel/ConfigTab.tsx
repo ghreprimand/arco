@@ -330,6 +330,13 @@ export function ConfigTab({
       {provider === 'claude' && canEdit && job.config.kind !== 'chat' && (
         <NativeSubagentConfig job={job} onChange={(nativeSubagents) => onUpdatePrimary!({ nativeSubagents })} />
       )}
+      {provider !== 'claude' && job.config.kind !== 'chat' && (
+        <p data-help="config.subagent-provider" style={{ color: 'var(--color-fg-muted)', fontSize: '12px' }}>
+          {provider === 'codex' || provider === 'cursor' || provider === 'antigravity-cli'
+            ? 'Sub-agents are managed by the provider. STOP stops the parent turn; Arco does not set their count or model.'
+            : 'This provider has no built-in Arco sub-agent runner. STOP stops the parent turn.'}
+        </p>
+      )}
 
       {/* Phase 7a — Claude transport toggle (per-tab). Only on Claude tabs. */}
       {provider === 'claude' && canEdit && (

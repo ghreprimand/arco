@@ -2,6 +2,7 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const miscHelp: Record<string, HelpEntry> = {
+  'config.subagent-provider': { title: 'Sub-agent controls', body: <p>Claude Native has Arco-managed Task limits, model choice and child cancellation. Codex, Cursor and Antigravity manage their own sub-agents; Arco does not set their child count or model. Local providers have no built-in Arco sub-agent runner. STOP stops the parent turn.</p>, manualSection: 'provider-claude' },
   'runtime.subagent-list': {
     title: 'Sub-agents',
     body: <p>Expand the row to see Task children and their status. VIEW IN TAB opens the same child; closing that view hides it without stopping the task. CANCEL stops one child and CANCEL ALL stops pending children. A running Native child can receive a text steer; a draft stays until the server confirms receipt. Receipt clears the draft but does not confirm delivery to the child. If delivery is unconfirmed, check the conversation before sending again. Completed children are read-only.</p>,
@@ -360,7 +361,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   'chat.task-card': {
     title: 'Task sub-agent (Native)',
     body: (
-      <p>Native task rows show QUEUED before a child starts and retain the effective model after reload. CANCEL removes queued work or stops a running child. The parent is told the operator cancelled it, to count it as cancelled, and not to replace it unless requested; this is a model instruction. VIEW IN TAB appears after a child exists.
+      <p>Native task rows show QUEUED before a child starts and retain the effective model after reload. Expand the card to see available child output, with a separator between text rounds. CANCEL removes queued work or stops a running child. The parent is told the operator cancelled it, to count it as cancelled, and not to replace it unless requested; this is a model instruction. VIEW IN TAB appears after a child exists.
         The Native worker called the <C>Task</C> tool: this card represents a
         first-class child workflow scoped to its parent. Status:{' '}
         <C>running</C> / <C>done</C> / <C>error</C> / <C>cancelled</C>; the{' '}

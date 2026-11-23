@@ -22,7 +22,7 @@ export const configuration: Section[] = [
   <p>Before a batch would exceed four starts in one turn or use a model with an unknown relative cost, Arco asks once. Choose ALLOW, ALLOW ON ANOTHER MODEL or DENY. The selected model applies only to that batch. All open pages share the decision. STOP cancels the question. A service restart closes an unanswered approval; no child starts from it.</p>
   <p>Admitted extra tasks show QUEUED and wait without starting a child. Calls beyond the turn budget are refused. Cancelling queued work releases its reserved place; started children count even when cancelled. Task rows retain their model after reload. The waiting strip counts pending sub-agents; CANCEL TURN stops them all. Individual CANCEL also works while queued.</p>
   <p>Its Task result tells the parent that the operator cancelled the sub-agent, to count it as cancelled, and not to start a replacement unless requested. This is an instruction to the model.</p>
-  <p>These controls are enforced by Arco for Claude Native Agent tabs outside clusters. Claude CLI, Codex and Cursor manage their own sub-agents; Native settings do not enforce limits there. Local providers have no built-in Arco sub-agent runner. Chat, cluster members and depth-capped Task children cannot start Native Task children.</p>
+  <p>These controls are enforced by Arco for Claude Native Agent tabs outside clusters. Claude CLI, Codex, Cursor and Antigravity manage their own sub-agents; Native settings do not enforce limits there. Local providers have no built-in Arco sub-agent runner. Chat, cluster members and depth-capped Task children cannot start Native Task children.</p>
   <Sub>Claude sign-ins</Sub>
   <p>
   <strong>Claude</strong> has two separate sign-ins, grouped at the top of the

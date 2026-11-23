@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show separated child output rounds in expanded Task cards and explain sub-agent controls by provider.
+
 - Enable Cursor's web search and fetch in saved Chats, controlled by WEB.
 
 - Offer an opt-in smaller tool set for Ollama cluster members, with its missing capabilities shown in Settings.

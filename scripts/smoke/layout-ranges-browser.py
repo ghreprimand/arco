@@ -91,7 +91,7 @@ TASKS = [{'id': f'task-{i}', 'title': title, 'status': status, 'links': [], 'not
          for i, (title, status) in enumerate([('Review the release checklist', 'review'), ('Verify the project list', 'in_progress')], 1)]
 
 
-async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False, no_director=False, research=False, antigravity=False, touch=False, cursor_chat=False):
+async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False, no_director=False, research=False, antigravity=False, touch=False, cursor_chat=False, task_fixture=False):
     context = await browser.new_context(viewport={'width': width, 'height': height}, has_touch=touch)
     snapshot = json.dumps({'type': 'task_ledger_snapshot', 'workflowId': 'worker-0', 'cwd': '/projects/harbor', 'boardKey': 'demo', 'tasks': TASKS})
     fixture = single_state() if single else fixture_state()
@@ -99,6 +99,17 @@ async def open_page(browser, base, width, scale=1.0, layout=None, height=800, si
         fixture['state']['jobs']['worker-1']['config'].update({'kind': 'chat', 'primaryProvider': 'antigravity-cli', 'primaryModel': 'gemini-fixture'})
     if cursor_chat:
         fixture['state']['jobs']['worker-1']['config'].update({'kind': 'chat', 'primaryProvider': 'cursor', 'primaryModel': 'auto', 'chatWebAccess': True})
+    if task_fixture:
+        parent = fixture['state']['jobs']['worker-1']
+        parent['taskChildren'] = {}
+        for i in range(8):
+            child_id, tool_id = f'child-{i}', f'tool-{i}'
+            child = job(child_id, f'Child {i}', 'First output round')
+            child['parentWorkflowId'] = 'worker-1'
+            child['messages'].append({'id': f'out-{i}', 'role': 'assistant', 'content': 'Second output round', 'timestamp': 1793400061000, 'isStreaming': False})
+            fixture['state']['jobs'][child_id] = child
+            parent['taskChildren'][f'task-{i}'] = {'taskId': f'task-{i}', 'toolUseId': tool_id, 'childWorkflowId': child_id, 'description': f'Fixture {i}', 'phase': 'done', 'startedAt': 1793400000000}
+            parent['messages'].append({'id': f'task-msg-{i}', 'role': 'assistant', 'content': '', 'timestamp': 1793400062000 + i, 'isStreaming': False, 'toolUse': {'tool': 'Task', 'toolUseId': tool_id, 'input': {'description': f'Fixture {i}'}}})
     if no_director: fixture['state']['clusters']['demo-cluster']['members'][0]['role'] = 'Builder'
     if research:
         cluster = fixture['state']['clusters']['demo-cluster']
@@ -412,6 +423,18 @@ async def run(base):
             await context.close()
             context, page, errors = await open_page(browser, base, 700, scale=1.1, single=True, cursor_chat=True, touch=True)
             await page.get_by_role('button', name='◉ WEB', exact=True).tap()
+            assert not errors, errors
+            await context.unroute_all(behavior='wait')
+            await context.close()
+            # Expanded Native Task output uses the current child conversation.
+            context, page, errors = await open_page(browser, base, 700, scale=1.1, single=True, task_fixture=True, touch=True)
+            await palette(page, 'Enter focus mode')
+            toggle = page.get_by_role('button', name='Expand task').last
+            await toggle.scroll_into_view_if_needed(); await toggle.tap()
+            output = page.get_by_label('Sub-agent output').last
+            await expect(output).to_contain_text('First output round')
+            await expect(output).to_contain_text('Second output round')
+            await expect(output.locator('hr[aria-label="Next output round"]')).to_have_count(1)
             assert not errors, errors
             await context.unroute_all(behavior='wait')
             await context.close()

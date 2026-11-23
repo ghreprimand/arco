@@ -22,6 +22,7 @@ export const powerFeatures: Section[] = [
   shows the child's status (<Code>running</Code>, <Code>done</Code>,{' '}
   <Code>error</Code> or <Code>cancelled</Code>), elapsed time and workflow id,
   with a <strong>VIEW IN TAB</strong> button that opens the child in the top tab strip.
+  Expand it to see available child output, with text rounds separated.
   </li>
   <li>
   <strong>TASKS tab</strong> in the right pane. It appears only once this

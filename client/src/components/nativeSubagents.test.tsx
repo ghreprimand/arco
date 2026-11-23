@@ -93,6 +93,32 @@ test('task view requires a parent task and hides without removing the child', ()
   } finally { useAppStore.setState(before, true); useAppStore.persist.setOptions({ storage }); }
 });
 
+test('expanded Task shows separate child text rounds without tool rows', async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost', pretendToBeVisual: true });
+  const saved = Object.getOwnPropertyDescriptors(globalThis), before = useAppStore.getState(), storage = useAppStore.persist.getOptions().storage;
+  for (const [key, value] of Object.entries({ window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, React, IS_REACT_ACT_ENVIRONMENT: true })) Object.defineProperty(globalThis, key, { configurable: true, value });
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
+  const root = createRoot(document.getElementById('root')!);
+  try {
+    const config = { name: 'Fixture', primaryProvider: 'claude', primaryModel: 'haiku', primaryEffort: 'low' } as never;
+    useAppStore.getState().createJob('p', config); useAppStore.getState().createJob('child', config, undefined, 'p');
+    useAppStore.getState().recordTaskStarted('p', { taskId: 't', toolUseId: 'u', description: 'Fixture', startedAt: 1, childWorkflowId: 'child' });
+    useAppStore.setState(s => ({ jobs: { ...s.jobs, child: { ...s.jobs.child, messages: [
+      { id: 'one', role: 'assistant', content: 'First round', timestamp: 1, isStreaming: false },
+      { id: 'tool', role: 'assistant', content: '', timestamp: 2, isStreaming: false, toolUse: { tool: 'Read', toolUseId: 'read', input: {} } },
+      { id: 'two', role: 'assistant', content: 'Second round', timestamp: 3, isStreaming: false },
+    ] } } }));
+    await act(async () => root.render(<TaskCard parentJobId="p" toolUseId="u" />));
+    await act(async () => (document.querySelector('[aria-label="Expand task"]') as HTMLButtonElement).click());
+    const output = document.querySelector('[aria-label="Sub-agent output"]')!;
+    assert.match(output.textContent!, /First roundSecond round/);
+    assert.equal(output.querySelectorAll('hr[aria-label="Next output round"]').length, 1);
+  } finally {
+    await act(async () => root.unmount()); useAppStore.setState(before, true); useAppStore.persist.setOptions({ storage }); dom.window.close();
+    for (const key of Object.keys({ window: 1, document: 1, localStorage: 1, React: 1, IS_REACT_ACT_ENVIRONMENT: 1 })) { if (saved[key]) Object.defineProperty(globalThis, key, saved[key]); else Reflect.deleteProperty(globalThis, key); }
+  }
+});
+
 test('child send keeps its exact draft through a socket failure, disconnect and rejection until the matching receipt', async () => {
   const { TaskChildComposer } = await import('./TaskChildComposer');
   const { useDraftStore, readSavedTaskChildSends } = await import('../stores/draftStore');

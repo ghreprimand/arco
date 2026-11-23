@@ -237,15 +237,18 @@ The SUB-AGENTS row above the parent message box opens a list of Task children. V
 
 Inline and TASKS rows retain the effective model through event replay, including the concrete model when reported by the child. Older rows use saved child metadata or show Model not recorded. The silence strip says Waiting for N sub-agents while Tasks remain pending. The parent still waits for final Task replies; this is not background execution.
 
-| Provider | Sub-agent enforcement in this release |
-| --- | --- |
-| Claude Native | Arco enforces the batch decision, running limit, per-turn start budget and selected model for ordinary Agent tabs outside clusters. |
-| Claude CLI | Provider-owned Agent and ultracode Workflow calls; Native limits/model do not apply. Existing `--tools`/`--disallowedTools` remove tools but do not impose these limits. No new switches are applied. |
-| Codex exec and app-server | Provider-owned harness; Native limits/model do not apply. Installed feature switches `multi_agent` and `multi_agent_v2` exist but alone do not prove all code-mode spawning routes absent. No new Agent switches are applied. |
-| Cursor ACP/print | Provider-owned Agent tools; no child count/model control established by installed help. Ordinary print Chat keeps its existing empty tool allowlist. |
-| Local providers | No built-in Arco Task/spawn tool. Peer messages address existing members. These limits do not cover shell-launched programs or third-party MCP tools. |
+| Provider | Start | Limit and model choice | Cancel | Progress |
+| --- | --- | --- | --- | --- |
+| Claude Native | Arco's Task tool in ordinary Agent tabs outside clusters | Arco enforces the batch decision, running and per-turn start limits, and selected model. | Individual or all Tasks; parent STOP cancels pending Tasks. | SUB-AGENTS rows and child conversations. |
+| Claude CLI | Provider-owned Agent and ultracode Workflow calls | Provider controls; Native limits and model override do not apply. Existing `--tools`/`--disallowedTools` remove tools but do not impose these limits. | Parent STOP; child-specific control is not established. | Reported tool activity; ultracode also has a fleet view. |
+| Codex exec and app-server | Provider-owned harness | Provider controls; Native limits and model override do not apply. Installed `multi_agent` and `multi_agent_v2` switches alone do not prove all code-mode spawning routes absent. | Parent STOP; child-specific control is not established. | Provider tool activity; a tested app-server child did not produce a child activity row. |
+| Cursor ACP/print | Provider-owned Agent tools | Child count and model controls are not established by installed help. | Parent STOP; child-specific control is not established. | Provider-reported tool activity. |
+| Antigravity CLI | Provider-owned `invoke_subagent`. | The provider accepted model inheritance in one turn; other controls are not established. | Parent STOP; child-specific control is not established. | Provider-reported tool activity. One observed parent turn ended saying it was waiting; the later child result was not observed. |
+| Local providers | No built-in Arco Task/spawn tool; peer mail addresses existing members. | These limits do not cover shell-launched programs or third-party MCP tools. | Parent STOP. | Provider-reported tool activity. |
 
 Missing CLI, Codex or Cursor child-specific settings remain unconfirmed, not established as unsupported. Provider-owned children are not converted into Native task rows by these controls.
+
+One installed turn on each non-local provider exercised a child request. Native and CLI returned a child answer; Cursor reported a Task call; Codex's provider session recorded a spawn and wait; Antigravity reported a sub-agent invocation but the fixture closed before a later result could be observed. These turns do not establish every provider's child cancellation, limit or model controls.
 
 
 Spawn from a HISTORY point reads the selected earlier prefix even when it is outside the recent replay tail. Cancelled handoffs leave prior Native context intact, including the older-history summary. A cancellation or failure during pre-warm revokes an earlier prepared artifact for replay; a successful fallback after a failed reflection remains valid. Derived summary caches from the earlier replay rule are rebuilt automatically; original events remain unchanged.
