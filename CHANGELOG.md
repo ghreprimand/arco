@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Remove runs of blank lines from reasoning in Activity views.
+
 - Refresh Antigravity usage each time the G panel opens, keeping the previous reading visible while updating.
 
 - Guide researchers to attach long source lists and notes instead of cutting sources to fit a message.

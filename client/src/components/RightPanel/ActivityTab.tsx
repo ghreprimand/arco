@@ -1,4 +1,5 @@
 import { formatActivityTime } from '../activityTime';
+import { formatActivityThinking } from '../clusterActivity.helpers';
 import { contextTokens, promptTokenCounts } from '../../utils/format';
 import { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import type { JobState, ActivityEntry, HistoryEventEntry } from '../../stores/appStore';
@@ -704,7 +705,7 @@ function ActivityRow({ entry }: { entry: ActivityEntry }) {
     );
   }
 
-  const snippet = (entry.text ?? '').trim();
+  const snippet = formatActivityThinking(entry.text ?? '');
   if (!snippet) return null;
   return (
     <div

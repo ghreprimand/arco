@@ -1,10 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  formatActivityThinking,
   coalesceThinkingRuns,
   MAX_CLUSTER_THINKING_CHARS,
   type ClusterActivityItemLike,
 } from './clusterActivity.helpers.js';
+
+test('thinking display removes blank lines without changing ordinary line breaks', () => {
+  assert.equal(formatActivityThinking('\n  \nFirst\r\n\r\n  \r\nSecond\nThird\n\n'), 'First\nSecond\nThird');
+});
 
 function thought(id: string, ts: number, summary: string, memberId = 'kimi'): ClusterActivityItemLike {
   return { id, ts, kind: 'thinking', summary, memberId };

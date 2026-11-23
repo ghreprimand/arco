@@ -14,6 +14,10 @@ export interface ClusterActivityItemLike {
 // multiply the store's already-bounded memory footprint in the cluster view.
 export const MAX_CLUSTER_THINKING_CHARS = 64 * 1024;
 
+export function formatActivityThinking(text: string): string {
+  return text.replace(/\r\n?/g, '\n').trim().replace(/\n[ \t]*\n(?:[ \t]*\n)*/g, '\n');
+}
+
 function appendThinkingSummary(current: string, chunk: string): string {
   if (current.length >= MAX_CLUSTER_THINKING_CHARS) {
     return current.endsWith('…')
@@ -60,7 +64,7 @@ export function coalesceThinkingRuns<T extends ClusterActivityItemLike>(
   // between word-sized deltas), then trim only the completed display run.
   return out.flatMap((item) => {
     if (item.kind !== 'thinking') return [item];
-    const summary = item.summary.trim();
+    const summary = formatActivityThinking(item.summary);
     return summary ? [{ ...item, summary }] : [];
   });
 }
