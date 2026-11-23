@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CLUSTER_MEMBER_PROVIDERS,
+  GEMINI_RESEARCH_DIRECTOR_NOTE,
   RESEARCHER_PROVIDERS,
   RESEARCH_CONFIRM_ABOVE,
   RESEARCH_MAX_RESEARCHERS,
@@ -127,7 +128,7 @@ export function ResearchStartForm(props: Pickers & {
   const sandboxedUnavailable = (p: ClusterMemberProvider) => (p === 'codex' && (!codexSandboxAvailable || !available('codex'))) || (p === 'cursor' && (!cursorSandboxAvailable || !available('cursor')));
   const cliAvailable = sandboxStatus === 'ready' && isProviderEnabled('claude') && claudeConnection(authStatus?.claude, 'cli').connected;
   const anyResearcherAvailable = researcherProviders.length > 0 || cliAvailable;
-  const directorProviders = CLUSTER_MEMBER_PROVIDERS.filter((p) => p !== 'antigravity-cli' && available(p));
+  const directorProviders = CLUSTER_MEMBER_PROVIDERS.filter((p) => available(p));
   const rowFor = (provider: ClusterMemberProvider, from?: Partial<ResearchRow>): ResearchRow => {
     // A restored model or effort that is no longer offered falls back to the
     // provider's first model and its default effort, so Start never sends it.
@@ -284,6 +285,7 @@ export function ResearchStartForm(props: Pickers & {
         <label className="display-font" style={{ ...labelStyle, marginBottom: 0 }}>RESEARCH DIRECTOR</label>
         {rowEditor(director, directorProviders, setDirector, 'Research Director', { help: 'creator.research-director' })}
         <div style={hintStyle}>The Research Director sends the rounds, reads the reports, writes the summary and answers your follow-up questions.</div>
+        {director.provider === 'antigravity-cli' && <div role="note" style={{ ...hintStyle, overflowWrap: 'anywhere' }}>{GEMINI_RESEARCH_DIRECTOR_NOTE}</div>}
       </div>
 
       <div data-help="creator.research-folder">

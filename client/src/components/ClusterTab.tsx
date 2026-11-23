@@ -578,6 +578,9 @@ export function ClusterTab({
     return Number.isSafeInteger(depth) && depth > 0 ? depth : 0;
   });
   const pendingTotal = pendingByMember.reduce((sum, depth) => sum + depth, 0);
+  // A research project offers NUDGE only with a Gemini member, whose steps
+  // and the rounds it sends wait for it (docs/RESEARCH.md).
+  const nudgeOffered = !cluster.research || cluster.members.some((m) => jobs[m.workflowId]?.config.primaryProvider === 'antigravity-cli');
   const pendingMembers = pendingByMember.filter((depth) => depth > 0).length;
   const headerPill: React.CSSProperties = {
     flex: '0 0 auto', padding: '2px 7px', background: 'transparent', color: 'var(--color-fg-muted)',
@@ -981,7 +984,7 @@ export function ClusterTab({
                         status={m.status}
                         role={cluster.research ? undefined : m.role}
                         pendingMail={pendingByMember[cluster.members.indexOf(m)]}
-                        onNudge={cluster.research ? undefined : () => nudgeMembers(new Set([m.workflowId]), false)}
+                        onNudge={nudgeOffered ? () => nudgeMembers(new Set([m.workflowId]), false) : undefined}
                         nudged={nudgedAt[m.workflowId] !== undefined}
                         newReply={directorNewReply && m.workflowId === directorMember?.workflowId}
                         focused={focusedMemberId === m.workflowId}
@@ -1096,7 +1099,7 @@ export function ClusterTab({
                       onSend={(content, attachments, kind, primitive, pickedSkills) =>
                         sendFromComposer(focusedMember.workflowId, content, attachments, kind, primitive, pickedSkills)
                       }
-                      clusterControls={{ clusterId, recipientLabel, placeholder: composerPlaceholder, onChooseRecipients: openRecipients, pendingTotal, pendingMembers, nudgedCount, onNudge: cluster.research ? undefined : openNudgeModal }}
+                      clusterControls={{ clusterId, recipientLabel, placeholder: composerPlaceholder, onChooseRecipients: openRecipients, pendingTotal, pendingMembers, nudgedCount, onNudge: nudgeOffered ? openNudgeModal : undefined }}
                       onAttachPlan={!cluster.research && onAttachPlanToMember ? (planId) => onAttachPlanToMember(focusedMember.workflowId, planId) : undefined}
                       onAttachToCluster={!cluster.research && onSetClusterPlan ? (body) => onSetClusterPlan(clusterId, body) : undefined}
                       onCancel={() => onCancelMember(focusedMember.workflowId)}

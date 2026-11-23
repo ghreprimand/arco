@@ -17,6 +17,8 @@ import * as clusterEfficiency from './clusterEfficiency.js';
 import { buildClusterDirectorDoctrine } from './clusterDirector.js';
 import { buildProgressDoctrine } from './clusterProgress.js';
 import { readClusterPlan } from './clusterPlanBridge.js';
+import { researchDirectorDoctrine } from './research/researchDoctrine.js';
+import { loadResearch } from './research/researchState.js';
 import { workflows } from './server/state.js';
 import { listSkills, buildSkillsManifest } from './skills.js';
 import { gateProjectResources } from './projectTrust.js';
@@ -77,6 +79,7 @@ export async function geminiClusterInstructions(clusterId: string, workflowId: s
       roleLine,
       clusterEfficiency.buildDoctrine(clusterStore.getEfficiencyLevel(clusterId), clusterStore.getEfficiencyAddendum(clusterId), role, guard),
       buildClusterDirectorDoctrine(role),
+      (await loadResearch(clusterId).catch(() => null))?.directorWorkflowId === workflowId ? researchDirectorDoctrine() : undefined,
       buildProgressDoctrine(clusterStore.getProgressTracking(clusterId), !!(await readClusterPlan(clusterId).catch(() => null))?.body?.trim(), clusterStore.isTaskBoardAttached(clusterId)),
       mailLine,
     ];

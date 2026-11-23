@@ -41,6 +41,9 @@ export interface ResearchDeps {
   enqueue(toWorkflowId: string, msg: PeerMessage, opts?: { maxContentBytes?: number }): Promise<void>;
   mintMsgId(): string;
   wake(workflowId: string, prompt: string): void;
+  // A member whose turns only the operator starts (a Gemini member, see
+  // docs/PROTOCOL_CLUSTER.md "Gemini members"): never woken; see wakeMember.
+  operatorOnly?(workflowId: string): boolean;
   isBusy(workflowId: string): boolean;
   pendingMail(workflowId: string): Promise<number>;
   clusterIdFor(workflowId: string): string | undefined;
@@ -83,7 +86,7 @@ export function configureResearch(next: ResearchDeps | null): void {
         toWorkflowId: state.directorWorkflowId, content, createdAt: iso(next.now()), delivered: false,
       }, { maxContentBytes: RELEASE_MAX_BYTES });
       if (next.isBusy(state.directorWorkflowId)) directorWakes.add(clusterId);
-      else next.wake(state.directorWorkflowId, directorWakePrompt(n > 0 ? n : undefined));
+      else wakeMember(state.directorWorkflowId, directorWakePrompt(n > 0 ? n : undefined));
     }).catch(error => console.error('[arco] research independence warning failed:', error));
   } : undefined);
   if (!next) {
@@ -91,6 +94,24 @@ export function configureResearch(next: ResearchDeps | null): void {
     timers.clear();
     directorWakes.clear();
   }
+}
+
+// docs/RESEARCH.md "Gemini Research Director". Starts a research turn, except
+// for a member whose turns only the operator starts: it gets the turn text as
+// pending mail from "Arco research" instead, which waits for the operator's
+// NUDGE, unless mail already waits for it (the NUDGE reads that mail).
+function wakeMember(workflowId: string, prompt: string): void {
+  const deps = d();
+  if (!deps.operatorOnly?.(workflowId)) { deps.wake(workflowId, prompt); return; }
+  void (async () => {
+    if (await deps.pendingMail(workflowId) > 0) return;
+    await deps.enqueue(workflowId, {
+      msgId: deps.mintMsgId(), fromWorkflowId: workflowId, fromDisplayName: 'Arco research',
+      toWorkflowId: workflowId, content: prompt, createdAt: iso(deps.now()), delivered: false,
+    }, { maxContentBytes: RELEASE_MAX_BYTES });
+    const clusterId = deps.clusterIdFor(workflowId);
+    if (clusterId) deps.notify(clusterId);
+  })().catch((error) => console.error('[arco] research notice for an operator-started member failed:', error));
 }
 
 function d(): ResearchDeps {
@@ -148,6 +169,9 @@ export async function startRound(clusterId: string, callerWorkflowId: string, te
 // The round (or catch-up) text as mail plus a turn message.
 async function sendRoundText(state: ResearchState, round: ResearchRound, r: ResearchResearcher): Promise<void> {
   const label = round.catchUp ? 'catch-up on round 1' : `round ${round.n}`;
+  // A round from a Gemini Research Director is mail from a Gemini member: it
+  // waits for the operator's NUDGE on each researcher.
+  const held = d().operatorOnly?.(state.directorWorkflowId) === true;
   await d().enqueue(r.workflowId, {
     msgId: d().mintMsgId(),
     fromWorkflowId: state.directorWorkflowId,
@@ -156,8 +180,9 @@ async function sendRoundText(state: ResearchState, round: ResearchRound, r: Rese
     content: `Research brief, ${label}. Answer it independently, then send your report with peer_send.\n\n${round.text}`,
     createdAt: iso(d().now()),
     delivered: false,
+    ...(held ? { fromGemini: true } : {}),
   }, { maxContentBytes: RELEASE_MAX_BYTES });
-  if (!d().isBusy(r.workflowId)) d().wake(r.workflowId, researcherWakePrompt(round, round.text));
+  if (!held && !d().isBusy(r.workflowId)) wakeMember(r.workflowId, researcherWakePrompt(round, round.text));
 }
 
 // The brief is quoted in the turn message as well as sent as mail: mail is
@@ -281,7 +306,7 @@ export async function onMemberSettled(workflowId: string, outcome: 'finished' | 
   if (workflowId === state.directorWorkflowId) {
     await logDirectorTurn(state, workflowId).catch((error) => console.error('[arco] research director log failed:', error));
     if (directorWakes.delete(clusterId) && outcome !== 'stopped' && await d().pendingMail(workflowId) > 0) {
-      d().wake(workflowId, directorWakePrompt(state.rounds.filter(r => r.releasedAt).at(-1)?.n));
+      wakeMember(workflowId, directorWakePrompt(state.rounds.filter(r => r.releasedAt).at(-1)?.n));
     }
     return;
   }
@@ -291,13 +316,13 @@ export async function onMemberSettled(workflowId: string, outcome: 'finished' | 
   const n = round.n;
   const openEntry = (s: ResearchState) => { const r = roundByKey(s, n); return r && !r.releasedAt ? r.entries[researcher.letter] : undefined; };
   const at = iso(d().now());
-  if (outcome === 'finished' && await d().pendingMail(workflowId) > 0 && (round.entries[researcher.letter].wakes ?? 0) < MAX_WAKES) {
+  if (outcome === 'finished' && !d().operatorOnly?.(state.directorWorkflowId) && await d().pendingMail(workflowId) > 0 && (round.entries[researcher.letter].wakes ?? 0) < MAX_WAKES) {
     await updateResearch(clusterId, (s) => {
       const entry = openEntry(s);
       if (!entry || entry.state !== 'waiting') return false;
       entry.wakes = (entry.wakes ?? 0) + 1;
     });
-    d().wake(workflowId, researcherWakePrompt(round, round.text));
+    wakeMember(workflowId, researcherWakePrompt(round, round.text));
     return;
   }
   const reply = outcome === 'finished' ? await finalReplyText(join(state.membersCwd, '.arco', 'workflows', workflowId)) : '';
@@ -378,7 +403,7 @@ export async function maybeRelease(clusterId: string, n?: number): Promise<boole
     delivered: false,
   }, { maxContentBytes: RELEASE_MAX_BYTES });
   if (d().isBusy(latest.directorWorkflowId)) directorWakes.add(clusterId);
-  else d().wake(latest.directorWorkflowId, directorWakePrompt(round.n));
+  else wakeMember(latest.directorWorkflowId, directorWakePrompt(round.n));
   d().notify(clusterId);
   return true;
 }
@@ -391,7 +416,7 @@ async function finishCatchUp(state: ResearchState, round: ResearchRound, written
   if (entry?.state === 'replied') {
     await noteDirector(state, buildReleaseMessage(state, round, written));
     if (d().isBusy(state.directorWorkflowId)) directorWakes.add(state.clusterId);
-    else d().wake(state.directorWorkflowId, `(research) The catch-up report from ${researcherName(letter)} is in your mail. Add it to synthesis.md and say that it arrived later.`);
+    else wakeMember(state.directorWorkflowId, `(research) The catch-up report from ${researcherName(letter)} is in your mail. Add it to synthesis.md and say that it arrived later.`);
   } else if (entry && entry.state !== 'removed') {
     await noteDirector(state, `${researcherName(letter)}'s catch-up on the original brief ended without a report (${(entry.state).replace('_', ' ')}).`);
   }
@@ -531,7 +556,7 @@ export async function restoreResearchTimers(clusterIds: Iterable<string>): Promi
       schedule(clusterId, round);
       for (const researcher of state.researchers) {
         if (researcher.signInNeeded && round.entries[researcher.letter]?.state === 'waiting' && !d().isBusy(researcher.workflowId)) {
-          d().wake(researcher.workflowId, `(research) The server restarted during sign-in recovery for round ${round.n}. Continue the existing research task after sign-in; do not repeat completed actions.\n\n${round.text}`);
+          wakeMember(researcher.workflowId, `(research) The server restarted during sign-in recovery for round ${round.n}. Continue the existing research task after sign-in; do not repeat completed actions.\n\n${round.text}`);
         }
       }
     }
@@ -561,7 +586,7 @@ async function logDirectorTurn(state: ResearchState, workflowId: string): Promis
 // whatever the cluster's AUTO-PICKUP setting.
 export function wakeForResearchMail(workflowId: string, toResearcher: boolean): void {
   if (!deps || deps.isBusy(workflowId)) return;
-  deps.wake(workflowId, toResearcher
+  wakeMember(workflowId, toResearcher
     ? '(research) The Research Director sent you a message; it is in your mail. Answer it with peer_send.'
     : '(research) A researcher answered your message; it is in your mail.');
 }
@@ -601,7 +626,7 @@ export function directorStartPrompt(state: Pick<ResearchState, 'name' | 'brief'>
 
 export function startResearchDirector(state: Pick<ResearchState, 'name' | 'brief' | 'directorWorkflowId'>): boolean {
   if (!deps) return false;
-  d().wake(state.directorWorkflowId, directorStartPrompt(state));
+  wakeMember(state.directorWorkflowId, directorStartPrompt(state));
   return true;
 }
 
@@ -626,7 +651,7 @@ function releasedNote(released: number[]): string {
 
 export async function announceResearchReopen(state: ResearchState, resumed: boolean, released: number[]): Promise<void> {
   if (!deps) return;
-  if (!resumed) { d().wake(state.directorWorkflowId, directorReopenPrompt(state, released)); d().notify(state.clusterId); return; }
+  if (!resumed) { wakeMember(state.directorWorkflowId, directorReopenPrompt(state, released)); d().notify(state.clusterId); return; }
   const letters = activeResearchers(state).map((r) => r.letter).join(', ');
   await noteDirector(state, [
     `This project was reopened on ${state.reopenedAt ?? iso(d().now())}. The earlier researchers are gone; rounds now go to ${letters}.`,

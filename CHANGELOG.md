@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Allow a Gemini Research Director; each of its steps and each round it sends waits for your NUDGE.
+
 - Add Gemini (Antigravity) cluster members in any role; mail to or from a Gemini member waits for your NUDGE on the recipient, and AUTO-PICKUP skips it.
 
 - Edit pending peer messages in MAILBOX before the recipient reads them.

@@ -444,6 +444,11 @@ export const clusters: Section[] = [
   named panel shown beside them.
   </p>
   <p>
+  A Gemini Research Director waits for your NUDGE at every step, and the
+  rounds it sends wait for your NUDGE on each researcher. NUDGE and
+  MAILBOX then appear, so that mail can be reviewed or edited first.
+  </p>
+  <p>
   The <strong>Research Director</strong> can use any connected provider. The
   first project asks for the research folder and saves it; change it later in
   Settings, Projects, <strong>Research folder</strong>. Each project gets its
@@ -2203,7 +2208,10 @@ export const clusters: Section[] = [
   Mail to or from a Gemini member waits until you press NUDGE on the recipient. AUTO-PICKUP, Smart pickup, busy reminders, CONTINUE DIRECTOR and messages to several members skip it. Review, edit or cancel the waiting mail in MAILBOX first; the recipient then reads it with <Code>peer_read</Code>.
   </p>
   <p>
-  A message typed in a Gemini member&apos;s own composer also starts its turn. Its first NUDGE starts with its role, cluster instructions and available skill list, shown in the conversation. Every NUDGE asks it to read the current plan and mail before acting. COMPACT works as in an Agent tab. Gemini members are not isolated and cannot be researchers. A Gemini replacement starts with no history.
+  A message typed in a Gemini member&apos;s own composer also starts its turn. Its first NUDGE starts with its role, cluster instructions and available skill list, shown in the conversation. Every NUDGE asks it to read the current plan and mail before acting. COMPACT works as in an Agent tab.
+  </p>
+  <p>
+  Gemini members are not isolated and cannot be researchers; a Gemini Research Director is allowed. A Gemini replacement starts with no history.
   </p>
   </>
   ),

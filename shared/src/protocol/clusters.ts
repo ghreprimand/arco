@@ -26,6 +26,8 @@ export function isOperatorSendOnlyProvider(v: unknown): boolean {
 export const GEMINI_MEMBER_NOTE = 'Mail to or from Gemini waits for your NUDGE; review or edit it in MAILBOX first. AUTO-PICKUP skips it.';
 // Shown where a Gemini member is chosen: it runs in the project folder.
 export const GEMINI_MEMBER_CHOICE_NOTE = `${GEMINI_MEMBER_NOTE} Gemini members are not isolated.`;
+// Shown where a Gemini Research Director is chosen.
+export const GEMINI_RESEARCH_DIRECTOR_NOTE = 'Each step of a Gemini Research Director waits for your NUDGE, and the rounds it sends wait for your NUDGE on each researcher. Review or edit them in MAILBOX first. Gemini researchers are not available.';
 
 
 export function isClusterMemberProvider(v: unknown): v is ClusterMemberProvider {

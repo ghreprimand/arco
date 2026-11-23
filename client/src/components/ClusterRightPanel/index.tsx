@@ -60,9 +60,13 @@ const GROUPS: { id: GroupId; label: string; tabs: SubTab[] }[] = [
   { id: 'runtime', label: 'RUNTIME', tabs: ['preview', 'config', 'github'] },
 ];
 // docs/RESEARCH.md - a research project shows RESULTS and hides BOARD;
-// every other cluster hides RESULTS.
-function groupsFor(research: boolean): typeof GROUPS {
-  return GROUPS.map((g) => ({ ...g, tabs: g.tabs.filter((t) => research ? !['board', 'plan', 'reviews', 'handoffs', 'mailbox', 'github'].includes(t) : t !== 'results') }));
+// every other cluster hides RESULTS. MAILBOX stays in a research project
+// with a Gemini member, whose mail waits there for the operator's NUDGE.
+function groupsFor(research: boolean, gemini = false): typeof GROUPS {
+  return GROUPS.map((g) => ({ ...g, tabs: g.tabs.filter((t) => research ? !researchHidden(t, gemini) : t !== 'results') }));
+}
+function researchHidden(t: string, gemini: boolean): boolean {
+  return ['board', 'plan', 'reviews', 'handoffs', 'github'].includes(t) || (t === 'mailbox' && !gemini);
 }
 const STORAGE_KEY = 'arco.clusterSidePanelTab.byCluster';
 const NARROW_PX = 360;
@@ -93,6 +97,7 @@ function tabForCluster(map: Record<string, SubTab>, clusterId: string): SubTab {
 
 export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest, planTabRequest, membersTabRequest, onFocusMember, onRename, onAddFreshWorkers, onAddExistingMember, onSetPlan, onAttachPlan, onClearPlan, onSetMemberRole, onSetMemberTier, onSetMemberFocus, onDetachMember, onAddResearcher, onRemoveResearcher, onToggleIdleNudger, onToggleAutoTurn, onSetTaskBoardMode, onSetTaskBoardAttached, onSetEfficiency, onSetAutoCompaction, onSetRemote, onSetGates, onSetProgress, onDispatchOnce, onToggleDispatcher, onUpdateDispatcherSettings, onUpdateTaskStatus, onReassignTask, onReclaimRun, onTerminateRun, onCreateSwarm, onSpawnPhase, onReviewMember, onCancelReview, onCancelHandoff, onClearHandoffLock, onReviewViaMember, onAttachPlanToMember, onUpdateMemberPrimary, onAttachCodebaseMemory, onDetachCodebaseMemory, mcp }: Props) {
   const hubConnected = useHubLinkStore(s => s.known && s.connected);
+  const hasGemini = useAppStore((s) => cluster.members.some((m) => s.jobs[m.workflowId]?.config.primaryProvider === 'antigravity-cli'));
   const rootRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
   const [tabsByCluster, setTabsByCluster] = useState<Record<string, SubTab>>(loadTabsByCluster);
@@ -116,9 +121,9 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
   // docs/RESEARCH.md - a stored BOARD tab becomes RESULTS in a research
   // project, and RESULTS falls back to MEMBERS elsewhere.
   useEffect(() => {
-    if (cluster.research && ['board', 'plan', 'reviews', 'handoffs', 'mailbox', 'github'].includes(tab)) setTab('results');
+    if (cluster.research && researchHidden(tab, hasGemini)) setTab('results');
     else if (!cluster.research && tab === 'results') setTab('members');
-  }, [cluster.research, tab]);
+  }, [cluster.research, tab, hasGemini]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   useEffect(() => {
     if (voicePanel?.id === cluster.clusterId && TABS.some((t) => t.id === voicePanel.panel)) setTab(voicePanel.panel as SubTab);
@@ -134,7 +139,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
   const jobs = useAppStore((s) => s.jobs);
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   const activeGroup = groupOf(tab);
-  const groups = groupsFor(!!cluster.research);
+  const groups = groupsFor(!!cluster.research, hasGemini);
 
   // §10.7 P12.5 — peer→task bridge. Promote a pending peer message into a
   // durable board task via the operator task_ledger_create path (first member is

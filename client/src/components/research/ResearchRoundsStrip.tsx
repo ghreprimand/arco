@@ -53,7 +53,7 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
       {research.researchers.filter(r => r.signInNeeded).map(r => <div key={r.workflowId} data-help="research.signin"><AuthReloginNotice provider={r.signInNeeded!} workflowId={r.workflowId} {...(r.signInNeeded === 'claude' ? { authRecovery: { transport: 'cli' as const } } : {})} autoContinue body={`${r.signInNeeded === 'claude' ? 'Claude' : 'Codex'} sign-in needs renewing. Researcher ${r.letter} continues after sign-in.`} /></div>)}
       {research.preRoundContaminated && <div role="alert" style={{ color: 'var(--color-warning)' }}>INDEPENDENCE CHECK FAILED BEFORE THE FIRST ROUND</div>}
       {research.preRoundBoundaryWarning && <div role="alert" style={{ color: 'var(--color-warning)' }}>SANDBOX ACCESS WARNING BEFORE THE FIRST ROUND</div>}
-      {research.rounds.length === 0 && <div>No round yet. The Research Director starts on the brief when the project opens.</div>}
+      {research.rounds.length === 0 && <div>No round yet. The Research Director starts on the brief when the project opens; a Gemini Research Director starts when you press NUDGE.</div>}
       {rounds.map((round) => {
         const expanded = openRound === round.n;
         return (

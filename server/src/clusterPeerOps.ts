@@ -464,7 +464,8 @@ export async function peerSend(
     await recordTargeted(ctx.clusterId, resolved, 'director', args.content)
       .catch((err) => console.error('[arco] research targeted message not recorded:', err));
   }
-  if (research && (senderResearcher || recipientResearcher)) wakeForResearchMail(resolved, !!recipientResearcher);
+  // Mail from a Gemini member waits for the operator's NUDGE on the recipient.
+  if (research && (senderResearcher || recipientResearcher) && !isGeminiMember(ctx.workflowId)) wakeForResearchMail(resolved, !!recipientResearcher);
   const context = senderResearcher || recipientResearcher
     ? undefined
     : await recipientContext(ctx.clusterId, ctx.workflowId, resolved).catch(() => undefined);

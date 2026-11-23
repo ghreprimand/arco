@@ -2593,6 +2593,7 @@ function onListening() {
       handleUserMessage(fakeWs, fakeSession, wfid, prompt, undefined, undefined, false, undefined, undefined, undefined, { automaticKind: 'research' })
         .catch((err) => console.error(`[arco] research turn failed to start for ${wfid.slice(0, 8)}:`, err));
     },
+    operatorOnly: (wfid) => isGeminiMember(wfid),
     isBusy: (wfid) => workflows.get(wfid)?.busy === true,
     pendingMail: (wfid) => clusterMailbox.depthFor(wfid),
     clusterIdFor: (wfid) => clusterStore.getClusterIdForWorkflow(wfid),

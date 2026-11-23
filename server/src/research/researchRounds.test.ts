@@ -63,6 +63,37 @@ test('the originating project stays in Arco state and is exposed as the results 
   } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
 });
 
+test('a Gemini Research Director gets its turn text as waiting mail, and its rounds wait for the operator on each researcher', async () => {
+  const p = await project();
+  try {
+    configureResearch({
+      enqueue: (to, msg, opts) => clusterMailbox.enqueue(to, msg, opts),
+      mintMsgId: () => clusterMailbox.mintMsgId(),
+      wake: (wfid, prompt) => { p.woken.push(wfid); p.prompts.push(prompt); },
+      operatorOnly: (wfid) => wfid === p.director,
+      isBusy: () => false,
+      pendingMail: (wfid) => clusterMailbox.depthFor(wfid),
+      clusterIdFor: (wfid) => clusterStore.getClusterIdForWorkflow(wfid),
+      notify: () => undefined,
+      now: () => Date.now(),
+    });
+    assert.equal(startResearchDirector({ name: 'Heat pump', brief: 'Which heat pump?', directorWorkflowId: p.director }), true);
+    for (let i = 0; i < 50 && (await clusterMailbox.peek(p.director)).length === 0; i++) await new Promise((r) => setTimeout(r, 10));
+    const start = await clusterMailbox.peek(p.director);
+    assert.equal(start.length, 1);
+    assert.match(start[0].content, /Which heat pump\?/);
+    assert.equal(start[0].fromDisplayName, 'Arco research');
+    const result = await startRound(p.clusterId, p.director, 'Compare two heat pumps.');
+    assert.equal(result.ok, true);
+    assert.deepEqual(p.woken, [], 'no turn starts for the Gemini Director or its researchers');
+    for (const r of [p.a, p.b]) {
+      const mail = await clusterMailbox.peek(r);
+      assert.equal(mail.length, 1);
+      assert.equal(mail[0].fromGemini, true);
+    }
+  } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
 test('research creation rejects a CLI-only setting on a different provider', async () => {
   const result = await prepareResearchCreate({ type: 'cluster_create_from_scratch', cwd: '', research: { name: 'Fixture', brief: 'Compare.' }, members: [
     { provider: 'claude', model: 'sonnet' },

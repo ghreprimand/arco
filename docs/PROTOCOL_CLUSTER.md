@@ -1163,7 +1163,7 @@ A new cluster or preset may have at most one director. Role text beginning with 
 
 ## Gemini members
 
-Gemini (the `antigravity-cli` provider) can be a cluster member in any role, including Director, chosen at cluster creation, + ADD FRESH or REPLACE. Gemini members are not isolated, are not offered as researchers or Research Directors, and a Gemini replacement starts with no history.
+Gemini (the `antigravity-cli` provider) can be a cluster member in any role, including Director, chosen at cluster creation, + ADD FRESH or REPLACE. Gemini members are not isolated and are not offered as researchers; a Gemini Research Director is allowed (see [RESEARCH.md](RESEARCH.md#members)). A Gemini replacement starts with no history.
 
 A Gemini member takes a turn only from the operator's NUDGE on it or a message the operator types in its composer. Both arrive as a WebSocket `user_message`; the server issues a single-use ticket bound to that member and the exact text, and `handleUserMessage` starts a Gemini member turn only with a valid ticket, checked again and consumed when a queued message is taken. AUTO-PICKUP, Smart pickup, busy reminders, task dispatch, broadcasts, CONTINUE DIRECTOR, timers, retries and other automatic turns carry no ticket and start nothing. Rule-based AUTO-PICKUP records the skip with reason `operator_send_only`, Smart pickup records it without asking its evaluator, and a broadcast reports the member as `gemini_review`. Prompt templates, `@` references and picked skills are not applied to a Gemini message.
 
