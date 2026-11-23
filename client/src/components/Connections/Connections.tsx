@@ -3,7 +3,7 @@ import type { ArcoSettings, AuthLoginResult, AuthLoginTarget, ConnectionCatalog 
 import { useAppStore } from '../../stores/appStore';
 import { useStartupStore } from '../../stores/startupStore';
 import { LoginFlow } from '../LoginFlow';
-import { checkProviderStatus } from '../../utils/providerStatusCheck';
+import { checkProviderStatus, refreshSignedInCursorCatalog } from '../../utils/providerStatusCheck';
 import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
 import { LoginCommand } from '../LoginCommand';
 import { NativeLoginControls } from '../NativeLoginControls';
@@ -72,6 +72,7 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
         const body=parseConnectionStatus(res.ok,await res.json());
         if(!body)throw new Error();
         if(alive.current)setAuth(body);
+        if(body.cursor?.loggedIn)void refreshSignedInCursorCatalog();
       }
       if(alive.current){setNote('Status refreshed. Detection does not test a model turn or establish billing.');void loadCatalog();}
     } catch {if(alive.current)setNote('Status could not be checked. Previous results may be out of date. Check that Arco is running, then retry.');}

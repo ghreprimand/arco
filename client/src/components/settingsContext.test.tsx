@@ -140,6 +140,10 @@ test('a finished Cursor sign-in in Settings publishes the explicit check to the 
           requests.push({ url: u });
           return { ok: true, json: async () => ({ provider: 'cursor', status: { loggedIn: true, apiProvider: 'cursor-session' } }) };
         }
+        if (u === '/api/cursor/catalog?force=1') {
+          requests.push({ url: u });
+          return { ok: true, json: async () => ({ models: [{ id: 'fixture-model', label: 'Fixture model' }] }) };
+        }
         return inner(url as string, init);
       }) as typeof fetch;
       const row = [...container.querySelectorAll('span')].find((s) => s.textContent === 'CURSOR (ACP)')?.closest('div')?.parentElement;
@@ -148,6 +152,8 @@ test('a finished Cursor sign-in in Settings publishes the explicit check to the 
       await act(async () => { login.click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
       assert.ok(requests.some((r) => r.url === '/api/connections/check?provider=cursor'), requests.map((r) => r.url).join(', '));
       assert.equal(useAppStore.getState().authStatus?.cursor?.loggedIn, true, 'the top bar and pickers read the shared status');
+      assert.ok(requests.some((r) => r.url === '/api/cursor/catalog?force=1'));
+      assert.equal(useAppStore.getState().cursorCatalog?.models[0]?.id, 'fixture-model');
       assert.equal(container.querySelector('[data-testid="settings-cursor-login-note"]'), null);
     });
   } finally {

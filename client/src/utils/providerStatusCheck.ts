@@ -1,5 +1,14 @@
-import type { ArcoSettings, AuthLoginTarget, AuthStatus } from '@arco/shared';
+import type { ArcoSettings, AuthLoginTarget, AuthStatus, CursorCatalogSnapshot } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
+
+export async function refreshSignedInCursorCatalog(): Promise<void> {
+  try {
+    const res = await fetch('/api/cursor/catalog?force=1', { cache: 'no-store' });
+    if (!res.ok) return;
+    const snapshot = await res.json() as CursorCatalogSnapshot;
+    if (Array.isArray(snapshot?.models)) useAppStore.getState().setCursorCatalog(snapshot);
+  } catch { /* keep the previous catalog */ }
+}
 
 // The explicit status check Connections runs for one provider, published to
 // the shared store so the top bar, pickers and Settings all see it at once.
@@ -13,6 +22,7 @@ export async function checkProviderStatus(target: AuthLoginTarget): Promise<Auth
     const state = useAppStore.getState();
     if (state.authStatus) state.setAuthStatus({ ...state.authStatus, [target]: body.status });
     if (body.settings?.enabledProviders) state.setSettings(body.settings as ArcoSettings);
+    if (target === 'cursor' && body.status.loggedIn) void refreshSignedInCursorCatalog();
     return body.status as AuthStatus;
   } catch {
     return null;
