@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Guide researchers to attach long source lists and notes instead of cutting sources to fit a message.
+
 - Show provider refusals and available last messages in failed research round outcomes.
 
 - Avoid false research sandbox warnings for relative file globs.

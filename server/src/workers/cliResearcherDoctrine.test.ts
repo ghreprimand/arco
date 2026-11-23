@@ -15,4 +15,6 @@ test('sandboxed CLI researcher instructions allow its shell without changing oth
   assert.match(cli, /Private workspace\.[\s\S]*Send one report\./);
   assert.match(base, /You have no shell/);
   assert.throws(() => cliResearcherDoctrine('Unexpected research doctrine.'), /unavailable/);
+  const { RESEARCHER_DOCTRINE } = await import('../research/researchDoctrine.js');
+  assert.match(cliResearcherDoctrine(RESEARCHER_DOCTRINE), /about 12 KB[\s\S]*artifact_paths[\s\S]*Never drop sources[\s\S]*Do not count bytes/);
 });

@@ -492,6 +492,9 @@ export const clusters: Section[] = [
   Failed outcomes include a provider refusal or last message when available.
   </p>
   <p>
+  Researchers can attach long source lists and notes to their reports; returned files appear in sources/.
+  </p>
+  <p>
   A researcher marked failed or timed out shows <Code>RETRY</Code> in its
   round's details. Arco sends it a file with its work so far and asks it to
   finish. An open round takes the report as usual. For a released round, the
