@@ -285,6 +285,7 @@ Live model/effort swap. Same-provider only - provider swaps require Handoff.
   claudeNativeCompact?: boolean, // followup - Anthropic server-managed compaction
   claudeNativeForceInterleavedThinkingBeta?: boolean, // Native A/B debug - force interleaved-thinking beta next turn
   claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates', // Native adaptive-thinking display - 'summarized' streams thinking into Activity (default 'omitted', Claude Code parity); 'updates' (beta progress notes) only where supportsThinkingDisplayUpdates, else resolves to 'omitted'
+  nativeSubagents?: { maxRunning?, maxStarts?, model?, background? } | null, // Claude Native Task policy; null clears the tab override. background false makes every Task wait. Applies next turn
   nativeCompactAutoContinue?: boolean, // auto-continue after a Native compaction (default false)
   autoFold?: { enabled, foldAt, tailBudget? },       // per-tab auto-fold (Native) - off by default; foldAt is the budget-meter pct
   goalRun?: { enabled, total?, tokenBudget? },        // - arm/re-arm (resets counters) / disarm the north-star auto-continue; refused without a north star. Acked by goal_run_state

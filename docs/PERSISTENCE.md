@@ -338,6 +338,7 @@ interface WorkflowMeta {
   ultracode?: boolean;                                     // sticky ultracode mode; default off; claude-only
   webSearchMaxUses?: number;                               // per-tab Native web_search/web_fetch and separate read_url per-turn budgets; absent = 15
   claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates';  // adaptive-thinking display; default 'omitted'; Native-only
+  nativeSubagents?: { maxRunning?: number; maxStarts?: number; model?: string; background?: boolean };  // Claude Native Task limits, model and Background sub-agents; absent ⇒ Settings/defaults
   claudeNativeForceInterleavedThinkingBeta?: boolean;
   claudeNativeCompact?: boolean;         // Anthropic server-side compaction opt-in
   claudeNativeCompactUserSetAt?: number; // marks an explicit re-opt-in after the default flipped off
@@ -430,6 +431,7 @@ Why each part:
 - **`ultracode`** - `boolean | undefined`. Sticky ultracode mode; default OFF. Survives restart so a tab left in ultracode resumes there. Claude-only.
 - **`webSearchMaxUses`** - `number | undefined`. Per-tab Native `web_search`/`web_fetch` per-turn budget (server-tool `max_uses`) and separate `read_url` attempt cap. Absent uses the Arco default (15). Native-only.
 - **`claudeNativeThinkingDisplay`** - `'omitted' | 'summarized' | 'updates' | undefined`. Adaptive-thinking display; default `'omitted'` when absent; `'summarized'` streams thinking into the Activity tab; `'updates'` only on models with `supportsThinkingDisplayUpdates`. Native-only.
+- **`nativeSubagents`** - `{ maxRunning?, maxStarts?, model?, background? } | undefined`. Per-tab Claude Native Task policy. Absent fields inherit Settings, then defaults (4 running, 8 starts per turn, Agent's choice, Background Allowed). `background: false` makes every `Task` call wait. See [Background sub-agents](PROVIDERS.md#background-sub-agents).
 - **`kind` / `lastUserPreview` / `chatWebAccess`** - Chat-mode fields. `kind:'chat'` routes the meta to `~/.arco/chats/`, skips the project session-index upsert, and is what `GET /api/chats` filters on; `lastUserPreview` is capped + flattened on write so Past Chats never reads JSONL; `chatWebAccess` is written only for chat metas.
 - **`codexContextPolicy`** - `'max' | 'standard' | undefined`. Absent ⇒ MAX, resolved at spawn from the account's `$CODEX_HOME/models_cache.json`. Part of the app-server bootstrap signature, so a change recycles the child and resumes the same thread.
 - **`resolvedModelId`** - the concrete id the API served behind an alias (`opus` -> `claude-opus-5-5`), written fire-and-forget by the Native worker so turn 1 after a restart gates capabilities correctly. The alias stays in `primaryModel` so auto-tracking is preserved.
@@ -803,6 +805,7 @@ Global shape (representative subset):
   fallbackChains?, autoHandoffDefaults?, handoffSummarizer?, defaultProjectTrust?, mediaUnconfined?, mediaAllowedRoots?, pinnedServices?, tabOrder?,
   onboardingComplete?, providerConfirmed?,   // first-run setup finished or skipped; a provider check succeeded
   autoMarkDoneOnMetSignoff?,                  // Board auto-done; absent means on
+  nativeSubagents?,                           // Claude Native Task defaults incl. background Allowed/Off
   //...
 }
 ```

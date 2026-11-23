@@ -135,6 +135,7 @@ export const maintenance: Section[] = [
   <p>
   Cursor uses <Code>cursor-agent update</Code> and rechecks its version.
   The separate CURSOR CHANGELOG link opens the CLI release notes.
+  Antigravity CLI uses <Code>agy update</Code> from the same Versions menu.
   </p>
   <p>
   Cursor&apos;s update flag reads the dated release version from its public

@@ -2,7 +2,7 @@ import { C } from './shared';
 import type { HelpEntry } from './shared';
 
 export const miscHelp: Record<string, HelpEntry> = {
-  'config.subagent-provider': { title: 'Sub-agent controls', body: <p>Claude Native has Arco-managed Task limits, model choice and child cancellation. Claude CLI, Codex, Cursor and Antigravity manage their own sub-agents; Arco does not set their child count or model. Local providers have no built-in Arco sub-agent runner. STOP stops the parent turn.</p>, manualSection: 'provider-claude' },
+  'config.subagent-provider': { title: 'Sub-agent controls', body: <p>Claude Native has Arco-managed Task limits, model choice, Background Allowed or Off, and child cancellation. Claude CLI, Codex, Cursor and Antigravity manage their own sub-agents; Arco does not set their child count or model. Local providers have no built-in Arco sub-agent runner. STOP stops the parent turn.</p>, manualSection: 'provider-claude' },
   'runtime.subagent-list': {
     title: 'Sub-agents',
     body: <p>Expand the row to see Task children and their status. VIEW IN TAB opens the same child; closing that view hides it without stopping the task. CANCEL stops one child and CANCEL ALL stops pending children, background ones included. A BACKGROUND child keeps running through new messages until it ends, STOP or the tab closes. A running Native child can receive a text steer; a draft stays until the server confirms receipt. Receipt clears the draft but does not confirm delivery to the child. If delivery is unconfirmed, check the conversation before sending again. Completed children are read-only.</p>,
