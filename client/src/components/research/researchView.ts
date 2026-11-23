@@ -1,4 +1,4 @@
-import type { ClusterResearchSummary, ResearchEntryState, ResearchRoundSummary } from '@arco/shared';
+import { researchSearchDetails, type ClusterResearchSummary, type ResearchEntryState, type ResearchRoundSummary } from '@arco/shared';
 import type { JobState } from '../../stores/appStore';
 
 // docs/RESEARCH.md - pure helpers for the research project screen.
@@ -12,16 +12,14 @@ export function roundsAndCatchUps(research: Pick<ClusterResearchSummary, 'rounds
   return [...research.rounds, ...(research.catchUps ?? [])].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
 }
 
-const SEARCH_TOOLS = new Set(['web_search', 'WebSearch']);
-
 // Web searches this researcher made in its loaded activity. Tool calls live
 // in the activity list, not in chat messages; one call can report several
 // status updates, so calls are counted once by their id.
 export function searchCount(job: Pick<JobState, 'activity'> | undefined): number {
   const seen = new Set<string>();
   for (const entry of job?.activity ?? []) {
-    if (entry.kind !== 'tool_use' || !entry.tool || !SEARCH_TOOLS.has(entry.tool)) continue;
-    seen.add(entry.toolUseId ?? entry.itemId ?? entry.id);
+    if (entry.kind !== 'tool_use' || !researchSearchDetails(entry.tool, entry.input).search) continue;
+    seen.add(entry.itemId ?? entry.toolUseId ?? entry.id);
   }
   return seen.size;
 }

@@ -757,3 +757,225 @@ test('composer attachments are recorded only after the draft confirms them', asy
     await fs.rm(root, { recursive: true, force: true });
   }
 });
+
+
+test('quick research starts in Arco storage without a research folder and permits one round', async () => {
+  const { arcoHome } = await import('../arcoHome.js');
+  const { discardUnusedResearchFolder } = await import('./researchCreate.js');
+  const result = await prepareResearchCreate({ type: 'cluster_create_from_scratch', cwd: '', research: { name: 'Quick fixture', brief: 'Compare.', quick: true }, members: [
+    { provider: 'claude', model: 'sonnet' }, { provider: 'ollama', model: 'fixture' },
+  ] });
+  assert.ok(!('refusal' in result), JSON.stringify(result));
+  if ('refusal' in result) return;
+  try {
+    assert.equal(result.quick, true);
+    assert.equal(result.folder, join(arcoHome(), 'chat-workspaces', result.projectId));
+    assert.equal(result.msg.members[1].accessMode, 'researcher');
+  } finally { assert.equal(await discardUnusedResearchFolder(result), true); }
+  const p = await project();
+  try {
+    await updateResearch(p.clusterId, state => { state.quick = true; });
+    assert.equal((await startRound(p.clusterId, p.director, 'First round')).ok, true);
+    const second = await startRound(p.clusterId, p.director, 'Second round');
+    assert.equal(second.ok, false); if (!second.ok) assert.equal(second.code, 'quick_complete');
+  } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
+
+test('closing Quick research keeps the answer and chosen files in Past Chats before cleanup', async () => {
+  const { persistInitialMeta } = await import('../workflowMeta.js');
+  const { initWorkflowStore, persistAndStampSeq, flushWorkflowBuffer, replayEvents } = await import('../workflowStore.js');
+  const { chatStorageDir, listSavedChats } = await import('../chatMode.js');
+  const p = await project(), projectId = randomUUID();
+  try {
+    await updateResearch(p.clusterId, state => { state.quick = true; state.projectId = projectId; });
+    const config = { name: 'Quick fixture', workingDirectory: p.folder, primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'low' } as any;
+    await persistInitialMeta(p.folder, p.director, config, { provider: 'claude', model: 'sonnet', effort: 'low' });
+    await initWorkflowStore(p.folder, p.director);
+    persistAndStampSeq(p.folder, p.director, { type: 'user_message_echo', workflowId: p.director, content: 'What is the answer?', timestamp: Date.now() });
+    persistAndStampSeq(p.folder, p.director, { type: 'primary_text', workflowId: p.director, phase: 'passthrough', text: 'A retained answer.' });
+    persistAndStampSeq(p.folder, p.director, { type: 'primary_complete', workflowId: p.director, phase: 'passthrough', costUsd: 0, durationMs: 1 });
+    await flushWorkflowBuffer(p.folder, p.director);
+    const workspace = clusterStore.isolatedWorkspaceFor(p.clusterId, p.a); await fs.mkdir(workspace, { recursive: true });
+    await fs.writeFile(join(workspace, 'notes.txt'), 'Kept researcher file');
+    const busy = await closeResearch(p.clusterId, { moveUnsent: true, isBusy: id => id === p.director, waitMs: 0 });
+    assert.deepEqual(busy, { ok: false, error: 'director_busy' });
+    assert.equal(await fs.readFile(join(workspace, 'notes.txt'), 'utf8'), 'Kept researcher file');
+    const result = await closeResearch(p.clusterId, { moveUnsent: true, isBusy: () => false, waitMs: 0 }); assert.equal(result.ok, true);
+    assert.ok((await listSavedChats()).some(chat => chat.workflowId === projectId));
+    const events = await replayEvents(chatStorageDir(projectId), projectId, 0);
+    assert.ok(events.some(event => event.type === 'primary_text' && event.text === 'A retained answer.'));
+    const kept = events.find(event => event.type === 'user_message_echo' && event.content === 'Files kept from researchers.');
+    assert.ok(kept && kept.type === 'user_message_echo' && kept.attachments?.length === 1);
+    if (kept && kept.type === 'user_message_echo') assert.equal(await fs.readFile(kept.attachments![0], 'utf8'), 'Kept researcher file');
+  } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
+
+test('a Quick research cluster stays open if its saved Chat cannot be created', async () => {
+  const p = await project();
+  await updateResearch(p.clusterId, state => { state.quick = true; state.projectId = randomUUID(); });
+  installResearchCloseOnDelete(() => false);
+  try {
+    await assert.rejects(clusterStore.deleteCluster(p.clusterId), /Quick research could not be saved/);
+    assert.ok(await clusterStore.readCluster(p.clusterId));
+    assert.ok(await loadResearch(p.clusterId));
+  } finally { setBeforeClusterDelete(null); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
+
+test('an interrupted Quick research promotion restores the source and leaves both copies intact', async () => {
+  const { arcoHome } = await import('../arcoHome.js');
+  const { recoverQuickPromotion, readQuickPromotion } = await import('./quickPromotion.js');
+  const p = await project(), projectId = randomUUID();
+  const source = join(arcoHome(), 'chat-workspaces', projectId), target = join(p.root, 'promoted');
+  await fs.mkdir(source, { recursive: true }); await fs.mkdir(target);
+  await fs.writeFile(join(source, 'answer.txt'), 'original'); await fs.writeFile(join(target, 'answer.txt'), 'copy');
+  try {
+    await updateResearch(p.clusterId, state => { state.projectId = projectId; state.folder = target; delete state.quick; });
+    assert.ok(await clusterStore.rebindResearchCwd(p.clusterId, p.folder, target));
+    const recovered = await recoverQuickPromotion({ clusterId: p.clusterId, projectId, directorWorkflowId: p.director, source, root: p.root, target, phase: 'switching' });
+    assert.equal(recovered.phase, 'error');
+    assert.match((await readQuickPromotion(p.clusterId))?.message ?? '', /The copy did not complete.*incomplete copy remains/);
+    assert.equal((await clusterStore.readCluster(p.clusterId))?.cwd, source);
+    assert.equal((await loadResearch(p.clusterId))?.folder, source);
+    assert.equal((await loadResearch(p.clusterId))?.quick, true);
+    assert.equal(await fs.readFile(join(source, 'answer.txt'), 'utf8'), 'original');
+    assert.equal(await fs.readFile(join(target, 'answer.txt'), 'utf8'), 'copy');
+  } finally { (await import('../server/state.js')).workflowCwds.delete(p.director); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); await fs.rm(source, { recursive: true, force: true }); }
+});
+
+
+test('keeping Quick research waits for idle members and removes its source after the move', async () => {
+  const { arcoHome } = await import('../arcoHome.js');
+  const { workflows, workflowCwds } = await import('../server/state.js');
+  const { persistInitialMeta } = await import('../workflowMeta.js');
+  const { initWorkflowStore, persistAndStampSeq, flushWorkflowBuffer } = await import('../workflowStore.js');
+  const { writeProjectFiles } = await import('./researchFolder.js');
+  const { requestQuickPromotion, attemptQuickPromotion, readQuickPromotion, recoverQuickPromotion } = await import('./quickPromotion.js');
+  const p = await project(), projectId = randomUUID(), source = join(arcoHome(), 'chat-workspaces', projectId), root = join(p.root, 'saved');
+  await fs.mkdir(source, { recursive: true }); await fs.mkdir(root);
+  for (const sub of ['rounds', 'syntheses', 'sources']) await fs.mkdir(join(source, sub));
+  try {
+    await updateResearch(p.clusterId, state => { state.projectId = projectId; state.folder = source; state.quick = true; });
+    assert.ok(await clusterStore.rebindResearchCwd(p.clusterId, p.folder, source));
+    const config = { name: 'Quick fixture', workingDirectory: source, primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'low' } as any;
+    await persistInitialMeta(source, p.director, config, { provider: 'claude', model: 'sonnet', effort: 'low' });
+    await initWorkflowStore(source, p.director);
+    persistAndStampSeq(source, p.director, { type: 'user_message_echo', workflowId: p.director, content: 'Question', timestamp: Date.now() });
+    await flushWorkflowBuffer(source, p.director); await fs.writeFile(join(source, 'synthesis.md'), 'Retained answer');
+    await writeProjectFiles((await loadResearch(p.clusterId))!);
+    for (const id of [p.director, p.a, p.b]) workflows.set(id, { busy: id === p.director, config: { ...config, workingDirectory: id === p.director ? source : p.membersCwd }, primary: { provider: id === p.director ? 'claude' : 'ollama', model: 'fixture', effort: 'low' }, manager: {}, observers: new Set(), queue: { steering: [], followUp: [] } } as any);
+    workflowCwds.set(p.director, source);
+    assert.equal((await requestQuickPromotion(p.clusterId, root)).phase, 'waiting');
+    await attemptQuickPromotion(p.clusterId); assert.equal((await readQuickPromotion(p.clusterId))?.phase, 'waiting');
+    workflows.get(p.director)!.busy = false; await attemptQuickPromotion(p.clusterId);
+    const journal = await readQuickPromotion(p.clusterId); assert.equal(journal?.phase, 'done', journal?.message);
+    assert.equal(await fs.readFile(join(journal!.target!, 'synthesis.md'), 'utf8'), 'Retained answer');
+    await assert.rejects(fs.stat(source), { code: 'ENOENT' });
+    await fs.mkdir(source); await fs.copyFile(join(journal!.target!, 'research.json'), join(source, 'research.json'));
+    await recoverQuickPromotion(journal!);
+    await assert.rejects(fs.stat(source), { code: 'ENOENT' });
+    assert.equal((await loadResearch(p.clusterId))?.folder, journal!.target); assert.equal((await loadResearch(p.clusterId))?.quick, undefined);
+    assert.equal((await clusterStore.readCluster(p.clusterId))?.cwd, journal!.target);
+    assert.equal(workflows.get(p.director)?.config.workingDirectory, journal!.target);
+  } finally {
+    for (const id of [p.director, p.a, p.b]) { workflows.delete(id); workflowCwds.delete(id); }
+    setBeforeClusterDelete(null); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); await fs.rm(source, { recursive: true, force: true });
+  }
+});
+
+test('a follow-up interrupts Quick research copying and runs before the switch', async t => {
+  const { arcoHome } = await import('../arcoHome.js');
+  const { workflows, workflowCwds } = await import('../server/state.js');
+  const { persistInitialMeta } = await import('../workflowMeta.js');
+  const { initWorkflowStore, flushWorkflowBuffer } = await import('../workflowStore.js');
+  const { writeProjectFiles } = await import('./researchFolder.js');
+  const { requestQuickPromotion, attemptQuickPromotion, readQuickPromotion } = await import('./quickPromotion.js');
+  const engine = await import('../ws/turnEngine.js');
+  const p = await project(), projectId = randomUUID(), source = join(arcoHome(), 'chat-workspaces', projectId), root = join(p.root, 'saved');
+  await fs.mkdir(source, { recursive: true }); await fs.mkdir(root);
+  for (const sub of ['rounds', 'syntheses', 'sources']) await fs.mkdir(join(source, sub));
+  const pauseFile = join(source, 'pause.txt'); await fs.writeFile(pauseFile, 'fixture');
+  await (await import('../settings.js')).patchSettings({ researchFolder: root });
+  let enter!: () => void, resume!: () => void;
+  const entered = new Promise<void>(resolve => { enter = resolve; });
+  const paused = new Promise<void>(resolve => { resume = resolve; });
+  const originalOpen = fs.open.bind(fs);
+  t.mock.method(fs, 'open', (async (path: any, ...args: any[]) => {
+    if (path === pauseFile) { enter(); await paused; }
+    return (originalOpen as any)(path, ...args);
+  }) as any);
+  let captured = '';
+  const ws = { readyState: 1, bufferedAmount: 0, send: () => {} } as any;
+  const session = { id: 'fixture', workflowIds: new Set([p.director]), clusterIds: new Set(), clusterObserved: new Map() } as any;
+  const config = { name: 'Quick fixture', workingDirectory: source, primaryProvider: 'ollama', primaryModel: 'fixture', primaryEffort: 'low', autoCompaction: { enabled: false }, autoHandoff: { enabled: false, afterCompactions: 5 } } as any;
+  const manager = { spawn: async (spec: any, emit: any) => { captured = spec.task; emit({ type: 'worker_complete', costUsd: 0, durationMs: 1 }); return { id: spec.id, text: 'done', costUsd: 0, durationMs: 1 }; }, getWorkerPid: () => undefined };
+  try {
+    await updateResearch(p.clusterId, state => { state.projectId = projectId; state.folder = source; state.quick = true; });
+    assert.ok(await clusterStore.rebindResearchCwd(p.clusterId, p.folder, source));
+    await persistInitialMeta(source, p.director, config, { provider: 'ollama', model: 'fixture', effort: 'low' });
+    await initWorkflowStore(source, p.director); await flushWorkflowBuffer(source, p.director); await writeProjectFiles((await loadResearch(p.clusterId))!);
+    for (const id of [p.director, p.a, p.b]) workflows.set(id, { busy: false, config: { ...config, workingDirectory: id === p.director ? source : p.membersCwd }, primary: { provider: 'ollama', model: 'fixture', effort: 'low', skipPermissions: false }, manager, observers: new Set([ws]), queue: { steering: [], followUp: [] }, autoHandoff: { enabled: false, afterCompactions: 5, compactions: 0, fired: false } } as any);
+    workflowCwds.set(p.director, source);
+    engine.initTurnEngine({ previewAutoDetect: { noteAgentText() {}, notePotentialDevServerStart() {} } as any, handleCreateWorkflow: async () => {}, handleHandoffRequest: async () => {}, captureCheckpoint: async () => null });
+    assert.equal((await requestQuickPromotion(p.clusterId, root)).phase, 'waiting');
+    const copying = attemptQuickPromotion(p.clusterId);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try { await Promise.race([entered, new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('Copy did not reach the fixture file.')), 5000); })]); }
+    finally { if (timeout) clearTimeout(timeout); }
+    installResearchCloseOnDelete(() => false);
+    await assert.rejects(clusterStore.deleteCluster(p.clusterId), /Quick research could not be saved/);
+    assert.ok(await clusterStore.readCluster(p.clusterId));
+    const followup = engine.handleUserMessage(ws, session, p.director, 'FOLLOWUP_BEFORE_MOVE', 'followup', undefined, false, undefined, undefined);
+    await new Promise(resolve => setImmediate(resolve));
+    resume(); await Promise.all([copying, followup]);
+    assert.equal((await readQuickPromotion(p.clusterId))?.phase, 'waiting');
+    assert.equal((await clusterStore.readCluster(p.clusterId))?.cwd, source);
+    assert.match(captured, /FOLLOWUP_BEFORE_MOVE/);
+  } finally {
+    resume(); t.mock.restoreAll(); for (const id of [p.director, p.a, p.b]) { workflows.delete(id); workflowCwds.delete(id); }
+    setBeforeClusterDelete(null); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); await fs.rm(source, { recursive: true, force: true });
+  }
+});
+
+test('a saved Quick Chat can become a project and its deletion removes only Chat-owned sources', async () => {
+  const { arcoHome } = await import('../arcoHome.js');
+  const { chatStorageDir } = await import('../chatMode.js');
+  const { persistInitialMeta } = await import('../workflowMeta.js');
+  const { initWorkflowStore, persistAndStampSeq, flushWorkflowBuffer } = await import('../workflowStore.js');
+  const { requestSavedQuickPromotion, attemptSavedQuickPromotion, readSavedQuickPromotion } = await import('./savedQuickPromotion.js');
+  const { deleteQuickResearchForChat } = await import('./quickResearchChat.js');
+  const { readClosedRecord } = await import('./researchLibrary.js');
+  const { patchSettings } = await import('../settings.js');
+  const p = await project(), id = randomUUID(), source = join(arcoHome(), 'chat-workspaces', id), root = join(p.root, 'kept');
+  await fs.mkdir(source, { recursive: true }); await fs.cp(p.folder, source, { recursive: true }); await fs.mkdir(root);
+  await patchSettings({ researchFolder: root });
+  try {
+    await updateResearch(p.clusterId, state => { state.projectId = id; state.folder = source; state.quick = true; });
+    assert.ok(await clusterStore.rebindResearchCwd(p.clusterId, p.folder, source));
+    const config = { name: 'Quick fixture', workingDirectory: source, primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'low' } as any;
+    await persistInitialMeta(source, p.director, config, { provider: 'claude', model: 'sonnet', effort: 'low' });
+    await initWorkflowStore(source, p.director);
+    persistAndStampSeq(source, p.director, { type: 'user_message_echo', workflowId: p.director, content: 'Question', timestamp: Date.now() });
+    persistAndStampSeq(source, p.director, { type: 'primary_text', workflowId: p.director, phase: 'passthrough', text: 'Retained answer.' });
+    await flushWorkflowBuffer(source, p.director);
+    assert.equal((await closeResearch(p.clusterId, { moveUnsent: false, isBusy: () => false, waitMs: 0 })).ok, true);
+    await initWorkflowStore(chatStorageDir(id), id);
+    persistAndStampSeq(chatStorageDir(id), id, { type: 'user_message_echo', workflowId: id, content: 'Later follow-up', timestamp: Date.now() });
+    await flushWorkflowBuffer(chatStorageDir(id), id);
+    assert.equal((await requestSavedQuickPromotion(id, root)).phase, 'waiting');
+    await attemptSavedQuickPromotion(id);
+    const journal = await readSavedQuickPromotion(id);
+    assert.equal(journal?.phase, 'done', journal?.message);
+    assert.match(await fs.readFile(join(journal!.target!, 'saved-chat.md'), 'utf8'), /Retained answer\.[\s\S]*Later follow-up/);
+    assert.equal((await readClosedRecord(id))?.folder, journal!.target);
+    assert.equal(await deleteQuickResearchForChat(chatStorageDir(id), id), true);
+    await assert.rejects(fs.stat(source), { code: 'ENOENT' });
+    assert.equal((await readClosedRecord(id))?.folder, journal!.target);
+    assert.ok((await fs.stat(join(journal!.target!, 'research.json'))).isFile());
+  } finally {
+    setBeforeClusterDelete(null); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true });
+    await fs.rm(source, { recursive: true, force: true }); await fs.rm(chatStorageDir(id), { recursive: true, force: true });
+  }
+});

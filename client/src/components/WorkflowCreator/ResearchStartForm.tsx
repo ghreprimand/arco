@@ -72,7 +72,7 @@ export function researchMember(r: Omit<ResearchRow, 'key' | 'advanced'>) {
 }
 
 export function researchCreatePayload(input: {
-  requestId?: string; name: string; brief: string; blind: boolean; folderRoot?: string;
+  requestId?: string; name: string; brief: string; blind: boolean; folderRoot?: string; quick?: boolean;
   director: ResearchRow; rows: ResearchRow[]; sourceProject?: string; rerunFrom?: string;
 }): ClusterCreatePayload & { research: NonNullable<import('@arco/shared').ClusterCreateFromScratchMessage['research']> } {
   const member = researchMember;
@@ -84,6 +84,7 @@ export function researchCreatePayload(input: {
       name: input.name.trim(),
       brief: input.brief.trim(),
       blind: input.blind,
+      ...(input.quick ? { quick: true } : {}),
       ...(input.folderRoot?.trim() ? { folderRoot: input.folderRoot.trim() } : {}),
       ...(input.sourceProject ? { sourceProject: input.sourceProject } : {}),
       ...(input.rerunFrom ? { rerunFrom: input.rerunFrom } : {}),
@@ -95,6 +96,7 @@ export function ResearchStartForm(props: Pickers & {
   onCreate: (payload: ReturnType<typeof researchCreatePayload>) => boolean | void;
   submitting: boolean;
   initial?: ResearchStartPrefill;
+  initialQuick?: boolean;
   // The creator's current provider, model and effort: the Director's default.
   directorDefault?: { provider: string; model: string; effort?: string };
 }) {
@@ -147,6 +149,7 @@ export function ResearchStartForm(props: Pickers & {
   const [brief, setBrief] = useState(props.initial?.brief ?? '');
   const [blind, setBlind] = useState(props.initial?.blind ?? true);
   const [folderRoot, setFolderRoot] = useState('');
+  const [quick, setQuick] = useState(props.initialQuick === true);
   const [browser, setBrowser] = useState(false);
   const [rows, setRows] = useState<ResearchRow[]>(() => props.initial?.researchers ? props.initial.researchers.map(r => ({ ...r, effort: r.effort ?? '', key: newKey(), advanced: false })) : researcherProviders.length ? [rowFor(researcherProviders[0]), rowFor(researcherProviders[0])] : []);
   const seededRows = useRef(!!props.initial?.researchers);
@@ -189,7 +192,7 @@ export function ResearchStartForm(props: Pickers & {
     rows.some(r => r.provider === 'codex' && (!codexSandboxAvailable || !available('codex'))) ? codexVersionReason ?? 'Codex researcher is unavailable. Check the sign-in and sandbox.' : '',
     rows.some(r => r.provider === 'cursor' && (!cursorSandboxAvailable || !available('cursor'))) ? cursorVersionReason ?? 'Cursor researcher is unavailable. Check the sign-in and sandbox.' : '',
     rows.some(r => r.provider === 'antigravity-cli') && geminiReason ? geminiReason : '',
-    !folderSet && !folderRoot.trim() ? 'Choose the research folder.' : '',
+    !quick && !folderSet && !folderRoot.trim() ? 'Choose the research folder.' : '',
   ].filter(Boolean);
 
   const start = () => {
@@ -197,7 +200,7 @@ export function ResearchStartForm(props: Pickers & {
     if (rows.length > RESEARCH_CONFIRM_ABOVE && !confirmMany) { setConfirmMany(true); return; }
     setConfirmMany(false);
     try { localStorage.setItem(LAST_PANEL_KEY, JSON.stringify(rows.map(({ provider, model, effort, webSearchMaxUses, contextSize, researchClaudeTransport, webAccess }) => ({ provider, model, effort, webSearchMaxUses, contextSize, researchClaudeTransport, webAccess })))); } catch { /* best effort */ }
-    props.onCreate(researchCreatePayload({ name, brief, blind, folderRoot: folderSet ? undefined : folderRoot, director, rows, sourceProject: props.initial?.sourceProject, rerunFrom: props.initial?.rerunFrom }));
+    props.onCreate(researchCreatePayload({ name, brief, blind, quick, folderRoot: quick || folderSet ? undefined : folderRoot, director, rows, sourceProject: props.initial?.sourceProject, rerunFrom: props.initial?.rerunFrom }));
   };
   const savePanel = async () => {
     setPanelError('');
@@ -293,7 +296,13 @@ export function ResearchStartForm(props: Pickers & {
         {director.provider === 'antigravity-cli' && <div role="note" style={{ ...hintStyle, overflowWrap: 'anywhere' }}>{GEMINI_RESEARCH_DIRECTOR_NOTE}</div>}
       </div>
 
-      <div data-help="creator.research-folder">
+      <fieldset style={{ border: '1px solid var(--color-border-hairline)', padding: 8 }}>
+        <legend>Research type</legend>
+        <label><input type="radio" name="research-type" checked={!quick} onChange={() => setQuick(false)} /> Research project</label>{' '}
+        <label><input type="radio" name="research-type" checked={quick} onChange={() => setQuick(true)} /> Quick research</label>
+      </fieldset>
+
+      {!quick && <div data-help="creator.research-folder">
         <label className="display-font" style={labelStyle}>RESEARCH FOLDER</label>
         {folderSet
           ? <div style={hintStyle}>A new subfolder is made in <code>{settings?.researchFolder}</code>. Change it in Settings, Projects.</div>
@@ -305,8 +314,9 @@ export function ResearchStartForm(props: Pickers & {
             <div style={hintStyle}>Asked once and saved to Settings. Every research project gets its own subfolder here.</div>
             {browser && <DirectoryBrowser inline withFilename={false} initialPath={folderRoot} roots={settings?.projectRoots} title="Choose research folder" confirmLabel="Choose research folder" onDone={(r) => { if (r) { setFolderRoot(r.dir); setBrowser(false); } }} />}
           </>}
-      </div>
+      </div>}
 
+      {quick && <div style={hintStyle}>One round is kept in Arco. Keep as project creates a research folder later.</div>}
       <label data-help="creator.research-blind" style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer' }}>
         <input type="checkbox" checked={blind} onChange={(e) => setBlind(e.target.checked)} />
         <span><span className="display-font" style={{ fontSize: 11, letterSpacing: 1 }}>BLIND REPORTS</span><br /><span style={hintStyle}>The Research Director sees reports as A, B, C without provider or model until you reveal them. Researchers never see each other either way.</span></span>
@@ -314,7 +324,7 @@ export function ResearchStartForm(props: Pickers & {
 
       {problems.length > 0 && <div className="display-font" style={{ ...hintStyle, color: 'var(--color-warning)' }}>{problems.join(' ')}</div>}
       <button type="button" data-help="creator.research-start" disabled={problems.length > 0 || props.submitting} onClick={start} style={{ ...selectStyle(true), padding: '10px', opacity: problems.length > 0 || props.submitting ? 0.5 : 1 }}>
-        {props.submitting ? 'STARTING...' : 'START RESEARCH PROJECT'}
+        {props.submitting ? 'STARTING...' : quick ? 'START QUICK RESEARCH' : 'START RESEARCH PROJECT'}
       </button>
       {confirmMany && <DialogShell title="Start many researchers" size="confirm" dataHelp="creator.research-start" onClose={() => setConfirmMany(false)}
         actions={<><button type="button" style={small} onClick={() => setConfirmMany(false)}>CANCEL</button><button type="button" style={small} onClick={start}>START {rows.length} RESEARCHERS</button></>}>

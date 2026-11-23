@@ -142,6 +142,12 @@ export async function purgeWorkflow(
 
     const chatMeta = cwd === chatStorageDir(wfid) ? await readMeta(cwd, wfid).catch(() => null) : null;
 
+    // Quick research keeps its private record and source files with the saved
+    // Chat. An explicit Chat purge removes that owned state as well.
+    if (!opts.removeDir && chatMeta?.kind === 'chat' && await (await import('../research/quickResearchChat.js')).deleteQuickResearchForChat(cwd, wfid)) {
+      removed.push('Quick research record and sources');
+    }
+
     // 1. In-memory teardown (no-op if the workflow isn't currently loaded).
     try {
       handleRemoveWorkflow(wfid);

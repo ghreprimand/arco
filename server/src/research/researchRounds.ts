@@ -129,7 +129,7 @@ async function timeLimit(): Promise<number> {
 
 export type ResearchRoundResult =
   | { ok: true; round: number; researchers: string[]; deadline: string }
-  | { ok: false; code: 'not_research' | 'access_denied' | 'round_open' | 'empty_text' | 'no_researchers'; message: string };
+  | { ok: false; code: 'not_research' | 'access_denied' | 'round_open' | 'empty_text' | 'no_researchers' | 'quick_complete'; message: string };
 
 export async function startRound(clusterId: string, callerWorkflowId: string, text: string): Promise<ResearchRoundResult> {
   const state = await loadResearch(clusterId);
@@ -137,6 +137,7 @@ export async function startRound(clusterId: string, callerWorkflowId: string, te
   if (callerWorkflowId !== state.directorWorkflowId) return { ok: false, code: 'access_denied', message: 'Only the Research Director can send a round.' };
   const brief = text.trim();
   if (!brief) return { ok: false, code: 'empty_text', message: 'The round text is empty.' };
+  if (state.quick && state.rounds.length > 0) return { ok: false, code: 'quick_complete', message: 'Quick research has one round. Keep as project to start another round.' };
   if (activeResearchers(state).length === 0) return { ok: false, code: 'no_researchers', message: 'The project has no researchers.' };
   const open = openRound(state);
   if (open) return { ok: false, code: 'round_open', message: `Round ${open.n} is still collecting replies; it is released when every researcher has replied, failed, been stopped or timed out (deadline ${open.deadline}).` };
@@ -145,7 +146,7 @@ export async function startRound(clusterId: string, callerWorkflowId: string, te
   const now = d().now();
   let round: ResearchRound | undefined;
   const next = await updateResearch(clusterId, (s) => {
-    if (openRound(s)) return false;
+    if (openRound(s) || (s.quick && s.rounds.length > 0)) return false;
     round = {
       n: s.rounds.length + 1,
       text: brief,
@@ -687,6 +688,7 @@ export function directorReopenPrompt(state: ResearchState, released: number[]): 
     `(research) Reopened project: ${state.name}`,
     'This research project was worked on earlier and has been reopened. You are its new Research Director.',
     'Before anything else, read research.json, brief.md, synthesis.md (if it exists) and director-log.md in the project folder, then the latest round folder under rounds/.',
+    ...(state.savedQuickChat ? ['Read saved-chat.md for the saved Quick research conversation and later follow-ups.'] : []),
     `Then tell the operator in a few lines where the project stands and what could be researched next. Send no round until the operator asks for one. The earlier researchers are gone; rounds now go to ${letters}.`,
     ...(released.length ? [releasedNote(released)] : []),
   ].join('\n');
@@ -704,6 +706,7 @@ export async function announceResearchReopen(state: ResearchState, resumed: bool
   await noteDirector(state, [
     `This project was reopened on ${state.reopenedAt ?? iso(d().now())}. The earlier researchers are gone; rounds now go to ${letters}.`,
     'Continue from synthesis.md. Send no round until the operator asks for one.',
+    ...(state.savedQuickChat ? ['Read saved-chat.md for the saved Quick research conversation and later follow-ups.'] : []),
     ...(released.length ? [releasedNote(released)] : []),
   ].join(' '));
   d().notify(state.clusterId);

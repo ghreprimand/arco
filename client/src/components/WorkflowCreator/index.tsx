@@ -317,6 +317,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
   // Home pre-fill (mode/project/session) is read for the initial state here
   // and cleared once in the effect below; nothing launches by itself.
   const [mode, setMode] = useState<'single' | 'chat' | 'cluster' | 'genesis' | 'research'>(() => useAppStore.getState().creatorPrefill?.mode ?? 'single');
+  const [quickResearchStart, setQuickResearchStart] = useState(false);
   const [incognito, setIncognito] = useState(false);
   // docs/ARCHITECTURE.md - Genesis mode collects just a working name + the
   // Spark at creation; the staged conversation + the GENESIS right-panel tab
@@ -1168,7 +1169,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               <div>GENESIS</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>Describe your idea; create files later</div>
             </button>
-            <button disabled={!!researchStartPrefill || !!researchContinuePrefill} title={researchStartPrefill ? 'The copied research needs an Agent or cluster project.' : undefined} data-help="creator.research-mode" onClick={() => setMode('research')} style={modePill(mode === 'research')}>
+            <button disabled={!!researchStartPrefill || !!researchContinuePrefill} title={researchStartPrefill ? 'The copied research needs an Agent or cluster project.' : undefined} data-help="creator.research-mode" onClick={() => { setQuickResearchStart(false); setMode('research'); }} style={modePill(mode === 'research')}>
               <div>RESEARCH</div>
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>One question, several independent researchers</div>
             </button>
@@ -1178,6 +1179,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         {mode === 'research' && (
           <ResearchStartForm
             initial={researchPrefill}
+            initialQuick={quickResearchStart}
             directorDefault={{ provider: primaryProvider, model: String(model), effort: String(effort) }}
             claudeModelsForPicker={claudeModelsForPicker}
             codexModelsForPicker={codexModelsForPicker}
@@ -1201,7 +1203,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
 
 
         {mode === 'chat' && (
-          <PastChatsList onReopen={(config) => onCreate(config)} />
+          <PastChatsList onReopen={(config) => onCreate(config)} onQuickResearch={() => { setQuickResearchStart(true); setMode('research'); }} />
         )}
 
         {/* I5 Band 1 — WHERE & SESSION. Left half: working directory + tree.

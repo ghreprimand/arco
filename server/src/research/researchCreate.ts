@@ -14,6 +14,7 @@ import {
 } from '@arco/shared';
 import { assertSafePath } from '../fileAccessPolicy.js';
 import { arcoHome } from '../arcoHome.js';
+import { ensureStorageRoot } from '../storageRoot.js';
 import { patchSettings, readSettings } from '../settings.js';
 import { researchSandboxAvailable } from '../workers/researchSandboxAvailability.js';
 import { geminiResearchSignInState } from '../providers/antigravity/researchSignIn.js';
@@ -32,6 +33,7 @@ export const RESEARCH_BRIEF_MAX = 20_000;
 
 export interface PreparedResearch {
   projectId: string;
+  quick?: boolean;
   folder: string;
   membersCwd: string;
   name: string;
@@ -70,19 +72,33 @@ export async function prepareResearchCreate(msg: ClusterCreateFromScratchMessage
     catch { return { refusal: 'invalid_source_project' }; }
   }
   if (spec.rerunFrom !== undefined && (typeof spec.rerunFrom !== 'string' || !UUID.test(spec.rerunFrom) || !await loadResearch(spec.rerunFrom))) return { refusal: 'invalid_rerun_source' };
-  const settings = await readSettings();
-  const requested = typeof spec.folderRoot === 'string' ? spec.folderRoot.trim() : '';
-  if (requested && !isAbsolute(requested)) return { refusal: 'invalid_research_folder' };
-  const root = settings.researchFolder ?? requested;
-  if (!root) return { refusal: 'research_folder_required' };
-  if (!settings.researchFolder) await patchSettings({ researchFolder: root });
-  const folder = await createResearchFolder(root, name, now);
+  if (spec.quick !== undefined && typeof spec.quick !== 'boolean') return { refusal: 'invalid_quick' };
   const projectId = randomUUID();
+  let folder: string;
+  if (spec.quick) {
+    const root = await ensureStorageRoot(join(arcoHome(), 'chat-workspaces'));
+    folder = join(root, projectId);
+    await fs.mkdir(folder, { mode: 0o700 });
+    try {
+      for (const sub of ['rounds', 'syntheses', 'sources']) await fs.mkdir(join(folder, sub), { mode: 0o700 });
+    } catch (error) {
+      await fs.rm(folder, { recursive: true, force: true });
+      throw error;
+    }
+  } else {
+    const settings = await readSettings();
+    const requested = typeof spec.folderRoot === 'string' ? spec.folderRoot.trim() : '';
+    if (requested && !isAbsolute(requested)) return { refusal: 'invalid_research_folder' };
+    const root = settings.researchFolder ?? requested;
+    if (!root) return { refusal: 'research_folder_required' };
+    if (!settings.researchFolder) await patchSettings({ researchFolder: root });
+    folder = await createResearchFolder(root, name, now);
+  }
   const membersCwd = join(researchMembersRoot(), projectId);
   await fs.mkdir(membersCwd, { recursive: true, mode: 0o700 });
   const blind = spec.blind !== false;
   return {
-    projectId, folder, membersCwd, name, brief, blind, ...(sourceProject ? { sourceProject } : {}),
+    projectId, ...(spec.quick ? { quick: true } : {}), folder, membersCwd, name, brief, blind, ...(sourceProject ? { sourceProject } : {}),
     msg: {
       ...msg,
       cwd: folder,
@@ -256,6 +272,7 @@ export async function finishResearchCreate(prepared: PreparedResearch, clusterId
   const state: ResearchState = {
     schemaVersion: 1,
     projectId: prepared.projectId,
+    ...(prepared.quick ? { quick: true } : {}),
     clusterId,
     folder: prepared.folder,
     membersCwd: prepared.membersCwd,

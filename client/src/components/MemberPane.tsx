@@ -117,7 +117,8 @@ export function MemberPane({
     <div
       style={{
         flex: '1 1 0',
-        minWidth: phone ? 0 : '320px',
+        minWidth: 0,
+        minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
         // Slice 6a — focused pane gets a whole-pane accent outline so the

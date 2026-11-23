@@ -131,6 +131,14 @@ export function workspaceOpenWorkflow(id: string, config: WorkflowConfig | undef
   changed();
 }
 
+// A moved workflow keeps its existing tab position and does not open a new tab.
+export function workspaceRebindWorkflow(id: string, cwd: string): void {
+  const entry = state.workflows[id];
+  if (!entry) return;
+  entry.config = { ...entry.config, workingDirectory: cwd };
+  persist();
+}
+
 export function workspaceCloseWorkflow(id: string): void {
   if (!state.workflows[id]) return;
   delete state.workflows[id];

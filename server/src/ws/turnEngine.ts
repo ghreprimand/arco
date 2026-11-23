@@ -1453,9 +1453,13 @@ export async function handleUserMessage(
     send(ws, { type: 'error', workflowId, message: 'Antigravity scheduling is unavailable in Arco because it runs unattended.' });
     return;
   }
-  if (storageMigrations.has(wf)) {
-    send(ws, { type: 'error', message: 'Message not sent: workflow storage is moving. Wait for the scaffold to finish, then resend.' });
-    return;
+  const promotion = await import('../research/quickPromotion.js');
+  if (storageMigrations.has(wf) || promotion.hasQuickPromotion(workflowId)) {
+    const yielded = await promotion.yieldQuickPromotionToMessage(workflowId);
+    if (!yielded || storageMigrations.has(wf)) {
+      send(ws, { type: 'error', message: 'Message not sent: workflow storage is moving. Wait for the scaffold to finish, then resend.' });
+      return;
+    }
   }
   incomingMessages.set(wf, (incomingMessages.get(wf) ?? 0) + 1);
   try {

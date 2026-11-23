@@ -152,9 +152,9 @@ function useShownConversation(): Shown {
   }
   if (activeClusterId && clusters[activeClusterId]) {
     const cluster = clusters[activeClusterId];
-    const member = cluster.members.find((m) => m.workflowId === focused[activeClusterId]) ?? cluster.members[0];
+    const member = cluster.research?.quick ? cluster.members.find((m) => m.workflowId === cluster.research?.directorWorkflowId) : cluster.members.find((m) => m.workflowId === focused[activeClusterId]) ?? cluster.members[0];
     const name = clusterDisplayName(cluster);
-    return { workflowId: member?.workflowId ?? null, label: member?.displayName ?? name, clusterId: activeClusterId, clusterName: name, kind: 'Cluster' };
+    return { workflowId: member?.workflowId ?? null, label: cluster.research?.quick ? cluster.research.name : member?.displayName ?? name, clusterId: activeClusterId, clusterName: name, kind: cluster.research?.quick ? 'Quick research' : cluster.research ? 'Research project' : 'Cluster' };
   }
   const job = activeJobId ? jobs[activeJobId] : undefined;
   const name = job?.config.name || (activeJobId ? activeJobId.slice(0, 8) : 'Arco');
@@ -217,6 +217,7 @@ function openConversation(open: () => void): void {
 function useMobileHistory(): void {
   const screen = usePhoneStore((s) => s.screen);
   const sheet = usePhoneStore((s) => s.sheet);
+  const localDialog = usePhoneStore((s) => s.localDialog);
   const openPanel = usePhoneStore((s) => s.openPanel);
   const settings = useAppStore((s) => s.showSettings);
   const manual = useAppStore((s) => s.showManual);
@@ -225,7 +226,7 @@ function useMobileHistory(): void {
   const media = useAppStore((s) => s.mediaStudio.open);
   const settingsPage = usePhoneStore((s) => s.settingsPage);
   const terminal = useTerminalStore((s) => s.windows.length > 0);
-  const layers: MobileLayers = { sheet: !!sheet, dialog: manual || recall || system || media, settingsPage, settings, terminal, panel: !!openPanel, conversation: screen === 'conversation' };
+  const layers: MobileLayers = { localDialog: !!localDialog, sheet: !!sheet, dialog: manual || recall || system || media, settingsPage, settings, terminal, panel: !!openPanel, conversation: screen === 'conversation' };
   const depth = mobileDepth(layers);
   const shown = useRef(0);
   const ignore = useRef(0);
@@ -247,7 +248,8 @@ function useMobileHistory(): void {
       const step = mobileBackStep(layersRef.current);
       if (!step) return;
       shown.current = Math.max(0, shown.current - 1);
-      if (step === 'sheet') usePhoneStore.getState().openSheet(null);
+      if (step === 'localDialog') usePhoneStore.getState().localDialog?.();
+      else if (step === 'sheet') usePhoneStore.getState().openSheet(null);
       else if (step === 'dialog') closeMobileDialogs();
       else if (step === 'settingsPage') usePhoneStore.getState().setSettingsPage(false);
       else if (step === 'settings') useAppStore.getState().setShowSettings(false);
@@ -336,15 +338,15 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
           {'\u2039'}{counts.needs ? <span style={{ fontSize: '12px', color: 'var(--color-fg)' }}><span aria-hidden="true" style={{ color: 'var(--color-warning)' }}>{'\u25B2'}</span>{counts.needs}</span> : null}
         </button>
         {/* The identity gets the row's free width: who STOP and a message reach. */}
-        <button type="button" data-testid="phone-title" data-help="mobile.title" disabled={!cluster} onClick={() => toggle('members')}
-          aria-label={cluster ? `${shown.label} in ${shown.clusterName}, ${stateText(state, busy).toLowerCase()}: switch member` : `${shown.label}, ${stateText(state, busy).toLowerCase()}`}
-          style={{ flex: 1, minWidth: 0, minHeight: '44px', textAlign: 'left', background: 'transparent', border: 0, padding: '0 2px', cursor: cluster ? 'pointer' : 'default', color: 'var(--color-fg)', opacity: 1 }}>
+        <button type="button" data-testid="phone-title" data-help="mobile.title" disabled={!cluster || !!cluster.research?.quick} onClick={() => toggle('members')}
+          aria-label={cluster && !cluster.research?.quick ? `${shown.label} in ${shown.clusterName}, ${stateText(state, busy).toLowerCase()}: switch member` : `${shown.label}, ${stateText(state, busy).toLowerCase()}`}
+          style={{ flex: 1, minWidth: 0, minHeight: '44px', textAlign: 'left', background: 'transparent', border: 0, padding: '0 2px', cursor: cluster && !cluster.research?.quick ? 'pointer' : 'default', color: 'var(--color-fg)', opacity: 1 }}>
           <span className="display-font" style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--color-fg)', minWidth: 0, whiteSpace: 'nowrap' }}>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{cluster ? shown.clusterName : shown.kind}</span>
             {shown.workflowId && <span style={{ flexShrink: 0, display: 'inline-flex', gap: '2px' }}><StateMark state={state} />{stateText(state, busy)}</span>}
           </span>
           <span data-testid="phone-title-name" style={{ display: 'block', fontSize: oneRow ? '16px' : '18px', lineHeight: 1.25, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
-            {shown.label}{cluster ? ' \u25BE' : ''}
+            {shown.label}{cluster && !cluster.research?.quick ? ' \u25BE' : ''}{cluster?.research?.quick ? ' · Research Director' : ''}
           </span>
         </button>
         {oneRow && questions.count > 0 && shown.workflowId && (
@@ -362,7 +364,7 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)', fontSize: '14px', letterSpacing: 0, color: 'var(--color-fg)' }}>{firstQuestion}</span>
         </button>
       )}
-      {cluster && !oneRow && <MemberStrip cluster={cluster} current={shown.workflowId} />}
+      {cluster && !cluster.research?.quick && !oneRow && <MemberStrip cluster={cluster} current={shown.workflowId} />}
     </header>
   );
 }
@@ -444,6 +446,9 @@ export function MobileDirectory() {
   const agents = byOrder(tabJobs.filter((j) => j.config.kind !== 'chat'), (j) => j.id);
   const chats = byOrder(tabJobs.filter((j) => j.config.kind === 'chat'), (j) => j.id);
   const clusterList = byOrder(Object.values(clusters), (c) => c.clusterId);
+  const ordinaryClusters = clusterList.filter(c => !c.research);
+  const researchProjects = clusterList.filter(c => c.research && !c.research.quick);
+  const quickResearch = clusterList.filter(c => c.research?.quick);
   const needs = [
     ...clusterList.flatMap((c) => c.members.filter((m) => memberState(c, m.workflowId, jobs[m.workflowId]) === 'NEEDS YOU').map((m) => ({
       id: m.workflowId, label: m.displayName, where: clusterDisplayName(c), busy: memberBusy(c, m.workflowId, jobs[m.workflowId]),
@@ -470,11 +475,11 @@ export function MobileDirectory() {
         <div className="display-font" style={sectionHeading}><span aria-hidden="true" style={{ color: 'var(--color-warning)' }}>{'\u25B2'}</span> NEEDS YOU ({needs.length})</div>
         {needs.map((n) => (
           <Row key={`needs-${n.id}`} testId="mobile-needs" label={`${n.label} \u00B7 ${n.where}`} detail={n.why} state="NEEDS YOU" busy={n.busy}
-            onClick={() => { openConversation(() => focusNoticeWorkflow(n.id)); if (n.decision) usePhoneStore.getState().openSheet('questions'); }} />
+            onClick={() => { openConversation(() => focusNoticeWorkflow(n.id)); if (n.decision) usePhoneStore.getState().openSheet('questions', n.id); }} />
         ))}
       </>}
-      {clusterList.length > 0 && <div className="display-font" style={sectionHeading}>CLUSTERS</div>}
-      {clusterList.map((c) => {
+      {ordinaryClusters.length > 0 && <div className="display-font" style={sectionHeading}>CLUSTERS</div>}
+      {ordinaryClusters.map((c) => {
         const states = c.members.map((m) => memberState(c, m.workflowId, jobs[m.workflowId]));
         const working = c.members.filter((m) => m.status === 'busy' || jobs[m.workflowId]?.busy).length;
         const waiting = states.filter((s) => s === 'NEEDS YOU').length;
@@ -505,12 +510,15 @@ export function MobileDirectory() {
           </div>
         );
       })}
+      {researchProjects.length > 0 && <div className="display-font" style={sectionHeading}>RESEARCH PROJECTS</div>}
+      {researchProjects.map(c => <Row key={c.clusterId} testId="mobile-research-project" label={c.research!.name} detail={`${c.research!.rounds.length} rounds · ${needYou(c.members.filter(m => memberState(c, m.workflowId, jobs[m.workflowId]) === 'NEEDS YOU').length)}`} onClick={() => openConversation(() => { store().setActiveCluster(c.clusterId); store().setClusterFocusedMember(c.clusterId, c.research!.directorWorkflowId); })} />)}
       {agents.length > 0 && <div className="display-font" style={sectionHeading}>AGENTS</div>}
       {agents.map((j) => (
         <Row key={j.id} testId="mobile-tab" label={j.config.name || j.id.slice(0, 8)} detail={provider(j)} state={jobState(j)} busy={!!j.busy}
           current={!activeClusterId && activeJobId === j.id} onClick={() => openConversation(() => store().setActiveJob(j.id))} />
       ))}
-      {chats.length > 0 && <div className="display-font" style={sectionHeading}>CHATS</div>}
+      {(chats.length > 0 || quickResearch.length > 0) && <div className="display-font" style={sectionHeading}>CHATS</div>}
+      {quickResearch.map(c => <Row key={c.clusterId} testId="mobile-quick-research" label={c.research!.name} detail={`Quick research · ${needYou(c.members.filter(m => memberState(c, m.workflowId, jobs[m.workflowId]) === 'NEEDS YOU').length)}`} onClick={() => openConversation(() => { store().setActiveCluster(c.clusterId); store().setClusterFocusedMember(c.clusterId, c.research!.directorWorkflowId); })} />)}
       {chats.map((j) => (
         <Row key={j.id} testId="mobile-tab" label={j.config.name || j.id.slice(0, 8)} detail={provider(j)} state={jobState(j)} busy={!!j.busy}
           current={!activeClusterId && activeJobId === j.id} onClick={() => openConversation(() => store().setActiveJob(j.id))} />
@@ -589,12 +597,14 @@ function MembersSheet({ onClose }: { onClose: () => void }) {
 
 function QuestionsSheet({ onClose }: { onClose: () => void }) {
   const shown = useShownConversation();
-  const { count } = usePendingQuestions(shown.workflowId ?? '', true);
+  const owner = usePhoneStore((s) => s.questionWorkflowId) ?? shown.workflowId;
+  const ownerName = useAppStore((s) => owner ? s.jobs[owner]?.config.name : undefined);
+  const { count } = usePendingQuestions(owner ?? '', true);
   useEffect(() => { if (!count) onClose(); }, [count, onClose]);
   return (
-    <Sheet title={`Waiting on you \u00B7 ${shown.label}`} onClose={onClose} testId="mobile-questions">
+    <Sheet title={`Waiting on you \u00B7 ${ownerName || shown.label}`} onClose={onClose} testId="mobile-questions">
       <div data-mobile-questions="" style={{ padding: '12px calc(14px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))' }}>
-        {shown.workflowId && <PendingQuestionsList workflowId={shown.workflowId} all />}
+        {owner && <PendingQuestionsList workflowId={owner} all />}
       </div>
     </Sheet>
   );

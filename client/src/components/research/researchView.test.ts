@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import type { ActivityEntry } from '../../stores/appStore.types';
 import { searchCount } from './researchView';
 import { replaceResearchProvider, researchCreatePayload } from '../WorkflowCreator/ResearchStartForm';
+import { unavailableQuickStatus } from './SavedQuickKeep';
 
 test('a researcher card counts web searches from tool activity, once per call', () => {
   const activity: ActivityEntry[] = [
@@ -11,9 +12,19 @@ test('a researcher card counts web searches from tool activity, once per call', 
     { id: '3', kind: 'tool_use', tool: 'web_search', toolUseId: 't2', at: 3 },
     { id: '4', kind: 'tool_use', tool: 'web_fetch', toolUseId: 't3', at: 4 },
     { id: '5', kind: 'thinking', text: 'web_search', at: 5 },
+    { id: '6', kind: 'tool_use', tool: 'codex_apps/search_service.web_run', input: '{"system2_search_query":[{"q":"fixture"}]}', itemId: 'call-a', toolUseId: 'start', status: 'started', at: 6 },
+    { id: '7', kind: 'tool_use', tool: 'codex_apps/search_service.web_run', input: '{"system2_search_query":[{"q":"fixture"}]}', itemId: 'call-a', toolUseId: 'finish', status: 'completed', at: 7 },
+    { id: '8', kind: 'tool_use', tool: 'codex_apps/search_service.web_run', input: '{"open":[{"ref_id":"fixture"}]}', itemId: 'call-b', at: 8 },
   ];
-  assert.equal(searchCount({ activity }), 2);
+  assert.equal(searchCount({ activity }), 3);
   assert.equal(searchCount(undefined), 0);
+});
+
+test('a temporary saved-Chat status failure keeps the pending promotion visible', () => {
+  const waiting = { phase: 'waiting' };
+  assert.equal(unavailableQuickStatus(waiting, 503)?.phase, 'waiting');
+  assert.equal(unavailableQuickStatus(waiting)?.phase, 'waiting');
+  assert.equal(unavailableQuickStatus(waiting, 404), null);
 });
 
 test('a Claude CLI researcher keeps its transport without a Native-only search limit', () => {

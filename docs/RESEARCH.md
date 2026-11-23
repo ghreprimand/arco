@@ -108,6 +108,16 @@ A research project opens in an ordinary cluster tab (`ClusterTab`) with these ad
 - **Export:** `EXPORT`, `EXPORT REPORT` or `EXPORT SUMMARY` copies Markdown, downloads a selected file or downloads a ZIP of the research folder. A ZIP waits for all rounds and catch-ups to finish, excludes Arco and provider state, and refuses unsafe links. The export log records a clipboard copy or a started download; a failed receipt is reported. The Research Director can propose either action with `research_send_to_project` and `action: chat` or `action: export`.
 - **Reveal:** `POST /api/research/<clusterId>/reveal` sets `revealedAt`, rewrites `research.json` and every `round.md` with providers and models, and from then on `peer_list` gives the Director each researcher's provider and model as its focus. It answers 409 for a project that is not blind or not known. Reveal cannot be undone.
 
+## Quick research and phone view
+
+Quick research starts from Past Chats or the research start form. It runs one round in Arco without choosing a research folder. The brief and researcher rows appear above the Research Director conversation; select a row for its read-only activity. Follow-up messages go to the Director. RESULTS opens the released material.
+
+KEEP AS PROJECT chooses the configured research folder, or asks for one. A request waits while members work and follow-up messages remain available during the wait. Once members are idle, Arco copies the work and opens it as a research project without rerunning the round. If the copy cannot complete, Quick research stays open. Closing unpromoted Quick research saves the Director conversation in Past Chats and offers to attach unsent researcher files before removing researcher workspaces.
+
+The saved Chat also offers KEEP AS PROJECT. It keeps the research as a closed project and includes the saved conversation in `saved-chat.md`; reopen the project from the Research library to continue. Deleting the saved Chat removes its Quick research record and sources. A project already kept has its own copy and remains available.
+
+At `/mobile`, the directory lists research projects separately and Quick research with Chats. A project opens on the Director with the member strip; PANELS offers RESULTS, ACTIVITY and PLAN. Quick research shows its brief, researcher rows and the Director conversation.
+
 ## Closing a research project
 
 Closing the research tab is the only cleanup, and only the operator does it (`client/src/components/research/ResearchCloseDialog.tsx`, `server/src/research/researchClose.ts`):

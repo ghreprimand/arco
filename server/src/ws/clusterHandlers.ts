@@ -304,8 +304,8 @@ export async function handleClusterDelete(clusterId: string): Promise<void> {
   // boot-registered in memory too, and deleting one from CLOSED CLUSTERS must
   // not pop its members open in every browser.
   const wasOpen = isClusterOpen(clusterId);
-  releaseClusterPlansWatcher(clusterId);
   await clusterStore.deleteCluster(clusterId);
+  releaseClusterPlansWatcher(clusterId);
   for (const wfid of membersToCleanup) {
     const cwd = workflowCwds.get(wfid);
     // F9 — sync rather than unlink: members keep their workflow and may

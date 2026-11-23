@@ -104,6 +104,7 @@ export interface ResearchResearcherSummary {
 // providers and models; the Director never receives this payload.
 export interface ClusterResearchSummary {
   projectId: string;
+  quick?: boolean;
   folder: string;
   name: string;
   brief: string;
@@ -126,6 +127,8 @@ export interface ResearchResearcherSpec {
   providerAccountRef?: string;
 }
 export interface ResearchCreateSpec {
+  // A single research round kept in Arco until promoted.
+  quick?: boolean;
   // Short project name (tab, folder name, research.json); at most 60 characters.
   name: string;
   // Everything the operator wants researched, passed to the Director unchanged.

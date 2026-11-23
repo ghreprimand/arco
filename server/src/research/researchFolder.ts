@@ -46,6 +46,7 @@ export function renderManifest(state: ResearchState, status: 'open' | 'closed' =
     schemaVersion: 1,
     // Matches the folder to its Research library entry (docs/RESEARCH.md).
     projectId: state.projectId,
+    ...(state.quick ? { quick: true } : {}),
     name: state.name,
     brief: state.brief,
     status,

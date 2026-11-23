@@ -1,6 +1,7 @@
 import { resolveAcpPermission } from './providers/acp/permissionGate.js';
 import { installResearchCloseOnDelete, researchProjectIdsOnDisk, sweepClosedResearch } from './research/researchClose.js';
 import { loadResearch } from './research/researchState.js';
+import { resumeQuickPromotions } from './research/quickPromotion.js';
 import { releaseProjectSettingsWatcher } from './settings.js';
 import { initTranscriptWorkerHandlers, handleTranscriptWorkerPreview, handleTranscriptWorkerCreate } from './ws/transcriptWorkerHandlers.js';
 import { NativeTaskAdmission, assertNativeTaskAllowed } from './providers/claude-native/taskAdmission.js';
@@ -1236,6 +1237,7 @@ wss.on('connection', (ws: WebSocket) => {
       case 'cluster_delete':
         handleClusterDelete(msg.clusterId).catch((err) => {
           console.error('[arco] cluster_delete handler failed:', err);
+          if ((err as { code?: string })?.code === 'preserve_quick_research') send(ws, { type: 'error', message: 'Quick research could not be saved; the research tab remains open.' });
         });
         break;
       case 'cluster_broadcast':
@@ -2714,12 +2716,14 @@ function onListening() {
     }
   });
   recoverWorkflowsFromDisk()
-    .then((recovered) => {
+    .then(async (recovered) => {
       for (const r of recovered) {
         workflowCwds.set(r.meta.workflowId, r.cwd);
         acquireProjectSettingsWatcher(r.cwd);
       }
       console.log(`[arco] Recovered ${recovered.length} workflows from disk`);
+      await resumeQuickPromotions().catch(error => console.error('[arco] Quick promotion recovery failed:', error));
+      await (await import('./research/savedQuickPromotion.js')).resumeSavedQuickPromotions().catch(error => console.error('[arco] Saved Quick promotion recovery failed:', error));
     })
     .catch((err) => console.error('[arco] crash recovery failed:', err))
     // §B2 — mark `stores` ready in .finally, NOT only .then: a recovery error is

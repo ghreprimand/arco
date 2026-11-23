@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mobileBackStep, mobileDepth } from './phoneStore';
+import { mobileBackStep, mobileDepth, usePhoneStore } from './phoneStore';
 
 test('Back in the mobile view closes the top layer first, then leaves the conversation', () => {
   const none = { sheet: false, dialog: false, settings: false, terminal: false, panel: false, conversation: false };
@@ -18,4 +18,17 @@ test('Back in the mobile view closes the top layer first, then leaves the conver
   assert.equal(mobileBackStep({ ...none, settings: true, settingsPage: true, conversation: true }), 'settingsPage');
   assert.equal(mobileBackStep({ ...none, settings: true, conversation: true }), 'settings');
   assert.equal(mobileDepth({ ...none, settings: true, settingsPage: true, conversation: true }), 3);
+});
+
+test('Back closes a local Quick dialog before the conversation', () => {
+  const layers = { localDialog: true, sheet: false, dialog: false, settings: false, terminal: false, panel: false, conversation: true };
+  assert.equal(mobileBackStep(layers), 'localDialog');
+  assert.equal(mobileDepth(layers), 2);
+});
+
+test('a question opened from the directory keeps its member as owner', () => {
+  usePhoneStore.getState().openSheet('questions', 'researcher-a');
+  assert.equal(usePhoneStore.getState().questionWorkflowId, 'researcher-a');
+  usePhoneStore.getState().openSheet(null);
+  assert.equal(usePhoneStore.getState().questionWorkflowId, null);
 });

@@ -3,13 +3,14 @@ import { FileViewerModal } from './FileViewerModal';
 
 interface Props {
   path: string;
+  fallback?: { cwd: string; workflowId: string };
 }
 
 // Clickable operator-attachment chip. Opens the uploaded file in
 // FileViewerModal (markdown/code/image/binary renderers already covered
 // by the modal's file classifier) so the operator can verify what they
 // attached without leaving the chat.
-export function AttachmentPill({ path }: Props) {
+export function AttachmentPill({ path, fallback }: Props) {
   const [open, setOpen] = useState(false);
   const name = path.split('/').pop() || path;
 
@@ -35,7 +36,7 @@ export function AttachmentPill({ path }: Props) {
       >
         📎 {name}
       </button>
-      {open && <FileViewerModal path={path} onClose={() => setOpen(false)} />}
+      {open && <FileViewerModal path={path} fallback={fallback} onClose={() => setOpen(false)} />}
     </>
   );
 }

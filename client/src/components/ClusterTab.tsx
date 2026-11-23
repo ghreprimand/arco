@@ -27,6 +27,7 @@ import { useAppStore, type ClusterCardLayout } from '../stores/appStore';
 import { MemberPane } from './MemberPane';
 import { MemberCard } from './MemberCard';
 import { ResearchRoundsStrip } from './research/ResearchRoundsStrip';
+import { QuickResearchOverview } from './research/QuickResearchOverview';
 import { researchRailLabel, researcherCardLine } from './research/researchView';
 import { useMessageBoxSize, messageBoxMinHeight } from '../utils/messageBoxSize';
 import { findDirector, hasNewReply, initialFocus, latestReplyId, orderMembers } from './clusterSurface.helpers';
@@ -85,7 +86,7 @@ const RIGHT_STRIP = [
   { id: 'more', label: 'MORE' },
 ];
 // docs/RESEARCH.md - a research project has RESULTS where others have BOARD.
-const RESEARCH_RIGHT_STRIP = RIGHT_STRIP.map((item) => item.id === 'board' ? { id: 'results', label: 'RESULTS' } : item);
+const RESEARCH_RIGHT_STRIP = [{ id: 'results', label: 'RESULTS' }, { id: 'activity', label: 'ACTIVITY' }, { id: 'plan', label: 'PLAN' }, { id: 'files', label: 'FILES' }, { id: 'more', label: 'MORE' }];
 
 interface Props {
   clusterId: string;
@@ -823,6 +824,7 @@ export function ClusterTab({
       data-help="cluster.tab"
       style={{
         flex: 1,
+        minWidth: 0,
         minHeight: 0,
         display: 'flex',
         flexDirection: 'column',
@@ -882,14 +884,15 @@ export function ClusterTab({
             const gridFixedPx = liveSplit === null && savedGrid === null ? GRID_PX[widthRange] ?? null : null;
             const fraction = liveSplit ?? savedGrid ?? GRID_SPLIT_STORE_DEFAULT;
             const cardDensity = compactLayout ? 'compact' : 'standard';
-            const focusedMember =
-              cluster.members.find((m) => m.workflowId === focusedMemberId) ?? cluster.members[0];
+            const focusedMember = cluster.research?.quick
+              ? cluster.members.find((m) => m.workflowId === cluster.research?.directorWorkflowId)
+              : cluster.members.find((m) => m.workflowId === focusedMemberId) ?? cluster.members[0];
             const focusedJob = focusedMember ? jobs[focusedMember.workflowId] : undefined;
 
             return (
               <>
                 {/* GRID — compact cards */}
-                {(() => { const gridColumn = (
+                {!cluster.research?.quick && (() => { const gridColumn = (
                 <div
                   data-help="cluster.grid"
                   style={{
@@ -1072,7 +1075,7 @@ export function ClusterTab({
                 })()}
 
                 {/* SPLITTER */}
-                {widthRange !== 'narrow' && <div
+                {!cluster.research?.quick && widthRange !== 'narrow' && <div
                   onMouseDown={startSplitDrag}
                   role="separator"
                   aria-orientation="vertical"
@@ -1099,8 +1102,10 @@ export function ClusterTab({
                     minWidth: 0,
                     minHeight: 0,
                     display: 'flex',
+                    flexDirection: 'column',
                   }}
                 >
+                  {cluster.research?.quick && <QuickResearchOverview clusterId={clusterId} research={cluster.research} onResults={() => { setRightTabRequest((prev) => ({ tab: 'results', n: (prev?.n ?? 0) + 1 })); if (widthRange === 'narrow') setRightSlide('results'); }} />}
                   {focusedMember && focusedJob ? (
                     <MemberPane
                       key={focusedMember.workflowId}
@@ -1111,9 +1116,11 @@ export function ClusterTab({
                       role={focusedMember.role}
                       focused={true}
                       onSend={(content, attachments, kind, primitive, pickedSkills) =>
-                        sendFromComposer(focusedMember.workflowId, content, attachments, kind, primitive, pickedSkills)
+                        cluster.research?.quick
+                          ? onSendToMember(focusedMember.workflowId, content, attachments, kind, primitive, pickedSkills)
+                          : sendFromComposer(focusedMember.workflowId, content, attachments, kind, primitive, pickedSkills)
                       }
-                      clusterControls={{ clusterId, recipientLabel, placeholder: composerPlaceholder, customRecipients: !!composerRecipients, onChooseRecipients: openRecipients, pendingTotal, pendingMembers, nudgedCount, onNudge: nudgeOffered ? openNudgeModal : undefined }}
+                      clusterControls={cluster.research?.quick ? undefined : { clusterId, recipientLabel, placeholder: composerPlaceholder, customRecipients: !!composerRecipients, onChooseRecipients: openRecipients, pendingTotal, pendingMembers, nudgedCount, onNudge: nudgeOffered ? openNudgeModal : undefined }}
                       onAttachPlan={!cluster.research && onAttachPlanToMember ? (planId) => onAttachPlanToMember(focusedMember.workflowId, planId) : undefined}
                       onAttachToCluster={!cluster.research && onSetClusterPlan ? (body) => onSetClusterPlan(clusterId, body) : undefined}
                       onCancel={() => onCancelMember(focusedMember.workflowId)}

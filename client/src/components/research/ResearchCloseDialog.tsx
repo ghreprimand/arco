@@ -54,7 +54,9 @@ export function ResearchCloseDialog({ clusterId, research, onCloseResearcher, on
       });
       const body = await res.json().catch(() => ({})) as { error?: string; letters?: string[]; message?: string };
       if (!res.ok) {
-        throw new Error(body.error === 'researcher_busy'
+        throw new Error(body.error === 'director_busy'
+          ? 'The Research Director is still working. Stop the turn before closing.'
+          : body.error === 'researcher_busy'
           ? `Researcher ${body.letters?.join(', ')} is still stopping. Try again in a moment.`
           : `Cleanup failed${body.message ? `: ${body.message}` : ''}. The project tab stays open; try again.`);
       }
@@ -79,12 +81,12 @@ export function ResearchCloseDialog({ clusterId, research, onCloseResearcher, on
       </>}
     >
       <p style={{ marginTop: 0, overflowWrap: 'anywhere' }}><strong>{research.name}</strong></p>
-      <p>Closing removes the researchers' workspaces and conversations after writing a one-page log for each into the latest round record. The research folder, the Research Director's conversation and a private record of who wrote each report are kept.</p>
+      <p>{research.quick ? "Closing removes the researchers' workspaces and conversations. The Research Director's conversation is kept in Past Chats." : "Closing removes the researchers' workspaces and conversations after writing a one-page log for each into the latest round record. The research folder, the Research Director's conversation and a private record of who wrote each report are kept."}</p>
       {!unsent && !listError && <p>Looking for files the researchers saved but never sent...</p>}
       {unsent && unsent.length > 0 && <div>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', minHeight: 44 }}>
           <input type="checkbox" style={{ width: 24, height: 24 }} checked={move} onChange={(e) => setMove(e.target.checked)} />
-          Move {unsent.length} unsent file{unsent.length === 1 ? '' : 's'} into sources/ first
+          {research.quick ? 'Attach' : 'Move'} {unsent.length} unsent file{unsent.length === 1 ? '' : 's'} {research.quick ? 'to the saved Chat' : 'into sources/ first'}
         </label>
         <ul style={{ margin: '6px 0 0 16px', padding: 0, overflowWrap: 'anywhere' }}>
           {shown.map((f) => <li key={`${f.letter}/${f.path}`}>Researcher {f.letter}: {f.path} ({formatBytes(f.bytes)})</li>)}

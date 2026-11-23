@@ -70,6 +70,8 @@ export interface ResearchResearcher {
 export interface ResearchState {
   schemaVersion: 1;
   projectId: string;
+  quick?: boolean;
+  savedQuickChat?: boolean;
   clusterId: string;
   // The research project folder (the Director's working directory).
   folder: string;
@@ -219,6 +221,7 @@ export function nextResearchLetter(state: ResearchState): string { return resear
 export function researchSummary(state: ResearchState): ClusterResearchSummary {
   return {
     projectId: state.projectId,
+    ...(state.quick ? { quick: true } : {}),
     folder: state.folder,
     ...(state.sourceProject ? { sourceProject: state.sourceProject } : {}),
     name: state.name,

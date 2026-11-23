@@ -44,11 +44,11 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
         <span>{blind ? 'Blind' : research.revealedAt ? 'Revealed' : 'Not blind'}</span>
         {blind && <button type="button" data-help="research.reveal" style={touchButton} disabled={busy} onClick={() => setConfirmReveal(true)}>REVEAL</button>}
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+      {research.quick ? <div>Quick research is kept in Arco until you keep it as a project.</div> : <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
         <span style={{ overflowWrap: 'anywhere' }}>Saved in <code>{research.folder}</code></span>
         <button type="button" style={touchButton} onClick={onOpenFolder}>OPEN FOLDER</button>
         <span>Default location: Settings &gt; Projects &gt; Research folder.</span>
-      </div>
+      </div>}
       {questionOpen && <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 240, overflowY: 'auto', border: '1px solid var(--color-border-hairline)', padding: 6 }}>{research.brief}</div>}
       {research.researchers.filter(r => r.signInNeeded).map(r => <div key={r.workflowId} data-help="research.signin"><AuthReloginNotice provider={r.signInNeeded!} workflowId={r.workflowId} {...(r.signInNeeded === 'claude' ? { authRecovery: { transport: 'cli' as const } } : {})} autoContinue body={`${r.signInNeeded === 'claude' ? 'Claude' : 'Codex'} sign-in needs renewing. Researcher ${r.letter} continues after sign-in.`} /></div>)}
       {research.preRoundContaminated && <div role="alert" style={{ color: 'var(--color-warning)' }}>INDEPENDENCE CHECK FAILED BEFORE THE FIRST ROUND</div>}

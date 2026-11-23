@@ -7,6 +7,8 @@
 // conversation are kept. After a crash the startup sweep removes only the
 // researcher folders of projects whose cluster no longer exists.
 import { createHash } from 'node:crypto';
+import { researchSearchDetails } from '@arco/shared';
+import { saveQuickResearchChat } from './quickResearchChat.js';
 import { promises as fs } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { clusterDir, isolatedWorkspaceFor, setBeforeClusterDelete } from '../clusterStore.js';
@@ -91,12 +93,13 @@ async function logFacts(workflowDir: string): Promise<LogFacts> {
       if (e.type === 'primary_turn_started') facts.turns++;
       else if (e.type === 'error' && typeof e.message === 'string') facts.failures.push(e.message.slice(0, 200));
       else if (e.type === 'primary_tool_use' && typeof e.tool === 'string') {
-        const id = String(e.toolUseId ?? e.itemId ?? `${e.tool}:${e.input}`);
+        const id = String(e.itemId ?? e.toolUseId ?? `${e.tool}:${e.input}`);
         if (e.status === 'failed') facts.failures.push(`${e.tool} failed${typeof e.output === 'string' ? `: ${e.output.slice(0, 160)}` : ''}`);
         if (seen.has(id)) continue;
         seen.add(id);
         // Cursor names the search text `searchTerm`.
-        if (/^(web_search|WebSearch)$/.test(e.tool)) facts.searches.push(inputField(e.input, 'query') ?? inputField(e.input, 'searchTerm') ?? '(query not recorded)');
+        const search = researchSearchDetails(e.tool, e.input);
+        if (search.search) facts.searches.push(search.query ?? '(query not recorded)');
         else if (/^(web_fetch|WebFetch)$/.test(e.tool)) facts.sources.push(inputField(e.input, 'url') ?? '(address not recorded)');
       }
     }
@@ -140,7 +143,7 @@ async function keepClosedRecord(state: ResearchState): Promise<void> {
 
 export type CloseResult =
   | { ok: true; logsWrittenTo: string; moved: string[]; removed: number }
-  | { ok: false; error: 'unknown_research' | 'researcher_busy'; letters?: string[] };
+  | { ok: false; error: 'unknown_research' | 'researcher_busy' | 'director_busy'; letters?: string[] };
 
 // Copies files researchers saved but never sent into sources/; returns
 // their project-relative names.
@@ -172,6 +175,15 @@ export async function removeResearcherWorkspace(state: ResearchState, workflowId
 export async function closeResearch(clusterId: string, opts: { moveUnsent: boolean; isBusy: (workflowId: string) => boolean; now?: () => number; waitMs?: number; force?: boolean }): Promise<CloseResult> {
   const state = await loadResearch(clusterId).catch(() => null);
   if (!state) return { ok: false, error: 'unknown_research' };
+  if (state.quick) {
+    const promotion = await import('./quickPromotion.js');
+    // A forced close runs under the cluster lock. Do not wait for a copy that
+    // might itself be waiting for that lock; leave the cluster intact instead.
+    if (opts.force) {
+      if (promotion.stopQuickPromotionTimer(clusterId)) return { ok: false, error: 'director_busy' };
+    } else await promotion.cancelQuickPromotion(clusterId);
+  }
+  if (state.quick && opts.isBusy(state.directorWorkflowId) && !opts.force) return { ok: false, error: 'director_busy' };
   if (state.closedAt) {
     await keepClosedRecord(state);
     return { ok: true, logsWrittenTo: '', moved: [], removed: 0 };
@@ -186,6 +198,26 @@ export async function closeResearch(clusterId: string, opts: { moveUnsent: boole
   }
   if (busy.length && !opts.force) return { ok: false, error: 'researcher_busy', letters: busy.map((r) => r.letter) };
 
+  // Hold every live member idle while the Quick research snapshot and
+  // attachments are copied. A new turn must not change either source while
+  // the saved Chat is being written or while researcher folders are removed.
+  const releases: Array<() => void> = [];
+  if (state.quick) {
+    const { workflows } = await import('../server/state.js');
+    const { reserveWorkflowMigration } = await import('../ws/turnEngine.js');
+    for (const id of [state.directorWorkflowId, ...state.researchers.map(r => r.workflowId)]) {
+      const wf = workflows.get(id);
+      if (!wf) continue;
+      try { releases.push(reserveWorkflowMigration(wf)); }
+      catch {
+        for (const release of releases.reverse()) release();
+        return id === state.directorWorkflowId
+          ? { ok: false, error: 'director_busy' }
+          : { ok: false, error: 'researcher_busy', letters: state.researchers.filter(r => r.workflowId === id).map(r => r.letter) };
+      }
+    }
+  }
+  try {
   const moved = opts.moveUnsent ? await moveUnsentFiles(state) : [];
 
   const latest = state.rounds.at(-1);
@@ -193,6 +225,8 @@ export async function closeResearch(clusterId: string, opts: { moveUnsent: boole
   await fs.mkdir(dirname(logsPath), { recursive: true });
   const moves = moved.length ? `\nFiles the researchers saved but never sent, moved on close:\n${moved.map((m) => `- ${m}`).join('\n')}\n` : '';
   await fs.appendFile(logsPath, await researcherLogs(state, latest ? '##' : '#') + moves);
+
+  if (state.quick) await saveQuickResearchChat(state, moved);
 
   const closedAt = new Date((opts.now ?? Date.now)()).toISOString();
   const updated = await updateResearch(clusterId, (s) => { s.closedAt = closedAt; });
@@ -206,6 +240,7 @@ export async function closeResearch(clusterId: string, opts: { moveUnsent: boole
   }
   await fs.rm(state.membersCwd, { recursive: true, force: true });
   return { ok: true, logsWrittenTo: relative(state.folder, logsPath).split(sep).join('/'), moved, removed };
+  } finally { for (const release of releases.reverse()) release(); }
 }
 
 // Startup: researcher conversation folders whose project has no cluster any
@@ -258,12 +293,23 @@ export async function researchProjectIdsOnDisk(): Promise<Set<string> | null> {
 export function installResearchCloseOnDelete(isBusy: (workflowId: string) => boolean): void {
   setBeforeClusterDelete(async (cluster) => {
     if (!cluster.research) return;
+    const state = await loadResearch(cluster.clusterId).catch(() => null);
+    let closed = false;
     try {
       const result = await closeResearch(cluster.clusterId, { moveUnsent: true, isBusy, waitMs: 0, force: true });
-      if (!result.ok && result.error !== 'unknown_research') console.error(`[arco] research close before delete failed: ${result.error}`);
+      if (!result.ok && result.error !== 'unknown_research') {
+        if (state?.quick) throw new Error(result.error);
+        console.error(`[arco] research close before delete failed: ${result.error}`);
+      }
+      closed = true;
+    } catch (error) {
+      if (state?.quick) throw Object.assign(new Error('Quick research could not be saved; the research tab remains open.'), { code: 'preserve_quick_research', cause: error });
+      throw error;
     } finally {
-      forgetResearch(cluster.clusterId);
-      forgetResearchTripwires(cluster.clusterId);
+      if (closed || !state?.quick) {
+        forgetResearch(cluster.clusterId);
+        forgetResearchTripwires(cluster.clusterId);
+      }
     }
   });
 }

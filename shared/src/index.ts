@@ -17,3 +17,5 @@ export { newFolderNameError } from './folderName.js';
 
 export * from './codexChat.js';
 export * from './localRuntimeStatus.js';
+
+export * from './researchActivity.js';

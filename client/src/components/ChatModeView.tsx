@@ -15,6 +15,7 @@ import { ChatPanel } from './ChatPanel';
 import { WorkspaceRename } from './WorkspaceRename';
 import { handleKillLine } from './composer/killLine';
 import type { UploadResult } from '../utils/uploadAttachment';
+import { SavedQuickKeep } from './research/SavedQuickKeep';
 
 interface Props {
   job: JobState;
@@ -196,6 +197,7 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
       {agyFolderOpen && agyFolder && <DialogShell title="Antigravity Chat working folder" onClose={() => setAgyFolderOpen(false)}><FileExplorer cwd={agyFolder} onClose={() => setAgyFolderOpen(false)} /></DialogShell>}
       <header data-help="chat.mode-status" style={{ padding: '14px 24px 10px', borderBottom: '1px solid var(--color-border-hairline)', textAlign: 'center' }}>
         <div className="display-font" style={{ color: 'var(--color-fg-primary)', fontSize: '14px', letterSpacing: '1.8px' }}>{job.config.name || job.id.slice(0, 8)}</div>
+        {!incognito && <SavedQuickKeep key={job.id} chatId={job.id} />}
         {provider === 'antigravity-cli' && agyFolder && <div style={{ overflowWrap: 'anywhere', fontSize: 11 }}>Working folder: {agyFolder} <button type="button" onClick={() => setAgyFolderOpen(true)}>OPEN FOLDER</button></div>}
         <div
           className="display-font"

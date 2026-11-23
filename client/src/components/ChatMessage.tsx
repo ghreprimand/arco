@@ -752,7 +752,7 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
             }}
           >
             {message.attachments.map((p, i) => (
-              <AttachmentPill key={i} path={p} />
+              <AttachmentPill key={i} path={p} fallback={jobCwd && jobId ? { cwd: jobCwd, workflowId: jobId } : undefined} />
             ))}
           </div>
         )}

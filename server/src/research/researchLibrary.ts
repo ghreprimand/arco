@@ -36,6 +36,7 @@ interface LibraryFile { schemaVersion: 1; projects: LibraryEntry[] }
 // What research.json says about a project, as far as the library needs it.
 export interface ResearchManifest {
   projectId?: string;
+  quick?: boolean;
   name?: string;
   brief?: string;
   status?: string;
@@ -180,6 +181,8 @@ export async function libraryRows(liveClusters: Map<string, string>): Promise<Re
     if (entry.forgotten) continue;
     const manifest = await readManifest(entry.folder);
     const matches = manifestMatches(entry, manifest);
+    // Quick research is shown with saved Chats until promoted to a project.
+    if (matches && manifest?.quick === true) continue;
     const clusterId = liveClusters.get(entry.projectId);
     const status = clusterId ? 'open' : !matches ? 'missing' : 'closed';
     rows.push({
@@ -221,6 +224,16 @@ export async function locateProject(projectId: string, folder: string): Promise<
     await atomicWriteFile(closedRecordPath(projectId), JSON.stringify({ ...record, folder: target }, null, 2) + '\n', { mode: 0o600 });
   });
   return { ok: true };
+}
+
+// A deleted Quick research Chat owns its internal library entry. Never remove
+// an entry that was promoted or points to a different folder.
+export async function removeQuickLibraryEntry(projectId: string, folder: string): Promise<boolean> {
+  return await updateLibrary(file => {
+    const index = file.projects.findIndex(entry => entry.projectId === projectId && resolve(entry.folder) === resolve(folder));
+    if (index < 0) return false;
+    file.projects.splice(index, 1); return true;
+  }) !== false;
 }
 
 // FORGET: removes the project from the library only. The folder and the

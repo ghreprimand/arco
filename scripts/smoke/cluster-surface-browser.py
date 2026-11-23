@@ -47,6 +47,12 @@ async def main():
                 await route.fulfill(json={'ok': True})
                 return
             if url.scheme == 'http' and url.netloc == '127.0.0.1:' + PORT and route.request.method == 'GET':
+                if url.path == '/api/research/cluster-quick/keep-as-project':
+                    await route.fulfill(json={'phase': 'idle'})
+                    return
+                if url.path == '/api/research/cluster-quick/summaries':
+                    await route.fulfill(json={'latest': False, 'rounds': []})
+                    return
                 if url.path == '/api/cluster-snapshots':
                     await route.fulfill(json={'snapshots': [{'id':'snapshot-a','sameFolder':True}]})
                     return
@@ -180,7 +186,9 @@ async def main():
             for b in (to, nudge, brief):
                 await expect(b).to_be_visible()
                 box=await b.bounding_box()
-                assert box['x'] >= 0 and box['x'] + box['width'] <= width + 1, (width, box)
+                if not (box['x'] >= 0 and box['x'] + box['width'] <= width + 1):
+                    ancestry = await b.evaluate('''e => {let rows=[];for(let n=e;n&&rows.length<9;n=n.parentElement){const r=n.getBoundingClientRect(),s=getComputedStyle(n);rows.push({tag:n.tagName,help:n.getAttribute('data-help'),x:r.x,width:r.width,minWidth:s.minWidth,display:s.display,overflow:s.overflow});}return rows;}''')
+                    raise AssertionError((width, await b.get_attribute('data-testid'), box, ancestry))
         await page.set_viewport_size({'width': 1500, 'height': 900})
         # Placeholder names the target: director by default.
         msg=page.locator('textarea:not([data-testid])').first
@@ -357,6 +365,31 @@ async def main():
                 assert box and box['width'] > 0 and box['height'] > 0, (width, height, zoom, box)
         await page.evaluate("document.documentElement.style.zoom = '1'")
         await page.set_viewport_size({'width': 1500, 'height': 900})
+        # A long Director conversation must not push Quick research controls
+        # above the clipped work surface when the composer receives focus.
+        await page.evaluate("""() => {
+          const base=s.getState().clusters['cluster-a'];
+          s.getState().setClusterState('cluster-quick',{...base,clusterId:'cluster-quick',research:{projectId:'quick-fixture',quick:true,folder:'/projects/fixture',name:'Quick fixture',brief:'Fixture brief',blind:true,directorWorkflowId:'worker-b',researchers:[{workflowId:'worker-a',letter:'A',provider:'claude',model:'sonnet',isolation:'tool-fenced'}],rounds:[],catchUps:[]}});
+          s.setState(st=>({jobs:{...st.jobs,'worker-b':{...st.jobs['worker-b'],messages:Array.from({length:40},(_,i)=>({id:`quick-${i}`,role:'assistant',content:'A long research answer '.repeat(30),timestamp:Date.now()}))}}}));
+          document.getElementById('fixture').style.cssText='height:850px;overflow:hidden';
+          show('cluster-quick');
+          document.querySelector('#fixture > div').style.height='850px';
+        }""")
+        quick = page.get_by_role('region', name='Quick research')
+        await quick.wait_for()
+        await page.locator('textarea').last.focus()
+        box = await quick.bounding_box()
+        if not box or box['y'] < 0 or box['y'] + box['height'] > 900:
+            ancestry = await quick.evaluate('''e => {let rows=[];for(let n=e;n&&rows.length<9;n=n.parentElement){const r=n.getBoundingClientRect(),s=getComputedStyle(n);rows.push({tag:n.tagName,y:r.y,height:r.height,scroll:n.scrollTop,client:n.clientHeight,scrollHeight:n.scrollHeight,minHeight:s.minHeight,overflow:s.overflow,flex:s.flex});}return rows;}''')
+            raise AssertionError((box, ancestry))
+        await expect(quick.get_by_role('button', name='KEEP AS PROJECT')).to_be_in_viewport()
+        # Long briefs scroll independently of the two actions.
+        await page.evaluate("s.setState(st=>({clusters:{...st.clusters,'cluster-quick':{...st.clusters['cluster-quick'],research:{...st.clusters['cluster-quick'].research,brief:'A long brief '.repeat(2000)}}}}))")
+        button = quick.get_by_role('button', name='KEEP AS PROJECT')
+        before = await button.bounding_box()
+        await quick.locator('div').first.evaluate('(el) => { el.scrollTop = el.scrollHeight; }')
+        after = await button.bounding_box()
+        assert before and after and abs(before['y'] - after['y']) < 1, (before, after)
         await page.evaluate('showSaved()')
         await expect(page.get_by_text('Fixture snapshot', exact=True)).to_be_visible()
         await expect(page.get_by_role('button', name='CLOUD', exact=True)).to_have_count(0)

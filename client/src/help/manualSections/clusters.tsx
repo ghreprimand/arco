@@ -493,6 +493,13 @@ export const clusters: Section[] = [
   read or change it. BOARD is not shown in a research project.
   </p>
   <p>
+  Quick research runs one round in Arco without a research folder. Its brief and researcher rows sit above the Director conversation; select a row to inspect activity. RESULTS opens the released material. KEEP AS PROJECT waits for idle members and creates a research folder without rerunning the round.
+  </p>
+  <p>
+  Closing Quick research keeps the Director conversation in Past Chats and offers to attach unsent researcher files. On <Code>/mobile</Code>, projects appear under Research projects and Quick research appears with Chats; PANELS includes RESULTS, ACTIVITY and PLAN.
+  Open the saved Chat to use KEEP AS PROJECT after closing. The saved conversation is included in the project; deleting the Chat removes its Quick research sources but leaves a project already kept.
+  </p>
+  <p>
   Use <Code>SEND REPORT</Code>, <Code>SEND SUMMARY</Code> or <Code>SEND PROJECT</Code> in RESULTS to copy released research, including catch-up reports, into a project folder, add a reference to an existing plan, or attach it to an open conversation draft. Choose the destinations independently; the draft is not sent. A Research Director can propose a selection for <Code>REVIEW SEND</Code>. RESULTS reports partial copies and a failed export log separately.
   </p>
   <p><Code>START PROJECT</Code> previews the latest summary and sources, then copies them into a new project folder and opens the usual Agent or cluster creator. Choose explicitly to use an existing folder; no existing file is overwritten. The first message stays in the new conversation draft. <Code>START FROM REPORT</Code> and <Code>START FROM SUMMARY</Code> use a particular released result.</p>

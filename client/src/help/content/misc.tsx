@@ -45,7 +45,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.directory': {
     title: 'Tabs',
-    body: <p>Everything that needs you comes first, then clusters (open one to see its members), agents, chats, Home and New tab. Choose a row to open that conversation. Drafts are kept.</p>,
+    body: <p>Everything that needs you comes first, then clusters, research projects, agents, chats, Home and New tab. Quick research appears with Chats. Choose a row to open that conversation. Drafts are kept.</p>,
     manualSection: 'window-layout',
   },
   'mobile.back': {
@@ -559,8 +559,9 @@ export const miscHelp: Record<string, HelpEntry> = {
   'creator.research-blind': { title: 'Blind reports', body: <p>On by default. The Research Director sees reports as A, B, C without provider or model until you reveal them. Researchers never see each other either way.</p>, manualSection: 'research-start' },
   'creator.research-name': { title: 'Project name', body: <p>A short name of up to 60 characters. It names the project tab, the research folder and research.json.</p>, manualSection: 'research-start' },
   'creator.research-brief': { title: 'Brief', body: <p>Everything the researchers should know: the question, budget, region, must-haves and sources to avoid. The Research Director receives it unchanged and starts on it as soon as the project opens.</p>, manualSection: 'research-start' },
+  'research.quick': { title: 'Quick research', body: <p>Shows the brief and live researcher activity above the Director conversation. Select a row for a read-only activity view. KEEP AS PROJECT waits for members to become idle and creates a research folder. Closing saves the conversation in Past Chats and can attach unsent researcher files. Open that Chat to keep the project later. Deleting the Chat removes its Quick research sources; a project already kept remains.</p>, manualSection: 'research-project' },
   'research.brief': { title: 'Brief', body: <p>Shows the brief you started the project with.</p>, manualSection: 'research-project' },
-  'creator.research-start': { title: 'Start research project', body: <p>Creates the research folder, the Research Director and the researchers, and opens the project.</p>, manualSection: 'research-start' },
+  'creator.research-start': { title: 'Start research', body: <p>Starts the Research Director and researchers. A project creates a research folder; Quick research stays in Arco until KEEP AS PROJECT.</p>, manualSection: 'research-start' },
   'research.rounds': { title: 'Rounds strip', body: <p>Shows the saved folder and OPEN FOLDER. The default is set in Settings &gt; Projects &gt; Research folder. One row per round shows each researcher's state and time taken. Choose a round to see outcomes and the deadline. PLAN is available to the Research Director; researchers cannot read or change it.</p>, manualSection: 'research-project' },
   'research.round': { title: 'Round', body: <p>Shows each researcher's outcome in this round, whether a report was taken from a final reply, and how many targeted messages were recorded. An independence failure means another researcher's marker appeared; treat the reports as contaminated. A sandbox access warning calls for a review of the researcher's activity.</p>, manualSection: 'research-project' },
   'research.signin': { title: 'Researcher sign-in', body: <p>Use RE-LOGIN to renew the existing Claude CLI or Codex sign-in outside the researcher. The researcher continues when the sign-in changes; its remaining round time is held while it waits.</p>, manualSection: 'research-project' },

@@ -399,15 +399,19 @@ export async function deleteCluster(clusterId: string): Promise<void> {
 
 // docs/RESEARCH.md - runs before a cluster directory is removed, whatever
 // path deletes it, so a research project is closed (logs, unsent files, the
-// author record) before its Arco-side state goes. Errors are logged by the
-// hook; deletion continues.
+// author record) before its Arco-side state goes. Ordinary hook errors are
+// logged and deletion continues. A Quick research close can explicitly
+// require preservation, so a failed Chat snapshot leaves the cluster intact.
 let beforeDelete: ((state: ClusterState) => Promise<void>) | null = null;
 export function setBeforeClusterDelete(hook: ((state: ClusterState) => Promise<void>) | null): void { beforeDelete = hook; }
 
 async function deleteClusterUnlocked(clusterId: string): Promise<void> {
   const state = await readCluster(clusterId);
   if (!state) return;
-  if (beforeDelete) await beforeDelete(state).catch((err) => console.error(`[arco] before-delete hook failed for cluster ${clusterId}:`, err));
+  if (beforeDelete) await beforeDelete(state).catch((err) => {
+    console.error(`[arco] before-delete hook failed for cluster ${clusterId}:`, err);
+    if ((err as { code?: string })?.code === 'preserve_quick_research') throw err;
+  });
   cache.delete(clusterId);
   dropPlanCache(clusterId);
   for (const m of state.members) {
@@ -438,6 +442,19 @@ export async function renameCluster(clusterId: string, name: string): Promise<Cl
     const next: ClusterState = trimmed.length === 0
       ? { ...state, name: undefined }
       : { ...state, name: trimmed.slice(0, 64) };
+    await writeMetaAtomic(next);
+    rebuildIndexFor(next);
+    return next;
+  });
+}
+
+// Rebind a research cluster only when it still points at the expected folder.
+// The caller owns the promotion journal and keeps the original until commit.
+export async function rebindResearchCwd(clusterId: string, expected: string, nextCwd: string): Promise<ClusterState | null> {
+  return withClusterMetaLock(clusterId, async () => {
+    const state = await readCluster(clusterId);
+    if (!state?.research || state.cwd !== expected) return null;
+    const next = { ...state, cwd: nextCwd };
     await writeMetaAtomic(next);
     rebuildIndexFor(next);
     return next;

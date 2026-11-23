@@ -1,3 +1,4 @@
+import { readQuickPromotion, requestQuickPromotion } from '../research/quickPromotion.js';
 import { previewResearchExport, prepareResearchExport, confirmResearchExport } from '../research/exportResults.js';
 import { antigravityChatWorkspace } from '../chatMode.js';
 import { sendResearchToFolder, sendResearchToPlan, stageResearchForComposer, confirmResearchComposer, recordResearchExport, previewResearchStart, prepareResearchStart, confirmResearchStart } from '../research/sendToProject.js';
@@ -43,6 +44,39 @@ export async function tryHandleClusterRoutes(
   res: ServerResponse,
   deps: HttpDeps,
 ): Promise<boolean> {
+  const savedPromotion = req.url ? /^\/api\/research\/saved-quick\/([0-9a-f-]{36})\/keep-as-project$/.exec(req.url.split('?')[0]) : null;
+  if (savedPromotion && (req.method === 'GET' || req.method === 'POST')) {
+    const reply = (status: number, body: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+    try {
+      const saved = await import('../research/savedQuickPromotion.js');
+      if (req.method === 'GET') { const status = await saved.savedQuickStatus(savedPromotion[1]); reply(status ? 200 : 404, status ?? { error: 'unknown_chat' }); }
+      else {
+        const chunks: Buffer[] = []; let size = 0;
+        for await (const chunk of req) { const bytes = Buffer.from(chunk); size += bytes.length; if (size > 16 * 1024) throw new Error('Request is too large.'); chunks.push(bytes); }
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { folderRoot?: string };
+        const journal = await saved.requestSavedQuickPromotion(savedPromotion[1], body.folderRoot);
+        reply(202, { phase: journal.phase, message: journal.message });
+      }
+    } catch (error) { reply(400, { error: error instanceof Error ? error.message : 'Could not keep the project.' }); }
+    return true;
+  }
+  const promotion = req.url ? /^\/api\/research\/([0-9a-f-]{36})\/keep-as-project$/.exec(req.url.split('?')[0]) : null;
+  if (promotion && (req.method === 'GET' || req.method === 'POST')) {
+    const reply = (status: number, body: unknown) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+    try {
+      if (req.method === 'GET') {
+        const journal = await readQuickPromotion(promotion[1]);
+        reply(200, journal ? { phase: journal.phase, message: journal.message, ...(journal.phase === 'done' ? { folder: journal.target } : {}) } : { phase: 'idle' });
+      } else {
+        const chunks: Buffer[] = []; let size = 0;
+        for await (const chunk of req) { const bytes = Buffer.from(chunk); size += bytes.length; if (size > 16 * 1024) throw new Error('Request is too large.'); chunks.push(bytes); }
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { folderRoot?: string };
+        const journal = await requestQuickPromotion(promotion[1], body.folderRoot);
+        reply(202, { phase: journal.phase, message: journal.message });
+      }
+    } catch (error) { reply(400, { error: error instanceof Error ? error.message : 'Could not keep the project.' }); }
+    return true;
+  }
   const chatFolder = req.method === 'GET' && req.url ? /^\/api\/antigravity-chat-folder\/([0-9a-f-]{36})$/.exec(req.url) : null;
   if (chatFolder) {
     const wf = workflows.get(chatFolder[1]);

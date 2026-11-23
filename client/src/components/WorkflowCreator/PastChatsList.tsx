@@ -3,6 +3,7 @@ import type { SavedChatSummary, WorkflowConfig } from '@arco/shared';
 
 interface Props {
   onReopen: (config: WorkflowConfig) => void;
+  onQuickResearch?: () => void;
 }
 
 function relativeTime(ts: number): string {
@@ -17,7 +18,7 @@ function relativeTime(ts: number): string {
   return new Date(ts).toLocaleDateString();
 }
 
-export function PastChatsList({ onReopen }: Props) {
+export function PastChatsList({ onReopen, onQuickResearch }: Props) {
   const [chats, setChats] = useState<SavedChatSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -44,6 +45,7 @@ export function PastChatsList({ onReopen }: Props) {
     <div data-help="creator.past-chats" style={{ flexShrink: 0, border: '1px solid var(--color-border-hairline)', borderRadius: '6px', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', background: 'var(--color-bg-elevated, transparent)' }}>
         <div className="display-font" style={{ color: 'var(--color-fg-muted)', fontSize: '10px', letterSpacing: '1.5px' }}>PAST CHATS</div>
+        {onQuickResearch && <button type="button" onClick={onQuickResearch} style={{ minHeight: 44 }}>QUICK RESEARCH</button>}
         <button type="button" onClick={() => void load()} disabled={loading} className="display-font" style={{ border: 0, background: 'transparent', color: 'var(--color-accent-secondary)', cursor: loading ? 'default' : 'pointer', fontSize: '9px', letterSpacing: '1px' }}>
           {loading ? 'LOADING…' : 'REFRESH'}
         </button>
