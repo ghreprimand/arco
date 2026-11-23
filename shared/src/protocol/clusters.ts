@@ -60,7 +60,13 @@ export function isResearcherProvider(v: unknown): v is (typeof RESEARCHER_PROVID
 
 // ── Research projects (docs/RESEARCH.md) ──
 export const RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES = 30;
+export const RESEARCH_ROUND_TIMEOUT_MIN_MINUTES = 30;
 export const RESEARCH_ROUND_TIMEOUT_MAX_MINUTES = 240;
+/** Settings > Projects > Research time limit, in whole minutes within its range; default when unset or invalid. */
+export function researchTimeLimitMinutes(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES;
+  return Math.max(RESEARCH_ROUND_TIMEOUT_MIN_MINUTES, Math.min(RESEARCH_ROUND_TIMEOUT_MAX_MINUTES, Math.round(value)));
+}
 export const RESEARCH_MAX_RESEARCHERS = 26;
 export const RESEARCH_CONFIRM_ABOVE = 8;
 export type ResearchEntryState = 'waiting' | 'replied' | 'failed' | 'stopped' | 'timed_out' | 'removed';

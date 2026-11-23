@@ -440,14 +440,14 @@ export async function tryHandleClusterRoutes(
         if (op === 'research_round' && req.method === 'POST') {
           const chunks: Buffer[] = [];
           for await (const chunk of req) chunks.push(chunk as Buffer);
-          const body = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}') as { from?: string; text?: string; timeout_minutes?: number };
+          const body = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}') as { from?: string; text?: string };
           const from = typeof body.from === 'string' ? body.from : '';
           if (!from || !cluster.members.includes(from)) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'from must be a cluster member' }));
             return true;
           }
-          const result = await startRound(clusterId, from, typeof body.text === 'string' ? body.text : '', typeof body.timeout_minutes === 'number' ? body.timeout_minutes : undefined);
+          const result = await startRound(clusterId, from, typeof body.text === 'string' ? body.text : '');
           res.writeHead(result.ok ? 200 : 400, { 'Content-Type': 'application/json' });
           res.end(result.ok ? formatResearchRoundResult(result) : JSON.stringify({ error: result.code, message: result.message }));
           return true;

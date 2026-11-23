@@ -126,6 +126,10 @@ export interface ArcoSettings {
   // subfolder each (docs/RESEARCH.md). Absolute; asked for the first time
   // research starts. Changing it affects only new projects.
   researchFolder?: string;
+  // Settings > Projects > Research time limit: minutes before a researcher
+  // that has not replied to a round or catch-up is timed out, 30 to 240.
+  // Absent = 30 (docs/RESEARCH.md).
+  researchTimeLimitMinutes?: number;
   // Named discovery folders. Absent migrates the legacy single root; [] disables discovery.
   projectRoots?: Array<{ name: string; path: string }>;
   // Explicit project folders; registration never moves or deletes their files.

@@ -3,7 +3,7 @@ import { scanBeforeDeadline } from './scanDeadline.js';
 import { parsePreviewPorts } from './previewProxy.js';
 import { hostTemporaryPortStart } from './previewPortConfiguration.js';
 import { ensureProjectStateIgnore } from './projectStateIgnore.js';
-import { clampAutoHandoffCompactions, normalizeOutputStyle, retiredProviderReason, sanitizeLocalClusterCapacity, sanitizeUtilityAgent } from '@arco/shared';
+import { clampAutoHandoffCompactions, normalizeOutputStyle, retiredProviderReason, sanitizeLocalClusterCapacity, sanitizeUtilityAgent, researchTimeLimitMinutes } from '@arco/shared';
 // Three-layer operator-settings cascade.
 //
 // Read order: defaults → ~/.arco/settings.json (global) → <cwd>/.arco/
@@ -677,6 +677,7 @@ function mergeWithDefaults(partial: Record<string, unknown>, resolveRoot: (p: st
   if (appBrowser) result.appWindowBrowser = appBrowser;
   const researchFolder = sanitizeDefaultWorkingDirectory(partial.researchFolder);
   if (researchFolder) result.researchFolder = researchFolder;
+  if (typeof partial.researchTimeLimitMinutes === 'number' && Number.isFinite(partial.researchTimeLimitMinutes)) result.researchTimeLimitMinutes = researchTimeLimitMinutes(partial.researchTimeLimitMinutes);
   const roots = sanitizeProjectRoots(partial.projectRoots, resolveRoot);
   if (roots !== undefined) result.projectRoots = roots;
   else if (defaultWd) result.projectRoots = sanitizeProjectRoots([{ name: path.basename(defaultWd), path: defaultWd }], resolveRoot);
@@ -926,6 +927,12 @@ async function patchSettingsUnlocked(patch: Partial<ArcoSettings>): Promise<Arco
     // empty / non-absolute clears the field
   } else if (current.researchFolder) {
     merged.researchFolder = current.researchFolder;
+  }
+  if ('researchTimeLimitMinutes' in patch) {
+    if (typeof patch.researchTimeLimitMinutes !== 'number' || !Number.isFinite(patch.researchTimeLimitMinutes)) throw new Error('invalid researchTimeLimitMinutes');
+    merged.researchTimeLimitMinutes = researchTimeLimitMinutes(patch.researchTimeLimitMinutes);
+  } else if (current.researchTimeLimitMinutes !== undefined) {
+    merged.researchTimeLimitMinutes = current.researchTimeLimitMinutes;
   }
   if ('uiScale' in patch) {
     if (typeof patch.uiScale !== 'number' || !Number.isFinite(patch.uiScale)) throw new Error('invalid uiScale');

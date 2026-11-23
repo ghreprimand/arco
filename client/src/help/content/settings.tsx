@@ -199,6 +199,11 @@ export const settingsHelp: Record<string, HelpEntry> = {
     body: <p>Each research project gets its own dated subfolder here. Type an absolute path or Browse research folder, then Save research folder. Changing it affects only new projects. Arco never deletes a research folder.</p>,
     manualSection: 'research-start',
   },
+  'settings.research-time-limit': {
+    title: 'Research time limit',
+    body: <p>Minutes a researcher has to reply to a round or catch-up before it is timed out, from 30 to 240; 30 when unset. Type the minutes, then Save research time limit. Rounds and catch-ups started after saving use it; open ones keep their deadline.</p>,
+    manualSection: 'research-start',
+  },
   'settings.media-unconfined': {
     title: 'Media access',
     body: (

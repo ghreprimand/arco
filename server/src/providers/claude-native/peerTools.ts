@@ -240,8 +240,7 @@ export async function executePeerTool(
       return JSON.stringify(projected, null, 2);
     }
     case 'research_round': {
-      const result = await startRound(ctx.clusterId, ctx.workflowId, typeof args.text === 'string' ? args.text : '',
-        typeof args.timeout_minutes === 'number' ? args.timeout_minutes : undefined);
+      const result = await startRound(ctx.clusterId, ctx.workflowId, typeof args.text === 'string' ? args.text : '');
       return formatResearchRoundResult(result);
     }
     case 'research_send_to_project': {

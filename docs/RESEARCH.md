@@ -24,7 +24,7 @@ The Director's worker gets the tool from the `clusterResearchDirector` flag, whi
 3. A researcher whose turn ends without sending a report: its final reply becomes the report, marked "taken from final reply". A failed turn marks it failed; the operator's STOP marks it stopped. A researcher still waiting at the deadline is marked timed out.
 4. When no researcher is waiting, Arco releases the round: it writes `rounds/round-N/report-<letter>.md`, returned files into `sources/` (named by content hash, so duplicates are kept once) and `round.md`, then puts one message with every report in the Director's mailbox and starts a Director turn (or waits for its current turn to end). Reports too long for one message are summarized with their file paths.
 
-Only one round is open at a time. `timeout_minutes` defaults to 30 and is capped at 240. Deadlines survive a restart.
+Only one round is open at a time. The deadline is the research time limit from Settings > Projects > **Research time limit** (`researchTimeLimitMinutes`, 30 to 240 minutes, default 30), read when a round or catch-up starts; the Research Director does not choose it. Deadlines survive a restart.
 
 Researcher file attachments must be regular files in the researcher's workspace. Symbolic links, hard links and paths outside the workspace are refused.
 

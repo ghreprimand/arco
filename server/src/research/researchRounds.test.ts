@@ -110,7 +110,7 @@ test('a researcher held by a Gemini Research Director is not timed out before it
       now: () => now,
     });
     clusterMailbox.setDeliveryListener((wfid, msgs) => { void onRoundMailRead(wfid, msgs.map((m) => m.msgId)); });
-    assert.equal((await startRound(p.clusterId, p.director, 'Compare two heat pumps.', 5)).ok, true);
+    assert.equal((await startRound(p.clusterId, p.director, 'Compare two heat pumps.')).ok, true);
     now += 60 * 60_000;
     await timeoutRound(p.clusterId, 1);
     let state = (await loadResearch(p.clusterId))!;
@@ -120,14 +120,45 @@ test('a researcher held by a Gemini Research Director is not timed out before it
     for (let i = 0; i < 50 && (await loadResearch(p.clusterId))!.rounds[0].entries.A.heldMsgId; i++) await new Promise((r) => setTimeout(r, 10));
     state = (await loadResearch(p.clusterId))!;
     assert.equal(state.rounds[0].entries.A.heldMsgId, undefined);
-    assert.equal(Date.parse(state.rounds[0].deadline), now + 5 * 60_000, 'the full limit counts from the read');
-    now += 6 * 60_000;
+    assert.equal(Date.parse(state.rounds[0].deadline), now + 30 * 60_000, 'the full limit counts from the read');
+    now += 31 * 60_000;
     await timeoutRound(p.clusterId, 1);
     state = (await loadResearch(p.clusterId))!;
     assert.equal(state.rounds[0].entries.A.state, 'timed_out');
     assert.equal(state.rounds[0].entries.B.state, 'waiting', 'the researcher still waiting for its NUDGE is not timed out');
   } finally {
     clusterMailbox.setDeliveryListener(null);
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
+test('rounds and catch-ups use the research time limit setting, kept within 30 to 240 minutes', async () => {
+  const p = await project();
+  const now = Date.parse('2026-11-23T00:00:00Z');
+  let setting: number | undefined = 45;
+  try {
+    configureResearch({
+      enqueue: (to, msg, opts) => clusterMailbox.enqueue(to, msg, opts),
+      mintMsgId: () => clusterMailbox.mintMsgId(),
+      wake: () => undefined,
+      isBusy: () => false,
+      timeLimitMinutes: async () => setting!,
+      pendingMail: (wfid) => clusterMailbox.depthFor(wfid),
+      clusterIdFor: (wfid) => clusterStore.getClusterIdForWorkflow(wfid),
+      notify: () => undefined,
+      now: () => now,
+    });
+    const round = await startRound(p.clusterId, p.director, 'Compare two heat pumps.');
+    assert.equal(round.ok && Date.parse(round.deadline), now + 45 * 60_000);
+    setting = 500;
+    const c = randomUUID();
+    await clusterStore.addResearchMember(p.clusterId, c, p.membersCwd, true);
+    await addResearcher(p.clusterId, { workflowId: c, provider: 'ollama', model: 'qwen3:32b' }, true);
+    const catchUp = (await loadResearch(p.clusterId))!.catchUps![0];
+    assert.equal(Date.parse(catchUp.deadline), now + 240 * 60_000);
+  } finally {
     configureResearch(null);
     await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
     await fs.rm(p.root, { recursive: true, force: true });
@@ -197,7 +228,7 @@ test('a foreign synthetic marker in split researcher output marks the round cont
 test('a researcher waiting for sign-in is not timed out and gets its remaining time after sign-in', async () => {
   const p = await project();
   try {
-    assert.equal((await startRound(p.clusterId, p.director, 'Compare the fixtures.', 5)).ok, true);
+    assert.equal((await startRound(p.clusterId, p.director, 'Compare the fixtures.')).ok, true);
     await setResearcherSignInWaiting(p.clusterId, p.a, true);
     await timeoutRound(p.clusterId, 1);
     let state = (await loadResearch(p.clusterId))!;
@@ -304,7 +335,7 @@ test('a round holds every reply until all researchers are done, then releases th
 
     // A round nobody answers is released as timed out at its deadline.
     await clusterMailbox.drain(p.director);
-    assert.equal((await startRound(p.clusterId, p.director, 'Round two.', 5)).ok, true);
+    assert.equal((await startRound(p.clusterId, p.director, 'Round two.')).ok, true);
     await timeoutRound(p.clusterId, 2);
     const second = await clusterMailbox.peek(p.director);
     assert.match(second[0].content, /Round 2[\s\S]*Researcher A: timed out[\s\S]*Researcher B: timed out/);
@@ -384,7 +415,7 @@ test('a late researcher answers the round 1 text alone, then gets the round that
 test('Reveal writes providers into the folder and shows them to the Director only after the operator asks', async () => {
   const p = await project();
   try {
-    assert.equal((await startRound(p.clusterId, p.director, 'Brief.', 5)).ok, true);
+    assert.equal((await startRound(p.clusterId, p.director, 'Brief.')).ok, true);
     await timeoutRound(p.clusterId, 1);
     assert.equal((await clusterPeerOps.peerList(p.ctx(p.director))).some((r) => r.focus), false);
     assert.equal(await revealResearch(p.clusterId), true);
@@ -402,7 +433,7 @@ test('Reveal writes providers into the folder and shows them to the Director onl
 test('closing a research tab logs each researcher, keeps unsent files on request and removes researcher folders', async () => {
   const p = await project();
   try {
-    assert.equal((await startRound(p.clusterId, p.director, 'Brief.', 5)).ok, true);
+    assert.equal((await startRound(p.clusterId, p.director, 'Brief.')).ok, true);
     await timeoutRound(p.clusterId, 1);
     const logDir = join(p.membersCwd, '.arco', 'workflows', p.a);
     await fs.mkdir(logDir, { recursive: true });
@@ -447,7 +478,7 @@ test('deleting a research cluster by any path closes it first and keeps the auth
   const p = await project();
   installResearchCloseOnDelete(() => false);
   try {
-    assert.equal((await startRound(p.clusterId, p.director, 'Brief.', 5)).ok, true);
+    assert.equal((await startRound(p.clusterId, p.director, 'Brief.')).ok, true);
     await timeoutRound(p.clusterId, 1);
     const workspace = clusterStore.isolatedWorkspaceFor(p.clusterId, p.b);
     await fs.mkdir(workspace, { recursive: true });

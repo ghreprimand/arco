@@ -449,15 +449,14 @@ export function registerClusterTools(server: McpServer, ctx: ClusterMcpToolCtx):
         description: RESEARCH_ROUND_TOOL.description,
         inputSchema: {
           text: z.string().describe(RESEARCH_ROUND_TOOL.input_schema.properties.text.description),
-          timeout_minutes: z.number().optional().describe(RESEARCH_ROUND_TOOL.input_schema.properties.timeout_minutes.description),
         },
       },
-      async ({ text, timeout_minutes }) => {
+      async ({ text }) => {
         try {
           const r = await fetch(`${BASE_URL}/research_round`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ from: workflowId, text, ...(typeof timeout_minutes === 'number' ? { timeout_minutes } : {}) }),
+            body: JSON.stringify({ from: workflowId, text }),
           });
           const body = await r.json().catch(() => ({})) as { error?: string; message?: string };
           if (!r.ok) return textResult(`[error] ${body.error ?? `http_${r.status}`}: ${body.message ?? ''}`, true);

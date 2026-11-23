@@ -978,7 +978,6 @@ const ResearchRoundTool: OllamaToolEntry = {
     body: JSON.stringify({
       from: ctx.workflowId,
       text: asString(args.text, 'text'),
-      ...(typeof args.timeout_minutes === 'number' ? { timeout_minutes: args.timeout_minutes } : {}),
     }),
   }),
 };

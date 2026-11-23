@@ -7,10 +7,7 @@
 // the research folder before release.
 
 import { join } from 'node:path';
-import {
-  RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES,
-  RESEARCH_ROUND_TIMEOUT_MAX_MINUTES,
-} from '@arco/shared';
+import { researchTimeLimitMinutes } from '@arco/shared';
 import type { PeerArtifact, PeerMessage } from '../clusterMailbox.js';
 import { readLogLines } from '../eventLog.js';
 import {
@@ -45,6 +42,8 @@ export interface ResearchDeps {
   // docs/PROTOCOL_CLUSTER.md "Gemini members"): never woken; see wakeMember.
   operatorOnly?(workflowId: string): boolean;
   isBusy(workflowId: string): boolean;
+  // Settings > Projects > Research time limit, read when a round or catch-up starts.
+  timeLimitMinutes?(): Promise<number | undefined>;
   pendingMail(workflowId: string): Promise<number>;
   clusterIdFor(workflowId: string): string | undefined;
   notify(clusterId: string): void;
@@ -124,11 +123,15 @@ const RELEASE_INLINE_BYTES = 28 * 1024;
 const RELEASE_MAX_BYTES = 32 * 1024;
 const MAX_WAKES = 3;
 
+async function timeLimit(): Promise<number> {
+  return researchTimeLimitMinutes(await d().timeLimitMinutes?.().catch(() => undefined));
+}
+
 export type ResearchRoundResult =
   | { ok: true; round: number; researchers: string[]; deadline: string }
   | { ok: false; code: 'not_research' | 'access_denied' | 'round_open' | 'empty_text' | 'no_researchers'; message: string };
 
-export async function startRound(clusterId: string, callerWorkflowId: string, text: string, timeoutMinutes?: number): Promise<ResearchRoundResult> {
+export async function startRound(clusterId: string, callerWorkflowId: string, text: string): Promise<ResearchRoundResult> {
   const state = await loadResearch(clusterId);
   if (!state) return { ok: false, code: 'not_research', message: 'research_round works only in a research project.' };
   if (callerWorkflowId !== state.directorWorkflowId) return { ok: false, code: 'access_denied', message: 'Only the Research Director can send a round.' };
@@ -138,7 +141,7 @@ export async function startRound(clusterId: string, callerWorkflowId: string, te
   const open = openRound(state);
   if (open) return { ok: false, code: 'round_open', message: `Round ${open.n} is still collecting replies; it is released when every researcher has replied, failed, been stopped or timed out (deadline ${open.deadline}).` };
   if (state.researchers.some(r => r.claudeTransport === 'cli' || r.provider === 'codex')) await ensureResearchTripwires(clusterId);
-  const minutes = Math.max(1, Math.min(RESEARCH_ROUND_TIMEOUT_MAX_MINUTES, Math.round(Number.isFinite(timeoutMinutes) ? timeoutMinutes! : RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES)));
+  const minutes = await timeLimit();
   const now = d().now();
   let round: ResearchRound | undefined;
   const next = await updateResearch(clusterId, (s) => {
@@ -495,7 +498,8 @@ export interface JoiningResearcher {
 // docs/RESEARCH.md - a researcher added to a running project. It is left
 // out of a round already in flight and included from the next one. With
 // `catchUp` and at least one round sent, the round 1 text runs for it alone.
-export async function addResearcher(clusterId: string, joining: JoiningResearcher, catchUp: boolean, timeoutMinutes = RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES): Promise<{ letter: string; fromRound: number; catchUp: boolean } | null> {
+export async function addResearcher(clusterId: string, joining: JoiningResearcher, catchUp: boolean): Promise<{ letter: string; fromRound: number; catchUp: boolean } | null> {
+  const timeoutMinutes = await timeLimit();
   const now = d().now();
   let added: { letter: string; fromRound: number; catchUp: boolean } | undefined;
   let run: ResearchRound | undefined;

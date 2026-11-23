@@ -456,6 +456,11 @@ export const clusters: Section[] = [
   own dated subfolder there. <strong>BLIND REPORTS</strong> is on by default:
   the Director sees reports as A, B, C without provider or model.
   </p>
+  <p>
+  Settings, Projects, <strong>Research time limit</strong> sets how long each
+  researcher has to reply to a round or catch-up, from 30 to 240 minutes; 30
+  when unset. A researcher still waiting at the deadline is timed out.
+  </p>
   </>
   ),
   },

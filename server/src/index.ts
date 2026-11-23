@@ -2595,6 +2595,7 @@ function onListening() {
     },
     operatorOnly: (wfid) => isGeminiMember(wfid),
     isBusy: (wfid) => workflows.get(wfid)?.busy === true,
+    timeLimitMinutes: async () => (await readSettings()).researchTimeLimitMinutes,
     pendingMail: (wfid) => clusterMailbox.depthFor(wfid),
     clusterIdFor: (wfid) => clusterStore.getClusterIdForWorkflow(wfid),
     notify: pushClusterState,
