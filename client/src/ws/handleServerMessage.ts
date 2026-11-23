@@ -1242,6 +1242,15 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           if (!msg.status || msg.status === 'completed' || msg.status === 'failed') {
             store.bumpToolCallsSinceHandoff(msg.workflowId);
           }
+          if (store.jobs[msg.workflowId]?.config.primaryProvider === 'antigravity-cli' && msg.tool === 'invoke_subagent' && msg.toolUseId && !existingTool) {
+            let input: Record<string, unknown> = {};
+            try { input = JSON.parse(msg.input || '{}'); } catch { /* The raw input may be unavailable. */ }
+            store.addMessage(msg.workflowId, {
+              id: `gemini-subagent::${msg.toolUseId}`, role: 'assistant', content: '', isStreaming: false,
+              timestamp: eventTime(msg) ?? Date.now(), eventSeq: (msg as { seq?: number }).seq,
+              toolUse: { tool: 'invoke_subagent', toolUseId: msg.toolUseId, input },
+            });
+          }
           store.appendActivity(msg.workflowId, {
             id: crypto.randomUUID(),
             kind: 'tool_use',

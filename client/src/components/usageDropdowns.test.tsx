@@ -73,28 +73,33 @@ test('LOCAL status details include Ollama on keyboard focus', async () => {
 });
 
 
-test('Antigravity usage is read once per open and refresh', async () => {
+test('Antigravity usage opens on focus, displays bars, caches and refreshes', async () => {
   const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost', pretendToBeVisual: true });
   const globals = Object.getOwnPropertyDescriptors(globalThis), before = useAppStore.getState();
   const storage = useAppStore.persist.getOptions().storage; let calls = 0;
   Object.defineProperties(globalThis, {
     window: { configurable: true, value: dom.window }, document: { configurable: true, value: dom.window.document }, localStorage: { configurable: true, value: dom.window.localStorage },
     IS_REACT_ACT_ENVIRONMENT: { configurable: true, value: true },
-    fetch: { configurable: true, value: async () => { calls++; return { ok: true, json: async () => ({ pools: [{ name: 'Gemini · Weekly', percentLeft: 42, reset: '2030-01-01T00:00:00Z' }] }) }; } },
+    fetch: { configurable: true, value: async () => { calls++; return { ok: true, json: async () => ({ pools: [{ name: 'Gemini Models · Weekly Limit Remaining', percentLeft: 42, reset: '2030-01-01T00:00:00Z' }] }) }; } },
   });
   useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
   useAppStore.setState({ authStatus: { 'antigravity-cli': { loggedIn: true } } as never, capabilities: { antigravityVersion: '1.0' } as never, jobs: {}, activeJobId: null, settings: { enabledProviders: { claude: false, codex: false, cursor: false, 'antigravity-cli': true } } as ArcoSettings });
   const root = createRoot(dom.window.document.getElementById('root')!);
   try {
     await act(async () => root.render(createElement(UsageBar, { usage: null })));
-    const button = dom.window.document.querySelector<HTMLButtonElement>('[aria-label="Antigravity CLI usage"]')!;
+    const dot = dom.window.document.querySelector<HTMLElement>('[aria-label="Antigravity CLI status details"]')!;
     assert.equal(calls, 0);
-    await act(async () => button.click());
-    assert.equal(calls, 1); assert.match(dom.window.document.body.textContent!, /Gemini · Weekly: 42% left/);
-    const refresh = [...dom.window.document.querySelectorAll('button')].find(b => b.textContent === 'REFRESH')!;
+    await act(async () => dot.focus());
+    assert.equal(calls, 1);
+    assert.match(dom.window.document.body.textContent!, /Gemini/);
+    assert.match(dom.window.document.body.textContent!, /Weekly/);
+    assert.match(dom.window.document.body.textContent!, /58%/);
+    assert.doesNotMatch(dom.window.document.body.textContent!, /Limit Remaining/);
+    const refresh = dom.window.document.querySelector<HTMLButtonElement>('[aria-label="Refresh Antigravity CLI usage limits"]')!;
     await act(async () => refresh.click()); assert.equal(calls, 2);
-    await act(async () => button.click()); assert.equal(calls, 2);
-    await act(async () => button.click()); assert.equal(calls, 3);
+    await act(async () => dot.blur());
+    await act(async () => dot.focus()); assert.equal(calls, 2);
+
   } finally {
     await act(async () => root.unmount()); useAppStore.setState(before, true); useAppStore.persist.setOptions({ storage });
     for (const name of ['window', 'document', 'localStorage', 'IS_REACT_ACT_ENVIRONMENT', 'fetch']) { if (globals[name]) Object.defineProperty(globalThis, name, globals[name]); else Reflect.deleteProperty(globalThis, name); }

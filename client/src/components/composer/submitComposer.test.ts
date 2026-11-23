@@ -150,3 +150,13 @@ test('LA05: send does not restore a skill removed since the last render', () => 
   submitComposer(options);
   assert.equal(events.find(e => e[0] === 'send')?.[5], undefined);
 });
+
+
+test('Gemini goal commands cannot claim to arm an unavailable goal', () => {
+  const changes: unknown[] = [];
+  const { options, events } = fixture({ provider: 'antigravity-cli', readDraft: () => '/goal run 3', onUpdatePrimary: change => changes.push(change) });
+  submitComposer(options);
+  assert.deepEqual(changes, []);
+  assert.match((events[0][2] as { content: string }).content, /not available for Antigravity/);
+  assert.equal(events.some(event => event[0] === 'send'), false);
+});

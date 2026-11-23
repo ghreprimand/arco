@@ -59,27 +59,57 @@ export function UsageBar({ usage }: Props) {
 }
 
 function AntigravityStatus() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useProviderHover();
+  const placeRef = useKeepInWindow();
   const [pools, setPools] = useState<Array<{ name: string; percentLeft: number; reset: string }> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const request = useRef(0);
+  const lastRead = useRef(0);
+  const inFlight = useRef(false);
   const refresh = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     const id = ++request.current;
     setLoading(true);
     try {
       const response = await fetch('/api/antigravity-usage');
       const data = response.ok ? await response.json() : null;
-      if (id === request.current) setPools(Array.isArray(data?.pools) ? data.pools : null);
-    } catch { if (id === request.current) setPools(null); }
-    finally { if (id === request.current) setLoading(false); }
+      if (id === request.current) {
+        const next = Array.isArray(data?.pools) ? data.pools : null;
+        setPools(next);
+        setFailed(!next);
+        lastRead.current = Date.now();
+      }
+    } catch { if (id === request.current) { setPools(null); setFailed(true); lastRead.current = Date.now(); } }
+    finally { inFlight.current = false; if (id === request.current) setLoading(false); }
   };
-  return <span style={{ position: 'relative' }}>
-    <button type="button" aria-label="Antigravity CLI usage" aria-expanded={open} onClick={() => { if (!open) void refresh(); setOpen(value => !value); }} style={{ border: 0, padding: 0, background: 'transparent', color: 'var(--color-accent-secondary)', cursor: 'pointer' }}>● G</button>
-    {open && <span role="status" style={{ position: 'absolute', top: '100%', right: 0, zIndex: 100, minWidth: 260, padding: 10, color: 'var(--color-fg)', background: 'var(--color-bg-dialog)', border: '1px solid var(--color-border-hairline)' }}>
-      {loading ? 'Loading usage…' : pools ? pools.map(pool => <span key={pool.name} style={{ display: 'block' }}>{pool.name}: {pool.percentLeft}% left · resets {formatResetText(pool.reset)}</span>) : 'Usage unavailable here; run /usage in agy.'}
-      <button type="button" disabled={loading} onClick={() => void refresh()}>REFRESH</button>
-    </span>}
-  </span>;
+  useEffect(() => { if (open && Date.now() - lastRead.current > 60_000) void refresh(); }, [open]);
+  const groups = new Map<string, Array<{ name: string; percentLeft: number; reset: string }>>();
+  for (const pool of pools ?? []) {
+    const [family, ...rest] = pool.name.split(' · ');
+    const rows = groups.get(family) ?? [];
+    const bucket = rest.join(' · ') || family;
+    const label = /five[ -]?hour|5[ -]?hour/i.test(bucket) ? 'Five hour' : /weekly/i.test(bucket) ? 'Weekly' : bucket.replace(/\s+Limit(?: Remaining)?$/i, '');
+    rows.push({ ...pool, name: label });
+    groups.set(family, rows);
+  }
+  return <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+    onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}
+    onFocus={() => setOpen(true)} onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}
+    onClick={e => { if ((e.target as HTMLElement).closest('[data-testid="provider-dot"]')) setOpen(true); }}
+    onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && (e.target as HTMLElement).closest('[data-testid="provider-dot"]')) { e.preventDefault(); setOpen(true); } }}>
+    <StatusDot letter="G" name="Antigravity CLI" state="live" title="Antigravity CLI: LIVE (hover for usage)" />
+    {open && <div ref={placeRef} role="tooltip" style={{ position: 'absolute', top: '100%', right: 0, boxSizing: 'border-box', minWidth: 'min(340px, calc(100vw / var(--ui-scale, 1) - 48px))', padding: '10px 14px', background: 'var(--color-bg-panel)', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)', fontFamily: 'var(--font-content)', zIndex: 30 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11px', lineHeight: 1.45 }}>
+        <UsageTitle name="Antigravity CLI" onRefresh={() => void refresh()} busy={loading} failed={failed} />
+        {loading && !pools ? <span>Loading usage...</span> : pools ? [...groups].map(([family, rows]) => <div key={family} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <span>{family}</span>
+          {rows.map((row, index) => <UsageRow key={`${row.name}-${index}`} label={row.name} util={100 - row.percentLeft} resetsAt={row.reset} />)}
+        </div>) : <span>Usage unavailable here; run /usage in agy.</span>}
+      </div>
+    </div>}
+  </div>;
 }
 
 // A provider that is not ready: the same letter and slot, a dot coloured by

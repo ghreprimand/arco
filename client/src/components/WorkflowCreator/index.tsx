@@ -1804,7 +1804,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             </div>
         )}
 
-            <div data-help="creator.output-style">
+            {primaryProvider !== 'antigravity-cli' && <div data-help="creator.output-style">
               <label className="display-font" style={labelStyle} title="Adds a fixed instruction on how to write replies.">
                 OUTPUT STYLE
               </label>
@@ -1822,7 +1822,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               <div style={hintStyle}>
                 {OUTPUT_STYLE_HINT}
               </div>
-            </div>
+            </div>}
             </div>
           </div>
           )}

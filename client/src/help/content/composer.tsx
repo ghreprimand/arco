@@ -303,7 +303,7 @@ export const composerHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          A standing, always-visible objective for this tab, beside PLAN FIRST when available. Click the strip to
+          A standing objective for this tab, beside PLAN FIRST when available. NORTH STAR and GOAL RUN are not available for Antigravity. Click the strip to
           edit in place: <C>Enter</C> saves, <C>Esc</C> cancels. Empty shows a
           muted <C>set a north-star…</C> affordance. You can also set it from the
           CONFIG tab's <C>NORTH STAR</C> field or with <C>/goal &lt;text&gt;</C> in

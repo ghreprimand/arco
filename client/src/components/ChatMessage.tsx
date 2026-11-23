@@ -28,6 +28,8 @@ import { useTerminalStore } from '../stores/terminalStore';
 import { detectCommand } from './Terminal/detectCommand';
 import { DialogShell } from './DialogShell';
 import { assistantLabel } from './chatMessageLabel';
+import { GeminiSkillNotice } from './GeminiSkillNotice';
+import { GeminiSubagentLine } from './GeminiSubagentLine';
 
 // Thresholds above which an operator message auto-collapses into a pill.
 // Either dimension triggers — a single 2000-char paragraph is as intrusive
@@ -280,6 +282,9 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
   // Tool-use pills from the Claude session JSONL render as a compact row
   // rather than a chat bubble. Bypass the whole bubble pipeline — we don't
   // want the role label, the border-left, or markdown parsing applied.
+  if (isAntigravity && message.toolUse?.tool === 'invoke_subagent') {
+    return <GeminiSubagentLine input={message.toolUse.input as Record<string, unknown> | undefined} />;
+  }
   if (message.toolUse) {
     // Phase 7b — Task spawns its own child workflow; render as an
     // expandable status card with promote/cancel controls instead of the
@@ -377,6 +382,10 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
   // TUI-only slash-command guard) render as an inline row with a RE-LOGIN
   // button that POSTs /api/auth-login?provider=<name>, instead of the plain
   // italic system line.
+  if (isAntigravity && message.role === 'system' && message.content.includes('<arco-skills>') && message.content.includes('</arco-skills>')) {
+    return <GeminiSkillNotice content={message.content} />;
+  }
+
   if (message.role === 'system') {
     if (message.operatorQuestion && jobId) return <OperatorQuestionNotice workflowId={jobId} question={message.operatorQuestion} error={message.operatorQuestionError} />;
     const authNotice = parseAuthNotice(message.content);

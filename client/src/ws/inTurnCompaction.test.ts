@@ -86,3 +86,17 @@ test('replayed compaction notices and context dividers keep their saved place an
     useAppStore.persist.setOptions({ storage });
   }
 });
+
+
+test('Gemini sub-agent updates create one conversation line per tool id on replay', () => {
+  const storage = useAppStore.persist.getOptions().storage;
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
+  const id = 'gemini-subagent-test';
+  try {
+    useAppStore.getState().createJob(id, { name: 'fixture', workingDirectory: '/fixture', skipPermissions: false, primaryProvider: 'antigravity-cli', primaryModel: 'gemini', primaryEffort: 'low' });
+    for (const status of ['in_progress', 'completed']) handleServerMessage({ type: 'primary_tool_use', workflowId: id, tool: 'invoke_subagent', toolUseId: 'one', input: JSON.stringify({ Role: 'Researcher', Prompt: 'Read the brief' }), status } as unknown as ServerMessage, ctx);
+    const rows = useAppStore.getState().jobs[id].messages.filter(m => m.toolUse?.tool === 'invoke_subagent');
+    assert.equal(rows.length, 1);
+    assert.deepEqual(rows[0].toolUse?.input, { Role: 'Researcher', Prompt: 'Read the brief' });
+  } finally { useAppStore.getState().removeJob(id); useAppStore.persist.setOptions({ storage }); }
+});

@@ -414,16 +414,15 @@ export function ConfigTab({
           transport. Standing surface for the one-shot composer prompt. */}
       {c.workingDirectory && <ProjectTrustSection cwd={c.workingDirectory} />}
 
-      {/* docs/GOTCHAS.md - operator-set persistent north-star. Not
-          provider-gated: honored on every transport that folds the prompt
-          (Native, CLI Claude, both Codex, Ollama/llama.cpp/LM Studio). */}
-      {canEdit && (
+      {/* docs/GOTCHAS.md - operator-set persistent north-star. Antigravity
+          does not receive the addendum or run automatic goal turns. */}
+      {canEdit && provider !== 'antigravity-cli' && (
         <NorthStarSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 
-      {/* docs/PROVIDERS.md - OUTPUT STYLE picker. Honored by every
-          provider. Forced normal on Review / Handoff / DOCS / GIT regardless. */}
-      {canEdit && (
+      {/* docs/PROVIDERS.md - OUTPUT STYLE picker. Antigravity does not apply it.
+          Forced normal on Review / Handoff / DOCS / GIT regardless. */}
+      {canEdit && provider !== 'antigravity-cli' && (
         <OutputStyleSection job={job} onUpdatePrimary={onUpdatePrimary!} />
       )}
 

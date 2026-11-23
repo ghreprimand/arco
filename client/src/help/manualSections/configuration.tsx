@@ -763,7 +763,7 @@ export const configuration: Section[] = [
   </ul>
   <Sub>Output and thinking</Sub>
   <p>
-  <strong>OUTPUT STYLE</strong> (every provider) - adds a fixed instruction on
+  <strong>OUTPUT STYLE</strong> (not offered for Antigravity) - adds a fixed instruction on
   how replies are written:
   </p>
   <ul>
@@ -812,6 +812,7 @@ export const configuration: Section[] = [
   anyway on the next turn when comparing behavior on a suspicious workflow.
   </p>
   <Sub>Objective and goal runs</Sub>
+  <p>NORTH STAR and GOAL RUN are not offered for Antigravity. The <Code>/goal</Code> command reports that they are unavailable.</p>
   <p>
   <strong>NORTH STAR</strong> - a per-tab free-text objective (operator-only
   write; the model sees it read-only). It is pinned into the system prompt

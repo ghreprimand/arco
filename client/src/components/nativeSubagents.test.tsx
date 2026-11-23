@@ -6,6 +6,8 @@ import { createRoot } from 'react-dom/client';
 import { useAppStore } from '../stores/appStore';
 import { NativeSubagentControls } from './NativeSubagentControls';
 import { TaskCard } from './TaskCard';
+import { GeminiSkillNotice } from './GeminiSkillNotice';
+import { GeminiSubagentLine } from './GeminiSubagentLine';
 import { TasksPanel } from './TasksPanel';
 import { isTaskChildView } from '../utils/homeModel';
 import { RuntimeStateBanner } from './RuntimeStateBanner';
@@ -191,5 +193,32 @@ test('Gemini waiting strip only uses sub-agent activity from the current turn', 
   } finally {
     await act(async () => root.unmount()); useAppStore.setState(before, true); useAppStore.persist.setOptions({ storage }); dom.window.close();
     for (const key of Object.keys(globals)) { if (saved[key]) Object.defineProperty(globalThis, key, saved[key]); else Reflect.deleteProperty(globalThis, key); }
+  }
+});
+
+
+test('Gemini skill notice is collapsed with the full manifest available', async () => {
+  const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost', pretendToBeVisual: true });
+  const saved = Object.getOwnPropertyDescriptors(globalThis), before = useAppStore.getState(), storage = useAppStore.persist.getOptions().storage;
+  for (const [key, value] of Object.entries({ window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, React, IS_REACT_ACT_ENVIRONMENT: true })) Object.defineProperty(globalThis, key, { configurable: true, value });
+  useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
+  const root = createRoot(document.getElementById('root')!);
+  try {
+    useAppStore.getState().createJob('gemini', { name: 'fixture', primaryProvider: 'antigravity-cli', primaryModel: 'gemini', primaryEffort: 'low' } as never);
+    const content = 'Plan notice\n\nYou have access to skills.\n\n<arco-skills>\n<skill name="one">First</skill>\n<skill name="two">Second</skill>\n</arco-skills>';
+    await act(async () => root.render(<GeminiSkillNotice content={content} />));
+    const details = document.querySelector('details')!;
+    assert.equal(details.open, false);
+    assert.equal(details.querySelector('summary')?.textContent, 'Skill list sent to Gemini (2 skills)');
+    assert.match(details.textContent!, /First/);
+    await act(async () => details.querySelector('summary')!.click());
+    assert.equal(details.open, true);
+    assert.match(document.body.textContent!, /Plan notice/);
+    await act(async () => root.render(<GeminiSubagentLine input={{ Role: 'Math Calculator', Prompt: 'Find the answer\nand explain.' }} />));
+    assert.equal(document.body.textContent, 'Sub-agent: Math Calculator - Find the answer and explain.');
+    assert.equal(document.querySelector('[title]')?.getAttribute('title'), 'Find the answer\nand explain.');
+  } finally {
+    await act(async () => root.unmount()); useAppStore.setState(before, true); useAppStore.persist.setOptions({ storage }); dom.window.close();
+    for (const key of ['window', 'document', 'localStorage', 'React', 'IS_REACT_ACT_ENVIRONMENT']) { if (saved[key]) Object.defineProperty(globalThis, key, saved[key]); else Reflect.deleteProperty(globalThis, key); }
   }
 });

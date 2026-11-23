@@ -473,8 +473,8 @@ export function ClusterMembersSection({
                   </div>
                 )}
 
-                {/* OUTPUT STYLE (every provider) */}
-                {(
+                {/* OUTPUT STYLE does not apply to Antigravity. */}
+                {m.provider !== 'antigravity-cli' && (
                   <div>
                     <label className="display-font" style={labelStyle}>OUTPUT STYLE</label>
                     <div style={{ display: 'flex', gap: '6px' }}>

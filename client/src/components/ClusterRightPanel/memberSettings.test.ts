@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { memberSettingsFrom, memberTuning } from './memberSettings.js';
+import { memberSettingsFrom, memberTuning, memberSettingsShown } from './memberSettings.js';
 
 const config = { outputStyle: 'terse', efficiencyToolFilter: 'aggressive', fastMode: true, autoCompaction: { enabled: true, thresholdPercent: 70 } } as const;
 
@@ -24,4 +24,9 @@ test('the request carries every value; settings a provider does not use are sent
   // Every provider applies the output style, so it is sent as chosen.
   assert.deepEqual(memberTuning({ ...v, tier: '', focus: '', autoCompaction: null }, 'ollama'), { tier: null, focus: '', outputStyle: 'terse', efficiencyToolFilter: 'off', fastMode: false, autoCompaction: null });
   assert.equal(memberTuning({ ...v, outputStyle: 'normal' }, 'cursor').outputStyle, 'normal');
+});
+
+test('Antigravity does not offer an output style', () => {
+  assert.equal(memberSettingsShown('antigravity-cli').outputStyle, false);
+  assert.equal(memberSettingsShown('codex').outputStyle, true);
 });

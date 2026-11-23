@@ -104,6 +104,12 @@ export function submitComposer({ kind, compactAvailable, isCompacting, uploading
     // (requires end-of-token or whitespace after "goal") so they send normally.
     const goalMatch = trimmed.match(/^\/goal(?:\s+([\s\S]*))?$/i);
     if (goalMatch) {
+      if (provider === 'antigravity-cli') {
+        addMessage(job.id, { id: crypto.randomUUID(), role: 'system', content: 'NORTH STAR and GOAL RUN are not available for Antigravity.', isStreaming: false, timestamp: Date.now() });
+        setValue('');
+        clearAttachments(job.id);
+        return;
+      }
       const pushSys = (content: string) =>
         addMessage(job.id, { id: crypto.randomUUID(), role: 'system', content, isStreaming: false, timestamp: Date.now() });
       const arg = (goalMatch[1] ?? '').trim();

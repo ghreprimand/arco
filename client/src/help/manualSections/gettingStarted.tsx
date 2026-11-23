@@ -297,7 +297,7 @@ export const gettingStarted: Section[] = [
   <strong>TOOL-RESULT FILTER</strong> beside an <strong>OUTPUT STYLE</strong>{' '}
   picker (NORMAL, PLAIN or TERSE; PLAIN is the default). The filter (off,
   conservative or aggressive) trims noisy Bash and test output before it enters
-  context, and is Native-only. Other providers show OUTPUT STYLE only. See{' '}
+  context, and is Native-only. Other providers except Antigravity show OUTPUT STYLE only. See{' '}
   <em>Configuration</em> for detail.
   </li>
   </ul>

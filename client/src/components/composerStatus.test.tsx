@@ -97,6 +97,11 @@ test('the north star and a running goal stay actionable, and the context gauge n
     assert.ok(stop, 'an armed goal run still has its stop control');
     await act(async () => { stop!.click(); });
     assert.deepEqual(updates, [{ goalRun: { enabled: false } }]);
+    await act(async () => root.render(createElement(NorthStarBar, {
+      job: { config: { primaryProvider: 'antigravity-cli', goal: 'saved objective' } } as JobState,
+      onUpdatePrimary: () => {},
+    })));
+    assert.equal(host.textContent, '', 'Gemini does not offer an ineffective north star');
 
     await act(async () => {
       root.render(createElement(ContextMeter, { job: { config: { primaryProvider: 'cursor' }, totalTokens: { output: 0 } } as JobState }));

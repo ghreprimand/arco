@@ -45,6 +45,8 @@ export function NorthStarBar({
   const overCap = byteLen > GOAL_MAX_BYTES;
   const nearCap = byteLen > GOAL_SOFT_WARN_BYTES;
 
+  if (job.config.primaryProvider === 'antigravity-cli') return null;
+
   return (
     <div
       data-help="composer.north-star"

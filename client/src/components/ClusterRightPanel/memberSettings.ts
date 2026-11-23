@@ -32,9 +32,9 @@ export function memberSettingsFrom(
 }
 
 // Which settings apply to a provider: fast mode and the tool-result filter
-// are Claude settings; every provider applies the output style.
+// are Claude settings; Antigravity does not apply the output style.
 export function memberSettingsShown(provider: ClusterMemberProvider): { fastMode: boolean; toolFilter: boolean; outputStyle: boolean } {
-  return { fastMode: provider === 'claude', toolFilter: provider === 'claude', outputStyle: true };
+  return { fastMode: provider === 'claude', toolFilter: provider === 'claude', outputStyle: provider !== 'antigravity-cli' };
 }
 
 // The request fields. A setting the provider does not use is sent as off, so

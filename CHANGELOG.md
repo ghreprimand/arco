@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show Gemini skill and sub-agent activity compactly, match its usage panel to the other providers, and hide the unsupported output style, north star and goal run.
+
 - Show Gemini sub-agent waiting and warn when an older Antigravity CLI can end the turn before results arrive.
 
 - Show separated child output rounds in expanded Task cards and explain sub-agent controls by provider.
