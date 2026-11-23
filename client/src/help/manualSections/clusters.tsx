@@ -463,8 +463,10 @@ export const clusters: Section[] = [
   </p>
   <p>
   Settings, Projects, <strong>Research time limit</strong> sets how long each
-  researcher has to reply to a round or catch-up, from 30 to 240 minutes; 30
-  when unset. A researcher still waiting at the deadline is timed out.
+  researcher has to reply to a round or catch-up, from 30 to 240 minutes; 45
+  when unset. A researcher still waiting at the deadline is timed out. With 5
+  minutes or less left and a researcher still waiting, +15 MIN on the rounds
+  strip moves the deadline 15 minutes later, up to 240 minutes in total.
   </p>
   </>
   ),

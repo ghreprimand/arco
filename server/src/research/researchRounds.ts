@@ -7,7 +7,7 @@
 // the research folder before release.
 
 import { join } from 'node:path';
-import { researchTimeLimitMinutes } from '@arco/shared';
+import { RESEARCH_EXTEND_MINUTES, researchRoundExtendable, researchTimeLimitMinutes } from '@arco/shared';
 import type { PeerArtifact, PeerMessage } from '../clusterMailbox.js';
 import { readLogLines } from '../eventLog.js';
 import {
@@ -212,9 +212,19 @@ function schedule(clusterId: string, round: ResearchRound): void {
   const key = `${clusterId}:${round.n}`;
   clearTimeout(timers.get(key));
   const delay = Math.max(0, Date.parse(round.deadline) - d().now());
-  const timer = setTimeout(() => { timers.delete(key); void timeoutRound(clusterId, round.n); }, Math.min(delay, 2 ** 31 - 1));
+  const timer = setTimeout(() => { timers.delete(key); void timeoutRoundIfDue(clusterId, round.n); }, Math.min(delay, 2 ** 31 - 1));
   timer.unref?.();
   timers.set(key, timer);
+}
+
+// The deadline timer: a deadline moved later (+15 MIN) since the timer was
+// armed is re-armed instead of timing its researchers out.
+export async function timeoutRoundIfDue(clusterId: string, n: number): Promise<void> {
+  const state = await loadResearch(clusterId);
+  const round = state ? roundByKey(state, n) : undefined;
+  if (!round || round.releasedAt) return;
+  if (Date.parse(round.deadline) > d().now()) { schedule(clusterId, round); return; }
+  await timeoutRound(clusterId, n);
 }
 
 export async function timeoutRound(clusterId: string, n: number): Promise<void> {
@@ -231,6 +241,36 @@ export async function timeoutRound(clusterId: string, n: number): Promise<void> 
     return changed;
   });
   await maybeRelease(clusterId, n);
+}
+
+/**
+ * The operator's +15 MIN (docs/RESEARCH.md "Round deadline"): moves an open
+ * round's or catch-up's deadline 15 minutes later and re-arms its timer while a
+ * researcher still waits, within the maximum round time. The Director reads one
+ * line about it on its next turn; no turn starts for it.
+ */
+export async function extendRound(clusterId: string, n: number): Promise<{ ok: true; deadline: string } | { ok: false; code: 'unknown_round' | 'not_extendable' }> {
+  let extended: ResearchRound | undefined;
+  let known = false;
+  const state = await updateResearch(clusterId, (s) => {
+    const round = roundByKey(s, n);
+    if (!round) return false;
+    known = true;
+    if (!researchRoundExtendable(round)) return false;
+    round.deadline = iso(Date.parse(round.deadline) + RESEARCH_EXTEND_MINUTES * 60_000);
+    extended = round;
+  });
+  if (!state || !extended) return { ok: false, code: known ? 'not_extendable' : 'unknown_round' };
+  const round = roundByKey(state, n)!;
+  schedule(clusterId, round);
+  await writeRoundStart(state, round).catch(() => undefined);
+  await d().enqueue(state.directorWorkflowId, {
+    msgId: d().mintMsgId(), fromWorkflowId: state.directorWorkflowId, fromDisplayName: 'Arco research',
+    toWorkflowId: state.directorWorkflowId, content: `${roundTitle(round)} extended to ${round.deadline} by the operator.`,
+    createdAt: iso(d().now()), delivered: false,
+  }, { maxContentBytes: RELEASE_MAX_BYTES });
+  d().notify(clusterId);
+  return { ok: true, deadline: round.deadline };
 }
 
 /**

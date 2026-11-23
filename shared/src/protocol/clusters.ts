@@ -60,13 +60,23 @@ export function isResearcherProvider(v: unknown): v is (typeof RESEARCHER_PROVID
 }
 
 // ── Research projects (docs/RESEARCH.md) ──
-export const RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES = 30;
+export const RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES = 45;
 export const RESEARCH_ROUND_TIMEOUT_MIN_MINUTES = 30;
 export const RESEARCH_ROUND_TIMEOUT_MAX_MINUTES = 240;
 /** Settings > Projects > Research time limit, in whole minutes within its range; default when unset or invalid. */
 export function researchTimeLimitMinutes(value: unknown): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES;
   return Math.max(RESEARCH_ROUND_TIMEOUT_MIN_MINUTES, Math.min(RESEARCH_ROUND_TIMEOUT_MAX_MINUTES, Math.round(value)));
+}
+// docs/RESEARCH.md "Round deadline": the operator's +15 MIN on the rounds
+// strip, shown when an open round or catch-up has this little time left and a
+// researcher is still waiting. The round's total time stays within the maximum.
+export const RESEARCH_EXTEND_MINUTES = 15;
+export const RESEARCH_EXTEND_WINDOW_MINUTES = 5;
+/** Whether +15 MIN applies to this round now: open, someone waiting, within the maximum. */
+export function researchRoundExtendable(round: { startedAt: string; deadline: string; releasedAt?: string; entries: Record<string, { state: string }> }): boolean {
+  if (round.releasedAt || !Object.values(round.entries).some((e) => e.state === 'waiting')) return false;
+  return Date.parse(round.deadline) + RESEARCH_EXTEND_MINUTES * 60_000 - Date.parse(round.startedAt) <= RESEARCH_ROUND_TIMEOUT_MAX_MINUTES * 60_000;
 }
 export const RESEARCH_MAX_RESEARCHERS = 26;
 export const RESEARCH_CONFIRM_ABOVE = 8;

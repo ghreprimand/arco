@@ -8,7 +8,8 @@ import * as clusterMailbox from '../clusterMailbox.js';
 import * as clusterPeerOps from '../clusterPeerOps.js';
 import * as clusterStore from '../clusterStore.js';
 import { createResearchFolder } from './researchFolder.js';
-import { addResearcher, configureResearch, holdResearcherReply, removeResearcher, onMemberSettled, onRoundMailRead, revealResearch, setResearcherSignInWaiting, startResearchDirector, startRound, timeoutRound } from './researchRounds.js';
+import { RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES, RESEARCH_ROUND_TIMEOUT_MAX_MINUTES } from '@arco/shared';
+import { addResearcher, configureResearch, extendRound, timeoutRoundIfDue, holdResearcherReply, removeResearcher, onMemberSettled, onRoundMailRead, revealResearch, setResearcherSignInWaiting, startResearchDirector, startRound, timeoutRound } from './researchRounds.js';
 import { catchUpKey, initResearch, loadResearch, researchSummary, updateResearch } from './researchState.js';
 import { ensureResearchTripwires, observeResearchText, observeResearchTool, RESEARCH_CANARY_FILE, researchToolBoundaryWarning } from './researchTripwires.js';
 import { closeResearch, closedResearchRecordPath, installResearchCloseOnDelete, sweepClosedResearch, unsentFiles } from './researchClose.js';
@@ -158,8 +159,8 @@ test('a researcher held by a Gemini Research Director is not timed out before it
     for (let i = 0; i < 50 && (await loadResearch(p.clusterId))!.rounds[0].entries.A.heldMsgId; i++) await new Promise((r) => setTimeout(r, 10));
     state = (await loadResearch(p.clusterId))!;
     assert.equal(state.rounds[0].entries.A.heldMsgId, undefined);
-    assert.equal(Date.parse(state.rounds[0].deadline), now + 30 * 60_000, 'the full limit counts from the read');
-    now += 31 * 60_000;
+    assert.equal(Date.parse(state.rounds[0].deadline), now + RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES * 60_000, 'the full limit counts from the read');
+    now += (RESEARCH_ROUND_TIMEOUT_DEFAULT_MINUTES + 1) * 60_000;
     await timeoutRound(p.clusterId, 1);
     state = (await loadResearch(p.clusterId))!;
     assert.equal(state.rounds[0].entries.A.state, 'timed_out');
@@ -196,6 +197,42 @@ test('rounds and catch-ups use the research time limit setting, kept within 30 t
     await addResearcher(p.clusterId, { workflowId: c, provider: 'ollama', model: 'qwen3:32b' }, true);
     const catchUp = (await loadResearch(p.clusterId))!.catchUps![0];
     assert.equal(Date.parse(catchUp.deadline), now + 240 * 60_000);
+  } finally {
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
+test('+15 MIN keeps a waiting researcher open past the old deadline, tells the Director once, and stops at the maximum', async () => {
+  const p = await project();
+  let now = Date.parse('2026-11-23T00:00:00Z');
+  try {
+    configureResearch({
+      enqueue: (to, msg, opts) => clusterMailbox.enqueue(to, msg, opts),
+      mintMsgId: () => clusterMailbox.mintMsgId(),
+      wake: () => undefined,
+      isBusy: () => false,
+      timeLimitMinutes: async () => 200,
+      pendingMail: (wfid) => clusterMailbox.depthFor(wfid),
+      clusterIdFor: (wfid) => clusterStore.getClusterIdForWorkflow(wfid),
+      notify: () => undefined,
+      now: () => now,
+    });
+    assert.equal((await startRound(p.clusterId, p.director, 'Compare two heat pumps.')).ok, true);
+    now += 197 * 60_000;
+    const extended = await extendRound(p.clusterId, 1);
+    assert.deepEqual(extended, { ok: true, deadline: new Date(Date.parse('2026-11-23T00:00:00Z') + 215 * 60_000).toISOString() });
+    now += 5 * 60_000;
+    await timeoutRoundIfDue(p.clusterId, 1);
+    let state = (await loadResearch(p.clusterId))!;
+    assert.equal(state.rounds[0].entries.A.state, 'waiting', 'the old deadline has passed but the researcher still waits');
+    const lines = (await clusterMailbox.drain(p.director)).filter((m) => m.fromDisplayName === 'Arco research');
+    assert.deepEqual(lines.map((m) => m.content), [`Round 1 extended to ${state.rounds[0].deadline} by the operator.`]);
+    assert.equal((await extendRound(p.clusterId, 1)).ok, true, '230 minutes in total is within the maximum');
+    assert.deepEqual(await extendRound(p.clusterId, 1), { ok: false, code: 'not_extendable' }, `245 minutes would pass the ${RESEARCH_ROUND_TIMEOUT_MAX_MINUTES}-minute maximum`);
+    state = (await loadResearch(p.clusterId))!;
+    assert.equal(Date.parse(state.rounds[0].deadline), Date.parse(state.rounds[0].startedAt) + 230 * 60_000);
   } finally {
     configureResearch(null);
     await clusterStore.deleteCluster(p.clusterId).catch(() => undefined);

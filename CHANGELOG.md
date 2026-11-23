@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Add +15 MIN to the research rounds strip for a round about to time out, and raise the default research time limit to 45 minutes.
+
 - Refresh Cursor's model list immediately after a successful sign-in or connection check.
 
 - Align the TASKS panel lifetime, restart-stopped background notice, Antigravity skill and goal limits, and Antigravity update help with the release tip.

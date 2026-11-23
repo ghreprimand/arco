@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ClusterResearchSummary } from '@arco/shared';
+import { RESEARCH_EXTEND_MINUTES, RESEARCH_EXTEND_WINDOW_MINUTES, researchRoundExtendable, type ClusterResearchSummary } from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
 import { DialogShell } from '../DialogShell';
 import { touchButton } from './ResearchCloseDialog';
@@ -35,6 +35,16 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
     } catch { useAppStore.getState().pushNotification('error', 'Reveal failed. Try again.'); }
     finally { setBusy(false); }
   };
+  // docs/RESEARCH.md "Round deadline": the operator's +15 MIN.
+  const extend = async (n: number) => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/research/${clusterId}/rounds/${n}/extend`, { method: 'POST' });
+      if (!res.ok) throw new Error();
+      setNow(Date.now());
+    } catch { useAppStore.getState().pushNotification('error', 'The round could not be extended. It may have ended or reached the maximum time.'); }
+    finally { setBusy(false); }
+  };
   return (
     <div data-help="research.rounds" style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '5px 8px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: 11, color: 'var(--color-fg)' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
@@ -56,10 +66,12 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
       {research.rounds.length === 0 && <div>No round yet. The Research Director starts on the brief when the project opens; a Gemini Research Director starts when you press NUDGE.</div>}
       {rounds.map((round) => {
         const expanded = openRound === round.n;
+        const extendable = researchRoundExtendable(round) && Date.parse(round.deadline) - now <= RESEARCH_EXTEND_WINDOW_MINUTES * 60_000;
         return (
           <div key={round.n}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             <button type="button" data-help="research.round" aria-expanded={expanded} onClick={() => setOpenRound(expanded ? null : round.n)}
-              style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', width: '100%', minHeight: 44, background: 'none', border: 'none', padding: 0, color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+              style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', flex: '1 1 200px', minWidth: 0, minHeight: 44, background: 'none', border: 'none', padding: 0, color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
               <span className="display-font" style={{ letterSpacing: 1, color: 'var(--color-fg)' }}>{round.catchUp ? `CATCH-UP ${round.catchUp}` : `ROUND ${round.n}`}</span>
               {letters.filter((l) => round.entries[l]).map((l) => {
                 const state = round.entries[l].state;
@@ -70,6 +82,9 @@ export function ResearchRoundsStrip({ clusterId, research, onOpenFolder }: { clu
               {round.contaminated && <span role="alert" style={{ color: 'var(--color-warning)' }}>INDEPENDENCE CHECK FAILED</span>}
               {round.boundaryWarning && <span role="alert" style={{ color: 'var(--color-warning)' }}>SANDBOX ACCESS WARNING</span>}
             </button>
+            {extendable && <button type="button" data-help="research.extend" style={touchButton} disabled={busy}
+              aria-label={`Extend ${round.catchUp ? `catch-up ${round.catchUp}` : `round ${round.n}`} by ${RESEARCH_EXTEND_MINUTES} minutes`} onClick={() => void extend(round.n)}>+{RESEARCH_EXTEND_MINUTES} MIN</button>}
+            </div>
             {expanded && <ul style={{ margin: '4px 0 2px 16px', padding: 0 }}>
               {letters.filter((l) => round.entries[l]).map((l) => {
                 const e = round.entries[l];
