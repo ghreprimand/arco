@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Avoid false research sandbox warnings for regular expressions containing slash patterns.
+
 - Keep sandboxed workers' model connections open while a model is silent for up to 10 minutes, instead of cutting them after 30 seconds.
 
 - Mark branches whose upstream was deleted on the remote in the GIT dialog.

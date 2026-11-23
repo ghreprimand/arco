@@ -5,6 +5,8 @@ import { WORKER_SANDBOX_HOME as home } from '../workers/linuxWorkerSandbox.js';
 
 test('relative glob is not mistaken for an outside absolute path', () => {
   assert.equal(researchToolBoundaryWarning('Bash', JSON.stringify({ command: "/usr/bin/bash -lc 'pwd; ls -a; ls -d .arco/workflows/*/artifacts'", cwd: '/work' })), false);
+  assert.equal(researchToolBoundaryWarning('Bash', JSON.stringify({ command: `grep -oE 'https?://[^"<> ]*MODEL1[^"<> ]*\\.pdf[^"<> ]*|/[^"<> ]*MODEL1[^"<> ]*(QSG|User)[^"<> ]*' page.html` })), false);
+  assert.equal(researchToolBoundaryWarning('Bash', JSON.stringify({ command: "grep -E 'a|/(foo)|/*|/' file" })), false);
   assert.equal(researchToolBoundaryWarning('Bash', JSON.stringify({ command: 'ls /root/private' })), true);
   assert.equal(researchToolBoundaryWarning('Bash', JSON.stringify({ command: 'cat `/etc/hostname`' })), true);
   assert.equal(researchToolBoundaryWarning('Bash', JSON.stringify({ command: 'cat {/work/a,/etc/passwd}' })), true);
