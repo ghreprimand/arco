@@ -15,14 +15,27 @@ interface PhonePageProps {
   // Called when the header's back arrow, the phone's Back, Escape or another
   // overlay closes the page. The owner stops rendering the page.
   onClose: () => void;
+  // Asked first on the back arrow, the phone's Back and Escape: return true
+  // when the page stepped back inside itself (a chapter to its list) and stays
+  // open. Another overlay taking the screen closes the page without asking.
+  onBack?: () => boolean;
   children: ReactNode;
   testId?: string;
 }
 
-export function PhonePage({ title, onClose, children, testId }: PhonePageProps) {
+export function PhonePage({ title, onClose, onBack, children, testId }: PhonePageProps) {
   const pageRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const backRef = useRef(onBack);
+  backRef.current = onBack;
+  const hasBack = !!onBack;
+  useEffect(() => {
+    if (!hasBack) return;
+    const back = () => backRef.current?.() ?? false;
+    usePhoneStore.setState({ pageBack: back });
+    return () => { if (usePhoneStore.getState().pageBack === back) usePhoneStore.setState({ pageBack: null }); };
+  }, [hasBack]);
   useEffect(() => {
     // Take the screen: sheets, the terminal and any page a view drew close.
     const phone = usePhoneStore.getState();
@@ -38,7 +51,7 @@ export function PhonePage({ title, onClose, children, testId }: PhonePageProps) 
   }, [title]);
   usePhoneOverlay(pageRef, true);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented) closeRef.current(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented && !backRef.current?.()) closeRef.current(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);

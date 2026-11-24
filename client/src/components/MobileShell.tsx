@@ -20,8 +20,8 @@ import { focusNoticeWorkflow } from '../alerts/focusNotice';
 import { useTerminalTarget } from '../hooks/useTerminalTarget';
 import { usePhoneOverlay } from '../layout/phoneOverlay';
 import { PhoneBottomSheet } from '../layout/PhoneBottomSheet';
+import { firstQuestionText } from './MobileQuestionBar';
 import { PendingQuestionsList, pendingGates, usePendingQuestions } from './PendingQuestionsButton';
-import { MOBILE_TEXT_SIZES, readMobileTextSize, writeMobileTextSize } from '../themes/bootstrap';
 import { openArchive } from '../explorer/launch';
 import { CatchMeUp } from './CatchMeUp';
 import { openMediaStudio } from './media/launchers';
@@ -266,7 +266,11 @@ function useMobileHistory(): void {
       else if (step === 'settingsPage') usePhoneStore.getState().setSettingsPage(false);
       else if (step === 'settings') useAppStore.getState().setShowSettings(false);
       else if (step === 'terminal') { const t = useTerminalStore.getState(); for (const w of t.windows) t.closeWindow(w.windowId); }
-      else if (step === 'panel') usePhoneStore.getState().closePanels();
+      else if (step === 'panel') {
+        // The page stepped back inside itself and stays open: keep its history entry.
+        if (usePhoneStore.getState().pageBack?.()) { shown.current += 1; window.history.pushState({ arcoMobile: shown.current }, ''); }
+        else usePhoneStore.getState().closePanels();
+      }
       else usePhoneStore.getState().setScreen('directory');
     };
     window.addEventListener('popstate', onPop);
@@ -351,6 +355,7 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
   if (openPanel || terminalOpen) {
     const back = () => {
       const phone = usePhoneStore.getState();
+      if (openPanel && phone.pageBack?.()) return;
       if (!openPanel) { const t = useTerminalStore.getState(); for (const w of t.windows) t.closeWindow(w.windowId); }
       else if (phone.panelFromIndex && !phone.panelIndex) usePhoneStore.setState({ panelIndex: true });
       else phone.closePanels();
@@ -397,10 +402,15 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
             the button that lists the members. */}
         {(() => {
           const titleStyle = { flex: 1, minWidth: 0, minHeight: '44px', display: 'flex', flexDirection: 'column' as const, justifyContent: 'center', textAlign: 'left' as const, background: 'transparent', border: 0, padding: '0 2px', color: 'var(--color-fg)' };
+          // A research project says where its newest round stands.
+          const rounds = cluster?.research?.rounds ?? [];
+          const lastRound = rounds[rounds.length - 1];
+          const roundLine = lastRound ? `ROUND ${lastRound.n} ${lastRound.releasedAt ? 'RELEASED' : 'RUNNING'}` : '';
           const lines = <>
             <span className="display-font" style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--color-fg)', minWidth: 0, whiteSpace: 'nowrap' }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{cluster ? shown.clusterName : shown.kind}</span>
               {shown.workflowId && <span style={{ flexShrink: 0, display: 'inline-flex', gap: '2px' }}><StateMark state={state} />{stateText(state, busy)}</span>}
+              {roundLine && <span data-testid="mobile-round-line" style={{ flexShrink: 0 }}>{'\u00B7'} {roundLine}</span>}
             </span>
             <span data-testid="phone-title-name" style={{ display: 'block', fontSize: oneRow ? '16px' : '18px', lineHeight: 1.25, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
               {shown.label}{titleSwitches ? ' \u25BE' : ''}{cluster?.research?.quick ? ' · Research Director' : ''}
@@ -426,6 +436,14 @@ function MemberStrip({ cluster, current }: { cluster: ClusterStatePayload; curre
   useEffect(() => {
     stripRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [current]);
+  // A research project: short names (Director, A, B, C) so the strip shows
+  // more than two, and RESULTS at its end.
+  const research = cluster.research;
+  const short = (workflowId: string, name: string) => {
+    if (!research) return name;
+    if (workflowId === research.directorWorkflowId) return 'Director';
+    return research.researchers.find((r) => r.workflowId === workflowId)?.letter ?? name;
+  };
   return (
     <div ref={stripRef} role="tablist" aria-label={`Members of ${clusterDisplayName(cluster)}`} data-testid="mobile-member-strip" data-help="mobile.members"
       style={{ display: 'flex', gap: '6px', overflowX: 'auto', scrollbarWidth: 'none', margin: '0 -10px', padding: '0 10px' }}>
@@ -440,12 +458,14 @@ function MemberStrip({ cluster, current }: { cluster: ClusterStatePayload; curre
             style={{ ...control, flexShrink: 0, borderRadius: 0, fontSize: '14px', letterSpacing: 0, fontFamily: 'var(--font-body)',
               background: selected ? 'var(--color-accent-primary-a10)' : 'transparent', borderColor: selected ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)' }}>
             <StateMark state={state} />
-            {m.displayName}
+            {short(m.workflowId, m.displayName)}
             {state !== 'IDLE' && <span className="display-font" style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--color-fg)' }}>{state === 'NEEDS YOU' ? 'NEEDS YOU' : 'WORKING'}</span>}
             {mail > 0 && <span className="display-font" style={{ fontSize: '11px', color: 'var(--color-accent-secondary)' }}>{`\u2709${mail}`}</span>}
           </button>
         );
       })}
+      {research && <button type="button" data-testid="mobile-strip-results" data-help="mobile.members" onClick={() => { usePhoneStore.setState({ panelIndex: false, panelFromIndex: false }); usePhoneStore.getState().requestPanel('results'); }}
+        className="display-font" style={{ ...control, flexShrink: 0, borderRadius: 0, color: 'var(--color-accent-primary)', borderColor: 'var(--color-accent-primary)' }}>RESULTS {'\u203A'}</button>}
     </div>
   );
 }
@@ -476,6 +496,23 @@ function Row({ onClick, label, detail, state, busy = false, current = false, tes
   );
 }
 
+/** A NEEDS YOU row. A waiting decision shows its first words and ANSWER, and
+ * opens the questions sheet over that conversation. */
+function NeedsRow({ id, label, why, busy, decision, onOpen }: { id: string; label: string; why: string; busy: boolean; decision: boolean; onOpen: () => void }) {
+  const questions = usePendingQuestions(id, true);
+  const text = decision ? firstQuestionText(questions) : '';
+  return (
+    <button type="button" onClick={onOpen} data-testid="mobile-needs" aria-label={`${label}, ${text || why}: ${stateText('NEEDS YOU', busy).toLowerCase()}${decision ? '. Answer.' : ''}`} style={rowStyle(false, false)}>
+      <StateMark state="NEEDS YOU" />
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span className="display-font" style={{ display: 'block', fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--color-fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}{busy ? ' \u00B7 WORKING' : ''}</span>
+        <span style={{ display: 'block', fontSize: '16px', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text || why}</span>
+      </span>
+      {decision && <span className="display-font" aria-hidden="true" style={{ flexShrink: 0, minHeight: '44px', display: 'inline-flex', alignItems: 'center', padding: '0 12px', border: '2px solid var(--color-warning)', color: 'var(--color-warning)', fontSize: '13px', fontWeight: 700, letterSpacing: '1px' }}>ANSWER</span>}
+    </button>
+  );
+}
+
 /** The first screen: what needs the operator, then every open tab. */
 export function MobileDirectory() {
   const jobs = useAppStore((s) => s.jobs);
@@ -484,7 +521,7 @@ export function MobileDirectory() {
   const activeClusterId = useAppStore((s) => s.activeClusterId);
   const activeJobId = useAppStore((s) => s.activeJobId);
   const focused = useAppStore((s) => s.clusterFocusedMember);
-  const [open, setOpen] = useState<Record<string, boolean>>(() => usePhoneStore.getState().directoryOpen ?? (activeClusterId ? { [activeClusterId]: true } : {}));
+  const [open, setOpen] = useState<Record<string, boolean>>(() => usePhoneStore.getState().directoryOpen ?? {});
   const store = useAppStore.getState;
   const rank = useMemo(() => new Map((order ?? []).map((id, i) => [id, i])), [order]);
   const byOrder = <T,>(items: T[], id: (item: T) => string) => [...items].sort((a, b) => (rank.get(id(a)) ?? 1e9) - (rank.get(id(b)) ?? 1e9));
@@ -509,22 +546,24 @@ export function MobileDirectory() {
   // The conversation stays mounted underneath (its draft is kept) but cannot
   // take focus or touch while the directory covers it.
   const dirRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   usePhoneOverlay(dirRef, true);
   // Keep the open clusters and the scroll position for the next return.
   const openRef = useRef(open);
   openRef.current = open;
   useLayoutEffect(() => {
-    const el = dirRef.current;
+    const el = scrollRef.current;
     if (el) el.scrollTop = usePhoneStore.getState().directoryScroll;
     return () => usePhoneStore.getState().setDirectoryView(openRef.current, el?.scrollTop ?? 0);
   }, []);
   return (
-    <div ref={dirRef} data-testid="mobile-directory" data-help="mobile.directory" style={{ position: 'absolute', inset: 0, zIndex: 30, overflowY: 'auto', background: 'var(--color-bg)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <div ref={dirRef} style={{ position: 'absolute', inset: 0, zIndex: 30 }}>
+    <div ref={scrollRef} data-testid="mobile-directory" data-help="mobile.directory" style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: 'var(--color-bg)', paddingBottom: 'calc(76px + env(safe-area-inset-bottom))' }}>
       {needs.length > 0 && <>
         <div className="display-font" style={sectionHeading}><span aria-hidden="true" style={{ color: 'var(--color-warning)' }}>{'\u25B2'}</span> NEEDS YOU ({needs.length})</div>
         {needs.map((n) => (
-          <Row key={`needs-${n.id}`} testId="mobile-needs" label={`${n.label} \u00B7 ${n.where}`} detail={n.why} state="NEEDS YOU" busy={n.busy}
-            onClick={() => { openConversation(() => focusNoticeWorkflow(n.id)); if (n.decision) usePhoneStore.getState().openSheet('questions', n.id); }} />
+          <NeedsRow key={`needs-${n.id}`} id={n.id} label={`${n.label} \u00B7 ${n.where}`} why={n.why} busy={n.busy} decision={n.decision}
+            onOpen={() => { openConversation(() => focusNoticeWorkflow(n.id)); if (n.decision) usePhoneStore.getState().openSheet('questions', n.id); }} />
         ))}
       </>}
       {ordinaryClusters.length > 0 && <div className="display-font" style={sectionHeading}>CLUSTERS</div>}
@@ -592,7 +631,13 @@ export function MobileDirectory() {
       ))}
       <div className="display-font" style={sectionHeading}>WORKBENCH</div>
       <Row testId="mobile-home" label="Home" detail="Projects and saved sessions" onClick={() => openConversation(() => store().showHomeView())} />
-      <Row testId="mobile-new-tab" label="+ New tab" detail="Agent, cluster or chat" onClick={() => openConversation(() => store().showJobCreator())} />
+    </div>
+      {/* New tab stays in thumb reach, over the list. */}
+      <button type="button" data-testid="mobile-new-tab" data-help="mobile.new-tab" onClick={() => openConversation(() => store().showJobCreator())} aria-label="New tab: agent, cluster or chat" className="display-font"
+        style={{ position: 'absolute', right: 'calc(14px + env(safe-area-inset-right))', bottom: 'calc(14px + env(safe-area-inset-bottom))', minHeight: '52px', padding: '0 18px', fontSize: '14px', fontWeight: 700, letterSpacing: '1px', cursor: 'pointer',
+          background: 'var(--color-bg-panel)', color: 'var(--color-accent-primary)', border: '2px solid var(--color-accent-primary)', borderRadius: '4px', boxShadow: '0 2px 12px rgba(0,0,0,0.45)' }}>
+        + NEW
+      </button>
     </div>
   );
 }
@@ -665,7 +710,6 @@ function PanelsSheet({ onClose }: { onClose: () => void }) {
   const unread = useNotificationStore(unreadCount);
   const markAllSeen = useNotificationStore((s) => s.markAllSeen);
   const [showNotices, setShowNotices] = useState(false);
-  const [size, setSize] = useState(readMobileTextSize);
   useEffect(() => { if (showNotices) markAllSeen(); }, [showNotices, markAllSeen, notices.length]);
   const shown = useShownConversation();
   const activeJob = useAppStore((s) => (s.activeJobId ? s.jobs[s.activeJobId] : undefined));
@@ -716,18 +760,7 @@ function PanelsSheet({ onClose }: { onClose: () => void }) {
           ))}
         </div>
       )}
-      <div className="display-font" style={sectionHeading}>THIS PHONE</div>
-      <div role="group" aria-label="Text size on this phone" data-help="mobile.text-size" style={{ display: 'flex', gap: '8px', padding: '0 14px', alignItems: 'center', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '14px', marginRight: '4px' }}>Text size</span>
-        {MOBILE_TEXT_SIZES.map((s) => (
-          <button key={s} type="button" aria-pressed={size === s} data-testid="mobile-text-size" className="display-font"
-            style={{ ...control, color: size === s ? 'var(--color-accent-primary)' : 'var(--color-fg)', borderColor: size === s ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)' }}
-            onClick={() => { writeMobileTextSize(s); setSize(s); }}>{Math.round(s * 100)}%</button>
-        ))}
-      </div>
-      <p style={{ fontSize: '13px', color: 'var(--color-fg)', padding: '12px 14px calc(16px + env(safe-area-inset-bottom))' }}>
-        Colours follow the theme chosen in Settings, on the computer and here; the text brightness setting applies on the computer only.
-      </p>
+      <div style={{ height: 'calc(16px + env(safe-area-inset-bottom))' }} />
     </Sheet>
   );
 }

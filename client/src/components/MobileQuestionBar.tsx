@@ -5,17 +5,20 @@
 import { usePendingQuestions } from './PendingQuestionsButton';
 import { usePhoneStore } from '../stores/phoneStore';
 
+/** The first words of what waits: a question, an ask, or the tool a gate holds. */
+export function firstQuestionText(questions: ReturnType<typeof usePendingQuestions>): string {
+  const q = questions.pending[0]?.operatorQuestion?.questions[0];
+  if (q) return q.question || q.header;
+  if (questions.asks[0]) return questions.asks[0].ask.question;
+  const gate = questions.gates[0]?.toolUse?.input as Record<string, unknown> | undefined;
+  return gate ? `Approve ${String(gate.toolName ?? 'a tool call')}?` : '';
+}
+
 export function MobileQuestionBar({ workflowId }: { workflowId: string }) {
   const questions = usePendingQuestions(workflowId, true);
   const openSheet = usePhoneStore((s) => s.openSheet);
   if (questions.count === 0) return null;
-  const first = (() => {
-    const q = questions.pending[0]?.operatorQuestion?.questions[0];
-    if (q) return q.question || q.header;
-    if (questions.asks[0]) return questions.asks[0].ask.question;
-    const gate = questions.gates[0]?.toolUse?.input as Record<string, unknown> | undefined;
-    return gate ? `Approve ${String(gate.toolName ?? 'a tool call')}?` : '';
-  })();
+  const first = firstQuestionText(questions);
   const label = questions.count > 1 ? `${questions.count} WAITING` : questions.gates.length ? 'APPROVAL' : 'QUESTION';
   return (
     <button type="button" data-testid="mobile-question" data-help="mobile.question" onClick={() => openSheet('questions', workflowId)}

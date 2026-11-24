@@ -1,3 +1,4 @@
+import { MobileTextSize } from '../MobileTextSize';
 import { createContext, isValidElement, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Panel } from '../primitives/Panel';
 import { WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
@@ -174,6 +175,8 @@ export function SettingsLayout({ onClose, children, unavailable = {} }: { onClos
             {SETTINGS_PAGES.map((p) => (
               <button type="button" key={p.id} className="display-font" aria-current={!searching && page === p.id ? 'page' : undefined} onClick={() => choose(p.id)}>{p.label}</button>
             ))}
+            {/* Mobile view: what applies to this phone only, after the categories. */}
+            {phone && <MobileTextSize />}
           </nav>
           <div className="settings-content" ref={content} tabIndex={-1}>
             {phone && !searching && <button type="button" className="display-font settings-phone-back" data-testid="settings-phone-back" onClick={() => setPhonePage(false)}>{'\u2039'} ALL SETTINGS</button>}

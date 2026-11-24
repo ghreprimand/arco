@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- In the mobile view, put STOP in SEND's place while the agent works (STEER with STOP beside it once a draft is typed, QUEUE FOR AFTER in the message tools), show a waiting question's first words with ANSWER in the list of tabs, start clusters folded, float + NEW over the list, name research members Director, A, B, C with RESULTS at the end of the row, and move the text size to Settings under THIS PHONE.
+
 - Rework the mobile view's main screens: a panel opens as a page that the header names and goes back from, ALL PANELS lists every cluster page and its settings, PANELS and the message tools rise as bottom sheets, a waiting question shows as one bar above the message box with ANSWER, the board lists blocked and review tasks first without empty groups, and a long press selects messages to forward, quote or copy in place of the selection boxes.
 
 - Simplify Recall filters on the mobile view and put confirmations at the bottom of the screen.

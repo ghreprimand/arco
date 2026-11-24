@@ -323,11 +323,12 @@ function ComposerSendButtons({ jobId, blocked, hasAttachments, busy, canInterrup
   </>;
 }
 
-// Mobile view: the thumb row's buttons beside the draft. SEND (STEER while a
-// turn runs) and the options button that shows the composer's other rows.
-function PhoneSendButtons({ jobId, blocked, hasAttachments, busy, optionsOpen, onToggleOptions, onSend }: {
+// Mobile view: the thumb row's buttons beside the draft: the options button
+// that shows the composer's other rows, and SEND. While a turn runs SEND's
+// place holds STOP; with a draft it holds STEER with STOP beside it.
+function PhoneSendButtons({ jobId, blocked, hasAttachments, busy, optionsOpen, onToggleOptions, onSend, onStop }: {
   jobId: string; blocked: boolean; hasAttachments: boolean; busy: boolean; optionsOpen: boolean;
-  onToggleOptions: () => void; onSend: () => void;
+  onToggleOptions: () => void; onSend: () => void; onStop: () => void;
 }) {
   const draft = useDraftStore((s) => s.drafts[jobId] ?? '');
   const disabled = blocked || (!draft.trim() && !hasAttachments);
@@ -338,38 +339,39 @@ function PhoneSendButtons({ jobId, blocked, hasAttachments, busy, optionsOpen, o
       style={{ ...base, padding: 0, border: `1px solid ${optionsOpen ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`, color: 'var(--color-fg)', fontSize: '18px' }}>
       {optionsOpen ? '\u00D7' : '+'}
     </button>
-    <button type="button" data-testid="composer-phone-send" data-help="composer.send" onClick={onSend} disabled={disabled} className="display-font"
+    {busy && <button type="button" data-testid="composer-phone-stop" data-help="composer.cancel" onClick={onStop} className="display-font"
+      aria-label="Stop the current turn" title="Stop the current turn"
+      style={{ ...base, padding: disabled ? '0 12px' : 0, border: '1px solid var(--color-danger)', color: 'var(--color-danger)', fontWeight: 700, cursor: 'pointer' }}>
+      {'\u25A0'}{disabled ? ' STOP' : ''}
+    </button>}
+    {(!busy || !disabled) && <button type="button" data-testid="composer-phone-send" data-help="composer.send" onClick={onSend} disabled={disabled} className="display-font"
       title={busy ? 'Steer: the agent reads this at the next point it can, without stopping the turn' : 'Send message'}
       style={{ ...base, border: '1px solid var(--color-accent-primary)', color: 'var(--color-accent-primary)', fontWeight: 600, opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}>
       {busy ? 'STEER' : 'SEND'}
-    </button>
+    </button>}
   </>;
 }
 
-// Mobile view, while a turn runs: STOP in thumb reach and, with a draft,
+// Mobile view, while a turn runs, in the message tools: with a draft,
 // QUEUE FOR AFTER (the follow-up that desktop sends with Alt+Enter) and,
 // where the provider supports it, INTERRUPT & SEND.
-function PhoneBusyButtons({ jobId, blocked, hasAttachments, canInterrupt, onQueue, onInterrupt, onStop }: {
-  jobId: string; blocked: boolean; hasAttachments: boolean; canInterrupt: boolean; onQueue: () => void; onInterrupt: () => void; onStop: () => void;
+function PhoneBusyButtons({ jobId, blocked, hasAttachments, canInterrupt, onQueue, onInterrupt }: {
+  jobId: string; blocked: boolean; hasAttachments: boolean; canInterrupt: boolean; onQueue: () => void; onInterrupt: () => void;
 }) {
   const draft = useDraftStore((s) => s.drafts[jobId] ?? '');
   const hasDraft = !blocked && (!!draft.trim() || hasAttachments);
-  // The row wraps, so STOP stays whole at 320 px and at a larger text size.
-  const base = { flex: '1 1 auto', minHeight: '44px', padding: '0 10px', background: 'transparent', borderRadius: '4px', fontSize: '13px', letterSpacing: '0.5px', whiteSpace: 'nowrap' as const, cursor: 'pointer' };
+  if (!hasDraft) return null;
+  const base = { flex: '1 1 0', minWidth: 0, minHeight: '48px', padding: '0 10px', background: 'transparent', borderRadius: '4px', fontSize: '13px', letterSpacing: '0.5px', cursor: 'pointer' };
   return (
-    <div data-testid="composer-phone-busy" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
-      {hasDraft && <button type="button" data-testid="composer-phone-queue" data-help="mobile.composer-queue" onClick={onQueue} className="display-font"
+    <div data-testid="composer-phone-busy" data-phone-option="" style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+      <button type="button" data-testid="composer-phone-queue" data-help="mobile.composer-queue" onClick={onQueue} className="display-font"
         title="Queue this message to send when the current turn ends" style={{ ...base, border: '1px solid var(--color-accent-secondary)', color: 'var(--color-fg)' }}>
         QUEUE FOR AFTER
-      </button>}
-      {hasDraft && canInterrupt && <button type="button" data-help="composer.interrupt" onClick={onInterrupt} className="display-font"
+      </button>
+      {canInterrupt && <button type="button" data-help="composer.interrupt" onClick={onInterrupt} className="display-font"
         title="Stop the current turn and send this message next" style={{ ...base, border: '1px solid var(--color-warning)', color: 'var(--color-fg)' }}>
         INTERRUPT &amp; SEND
       </button>}
-      <button type="button" data-testid="composer-phone-stop" data-help="composer.cancel" onClick={onStop} className="display-font"
-        title="Stop the current turn" style={{ ...base, flex: '0 0 auto', border: '1px solid var(--color-danger)', color: 'var(--color-danger)', fontWeight: 700 }}>
-        {'\u25A0'} STOP
-      </button>
     </div>
   );
 }
@@ -1220,7 +1222,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
         />
 
         {phone && <PhoneSendButtons jobId={job.id} blocked={uploading || isCompacting} hasAttachments={attachments.length > 0} busy={isBusy}
-          optionsOpen={phoneOptions} onToggleOptions={() => setPhoneOptions((v) => !v)} onSend={() => handleSubmit(isBusy ? 'steer' : undefined)} />}
+          optionsOpen={phoneOptions} onToggleOptions={() => setPhoneOptions((v) => !v)} onSend={() => handleSubmit(isBusy ? 'steer' : undefined)} onStop={onCancel} />}
         {!phone && <div style={{ flexBasis: '100%', display: 'flex', flexWrap: 'wrap', alignItems: 'center',
           justifyContent: 'flex-end', gap: '6px', marginTop: '6px' }}>
         {isBusy && (
@@ -1272,7 +1274,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
         </div>}
       </div>
       {phone && isBusy && <PhoneBusyButtons jobId={job.id} blocked={uploading || isCompacting} hasAttachments={attachments.length > 0}
-        canInterrupt={interruptAvailable} onQueue={() => handleSubmit('follow-up', false)} onInterrupt={() => handleSubmit('interrupt', false)} onStop={onCancel} />}
+        canInterrupt={interruptAvailable} onQueue={() => handleSubmit('follow-up', false)} onInterrupt={() => handleSubmit('interrupt', false)} />}
       {phone && <div data-phone-option="" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}><TidyComposer key={job.id} jobId={job.id} disabled={uploading || isCompacting} /></div>}
 
       <MessageSelectionBar jobId={job.id} onSecondOpinion={() => {

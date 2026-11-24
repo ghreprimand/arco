@@ -723,8 +723,14 @@ export const workspace: Section[] = [
           The message box keeps the draft, the options button and{' '}
           <strong>SEND</strong> on one row; the <strong>+</strong> button opens the
           message tools: files, model, skills, recipient and NUDGE. While the agent works,{' '}
-          <strong>SEND</strong> reads <strong>STEER</strong>, and a second row
-          has <strong>STOP</strong> and <strong>QUEUE FOR AFTER</strong>.
+          <strong>STOP</strong> takes the place of <strong>SEND</strong>;
+          with a draft typed, <strong>STEER</strong> sends it and{' '}
+          <strong>STOP</strong> sits beside it, and the message tools add{' '}
+          <strong>QUEUE FOR AFTER</strong>.
+        </p>
+        <p>
+          The text size of the phone view is in Settings under{' '}
+          <strong>THIS PHONE</strong>.
           A question or approval waiting on you shows as a bar above the
           message box; <strong>ANSWER</strong> opens it.
         </p>

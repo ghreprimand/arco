@@ -16,7 +16,11 @@ export interface PhonePanelItem { id: string; label: string }
 // One action of the open page, listed in the sheet behind the header's `...`.
 export interface PhonePageAction { id: string; label: string; onSelect: () => void; danger?: boolean; disabled?: boolean }
 // What the open page puts in the mobile header beside its name.
-export interface PhonePageChrome { subtitle?: string; actions?: PhonePageAction[]; primary?: { label: string; onSelect: () => void } | null }
+// `back` runs before the page closes on the header's back arrow, the phone's
+// Back or Escape: return true when the page stepped back inside itself (from a
+// chapter to its list) and stays open. Another overlay taking the screen does
+// not ask.
+export interface PhonePageChrome { subtitle?: string; actions?: PhonePageAction[]; primary?: { label: string; onSelect: () => void } | null; back?: (() => boolean) | null }
 
 interface PhoneState {
   screen: PhoneScreen;
@@ -35,6 +39,8 @@ interface PhoneState {
   pageSubtitle: string;
   pageActions: PhonePageAction[];
   pagePrimary: { label: string; onSelect: () => void } | null;
+  // The open page's own step back, asked before the page closes.
+  pageBack: (() => boolean) | null;
   panelIndex: boolean;
   panelFromIndex: boolean;
   // The panels the shown tab offers (its side-panel strip), set by that view.
@@ -78,6 +84,7 @@ export const usePhoneStore = create<PhoneState>((set, get) => ({
   pageSubtitle: '',
   pageActions: [],
   pagePrimary: null,
+  pageBack: null,
   panelIndex: false,
   panelFromIndex: false,
   panels: [],
@@ -118,8 +125,8 @@ export const usePhoneStore = create<PhoneState>((set, get) => ({
 export function usePhonePageChrome(active: boolean, chrome: PhonePageChrome): void {
   useEffect(() => {
     if (!active) return;
-    usePhoneStore.setState({ pageSubtitle: chrome.subtitle ?? '', pageActions: chrome.actions ?? [], pagePrimary: chrome.primary ?? null });
-    return () => usePhoneStore.setState({ pageSubtitle: '', pageActions: [], pagePrimary: null });
+    usePhoneStore.setState({ pageSubtitle: chrome.subtitle ?? '', pageActions: chrome.actions ?? [], pagePrimary: chrome.primary ?? null, pageBack: chrome.back ?? null });
+    return () => usePhoneStore.setState({ pageSubtitle: '', pageActions: [], pagePrimary: null, pageBack: null });
   }, [active, chrome]);
 }
 

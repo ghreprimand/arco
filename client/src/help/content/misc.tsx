@@ -46,7 +46,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.directory': {
     title: 'Tabs',
-    body: <p>Everything that needs you comes first, then clusters, research projects, agents, chats, Home and New tab. Quick research appears with Chats. Choose a row to open that conversation; a cluster opens on its Director or the member last shown, and MEMBERS beside it lists its members. Drafts are kept.</p>,
+    body: <p>Everything that needs you comes first: a waiting question shows its first words, and ANSWER opens it. Then clusters, research projects, agents, chats and Home. Quick research appears with Chats. Choose a row to open that conversation; a cluster opens on its Director or the member last shown, and MEMBERS beside it lists its members. + NEW starts a tab. Drafts are kept.</p>,
     manualSection: 'window-layout',
   },
   'mobile.back': {
@@ -66,7 +66,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.members': {
     title: 'Members',
-    body: <p>Each member of this cluster with its state: a triangle needs you, a bar is working, a dot is idle. Choose one to show its conversation; the message box then writes to that member. An open panel, sheet or terminal closes so the conversation shows.</p>,
+    body: <p>Each member of this cluster with its state: a triangle needs you, a bar is working, a dot is idle. Choose one to show its conversation; the message box then writes to that member. An open panel, sheet or terminal closes so the conversation shows. A research project names them Director, A, B, C and ends the row with RESULTS.</p>,
     manualSection: 'window-layout',
   },
   'mobile.question': {
@@ -81,7 +81,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.composer-queue': {
     title: 'Queue for after',
-    body: <p>Sends the draft when the current turn ends, instead of steering the turn now. The workbench does the same with Alt+Enter.</p>,
+    body: <p>Sends the draft when the current turn ends, instead of steering the turn now. It is in the message tools (+) while the agent works and a draft is typed. The workbench does the same with Alt+Enter.</p>,
     manualSection: 'window-layout',
   },
   'mobile.system': {
@@ -94,9 +94,14 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: <p>Opens a sheet with this tab's panels (files, plan, board, memory), ALL PANELS for a cluster, a terminal, CATCH ME UP, Settings, notices, the manual, Recall, Media, System, All plans and Artifacts. Home and New tab are in the list of tabs. A panel opens as a page named in the header and scrolls as one surface; the header's back arrow, the phone's Back or a member name returns to the conversation and draft. ALL PANELS lists every page of the cluster panel and its settings. All plans and Artifacts open in a new browser tab.</p>,
     manualSection: 'window-layout',
   },
+  'mobile.new-tab': {
+    title: 'New tab',
+    body: <p>Starts an agent, a cluster or a chat, as New tab does on the workbench.</p>,
+    manualSection: 'window-layout',
+  },
   'mobile.text-size': {
     title: 'Text size on this phone',
-    body: <p>The text size of the mobile view in this browser only, at 100, 110 or 120 percent. The workbench's own text size is not changed. Colours follow the theme chosen in Settings, without its text brightness.</p>,
+    body: <p>Found in Settings under THIS PHONE. The text size of the mobile view in this browser only, at 100, 110 or 120 percent. The workbench's own text size is not changed. Colours follow the theme chosen in Settings, without its text brightness.</p>,
     manualSection: 'window-layout',
   },
   'layout.slide-out-close': {
