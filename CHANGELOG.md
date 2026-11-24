@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show a researcher's returned files in research RESULTS under a Files (n) disclosure, give each round a heading, and label the sandbox warning in text.
+
 - Name Gemini members in a notice above cluster and research conversations, and say on the Auto-compaction control that it skips them and that /compact in their own session compacts them.
 
 - Tidy the research RESULTS panel: file links and project actions sit in separate rows, and each released summary or report keeps its send, start, chat and export choices under an Actions disclosure.

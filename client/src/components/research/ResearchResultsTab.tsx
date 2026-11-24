@@ -100,17 +100,19 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
         // A catch-up is the round 1 text answered by one late researcher.
         const dir = roundFolder(round);
         return (
-        <div key={round.catchUp ? `catch-up-${round.catchUp}` : `round-${round.n}`}>
+        <section className="research-result-round" key={round.catchUp ? `catch-up-${round.catchUp}` : `round-${round.n}`}>
           <ResultRow name={`round ${round.n} summary`} actions={
             !round.catchUp && round.releasedAt && roundSummary(round.n)
               ? actionsFor({ kind: 'synthesis', round: round.n }) : undefined
           }>
-            <strong>{round.catchUp ? `Catch-up ${round.catchUp}` : `Round ${round.n}`}</strong>
+            <h3>{round.catchUp ? `Catch-up ${round.catchUp}` : `Round ${round.n}`}</h3>
             {link('Round record', join('rounds', dir, 'round.md'))}
             {!round.catchUp && roundSummary(round.n) && link('Summary', roundSummary(round.n)!)}
           </ResultRow>
           {round.contaminated && <div role="alert" style={{ color: 'var(--color-warning)' }}>Independence check failed: this round contains another researcher's marker. Treat its reports as contaminated.</div>}
-          {round.boundaryWarning && <div role="alert" style={{ color: 'var(--color-warning)' }}>A researcher attempted to use a path or local address outside its sandbox. Check its activity.</div>}
+          {round.boundaryWarning && <p role="alert" className="research-boundary-warning">
+            <strong>Sandbox warning.</strong> A researcher attempted to use a path or local address outside its sandbox. Check its activity.
+          </p>}
           {!round.releasedAt && <div style={{ color: 'var(--color-fg)' }}>Still collecting replies; reports appear here when the round is released.</div>}
           {round.releasedAt && <ul style={{ margin: 0, paddingLeft: 16 }}>
             {[...research.researchers].sort((x, y) => x.letter.localeCompare(y.letter)).filter((r) => round.entries[r.letter]).map((r) => {
@@ -121,13 +123,20 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
                 <ResultRow name={`${who} report, ${round.catchUp ? 'catch-up' : 'round ' + round.n}`} actions={actionsFor(selection)}>
                   {link(`${who} report`, reportPath(research, round, r.letter))}{e.late && <span>(late)</span>}
                 </ResultRow>
-                {e.sources?.length ? <ul aria-label={`${who} returned files`} style={{ margin: 0, paddingLeft: 16 }}>{e.sources.map((s) => <li key={s.path}>{link(s.name, join(s.path))}</li>)}</ul> : null}</> : `${who}: ${ENTRY_WORDS[e.state]}`}</li>;
+                {e.sources?.length ? <details className="research-returned-files">
+                  <summary aria-label={`Files (${e.sources.length}) for ${who}, ${round.catchUp ? 'catch-up' : 'round ' + round.n}`}>
+                    Files ({e.sources.length})
+                  </summary>
+                  <ul aria-label={`${who} returned files`}>
+                    {e.sources.map(file => <li key={file.path}>{link(file.name, join(file.path))}</li>)}
+                  </ul>
+                </details> : null}</> : `${who}: ${ENTRY_WORDS[e.state]}`}</li>;
             })}
           </ul>}
-        </div>
+        </section>
         );
       })}
-      <div style={{ color: 'var(--color-fg)' }}>Returned files are listed under each report and kept in <code>sources/</code>.</div>
+      <div style={{ color: 'var(--color-fg)' }}>Open Files under a report to see its returned files in <code>sources/</code>.</div>
       {rerun && <RerunResearchDialog clusterId={clusterId} onClose={() => setRerun(false)} />}
       {exporting && <ExportResearchDialog clusterId={clusterId} selection={exporting} onClose={() => setExporting(null)} />}
       {start && <StartResearchProjectDialog clusterId={clusterId} selection={start} onClose={() => setStart(null)} />}

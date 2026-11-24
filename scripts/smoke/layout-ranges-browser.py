@@ -117,7 +117,7 @@ async def open_page(browser, base, width, scale=1.0, layout=None, height=800, si
             'projectId': 'fixture', 'folder': '/projects/harbor', 'name': 'Fixture', 'brief': 'Compare.',
             'blind': True, 'directorWorkflowId': 'worker-0',
             'researchers': [{'workflowId': f'worker-{i}', 'letter': chr(64+i), 'provider': 'claude', 'model': 'sonnet', 'isolation': 'tool-fenced'} for i in range(1,5)],
-            'rounds': [] if research is True else [{'n': 1, 'startedAt': '2026-11-24T05:00:00.000Z', 'deadline': '2026-11-24T05:30:00.000Z', 'releasedAt': '2026-11-24T05:10:00.000Z', 'targeted': 1, 'entries': {'A': {'state': 'replied', 'at': '2026-11-24T05:09:00.000Z', 'source': 'mail'}}}],
+            'rounds': [] if research is True else [{'n': 1, 'startedAt': '2026-11-24T05:00:00.000Z', 'deadline': '2026-11-24T05:30:00.000Z', 'releasedAt': '2026-11-24T05:10:00.000Z', 'targeted': 1, 'entries': {'A': {'state': 'replied', 'at': '2026-11-24T05:09:00.000Z', 'source': 'mail', 'sources': [{'name': f'returned-{k}.md', 'path': f'sources/returned-{k}.md'} for k in range(1, 5)]}}}],
             'catchUps': [],
         }})
         for member in cluster['members'][1:]: member['accessMode'] = 'researcher'
@@ -456,6 +456,13 @@ async def run(base):
             context, page, errors = await open_page(browser, base, 2000, layout='standard', research='released')
             await page.get_by_role('button', name='RESULTS', exact=True).click()
             await expect(page.get_by_role('button', name='Actions for Researcher A report, round 1')).to_be_visible()
+            # Returned files sit in a closed disclosure until it is opened.
+            files = page.locator('details', has=page.get_by_text('Files (4)', exact=True))
+            await expect(page.get_by_text('Files (4)', exact=True)).to_be_visible()
+            await expect(page.get_by_text('returned-1.md', exact=True)).to_be_hidden()
+            await files.locator('summary').click()
+            for k in range(1, 5):
+                await expect(page.get_by_text(f'returned-{k}.md', exact=True)).to_be_visible()
             await page.get_by_role('button', name='Send project', exact=True).click()
             await expect(page.get_by_text('Attach to conversation draft')).to_be_visible()
             await expect(page.get_by_label('Plan reference')).to_contain_text('No plan in this folder')
