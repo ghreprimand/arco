@@ -487,7 +487,7 @@ function ScratchUsage({ workflowId, name }: { workflowId: string; name?: string 
     finally { setLoading(false); }
   }
   useEffect(() => { setMeasurement(null); setError(''); setLimit(null); }, [workflowId]);
-  return <section style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border)' }}>
+  return <section style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border)', color: 'var(--color-fg)' }}>
     <strong>SCRATCH{name ? ` - ${name}` : ''}</strong>{' '}
     <button type="button" disabled={loading} onClick={() => void measure()}>{loading ? 'MEASURING...' : measurement ? 'REFRESH' : 'MEASURE SCRATCH'}</button>
     {measurement && <p>{bytes(measurement.bytes)}; measured {new Date(measurement.measuredAt).toLocaleString()}. The measurement may be stale if scratch changed.{limit !== null && measurement.bytes > limit && ' Scratch exceeds the warning limit.'}</p>}

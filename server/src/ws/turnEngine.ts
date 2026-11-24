@@ -1459,6 +1459,10 @@ export async function handleUserMessage(
     send(ws, { type: 'error', workflowId, message: 'Antigravity scheduling is unavailable in Arco because it runs unattended.' });
     return;
   }
+  // The turn this call was made against is fixed before any await, so a
+  // turn revoked and replaced meanwhile is recognised as stale.
+  const busyOnlyClaim = lastBusyClaim.get(wf);
+  const interruptEpoch = busyRevocations.get(wf) ?? 0;
   const promotion = await import('../research/quickPromotion.js');
   if (storageMigrations.has(wf) || promotion.hasQuickPromotion(workflowId)) {
     const yielded = await promotion.yieldQuickPromotionToMessage(workflowId);
@@ -1469,9 +1473,7 @@ export async function handleUserMessage(
   }
   incomingMessages.set(wf, (incomingMessages.get(wf) ?? 0) + 1);
   try {
-  const busyOnlyClaim = lastBusyClaim.get(wf);
   if (opts?.busyOnly && !wf.busy) return;
-  const interruptEpoch = busyRevocations.get(wf) ?? 0;
   const cwd = wf.config.workingDirectory;
   if (!cwd) {
     send(ws, { type: 'error', message: 'Workflow has no working directory configured.' });
@@ -2835,8 +2837,9 @@ export async function handleUserMessage(
             if (workflows.get(workflowId) === wf && (busyRevocations.get(wf) ?? 0) === interruptEpoch) requeueSteerForWorker(workflowId, ws, items, bucket);
           },
           onSteerDelivered: (items) => {
-            if (!dispatchCurrent()) return;
-            emitDeliveredSteerSkills(items, emitSkillActivity);
+            // A provider can accept a steer after its turn settled; the
+            // delivery is still true, only the skill record needs a live turn.
+            if (dispatchCurrent()) emitDeliveredSteerSkills(items, emitSkillActivity);
             const clientMessageIds = items.flatMap((item) => item.clientMessageId ? [item.clientMessageId] : []);
             if (clientMessageIds.length && policyTurnProvider === 'codex') broadcastWorkflow(workflowId, { type: 'turn_messages_delivered', workflowId, clientMessageIds, ...(items[0]?.deliveryId ? { deliveryId: items[0].deliveryId } : {}) });
           },

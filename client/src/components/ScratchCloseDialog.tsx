@@ -99,7 +99,7 @@ export function ScratchCloseDialog({ targets, onCancel, onContinue, onStop }: {
       if ((event.shiftKey && index <= 0) || (!event.shiftKey && (index < 0 || index === controls.length - 1))) {
         event.preventDefault(); controls[event.shiftKey ? controls.length - 1 : 0].focus();
       }
-    }} style={{ background: 'var(--color-bg-elevated)', color: 'var(--color-fg)', border: '1px solid var(--color-border)', padding: 16, width: 'min(600px, 94vw)', maxHeight: '90vh', overflow: 'auto' }}>
+    }} style={{ background: 'var(--color-bg-elevated)', color: 'var(--color-fg)', border: '1px solid var(--color-border)', padding: 16, width: 'min(600px, calc(94vw / var(--ui-scale, 1)))', maxHeight: 'calc(90vh / var(--ui-scale, 1))', overflow: 'auto' }}>
       <WorkSurfaceControls surface={surface} storageKey="scratch-close" />
       <h2 id="scratch-close-title">{targets.length === 1 ? 'Empty scratch for this conversation?' : 'Empty scratch for selected members?'}</h2>
       <p>Intermediate files may be needed if you resume it. Kept files stay.</p>

@@ -599,7 +599,7 @@ body {
 [data-phone-dialog='sheet'] > div {
   width: 100% !important;
   max-width: none !important;
-  max-height: min(88dvh, 48rem) !important;
+  max-height: min(calc(88dvh / var(--ui-scale, 1)), 48rem) !important;
   border-radius: 0 !important;
   resize: none !important;
   border-top: 2px solid var(--color-accent-primary) !important;

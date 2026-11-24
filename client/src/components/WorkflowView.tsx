@@ -268,7 +268,7 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
           {!childView && <PlanCandidateBanner job={job} onAttachPlan={onAttachPlan} onAttachToCluster={onAttachPlanToCluster} onSend={onSend} />}
           <RuntimeStateBanner job={job} onCancel={onCancel} />
           {taskEntries.length > 0 && <div style={{ position: 'relative', minWidth: 0 }} data-help="runtime.subagent-list">
-            {taskListOpen && <div role="region" aria-label="Sub-agents" onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); setTaskListOpen(false); } }} style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, maxHeight: 'min(55vh, 420px)', overflowY: 'auto', zIndex: 50, background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)' }}>
+            {taskListOpen && <div role="region" aria-label="Sub-agents" onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); setTaskListOpen(false); } }} style={{ position: 'absolute', bottom: '100%', left: 0, right: 0, maxHeight: 'min(calc(55vh / var(--ui-scale, 1)), 420px)', overflowY: 'auto', zIndex: 50, background: 'var(--color-bg-panel)', border: '1px solid var(--color-border)' }}>
               <TasksPanel job={job} />
               {(taskRunning + taskQueued > 0) && <button type="button" onClick={() => { for (const task of taskEntries) if (task.phase === 'running' || task.phase === 'queued') wsSendRaw?.({ type: 'cancel', workflowId: job.id, taskId: task.taskId }); }}>CANCEL ALL</button>}
             </div>}
