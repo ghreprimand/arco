@@ -25,6 +25,9 @@ import { startPlanGenesis } from './plans/startPlanGenesis';
 
 import type { SpawnMemberIdentity } from '@arco/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePhoneLayout } from '../layout/layoutRange';
+import { PhonePlanView } from './plans/PhonePlanView';
+import { usePhonePageActions, usePhonePageActive } from '../layout/phonePageActions';
 import type {
   ClusterStatePayload,
   ClusterMember,
@@ -178,6 +181,13 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
   const [openRefSlug, setOpenRefSlug] = useState<string | null>(null);
   const [mode, setMode] = useState<'view' | 'edit'>(remoteBody ? 'view' : 'edit');
   const [choosing, setChoosing] = useState(false);
+  // Mobile view (docs/CLIENT.md): plan actions folded under PLAN ACTIONS, and
+  // the empty state's choice between a new plan and an existing one.
+  const phone = usePhoneLayout();
+  const pageActive = usePhonePageActive();
+  const [phonePublic, setPhonePublic] = useState(false);
+  const [phoneEmpty, setPhoneEmpty] = useState<'new' | 'choose' | null>(null);
+  useEffect(() => { setPhoneEmpty(null); setPhonePublic(false); }, [!!remoteBody]);
   const [draft, setDraft] = useState(remoteBody);
   const [error, setError] = useState<string | null>(null);
 
@@ -456,14 +466,47 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
   // suppress the action pill (no member to clone from).
   const templateJob = jobs[cluster.members[0]?.workflowId ?? ''];
 
+  // Mobile view: the plan page's actions sit behind the header's `...`.
+  const viewing = mode === 'view' && !!remoteBody;
+  usePhonePageActions(pageActive, [
+    { id: 'edit', label: 'EDIT AS TEXT', show: viewing, onSelect: () => { setChoosing(false); setDraft(remoteBody); setMode('edit'); } },
+    { id: 'choose', label: 'CHOOSE PLAN', show: viewing && !!onAttachPlan && !!cluster.cwd, onSelect: () => setChoosing(true) },
+    { id: 'all', label: 'ALL PLANS', show: !!cluster.cwd && !!remoteBody, onSelect: () => { if (cluster.cwd) void openArchive('plans', cluster.cwd, { kind: 'cluster', id: cluster.clusterId, cwd: cluster.cwd, name: cluster.name || 'cluster' }); } },
+    { id: 'guardrails', label: 'INSERT GUARDRAILS', show: viewing && !!onSetPlan, disabled: hasGuardrails(remoteBody), onSelect: () => { setDraft(insertGuardrails(remoteBody)); setMode('edit'); } },
+    { id: 'public', label: 'PUBLIC PROJECT', show: viewing && !!cluster.cwd, onSelect: () => setPhonePublic(true) },
+    { id: 'duplicate', label: 'DUPLICATE PLAN', show: viewing, onSelect: () => setSaveAsTitle(cluster.name ?? `cluster ${cluster.clusterId.slice(0, 8)}`) },
+    { id: 'review', label: 'REVIEW PLAN', show: viewing && !!onReviewMember, onSelect: () => dispatchPlanReview({ kind: 'review-plan-whole', mode: 'critique' }) },
+    { id: 'verify', label: 'VERIFY WORK', show: viewing && !!onReviewMember, onSelect: () => dispatchPlanReview({ kind: 'review-plan-whole', mode: 'verify', initialIncludeGitDiff: true }) },
+    { id: 'custom', label: 'CUSTOM REVIEW', show: viewing && !!onReviewMember, onSelect: () => setPendingPick({ kind: 'review-custom' }) },
+    { id: 'clear', label: 'CLEAR PLAN', show: viewing && !!onClearPlan && !!cluster.plan, danger: true, onSelect: handleClear },
+  ], { subtitle: phone && remoteBody ? cluster.plan?.title : undefined });
+
+
   return (
     <div data-help="cluster.plan-tab" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px', lineHeight: 1.4 }}>
+      {/* Mobile view: the plan reads as a checklist first; the plan's
+          actions follow it under PLAN ACTIONS (docs/CLIENT.md). */}
+      {phone && remoteBody && mode === 'view' && phonePublic && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <PublicProjectBox cwd={cluster.cwd ?? ''} testId="cluster-plan-public-project" />
+          <button type="button" className="display-font" style={{ ...headerBtn, minHeight: '44px', fontSize: '13px' }} onClick={() => setPhonePublic(false)}>DONE</button>
+        </div>
+      )}
+      {phone && !remoteBody && phoneEmpty !== 'new' && (
+        <div data-testid="phone-plan-empty" style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '15px', color: 'var(--color-fg)' }}>
+          <div>No plan is attached to this cluster.</div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {onSetPlan && <button type="button" className="display-font" style={{ ...headerBtn, flex: '1 1 140px', minHeight: '48px', fontSize: '13px' }} onClick={() => setPhoneEmpty('new')}>NEW PLAN</button>}
+            {onAttachPlan && cluster.cwd && <button type="button" className="display-font" style={{ ...headerBtn, flex: '1 1 140px', minHeight: '48px', fontSize: '13px' }} aria-expanded={phoneEmpty === 'choose'} onClick={() => setPhoneEmpty((v) => v === 'choose' ? null : 'choose')}>ATTACH A PLAN</button>}
+          </div>
+        </div>
+      )}
+      {!phone && <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px', lineHeight: 1.4 }}>
         What the cluster is building and its rules. Agents follow it; you approve changes.
         Edits land on the NEXT turn, and in-flight turns aren&apos;t torn down.
         Max {PLAN_MAX_BYTES} chars.
-      </div>
-      {cluster.plan && (
+      </div>}
+      {cluster.plan && !phone && (
         <div className="display-font" style={{ color: 'var(--color-accent-secondary-dim)', fontSize: '10px', letterSpacing: '1.5px' }}>
           ACTIVE PLAN: {cluster.plan.title}
         </div>
@@ -488,6 +531,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
       )}
 
       {error && <div role="alert" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>{error}</div>}
+      <div data-testid={phone ? 'phone-plan-actions' : undefined} style={phone ? { display: (remoteBody ? mode === 'edit' : phoneEmpty === 'new') ? 'flex' : 'none', flexDirection: 'column', gap: '8px' } : { display: 'contents' }}>
       <PublicProjectBox cwd={cluster.cwd ?? ''} testId="cluster-plan-public-project" />
       {publicProject && remoteBody && !hasGuardrails(mode === 'edit' ? draft : remoteBody) && <div role="status" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>This public project plan has no Privacy and public safety section. Use INSERT GUARDRAILS to review one.</div>}
 
@@ -576,6 +620,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
             </button>
           </>
         )}
+      </div>
       </div>
 
       {/* DUPLICATE PLAN — inline title prompt. The active cluster plan is
@@ -667,7 +712,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
         </div>
       )}
 
-      {((mode === 'edit' && !remoteBody) || (mode === 'view' && choosing)) && onAttachPlan && cluster.cwd && (
+      {((mode === 'edit' && !remoteBody && (!phone || phoneEmpty === 'choose')) || (mode === 'view' && choosing)) && onAttachPlan && cluster.cwd && (
         <PlanChooser
           cwd={cluster.cwd}
           disabled={importing}
@@ -689,7 +734,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
         />
       )}
 
-      {mode === 'edit' ? (
+      {mode === 'edit' && phone && !remoteBody && phoneEmpty !== 'new' ? null : mode === 'edit' ? (
         <>
           <textarea
             value={draft}
@@ -759,7 +804,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
               </button>
             )}
             <button
-              onClick={handleDiscard}
+              onClick={() => { handleDiscard(); setPhoneEmpty(null); }}
               className="display-font"
               style={{
                 padding: '6px 12px',
@@ -775,6 +820,8 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
             </button>
           </div>
         </>
+      ) : phone && remoteBody ? (
+        <PhonePlanView body={remoteBody} onToggle={onToggleCheckbox} onOpenRef={setOpenRefSlug} />
       ) : (
         <>
         <PlanRefChips refs={refs} onOpenSlug={setOpenRefSlug} />
@@ -797,7 +844,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
         </>
       )}
 
-      {!cluster.plan && mode === 'view' && (
+      {!cluster.plan && mode === 'view' && !phone && (
         <div
           style={{
             padding: '8px',
@@ -814,7 +861,7 @@ export function ClusterPlanTab({ cluster, onSetPlan, onAttachPlan, onClearPlan, 
         </div>
       )}
 
-      {cluster.plan && (
+      {cluster.plan && !phone && (
         <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>
           Last updated {new Date(cluster.plan.updatedAt).toLocaleString()}
         </div>

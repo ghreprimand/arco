@@ -23,6 +23,9 @@ import { LedgerTab } from './LedgerTab';
 import { GenesisTab } from './GenesisTab';
 import { BakeoffTab } from './BakeoffTab';
 import { WorkspaceRename } from '../WorkspaceRename';
+import { usePhoneLayout } from '../../layout/layoutRange';
+import { usePhoneStore } from '../../stores/phoneStore';
+import { PhonePageVisible } from '../../layout/phonePageActions';
 
 // TASKS sits between PLAN and PREVIEW. Visibility is gated below on
 // `job.taskChildren` so workflows without Native Task fan-out don't see
@@ -67,6 +70,8 @@ const GROUPS: { id: GroupId; label: string; tabs: RightTab[] }[] = [
   { id: 'runtime', label: 'RUNTIME', tabs: ['preview', 'config', 'github'] },
 ];
 const groupOf = (tab: RightTab): GroupId => GROUPS.find((g) => g.tabs.includes(tab))?.id ?? 'workspace';
+// Mobile view, ALL PANELS: pages rarely used on a phone are listed last under MORE.
+const PHONE_MORE: RightTab[] = ['genesis', 'bakeoff', 'ledger', 'preview', 'github'];
 
 // Below this panel width the second-level tab row collapses into a single
 // grouped <select> (optgroups preserve the families) so every tab stays
@@ -264,6 +269,20 @@ export function RightPanel({ job, tabRequest, onRenameWorkflow, onUpdatePrimary,
   const groupHasAlert = (tabs: RightTab[]) => hasCliChanges && tabs.includes('config');
   const activeGroupTabs = visibleGroups.find((g) => g.id === activeGroup)?.tabs ?? [];
 
+  // Mobile view (docs/CLIENT.md): the panel is one page under the mobile
+  // header, which names it; the tab rows become the ALL PANELS list.
+  const phone = usePhoneLayout();
+  const panelIndex = usePhoneStore((st) => st.panelIndex);
+  const phoneIndex = phone && panelIndex;
+  const [phoneRename, setPhoneRename] = useState(false);
+  useEffect(() => {
+    if (phone) usePhoneStore.setState({ pageTitle: panelIndex ? 'ALL PANELS' : labelOf(effectiveTab) });
+  }, [phone, panelIndex, effectiveTab]);
+  const phoneList = [
+    ...visibleGroups.map((g) => ({ id: g.id as string, label: g.label, tabs: g.tabs.filter((t) => !PHONE_MORE.includes(t)) })),
+    { id: 'more', label: 'MORE', tabs: visibleGroups.flatMap((g) => g.tabs.filter((t) => PHONE_MORE.includes(t))) },
+  ].filter((g) => g.tabs.length > 0);
+
   const alertDot = (
     <span
       aria-label="CLI changes detected"
@@ -285,7 +304,7 @@ export function RightPanel({ job, tabRequest, onRenameWorkflow, onUpdatePrimary,
     <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {/* Tab header — two levels: group selector + the active group's tabs.
           On a narrow split the second level collapses to a grouped <select>. */}
-      <div className="display-font" style={{ flexShrink: 0, borderBottom: '1px solid var(--color-border-hairline)' }}>
+      <div className="display-font" style={{ flexShrink: 0, borderBottom: '1px solid var(--color-border-hairline)', display: phone ? 'none' : undefined }}>
         {/* Level 1 — group selector. */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px', padding: '2px 2px 0' }}>
           {visibleGroups.map((g) => {
@@ -379,16 +398,35 @@ export function RightPanel({ job, tabRequest, onRenameWorkflow, onUpdatePrimary,
         )}
       </div>
 
+      {phoneIndex && (
+        <div data-testid="phone-panel-index" style={{ padding: '4px 0 16px' }}>
+          {phoneList.map((g) => (
+            <div key={g.id}>
+              <div className="display-font" style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1.5px', color: 'var(--color-fg)', padding: '14px 14px 6px' }}>{g.label}</div>
+              {g.tabs.map((id) => (
+                <button key={id} type="button" data-testid="phone-panel-page" className="display-font"
+                  onClick={() => { setTab(id); usePhoneStore.setState({ panelIndex: false, panelFromIndex: true }); }}
+                  style={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: '52px', padding: '0 14px', textAlign: 'left', background: effectiveTab === id ? 'var(--color-accent-primary-a08)' : 'transparent', border: 0, borderBottom: '1px solid var(--color-border-hairline)', borderRadius: 0, color: 'var(--color-fg)', fontSize: '14px', letterSpacing: '1.5px', cursor: 'pointer' }}>
+                  <span style={{ flex: 1 }}>{labelOf(id)}{id === 'config' && hasCliChanges ? alertDot : null}</span><span aria-hidden="true" style={{ color: 'var(--color-accent-primary)' }}>{'\u203A'}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Tab body */}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <PhonePageVisible.Provider value={!phoneIndex}>
+      <div style={{ flex: 1, minHeight: 0, display: phoneIndex ? 'none' : 'flex', flexDirection: 'column' }}>
         {effectiveTab === 'files' && (
           <>
-          {!isClusterMember && onRenameWorkflow && <WorkspaceRename key={job.id} workflowId={job.id} name={job.config.name} onRename={onRenameWorkflow} />}
+          {!isClusterMember && onRenameWorkflow && (!phone || phoneRename) && <WorkspaceRename key={job.id} workflowId={job.id} name={job.config.name} onRename={onRenameWorkflow} />}
           <FilesTabBody
             job={job}
             cwd={cwd}
             subTab={filesSubTab}
             onSubTab={setFilesSubTab}
+            phoneActions={!isClusterMember && onRenameWorkflow ? [{ id: 'rename', label: 'RENAME TAB', onSelect: () => setPhoneRename(true) }] : undefined}
           />
           </>
         )}
@@ -437,6 +475,7 @@ export function RightPanel({ job, tabRequest, onRenameWorkflow, onUpdatePrimary,
         )}
         {effectiveTab === 'github' && <GitHubPanel initialCwd={cwd} />}
       </div>
+      </PhonePageVisible.Provider>
     </div>
   );
 }

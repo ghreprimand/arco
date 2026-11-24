@@ -560,6 +560,32 @@ async def run(base):
             assert not errors, errors
             await context.unroute_all(behavior='wait')
             await context.close()
+            # Mobile view: ALL PANELS lists every page; MEMBERS is one row per
+            # member, a row opens that member's sheet, and the page's own
+            # actions are behind the header's `...`.
+            context, page, errors = await open_page(browser, base, 412, height=892, touch=True, mobile=True)
+            if await page.get_by_test_id('mobile-directory').count():
+                await page.get_by_test_id('mobile-cluster').first.tap()
+            await page.get_by_test_id('phone-panels').tap()
+            await page.get_by_test_id('phone-panel-all').tap()
+            await expect(page.get_by_test_id('phone-title-name')).to_have_text('ALL PANELS')
+            await page.get_by_test_id('phone-panel-page').filter(has_text='MEMBERS').tap()
+            await expect(page.get_by_test_id('phone-title-name')).to_have_text('MEMBERS')
+            await expect(page.get_by_test_id('phone-member-row')).to_have_count(5)
+            await page.get_by_test_id('phone-member-row').nth(1).tap()
+            sheet = page.get_by_test_id('phone-member-sheet')
+            await expect(sheet.get_by_test_id('phone-member-open')).to_be_visible()
+            await expect(sheet.get_by_role('button', name='REPLACE')).to_be_visible()
+            await sheet.get_by_test_id('phone-sheet-back').tap()
+            await expect(sheet).to_have_count(0)
+            await page.get_by_test_id('mobile-page-actions').tap()
+            await expect(page.get_by_test_id('mobile-page-action')).to_have_text(['RENAME CLUSTER', 'SAVE STATE', 'SAVED CLUSTERS'])
+            await page.get_by_test_id('phone-sheet-back').last.tap()
+            await page.get_by_test_id('mobile-page-back').tap()
+            await expect(page.get_by_test_id('phone-title-name')).to_have_text('ALL PANELS')
+            assert not errors, errors
+            await context.unroute_all(behavior='wait')
+            await context.close()
             # A single tab under 1100 px: the right panel is a strip; FILES opens it over the chat.
             context, page, errors = await open_page(browser, base, 1024, single=True)
             strip = page.get_by_test_id('layout-panel-strip')

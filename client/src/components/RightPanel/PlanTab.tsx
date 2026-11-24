@@ -2,6 +2,9 @@ import { updatePlanBody, PlanBodySaveError } from '../plans/planBodySave';
 import { PublicProjectBox } from '../PublicProjectBox';
 import { rememberPublicChoice, usePublicProject } from '../../utils/publicProject';
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
+import { usePhoneLayout } from '../../layout/layoutRange';
+import { PhonePlanView } from '../plans/PhonePlanView';
+import { usePhonePageActions, usePhonePageActive } from '../../layout/phonePageActions';
 import { hasGuardrails, insertGuardrails, type ProviderName, type ModelName, type EffortLevel, type PlanSummary, type PlanFull, type WorkflowConfig, type ReviewContextRef } from '@arco/shared';
 import { useAppStore, type JobState } from '../../stores/appStore';
 import { SpawnDialog } from '../SpawnDialog';
@@ -109,6 +112,10 @@ export function PlanTab({
   useEffect(() => { setSaving(false); }, [saveKey]);
   const [error, setError] = useState<string | null>(null);
   const [showPast, setShowPast] = useState(false);
+  // Mobile view (docs/CLIENT.md): the plan's actions fold under PLAN ACTIONS.
+  const phone = usePhoneLayout();
+  const pageActive = usePhonePageActive();
+  const [phonePublic, setPhonePublic] = useState(false);
   // When set, opens SpawnDialog prefilled with the task line text. Cleared
   // on confirm/cancel. Local to PlanTab so dismissing the dialog doesn't
   // also tear down the body fetch.
@@ -293,6 +300,28 @@ export function PlanTab({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cwd, plan?.id, plan?.updatedAt]);
 
+  // Mobile view: the plan page's actions sit behind the header's `...`.
+  const viewing = !!plan && !editing;
+  usePhonePageActions(pageActive, [
+    { id: 'edit', label: 'EDIT AS TEXT', show: viewing, disabled: saving || bodyLoading, onSelect: () => setEditing(true) },
+    { id: 'choose', label: 'CHOOSE PLAN', show: viewing, onSelect: () => setChoosing(true) },
+    { id: 'guardrails', label: 'INSERT GUARDRAILS', show: viewing && body !== null, disabled: saving || bodyLoading || hasGuardrails(body ?? ''), onSelect: () => { if (!plan || body === null) return; setDraftTitle(plan.title); setDraftBody(insertGuardrails(body)); setEditing(true); } },
+    { id: 'public', label: 'PUBLIC PROJECT', show: viewing, onSelect: () => setPhonePublic(true) },
+    { id: 'promote', label: 'PROMOTE TO CLUSTER', show: viewing && !!memberClusterId && !!onPromoteToCluster && !!body, onSelect: () => {
+      if (!body || !body.trim()) { window.alert('Plan body is empty: nothing to promote.'); return; }
+      if (body.length > 32768) { window.alert(`Plan body is ${body.length} chars; cluster plan cap is 32768. Trim it first.`); return; }
+      if (!window.confirm('Promote this plan body to the cluster\'s shared plan?\n\nAny existing cluster plan will be overwritten, and this worker\'s local plan will be detached afterwards (the cluster plan becomes the single source of truth).')) return;
+      onPromoteToCluster?.(body);
+    } },
+    { id: 'review', label: 'REVIEW PLAN', show: viewing && !!onReview, onSelect: () => { if (plan) setReviewPrefill({ ref: { kind: 'plan-whole', planId: plan.id, mode: 'critique' }, label: `PLAN: ${plan.title}` }); } },
+    { id: 'verify', label: 'VERIFY WORK', show: viewing && !!onReview, onSelect: () => { if (plan) setReviewPrefill({ ref: { kind: 'plan-whole', planId: plan.id, mode: 'verify' }, label: `WORK: ${plan.title}`, initialIncludeGitDiff: true }); } },
+    { id: 'custom', label: 'CUSTOM REVIEW', show: viewing && !!onReview && body !== null, onSelect: () => setShowCustomPicker(true) },
+    { id: 'move', label: 'MOVE', show: viewing, onSelect: () => { if (plan) setMoveTarget({ planId: plan.id, title: plan.title }); } },
+    { id: 'done', label: 'MARK DONE', show: viewing, onSelect: () => { if (plan) void handleMarkComplete(plan.id, plan.title); } },
+    { id: 'detach', label: 'DETACH', show: viewing && !!onDetach, onSelect: () => onDetach?.() },
+    { id: 'delete', label: 'DELETE PLAN', show: viewing, danger: true, onSelect: () => { if (plan) void handleDelete(plan.id, plan.title); } },
+  ], { subtitle: viewing ? plan?.title : undefined });
+
   if (!cwd) return <EmptyState text="No working directory bound to this tab." />;
 
   const offer = genesisOffer && genesisPlanId ? <div role="status" style={{ color: 'var(--color-fg)', display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -318,7 +347,7 @@ export function PlanTab({
           NO PLAN ATTACHED
         </div>
         <div style={{ fontSize: '11px', color: 'var(--color-fg-muted)', marginBottom: '14px', lineHeight: 1.5 }}>
-          A plan is an itemized checklist the agent sees as a one-line note before every turn (it reads the file on demand). Long-form detail goes in the plan's reference docs, linked from tasks. Attach an existing plan from this workspace, or create a new one. Plans live at <code>.arco/plans/</code>.
+          {phone ? 'Attach a plan from this folder below, or start a new one.' : <>A plan is an itemized checklist the agent sees as a one-line note before every turn (it reads the file on demand). Long-form detail goes in the plan's reference docs, linked from tasks. Attach an existing plan from this workspace, or create a new one. Plans live at <code>.arco/plans/</code>.</>}
         </div>
         {!creating && <PlanChooser
           cwd={cwd}
@@ -399,9 +428,42 @@ export function PlanTab({
     );
   }
 
+  // A tick flips one line of the saved body (the workbench and phone views share it).
+  const toggleLine = async (lineIndex: number) => {
+    if (!cwd || body === null || !plan) return;
+    const submitted = body, context = ticks.current, request = ++context.generation;
+    const lines = submitted.split('\n'), match = lines[lineIndex]?.match(CHECKBOX_RE);
+    if (!match) return;
+    lines[lineIndex] = `${match[1]}- [${match[2].toLowerCase() === 'x' ? ' ' : 'x'}] ${match[3]}`;
+    const current = () => ticks.current === context && context.generation === request;
+    const apply = (saved: PlanFull) => {
+      if (!current() || shown.current !== submitted) return;
+      shown.current = saved.body;
+      setBody(saved.body);
+    };
+    try {
+      const saved = await updatePlanBody(cwd, plan.id, submitted, lines.join('\n'));
+      apply(saved);
+      if (current()) setBodyError(null);
+    } catch (err) {
+      if (!current()) return;
+      if (err instanceof PlanBodySaveError && err.plan) apply(err.plan);
+      setBodyError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
   return (
     <div style={{ padding: '14px 16px', overflowY: 'auto', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
       {offer}
+      {/* Mobile view: the plan reads as a checklist; its actions are behind
+          the header's `...` (docs/CLIENT.md). */}
+      {phone && !editing && phonePublic && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <PublicProjectBox cwd={cwd ?? ''} testId="active-plan-public-project" />
+          <button type="button" className="display-font" style={{ ...planMiniBtn, minHeight: '44px', fontSize: '13px' }} onClick={() => setPhonePublic(false)}>DONE</button>
+        </div>
+      )}
+      <div data-testid={phone ? 'phone-plan-actions' : undefined} style={phone ? { display: editing ? 'flex' : 'none', flexDirection: 'column', gap: '10px' } : { display: 'contents' }}>
       <PublicProjectBox cwd={cwd ?? ''} testId="active-plan-public-project" />
       {publicProject && body !== null && !hasGuardrails(editing ? draftBody : body) && <div role="status" style={{ color: 'var(--color-warning)', fontSize: '11px' }}>This public project plan has no Privacy and public safety section. <button type="button" data-testid="public-plan-insert-guardrails" data-help="plan.insert-guardrails" className="display-font" style={planMiniBtn} onClick={() => { if (!editing) setDraftTitle(plan.title); setDraftBody(insertGuardrails(editing ? draftBody : body)); setEditing(true); }} disabled={saving}>INSERT GUARDRAILS</button></div>}
       <div>
@@ -552,6 +614,7 @@ export function PlanTab({
           )}
         </div>
       </div>
+      </div>
 
       {choosing && !editing && <PlanChooser
         cwd={cwd}
@@ -629,6 +692,7 @@ export function PlanTab({
               Body fetch failed: {bodyError}
             </div>
           )}
+          {phone && body !== null ? <PhonePlanView body={body} onToggle={(lineIndex) => { void toggleLine(lineIndex); }} onOpenRef={setOpenRefSlug} /> : <>
           <PlanRefChips refs={refs} onOpenSlug={setOpenRefSlug} />
           <PlanBodyRenderer
             body={body}
@@ -647,30 +711,9 @@ export function PlanTab({
             }) : undefined}
             onOpenRef={setOpenRefSlug}
             refSlugs={refSlugs}
-            onToggleCheckbox={async (lineIndex) => {
-              if (!cwd || body === null || !plan) return;
-              const submitted = body, context = ticks.current, request = ++context.generation;
-              const lines = submitted.split('\n'), match = lines[lineIndex]?.match(CHECKBOX_RE);
-              if (!match) return;
-              lines[lineIndex] = `${match[1]}- [${match[2].toLowerCase() === 'x' ? ' ' : 'x'}] ${match[3]}`;
-              const current = () => ticks.current === context && context.generation === request;
-              const apply = (saved: PlanFull) => {
-                if (!current() || shown.current !== submitted) return;
-                shown.current = saved.body;
-                setBody(saved.body);
-              };
-              try {
-                const saved = await updatePlanBody(cwd, plan.id, submitted, lines.join('\n'));
-                apply(saved);
-                if (current()) setBodyError(null);
-
-              } catch (err) {
-                if (!current()) return;
-                if (err instanceof PlanBodySaveError && err.plan) apply(err.plan);
-                setBodyError(err instanceof Error ? err.message : String(err));
-              }
-            }}
+            onToggleCheckbox={(lineIndex) => { void toggleLine(lineIndex); }}
           />
+          </>}
           <PlanRefsSection
             cwd={cwd}
             planId={plan.id}

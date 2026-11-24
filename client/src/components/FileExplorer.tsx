@@ -5,6 +5,8 @@ import { FileViewerModal } from './FileViewerModal';
 import { useTerminalStore } from '../stores/terminalStore';
 import { classifyMediaExt, openMediaFile, type MediaMode } from './media/launchers';
 import { useKeepInWindow } from '../layout/keepInWindow';
+import { usePhoneLayout } from '../layout/layoutRange';
+import { usePhonePageActions, usePhonePageActive, type PhonePageItem } from '../layout/phonePageActions';
 
 interface Entry {
   name: string;
@@ -30,9 +32,11 @@ interface Props {
   // clicked twice.
   revealPath?: string;
   revealNonce?: number;
+  // Mobile view: more actions for the page's `...` (the tab's RENAME).
+  phoneActions?: PhonePageItem[];
 }
 
-export function FileExplorer({ cwd, onClose, workflowId, revealPath, revealNonce }: Props) {
+export function FileExplorer({ cwd, onClose, workflowId, revealPath, revealNonce, phoneActions = [] }: Props) {
   const [tree, setTree] = useState<Record<string, Entry[]>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set([cwd]));
   const [loading, setLoading] = useState<Set<string>>(new Set());
@@ -154,6 +158,55 @@ export function FileExplorer({ cwd, onClose, workflowId, revealPath, revealNonce
   }, [mediaMenu]);
 
   const rootName = cwd.split('/').filter(Boolean).pop() || cwd;
+
+  // Mobile view (docs/CLIENT.md): one folder at a time in 52 px rows. A
+  // folder opens in place; UP returns to its parent, never above the root.
+  const phone = usePhoneLayout();
+  const pageActive = usePhonePageActive() && !onClose;
+  const [phoneDir, setPhoneDir] = useState(cwd);
+  useEffect(() => { setPhoneDir(cwd); }, [cwd]);
+  const phoneRelative = phoneDir === cwd ? '' : phoneDir.slice(cwd.length).replace(/^[\\/]+/, '');
+  // The folder in view is the header's second line; its tools are under `...`.
+  usePhonePageActions(pageActive, [
+    { id: 'terminal', label: 'TERMINAL HERE', show: !!workflowId, onSelect: () => openTerminalAt(phoneDir === cwd ? undefined : phoneDir) },
+    { id: 'refresh', label: 'REFRESH', onSelect: () => { setTree({}); void loadDir(phoneDir); if (phoneDir !== cwd) void loadDir(cwd); } },
+    ...phoneActions,
+  ], {
+    // The header's back arrow steps up one folder before it leaves the page.
+    back: () => {
+      if (phoneDir === cwd) return false;
+      setPhoneDir(phoneDir.slice(0, Math.max(phoneDir.lastIndexOf('/'), phoneDir.lastIndexOf('\\'), cwd.length)) || cwd);
+      return true;
+    },
+    subtitle: phoneRelative ? `${rootName} / ${phoneRelative.split(/[\\/]/).join(' / ')}` : rootName });
+  if (phone && !onClose) {
+    const entries = tree[phoneDir];
+    const parent = phoneDir === cwd ? null : phoneDir.slice(0, Math.max(phoneDir.lastIndexOf('/'), phoneDir.lastIndexOf('\\'), cwd.length)) || cwd;
+    const open = (entry: Entry) => {
+      if (!entry.isDirectory) { setSelected(entry.path); return; }
+      if (!tree[entry.path]) void loadDir(entry.path);
+      setPhoneDir(entry.path);
+    };
+    const row = { display: 'flex', alignItems: 'center', gap: '10px', width: '100%', minHeight: '52px', padding: '0 14px', background: 'transparent', border: 0, borderBottom: '1px solid var(--color-border-hairline)', borderRadius: 0, textAlign: 'left' as const, cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: '15px' };
+    return (
+      <div data-testid="phone-files" data-help="files.phone" style={{ display: 'flex', flexDirection: 'column' }}>
+        {parent && (
+          <button type="button" data-testid="phone-files-up" onClick={() => setPhoneDir(parent)} className="display-font" style={{ ...row, color: 'var(--color-accent-primary)', fontSize: '13px', letterSpacing: '1px' }}>
+            <span aria-hidden="true">{'\u2039'}</span> UP TO {parent === cwd ? rootName : parent.split(/[\\/]/).pop()}
+          </button>
+        )}
+        {!entries ? <div style={{ padding: '14px', color: 'var(--color-fg-muted)', fontSize: '14px' }}>{loading.has(phoneDir) ? 'Loading...' : ''}</div>
+          : entries.length === 0 ? <div style={{ padding: '14px', color: 'var(--color-fg-muted)', fontSize: '14px', fontStyle: 'italic' }}>Empty folder</div>
+          : entries.map((entry) => (
+            <button key={entry.path} type="button" data-testid="phone-file-row" onClick={() => open(entry)} style={{ ...row, color: entry.isDirectory ? 'var(--color-accent-primary)' : 'var(--color-fg)' }}>
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.name}{entry.isDirectory ? '/' : ''}</span>
+              {entry.isDirectory && <span aria-hidden="true" style={{ color: 'var(--color-accent-primary)' }}>{'\u203A'}</span>}
+            </button>
+          ))}
+        {selected && <FileViewerModal path={selected} onClose={() => setSelected(null)} editContext={{ cwd, ...(workflowId ? { workflowId } : {}) }} />}
+      </div>
+    );
+  }
 
   return (
     <>

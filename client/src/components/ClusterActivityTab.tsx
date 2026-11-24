@@ -1,4 +1,6 @@
 import { formatActivityTime } from './activityTime';
+import { usePhoneLayout } from '../layout/layoutRange';
+import { phoneChip, phoneChipRow } from '../layout/phoneChip';
 // docs/PROTOCOL_CLUSTER.md - unified cluster-scoped event feed,
 // extended with per-member tool activity so an operator can
 // see READ / BASH / TodoWrite etc. without drilling into each member tab.
@@ -474,10 +476,12 @@ function PillRow({
   selected: string;
   onSelect: (next: string) => void;
 }) {
+  // Mobile view (docs/CLIENT.md): the member filter is one wrapping chip row.
+  const phone = usePhoneLayout();
   return (
     <div
       data-help="cluster.activity.pill"
-      style={{
+      style={phone ? { ...phoneChipRow, padding: '0 0 8px' } : {
         display: 'flex',
         gap: '4px',
         padding: '4px 2px 6px',
@@ -515,11 +519,13 @@ function Pill({
   label: string;
   accent?: string;
 }) {
+  const phone = usePhoneLayout();
   return (
     <button
       onClick={onClick}
       className="display-font"
-      style={{
+      aria-pressed={phone ? active : undefined}
+      style={phone ? { ...phoneChip(active), display: 'inline-flex', alignItems: 'center', gap: '6px' } : {
         flex: '0 0 auto',
         padding: '4px 8px',
         background: active ? 'var(--color-accent-primary-a08)' : 'transparent',

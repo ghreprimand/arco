@@ -1,3 +1,6 @@
+import { usePhoneLayout } from '../../layout/layoutRange';
+import { phoneChip, phoneChipRow } from '../../layout/phoneChip';
+import type { PhonePageItem } from '../../layout/phonePageActions';
 import { useState, useEffect, useMemo } from 'react';
 import { useRequestedWorktree } from '../../utils/worktreeNavigation';
 import type { CSSProperties } from 'react';
@@ -27,12 +30,16 @@ export function FilesTabBody({
   cwd,
   subTab,
   onSubTab,
+  phoneActions,
 }: {
   job: JobState;
   cwd: string | undefined;
   subTab: FilesSubTab;
   onSubTab: (t: FilesSubTab) => void;
+  phoneActions?: PhonePageItem[];
 }) {
+  // Mobile view (docs/CLIENT.md): one chip row; LIVE shows under OUTPUTS.
+  const phone = usePhoneLayout();
   // Hook runs unconditionally (before the !cwd guard) to keep hook order stable.
   const isGitSub = subTab === 'live' || subTab === 'changes' || subTab === 'source' || subTab === 'remote';
   const {
@@ -60,13 +67,14 @@ export function FilesTabBody({
     { id: 'blast-radius', label: 'BLAST RADIUS', show: memoryAttached, help: 'rightpanel.files.blast-radius' },
     { id: 'sandbox', label: 'SANDBOX', show: sandboxOn, help: 'rightpanel.files.sandbox' },
   ];
-  const visible = tabs.filter((t) => t.show);
-  const effectiveSub = visible.some((t) => t.id === subTab) ? subTab : 'files';
+  const visible = tabs.filter((t) => t.show && !(phone && t.id === 'live'));
+  const requested = phone && subTab === 'live' ? 'outputs' : subTab;
+  const effectiveSub = visible.some((t) => t.id === requested) ? requested : 'files';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <div
         className="display-font"
-        style={{
+        style={phone ? phoneChipRow : {
           display: 'flex',
           gap: '2px',
           overflowX: 'auto',
@@ -82,7 +90,8 @@ export function FilesTabBody({
               key={id}
               onClick={() => onSubTab(id)}
               data-help={help}
-              style={{
+              aria-pressed={phone ? active : undefined}
+              style={phone ? phoneChip(active) : {
                 flex: '0 0 auto',
                 padding: '4px 8px',
                 background: active ? 'var(--color-accent-primary-a08)' : 'transparent',
@@ -112,9 +121,9 @@ export function FilesTabBody({
         )}
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-        {effectiveSub === 'files' && <FileExplorer cwd={cwd} workflowId={job.id} />}
+        {effectiveSub === 'files' && <FileExplorer cwd={cwd} workflowId={job.id} phoneActions={phoneActions} />}
         {effectiveSub === 'outputs' && <OutputsPanel cwd={cwd} workflowId={job.id} />}
-        {effectiveSub === 'live' && (
+        {(effectiveSub === 'live' || (phone && effectiveSub === 'outputs')) && (
           <LiveChangesPanel
             wfid={job.id}
             cwd={effectiveCwd}
@@ -141,13 +150,15 @@ export function ClusterFilesTabBody({
   onSubTab: (t: ClusterFilesSubTab) => void;
 }) {
   const [selectedWfid, setSelectedWfid] = useState('');
+  // Mobile view (docs/CLIENT.md): one chip row; LIVE shows under OUTPUTS.
+  const phone = usePhoneLayout();
   const members = cluster.members;
   const effectiveWfid = members.some((m) => m.workflowId === selectedWfid)
     ? selectedWfid
     : members[0]?.workflowId ?? '';
   const selectedMember = members.find((m) => m.workflowId === effectiveWfid);
-  const tabs: Array<{ id: ClusterFilesSubTab; label: string; help?: string }> = [
-    { id: 'files', label: 'FILES', help: 'rightpanel.tab.files' },
+  const tabs = ([
+    { id: 'files' as const, label: 'FILES', help: 'rightpanel.tab.files' },
     ...(!cluster.research ? [
       { id: 'outputs' as const, label: 'OUTPUTS', help: 'rightpanel.outputs' },
       { id: 'live' as const, label: 'LIVE', help: 'rightpanel.files.live' },
@@ -155,9 +166,10 @@ export function ClusterFilesTabBody({
       { id: 'source' as const, label: 'SOURCE', help: 'rightpanel.files.source' },
       { id: 'remote' as const, label: 'REMOTE', help: 'rightpanel.files.remote' },
     ] : []),
-  ];
-  const effectiveSub = tabs.some((t) => t.id === subTab) ? subTab : 'files';
-  const needsMember = effectiveSub !== 'files' && effectiveSub !== 'outputs';
+  ] as Array<{ id: ClusterFilesSubTab; label: string; help?: string }>).filter((t) => !(phone && t.id === 'live'));
+  const requested = phone && subTab === 'live' ? 'outputs' : subTab;
+  const effectiveSub = tabs.some((t) => t.id === requested) ? requested : 'files';
+  const needsMember = effectiveSub !== 'files' && (effectiveSub !== 'outputs' || (phone && !cluster.research));
 
   const {
     effectiveCwd, watchingBranch, showPicker: showWorktreePicker, autoLabel, worktrees,
@@ -178,7 +190,7 @@ export function ClusterFilesTabBody({
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <div
         className="display-font"
-        style={{
+        style={phone ? { ...phoneChipRow, alignItems: 'center' } : {
           display: 'flex',
           gap: '2px',
           overflowX: 'auto',
@@ -195,7 +207,8 @@ export function ClusterFilesTabBody({
               key={id}
               onClick={() => onSubTab(id)}
               data-help={help}
-              style={{
+              aria-pressed={phone ? active : undefined}
+              style={phone ? phoneChip(active) : {
                 flex: '0 0 auto',
                 padding: '4px 8px',
                 background: active ? 'var(--color-accent-primary-a08)' : 'transparent',
@@ -244,7 +257,7 @@ export function ClusterFilesTabBody({
         {effectiveSub === 'files' && <FileExplorer cwd={cluster.cwd} />}
         {effectiveSub === 'outputs' && <OutputsPanel cwd={cluster.cwd} clusterId={cluster.clusterId} />}
         {needsMember && !effectiveWfid && <EmptyState text="No cluster member is available for workspace git views." />}
-        {effectiveSub === 'live' && effectiveWfid && (
+        {(effectiveSub === 'live' || (phone && effectiveSub === 'outputs')) && effectiveWfid && (
           <LiveChangesPanel
             wfid={effectiveWfid}
             cwd={effectiveCwd}

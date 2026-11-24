@@ -769,7 +769,7 @@ function PanelsSheet({ onClose, onNotices, onSystem }: { onClose: () => void; on
           {tabPanels.map((p) => (
             <button key={p.id} type="button" data-testid="phone-panel" className="display-font" style={{ ...tile, flex: '1 1 130px', width: 'auto' }} onClick={() => { usePhoneStore.setState({ panelIndex: false, panelFromIndex: false }); requestPanel(p.id); }}>{p.label}</button>
           ))}
-          {shown.clusterId && <button type="button" data-testid="phone-panel-all" className="display-font" style={{ ...tile, flex: '1 1 130px', width: 'auto', color: 'var(--color-accent-primary)' }} onClick={() => { usePhoneStore.setState({ panelIndex: true, panelFromIndex: false }); requestPanel('more'); }}>ALL PANELS {'\u203A'}</button>}
+          <button type="button" data-testid="phone-panel-all" className="display-font" style={{ ...tile, flex: '1 1 130px', width: 'auto', color: 'var(--color-accent-primary)' }} onClick={() => { usePhoneStore.setState({ panelIndex: true, panelFromIndex: false }); requestPanel('more'); }}>ALL PANELS {'\u203A'}</button>
         </div>
       </>}
       <div className="display-font" style={sectionHeading}>WORKBENCH</div>

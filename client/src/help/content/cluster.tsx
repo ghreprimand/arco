@@ -350,6 +350,11 @@ export const clusterHelp: Record<string, HelpEntry> = {
     body: <p>The roster for this cluster. At the top, rename the cluster or save its state. Below that, add fresh or existing workers. Each member row can rename, replace or detach that member and set its role, work size and focus. Saved snapshots are listed at the bottom.</p>,
     manualSection: 'cluster-rename',
   },
+  'cluster.phone-members': {
+    title: 'Members on a phone',
+    body: <p>One row per member with its role and whether it is working. A tap opens the member's sheet: open its conversation, its model, effort and web access, and its name, role, focus, work size, REPLACE and DETACH. The header's + adds a member (a researcher in a research project); its ... button renames the cluster, saves its state or lists saved clusters.</p>,
+    manualSection: 'window-layout',
+  },
   'cluster.rename': {
     title: 'Rename cluster',
     body: <p>Sets the name shown on this cluster&apos;s tab. <C>Enter</C> or <C>SAVE</C> keeps it; <C>Esc</C> or <C>CANCEL</C> discards the edit. Saving an empty name goes back to the default: the project folder name plus a short id. Names are up to 64 characters.</p>,

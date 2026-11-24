@@ -1,5 +1,6 @@
 import { usePhoneLayout } from '../../layout/layoutRange';
 import { usePhoneStore } from '../../stores/phoneStore';
+import { PhonePageVisible, usePhonePageActions } from '../../layout/phonePageActions';
 import type { PreviewCaptureKind, PreviewViewport } from '@arco/shared';
 import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
 import { useOutputNavigation } from '../../utils/outputNavigation';
@@ -37,6 +38,7 @@ import { ClusterFilesTabBody, type ClusterFilesSubTab } from '../RightPanel/File
 import type { ClusterStatePayload, ClusterTaskBoardMode } from '@arco/shared';
 import type { PeerMessage, Props, SubTab } from './types';
 import { MemberRow } from './MemberRow';
+import { PhoneMemberList } from './PhoneMemberList';
 import { AddWorkerSection } from './AddWorkerSection';
 import { ClusterHandoffsTab } from './ClusterHandoffsTab';
 import { ClusterReviewsList } from './ClusterReviewsList';
@@ -66,6 +68,12 @@ const GROUPS: { id: GroupId; label: string; tabs: SubTab[] }[] = [
 // with a Gemini member, whose mail waits there for the operator's NUDGE.
 function groupsFor(research: boolean, gemini = false): typeof GROUPS {
   return GROUPS.map((g) => ({ ...g, tabs: g.tabs.filter((t) => research ? !researchHidden(t, gemini) : t !== 'results') }));
+}
+// Mobile view, ALL PANELS: pages rarely used on a phone are listed last under MORE.
+const PHONE_MORE: SubTab[] = ['preview', 'github'];
+function phoneGroups(groups: typeof GROUPS): { id: string; label: string; tabs: SubTab[] }[] {
+  const more = groups.flatMap((g) => g.tabs.filter((t) => PHONE_MORE.includes(t)));
+  return [...groups.map((g) => ({ ...g, tabs: g.tabs.filter((t) => !PHONE_MORE.includes(t)) })), { id: 'more', label: 'MORE', tabs: more }].filter((g) => g.tabs.length > 0);
 }
 function researchHidden(t: string, gemini: boolean): boolean {
   return ['board', 'reviews', 'handoffs', 'github'].includes(t) || (t === 'mailbox' && !gemini);
@@ -154,6 +162,12 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
     if (phone) usePhoneStore.setState({ pageTitle: panelIndex ? 'ALL PANELS' : phoneSettings ? (cluster.research ? 'PROJECT SETTINGS' : 'CLUSTER SETTINGS') : labelOf(tab) });
   }, [phone, panelIndex, phoneSettings, tab, cluster.research]);
   useEffect(() => { if (tabRequest) setPhoneSettings(false); }, [tabRequest]);
+  // Mobile view, MEMBERS page: one row per member; adding, saved clusters and
+  // the cluster's name and SAVE STATE come from `+` and `...`.
+  const membersPage = phone && !panelIndex && !phoneSettings && tab === 'members';
+  const [phoneMembers, setPhoneMembers] = useState<'list' | 'add' | 'saved'>('list');
+  const [configMember, setConfigMember] = useState<{ id: string; seq: number } | null>(null);
+  useEffect(() => { if (!membersPage) setPhoneMembers('list'); }, [membersPage]);
 
   // §10.7 P12.5 — peer→task bridge. Promote a pending peer message into a
   // durable board task via the operator task_ledger_create path (first member is
@@ -270,6 +284,12 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
   useEffect(() => {
     if (!renameOpen) setRenameDraft(cluster.name ?? '');
   }, [cluster.name, renameOpen]);
+  const canAdd = cluster.research ? !!onAddResearcher : !!(onAddFreshWorkers || onAddExistingMember);
+  usePhonePageActions(membersPage, [
+    { id: 'rename', label: cluster.research ? 'RENAME PROJECT' : 'RENAME CLUSTER', show: !!onRename, onSelect: () => { setPhoneMembers('list'); setRenameDraft(cluster.name ?? ''); setRenameOpen(true); } },
+    { id: 'save', label: 'SAVE STATE', show: !cluster.research, disabled: !anchorWfid, onSelect: () => { setPhoneMembers('list'); setSnapshotDraft(effectiveName); setSnapshotOpen(true); } },
+    { id: 'saved', label: 'SAVED CLUSTERS', show: !cluster.research, onSelect: () => setPhoneMembers('saved') },
+  ], { subtitle: `${cluster.members.length} ${cluster.members.length === 1 ? 'member' : 'members'}`, primary: canAdd ? { label: cluster.research ? 'Add researcher' : 'Add member', onSelect: () => setPhoneMembers('add') } : null });
 
   return (
     <div
@@ -583,7 +603,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
 
       {phone && panelIndex && (
         <div data-testid="phone-panel-index" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 0 16px' }}>
-          {groups.filter((g) => g.tabs.length > 0).map((g) => (
+          {phoneGroups(groups).map((g) => (
             <div key={g.id}>
               <div className="display-font" style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1.5px', color: 'var(--color-fg)', padding: '14px 14px 6px' }}>{g.label}</div>
               {g.tabs.map((id) => (
@@ -603,13 +623,14 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
           </button>
         </div>
       )}
+      <PhonePageVisible.Provider value={!(phone && (panelIndex || phoneSettings))}>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px', ...(tab === 'preview' ? { display: 'flex', flexDirection: 'column' } : {}), ...(phone && (panelIndex || phoneSettings) ? { display: 'none' } : {}) }}>
         {tab === 'members' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {/* Slice 6a — cluster name + rename affordance. Click the
                 pencil to edit; ↵ commits, Esc cancels, empty input clears
-                to the derived default. */}
-            <div
+                to the derived default. Mobile view: reached from `...`. */}
+            {(!membersPage || renameOpen) && <div
               data-help="cluster.rename"
               style={{
                 display: 'flex',
@@ -732,7 +753,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                   </button>}
                 </>
               )}
-            </div>
+            </div>}
             {/* SAVE STATE — inline name input. Shares the RENAME affordance
                 shape: ↵ commits, Esc cancels, ≤64 chars (server re-validates +
                 fences uniqueness). */}
@@ -822,15 +843,39 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                 </button>
               </div>
             )}
-            {cluster.research && onAddResearcher && <AddResearcherSection research={cluster.research} onAdd={(request) => onAddResearcher(cluster.clusterId, request)} />}
-            {!cluster.research && (onAddFreshWorkers || onAddExistingMember) && (
+            {membersPage && phoneMembers !== 'list' && (
+              <button type="button" data-testid="phone-members-done" className="display-font" onClick={() => setPhoneMembers('list')}
+                style={{ alignSelf: 'flex-start', padding: '0 14px', background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg)', fontSize: '13px', letterSpacing: '1px', cursor: 'pointer' }}>{'\u2039'} MEMBERS</button>
+            )}
+            {(!membersPage || phoneMembers === 'add') && cluster.research && onAddResearcher && <AddResearcherSection research={cluster.research} onAdd={(request) => onAddResearcher(cluster.clusterId, request)} />}
+            {(!membersPage || phoneMembers === 'add') && !cluster.research && (onAddFreshWorkers || onAddExistingMember) && (
               <AddWorkerSection
                 cluster={cluster}
                 onAddFresh={onAddFreshWorkers}
                 onAddExisting={onAddExistingMember}
               />
             )}
-            {cluster.members.map((m) => (
+            {membersPage && phoneMembers === 'list' && (
+              <PhoneMemberList
+                cluster={cluster}
+                nameOf={(id) => jobs[id]?.config.name?.toUpperCase() ?? id.slice(0, 8)}
+                onOpenConversation={onFocusMember}
+                onOpenConfig={(id) => { setConfigMember({ id, seq: Date.now() }); setTab('config'); }}
+                renderManage={(m) => (
+                  <MemberRow
+                    cluster={cluster}
+                    member={m}
+                    memberName={jobs[m.workflowId]?.config.name?.toUpperCase() ?? m.workflowId.slice(0, 8)}
+                    onSetRole={onSetMemberRole}
+                    onSetTier={onSetMemberTier}
+                    onSetFocus={onSetMemberFocus}
+                    onDetach={onDetachMember}
+                    onRemoveResearcher={onRemoveResearcher}
+                  />
+                )}
+              />
+            )}
+            {!membersPage && cluster.members.map((m) => (
               <MemberRow
                 key={m.workflowId}
                 cluster={cluster}
@@ -849,7 +894,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                 broadcast, so the new cluster tab opens with members + full
                 history replayed. No targetCwd here → restores into the
                 snapshot's original cwd. */}
-            {!cluster.research && <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--color-border-hairline)' }}>
+            {!cluster.research && (!membersPage || phoneMembers === 'saved') && <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--color-border-hairline)' }}>
               <SavedClustersList scopeCwd={cluster.cwd} />
             </div>}
           </div>
@@ -897,11 +942,17 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
                 </button>
               );
             })}
-            <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--color-fg-muted)' }}>
+            {!phone && <div style={{ marginTop: '8px', fontSize: '10px', color: 'var(--color-fg-muted)' }}>
               Click a row with pending mail to inspect / cancel undelivered
               messages. Drain destroys files; the durable record lives in
               each member&apos;s events.jsonl.
-            </div>
+            </div>}
+            {/* Mobile view: the help sentence is behind an info row. */}
+            {phone && <details style={{ fontSize: '14px', color: 'var(--color-fg-muted)' }}>
+              <summary className="display-font" style={{ minHeight: '44px', display: 'flex', alignItems: 'center', fontSize: '12px', letterSpacing: '1px', cursor: 'pointer' }}>ABOUT THE MAILBOX</summary>
+              Tap a member with waiting mail to read or cancel messages that are not delivered yet.
+              The durable record stays in each member&apos;s events.jsonl.
+            </details>}
           </div>
         )}
         {mailboxWfid && (
@@ -966,6 +1017,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
         {tab === 'config' && (
           <ClusterConfigTab
             cluster={cluster}
+            requested={configMember}
             onUpdateMemberPrimary={onUpdateMemberPrimary}
             onAttachCodebaseMemory={onAttachCodebaseMemory}
             onDetachCodebaseMemory={onDetachCodebaseMemory}
@@ -973,6 +1025,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
           />
         )}
       </div>
+      </PhonePageVisible.Provider>
     </div>
   );
 }
@@ -1117,9 +1170,12 @@ function ClusterConfigTab({
   onAttachCodebaseMemory,
   onDetachCodebaseMemory,
   mcp,
-}: Pick<Props, 'cluster' | 'onUpdateMemberPrimary' | 'onAttachCodebaseMemory' | 'onDetachCodebaseMemory' | 'mcp'>) {
+  requested,
+}: Pick<Props, 'cluster' | 'onUpdateMemberPrimary' | 'onAttachCodebaseMemory' | 'onDetachCodebaseMemory' | 'mcp'> & { requested?: { id: string; seq: number } | null }) {
   const jobs = useAppStore((s) => s.jobs);
-  const [selectedWfid, setSelectedWfid] = useState<string>('');
+  const [selectedWfid, setSelectedWfid] = useState<string>(requested?.id ?? '');
+  // Mobile view: a member's sheet opens CONFIG on that member.
+  useEffect(() => { if (requested) setSelectedWfid(requested.id); }, [requested]);
   const available = cluster.members.filter((m) => jobs[m.workflowId]);
   const effectiveWfid = available.some((m) => m.workflowId === selectedWfid)
     ? selectedWfid
@@ -1199,11 +1255,13 @@ function useMemberInView(cluster: ClusterStatePayload) {
 // another member (the same as clicking its card).
 function MemberInViewHeader({ cluster, memberId, what }: { cluster: ClusterStatePayload; memberId: string; what: string }) {
   const setFocused = useAppStore((s) => s.setClusterFocusedMember);
+  // Mobile view: the member picker is the page's first line, full width.
+  const phone = usePhoneLayout();
   return (
-    <label data-help="cluster.right-panel.member-in-view" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 8px', fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }} className="display-font">
-      {what} OF
+    <label data-help="cluster.right-panel.member-in-view" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: phone ? '0 0 8px' : '4px 8px', fontSize: phone ? '12px' : '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }} className="display-font">
+      {phone ? 'MEMBER' : `${what} OF`}
       <select aria-label={`${what} of member`} value={memberId} onChange={(e) => setFocused(cluster.clusterId, e.target.value)}
-        style={{ background: 'var(--color-bg-sunken)', color: 'var(--color-accent-primary)', border: '1px solid var(--color-border-hairline)', fontSize: '11px', padding: '1px 4px' }}>
+        style={{ background: 'var(--color-bg-sunken)', color: 'var(--color-accent-primary)', border: '1px solid var(--color-border-hairline)', fontSize: phone ? '15px' : '11px', padding: phone ? '0 8px' : '1px 4px', ...(phone ? { flex: 1, minWidth: 0, minHeight: '44px' } : {}) }}>
         {cluster.members.map((m) => (
           <option key={m.workflowId} value={m.workflowId}>{m.displayName || m.workflowId.slice(0, 8)}{m.role ? ` (${m.role})` : ''}</option>
         ))}

@@ -692,9 +692,19 @@ export const workspace: Section[] = [
         <p>
           A panel opens as a page: the header names it, and its back arrow,
           the phone&apos;s Back or a member name returns to the conversation.{' '}
-          <strong>ALL PANELS</strong> lists every page of a cluster and its
-          settings. On the board, blocked tasks and tasks to review come
-          first.
+          <strong>ALL PANELS</strong> lists every page, with rarely used ones
+          under <strong>MORE</strong>. A page&apos;s own actions are under the
+          header&apos;s <strong>...</strong>; its main action, such as adding a
+          member, is <strong>+</strong>. On the board, blocked
+          tasks and tasks to review come first.
+        </p>
+        <p>
+          The plan reads as a checklist: tap a box to tick an item; a finished
+          phase folds. Files show one folder at a time. On{' '}
+          <strong>MEMBERS</strong>, a member&apos;s row opens its sheet: its
+          conversation, its model, effort and web access, and its role,{' '}
+          <strong>REPLACE</strong> and <strong>DETACH</strong>. In{' '}
+          <strong>HISTORY</strong>, a tapped event opens its actions.
         </p>
         <p>
           Messages have no selection box on a phone. Press and hold a message

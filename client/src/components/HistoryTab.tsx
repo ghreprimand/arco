@@ -10,6 +10,10 @@ import { CheckpointActions } from './CheckpointActions';
 import { PurgeConversationModal } from './PurgeConversationModal';
 import { narrativeEventFromMessage } from '../utils/historyEvents';
 import { rewindUnavailableReason } from '../utils/rewindSupport';
+import { usePhoneLayout } from '../layout/layoutRange';
+import { phoneChip, phoneChipRow } from '../layout/phoneChip';
+import { PhoneBottomSheet } from '../layout/PhoneBottomSheet';
+import { usePhonePageActions, usePhonePageActive } from '../layout/phonePageActions';
 
 // Phase 8 — read-only timeline of a workflow's narrative events. Filter
 // strip + selection state + action bar; LABEL pins a note to the chosen
@@ -95,6 +99,13 @@ export function HistoryTab({ job }: Props) {
   const [spawnOpen, setSpawnOpen] = useState(false);
   const [rewindConfirm, setRewindConfirm] = useState(false);
   const [purgeOpen, setPurgeOpen] = useState(false);
+  // Mobile view (docs/CLIENT.md): one chip row, a row's actions in a sheet,
+  // PURGE CONVERSATION under the header's `...`.
+  const phone = usePhoneLayout();
+  const [rowSheet, setRowSheet] = useState(false);
+  usePhonePageActions(usePhonePageActive(), [
+    { id: 'purge', label: 'PURGE CONVERSATION', show: !!job.config.workingDirectory, danger: true, onSelect: () => setPurgeOpen(true) },
+  ]);
   const [viewerArtifact, setViewerArtifact] = useState<string | null>(null);
   const [pagedEvents, setPagedEvents] = useState<HistoryEventEntry[]>([]);
   const [historyHasEarlier, setHistoryHasEarlier] = useState(true);
@@ -166,6 +177,7 @@ export function HistoryTab({ job }: Props) {
 
   const handleSelect = (entry: HistoryEventEntry) => {
     setSelectedSeq(entry.seq);
+    setRowSheet(true);
     setRewindConfirm(false);
     if (entry.chatMessageId) {
       flashChatMessage(job.id, entry.chatMessageId);
@@ -261,113 +273,7 @@ export function HistoryTab({ job }: Props) {
     return `FROM ${time}: ${tail}`;
   })();
 
-  return (
-    <div data-help="rightpanel.tab.history" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* Filter strip */}
-      <div
-        className="display-font"
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '4px',
-          padding: '8px 10px',
-          borderBottom: '1px solid var(--color-border-hairline)',
-          flexShrink: 0,
-        }}
-      >
-        {FILTERS.map((f) => {
-          const active = preset === f.id;
-          return (
-            <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              className="display-font"
-              style={{
-                padding: '4px 8px',
-                background: active ? 'var(--color-accent-primary-a10)' : 'transparent',
-                border: `1px solid ${active ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,
-                borderRadius: '3px',
-                color: active ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
-                cursor: 'pointer',
-                fontSize: '10px',
-                letterSpacing: '1px',
-              }}
-            >
-              {f.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {throughSeq !== undefined && <div role="status">
-        Showing the conversation up to the handoff. <button type="button" onClick={() => requestVoicePanel(job.id, 'history')}>Show full history</button>
-      </div>}
-      {/* Timeline */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 0' }}>
-        {(events.length > 0 || throughSeq !== undefined) && historyHasEarlier && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 10px' }}>
-            <button
-              type="button"
-              onClick={loadEarlierHistory}
-              disabled={loadingEarlierHistory}
-              className="display-font"
-              style={{
-                background: 'transparent',
-                border: '1px solid var(--color-fg-muted)',
-                color: 'var(--color-fg-muted)',
-                padding: '5px 12px',
-                fontSize: '10px',
-                letterSpacing: '1px',
-                cursor: loadingEarlierHistory ? 'default' : 'pointer',
-                opacity: loadingEarlierHistory ? 0.5 : 1,
-              }}
-            >
-              {loadingEarlierHistory ? 'LOADING...' : 'LOAD EARLIER HISTORY'}
-            </button>
-          </div>
-        )}
-        {visible.length === 0 ? (
-          <div
-            className="display-font"
-            style={{
-              padding: '24px 18px',
-              color: 'var(--color-fg-muted)',
-              fontSize: '11px',
-              letterSpacing: '0.5px',
-              lineHeight: 1.6,
-            }}
-          >
-            {events.length === 0
-              ? 'No narrative events yet. Send a message to start populating the timeline.'
-              : 'No events match the current filter. Switch to ALL to see everything.'}
-          </div>
-        ) : (
-          <div style={{ position: 'relative' }}>
-            {/* Vertical rail */}
-            <div
-              aria-hidden
-              style={{
-                position: 'absolute',
-                left: '20px',
-                top: 0,
-                bottom: 0,
-                width: '1px',
-                background: 'var(--color-border-hairline)',
-              }}
-            />
-            {visible.map((e) => (
-              <TimelineRow
-                key={e.seq}
-                entry={e}
-                selected={selectedSeq === e.seq}
-                onSelect={() => handleSelect(e)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Action bar */}
+  const actionBar = (
       <div
         style={{
           flexShrink: 0,
@@ -467,7 +373,7 @@ export function HistoryTab({ job }: Props) {
         )}
         {/* Danger zone — irreversibly purge the whole conversation (not a single
             row). Separated from the row-scoped actions above. */}
-        {job.config.workingDirectory && (
+        {job.config.workingDirectory && !phone && (
           <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed var(--color-border-hairline)', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={() => setPurgeOpen(true)}
@@ -481,6 +387,119 @@ export function HistoryTab({ job }: Props) {
           </div>
         )}
       </div>
+  );
+
+  return (
+    <div data-help="rightpanel.tab.history" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* Filter strip */}
+      <div
+        className="display-font"
+        style={phone ? phoneChipRow : {
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '4px',
+          padding: '8px 10px',
+          borderBottom: '1px solid var(--color-border-hairline)',
+          flexShrink: 0,
+        }}
+      >
+        {FILTERS.map((f) => {
+          const active = preset === f.id;
+          return (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className="display-font"
+              aria-pressed={phone ? active : undefined}
+              style={phone ? phoneChip(active) : {
+                padding: '4px 8px',
+                background: active ? 'var(--color-accent-primary-a10)' : 'transparent',
+                border: `1px solid ${active ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,
+                borderRadius: '3px',
+                color: active ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
+                cursor: 'pointer',
+                fontSize: '10px',
+                letterSpacing: '1px',
+              }}
+            >
+              {f.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {throughSeq !== undefined && <div role="status">
+        Showing the conversation up to the handoff. <button type="button" onClick={() => requestVoicePanel(job.id, 'history')}>Show full history</button>
+      </div>}
+      {/* Timeline */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 0' }}>
+        {(events.length > 0 || throughSeq !== undefined) && historyHasEarlier && (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 10px' }}>
+            <button
+              type="button"
+              onClick={loadEarlierHistory}
+              disabled={loadingEarlierHistory}
+              className="display-font"
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--color-fg-muted)',
+                color: 'var(--color-fg-muted)',
+                padding: '5px 12px',
+                fontSize: '10px',
+                letterSpacing: '1px',
+                cursor: loadingEarlierHistory ? 'default' : 'pointer',
+                opacity: loadingEarlierHistory ? 0.5 : 1,
+              }}
+            >
+              {loadingEarlierHistory ? 'LOADING...' : 'LOAD EARLIER HISTORY'}
+            </button>
+          </div>
+        )}
+        {visible.length === 0 ? (
+          <div
+            className="display-font"
+            style={{
+              padding: '24px 18px',
+              color: 'var(--color-fg-muted)',
+              fontSize: '11px',
+              letterSpacing: '0.5px',
+              lineHeight: 1.6,
+            }}
+          >
+            {events.length === 0
+              ? 'No narrative events yet. Send a message to start populating the timeline.'
+              : 'No events match the current filter. Switch to ALL to see everything.'}
+          </div>
+        ) : (
+          <div style={{ position: 'relative' }}>
+            {/* Vertical rail */}
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: '20px',
+                top: 0,
+                bottom: 0,
+                width: '1px',
+                background: 'var(--color-border-hairline)',
+              }}
+            />
+            {visible.map((e) => (
+              <TimelineRow
+                key={e.seq}
+                entry={e}
+                selected={selectedSeq === e.seq}
+                onSelect={() => handleSelect(e)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Mobile view: a row's actions open in a sheet over the page. */}
+      {!phone ? actionBar : selected && rowSheet && (
+        <PhoneBottomSheet local title={`seq ${selected.seq} · ${selected.label}`} onClose={() => setRowSheet(false)} testId="phone-history-row-sheet">{actionBar}</PhoneBottomSheet>
+      )}
 
       {reviewOpen && selected && (
         <ReviewDialog

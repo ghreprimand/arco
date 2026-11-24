@@ -91,7 +91,17 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.panels': {
     title: 'Panels',
-    body: <p>Opens a sheet with this tab's panels (files, plan, board, memory), ALL PANELS for a cluster, a terminal, CATCH ME UP, Settings, notices, the manual, Recall, Media, System, All plans and Artifacts. Home and New tab are in the list of tabs. A panel opens as a page named in the header and scrolls as one surface; the header's back arrow, the phone's Back or a member name returns to the conversation and draft. ALL PANELS lists every page of the cluster panel and its settings. All plans and Artifacts open in a new browser tab.</p>,
+    body: <p>Opens a sheet with this tab's panels (files, plan, board, memory), ALL PANELS, a terminal, CATCH ME UP, Settings, notices, the manual, Recall, Media, System, All plans and Artifacts. Home and New tab are in the list of tabs. A panel opens as a page named in the header and scrolls as one surface; the header's back arrow, the phone's Back or a member name returns to the conversation and draft. ALL PANELS lists every page of the tab's side panel, with rarely used pages under MORE and, for a cluster, its settings. A page's own actions are under the header's ... button, and its main action, such as adding a member, is the header's + button. All plans and Artifacts open in a new browser tab.</p>,
+    manualSection: 'window-layout',
+  },
+  'plan.phone': {
+    title: 'Plan on a phone',
+    body: <p>The plan as a checklist: each phase is a section with its progress, a finished phase folds, and a tap on the box ticks or unticks an item. ABOUT THIS PLAN holds the text before the first phase. A linked reference doc opens from its blue label. Edit as text, choosing or clearing the plan, guardrails, the public-project setting and reviews are under the header's ... button.</p>,
+    manualSection: 'window-layout',
+  },
+  'files.phone': {
+    title: 'Files on a phone',
+    body: <p>One folder at a time: a folder opens in place, and UP TO or the header's back arrow returns to its parent. The folder in view is shown under the page name. A file opens in the viewer. Terminal here, refresh and, in a single tab, rename are under the header's ... button.</p>,
     manualSection: 'window-layout',
   },
   'mobile.new-tab': {
