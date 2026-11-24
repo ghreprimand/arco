@@ -2243,13 +2243,13 @@ export const clusters: Section[] = [
   body: (
   <>
   <p>
-  A Gemini model (Antigravity CLI) can be a cluster member in any role, including Director. Choose GEMINI as the provider when creating the cluster, in + ADD FRESH or in REPLACE.
+  A Gemini model (Antigravity CLI) can be a cluster member in any role, including Director. The notice above the conversation lists each Gemini member by name. Choose GEMINI as the provider when creating the cluster, in + ADD FRESH or in REPLACE.
   </p>
   <p>
   Mail to or from a Gemini member waits until you press NUDGE on the recipient. AUTO-PICKUP, Smart pickup, busy reminders, CONTINUE DIRECTOR and messages to several members skip it. Review, edit or cancel the waiting mail in MAILBOX first; the recipient then reads it with <Code>peer_read</Code>.
   </p>
   <p>
-  A message typed in a Gemini member&apos;s own composer also starts its turn. Its first NUDGE starts with its role, cluster instructions and available skill list, shown in the conversation. Every NUDGE asks it to read the current plan and mail before acting. COMPACT works as in an Agent tab.
+  A message typed in a Gemini member&apos;s own composer also starts its turn. Its first NUDGE starts with its role, cluster instructions and available skill list, shown in the conversation. Every NUDGE asks it to read the current plan and mail before acting. The Auto-compaction control names the Gemini members it skips. To compact one manually, send <Code>/compact</Code> in its own session.
   </p>
   <p>
   Gemini members are not isolated outside research. A Gemini Research Director is allowed, and on Linux a Gemini researcher runs in the worker sandbox with the separate Gemini for research sign-in. A Gemini replacement starts with no history.

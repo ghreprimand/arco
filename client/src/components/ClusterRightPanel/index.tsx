@@ -18,7 +18,7 @@ import { usePlanGenesisStore } from '../../stores/planGenesisStore';
 //   members. Reads from each member's job.activity (already in store) and
 //   filters on entry kind.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useHubLinkStore } from '../../stores/hubLinkStore';
 import { clusterDisplayName } from '../TabBar';
@@ -29,7 +29,7 @@ import { GitHubPanel } from '../GitHubPanel';
 import { HistoryTab } from '../HistoryTab';
 import { PreviewTab } from '../PreviewTab';
 import { ProjectUsageTab } from '../RightPanel/UsageTab';
-import { findDirector } from '../clusterSurface.helpers';
+import { findDirector, geminiMemberNames } from '../clusterSurface.helpers';
 import { ConfigTab } from '../RightPanel/ConfigTab';
 import { ClusterFilesTabBody, type ClusterFilesSubTab } from '../RightPanel/FilesTab';
 import type { ClusterStatePayload, ClusterTaskBoardMode } from '@arco/shared';
@@ -97,7 +97,9 @@ function tabForCluster(map: Record<string, SubTab>, clusterId: string): SubTab {
 
 export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest, planTabRequest, membersTabRequest, onFocusMember, onRename, onAddFreshWorkers, onAddExistingMember, onSetPlan, onAttachPlan, onClearPlan, onSetMemberRole, onSetMemberTier, onSetMemberFocus, onDetachMember, onAddResearcher, onRemoveResearcher, onToggleIdleNudger, onToggleAutoTurn, onSetTaskBoardMode, onSetTaskBoardAttached, onSetEfficiency, onSetAutoCompaction, onSetRemote, onSetGates, onSetProgress, onDispatchOnce, onToggleDispatcher, onUpdateDispatcherSettings, onUpdateTaskStatus, onReassignTask, onReclaimRun, onTerminateRun, onCreateSwarm, onSpawnPhase, onReviewMember, onCancelReview, onCancelHandoff, onClearHandoffLock, onReviewViaMember, onAttachPlanToMember, onUpdateMemberPrimary, onAttachCodebaseMemory, onDetachCodebaseMemory, mcp }: Props) {
   const hubConnected = useHubLinkStore(s => s.known && s.connected);
-  const hasGemini = useAppStore((s) => cluster.members.some((m) => s.jobs[m.workflowId]?.config.primaryProvider === 'antigravity-cli'));
+  const geminiNames = useAppStore(s => geminiMemberNames(cluster.members, s.jobs));
+  const hasGemini = !!geminiNames;
+  const compactionNoteId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
   const [tabsByCluster, setTabsByCluster] = useState<Record<string, SubTab>>(loadTabsByCluster);
@@ -359,9 +361,20 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
               toggle was offered. */}
           {!cluster.research && onToggleAutoTurn && <AutoPickupControl cluster={cluster} />}
           {onSetAutoCompaction && (
-            <label title="Provider: Claude CLI and Codex compact themselves; Claude Native and Ollama compact automatically near the limit." className="arco-field-label">Auto-compaction: <select className="arco-field" aria-label="Cluster auto-compaction" value={cluster.autoCompaction ? (cluster.autoCompaction.enabled ? 'on' : 'off') : 'legacy'} onChange={(e) => onSetAutoCompaction(cluster.clusterId, e.target.value === 'legacy' ? null : { enabled: e.target.value === 'on', thresholdPercent: cluster.autoCompaction?.thresholdPercent ?? 80 })}>
-              <option value="legacy">Provider</option><option value="off">Off</option><option value="on">On</option>
-            </select>{cluster.autoCompaction && <AutoCompactionThreshold key={`${cluster.clusterId}:${cluster.autoCompaction.enabled}`} label="Cluster auto-compaction threshold percent" value={cluster.autoCompaction.thresholdPercent} onCommit={(thresholdPercent) => onSetAutoCompaction(cluster.clusterId, { ...cluster.autoCompaction!, thresholdPercent })} />} </label>
+            <div className="arco-field-label">
+              <label title="Provider: Claude CLI and Codex compact themselves; Claude Native and Ollama compact automatically near the limit." className="arco-field-label">
+                Auto-compaction:
+                <select className="arco-field" aria-label="Cluster auto-compaction" aria-describedby={hasGemini ? compactionNoteId : undefined}
+                  value={cluster.autoCompaction ? (cluster.autoCompaction.enabled ? 'on' : 'off') : 'legacy'}
+                  onChange={(e) => onSetAutoCompaction(cluster.clusterId, e.target.value === 'legacy' ? null : { enabled: e.target.value === 'on', thresholdPercent: cluster.autoCompaction?.thresholdPercent ?? 80 })}>
+                  <option value="legacy">Provider</option><option value="off">Off</option><option value="on">On</option>
+                </select>
+              </label>
+              {cluster.autoCompaction && <AutoCompactionThreshold key={`${cluster.clusterId}:${cluster.autoCompaction.enabled}`} label="Cluster auto-compaction threshold percent" value={cluster.autoCompaction.thresholdPercent} onCommit={(thresholdPercent) => onSetAutoCompaction(cluster.clusterId, { ...cluster.autoCompaction!, thresholdPercent })} />}
+              {hasGemini && <p id={compactionNoteId} className="arco-field-help" data-help="cluster.gemini-members" style={{ fontSize: 12, color: 'var(--color-fg)' }}>
+                Auto-compaction skips {geminiNames}. To compact manually, send <code>/compact</code> in the member&apos;s own session.
+              </p>}
+            </div>
           )}
           {!cluster.research && onSetEfficiency && (
             <EfficiencyControl

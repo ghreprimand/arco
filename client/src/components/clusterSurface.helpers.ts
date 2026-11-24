@@ -2,12 +2,17 @@
 // director sits, which member is focused on open, and when the director's
 // card shows a quiet NEW REPLY mark. Display only; nothing here sends.
 import { isClusterDirector } from '@arco/shared';
-import type { ChatMessage } from '@arco/shared';
+import type { ChatMessage, ClusterMember } from '@arco/shared';
 
 interface MemberLike { workflowId: string; role?: string }
 
 export function findDirector<T extends MemberLike>(members: readonly T[]): T | undefined {
   return members.find((m) => isClusterDirector(m.role));
+}
+
+export function geminiMemberNames(members: readonly ClusterMember[], jobs: Record<string, { config: { primaryProvider?: string } }>): string {
+  return members.filter(member => jobs[member.workflowId]?.config.primaryProvider === 'antigravity-cli')
+    .map(member => member.displayName || member.workflowId.slice(0, 8)).join(', ');
 }
 
 /** Director first, others keep their order; unchanged once the operator has reordered. */

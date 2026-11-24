@@ -43,6 +43,7 @@ function describeDecision(state: ClusterAutoPickupState): string | null {
   const d = state.lastDecision;
   if (!d) return null;
   const when = new Date(d.at).toLocaleTimeString();
+  // docs/PROTOCOL_CLUSTER.md "Gemini members": AUTO-PICKUP never wakes them.
   if (d.reason === 'operator_send_only') return `${when}: Skipped a Gemini member. Its mail waits for your NUDGE.`;
   if (d.reason === 'gemini_mail') return `${when}: Mail from a Gemini member waits for your NUDGE on the recipient.`;
   if (d.reason === 'session_expired') return `${when}: Smart session expired. Mail waits until Smart is armed again, Rule-based is chosen, or NUDGE is used. Change Armed session length in AUTO-PICKUP > LIMITS before arming.`;
@@ -86,9 +87,6 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
   const pause = () => wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode: state.mode, paused: !state.paused });
   const remaining = useSessionRemaining(state.session?.expiresAt, state.pausedAt);
   const decision = describeDecision(state);
-  // docs/PROTOCOL_CLUSTER.md "Gemini members": AUTO-PICKUP never wakes them.
-  const geminiNames = useAppStore((s) => cluster.members.filter((m) => s.jobs[m.workflowId]?.config.primaryProvider === 'antigravity-cli').map((m) => m.displayName).join(', '));
-  const geminiSkip = geminiNames ? `Skips ${geminiNames}: mail to or from a Gemini member waits for your NUDGE.` : '';
   const modeTitle = on
     ? `${AUTO_PICKUP_MODE_LABELS[state.mode].label}${state.paused ? ', paused; automatic pickup and busy reminders are stopped' : ''}${remaining !== null ? `, about ${remaining} min left in this session${state.paused ? ' (clock paused)' : ''}` : ''}. Click to review or change.`
     : 'AUTO-PICKUP is off. Click to choose a mode.';
@@ -120,7 +118,6 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
         {state.paused ? ' - PAUSED' : ''}
         {isSmartPickupMode(state.mode) && state.counters ? ` · ${state.counters.wakesThisSession}/${state.limits.wakesPerSession}` : ''}
       </button>
-      {on && geminiSkip && <span role="note" data-help="cluster.gemini-members" title={geminiSkip} className="display-font" style={{ color: 'var(--color-fg-muted)', fontSize: '9px', letterSpacing: '1px', whiteSpace: 'nowrap' }}>SKIPS GEMINI</span>}
       {state.mode === 'rule' && state.ruleStatus?.budgetPaused && <button type="button" data-help="cluster.auto-pickup-rule-resume" disabled={!connected || state.paused} title={state.paused ? 'Resume AUTO-PICKUP before resetting its wake budget.' : 'Start a fresh Rule-based wake budget; hourly member limits remain.'} onClick={() => wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode: 'rule', resumeRule: true })}>RESET BUDGET</button>}
       {on && <button type="button" onClick={pause} disabled={!connected} data-help={state.paused ? 'cluster.auto-pickup-resume' : 'cluster.auto-pickup-pause'} aria-label={state.paused ? 'Resume AUTO-PICKUP' : 'Pause AUTO-PICKUP'} title={state.paused ? 'Resume with the same session and wake counts; check idle members with waiting mail through the normal limits.' : 'Pause automatic pickup and busy reminders without changing the mode, session or wake counts.'} className="display-font" style={{ padding: '3px 6px', background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-fg-muted)', cursor: 'pointer', fontSize: '9px', letterSpacing: '1px', whiteSpace: 'nowrap' }}>
         {state.paused ? 'RESUME' : 'PAUSE'}

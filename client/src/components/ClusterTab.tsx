@@ -30,7 +30,7 @@ import { ResearchRoundsStrip } from './research/ResearchRoundsStrip';
 import { QuickResearchOverview } from './research/QuickResearchOverview';
 import { researchRailLabel, researcherCardLine } from './research/researchView';
 import { useMessageBoxSize, messageBoxMinHeight } from '../utils/messageBoxSize';
-import { findDirector, hasNewReply, initialFocus, latestReplyId, orderMembers } from './clusterSurface.helpers';
+import { findDirector, geminiMemberNames, hasNewReply, initialFocus, latestReplyId, orderMembers } from './clusterSurface.helpers';
 import { NeedsYouBadge } from './NeedsYouBadge';
 import { useBoardTaskRequest } from '../stores/boardTaskRequest';
 import { ClusterRightPanel } from './ClusterRightPanel';
@@ -593,7 +593,8 @@ export function ClusterTab({
   const pendingTotal = pendingByMember.reduce((sum, depth) => sum + depth, 0);
   // A research project offers NUDGE only with a Gemini member, whose steps
   // and the rounds it sends wait for it (docs/RESEARCH.md).
-  const nudgeOffered = !cluster.research || cluster.members.some((m) => jobs[m.workflowId]?.config.primaryProvider === 'antigravity-cli');
+  const geminiNames = geminiMemberNames(cluster.members, jobs);
+  const nudgeOffered = !cluster.research || !!geminiNames;
   const pendingMembers = pendingByMember.filter((depth) => depth > 0).length;
   const headerPill: React.CSSProperties = {
     flex: '0 0 auto', padding: '2px 7px', background: 'transparent', color: 'var(--color-fg-muted)',
@@ -830,6 +831,16 @@ export function ClusterTab({
         flexDirection: 'column',
       }}
     >
+      {geminiNames && (
+        <aside data-help="cluster.gemini-members" aria-label="Gemini members" style={{
+          flexShrink: 0, maxHeight: '25%', overflowY: 'auto', overflowWrap: 'anywhere',
+          padding: '6px 10px', borderBottom: '1px solid var(--color-border-hairline)',
+          background: 'var(--color-bg-panel)', color: 'var(--color-fg)', fontSize: 12, lineHeight: 1.45,
+        }}>
+          <div><strong>Gemini members</strong> &middot; {geminiNames}</div>
+          <div>Use NUDGE or send from the member&apos;s own composer to start a turn. Incoming mail waits until then.</div>
+        </aside>
+      )}
       <div ref={outerContainerRef} style={{ flex: 1, minHeight: 0, display: 'flex', position: 'relative' }}>
         {/* TRIO — grid + inner splitter + detail. Wrapped here so the outer
             splitter sits between this whole block and the ClusterRightPanel
