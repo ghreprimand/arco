@@ -94,7 +94,7 @@ const MEMBER_PALETTE: ReadonlyArray<string> = [
   '#7dcfff', // cyan
 ];
 
-function memberColour(wfid: string): string {
+export function memberColour(wfid: string): string {
   let sum = 0;
   for (let i = 0; i < wfid.length; i++) sum += wfid.charCodeAt(i);
   return MEMBER_PALETTE[sum % MEMBER_PALETTE.length] ?? MEMBER_PALETTE[0]!;

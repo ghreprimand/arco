@@ -457,10 +457,10 @@ async def run(base):
             await page.get_by_role('button', name='RESULTS', exact=True).click()
             await expect(page.get_by_role('button', name='Actions for Researcher A report, round 1')).to_be_visible()
             # Returned files sit in a closed disclosure until it is opened.
-            files = page.locator('details', has=page.get_by_text('Files (4)', exact=True))
-            await expect(page.get_by_text('Files (4)', exact=True)).to_be_visible()
-            await expect(page.get_by_text('returned-1.md', exact=True)).to_be_hidden()
-            await files.locator('summary').click()
+            files = page.get_by_role('button', name='Files (4) for Researcher A, round 1')
+            await expect(files).to_be_visible()
+            await expect(page.get_by_text('returned-1.md', exact=True)).to_have_count(0)
+            await files.click()
             for k in range(1, 5):
                 await expect(page.get_by_text(f'returned-{k}.md', exact=True)).to_be_visible()
             await page.get_by_role('button', name='Send project', exact=True).click()

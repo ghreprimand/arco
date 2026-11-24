@@ -516,7 +516,7 @@ export const clusters: Section[] = [
   Open the saved Chat to use KEEP AS PROJECT after closing. The saved conversation is included in the project; deleting the Chat removes its Quick research sources but leaves a project already kept.
   </p>
   <p>
-  In RESULTS, project actions sit below the file links once a round exists. Open <Code>Actions</Code> beside a summary or report for its choices. Expand <Code>Files (n)</Code> under a report to open any of its returned files.
+  RESULTS shows a project card and one card per round. Project actions sit below the file links once a round exists. In a round card each researcher has one row: <Code>Report</Code> opens the report, <Code>Files (n)</Code> lists its returned files, and <Code>Actions</Code> beside a summary or report holds its choices.
   </p>
   <p>
   Use <Code>SEND REPORT</Code>, <Code>SEND SUMMARY</Code> or <Code>SEND PROJECT</Code> in RESULTS to copy released research, including catch-up reports, into a project folder, add a reference to an existing plan, or attach it to an open conversation draft. Choose the destinations independently; the draft is not sent. A Research Director can propose a selection for <Code>REVIEW SEND</Code>. RESULTS reports partial copies and a failed export log separately.
