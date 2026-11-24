@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
-import { useCodexCatalogFor } from '../../hooks/useCodexCatalog';
-import { DEFAULT_CODEX_MODEL, GEMINI_MEMBER_CHOICE_NOTE, ROLE_PRESETS, presetForText, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
+import { GEMINI_MEMBER_CHOICE_NOTE, ROLE_PRESETS, presetForText, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
 import type { ClusterMemberAccessMode, ClusterMemberProvider, ClusterMemberTuning, ClusterStatePayload, EffortLevel, ModelName, ProviderName } from '@arco/shared';
-import { effortsForModel } from '../../utils/format';
-import { capDefaultEffort } from '../../utils/effortDefaults';
-import { modelsForProvider, useModelCatalogs } from '../../utils/modelCatalog';
 import { CursorModelSelect } from '../CursorModelSelect';
 import { MemberSettingsFields } from './MemberSettingsFields';
-import { memberProviderAvailable } from '../WorkflowCreator/memberProviders';
+import { useFreshMemberPicker } from './useFreshMemberPicker';
 import { memberSettingsFrom, memberTuning, type MemberSettings } from './memberSettings';
 
 export type AddFreshOptions = { provider?: ClusterMemberProvider; model?: string; effort?: string; providerAccountRef?: string; accessMode?: ClusterMemberAccessMode; name?: string; role?: string; webAccess?: boolean; claudeTransport?: 'native' | 'cli' } & ClusterMemberTuning;
@@ -37,8 +33,6 @@ export function AddWorkerSection({
   const jobs = useAppStore((s) => s.jobs);
   const clusters = useAppStore((s) => s.clusters);
   const settings = useAppStore((s) => s.settings);
-  const authStatus = useAppStore((s) => s.authStatus);
-  const isProviderEnabled = useAppStore((s) => s.isProviderEnabled);
   const [mode, setMode] = useState<'idle' | 'fresh' | 'existing'>('idle');
   const [count, setCount] = useState(1);
   const [workerName, setWorkerName] = useState('');
@@ -58,102 +52,21 @@ export function AddWorkerSection({
     return () => controller.abort();
   }, [accessMode]);
 
-  // picker state for FRESH-spawn provider/model/effort overrides.
-  // Anchor = cluster template (members[0]). Defaults clone the template's
-  // primary config; changing provider resets model to the first-available
-  // catalog entry for that provider and clamps effort. The CONFIG-tab picker
-  // wires the same fields (RightPanel.tsx ~1297), so this mirrors that shape.
   const templateJob = jobs[cluster.members[0]?.workflowId ?? ''];
-  const templateProvider: ClusterMemberProvider = (() => {
-    const p = templateJob?.config.primaryProvider ?? 'claude';
-    return p === 'codex' || p === 'ollama' || p === 'llamacpp' || p === 'cursor' ? p : 'claude';
-  })();
-  const templateModel = templateJob?.config.primaryModel ?? '';
-  // A new worker never inherits an effort above HIGH; XHIGH/MAX stay an explicit pick.
-  const templateEffort = capDefaultEffort(templateJob?.config.primaryEffort ?? 'medium');
-  const templateAccountRef = templateJob?.config.providerAccountRef;
-  const codexAccounts = settings?.providerAccounts?.codex ?? [];
-  const [provider, setProvider] = useState<ClusterMemberProvider>(templateProvider);
-  const [model, setModel] = useState<string>(String(templateModel));
-  const [effort, setEffort] = useState<string>(String(templateEffort));
-  const [providerAccountRef, setProviderAccountRef] = useState<string | undefined>(templateAccountRef);
+  const templateConfig = templateJob?.config;
+  const { provider, model, effort, providerAccountRef, setModel, setEffort, setProviderAccountRef, modelOptions, effortOptions, providerOptions, providerUnavailable, codexAccounts, cursorCatalog, onPickProvider: pickProvider, templateProvider, templateModel, templateEffort, templateAccountRef } = useFreshMemberPicker({ provider: templateConfig?.primaryProvider, model: templateConfig?.primaryModel, effort: templateConfig?.primaryEffort, accountRef: templateConfig?.providerAccountRef });
   // Work size, focus and tuning: the template's tab settings, no tier, focus
   // or own auto-compaction. Sent in full with every request.
-  const templateConfig = templateJob?.config;
   const [memberSettings, setMemberSettings] = useState<MemberSettings>(() => memberSettingsFrom(templateConfig));
-  // Account-scoped so a fresh Codex member's model list matches the chosen
-  // account profile's entitlements (HOME vs WORK).
-  const codexCatalog = useCodexCatalogFor(providerAccountRef);
-  const catalogs = useModelCatalogs({ codex: codexCatalog });
-  const { claude: claudeNativeCatalog, cursor: cursorCatalog } = catalogs;
-
-  // Re-seed picker state whenever the template's identity changes (e.g.
-  // the cluster's first member rotates after a detach).
-  useEffect(() => {
-    setProvider(templateProvider);
-    setModel(String(templateModel));
-    setEffort(String(templateEffort));
-    setProviderAccountRef(templateProvider === 'codex' ? templateAccountRef : undefined);
-    setMemberSettings(memberSettingsFrom(templateConfig));
-  }, [templateProvider, templateModel, templateEffort, templateAccountRef, templateConfig?.outputStyle, templateConfig?.efficiencyToolFilter, templateConfig?.fastMode]);
-
-  // Per-provider model list — live catalog when available, static otherwise.
-  // Cursor gets auto + the full frontier catalog, same picker depth as a
-  // standalone tab (`auto` is a convenient default, not a forced lane).
-  const modelOptions: string[] = useMemo(
-    () => modelsForProvider(provider, catalogs).map(String),
-    [provider, catalogs],
-  );
-
-  // Per-model effort set — same source as the CONFIG picker (effortsForModel).
-  const effortOptions: string[] = useMemo(() => {
-    return effortsForModel(provider, model, claudeNativeCatalog, codexCatalog);
-  }, [provider, model, claudeNativeCatalog, codexCatalog]);
-
-  // Changing provider resets model to first-available for that provider's
-  // catalog (the inherited template name is wrong for the new provider) and
-  // clamps effort. Anchor-default reuse only when provider matches anchor's.
+  useEffect(() => { setMemberSettings(memberSettingsFrom(templateConfig)); }, [templateProvider, templateModel, templateEffort, templateAccountRef, templateConfig?.outputStyle, templateConfig?.efficiencyToolFilter, templateConfig?.fastMode]);
   const onPickProvider = (next: ClusterMemberProvider) => {
-    if (accessMode === 'isolated' && !isolatedProvider(next)) return;
-    setProvider(next);
-    if (next === templateProvider) {
-      setModel(String(templateModel));
-      setEffort(String(templateEffort));
-      setProviderAccountRef(next === 'codex' ? templateAccountRef : undefined);
-    } else {
-      const firstModel = next === 'claude'
-        ? (claudeNativeCatalog?.models?.[0]?.id ?? 'opus')
-        : next === 'codex'
-          ? (codexCatalog?.models?.find((m) => !m.hidden)?.id ?? DEFAULT_CODEX_MODEL)
-          : next === 'ollama'
-            ? (authStatus?.ollama?.installedModels?.[0] ?? '')
-          : next === 'cursor'
-            ? (cursorCatalog?.models?.find((m) => m.isDefault)?.id ?? 'auto')
-          : next === 'antigravity-cli'
-            ? (authStatus?.['antigravity-cli']?.installedModels?.[0] ?? '')
-            : (authStatus?.llamacpp?.installedModels?.[0] ?? '');
-      setModel(firstModel);
-      // Effort gets clamped post-hoc by effortOptions; pick 'medium' as the
-      // pragmatic default until the per-model set narrows it.
-      setEffort('medium');
-      setProviderAccountRef(next === 'codex' ? codexAccounts[0]?.id : undefined);
-    }
+    if (accessMode !== 'isolated' || isolatedProvider(next)) pickProvider(next);
   };
-
-  // Clamp effort whenever the effort set changes so an inherited value
-  // that's no longer valid (e.g. provider flipped) snaps to the highest
-  // available entry.
-  useEffect(() => {
-    if (effortOptions.length === 0) return;
-    if (!effortOptions.includes(effort)) {
-      setEffort(capDefaultEffort(effort as EffortLevel, provider as ProviderName, model as ModelName, claudeNativeCatalog, codexCatalog));
-    }
-  }, [effortOptions, effort]);
 
   // Submit guard — if the operator flipped provider away from the anchor's,
   // model must be non-empty (server enforces; UI mirrors).
   const sandboxUnavailable = accessMode === 'isolated' && ((provider === 'codex' && !sandbox.codex) || (provider === 'cursor' && !sandbox.cursor) || (provider === 'claude' && isolatedClaudeTransport === 'cli' && !sandbox.claudeCli));
-  const submitDisabled = sandboxUnavailable || (provider !== templateProvider && !model) || (isClusterDirector(workerRole) && (hasDirector || count > 1));
+  const submitDisabled = providerUnavailable || sandboxUnavailable || !model || (isClusterDirector(workerRole) && (hasDirector || count > 1));
 
   const memberIds = useMemo(() => new Set(cluster.members.map((m) => m.workflowId)), [cluster.members]);
 
@@ -285,7 +198,7 @@ export function AddWorkerSection({
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
             <span style={{ color: 'var(--color-fg-muted)', fontSize: '10px', letterSpacing: '1px' }}>PROVIDER</span>
-            {(['claude', 'codex', 'ollama', 'llamacpp', 'cursor', ...(provider === 'antigravity-cli' || memberProviderAvailable('antigravity-cli', authStatus, isProviderEnabled) ? ['antigravity-cli'] : [])] as ClusterMemberProvider[]).map((p) => (
+            {providerOptions.map((p) => (
               <button
                 key={p}
                 disabled={accessMode === 'isolated' && !isolatedUsable(p)}

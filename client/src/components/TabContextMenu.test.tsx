@@ -7,7 +7,7 @@ import { CLUSTER_MEMBER_PROVIDERS } from '@arco/shared';
 import { useAppStore } from '../stores/appStore.js';
 import { CLUSTER_PROVIDER_REFUSAL, CURSOR_TAB_REFUSAL, LMSTUDIO_TAB_REFUSAL, TabContextMenu } from './TabContextMenu.js';
 
-async function render(jobs: Record<string, { provider: string }>, anchor: string, fresh?: (opts: unknown) => void): Promise<string> {
+async function render(jobs: Record<string, { provider: string }>, anchor: string, fresh?: (opts: unknown) => void, pick?: string): Promise<string> {
   const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: 'http://localhost/', pretendToBeVisual: true });
   const previous = new Map(['window', 'document', 'localStorage', 'navigator', 'React', 'IS_REACT_ACT_ENVIRONMENT'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
   for (const name of ['window', 'document', 'localStorage', 'navigator'] as const) Object.defineProperty(globalThis, name, { configurable: true, value: name === 'window' ? dom.window : dom.window[name] });
@@ -18,19 +18,19 @@ async function render(jobs: Record<string, { provider: string }>, anchor: string
   const storage = useAppStore.persist.getOptions().storage;
   useAppStore.persist.setOptions({ storage: { getItem: () => null, setItem() {}, removeItem() {} } });
   try {
-    useAppStore.setState({ clusters: {}, jobs: {} });
+    useAppStore.setState({ clusters: {}, jobs: {}, authStatus: { claude: { loggedIn: true }, codex: { loggedIn: true }, ollama: { loggedIn: true, installedModels: ['local-model'] }, llamacpp: { loggedIn: true, installedModels: ['local-model'] }, cursor: { loggedIn: true }, 'antigravity-cli': { loggedIn: true, installedModels: ['gemini-fixture'] } } as never });
     for (const [id, { provider }] of Object.entries(jobs)) {
       useAppStore.getState().createJob(id, { name: `tab ${id}`, workingDirectory: '/fixture/project', skipPermissions: false, primaryProvider: provider as never, primaryModel: 'fixture-model', primaryEffort: 'low' });
     }
     await act(async () => root.render(createElement(TabContextMenu, { anchorJobId: anchor, onClose() {}, onCreateCluster() {}, onAddClusterMember() {}, onCreateClusterWithFreshWorkers(_id, _count, opts) { fresh?.(opts); } })));
     if (fresh) {
       const click = async (label: string) => { const button = [...dom.window.document.querySelectorAll('button')].find(b => b.textContent?.trim() === label); assert.ok(button, label); await act(async () => button.click()); };
-      await click('CREATE WITH FRESH'); await click('CREATE + 2 FRESH');
+      await click('CREATE WITH FRESH'); if (pick) await click(pick); await click('CREATE + 2 FRESH');
     }
     return dom.window.document.body.textContent ?? '';
   } finally {
     await act(async () => root.unmount());
-    useAppStore.setState({ jobs: before.jobs, clusters: before.clusters });
+    useAppStore.setState({ jobs: before.jobs, clusters: before.clusters, authStatus: before.authStatus });
     useAppStore.persist.setOptions({ storage });
     for (const [name, descriptor] of previous) { if (descriptor) Object.defineProperty(globalThis, name, descriptor); else Reflect.deleteProperty(globalThis, name); }
     dom.window.close();
@@ -61,10 +61,19 @@ test('LM Studio is refused with its supported cluster provider list', async () =
   assert.doesNotMatch(text, /only Claude or Codex|no MCP wiring/);
 });
 
- test('B177: fresh Claude workers from local anchors explicitly select the displayed provider', async () => {
+test('the fresh picker creates Cursor and Gemini workers using their shared member settings', async () => {
+  for (const [label, provider, model] of [['CURSOR', 'cursor', 'auto'], ['GEMINI', 'antigravity-cli', 'gemini-fixture']]) {
+    let options: any;
+    await render({ a: { provider: 'claude' } }, 'a', opts => { options = opts; }, label);
+    assert.equal(options?.provider, provider);
+    assert.equal(options?.model, model);
+  }
+});
+
+test('B177: fresh workers from local anchors retain the displayed provider', async () => {
   for (const provider of ['ollama', 'llamacpp']) {
     let options: any;
     await render({ a: { provider } }, 'a', opts => { options = opts; });
-    assert.equal(options?.provider, 'claude', provider);
+    assert.equal(options?.provider, undefined, provider);
   }
 });

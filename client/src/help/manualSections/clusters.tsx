@@ -115,8 +115,7 @@ export const clusters: Section[] = [
   </li>
   <li>
   <strong>CREATE WITH FRESH</strong> - spawn N (1-4) new workflows
-  (Claude or Codex) using the provider, model and effort shown in the picker,
-  including when the anchor uses Ollama or llama.cpp. Other settings inherit
+  using the enabled, connected provider, model, account and effort shown in the picker. Cursor and Gemini can be selected as fresh members. Other settings inherit
   from the anchor. The new workflows join it under a new cluster.
   </li>
   <li>

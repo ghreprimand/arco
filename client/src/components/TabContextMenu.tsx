@@ -20,15 +20,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { clusterDisplayName } from './TabBar';
-import { DEFAULT_CODEX_MODEL, isClusterMemberProvider } from '@arco/shared';
+import { GEMINI_MEMBER_CHOICE_NOTE, isClusterMemberProvider } from '@arco/shared';
 import type { ClusterMemberProvider } from '@arco/shared';
-import { effortsForModel } from '../utils/format';
-import { modelsForProvider, useModelCatalogs } from '../utils/modelCatalog';
+import { useFreshMemberPicker } from './ClusterRightPanel/useFreshMemberPicker';
+import { CursorModelSelect } from './CursorModelSelect';
 
 type Mode = 'create-existing' | 'add-existing' | 'create-fresh';
 
 export const CLUSTER_PROVIDER_REFUSAL = 'This menu adds Claude, Codex, Ollama and llama.cpp tabs to a cluster. This tab uses another provider, which cannot receive the cluster peer tools.';
-export const CURSOR_TAB_REFUSAL = 'An open Cursor tab cannot join a cluster. Add a new Cursor member with + ADD FRESH in the cluster panel.';
+export const CURSOR_TAB_REFUSAL = 'An open Cursor tab cannot join a cluster because its session started without cluster tools. Use CREATE WITH FRESH from another tab or + ADD FRESH in a cluster to create a Cursor member.';
 export const LMSTUDIO_TAB_REFUSAL = 'LM Studio tabs cannot join clusters. Cluster membership is supported for Claude, Codex, Ollama, llama.cpp and new Cursor workers.';
 const PENDING_TOOLS_NOTICE = 'This tab is working. It gets its cluster tools when the current turn ends.';
 
@@ -120,69 +120,7 @@ export function TabContextMenu({
   const [freshCount, setFreshCount] = useState<number>(2);
   const [freshName, setFreshName] = useState<string>('');
 
-  // provider/model/effort picker for FRESH spawn. Mirrors the
-  // ClusterRightPanel ADD FRESH picker (same shape; same defaults seeded
-  // from the anchor's primary). Anchor here is the right-clicked tab.
-  const catalogs = useModelCatalogs();
-  const { claude: claudeNativeCatalog, codex: codexCatalog } = catalogs;
-  const anchorProvider: 'claude' | 'codex' =
-    (anchor?.config.primaryProvider ?? 'claude') === 'codex' ? 'codex' : 'claude';
-  const anchorModel = String(anchor?.config.primaryModel ?? '');
-  const anchorEffort = String(anchor?.config.primaryEffort ?? 'medium');
-  const anchorAccountRef = anchor?.config.providerAccountRef;
-  const codexAccounts = settings?.providerAccounts?.codex ?? [];
-  const [freshProvider, setFreshProvider] = useState<'claude' | 'codex'>(anchorProvider);
-  const [freshModel, setFreshModel] = useState<string>(anchorModel);
-  const [freshEffort, setFreshEffort] = useState<string>(anchorEffort);
-  const [freshAccountRef, setFreshAccountRef] = useState<string | undefined>(anchorProvider === 'codex' ? anchorAccountRef : undefined);
-
-  // Fresh spawn is deliberately claude/codex only (mirrors the
-  // ADD FRESH picker); the list itself comes from the shared resolver.
-  const freshModelOptions: string[] = useMemo(
-    () => modelsForProvider(freshProvider, catalogs).map(String),
-    [freshProvider, catalogs],
-  );
-
-  const freshEffortOptions: string[] = useMemo(() => {
-    return effortsForModel(freshProvider, freshModel, claudeNativeCatalog, codexCatalog);
-  }, [freshProvider, freshModel, claudeNativeCatalog, codexCatalog]);
-
-  // Clamp model to the option list — the anchor tab may be on a
-  // family alias or a since-dropped id, and a select whose value matches no
-  // option renders the first one while state keeps the unmatched value. The
-  // fresh tab would then be created on something the operator never saw.
-  useEffect(() => {
-    if (freshModelOptions.length === 0) return;
-    if (!freshModelOptions.includes(freshModel)) setFreshModel(freshModelOptions[0]);
-  }, [freshModelOptions, freshModel]);
-
-  // Clamp effort if it drops out of the per-model set.
-  useEffect(() => {
-    if (freshEffortOptions.length === 0) return;
-    if (!freshEffortOptions.includes(freshEffort)) {
-      setFreshEffort(freshEffortOptions[freshEffortOptions.length - 1]);
-    }
-  }, [freshEffortOptions, freshEffort]);
-
-  // Changing provider resets model to first-available for that provider's
-  // catalog (anchor's model name is wrong for the new provider).
-  const onPickFreshProvider = (next: 'claude' | 'codex') => {
-    setFreshProvider(next);
-    if (next === anchorProvider) {
-      setFreshModel(anchorModel);
-      setFreshEffort(anchorEffort);
-      setFreshAccountRef(next === 'codex' ? anchorAccountRef : undefined);
-    } else {
-      const firstModel = (next === 'claude'
-        // Alias fallback only when the catalog is cold — the alias is not a
-        // dispatchable id on the Native transport (worker resolves it).
-        ? (claudeNativeCatalog?.models?.[0]?.id ?? 'opus')
-        : (codexCatalog?.models?.find((m) => !m.hidden)?.id ?? DEFAULT_CODEX_MODEL));
-      setFreshModel(firstModel);
-      setFreshEffort('medium');
-      setFreshAccountRef(next === 'codex' ? codexAccounts[0]?.id : undefined);
-    }
-  };
+  const { provider: freshProvider, model: freshModel, effort: freshEffort, providerAccountRef: freshAccountRef, setModel: setFreshModel, setEffort: setFreshEffort, setProviderAccountRef: setFreshAccountRef, modelOptions: freshModelOptions, effortOptions: freshEffortOptions, providerOptions, providerUnavailable, codexAccounts, cursorCatalog, onPickProvider: onPickFreshProvider, templateProvider: anchorProvider, templateModel: anchorModel, templateEffort: anchorEffort, templateAccountRef: anchorAccountRef } = useFreshMemberPicker({ provider: anchor?.config.primaryProvider, model: anchor?.config.primaryModel, effort: anchor?.config.primaryEffort, accountRef: anchor?.config.providerAccountRef });
 
   if (!anchor) {
     onClose();
@@ -232,8 +170,7 @@ export function TabContextMenu({
   // anchor's, model must be non-empty (server enforces; UI hides the
   // SPAWN action so the rejection path is reserved for protocol bugs).
   const freshSubmitBlocked = mode === 'create-fresh'
-    && freshProvider !== anchorProvider
-    && !freshModel;
+    && (providerUnavailable || !freshModel);
 
   const submitDisabled =
     !anchorIsNative
@@ -401,42 +338,14 @@ export function TabContextMenu({
                 + 'COUNT' rows live below, unchanged. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11px', color: 'var(--color-fg-muted)' }}>
               <span style={{ minWidth: '90px' }}>PROVIDER</span>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button
-                  data-help="cluster.fresh.provider"
-                  onClick={() => onPickFreshProvider('claude')}
-                  className="display-font"
-                  style={{
-                    padding: '4px 10px',
-                    background: freshProvider === 'claude' ? 'var(--color-accent-primary-a10)' : 'transparent',
-                    border: `1px solid ${freshProvider === 'claude' ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,
-                    color: freshProvider === 'claude' ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                  }}
-                >
-                  CLAUDE
-                </button>
-                <button
-                  data-help="cluster.fresh.provider"
-                  onClick={() => onPickFreshProvider('codex')}
-                  className="display-font"
-                  style={{
-                    padding: '4px 10px',
-                    background: freshProvider === 'codex' ? 'var(--color-accent-primary-a10)' : 'transparent',
-                    border: `1px solid ${freshProvider === 'codex' ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`,
-                    color: freshProvider === 'codex' ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)',
-                    cursor: 'pointer',
-                    fontSize: '11px',
-                  }}
-                >
-                  CODEX
-                </button>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {providerOptions.map(p => <button key={p} data-help="cluster.fresh.provider" onClick={() => onPickFreshProvider(p)} className="display-font" style={{ padding: '4px 10px', background: freshProvider === p ? 'var(--color-accent-primary-a10)' : 'transparent', border: `1px solid ${freshProvider === p ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`, color: freshProvider === p ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)', cursor: 'pointer', fontSize: '11px' }}>{p === 'llamacpp' ? 'LLAMA' : p === 'antigravity-cli' ? 'GEMINI' : p.toUpperCase()}</button>)}
               </div>
             </div>
+            {freshProvider === 'antigravity-cli' && <div role="note">{GEMINI_MEMBER_CHOICE_NOTE}</div>}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11px', color: 'var(--color-fg-muted)' }}>
               <span style={{ minWidth: '90px' }}>MODEL</span>
-              <select
+              {freshProvider === 'cursor' && cursorCatalog?.models?.length ? <CursorModelSelect value={freshModel} onChange={setFreshModel} selectStyle={{ background: 'var(--color-bg-sunken)', color: 'var(--color-fg)', minWidth: 120 }} /> : <select
                 data-help="cluster.fresh.model"
                 value={freshModel}
                 onChange={(e) => setFreshModel(e.target.value)}
@@ -455,7 +364,7 @@ export function TabContextMenu({
                 {freshModelOptions.map((m) => (
                   <option key={m} value={m}>{m}</option>
                 ))}
-              </select>
+              </select>}
             </div>
             {freshProvider === 'codex' && codexAccounts.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11px', color: 'var(--color-fg-muted)' }}>
@@ -487,6 +396,7 @@ export function TabContextMenu({
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '11px', color: 'var(--color-fg-muted)' }}>
               <span style={{ minWidth: '90px' }}>EFFORT</span>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {freshEffortOptions.length === 0 && <span>{freshProvider === 'cursor' ? 'BAKED INTO MODEL' : 'LOCAL MODEL'}</span>}
                 {freshEffortOptions.map((e) => (
                   <button
                     key={e}

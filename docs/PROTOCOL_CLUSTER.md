@@ -245,7 +245,7 @@ The operator picked "ADD TO EXISTING" in the `TabContextMenu`. Server validates:
 
 ### `cluster_create_with_fresh_workers` ->
 
-The operator picked "CREATE WITH FRESH" in the `TabContextMenu`. Server: validates the source via `assertAllMembersClaudeOrCodex`; creates `additionalCount` new workflows (clamped to 1-4) each inheriting the source's cwd + primary config; calls `clusterStore.createCluster` with `[sourceWorkflowId,...newWorkflowIds]`; optionally `renameCluster` if `name` is non-empty. Each fresh workflow fires `workflow_created`; the cluster fires `cluster_created` on the originating socket only.
+The operator picked "CREATE WITH FRESH" in the `TabContextMenu`. The picker shares provider availability, account-specific models, model defaults and effort rules with ADD FRESH, including the Gemini NUDGE notice. Server: validates the source via `assertAllMembersClaudeOrCodex`; creates `additionalCount` new workflows (clamped to 1-4) each inheriting the source's cwd + primary config; calls `clusterStore.createCluster` with `[sourceWorkflowId,...newWorkflowIds]`; optionally `renameCluster` if `name` is non-empty. Each fresh workflow fires `workflow_created`; the cluster fires `cluster_created` on the originating socket only.
 
 ```ts
 {

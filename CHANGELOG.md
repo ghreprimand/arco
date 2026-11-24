@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Offer enabled and connected cluster providers when creating fresh workers from a tab.
+
 - Open a cluster directly from its row in the mobile view, on its Director or the member last shown, and list its members from a separate MEMBERS control on the row.
 
 - Copy the whole released research when starting a project from research: a README.md index, the brief, the chosen summary, the Director log and one folder per round with its record, summary, reports and returned files under their original names. The Start dialog shows what will be copied and the folder tree first, and Send project uses the same layout.

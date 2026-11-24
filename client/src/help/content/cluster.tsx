@@ -417,7 +417,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
   },
   'cluster.fresh.provider': {
     title: 'Fresh provider',
-    body: <p>Which provider the new workers use: Claude, Codex, Ollama, llama.cpp or Cursor. <C>ISOLATED</C> access needs Claude. The choice starts from the cluster&apos;s first member when that provider is offered, otherwise Claude, and changing it resets the model. CREATE WITH FRESH in the tab menu offers Claude and Codex.</p>,
+    body: <p>Choose an enabled and connected provider for the new workers, including Cursor and Gemini. Changing provider resets the model. Gemini members wait for your NUDGE. CREATE WITH FRESH in the tab menu uses the same choices.</p>,
     manualSection: 'cluster-tab',
   },
   'cluster.fresh.model': {
