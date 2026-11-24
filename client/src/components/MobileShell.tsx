@@ -24,7 +24,7 @@ import { MOBILE_TEXT_SIZES, readMobileTextSize, writeMobileTextSize } from '../t
 import { openArchive } from '../explorer/launch';
 import { CatchMeUp } from './CatchMeUp';
 import { openMediaStudio } from './media/launchers';
-import type { ClusterStatePayload } from '@arco/shared';
+import { isClusterDirector, type ClusterStatePayload } from '@arco/shared';
 
 const control = {
   minHeight: '44px', minWidth: '44px', padding: '0 12px', fontSize: '12px', letterSpacing: '0.5px', cursor: 'pointer',
@@ -484,20 +484,37 @@ export function MobileDirectory() {
         const working = c.members.filter((m) => m.status === 'busy' || jobs[m.workflowId]?.busy).length;
         const waiting = states.filter((s) => s === 'NEEDS YOU').length;
         const expanded = !!open[c.clusterId];
+        // Where the row opens: the member last in view, else the Director.
+        const last = focused[c.clusterId];
+        const target = (last && c.members.some((m) => m.workflowId === last) ? last : undefined)
+          ?? c.members.find((m) => isClusterDirector(m.role))?.workflowId ?? c.members[0]?.workflowId;
+        const current = activeClusterId === c.clusterId && !expanded;
         return (
           <div key={c.clusterId}>
-            <button type="button" data-testid="mobile-cluster" aria-expanded={expanded} onClick={() => setOpen((o) => ({ ...o, [c.clusterId]: !expanded }))}
-              aria-label={`${clusterDisplayName(c)}: ${working} working, ${needYou(waiting)}`} style={rowStyle(false, false)}>
-              <span aria-hidden="true" style={{ width: '1em', color: 'var(--color-accent-primary)' }}>{expanded ? '\u25BE' : '\u25B8'}</span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'block', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{clusterDisplayName(c)}</span>
-                <span style={{ display: 'flex', gap: '2px' }} aria-hidden="true">{states.map((s, i) => <StateMark key={i} state={s} />)}</span>
-              </span>
-              <span className="display-font" style={{ fontSize: '12px', textAlign: 'right', lineHeight: 1.4 }}>
-                <span style={{ display: 'block', color: 'var(--color-fg)', fontWeight: 700 }}>{working} working</span>
-                <span style={{ display: 'block', color: 'var(--color-fg)', fontWeight: 700 }}>{needYou(waiting)}</span>
-              </span>
-            </button>
+            {/* Two controls side by side: the row opens the cluster, as a
+                research project's row does; MEMBERS folds its list open. */}
+            <div style={{ display: 'flex', alignItems: 'stretch', borderBottom: '1px solid var(--color-border-hairline)', background: current ? 'var(--color-accent-primary-a08)' : 'transparent' }}>
+              <button type="button" data-testid="mobile-cluster" aria-current={current ? 'page' : undefined}
+                onClick={() => openConversation(() => { store().setActiveCluster(c.clusterId); if (target) store().setClusterFocusedMember(c.clusterId, target); })}
+                aria-label={`${clusterDisplayName(c)}: ${working} working, ${needYou(waiting)}`}
+                style={{ ...rowStyle(false, false), flex: 1, minWidth: 0, width: 'auto', borderBottom: 0, paddingRight: '8px' }}>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: '16px', fontWeight: 600, fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{clusterDisplayName(c)}</span>
+                  <span style={{ display: 'flex', gap: '2px', overflow: 'hidden' }} aria-hidden="true">{states.map((s, i) => <StateMark key={i} state={s} />)}</span>
+                </span>
+                <span className="display-font" style={{ flexShrink: 0, fontSize: '12px', textAlign: 'right', lineHeight: 1.4 }}>
+                  <span style={{ display: 'block', color: 'var(--color-fg)', fontWeight: 700 }}>{working} working</span>
+                  <span style={{ display: 'block', color: 'var(--color-fg)', fontWeight: 700 }}>{needYou(waiting)}</span>
+                </span>
+              </button>
+              <button type="button" data-testid="mobile-cluster-members" data-help="mobile.cluster-members" aria-expanded={expanded} aria-controls={`mobile-members-${c.clusterId}`}
+                onClick={() => setOpen((o) => ({ ...o, [c.clusterId]: !expanded }))}
+                aria-label={`${expanded ? 'Hide' : 'Show'} members of ${clusterDisplayName(c)}`} className="display-font"
+                style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '6px', minWidth: '44px', minHeight: '56px', padding: '6px calc(14px + env(safe-area-inset-right)) 6px 12px', background: 'transparent', color: 'var(--color-fg)', border: 0, borderLeft: '1px solid var(--color-border-hairline)', borderRadius: 0, fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', cursor: 'pointer' }}>
+                MEMBERS<span aria-hidden="true" style={{ color: 'var(--color-accent-primary)', fontFamily: 'var(--font-body)' }}>{expanded ? '\u25BE' : '\u25B8'}</span>
+              </button>
+            </div>
+            <div id={`mobile-members-${c.clusterId}`}>
             {expanded && c.members.map((m, i) => {
               const mail = c.mailboxDepth?.[m.workflowId] ?? 0;
               return (
@@ -507,6 +524,7 @@ export function MobileDirectory() {
                   onClick={() => openConversation(() => { store().setActiveCluster(c.clusterId); store().setClusterFocusedMember(c.clusterId, m.workflowId); })} />
               );
             })}
+            </div>
           </div>
         );
       })}

@@ -46,7 +46,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.directory': {
     title: 'Tabs',
-    body: <p>Everything that needs you comes first, then clusters, research projects, agents, chats, Home and New tab. Quick research appears with Chats. Choose a row to open that conversation. Drafts are kept.</p>,
+    body: <p>Everything that needs you comes first, then clusters, research projects, agents, chats, Home and New tab. Quick research appears with Chats. Choose a row to open that conversation; a cluster opens on its Director or the member last shown, and MEMBERS beside it lists its members. Drafts are kept.</p>,
     manualSection: 'window-layout',
   },
   'mobile.back': {
@@ -57,6 +57,11 @@ export const miscHelp: Record<string, HelpEntry> = {
   'mobile.title': {
     title: 'Conversation name',
     body: <p>The conversation shown and its state. In a cluster, choose it to list the members and switch to another one.</p>,
+    manualSection: 'window-layout',
+  },
+  'mobile.cluster-members': {
+    title: 'Members',
+    body: <p>Shows or hides this cluster's members in the list, each with its state and unread mail. Choose a member to open the cluster on it. The cluster row itself opens the cluster directly.</p>,
     manualSection: 'window-layout',
   },
   'mobile.members': {

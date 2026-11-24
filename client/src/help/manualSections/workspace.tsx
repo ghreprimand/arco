@@ -690,6 +690,11 @@ export const workspace: Section[] = [
           theme; the text size is set per phone.
         </p>
         <p>
+          In the list, a cluster row opens the cluster on its Director, or on
+          the member last shown. <strong>MEMBERS</strong> beside it lists the
+          cluster's members; choose one to open the cluster on it.
+        </p>
+        <p>
           The message box keeps the draft, the options button and{' '}
           <strong>SEND</strong> on one row; the options button shows files,
           model, skills, recipient and NUDGE. While the agent works,{' '}
