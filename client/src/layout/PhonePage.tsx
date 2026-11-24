@@ -6,7 +6,7 @@
 
 import { useEffect, useRef, type ReactNode } from 'react';
 import { usePhoneOverlay } from './phoneOverlay';
-import { usePhoneStore } from '../stores/phoneStore';
+import { onPanelsClosed, usePhoneStore } from '../stores/phoneStore';
 import { PHONE_SHEET_HOST } from './PhoneBottomSheet';
 
 interface PhonePageProps {
@@ -30,7 +30,7 @@ export function PhonePage({ title, onClose, children, testId }: PhonePageProps) 
     phone.closePanels();
     const openedAt = usePhoneStore.getState().panelCloseSeq;
     usePhoneStore.setState({ openPanel: title, pageTitle: title, panelIndex: false, panelFromIndex: false });
-    const stop = usePhoneStore.subscribe((s) => { if (s.panelCloseSeq !== openedAt) closeRef.current(); });
+    const stop = onPanelsClosed(openedAt, () => closeRef.current());
     return () => {
       stop();
       if (usePhoneStore.getState().openPanel === title) usePhoneStore.setState({ openPanel: null, pageTitle: '' });

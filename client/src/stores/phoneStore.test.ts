@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mobileBackStep, mobileDepth, usePhoneStore } from './phoneStore';
+import { mobileBackStep, mobileDepth, onPanelsClosed, usePhoneStore } from './phoneStore';
 
 test('Back in the mobile view closes the top layer first, then leaves the conversation', () => {
   const none = { sheet: false, dialog: false, settings: false, terminal: false, panel: false, conversation: false };
@@ -31,4 +31,17 @@ test('a question opened from the directory keeps its member as owner', () => {
   assert.equal(usePhoneStore.getState().questionWorkflowId, 'researcher-a');
   usePhoneStore.getState().openSheet(null);
   assert.equal(usePhoneStore.getState().questionWorkflowId, null);
+});
+
+test('a page is closed once when its close itself changes the phone store', () => {
+  let calls = 0;
+  const stop = onPanelsClosed(usePhoneStore.getState().panelCloseSeq, () => {
+    calls += 1;
+    usePhoneStore.getState().setSystemOpen(false);
+    usePhoneStore.getState().setOpenPanel(null);
+  });
+  usePhoneStore.getState().closePanels();
+  usePhoneStore.getState().closePanels();
+  stop();
+  assert.equal(calls, 1);
 });

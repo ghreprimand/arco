@@ -123,6 +123,22 @@ export function usePhonePageChrome(active: boolean, chrome: PhonePageChrome): vo
   }, [active, chrome]);
 }
 
+/** For a page no view hosts (PhonePage): calls `close` once, the first time
+ * the panels are closed after `openedAt` (the back arrow, the phone's Back or
+ * another overlay taking the screen). The watch ends before `close` runs, so a
+ * `close` that itself changes this store is not called again. Returns the stop. */
+export function onPanelsClosed(openedAt: number, close: () => void): () => void {
+  let done = false;
+  let stop = () => {};
+  stop = usePhoneStore.subscribe((s) => {
+    if (done || s.panelCloseSeq === openedAt) return;
+    done = true;
+    stop();
+    close();
+  });
+  return () => { done = true; stop(); };
+}
+
 /** For a view with phone panels: open the panel the operator asks for after the
  * view mounted, and close its panels when another overlay takes the screen. An
  * older request never reopens a panel on another tab. */
