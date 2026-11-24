@@ -230,7 +230,7 @@ export async function executePeerTool(
       });
       if (!result.ok) return `[error] ${result.message}`;
       return JSON.stringify(
-        { msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately, ...(result.heldForRound !== undefined ? { heldForRound: Math.max(1, result.heldForRound), note: researchHeldNote(result.heldForRound) } : {}), ...(result.recipientContext ? { recipientContext: result.recipientContext } : {}), ...(result.guard ? { guard: result.guard } : {}) },
+        { msgId: result.msgId, to: result.to, deliveredImmediately: result.deliveredImmediately, ...(result.heldForRound !== undefined ? { heldForRound: Math.max(1, result.heldForRound), note: researchHeldNote(result.heldForRound) } : {}), ...(result.replaced ? { replaced: result.replaced } : {}), ...(result.recipientContext ? { recipientContext: result.recipientContext } : {}), ...(result.guard ? { guard: result.guard } : {}) },
         null,
         2,
       );

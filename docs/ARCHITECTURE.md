@@ -801,7 +801,12 @@ copies them into the recipient's `.arco/peer-artifacts/<msgId>/`.
 - `+ ADD WORKER` (spawn N fresh inheriting the cluster's template, or pick a same-cwd standalone tab).
 - `REPLACE` per member (new workflow/provider session in the same roster
   position; cloned config; optional provider/model/effort/account override;
-  independent history/task-transfer switches).
+  independent history/task-transfer switches). Cluster meta keeps
+  `formerMembers` (old id to current id, chains collapsed, entries for a
+  removed member dropped, at most 64), so `resolvePeer` still resolves a
+  replaced member's full id or unique 8-character prefix when no current
+  member matches: a `peer_send` to it is delivered to the replacement and the
+  result's `replaced` note names the current member and id.
 - STANDARD / BLIND / ISOLATED access picker for fresh and replacement workers.
 - `DETACH` button per member (wires `cluster_member_remove`; same wire as the bottom-row ×).
 - `RENAME` + per-member `ROLE` pencil edits.

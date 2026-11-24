@@ -74,3 +74,26 @@ test('member replacement transfers pending mail for workers and the director', a
     await fs.rm(cwd, { recursive: true, force: true });
   }
 });
+
+test('a replaced member id resolves to the member now in its slot until that member leaves', async () => {
+  const cwd = await fs.mkdtemp(join(tmpdir(), 'arco-cluster-replace-id-'));
+  const [directorId, firstId, secondId, thirdId, otherId] = [randomUUID(), randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+  let clusterId: string | undefined;
+  try {
+    clusterId = (await clusterStore.createCluster({ cwd, memberWorkflowIds: [directorId, firstId, otherId] })).clusterId;
+    await clusterStore.replaceMember(clusterId, firstId, secondId);
+    await clusterStore.replaceMember(clusterId, secondId, thirdId);
+
+    assert.deepEqual(clusterStore.resolvePeerTarget(clusterId, firstId), { workflowId: thirdId, replaced: firstId });
+    assert.deepEqual(clusterStore.resolvePeerTarget(clusterId, secondId.slice(0, 8)), { workflowId: thirdId, replaced: secondId });
+    assert.equal(clusterStore.resolvePeer(clusterId, firstId.slice(0, 7)), undefined);
+    assert.equal(clusterStore.resolvePeer(clusterId, otherId), otherId);
+
+    await clusterStore.removeMember(clusterId, thirdId);
+    assert.equal(clusterStore.resolvePeer(clusterId, firstId), undefined);
+    assert.equal((await clusterStore.readCluster(clusterId))?.formerMembers, undefined);
+  } finally {
+    if (clusterId) await clusterStore.deleteCluster(clusterId);
+    await fs.rm(cwd, { recursive: true, force: true });
+  }
+});

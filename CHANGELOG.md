@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Deliver cluster mail sent to a replaced member's old id to the member that replaced it, and tell the sender the current name and id.
+
 - Avoid false research sandbox warnings for regular expressions containing slash patterns.
 
 - Keep sandboxed workers' model connections open while a model is silent for up to 10 minutes, instead of cutting them after 30 seconds.

@@ -120,6 +120,9 @@ export interface PeerSendResult {
   deliveredImmediately: false;
   // Research projects: the reply is held until this round is released.
   heldForRound?: number;
+  // The sender named a replaced member's old id; the message went to the
+  // member now in that slot, and this note tells the sender to use it.
+  replaced?: string;
   recipientContext?: RecipientContext;
   guard?: clusterBudget.BudgetDecision & { warning?: string };
 }
@@ -192,9 +195,12 @@ export async function peerSend(
   const senderResearcher = research ? researcherFor(research, ctx.workflowId) : undefined;
   const directorOfResearch = !!research && research.directorWorkflowId === ctx.workflowId;
   // Primary path: full workflowId or unambiguous 8-char prefix (plan §0).
-  let resolved = senderResearcher
-    ? research!.directorWorkflowId
-    : (directorOfResearch ? resolveResearcherRef(research!, args.to) : undefined) ?? clusterStore.resolvePeer(ctx.clusterId, args.to);
+  const researcherRef = senderResearcher || !directorOfResearch ? undefined : resolveResearcherRef(research!, args.to);
+  const target = senderResearcher || researcherRef ? undefined : clusterStore.resolvePeerTarget(ctx.clusterId, args.to);
+  let resolved = senderResearcher ? research!.directorWorkflowId : researcherRef ?? target?.workflowId;
+  const replacedNote = target?.replaced
+    ? `${target.replaced} was replaced; this message went to ${clusterStore.displayNameFor(target.workflowId)} (${target.workflowId}), the member now in its place. Use that name or id from now on.`
+    : undefined;
   // 2026-05-11 bug fix — fall back to displayName matching when the model
   // types a friendly name ("Harbor", "Harbor #2") instead of a wfid
   // prefix. Resolution order: case-insensitive exact displayName match
@@ -470,6 +476,7 @@ export async function peerSend(
     ? undefined
     : await recipientContext(ctx.clusterId, ctx.workflowId, resolved).catch(() => undefined);
   return { ok: true, msgId, to: resolved, deliveredImmediately: false,
+    ...(replacedNote ? { replaced: replacedNote } : {}),
     ...(context ? { recipientContext: context } : {}),
     ...(guardDecision ? { guard: { ...guardDecision, ...(warning ? { warning } : {}) } } : {}),
   };

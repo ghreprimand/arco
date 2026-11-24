@@ -102,6 +102,12 @@ export interface ClusterState {
   memberAccessModes?: Record<string, Exclude<ClusterMemberAccessMode, 'standard'>>;
   // Sparse: an absent entry permits web access.
   memberWebAccess?: Record<string, boolean>;
+  // docs/ARCHITECTURE.md (REPLACE): a replaced member's id -> the id of
+  // the member now in its slot, so mail and board references that still name
+  // the old id reach the replacement. Chains are collapsed on write, entries
+  // pointing at a removed member are dropped, and the oldest entries go past
+  // FORMER_MEMBERS_MAX.
+  formerMembers?: Record<string, string>;
   // Sparse: members whose workflow folder lives outside `cwd`. Researchers
   // keep their conversations in Arco state, not in the research folder the
   // Research Director works in (docs/RESEARCH.md).
@@ -495,7 +501,9 @@ export async function removeMember(
       return { clusterDeleted: true, remaining };
     }
     const web = { ...state.memberWebAccess }; delete web[workflowId];
-    const next: ClusterState = { ...state, members: remaining, memberWebAccess: Object.keys(web).length ? web : undefined };
+    const former = Object.fromEntries(Object.entries(state.formerMembers ?? {}).filter(([, to]) => to !== workflowId));
+    const next: ClusterState = { ...state, members: remaining, memberWebAccess: Object.keys(web).length ? web : undefined,
+      formerMembers: Object.keys(former).length ? former : undefined };
     await writeMetaAtomic(next);
     rebuildIndexFor(next);
     try { await (await import('./workers/isolatedCliHome.js')).removeIsolatedCliHome(clusterId, workflowId); }
@@ -695,6 +703,7 @@ export async function replaceMember(
       throw new ClusterValidationError('invalid_access_mode', `unknown member access mode ${String(nextMode)}`);
     }
     const nextMembers = state.members.map((id) => id === oldWorkflowId ? newWorkflowId : id);
+    const formerMembers = withFormerMember(state.formerMembers, oldWorkflowId, newWorkflowId);
     const nextModes = remapSparse(state.memberAccessModes, oldWorkflowId, newWorkflowId) ?? {};
     if (nextMode === 'standard') delete nextModes[newWorkflowId];
     else nextModes[newWorkflowId] = nextMode;
@@ -706,6 +715,7 @@ export async function replaceMember(
       memberFocuses: remapSparse(state.memberFocuses, oldWorkflowId, newWorkflowId),
       memberAccessModes: Object.keys(nextModes).length > 0 ? nextModes : undefined,
       memberWebAccess: remapSparse(state.memberWebAccess, oldWorkflowId, newWorkflowId),
+      formerMembers,
     };
     if (role !== undefined) {
       const roles = { ...next.memberRoles };
@@ -769,15 +779,44 @@ export async function clearPlanId(clusterId: string): Promise<ClusterState | nul
   });
 }
 
+const FORMER_MEMBERS_MAX = 64;
+
+// Record oldId -> newId and point every earlier entry that led to oldId at
+// newId, so A replaced by B and B by C resolves A straight to C.
+function withFormerMember(map: Record<string, string> | undefined, oldId: string, newId: string): Record<string, string> {
+  const next: Record<string, string> = {};
+  for (const [from, to] of Object.entries(map ?? {})) {
+    if (from !== oldId && from !== newId) next[from] = to === oldId ? newId : to;
+  }
+  next[oldId] = newId;
+  const keys = Object.keys(next);
+  for (const key of keys.slice(0, Math.max(0, keys.length - FORMER_MEMBERS_MAX))) delete next[key];
+  return next;
+}
+
 // Resolve a peer reference (full workflowId OR 8-char prefix per plan §0)
 // to a member of the given cluster. Returns undefined if the prefix is
 // ambiguous (matches >1 member) or the resolved id is not a cluster member.
-export function resolvePeer(clusterId: string, peerRef: string): string | undefined {
-  const members = getMembers(clusterId);
-  if (!members) return undefined;
-  if (members.includes(peerRef)) return peerRef;
+// Only when no current member matches, a full id or a unique prefix of at
+// least 8 characters of a replaced member resolves to the member now in its
+// slot; `replaced` then names the old id so the caller can tell the sender.
+export function resolvePeerTarget(clusterId: string, peerRef: string): { workflowId: string; replaced?: string } | undefined {
+  const state = cache.get(clusterId);
+  if (!state) return undefined;
+  const members = state.members;
+  if (members.includes(peerRef)) return { workflowId: peerRef };
   const matches = members.filter((m) => m.startsWith(peerRef));
-  return matches.length === 1 ? matches[0] : undefined;
+  if (matches.length === 1) return { workflowId: matches[0] };
+  if (matches.length > 1 || peerRef.length < 8) return undefined;
+  const former = state.formerMembers ?? {};
+  const olds = former[peerRef] ? [peerRef] : Object.keys(former).filter((id) => id.startsWith(peerRef));
+  if (olds.length !== 1) return undefined;
+  const current = former[olds[0]];
+  return members.includes(current) ? { workflowId: current, replaced: olds[0] } : undefined;
+}
+
+export function resolvePeer(clusterId: string, peerRef: string): string | undefined {
+  return resolvePeerTarget(clusterId, peerRef)?.workflowId;
 }
 
 // MASTER_REFACTOR §3.3 F5 (2026-05-11) — operator-editable display name.
