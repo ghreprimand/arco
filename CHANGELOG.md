@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Let a replacement cluster member claim and complete tasks assigned to the member it replaced.
+
 - Close only the file viewer on Escape when it is open over a narrow-layout panel, so the panel underneath, such as research RESULTS, stays open.
 
 - Show a researcher's returned files in research RESULTS under a Files (n) disclosure, give each round a heading, and label the sandbox warning in text.

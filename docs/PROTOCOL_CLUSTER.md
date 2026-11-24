@@ -723,6 +723,8 @@ Sets the board mode explicitly. `project` uses the cwd's normal task ledger; `cl
 { type: 'cluster_task_board_mode_set', clusterId: string, mode: 'none' | 'project' | 'cluster' }
 ```
 
+A replacement member can claim or complete work assigned to a former member of its slot. The board resolves the stored assignee through the same former-member mapping as peer mail, then records the current member as assignee when the work is claimed or completed. Assignment by a current or former member ID resolves to the current member. Comments and heartbeats do not require task ownership.
+
 Board *content* mutations don't ride these messages: they flow over the cwd-scoped `task_ledger_*` WS messages (stamped with the cluster's `boardKey` when in `cluster` mode) (documented in [`PROTOCOL.md`](PROTOCOL.md)) and the `cluster_task_*` peer tools ([Peer tool inventory](#peer-tool-inventory-not-ws-messages) below). The plan-to-task (`PlanBodyRenderer.onPromoteTask`) and peer-to-task (`MailboxModal.onMakeTask`, transcript `PeerMessageBlock`) bridges are client-only and dispatch `task_ledger_create` with the board's key; they add no new WS message.
 
 ### `cluster_swarm_create` ->

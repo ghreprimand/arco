@@ -563,3 +563,37 @@ test('plan completion preserves done tasks and refuses archived tasks', async ()
   const legacyRetry = await peer.peerTaskUpdate(ctx, { ...args, completePlan: { ...args.completePlan, revision: planRevision(current.body) } }, event => events.push(event));
   assert.ok(legacyRetry.ok); assert.equal(legacyRetry.task.status, 'done'); assert.equal(events.length, eventCount);
 });
+
+
+test('replacement members can receive and complete board work using the current or former id', async () => {
+  const c = await make();
+  const [director, former] = c.members;
+  const current = randomUUID();
+  const notify = () => {};
+  const directorCtx = context(c, director);
+  const oldTask = await peer.peerTaskCreate(directorCtx, { title: 'Existing work', assignee: former }, notify);
+  assert.ok(oldTask.ok);
+  await store.replaceMember(c.clusterId, former, current);
+  const workerCtx = context(c, current);
+  assert.ok((await peer.peerList(directorCtx)).some(member => member.workflowId === current));
+  for (const assignee of [former, current, former.slice(0, 8), current.slice(0, 8)]) {
+    const created = await peer.peerTaskCreate(directorCtx, { title: 'New work', assignee }, notify);
+    assert.ok(created.ok);
+    assert.equal(created.task.assignee, current);
+  }
+  assert.ok((await peer.peerTaskComment(workerCtx, { id: oldTask.task.id, body: 'Working' }, notify)).ok);
+  assert.ok((await peer.peerTaskHeartbeat(workerCtx, { id: oldTask.task.id }, notify)).ok);
+  const denied = await peer.peerTaskComplete(directorCtx, { id: oldTask.task.id, summary: 'Not mine' }, notify);
+  assert.equal(denied.ok, false);
+  if (!denied.ok) assert.equal(denied.code, 'not_owner');
+  const completed = await peer.peerTaskComplete(workerCtx, { id: oldTask.task.id, summary: 'Finished' }, notify);
+  assert.ok(completed.ok);
+  assert.equal(completed.task.assignee, current);
+  const oldTask2 = await peer.peerTaskCreate(directorCtx, { title: 'Claim work', assignee: current }, notify);
+  assert.ok(oldTask2.ok);
+  const next = randomUUID();
+  await store.replaceMember(c.clusterId, current, next);
+  const claimed = await peer.peerTaskClaim(context(c, next), { id: oldTask2.task.id }, notify);
+  assert.ok(claimed.ok);
+  assert.equal(claimed.task.assignee, next);
+});

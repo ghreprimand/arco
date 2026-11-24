@@ -893,6 +893,12 @@ function resolveAssignee(clusterId: string, assignee: string | undefined): strin
   return clusterStore.resolvePeer(clusterId, trimmed) ?? null;
 }
 
+// Existing tasks retain the former member's id after REPLACE. Resolve it
+// through the same slot mapping used by peer mail before checking ownership.
+function taskOwnedBy(clusterId: string, assignee: string | undefined, workflowId: string): boolean {
+  return !!assignee && (assignee === workflowId || clusterStore.resolvePeer(clusterId, assignee) === workflowId);
+}
+
 export async function peerTaskShow(
   ctx: PeerOpsContext,
   args: { id: string },
@@ -1028,7 +1034,7 @@ export async function peerTaskClaim(
       rejection = { ok: false, code: 'not_found', message: `task ${args.id.slice(0, 8)} not found in this cluster's ledger.` };
       return null;
     }
-    if (existing.assignee && existing.assignee !== ctx.workflowId) {
+    if (existing.assignee && !taskOwnedBy(ctx.clusterId, existing.assignee, ctx.workflowId)) {
       rejection = {
         ok: false,
         code: 'already_claimed',
@@ -1497,7 +1503,7 @@ export async function peerTaskComplete(
       rejection = { ok: false, code: 'not_found', message: `task ${args.id.slice(0, 8)} not found in this cluster's ledger.` };
       return null;
     }
-    if (existing.assignee !== ctx.workflowId) {
+    if (!taskOwnedBy(ctx.clusterId, existing.assignee, ctx.workflowId)) {
       // Ownership guard — you can only complete a task assigned to you.
       rejection = existing.assignee
         ? { ok: false, code: 'not_owner', message: `task ${args.id.slice(0, 8)} is owned by ${existing.assignee.slice(0, 8)}, not you; coordinate via peer_send instead of completing their work.` }
@@ -1505,6 +1511,7 @@ export async function peerTaskComplete(
       return null;
     }
     const applied = taskLedger.applyUpdate(tasks, args.id, {
+      assignee: ctx.workflowId,
       status: 'review',
       blockedReason: '',
       updatedBy: ctx.workflowId,
