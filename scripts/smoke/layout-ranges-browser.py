@@ -528,6 +528,38 @@ async def run(base):
             assert not errors, errors
             await context.unroute_all(behavior='wait')
             await context.close()
+            # Switching from the panels sheet to a phone page must not unwind
+            # the browser past /mobile when several pages are opened in sequence.
+            context, page, errors = await open_page(browser, base, 412, height=892, touch=True, mobile=True, single=True)
+            await page.get_by_test_id('mobile-tab').first.tap()
+            await page.get_by_test_id('phone-panels').tap()
+            await page.get_by_test_id('mobile-panel-notices').tap()
+            await expect(page.get_by_test_id('mobile-notices-page')).to_be_visible()
+            await page.get_by_test_id('mobile-page-actions').tap()
+            await expect(page.get_by_test_id('mobile-page-action').filter(has_text='CLEAR ALL')).to_be_visible()
+            await page.keyboard.press('Escape')
+            await page.get_by_test_id('mobile-page-back').tap()
+            await page.get_by_test_id('phone-panels').tap()
+            await page.get_by_test_id('mobile-panel-manual').tap()
+            manual = page.get_by_test_id('mobile-manual-page')
+            await expect(manual.get_by_label('Search manual and help')).to_be_visible()
+            await manual.get_by_role('button').first.tap()
+            await expect(manual.get_by_role('navigation', name='Manual chapters')).to_be_visible()
+            await page.get_by_test_id('mobile-page-back').tap()
+            await expect(manual.get_by_label('Search manual and help')).to_be_visible()
+            await page.get_by_test_id('mobile-page-back').tap()
+            await page.get_by_test_id('phone-panels').tap()
+            await page.get_by_test_id('mobile-panel-system').tap()
+            system = page.get_by_test_id('mobile-system-page')
+            await system.locator('button').filter(has_text='RESTART').first.tap()
+            confirmation = page.get_by_role('dialog', name='Restart Arco')
+            await confirmation.get_by_role('button', name='CANCEL', exact=True).tap()
+            await page.get_by_test_id('mobile-page-back').tap()
+            await page.wait_for_timeout(1000)
+            assert urlparse(page.url).path == '/mobile', f'left mobile view: {urlparse(page.url).path}'
+            assert not errors, errors
+            await context.unroute_all(behavior='wait')
+            await context.close()
             # A single tab under 1100 px: the right panel is a strip; FILES opens it over the chat.
             context, page, errors = await open_page(browser, base, 1024, single=True)
             strip = page.get_by_test_id('layout-panel-strip')

@@ -1252,6 +1252,8 @@ Dragged splitter positions are saved separately for each layout. Positions from 
 
 ## Mobile view
 
+The mobile view offers a first New step for the kind and project folder, with recent folders first; Chat starts without a second step. Notices opens as a page with CLEAR ALL under its actions. Manual presents search and a chapter list, then one chapter with next and previous controls. System opens on diagnostics and asks before restarting or quitting. The terminal offers ESC, TAB, CTRL, arrows, pipe and tilde in a touch row. The Home getting-started guide folds after a conversation starts.
+
 In the mobile view, Recall places project, time, pinned and transcript filters in one row. Its summarize-on-close control is in Settings under Utility agent. Shared confirmation dialogs appear as bottom sheets, and CATCH ME UP keeps its range actions at the bottom.
 
 In the mobile view, UPLOAD FROM PHONE opens the device's own file and photo picker and adds its selection to the current conversation draft. On the workbench the same control continues to offer the QR upload window. Media uses "Choose a file" in the mobile view.

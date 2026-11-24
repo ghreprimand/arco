@@ -851,6 +851,7 @@ export const powerFeatures: Section[] = [
   the title bar to move it and the bottom-right corner to resize it.
   </p>
   <p>When a terminal reconnects, its display reloads the server's bounded scrollback once. The live shell keeps running.</p>
+  <p>In the mobile view, PANELS opens the terminal as a page. Its key row supplies ESC, TAB, CTRL, arrows, pipe and tilde. Tap CTRL then a letter to send a control key. The page's back arrow detaches without stopping the shell.</p>
   <Sub>Opening a terminal</Sub>
   <ul>
   <li><Code>TERMINAL</Code> in the header TOOLS menu opens a shell in the active workflow's root.</li>

@@ -22,6 +22,7 @@ import { hasWaitingQuestion } from '../../questions/waitingQuestion';
 import { turnStep } from '../../utils/turnStep';
 import { anyPrimaryProviderConnected } from '../../utils/startupGate';
 import { useKeepInWindow } from '../../layout/keepInWindow';
+import { usePhoneLayout } from '../../layout/layoutRange';
 
 function readHomeMarker(key: string): boolean {
   try { return localStorage.getItem(key) === '1'; } catch { return false; }
@@ -44,6 +45,7 @@ const WORK_ROWS = 2;
 // sends no prompt. Incognito tabs never appear (see utils/homeModel.ts).
 
 export function HomeView({ onResume, onOpenCluster, onReopenResearch }: { onResume?: (config: WorkflowConfig) => void; onOpenCluster?: (clusterId: string) => void; onReopenResearch?: (payload: ResearchReopenPayload) => boolean | void } = {}) {
+  const phone = usePhoneLayout();
   const catalogs = useModelCatalogs();
   const projectSettingsKey = useAppStore(s => JSON.stringify([s.settings?.projectRoots, s.settings?.projects, s.settings?.defaultWorkingDirectory]));
   const jobs = useAppStore((s) => s.jobs);
@@ -60,6 +62,7 @@ export function HomeView({ onResume, onOpenCluster, onReopenResearch }: { onResu
   const [savedChats, setSavedChats] = useState(0);
   const [savedClusters, setSavedClusters] = useState(0);
   const [guideHidden, setGuideHidden] = useState(() => readHomeMarker('arco-home-guide-hidden'));
+  const [guideOpen, setGuideOpen] = useState(true);
   useEffect(() => {
     let alive = true;
     void fetch('/api/chats').then(r => r.ok ? r.json() : null).then(body => {
@@ -148,6 +151,7 @@ export function HomeView({ onResume, onOpenCluster, onReopenResearch }: { onResu
   const chatOpen = work.some(item => item.kind === 'chat');
   const savedSessions = Object.values(activity).filter(at => at > 0).length;
   const started = conversationStarted({ openWork: work.length, savedChats, savedClusters, savedSessions, remembered: hasChatted });
+  useEffect(() => { setGuideOpen(!started); }, [started]);
   useEffect(() => { if (chatOpen && !hasChatted) { writeHomeMarker('arco-home-started-chat'); setHasChatted(true); } }, [chatOpen, hasChatted]);
   const gettingStarted = projects !== null && !guideHidden && (!providerReady || availableProjects(projects) === 0 || !started);
   const operatorName = settings?.operatorName?.trim();
@@ -232,11 +236,15 @@ export function HomeView({ onResume, onOpenCluster, onReopenResearch }: { onResu
         <HomeStatus running={running} waiting={waiting} />
       </header>
       {startControls}
-      {gettingStarted && <section className="home-getting-started" aria-label="Getting started" data-help="home.getting-started"><button type="button" className="home-guide-hide" aria-label="Hide the getting started guide" data-help="home.getting-started-hide" onClick={() => { writeHomeMarker('arco-home-guide-hidden'); setGuideHidden(true); }}>HIDE</button><h2>Getting started</h2><p>Three steps to your first conversation.</p><ol>
+      {(gettingStarted || (phone && projects !== null && !guideHidden)) && <section className="home-getting-started" aria-label="Getting started" data-help="home.getting-started"><button type="button" className="home-guide-hide" aria-label="Hide the getting started guide" data-help="home.getting-started-hide" onClick={() => { writeHomeMarker('arco-home-guide-hidden'); setGuideHidden(true); }}>HIDE</button>{phone ? <details open={guideOpen} onToggle={(event) => setGuideOpen(event.currentTarget.open)}><summary>Getting started</summary><p>Three steps to your first conversation.</p><ol>
         <li><span>{providerReady ? '✓' : '1'}</span><a href="#connections">Connect a provider</a></li>
         <li><span>{availableCount ? '✓' : '2'}</span><button type="button" onClick={() => setLocationOpen(true)}>Add a project folder</button></li>
         <li><span>{started ? '✓' : '3'}</span><button type="button" onClick={() => start({ mode: 'chat' })}>Start a conversation</button></li>
-      </ol>{availableCount === 0 && <button type="button" onClick={() => setAddOpen(true)}>Open another folder</button>}</section>}
+      </ol>{availableCount === 0 && <button type="button" onClick={() => setAddOpen(true)}>Open another folder</button>}</details> : <><h2>Getting started</h2><p>Three steps to your first conversation.</p><ol>
+        <li><span>{providerReady ? '✓' : '1'}</span><a href="#connections">Connect a provider</a></li>
+        <li><span>{availableCount ? '✓' : '2'}</span><button type="button" onClick={() => setLocationOpen(true)}>Add a project folder</button></li>
+        <li><span>{started ? '✓' : '3'}</span><button type="button" onClick={() => start({ mode: 'chat' })}>Start a conversation</button></li>
+      </ol>{availableCount === 0 && <button type="button" onClick={() => setAddOpen(true)}>Open another folder</button>}</>}</section>}
 
       {work.length > 0 && <section aria-labelledby="home-open" data-help="home.open-work">
         <div className="home-section-heading"><h2 id="home-open">Continue <span className="home-count">({work.length})</span></h2><span className="home-fine-print">Work keeps running while you are here.</span></div>

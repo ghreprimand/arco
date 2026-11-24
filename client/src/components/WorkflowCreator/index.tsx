@@ -26,6 +26,7 @@ import { ExistingClustersList } from '../ExistingClustersList';
 import { TemplatePickerRow } from './TemplatePickerRow';
 import { PastChatsList } from './PastChatsList';
 import { ProjectPicker, type ProjectEntry } from './ProjectPicker';
+import { usePhoneLayout } from '../../layout/layoutRange';
 import type { HomeRoot } from '../../utils/homeModel';
 import { projectNameForDirectory } from './projectName';
 import { DirectoryBrowser } from '../media/DirectoryPicker';
@@ -49,6 +50,9 @@ const BOARD_LABELS: Record<ClusterTaskBoardMode, string> = { cluster: 'Cluster-l
 const PROGRESS_LABELS: Record<ClusterProgressMode, string> = { both: 'Keep plan and board current', plan: 'Keep plan current', board: 'Keep board current' };
 
 export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, initialProvider: suppliedProvider }: Props) {
+  const phone = usePhoneLayout();
+  const [phoneStep, setPhoneStep] = useState<1 | 2>(1);
+  const [phoneSessionOptions, setPhoneSessionOptions] = useState(false);
   const [initialProvider] = useState(() => suppliedProvider ?? useAppStore.getState().creatorPrefill?.provider);
   const [researchStartPrefill] = useState(() => useAppStore.getState().creatorPrefill?.researchStart);
   const [researchContinuePrefill] = useState(() => useAppStore.getState().creatorPrefill?.researchContinue);
@@ -1130,11 +1134,38 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
     padding: '8px 10px',
   });
 
+  if (phone && phoneStep === 1) {
+    const needsFolder = mode === 'single' || mode === 'cluster';
+    const offersFolder = needsFolder || mode === 'research';
+    return <div data-phone-creator="" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px', display: 'grid', gap: 12, alignContent: 'start' }}>
+        <h1 className="display-font" style={{ fontSize: 16, color: 'var(--color-accent-primary)', margin: 0 }}>NEW · WHAT AND WHERE</h1>
+        <div data-help="creator.cluster-mode" style={{ display: 'grid', gap: 4 }}>
+          {([['chat', 'CHAT'], ['single', 'AGENT'], ['cluster', 'CLUSTER'], ['research', 'RESEARCH'], ['genesis', 'GENESIS']] as const).map(([value, label]) => <button key={value} type="button" className="display-font" aria-pressed={mode === value}
+            disabled={value === 'chat' ? !!researchStartPrefill : value === 'single' || value === 'cluster' ? !!researchContinuePrefill : !!researchStartPrefill || !!researchContinuePrefill}
+            onClick={() => { if (value === 'research') setQuickResearchStart(false); setMode(value); }}
+            style={{ ...selectStyle(mode === value), minHeight: 44, textAlign: 'left', borderRadius: 0 }}>{label}</button>)}
+        </div>
+        {offersFolder && <div data-help="creator.cwd" style={{ display: 'grid', gap: 8 }}>
+          <label className="display-font">{mode === 'research' ? 'PROJECT FOLDER (OPTIONAL)' : 'PROJECT FOLDER'}</label>
+          <input aria-label="Project folder" type="text" value={workDir} onChange={(e) => setWorkDir(e.target.value)} placeholder="Choose a project folder" style={{ ...inputStyle, minHeight: 44 }} />
+          <ProjectPicker initialFilter="recent" workDir={workDir} onPick={setWorkDir} onProjectsLoaded={setProjectChoices} onLocationsLoaded={setProjectLocations} onLocationChange={setSelectedLocation} refreshKey={folderRefresh} onBrowseRoot={path => { setBrowserPath(path); setShowBrowser(true); }} />
+          <button type="button" className="display-font" style={{ ...selectStyle(false), minHeight: 44 }} onClick={() => setShowBrowser(!showBrowser)}>{showBrowser ? 'CLOSE FOLDER BROWSER' : 'BROWSE ANOTHER FOLDER'}</button>
+          {showBrowser && <DirectoryBrowser inline withFilename={false} initialPath={browserPath || workDir || settings?.defaultWorkingDirectory || ''} roots={settings?.projectRoots} title="Browse another folder" confirmLabel="Use for this session" onDone={result => { if (result) setWorkDir(result.dir); setShowBrowser(false); }} />}
+        </div>}
+      </div>
+      <div style={{ flexShrink: 0, padding: '8px 12px calc(8px + env(safe-area-inset-bottom))', borderTop: '1px solid var(--color-border-hairline)' }}>
+        <button type="button" className="display-font" disabled={mode === 'chat' ? !canLaunchChat : needsFolder && !workDir.trim()} onClick={() => { if (mode === 'chat') void handleCreate(); else setPhoneStep(2); }} style={{ ...selectStyle(true), width: '100%', minHeight: 44, borderRadius: 0 }}>{mode === 'chat' ? 'START CHAT' : 'CONTINUE'}</button>
+      </div>
+    </div>;
+  }
+
   return (
-    <div style={{ overflowY: 'auto', padding: '24px 40px', display: 'flex', justifyContent: 'center' }}>
+    <div data-phone-creator={phone ? '' : undefined} style={{ overflowY: 'auto', padding: phone ? '12px' : '24px 40px', display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: isWide ? '1100px' : '560px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {phone && <button type="button" className="display-font" onClick={() => setPhoneStep(1)} style={{ ...selectStyle(false), minHeight: 44, textAlign: 'left', borderRadius: 0 }}>BACK TO WHAT AND WHERE</button>}
         <div style={{ textAlign: 'center', marginBottom: '4px' }}>
-          <h1 className="display-font glow-text-bright" style={{ fontSize: '28px', letterSpacing: '6px', fontWeight: 400, marginBottom: '4px', wordBreak: 'break-word' }} title={workDir || undefined}>
+          <h1 className="display-font glow-text-bright" style={{ fontSize: phone ? '16px' : '28px', letterSpacing: phone ? '1px' : '6px', fontWeight: 400, marginBottom: '4px', wordBreak: 'break-word' }} title={workDir || undefined}>
             {headingText || subtitleText}
           </h1>
           {headingText && (
@@ -1147,7 +1178,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         {/* top-of-form mode toggle. SINGLE = legacy single-workflow
             creation. CLUSTER = mint N fresh members at once, configured per-row
             below. Defaults to SINGLE; flipping does not reset shared fields. */}
-        <div data-help="creator.cluster-mode">
+        {!phone && <div data-help="creator.cluster-mode">
           <label className="display-font" style={labelStyle}>MODE</label>
           <div style={{ display: 'flex', gap: '6px' }}>
             <button disabled={!!researchContinuePrefill} onClick={() => setMode('single')} style={modePill(mode === 'single')}>
@@ -1174,11 +1205,11 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
               <div style={{ fontSize: '9px', marginTop: '3px', opacity: 0.7 }}>One question, several independent researchers</div>
             </button>
           </div>
-        </div>
+        </div>}
 
         {mode === 'research' && (
           <ResearchStartForm
-            initial={researchPrefill}
+            initial={phone && workDir ? { ...researchPrefill, sourceProject: workDir } : researchPrefill}
             initialQuick={quickResearchStart}
             directorDefault={{ provider: primaryProvider, model: String(model), effort: String(effort) }}
             claudeModelsForPicker={claudeModelsForPicker}
@@ -1216,7 +1247,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
             columns below so neither cell towers over an empty void). Hidden in
             GENESIS mode: there is no folder yet (the server runs a scratch
             ideation dir until scaffold). */}
-        {mode !== 'genesis' && mode !== 'chat' && (
+        {!phone && mode !== 'genesis' && mode !== 'chat' && (
         <div data-help="creator.cwd">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <label className="display-font" style={{ ...labelStyle, marginBottom: 0 }}>{mode === 'cluster' ? 'SHARED PROJECT FOLDER' : 'PROJECT FOLDER'}</label>
@@ -1307,15 +1338,16 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         )}
 
           {/* Flat project list, then the folder tree; both span both columns. */}
-          {mode !== 'genesis' && mode !== 'chat' && (
+          {!phone && mode !== 'genesis' && mode !== 'chat' && (
             <ProjectPicker workDir={workDir} onPick={setWorkDir} onProjectsLoaded={setProjectChoices} onLocationsLoaded={setProjectLocations} onLocationChange={setSelectedLocation} refreshKey={folderRefresh} onBrowseRoot={path => { setBrowserPath(path); setShowBrowser(true); }} />
           )}
-          {mode !== 'genesis' && mode !== 'chat' && showBrowser && <div style={spanBoth}>
+          {!phone && mode !== 'genesis' && mode !== 'chat' && showBrowser && <div style={spanBoth}>
             <DirectoryBrowser inline withFilename={false} initialPath={browserPath || workDir || settings?.defaultWorkingDirectory || ''} roots={settings?.projectRoots} title="Browse another folder" confirmLabel="Use for this session" onDone={result => { if (result) { setWorkDir(result.dir); setBrowserPath(result.dir); setShowBrowser(false); } }} />
             <p style={hintStyle}>Browsing and selecting a folder do not bookmark it. Use Bookmark folder to keep it listed independently of project locations.</p>
           </div>}
 
-        {mode === 'single' && workDir && <div style={spanBoth}><TerminalSessions cwd={workDir} onOpen={session => {
+        {phone && mode === 'single' && workDir && <button type="button" className="display-font" aria-expanded={phoneSessionOptions} onClick={() => setPhoneSessionOptions(!phoneSessionOptions)} style={{ ...selectStyle(false), minHeight: 44, textAlign: 'left', borderRadius: 0 }}>SESSION OPTIONS {phoneSessionOptions ? '▾' : '▸'}</button>}
+        {mode === 'single' && workDir && (!phone || phoneSessionOptions) && <div style={spanBoth}><TerminalSessions cwd={workDir} onOpen={session => {
           const provider = session.provider;
           if (provider !== 'claude' && provider !== 'codex') return;
           const selectedModel = provider === 'codex' ? DEFAULT_CODEX_MODEL : (claudeModelsForPicker[0]?.value ?? 'opus');
@@ -1327,7 +1359,7 @@ export function WorkflowCreator({ onCreate, onCreateCluster, onReopenCluster, in
         {/* Conversation mode — spans both columns. Unified resume picker:
             native providers resume by provider session id; Arco-managed
             providers (Ollama) resume by workflow id from events.jsonl. */}
-        {mode === 'single' && workDir && (
+        {mode === 'single' && workDir && (!phone || phoneSessionOptions) && (
           <div data-help="creator.resume" style={spanBoth}>
             <label className="display-font" style={labelStyle}>CONVERSATION</label>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>

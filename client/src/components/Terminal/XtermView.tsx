@@ -5,6 +5,8 @@ import '@xterm/xterm/css/xterm.css';
 import { useAppStore } from '../../stores/appStore';
 import { THEME_REGISTRY } from '../../themes/registry';
 import { ensureWsSession } from '../../utils/wsSession';
+import { usePhoneLayout } from '../../layout/layoutRange';
+import { PHONE_TERMINAL_KEYS, phoneControlInput } from './phoneKeys';
 
 // WORKBENCH_EXPANSION §K1 — the xterm.js view bound to ONE PTY session over
 // the dedicated `/terminal` WS path (raw byte stream, separate from the seq'd
@@ -84,6 +86,9 @@ export interface Props {
 }
 
 export function XtermView({ sessionId, onCommandLine, onExit, onError, prefill, prefillNonce, onPrefillConsumed, onSelectionChange }: Props) {
+  const phone = usePhoneLayout();
+  const [control, setControl] = useState(false);
+  const controlRef = useRef(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   // Live xterm handles so the theme-watch effect (below) can re-style the
   // terminal in place when the app theme changes, without tearing down the
@@ -236,7 +241,9 @@ export function XtermView({ sessionId, onCommandLine, onExit, onError, prefill, 
       };
     };
 
-    const onDataDisp = term.onData((data) => {
+    const onDataDisp = term.onData((raw) => {
+      const data = controlRef.current ? phoneControlInput(raw) : raw;
+      if (controlRef.current) { controlRef.current = false; setControl(false); }
       const ws = wsRef.current;
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'input', data }));
@@ -330,7 +337,8 @@ export function XtermView({ sessionId, onCommandLine, onExit, onError, prefill, 
   }, [themeId]);
 
   return (
-    <div style={{ position: 'relative', flex: 1, minHeight: 0, width: '100%', height: '100%' }}>
+    <div style={{ position: 'relative', flex: 1, minHeight: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
       <div
         ref={containerRef}
         style={{ position: 'absolute', inset: 0, background: 'var(--color-bg)', padding: '4px' }}
@@ -348,6 +356,15 @@ export function XtermView({ sessionId, onCommandLine, onExit, onError, prefill, 
           {status.text}
         </div>
       )}
+      </div>
+      {phone && <div data-help="terminal.phone-keys" style={{ display: 'flex', overflowX: 'auto', flexShrink: 0, borderTop: '1px solid var(--color-border-hairline)' }}>
+        {PHONE_TERMINAL_KEYS.map(([label, bytes], index) => <span key={label} style={{ display: 'contents' }}>
+          {index === 2 && <button type="button" className="display-font" aria-pressed={control} onPointerDown={(e) => e.preventDefault()} onClick={() => { controlRef.current = !controlRef.current; setControl(controlRef.current); termRef.current?.focus(); }} style={phoneKeyStyle}>CTRL</button>}
+          <button type="button" className="display-font" onPointerDown={(e) => e.preventDefault()} onClick={() => { termRef.current?.input(bytes, true); termRef.current?.focus(); }} style={phoneKeyStyle}>{label}</button>
+        </span>)}
+      </div>}
     </div>
   );
 }
+
+const phoneKeyStyle = { minHeight: 44, minWidth: 44, flexShrink: 0, padding: '0 8px', color: 'var(--color-fg)', background: 'transparent', border: '1px solid var(--color-border-hairline)', borderRadius: 0, cursor: 'pointer' } as const;

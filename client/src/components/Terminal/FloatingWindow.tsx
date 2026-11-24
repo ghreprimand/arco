@@ -104,6 +104,7 @@ export function FloatingWindow({ title, onClose, headerActions, children, initia
       ref={windowRef}
       onMouseDown={() => setZ(nextZ())}
       data-testid="floating-window"
+      data-phone-terminal={phone ? '' : undefined}
       style={{
         position: 'fixed',
         ...(phone ? {

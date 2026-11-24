@@ -21,6 +21,10 @@ import { useTerminalTarget } from '../hooks/useTerminalTarget';
 import { usePhoneOverlay } from '../layout/phoneOverlay';
 import { PhoneBottomSheet } from '../layout/PhoneBottomSheet';
 import { firstQuestionText } from './MobileQuestionBar';
+import { PhonePage } from '../layout/PhonePage';
+import { MobileNotices } from './MobileNotices';
+import { MobileManualContent } from './UserManual/MobileManualContent';
+import { SystemModal } from './SystemModal';
 import { PendingQuestionsList, pendingGates, usePendingQuestions } from './PendingQuestionsButton';
 import { openArchive } from '../explorer/launch';
 import { CatchMeUp } from './CatchMeUp';
@@ -232,13 +236,11 @@ function useMobileHistory(): void {
   const localDialog = usePhoneStore((s) => s.localDialog);
   const openPanel = usePhoneStore((s) => s.openPanel);
   const settings = useAppStore((s) => s.showSettings);
-  const manual = useAppStore((s) => s.showManual);
   const recall = useAppStore((s) => s.showRecall);
-  const system = usePhoneStore((s) => s.systemOpen);
   const media = useAppStore((s) => s.mediaStudio.open);
   const settingsPage = usePhoneStore((s) => s.settingsPage);
   const terminal = useTerminalStore((s) => s.windows.length > 0);
-  const layers: MobileLayers = { localDialog: !!localDialog, sheet: !!sheet, dialog: manual || recall || system || media, settingsPage, settings, terminal, panel: !!openPanel, conversation: screen === 'conversation' };
+  const layers: MobileLayers = { localDialog: !!localDialog, sheet: !!sheet, dialog: recall || media, settingsPage, settings, terminal, panel: !!openPanel, conversation: screen === 'conversation' };
   const depth = mobileDepth(layers);
   const shown = useRef(0);
   const ignore = useRef(0);
@@ -645,16 +647,55 @@ export function MobileDirectory() {
 const Sheet = PhoneBottomSheet;
 
 /** The directory, or the open sheet, drawn over the conversation area. */
-export function MobileScreenHost() {
+export function MobileScreenHost({ onSetPreviewPort }: { onSetPreviewPort: (workflowId: string, port: number, framework?: string) => void }) {
   const screen = usePhoneStore((s) => s.screen);
   const sheet = usePhoneStore((s) => s.sheet);
   const openSheet = usePhoneStore((s) => s.openSheet);
+  const manual = useAppStore((s) => s.showManual);
+  const system = usePhoneStore((s) => s.systemOpen);
+  const [manualId, setManualId] = useState<string | null>(null);
+  const [noticesOpen, setNoticesOpen] = useState(false);
+  const fromDirectory = useRef(false);
+  useEffect(() => {
+    const jump = (event: Event) => {
+      const id = (event as CustomEvent<{ sectionId?: string }>).detail?.sectionId;
+      if (id) setManualId(id);
+    };
+    window.addEventListener('arco:manual-jump', jump);
+    return () => window.removeEventListener('arco:manual-jump', jump);
+  }, []);
+  useEffect(() => {
+    if (!manual) { setManualId(null); return; }
+    fromDirectory.current = usePhoneStore.getState().screen === 'directory';
+    if (fromDirectory.current) usePhoneStore.getState().setScreen('conversation');
+  }, [manual]);
+  const leavePage = () => { const returnToDirectory = fromDirectory.current; fromDirectory.current = false; if (returnToDirectory) usePhoneStore.getState().setScreen('directory'); };
+  const openNotices = () => {
+    fromDirectory.current = usePhoneStore.getState().screen === 'directory';
+    if (fromDirectory.current) usePhoneStore.getState().setScreen('conversation');
+    setNoticesOpen(true);
+  };
+  const openSystem = () => {
+    fromDirectory.current = usePhoneStore.getState().screen === 'directory';
+    if (fromDirectory.current) usePhoneStore.getState().setScreen('conversation');
+    usePhoneStore.getState().setSystemOpen(true);
+  };
+  const closeManual = () => {
+    useAppStore.getState().setShowManual(false); leavePage();
+  };
   const close = useMemo(() => () => openSheet(null), [openSheet]);
   return <>
     {screen === 'directory' && <MobileDirectory />}
     {sheet === 'members' && <MembersSheet onClose={close} />}
     {sheet === 'questions' && <QuestionsSheet onClose={close} />}
-    {sheet === 'panels' && <PanelsSheet onClose={close} />}
+    {sheet === 'panels' && <PanelsSheet onClose={close} onNotices={openNotices} onSystem={openSystem} />}
+    {noticesOpen && <PhonePage title="NOTICES" onClose={() => { setNoticesOpen(false); leavePage(); }} testId="mobile-notices-page">
+      <MobileNotices onOpen={(workflowId) => { setNoticesOpen(false); fromDirectory.current = false; openConversation(() => focusNoticeWorkflow(workflowId)); }} />
+    </PhonePage>}
+    {manual && screen === 'conversation' && <PhonePage title="MANUAL" onClose={closeManual} onBack={() => { if (!manualId) return false; setManualId(null); return true; }} testId="mobile-manual-page">
+      <MobileManualContent activeId={manualId} onSelect={setManualId} />
+    </PhonePage>}
+    {system && screen === 'conversation' && <SystemModal onClose={() => { usePhoneStore.getState().setSystemOpen(false); leavePage(); }} onSetPreviewPort={onSetPreviewPort} />}
   </>;
 }
 
@@ -698,7 +739,7 @@ function QuestionsSheet({ onClose }: { onClose: () => void }) {
   );
 }
 
-function PanelsSheet({ onClose }: { onClose: () => void }) {
+function PanelsSheet({ onClose, onNotices, onSystem }: { onClose: () => void; onNotices: () => void; onSystem: () => void }) {
   const screen = usePhoneStore((s) => s.screen);
   const panels = usePhoneStore((s) => s.panels);
   const requestPanel = usePhoneStore((s) => s.requestPanel);
@@ -706,11 +747,8 @@ function PanelsSheet({ onClose }: { onClose: () => void }) {
   const setShowManual = useAppStore((s) => s.setShowManual);
   const { workflowId: terminalWorkflowId, root: terminalRoot } = useTerminalTarget();
   const openTerminal = useTerminalStore((s) => s.openTerminal);
-  const notices = useNotificationStore((s) => s.notices);
   const unread = useNotificationStore(unreadCount);
-  const markAllSeen = useNotificationStore((s) => s.markAllSeen);
-  const [showNotices, setShowNotices] = useState(false);
-  useEffect(() => { if (showNotices) markAllSeen(); }, [showNotices, markAllSeen, notices.length]);
+
   const shown = useShownConversation();
   const activeJob = useAppStore((s) => (s.activeJobId ? s.jobs[s.activeJobId] : undefined));
   // CATCH ME UP for the conversation shown (the workbench shows it above the chat).
@@ -741,26 +779,16 @@ function PanelsSheet({ onClose }: { onClose: () => void }) {
           onClick={() => { if (terminalWorkflowId && terminalRoot) { openTerminal({ workflowId: terminalWorkflowId }); onClose(); } }}>TERMINAL</button>}
         {catchUpScope && <div data-testid="mobile-panel-catch-up" style={{ display: 'contents' }}><CatchMeUp scope={catchUpScope} /></div>}
         <button type="button" data-testid="phone-panel-settings" className="display-font" style={tile} onClick={() => { onClose(); setShowSettings(true); }}>SETTINGS</button>
-        <button type="button" data-testid="mobile-panel-notices" className="display-font" style={tile} aria-expanded={showNotices} onClick={() => setShowNotices((v) => !v)}>NOTICES{unread ? ` ${unread}` : ''}</button>
-        <button type="button" data-testid="mobile-panel-manual" className="display-font" style={tile} onClick={() => { onClose(); setShowManual(true); }}>MANUAL</button>
+        <button type="button" data-testid="mobile-panel-notices" className="display-font" style={tile} onClick={onNotices}>NOTICES{unread ? ` ${unread}` : ''}</button>
+        <button type="button" data-testid="mobile-panel-manual" className="display-font" style={tile} onClick={() => setShowManual(true)}>MANUAL</button>
         <button type="button" data-testid="mobile-panel-recall" data-help="header.recall" className="display-font" style={tile} onClick={() => { onClose(); store().setShowRecall(true); }}>RECALL</button>
         <button type="button" data-testid="mobile-panel-media" data-help="header.media" className="display-font" style={tile} onClick={() => { onClose(); openMediaStudio(); }}>MEDIA</button>
-        <button type="button" data-testid="mobile-panel-system" data-help="mobile.system" className="display-font" style={tile} onClick={() => { onClose(); usePhoneStore.getState().setSystemOpen(true); }}>SYSTEM</button>
+        <button type="button" data-testid="mobile-panel-system" data-help="mobile.system" className="display-font" style={tile} onClick={onSystem}>SYSTEM</button>
         <button type="button" data-testid="mobile-panel-plans" data-help="header.plans" className="display-font" style={tile} title="Opens in a new browser tab" onClick={() => { void openArchive('plans', terminalRoot ?? undefined); }}>ALL PLANS {'\u2197'}</button>
         <button type="button" data-testid="mobile-panel-artifacts" data-help="header.archive" className="display-font" style={tile} title="Opens in a new browser tab" onClick={() => { void openArchive(undefined, terminalRoot ?? undefined); }}>ARTIFACTS {'\u2197'}</button>
       </div>
       <p style={{ fontSize: '13px', color: 'var(--color-fg)', padding: '8px 14px 0', margin: 0 }}>{'\u2197'} opens in a new browser tab.</p>
-      {showNotices && (
-        <div data-testid="mobile-notices" style={{ padding: '8px 0' }}>
-          {notices.length === 0 && <p style={{ fontSize: '14px', color: 'var(--color-fg)', padding: '0 14px' }}>No notices.</p>}
-          {notices.map((n) => (
-            n.workflowId
-              ? <Row key={n.id} label={[n.title, n.body].filter(Boolean).join(': ')} onClick={() => openConversation(() => focusNoticeWorkflow(n.workflowId!))} />
-              : <p key={n.id} style={{ fontSize: '14px', margin: '0 0 8px', padding: '0 14px', overflowWrap: 'anywhere' }}>{[n.title, n.body].filter(Boolean).join(': ')}</p>
-          ))}
-        </div>
-      )}
-      <div style={{ height: 'calc(16px + env(safe-area-inset-bottom))' }} />
+
     </Sheet>
   );
 }

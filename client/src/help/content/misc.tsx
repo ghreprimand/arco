@@ -86,7 +86,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.system': {
     title: 'System',
-    body: <p>Opens the System dialog: services, previews and diagnostics. The phone's Back closes it.</p>,
+    body: <p>Opens System as a page with diagnostics, models and services. RESTART and QUIT are at the end and ask for confirmation. The phone's Back closes it.</p>,
     manualSection: 'window-layout',
   },
   'mobile.panels': {
@@ -185,7 +185,7 @@ export const miscHelp: Record<string, HelpEntry> = {
 
   'home.getting-started': {
     title: 'Getting started',
-    body: <p>Connect a provider, add a project folder and start a conversation. Any chat, session or cluster counts, including saved ones. Each step checks itself when completed. The card disappears once all three are complete, or sooner with HIDE. Open another folder is available for a one-off session.</p>,
+    body: <p>Connect a provider, add a project folder and start a conversation. In the mobile view, the guide folds after a conversation starts. Any chat, session or cluster counts, including saved ones. Each step checks itself when completed. The card disappears once all three are complete, or sooner with HIDE. Open another folder is available for a one-off session.</p>,
     manualSection: 'home',
   },
   'home.getting-started-hide': {
@@ -1836,6 +1836,11 @@ export const miscHelp: Record<string, HelpEntry> = {
         effects are yours, as in any shell: Arco does not sandbox the operator.
       </p>
     ),
+    manualSection: 'integrated-terminal',
+  },
+  'terminal.phone-keys': {
+    title: 'Phone terminal keys',
+    body: <p>Use the row below the terminal for ESC, TAB, arrows, pipe and tilde. Tap CTRL, then a letter, to send its control key. The shell stays open when the terminal window closes.</p>,
     manualSection: 'integrated-terminal',
   },
   'terminal.new': {

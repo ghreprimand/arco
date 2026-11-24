@@ -36,7 +36,6 @@ import { SyncingOverlay } from './components/SyncingOverlay';
 import { DuplicateTabOverlay } from './components/DuplicateTabOverlay';
 import { AuthOverlay } from './components/AuthOverlay';
 import { SettingsPanel } from './components/SettingsPanel';
-import { SystemModal } from './components/SystemModal';
 import { UserManual } from './components/UserManual';
 import { HelpButton } from './components/help/HelpButton';
 import { HelpBanner } from './components/help/HelpBanner';
@@ -417,7 +416,6 @@ function AppBody() {
   const { phone, phoneSized } = useLayout();
   const phoneViewport = usePhoneViewport(phone);
   const phoneScreen = usePhoneStore((s) => s.screen);
-  const phoneSystemOpen = usePhoneStore((s) => s.systemOpen);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -696,7 +694,7 @@ ${scopeBody}
         <VoiceControl sendMessage={sendMessage} cancel={cancel} createWorkflow={createWorkflow} />
 
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-          {phone && <MobileScreenHost />}
+          {phone && <MobileScreenHost onSetPreviewPort={setPreviewPort} />}
           {((!showGithub && !showHome && !activeClusterId && (showCreator || !activeJob)) || retainCreator) && (
             <div style={{ display: !showGithub && !showHome && !activeClusterId && (showCreator || !activeJob) ? 'contents' : 'none' }}>
               <ErrorBoundary label="creator">
@@ -984,8 +982,7 @@ ${scopeBody}
       {computerOpen && <ComputerPanel onLoadEarlier={loadEarlierMessages} onCancel={cancel} onSend={sendMessage} />}
       {setupOpen && <AuthOverlay mode="dialog" />}
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
-      {phone && phoneSystemOpen && <SystemModal onClose={() => usePhoneStore.getState().setSystemOpen(false)} onSetPreviewPort={setPreviewPort} />}
-      {showManual && <UserManual onClose={() => setShowManual(false)} />}
+      {!phone && showManual && <UserManual onClose={() => setShowManual(false)} />}
       <HelpBanner />
       <HelpPopover />
       <HelpCard />

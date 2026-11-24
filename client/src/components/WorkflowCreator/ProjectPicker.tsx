@@ -2,14 +2,14 @@ import { useEffect, useState } from 'react';
 import { parsePickerProjects, rootsOf, type HomeProject, type HomeRoot } from '../../utils/homeModel';
 
 export type ProjectEntry = HomeProject;
-export function ProjectPicker({ workDir, onPick, onBrowseRoot, onProjectsLoaded, onLocationsLoaded, onLocationChange, refreshKey }: {
+export function ProjectPicker({ workDir, onPick, onBrowseRoot, onProjectsLoaded, onLocationsLoaded, onLocationChange, refreshKey, initialFilter = 'all' }: {
   workDir: string; onPick: (path: string) => void; onBrowseRoot?: (path: string) => void; onProjectsLoaded?: (projects: ProjectEntry[]) => void;
-  onLocationsLoaded?: (roots: HomeRoot[]) => void; onLocationChange?: (path: string) => void; refreshKey?: number;
+  onLocationsLoaded?: (roots: HomeRoot[]) => void; onLocationChange?: (path: string) => void; refreshKey?: number; initialFilter?: 'all' | 'recent';
 }) {
   const [projects, setProjects] = useState<ProjectEntry[]>([]);
   const [recent, setRecent] = useState<ProjectEntry[]>([]);
   const [roots, setRoots] = useState<HomeRoot[]>([]);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState<string>(initialFilter);
   const [query, setQuery] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

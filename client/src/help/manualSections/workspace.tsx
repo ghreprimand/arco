@@ -147,7 +147,7 @@ export const workspace: Section[] = [
             <strong>⏻</strong> - opens the System modal: Actions (restart / quit
             Arco), Diagnostics (read-only health + exposure-posture checks),
             Models (Ollama / llama.cpp / model-files readout), and Services
-            (machine-wide local web/dev service browser).
+            (machine-wide local web/dev service browser).             In the mobile view, System opens on Diagnostics and RESTART and QUIT ask for confirmation at the end of the page.
           </li>
         </ul>
       </>

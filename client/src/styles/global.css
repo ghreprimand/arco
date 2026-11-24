@@ -601,11 +601,41 @@ body {
   max-width: none !important;
   max-height: min(88dvh, 48rem) !important;
   border-radius: 0 !important;
+  resize: none !important;
   border-top: 2px solid var(--color-accent-primary) !important;
   padding-bottom: env(safe-area-inset-bottom);
 }
 [data-phone-dialog='sheet'] [data-phone-safe] {
   order: -1;
+}
+[data-phone-creator] button,
+[data-phone-creator] select,
+[data-phone-creator] input:not([type='checkbox']):not([type='radio']),
+[data-phone-creator] textarea {
+  min-height: 44px;
+}
+[data-phone-system] button,
+[data-phone-system] select,
+[data-phone-system] input:not([type='checkbox']):not([type='radio']) {
+  min-height: 44px;
+}
+[data-phone-terminal] button,
+[data-phone-terminal] select {
+  min-height: 44px;
+  min-width: 44px;
+}
+[data-testid='mobile-manual-page'] .manual-content table {
+  width: 100%;
+  table-layout: fixed;
+}
+[data-testid='mobile-manual-page'] .manual-content th,
+[data-testid='mobile-manual-page'] .manual-content td {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+[data-testid='mobile-manual-page'] .manual-content pre {
+  max-width: 100%;
+  overflow-x: auto;
 }
 /* Home's text links get a thumb-sized target too. */
 [data-phone-layout] .home-page a {
