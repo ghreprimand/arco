@@ -564,7 +564,7 @@ export function MediaModalHost({ initialPath, initialMode = 'image', initialEdit
               }}
             >
               <div className="display-font" style={{ fontSize: '12px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
-                DROP A {modeLabel} FILE OR
+                {phone ? 'CHOOSE A FILE' : <>DROP A {modeLabel} FILE OR</>}
               </div>
               <label className="display-font" style={{ ...ctrlBtn, padding: '8px 16px', cursor: 'pointer', fontSize: '11px', letterSpacing: '1px' }}>
                 IMPORT…

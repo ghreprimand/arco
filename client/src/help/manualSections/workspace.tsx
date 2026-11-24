@@ -453,7 +453,7 @@ export const workspace: Section[] = [
           Arco fits images and sends them visually when the model reports vision support. SVG attachments include source text; image-capable models also receive a fitted preview when rendering succeeds, while text-only models receive an image-omission note.
         </p>
         <p>
-          Open <Code>UPLOAD FROM PHONE</Code> beside Attach and scan the code on the same private network. Take a photo or choose files. They appear in the original draft, even after switching tabs. Press Send to submit them.
+          On the mobile view, open <Code>UPLOAD FROM PHONE</Code> in message options to choose files or photos on this device. On the workbench, open it beside Attach and scan the code on the same private network. The files appear in the original draft, even after switching tabs. Press Send to submit them.
         </p>
         <p>
           The window lists private IPv4 origins as <Code>http://&lt;ipv4&gt;:&lt;port&gt;</Code> from the listener (home LAN and Tailscale when present). It never lists MagicDNS names or the desktop page hostname. When several appear, choose one. Scan the full QR; the origin under the code is only the address and port.

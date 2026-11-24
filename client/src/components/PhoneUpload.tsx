@@ -4,6 +4,7 @@ import qrcode from 'qrcode-generator';
 import { useAppStore } from '../stores/appStore';
 import { phoneUploadRequest } from '../utils/phoneUploadApi';
 import { phoneThemeSnapshot } from '../utils/phoneTheme';
+import { useLayout } from '../layout/layoutRange';
 const OPEN_EVENT = 'arco:open-phone-upload';
 const IMAGE = /\.(?:png|jpe?g|gif|webp|avif|heic|heif|tiff?|bmp|ico)$/i;
 
@@ -33,14 +34,15 @@ function qrUrl(value: string): string {
 
 // The composer that holds the button passes its own sizing, so the button
 // matches the attach control beside it instead of standing taller.
-export function PhoneUploadButton({ workflowId, style }: { workflowId: string; style?: CSSProperties }) {
+export function PhoneUploadButton({ workflowId, style, onPhonePick }: { workflowId: string; style?: CSSProperties; onPhonePick: () => void }) {
+  const phone = useLayout().phone;
   return <button
     type="button"
     className="display-font phone-upload-button"
     data-help="composer.upload-from-phone"
     aria-label="Upload from phone"
     title="Upload from phone"
-    onClick={e => { window.dispatchEvent(new CustomEvent<Opening>(OPEN_EVENT, {
+    onClick={e => { if (phone) { onPhonePick(); return; } window.dispatchEvent(new CustomEvent<Opening>(OPEN_EVENT, {
       detail: { workflowId, trigger: e.currentTarget },
     })); }}
     style={{

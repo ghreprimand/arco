@@ -214,3 +214,37 @@ test('a phone upload route is unverified until a file arrives through it, in the
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   }
 });
+
+test('the upload from phone control opens the local picker in mobile view and the code on the workbench', async () => {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://localhost/mobile', pretendToBeVisual: true });
+  const names = ['window', 'document', 'localStorage', 'HTMLElement', 'Node', 'navigator', 'getComputedStyle', 'CustomEvent'];
+  const previous = new Map(names.map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  Object.defineProperties(globalThis, {
+    window: { configurable: true, value: dom.window }, document: { configurable: true, value: dom.window.document },
+    localStorage: { configurable: true, value: dom.window.localStorage }, HTMLElement: { configurable: true, value: dom.window.HTMLElement },
+    Node: { configurable: true, value: dom.window.Node }, navigator: { configurable: true, value: dom.window.navigator },
+    getComputedStyle: { configurable: true, value: dom.window.getComputedStyle.bind(dom.window) },
+    CustomEvent: { configurable: true, value: dom.window.CustomEvent }, IS_REACT_ACT_ENVIRONMENT: { configurable: true, value: true },
+  });
+  const { PhoneUploadButton } = await import('./PhoneUpload');
+  const host = dom.window.document.createElement('div'); dom.window.document.body.append(host);
+  const root = createRoot(host);
+  let picked = 0, opened = 0;
+  dom.window.addEventListener('arco:open-phone-upload', () => { opened += 1; });
+  try {
+    await act(async () => { root.render(createElement(PhoneUploadButton, { workflowId: 'fixture', onPhonePick: () => { picked += 1; } })); });
+    await act(async () => { host.querySelector('button')!.click(); });
+    assert.equal(picked, 1); assert.equal(opened, 0);
+    dom.window.history.replaceState({}, '', '/');
+    await act(async () => { dom.window.dispatchEvent(new dom.window.Event('resize')); });
+    await act(async () => { host.querySelector('button')!.click(); });
+    assert.equal(picked, 1); assert.equal(opened, 1);
+  } finally {
+    await act(async () => { root.unmount(); }); dom.window.close();
+    for (const [name, descriptor] of previous) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else delete (globalThis as Record<string, unknown>)[name];
+    }
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  }
+});

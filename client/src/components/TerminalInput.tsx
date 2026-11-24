@@ -1306,7 +1306,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
           + FILE
         </button>
         </span>
-        <PhoneUploadButton workflowId={job.id} />
+        <PhoneUploadButton workflowId={job.id} onPhonePick={() => fileInputRef.current?.click()} />
 
         {hubLinked && onUpdatePrimary && (
           <button

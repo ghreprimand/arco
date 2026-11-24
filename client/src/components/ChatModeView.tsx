@@ -357,7 +357,7 @@ export function ChatModeView({ job, onRenameWorkflow, onSend, onCancel, onLoadEa
               {uploading ? '…' : '＋'}
             </button>
           )}
-          {canAttach && <PhoneUploadButton workflowId={job.id} style={{ height: '30px', padding: '0 10px', borderRadius: '15px' }} />}
+          {canAttach && <PhoneUploadButton workflowId={job.id} onPhonePick={() => fileInputRef.current?.click()} style={{ height: '30px', padding: '0 10px', borderRadius: '15px' }} />}
           <textarea
             data-help="chat.input"
             ref={areaRef}
