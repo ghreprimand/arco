@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Sign in to the default Codex account in Settings and manage optional profiles under MORE ACCOUNTS.
+
 - Deliver cluster mail sent to a replaced member's old id to the member that replaced it, and tell the sender the current name and id.
 
 - Avoid false research sandbox warnings for regular expressions containing slash patterns.

@@ -232,3 +232,41 @@ test('a completed Gemini research login closes its Settings flow and shows the r
     }, true);
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('Codex default LOG IN remains available when a separate profile is signed in', async () => {
+  await mounted(false, async (container, requests) => {
+    await act(async () => {
+      useAppStore.setState({ authStatus: { claude: { loggedIn: true }, codex: { loggedIn: true, defaultAccount: { loggedIn: false }, accountStatuses: [{ id: 'work', label: 'Work', loggedIn: true }] } } as never });
+      [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Providers and models')?.click();
+    });
+    const inner = globalThis.fetch;
+    const session = { provider: 'codex', status: 'pending', needsCode: false, startedAt: Date.now(), url: 'https://example.com/device' };
+    globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+      if (String(url).startsWith('/api/auth-login')) { requests.push({ url: String(url) }); return { ok: true, json: async () => ({ started: true, session }) }; }
+      return inner(url as string, init);
+    }) as typeof fetch;
+    const row = [...container.querySelectorAll('span')].find((s) => s.textContent === 'CODEX (OPENAI)')?.closest('div')?.parentElement;
+    const login = [...(row?.querySelectorAll('button') ?? [])].find((b) => b.textContent === 'LOG IN');
+    assert.ok(login);
+    await act(async () => login.click());
+    assert.ok(requests.some((r) => r.url === '/api/auth-login?provider=codex&inApp=1'));
+    assert.equal(container.querySelector('[data-testid="settings-codex-login"] a')?.getAttribute('href'), session.url);
+  });
+});
+
+test('new Codex profiles leave the home to the server default in the Arco data folder', async () => {
+  await mounted(false, async (container, requests) => {
+    await act(async () => [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Providers and models')?.click());
+    const more = [...container.querySelectorAll('button')].find((b) => b.textContent === 'MORE ACCOUNTS');
+    assert.equal(more?.getAttribute('aria-expanded'), 'false');
+    await act(async () => more?.click());
+    assert.match(container.textContent ?? '', /separate OpenAI accounts/);
+    await act(async () => [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === '+ ADD')?.click());
+    const field = container.querySelector<HTMLInputElement>('input[title="CODEX_HOME"]');
+    assert.equal(field?.value, '');
+    await act(async () => [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'SAVE')?.click());
+    const profile = requests.find((r) => r.patch?.providerAccounts?.codex)?.patch.providerAccounts.codex[0];
+    assert.equal(profile.id, 'work');
+    assert.equal(profile.codexHome, undefined);
+  });
+});

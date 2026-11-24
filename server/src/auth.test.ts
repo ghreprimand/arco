@@ -131,3 +131,23 @@ test('auth-less providers get a hint, not a command', async () => {
     assert.ok(r.manual, provider);
   }
 });
+
+test('Codex reports the default account separately from configured profiles', async () => {
+  const script = `#!/usr/bin/env node\nconsole.log((process.env.CODEX_HOME || '').endsWith('codex-work') ? 'Logged in using ChatGPT' : 'Not logged in');\n`;
+  if (process.platform === 'win32') {
+    writeFileSync(join(binDir, 'codex-fixture.js'), script);
+    writeFileSync(join(binDir, 'codex.cmd'), '@"%dp0%\\codex-fixture.js" %*\r\n');
+  } else {
+    writeFileSync(join(binDir, 'codex'), script);
+    chmodSync(join(binDir, 'codex'), 0o755);
+  }
+  const { patchSettings } = await import('./settings.js');
+  const { getConnectionStatus } = await import('./auth.js');
+  await patchSettings({ providerAccounts: { codex: [{ id: 'work', label: 'Work' }] } });
+  const { resolveProviderAccount } = await import('./providerAccounts.js');
+  assert.equal((await resolveProviderAccount('codex', 'work'))?.codexHome, join(process.env.ARCO_HOME!, 'provider-accounts', 'codex-work'));
+  const status = await getConnectionStatus('codex');
+  assert.equal(status.loggedIn, true);
+  assert.equal(status.accountStatuses?.[0]?.loggedIn, true);
+  assert.equal(status.defaultAccount?.loggedIn, false);
+});

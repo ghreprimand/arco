@@ -47,6 +47,10 @@ interface Props {
   onClose: () => void;
 }
 
+function loginStatus(provider: AuthLoginTarget, status: AuthStatus | null | undefined): AuthStatus | null | undefined {
+  return provider === 'codex' ? status?.defaultAccount ?? status : status;
+}
+
 export function SettingsPanel({ onClose }: Props) {
   const authStatus = useAppStore((s) => s.authStatus);
   const setAuthStatus = useAppStore((s) => s.setAuthStatus);
@@ -469,13 +473,13 @@ export function SettingsPanel({ onClose }: Props) {
   // A finished in-app sign-in gives way to the row's LIVE state.
   useEffect(() => {
     const provider = inAppLogin?.session?.provider;
-    if (provider && provider !== 'antigravity-cli' && provider !== 'gemini-research' && authStatus?.[provider]?.loggedIn) setInAppLogin(null);
+    if (provider && provider !== 'antigravity-cli' && provider !== 'gemini-research' && loginStatus(provider, authStatus?.[provider])?.loggedIn) setInAppLogin(null);
   }, [authStatus, inAppLogin]);
 
   // Clear loginPending once the target provider flips to loggedIn.
   useEffect(() => {
     if (!loginPending || !authStatus) return;
-    if (loginPending !== 'antigravity-cli' && loginPending !== 'gemini-research' && authStatus[loginPending]?.loggedIn) {
+    if (loginPending !== 'antigravity-cli' && loginPending !== 'gemini-research' && loginStatus(loginPending, authStatus[loginPending])?.loggedIn) {
       setLoginPending(null);
     }
   }, [authStatus, loginPending]);
@@ -486,7 +490,7 @@ export function SettingsPanel({ onClose }: Props) {
     setLoginCommand(null);
     setInAppLogin(null);
     setInAppNote(null);
-    const inApp = provider === 'cursor' || provider === 'antigravity-cli' || provider === 'gemini-research';
+    const inApp = provider === 'codex' || provider === 'cursor' || provider === 'antigravity-cli' || provider === 'gemini-research';
     try {
       const res = await fetch(`/api/auth-login?provider=${provider}${inApp ? '&inApp=1' : ''}`, { method: 'POST' });
       const data = (await res.json()) as AuthLoginResult;
@@ -526,10 +530,11 @@ export function SettingsPanel({ onClose }: Props) {
       return;
     }
     const status = await checkProviderStatus(provider);
-    if (!status) {
+    const checkedStatus = loginStatus(provider, status);
+    if (!checkedStatus) {
       setInAppNote('Sign-in finished, but Arco could not check the status. Press LOG IN to try again, or use Check connection in Connections.');
-    } else if (!status.loggedIn) {
-      setInAppNote(status.error ? `Sign-in finished, but the status still reads not signed in: ${status.error}` : 'Sign-in finished, but the status still reads not signed in. Press LOG IN to try again.');
+    } else if (!checkedStatus.loggedIn) {
+      setInAppNote(checkedStatus.error ? `Sign-in finished, but the status still reads not signed in: ${checkedStatus.error}` : 'Sign-in finished, but the status still reads not signed in. Press LOG IN to try again.');
     } else {
       setInAppNote(null);
     }
@@ -892,6 +897,12 @@ export function SettingsPanel({ onClose }: Props) {
             />
 
             </div>
+            <ProviderRow label="CODEX (OPENAI)" provider="codex" status={loginStatus('codex', authStatus?.codex) ?? undefined} loginPending={loginPending === 'codex'} onLogin={() => startLogin('codex')} />
+            {inAppLogin?.session?.provider === 'codex' && (
+              <div data-testid="settings-codex-login" style={{ padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>
+                <LoginFlow result={inAppLogin} onRestart={() => void startLogin('codex')} onComplete={() => { void finishInAppLogin('codex'); }} />
+              </div>
+            )}
             <CodexProfilesSection />
 
 
@@ -2030,7 +2041,6 @@ function defaultCodexProfileDraft(n: number): CodexProfileDraft {
     id,
     label,
     shortLabel,
-    codexHome: `~/.arco/provider-accounts/codex-${id}`,
     authBrowser: { command: '' },
     authArgsText: '',
   };
@@ -2068,23 +2078,17 @@ function CodexProfilesSection() {
   const authStatus = useAppStore((s) => s.authStatus);
   const setAuthStatus = useAppStore((s) => s.setAuthStatus);
   const [drafts, setDrafts] = useState<CodexProfileDraft[]>([]);
+  const [expanded, setExpanded] = useState(false);
+  const initialized = useRef(false);
   const [saving, setSaving] = useState(false);
   const [loginPending, setLoginPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loginCommand, setLoginCommand] = useState<{ id: string; command: string } | null>(null);
   const [editingIds, setEditingIds] = useState<Set<string>>(new Set());
   const savedProfileIds = new Set((settings?.providerAccounts?.codex ?? []).map((p) => p.id));
-  const providerLoggedIn = authStatus?.codex?.loggedIn === true;
-  const profileCount = settings?.providerAccounts?.codex?.length ?? 0;
-  const liveProfileCount = authStatus?.codex?.accountStatuses?.filter((s) => s.loggedIn).length ?? 0;
-  const codexSubline = profileCount > 0
-    ? `${profileCount} profile${profileCount === 1 ? '' : 's'} configured · ${liveProfileCount} live`
-    : providerLoggedIn
-      ? (authStatus?.codex?.email ? `${authStatus.codex.email} · default Codex auth` : 'default Codex auth live')
-      : (authStatus?.codex?.error || 'not authenticated');
-
   useEffect(() => {
     const profiles = settings?.providerAccounts?.codex ?? [];
+    if (settings && !initialized.current) { initialized.current = true; setExpanded(profiles.length > 0); }
     setDrafts(profiles.map((p) => ({
       ...p,
       authArgsText: p.authBrowser?.args?.join(' ') ?? '',
@@ -2175,30 +2179,10 @@ function CodexProfilesSection() {
   };
 
   return (
-    <div
-      data-help="settings.codex-profiles"
-      style={{
-        border: '1px solid var(--color-border-hairline)',
-        borderRadius: '4px',
-        padding: '12px 14px',
-        background: providerLoggedIn ? 'var(--color-accent-primary-a05)' : 'var(--color-bg-sunken)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '10px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
-          <span className="display-font" style={{ fontSize: '12px', letterSpacing: '2px', color: providerLoggedIn ? 'var(--color-accent-primary)' : 'var(--color-fg-muted)' }}>
-            CODEX (OPENAI)
-          </span>
-          <span style={{ fontSize: '10px', color: providerLoggedIn ? 'var(--color-accent-primary-dim)' : 'var(--color-warning-dim)', fontFamily: 'var(--font-body)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {codexSubline}
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          {providerLoggedIn && (
-            <span className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', color: 'var(--color-accent-primary)', padding: '4px 10px', border: '1px solid var(--color-accent-primary)', borderRadius: '3px' }}>
-              LIVE
-            </span>
-          )}
+    <div data-help="settings.codex-profiles" style={{ border: '1px solid var(--color-border-hairline)', borderRadius: '4px', padding: '12px 14px', background: 'var(--color-bg-sunken)' }}>
+      <button type="button" aria-expanded={expanded} onClick={() => setExpanded(!expanded)} className="display-font" style={{ background: 'transparent', border: 0, color: 'var(--color-accent-primary)', cursor: 'pointer', padding: '4px 0', fontSize: '11px', letterSpacing: '1px' }}>MORE ACCOUNTS</button>
+      {expanded && <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginBottom: '10px' }}>
           <button
             onClick={() => setDrafts((prev) => [...prev, defaultCodexProfileDraft(prev.length + 1)])}
             className="display-font"
@@ -2214,14 +2198,13 @@ function CodexProfilesSection() {
           >
             {saving ? 'SAVING...' : 'SAVE'}
           </button>
-        </div>
       </div>
       <div className="display-font" style={{ fontSize: '9px', letterSpacing: '1.5px', color: 'var(--color-accent-primary-dim)', marginBottom: '8px' }}>
         PROFILES
       </div>
       {drafts.length === 0 && (
         <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', marginBottom: '8px' }}>
-          Add Work and Home profiles to route Codex tabs through separate CODEX_HOME directories.
+          Add profiles for separate OpenAI accounts and route Codex tabs through their own CODEX_HOME directories.
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -2281,7 +2264,7 @@ function CodexProfilesSection() {
                     <input
                       value={profile.codexHome ?? ''}
                       onChange={(e) => updateDraft(profile.id, { codexHome: e.target.value })}
-                      placeholder="~/.arco/provider-accounts/codex-work"
+                      placeholder="Default: Arco data folder / provider-accounts / codex-profile ID"
                       style={inputStyle}
                       title="CODEX_HOME"
                     />
@@ -2398,6 +2381,7 @@ function CodexProfilesSection() {
           {error}
         </div>
       )}
+      </>}
     </div>
   );
 }

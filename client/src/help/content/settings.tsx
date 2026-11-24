@@ -365,10 +365,10 @@ export const settingsHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported.
-          Multiple Codex identities, each pinned to its own{' '}
+          Use LOG IN on CODEX (OPENAI) for the default account. MORE ACCOUNTS holds optional separate OpenAI accounts. Each profile has its own{' '}
           <C>CODEX_HOME</C> directory so they authenticate independently. Add{' '}
           <C>Work</C> / <C>Home</C> (or arbitrary) profiles to route different
-          tabs through separate ChatGPT accounts and rate limits.
+          tabs through separate ChatGPT accounts and rate limits. Leave the profile home blank to use the Arco data folder.
         </p>
         <p>
           Each row carries an id, label, short label (the 4-char chip shown in

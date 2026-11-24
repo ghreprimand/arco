@@ -35,6 +35,7 @@ export interface AuthStatus {
   error?: string;
   // Cursor: a token is stored but Cursor rejected it.
   signInRejected?: boolean;
+  defaultAccount?: AuthStatus;
   accountStatuses?: Array<{
     id: string;
     label: string;
@@ -178,6 +179,7 @@ async function getGithubAuthStatus(): Promise<AuthStatus> {
 async function getCodexAuthStatus(): Promise<AuthStatus> {
   const accounts = await configuredAccounts('codex').catch(() => []);
   if (accounts.length > 0) {
+    const defaultAccount = await getDefaultCodexAuthStatus();
     const accountStatuses = await Promise.all(accounts.map(async (profile) => {
       const resolved = await resolveProviderAccount('codex', profile.id).catch(() => null);
       const codexHome = resolved?.codexHome;
@@ -209,9 +211,14 @@ async function getCodexAuthStatus(): Promise<AuthStatus> {
       apiProvider: 'chatgpt-oauth',
       subscriptionType: 'codex-cli',
       accountStatuses,
+      defaultAccount,
       ...(!accountStatuses.some((a) => a.loggedIn) ? { error: 'no configured Codex profile is authenticated' } : {}),
     };
   }
+  return getDefaultCodexAuthStatus();
+}
+
+async function getDefaultCodexAuthStatus(): Promise<AuthStatus> {
   if (process.env.OPENAI_API_KEY) {
     // Env-var fallback — Codex will use this transparently.
     return { loggedIn: true, apiProvider: 'openai-api-key' };

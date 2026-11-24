@@ -759,6 +759,8 @@ export interface AuthStatus {
   error?: string;
   // Cursor: a token is stored but Cursor rejected it; the UI offers "Sign in again".
   signInRejected?: boolean;
+  // Codex default sign-in, independent of any configured profiles.
+  defaultAccount?: AuthStatus;
   accountStatuses?: Array<{
     id: string;
     label: string;

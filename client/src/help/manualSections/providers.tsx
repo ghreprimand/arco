@@ -432,8 +432,7 @@ export const providers: Section[] = [
   ]}
   />
   <p>
-  <strong>Auth:</strong> via <Code>codex login</Code>. API-key fallback if{' '}
-  <Code>OPENAI_API_KEY</Code> is set.
+  <strong>Auth:</strong> In SETTINGS &gt; AUTHENTICATION, use LOG IN on CODEX (OPENAI) and complete the device sign-in. MORE ACCOUNTS contains optional profiles for separate OpenAI accounts. A profile without a custom home uses the Arco data folder. API-key fallback applies if <Code>OPENAI_API_KEY</Code> is set.
   </p>
   <Sub>Models and effort</Sub>
   <p>

@@ -76,7 +76,7 @@ make a tool-less one-shot. Codex runs as a locked-down one-shot app-server
 See [Settings: Utility agent](SETTINGS.md#utility-agent) and
 [SECURITY.md](../SECURITY.md#utility-agent-and-smart-auto-pickup-evaluator-requests).
 
-Auth is per-service: browser OAuth for Claude (CLI login, plus a separate OAuth flow for Native); terminal-launched TUI for Codex; `gh auth token` for GitHub; Ollama / LM Studio / Strata probe their HTTP endpoints (prepared local Strata profiles can also start on demand); llama.cpp probes for the binary + reads `~/.arco/llamacpp.json`; Cursor uses its own `cursor-agent login`. The auth overlay blocks app use only when no primary-capable provider is authed.
+Auth is per-service: browser OAuth for Claude (CLI login, plus a separate OAuth flow for Native); in-app device sign-in for Codex; `gh auth token` for GitHub; Ollama / LM Studio / Strata probe their HTTP endpoints (prepared local Strata profiles can also start on demand); llama.cpp probes for the binary + reads `~/.arco/llamacpp.json`; Cursor uses its own `cursor-agent login`. The auth overlay blocks app use only when no primary-capable provider is authed.
 
 ### Background programs
 
@@ -990,7 +990,7 @@ UUID-based via thread_id. Captured from the `thread.started` init event on first
 
 #### Auth
 
-`codex login status` → `{ loggedIn, email, accountType }`. `POST /api/auth-login?provider=codex` opens a terminal emulator with `codex login` for the interactive OAuth flow.
+`codex login status` reports whether the default account is signed in. In SETTINGS > AUTHENTICATION, CODEX (OPENAI) offers LOG IN through an in-app device flow. MORE ACCOUNTS holds optional separate account profiles; a profile without a custom CODEX_HOME uses the Arco data folder. The terminal command remains available as a fallback.
 
 API-key fallback: `OPENAI_API_KEY` env var.
 
