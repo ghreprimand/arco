@@ -116,7 +116,9 @@ async def open_page(browser, base, width, scale=1.0, layout=None, height=800, si
         cluster.update({'taskBoardMode': 'none', 'taskBoardAttached': False, 'research': {
             'projectId': 'fixture', 'folder': '/projects/harbor', 'name': 'Fixture', 'brief': 'Compare.',
             'blind': True, 'directorWorkflowId': 'worker-0',
-            'researchers': [{'workflowId': f'worker-{i}', 'letter': chr(64+i), 'provider': 'claude', 'model': 'sonnet', 'isolation': 'tool-fenced'} for i in range(1,5)], 'rounds': [],
+            'researchers': [{'workflowId': f'worker-{i}', 'letter': chr(64+i), 'provider': 'claude', 'model': 'sonnet', 'isolation': 'tool-fenced'} for i in range(1,5)],
+            'rounds': [] if research is True else [{'n': 1, 'startedAt': '2026-11-24T05:00:00.000Z', 'deadline': '2026-11-24T05:30:00.000Z', 'releasedAt': '2026-11-24T05:10:00.000Z', 'targeted': 1, 'entries': {'A': {'state': 'replied', 'at': '2026-11-24T05:09:00.000Z', 'source': 'mail'}}}],
+            'catchUps': [],
         }})
         for member in cluster['members'][1:]: member['accessMode'] = 'researcher'
 
@@ -444,7 +446,17 @@ async def run(base):
             await expect(page.get_by_text('Saved in', exact=False)).to_have_count(1)
             await expect(page.get_by_text('Auto-compaction:', exact=False)).to_be_visible()
             await page.get_by_role('button', name='RESULTS', exact=True).click()
-            await page.get_by_role('button', name='SEND PROJECT').click()
+            # No round yet: an empty state, and no project actions.
+            await expect(page.get_by_text('No round yet. Released reports', exact=False)).to_be_visible()
+            await expect(page.get_by_role('button', name='Send project', exact=True)).to_have_count(0)
+            assert not errors, errors
+            await context.unroute_all(behavior='wait')
+            await context.close()
+            # A released round: the report has an Actions control and the project can be sent.
+            context, page, errors = await open_page(browser, base, 2000, layout='standard', research='released')
+            await page.get_by_role('button', name='RESULTS', exact=True).click()
+            await expect(page.get_by_role('button', name='Actions for Researcher A report, round 1')).to_be_visible()
+            await page.get_by_role('button', name='Send project', exact=True).click()
             await expect(page.get_by_text('Attach to conversation draft')).to_be_visible()
             await expect(page.get_by_label('Plan reference')).to_contain_text('No plan in this folder')
             await page.get_by_role('button', name='Close', exact=True).last.click()

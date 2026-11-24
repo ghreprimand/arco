@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Tidy the research RESULTS panel: file links and project actions sit in separate rows, and each released summary or report keeps its send, start, chat and export choices under an Actions disclosure.
+
 - Sign in to the default Codex account in Settings and manage optional profiles under MORE ACCOUNTS.
 
 - Deliver cluster mail sent to a replaced member's old id to the member that replaced it, and tell the sender the current name and id.
