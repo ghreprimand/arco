@@ -506,23 +506,25 @@ async def run(base):
             assert not errors, errors
             await context.unroute_all(behavior='wait')
             await context.close()
-            # Mobile view: a PANELS slide-out scrolls as one surface. The panel
-            # bar and tab rows scroll away with RESULTS; no Back bar is pinned.
-            context, page, errors = await open_page(browser, base, 412, height=892, touch=True, mobile=True, research=6, antigravity=True)
+            # Mobile view: a PANELS destination is a page. The mobile header names
+            # it and goes back; the page has no bar or tab rows and scrolls as one surface.
+            context, page, errors = await open_page(browser, base, 412, height=892, touch=True, mobile=True, research=12, antigravity=True)
             if await page.get_by_test_id('mobile-directory').count():
                 await page.get_by_test_id('mobile-research-project').first.tap()
             await page.get_by_test_id('phone-panels').tap()
             await page.get_by_test_id('phone-panel').filter(has_text='RESULTS').tap()
             panel = page.get_by_test_id('right-panel-slide-out')
             await expect(panel.locator('div.research-results')).to_be_visible()
-            await expect(page.get_by_test_id('mobile-panel-return')).to_have_count(0)
+            await expect(page.get_by_test_id('phone-title-name')).to_have_text('RESULTS')
+            await expect(panel.get_by_role('button', name='CLOSE')).to_have_count(0)
+            await expect(panel.locator('[data-help="cluster.right-panel.group.workspace"]')).to_be_hidden()
             await expect(page.locator('aside[data-help="cluster.gemini-members"]')).to_have_count(0)
-            tabs = panel.locator('[data-help="cluster.right-panel.group.workspace"]')
-            before = (await tabs.bounding_box())['y']
             assert await panel.evaluate('e => e.scrollHeight > e.clientHeight'), 'RESULTS fits; the fixture needs more rounds'
             await panel.evaluate('e => { e.scrollTop = e.scrollHeight; }')
             assert await panel.evaluate('e => e.scrollTop > 0')
-            assert (await tabs.bounding_box())['y'] < before - 100, 'the tab rows stayed pinned'
+            await page.get_by_test_id('mobile-page-back').tap()
+            await expect(panel).to_have_count(0)
+            await expect(page.get_by_test_id('mobile-member-strip')).to_be_visible()
             assert not errors, errors
             await context.unroute_all(behavior='wait')
             await context.close()

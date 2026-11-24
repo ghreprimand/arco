@@ -297,7 +297,8 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Selected messages',
     body: (
       <p>
-        Messages ticked with the small box beside them. <C>FORWARD</C> sends
+        Messages ticked with the small box beside them. In the mobile view, press
+        and hold a message to select it; QUOTE and COPY are offered there too. <C>FORWARD</C> sends
         them to other cluster members (cluster tabs only); <C>CLEAR</C> drops
         the selection. Nothing is sent until you press SEND in the dialog.
       </p>

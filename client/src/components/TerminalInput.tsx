@@ -1,3 +1,4 @@
+import { MobileQuestionBar } from './MobileQuestionBar';
 import { DirectorContinuePrompt } from './DirectorContinuePrompt';
 import { PhoneUploadButton } from './PhoneUpload';
 import { effectiveCodexTransport } from '@arco/shared';
@@ -335,7 +336,7 @@ function PhoneSendButtons({ jobId, blocked, hasAttachments, busy, optionsOpen, o
     <button type="button" data-testid="composer-phone-options" data-help="mobile.composer-options" aria-expanded={optionsOpen} aria-label="Message options"
       title="Attach files, model, skills, recipient and the other composer tools" onClick={onToggleOptions} className="display-font"
       style={{ ...base, padding: 0, border: `1px solid ${optionsOpen ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)'}`, color: 'var(--color-fg)', fontSize: '18px' }}>
-      {optionsOpen ? '\u00D7' : '\u22EF'}
+      {optionsOpen ? '\u00D7' : '+'}
     </button>
     <button type="button" data-testid="composer-phone-send" data-help="composer.send" onClick={onSend} disabled={disabled} className="display-font"
       title={busy ? 'Steer: the agent reads this at the next point it can, without stopping the turn' : 'Send message'}
@@ -382,6 +383,11 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
   const setDraft = useAppStore((s) => s.setDraft);
   const readDraft = useCallback(() => readDraftFor(job.id), [job.id]);
   const setValue = useCallback((next: string) => setDraft(job.id, next), [setDraft, job.id]);
+  // The selected messages as text, for SECOND OPINION and the mobile view's COPY and QUOTE.
+  const selectedExcerpt = () => {
+    const picked = new Set(useMessageSelectionStore.getState().selected[job.id] ?? []);
+    return job.messages.filter((m) => picked.has(m.id)).map((m) => formatRow(m, job.config.name)).filter(Boolean).join('\n\n');
+  };
   // §D1 — the `@`-context-ref chips render in ContextRefChips, which does its
   // own draft subscription + parse. Keeping that out of this component is what
   // stops a keystroke re-rendering the composer's whole tree.
@@ -883,7 +889,7 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
         zIndex: 10,
         flexShrink: 0,
         transition: 'all 0.2s ease',
-        ...(phone && phoneOptions ? { maxHeight: 'calc(var(--phone-vh, 100dvh) / var(--ui-scale, 1) * 0.6)', overflowY: 'auto' as const } : {}),
+        ...(phone && phoneOptions ? { maxHeight: 'calc(var(--phone-vh, 100dvh) / var(--ui-scale, 1) * 0.72)', overflowY: 'auto' as const, borderTop: '2px solid var(--color-accent-primary)', boxShadow: '0 0 0 100vmax rgba(0,0,0,0.55)' } : {}),
       }}
     >
       <input
@@ -894,6 +900,14 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
         style={{ display: 'none' }}
       />
 
+      {/* Mobile view: the tools open as a sheet with its own title row. */}
+      {phone && phoneOptions && (
+        <div data-phone-option="" className="display-font" style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '0 0 8px', paddingBottom: '6px', borderBottom: '1px solid var(--color-border-hairline)' }}>
+          <span style={{ flex: 1, fontSize: '14px', fontWeight: 600, letterSpacing: '1px', color: 'var(--color-fg)' }}>MESSAGE TOOLS</span>
+          <button type="button" data-testid="composer-phone-options-close" onClick={() => setPhoneOptions(false)} className="display-font" style={{ minHeight: '44px', padding: '0 12px', fontSize: '13px', letterSpacing: '0.5px' }}>CLOSE</button>
+        </div>
+      )}
+      {phone && <MobileQuestionBar workflowId={job.id} />}
       <DirectorContinuePrompt workflowId={job.id} />
       {phone && onCancelQueued && <QueuedMessagesIndicator job={job} onCancel={onCancelQueued} />}
       <div data-testid="composer-status-line" data-phone-option="" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', marginBottom: '6px', minWidth: 0, minHeight: isBusy ? '24px' : undefined, position: 'relative', paddingRight: job.busy && job.turnStartedAt !== undefined ? '96px' : 0 }}>
@@ -1262,10 +1276,15 @@ export function TerminalInput({ job, researchProject = false, onSend, onCancel, 
       {phone && <div data-phone-option="" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '6px' }}><TidyComposer key={job.id} jobId={job.id} disabled={uploading || isCompacting} /></div>}
 
       <MessageSelectionBar jobId={job.id} onSecondOpinion={() => {
-        const picked = new Set(useMessageSelectionStore.getState().selected[job.id] ?? []);
-        const excerpt = job.messages.filter((m) => picked.has(m.id)).map((m) => formatRow(m, job.config.name)).filter(Boolean).join('\n\n');
-        openCompareDialog(job.id, excerpt);
-      }} onForward={onTranscriptSend && clusterForJob && clusterForJob.members.length > 1 ? () => setShowForwardDialog(true) : undefined} />
+        openCompareDialog(job.id, selectedExcerpt());
+      }}
+        onCopy={phone ? () => { void navigator.clipboard?.writeText(selectedExcerpt()).then(() => useMessageSelectionStore.getState().clear(job.id), () => { /* clipboard blocked: the selection stays */ }); } : undefined}
+        onQuote={phone ? () => {
+          const quote = selectedExcerpt().split('\n').map((line) => `> ${line}`.trimEnd()).join('\n');
+          const draft = readDraftFor(job.id);
+          setValue(`${draft}${draft.trim() ? '\n\n' : ''}${quote}\n\n`);
+          useMessageSelectionStore.getState().clear(job.id);
+        } : undefined} onForward={onTranscriptSend && clusterForJob && clusterForJob.members.length > 1 ? () => setShowForwardDialog(true) : undefined} />
 
       {/* Toolbar row — permanent second line. Primitives on the left,
           live status + tokens on the right. Stays visible at narrow widths

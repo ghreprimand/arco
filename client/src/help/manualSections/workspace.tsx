@@ -690,9 +690,17 @@ export const workspace: Section[] = [
           follow the theme; the text size is set per phone.
         </p>
         <p>
-          A panel scrolls as one page, its tab rows included. The
-          phone&apos;s Back, CLOSE at its top or a member name returns to
-          the conversation.
+          A panel opens as a page: the header names it, and its back arrow,
+          the phone&apos;s Back or a member name returns to the conversation.{' '}
+          <strong>ALL PANELS</strong> lists every page of a cluster and its
+          settings. On the board, blocked tasks and tasks to review come
+          first.
+        </p>
+        <p>
+          Messages have no selection box on a phone. Press and hold a message
+          to select it, then tap others to add them.{' '}
+          <strong>FORWARD</strong>, <strong>QUOTE</strong> and{' '}
+          <strong>COPY</strong> appear under the message box.
         </p>
         <p>
           In the list, a cluster row opens the cluster on its Director, or on
@@ -713,12 +721,12 @@ export const workspace: Section[] = [
         </p>
         <p>
           The message box keeps the draft, the options button and{' '}
-          <strong>SEND</strong> on one row; the options button shows files,
-          model, skills, recipient and NUDGE. While the agent works,{' '}
+          <strong>SEND</strong> on one row; the <strong>+</strong> button opens the
+          message tools: files, model, skills, recipient and NUDGE. While the agent works,{' '}
           <strong>SEND</strong> reads <strong>STEER</strong>, and a second row
           has <strong>STOP</strong> and <strong>QUEUE FOR AFTER</strong>.
-          Questions and approvals waiting on you open from the line under the
-          header.
+          A question or approval waiting on you shows as a bar above the
+          message box; <strong>ANSWER</strong> opens it.
         </p>
         <p>
           A dragged splitter is remembered for each layout, so a laptop window

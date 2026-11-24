@@ -40,6 +40,9 @@ import {
   splitRecentAndOlderReview,
 } from './clusterNeedsYou';
 
+const PHONE_ORDER = ['blocked', 'review', 'in_progress', 'todo', 'ready', 'triage'];
+const phoneRank = (status: string) => { const i = PHONE_ORDER.indexOf(status); return i < 0 ? PHONE_ORDER.length : i; };
+const PHONE_COLUMNS = [...BOARD_COLUMNS].sort((a, b) => phoneRank(a) - phoneRank(b));
 export { BOARD_COLUMNS, groupByStatus, taskGraphSummary, taskShowWorkflowId };
 
 const COLUMN_LABEL: Record<LedgerTaskStatus, string> = {
@@ -474,9 +477,9 @@ export function ClusterTaskBoardTab({
             <div className="display-font" style={{ fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
               {visibleTasks.length} TASK{visibleTasks.length === 1 ? '' : 'S'}{tasks.length > visibleTasks.length ? ` (${tasks.length - visibleTasks.length} DONE HIDDEN)` : ''}
             </div>
-            <div style={{ fontSize: '10px', lineHeight: 1.4, color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)' }}>
+            {!phone && <div style={{ fontSize: '10px', lineHeight: 1.4, color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)' }}>
               Who is doing what right now. Your part: accept finished work and answer blocked tasks.
-            </div>
+            </div>}
           </div>
           <button
             type="button"
@@ -759,7 +762,8 @@ export function ClusterTaskBoardTab({
               paddingBottom: '4px',
             }}
           >
-            {BOARD_COLUMNS.map((col) => (
+            {/* Mobile view: what needs the operator first, and no empty groups. */}
+            {(phone ? PHONE_COLUMNS.filter((col) => (grouped[col]?.length ?? 0) > 0) : BOARD_COLUMNS).map((col) => (
               <BoardColumn
                 key={col}
                 col={col}

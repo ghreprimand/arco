@@ -19,6 +19,7 @@ import { hasWaitingQuestion } from '../questions/waitingQuestion';
 import { focusNoticeWorkflow } from '../alerts/focusNotice';
 import { useTerminalTarget } from '../hooks/useTerminalTarget';
 import { usePhoneOverlay } from '../layout/phoneOverlay';
+import { PhoneBottomSheet } from '../layout/PhoneBottomSheet';
 import { PendingQuestionsList, pendingGates, usePendingQuestions } from './PendingQuestionsButton';
 import { MOBILE_TEXT_SIZES, readMobileTextSize, writeMobileTextSize } from '../themes/bootstrap';
 import { openArchive } from '../explorer/launch';
@@ -282,7 +283,15 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
   const jobs = useAppStore((s) => s.jobs);
   const clusters = useAppStore((s) => s.clusters);
   const counts = useWorkbenchCounts();
-  const questions = usePendingQuestions(shown.workflowId ?? '', true);
+  const openPanel = usePhoneStore((s) => s.openPanel);
+  const pageTitle = usePhoneStore((s) => s.pageTitle);
+  const pageSubtitle = usePhoneStore((s) => s.pageSubtitle);
+  const pageActions = usePhoneStore((s) => s.pageActions);
+  const pagePrimary = usePhoneStore((s) => s.pagePrimary);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  useEffect(() => { if (!openPanel || pageActions.length === 0) setActionsOpen(false); }, [openPanel, pageActions.length]);
+  // The terminal window fills the screen under this header: it is a page too.
+  const terminalOpen = useTerminalStore((s) => s.windows.length > 0);
   const busy = !!(shown.workflowId && jobs[shown.workflowId]?.busy);
   useEffect(() => { usePhoneStore.getState().setReturnLabel(shown.label); }, [shown.label]);
   // Floating windows (the terminal) start below this header so STOP and Back stay in reach.
@@ -333,16 +342,48 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
   }
 
   const state: MemberState = cluster && shown.workflowId ? memberState(cluster, shown.workflowId, jobs[shown.workflowId]) : jobState(shown.workflowId ? jobs[shown.workflowId] : undefined);
-  const firstQuestion = (() => {
-    const q = questions.pending[0]?.operatorQuestion?.questions[0];
-    if (q) return q.question || q.header;
-    if (questions.asks[0]) return questions.asks[0].ask.question;
-    const gate = questions.gates[0]?.toolUse?.input as Record<string, unknown> | undefined;
-    return gate ? `Approve ${String(gate.toolName ?? 'a tool call')}?` : '';
-  })();
   const typing = viewport.keyboard;
-  const decisionLabel = questions.count > 1 ? `${questions.count} WAITING` : questions.gates.length ? 'APPROVAL' : 'QUESTION';
-  const decisionAria = `${questions.count === 1 ? 'A decision is' : `${questions.count} decisions are`} waiting: ${firstQuestion}`;
+  // A panel or the terminal open over the conversation is a page: the header
+  // names it and its back arrow returns to the list of pages or to the
+  // conversation. Closing the terminal window keeps its session running. A
+  // page may add a line under its name, a `+` and a `...` of its own actions
+  // (usePhonePageChrome).
+  if (openPanel || terminalOpen) {
+    const back = () => {
+      const phone = usePhoneStore.getState();
+      if (!openPanel) { const t = useTerminalStore.getState(); for (const w of t.windows) t.closeWindow(w.windowId); }
+      else if (phone.panelFromIndex && !phone.panelIndex) usePhoneStore.setState({ panelIndex: true });
+      else phone.closePanels();
+    };
+    const page = openPanel ? pageTitle || openPanel : 'TERMINAL';
+    return (
+      <header ref={headerRef} data-testid="phone-header" data-help="mobile.header" data-phone-header-mode="page" style={headerStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+          <button type="button" data-testid="mobile-page-back" data-help="mobile.back" onClick={back} aria-label={`Back from ${page}`} className="display-font" style={{ ...control, padding: '0 8px', fontSize: '18px' }}>{'\u2039'}</button>
+          <div data-testid="phone-title" style={{ flex: 1, minWidth: 0, minHeight: '44px', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 2px', color: 'var(--color-fg)' }}>
+            <span className="display-font" style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cluster ? shown.clusterName : shown.label}</span>
+            <span data-testid="phone-title-name" className="display-font" style={{ fontSize: '17px', lineHeight: 1.25, fontWeight: 600, letterSpacing: '1.5px', color: 'var(--color-accent-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{page}</span>
+          </div>
+          {openPanel && pagePrimary && <button type="button" data-testid="mobile-page-primary" onClick={pagePrimary.onSelect} aria-label={pagePrimary.label} title={pagePrimary.label} className="display-font" style={{ ...control, padding: 0, fontSize: '20px' }}>+</button>}
+          {openPanel && pageActions.length > 0 && <button type="button" data-testid="mobile-page-actions" onClick={() => setActionsOpen(true)} aria-haspopup="dialog" aria-label={`${page} actions`} title="Page actions" className="display-font" style={{ ...control, padding: 0, fontSize: '18px' }}>{'\u22EF'}</button>}
+          {panelsButton}
+        </div>
+        {/* The start of a long path is cut, so the folder in view stays readable. */}
+        {openPanel && pageSubtitle && <div data-testid="mobile-page-subtitle" title={pageSubtitle} style={{ direction: 'rtl', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-fg)' }}><bdi>{pageSubtitle}</bdi></div>}
+        {actionsOpen && pageActions.length > 0 && (
+          <PhoneBottomSheet local title={page} onClose={() => setActionsOpen(false)} testId="mobile-page-actions-sheet">
+            {pageActions.map((action) => (
+              <button key={action.id} type="button" data-testid="mobile-page-action" disabled={action.disabled} className="display-font"
+                onClick={() => { setActionsOpen(false); action.onSelect(); }}
+                style={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: '52px', padding: '0 14px', textAlign: 'left', background: 'transparent', border: 0, borderBottom: '1px solid var(--color-border-hairline)', borderRadius: 0, color: action.danger ? 'var(--color-danger)' : 'var(--color-fg)', fontSize: '14px', letterSpacing: '1px', cursor: 'pointer' }}>
+                {action.label}
+              </button>
+            ))}
+          </PhoneBottomSheet>
+        )}
+      </header>
+    );
+  }
   return (
     <header ref={headerRef} data-testid="phone-header" data-help="mobile.header" data-phone-header-mode={typing ? 'typing' : oneRow ? 'row' : 'full'} style={headerStyle}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
@@ -370,21 +411,8 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
                 aria-label={`${shown.label} in ${shown.clusterName}, ${stateText(state, busy).toLowerCase()}: switch member`} style={{ ...titleStyle, cursor: 'pointer' }}>{lines}</button>
             : <div data-testid="phone-title" data-help="mobile.title" style={titleStyle}>{lines}</div>;
         })()}
-        {oneRow && questions.count > 0 && shown.workflowId && (
-          <button type="button" data-testid="mobile-question" data-help="mobile.question" onClick={() => toggle('questions')} aria-label={decisionAria}
-            className="display-font" style={{ ...control, padding: '0 8px', borderColor: 'var(--color-warning)', borderWidth: '2px' }}>
-            <span aria-hidden="true" style={{ color: 'var(--color-warning)' }}>{'\u25B2'}</span>{questions.count}
-          </button>
-        )}
         {!typing && panelsButton}
       </div>
-      {!oneRow && questions.count > 0 && shown.workflowId && (
-        <button type="button" data-testid="mobile-question" data-help="mobile.question" onClick={() => toggle('questions')} aria-label={decisionAria}
-          style={{ ...control, width: '100%', justifyContent: 'flex-start', color: 'var(--color-fg)', borderColor: 'var(--color-warning)', borderWidth: '2px', overflow: 'hidden' }}>
-          <span className="display-font" style={{ flexShrink: 0 }}><span aria-hidden="true" style={{ color: 'var(--color-warning)' }}>{'\u25B2'}</span> {decisionLabel}</span>
-          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)', fontSize: '14px', letterSpacing: 0, color: 'var(--color-fg)' }}>{firstQuestion}</span>
-        </button>
-      )}
       {switchable && !oneRow && <MemberStrip cluster={cluster} current={shown.workflowId} />}
     </header>
   );
@@ -409,7 +437,7 @@ function MemberStrip({ cluster, current }: { cluster: ClusterStatePayload; curre
           <button key={m.workflowId} type="button" role="tab" aria-selected={selected} data-testid="mobile-member"
             aria-label={`${m.displayName}: ${state.toLowerCase()}${mail ? `, ${mail} unread mail` : ''}`}
             onClick={() => { setFocused(cluster.clusterId, m.workflowId); showConversation(); }}
-            style={{ ...control, flexShrink: 0, borderRadius: '22px', fontSize: '14px', letterSpacing: 0, fontFamily: 'var(--font-body)',
+            style={{ ...control, flexShrink: 0, borderRadius: 0, fontSize: '14px', letterSpacing: 0, fontFamily: 'var(--font-body)',
               background: selected ? 'var(--color-accent-primary-a10)' : 'transparent', borderColor: selected ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)' }}>
             <StateMark state={state} />
             {m.displayName}
@@ -569,31 +597,7 @@ export function MobileDirectory() {
   );
 }
 
-function Sheet({ title, onClose, children, testId }: { title: string; onClose: () => void; children: ReactNode; testId?: string }) {
-  // The one overlay over the conversation: focus starts inside it, the
-  // conversation underneath cannot take focus, and closing returns focus to
-  // the header button that opened it.
-  const sheetRef = useRef<HTMLDivElement>(null);
-  usePhoneOverlay(sheetRef, true);
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); onClose(); } };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
-    <div ref={sheetRef} role="dialog" aria-label={title} data-testid={testId ?? 'phone-sheet'} style={{
-      position: 'absolute', inset: 0, zIndex: 50, display: 'flex', flexDirection: 'column', minHeight: 0,
-      background: 'var(--color-bg-dialog, var(--color-bg-panel))',
-      paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', borderBottom: '1px solid var(--color-border-hairline)' }}>
-        <h2 className="display-font" style={{ flex: 1, minWidth: 0, fontSize: '14px', letterSpacing: '1px', color: 'var(--color-fg)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</h2>
-        <button type="button" data-testid="phone-sheet-back" onClick={onClose} className="display-font" style={control}>CLOSE</button>
-      </div>
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>{children}</div>
-    </div>
-  );
-}
+const Sheet = PhoneBottomSheet;
 
 /** The directory, or the open sheet, drawn over the conversation area. */
 export function MobileScreenHost() {
@@ -681,8 +685,9 @@ function PanelsSheet({ onClose }: { onClose: () => void }) {
         {/* The row is shared out among the tab's panels, so an odd count leaves no empty cell. */}
         <div style={{ ...grid, display: 'flex', flexWrap: 'wrap' }}>
           {tabPanels.map((p) => (
-            <button key={p.id} type="button" data-testid="phone-panel" className="display-font" style={{ ...tile, flex: '1 1 130px', width: 'auto' }} onClick={() => requestPanel(p.id)}>{p.label}</button>
+            <button key={p.id} type="button" data-testid="phone-panel" className="display-font" style={{ ...tile, flex: '1 1 130px', width: 'auto' }} onClick={() => { usePhoneStore.setState({ panelIndex: false, panelFromIndex: false }); requestPanel(p.id); }}>{p.label}</button>
           ))}
+          {shown.clusterId && <button type="button" data-testid="phone-panel-all" className="display-font" style={{ ...tile, flex: '1 1 130px', width: 'auto', color: 'var(--color-accent-primary)' }} onClick={() => { usePhoneStore.setState({ panelIndex: true, panelFromIndex: false }); requestPanel('more'); }}>ALL PANELS {'\u203A'}</button>}
         </div>
       </>}
       <div className="display-font" style={sectionHeading}>WORKBENCH</div>
@@ -692,8 +697,6 @@ function PanelsSheet({ onClose }: { onClose: () => void }) {
           onClick={() => { if (terminalWorkflowId && terminalRoot) { openTerminal({ workflowId: terminalWorkflowId }); onClose(); } }}>TERMINAL</button>}
         {catchUpScope && <div data-testid="mobile-panel-catch-up" style={{ display: 'contents' }}><CatchMeUp scope={catchUpScope} /></div>}
         <button type="button" data-testid="phone-panel-settings" className="display-font" style={tile} onClick={() => { onClose(); setShowSettings(true); }}>SETTINGS</button>
-        <button type="button" data-testid="mobile-panel-home" className="display-font" style={tile} onClick={() => openConversation(() => store().showHomeView())}>HOME</button>
-        <button type="button" data-testid="mobile-panel-new" className="display-font" style={tile} onClick={() => openConversation(() => store().showJobCreator())}>NEW TAB</button>
         <button type="button" data-testid="mobile-panel-notices" className="display-font" style={tile} aria-expanded={showNotices} onClick={() => setShowNotices((v) => !v)}>NOTICES{unread ? ` ${unread}` : ''}</button>
         <button type="button" data-testid="mobile-panel-manual" className="display-font" style={tile} onClick={() => { onClose(); setShowManual(true); }}>MANUAL</button>
         <button type="button" data-testid="mobile-panel-recall" data-help="header.recall" className="display-font" style={tile} onClick={() => { onClose(); store().setShowRecall(true); }}>RECALL</button>

@@ -41,7 +41,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.header': {
     title: 'Mobile view header',
-    body: <p>In the list of tabs it shows how many conversations are working and how many need you. In a conversation it shows a back button, the cluster and the name with its state, PANELS, a waiting question or approval and, in a cluster, its members. Sideways or while typing it keeps one row.</p>,
+    body: <p>In the list of tabs it shows how many conversations are working and how many need you. In a conversation it shows a back button, the cluster and the name with its state, PANELS and, in a cluster, its members. With a panel or the terminal open it names that page, and the back arrow returns to the list of panels or the conversation; a page may add + and ... for its own actions. Sideways or while typing it keeps one row.</p>,
     manualSection: 'window-layout',
   },
   'mobile.directory': {
@@ -71,12 +71,12 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.question': {
     title: 'Waiting question',
-    body: <p>A question, a sub-agent batch approval or a review gate waits in this conversation. Choose it to answer, approve or reject in place, as on the workbench.</p>,
+    body: <p>A question, a sub-agent batch approval or a review gate waits in this conversation. The bar sits above the message box; choose ANSWER to answer, approve or reject in a sheet, as on the workbench.</p>,
     manualSection: 'window-layout',
   },
   'mobile.composer-options': {
     title: 'Message options',
-    body: <p>Shows the rest of the message box: attach files, upload from phone, model and effort, skills, recipient, NUDGE, PLAN, BRIEF and the other tools. Choose it again to hide them.</p>,
+    body: <p>Opens MESSAGE TOOLS around the message box: attach files, upload from phone, model and effort, skills, recipient, NUDGE, PLAN, BRIEF and the other tools. CLOSE or the button again hides them; the draft stays.</p>,
     manualSection: 'window-layout',
   },
   'mobile.composer-queue': {
@@ -91,7 +91,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.panels': {
     title: 'Panels',
-    body: <p>Opens this tab's panels (files, plan, board, memory), a terminal, CATCH ME UP, Settings, Home, New tab, notices, the manual, Recall, Media, System, All plans and Artifacts. Each opens full screen with a way back to the conversation, CATCH ME UP and Recall included. A panel scrolls as one page, its tab rows included; the phone's Back, CLOSE at its top or a member name returns to the conversation and draft. All plans and Artifacts open in a new browser tab.</p>,
+    body: <p>Opens a sheet with this tab's panels (files, plan, board, memory), ALL PANELS for a cluster, a terminal, CATCH ME UP, Settings, notices, the manual, Recall, Media, System, All plans and Artifacts. Home and New tab are in the list of tabs. A panel opens as a page named in the header and scrolls as one surface; the header's back arrow, the phone's Back or a member name returns to the conversation and draft. ALL PANELS lists every page of the cluster panel and its settings. All plans and Artifacts open in a new browser tab.</p>,
     manualSection: 'window-layout',
   },
   'mobile.text-size': {

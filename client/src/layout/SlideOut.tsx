@@ -6,6 +6,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { usePhoneOverlay } from './phoneOverlay';
 import { usePhoneStore } from '../stores/phoneStore';
+import { PHONE_SHEET_HOST } from './PhoneBottomSheet';
 
 interface SlideOutProps {
   side: 'left' | 'right';
@@ -29,7 +30,7 @@ export function SlideOut({ side, width, label, onClose, children, testId, full =
     const phone = usePhoneStore.getState();
     phone.claim('panel');
     phone.setOpenPanel(label);
-    return () => { if (usePhoneStore.getState().openPanel === label) usePhoneStore.getState().setOpenPanel(null); };
+    return () => { if (usePhoneStore.getState().openPanel === label) { usePhoneStore.getState().setOpenPanel(null); usePhoneStore.setState({ pageTitle: '', panelIndex: false, panelFromIndex: false }); } };
   }, [full, label]);
   usePhoneOverlay(panelRef, full);
   useEffect(() => {
@@ -55,14 +56,17 @@ export function SlideOut({ side, width, label, onClose, children, testId, full =
           boxShadow: '0 0 24px rgba(0,0,0,0.45)',
         }}
       >
-        <div className="display-font" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
+        {/* Mobile view: the panel is a page; the mobile header names it and goes back. */}
+        {!full && <div className="display-font" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', borderBottom: '1px solid var(--color-border-hairline)', fontSize: '10px', letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>
           <span style={{ flex: 1 }}>{label}</span>
           <button type="button" data-help="layout.slide-out-close" onClick={onClose} title="Close (Esc)" aria-label={`Close ${label}`} className="display-font" style={{ padding: full ? '6px 14px' : '1px 8px', minHeight: full ? '44px' : undefined, fontSize: full ? '12px' : '10px', cursor: 'pointer' }}>CLOSE</button>
-        </div>
+        </div>}
         {full
           ? <div data-phone-panel-body="" style={{ display: 'flex', flexDirection: 'column' }}>{children}</div>
           : <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>{children}</div>}
       </div>
+      {/* Mobile view: the page's own bottom sheets are drawn here, over the page. */}
+      {full && <div {...{ [PHONE_SHEET_HOST]: '' }} />}
     </div>
   );
 }

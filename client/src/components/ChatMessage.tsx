@@ -2,6 +2,8 @@ import { latestHandoffSeed } from '../utils/handoffSeeds';
 import { AutomaticMessage } from './AutomaticMessage';
 import { OperatorQuestionNotice } from './OperatorQuestionNotice';
 import { useMessageSelectionStore } from '../stores/messageSelectionStore';
+import { usePhoneLayout } from '../layout/layoutRange';
+import { useLongPressSelect } from '../utils/longPress';
 import { memo, useMemo, useRef, useState } from 'react';
 import { useAppStore, type ClusterMemberLabel } from '../stores/appStore';
 import ReactMarkdown, { defaultUrlTransform, type Components } from 'react-markdown';
@@ -279,6 +281,10 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
     return !!ask?.batchModels && !!job?.snapshotReceived && !(job.claudeNativePendingQuestionIds ?? []).includes(ask.questionId);
   });
   const selected = useMessageSelectionStore((s) => !!jobId && (s.selected[jobId]?.includes(message.id) ?? false));
+  // Mobile view: a long press selects the message; there is no selection box.
+  const phone = usePhoneLayout();
+  const selecting = useMessageSelectionStore((s) => !!jobId && !!s.selected[jobId]?.length);
+  const pressProps = useLongPressSelect(phone && !!jobId && message.role !== 'system' && !message.isStreaming, selecting, () => { if (jobId) useMessageSelectionStore.getState().toggle(jobId, message.id); });
   // Tool-use pills from the Claude session JSONL render as a compact row
   // rather than a chat bubble. Bypass the whole bubble pipeline — we don't
   // want the role label, the border-left, or markdown parsing applied.
@@ -574,6 +580,8 @@ function ChatMessageInner({ message, jobId, jobCwd, writtenFiles, onCancelQueued
         : isSystem ? 'chat.message.system'
         : 'chat.message.agent'
       }
+      {...pressProps}
+      data-message-selected={phone && selected ? '' : undefined}
       style={{
         animation: 'fade-in-up 0.3s ease-out',
         marginBottom: '16px',
@@ -900,6 +908,10 @@ function hashSenderColor(senderWorkflowId: string | undefined): string {
 
 function PeerMessageBlock({ message, jobId, onMakeTask }: { message: ChatMessageType; jobId?: string; onMakeTask?: (content: string, fromWorkflowId: string) => void }) {
   const selected = useMessageSelectionStore((s) => !!jobId && (s.selected[jobId]?.includes(message.id) ?? false));
+  // Mobile view: a long press selects the message; there is no selection box.
+  const phone = usePhoneLayout();
+  const selecting = useMessageSelectionStore((s) => !!jobId && !!s.selected[jobId]?.length);
+  const pressProps = useLongPressSelect(phone && !!jobId && true, selecting, () => { if (jobId) useMessageSelectionStore.getState().toggle(jobId, message.id); });
   const isSent = message.role === 'peer-sent';
   const [open, setOpen] = useState(false);
   const openButton = useRef<HTMLButtonElement>(null);
@@ -921,6 +933,8 @@ function PeerMessageBlock({ message, jobId, onMakeTask }: { message: ChatMessage
   return (<>
     <div
       data-help="cluster.peer-message"
+      {...pressProps}
+      data-message-selected={phone && selected ? '' : undefined}
       onClick={(event) => { if (!(event.target as HTMLElement).closest('button, input, a')) { openButton.current?.focus(); setOpen(true); } }}
       style={{
         cursor: 'pointer',

@@ -13,6 +13,10 @@ export type PhoneScreen = 'directory' | 'conversation';
 export type PhoneOverlay = 'sheet' | 'panel' | 'terminal';
 
 export interface PhonePanelItem { id: string; label: string }
+// One action of the open page, listed in the sheet behind the header's `...`.
+export interface PhonePageAction { id: string; label: string; onSelect: () => void; danger?: boolean; disabled?: boolean }
+// What the open page puts in the mobile header beside its name.
+export interface PhonePageChrome { subtitle?: string; actions?: PhonePageAction[]; primary?: { label: string; onSelect: () => void } | null }
 
 interface PhoneState {
   screen: PhoneScreen;
@@ -24,6 +28,15 @@ interface PhoneState {
   openPanel: string | null;
   // Who the bottom return button in a panel goes back to.
   returnLabel: string;
+  // The open panel shown as a page: its name for the header, whether the list
+  // of pages is shown instead of one page, and whether a page was opened from it.
+  pageTitle: string;
+  // A line under the page name (a path), the page's `+` and its `...` actions.
+  pageSubtitle: string;
+  pageActions: PhonePageAction[];
+  pagePrimary: { label: string; onSelect: () => void } | null;
+  panelIndex: boolean;
+  panelFromIndex: boolean;
   // The panels the shown tab offers (its side-panel strip), set by that view.
   panels: PhonePanelItem[];
   // A request for the shown view to open one of its panels; seq repeats it.
@@ -61,6 +74,12 @@ export const usePhoneStore = create<PhoneState>((set, get) => ({
   setLocalDialog: (localDialog) => set({ localDialog }),
   openPanel: null,
   returnLabel: '',
+  pageTitle: '',
+  pageSubtitle: '',
+  pageActions: [],
+  pagePrimary: null,
+  panelIndex: false,
+  panelFromIndex: false,
   panels: [],
   panelRequest: null,
   panelCloseSeq: 0,
@@ -93,6 +112,16 @@ export const usePhoneStore = create<PhoneState>((set, get) => ({
     }
   },
 }));
+
+/** For a page body: while `active`, show its subtitle, `+` and `...` actions in
+ * the mobile header. Pass a memoised `chrome`; they clear when the page leaves. */
+export function usePhonePageChrome(active: boolean, chrome: PhonePageChrome): void {
+  useEffect(() => {
+    if (!active) return;
+    usePhoneStore.setState({ pageSubtitle: chrome.subtitle ?? '', pageActions: chrome.actions ?? [], pagePrimary: chrome.primary ?? null });
+    return () => usePhoneStore.setState({ pageSubtitle: '', pageActions: [], pagePrimary: null });
+  }, [active, chrome]);
+}
 
 /** For a view with phone panels: open the panel the operator asks for after the
  * view mounted, and close its panels when another overlay takes the screen. An

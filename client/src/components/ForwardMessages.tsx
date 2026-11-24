@@ -11,15 +11,18 @@ const button: React.CSSProperties = {
   borderRadius: '3px', fontSize: '10px', letterSpacing: '1px', cursor: 'pointer', color: 'var(--color-accent-secondary-dim)', whiteSpace: 'nowrap',
 };
 
-/** Selected chat messages in the composer area: FORWARD (cluster members) and CLEAR. */
-export function MessageSelectionBar({ jobId, onForward, onSecondOpinion }: { jobId: string; onForward?: () => void; onSecondOpinion?: () => void }) {
+/** Selected chat messages in the composer area: FORWARD (cluster members) and CLEAR.
+ * The mobile view, where a long press selects, also passes COPY and QUOTE. */
+export function MessageSelectionBar({ jobId, onForward, onSecondOpinion, onCopy, onQuote }: { jobId: string; onForward?: () => void; onSecondOpinion?: () => void; onCopy?: () => void; onQuote?: () => void }) {
   const ids = useMessageSelectionStore((s) => s.selected[jobId] ?? EMPTY_SELECTION);
   const clear = useMessageSelectionStore((s) => s.clear);
   if (ids.length === 0) return null;
   return (
-    <div data-testid="message-selection-bar" data-help="chat.message-selection" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px', fontSize: '11px' }}>
+    <div data-testid="message-selection-bar" data-help="chat.message-selection" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', padding: '4px', fontSize: '11px' }}>
       <span className="display-font" style={{ letterSpacing: '1px', color: 'var(--color-fg-muted)' }}>{ids.length} SELECTED</span>
       {onForward && <button type="button" className="display-font" style={button} onClick={onForward} title="Send the selected messages to other cluster members">FORWARD</button>}
+      {onQuote && <button type="button" className="display-font" style={button} onClick={onQuote} title="Put the selected messages into the message box as a quote">QUOTE</button>}
+      {onCopy && <button type="button" className="display-font" style={button} onClick={onCopy} title="Copy the selected messages">COPY</button>}
       {onSecondOpinion && <button type="button" className="display-font" style={button} onClick={onSecondOpinion} title="Ask several models to draft a reply to the worker about the selected messages">SECOND OPINION</button>}
       <button type="button" className="display-font" style={button} onClick={() => clear(jobId)}>CLEAR</button>
     </div>

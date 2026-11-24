@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Rework the mobile view's main screens: a panel opens as a page that the header names and goes back from, ALL PANELS lists every cluster page and its settings, PANELS and the message tools rise as bottom sheets, a waiting question shows as one bar above the message box with ANSWER, the board lists blocked and review tasks first without empty groups, and a long press selects messages to forward, quote or copy in place of the selection boxes.
+
 - Simplify Recall filters on the mobile view and put confirmations at the bottom of the screen.
 
 - Choose phone files directly from the mobile view; Media uses phone-friendly file wording.

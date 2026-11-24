@@ -1,3 +1,5 @@
+import { usePhoneLayout } from '../../layout/layoutRange';
+import { usePhoneStore } from '../../stores/phoneStore';
 import type { PreviewCaptureKind, PreviewViewport } from '@arco/shared';
 import { AutoCompactionThreshold } from '../AutoCompactionThreshold';
 import { useOutputNavigation } from '../../utils/outputNavigation';
@@ -127,6 +129,12 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
     else if (!cluster.research && tab === 'results') setTab('members');
   }, [cluster.research, tab, hasGemini]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Mobile view: the panel is one page under the mobile header. The tab rows
+  // become a list of pages, and the cluster settings a page of their own.
+  const phone = usePhoneLayout();
+  const panelIndex = usePhoneStore((st) => st.panelIndex);
+  const [phoneSettings, setPhoneSettings] = useState(false);
+  useEffect(() => { if (!panelIndex) return; setPhoneSettings(false); }, [panelIndex]);
   useEffect(() => {
     if (voicePanel?.id === cluster.clusterId && TABS.some((t) => t.id === voicePanel.panel)) setTab(voicePanel.panel as SubTab);
   }, [voicePanel, cluster.clusterId]);
@@ -142,6 +150,10 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   const activeGroup = groupOf(tab);
   const groups = groupsFor(!!cluster.research, hasGemini);
+  useEffect(() => {
+    if (phone) usePhoneStore.setState({ pageTitle: panelIndex ? 'ALL PANELS' : phoneSettings ? (cluster.research ? 'PROJECT SETTINGS' : 'CLUSTER SETTINGS') : labelOf(tab) });
+  }, [phone, panelIndex, phoneSettings, tab, cluster.research]);
+  useEffect(() => { if (tabRequest) setPhoneSettings(false); }, [tabRequest]);
 
   // §10.7 P12.5 — peer→task bridge. Promote a pending peer message into a
   // durable board task via the operator task_ledger_create path (first member is
@@ -281,7 +293,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
           server caps + suppression invariants live there. The
           efficiency selector rides the same bar. The bar renders when either
           arming surface is wired (both come from the same parent). */}
-      {!cluster.research && compactSettings && (onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (() => {
+      {!phone && !cluster.research && compactSettings && (onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (() => {
         // Medium and wide layouts: one summary line; SETTINGS opens the full block.
         const pickupState = autoPickupStateOf(cluster);
         const pickup = `${AUTO_PICKUP_MODE_LABELS[pickupState.mode].chip}${pickupState.paused ? ' - PAUSED' : ''}`;
@@ -300,7 +312,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
           </div>
         );
       })()}
-      {(!!cluster.research || !compactSettings || settingsOpen) && (onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (
+      {(phone ? phoneSettings && !panelIndex : (!!cluster.research || !compactSettings || settingsOpen)) && (onToggleIdleNudger || onSetTaskBoardMode || onSetTaskBoardAttached || onSetEfficiency || onSetRemote || onSetProgress) && (
         <div
           style={{
             display: 'flex',
@@ -460,6 +472,7 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
         ref={rootRef}
         className="display-font"
         style={{
+          display: phone ? 'none' : undefined,
           borderBottom: '1px solid var(--color-border-hairline)',
           flexShrink: 0,
         }}
@@ -568,7 +581,29 @@ export function ClusterRightPanel({ cluster, compactSettings = false, tabRequest
         )}
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px', ...(tab === 'preview' ? { display: 'flex', flexDirection: 'column' } : {}) }}>
+      {phone && panelIndex && (
+        <div data-testid="phone-panel-index" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '4px 0 16px' }}>
+          {groups.filter((g) => g.tabs.length > 0).map((g) => (
+            <div key={g.id}>
+              <div className="display-font" style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1.5px', color: 'var(--color-fg)', padding: '14px 14px 6px' }}>{g.label}</div>
+              {g.tabs.map((id) => (
+                <button key={id} type="button" data-testid="phone-panel-page" className="display-font"
+                  onClick={() => { setTab(id); setPhoneSettings(false); usePhoneStore.setState({ panelIndex: false, panelFromIndex: true }); }}
+                  style={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: '52px', padding: '0 14px', textAlign: 'left', background: tab === id ? 'var(--color-accent-primary-a08)' : 'transparent', border: 0, borderBottom: '1px solid var(--color-border-hairline)', borderRadius: 0, color: 'var(--color-fg)', fontSize: '14px', letterSpacing: '1.5px', cursor: 'pointer' }}>
+                  <span style={{ flex: 1 }}>{labelOf(id)}</span><span aria-hidden="true" style={{ color: 'var(--color-accent-primary)' }}>{'\u203A'}</span>
+                </button>
+              ))}
+            </div>
+          ))}
+          <div className="display-font" style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '1.5px', color: 'var(--color-fg)', padding: '14px 14px 6px' }}>{cluster.research ? 'PROJECT' : 'CLUSTER'}</div>
+          <button type="button" data-testid="phone-panel-settings-page" className="display-font"
+            onClick={() => { setPhoneSettings(true); usePhoneStore.setState({ panelIndex: false, panelFromIndex: true }); }}
+            style={{ display: 'flex', alignItems: 'center', width: '100%', minHeight: '52px', padding: '0 14px', textAlign: 'left', background: 'transparent', border: 0, borderBottom: '1px solid var(--color-border-hairline)', borderRadius: 0, color: 'var(--color-fg)', fontSize: '14px', letterSpacing: '1.5px', cursor: 'pointer' }}>
+            <span style={{ flex: 1 }}>SETTINGS</span><span aria-hidden="true" style={{ color: 'var(--color-accent-primary)' }}>{'\u203A'}</span>
+          </button>
+        </div>
+      )}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px', ...(tab === 'preview' ? { display: 'flex', flexDirection: 'column' } : {}), ...(phone && (panelIndex || phoneSettings) ? { display: 'none' } : {}) }}>
         {tab === 'members' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {/* Slice 6a — cluster name + rename affordance. Click the
