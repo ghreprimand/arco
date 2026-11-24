@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { isClusterDirector } from '@arco/shared';
 import { useAppStore } from '../../stores/appStore';
 import { touchButton } from './ResearchCloseDialog';
 import { DialogShell } from '../DialogShell';
 import { DirectoryBrowser } from '../media/DirectoryPicker';
+import { lastProjectFolder } from './researchExports';
 
 export type { ResearchResultSelection as ResearchSelection } from '../../stores/appStore.types';
 import type { ResearchResultSelection as ResearchSelection } from '../../stores/appStore.types';
@@ -11,14 +12,41 @@ type Attachment = { path: string; filename: string; isImage: boolean };
 type CopyResult = { target?: string; written: string[]; error?: string; receiptError?: string };
 type Result = { error?: string; folder?: CopyResult; plan?: CopyResult; composer?: { attachments: Attachment[]; token?: string; error?: string } };
 
-export function SendResearchDialog({ clusterId, selection, onClose, defaultDestination }: { clusterId: string; selection: ResearchSelection; onClose: () => void; defaultDestination?: string }) {
+const row = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 8px', minHeight: 44 } as const;
+
+// docs/RESEARCH.md - SEND TO A PROJECT. The project folder comes first and is
+// already chosen where Arco knows one: the folder this research last went to
+// (from exports.md), else the project it was started from. A conversation
+// draft is an optional extra.
+export function SendResearchDialog({ clusterId, selection, onClose, defaultDestination, research }: {
+  clusterId: string; selection: ResearchSelection; onClose: () => void; defaultDestination?: string;
+  research?: { folder: string; directorWorkflowId: string };
+}) {
   const jobs = useAppStore(s => s.jobs), clusters = useAppStore(s => s.clusters);
   const choices = useMemo(() => Object.values(jobs).filter(job => {
     if (job.config.incognito) return false;
     const cluster = Object.values(clusters).find(c => c.members.some(m => m.workflowId === job.id));
     return !cluster || cluster.members.some(m => m.workflowId === job.id && isClusterDirector(m.role));
   }), [jobs, clusters]);
-  const [destination, setDestination] = useState(defaultDestination ?? '');
+  const own = (folder?: string) => !!folder && !!research && folder.replace(/[\\/]+$/, '') === research.folder.replace(/[\\/]+$/, '');
+  const [destination, setDestination] = useState(own(defaultDestination) ? '' : defaultDestination ?? '');
+  const [lastUsed, setLastUsed] = useState('');
+  const chosen = useRef(false);
+  const folder = research?.folder, director = research?.directorWorkflowId;
+  useEffect(() => {
+    if (!folder || !director) return;
+    let active = true;
+    const path = `${folder.replace(/[\\/]+$/, '')}/exports.md`;
+    void fetch(`/api/file-content?${new URLSearchParams({ path, cwd: folder, workflowId: director })}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { type?: string; content?: string } | null) => {
+        const last = data?.type === 'text' && typeof data.content === 'string' ? lastProjectFolder(data.content, folder) : undefined;
+        if (!active || !last) return;
+        setLastUsed(last);
+        if (!chosen.current) setDestination(last);
+      }).catch(() => undefined);
+    return () => { active = false; };
+  }, [folder, director]);
   const [target, setTarget] = useState('');
   const [choosing, setChoosing] = useState(false);
   const [copyFolder, setCopyFolder] = useState(true);
@@ -68,16 +96,30 @@ export function SendResearchDialog({ clusterId, selection, onClose, defaultDesti
     } catch (error) { setResult(error instanceof Error ? error.message : 'Could not send the research.'); }
     finally { setBusy(false); }
   };
+  const canSend = !busy && !written && (copyFolder || attach || !!planId) && (!(copyFolder || planId) || !!destination) && (!attach || !!target);
+  const missing = written ? '' : !copyFolder && !attach && !planId ? 'Tick at least one place to send to.'
+    : (copyFolder || planId) && !destination ? ''
+      : attach && !target ? 'Choose the conversation to attach to.' : '';
   return <DialogShell title="Send to a project" onClose={onClose}>
-    <p>Select a project folder or an open conversation. Copies use a new folder under research/. Attachments stay in the draft until the operator sends them.</p>
-    {choosing ? <DirectoryBrowser inline fill withFilename={false} title="Choose project folder" confirmLabel="USE THIS FOLDER" onDone={choice => { if (choice) { setDestination(choice.dir); setTarget(''); setAttach(false); } setChoosing(false); }} /> : <>
-      <label>Open conversation <select value={target} onChange={event => { const id = event.target.value; setTarget(id); if (id) setDestination(jobs[id]?.config.workingDirectory ?? ''); else setAttach(false); }}><option value="">Choose a conversation</option>{choices.map(job => <option key={job.id} value={job.id}>{job.config.name || job.id.slice(0, 8)}</option>)}</select></label>
-      <p style={{ overflowWrap: 'anywhere' }}>{destination || 'No project folder selected.'}</p>
-      <button type="button" className="display-font" style={touchButton} onClick={() => setChoosing(true)} disabled={busy}>CHOOSE FOLDER</button>
-      <label><input type="checkbox" checked={copyFolder} onChange={e => setCopyFolder(e.target.checked)} /> Copy to research/</label>
-      <label>Plan reference <select value={planId} onChange={e => setPlanId(e.target.value)} disabled={!plans.length}><option value="">{plans.length ? 'Do not add a reference' : 'No plan in this folder'}</option>{plans.map(plan => <option key={plan.id} value={plan.id}>{plan.title}</option>)}</select></label>
-      <label><input type="checkbox" checked={attach} onChange={e => setAttach(e.target.checked)} disabled={!target} /> Attach to conversation draft</label>
-      <button type="button" className="display-font" style={touchButton} onClick={() => void send()} disabled={busy || written || (!copyFolder && !attach && !planId) || ((copyFolder || planId) && !destination) || (attach && !target)}>{busy ? 'SENDING...' : 'SEND'}</button>
+    {choosing ? <DirectoryBrowser inline fill withFilename={false} title="Choose project folder" confirmLabel="USE THIS FOLDER" onDone={choice => { if (choice) { chosen.current = true; setDestination(choice.dir); } setChoosing(false); }} /> : <>
+      <div role="group" aria-label="Project folder" style={{ border: '1px solid var(--color-border-hairline)', padding: '0 8px' }}>
+        <div style={row}>
+          <span className="display-font" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1 }}>PROJECT FOLDER</span>
+          <button type="button" className="display-font" style={{ ...touchButton, marginInlineStart: 'auto' }} onClick={() => setChoosing(true)} disabled={busy}>{destination ? 'CHANGE FOLDER' : 'CHOOSE FOLDER'}</button>
+        </div>
+        <p data-testid="send-research-folder" style={{ margin: 0, padding: '6px 0', borderTop: '1px solid var(--color-border-hairline)', overflowWrap: 'anywhere' }}>
+          {destination ? <><code>{destination}</code>{destination === lastUsed ? ' - where this research went last.' : destination === defaultDestination ? ' - the project this research was started from.' : ''}</> : 'Choose the project folder to copy into.'}
+        </p>
+      </div>
+      <label style={row}><input type="checkbox" checked={copyFolder} onChange={e => setCopyFolder(e.target.checked)} /> Copy to research/ in a new folder</label>
+      <label style={row}>Plan reference <select value={planId} onChange={e => setPlanId(e.target.value)} disabled={!plans.length}><option value="">{plans.length ? 'Do not add a reference' : destination ? 'No plan in this folder' : 'No folder chosen'}</option>{plans.map(plan => <option key={plan.id} value={plan.id}>{plan.title}</option>)}</select></label>
+      <label style={row}><input type="checkbox" checked={attach} onChange={e => { setAttach(e.target.checked); if (!e.target.checked) setTarget(''); }} /> Attach to conversation draft</label>
+      {attach && <div style={{ paddingInlineStart: 24 }}>
+        <label style={row}>Open conversation <select value={target} onChange={event => { const id = event.target.value; setTarget(id); const cwd = id ? jobs[id]?.config.workingDirectory : ''; if (cwd && !destination && !own(cwd)) setDestination(cwd); }}><option value="">{choices.length ? 'Choose a conversation' : 'No open conversation'}</option>{choices.map(job => <option key={job.id} value={job.id}>{job.config.name || job.id.slice(0, 8)}</option>)}</select></label>
+        <p style={{ margin: 0 }}>Attachments stay in the draft until you send the message.</p>
+      </div>}
+      <button type="button" className="display-font" style={touchButton} onClick={() => void send()} disabled={!canSend}>{busy ? 'SENDING...' : 'SEND'}</button>
+      {missing && !busy && <p style={{ margin: 0 }}>{missing}</p>}
       {result && <p role="status" style={{ overflowWrap: 'anywhere' }}>{result}</p>}
     </>}
   </DialogShell>;

@@ -465,7 +465,7 @@ async def run(base):
                 await expect(page.get_by_text(f'returned-{k}.md', exact=True)).to_be_visible()
             await page.get_by_role('button', name='Send project', exact=True).click()
             await expect(page.get_by_text('Attach to conversation draft')).to_be_visible()
-            await expect(page.get_by_label('Plan reference')).to_contain_text('No plan in this folder')
+            await expect(page.get_by_label('Plan reference')).to_contain_text('No folder chosen')
             await page.get_by_role('button', name='Close', exact=True).last.click()
             for label in ('MAIL ALERTS', 'AUTO-PICKUP', 'EFFICIENCY', 'KEEP CURRENT', 'BOARD'):
                 await expect(page.get_by_text(label, exact=True)).to_have_count(0)

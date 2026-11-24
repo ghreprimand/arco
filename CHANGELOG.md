@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Open SEND TO A PROJECT with the project folder already chosen: the folder the research last went to, or the project it was started from. The conversation list appears only when Attach to conversation draft is ticked.
+
 - Lay out research RESULTS as bordered cards like the cluster ACTIVITY pane: a project card, one card per round with its warning inside, and one compact row per researcher with Report, Files (n) and Actions.
 
 - Keep Cursor working in Arco on Linux after Cursor moves its sign-in into the desktop keyring, say when that sign-in is out of reach, and make the copied Cursor sign-in command store the sign-in where Arco reads it.

@@ -200,7 +200,7 @@ export function ResearchResultsTab({ clusterId, research }: { clusterId: string;
       {rerun && <RerunResearchDialog clusterId={clusterId} onClose={() => setRerun(false)} />}
       {exporting && <ExportResearchDialog clusterId={clusterId} selection={exporting} onClose={() => setExporting(null)} />}
       {start && <StartResearchProjectDialog clusterId={clusterId} selection={start} onClose={() => setStart(null)} />}
-      {send && <SendResearchDialog clusterId={clusterId} selection={send} defaultDestination={research.sourceProject} onClose={() => setSend(null)} />}
+      {send && <SendResearchDialog clusterId={clusterId} selection={send} defaultDestination={research.sourceProject} research={research} onClose={() => setSend(null)} />}
       {open && <FileViewerModal path={open} onClose={() => setOpen(null)} fallback={{ cwd: research.folder, workflowId: research.directorWorkflowId }} />}
     </div>
   );
