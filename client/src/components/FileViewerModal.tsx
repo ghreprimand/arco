@@ -132,10 +132,19 @@ export function FileViewerModal({ path, onClose, fallback, editContext, startLin
     onClose();
   };
 
+  // The viewer is the topmost layer wherever it opens, so Escape belongs to it
+  // alone. Listening on document runs before the window listeners of a panel
+  // underneath (a narrow-layout SlideOut), and marking the event handled makes
+  // them leave it; a declined discard prompt keeps both open. A dialog above
+  // the viewer captures Escape first and never reaches this.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') attemptClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      attemptClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
     // attemptClose closes over `dirty`; re-bind when it changes so the confirm
     // gate reflects current buffer state.
     // eslint-disable-next-line react-hooks/exhaustive-deps

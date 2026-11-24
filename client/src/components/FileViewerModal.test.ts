@@ -71,3 +71,34 @@ test('B150: edits made during a pending save stay visible and require another sa
     }
   }
 });
+
+test('Escape closes the viewer and leaves a panel underneath open', async () => {
+  const Component = await viewer();
+  const dom = new JSDOM('<!doctype html><body><div id="root"></div></body>', { url: 'http://localhost' });
+  const previous = Object.getOwnPropertyDescriptors(globalThis);
+  const install = (name: string, value: unknown) => Object.defineProperty(globalThis, name, { configurable: true, writable: true, value });
+  for (const key of ['window', 'document', 'HTMLElement', 'Event', 'navigator']) install(key, (dom.window as any)[key]);
+  install('IS_REACT_ACT_ENVIRONMENT', true);
+  install('fetch', async () => Response.json({ type: 'text', content: 'initial', size: 7 }));
+  // The panel under the viewer, with the rule SlideOut uses: it was mounted
+  // first, listens on window, and closes unless the event is already handled.
+  let panelCloses = 0;
+  dom.window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !e.defaultPrevented) panelCloses += 1; });
+  let viewerCloses = 0;
+  const root = createRoot(dom.window.document.getElementById('root')!);
+  try {
+    await act(async () => { root.render(React.createElement(Component, { path: 'fixture.txt', onClose() { viewerCloses += 1; } })); });
+    await act(async () => {
+      dom.window.document.body.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    });
+    assert.equal(viewerCloses, 1);
+    assert.equal(panelCloses, 0);
+  } finally {
+    await act(async () => root.unmount());
+    dom.window.close();
+    for (const key of ['window', 'document', 'HTMLElement', 'Event', 'navigator', 'IS_REACT_ACT_ENVIRONMENT', 'fetch']) {
+      if (previous[key]) Object.defineProperty(globalThis, key, previous[key]);
+      else delete (globalThis as any)[key];
+    }
+  }
+});
