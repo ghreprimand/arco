@@ -151,7 +151,8 @@ export function WorkflowView({ job, onRenameWorkflow, onSend, onCancel, onCompac
   // panels; it opens full width, in focus mode too (docs/CLIENT.md "Mobile view").
   useEffect(() => {
     if (!phone || childView) return;
-    usePhoneStore.getState().setPanels(RIGHT_STRIP);
+    // MORE reopens the panel at its last tab, which the named entries and the panel's own tabs already do on a phone.
+    usePhoneStore.getState().setPanels(RIGHT_STRIP.filter((item) => item.id !== 'more'));
     return () => usePhoneStore.getState().setPanels([]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phone, !!childView]);

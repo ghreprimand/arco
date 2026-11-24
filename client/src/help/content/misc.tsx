@@ -56,7 +56,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.title': {
     title: 'Conversation name',
-    body: <p>The conversation shown and its state. In a cluster, choose it to list the members and switch to another one.</p>,
+    body: <p>The conversation shown and its state. In a cluster, the member strip below it switches members. When the screen is too short for the strip (the phone held sideways, or the keyboard open), the name shows a down arrow: choose it to list the members and switch to another one.</p>,
     manualSection: 'window-layout',
   },
   'mobile.cluster-members': {
@@ -66,7 +66,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.members': {
     title: 'Members',
-    body: <p>Each member of this cluster with its state: a triangle needs you, a bar is working, a dot is idle. Choose one to show its conversation; the message box then writes to that member.</p>,
+    body: <p>Each member of this cluster with its state: a triangle needs you, a bar is working, a dot is idle. Choose one to show its conversation; the message box then writes to that member. An open panel, sheet or terminal closes so the conversation shows.</p>,
     manualSection: 'window-layout',
   },
   'mobile.question': {
@@ -2310,7 +2310,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'browser-notice': {
     title: 'Browser notice',
-    body: <p>Shown once in Firefox, Safari and other browsers outside the Chromium family. Arco runs lighter in Chrome, Edge, Brave, Vivaldi or Chromium, and <code>arco open</code> and the Arco shortcut open it there as an app window. CHOOSE BROWSER opens Settings &gt; Advanced &gt; App window browser. DISMISS hides the notice in this browser for good.</p>,
+    body: <p>Shown once in Firefox, Safari and other browsers outside the Chromium family, except in the mobile view. Arco runs lighter in Chrome, Edge, Brave, Vivaldi or Chromium, and <code>arco open</code> and the Arco shortcut open it there as an app window. CHOOSE BROWSER opens Settings &gt; Advanced &gt; App window browser. DISMISS hides the notice in this browser for good.</p>,
     manualSection: 'app-window-browser',
   },
   'update.reload-page': {

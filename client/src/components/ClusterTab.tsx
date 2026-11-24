@@ -326,7 +326,8 @@ export function ClusterTab({
   // panels; it opens full width over the chat (docs/CLIENT.md "Mobile view").
   useEffect(() => {
     if (!phone) return;
-    usePhoneStore.getState().setPanels(cluster?.research ? RESEARCH_RIGHT_STRIP : RIGHT_STRIP);
+    // MORE reopens the panel at its last tab, which the named entries and the panel's own tabs already do on a phone.
+    usePhoneStore.getState().setPanels((cluster?.research ? RESEARCH_RIGHT_STRIP : RIGHT_STRIP).filter((item) => item.id !== 'more'));
     return () => usePhoneStore.getState().setPanels([]);
   }, [phone, !!cluster?.research]);
   const widthRangeRef = useRef(widthRange);

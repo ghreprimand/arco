@@ -695,6 +695,14 @@ export const workspace: Section[] = [
           cluster's members; choose one to open the cluster on it.
         </p>
         <p>
+          Inside a cluster, the row of member names under the title switches
+          members: choose a name to see that member's conversation and write
+          to it. An open panel or terminal closes when you do. The title only
+          names the member shown. With the phone held sideways or the keyboard
+          open there is no room for the row; the title then shows a down arrow
+          and opens the list of members.
+        </p>
+        <p>
           The message box keeps the draft, the options button and{' '}
           <strong>SEND</strong> on one row; the options button shows files,
           model, skills, recipient and NUDGE. While the agent works,{' '}

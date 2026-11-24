@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Offer enabled and connected cluster providers when creating fresh workers from a tab.
 
+- Switch cluster members in the mobile view from the member strip alone: a name always shows that member's conversation, closing an open panel, sheet or terminal; the title is a plain label while the strip is visible. PANELS no longer lists MORE, and the browser notice is not shown in the mobile view.
+
 - Open a cluster directly from its row in the mobile view, on its Director or the member last shown, and list its members from a separate MEMBERS control on the row.
 
 - Copy the whole released research when starting a project from research: a README.md index, the brief, the chosen summary, the Director log and one folder per round with its record, summary, reports and returned files under their original names. The Start dialog shows what will be copied and the folder tree first, and Send project uses the same layout.

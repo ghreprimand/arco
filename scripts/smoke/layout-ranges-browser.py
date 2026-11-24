@@ -91,7 +91,7 @@ TASKS = [{'id': f'task-{i}', 'title': title, 'status': status, 'links': [], 'not
          for i, (title, status) in enumerate([('Review the release checklist', 'review'), ('Verify the project list', 'in_progress')], 1)]
 
 
-async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False, no_director=False, research=False, antigravity=False, touch=False, cursor_chat=False, task_fixture=False):
+async def open_page(browser, base, width, scale=1.0, layout=None, height=800, single=False, no_director=False, research=False, antigravity=False, touch=False, cursor_chat=False, task_fixture=False, mobile=False):
     context = await browser.new_context(viewport={'width': width, 'height': height}, has_touch=touch)
     snapshot = json.dumps({'type': 'task_ledger_snapshot', 'workflowId': 'worker-0', 'cwd': '/projects/harbor', 'boardKey': 'demo', 'tasks': TASKS})
     fixture = single_state() if single else fixture_state()
@@ -168,7 +168,10 @@ async def open_page(browser, base, width, scale=1.0, layout=None, height=800, si
     page = await context.new_page()
     errors = []
     page.on('pageerror', lambda e: errors.append(str(e)))
-    await page.goto(base, wait_until='domcontentloaded')
+    await page.goto(base + ('/mobile' if mobile else ''), wait_until='domcontentloaded')
+    if mobile:
+        await page.locator('[data-testid="phone-header"]').wait_for(timeout=30000)
+        return context, page, errors
     if single:
         await page.get_by_text('The workspace changes are complete.', exact=False).first.wait_for(timeout=30000)
     else:
@@ -480,6 +483,25 @@ async def run(base):
             await page.get_by_role('button', name='CONFIG', exact=True).click()
             assert await page.locator('[data-help="cluster.right-panel.config-member"] select option').count() == 5
             await expect(page.get_by_text('CWD', exact=True)).to_have_count(0)
+            assert not errors, errors
+            await context.unroute_all(behavior='wait')
+            await context.close()
+            # Mobile view: the member strip is the one switcher. A chip shows that
+            # member's conversation, also with a sheet open over it; the name is a label.
+            context, page, errors = await open_page(browser, base, 360, height=780, touch=True, mobile=True)
+            if await page.get_by_test_id('mobile-directory').count():
+                await page.get_by_test_id('mobile-cluster').first.tap()
+            chips = page.get_by_test_id('mobile-member-strip').get_by_role('tab')
+            assert await page.get_by_test_id('phone-title').evaluate('e => e.tagName') == 'DIV'
+            await chips.nth(1).tap()
+            await expect(page.get_by_test_id('phone-title-name')).to_have_text('Builder')
+            await expect(page.get_by_text('The workspace changes are complete.', exact=False).first).to_be_visible()
+            await page.get_by_test_id('phone-panels').tap()
+            await expect(page.get_by_test_id('mobile-panels')).to_be_visible()
+            await chips.nth(2).tap()
+            await expect(page.get_by_test_id('mobile-panels')).to_have_count(0)
+            await expect(page.get_by_test_id('phone-title-name')).to_have_text('Tester')
+            await expect(page.get_by_text('The browser checks cover', exact=False).first).to_be_visible()
             assert not errors, errors
             await context.unroute_all(behavior='wait')
             await context.close()

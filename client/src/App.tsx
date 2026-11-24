@@ -675,7 +675,8 @@ ${scopeBody}
       >
         <ErrorBoundary label="shell">
         <StaleBuildBanner />
-        <BrowserNotice />
+        {/* The notice is about the desktop app window; a phone has nothing to choose. */}
+        {!phone && <BrowserNotice />}
         {authStatus && !providerConnected && !showHome && <ProviderOutageBanner />}
         {phone ? <MobileHeader viewport={phoneViewport} /> : <>
         {phoneSized && <OpenMobileViewLink />}

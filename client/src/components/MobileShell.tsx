@@ -198,6 +198,17 @@ function leaveConversation(): void {
   phone.setScreen('directory');
 }
 
+/** A member chip always shows its member: whatever sits over the conversation
+ * under the header (a sheet, a panel, the terminal window) closes. */
+function showConversation(): void {
+  const phone = usePhoneStore.getState();
+  phone.openSheet(null);
+  if (phone.openPanel) phone.closePanels();
+  // Closing a terminal window keeps its shell running.
+  const terminal = useTerminalStore.getState();
+  for (const w of terminal.windows) terminal.closeWindow(w.windowId);
+}
+
 /** Close the full-screen workbench dialogs opened from PANELS. */
 function closeMobileDialogs(): void {
   const app = useAppStore.getState();
@@ -287,6 +298,13 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
     return () => { observer.disconnect(); root.style.removeProperty('--phone-header-h'); };
   }, []);
   const toggle = (next: PhoneSheet) => openSheet(sheet === next ? null : next);
+  const cluster = shown.clusterId ? clusters[shown.clusterId] : undefined;
+  // Little height (sideways, or the keyboard open): one row. The member strip
+  // folds into the title, which opens the members sheet, and the question
+  // line becomes one button in the row.
+  const oneRow = viewport.compact;
+  const switchable = !!cluster && !cluster.research?.quick;
+  const titleSwitches = switchable && oneRow;
   const headerStyle = {
     flexShrink: 0, display: 'flex', flexDirection: 'column' as const, gap: '6px', position: 'relative' as const, zIndex: 10,
     padding: 'calc(6px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 6px calc(10px + env(safe-area-inset-left))',
@@ -314,7 +332,6 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
     );
   }
 
-  const cluster = shown.clusterId ? clusters[shown.clusterId] : undefined;
   const state: MemberState = cluster && shown.workflowId ? memberState(cluster, shown.workflowId, jobs[shown.workflowId]) : jobState(shown.workflowId ? jobs[shown.workflowId] : undefined);
   const firstQuestion = (() => {
     const q = questions.pending[0]?.operatorQuestion?.questions[0];
@@ -324,10 +341,6 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
     return gate ? `Approve ${String(gate.toolName ?? 'a tool call')}?` : '';
   })();
   const typing = viewport.keyboard;
-  // Little height (sideways, or the keyboard open): one row. The member strip
-  // folds into the title, which opens the members sheet, and the question
-  // line becomes one button in the row.
-  const oneRow = viewport.compact;
   const decisionLabel = questions.count > 1 ? `${questions.count} WAITING` : questions.gates.length ? 'APPROVAL' : 'QUESTION';
   const decisionAria = `${questions.count === 1 ? 'A decision is' : `${questions.count} decisions are`} waiting: ${firstQuestion}`;
   return (
@@ -337,18 +350,26 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
           aria-label={counts.needs ? `Back to tabs, ${needYou(counts.needs)}` : 'Back to tabs'} className="display-font" style={{ ...control, padding: '0 8px', fontSize: '18px' }}>
           {'\u2039'}{counts.needs ? <span style={{ fontSize: '12px', color: 'var(--color-fg)' }}><span aria-hidden="true" style={{ color: 'var(--color-warning)' }}>{'\u25B2'}</span>{counts.needs}</span> : null}
         </button>
-        {/* The identity gets the row's free width: who STOP and a message reach. */}
-        <button type="button" data-testid="phone-title" data-help="mobile.title" disabled={!cluster || !!cluster.research?.quick} onClick={() => toggle('members')}
-          aria-label={cluster && !cluster.research?.quick ? `${shown.label} in ${shown.clusterName}, ${stateText(state, busy).toLowerCase()}: switch member` : `${shown.label}, ${stateText(state, busy).toLowerCase()}`}
-          style={{ flex: 1, minWidth: 0, minHeight: '44px', textAlign: 'left', background: 'transparent', border: 0, padding: '0 2px', cursor: cluster && !cluster.research?.quick ? 'pointer' : 'default', color: 'var(--color-fg)', opacity: 1 }}>
-          <span className="display-font" style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--color-fg)', minWidth: 0, whiteSpace: 'nowrap' }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{cluster ? shown.clusterName : shown.kind}</span>
-            {shown.workflowId && <span style={{ flexShrink: 0, display: 'inline-flex', gap: '2px' }}><StateMark state={state} />{stateText(state, busy)}</span>}
-          </span>
-          <span data-testid="phone-title-name" style={{ display: 'block', fontSize: oneRow ? '16px' : '18px', lineHeight: 1.25, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
-            {shown.label}{cluster && !cluster.research?.quick ? ' \u25BE' : ''}{cluster?.research?.quick ? ' · Research Director' : ''}
-          </span>
-        </button>
+        {/* The identity gets the row's free width: who STOP and a message reach.
+            It is a plain label while the member strip is on screen, so a cluster
+            has one member switcher; with the strip folded away (one row) it is
+            the button that lists the members. */}
+        {(() => {
+          const titleStyle = { flex: 1, minWidth: 0, minHeight: '44px', display: 'flex', flexDirection: 'column' as const, justifyContent: 'center', textAlign: 'left' as const, background: 'transparent', border: 0, padding: '0 2px', color: 'var(--color-fg)' };
+          const lines = <>
+            <span className="display-font" style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--color-fg)', minWidth: 0, whiteSpace: 'nowrap' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{cluster ? shown.clusterName : shown.kind}</span>
+              {shown.workflowId && <span style={{ flexShrink: 0, display: 'inline-flex', gap: '2px' }}><StateMark state={state} />{stateText(state, busy)}</span>}
+            </span>
+            <span data-testid="phone-title-name" style={{ display: 'block', fontSize: oneRow ? '16px' : '18px', lineHeight: 1.25, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)' }}>
+              {shown.label}{titleSwitches ? ' \u25BE' : ''}{cluster?.research?.quick ? ' · Research Director' : ''}
+            </span>
+          </>;
+          return titleSwitches
+            ? <button type="button" data-testid="phone-title" data-help="mobile.title" onClick={() => toggle('members')} aria-expanded={sheet === 'members'}
+                aria-label={`${shown.label} in ${shown.clusterName}, ${stateText(state, busy).toLowerCase()}: switch member`} style={{ ...titleStyle, cursor: 'pointer' }}>{lines}</button>
+            : <div data-testid="phone-title" data-help="mobile.title" style={titleStyle}>{lines}</div>;
+        })()}
         {oneRow && questions.count > 0 && shown.workflowId && (
           <button type="button" data-testid="mobile-question" data-help="mobile.question" onClick={() => toggle('questions')} aria-label={decisionAria}
             className="display-font" style={{ ...control, padding: '0 8px', borderColor: 'var(--color-warning)', borderWidth: '2px' }}>
@@ -364,7 +385,7 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-body)', fontSize: '14px', letterSpacing: 0, color: 'var(--color-fg)' }}>{firstQuestion}</span>
         </button>
       )}
-      {cluster && !cluster.research?.quick && !oneRow && <MemberStrip cluster={cluster} current={shown.workflowId} />}
+      {switchable && !oneRow && <MemberStrip cluster={cluster} current={shown.workflowId} />}
     </header>
   );
 }
@@ -387,7 +408,7 @@ function MemberStrip({ cluster, current }: { cluster: ClusterStatePayload; curre
         return (
           <button key={m.workflowId} type="button" role="tab" aria-selected={selected} data-testid="mobile-member"
             aria-label={`${m.displayName}: ${state.toLowerCase()}${mail ? `, ${mail} unread mail` : ''}`}
-            onClick={() => setFocused(cluster.clusterId, m.workflowId)}
+            onClick={() => { setFocused(cluster.clusterId, m.workflowId); showConversation(); }}
             style={{ ...control, flexShrink: 0, borderRadius: '22px', fontSize: '14px', letterSpacing: 0, fontFamily: 'var(--font-body)',
               background: selected ? 'var(--color-accent-primary-a10)' : 'transparent', borderColor: selected ? 'var(--color-accent-primary)' : 'var(--color-border-hairline)' }}>
             <StateMark state={state} />
