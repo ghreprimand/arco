@@ -18,7 +18,7 @@ test('B157: Home and guide controls work when browser storage throws', async () 
   const require = createRequire(import.meta.url);
   const state = { settings: {}, authStatus: {}, jobs: {}, clusters: {} };
   const store = Object.assign((selector: any) => selector(state), { getState: () => state });
-  const nullComponents = new Set(['./ProjectCard', './LocationDialog', './AddProject', './HomeStatus']);
+  const nullComponents = new Set(['./ProjectCard', './LocationDialog', './AddProject', './HomeStatus', './ResearchLibrary']);
   const mockedRequire = (name: string) => {
     if (name.endsWith('/appStore')) return { useAppStore: store };
     if (name.endsWith('/TabStatusChip')) return { TabStatusChip: () => null, useTabStatus: () => 'idle' };
