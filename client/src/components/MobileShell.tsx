@@ -302,11 +302,13 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
   useEffect(() => { usePhoneStore.getState().setReturnLabel(shown.label); }, [shown.label]);
   // Floating windows (the terminal) start below this header so STOP and Back stay in reach.
   const headerRef = useRef<HTMLElement>(null);
+  // Under 340 px of header (a small phone, or a larger text size on one).
+  const [slim, setSlim] = useState(false);
   useEffect(() => {
     const el = headerRef.current;
     if (!el) return;
     const root = document.documentElement;
-    const update = () => root.style.setProperty('--phone-header-h', `${el.offsetHeight}px`);
+    const update = () => { root.style.setProperty('--phone-header-h', `${el.offsetHeight}px`); setSlim(el.clientWidth < 340); };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(el);
@@ -363,17 +365,21 @@ export function MobileHeader({ viewport }: { viewport: PhoneViewport }) {
       else phone.closePanels();
     };
     const page = openPanel ? pageTitle || openPanel : 'TERMINAL';
+    // With both of the page's own buttons the name has little room: the row
+    // tightens and the name is set smaller. On a slim header PANELS also makes
+    // way, so the first word of the name stays whole; back still leads to it.
+    const crowded = !!openPanel && !!pagePrimary && pageActions.length > 0;
     return (
       <header ref={headerRef} data-testid="phone-header" data-help="mobile.header" data-phone-header-mode="page" style={headerStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: crowded ? '4px' : '6px', minWidth: 0 }}>
           <button type="button" data-testid="mobile-page-back" data-help="mobile.back" onClick={back} aria-label={`Back from ${page}`} className="display-font" style={{ ...control, padding: '0 8px', fontSize: '18px' }}>{'\u2039'}</button>
-          <div data-testid="phone-title" style={{ flex: 1, minWidth: 0, minHeight: '44px', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 2px', color: 'var(--color-fg)' }}>
+          <div data-testid="phone-title" style={{ flex: 1, minWidth: 0, minHeight: '44px', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: crowded ? 0 : '0 2px', color: 'var(--color-fg)' }}>
             <span className="display-font" style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cluster ? shown.clusterName : shown.label}</span>
-            <span data-testid="phone-title-name" className="display-font" style={{ fontSize: '17px', lineHeight: 1.25, fontWeight: 600, letterSpacing: '1.5px', color: 'var(--color-accent-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{page}</span>
+            <span data-testid="phone-title-name" className="display-font" style={{ fontSize: crowded ? '15px' : '17px', lineHeight: 1.25, fontWeight: 600, letterSpacing: crowded ? '0.3px' : '1.5px', color: 'var(--color-accent-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{page}</span>
           </div>
           {openPanel && pagePrimary && <button type="button" data-testid="mobile-page-primary" onClick={pagePrimary.onSelect} aria-label={pagePrimary.label} title={pagePrimary.label} className="display-font" style={{ ...control, padding: 0, fontSize: '20px' }}>+</button>}
           {openPanel && pageActions.length > 0 && <button type="button" data-testid="mobile-page-actions" onClick={() => setActionsOpen(true)} aria-haspopup="dialog" aria-label={`${page} actions`} title="Page actions" className="display-font" style={{ ...control, padding: 0, fontSize: '18px' }}>{'\u22EF'}</button>}
-          {panelsButton}
+          {!(crowded && slim) && panelsButton}
         </div>
         {/* The start of a long path is cut, so the folder in view stays readable. */}
         {openPanel && pageSubtitle && <div data-testid="mobile-page-subtitle" title={pageSubtitle} style={{ direction: 'rtl', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-fg)' }}><bdi>{pageSubtitle}</bdi></div>}
