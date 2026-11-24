@@ -13,6 +13,7 @@ for await (const line of createInterface({ input: process.stdin })) {
     case 'initialize': result = kind === 'codex'
       ? { userAgent: 'arco-fixture' }
       : { protocolVersion: 1, agentCapabilities: { promptCapabilities: { image: imageCapability === 'true' } } }; break;
+    case 'model/list': result = { data: [], nextCursor: null }; break;
     case 'thread/start': result = { thread: { id: 'thread-fixture' }, model: 'fixture' }; break;
     case 'thread/goal/clear': result = { cleared: false }; break;
     case 'turn/start': result = { turn: { id: 'turn-fixture' } }; break;

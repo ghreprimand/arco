@@ -40,6 +40,8 @@ import { goalBlock } from '../goalBlock.js';
 import { codexClusterDeveloperInstructions } from '../codexCodeMode.js';
 import { type ProviderName, type SteerItem, type WorkerConfig } from '@arco/shared';
 import type { InitializeResponse } from './bindings/InitializeResponse.js';
+import type { ModelListResponse } from './bindings/v2/ModelListResponse.js';
+import { codexModelFallbackNotice, codexModelForTurn, codexVersionOf, readableCodexModelError } from './modelAvailability.js';
 import type { ThreadStartParams } from './bindings/v2/ThreadStartParams.js';
 import type { ThreadStartResponse } from './bindings/v2/ThreadStartResponse.js';
 import type { ThreadResumeParams } from './bindings/v2/ThreadResumeParams.js';
@@ -192,6 +194,9 @@ function mapSandbox(config: WorkerConfig): SandboxMode {
 function appServerProvider(config: WorkerConfig): 'codex' {
   return 'codex';
 }
+
+// How long a turn start waits for `model/list` before keeping the saved model.
+const MODEL_LIST_TIMEOUT_MS = 3000;
 
 function appServerNoticeTag(config: WorkerConfig): string {
   return appServerProvider(config);
@@ -459,6 +464,10 @@ export class CodexAppServerWorker extends EventEmitter {
   private stderrBuf = '';
   // Captured for `init` event — the Codex CLI userAgent string.
   private userAgent: string | null = null;
+  // The model this worker's turns run on: the saved model, or Codex's default
+  // when this Codex does not offer the saved one (modelAvailability.ts).
+  private turnModel: string | null = null;
+  private get model(): string { return this.turnModel ?? this.config.model; }
   // docs/PROTOCOL_CLUSTER.md + docs/PROVIDERS.md - signature
   // hash of the MCP wiring baked into the long-lived child at
   // ensureStarted(). Components: clusterId, codebaseMemoryAttached,
@@ -684,6 +693,7 @@ export class CodexAppServerWorker extends EventEmitter {
         if (!launch || !isExpectedCodexIsolationConfig(effective.config, launch.mailUrl)) throw new Error('Codex isolation profile did not match.');
       }
 
+      await this.chooseTurnModel();
       const threadConfig = await buildThreadConfigOverrides(this.config);
       if (this.config.incognito && this.resumeSessionId) throw new Error('Incognito Computer cannot resume a provider thread.');
       if (this.resumeSessionId) {
@@ -691,7 +701,7 @@ export class CodexAppServerWorker extends EventEmitter {
           threadId: this.resumeSessionId,
           history: null,
           path: null,
-          model: this.config.model,
+          model: this.model,
           modelProvider: null,
           serviceTier: null,
           cwd: isolated ? '/work' : this.config.cwd ?? null,
@@ -709,7 +719,7 @@ export class CodexAppServerWorker extends EventEmitter {
         this.threadId = res.thread.id;
         this.resolvedModel = res.model;
       } else {
-        const params = buildThreadStartParams(this.config, threadConfig);
+        const params = buildThreadStartParams({ ...this.config, model: this.model }, threadConfig);
         const res = await this.rpc.request<ThreadStartResponse>('thread/start', params);
         if (this.config.incognito && (res.thread.ephemeral !== true || res.thread.path != null)) throw new Error('Codex did not create a memory-only thread. No request was sent.');
         this.threadId = res.thread.id;
@@ -800,7 +810,7 @@ export class CodexAppServerWorker extends EventEmitter {
 
     // Surface init for the per-turn wrapper. Fired pre-turn so the
     // `worker_model` event lands before any text/thinking deltas.
-    this.emit('init', { model: this.resolvedModel ?? this.config.model, sessionId: this.threadId });
+    this.emit('init', { model: this.resolvedModel ?? this.model, sessionId: this.threadId });
     if (this.config.clusterAccessMode === 'researcher' && this.config.clusterId) void setResearcherIsolation(this.config.clusterId, this.workflowId, 'sandboxed').catch(() => undefined);
     if (this.config.clusterAccessMode === 'isolated') void import('../../clusterStore.js').then(({ setMemberFenceState }) => setMemberFenceState(this.workflowId, 'sandboxed')).catch(() => undefined);
 
@@ -814,9 +824,9 @@ export class CodexAppServerWorker extends EventEmitter {
       approvalsReviewer: null,
       sandboxPolicy: isIsolatedAccessMode(this.config.clusterAccessMode) ? null : this.buildSandboxPolicy(),
       permissions: null,
-      model: this.config.model,
+      model: this.model,
       serviceTier: null,
-      effort: mapEffort(this.config.effort, this.config.model),
+      effort: mapEffort(this.config.effort, this.model),
       summary: null,
       personality: null,
       outputSchema: null,
@@ -1666,7 +1676,8 @@ export class CodexAppServerWorker extends EventEmitter {
       return;
     }
     if (p.turn.status === 'failed') {
-      const reason = p.turn.error?.message ?? 'turn failed (no message)';
+      const raw = p.turn.error?.message ?? 'turn failed (no message)';
+      const reason = readableCodexModelError(raw, this.model, codexVersionOf(this.userAgent)) ?? raw;
       const info = p.turn.error?.codexErrorInfo;
       if (info) this.applyCodexErrorInfo(info, reason);
       this.settleTurn({ error: info === 'unauthorized' && this.config.clusterAccessMode === 'researcher' ? 'Codex authentication failed.' : reason });
@@ -1703,6 +1714,32 @@ export class CodexAppServerWorker extends EventEmitter {
       } : {}),
     };
     this.settleTurn({ result });
+  }
+
+  // Ask this Codex which models it offers this account. A saved model it does
+  // not list would fail the turn, so the turns run on its default model and
+  // the chat says so once; the saved model is not changed.
+  private async chooseTurnModel(): Promise<void> {
+    if (!this.rpc) return;
+    let offered: ModelListResponse['data'] = [];
+    // A Codex that does not answer in time keeps the saved model.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const listed = this.rpc.request<ModelListResponse>('model/list', { cursor: null, limit: null, includeHidden: true });
+      listed.catch(() => undefined);
+      const late = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), MODEL_LIST_TIMEOUT_MS); });
+      offered = (await Promise.race([listed, late]))?.data ?? [];
+    } catch {
+      return;
+    } finally {
+      clearTimeout(timer);
+    }
+    const choice = codexModelForTurn(this.config.model, offered);
+    this.turnModel = choice.unavailable ? choice.model : null;
+    if (choice.unavailable) {
+      console.warn(`[appserver:${this.workflowId.slice(0, 8)}] ${choice.unavailable} is not offered; using ${choice.model}`);
+      this.emit('system_notice', codexModelFallbackNotice({ model: choice.model, unavailable: choice.unavailable }, codexVersionOf(this.userAgent)));
+    }
   }
 
   private onErrorNotification(p: ErrorNotification): void {

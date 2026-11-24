@@ -26,6 +26,7 @@ for await (const line of readline.createInterface({ input: process.stdin })) {
   const m = JSON.parse(line);
   if (!m.method) continue;
   if (m.method === 'initialize') { reply(m.id, { userAgent: 'computer-context-fixture' }); continue; }
+  if (m.method === 'model/list') { reply(m.id, { data: [], nextCursor: null }); continue; }
   if (m.method === 'thread/start' || m.method === 'thread/resume') {
     ephemeral = m.params.ephemeral === true;
     threadId = m.method === 'thread/resume' ? m.params.threadId : randomUUID();

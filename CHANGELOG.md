@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep Codex conversations working when their saved model is not offered by the installed Codex for the account, for example a model saved by a newer Codex: the turn runs on Codex's default model and the chat names both models, and a refusal reads as a sentence instead of raw JSON.
+
 - Turn every other mobile panel into a phone page: the plan is a checklist to tick, files show one folder at a time, members are one row each with a sheet of their actions, history and activity filters are one chip row, a single tab's side panel has ALL PANELS too, rarely used pages sit under MORE, and each page's own actions are under the header's ... and +.
 
 - In the mobile view, put STOP in SEND's place while the agent works (STEER with STOP beside it once a draft is typed, QUEUE FOR AFTER in the message tools), show a waiting question's first words with ANSWER in the list of tabs, start clusters folded, float + NEW over the list, name research members Director, A, B, C with RESULTS at the end of the row, and move the text size to Settings under THIS PHONE.

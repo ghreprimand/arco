@@ -437,7 +437,13 @@ export const providers: Section[] = [
   <Sub>Models and effort</Sub>
   <p>
   The cold default is <Code>gpt-6.2-sol</Code>; a live account catalog supplies
-  its own default. The picker uses the
+  its own default. Which models Codex offers depends on the account and on the
+  Codex version: an older Codex does not offer newer models. When a tab&apos;s
+  saved model is not offered, its turns run on Codex&apos;s default model and the
+  chat says which; choose a model in the picker or update Codex.
+  </p>
+  <p>
+  The picker uses the
   selected model&apos;s live catalog, so the effort levels offered follow the
   model:
   </p>
