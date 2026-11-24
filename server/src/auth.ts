@@ -18,10 +18,14 @@ import { getStrataBase, probeStrata } from './providers/strata.js';
 import { getLmstudioBase, probeLmstudio } from './providers/lmstudio.js';
 import { accountShortLabel, configuredAccounts, ensureCodexAccountHome, resolveProviderAccount } from './providerAccounts.js';
 import { readCursorAccessToken } from './providers/cursor/authToken.js';
+import { currentCursorDisplay } from './providers/cursor/agentEnv.js';
 import { checkCursorLoginWithCli, cursorAuthRejection } from './providers/cursor/authState.js';
 import { commandArgs } from './windowsCommand.js';
 
 const execFileAsync = promisify(execFile);
+
+// docs/PROVIDERS.md "Cursor sign-in".
+const CURSOR_KEYRING_UNREACHABLE = 'Cursor keeps its sign-in in the desktop keyring, which Cursor cannot use from Arco because no desktop session was found. Press LOG IN for Cursor to sign in where Arco reads.';
 
 export interface AuthStatus {
   loggedIn: boolean;
@@ -357,6 +361,11 @@ async function getCursorAuthStatus(explicit = false): Promise<AuthStatus> {
       error: result.detail ?? 'Not signed in to Cursor. Sign in from Connections.',
     };
   }
+  // The keyring holds the sign-in, but cursor-agent started by Arco cannot
+  // reach it without a desktop display (providers/cursor/agentEnv.ts).
+  if (result.source === 'secret-store' && currentCursorDisplay().kind === 'no-display') {
+    return { loggedIn: false, apiProvider: 'cursor-session', error: CURSOR_KEYRING_UNREACHABLE };
+  }
   if (explicit) await checkCursorLoginWithCli();
   const rejection = cursorAuthRejection(result.token);
   if (rejection) {
@@ -452,7 +461,11 @@ export async function triggerAuthLogin(provider: LoginSessionTarget = 'claude', 
     // The JWT lands at ~/.config/cursor/auth.json, which getCursorAuthStatus /
     // cursorUsage read fresh on each poll. The CLI polls for completion, so no
     // paste step.
-    const command = 'env NO_OPEN_BROWSER=1 cursor-agent login';
+    // On Linux a terminal with a desktop display would store the sign-in in
+    // the keyring; without one it lands in auth.json, which Arco always reads.
+    const command = process.platform === 'linux'
+      ? 'env -u DISPLAY -u WAYLAND_DISPLAY NO_OPEN_BROWSER=1 cursor-agent login'
+      : 'env NO_OPEN_BROWSER=1 cursor-agent login';
     return authLoginInstructions(command, 'Open the link it prints; it finishes on its own.');
   }
   if (provider === 'ollama') {

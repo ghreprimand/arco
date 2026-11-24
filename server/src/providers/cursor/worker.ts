@@ -32,6 +32,7 @@ import { SegmentJoiner } from './acpSegments.js';
 import { describeAcpModel, isAutoModel, resolveCatalogModel, setAcpSessionModel } from './modelMap.js';
 import { getCursorCatalog, noteAcpModels } from './catalog.js';
 import { noteCursorAuthOk, noteCursorAuthRejected, isCursorAuthErrorText } from './authState.js';
+import { cursorAgentEnv } from './agentEnv.js';
 
 // Hard-kill fallback if `session/cancel` doesn't settle the turn (Codex parity).
 const INTERRUPT_ACK_TIMEOUT_MS = 5000;
@@ -224,7 +225,7 @@ export class CursorAcpWorker extends EventEmitter {
     const args = ['acp', '--force'];
     this.proc = spawn(...commandArgs('cursor-agent', args), {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env },
+      env: cursorAgentEnv(),
       cwd: this.config.cwd || undefined,
       detached: true,
     });

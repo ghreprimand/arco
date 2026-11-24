@@ -312,7 +312,9 @@ export const settingsHelp: Record<string, HelpEntry> = {
           Native, Claude CLI, Codex profiles and Cursor use separate sign-ins.
           GitHub sign-in is also available in Connections. Cursor LOG IN runs
           the same sign-in as Connections under its row: open the link, and the
-          row turns LIVE on its own. PREFER A TERMINAL? shows the command.
+          row turns LIVE on its own. PREFER A TERMINAL? shows the command; on
+          Linux it stores the sign-in where Arco reads it. If the Cursor row
+          says the sign-in is in the desktop keyring out of reach, press LOG IN.
         </p>
         <p>
           Ollama, llama.cpp, LM Studio and Strata have no sign-in. When the

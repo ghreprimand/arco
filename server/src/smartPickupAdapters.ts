@@ -46,6 +46,7 @@ import { llamacppManager, llamacppBaseUrl } from './providers/llamacppManager.js
 import { probeLlamacppLive } from './providers/llamacpp.js';
 import { queueLocalProvider, type LocalProviderName } from './providers/localProviderQueue.js';
 import { localModelsUnloading } from './providers/localModelControl.js';
+import { cursorAgentEnv } from './providers/cursor/agentEnv.js';
 
 export interface EvaluatorRequest {
   model: string;
@@ -266,7 +267,7 @@ export function cursorAdapter(opts: { launch?: (model: string) => [string, strin
       // The real path, so the folder the agent is told matches the child's
       // process folder even when the temporary directory is reached through a link.
       const cwd = await realpath(await mkdtemp(join(tmpdir(), 'arco-evaluator-')));
-      const proc = spawn(...launch(req.model), { cwd, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env }, detached: process.platform !== 'win32' });
+      const proc = spawn(...launch(req.model), { cwd, stdio: ['pipe', 'pipe', 'pipe'], env: cursorAgentEnv(), detached: process.platform !== 'win32' });
       let rpc: AcpJsonRpcClient | null = null;
       let text = '';
       let started = false;

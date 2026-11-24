@@ -25,6 +25,7 @@ import { atomicWriteFile } from '../../atomicFile.js';
 import { commandArgs } from '../../windowsCommand.js';
 import { isCursorAuthErrorText, noteCursorAuthRejected } from './authState.js';
 import { isAutoModel, parseAcpModelId, parseCatalogId, type AcpModel } from './modelMap.js';
+import { cursorAgentEnv } from './agentEnv.js';
 
 export type { CursorCatalogModel, CursorCatalogSnapshot } from '@arco/shared';
 
@@ -175,7 +176,7 @@ async function fetchCursorCatalog(): Promise<CursorCatalogSnapshot> {
   const stdout = await new Promise<string>((resolve, reject) => {
     const proc = spawn(...commandArgs('cursor-agent', ['models']), {
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env },
+      env: cursorAgentEnv(),
     });
     let out = '';
     let err = '';

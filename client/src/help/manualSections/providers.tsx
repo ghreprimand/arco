@@ -578,6 +578,16 @@ export const providers: Section[] = [
   unknown, not signed out.
   </p>
   <p>
+  On Linux, Cursor reads the keyring only inside a desktop session. When the
+  sign-in is in the keyring, Arco hands Cursor the name of your running
+  desktop session. If there is none, the status says the sign-in is out of
+  reach; press LOG IN to sign in where Arco reads.
+  </p>
+  <p>
+  Prefer LOG IN to the RE-LOGIN command. A copied command run in a terminal
+  is set to store the sign-in where Arco reads it.
+  </p>
+  <p>
   An already-running ACP child can retain old credentials.
   </p>
   <p>

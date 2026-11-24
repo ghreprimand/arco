@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep Cursor working in Arco on Linux after Cursor moves its sign-in into the desktop keyring, say when that sign-in is out of reach, and make the copied Cursor sign-in command store the sign-in where Arco reads it.
+
 - Let a replacement cluster member claim and complete tasks assigned to the member it replaced.
 
 - Close only the file viewer on Escape when it is open over a narrow-layout panel, so the panel underneath, such as research RESULTS, stays open.

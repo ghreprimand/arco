@@ -12,6 +12,7 @@ import { createHash } from 'crypto';
 import { execFile } from 'child_process';
 import { readCursorAccessToken } from './authToken.js';
 import { commandArgs } from '../../windowsCommand.js';
+import { cursorAgentEnv } from './agentEnv.js';
 
 interface Rejection { fingerprint: string | null; source: string; at: number }
 let rejected: Rejection | null = null;
@@ -61,7 +62,7 @@ export function checkCursorLoginWithCli(timeoutMs = 15_000): Promise<CliLoginChe
     const finish = (result: CliLoginCheck): void => { if (!done) { done = true; resolve(result); } };
     try {
       const [cmd, args] = commandArgs('cursor-agent', ['status']);
-      execFile(cmd, args, { timeout: timeoutMs, windowsHide: true, encoding: 'utf8' }, (err, stdout, stderr) => {
+      execFile(cmd, args, { timeout: timeoutMs, windowsHide: true, encoding: 'utf8', env: cursorAgentEnv() }, (err, stdout, stderr) => {
         const result = parseCursorStatusOutput(`${stdout ?? ''}\n${stderr ?? ''}`);
         if (result === 'ok') noteCursorAuthOk();
         if (result === 'rejected') { void noteCursorAuthRejected('cursor-agent status').then(() => finish(result)); return; }

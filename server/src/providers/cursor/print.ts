@@ -34,6 +34,7 @@ import { goalBlock } from '../goalBlock.js';
 import { outputStyleAddendum } from '../outputStyle.js';
 import { attachmentDirs, withAttachmentRefs } from '../attachments.js';
 import { commandArgs } from '../../windowsCommand.js';
+import { cursorAgentEnv } from './agentEnv.js';
 
 const STDERR_CAP = 32 * 1024;
 
@@ -122,7 +123,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
 
     this.proc = spawn(...commandArgs('cursor-agent', args), {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env },
+      env: cursorAgentEnv(),
       cwd: this.chatSandbox?.cwd ?? (this.config.cwd || undefined),
       detached: true,
     });

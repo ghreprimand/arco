@@ -74,7 +74,11 @@ export function AuthReloginNotice({ provider, body, workflowId, messageId, authR
       if (data.command) {
         setState('sent');
         setCommand(data.command);
-        setHint(autoContinue ? 'Finish the login in the terminal. The researcher continues after sign-in.' : 'Finish the login in the terminal, then review the original workflow before sending explicitly.');
+        // Cursor: the in-app LOG IN signs in where Arco reads (docs/PROVIDERS.md "Cursor sign-in").
+        const cursorFirst = provider === 'cursor' ? 'Easiest: press LOG IN for Cursor in Settings > Providers and models > Sign-in. Or ' : '';
+        setHint(autoContinue
+          ? `${cursorFirst}${cursorFirst ? 'f' : 'F'}inish the login in the terminal. The researcher continues after sign-in.`
+          : `${cursorFirst}${cursorFirst ? 'f' : 'F'}inish the login in the terminal, then review the original workflow before sending explicitly.`);
       } else if (data.started) {
         setState('sent');
         setHint(autoContinue ? 'Complete the OAuth flow. The researcher continues after sign-in.' : 'Complete the OAuth flow in the browser tab that just opened, then try again.');

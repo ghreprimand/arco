@@ -1309,7 +1309,24 @@ Connections > Cursor, and LOG IN on the CURSOR (ACP) row in Settings, run `curso
 `NO_OPEN_BROWSER=1`) and shows the link it prints; the CLI finishes on its own once the page confirms.
 When the Settings flow finishes, Arco runs the same explicit check as Connections
 (`client/src/utils/providerStatusCheck.ts`) and publishes it to the shared status.
-`POST /api/auth-login?provider=cursor` still returns the terminal command as a fallback.
+`POST /api/auth-login?provider=cursor` still returns the terminal command as a fallback; on Linux
+it is `env -u DISPLAY -u WAYLAND_DISPLAY NO_OPEN_BROWSER=1 cursor-agent login`, so a desktop terminal
+writes the sign-in to `auth.json` instead of the keyring. The RE-LOGIN card recommends the in-app
+LOG IN first.
+
+On Linux, `cursor-agent` reads the keyring only when its process has a session bus and `DISPLAY` or
+`WAYLAND_DISPLAY`; otherwise it reads `auth.json` alone and reports "Not logged in". An Arco service
+usually has a bus and no display, so any `cursor-agent` use in a desktop terminal, which moves the
+sign-in into the keyring, used to break Cursor in Arco. `providers/cursor/agentEnv.ts` now builds the
+environment of every signed-in `cursor-agent` child (ACP workers, print turns, the catalog,
+`cursor-agent status`, the Cursor Smart pickup evaluator). When `auth.json` says `storedIn`, a session
+bus exists and no display is set, it adds the display of this user's own running desktop session: the
+lowest `wayland-N` socket owned by the user under `XDG_RUNTIME_DIR`, else the lowest `/tmp/.X11-unix/XN`
+socket owned by the user. Only a display name is passed, never a token. A sign-in kept in `auth.json`
+gets no display, so Arco never makes `cursor-agent` move file tokens into the keyring. When the sign-in
+is in the keyring and no desktop session is found, the Cursor status reads not signed in with a message
+that offers LOG IN. Isolated members and researchers are unaffected: they receive the token through the
+pass-through file and run `cursor-agent` in file mode.
 
 A readable token is not proof of a working sign-in. `providers/cursor/authState.ts` remembers the last
 rejection (`Authentication required` from `session/new`, the sign-in reply above, a `401` from the usage
