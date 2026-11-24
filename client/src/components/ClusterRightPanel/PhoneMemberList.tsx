@@ -48,7 +48,7 @@ export function PhoneMemberList({ cluster, nameOf, onOpenConversation, onOpenCon
         <PhoneBottomSheet local title={nameOf(member.workflowId)} onClose={() => setOpen(null)} testId="phone-member-sheet">
           {onOpenConversation && <button type="button" className="display-font" data-testid="phone-member-open" style={sheetRow} onClick={() => { setOpen(null); onOpenConversation(member.workflowId); }}>OPEN CONVERSATION</button>}
           <button type="button" className="display-font" data-testid="phone-member-config" style={sheetRow} onClick={() => { setOpen(null); onOpenConfig(member.workflowId); }}>MODEL, EFFORT AND WEB ACCESS</button>
-          <div style={{ padding: '10px' }}>{renderManage(member)}</div>
+          <div data-phone-member-manage="" style={{ padding: '4px 14px 14px' }}>{renderManage(member)}</div>
         </PhoneBottomSheet>
       )}
     </div>

@@ -637,6 +637,83 @@ body {
   max-width: 100%;
   overflow-x: auto;
 }
+/* Mobile view: a member's own settings in the members sheet
+   (ClusterRightPanel/MemberRow.tsx inside PhoneMemberList). One control per
+   row at full width; the label sits above its control; WORK SIZE is one
+   wrapping row of chips. The sheet's title already names the tab. The role
+   choices open in place under ROLE instead of floating over the next rows. */
+[data-phone-member-manage] [data-member-row] {
+  gap: 12px !important;
+  padding: 10px 0 0 !important;
+  border: 0 !important;
+}
+[data-phone-member-manage] [data-member-tab-name] {
+  display: none;
+}
+[data-phone-member-manage] [data-member-head],
+[data-phone-member-manage] [data-member-actions],
+[data-phone-member-manage] [data-member-tier],
+[data-phone-member-manage] [data-member-focus],
+[data-phone-member-manage] [data-help='cluster.right-panel.role-custom'] {
+  flex-wrap: wrap;
+  gap: 8px !important;
+  font-size: 14px !important;
+}
+[data-phone-member-manage] [data-member-head] > [data-help='cluster.right-panel.member-focus'] {
+  flex: 1 1 100% !important;
+  font-size: 15px !important;
+}
+[data-phone-member-manage] [data-member-head] > [data-help='cluster.right-panel.member-focus'] span {
+  font-size: inherit !important;
+}
+[data-phone-member-manage] [data-member-row] button,
+[data-phone-member-manage] [data-member-row] input {
+  min-height: 44px;
+  font-size: 13px !important;
+}
+[data-phone-member-manage] [data-member-row] input {
+  flex: 1 1 100% !important;
+  font-size: 16px !important;
+  padding: 0 10px !important;
+}
+[data-phone-member-manage] [data-member-head] > button,
+[data-phone-member-manage] [data-member-actions] > button,
+[data-phone-member-manage] [data-help='cluster.right-panel.role-custom'] > button,
+[data-phone-member-manage] [data-member-focus] > button {
+  flex: 1 1 100%;
+  margin-left: 0 !important;
+  padding: 0 12px !important;
+  text-align: left;
+}
+[data-phone-member-manage] [data-member-tier] > span,
+[data-phone-member-manage] [data-member-focus] > span {
+  flex: 0 0 100%;
+  color: var(--color-fg) !important;
+}
+[data-phone-member-manage] [data-help='cluster.right-panel.role-custom'] > span {
+  color: var(--color-fg) !important;
+}
+[data-phone-member-manage] [data-member-tier] > button {
+  flex: 1 1 auto;
+  margin-left: 0 !important;
+  padding: 0 14px !important;
+}
+[data-phone-member-manage] [data-help='cluster.right-panel.tier-unset'] {
+  border-color: var(--color-border-hairline) !important;
+}
+[data-phone-member-manage] [data-member-focus] > button {
+  white-space: normal !important;
+  font-size: 14px !important;
+}
+[data-phone-member-manage] [data-testid='member-role-popover'] {
+  position: static !important;
+  flex: 1 1 100%;
+  min-width: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+  translate: none !important;
+  box-shadow: none !important;
+}
 /* Home's text links get a thumb-sized target too. */
 [data-phone-layout] .home-page a {
   display: inline-flex;

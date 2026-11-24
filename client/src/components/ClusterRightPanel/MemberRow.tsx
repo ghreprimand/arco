@@ -1,3 +1,4 @@
+import { usePhoneLayout } from '../../layout/layoutRange';
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { ROLE_PRESETS, presetForText, MEMBER_TIERS, isClusterDirector, clusterDirectorProblem } from '@arco/shared';
@@ -122,9 +123,12 @@ export function MemberRow({
     setPopoverOpen(false);
   };
   const matchedPreset = member.role ? presetForText(member.role) : undefined;
+  // Mobile view: the members sheet lays this row out for touch (global.css).
+  const phone = usePhoneLayout();
 
   return (
     <div
+      data-member-row=""
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -134,7 +138,7 @@ export function MemberRow({
         fontSize: '11px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <div data-member-head="" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
         <div
           role={!renameOpen && onFocus ? 'button' : undefined}
           tabIndex={!renameOpen && onFocus ? 0 : undefined}
@@ -246,7 +250,7 @@ export function MemberRow({
             {!renameOpen && member.isolation && <span title={member.isolationReason} role="status">{member.isolation.toUpperCase()}{member.isolationReason ? `: ${member.isolationReason}` : ''}</span>}
           </div>
           {!renameOpen && (
-            <div style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>
+            <div data-member-tab-name="" style={{ color: 'var(--color-fg-muted)', fontSize: '10px' }}>
               {memberName}
             </div>
           )}
@@ -310,7 +314,7 @@ export function MemberRow({
       </div>
 
       {!cluster.research && (wsSendRaw || onDetach) && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
+        <div data-member-actions="" style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px' }}>
           {wsSendRaw && (
             <button
               onClick={() => setReplaceOpen((v) => !v)}
@@ -357,7 +361,7 @@ export function MemberRow({
         </div>
       )}
       {researchLetter && onRemoveResearcher && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div data-member-actions="" style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button type="button" onClick={() => setRemoveOpen(true)} data-help="research.remove-researcher" className="display-font"
             style={{ minHeight: 32, padding: '2px 8px', background: 'transparent', border: '1px solid var(--color-border-hairline)', color: 'var(--color-warning)', cursor: 'pointer', fontSize: '9px', letterSpacing: '1px' }}
             title={`Remove Researcher ${researchLetter} from this research project`}>REMOVE</button>
@@ -556,7 +560,7 @@ export function MemberRow({
       )}
 
       {!cluster.research && onSetTier && !isClusterDirector(member.role) && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
+        <div data-member-tier="" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
           <span
             className="display-font"
             style={{ color: 'var(--color-fg-muted)', letterSpacing: '1px' }}
@@ -617,7 +621,7 @@ export function MemberRow({
       )}
 
       {!cluster.research && onSetFocus && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
+        <div data-member-focus="" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
           <span
             className="display-font"
             style={{ color: 'var(--color-fg-muted)', letterSpacing: '1px' }}
@@ -684,7 +688,7 @@ export function MemberRow({
                   fontFamily: 'inherit',
                 }}
               >
-                {member.focus || '(not set: click to edit)'}
+                {member.focus || (phone ? '(not set: tap to edit)' : '(not set: click to edit)')}
               </button>
               {member.focus && (
                 <button

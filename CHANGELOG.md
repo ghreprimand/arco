@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Lay out a member's settings in the mobile view's members sheet for touch: one full-width control per row, WORK SIZE as one row of chips, the role choices in place, no repeated name, and "tap to edit" for FOCUS.
+
 - Keep Codex conversations working when their saved model is not offered by the installed Codex for the account, for example a model saved by a newer Codex: the turn runs on Codex's default model and the chat names both models, and a refusal reads as a sentence instead of raw JSON.
 
 - Turn every other mobile panel into a phone page: the plan is a checklist to tick, files show one folder at a time, members are one row each with a sheet of their actions, history and activity filters are one chip row, a single tab's side panel has ALL PANELS too, rarely used pages sit under MORE, and each page's own actions are under the header's ... and +.
