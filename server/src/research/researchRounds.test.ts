@@ -787,10 +787,10 @@ test('sending released research copies without overwrite and records successful 
     const state = { folder: source, name: 'Fixture', createdAt: '2026-01-01', rounds: [{ n: 1, releasedAt: '2026-01-01', entries: { A: { state: 'replied' } } }] } as never;
     const selection = { kind: 'report', round: 1, letter: 'A' } as const;
     const first = await sendResearchToFolder(state, selection, destination);
-    assert.equal(first.error, undefined); assert.deepEqual(first.written, ['rounds/round-1/report-a.md']);
+    assert.equal(first.error, undefined); assert.deepEqual(first.written, ['README.md', 'rounds/round-1/researcher-a.md']);
     const second = await sendResearchToFolder(state, selection, destination);
     assert.notEqual(first.target, second.target);
-    assert.equal(await fs.readFile(join(first.target!, 'rounds', 'round-1', 'report-a.md'), 'utf8'), '# Report\n');
+    assert.equal(await fs.readFile(join(first.target!, 'rounds', 'round-1', 'researcher-a.md'), 'utf8'), '# Report\n');
     const log = await fs.readFile(join(source, 'exports.md'), 'utf8');
     assert.ok(log.includes(first.target!)); assert.ok(log.includes(second.target!));
     const plan = await createPlan(destination, { title: 'Fixture', body: '' });
@@ -800,7 +800,7 @@ test('sending released research copies without overwrite and records successful 
     await fs.writeFile(join(source, 'rounds', 'round-1', 'report-a.md'), `# Report\n[source](../../sources/${sourceFileName(artifact)})\n`);
     (state as any).rounds[0].entries.A.artifacts = [artifact];
     const withSource = await sendResearchToFolder(state, selection, destination);
-    assert.match(await fs.readFile(join(withSource.target!, 'rounds', 'round-1', 'report-a.md'), 'utf8'), /\]\(\.\.\/\.\.\/sources\//);
+    assert.match(await fs.readFile(join(withSource.target!, 'rounds', 'round-1', 'researcher-a.md'), 'utf8'), /\]\(files\/researcher-a\/source\.txt\)/);
     const planSend = await sendResearchToPlan(state, selection, destination, plan.id);
     assert.equal(planSend.error, undefined);
     assert.match((await readPlanRef(destination, plan.id, 'research-fixture'))!.body, /\]\(research-fixture\.files\//);
@@ -826,12 +826,12 @@ test('starting from research preserves existing files and records the opened pro
     await fs.writeFile(join(source, 'exports.md'), '# Exports\n');
     const state = { clusterId, folder: source, name: 'Fixture', rounds: [{ n: 1, releasedAt: '2026-01-01', entries: { A: { state: 'replied' } } }] } as never;
     const selection = { kind: 'report', round: 1, letter: 'A' } as const;
-    assert.deepEqual((await previewResearchStart(state, selection)).map(x => x.path), ['rounds/round-1/report-a.md']);
+    assert.deepEqual((await previewResearchStart(state, selection)).files.map(x => x.path), ['README.md', 'rounds/round-1/researcher-a.md']);
     await fs.mkdir(join(parent, 'existing')); await fs.writeFile(join(parent, 'existing', 'keep.txt'), 'keep');
     await assert.rejects(prepareResearchStart(state, selection, parent, 'existing', false), /already exists/);
     const prepared = await prepareResearchStart(state, selection, parent, 'existing', true);
     assert.ok(prepared.token); assert.equal(await fs.readFile(join(parent, 'existing', 'keep.txt'), 'utf8'), 'keep');
-    assert.equal(await fs.readFile(join(prepared.target!, 'rounds/round-1/report-a.md'), 'utf8'), '# Report\n');
+    assert.equal(await fs.readFile(join(prepared.target!, 'rounds/round-1/researcher-a.md'), 'utf8'), '# Report\n');
     assert.doesNotMatch(await fs.readFile(join(source, 'exports.md'), 'utf8'), /started project/);
     workflows.set(workflowId, { config: { workingDirectory: join(parent, 'wrong') } } as never);
     await assert.rejects(confirmResearchStart(clusterId, prepared.token!, workflowId), /project folder/);
@@ -839,6 +839,47 @@ test('starting from research preserves existing files and records the opened pro
     await confirmResearchStart(clusterId, prepared.token!, workflowId);
     assert.match(await fs.readFile(join(source, 'exports.md'), 'utf8'), /started project/);
   } finally { workflows.delete(workflowId); await fs.rm(root, { recursive: true, force: true }); }
+});
+
+test('starting from a summary copies the whole released project in the readable layout', async () => {
+  const { prepareResearchStart, previewResearchStart } = await import('./sendToProject.js');
+  const { sourceFileName } = await import('./researchFolder.js');
+  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-start-layout-'));
+  try {
+    const source = join(root, 'source'), parent = join(root, 'projects');
+    await fs.mkdir(parent);
+    for (const dir of ['rounds/round-1', 'rounds/round-2', 'rounds/round-3', 'syntheses', 'sources']) await fs.mkdir(join(source, dir), { recursive: true });
+    const notes = { name: 'notes.md', contentBase64: Buffer.from('notes').toString('base64'), byteLength: 5 };
+    const table = { name: 'notes.md', contentBase64: Buffer.from('table').toString('base64'), byteLength: 5 };
+    for (const artifact of [notes, table]) await fs.writeFile(join(source, 'sources', sourceFileName(artifact)), Buffer.from(artifact.contentBase64, 'base64'));
+    for (const [name, text] of Object.entries({
+      'brief.md': '# Brief\n', 'research.json': '{}\n', 'director-log.md': '# Log\n', 'exports.md': '# Exports\n',
+      'synthesis.md': '# Latest\n', 'syntheses/round-1.md': `# Round one\nSee rounds/round-1/report-a.md and sources/${sourceFileName(notes)}\n`,
+      'rounds/round-1/round.md': 'r1', 'rounds/round-1/report-a.md': `# A\n- sources/${sourceFileName(notes)}\n- sources/${sourceFileName(table)}\n`, 'rounds/round-1/report-b.md': '# B\n',
+      'rounds/round-2/round.md': 'r2', 'rounds/round-2/report-a.md': '# A2\n', 'rounds/round-3/round.md': 'unreleased',
+    })) await fs.writeFile(join(source, name), text);
+    const state = { clusterId: randomUUID(), folder: source, name: 'Layout fixture', brief: 'A made-up brief.', blind: true, createdAt: '2026-01-01T00:00:00Z', researchers: [{ letter: 'A', provider: 'claude', model: 'm' }, { letter: 'B', provider: 'claude', model: 'm' }], rounds: [
+      { n: 1, releasedAt: '2026-01-01', entries: { A: { state: 'replied', artifacts: [notes, table] }, B: { state: 'replied' } } },
+      { n: 2, releasedAt: '2026-01-02', entries: { A: { state: 'replied' }, B: { state: 'failed' } } },
+      { n: 3, entries: { A: { state: 'waiting' } } },
+    ] } as never;
+    const preview = await previewResearchStart(state, { kind: 'synthesis', round: 1 });
+    assert.deepEqual(preview.counts, { rounds: 2, catchUps: 0, reports: 3, summaries: 2, returnedFiles: 2 });
+    assert.equal(preview.startSummary, 'summary.md');
+    const prepared = await prepareResearchStart(state, { kind: 'synthesis', round: 1 }, parent, 'fresh', false);
+    assert.equal(prepared.error, undefined);
+    assert.deepEqual([...prepared.written].sort(), ['README.md', 'brief.md', 'director-log.md', 'research.json', 'rounds/round-1/files/researcher-a/notes-2.md',
+      'rounds/round-1/files/researcher-a/notes.md', 'rounds/round-1/researcher-a.md', 'rounds/round-1/researcher-b.md', 'rounds/round-1/round.md', 'rounds/round-1/summary.md',
+      'rounds/round-2/researcher-a.md', 'rounds/round-2/round.md', 'rounds/round-2/summary.md', 'summary.md']);
+    const read = (name: string) => fs.readFile(join(prepared.target!, name), 'utf8');
+    assert.equal(await read('summary.md'), '# Round one\nSee rounds/round-1/researcher-a.md and rounds/round-1/files/researcher-a/notes.md\n');
+    assert.equal(await read('rounds/round-1/researcher-a.md'), '# A\n- files/researcher-a/notes.md\n- files/researcher-a/notes-2.md\n');
+    assert.equal(await read('rounds/round-2/summary.md'), '# Latest\n');
+    const readme = await read('README.md');
+    assert.match(readme, /\[summary\.md\]\(summary\.md\): the summary of round 1/);
+    assert.match(readme, /\[rounds\/round-2\/summary\.md\]\(rounds\/round-2\/summary\.md\): the latest summary/);
+    assert.doesNotMatch(readme, /claude/);
+  } finally { await fs.rm(root, { recursive: true, force: true }); }
 });
 
 test('research exports exclude private state and unreleased rounds and record confirmation', async () => {

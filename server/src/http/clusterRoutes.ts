@@ -217,7 +217,7 @@ export async function tryHandleClusterRoutes(
       }
       const state = await loadResearch(researchStart[1]);
       if (!state || !body.selection) throw new Error('Choose released research.');
-      if (researchStart[2] === 'preview-start') reply(200, { files: await previewResearchStart(state, body.selection) });
+      if (researchStart[2] === 'preview-start') reply(200, await previewResearchStart(state, body.selection));
       else reply(200, await prepareResearchStart(state, body.selection, body.parent ?? '', body.name ?? '', body.useExisting === true));
     } catch (error) { reply(400, { error: error instanceof Error ? error.message : 'Could not start the project.' }); }
     return true;

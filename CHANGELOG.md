@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Copy the whole released research when starting a project from research: a README.md index, the brief, the chosen summary, the Director log and one folder per round with its record, summary, reports and returned files under their original names. The Start dialog shows what will be copied and the folder tree first, and Send project uses the same layout.
+
 - Open SEND TO A PROJECT with the project folder already chosen: the folder the research last went to, or the project it was started from. The conversation list appears only when Attach to conversation draft is ticked.
 
 - Lay out research RESULTS as bordered cards like the cluster ACTIVITY pane: a project card, one card per round with its warning inside, and one compact row per researcher with Report, Files (n) and Actions.

@@ -2,7 +2,7 @@
 import { constants } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
-import { dirname, isAbsolute, join, posix, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, resolve, sep } from 'node:path';
 import { withFileLock } from '../atomicFile.js';
 import { writeCheckedFile } from '../checkedFile.js';
 import { assertSafePath } from '../fileAccessPolicy.js';
@@ -11,7 +11,8 @@ import { workflows } from '../server/state.js';
 import * as clusterStore from '../clusterStore.js';
 import { isClusterDirector } from '@arco/shared';
 import { researchSlug } from './researchFolder.js';
-import { selectResearchFiles, type ResearchSelection } from './resultSelection.js';
+import { selectResearchFiles, type ResearchSelection, type SelectedResearchFile } from './resultSelection.js';
+import { researchCopyForSend, researchCopyForStart } from './researchCopy.js';
 import type { ResearchState } from './researchState.js';
 import { planRefsDir, touchPlan, writePlanRef } from '../planStore.js';
 
@@ -88,7 +89,11 @@ export async function sendResearchToPlan(state: ResearchState, selection: Resear
   return { target: `${planRefsDir(root, planId)}/${slug}.md`, written, ...(error ? { error } : {}), ...(receiptError ? { receiptError } : {}) };
 }
 export async function sendResearchToFolder(state: ResearchState, selection: ResearchSelection, destination: string): Promise<FolderSendResult> {
-  const files = await selectResearchFiles(state, selection);
+  return copyResearchToFolder(state, selection, destination, (await researchCopyForSend(state, selection)).files);
+}
+
+// The copy is laid out by researchCopy.ts, links already rewritten.
+async function copyResearchToFolder(state: ResearchState, selection: ResearchSelection, destination: string, files: SelectedResearchFile[]): Promise<FolderSendResult> {
   const root = await safeDirectory(destination);
   const research = join(root, 'research');
   try { await fs.mkdir(research); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
@@ -114,17 +119,7 @@ export async function sendResearchToFolder(state: ResearchState, selection: Rese
         await safeDirectory(current);
       }
       await safeDirectory(dirname(path));
-      let bytes = file.bytes;
-      if (/\.md$/i.test(file.relativePath)) {
-        let body = bytes.toString('utf8');
-        for (const source of files.filter(item => item.relativePath.startsWith('sources/'))) {
-          const escaped = source.relativePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          const link = posix.relative(posix.dirname(file.relativePath), source.relativePath);
-          body = body.replace(new RegExp(`(?:\\.\\./)*${escaped}`, 'g'), () => link);
-        }
-        bytes = Buffer.from(body, 'utf8');
-      }
-      await writeCheckedFile(path, bytes, false);
+      await writeCheckedFile(path, file.bytes, false);
       written.push(file.relativePath);
     }
   } catch (err) { error = err instanceof Error ? err.message : String(err); }
@@ -187,12 +182,13 @@ export async function confirmResearchComposer(clusterId: string, token: string):
 // creation leaves the copied files available for recovery.
 const pendingStarts = new Map<string, { state: ResearchState; selection: ResearchSelection; target: string; expires: number }>();
 export async function previewResearchStart(state: ResearchState, selection: ResearchSelection) {
-  const files = await selectResearchFiles(state, selection);
-  return files.map(file => ({ path: file.relativePath, size: file.bytes.length,
-    ...(/(?:^|\/)synthesis\.md$|^syntheses\/.*\.md$/i.test(file.relativePath) ? { preview: file.bytes.toString('utf8').slice(0, 4000) } : {}) }));
+  const copy = await researchCopyForStart(state, selection);
+  return { counts: copy.counts, ...(copy.startSummary ? { startSummary: copy.startSummary } : {}),
+    files: copy.files.map(file => ({ path: file.relativePath, size: file.bytes.length,
+      ...(file.relativePath === copy.startSummary ? { preview: file.bytes.toString('utf8').slice(0, 4000) } : {}) })) };
 }
 export async function prepareResearchStart(state: ResearchState, selection: ResearchSelection, parent: string, name: string, useExisting: boolean): Promise<FolderSendResult & { project: string; token?: string }> {
-  await selectResearchFiles(state, selection);
+  const laid = await researchCopyForStart(state, selection);
   const base = await safeDirectory(parent);
   if (typeof name !== 'string' || !name.trim() || name !== name.trim() || name === '.' || name === '..' || /[\\/\x00-\x1f]/.test(name)) throw new Error('Choose a valid folder name.');
   const target = join(base, name);
@@ -204,7 +200,7 @@ export async function prepareResearchStart(state: ResearchState, selection: Rese
   }
   await safeDirectory(target);
   let copy: FolderSendResult;
-  try { copy = await sendResearchToFolder(state, selection, target); }
+  try { copy = await copyResearchToFolder(state, selection, target, laid.files); }
   catch (error) { return { project: target, written: [], error: error instanceof Error ? error.message : 'Copy failed.' }; }
   if (copy.error || copy.receiptError || !copy.written.length) return { ...copy, project: target };
   const token = randomUUID();

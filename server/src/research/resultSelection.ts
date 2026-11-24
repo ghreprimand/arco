@@ -15,6 +15,7 @@ export interface SelectedResearchFile { relativePath: string; bytes: Buffer }
 const MAX_FILE = 16 * 1024 * 1024;
 const MAX_TOTAL = 64 * 1024 * 1024;
 const MAX_FILES = 300;
+export const RESEARCH_COPY_LIMITS = { files: MAX_FILES, bytes: MAX_TOTAL };
 
 export async function readChecked(root: string, name: string): Promise<Buffer> {
   const path = join(root, name);
@@ -40,7 +41,9 @@ export async function readChecked(root: string, name: string): Promise<Buffer> {
 }
 
 // Every name is constructed from the recorded state, never from a supplied path.
-export async function selectResearchFiles(state: ResearchState, selection: ResearchSelection): Promise<SelectedResearchFile[]> {
+// `releasedSoFar` lets Start project take a project whose next round is
+// still running: only released rounds are read either way.
+export async function selectResearchFiles(state: ResearchState, selection: ResearchSelection, options: { releasedSoFar?: boolean } = {}): Promise<SelectedResearchFile[]> {
   const root = await fs.realpath(state.folder);
   const released = state.rounds.filter(round => !!round.releasedAt);
   const releasedCatchUps = (state.catchUps ?? []).filter(round => !!round.releasedAt);
@@ -67,7 +70,7 @@ export async function selectResearchFiles(state: ResearchState, selection: Resea
     else throw new Error('This synthesis is not available.');
     for (const sourceRound of released.filter(r => r.n <= round.n)) addSources(sourceRound);
   } else if (selection.kind === 'project') {
-    if (state.rounds.some(r => !r.releasedAt)) throw new Error('Wait until the current round is released.');
+    if (!options.releasedSoFar && state.rounds.some(r => !r.releasedAt)) throw new Error('Wait until the current round is released.');
     names.add('brief.md'); names.add('research.json'); names.add('director-log.md');
     if (await fs.access(join(root, 'synthesis.md')).then(() => true, () => false)) names.add('synthesis.md');
     for (const round of releasedCatchUps) {
@@ -85,13 +88,13 @@ export async function selectResearchFiles(state: ResearchState, selection: Resea
       addSources(round);
     }
   } else throw new Error('Choose a report, synthesis or project.');
-  if (names.size > MAX_FILES) throw new Error('The selected research has too many files to send at once.');
+  if (names.size > MAX_FILES) throw new Error(`The selected research has ${names.size} files; the limit is ${MAX_FILES}.`);
   let total = 0;
   const out: SelectedResearchFile[] = [];
   for (const name of names) {
     const bytes = await readChecked(root, name);
     total += bytes.length;
-    if (total > MAX_TOTAL) throw new Error('The selected research is too large to send at once.');
+    if (total > MAX_TOTAL) throw new Error(`The selected research is over ${MAX_TOTAL / 1048576} MiB, the limit for one copy.`);
     out.push({ relativePath: name.split(sep).join('/'), bytes });
   }
   return out;
