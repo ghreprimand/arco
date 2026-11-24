@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Simplify Recall filters on the mobile view and put confirmations at the bottom of the screen.
+
 - Choose phone files directly from the mobile view; Media uses phone-friendly file wording.
 
 - Scroll every panel opened from PANELS in the mobile view as one page, with its bar and tab rows, instead of a small box under pinned rows; drop the pinned Back bar and show the Gemini members notice once while the cluster panel is open.

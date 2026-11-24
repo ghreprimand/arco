@@ -49,6 +49,7 @@ interface Props {
 export function RecallView({ onClose, requestRecallSummary }: Props) {
   const phone = usePhoneLayout();
   const [filters, setFilters] = useState<RecallSearchFilters>(EMPTY_FILTERS);
+  const [phoneTime, setPhoneTime] = useState('all');
   const [selected, setSelected] = useState(0);
   // §F4 — client-side "pinned only" view filter (hits already carry `pinned`).
   const [pinnedOnly, setPinnedOnly] = useState(false);
@@ -252,7 +253,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
           <span className="display-font" style={{ fontSize: 12, letterSpacing: 2, color: 'var(--color-accent-primary)' }}>
             RECALL
           </span>
-          <span style={{ fontSize: 11, color: 'var(--color-fg-muted)' }}>
+          <span style={{ display: phone ? 'none' : undefined, fontSize: 11, color: 'var(--color-fg-muted)' }}>
             search every conversation Arco has run
           </span>
           <span style={{ marginLeft: 'auto' }}><WorkSurfaceControls storageKey="recall" surface={surface} /></span>
@@ -267,7 +268,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
           onChange={(e) => patch({ q: e.target.value })}
           onKeyDown={onKeyDown}
           data-help="recall.search-input"
-          placeholder="Search titles, summaries, tags…  (toggle TRANSCRIPTS to full-text the conversations)"
+          placeholder={phone ? 'Search conversations' : 'Search titles, summaries, tags…  (toggle TRANSCRIPTS to full-text the conversations)'}
           style={{
             border: 'none', borderTop: '1px solid var(--color-border-hairline)',
             borderBottom: '1px solid var(--color-border-hairline)',
@@ -277,7 +278,26 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
         />
 
         {/* Filters */}
-        <div style={{ display: 'flex', gap: 10, padding: '8px 16px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid var(--color-border-hairline)' }}>
+        {phone && <div style={{ display: 'flex', gap: 6, padding: '8px 12px', overflowX: 'auto', borderBottom: '1px solid var(--color-border-hairline)' }}>
+          <select aria-label="Project" data-help="recall.filter.project" value={filters.project} onChange={(e) => patch({ project: e.target.value })} style={{ ...selStyle, flexShrink: 0, maxWidth: 150 }}>
+            <option value="">All projects</option>
+            {projectOptions.map((project) => <option key={project} value={project}>{project}</option>)}
+          </select>
+          <select aria-label="Time" data-help="recall.filter.date" value={phoneTime} onChange={(e) => {
+            const value = e.target.value; setPhoneTime(value);
+            if (value === 'all') { patch({ from: '', to: '' }); return; }
+            const date = new Date();
+            if (value === 'week') date.setDate(date.getDate() - 6);
+            if (value === 'month') date.setDate(date.getDate() - 29);
+            const from = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+            patch({ from, to: '' });
+          }} style={{ ...selStyle, flexShrink: 0 }}>
+            <option value="all">All time</option><option value="today">Today</option><option value="week">Last 7 days</option><option value="month">Last 30 days</option>
+          </select>
+          <button type="button" data-help="recall.filter.pinned" aria-pressed={pinnedOnly} onClick={() => setPinnedOnly(!pinnedOnly)} style={{ ...selStyle, flexShrink: 0 }}>PINNED</button>
+          <button type="button" data-help="recall.filter.transcripts" aria-pressed={filters.includeTranscripts} disabled={!transcriptsAvailable} onClick={() => patch({ includeTranscripts: !filters.includeTranscripts })} style={{ ...selStyle, flexShrink: 0 }}>TRANSCRIPTS</button>
+        </div>}
+        {!phone && <div style={{ display: 'flex', gap: 10, padding: '8px 16px', flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid var(--color-border-hairline)' }}>
           <select data-help="recall.filter.project" value={filters.project} onChange={(e) => patch({ project: e.target.value })} style={selStyle}>
             <option value="">all projects</option>
             {projectOptions.map((p) => <option key={p} value={p}>{p}</option>)}
@@ -305,7 +325,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
             />
             transcripts{!transcriptsAvailable && ' (rg unavailable)'}
           </label>
-        </div>
+        </div>}
 
         {/* Results */}
         <div ref={listRef} role="region" aria-label="Recall results" style={{ overflowY: 'auto', flex: '1 0 60px', minHeight: 60 }}>
@@ -409,14 +429,14 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
         )}
 
         <div style={{ padding: '6px 16px', borderTop: '1px solid var(--color-border-hairline)', color: 'var(--color-fg-muted)', fontSize: 11, display: 'flex', gap: 16, alignItems: 'center' }}>
-          <span>↑↓ navigate</span>
+          {!phone && <><span>↑↓ navigate</span>
           <span>↵ open</span>
-          <span>esc close</span>
+          <span>esc close</span></>}
           {/* §F2 step 3 — operator-armed "summarize on tab close" (default OFF). */}
-          <label data-help="recall.summarize-on-close" style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', marginLeft: 'auto' }}>
+          {!phone && <label data-help="recall.summarize-on-close" style={{ display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', marginLeft: 'auto' }}>
             <input type="checkbox" checked={summarizeOnClose} onChange={(e) => setSummarizeOnClose(e.target.checked)} />
             summarize on tab close
-          </label>
+          </label>}
           <span>{hits.length} result{hits.length === 1 ? '' : 's'}</span>
         </div>
       </div>

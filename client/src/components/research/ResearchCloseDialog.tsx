@@ -77,7 +77,7 @@ export function ResearchCloseDialog({ clusterId, research, onCloseResearcher, on
       actions={<>
         {listError && <button type="button" style={touchButton} disabled={working} onClick={() => setAttempt((n) => n + 1)}>RETRY</button>}
         <button type="button" style={touchButton} disabled={working || !unsent} onClick={() => void close()}>CLOSE RESEARCH PROJECT</button>
-        <button type="button" style={touchButton} disabled={working} onClick={onCancel}>CANCEL</button>
+        <button type="button" data-phone-safe="" style={touchButton} disabled={working} onClick={onCancel}>CANCEL</button>
       </>}
     >
       <p style={{ marginTop: 0, overflowWrap: 'anywhere' }}><strong>{research.name}</strong></p>

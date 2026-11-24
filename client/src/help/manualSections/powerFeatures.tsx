@@ -922,13 +922,13 @@ export const powerFeatures: Section[] = [
   <li><strong>Transcript full-text</strong> is a toggle, off by default because it is a bigger scan. When on, the query also streams each conversation&apos;s live and compressed sealed transcript, which surfaces keywords that appear only in the body. It needs <Code>rg</Code> and is disabled without it. Keeping transcripts out of the index keeps it small.</li>
   </ul>
   <p>
-  Filter by project, provider and last-active date range. Each result shows the
+  Filter by project, provider and last-active date range. In the mobile view, choose project, time, pinned and transcript filters in one row. Each result shows the
   title, meta, a match snippet and which field matched.
   </p>
   <Sub>Result actions</Sub>
   <ul>
   <li><strong>Jump to transcript / Resume.</strong> If the conversation is an open tab, this switches to it. An archived conversation that is not open points you to its project folder to resume.</li>
-  <li><strong>Summarize / Open summary.</strong> Summarize writes a saved summary of the conversation; once one exists the button opens it. The footer checkbox <strong>summarize on tab close</strong> (off by default) makes closing a tab with a saved session start the same summary, with a toast and an OPEN RECALL link. Incognito tabs and tabs with no session do nothing, and the close is never held up.</li>
+  <li><strong>Summarize / Open summary.</strong> Summarize writes a saved summary of the conversation; once one exists the button opens it. The <strong>summarize on tab close</strong> checkbox (off by default, in the Recall footer on the workbench and under Utility agent in Settings on the mobile view) makes closing a tab with a saved session start the same summary, with a toast and an OPEN RECALL link. Incognito tabs and tabs with no session do nothing, and the close is never held up.</li>
   <li><strong>Reference in current tab.</strong> This will insert an excerpt as context into the active tab. It is not available yet; the button is present but disabled.</li>
   </ul>
   <Note>

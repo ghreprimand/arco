@@ -4,6 +4,7 @@ import type { UtilityJobResult } from '@arco/shared';
 import { useAppStore } from '../stores/appStore';
 import { useStartupStore } from '../stores/startupStore';
 import { DialogShell } from './DialogShell';
+import { usePhoneLayout } from '../layout/layoutRange';
 
 type Scope = { kind: 'workflow' | 'cluster'; id: string };
 type Result = UtilityJobResult & { from: number; to: number; empty?: boolean; lastActivity?: number | null };
@@ -33,6 +34,7 @@ export function useCatchUpMarker(scope: Scope | null): number | null {
 }
 
 export function CatchMeUp({ scope }: { scope: Scope | null }) {
+  const phone = usePhoneLayout();
   const from = useCatchUpMarker(scope);
   const agent = useAppStore((s) => s.settings?.utilityAgent);
   const [open, setOpen] = useState(false), [running, setRunning] = useState(false), [slow, setSlow] = useState(false);
@@ -66,6 +68,7 @@ export function CatchMeUp({ scope }: { scope: Scope | null }) {
         {error && <p role="alert" style={{ margin: 0 }}>{error}</p>}
       </> : undefined}
       actions={<>
+        {phone && result?.empty && (['last-turn', 'hour', 'today'] as const).map((range) => <button key={range} type="button" data-help="utility.catch-up" disabled={running} onClick={() => void run(range)}>{range === 'last-turn' ? 'SINCE LAST TURN' : range === 'hour' ? 'LAST HOUR' : 'TODAY'}</button>)}
         {agent && !running && <button type="button" className="display-font" data-help="utility.catch-up" onClick={() => void run()}>SUMMARIZE</button>}
       </>}>
       {!agent ? <p style={{ margin: 0 }}>No utility agent is chosen. <button type="button" className="display-font" data-help="utility.catch-up" onClick={() => { close(); useStartupStore.getState().setSettingsSection('utility-agent'); useAppStore.getState().setShowSettings(true); }}>OPEN UTILITY AGENT SETTINGS</button></p>
@@ -78,7 +81,7 @@ export function CatchMeUp({ scope }: { scope: Scope | null }) {
             <p style={{ margin: 0 }}>{result.lastActivity == null ? 'Nothing has happened in this tab yet.' : `Nothing new since ${new Date(result.from).toLocaleString()}. Last activity: ${new Date(result.lastActivity).toLocaleString()}.`}</p>
             {result.truncated && <p style={{ margin: 0 }}>Earlier activity was omitted from the available history.</p>}
             {result.facts.some((fact) => fact.value === 'activity not available') && <p style={{ margin: 0 }}>Some members' activity is unavailable.</p>}
-            <div>{(['last-turn', 'hour', 'today'] as const).map((range) => <button key={range} type="button" data-help="utility.catch-up" disabled={running} onClick={() => void run(range)}>{range === 'last-turn' ? 'SINCE LAST TURN' : range === 'hour' ? 'LAST HOUR' : 'TODAY'}</button>)}</div>
+            {!phone && <div>{(['last-turn', 'hour', 'today'] as const).map((range) => <button key={range} type="button" data-help="utility.catch-up" disabled={running} onClick={() => void run(range)}>{range === 'last-turn' ? 'SINCE LAST TURN' : range === 'hour' ? 'LAST HOUR' : 'TODAY'}</button>)}</div>}
           </>
           : <>
             <p style={{ margin: 0 }}>Requested range: {new Date(result.from).toLocaleString()} - {new Date(result.to).toLocaleString()}</p>

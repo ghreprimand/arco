@@ -1252,6 +1252,8 @@ Dragged splitter positions are saved separately for each layout. Positions from 
 
 ## Mobile view
 
+In the mobile view, Recall places project, time, pinned and transcript filters in one row. Its summarize-on-close control is in Settings under Utility agent. Shared confirmation dialogs appear as bottom sheets, and CATCH ME UP keeps its range actions at the bottom.
+
 In the mobile view, UPLOAD FROM PHONE opens the device's own file and photo picker and adds its selection to the current conversation draft. On the workbench the same control continues to offer the QR upload window. Media uses "Choose a file" in the mobile view.
 
 The mobile view is the `/mobile` address of the same client (`isMobilePath` in `client/src/layout/layoutRange.ts`). The server already answers unmatched paths with `index.html`, so nothing new reaches the server. `useLayout()` reports `phone` on `/mobile` and draws the Narrow range underneath; `/` never switches by itself. Below `PHONE_BELOW` (600 CSS pixels of width, or of the shorter side on a touch-only screen) `useLayout()` reports `phoneSized`, and the desktop workbench shows an "Open mobile view" link (`OpenMobileViewLink`) above the chat and is otherwise unchanged.

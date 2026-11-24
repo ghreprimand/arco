@@ -57,7 +57,7 @@ export const recallHelp: Record<string, HelpEntry> = {
   },
   'recall.filter.date': {
     title: 'Date range',
-    body: <p>Inclusive bounds on a conversation's last-active date. Only the latest search request can change results, loading or errors.</p>,
+    body: <p>Inclusive bounds on a conversation's last-active date. In the mobile view, choose a time range from the filter row. Only the latest search request can change results, loading or errors.</p>,
     manualSection: 'recall-search',
   },
   'recall.filter.transcripts': {
@@ -116,7 +116,7 @@ export const recallHelp: Record<string, HelpEntry> = {
     title: 'Summarize on tab close',
     body: (
       <p>
-        Operator-armed (default OFF). When checked, closing a workflow tab that has a
+        Operator-armed (default OFF). In the mobile view, this control is under Utility agent in Settings. When checked, closing a workflow tab that has a
         saved session starts the same summary the Summarize button makes, using the
         tab's own provider and model. A toast reads &quot;Summarizing &lt;tab&gt; in
         Recall&quot; with an OPEN RECALL link, and a second toast reports when it is ready

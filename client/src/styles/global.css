@@ -534,7 +534,8 @@ body {
 }
 /* Mobile view: a dialog drawn outside the app root (CATCH ME UP, RECALL and
    the other shared dialogs) keeps the 44px targets, and all but a
-   confirmation fill the screen like the other phone panels. */
+   confirmation fill the screen like the other phone panels; a confirmation
+   keeps its own surface at the bottom as a sheet. */
 [data-phone-dialog] button,
 [data-phone-dialog] select,
 [data-phone-dialog] summary,
@@ -565,6 +566,20 @@ body {
   border-radius: 0 !important;
   resize: none !important;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) !important;
+}
+[data-phone-dialog='sheet'] {
+  place-items: end stretch !important;
+  padding: 0 !important;
+}
+[data-phone-dialog='sheet'] > div {
+  width: 100% !important;
+  max-width: none !important;
+  max-height: min(88dvh, 48rem) !important;
+  border-radius: 0 !important;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+[data-phone-dialog='sheet'] [data-phone-safe] {
+  order: -1;
 }
 /* Home's text links get a thumb-sized target too. */
 [data-phone-layout] .home-page a {

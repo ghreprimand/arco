@@ -17,6 +17,7 @@ import { DeepSeekControls } from './DeepSeekControls';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useStartupStore } from '../stores/startupStore';
+import { useRecallStore } from '../stores/recallStore';
 import { ClaudeNativeAuthRow } from './ClaudeNativeAuthRow';
 import type { AuthStatus, AuthStatusByProvider, AuthLoginTarget, LoginSessionTarget, AuthLoginResult, ArcoSettings, ProviderName, ModelName, EffortLevel, ProviderAccountProfile, DiscoveredEndpoint, EndpointDiscoverResponse } from '@arco/shared';
 import { activeProjectCwd } from '../utils/activeProject';
@@ -93,7 +94,9 @@ export function SettingsPanel({ onClose }: Props) {
     setTextBrightnessDraft(settings?.textBrightness ?? DEFAULT_TEXT_BRIGHTNESS);
   }, [settings?.textBrightness]);
   const messageBoxSize = useMessageBoxSize();
-  const layoutMode = useLayout().mode;
+  const { mode: layoutMode, phone } = useLayout();
+  const summarizeOnClose = useRecallStore((s) => s.summarizeOnClose);
+  const setSummarizeOnClose = useRecallStore((s) => s.setSummarizeOnClose);
   const saveUiScale = async (uiScale: number) => {
     if (!settings) return;
     const previous = settings;
@@ -1287,6 +1290,10 @@ export function SettingsPanel({ onClose }: Props) {
 
         <SettingsSection id="utility-agent">
         <UtilityAgentPicker />
+        {phone && <label data-help="recall.summarize-on-close" style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 44 }}>
+          <input type="checkbox" checked={summarizeOnClose} onChange={(e) => setSummarizeOnClose(e.target.checked)} />
+          Summarize on tab close
+        </label>}
         </SettingsSection>
 
         <SettingsSection id="notification-channels">

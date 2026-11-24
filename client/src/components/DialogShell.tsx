@@ -61,7 +61,7 @@ export function containDialogTab(event: KeyboardEvent, surface: HTMLElement | nu
 
 export function DialogShell({ title, onClose, children, actions, status, width = 0, size = 'form', ariaLabel, testId, dataHelp, zIndex = 2000, closeOnBackdrop = false, closeLabel = 'Close', closeTestId, onKeyDown, bodyRef, onBodyScroll }: Props) {
   const box = useRef<HTMLDivElement>(null);
-  // Mobile view: full screen like the other phone panels; a confirmation keeps its box.
+  // Mobile view: full screen like the other phone panels; a confirmation keeps its own surface as a bottom sheet.
   const phone = usePhoneLayout();
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -84,7 +84,7 @@ export function DialogShell({ title, onClose, children, actions, status, width =
         data-testid={testId}
         data-help={dataHelp}
         data-dialog-shell=""
-        data-phone-dialog={phone ? (size === 'confirm' ? 'box' : 'full') : undefined}
+        data-phone-dialog={phone ? (size === 'confirm' ? 'sheet' : 'full') : undefined}
         onClick={(e) => { e.stopPropagation(); if (closeOnBackdrop && e.target === e.currentTarget) onClose(); }}
         onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation(); onKeyDown?.(e); }}
         style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(0,0,0,.65)', display: 'grid', placeItems: 'center', padding: '12px' }}
