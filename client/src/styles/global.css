@@ -476,6 +476,15 @@ body {
   font-size: 13px !important;
 }
 
+/* Mobile view panels (docs/CLIENT.md "Mobile view"): a PANELS slide-out
+   scrolls as one surface, so a list with its own height limit inside it
+   grows with its content instead of scrolling in a box. Code and diff
+   blocks (pre) keep their own scroll. */
+[data-phone-panel-body] div[style*="max-height"][style*="overflow"] {
+  max-height: none !important;
+  overflow-y: visible !important;
+}
+
 /* Mobile view composer (docs/CLIENT.md "Mobile view"): one thumb row with
    the draft, the options button and SEND or STEER. The composer's other rows
    (status, skills, toolbar, model, recipient and NUDGE) show only while the

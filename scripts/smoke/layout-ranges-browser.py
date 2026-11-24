@@ -117,7 +117,8 @@ async def open_page(browser, base, width, scale=1.0, layout=None, height=800, si
             'projectId': 'fixture', 'folder': '/projects/harbor', 'name': 'Fixture', 'brief': 'Compare.',
             'blind': True, 'directorWorkflowId': 'worker-0',
             'researchers': [{'workflowId': f'worker-{i}', 'letter': chr(64+i), 'provider': 'claude', 'model': 'sonnet', 'isolation': 'tool-fenced'} for i in range(1,5)],
-            'rounds': [] if research is True else [{'n': 1, 'startedAt': '2026-11-24T05:00:00.000Z', 'deadline': '2026-11-24T05:30:00.000Z', 'releasedAt': '2026-11-24T05:10:00.000Z', 'targeted': 1, 'entries': {'A': {'state': 'replied', 'at': '2026-11-24T05:09:00.000Z', 'source': 'mail', 'sources': [{'name': f'returned-{k}.md', 'path': f'sources/returned-{k}.md'} for k in range(1, 5)]}}}],
+            # research=<int>: that many released rounds; any other value: one.
+            'rounds': [] if research is True else [{'n': n, 'startedAt': '2026-11-24T05:00:00.000Z', 'deadline': '2026-11-24T05:30:00.000Z', 'releasedAt': '2026-11-24T05:10:00.000Z', 'targeted': 1, 'entries': {'A': {'state': 'replied', 'at': '2026-11-24T05:09:00.000Z', 'source': 'mail', 'sources': [{'name': f'returned-{k}.md', 'path': f'sources/returned-{k}.md'} for k in range(1, 5)]}}} for n in range(1, (research if isinstance(research, int) else 1) + 1)],
             'catchUps': [],
         }})
         for member in cluster['members'][1:]: member['accessMode'] = 'researcher'
@@ -502,6 +503,26 @@ async def run(base):
             await expect(page.get_by_test_id('mobile-panels')).to_have_count(0)
             await expect(page.get_by_test_id('phone-title-name')).to_have_text('Tester')
             await expect(page.get_by_text('The browser checks cover', exact=False).first).to_be_visible()
+            assert not errors, errors
+            await context.unroute_all(behavior='wait')
+            await context.close()
+            # Mobile view: a PANELS slide-out scrolls as one surface. The panel
+            # bar and tab rows scroll away with RESULTS; no Back bar is pinned.
+            context, page, errors = await open_page(browser, base, 412, height=892, touch=True, mobile=True, research=6, antigravity=True)
+            if await page.get_by_test_id('mobile-directory').count():
+                await page.get_by_test_id('mobile-research-project').first.tap()
+            await page.get_by_test_id('phone-panels').tap()
+            await page.get_by_test_id('phone-panel').filter(has_text='RESULTS').tap()
+            panel = page.get_by_test_id('right-panel-slide-out')
+            await expect(panel.locator('div.research-results')).to_be_visible()
+            await expect(page.get_by_test_id('mobile-panel-return')).to_have_count(0)
+            await expect(page.locator('aside[data-help="cluster.gemini-members"]')).to_have_count(0)
+            tabs = panel.locator('[data-help="cluster.right-panel.group.workspace"]')
+            before = (await tabs.bounding_box())['y']
+            assert await panel.evaluate('e => e.scrollHeight > e.clientHeight'), 'RESULTS fits; the fixture needs more rounds'
+            await panel.evaluate('e => { e.scrollTop = e.scrollHeight; }')
+            assert await panel.evaluate('e => e.scrollTop > 0')
+            assert (await tabs.bounding_box())['y'] < before - 100, 'the tab rows stayed pinned'
             assert not errors, errors
             await context.unroute_all(behavior='wait')
             await context.close()

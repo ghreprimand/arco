@@ -832,7 +832,8 @@ export function ClusterTab({
         flexDirection: 'column',
       }}
     >
-      {geminiNames && (
+      {/* Mobile view: an open panel covers the conversation, and its Auto-compaction note names the Gemini members, so the notice shows once. */}
+      {geminiNames && !(phone && rightSlide) && (
         <aside data-help="cluster.gemini-members" aria-label="Gemini members" style={{
           flexShrink: 0, maxHeight: '25%', overflowY: 'auto', overflowWrap: 'anywhere',
           padding: '6px 10px', borderBottom: '1px solid var(--color-border-hairline)',

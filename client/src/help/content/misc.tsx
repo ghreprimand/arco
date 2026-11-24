@@ -91,12 +91,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.panels': {
     title: 'Panels',
-    body: <p>Opens this tab's panels (files, plan, board, memory), a terminal, CATCH ME UP, Settings, Home, New tab, notices, the manual, Recall, Media, System, All plans and Artifacts. Each opens full screen with a way back to the conversation, CATCH ME UP and Recall included; All plans and Artifacts open in a new browser tab.</p>,
-    manualSection: 'window-layout',
-  },
-  'mobile.return': {
-    title: 'Back to the conversation',
-    body: <p>Closes the panel and returns to the same conversation and draft. CLOSE, Esc and the phone's Back do the same.</p>,
+    body: <p>Opens this tab's panels (files, plan, board, memory), a terminal, CATCH ME UP, Settings, Home, New tab, notices, the manual, Recall, Media, System, All plans and Artifacts. Each opens full screen with a way back to the conversation, CATCH ME UP and Recall included. A panel scrolls as one page, its tab rows included; the phone's Back, CLOSE at its top or a member name returns to the conversation and draft. All plans and Artifacts open in a new browser tab.</p>,
     manualSection: 'window-layout',
   },
   'mobile.text-size': {

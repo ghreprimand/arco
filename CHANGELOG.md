@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Scroll every panel opened from PANELS in the mobile view as one page, with its bar and tab rows, instead of a small box under pinned rows; drop the pinned Back bar and show the Gemini members notice once while the cluster panel is open.
+
 - Offer enabled and connected cluster providers when creating fresh workers from a tab.
 
 - Open CATCH ME UP, Recall and the other shared dialogs full screen in the mobile view, without size controls and with 44 px targets; give Home's links a 44 px target and fill the PANELS rows.

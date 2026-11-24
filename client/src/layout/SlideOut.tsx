@@ -15,7 +15,7 @@ interface SlideOutProps {
   children: ReactNode;
   testId?: string;
   // Mobile view: the panel covers the whole width, with no dimmed margin, and
-  // ends with a button back to the conversation.
+  // scrolls as one surface; the phone's Back, CLOSE or a member chip return.
   full?: boolean;
 }
 
@@ -24,7 +24,6 @@ export function SlideOut({ side, width, label, onClose, children, testId, full =
   // chat underneath cannot take focus while it is open. The mobile view's Back
   // handling reads which panel is open.
   const panelRef = useRef<HTMLDivElement>(null);
-  const returnLabel = usePhoneStore((s) => s.returnLabel);
   useEffect(() => {
     if (!full) return;
     const phone = usePhoneStore.getState();
@@ -45,8 +44,12 @@ export function SlideOut({ side, width, label, onClose, children, testId, full =
         role="dialog"
         aria-label={label}
         data-testid={testId}
+        data-phone-scroll={full ? '' : undefined}
         style={{
-          position: 'relative', width, maxWidth: full ? '100%' : '92%', height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0,
+          position: 'relative', width, maxWidth: full ? '100%' : '92%', height: '100%', minHeight: 0,
+          // Mobile view: the whole panel, its bar and tab rows included, is
+          // one scrolling surface under the page header (docs/CLIENT.md).
+          ...(full ? { display: 'block', overflowY: 'auto', overscrollBehavior: 'contain', paddingBottom: 'env(safe-area-inset-bottom)' } : { display: 'flex', flexDirection: 'column' }),
           background: 'var(--color-bg-dialog, var(--color-bg-panel))',
           [side === 'left' ? 'borderRight' : 'borderLeft']: '1px solid var(--color-border-hairline)',
           boxShadow: '0 0 24px rgba(0,0,0,0.45)',
@@ -56,15 +59,9 @@ export function SlideOut({ side, width, label, onClose, children, testId, full =
           <span style={{ flex: 1 }}>{label}</span>
           <button type="button" data-help="layout.slide-out-close" onClick={onClose} title="Close (Esc)" aria-label={`Close ${label}`} className="display-font" style={{ padding: full ? '6px 14px' : '1px 8px', minHeight: full ? '44px' : undefined, fontSize: full ? '12px' : '10px', cursor: 'pointer' }}>CLOSE</button>
         </div>
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>{children}</div>
-        {full && (
-          <div style={{ flexShrink: 0, padding: '8px calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left))', borderTop: '1px solid var(--color-border-hairline)' }}>
-            <button type="button" data-testid="mobile-panel-return" data-help="mobile.return" onClick={onClose} className="display-font"
-              style={{ width: '100%', minHeight: '44px', fontSize: '13px', letterSpacing: '0.5px', color: 'var(--color-accent-primary)', borderColor: 'var(--color-accent-primary)' }}>
-              {returnLabel ? `Back to ${returnLabel}` : 'Back to the conversation'}
-            </button>
-          </div>
-        )}
+        {full
+          ? <div data-phone-panel-body="" style={{ display: 'flex', flexDirection: 'column' }}>{children}</div>
+          : <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>{children}</div>}
       </div>
     </div>
   );

@@ -686,8 +686,13 @@ export const workspace: Section[] = [
           with what needs you first, and shows one conversation at a time with
           larger text. The phone's Back closes the top layer.{' '}
           <strong>PANELS</strong> opens files, plan, board, terminal,
-          CATCH ME UP, Settings, Recall, Media or System full screen. Colours follow the
-          theme; the text size is set per phone.
+          CATCH ME UP, Settings, Recall, Media or System full screen. Colours
+          follow the theme; the text size is set per phone.
+        </p>
+        <p>
+          A panel scrolls as one page, its tab rows included. The
+          phone&apos;s Back, CLOSE at its top or a member name returns to
+          the conversation.
         </p>
         <p>
           In the list, a cluster row opens the cluster on its Director, or on
