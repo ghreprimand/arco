@@ -67,7 +67,8 @@ test('stopping an Antigravity turn ends the ACP child process', async t => {
  const { AntigravityProvider } = await import('../antigravity/index.js');
  const dir = mkdtempSync(join(tmpdir(), 'arco-agy-stop-'));
  const root = join(dir, 'state'); mkdirSync(root);
- const bin = join(dir, 'agy'); writeFileSync(bin, '#!/bin/sh\nsleep 30\n'); chmodSync(bin, 0o755);
+ // The turn probes `agy --version` before it starts ACP; answer that at once.
+ const bin = join(dir, 'agy'); writeFileSync(bin, '#!/bin/sh\n[ "$1" = --version ] && { echo 1.0.0; exit 0; }\nsleep 30\n'); chmodSync(bin, 0o755);
  const priorPath = process.env.PATH, priorHome = process.env.ARCO_HOME;
  process.env.PATH = `${dir}:${priorPath}`; process.env.ARCO_HOME = root;
  let pid: number | undefined;
