@@ -7,6 +7,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Offer enabled and connected cluster providers when creating fresh workers from a tab.
 
+- Open CATCH ME UP, Recall and the other shared dialogs full screen in the mobile view, without size controls and with 44 px targets; give Home's links a 44 px target and fill the PANELS rows.
+
 - Switch cluster members in the mobile view from the member strip alone: a name always shows that member's conversation, closing an open panel, sheet or terminal; the title is a plain label while the strip is visible. PANELS no longer lists MORE, and the browser notice is not shown in the mobile view.
 
 - Open a cluster directly from its row in the mobile view, on its Director or the member last shown, and list its members from a separate MEMBERS control on the row.

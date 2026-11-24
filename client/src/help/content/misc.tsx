@@ -91,7 +91,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.panels': {
     title: 'Panels',
-    body: <p>Opens this tab's panels (files, plan, board, memory), a terminal, CATCH ME UP, Settings, Home, New tab, notices, the manual, Recall, Media, System, All plans and Artifacts. Each opens full screen with a way back to the conversation; All plans and Artifacts open in a new browser tab.</p>,
+    body: <p>Opens this tab's panels (files, plan, board, memory), a terminal, CATCH ME UP, Settings, Home, New tab, notices, the manual, Recall, Media, System, All plans and Artifacts. Each opens full screen with a way back to the conversation, CATCH ME UP and Recall included; All plans and Artifacts open in a new browser tab.</p>,
     manualSection: 'window-layout',
   },
   'mobile.return': {

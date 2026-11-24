@@ -6,6 +6,7 @@ import { RecallResultRow } from './RecallResultRow';
 import { recallSummarizerFor } from '../../recall/closeSummary';
 import type { ProviderName, ModelName, EffortLevel, RecallLink } from '@arco/shared';
 import { pickerSurfaceSize, WorkSurfaceControls } from '../workSurface/WorkSurfaceControls';
+import { usePhoneLayout } from '../../layout/layoutRange';
 
 // Workbench Expansion §F3 — top-level Recall search view.
 //
@@ -46,6 +47,7 @@ interface Props {
 }
 
 export function RecallView({ onClose, requestRecallSummary }: Props) {
+  const phone = usePhoneLayout();
   const [filters, setFilters] = useState<RecallSearchFilters>(EMPTY_FILTERS);
   const [selected, setSelected] = useState(0);
   // §F4 — client-side "pinned only" view filter (hits already carry `pinned`).
@@ -220,6 +222,7 @@ export function RecallView({ onClose, requestRecallSummary }: Props) {
   return createPortal(
     <div
       onClick={onClose}
+      data-phone-dialog={phone ? 'full' : undefined}
       style={{
         position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.5)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px',

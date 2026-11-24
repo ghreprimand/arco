@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { usePhoneLayout } from '../layout/layoutRange';
 import { confirmationSurfaceSize, contentSurfaceSize, formSurfaceSize, pickerSurfaceSize, WorkSurfaceControls } from './workSurface/WorkSurfaceControls';
 
 // One layout for operator dialogs opened from the composer and the top bar:
@@ -60,6 +61,8 @@ export function containDialogTab(event: KeyboardEvent, surface: HTMLElement | nu
 
 export function DialogShell({ title, onClose, children, actions, status, width = 0, size = 'form', ariaLabel, testId, dataHelp, zIndex = 2000, closeOnBackdrop = false, closeLabel = 'Close', closeTestId, onKeyDown, bodyRef, onBodyScroll }: Props) {
   const box = useRef<HTMLDivElement>(null);
+  // Mobile view: full screen like the other phone panels; a confirmation keeps its box.
+  const phone = usePhoneLayout();
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
@@ -81,6 +84,7 @@ export function DialogShell({ title, onClose, children, actions, status, width =
         data-testid={testId}
         data-help={dataHelp}
         data-dialog-shell=""
+        data-phone-dialog={phone ? (size === 'confirm' ? 'box' : 'full') : undefined}
         onClick={(e) => { e.stopPropagation(); if (closeOnBackdrop && e.target === e.currentTarget) onClose(); }}
         onKeyDown={(e) => { if (e.key !== 'Escape') e.stopPropagation(); onKeyDown?.(e); }}
         style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(0,0,0,.65)', display: 'grid', placeItems: 'center', padding: '12px' }}

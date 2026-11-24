@@ -678,9 +678,10 @@ function PanelsSheet({ onClose }: { onClose: () => void }) {
     <Sheet title="Panels" onClose={onClose} testId="mobile-panels">
       {tabPanels.length > 0 && <>
         <div className="display-font" style={sectionHeading}>{shown.label.toUpperCase()}</div>
-        <div style={grid}>
+        {/* The row is shared out among the tab's panels, so an odd count leaves no empty cell. */}
+        <div style={{ ...grid, display: 'flex', flexWrap: 'wrap' }}>
           {tabPanels.map((p) => (
-            <button key={p.id} type="button" data-testid="phone-panel" className="display-font" style={tile} onClick={() => requestPanel(p.id)}>{p.label}</button>
+            <button key={p.id} type="button" data-testid="phone-panel" className="display-font" style={{ ...tile, flex: '1 1 130px', width: 'auto' }} onClick={() => requestPanel(p.id)}>{p.label}</button>
           ))}
         </div>
       </>}

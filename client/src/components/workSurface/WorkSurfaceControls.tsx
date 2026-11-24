@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
+import { usePhoneLayout } from '../../layout/layoutRange';
 
 // Content windows share viewport-relative starting and maximum dimensions.
 // UI scale is applied outside the surface, so convert viewport dimensions back
@@ -40,6 +41,12 @@ export const pickerSurfaceSize: CSSProperties = {
 // Only a stable dialog-kind key and dimensions are stored; project names and
 // paths never enter this key. CSS viewport limits still apply after a resize.
 export function WorkSurfaceControls({ surface, storageKey }: { surface: RefObject<HTMLElement | null>; storageKey?: string }) {
+  // Mobile view: a dialog fills the screen, so there is no size to change or restore.
+  if (usePhoneLayout()) return null;
+  return <DesktopWorkSurfaceControls surface={surface} storageKey={storageKey} />;
+}
+
+function DesktopWorkSurfaceControls({ surface, storageKey }: { surface: RefObject<HTMLElement | null>; storageKey?: string }) {
   const [maximized, setMaximized] = useState(false);
   const [gripSurface, setGripSurface] = useState<HTMLElement | null>(null);
   const restore = useRef<{ width: string; height: string } | null>(null);

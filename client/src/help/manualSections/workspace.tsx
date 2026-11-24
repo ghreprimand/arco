@@ -686,7 +686,7 @@ export const workspace: Section[] = [
           with what needs you first, and shows one conversation at a time with
           larger text. The phone's Back closes the top layer.{' '}
           <strong>PANELS</strong> opens files, plan, board, terminal,
-          Settings, Recall, Media or System full screen. Colours follow the
+          CATCH ME UP, Settings, Recall, Media or System full screen. Colours follow the
           theme; the text size is set per phone.
         </p>
         <p>
@@ -701,6 +701,10 @@ export const workspace: Section[] = [
           names the member shown. With the phone held sideways or the keyboard
           open there is no room for the row; the title then shows a down arrow
           and opens the list of members.
+        </p>
+        <p>
+          Dialogs opened on a phone fill the screen and have no size
+          controls.
         </p>
         <p>
           The message box keeps the draft, the options button and{' '}

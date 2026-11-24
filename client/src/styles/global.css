@@ -523,6 +523,46 @@ body {
   font-size: 16px !important;
   line-height: 1.5 !important;
 }
+/* Mobile view: a dialog drawn outside the app root (CATCH ME UP, RECALL and
+   the other shared dialogs) keeps the 44px targets, and all but a
+   confirmation fill the screen like the other phone panels. */
+[data-phone-dialog] button,
+[data-phone-dialog] select,
+[data-phone-dialog] summary,
+[data-phone-dialog] [role='button'],
+[data-phone-dialog] [role='tab'] {
+  min-height: 44px;
+  min-width: 44px;
+}
+[data-phone-dialog] input:not([type='checkbox']):not([type='radio']):not([type='range']),
+[data-phone-dialog] label:has(input[type='checkbox']),
+[data-phone-dialog] label:has(input[type='radio']) {
+  min-height: 44px;
+}
+[data-phone-dialog] label:has(input[type='checkbox']),
+[data-phone-dialog] label:has(input[type='radio']) {
+  display: inline-flex;
+  align-items: center;
+}
+[data-phone-dialog='full'] {
+  padding: 0 !important;
+}
+[data-phone-dialog='full'] > div {
+  width: 100% !important;
+  height: calc(var(--phone-vh, 100dvh) / var(--ui-scale, 1)) !important;
+  max-width: none !important;
+  max-height: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  resize: none !important;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) !important;
+}
+/* Home's text links get a thumb-sized target too. */
+[data-phone-layout] .home-page a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
 /* Mobile view: CATCH ME UP sits in the PANELS hub as one of its tiles. */
 [data-phone-layout] [data-testid='mobile-panel-catch-up'] > div,
 [data-phone-layout] [data-testid='mobile-panel-catch-up'] > div > button {
