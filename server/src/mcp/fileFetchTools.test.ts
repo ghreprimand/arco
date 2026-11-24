@@ -13,7 +13,7 @@ const { registerFileTools } = await import('./fileMcpTools.js');
 const { executeOllamaTool } = await import('../providers/ollamaTools.js');
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64');
 
-test('worker web proxy refuses non-public targets, mixed DNS results and disabled web access', async () => {
+test('worker web proxy refuses non-public targets, mixed DNS results and disabled web access', { skip: process.platform === 'linux' ? false : 'Linux-only: the worker sandbox sockets exist only on supported Linux hosts.' }, async () => {
   const { isWorkerProxyPublicAddress, startWorkerWebProxy } = await import('../workers/workerWebProxy.js');
   const ip4 = (...octets: number[]) => octets.join('.');
   const loopback = ip4(127, 0, 0, 1);
@@ -57,7 +57,7 @@ test('worker web proxy refuses non-public targets, mixed DNS results and disable
   finally { await off.close(); }
 });
 
-test('worker web proxy keeps an established tunnel through silence longer than the handshake limit', async () => {
+test('worker web proxy keeps an established tunnel through silence longer than the handshake limit', { skip: process.platform === 'linux' ? false : 'Linux-only: the worker sandbox sockets exist only on supported Linux hosts.' }, async () => {
   const { startWorkerWebProxy } = await import('../workers/workerWebProxy.js');
   const { createServer } = await import('node:net');
   // A model stream: one chunk, a silence longer than the handshake limit, then the rest.

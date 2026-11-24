@@ -104,8 +104,8 @@ test('real plan routes retain agent authoring and refuse operator changes before
     const research = await clusterStore.createCluster({cwd,memberWorkflowIds:[id,randomUUID()],research:{projectId:'fixture'},taskBoardMode:'none'});
     try {
       const beforePlans = await plans.listPlansWithTaskCounts(cwd);
-      assert.equal((await send('POST','/api/plans/attach',{planId:extra.planId,workflowId:id})).status,400);
-      assert.equal((await send('POST','/api/plans',{}, {title:'No plan',body:'- [ ] Task',attach:true,workflowId:id})).status,400);
+      assert.equal((await send('POST','/api/plans/attach',{planId:extra.planId,workflowId:id})).status,403);
+      assert.equal((await send('POST','/api/plans',{}, {title:'No plan',body:'- [ ] Task',attach:true,workflowId:id})).status,403);
       assert.equal((await plans.listPlansWithTaskCounts(cwd)).length,beforePlans.length);
     } finally { await clusterStore.deleteCluster(research.clusterId); }
 

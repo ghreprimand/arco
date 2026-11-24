@@ -50,6 +50,12 @@ async def main():
                 if url.path == '/api/public-project/state':
                     await route.fulfill(json={'isGit': False, 'hasState': False, 'tracked': 0, 'trackedSample': [], 'ignored': True, 'ignoreFile': 'default'})
                     return
+                if url.path == '/api/storage/scratch':
+                    await route.fulfill(json={'exists': False, 'bytes': 0, 'measuredAt': 0, 'keptItems': 0, 'busy': False})
+                    return
+                if url.path == '/api/storage/policy':
+                    await route.fulfill(json={'scratchWarningGiB': 1})
+                    return
                 if url.path == '/api/project-trust':
                     await route.fulfill(json={'trusted': False})
                     return
@@ -74,7 +80,7 @@ async def main():
           const {useAppStore:s} = await import('/src/stores/appStore.ts');
           const {handleServerMessage:receive} = await import('/src/ws/handleServerMessage.ts');
           window.fresh=[]; window.raw=[];
-          s.setState({connected:true});
+          s.setState({connected:true, authStatus:{claude:{loggedIn:true},codex:{loggedIn:true}}});
           s.getState().setWsSendRaw((m) => { raw.push(m); return true; });
           // The first member is the ADD FRESH template; the second is replaced.
           s.getState().createJob('lead',{name:'Lead',workingDirectory:'/projects/fixture',primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'low',skipPermissions:false,outputStyle:'lite',efficiencyToolFilter:'conservative'});
@@ -129,6 +135,7 @@ async def main():
         confirm = page.locator('[data-help="cluster.replace.confirm"]')
         # Unchanged: the request still carries every value as shown.
         await confirm.click()
+        await page.wait_for_function("raw.filter(m=>m.type==='cluster_member_replace').length === 1")
         sent = await page.evaluate('raw.at(-1)')
         assert sent['type'] == 'cluster_member_replace' and sent['workflowId'] == 'helper', sent
         expected = {'role': 'Tester', 'tier': 'light', 'focus': 'browser tests', 'outputStyle': 'terse', 'efficiencyToolFilter': 'off', 'fastMode': True, 'autoCompaction': {'enabled': True, 'thresholdPercent': 70}}
@@ -145,6 +152,7 @@ async def main():
         await page.get_by_test_id('replace-style-normal').click()
         await page.get_by_test_id('replace-compaction').select_option('cluster')
         await confirm.click()
+        await page.wait_for_function("raw.filter(m=>m.type==='cluster_member_replace').length === 2")
         sent = await page.evaluate('raw.at(-1)')
         expected = {'name': 'Checker', 'tier': None, 'focus': '', 'outputStyle': 'normal', 'efficiencyToolFilter': 'aggressive', 'fastMode': False, 'autoCompaction': None}
         assert {k: sent.get(k, 'missing') for k in expected} == expected, sent
@@ -211,6 +219,7 @@ async def main():
         await preview_response(preview_request, 7, 30)
         await confirm.focus()
         await page.keyboard.press('Enter')
+        await page.wait_for_function("raw.filter(m=>m.type==='cluster_member_replace').length === 3")
         sent = await page.evaluate('raw.at(-1)')
         assert sent['historyMode'] == 'recent' and sent['historyTurns'] == 10 and sent['historyToken'] == 'replacement-preview', sent
         await helper_row.click()
@@ -220,6 +229,7 @@ async def main():
         await preview_response(preview_request, 12, 30, True)
         await expect(page.get_by_text('Only the most recent 12 of 30 turns fit within 512 KiB.', exact=False)).to_be_visible()
         await confirm.tap()
+        await page.wait_for_function("raw.filter(m=>m.type==='cluster_member_replace').length === 4")
         sent = await page.evaluate('raw.at(-1)')
         assert sent['historyMode'] == 'full' and sent['historyToken'] == 'replacement-preview', sent
         await helper_row.click()

@@ -4,7 +4,7 @@ import { decideCursorDisplay, type CursorDisplayInputs } from './agentEnv.js';
 
 // A service with a session bus and no display: cursor-agent reads its keyring
 // sign-in only when given the user's own desktop display.
-test('cursor-agent gets the user desktop display only for a keyring sign-in', () => {
+test('cursor-agent gets the user desktop display only for a keyring sign-in', { skip: process.platform === 'win32' && 'The fixture paths are POSIX; this decision runs only on Linux.' }, () => {
   const sockets: Record<string, number> = {
     '/run/user/1000/bus': 1000,
     '/run/user/1000/wayland-1': 1000,

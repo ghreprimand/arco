@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import path from 'node:path';
 
 test('a fenced Cursor member gets a session pass, only Cursor hosts with web off, and no approval bypass', async () => {
   const { workerAccessPass } = await import('./workerAccessPass.js');
@@ -13,7 +14,7 @@ test('a fenced Cursor member gets a session pass, only Cursor hosts with web off
   const live = `fixture.${Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.fixture`;
   const pass = await prepareWorkerAccessPass('cursor', { accessToken: live });
   try {
-    assert.equal(pass.path, `${pass.directory}/access.json`);
+    assert.equal(pass.path, path.join(pass.directory!, 'access.json'));
     assert.equal(JSON.parse(await readFile(pass.path, 'utf8')).accessToken, live);
     await pass.withdraw!();
     assert.equal(await readFile(pass.path, 'utf8'), '{}');

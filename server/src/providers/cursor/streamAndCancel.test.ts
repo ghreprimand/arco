@@ -60,7 +60,7 @@ test('ACP permissions wait for a decision, respect skip-permissions and refuse s
  assert.deepEqual(await blocked, { outcome: { outcome: 'selected', optionId: 'no' } });
 });
 
-test('stopping an Antigravity turn ends the ACP child process', async t => {
+test('stopping an Antigravity turn ends the ACP child process', { skip: process.platform === 'win32' && 'The agy fixture is a POSIX script and cannot be spawned on Windows.' }, async t => {
  const { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync } = await import('node:fs');
  const { tmpdir } = await import('node:os');
  const { join } = await import('node:path');
@@ -84,7 +84,7 @@ test('stopping an Antigravity turn ends the ACP child process', async t => {
  assert.equal(alive(), false, 'ACP process exits after STOP');
 });
 
-test('Antigravity does not stream session-load history as a new answer', async t => {
+test('Antigravity does not stream session-load history as a new answer', { skip: process.platform === 'win32' && 'The agy fixture is a POSIX script and cannot be spawned on Windows.' }, async t => {
  const { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync } = await import('node:fs');
  const { tmpdir } = await import('node:os');
  const { join } = await import('node:path');
@@ -119,7 +119,7 @@ test('Antigravity refuses noninteractive, non-Gemini and Arco-home launches', as
  assert.match(await failure(base), /Arco home/);
 });
 
-test('Antigravity sends the submitted text and attachment without Arco prompt instructions', async t => {
+test('Antigravity sends the submitted text and attachment without Arco prompt instructions', { skip: process.platform === 'win32' && 'The agy fixture is a POSIX script and cannot be spawned on Windows.' }, async t => {
  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync } = await import('node:fs');
  const { tmpdir } = await import('node:os'); const { join } = await import('node:path');
  const { AntigravityProvider } = await import('../antigravity/index.js');
@@ -135,7 +135,7 @@ test('Antigravity sends the submitted text and attachment without Arco prompt in
  const sent=JSON.parse(readFileSync(capture,'utf8'));assert.equal(sent[0].text,'  OPERATOR TEXT\n');assert.match(sent[1].text,/ATTACHMENT CONTENT/);assert.doesNotMatch(JSON.stringify(sent),/HIDDEN ARCO INSTRUCTIONS/);
 });
 
-test('Antigravity passes scoped MCP servers to new and resumed ACP sessions', async t => {
+test('Antigravity passes scoped MCP servers to new and resumed ACP sessions', { skip: process.platform === 'win32' && 'The agy fixture is a POSIX script and cannot be spawned on Windows.' }, async t => {
  const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync } = await import('node:fs');
  const { tmpdir } = await import('node:os'); const { join } = await import('node:path');
  const { AntigravityProvider } = await import('../antigravity/index.js');

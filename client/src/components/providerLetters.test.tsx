@@ -72,7 +72,7 @@ test('dots, worker cards and terminal sessions show A C X O L', async () => {
   const auth = Object.fromEntries(['claude', 'codex', 'cursor', 'ollama', 'github', 'llamacpp', 'lmstudio', 'strata', 'deepseek'].map((id) => [id, { loggedIn: true, cli: { loggedIn: true } }])) as unknown as AuthStatusByProvider;
   useAppStore.setState({
     authStatus: auth, jobs: {}, activeJobId: null, connected: true,
-    settings: { enabledProviders: { claude: true, codex: true, cursor: true, ollama: true } } as ArcoSettings,
+    settings: { enabledProviders: { claude: true, codex: true, cursor: true, ollama: true, 'antigravity-cli': false } } as ArcoSettings,
   });
   const root = createRoot(dom.window.document.getElementById('root')!);
   try {

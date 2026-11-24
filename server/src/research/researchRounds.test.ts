@@ -18,7 +18,7 @@ import { researchMembersRoot } from './researchCreate.js';
 import { prepareResearchCreate } from './researchCreate.js';
 
 async function project() {
-  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-'));
+  const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-research-'));
   const folder = await createResearchFolder(join(root, 'research'), 'Which heat pump?', new Date('2026-11-21T00:00:00Z'));
   const membersCwd = join(root, 'members');
   const [director, a, b] = [randomUUID(), randomUUID(), randomUUID()];
@@ -298,7 +298,7 @@ test('research creation rejects a CLI-only setting on a different provider', asy
 });
 
 test('research creation explains an unsupported Codex version', { skip: process.platform === 'win32' }, async () => {
-  const root = await fs.mkdtemp(join(tmpdir(), 'arco-codex-version-'));
+  const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-codex-version-'));
   const previousPath = process.env.PATH;
   try {
     const executable = join(root, 'codex');
@@ -725,7 +725,7 @@ test('research plans are available to the Director and never readable by researc
 test('result selection excludes unreleased reports and preserves only released source files', async () => {
   const { selectResearchFiles } = await import('./resultSelection.js');
   const { sourceFileName } = await import('./researchFolder.js');
-  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-selection-'));
+  const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-research-selection-'));
   try {
     const artifact = { name: 'source.txt', contentBase64: Buffer.from('source').toString('base64'), byteLength: 6 };
     await fs.mkdir(join(root, 'rounds', 'round-1'), { recursive: true });
@@ -752,7 +752,7 @@ test('result selection excludes unreleased reports and preserves only released s
 test('send selections include released catch-ups and sources after a researcher is removed', async () => {
   const { selectResearchFiles } = await import('./resultSelection.js');
   const { sourceFileName } = await import('./researchFolder.js');
-  const root = await fs.mkdtemp(join(tmpdir(), 'arco-catch-up-send-'));
+  const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-catch-up-send-'));
   try {
     const artifact = { name: 'source.txt', contentBase64: Buffer.from('source').toString('base64'), byteLength: 6 };
     await fs.mkdir(join(root, 'rounds', 'catch-up-c'), { recursive: true });
@@ -778,7 +778,7 @@ test('sending released research copies without overwrite and records successful 
   const { sendResearchToFolder, sendResearchToPlan } = await import('./sendToProject.js');
   const { createPlan, readPlanRef, planRefsDir } = await import('../planStore.js');
   const { sourceFileName } = await import('./researchFolder.js');
-  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-send-'));
+  const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-research-send-'));
   try {
     const source = join(root, 'source'), destination = join(root, 'project');
     await fs.mkdir(join(source, 'rounds', 'round-1'), { recursive: true });
@@ -817,7 +817,7 @@ test('sending released research copies without overwrite and records successful 
 test('starting from research preserves existing files and records the opened project', async () => {
   const { prepareResearchStart, confirmResearchStart, previewResearchStart } = await import('./sendToProject.js');
   const { workflows } = await import('../server/state.js');
-  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-start-'));
+  const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-research-start-'));
   const workflowId = randomUUID(), clusterId = randomUUID();
   try {
     const source = join(root, 'source'), parent = join(root, 'projects');
@@ -844,7 +844,7 @@ test('starting from research preserves existing files and records the opened pro
 test('starting from a summary copies the whole released project in the readable layout', async () => {
   const { prepareResearchStart, previewResearchStart } = await import('./sendToProject.js');
   const { sourceFileName } = await import('./researchFolder.js');
-  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-start-layout-'));
+  const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-research-start-layout-'));
   try {
     const source = join(root, 'source'), parent = join(root, 'projects');
     await fs.mkdir(parent);
@@ -885,7 +885,7 @@ test('starting from a summary copies the whole released project in the readable 
 test('research exports exclude private state and unreleased rounds and record confirmation', async () => {
   const { prepareResearchExport, confirmResearchExport } = await import('./exportResults.js');
   const { unzipSync } = await import('fflate');
-  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-export-'));
+  const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-research-export-'));
   const clusterId = randomUUID();
   try {
     await fs.mkdir(join(root, 'rounds', 'round-1'), { recursive: true });
@@ -910,7 +910,7 @@ test('research exports exclude private state and unreleased rounds and record co
 test('composer attachments are recorded only after the draft confirms them', async () => {
   const { stageResearchForComposer, confirmResearchComposer } = await import('./sendToProject.js');
   const { workflows } = await import('../server/state.js');
-  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-composer-'));
+  const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-research-composer-'));
   const workflowId = randomUUID(), clusterId = randomUUID();
   let files: Array<{path:string}> = [];
   try {
@@ -1157,7 +1157,7 @@ test('a saved Quick Chat can become a project and its deletion removes only Chat
 
 test('the summary lists each replied researcher\'s returned files where the released round wrote them', async () => {
   const { writeReleasedRound } = await import('./researchFolder.js');
-  const root = await fs.mkdtemp(join(tmpdir(), 'arco-research-sources-'));
+  const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-research-sources-'));
   try {
     const artifact = { name: 'evidence notes.md', contentBase64: Buffer.from('evidence').toString('base64'), byteLength: 8 };
     const released = { n: 1, startedAt: '2026-01-01', deadline: '2026-01-01', releasedAt: '2026-01-01', targeted: [], entries: {

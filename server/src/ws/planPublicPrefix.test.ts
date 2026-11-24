@@ -8,9 +8,17 @@ import type { WorkflowState } from '../workflows/types.js';
 
 const root = mkdtempSync(join(tmpdir(), 'arco-public-prefix-'));
 installIsolatedTestHome(root);
+const { trackRecallFixture } = await import('../testSupport/recallFixture.test-support.js');
+const closeRecall = trackRecallFixture();
 const { setPublicProjectChoice } = await import('../publicProjectChoice.js');
 const { buildPlanPrefix, stripPlanPrefix } = await import('./turnEngine.js');
-after(() => rmSync(root, { recursive: true, force: true }));
+// Windows refuses to remove a folder while the recall index inside it is open.
+after(async () => {
+  const { settleProjectWrites } = await import('../testSupport/projectWrites.js');
+  await settleProjectWrites();
+  await closeRecall();
+  rmSync(root, { recursive: true, force: true });
+});
 
 test('an agent without an attached plan is told to add privacy rules for a public project', async () => {
   const cwd = join(root, 'project'); mkdirSync(cwd);

@@ -76,6 +76,7 @@ async def main():
           const {useAppStore:s} = await import('/src/stores/appStore.ts');
           const {handleServerMessage:receive} = await import('/src/ws/handleServerMessage.ts');
           window.sent=[]; window.fresh=[]; window.s=s;
+          s.setState({authStatus:{claude:{loggedIn:true}}});
           const member=(id,name,status)=>({workflowId:id,displayName:name,status});
           window.members=[member('worker-a','Alpha','idle'),member('worker-b','Beta','busy')];
           for (const id of ['worker-a','worker-b','worker-c']) s.getState().createJob(id,{name:id,workingDirectory:'/projects/fixture',primaryProvider:'claude',primaryModel:'sonnet',primaryEffort:'low',skipPermissions:false});

@@ -113,7 +113,7 @@ test('CLI logins return a headless terminal command and never spawn', async () =
   const cases: Array<[Parameters<typeof triggerAuthLogin>[0], RegExp]> = [
     ['claude', /^claude auth login --claudeai$/],
     ['codex', /^codex login --device-auth$/],
-    ['cursor', /^env NO_OPEN_BROWSER=1 cursor-agent login$/],
+    ['cursor', process.platform === 'linux' ? /^env -u DISPLAY -u WAYLAND_DISPLAY NO_OPEN_BROWSER=1 cursor-agent login$/ : /^env NO_OPEN_BROWSER=1 cursor-agent login$/],
     ['github', /^gh auth login .*--web$/],
   ];
   for (const [provider, re] of cases) {

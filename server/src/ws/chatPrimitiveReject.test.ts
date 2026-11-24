@@ -42,7 +42,7 @@ test('spawn_from_here on a chat parent is rejected', async () => {
     type: 'spawn_from_here',
     parentWorkflowId: 'chat-spawn-000000000',
     mode: 'fresh-summarizer',
-    newConfig: { workingDirectory: '/tmp' },
+    newConfig: { workingDirectory: '/tmp', primaryProvider: 'claude', primaryModel: 'sonnet', primaryEffort: 'medium' },
   } as never);
   assert.equal(sent.length, 1);
   assert.equal(sent[0].type, 'error');

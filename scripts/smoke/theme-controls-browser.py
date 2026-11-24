@@ -508,7 +508,9 @@ async def walk(page, probe, tap, click_all, missing_openers, theme, viewport):
         await tap('button:has-text("KEEP ORIGINAL")')
         for key in OPENERS:
             target = f'button[data-help="{key}"], [data-help="{key}"] button'
-            if not await tap(target):
+            # A tool that does not fit the composer line sits under MORE.
+            reached = await tap(target) or (await tap('[data-testid="composer-more"]') and await tap(f'[data-overflow-item="{key}"]'))
+            if not reached:
                 missing_openers.append(key)
                 continue
             await probe('open:' + key)

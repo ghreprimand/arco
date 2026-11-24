@@ -62,7 +62,7 @@ async function main(): Promise<void> {
         name: 'Snapshot Source',
         primaryProvider: 'claude',
         primaryModel: 'claude-opus-4-7',
-        primaryEffort: 'normal',
+        primaryEffort: 'medium',
         skipPermissions: true,
         workingDirectory: cwd,
         claudeTransport: 'native',

@@ -29,7 +29,7 @@ test('standard cluster members retain shared coordination and board tools', () =
   for (const name of ['peer_read', 'peer_send', 'peer_list', 'cluster_plan_read', 'cluster_task_list']) assert.ok(names.includes(name), name);
 });
 
-test('worker mail socket exposes only its authenticated member mailbox', async () => {
+test('worker mail socket exposes only its authenticated member mailbox', { skip: process.platform === 'linux' ? false : 'Linux-only: the worker sandbox sockets exist only on supported Linux hosts.' }, async () => {
   const { startWorkerMailBridge } = await import('./workerMailBridge.js');
   const root = await mkdtemp(join(tmpdir(), 'arco-mail-bridge-'));
   const observed: unknown[] = [];

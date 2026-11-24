@@ -8,7 +8,7 @@ const release = (tag = 'v0.2.0') => ({ tag_name: tag, html_url: `https://github.
 test('packaged updates are offered only while the exact GitHub release is available on npm', async () => {
   let state: 'missing' | 'ready' | 'offline' = 'missing';
   const notices: Array<AppUpdateAvailableMessage | AppUpdateStatusChangedMessage> = [];
-  const checker = createUpdateChecker({ current: '0.1.0', packaged: true, settings: async () => ({}), broadcast: m => notices.push(m),
+  const checker = createUpdateChecker({ current: '0.1.0', packaged: true, settings: async () => ({}), environment: () => undefined, broadcast: m => notices.push(m),
     fetch: async (url) => {
       if (String(url).includes('api.github.com')) return Response.json(release());
       assert.equal(url, 'https://registry.npmjs.org/arco-workbench/0.2.0');

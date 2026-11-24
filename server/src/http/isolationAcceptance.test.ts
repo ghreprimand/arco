@@ -491,9 +491,10 @@ test('empty scratch on close uses a saved Chat storage binding', async () => {
     await until('saved Chat metadata', () => existsSync(path.join(cwd, '.arco', 'workflows', id, 'meta.json')));
     await fs.mkdir(scratch, { recursive: true });
     await fs.writeFile(path.join(scratch, 'temp.txt'), 'temporary');
-    assert.equal((await main.api(`/api/storage/scratch?workflowId=${id}`)).status, 200);
+    const measured = await main.api(`/api/storage/scratch?workflowId=${id}`);
+    assert.equal(measured.status, 200, `scratch measurement: ${await measured.text()}`);
     const response = await main.post('/api/storage/empty-scratch', { workflowId: id, onClose: true, confirm: true });
-    assert.equal(response.status, 200);
+    assert.equal(response.status, 200, `empty scratch (${cwd}): ${await response.text()}`);
     assert.equal(existsSync(path.join(scratch, 'temp.txt')), false);
   } finally { await socket.close(); }
 });

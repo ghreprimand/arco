@@ -289,7 +289,7 @@ async def signed_in_first_run(playwright):
         await page.get_by_role('heading', name='Welcome to Arco', exact=True).wait_for()
         await page.get_by_role('button', name='Get started', exact=True).click()
         await page.get_by_role('button', name='Skip this step', exact=True).click()
-        await page.get_by_text('PROVIDER CONNECTED - already signed in; continue to use this provider.', exact=True).wait_for()
+        await page.get_by_text('PROVIDER AVAILABLE - continue to set up; check its sign-in status below.', exact=True).wait_for()
         assert not (server.home / '.arco/projects.json').exists()
         print('PASS: signed-in machine CLI still shows first-run welcome; discovery writes no records')
     finally:

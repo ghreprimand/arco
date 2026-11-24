@@ -49,7 +49,7 @@ test('Cursor latest metadata reads only a bounded installer version and stays un
   assert.equal((await probeLatestVersions(decision))?.cursor, undefined);
 });
 
-test('Antigravity version metadata and updater use agy', async t => {
+test('Antigravity version metadata and updater use agy', { skip: process.platform === 'win32' && 'The agy fixture is a POSIX script and cannot be spawned on Windows.' }, async t => {
  const { mkdtempSync, writeFileSync, chmodSync, rmSync } = await import('node:fs'); const { tmpdir }=await import('node:os');const { join }=await import('node:path');
  const { runCliUpdate }=await import('./capabilities.js');const dir=mkdtempSync(join(tmpdir(),'arco-agy-update-'));const bin=join(dir,'agy');writeFileSync(bin,'#!/bin/sh\necho 1.5.14\n');chmodSync(bin,0o755);const prior=process.env.PATH;process.env.PATH=`${dir}:${prior}`;t.after(()=>{process.env.PATH=prior;rmSync(dir,{recursive:true,force:true});});
  t.mock.method(globalThis,'fetch',async (url:string)=>new Response(JSON.stringify(url.includes('/google-antigravity/antigravity-cli/releases/latest')?{tag_name:'1.5.14'}:{})));

@@ -14,7 +14,7 @@ function files(dir: string): string[] {
 test('viewport units in interface styles account for interface scale', () => {
   const findings: string[] = [];
   for (const path of files(root)) {
-    const source = readFileSync(path, 'utf8').replace(/\b\d+(?:\.\d+)?d?v[hw](?=\s*\/\s*var\(--ui-scale,\s*1\))/g, 'scaled');
+    const source = readFileSync(path, 'utf8').replace(/\b\d+(?:\.\d+)?d?v[hw](?=\)?\s*\/\s*var\(--ui-scale,\s*1\))/g, 'scaled');
     if (/\b\d+(?:\.\d+)?d?v[hw]\b/.test(source)) findings.push(path.slice(root.length + 1));
   }
   assert.deepEqual(findings, []);
