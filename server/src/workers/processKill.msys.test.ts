@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { spawn, type ChildProcess, type StdioOptions } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { commandShell } from '../commandShell.js';
-import { MSYS_TREE_SWEEP, PROCESS_TREE_ENV, _shellTreeTagForTest, msysQuote, msysTreeSweep, shellSpawnPlan, spawnShellChild, windowsTreeKillArgsFor } from './processKill.js';
+import { MSYS_TREE_SWEEP, PROCESS_TREE_ENV, _shellTreeTagForTest, msysQuote, msysTreeSweep, msysTreeSweepRetrying, shellSpawnPlan, spawnShellChild, windowsTreeKillArgsFor } from './processKill.js';
 
 // How the MSYS runtime reads one double-quoted word from a Windows command
 // line (parent not an MSYS program, globbing on): inside the quotes a
@@ -172,4 +172,23 @@ test('the sweep lists every process of a tagged tree, background jobs included',
     else if (child.pid) { try { process.kill(-child.pid, 'SIGKILL'); } catch { /* gone */ } }
     child.stdin?.destroy();
   }
+});
+
+// A hosted Windows run saw the sweep's Git Bash end with code 256 part-way down
+// /proc and list none of the tree; its background jobs then outlived the kill.
+test('a sweep that dies is tried once more; a timed-out or clean one is not', async () => {
+  const run = async (results: Array<{ ids: number[]; code: number | null; error?: string }>) => {
+    let calls = 0;
+    const sweep: typeof msysTreeSweep = async (_bash, _tag, _platform, observe) => {
+      const r = results[Math.min(calls++, results.length - 1)];
+      observe?.({ code: r.code, signal: null, error: r.error, stdout: '', stderr: 'entry 419 readable=yes\n' });
+      return r.ids;
+    };
+    const ids = await msysTreeSweepRetrying('bash', 'tag', 'win32', sweep);
+    return { ids, calls };
+  };
+  assert.deepEqual(await run([{ ids: [], code: 256 }, { ids: [7, 8], code: 0 }]), { ids: [7, 8], calls: 2 });
+  assert.deepEqual(await run([{ ids: [], code: 256 }]), { ids: [], calls: 2 });
+  assert.deepEqual(await run([{ ids: [], code: null, error: 'sweep timed out' }]), { ids: [], calls: 1 });
+  assert.deepEqual(await run([{ ids: [7], code: 0 }]), { ids: [7], calls: 1 });
 });

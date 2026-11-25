@@ -95,9 +95,13 @@ export function windowsTreeKillArgsFor(pids: number[]): string[] {
 function runTaskkill(pids: number[], fallback: () => void): Promise<void> {
   return new Promise((resolve) => {
     try {
+      const started = Date.now();
       const killer = spawn('taskkill', windowsTreeKillArgsFor(pids), { stdio: 'ignore', windowsHide: true });
       killer.on('error', () => { fallback(); resolve(); });
-      killer.on('exit', () => resolve());
+      killer.on('exit', (code) => {
+        if (code !== 0 || Date.now() - started > 5_000) console.log(`[arco] taskkill of ${pids.length} process(es) exited ${code} after ${Date.now() - started}ms`);
+        resolve();
+      });
     } catch {
       fallback();
       resolve();
@@ -194,7 +198,35 @@ const SWEEP_TIMEOUT_MS = 5_000;
 // Runs MSYS_TREE_SWEEP in the tree's own bash; the ids found, or none after
 // SWEEP_TIMEOUT_MS or on any failure (the plain tree kill still runs).
 function listMsysTree(tree: { tag: string; bash: string }): Promise<number[]> {
-  return msysTreeSweep(tree.bash, tree.tag, process.platform);
+  return msysTreeSweepRetrying(tree.bash, tree.tag, process.platform, msysTreeSweep);
+}
+
+type MsysSweepFn = typeof msysTreeSweep;
+
+// A sweep that dies at once (the Git Bash that runs it was seen ending with
+// exit code 256 part-way down /proc on a hosted Windows runner, listing none of
+// the tree) leaves the background jobs of a timed-out hook or command alive
+// and holding its output pipe, so the caller waited for them to finish. A
+// failure that is not a timeout is tried once more; a timeout is not, because
+// it has already cost SWEEP_TIMEOUT_MS. Each failed or empty sweep is logged
+// with what it saw, so a hosted log shows why a tree was not found.
+export async function msysTreeSweepRetrying(
+  bash: string,
+  tag: string,
+  platform: NodeJS.Platform,
+  sweep: MsysSweepFn,
+): Promise<number[]> {
+  for (let attempt = 1; ; attempt++) {
+    const started = Date.now();
+    let seen: MsysSweepObservation | undefined;
+    const found = await sweep(bash, tag, platform, (r) => { seen = r; });
+    const failed = !seen || seen.error !== undefined || seen.code !== 0;
+    if (failed || found.length === 0) {
+      const last = (seen?.stderr ?? '').trim().split(/\r?\n/).slice(-3).join(' | ');
+      console.log(`[arco] msys tree sweep attempt ${attempt}: code=${seen?.code} signal=${seen?.signal} error=${seen?.error ?? 'none'} found=${found.length} ${Date.now() - started}ms${last ? ` stderr: ${last}` : ''}`);
+    }
+    if (!failed || seen?.error === 'sweep timed out' || attempt >= 2) return found;
+  }
 }
 
 interface MsysSweepObservation {
