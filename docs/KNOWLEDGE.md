@@ -63,7 +63,7 @@ A distillation request that cannot be sent, or loses its connection before a rep
 **+ ADD** in the KNOWLEDGE tab opens **ADD ARTICLE** (`KnowledgeWizard.tsx`), which offers three sources, all converging on the **same editable draft fields**. The user then saves the draft:
 
 1. **Blank article**: an empty draft.
-2. **Quick link**: paste a URL and write a short summary. **The URL is not fetched.** Arco does not provide a guarded URL-fetching helper; the user enters the summary manually. This is a *manual quick link*: the user pastes the URL and writes the summary.
+2. **Quick link**: paste a URL and write a short summary. **The URL is not fetched.** The operator writes the summary.
 3. **Distill from this session**: fires `knowledge_distill_request` (WS). The server (`knowledgeHandlers.ts`) replays the transcript and spawns a bounded, **read-only** worker (`runDistill` in `distill.ts`, mirroring `runDocEdit.ts`) that proposes a draft article (H1 title + body + trailing `tags:` line, parsed by `parseDraft`). The draft returns as `knowledge_distill_proposed`, lands in the wizard's editable fields via `knowledgeDistillStore`, and **the user must select SAVE** to persist (POST `/api/knowledge`). The agent has no write tool and the wizard makes the draft-only posture explicit ("Nothing is saved until you click Save.").
 
 ---

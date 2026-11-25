@@ -372,7 +372,7 @@ A **BOARD** sub-tab in `ClusterRightPanel` (next to PLAN). Eight columns
 (`triage`/`todo`/`ready`/`in_progress`/`blocked`/`review`/`done`/`archived`)
 over the cluster cwd's `taskLedger` store entry. Cards show title, claimant
 (`@name` chip or `UNCLAIMED`), parent count, and a link count. Clicking a card
-opens the read-only task drawer. The drawer uses any current cluster member
+opens the task drawer. The drawer uses any current cluster member
 workflowId to call
 `GET /api/clusters/:id/peer/task-show?workflowId=&id=` and renders overview
 fields, dependency parents/children, durable comments, run/heartbeat records,

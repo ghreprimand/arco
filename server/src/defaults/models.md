@@ -67,8 +67,8 @@ Match the operator's ask to the closest row. Pick PREFERRED. If output fails QC,
 | Bulk classification / extraction              | -                               | haiku                           | sonnet                 |
 | Long-context read (large / many files)        | -                               | opus                            | (operator)             |
 | Uncensored content analysis                   | heretic                         | (none)                          | (operator)             |
-| Local coding (Qwen3.6-27B, text+tools)         | coder                           | sonnet                          | opus                   |
-| Local vision (Qwen3-VL-30B, image input)       | qwen3-vl                        | sonnet                          | opus                   |
+| Local coding (installed coder alias)           | coder                           | sonnet                          | opus                   |
+| Local vision (installed vision alias)          | qwen3-vl                        | sonnet                          | opus                   |
 
 For **open-ended operator prompts** ("tell me about X", "do a deep dive on Y"): pass the operator's ask to ONE capable worker with the operator's original phrasing. Do NOT rewrite it into a 7-section forensic checklist. The worker is a capable LLM — trust it to decide what to investigate. Fan out only if the ask contains genuinely independent sub-asks ("review the code AND check the deploy AND summarize the docs").
 
@@ -98,17 +98,17 @@ Smaller frontier model. Token-efficient. Haiku / Flash-class — default Codex w
 ### OpenAI Codex — GPT-5.2-codex / GPT-5.2 / GPT-5.1-codex-mini
 Prior-generation frontier coding / long-running agentic loops / cheapest Codex tier. Use when the primary tier throttles.
 
-### Ollama — Qwen3.5-Heretic (local)
-Uncensored analysis. Older Qwen3.5 distill. Use only when a commercial model has refused the task AND deep reasoning isn't required.
+### Ollama - heretic (local)
+Alias for the operator's installed uncensored model. Use it only when a commercial model has refused the task and deep reasoning is not required. Which weights are installed is the operator's choice.
 
-### Ollama — Qwen3.6-27B / coder (local)
-Tool-using local coding primary. Native tool calls, hybrid attention+SSM, ~77% SWE-bench Verified. 32K context (Modelfile-default; bump in `qwen3.6-27b-coder.Modelfile` for longer). Tools advertised: Read/Glob/Grep/Write/Bash/WebSearch/WebFetch. Vision stripped from this model — see qwen3-vl below for image input. Resolves via the substring matcher in `ollama.ts:resolveOllamaModel` so any tag containing `coder` hits it.
+### Ollama - coder (local)
+Alias for the operator's installed coding model. `resolveOllamaModel` matches a name without a colon as a case-insensitive substring of an installed tag, so a tag containing `coder` can satisfy this alias. Context, tools and whether the model accepts images are set by that installed model, not by Arco.
 
-### Ollama — Qwen3-VL-30B / qwen3-vl (local)
-Local vision-capable primary. Native tools + vision + thinking. qwen3vlmoe arch, ~3B active per token (MoE) so decode is fast. Use when the operator attaches images (screenshots, diagrams, mockups). Coexists with `coder` — the 10-min keep_alive auto-evicts whichever isn't in active use.
+### Ollama - qwen3-vl (local)
+Alias for the operator's installed vision model, resolved the same way. Use it when the operator attaches images. Which weights are installed, and their context, are set by the operator's Ollama models.
 
 ### llama.cpp (local — alternative local backend)
-Use when the model architecture you need isn't yet wired up by Ollama. Today's specific case: Qwen3.6 vision (mmproj projector). Operator declares each loadout in `~/.arco/llamacpp.json` (alias, ggufPath, mmprojPath, ctxSize, ngl). Provider spawns / switches `llama-server` on demand; only one model loaded at a time. Picker uses the alias as the model identifier. Same `low / high` effort mapping as Ollama (`/no_think` prefix on low). When in doubt between Ollama and llama.cpp for the same task, prefer Ollama for ergonomics; reach for llama.cpp when a specific feature (mmproj, an unreleased architecture) demands it.
+Use when the model architecture you need is not available through Ollama, including a GGUF that needs a separate mmproj projector. Operator declares each loadout in `~/.arco/llamacpp.json` (alias, ggufPath, mmprojPath, ctxSize, ngl). Provider spawns / switches `llama-server` on demand; only one model loaded at a time. Picker uses the alias as the model identifier. Same `low / high` effort mapping as Ollama (`/no_think` prefix on low). When in doubt between Ollama and llama.cpp for the same task, prefer Ollama for ergonomics; reach for llama.cpp when a specific feature (mmproj, an unreleased architecture) demands it.
 
 ## Anti-patterns (don't do these)
 

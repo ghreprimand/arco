@@ -123,10 +123,11 @@ prefix is excluded from fresh prefill. Loading, tool/web/network time is not
 included, so these rates are not end-to-end task speed. No timing means no
 readout; it is not synthesized from browser elapsed time.
 
-Effort is **none / low / medium / high**. None disables reasoning; high maps to
-Qwen's xhigh inside Strata. Arco forwards these native Strata levels rather
-than applying Ollama's low-means-off convention. Effort changes apply to the
-next message. More reasoning can lengthen a task even at the same decode rate.
+Effort is **none / low / medium / high**. Arco sends none, low and medium as
+`reasoning_effort`. Any higher effort, including high, is sent as high. It does
+not send xhigh. This is not Ollama's low-means-off convention. Effort changes
+apply to the next message. More reasoning can lengthen a task even at the same
+decode rate.
 
 ## Web, images and privacy
 
@@ -142,10 +143,12 @@ filesystem, shell, project skills or MCP access through Strata. A successful
 search has an actual completed tool result; a URL written from memory is not
 proof of browsing. Local inference still sends web queries to the search stack.
 
-Both registered profiles have `--vision` and readable matching encoder/projector
-assets. Arco sends image data URLs. Runtime `/v1/models` image modalities
+Vision is set by the prepared profile. Arco marks a profile vision-capable when
+its config passes `--vision` and the encoder, projector and model files are
+readable. Arco sends image data URLs. Runtime `/v1/models` image modalities
 are authoritative for the served profile; prepared inactive profiles derive
-capabilities from their checked config/files. Model names alone never enable vision.
+capabilities from their checked config and files. A profile name alone never
+enables vision.
 
 Vision encoding can run on CPU or GPU depending on the prepared profile. CPU encoding reduces GPU use but may add latency and host-memory pressure. Check the selected profile and live capability report before changing encoder settings; restart the service through its guarded controls.
 
@@ -248,7 +251,7 @@ insufficient. Never point an auth-off smoke server at production state.
 
 Live acceptance requires the intended Strata runtime, model assets, and target
 hardware. Unit and smoke tests use isolated homes and fake runtimes; they do not
-validate a full 262K prompt, worst-case image batches, or peak memory on a user's
+validate a profile's full context window, worst-case image batches, or peak memory on a user's
 machine. Short-token rates are not sustained-throughput guarantees. Do not
 assume a prepared profile's memory limits or encoder settings fit another host.
 

@@ -9,17 +9,16 @@ guarded service lifecycle; existing provider defaults remain unchanged.
 ## Xolotl and DeepSeek are different things
 
 Xolotl is the runtime, formerly named Strata-DSV4.1: an independently maintained
-extended fork of Strata. DeepSeek V4.1 Flash is the model served by this
-installation. The runtime distributes model data across GPU VRAM, pinned host
+extended fork of Strata. The prepared profiles serve DeepSeek V4.1 Flash.
+The runtime distributes model data across GPU VRAM, pinned host
 RAM and NVMe. Upstream supports other model families too; Arco's current
 registry deliberately describes only the prepared DeepSeek Exact/Light pair.
 Adding another family requires its own validated assets/configuration and
 launcher support, not merely another name in the picker.
 
-Upstream references at the installed revision:
+Upstream references, without a pinned checkout:
 
-- [Xolotl overview](https://github.com/Indras-Mirror/Xolotl/blob/c3324f8998040a9247d22137e9bfb3ff2c5da361/README.md)
-- [Runtime architecture](https://github.com/Indras-Mirror/Xolotl/blob/c3324f8998040a9247d22137e9bfb3ff2c5da361/docs/xolotl/HOW_IT_WORKS.md)
+- [Xolotl](https://github.com/Indras-Mirror/Xolotl)
 - Engine-specific details should be checked against the installed Xolotl release documentation.
 
 Keep upstream benchmarks distinct from measurements of the installed quantization, routing, memory budget, and GPU power limit. The pinned checkout
@@ -50,9 +49,9 @@ model assets remain in user-managed storage.
 
 | Resource / capability | Profile behavior |
 | --- | --- |
-| Context | Configured by the selected model profile; includes input, history, thinking, and output |
-| Reasoning | None / low / medium / high when supported by the profile |
-| Output allowance | Profile-configured; thinking and visible output share the limit |
+| Context | Registration requires 262144 tokens, covering input, history, thinking and output. Arco rejects another context size. |
+| Reasoning | None, low or medium are sent as `reasoning_effort`. Any higher effort, including high, is sent as high. Arco does not send xhigh. |
+| Output allowance | Each request sends `max_tokens` 16384 and `reasoning_budget_tokens` 8192. Context size and vision limits are set by the prepared profile. |
 | Host expert arena | Configured per service; not the entire process or cgroup footprint |
 | Service limits | Set by the operating system and service configuration |
 | Modalities | Text, images, and tools when matching assets are prepared; text-only profiles remain supported |

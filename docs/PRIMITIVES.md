@@ -239,7 +239,7 @@ The addendum:
 - Verification checklist: orphans / dead code, seed / fixture sanity, wiring (was the new code actually called?), typos in identifiers.
 - Verdict rule: "A PASS verdict means you used the tools and nothing came back wrong. If you only read the diff, the right verdict is MINOR with 'did not verify against the tree' as the justification."
 
-The Ollama, llama.cpp and LM Studio reviewers also receive a tools allowlist (`READ_ONLY_OLLAMA_TOOLS`, `READ_ONLY_LLAMACPP_TOOLS`, `READ_ONLY_LMSTUDIO_TOOLS`). Only Ollama gets `skipPermissions: true`, so its tools execute server-side rather than return SAFE-mode denial strings.
+Ollama, llama.cpp and LM Studio reviewers receive those tools (`READ_ONLY_OLLAMA_TOOLS`, `READ_ONLY_LLAMACPP_TOOLS`, `READ_ONLY_LMSTUDIO_TOOLS`). Strata and DeepSeek reviewers receive the LM Studio allowlist. Only Ollama gets `skipPermissions: true`, so its tools execute server-side rather than return SAFE-mode denial strings.
 
 ### Plan-scoped review
 
@@ -1043,7 +1043,7 @@ A per-cwd, **operator-owned** knowledge store at `<cwd>/.arco/knowledge/` - a cu
 `KnowledgeWizard.tsx` "Add from..." offers three sources, all converging on the **same editable draft fields** The operator then Saves:
 
 1. **Blank** - empty draft, written by hand.
-2. **Quick link** - paste a URL + write a short summary. The URL is **not** auto-fetched (manual quick-link, same deferred-SSRF posture as D1 `@url:` - Arco has no SSRF-guarded fetch helper yet).
+2. **Quick link** - paste a URL and write a short summary. The URL is not fetched. The operator writes the summary.
 3. **Distill from this session** - fires `knowledge_distill_request` (WS). `server/src/ws/knowledgeHandlers.ts` replays the transcript and spawns a bounded, **read-only, NO-Write** worker (`runDistill` in `server/src/knowledge/distill.ts`, mirroring `runDocEdit.ts`). It proposes a draft (H1 title + markdown body + a trailing `tags:` line, parsed by `parseDraft`); the draft returns as `knowledge_distill_proposed`, lands in the wizard's editable fields (`knowledgeDistillStore`), and **the operator must explicitly Save** (POST `/api/knowledge`) to persist anything.
 
 ### Fence note
