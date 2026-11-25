@@ -108,8 +108,16 @@ async def setup_chat(playwright):
         await dialog.get_by_role('navigation', name='Connections').get_by_role('button', name=re.compile('^Ollama')).click()
         await page.get_by_label('Model server address', exact=True).fill(model.url)
         await page.get_by_role('button', name='Save endpoint', exact=True).click()
+        endpoint = dialog.locator('form').filter(has=page.get_by_label('Model server address', exact=True))
+        await expect(endpoint.get_by_role('status')).to_have_text('Endpoint saved. Test the connection to check this address.')
         await page.get_by_role('button', name='Test connection', exact=True).click()
-        await expect(page.get_by_role('button', name='Continue to chat', exact=True)).to_be_enabled()
+        try:
+            await expect(page.get_by_role('button', name='Continue to chat', exact=True)).to_be_enabled()
+        except AssertionError:
+            statuses = await dialog.locator('[role="status"]').all_text_contents()
+            print('First-run readiness statuses:', [s.strip()[:200] for s in statuses[:10]], flush=True)
+            print('First-run test connection enabled:', await page.get_by_role('button', name='Test connection', exact=True).is_enabled(), flush=True)
+            raise
         assert model.chats == 0, 'connection checks sent a prompt'
         assert await page.evaluate("window.__sent.filter(s=>/create_workflow|create_cluster|send_prompt/.test(s)).length") == 0
         await page.get_by_role('button', name='Continue to chat', exact=True).click()
