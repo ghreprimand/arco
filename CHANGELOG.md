@@ -9,6 +9,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 - Saving the storage disk budget and the auto-archive rule at nearly the same time no longer loses one of the two values.
 
+- RE-LOGIN CURSOR in a conversation now starts the in-app sign-in with its link and progress, as Settings does, instead of showing only a terminal command. The conversation and its draft are left as they were.
+
 - Restore Docker startup when npm leaves server dependencies in the server workspace after pruning.
 
 - Added Smart: Automatic presets and a configurable chain-depth limit.

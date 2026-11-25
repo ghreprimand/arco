@@ -1319,8 +1319,9 @@ When the Settings flow finishes, Arco runs the same explicit check as Connection
 (`client/src/utils/providerStatusCheck.ts`) and publishes it to the shared status.
 `POST /api/auth-login?provider=cursor` still returns the terminal command as a fallback; on Linux
 it is `env -u DISPLAY -u WAYLAND_DISPLAY NO_OPEN_BROWSER=1 cursor-agent login`, so a desktop terminal
-writes the sign-in to `auth.json` instead of the keyring. The RE-LOGIN card recommends the in-app
-LOG IN first.
+writes the sign-in to `auth.json` instead of the keyring. The RE-LOGIN card in a conversation requests
+`inApp=1` and shows the same in-app flow (sign-in link, progress, terminal command behind a toggle). It
+leaves the original conversation and its draft untouched and replays nothing.
 
 On Linux, `cursor-agent` reads the keyring only when its process has a session bus and `DISPLAY` or
 `WAYLAND_DISPLAY`; otherwise it reads `auth.json` alone and reports "Not logged in". An Arco service

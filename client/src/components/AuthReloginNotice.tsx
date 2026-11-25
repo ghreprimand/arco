@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import type { AuthLoginResult, AuthRecoveryContext, ProviderName } from '@arco/shared';
 import { LoginCommand } from './LoginCommand';
+import { LoginFlow } from './LoginFlow';
+import { checkProviderStatus } from '../utils/providerStatusCheck';
 import { NativeLoginControls } from './NativeLoginControls';
 import { sameRecoveryBinding, useClaudeNativeLogin } from '../hooks/useClaudeNativeLogin';
 import { selectedClaudeTransport } from '../utils/claudeAuth';
@@ -37,6 +39,7 @@ export function AuthReloginNotice({ provider, body, workflowId, messageId, authR
   const [state, setState] = useState<'idle' | 'pending' | 'sent' | 'error'>('idle');
   const [hint, setHint] = useState<string | null>(null);
   const [command, setCommand] = useState<string | null>(null);
+  const [flow, setFlow] = useState<AuthLoginResult | null>(null);
   // Capture the notice's origin, never whichever tab is active at click time.
   const [origin] = useState(() => {
     const store = useAppStore.getState(), job = workflowId ? store.jobs[workflowId] : undefined;
@@ -62,6 +65,7 @@ export function AuthReloginNotice({ provider, body, workflowId, messageId, authR
     setState('pending');
     setHint(null);
     setCommand(null);
+    setFlow(null);
     try {
       if (claudeNative) {
         await nativeLogin.start();
@@ -69,9 +73,14 @@ export function AuthReloginNotice({ provider, body, workflowId, messageId, authR
         return;
       }
       const account = provider === 'codex' && origin.accountRef ? `&account=${encodeURIComponent(origin.accountRef)}` : '';
-      const res = await fetch(`/api/auth-login?provider=${provider}${account}`, { method: 'POST' });
+      // Cursor uses the in-app sign-in Settings uses: link and progress show here.
+      const inApp = provider === 'cursor' ? '&inApp=1' : '';
+      const res = await fetch(`/api/auth-login?provider=${provider}${account}${inApp}`, { method: 'POST' });
       const data = (await res.json()) as AuthLoginResult;
-      if (data.command) {
+      if (data.session) {
+        setState('sent');
+        setFlow(data);
+      } else if (data.command) {
         setState('sent');
         setCommand(data.command);
         // Cursor: the in-app LOG IN signs in where Arco reads (docs/PROVIDERS.md "Cursor sign-in").
@@ -175,6 +184,11 @@ export function AuthReloginNotice({ provider, body, workflowId, messageId, authR
           }}
         >
           {hint}
+        </div>
+      )}
+      {flow && (
+        <div style={{ marginLeft: '4px', marginTop: '6px', padding: '0 12px' }}>
+          <LoginFlow result={flow} onRestart={() => void startLogin()} onComplete={() => void checkProviderStatus('cursor')} />
         </div>
       )}
       {command && (

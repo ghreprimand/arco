@@ -42,6 +42,9 @@ async function fixture() {
       if (url === '/api/auth/claude-native') return reply(native);
       if (url === '/api/auth-status') return control.onAuth ? control.onAuth() : reply(auth());
       if (url.startsWith('/api/usage')) return reply({ session: null, weekly: null, fetchedAt: Date.now(), source: 'claude-native', binding: native.binding, credentialContext: { native: native.binding, cli: { source: 'claude-cli', storeId: 'claude-cli-default' } }, available: false });
+      if (url.startsWith('/api/auth-login/session')) return reply({ session: { provider: 'cursor', status: 'completed', needsCode: false, startedAt: Date.now() } });
+      if (url.startsWith('/api/connections/check')) return reply({ provider: 'cursor', status: { loggedIn: true } });
+      if (url.includes('inApp=1')) return reply({ started: true, session: { provider: 'cursor', status: 'pending', needsCode: false, startedAt: Date.now(), url: 'https://example.com/cursor-login' } });
       return reply({ started: false, command: 'fixture login' });
     } },
   });
@@ -226,6 +229,21 @@ test('Codex recovery retains the originating account profile without changing it
     await f.click('RE-LOGIN');
     assert.ok(f.calls.includes('/api/auth-login?provider=codex&account=origin-account'));
     assert.match(f.text(), /Sign-in completion is not verified here/);
+    await f.click('REVIEW ORIGINAL WORKFLOW'); assert.equal(useAppStore.getState().activeJobId, 'origin');
+  } finally { await f.close(); }
+});
+
+test('Cursor recovery starts the in-app sign-in and keeps the original workflow and draft', async () => {
+  const f = await fixture();
+  try {
+    await act(async () => f.root.render(createElement(AuthReloginNotice, { provider: 'cursor', body: 'Cursor fixture notice', workflowId: 'origin', messageId: 'cursor-origin' })));
+    await f.click('RE-LOGIN');
+    assert.ok(f.calls.includes('/api/auth-login?provider=cursor&inApp=1'));
+    assert.match(f.text(), /OPEN SIGN-IN PAGE/);
+    assert.doesNotMatch(f.text(), /Finish the login in the terminal/);
+    await f.tick();
+    assert.ok(f.calls.includes('/api/connections/check?provider=cursor'), 'completion refreshes the shared Cursor status');
+    assert.equal(useAppStore.getState().authStatus?.cursor?.loggedIn, true);
     await f.click('REVIEW ORIGINAL WORKFLOW'); assert.equal(useAppStore.getState().activeJobId, 'origin');
   } finally { await f.close(); }
 });
