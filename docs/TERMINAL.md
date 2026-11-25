@@ -82,7 +82,8 @@ the worker-safety pattern (`server/src/workers/pidRegistry.ts`):
  reap paths can't clobber each other). `registerTerminalPid` on spawn,
  `unregisterTerminalPid` after observed exit.
 - **Boot orphan sweep**, `reapOrphanTerminals()` (exported from `ptyManager.ts`)
- runs in `index.ts` **right after `reapOrphanWorkers()`, before `listen()`**. It
+ runs in `index.ts` **together with `reapOrphanWorkers()`**, and both finish
+ **before `listen()`**. It
  SIGKILLs any pid still in the registry from a prior unclean run, then clears the
  file. It **reuses `forceKillPid`** from the worker registry (process-group
  SIGKILL with a bare-pid fallback, POSIX-portable; node-pty pids are real OS
@@ -181,7 +182,8 @@ Both converge on the same floating window via `useTerminalStore.openTerminal`;
 they differ only in cwd:
 
 1. **Header launcher** (`SystemHeader.tsx`, TERMINAL in the TOOLS menu) -> session in the
- **active workflow root**. Disabled when no workflow is active.
+ **active workflow root**. Disabled when no workflow is active. On the phone, PANELS
+ lists TERMINAL under WORKBENCH for the active tab's project.
 2. **Files-tab "open terminal here"** (`FileExplorer.tsx`), a `>_` icon in the
  Files header (root cwd) and a **right-click on any directory** (that dir's
  cwd).
@@ -325,9 +327,11 @@ resize-to-window) under a thin header. It:
  title. That's fine; the operator popped it out knowingly.
 - **NEVER spawns a session.** It only attaches to one the in-app window already
  created over `/ws` (`terminal_open`). A stale/killed id surfaces as the
- XtermView `error` frame -> the pop-out shows a "session not found, may have
- been killed / server restarted" message + a Close button. A shell that exits
- (operator typed `exit`, process died) shows a "session ended" message + Close.
+ XtermView `error` frame -> the pop-out shows "Session not found: it may have
+ been killed, or the server restarted (PTYs do not survive a restart). You can
+ close this window." and a CLOSE button. A shell that exits
+ (operator typed `exit`, process died) shows "Session ended (shell exited,
+ code N). You can close this window: the session is gone." and CLOSE.
 - **coexists with the in-app floating window** viewing the same session, popping
  out does **NOT** close the floating window. This is exactly K2's multi-listener:
  two sockets attach to one session, output fans to both, and **typing in either
@@ -388,11 +392,11 @@ bridge:
  that owns the shell. The pop-out (`TerminalPopout`) deliberately has **no**
  bridge button: it boots no stores and no `/ws`, so it can't reach a composer,
  the operator sends from the in-app window.
-- **Insert**, on click the button reads the current draft fresh from
- `appStore` (`drafts[workflowId]`) and writes `appendToDraft(current,
- selection)` back via `setDraft`. Because the composer (`TerminalInput`) renders
- straight from `drafts[workflowId]`, the block shows up in the visible input,
- appended to in-progress typing.
+- **Insert**, on click the button reads the current draft with `readDraft`
+ from `client/src/stores/draftStore.ts` and writes `appendToDraft(current,
+ selection)` back through `setDraft`. `setDraft` on the app store delegates to
+ the draft store. Because the composer (`TerminalInput`) renders from that
+ draft, the block shows up in the visible input, appended to in-progress typing.
 - **Format**, `buildQuotedTerminalBlock` (pure, in `composerBridge.ts`) emits a
  `Terminal output:` header over a fenced code block holding the selection
  verbatim. The fence grows to one backtick longer than the longest backtick run

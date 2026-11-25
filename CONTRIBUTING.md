@@ -279,7 +279,7 @@ If you remove a comment, you're saying its content is no longer load-bearing. Ma
 
 **Never hard-code hex literals in components.** All colors come from theme tokens via `var(--color-...)`. Themes live under `client/src/themes/definitions/<id>.ts`.
 
-Fonts come from theme tokens too: `var(--font-display)` for terminal/UI labels (small caps, letter-spaced), `var(--font-body)` for prose, `var(--font-code)` for code. Operators can override the active theme's font stack with a curated pack via Settings -> Font Pack Override; the substitution is global across all themes.
+Fonts come from theme tokens too: `var(--font-display)` for terminal/UI labels (small caps, letter-spaced), `var(--font-body)` for prose, `var(--font-code)` for code. Operators can override the active theme's font stack with a curated pack via Settings, FONT PACK OVERRIDE; the substitution is global across all themes.
 
 ### Logging
 

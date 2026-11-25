@@ -59,7 +59,7 @@ Reference implementations: `claude.ts` is the most full-featured subprocess prov
 
 In `server/src/providers/index.ts`:
 
-Add the provider to the `PROVIDERS` record, which `createProviderProcess` uses after its transport special cases (Codex app-server, Claude Native, Cursor print, the local serial queue):
+Add the provider to the `PROVIDERS` record, which `createProviderProcess` uses after its transport special cases (Codex app-server, Claude Native, Cursor isolated, Cursor print for Chat and read-only work, the local serial queue):
 
 ```ts
 import { FooProvider } from './foo.js';
@@ -85,14 +85,7 @@ Wire it into `probeCapabilities()` and add the result to the `Capabilities` shap
 
 ### 5. Auth
 
-In `server/src/auth.ts`, add a status check and a login trigger:
-
-```ts
-case 'foo':
-  return { provider: 'foo', loggedIn: <bool>, email: <string|null>, ... };
-```
-
-And handle the `POST /api/auth-login?provider=foo` case.
+In `server/src/auth.ts`, add a probe to `getAuthStatus()` and a branch in `triggerAuthLogin()`. There is no switch that returns `{ provider, loggedIn, email }`. The login route is `POST /api/auth-login?provider=foo` in `server/src/http/router.ts`; add `foo` to that route's allowlist. Session, code and cancel live in `server/src/http/authLoginRoutes.ts`.
 
 ### 6. Client
 
@@ -103,7 +96,7 @@ In the WorkflowCreator's provider dropdown and the CONFIG tab's provider/model s
 Decide explicitly: nothing opts a provider in by default.
 
 - **Chat**: add it to `CHAT_PROVIDERS` in `server/src/chatMode.ts` only if the transport can honor its Chat restrictions. Most use `WorkerConfig.interactionMode:'chat'` with no project tools and an isolated cwd; Antigravity CLI uses a separate workspace and its own tools as described in [Chat](CHAT.md). Web support means adding it to `CHAT_WEB_PROVIDERS` *and* making the transport state armed/disarmed explicitly (mirror the client's `WEB_CAPABLE` set in `ChatModeView.tsx`).
-- **Incognito**: add it to `INCOGNITO_CHAT_PROVIDERS` only if nothing the provider runs writes to disk (no session files, no daemon log). When in doubt, leave it out; Cursor, Antigravity CLI and llama.cpp are excluded.
+- **Incognito**: add it to `INCOGNITO_CHAT_PROVIDERS` only if nothing the provider runs writes to disk (no session files, no daemon log). When in doubt, leave it out. The set today is Claude, Codex, Ollama and LM Studio. Cursor, Antigravity CLI, llama.cpp, Strata and DeepSeek are Chat providers and are excluded.
 - **Clusters**: add it to `CLUSTER_MEMBER_PROVIDERS` (`shared/src/protocol/clusters.ts`, read by `isClusterMemberProvider`) + a peer-tool wiring path (in-process, stdio MCP, or loopback HTTP MCP). See [`docs/PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md).
 
 ### 8. Docs
@@ -205,7 +198,7 @@ Update [`docs/PRIMITIVES.md`](PRIMITIVES.md) with a new section, and [`docs/PROT
 
 Operators create and manage skills in Settings > SKILLS (NEW, EDIT, IMPORT, UPDATE, TURN OFF/ON, MOVE, DUPLICATE, SHARE WITH REPOSITORY). The on-disk shape is also hand-editable. Project skills live under `.arco/skills/`, which Git ignores with the rest of `.arco`; SHARE WITH REPOSITORY adds an exception in `.arco/.gitignore` for one skill and never stages or commits. If Git still ignores the files (including through a global ignore file), SHARE refuses, names the rule and leaves `.arco/.gitignore` unchanged.
 
-Built-in skills ship with Arco: Architecture review and proportionate-testing (Arco's own); grill-me, grill-with-docs, wait-what, retro (operator-run); grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype, writing-for-agents (model-invoked, from mattpocock/skills under MIT - see THIRD_PARTY_NOTICES). A same-name project or global skill replaces the built-in. The MODEL skill `proportionate-testing` sets how much to test before adding or running checks; `tdd` describes how to write one test. It asks for one test per real fault, small browser coverage and operator approval before adding suites, gates, test tooling or CI checks.
+Built-in skills ship with Arco. Architecture review is operator-only. proportionate-testing is model-invoked. Both are Arco's own. grill-me, grill-with-docs, wait-what and retro are operator-run. grilling, domain-modeling, tdd, diagnosing-bugs, codebase-design, prototype and writing-for-agents are model-invoked, from mattpocock/skills under MIT (see THIRD_PARTY_NOTICES). A same-name project or global skill replaces the built-in. The MODEL skill `proportionate-testing` sets how much to test before adding or running checks; `tdd` describes how to write one test. It asks for one test per real fault, small browser coverage and operator approval before adding suites, gates, test tooling or CI checks.
 
 Layout:
 
@@ -234,7 +227,7 @@ Per primary turn, the server scans both roots, builds an XML `<arco-skills>` man
 
 Skills with `operator-only: true` are excluded from the `<arco-skills>` manifest the model sees; the user includes the body on demand via the `SKILLS` composer picker. Two related new surfaces: the SKILLS editor's AUDIT button (`POST /api/skills/audit`, diagnostic only) and the project-trust gate (skills from an untrusted repository are suppressed until a user approves the repository, `server/src/projectTrust.ts`).
 
-Server modules: `server/src/skills.ts` and `server/src/skillManagement.ts`. HTTP surface: `/api/skills` and `/api/skills/import|update|state|move|duplicate|share` (see `docs/HTTP_API.md`). UI: `SkillsSettings.tsx` and `SkillEditorDialog.tsx` (see `docs/CLIENT.md`).
+Server modules: `server/src/skills.ts` and `server/src/skillManagement.ts`. HTTP surface: `GET` and `POST /api/skills`, `POST /api/skills/audit`, `GET /api/skills/body`, `POST /api/skills/copy-builtin`, and `server/src/http/skillManagementRoutes.ts` for `import/preview`, `import/confirm`, `update/preview`, `update/confirm`, `state`, `move`, `duplicate`, `details`, `share/preview` and `share` (see `docs/HTTP_API.md`). UI: `SkillsSettings.tsx` and `SkillEditorDialog.tsx` (see `docs/CLIENT.md`).
 
 ---
 
@@ -344,7 +337,7 @@ Shaders live under `client/src/themes/shaders/<name>.frag.glsl`. `client/src/com
 
 - Use `precision highp float;` (Mali GPU NaN cascades on `mediump`)
 - Bound any `hash` inputs to a sane range: long-uptime drift can produce NaN that propagates through the whole pixel grid
-- Keep instruction count low: these run per-pixel at 60fps
+- Keep instruction count low: discrete presets run at 24 fps and smooth presets at 30 (`LOW_FPS_PRESETS` in `ThemedBackgroundShaderImpl.tsx`)
 - **No smooth radial gradients (vignettes / atmospheric noise washes / breathing blobs / orbs) on dark themes.** They posterize visibly under 8-bit alpha compositing against near-black. Use structural elements only: particles, streaks, grids, dots, vein lines, scanlines, hard-edged cells. See `docs/GOTCHAS.md` under `Themes / shaders` for the current palette and shader constraints.
 
 ### Pattern

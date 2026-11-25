@@ -242,8 +242,8 @@ where `<old> = previous_filename ?? filename` (renames carry `previous_filename`
 and `<new> = filename`. `ghFilesToUnifiedDiff` concatenates the per-file results
 into one string fed to `DiffView`'s `patch` prop. Files with **no `patch`**
 (binary / oversized) are **excluded** from the renderer (`ghFilesWithoutPatch`)
-and shown as a small "binary or too large, no inline diff" row with a link to
-GitHub. The helpers are pure (no React) so they're reused by the commit-detail
+and shown as the notice "binary or too large: no inline diff", with a VIEW
+link when the file has a `blob_url`. The helpers are pure (no React) so they're reused by the commit-detail
 view and unit-tested in the smoke.
 
 ### 2. Commit detail with diffs
