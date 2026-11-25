@@ -384,7 +384,10 @@ notice and [VOICE.md](VOICE.md) before enabling hands-free mode.
   belong in the project tree, for example `docs/`, not only under a conversation's
   `artifacts/` folder inside `.arco`.
 - `ARCO_HOME` relocates the global Arco home. Project state remains in each
-  project's `.arco` directory.
+  project's `.arco` directory. Arco resolves the home, whether `ARCO_HOME` or
+  `~/.arco`, to its real folder once it exists, so a home reached through a
+  link (a symlinked home folder, the macOS `/var` alias or a Windows short
+  name) is treated as the same folder everywhere.
 
 Do not add runtime state folders to source control. See
 [PERSISTENCE.md](PERSISTENCE.md) for the full list and

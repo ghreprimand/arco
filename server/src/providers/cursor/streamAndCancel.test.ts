@@ -8,6 +8,7 @@ import type { WorkerConfig } from '@arco/shared';
 import { AcpJsonRpcClient } from '../acp/acpJsonRpc.js';
 import { CursorPrintProvider } from './print.js';
 import { CursorAcpWorker } from './worker.js';
+import { installAgyFixture } from '../fixtures/agyFixture.js';
 const config={provider:'cursor',model:'auto',effort:'low'} as WorkerConfig;
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 test('ACP preserves UTF-8 at every byte split in text and filenames',()=>{
@@ -60,17 +61,17 @@ test('ACP permissions wait for a decision, respect skip-permissions and refuse s
  assert.deepEqual(await blocked, { outcome: { outcome: 'selected', optionId: 'no' } });
 });
 
-test('stopping an Antigravity turn ends the ACP child process', { skip: process.platform === 'win32' && 'The agy fixture is a POSIX script and cannot be spawned on Windows.' }, async t => {
- const { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync } = await import('node:fs');
+test('stopping an Antigravity turn ends the ACP child process', async t => {
+ const { mkdtempSync, mkdirSync, rmSync } = await import('node:fs');
  const { tmpdir } = await import('node:os');
  const { join } = await import('node:path');
  const { AntigravityProvider } = await import('../antigravity/index.js');
  const dir = mkdtempSync(join(tmpdir(), 'arco-agy-stop-'));
  const root = join(dir, 'state'); mkdirSync(root);
  // The turn probes `agy --version` before it starts ACP; answer that at once.
- const bin = join(dir, 'agy'); writeFileSync(bin, '#!/bin/sh\n[ "$1" = --version ] && { echo 1.0.0; exit 0; }\nsleep 30\n'); chmodSync(bin, 0o755);
+ const fixturePath = installAgyFixture(dir, "if (process.argv[2] === '--version') console.log('1.0.0'); else setTimeout(() => {}, 30000);\n");
  const priorPath = process.env.PATH, priorHome = process.env.ARCO_HOME;
- process.env.PATH = `${dir}:${priorPath}`; process.env.ARCO_HOME = root;
+ process.env.PATH = fixturePath; process.env.ARCO_HOME = root;
  let pid: number | undefined;
  t.after(() => { process.env.PATH = priorPath; process.env.ARCO_HOME = priorHome; if (pid) { try { process.kill(pid, 'SIGKILL'); } catch {} } rmSync(dir, { recursive: true, force: true }); });
  const proc = AntigravityProvider.create('fixture', { provider: 'antigravity-cli', model: 'gemini-fixture', effort: 'low', cwd: dir, workflowId: 'fixture', interactionMode: 'agent', antigravityInteractive: true });
@@ -84,15 +85,14 @@ test('stopping an Antigravity turn ends the ACP child process', { skip: process.
  assert.equal(alive(), false, 'ACP process exits after STOP');
 });
 
-test('Antigravity does not stream session-load history as a new answer', { skip: process.platform === 'win32' && 'The agy fixture is a POSIX script and cannot be spawned on Windows.' }, async t => {
- const { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync } = await import('node:fs');
+test('Antigravity does not stream session-load history as a new answer', async t => {
+ const { mkdtempSync, mkdirSync, rmSync } = await import('node:fs');
  const { tmpdir } = await import('node:os');
  const { join } = await import('node:path');
  const { AntigravityProvider } = await import('../antigravity/index.js');
  const dir = mkdtempSync(join(tmpdir(), 'arco-agy-replay-')); const root = join(dir, 'state'); mkdirSync(root);
- const bin = join(dir, 'agy');
- writeFileSync(bin, `#!/usr/bin/env node\nconst rl=require('readline').createInterface({input:process.stdin});const send=x=>process.stdout.write(JSON.stringify(x)+'\\n');rl.on('line',line=>{const m=JSON.parse(line);if(m.method==='session/load'){send({jsonrpc:'2.0',method:'session/update',params:{update:{sessionUpdate:'agent_message_chunk',content:{text:'old answer'}}}});send({jsonrpc:'2.0',id:m.id,result:{sessionId:'fixture',configOptions:[{id:'model',options:[{value:'gemini-fixture'}]},{id:'mode',options:[{value:'default'}]}]}})}else if(m.method==='session/prompt'){send({jsonrpc:'2.0',method:'session/update',params:{update:{sessionUpdate:'agent_message_chunk',content:{text:'new answer'}}}});send({jsonrpc:'2.0',id:m.id,result:{stopReason:'end_turn'}})}else send({jsonrpc:'2.0',id:m.id,result:{}})});`); chmodSync(bin, 0o755);
- const priorPath = process.env.PATH, priorHome = process.env.ARCO_HOME; process.env.PATH = `${dir}:${priorPath}`; process.env.ARCO_HOME = root;
+ const fixturePath = installAgyFixture(dir, `const rl=require('readline').createInterface({input:process.stdin});const send=x=>process.stdout.write(JSON.stringify(x)+'\\n');rl.on('line',line=>{const m=JSON.parse(line);if(m.method==='session/load'){send({jsonrpc:'2.0',method:'session/update',params:{update:{sessionUpdate:'agent_message_chunk',content:{text:'old answer'}}}});send({jsonrpc:'2.0',id:m.id,result:{sessionId:'fixture',configOptions:[{id:'model',options:[{value:'gemini-fixture'}]},{id:'mode',options:[{value:'default'}]}]}})}else if(m.method==='session/prompt'){send({jsonrpc:'2.0',method:'session/update',params:{update:{sessionUpdate:'agent_message_chunk',content:{text:'new answer'}}}});send({jsonrpc:'2.0',id:m.id,result:{stopReason:'end_turn'}})}else send({jsonrpc:'2.0',id:m.id,result:{}})});`);
+ const priorPath = process.env.PATH, priorHome = process.env.ARCO_HOME; process.env.PATH = fixturePath; process.env.ARCO_HOME = root;
  t.after(() => { process.env.PATH = priorPath; process.env.ARCO_HOME = priorHome; rmSync(dir, { recursive: true, force: true }); });
  const proc = AntigravityProvider.create('fixture', { provider:'antigravity-cli',model:'gemini-fixture',effort:'low',cwd:dir,workflowId:'fixture',interactionMode:'agent',antigravityInteractive:true,resumeSessionId:'fixture' });
  const chunks: string[] = []; proc.on('text', text => chunks.push(text));
@@ -119,14 +119,14 @@ test('Antigravity refuses noninteractive, non-Gemini and Arco-home launches', as
  assert.match(await failure(base), /Arco home/);
 });
 
-test('Antigravity sends the submitted text and attachment without Arco prompt instructions', { skip: process.platform === 'win32' && 'The agy fixture is a POSIX script and cannot be spawned on Windows.' }, async t => {
- const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync } = await import('node:fs');
+test('Antigravity sends the submitted text and attachment without Arco prompt instructions', async t => {
+ const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } = await import('node:fs');
  const { tmpdir } = await import('node:os'); const { join } = await import('node:path');
  const { AntigravityProvider } = await import('../antigravity/index.js');
  const dir = mkdtempSync(join(tmpdir(), 'arco-agy-prompt-')), root = join(dir, 'state'); mkdirSync(root);
  const attachment = join(dir, 'note.txt'), capture = join(dir, 'prompt.json'); writeFileSync(attachment, 'ATTACHMENT CONTENT');
- const bin = join(dir, 'agy'); writeFileSync(bin, `#!${process.execPath}\nconst fs=require('fs');const rl=require('readline').createInterface({input:process.stdin});rl.on('line',line=>{const m=JSON.parse(line);let result={};if(m.method==='session/new')result={sessionId:'s',configOptions:[{id:'model',options:[{value:'gemini-fixture'}]},{id:'mode',options:[{value:'default'}]}]};if(m.method==='session/prompt'){fs.writeFileSync(${JSON.stringify(capture)},JSON.stringify(m.params.prompt));result={stopReason:'end_turn'}};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n')});`); chmodSync(bin,0o755);
- const priorPath=process.env.PATH, priorHome=process.env.ARCO_HOME;process.env.PATH=`${dir}:${priorPath}`;process.env.ARCO_HOME=root;
+ const fixturePath = installAgyFixture(dir, `const fs=require('fs');const rl=require('readline').createInterface({input:process.stdin});rl.on('line',line=>{const m=JSON.parse(line);let result={};if(m.method==='session/new')result={sessionId:'s',configOptions:[{id:'model',options:[{value:'gemini-fixture'}]},{id:'mode',options:[{value:'default'}]}]};if(m.method==='session/prompt'){fs.writeFileSync(${JSON.stringify(capture)},JSON.stringify(m.params.prompt));result={stopReason:'end_turn'}};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n')});`);
+ const priorPath=process.env.PATH, priorHome=process.env.ARCO_HOME;process.env.PATH=fixturePath;process.env.ARCO_HOME=root;
  t.after(()=>{process.env.PATH=priorPath;process.env.ARCO_HOME=priorHome;rmSync(dir,{recursive:true,force:true});});
  const { WorkerManager } = await import('../../workers/WorkerManager.js');
  const manager = new WorkerManager();
@@ -135,13 +135,13 @@ test('Antigravity sends the submitted text and attachment without Arco prompt in
  const sent=JSON.parse(readFileSync(capture,'utf8'));assert.equal(sent[0].text,'  OPERATOR TEXT\n');assert.match(sent[1].text,/ATTACHMENT CONTENT/);assert.doesNotMatch(JSON.stringify(sent),/HIDDEN ARCO INSTRUCTIONS/);
 });
 
-test('Antigravity passes scoped MCP servers to new and resumed ACP sessions', { skip: process.platform === 'win32' && 'The agy fixture is a POSIX script and cannot be spawned on Windows.' }, async t => {
- const { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync } = await import('node:fs');
+test('Antigravity passes scoped MCP servers to new and resumed ACP sessions', async t => {
+ const { mkdtempSync, mkdirSync, readFileSync, rmSync } = await import('node:fs');
  const { tmpdir } = await import('node:os'); const { join } = await import('node:path');
  const { AntigravityProvider } = await import('../antigravity/index.js');
  const dir=mkdtempSync(join(tmpdir(),'arco-agy-mcp-')), root=join(dir,'state');mkdirSync(root);const capture=join(dir,'sessions.jsonl');
- const bin=join(dir,'agy');writeFileSync(bin, `#!${process.execPath}\nconst fs=require('fs');const rl=require('readline').createInterface({input:process.stdin});rl.on('line',line=>{const m=JSON.parse(line);let result={};if(m.method==='session/new'||m.method==='session/load'){fs.appendFileSync(${JSON.stringify(capture)},JSON.stringify({method:m.method,params:m.params})+'\\n');result={sessionId:'s',configOptions:[{id:'model',options:[{value:'gemini-fixture'}]},{id:'mode',options:[{value:'default'}]}]}}if(m.method==='session/prompt')result={stopReason:'end_turn'};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n')});`);chmodSync(bin,0o755);
- const priorPath=process.env.PATH,priorHome=process.env.ARCO_HOME;process.env.PATH=`${dir}:${priorPath}`;process.env.ARCO_HOME=root;
+ const fixturePath=installAgyFixture(dir, `const fs=require('fs');const rl=require('readline').createInterface({input:process.stdin});rl.on('line',line=>{const m=JSON.parse(line);let result={};if(m.method==='session/new'||m.method==='session/load'){fs.appendFileSync(${JSON.stringify(capture)},JSON.stringify({method:m.method,params:m.params})+'\\n');result={sessionId:'s',configOptions:[{id:'model',options:[{value:'gemini-fixture'}]},{id:'mode',options:[{value:'default'}]}]}}if(m.method==='session/prompt')result={stopReason:'end_turn'};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n')});`);
+ const priorPath=process.env.PATH,priorHome=process.env.ARCO_HOME;process.env.PATH=fixturePath;process.env.ARCO_HOME=root;
  t.after(()=>{process.env.PATH=priorPath;process.env.ARCO_HOME=priorHome;rmSync(dir,{recursive:true,force:true});});
  for(const resumeSessionId of [undefined,'previous']){const proc=AntigravityProvider.create('fixture',{provider:'antigravity-cli',model:'gemini-fixture',effort:'low',cwd:dir,workflowId:'mcp-fixture',interactionMode:'agent',antigravityInteractive:true,resumeSessionId} as WorkerConfig);const done=new Promise<void>((resolve,reject)=>{proc.once('result',()=>resolve());proc.once('error',reject)});proc.spawn('hello');await done;}
  const rows=readFileSync(capture,'utf8').trim().split('\n').map(line => JSON.parse(line));assert.deepEqual(rows.map((r:any)=>r.method),['session/new','session/load']);for(const row of rows){assert.equal(row.params.mcpServers.length,1);assert.equal(row.params.mcpServers[0].type,'http');assert.match(row.params.mcpServers[0].url,/\/mcp\/[0-9a-f]{32}$/);}

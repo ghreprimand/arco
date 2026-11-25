@@ -9,9 +9,11 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 const initialDefaultHome = join(homedir(), '.arco');
 
 // Resolve existing ancestors too: a not-yet-created state directory can still
-// be reached through a symlinked parent (including a symlinked TMPDIR).
+// be reached through a symlinked parent (including a symlinked TMPDIR). The
+// native resolver also expands Windows short names, and it is the resolver
+// `fs.promises.realpath` uses, so the home matches paths resolved elsewhere.
 function canonical(path: string): string {
-  try { return realpathSync(path); } catch (error) {
+  try { return realpathSync.native(path); } catch (error) {
     if (!['ENOENT', 'ENOTDIR'].includes((error as NodeJS.ErrnoException).code ?? '')) throw error;
     const parent = dirname(path);
     if (parent === path) return path;
@@ -26,9 +28,20 @@ function runningTests(): boolean {
       .some(name => name.startsWith('NativeModule internal/test_runner/'));
 }
 
+// The canonical home. A home reached through a link (a symlinked home folder,
+// an ARCO_HOME behind a link, the macOS /var alias or a Windows short name)
+// would otherwise differ from the canonical paths storage checks resolve, and
+// those checks would refuse Arco's own folders. Cached once the home exists.
+let resolvedHome: { from: string; home: string } | null = null;
+
 export function arcoHome(): string {
   const configured = process.env.ARCO_HOME?.trim();
-  const home = configured ? resolve(configured) : join(homedir(), '.arco');
+  const from = configured ? resolve(configured) : join(homedir(), '.arco');
+  let home = resolvedHome?.from === from ? resolvedHome.home : null;
+  if (!home) {
+    home = canonical(from);
+    try { realpathSync.native(from); resolvedHome = { from, home }; } catch { /* not created yet */ }
+  }
   assertTestHomeSafe(home);
   return home;
 }

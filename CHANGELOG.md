@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Fix Quick research and emptying scratch on close failing with "conversation storage is unavailable" when the Arco home is reached through a link, such as a symlinked home folder, the macOS /var alias or a Windows short name.
+
 - Lay out a member's settings in the mobile view's members sheet for touch: one full-width control per row, WORK SIZE as one row of chips, the role choices in place, no repeated name, and "tap to edit" for FOCUS.
 
 - Keep Codex conversations working when their saved model is not offered by the installed Codex for the account, for example a model saved by a newer Codex: the turn runs on Codex's default model and the chat names both models, and a refusal reads as a sentence instead of raw JSON.

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { probeLatestVersions, probeVersion } from './capabilities.js';
+import { installAgyFixture } from './providers/fixtures/agyFixture.js';
 
 test('version probes terminate a stalled CLI and report it as broken', async () => {
   const result = await probeVersion(process.execPath, ['-e', 'setTimeout(() => console.log("1.2.3"), 250)'], 40);
@@ -49,9 +50,9 @@ test('Cursor latest metadata reads only a bounded installer version and stays un
   assert.equal((await probeLatestVersions(decision))?.cursor, undefined);
 });
 
-test('Antigravity version metadata and updater use agy', { skip: process.platform === 'win32' && 'The agy fixture is a POSIX script and cannot be spawned on Windows.' }, async t => {
- const { mkdtempSync, writeFileSync, chmodSync, rmSync } = await import('node:fs'); const { tmpdir }=await import('node:os');const { join }=await import('node:path');
- const { runCliUpdate }=await import('./capabilities.js');const dir=mkdtempSync(join(tmpdir(),'arco-agy-update-'));const bin=join(dir,'agy');writeFileSync(bin,'#!/bin/sh\necho 1.5.14\n');chmodSync(bin,0o755);const prior=process.env.PATH;process.env.PATH=`${dir}:${prior}`;t.after(()=>{process.env.PATH=prior;rmSync(dir,{recursive:true,force:true});});
+test('Antigravity version metadata and updater use agy', async t => {
+ const { mkdtempSync, rmSync } = await import('node:fs'); const { tmpdir }=await import('node:os');const { join }=await import('node:path');
+ const { runCliUpdate }=await import('./capabilities.js');const dir=mkdtempSync(join(tmpdir(),'arco-agy-update-'));const prior=process.env.PATH;process.env.PATH=installAgyFixture(dir,"console.log('1.5.14');\n");t.after(()=>{process.env.PATH=prior;rmSync(dir,{recursive:true,force:true});});
  t.mock.method(globalThis,'fetch',async (url:string)=>new Response(JSON.stringify(url.includes('/google-antigravity/antigravity-cli/releases/latest')?{tag_name:'1.5.14'}:{})));
  const latest=await probeLatestVersions(Promise.resolve({kind:'unknown' as const}));assert.equal(latest?.['antigravity-cli'],'1.5.14');let command:string[]=[];
  const result=await runCliUpdate({cliVersion:'unknown',models:[],efforts:[],antigravityVersion:'1.5.14',latestVersions:latest} as any,'antigravity-cli',async(cmd,args)=>{command=[cmd,...args];return {exitCode:0,output:'current'};});

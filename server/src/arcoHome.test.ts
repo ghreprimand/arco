@@ -20,12 +20,12 @@ test('ARCO_HOME relocates the Arco home and is resolved per call', () => {
 });
 
 test('a missing moduleLoadList does not prevent ordinary home resolution', async () => {
-  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { mkdtempSync, realpathSync, rmSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
   const { spawnSync } = await import('node:child_process');
   const { pathToFileURL } = await import('node:url');
-  const root = mkdtempSync(join(tmpdir(), 'arco-home-no-internals-'));
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'arco-home-no-internals-')));
   try {
     const home = join(root, 'home');
     const state = join(root, 'state');
@@ -40,4 +40,27 @@ console.log(arcoHome());`;
     assert.equal(child.status, 0, child.stderr);
     assert.equal(child.stdout.trim(), state);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+// A home behind a link (a symlinked home folder, the macOS /var alias, a
+// Windows short name) made storage checks, which compare canonical paths,
+// refuse Arco's own chat and Quick research folders with "conversation storage
+// is unavailable".
+test('an Arco home reached through a link resolves to its canonical folder', async () => {
+  const { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'arco-home-link-')));
+  const previous = process.env.ARCO_HOME;
+  try {
+    mkdirSync(join(root, 'real', 'state'), { recursive: true });
+    symlinkSync(join(root, 'real'), join(root, 'link'), 'junction');
+    process.env.ARCO_HOME = join(root, 'link', 'state');
+    assert.equal(arcoHome(), join(root, 'real', 'state'));
+    process.env.ARCO_HOME = join(root, 'link', 'not-created');
+    assert.equal(arcoHome(), join(root, 'real', 'not-created'));
+  } finally {
+    if (previous === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = previous;
+    rmSync(root, { recursive: true, force: true });
+  }
 });
