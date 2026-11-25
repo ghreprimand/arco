@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import childProcess from 'node:child_process';
 import { syncBuiltinESMExports } from 'node:module';
-import { access, mkdtemp, readFile, readdir, rm, stat, writeFile, mkdir, symlink } from 'node:fs/promises';
+import { access, chmod, mkdtemp, readFile, readdir, rm, stat, writeFile, mkdir, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CHAT_DENY, CHAT_FLAGS, createChatSandbox, cleanupChatSandboxes, cleanupChatSandboxesOnStartup } from './chatSandbox.js';
@@ -100,6 +100,26 @@ test('startup ignores absent Chat storage and refuses a linked managed root', as
     await assert.rejects(createChatSandbox(), /real folder/);
   } finally {
     if (oldHome === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = oldHome;
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('closing a Chat folder that cannot be removed resolves and leaves it for the startup sweep', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'arco-chat-close-'));
+  const oldHome = process.env.ARCO_HOME;
+  process.env.ARCO_HOME = join(root, 'state');
+  t.mock.method(childProcess, 'execFile', ((_c: string, _a: string[], _o: any, callback: any) => queueMicrotask(() => callback(Object.assign(new Error('probe'), { code: 1 }), '', "error: unknown option '--arco-chat-capability-probe'"))) as any);
+  syncBuiltinESMExports();
+  const warn = t.mock.method(console, 'warn', () => undefined);
+  try {
+    const sandbox = await createChatSandbox();
+    await chmod(join(sandbox.cwd, '..'), 0o500);
+    await sandbox.close();
+    assert.equal(warn.mock.callCount(), 1);
+    await access(sandbox.cwd);
+    await chmod(join(sandbox.cwd, '..'), 0o700);
+  } finally {
+    process.env.ARCO_HOME = oldHome;
     await rm(root, { recursive: true, force: true });
   }
 });

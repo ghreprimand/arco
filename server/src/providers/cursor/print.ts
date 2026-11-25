@@ -197,7 +197,7 @@ class CursorPrintProcess extends EventEmitter implements ProviderProcess {
   }
 
   private async cleanup(): Promise<void> {
-    await Promise.all([this.filePlugin?.close(), this.chatSandbox?.close()]);
+    await Promise.allSettled([this.filePlugin?.close(), this.chatSandbox?.close()]);
   }
 
   private fail(reason: string): void {

@@ -26,7 +26,14 @@ function accepts(args: string[], cwd: string, signal?: AbortSignal): Promise<boo
 export async function createChatSandbox(prepared?: PreparedAttachments, signal?: AbortSignal, web = false) {
   const root = await ensureStorageRoot(join(arcoHome(), 'cursor-chat-turns'));
   const cwd = await mkdtemp(join(root, 'turn-'));
-  const close = () => rm(cwd, { recursive: true, force: true });
+  // Windows holds a folder for a moment after the agent exits (EPERM, EBUSY),
+  // so removal retries for about a second. A folder that still cannot be
+  // removed is left for the startup sweep; closing never fails a turn and never
+  // replaces the error that ended it.
+  const close = async (): Promise<void> => {
+    try { await rm(cwd, { recursive: true, force: true, maxRetries: 4, retryDelay: 100 }); }
+    catch (error) { console.warn(`[arco] Could not remove a Cursor Chat turn folder (${(error as NodeJS.ErrnoException).code ?? 'error'}); startup will remove it.`); }
+  };
   try {
     signal?.throwIfAborted();
     const configDir = join(cwd, '.cursor');
