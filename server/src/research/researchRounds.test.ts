@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,6 +16,11 @@ import { closeResearch, closedResearchRecordPath, installResearchCloseOnDelete, 
 import { setBeforeClusterDelete } from '../clusterStore.js';
 import { researchMembersRoot } from './researchCreate.js';
 import { prepareResearchCreate } from './researchCreate.js';
+
+// When this file's tests have finished but the process stays alive (a hung job on Windows), say what keeps
+// it open. The timer is unreferenced, so it fires only when something else is holding the process.
+after(() => { setTimeout(() => console.error('researchRounds still running after its tests:', process.getActiveResourcesInfo()), 20_000).unref(); });
+
 
 async function project() {
   const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-research-'));

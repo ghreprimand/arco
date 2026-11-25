@@ -61,6 +61,13 @@ test('ACP permissions wait for a decision, respect skip-permissions and refuse s
  assert.deepEqual(await blocked, { outcome: { outcome: 'selected', optionId: 'no' } });
 });
 
+// A stopped agy child can hold its working folder for a moment on Windows, so removal retries and
+// names the folder if it still cannot be removed.
+function removeFixture(rmSync: (path: string, options: object) => void, dir: string) {
+  try { rmSync(dir, { recursive: true, force: true, maxRetries: 40, retryDelay: 250 }); }
+  catch (error) { console.error('fixture folder still in use:', dir, error); throw error; }
+}
+
 test('stopping an Antigravity turn ends the ACP child process', async t => {
  const { mkdtempSync, mkdirSync, rmSync } = await import('node:fs');
  const { tmpdir } = await import('node:os');
@@ -73,7 +80,7 @@ test('stopping an Antigravity turn ends the ACP child process', async t => {
  const priorPath = process.env.PATH, priorHome = process.env.ARCO_HOME;
  process.env.PATH = fixturePath; process.env.ARCO_HOME = root;
  let pid: number | undefined;
- t.after(() => { process.env.PATH = priorPath; process.env.ARCO_HOME = priorHome; if (pid) { try { process.kill(pid, 'SIGKILL'); } catch {} } rmSync(dir, { recursive: true, force: true }); });
+ t.after(() => { process.env.PATH = priorPath; process.env.ARCO_HOME = priorHome; if (pid) { try { process.kill(pid, 'SIGKILL'); } catch {} } removeFixture(rmSync, dir); });
  const proc = AntigravityProvider.create('fixture', { provider: 'antigravity-cli', model: 'gemini-fixture', effort: 'low', cwd: dir, workflowId: 'fixture', interactionMode: 'agent', antigravityInteractive: true });
  proc.on('error', () => {}); proc.spawn('fixture');
  const deadline = Date.now() + 5000;
@@ -93,7 +100,7 @@ test('Antigravity does not stream session-load history as a new answer', async t
  const dir = mkdtempSync(join(tmpdir(), 'arco-agy-replay-')); const root = join(dir, 'state'); mkdirSync(root);
  const fixturePath = installAgyFixture(dir, `const rl=require('readline').createInterface({input:process.stdin});const send=x=>process.stdout.write(JSON.stringify(x)+'\\n');rl.on('line',line=>{const m=JSON.parse(line);if(m.method==='session/load'){send({jsonrpc:'2.0',method:'session/update',params:{update:{sessionUpdate:'agent_message_chunk',content:{text:'old answer'}}}});send({jsonrpc:'2.0',id:m.id,result:{sessionId:'fixture',configOptions:[{id:'model',options:[{value:'gemini-fixture'}]},{id:'mode',options:[{value:'default'}]}]}})}else if(m.method==='session/prompt'){send({jsonrpc:'2.0',method:'session/update',params:{update:{sessionUpdate:'agent_message_chunk',content:{text:'new answer'}}}});send({jsonrpc:'2.0',id:m.id,result:{stopReason:'end_turn'}})}else send({jsonrpc:'2.0',id:m.id,result:{}})});`);
  const priorPath = process.env.PATH, priorHome = process.env.ARCO_HOME; process.env.PATH = fixturePath; process.env.ARCO_HOME = root;
- t.after(() => { process.env.PATH = priorPath; process.env.ARCO_HOME = priorHome; rmSync(dir, { recursive: true, force: true }); });
+ t.after(() => { process.env.PATH = priorPath; process.env.ARCO_HOME = priorHome; removeFixture(rmSync, dir); });
  const proc = AntigravityProvider.create('fixture', { provider:'antigravity-cli',model:'gemini-fixture',effort:'low',cwd:dir,workflowId:'fixture',interactionMode:'agent',antigravityInteractive:true,resumeSessionId:'fixture' });
  const chunks: string[] = []; proc.on('text', text => chunks.push(text));
  const result = new Promise<void>((resolve, reject) => { proc.once('result', () => resolve()); proc.once('error', reject); });
@@ -127,7 +134,7 @@ test('Antigravity sends the submitted text and attachment without Arco prompt in
  const attachment = join(dir, 'note.txt'), capture = join(dir, 'prompt.json'); writeFileSync(attachment, 'ATTACHMENT CONTENT');
  const fixturePath = installAgyFixture(dir, `const fs=require('fs');const rl=require('readline').createInterface({input:process.stdin});rl.on('line',line=>{const m=JSON.parse(line);let result={};if(m.method==='session/new')result={sessionId:'s',configOptions:[{id:'model',options:[{value:'gemini-fixture'}]},{id:'mode',options:[{value:'default'}]}]};if(m.method==='session/prompt'){fs.writeFileSync(${JSON.stringify(capture)},JSON.stringify(m.params.prompt));result={stopReason:'end_turn'}};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n')});`);
  const priorPath=process.env.PATH, priorHome=process.env.ARCO_HOME;process.env.PATH=fixturePath;process.env.ARCO_HOME=root;
- t.after(()=>{process.env.PATH=priorPath;process.env.ARCO_HOME=priorHome;rmSync(dir,{recursive:true,force:true});});
+ t.after(()=>{process.env.PATH=priorPath;process.env.ARCO_HOME=priorHome;removeFixture(rmSync, dir);});
  const { WorkerManager } = await import('../../workers/WorkerManager.js');
  const manager = new WorkerManager();
  const result = await manager.spawn({id:'fixture',task:'  OPERATOR TEXT\n',provider:'antigravity-cli',model:'gemini-fixture',effort:'low',appendSystemPrompt:'HIDDEN ARCO INSTRUCTIONS'} as any,()=>{}, {cwd:dir,workflowId:'prompt-fixture',interactionMode:'agent',antigravityInteractive:true,outputStyle:'terse',attachments:[attachment]});
@@ -142,7 +149,7 @@ test('Antigravity passes scoped MCP servers to new and resumed ACP sessions', as
  const dir=mkdtempSync(join(tmpdir(),'arco-agy-mcp-')), root=join(dir,'state');mkdirSync(root);const capture=join(dir,'sessions.jsonl');
  const fixturePath=installAgyFixture(dir, `const fs=require('fs');const rl=require('readline').createInterface({input:process.stdin});rl.on('line',line=>{const m=JSON.parse(line);let result={};if(m.method==='session/new'||m.method==='session/load'){fs.appendFileSync(${JSON.stringify(capture)},JSON.stringify({method:m.method,params:m.params})+'\\n');result={sessionId:'s',configOptions:[{id:'model',options:[{value:'gemini-fixture'}]},{id:'mode',options:[{value:'default'}]}]}}if(m.method==='session/prompt')result={stopReason:'end_turn'};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n')});`);
  const priorPath=process.env.PATH,priorHome=process.env.ARCO_HOME;process.env.PATH=fixturePath;process.env.ARCO_HOME=root;
- t.after(()=>{process.env.PATH=priorPath;process.env.ARCO_HOME=priorHome;rmSync(dir,{recursive:true,force:true});});
+ t.after(()=>{process.env.PATH=priorPath;process.env.ARCO_HOME=priorHome;removeFixture(rmSync, dir);});
  for(const resumeSessionId of [undefined,'previous']){const proc=AntigravityProvider.create('fixture',{provider:'antigravity-cli',model:'gemini-fixture',effort:'low',cwd:dir,workflowId:'mcp-fixture',interactionMode:'agent',antigravityInteractive:true,resumeSessionId} as WorkerConfig);const done=new Promise<void>((resolve,reject)=>{proc.once('result',()=>resolve());proc.once('error',reject)});proc.spawn('hello');await done;}
  const rows=readFileSync(capture,'utf8').trim().split('\n').map(line => JSON.parse(line));assert.deepEqual(rows.map((r:any)=>r.method),['session/new','session/load']);for(const row of rows){assert.equal(row.params.mcpServers.length,1);assert.equal(row.params.mcpServers[0].type,'http');assert.match(row.params.mcpServers[0].url,/\/mcp\/[0-9a-f]{32}$/);}
 });
