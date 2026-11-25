@@ -241,7 +241,7 @@ A new module, `server/src/eventLog.ts`, gives every reader the same view: segmen
 | Saved cluster save | `clusterSnapshots.ts` `saveSnapshot` | `readLogText`. The snapshot stays one plain log per member; the 512 MiB cap applies to the uncompressed text. |
 | Saved cluster restore | `clusterSnapshots.ts` `restoreSnapshot` | No change: it writes a new plain log. |
 | CATCH ME UP | `catchUp.ts` `readCatchUpEvents` | `readLogTail`. |
-| Resume picker | `workflows/sessionIndex.ts` `scanOperatorMessages` | `readLogLines`. |
+| Session index | `workflows/sessionIndex.ts` `scanOperatorMessages` | `readLogLines`. |
 | Session titles | `workflows/sessionDiscovery.ts` `readFirstUserText` | `readLogHeadSync`. |
 | Recall | `recall/index.ts` `scanEvents` | `readLogLines`. |
 | Hub link | `management/initHubLink.ts` `readLastMessage`, `readFullTranscript` | `readLogTailSync`. |
@@ -267,7 +267,7 @@ A segment that cannot be read is reported and skipped; the reader continues with
 | Log shape | Tests |
 | --- | --- |
 | Plain log only (every log today) | Every reader above returns the same result as before. |
-| Segments and a live file | Full replay, HISTORY pages, typed scan, resume and REWIND across a segment boundary, gap fallback, tail replay, CATCH ME UP, usage, recall, resume picker, session titles, hub link, cluster activity, outputs, ledger rebuild, saved cluster save and restore. |
+| Segments and a live file | Full replay, HISTORY pages, typed scan, resume and REWIND across a segment boundary, gap fallback, tail replay, CATCH ME UP, usage, recall, session index, session titles, hub link, cluster activity, outputs, ledger rebuild, saved cluster save and restore. |
 | Live file holding only the copied record | Sequence recovery, reconnect, the next append continues the sequence. |
 | Interrupted seal (each row of the crash table) | No record lost or seen twice; the next seal finishes the job. |
 | A record larger than 1 MiB at the end | Sequence recovery and tail replay. |

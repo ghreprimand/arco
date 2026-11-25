@@ -66,11 +66,11 @@ Conversation records are append-only as a rule - Arco never auto-deletes `events
 
 ```text
 <cwd>/.arco/
-├──.gitignore                       # ignores all project state by default
+├── .gitignore                      # ignores all project state by default
 ├── settings.json                    # per-project settings overrides
 ├── storage-actions.jsonl            # one line per storage action (EMPTY SCRATCH, archive, restore, delete, auto-archive)
 ├── archive/<wfid>.arcoarchive       # an archived conversation: Brotli-compressed files with their hashes (storageArchive.ts)
-├── session-index.json               # resume-picker projection (workflows/sessionIndex.ts; rebuildable, skipped for chats)
+├── session-index.json               # session-index projection (workflows/sessionIndex.ts; rebuildable, skipped for chats)
 ├── title-events.jsonl               # session-index title history (same module; rebuildable)
 ├── <workflowId>/                    # per-workflow CLI/Codex MCP config (mcp/mcpConfigWriter.ts) - cluster peer tools / codebase-memory / registry servers
 │   └── mcp-config.json              # unlinked on tab close
@@ -84,6 +84,9 @@ Conversation records are append-only as a rule - Arco never auto-deletes `events
 │       ├── storage-warnings.json    # artifact sizes already warned about (storageWarnings.ts)
 │       ├── meta.json                # workflow identity + session ledger
 │       ├── resume-summary.json      # Native resume-summary cache (claude-native/resumeSummary.ts)
+│       ├── pending-subagent-approval.json  # marks a Native sub-agent batch waiting for approval (claude-native/worker.ts); removed once answered, a leftover after a restart cancels it with a notice
+│       ├── ollama-compact-boundary.json    # Ollama compaction summary boundary (providers/ollamaBoundaryStore.ts)
+│       ├── file-context/            # fitted images and decoded text snapshots for local-provider file context (providers/localFileMedia.ts)
 │       ├── gate-approvals.json      # DEBAG gate sidecar (gateStore.ts) - only when reviewSafeMode='on'
 │       ├── artifacts/               # review and worker outputs
 │       │   ├── review-<ts>.md
@@ -293,6 +296,7 @@ Per-workflow identity file. Atomic writes via `atomicFile.ts`. The type is `Work
 ```ts
 interface WorkflowMeta {
   workflowId: string;
+  scratchEmptiedPending?: { keptItems: number; at: number }; // an explicit close emptied scratch; the next agent turn is told, then it is cleared
   schemaVersion?: number; // 2 = current schema; absent / 1 = older events.jsonl files without parentEventSeq
   name: string;
   cwd: string;
@@ -303,10 +307,13 @@ interface WorkflowMeta {
   primaryProvider: ProviderName;
   primaryModel: ModelName;
   primaryEffort: EffortLevel;
+  antigravitySkipPermissions?: boolean;  // Antigravity CLI tabs only: the saved skip-permissions choice (other providers always run with it)
   providerAccountRef?: string;           // bound provider-account profile (providerAccounts.ts)
   resolvedModelId?: string;              // concrete id served behind an alias tab (capability gating on turn 1 after restart)
   cliSessions: WorkflowCliSession[];     // session ledger; Computer fresh starts retire Codex entries
+  providerConversationPendingReading?: boolean; // a replacement external conversation has not reported its own context reading yet (CTX: -)
   history?: SessionHistoryEntry[];       // archived sessions (Handoff / Computer fresh context)
+  handoffHistory?: HandoffHistorySource[]; // frozen handoff ancestry granted to this conversation (handoffHistory.ts), separate from Task parentage
   computerContext?: ComputerContextState; // saved Computer policy + reset boundary metadata
   operator: string;
   lastEventSeq: number | null;           // bookmark
@@ -339,6 +346,7 @@ interface WorkflowMeta {
   webSearchMaxUses?: number;                               // per-tab Native web_search/web_fetch and separate read_url per-turn budgets; absent = 15
   claudeNativeThinkingDisplay?: 'omitted' | 'summarized' | 'updates';  // adaptive-thinking display; default 'omitted'; Native-only
   nativeSubagents?: { maxRunning?: number; maxStarts?: number; model?: string; background?: boolean };  // Claude Native Task limits, model and Background sub-agents; absent ⇒ Settings/defaults
+  claudeNativeTaskDisabled?: boolean;    // server-set marker kept when a Task child is restored, so the child cannot start its own Task children
   claudeNativeForceInterleavedThinkingBeta?: boolean;
   claudeNativeCompact?: boolean;         // Anthropic server-side compaction opt-in
   claudeNativeCompactUserSetAt?: number; // marks an explicit re-opt-in after the default flipped off
@@ -548,8 +556,14 @@ Served by `GET /api/workflows/handoff?path=<cwd>&workflowId=<wfid>&name=<filenam
 ```text
 plans/
 ├── index.json                       # [{ id, title, createdAt, updatedAt, attachments, completedAt }]
-└── <planId>.md                      # markdown body
+├── <planId>.md                      # markdown body
+├── <planId>.refs/                   # reference docs, directory-listed (no index entry)
+│   ├── <slug>.md                    # one reference doc (max 256 KB)
+│   └── <slug>.files/                # sources copied with a research report sent to the plan (research/sendToProject.ts); removed with the doc
+└── .history/<sha256>.md             # each distinct cluster plan body, written once (planHistory.ts)
 ```
+
+List summaries also carry `taskCount` (the number of checklist items, cached per file); it is computed on read and not stored in `index.json`.
 
 `index.json` entry shape:
 
@@ -664,7 +678,7 @@ Proposals are stored only while they are pending operator action (accept / apply
 
 ## Managed task worktrees
 
-`~/.arco/worktrees/<cwd-hash>/` - isolated git worktrees pinned to individual tasks (one per task when `worktreeRequired` or `autoWorktree` is set). Created by `cluster_task_worktree_create` / `task_worktree_create` WS messages via `server/src/project/taskWorktree.ts`. Removed by the corresponding `*_remove` message or when the task is archived. These are standard git worktrees (`git worktree add`) and survive server restarts; the path is stored in `LedgerTask.worktree` (task-kernel field, not a separate file). Worktrees for tasks in different cwds are isolated by the `<cwd-hash>` prefix.
+`~/.arco/worktrees/<cwd-hash>/` - isolated git worktrees pinned to individual tasks (one per task when `worktreeRequired` or `autoWorktree` is set). Created by the `task_worktree_create` WS message via `server/src/project/taskWorktree.ts`. Removed by `task_worktree_remove` or when the task is archived. These are standard git worktrees (`git worktree add`) and survive server restarts; the path is stored in `LedgerTask.worktree` (task-kernel field, not a separate file). Worktrees for tasks in different cwds are isolated by the `<cwd-hash>` prefix.
 
 ---
 
@@ -678,11 +692,29 @@ Proposals are stored only while they are pending operator action (accept / apply
 ~/.arco/
 ├── settings.json                    # operator preferences (global layer)
 ├── chats/<wfid>/.arco/workflows/<wfid>/ # saved projectless Chat meta + events (never incognito)
+├── chat-workspaces/<id>/            # private working folder of a tool-using Antigravity Chat, and the folder of a Quick research project (research/researchCreate.ts, chatMode.ts)
+├── research/                        # research member workflow folders (research/researchCreate.ts)
+│   ├── <projectId>/.arco/workflows/<wfid>/ # each researcher's conversation, outside the research folder
+│   └── closed-promotions/<id>.json  # a Quick research promotion interrupted by close, finished or rolled back at the next start (research/savedQuickPromotion.ts)
+├── antigravity-research/            # the separate GEMINI FOR RESEARCH sign-in home, copied into each Gemini researcher's private home per turn (providers/antigravity/researchSignIn.ts)
+├── cursor-chat-turns/turn-*/        # temporary working folders for Cursor Chat turns, removed after each turn (providers/cursor/chatSandbox.ts)
+├── projects.json                    # Home project registry: identities, names, pins, archive state, previous paths (projectRecords.ts)
+├── public-project-choices.json      # explicit public/private project choices, keyed by a hash of the canonical path (publicProjectChoice.ts)
+├── notification-channels.json       # attention alert channels and preferences (attention.ts)
+├── strata-profiles.json             # Strata connection profiles (providers/strataProfiles.ts; ARCO_STRATA_PROFILES overrides)
+├── deepseek-profiles.json           # DeepSeek through Xolotl profiles (providers/deepseekProfiles.ts; ARCO_DEEPSEEK_PROFILES overrides)
+├── provider-secrets.json            # only on homes from releases with the retired Z.ai provider; no longer read or changed
+├── builtin-skills/<version>/<slug>/SKILL.md # built-in skills unpacked for this Arco version (skills.ts)
+├── builtin-skill-state/<slug>/      # per-built-in-skill sidecar, for example turned off (skills.ts)
+├── voice/                           # local voice runtime and models (voice/; ARCO_VOICE_HOME overrides)
+├── phone-upload-routes.json         # last successful phone upload per private address and port, no phone data (http/phoneUploadRouteHistory.ts)
+├── .phone-upload-drafts/<fileId>.json # phone uploads waiting to be placed in a conversation draft (http/phoneUploadDrafts.ts)
+├── update-result.json               # outcome of the last in-app update, read after the restart (updateManager.ts)
 ├── auth.json                        # Claude Native OAuth token (claude.native namespace, 0600)
 ├── models.md                        # vestigial model catalog (Settings-editable, unconsumed - see below)
 ├── llamacpp.json                    # GGUF catalog (alias -> ggufPath + options)
 ├── known-cwds.json                  # crash-recovery registry
-├── storage-policy.json              # { autoArchiveClosedDays, budgetGiB, budgetNotice } (storageOverview.ts); auto-archive off by default
+├── storage-policy.json              # { autoArchiveClosedDays, budgetGiB, budgetNotice, scratchWarningGiB } (storageOverview.ts); auto-archive off by default, scratch warning 1 GiB
 ├── workspace.json                   # server-authoritative open tabs: { version, workflows: {wfid -> {config, parentWorkflowId?, openedAt}}, clusters: [id] } (workspace.ts; workspace-<port>.json off 3001)
 ├── worker-pids.json                 # live worker PIDs + start times for orphan reaping
 ├── terminal-pids.json               # same shape, terminal PTYs (terminal/ptyPidRegistry.ts)
@@ -734,9 +766,11 @@ Proposals are stored only while they are pending operator action (accept / apply
 │   └── <diff file>                  # written when a change is detected; served by GET /api/cli-snapshot?name=
 ├── clusters/
 │   └── <clusterId>/
-│       ├── meta.json                # ClusterState (members[], cwd, createdAt ISO, taskBoardMode, efficiencyLevel, dispatcher, memberRoles/Tiers/Focuses, progressTracking, ...)
+│       ├── meta.json                # ClusterState (members[], cwd, createdAt ISO, taskBoardMode, efficiencyLevel, dispatcher, memberRoles/Tiers/Focuses, memberAccessModes, research, progressTracking, ...)
 │       ├── plan.md                  # legacy cluster plan body, read once and migrated to <cwd>/.arco/plans/
 │       ├── plan.meta.json           # legacy { updatedAt } sidecar for plan.md
+│       ├── research.json            # research project state: rounds, researchers and letters, deadlines, retries (research/researchState.ts)
+│       ├── isolates/<wfid>/workspace/ # private workspace of an ISOLATED or RESEARCHER member (clusterStore.ts isolatedWorkspaceFor)
 │       └── mailbox/
 │           └── <recipientWfId>/
 │               └── <msgId>.json     # one file per pending peer message
@@ -756,7 +790,7 @@ attempt checkout are excluded from candidate diffs and promotion.
 
 Per-cluster directory tree, created by `POST /api/clusters` or the WS create path (`server/src/clusterStore.ts`). `meta.json` is written under `proper-lockfile` (cross-process writer serialization) **and** through `atomicFile.ts` (crash-safe body) - complementary, neither substitutes for the other. The cluster plan is attached by `planId` and its body lives in the per-cwd plan store (`<cwd>/.arco/plans/<planId>.md`, through `server/src/clusterPlanBridge.ts`); an older `plan.md` with its `plan.meta.json` sidecar beside `meta.json` (`server/src/clusterPlanStore.ts`) is read once and migrated.
 
-Arco's board surface introduces **no new persistence**: `taskBoardMode` in cluster `meta.json` selects the board: `'cluster'` for new clusters (a private board keyed `cluster:<clusterId>`, stored at `<cwd>/.arco/project/boards/cluster~<clusterId>/tasks.json`, the `:` replaced for Windows), `'project'` (the per-cwd project task ledger `<cwd>/.arco/project/tasks.json`) or `'none'`. Both board kinds use the `task_ledger_event` stream covered above. Cluster `meta.json` also carries `efficiencyLevel`/`efficiencyAddendum`, `dispatcher`, `memberRoles`/`memberTiers`/`memberFocuses`, `idleNudgerEnabled`, `autoTurnOnMailboxEnabled`, `planId`, and `progressTracking` (`'plan'|'board'|'both'`, set via the `cluster_progress_set` client message; persisted **only when non-default** - default `'both'` writes nothing, so pre-feature cluster meta stays byte-identical).
+Arco's board surface introduces **no new persistence**: `taskBoardMode` in cluster `meta.json` selects the board: `'cluster'` for new clusters (a private board keyed `cluster:<clusterId>`, stored at `<cwd>/.arco/project/boards/cluster~<clusterId>/tasks.json`, the `:` replaced for Windows), `'project'` (the per-cwd project task ledger `<cwd>/.arco/project/tasks.json`) or `'none'`. Both board kinds use the `task_ledger_event` stream covered above. Cluster `meta.json` also carries `efficiencyLevel`/`efficiencyAddendum`, `messageGuard`, `dispatcher`, `memberRoles`/`memberTiers`/`memberFocuses`, `memberAccessModes`/`memberWebAccess` (ISOLATED and RESEARCHER access, web switch), `formerMembers` (a replaced member's id mapped to the id now in its slot, so old mail and board references still arrive), `memberCwds` (members whose workflow folder lives outside `cwd`, such as researchers), `research` (`{ projectId }` on research projects; the rest is in `research.json`), `skillPins`, `autoCompaction`, `idleNudgerEnabled`, `autoTurnOnMailboxEnabled`, the AUTO-PICKUP state (`autoPickupMode`, `autoPickupPausedAt`, `remindBusy`, `rulePickupLimits`, `smartPickup`), `remoteEnabled`, `planId`, and `progressTracking` (`'plan'|'board'|'both'`, set via the `cluster_progress_set` client message; persisted **only when non-default** - default `'both'` writes nothing, so pre-feature cluster meta stays byte-identical).
 
 **Mailbox** - one file per pending peer message under `mailbox/<recipientWfId>/<msgId>.json`. `peer_send` writes atomically so a reader never sees an in-progress record. The recipient's `peer_read` tool calls `clusterMailbox.drain`, which reads the complete batch and writes all attachments before unlinking delivered files. Delivered messages remain in the recipient's `events.jsonl` as `peer_message_received` events.
 
@@ -871,6 +905,7 @@ Operator-defined playbooks live in two scopes:
 
 - **Project**: `<cwd>/.arco/skills/<slug>/SKILL.md`
 - **Global**: `~/.arco/skills/<slug>/SKILL.md`
+- **Built-in**: shipped with Arco and written to `~/.arco/builtin-skills/<version>/<slug>/` so agents can read them by path. Each catalog read checks the files and restores a removed or edited one before the next turn. Turning a built-in skill off writes `{"off":true}` to `~/.arco/builtin-skill-state/<slug>/`.
 
 Each `SKILL.md` has YAML frontmatter (`name`, `description`) followed by the body. The slug is the directory name and is the stable identifier - renaming the skill doesn't require renaming the directory. Managed by `server/src/skills.ts`. The manifest injected into every primary turn's system prompt contains name + description + absolute path only; the agent reads the full body on demand via its `Read` tool.
 
@@ -977,6 +1012,8 @@ registered workflow/worker ids, skips the durable worker-PID registry, disables
 notifications and remote reporting, and keeps Claude framing off argv/temp
 files. llama.cpp is unavailable because its shared daemon log is not separable
 per request. External API retention is outside Arco's storage boundary.
+
+**Other browser keys** - Separate `arco.*` and `arco_*` keys hold per-browser preferences only: theme, fonts, brightness and Phosphor display settings, UI scale, layout mode, focus mode, panel widths and tabs, dialog sizes, collapsed sections, dismissed notices, preview options, the research window's last panel and the mobile view's text size (`arco_mobile_text_size`, Settings > THIS PHONE). None holds conversation content; clearing them resets the display.
 
 **`taskChildren`** - Settled Task-child records are included in the partialize allow-list so the TASKS sub-tab and TaskCard renders correctly after a page reload without waiting for the replay path to re-deliver lifecycle events. The server also re-broadcasts `task_started` / `task_status` on rehydrate regardless of `clientLastSeq` as a belt-and-suspenders; the idempotent client-side actions make the two paths safe to combine.
 
@@ -1090,13 +1127,6 @@ metadata remains public even when a private Computer subscribes. Paused mailbox
 rules retain their fixed expiry; saved rules survive context/provider changes
 independently of the optional model-update inbox.
 
-## Related links
-
-- [Architecture](ARCHITECTURE.md)
-- [Backup](BACKUP.md)
-- [Documentation style](STYLE.md)
-
-
 ### In-turn compaction narration
 
 For `native_compacted` markers with `inTurn: true`, the saved `summary` also carries the verbatim assistant narration from the round retained raw by the live worker. Replay therefore retains those facts once after the marker resets earlier rows. The live history keeps its original summary plus the raw round and does not append the narration twice. This uses the existing summary string and does not add structured tool replay or change older marker parsing.
@@ -1108,3 +1138,9 @@ Local primary turns append additive `file_context` events containing receipts an
 Old logs without metadata retain named attachment references from their message echoes. New readers can decode those existing sources; unavailable files produce a notice. Older readers ignore the new event and folder and continue reading ordinary messages. Downgrading loses automatic snapshot restoration while leaving the saved files intact. Native summary caches use a new derived-cache version and rebuild from the unchanged append-only history. No event-log format migration is required.
 
 Snapshots are immutable conversation data. No automatic cleanup removes them. Storage measurement counts their bytes as Conversation files; operator archive, restore and purge include the entire conversation folder. Incognito records references in its in-memory history and stores media in bounded process memory, never on disk. Closing or resetting that conversation clears its memory snapshots.
+
+## Related links
+
+- [Architecture](ARCHITECTURE.md)
+- [Backup](BACKUP.md)
+- [Documentation style](STYLE.md)

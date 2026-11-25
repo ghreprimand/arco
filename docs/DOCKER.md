@@ -185,12 +185,18 @@ container, even when the same provider is already connected on the host.
 | Claude Code | CLI bundled | Claude subscription login and live session acceptance |
 | Claude Native | API adapter retained | Browser sign-in through the published callback port; container acceptance pending |
 | Ollama / LM Studio | HTTP adapters retained | Reachable model endpoint in provider settings |
-| Strata | HTTP adapters retained | Provider configuration and container acceptance |
+| Strata, DeepSeek through Xolotl | HTTP adapters retained | Reachable external runtime in provider settings and container acceptance |
+| Antigravity CLI (Gemini) | CLI unbundled | Custom image with `agy`, its sign-in inside the container, and acceptance |
 | Cursor | CLI unbundled; disabled on new volumes | Custom image with `cursor-agent`; explicit enable and acceptance |
 | llama.cpp | Executable unbundled; disabled on new volumes | Custom runtime/model setup and acceptance |
 
 These are deployment states, not claims that every adapter has passed live
-provider acceptance. Initial disabled-provider settings are written only for a
+provider acceptance. The image has no bubblewrap or socat, so the Linux worker
+sandbox is unavailable in the container: Claude CLI, Codex, Cursor and Gemini
+researchers and isolated Claude CLI, Codex and Cursor members show as
+unavailable. Claude Native and local-model researchers, and isolated Claude
+Native members, still work. The bundled Codex is also not the exact version
+Codex researchers need. Initial disabled-provider settings are written only for a
 new volume; updates preserve operator choices. GitHub CLI, media tools, browsers
 and language-specific build dependencies are not included in the stock image.
 
@@ -263,6 +269,9 @@ docker compose up -d --build
 ```
 
 Updates interrupt active turns; keep the existing volume and project mounts.
+Arco's own update action does not replace a container: in Docker it shows these
+host commands for the newest release tag (COPY COMMAND, COPY POWERSHELL
+COMMAND) instead, and the update script refuses to run inside the container.
 
 ### Verification smoke
 

@@ -4,7 +4,8 @@ A read-only surface showing which system components are available. It lives in
 the **System** modal, opened from the header power button (`⏻`). Four tabs:
 **ACTIONS** (RESTART / QUIT), **DIAGNOSTICS** (A1/A2 status checks + support
 bundle), **MODELS** (A3 local model health) and **SERVICES** (local services,
-see [Local services](LOCAL_SERVICES.md)).
+see [Local services](LOCAL_SERVICES.md)). In the mobile view there is no ACTIONS
+tab: the modal opens on DIAGNOSTICS and RESTART and QUIT sit below every tab.
 
 ## Where it lives
 
@@ -187,9 +188,9 @@ token objects:
 
 - `gitRev`, `git rev-parse --short HEAD` against the Arco checkout (execFile,
   argv array, no shell, 4s timeout; missing git / non-repo -> `unknown`).
-- `runtime.serviceMode`, best-effort. Service mode proper lands in **Part B**;
-  for now this is `dev (tsx watch)` when running under tsx, else `unknown`. It
-  never claims a production mode Arco doesn't have yet.
+- `runtime.serviceMode`, best-effort. It is `dev (tsx watch)` when the server
+  runs under tsx, else `unknown`; the bundle does not detect the per-user
+  service ([Service mode](SERVICE_MODE.md)) or a package install.
 
 ### Redaction (Appendix D, allowlist, not denylist)
 
@@ -331,7 +332,7 @@ Editing any file under `server/` or `shared/` triggers `tsx watch` to restart th
 If an agent is mid-turn and you save a server file, the agent dies and the chat shows a partial reply. Workarounds:
 - Wait until idle to save server changes.
 - Or pause the watch by editing only client files until the agent finishes.
-- The launcher's `restart` command is the controlled way to bounce the server when you do want to recycle.
+- RESTART in the System modal is the controlled way to restart the server when you do want to recycle; a package install running as a service can also use `arco service restart`.
 
 Client files (under `client/src/`) hot-reload via Vite without affecting workers.
 

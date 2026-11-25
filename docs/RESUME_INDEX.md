@@ -46,8 +46,8 @@ the later session.
 | `subtitleSource?` | `summary` (sticky) or `dynamic` (refreshed each upsert). |
 | `lastOutcome?`, `currentQuestion?` | Undefined in older index entries. |
 | `tags?` | User tags. Preserved across derived upserts (never clobbered by a refresh). |
-| `pinned?` | User pin; sorts to the top of the picker. Preserved across refreshes. |
-| `archived?` | User archive flag; filtered out unless "show archived" is on. Preserved across refreshes. |
+| `pinned?` | Pin flag set through `POST /api/session-index/pin`. Preserved across refreshes. No current screen reads it. |
+| `archived?` | Archive flag set through `POST /api/session-index/archive`. Preserved across refreshes. No current screen reads it. |
 | `contextPercent?`, `quotaLabel?` | Reserved live-workflow telemetry; not populated for inactive sessions (see Deferred behavior). |
 | `sourceHash?` | Cheap material-change marker (the workflow's `lastEventSeq` as a string). Model-title generation uses it to decide whether a cached title is stale. |
 | `lastSeq?` | mirrors `meta.lastEventSeq`. |
@@ -137,7 +137,7 @@ The index updates **opportunistically**, never on its own schedule:
 
 **All three are failure-isolated**, fired-and-logged, never awaited into the
 caller's result (identical to the Recall upsert's contract). A hiccup in the
-index must never break a real workflow's meta write, a session-picker fetch, or a
+index must never break a real workflow's meta write, a session-discovery fetch, or a
 summary write. The index is rebuildable, so failing closed loses nothing.
 
 ### Acceptance invariant

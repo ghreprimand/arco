@@ -35,7 +35,7 @@ If you're new to the codebase, read in this order:
 2. [`GLOSSARY.md`](GLOSSARY.md) - terminology
 3. [`PROTOCOL.md`](PROTOCOL.md) - every WebSocket message, what it does (with siblings [`PROTOCOL_PRIMITIVES.md`](PROTOCOL_PRIMITIVES.md) - operator-primitive messages, and [`PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md) - cluster-mode messages)
 4. [`HTTP_API.md`](HTTP_API.md) - every HTTP endpoint with request/response shapes
-5. [`PROVIDERS.md`](PROVIDERS.md) - per-provider deep dive (Claude CLI + Native, Codex exec + app-server, Ollama, llama.cpp, LM Studio, Strata, Cursor acp + print)
+5. [`PROVIDERS.md`](PROVIDERS.md) - per-provider deep dive (Claude CLI + Native, Codex exec + app-server, Antigravity CLI, Cursor acp + print, Ollama, LM Studio, Strata, DeepSeek, llama.cpp)
 6. [`PRIMITIVES.md`](PRIMITIVES.md) - Review, Handoff, Spawn deep dives
 7. [`PERSISTENCE.md`](PERSISTENCE.md) - `events.jsonl`, `meta.json`, `.arco/` layout
 8. [`CLIENT.md`](CLIENT.md) - Zustand store, component tree, render pipeline
@@ -51,6 +51,7 @@ Beyond the core reading order, each operator-facing subsystem has its own refere
 
 - [`DEEPSEEK.md`](DEEPSEEK.md) - prepared DeepSeek Exact/Light via Xolotl, guarded lifecycle, memory and source-version tracking
 - [`STRATA.md`](STRATA.md) - Strata large MoE runbook, model profiles, RAM/VRAM tiers, web/vision and recovery
+- [`RESEARCH.md`](RESEARCH.md) - research projects, rounds, the blind distil and Quick research
 - [`CHAT.md`](CHAT.md) - projectless Chat tabs, web toggle, attachments, Incognito privacy boundary
 - [`VOICE.md`](VOICE.md) - canonical Computer/voice reference: capture and speech, selectable agents, context/privacy, tools, live activity, conditional scripts, recovery and verification
 - [`TERMINAL.md`](TERMINAL.md) - integrated operator PTY (`/terminal` WS channel, off the seq'd protocol)
@@ -70,7 +71,7 @@ Beyond the core reading order, each operator-facing subsystem has its own refere
 - [`BACKUP.md`](BACKUP.md) - `npx tsx scripts/arco-backup.ts snapshot` (what state is captured / skipped / redacted)
 - [`SERVICE_MODE.md`](SERVICE_MODE.md) - running Arco as a service
 - [`GIT_WORKBENCH.md`](GIT_WORKBENCH.md) - Git workbench surface
-- [`RESUME_INDEX.md`](RESUME_INDEX.md) - resume-index for the session picker
+- [`RESUME_INDEX.md`](RESUME_INDEX.md) - the project-local session index of titles and summaries (session-index API; resume uses session discovery)
 
 Private planning and research documents are excluded from this public reference set.
 
@@ -118,6 +119,8 @@ Claude argv/temp-file framing are disabled. Cursor and llama.cpp are unavailable
 because their local persistence/logging cannot meet the strict boundary.
 
 Arco is a tabbed multi-provider coding workbench. Each tab owns one long-lived **primary agent** (Claude / Codex / Cursor / Antigravity CLI / Ollama / llama.cpp / LM Studio / Strata / DeepSeek) running against one **working directory**. **Claude has two transports** - `native` (the new-home default, a long-lived in-process worker via `@anthropic-ai/sdk`) and `cli` (per-turn `claude` spawn); **Codex has two** - `appserver` (the new-home default, a long-lived `codex app-server` per tab) and `exec` (per-turn `codex exec --json`); **Cursor has two** - `acp` (default, long-lived `cursor-agent acp` ACP worker) and `print` (stateless `cursor-agent -p --mode ask` one-shot, auto-routed for read-only primitive spawns). Operators chat directly with that primary; ordinary chat messages are not secretly routed and Arco does not silently pick models for them. Three operator-triggered **primitives** layer on top - **Review** (cross-family second opinion, transcript-scoped or plan-scoped), **Handoff** (rotate to a fresh session within the same tab), **Spawn** (fork the conversation to a new tab) - plus two structured one-off composer surfaces (**DOCS** / **GIT**). A **cluster** is a parent tab kind that hosts N member workflows in one project, with separate workspaces for isolated members; members hand notes via a budgeted peer-tool substrate between operator turns. Same-provider model and effort changes happen live without rotation; provider swaps require a Handoff. Every workflow-scoped event is stamped with a monotonic `seq` and persisted to `events.jsonl` so reconnecting clients get lossless replay. There is no hidden orchestrator authority, no silent autonomous routing, and no LLM-curated memory: model-assisted proposals or dispatch are eligible only when operator-armed, visible, logged, reversible, and applied through explicit approval or bounded task tools.
+
+A **research project** is a cluster whose Research Director sends one brief to isolated researchers and distils their released reports; see [RESEARCH.md](RESEARCH.md). On a phone-sized screen the same client switches to a **mobile view** with one page at a time; see [Mobile view](CLIENT.md#mobile-view). Each tab, member and cluster also has a `scratch/` folder for large intermediate files that Arco empties only on the operator's request.
 
 ---
 
@@ -232,6 +235,8 @@ graph TB
     S --> ST
     S --> M
 ```
+
+Both diagrams omit three providers for space: Antigravity CLI (`providers/antigravity/`, a long-lived `agy acp` process per tab), and Strata and DeepSeek (HTTP connections that reuse the `lmstudio.ts` worker).
 
 **Monorepo** - npm workspaces:
 
@@ -420,6 +425,8 @@ All three primitives accept a `broadcast` callback so events can be stamped to a
 - `llamacpp.ts` + `llamacppManager.ts` + `llamacppRecovery.ts` - singleton manager owns the `llama-server` daemon, OpenAI-compatible chat-completions endpoint, in-place auto-recovery for reasoning runaway / stall / tool-cap / context fill
 - `lmstudio.ts` - LM Studio provider via its OpenAI-compatible `/v1` endpoint
 - `cursor/` - Cursor via `cursor-agent` over the Agent Client Protocol (ACP). Default `acp` transport is a long-lived per-workflow JSON-RPC 2.0 worker (`worker.ts` / `acpJsonRpc.ts`); `print.ts` is the stateless `cursor-agent -p --mode ask` read-only one-shot used for reviewer / fresh-summarizer / DOCS / research / SECOND OPINION primitives (routed when `config.sandbox === 'read-only'` so a primitive never hijacks the live ACP session). `catalog.ts` enumerates the family×effort model roster via a short-lived `cursor-agent models` spawn - Cursor bakes reasoning effort into the model id (`-low` / `-high` / `-xhigh` / `-max`), so there is no separate effort surface. Cluster peer tools ride an in-process loopback StreamableHTTP MCP (`mcp/clusterMcpLoopback.ts`), since Cursor ACP honors MCP only over http/sse, not stdio.
+- `antigravity/` - Antigravity CLI (Gemini) through Google's own `agy acp` on the operator's sign-in, interactive tabs only (`index.ts`), with `researchSignIn.ts` for the separate Gemini for research sign-in and `status.ts` for the provider status. Gemini members wait for the operator's NUDGE instead of automatic turns; see [Gemini members](PROTOCOL_CLUSTER.md#gemini-members) and [Gemini researchers](RESEARCH.md#gemini-researchers).
+- `strata.ts`, `deepseek.ts` - Strata and DeepSeek through Xolotl, separate HTTP connections that reuse the `lmstudio.ts` worker (see the paragraphs under "What Arco is").
 - `codex-stream.ts` - streaming JSONL parsers
 
 Every provider implements `spawn(prompt) -> events` and emits a uniform event stream: `init`, `text`, `thinking`, `tool_use`, `result`, `error`, `system_notice`. The `seedWorker` (and `runReviewer`, `runExportContext`) wrap these into the protocol's `worker_*` and `primary_*` messages.
@@ -458,11 +465,13 @@ Deterministic, always-on guards (not the model's judgment) that bound what a Nat
 
 Arco's browser file views use an allowed-root policy that refuses private folders. Built-in file tools stay inside the project folder but do not apply that private-folder list inside projects; agents can read project content such as `.claude` or `.codex`. Claude Native asks before writes to a small set of sensitive targets, but that is not a read filter. These controls do not sandbox shell commands. Provider CLI tools follow their own sandbox and approval settings, and an allowed command can access paths beyond Arco's file roots. Media Studio has a separate Media Access setting for outside-folder inputs and outputs.
 
-On Linux, a sandboxed Claude CLI, Codex or Cursor researcher or isolated member runs in a bubblewrap user, process, network, IPC and UTS namespace with a private provider home and temporary directory, a read-only system runtime and one writable workspace. Runtime discovery accepts selected installation layouts and refuses unknown layouts. A per-worker Unix-socket web proxy resolves public destinations and connects to the checked address. It allows 30 seconds to read a request and connect upstream; an established tunnel or streamed response then ends only after 10 minutes without data in either direction, or after 1 GiB in one direction of one tunnel (64 MiB for one plain-HTTP body); a token-protected mailbox bridge binds requests to one worker and exposes only peer mail to the Research Director. Filtering destination addresses cannot identify an external relay or router that forwards back to a local service. A same-namespace preflight checks host directory paths, local services, workspace writing, web access and the scoped mailbox before the provider starts. Each provider's inner sandbox denies its private home, access pass and preflight configuration to its tools, and permits its shell only inside the outer fence. For Cursor, the fence presents `/usr/bin` without the setuid `newuidmap` and `newgidmap` helpers, which cannot work inside it; Cursor's sandbox helper then maps its own namespace. The Cursor preflight also starts that helper and requires it to deny a read of the preflight configuration and the private home while allowing the workspace. Cursor limits reads to the workspace only when a Cursor-side feature flag allows it, so the Cursor pass is emptied as soon as the agent reports its start; the token stays only in the agent's memory.
+On Linux, a sandboxed Claude CLI, Codex, Cursor or Gemini researcher, or a Claude CLI, Codex or Cursor isolated member, runs in a bubblewrap user, process, network, IPC and UTS namespace with a private provider home and temporary directory, a read-only system runtime and one writable workspace. Runtime discovery accepts selected installation layouts and refuses unknown layouts. A per-worker Unix-socket web proxy resolves public destinations and connects to the checked address. It allows 30 seconds to read a request and connect upstream; an established tunnel or streamed response then ends only after 10 minutes without data in either direction, or after 1 GiB in one direction of one tunnel (64 MiB for one plain-HTTP body); a token-protected mailbox bridge binds requests to one worker and exposes only peer mail to the Research Director. Filtering destination addresses cannot identify an external relay or router that forwards back to a local service. A same-namespace preflight checks host directory paths, local services, workspace writing, web access and the scoped mailbox before the provider starts. Each provider's inner sandbox denies its private home, access pass and preflight configuration to its tools, and permits its shell only inside the outer fence. For Cursor, the fence presents `/usr/bin` without the setuid `newuidmap` and `newgidmap` helpers, which cannot work inside it; Cursor's sandbox helper then maps its own namespace. The Cursor preflight also starts that helper and requires it to deny a read of the preflight configuration and the private home while allowing the workspace. Cursor limits reads to the workspace only when a Cursor-side feature flag allows it, so the Cursor pass is emptied as soon as the agent reports its start; the token stays only in the agent's memory.
 
 Before each Claude CLI or Codex researcher turn, the server obtains a fresh read-only access pass from the existing sign-in and never places its renewal key in the sandbox. Codex retains the account identifier required for a same-account reload; its pass is atomically replaced inside a read-only mounted directory so a running command can keep the app-server alive across turns. A normal provider refresh runs outside the sandbox when the credential is near expiry. This server coordinates its own isolated passes; other processes can refresh the sign-in and invalidate an active pass. A researcher authentication failure reissues the pass and retries once. If the normal sign-in cannot be renewed, the research window offers RE-LOGIN and the researcher waits for the sign-in to change while retaining its remaining round time. Researcher transport and identity must match the stored research project. The researcher card says checking until the preflight and provider startup succeed, then sandboxed.
 
 Research projects with sandboxed researchers put distinct synthetic markers in each workspace and private provider home. Observed output, tool results, reports and returned files are checked for another member's marker; explicit protected paths and loopback addresses in observed file or shell calls raise a separate warning. Markers stay out of the Director summary and the close-project file sweep. The peer mailbox accepts bounded regular workspace files, rejects links and pins Linux directory descriptors while reading. A cached availability probe controls whether the start dialog offers each CLI provider; each worker still runs its own preflight. Codex is limited to CLI 0.171.0, with the named profile checked before its thread starts. Cursor needs version 2026.11.22 or later; because Cursor updates itself, the preflight before every turn, not an exact version, is the guard that fails closed. Other platforms do not offer CLI researchers until their isolation has been proved on real hardware.
+
+The host needs `bwrap` (bubblewrap) on `/usr/bin:/bin` with unprivileged user namespaces allowed, `socat` at `/usr/bin` or `/usr/local/bin`, and a Node runtime whose real path is under `/usr/` (`server/src/workers/linuxWorkerSandbox.ts`, `checkedLinuxWorker.ts`); a Node installed under the home folder cannot run sandboxed members. The availability probe (`workers/researchSandboxAvailability.ts`, `GET /api/diagnostics/research-sandbox`, cached 60 seconds per provider) starts a throwaway fence running `/usr/bin/true` with the same self-check; any failure reports the provider unavailable, without a finer reason.
 
 The separate-sign-in fallback can prepare an owned private provider home for an isolated member without copying an existing login. Homes are distinct per member and persist for that slot. This is not a credential broker: a provider's shell can read credentials placed in its own home. Provider login, removal and lifecycle wiring remain unimplemented.
 
@@ -473,11 +482,13 @@ Per-service. Status discovered at boot and cached:
 - `GET /api/auth-status` returns combined snapshot (per-provider `loggedIn`, `email`, `subscriptionType`, `installedModels`, `error`)
 - `POST /api/auth-login?provider=<name>` triggers the appropriate flow:
   - **Claude** - shells `claude auth login --claudeai`
-  - **Codex** - shells `codex login`
+  - **Codex** - `codex login --device-auth` (with `CODEX_HOME` set for an account profile)
   - **GitHub** - `gh auth login`
   - **Ollama** - no login; just probes `OLLAMA_URL_BASE/api/tags`
   - **Cursor** - Connections runs `cursor-agent login` inside Arco and shows its link (the terminal command stays as a fallback). Status is read fresh from `~/.config/cursor/auth.json` (session JWT) and reads not signed in while Cursor has rejected that token (`providers/cursor/authState.ts`). A long-lived ACP child keeps its start-time credentials, so a `Please sign in to continue` answer is converted into the `[AUTH:cursor]` card and the cached worker is retired
   - **Claude Native** - its own OAuth flow via `/api/auth/claude-native/*` (tokens in `~/.arco/auth.json`)
+  - **Antigravity CLI** - `agy acp --login`; **Gemini for research** runs the same command in the separate `~/.arco/antigravity-research` home
+  - No provider opens a terminal itself: each returns the command (and in Docker the `docker compose exec arco` form). With `inApp=1`, Codex, Claude, Cursor, Antigravity CLI and Gemini for research start a relayed in-app session instead
 
 The auth overlay blocks the UI only when no primary-capable provider is authed; specific tabs may still error if their pinned provider is unauthed.
 
@@ -603,7 +614,7 @@ isBusy = (job.busy === true) || hasActiveWorkers || hasStreaming
 - **Idle** - fresh prompt, Enter sends a `user_message`
 - **Busy / queue mode** - placeholder reads `↵ steer · ⌥↵ follow-up · Ctrl/⌘↵ interrupt & send` (or `⎋ cancel turn` where interrupt is not offered); queued messages show in PENDING until the server's `user_message_echo` arrives
 
-A diagnostic chip (`b·w·s`) shows next to the CANCEL button when `isBusy` is true so you can see at a glance which of the three flags is keeping the composer in queue mode.
+A diagnostic chip (`b·w·s`) shows next to the CANCEL button when `isBusy` is true so you can see at a glance which of the three flags is keeping the composer in queue mode. In the mobile view the composer uses `PhoneSendButtons` instead: STOP takes SEND's place while the agent works, STEER with STOP beside it once a draft is typed, and QUEUE FOR AFTER sits in the message tools; the chip and CANCEL button are not shown.
 
 ---
 
@@ -615,20 +626,22 @@ Per-workflow, under `<workflow-cwd>/.arco/workflows/<wfid>/`:
 - `meta.json` - workflow identity, session ledger, calibration state, plan attachment, auto-handoff settings. Atomic tmp+rename writes.
 - `artifacts/review-<ts>.md` - Review primitive output (YAML frontmatter + body)
 - `handoffs/handoff-<ts>.md` - Handoff primitive output
+- `scratch/` - large intermediate files; emptied only on the operator's EMPTY SCRATCH or the scratch choice offered when a tab, member or cluster closes. `keep.json` lists KEEP items that EMPTY SCRATCH, ARCHIVE and DELETE skip.
 
 Operator-global, under `~/.arco/`:
 
 - `chats/<wfid>/` - saved Chat tabs' persistence cwd (the normal `.arco/workflows/<wfid>/` layout nested inside); Incognito never creates one
 - `settings.json` - operator preferences
-- `models.md` - model catalog (populates dropdowns)
+- `models.md` - vestigial model catalog; pickers use the live per-provider catalogs
 - `known-cwds.json` - crash-recovery registry of which cwds host workflows
 - `worker-pids.json` - live worker PIDs for orphan reaping
 - `cli-snapshots/` - provider CLI version snapshots for change detection
 - `clusters/<clusterId>/` - cluster state (`meta.json`, `mailbox/<recipientWfid>/<msgId>.json` file-per-message pending mailbox). The cluster plan body now lives in the per-cwd plan store (`<cwd>/.arco/plans/<planId>.md`); the legacy `clusters/<clusterId>/plan.md` is read-only and lazily migrated. Members' durable conversation history lives in their per-workflow `events.jsonl`; the mailbox is the transient delivery layer.
 - `bakeoffs/<cwd-hash>/` - durable worktree-bake-off manifests plus managed linked worktrees. Attempts are ordinary workflows; only an explicit operator promotion merges one into the source checkout.
+- `research/<projectId>/` - research members' conversations, kept outside the research folder; `chat-workspaces/` - Quick research folders and Antigravity Chat working folders; `antigravity-research/` - the Gemini for research sign-in
 - `skills/`, `handoff*.prompt.md`, `llamacpp.json` - operator-managed skills, handoff prompt overrides, llama.cpp GGUF catalog (project-level mirrors live under `<cwd>/.arco/`).
 
-`.arco/workflows/` is `.gitignore`-d on first init. See [PERSISTENCE.md](PERSISTENCE.md) for full layout, file formats, and atomic-write patterns.
+`<cwd>/.arco/.gitignore` (default `*`) keeps all project state out of Git from the first write. See [PERSISTENCE.md](PERSISTENCE.md) for full layout, file formats, and atomic-write patterns.
 
 ---
 
@@ -701,7 +714,7 @@ The six core actions (every workflow surface reduces to these):
 | Action | UI surface | WS message | Handler |
 |---|---|---|---|
 | **New project** | `WorkflowCreator.tsx` | `create_workflow` | `handleCreateWorkflow` |
-| **Resume** | unified picker in `WorkflowCreator` (Claude `~/.claude/projects/...`, Codex `~/.codex/sessions/...`) | `create_workflow` with `resumeSessionId` | `handleCreateWorkflow` |
+| **Resume** | RESUME in `WorkflowCreator` and Resume on a Home project card (Claude `~/.claude/projects/...`, Codex `~/.codex/sessions/...`) | `create_workflow` with `resumeSessionId` (Arco's own sessions: `resumeWorkflowId`) | `handleCreateWorkflow` |
 | **Review** | composer ✎ REVIEW button -> `ReviewDialog`. Plan tab adds paired plan-scoped surfaces (REVIEW PLAN / VERIFY WORK at top; ▷ REVIEW PHASE PLAN / ▷ VERIFY PHASE WORK per H3 heading; CUSTOM REVIEW picker) with `prefilledPlanRef`. HISTORY tab anchors a `since-event` review with `prefilledSinceEventRef` | `review_request` (with transcript / since-event / plan-* `contextRef`) | `handleReviewRequest` |
 | **Handoff** | composer ⤭ HANDOFF button -> `HandoffDialog` | `handoff_request` | `handleHandoffRequest` |
 | **Spawn from here** | composer ⎇ SPAWN button -> `SpawnDialog`. Plan tab adds per-task ▷ SPAWN pills + per-section ▷ SPAWN PHASE pills; HISTORY tab anchors with `cutoffEventSeq` | `spawn_from_here_request` | `handleSpawnFromHere` |
@@ -718,7 +731,7 @@ Provider is **not** editable in CONFIG - provider swap requires a Handoff becaus
 
 CONFIG also exposes the Codex **CONTEXT** policy (MAX / STANDARD, both effective values shown), the **goal run** arming control (not offered for Antigravity CLI), and per-tab toggles for **transport** (Claude `native` / `cli`, Codex `appserver` / `exec`; new homes default to the first option in each pair, with cascade settings taking precedence), **output style** (`normal` / `plain` / `terse`, `plain` when unset - not offered for Antigravity CLI; reviewers and seeds use `normal`), **Claude API compaction (beta)** under CONFIG > ADVANCED (Native, `compact_20260112`, default OFF), **auto-handoff** after N compactions, per-tab **auto-fold** (Claude Native, default OFF), the **tool-posture** pill (Claude Native, full / coding / chat / review), the **approval gate** (`reviewSafeMode`, Native, default OFF - see below), the **north-star** objective field (see below), the sticky **ultracode** toggle (Claude, forces CLI+xhigh+Workflow-tool at turn time), the Native **thinking visibility** picker (`omitted` / `summarized`), and the Native **web-lookups/turn** budget (`webSearchMaxUses`). Configuration controls are described in the CONFIG-tab sections in [CLIENT.md](CLIENT.md).
 
-Above the composer, **PLAN FIRST (next turn)** sits beside NORTH STAR. It arms plan mode for one Native Claude turn and is hidden for director, coordinator, reviewer, researcher and documenter cluster members, and members whose roles prohibit code changes.
+Above the composer, **PLAN FIRST (next turn)** sits beside NORTH STAR. It arms plan mode for one Native Claude turn and is hidden for director, coordinator, reviewer, researcher, documenter and advisor cluster members, read-only roles, and members whose roles prohibit code changes.
 
 Cluster tabs add their own operator surfaces - `+ ADD WORKER`, DETACH, RENAME, ROLE, the composer's TO recipient chooser, NUDGE modal, AUTO-PICKUP toggle, idle nudger toggle, the per-cluster **efficiency-level chip** (thorough / balanced / lean, owned by `clusterEfficiency.ts`), the BOARD-tab create-task composer + AUTOMATION controls, plan editor with PROMOTE TO CLUSTER / `cluster_plan_tick`, cluster-routed Review. See [Cluster mode](#cluster-mode) above.
 
@@ -768,7 +781,7 @@ Five-phase rollout, SHIPPED 2026-05-10. A cluster is a parent tab kind that host
   attached `planId?`, `taskBoardMode?`).
 - `mailbox/<recipientWfid>/<msgId>.json` - file-per-message pending mailbox (16 KB content cap, 32 KB for operator transcript-sends; 50-message per-recipient pending cap, oldest dropped). `clusterMailbox.drain` removes the file when delivered; the durable record lives in the recipient's `events.jsonl` (`peer_message_received`).
 - `isolates/<wfid>/workspace/` - durable private scratch cwd for an ISOLATED
-  Claude Native member. It is outside the project tree and mode `0700`.
+  member or a researcher. It is outside the project tree and mode `0700`.
 - Cluster plan: attached by `planId` in `meta.json`; the body is canonical in the per-cwd plan store at `<cwd>/.arco/plans/<planId>.md`, unified through `clusterPlanBridge.ts`. Legacy `~/.arco/clusters/<id>/plan.md` is read-only and lazily migrated (32 KB cap, 28 KB soft warn).
 
 **Portable snapshots.** A live cluster can be saved locally, exported as a
@@ -792,12 +805,13 @@ copies them into the recipient's `.arco/peer-artifacts/<msgId>/`.
 - **Native Claude** - in-process tool registration gated on `worker.config.clusterId`.
 - **CLI Claude** - `--mcp-config <path>` writes a per-spawn `arco-cluster` stdio MCP child via `server/src/mcp/clusterMcpServer.ts`, translating MCP tool calls into REST against `/api/clusters/:id/peer/*`.
 - **Codex `exec` + `app-server`** - same MCP child registered via Codex's `-c mcp_servers.arco-cluster.*` TOML overrides (no `--mcp-config` flag in Codex CLI). The `app-server` transport's MCP child lives for the appserver's lifetime, not per-turn; cluster-context-change recycle in `acquireWorker`.
-- **Ollama / llama.cpp** - local members run peer tools through Arco's in-process tool runtime (no MCP child). `isClusterMemberProvider` accepts `claude` / `codex` / `ollama` / `llamacpp` / `cursor`; the membership guard `assertAllMembersClaudeOrCodex` (name is historical - it now delegates to `isClusterMemberProvider`) rejects anything outside that set (other providers have no peer-wiring path Arco can drive). How many members may use each local runtime is `localClusterCapacity` (`{ ollama?, llamacpp? }`, integers 1-16, default 1 each; set in Connections). Create/add/replace refuse with `rejected: local_capacity: <reason>` when a change would exceed it; set `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` to lift the check.
+- **Ollama / llama.cpp** - local members run peer tools through Arco's in-process tool runtime (no MCP child). `isClusterMemberProvider` accepts `claude` / `codex` / `ollama` / `llamacpp` / `cursor` / `antigravity-cli`; the membership guard `assertAllMembersClaudeOrCodex` (name is historical - it now delegates to `isClusterMemberProvider`) rejects anything outside that set (other providers have no peer-wiring path Arco can drive). How many members may use each local runtime is `localClusterCapacity` (`{ ollama?, llamacpp? }`, integers 1-16, default 1 each; set in Connections). Create/add/replace refuse with `rejected: local_capacity: <reason>` when a change would exceed it; set `ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1` to lift the check.
 - **Cursor** - peer tools ride an in-process loopback StreamableHTTP MCP server (`mcp/clusterMcpLoopback.ts`) whose URL is handed to Cursor in `session/new` / `session/load` `mcpServers`; Cursor ACP honors MCP only over http/sse, not stdio. Fresh-only membership; the server list is refreshed each turn so a mid-life board attach/detach reflects on the next tool call.
+- **Antigravity CLI** - the cluster tools reach `agy acp` through the same loopback StreamableHTTP MCP server as Cursor, alongside Arco's file and plan tools. Its member turns start only on the operator's NUDGE or typed message, and AUTO-PICKUP skips it (see [Gemini members](PROTOCOL_CLUSTER.md#gemini-members)).
 
 **Plan + role propagation.** Native injects via forced system blocks (`FORCED_FIRST_BLOCK -> cluster plan -> cluster role -> appendSystemPrompt -> systemPrompt -> output style`). CLI Claude and Codex `exec` fold the same blocks into `WorkerConfig.appendSystemPrompt` under a 16 KB soft cap; Codex app-server uses a bounded 48 KB fold so its JSON-RPC path can carry the full 32 KB maximum plan plus small cluster blocks. App-server also sends stable role, Director contract, and code-mode tool mapping as `developerInstructions`, so Codex's built-in `/root` framing cannot outrank the assigned Arco role.
 
-**UI.** `ClusterTab` (left: N-pane horizontal flex of `MemberPane`; right: grouped `ClusterRightPanel`). Groups mirror the standalone right panel: WORKSPACE (`MEMBERS`, `FILES`), AGENT (`ACTIVITY`, `REVIEWS`, `HANDOFFS`, `PLAN`, `BOARD`, `MAILBOX`), MEMORY (`HISTORY` of the member in view, `USAGE`), RUNTIME (`PREVIEW`, member-scoped `CONFIG`, `GITHUB`). Operator surfaces:
+**UI.** `ClusterTab` (left: N-pane horizontal flex of `MemberPane`; right: grouped `ClusterRightPanel`). Groups mirror the standalone right panel: WORKSPACE (`MEMBERS`, `FILES`; a research project adds `RESULTS` first), AGENT (`ACTIVITY`, `REVIEWS`, `HANDOFFS`, `PLAN`, `BOARD`, `MAILBOX`), MEMORY (`HISTORY` of the member in view, `USAGE`), RUNTIME (`PREVIEW`, member-scoped `CONFIG`, `GITHUB`). Operator surfaces:
 - `+ ADD WORKER` (spawn N fresh inheriting the cluster's template, or pick a same-cwd standalone tab).
 - `REPLACE` per member (new workflow/provider session in the same roster
   position; cloned config; optional provider/model/effort/account override;
@@ -849,6 +863,10 @@ Built on top of the cluster and task-ledger substrate. The shipped control plane
 
 - `index.json` - fast list of `{id, title, createdAt, updatedAt}` summaries
 - `<planId>.md` - markdown body (max 256 KB)
+- `<planId>.refs/<slug>.md` - reference docs linked from tasks as `ref:<slug>`, with `<slug>.files/` for sources sent with a research report
+- `.history/<sha256>.md` - each distinct cluster plan body, written once (`planHistory.ts`)
+
+See [PERSISTENCE.md](PERSISTENCE.md#plan-store) for the full layout.
 
 Plans survive across workflows (they live in the cwd, not the workflow). The operator can attach a plan to a workflow via the Plan tab in the right pane. On each primary turn, if `wf.planId` is set, a one-line plan header (title, file path, refs, edited or newly attached) is prepended to the prompt invisibly and the agent reads the body from the file (operator's transcript stays clean). Plan edits since the last turn trigger re-injection so the agent picks up changes.
 

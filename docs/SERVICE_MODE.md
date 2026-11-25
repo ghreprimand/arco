@@ -167,7 +167,9 @@ ARCO_PORT=3002 npm run arco:service -- install --enable
 ## The systemd `--user` unit
 
 `install` renders this to `~/.config/systemd/user/arco.service`, with `<repo>`
-replaced by the absolute path of the checkout:
+replaced by the absolute path of the checkout, `<node>` by the absolute path of
+the Node that ran the install, and `<arco-home>` by the resolved Arco home
+(`ARCO_HOME` or `~/.arco`):
 
 ```ini
 [Unit]
@@ -181,7 +183,8 @@ StartLimitBurst=5
 [Service]
 Type=simple
 WorkingDirectory=<repo>
-ExecStart=node <repo>/server/dist/index.js
+ExecStart=<node> <repo>/server/dist/index.js
+Environment=ARCO_HOME=<arco-home>
 Environment=ARCO_SERVE_CLIENT=1
 Environment=NODE_ENV=production
 Environment=ARCO_LOG_FILE=1
@@ -195,8 +198,10 @@ WantedBy=default.target
 
 Load-bearing details:
 
-- **`ExecStart` runs the compiled server** (`node server/dist/index.js`): never
-  `tsx`, never `npm run dev`.
+- **`ExecStart` runs the compiled server** (`server/dist/index.js` with the
+  installing Node): never `tsx`, never `npm run dev`.
+- **`Environment=ARCO_HOME`** pins the Arco home the install used, so the
+  service reads the same state as the shell that installed it.
 - **`Environment=ARCO_SERVE_CLIENT=1`** enables the in-process static-serve
   fallback (see below).
 - **`Environment=ARCO_LOG_FILE=1`** turns on structured file logging (see
@@ -360,7 +365,8 @@ in development too). Full request/response shapes:
 
 - **`GET /healthz` - liveness.** Always `200` once the server is listening
   (the route only runs when it is up):
-  `{ status: 'live', version, pid, uptimeSec }`. The `/health` route is a
+  `{ status: 'live', version, commit?, checkoutFingerprint, homeFingerprint,
+  pid, uptimeSec }`. The `/health` route is a
   back-compat alias returning the same body. Wire it to a systemd
   `ExecStartPost` curl, an uptime monitor, or a load-balancer liveness check.
 - **`GET /readyz` - readiness.**

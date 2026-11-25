@@ -44,11 +44,12 @@ Linux-only tools.
  `NAME` (`127.0.0.1:5173 (LISTEN)`, `*:8080 (LISTEN)`, `[::1]:3001 (LISTEN)`)
  yields the bind host:port. `*` -> `0.0.0.0`; bracketed IPv6 literals are
  unwrapped.
-2. **Resolve process name + cmdline per pid:** `/proc/<pid>/cmdline`
- (NUL-separated argv) on Linux, a fast no-spawn fast-path, with a `ps -p
- <pid> -o comm=,args=` fallback (macOS / when `/proc` is absent). Linux is
- detected via `process.platform === 'linux'` **and** the actual presence of
- `/proc`.
+2. **Resolve process name + cmdline per pid:** the cmdline comes from
+ `/proc/<pid>/cmdline` (NUL-separated argv) on Linux, a no-spawn fast path, with
+ a `ps -p <pid> -o args=` fallback (macOS, when `/proc` is absent, or for an
+ empty cmdline). The process name comes from `ps -p <pid> -o comm=` (basename),
+ falling back to `lsof`'s COMMAND column. Linux is detected via
+ `process.platform === 'linux'` **and** the actual presence of `/proc`.
 3. **Resolve cwd per pid:** `/proc/<pid>/cwd` symlink `readlink` on Linux, with a
  `lsof -a -p <pid> -d cwd -Fn` fallback elsewhere.
 
@@ -58,9 +59,9 @@ unique pid** (not per socket) to bound spawns; resolvers run concurrently.
 
 ### Filtering / dedup / sort (ported verbatim)
 
-- **Local-only:** keep loopback / wildcard / private bind addresses
- (`127.0.0.1` / `::1` / `0.0.0.0` / `::` / `127.*`); these are **listed**, not
- filtered out.
+- **Local-only:** keep loopback and wildcard bind addresses (`127.0.0.1`,
+ `::1`, `0.0.0.0`, `::`, `localhost`, `127.*`, or an empty host). A socket bound
+ only to another address, such as a LAN address, is not listed.
 - **Privileged-port skip:** drop ports `< 1024`.
 - **Dedup** by `(pid, host, port)`.
 - **Sort:** port asc, then `processName`, then `pid`.
