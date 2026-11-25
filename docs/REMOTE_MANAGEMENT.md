@@ -129,6 +129,8 @@ type RemoteManagementAction =
 
 The current workflow-action route uses `WorkflowActionType`: `reply`, `stop`, `continue`, `handoff`, `compact`, `fold`, `answer_question`, `gate_resolve` and `cancel_queued`. Availability depends on the live workflow and its remote settings. Gate resolution requires its separate remote permission.
 
+The hub link also carries cluster actions (`ClusterActionRequest` in `shared/src/protocol/remoteManagement.ts`): `broadcast`, `nudge_member` (one canned, visible prompt to one member to read its mailbox), `peer_send`, `stop_all`, `set_efficiency` (`thorough`, `balanced` or `lean`), `toggle_auto_turn`, `toggle_idle_nudger` and `board_task_update` (board tap-to-advance; the only remote path that may set a task to done). The owning instance re-checks the cluster's remote switch and membership before applying. Creating, deleting and changing membership stay on the desktop. Instance actions are `start_reauth` and `complete_reauth`, which run the Claude sign-in from the phone console; any other instance action answers `unsupported`. These are hub-link requests, not browser WebSocket messages.
+
 Flow: console -> hub signs + routes to the owning instance -> **local Arco re-validates** `requestId`
 against its *current* pending request (rejects if already answered/stale) -> applies -> appends to
 `events.jsonl` -> the result fans back to the hub and the console. The hub is a **router**, never an

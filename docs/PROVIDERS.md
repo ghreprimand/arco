@@ -796,7 +796,7 @@ Distinct from the Anthropic server-side edits above - these are Arco-owned, dete
 
 #### Live model catalog
 
-`server/src/catalog.ts` polls `https://api.anthropic.com/v1/models` (using the worker's OAuth tokens + standard wire fingerprint), distills the wire shape to the picker's camelCase form via `distillCatalogModel()`, and caches the result for one hour (`REFRESH_INTERVAL_MS = 60 * 60 * 1000`). Refresh is lazy - the next request after expiry triggers it; `?force=1` on `GET /api/claude-native/catalog` bypasses the cache. Capability flags (`clearThinking`, `clearToolUses`, `compact`) are derived from the catalog entry's `supportedFeatures`, but only `compact` is consumed by the worker by default. The CONFIG-tab model picker uses `compact` to gate the CONFIG > ADVANCED Claude API compaction (beta) toggle, and `getCachedModelCapabilities(modelId)` is called per Native request to decide whether to send `compact-2026-01-12` + `{ type: 'compact_20260112' }`. Cold-start, fetch failure, or an unrecognized id (operator typo, picker out of sync) all return `null` and the worker conservatively skips the beta - the `[claude-native:<wfid>] → messages.create ... ctx_mgmt=compact` log line shows what actually went out. Static fallbacks still need to be updated when a new family ships: `supportsClaudeAdaptiveThinking()` / `CLAUDE_MODEL_EFFORTS` control effort semantics, `adaptiveMaxTokensForModel()` controls output cap, and `contextEstimator.ts` controls the CTX denominator before the live catalog can help.
+`server/src/providers/claude-native/catalog.ts` polls `https://api.anthropic.com/v1/models` (using the worker's OAuth tokens + standard wire fingerprint), distills the wire shape to the picker's camelCase form via `distillCatalogModel()`, and caches the result for one hour (`REFRESH_INTERVAL_MS = 60 * 60 * 1000`). Refresh is lazy - the next request after expiry triggers it; `?force=1` on `GET /api/claude-native/catalog` bypasses the cache. Capability flags (`clearThinking`, `clearToolUses`, `compact`) are derived from the catalog entry's `supportedFeatures`, but only `compact` is consumed by the worker by default. The CONFIG-tab model picker uses `compact` to gate the CONFIG > ADVANCED Claude API compaction (beta) toggle, and `getCachedModelCapabilities(modelId)` is called per Native request to decide whether to send `compact-2026-01-12` + `{ type: 'compact_20260112' }`. Cold-start, fetch failure, or an unrecognized id (operator typo, picker out of sync) all return `null` and the worker conservatively skips the beta - the `[claude-native:<wfid>] → messages.create ... ctx_mgmt=compact` log line shows what actually went out. Static fallbacks still need to be updated when a new family ships: `supportsClaudeAdaptiveThinking()` / `CLAUDE_MODEL_EFFORTS` control effort semantics, `adaptiveMaxTokensForModel()` controls output cap, and `contextEstimator.ts` controls the CTX denominator before the live catalog can help.
 
 Compaction handles context fill; auto-handoff counts compactions (`native_compacted`, automatic and COMPACT) and starts a fresh session after N of them in one conversation. On Claude Native it needs Arco's auto-compaction on; Claude API compaction (`compact_20260112`) is not counted.
 
@@ -1536,7 +1536,7 @@ Each backend: `{ baseUrl, weight?, enable?, label?, tailscaleHost? }`. **Back-co
 
 **Retry/failover** (`backoffMs`): on a retryable error, re-select. **Instant zero backoff when a healthy peer exists**; jittered exponential (`0.5·2^n` cap 8s + ≤0.75s jitter) only when forced onto the last/only host. Retryability table (`classifyOllamaError`): conn errors (refused/timeout/reset/DNS) + 5xx/429 = retryable+cool; 4xx incl. 400 context-overflow = neither (400 is the transcript's fault - context-window fallback owns it, not a cooldown). A mid-stream drop *after bytes were emitted* does NOT fail over (would double-emit) - it surfaces as terminal.
 
-**Connect timeout** (`OLLAMA_CONNECT_TIMEOUT_MS`, default 3s, env `ARCO_OLLAMA_CONNECT_TIMEOUT_MS`): a second AbortController aborts if response *headers* don't arrive in time, then is cleared once streaming starts (decode stays unbounded). A dead host fails in ~3s instead of hanging. The timeout abort carries `CONNECT_TIMEOUT_MARKER` so it's classified retryable, distinct from operator abort.
+**Connect and stream-start timeouts:** before each chat request Arco probes `GET /api/version` under `OLLAMA_CONNECT_TIMEOUT_MS` (default 3 s; `ARCO_OLLAMA_CONNECT_TIMEOUT_MS` accepts 500-30000). A dead host fails in about 3 s instead of hanging. Once the daemon answers, the `/api/chat` response headers get `OLLAMA_STREAM_START_TIMEOUT_MS` (default 180 s; `ARCO_OLLAMA_STREAM_START_TIMEOUT_MS` accepts 5000-600000), long enough for a cold model load. Decoding is not time-limited after the headers arrive. Both timeout aborts carry `CONNECT_TIMEOUT_MARKER`, so they are classified retryable and stay distinct from an operator abort.
 
 **Tailscale fallback (BEST-EFFORT):** on a DNS failure (`ENOTFOUND`), `resolveViaTailscale` shells out (`execFile`, argv-only, no shell) to `tailscale status --json` to resolve the host to its tailnet IP and retries once against the IP. **Cross-platform:** tries `tailscale` on PATH + `/usr/bin/tailscale` (Linux) + the macOS app-bundle path; tight 2.5s timeout; **fails soft** - a missing/erroring Tailscale never breaks normal operation. Loopback hosts are never tailscale-resolved.
 
@@ -1583,7 +1583,7 @@ The current worker and cluster auto-compaction policy uses its configured thresh
 `server/src/providers/ollamaCtxFallback.ts` `planCtxEscalation` - on a detected overflow, re-dispatch to a larger window instead of failing. Builds on multi-backend routing. Emits a `context_window_fallback` `system_notice` (from→to). **Escalate, don't re-compact** - context compaction owns the transcript; this is the escape hatch when even compaction isn't enough or a bigger window exists.
 
 - **Order:** (1) `numctx_bump` - same backend/model, request the **full probed ceiling**, only when it's `>` the failing window; (2) `peer_backend` - a different backend whose probed window for the same model is known-larger.
-- Reuses multi-backend routing's `contextOverflow` classification (only explicit context-overflow detail in a 400 triggers widening; unrelated 400 errors remain validation failures). Bounded re-dispatch (max 2 hops, `MAX_CTX_ESCALATIONS`, no re-pick), with a mid-stream guard so a re-dispatch can't double-emit.
+- Reuses multi-backend routing's `contextOverflow` classification (only explicit context-overflow detail in a 400 triggers widening; unrelated 400 errors remain validation failures). Bounded re-dispatch (default 2 hops, `MAX_CTX_ESCALATIONS`; `ARCO_OLLAMA_CTX_MAX_ESCALATIONS` accepts 1-4; no re-pick), with a mid-stream guard so a re-dispatch can't double-emit.
 
 ### Relevant-tool subsetting
 
@@ -1639,6 +1639,28 @@ Turns "why did my model unload / why is VRAM full" into visible operator state. 
 **Pause switch (2026-09-29):** `settings.ollama.utility.enabled: false` (Settings > Providers and models > OLLAMA COMPACTION UTILITY MODEL > ENABLED) makes `resolveUtilityConfig` return null - every job behaves as unconfigured (compaction → deterministic digest, titles skip, the fit calculator reserves nothing) while model/host/titles stay saved. Absent ⇒ enabled. The Settings save path carries `enabled`/`titles` through its whole-object replace (it used to drop them).
 
 **Session titles (opt-in, 2026-09-29):** `settings.ollama.utility.titles: true` (default OFF - arming the utility model for compaction does NOT arm titles) makes `workflows/modelTitles.ts` generate a 5-8-word RESUME-picker title after a workflow's turns: one-shot per session, first ≤4 operator messages, 32-token cap, job `session-title` (visible `system_notice`), applied through `applyModelTitle` (logged to `title-events.jsonl`; an operator rename always outranks). Fire-and-forget after the session-index upsert in `writeMeta`; failure leaves the derived title. Tab labels (`config.name`) are operator-owned and never touched. `npm run test:model-titles`.
+
+### Environment overrides
+
+Read from the server's environment at start. A value outside its range is ignored and the default applies.
+
+| Var | Default | Purpose |
+|---|---|---|
+| `OLLAMA_URL_BASE` | `http://localhost:11434` | Daemon endpoint when `settings.ollama` sets none |
+| `ARCO_OLLAMA_CONNECT_TIMEOUT_MS` | `3000` | `/api/version` liveness probe; 500-30000 |
+| `ARCO_OLLAMA_STREAM_START_TIMEOUT_MS` | `180000` | Wait for chat response headers; 5000-600000 |
+| `ARCO_OLLAMA_MAX_TOOL_TURNS` | `50` | Tool-loop iterations per operator turn; 1-200 |
+| `ARCO_OLLAMA_TOOL_MODE` | `auto` | `auto`, `native` or `fenced` |
+| `ARCO_OLLAMA_TOOL_SUBSET` | on | `0`, `off`, `false` or `no` advertises every tool |
+| `ARCO_OLLAMA_TOOL_CAP` | `9` | Advertised tool cap; from the core tool count to 50 |
+| `ARCO_OLLAMA_AUTO_COMPACT` | `true` | Auto-compaction on or off |
+| `ARCO_OLLAMA_COMPACT_THRESHOLD` | `0.85` | Context fill that compacts; 0.5-0.99 |
+| `ARCO_OLLAMA_COMPACT_WARN` | `0.75` | Context fill that warns; 0.4-0.98 |
+| `ARCO_OLLAMA_MAX_COMPACTIONS` | `1` | Auto-compactions per operator turn; 0-10 |
+| `ARCO_OLLAMA_COMPACT_KEEP_LAST` | `10` | Recent messages kept verbatim; 2-100 |
+| `ARCO_OLLAMA_COMPACT_MAX_ARG_CHARS` | `8000` | Largest tool-call argument kept; 500-200000 |
+| `ARCO_OLLAMA_COMPACT_SUMMARY_TOKENS` | `1024` | Summary output cap; 128-4096 |
+| `ARCO_OLLAMA_CTX_MAX_ESCALATIONS` | `2` | Context-window escalations per turn; 1-4 |
 
 ### Request shape
 
@@ -1937,6 +1959,8 @@ is none/low/medium/high, with an 8192 thinking budget and 16384 total output cap
 Context size comes from the configured service model and includes input, history,
 thinking and output. The worker uses runtime timings and the final round's prompt
 count for measured context and rates.
+
+The environment overrides in the LM Studio section (`ARCO_LMSTUDIO_*`) also apply to DeepSeek.
 
 **Discovery/auth.** `settings.deepseek.baseUrl` → `DEEPSEEK_URL_BASE` →
 `http://127.0.0.1:8150/v1`. A matching validated operator registry populates

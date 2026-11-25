@@ -11,7 +11,7 @@ import { arcoHome } from '../../arcoHome.js';
 export const GEMINI_RESEARCH_TOKEN = join('.gemini', 'antigravity-cli', 'antigravity-oauth-token');
 export const GEMINI_RESEARCH_SCOPE = join('.config', 'antigravity', 'credential-user-scope');
 const MAX_TOKEN_BYTES = 16 * 1024;
-export const GEMINI_RESEARCH_SIGN_IN_NEEDED = 'Gemini for research needs signing in. Sign in from Settings, Connections, Gemini for research.';
+export const GEMINI_RESEARCH_SIGN_IN_NEEDED = 'Gemini for research needs signing in. Sign in from Settings, Providers and models, GEMINI FOR RESEARCH.';
 
 export function geminiResearchRoot(): string { return join(arcoHome(), 'antigravity-research'); }
 export function geminiResearchHome(): string { return join(geminiResearchRoot(), 'home'); }

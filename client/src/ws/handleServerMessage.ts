@@ -1596,7 +1596,7 @@ export function handleServerMessage(msg: ServerMessage, deps: WsDeps): void {
           // failures carry workflowId and MUST land on that workflow even when
           // another tab is focused; truly global errors retain the active-tab
           // fallback. Without the toast, cluster-action rejections (e.g.
-          // member_not_native from spawn-into-cluster with non-Native provider)
+          // member_not_supported from spawn-into-cluster with an unsupported provider)
           // were invisible to the operator.
           store.pushNotification('error', msg.message, msg.workflowId);
           // A failed cluster create, add or replace leaves the members it already
