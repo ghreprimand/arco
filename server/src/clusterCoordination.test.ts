@@ -113,13 +113,15 @@ test('hard guard rejects without delivery, refunds failures and dedupe, and rese
   const duplicate = await peer.peerSend(ctx, { to: c.members[1], content: 'first' }); assert.equal(!duplicate.ok && duplicate.code, 'duplicate_send');
   const tooBig = await peer.peerSend(ctx, { to: c.members[1], content: 'x'.repeat(17000) }); assert.equal(!tooBig.ok && tooBig.code, 'content_too_large');
   assert.equal(budget.peek(ctx.workflowId).count, 1);
-  const results = await Promise.all(['second', 'third'].map(content => peer.peerSend(ctx, { to: c.members[1], content })));
-  assert.equal(results.filter(r => r.ok).length, 1);
-  const rejected = results.find(r => !r.ok); assert.ok(rejected && !rejected.ok);
-  assert.equal(rejected.code, 'budget_exhausted'); assert.equal(rejected.count, 2); assert.equal(rejected.cap, 2);
-  assert.match(rejected.message, /not delivered/); assert.equal(budget.peek(ctx.workflowId).count, 2);
+  // Race two sends for the last budget slot. Either content can win; resend the
+  // one that was budget-rejected so a successful winner is not treated as poison.
+  const attempts = await Promise.all(['second', 'third'].map(async (content) => ({ content, result: await peer.peerSend(ctx, { to: c.members[1], content }) })));
+  assert.equal(attempts.filter((a) => a.result.ok).length, 1);
+  const rejected = attempts.find((a) => !a.result.ok); assert.ok(rejected && !rejected.result.ok);
+  assert.equal(rejected.result.code, 'budget_exhausted'); assert.equal(rejected.result.count, 2); assert.equal(rejected.result.cap, 2);
+  assert.match(rejected.result.message, /not delivered/); assert.equal(budget.peek(ctx.workflowId).count, 2);
   budget.reset(ctx.workflowId);
-  assert.ok((await peer.peerSend(ctx, { to: c.members[1], content: 'third' })).ok, 'refused send did not poison dedupe');
+  assert.ok((await peer.peerSend(ctx, { to: c.members[1], content: rejected.content })).ok, 'refused send did not poison dedupe');
   const external = await make();
   const invalid = await peer.peerSend(ctx, { to: external.members[0], content: 'outside' }); assert.equal(!invalid.ok && invalid.code, 'unknown_peer');
   const bypass = await peer.peerSend(ctx, { to: c.members[1], content: 'operator' }, { bypassBudget: true }); assert.ok(bypass.ok);
