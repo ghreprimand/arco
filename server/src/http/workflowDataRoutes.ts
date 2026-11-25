@@ -240,6 +240,11 @@ export async function tryHandleWorkflowDataRoutes(
         res.end(JSON.stringify({ error: 'path and sessionId required' }));
         return true;
       }
+      if (!UUID_PATTERN.test(sessionId)) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'invalid sessionId' }));
+        return true;
+      }
       const projectDir = join(process.env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude'), 'projects', encodeProjectDir(cwd));
       const filePath = join(projectDir, `${sessionId}.jsonl`);
       const messages = await loadTranscript(filePath);

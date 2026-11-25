@@ -406,21 +406,28 @@ export function SettingsPanel({ onClose }: Props) {
   const [catalogSaving, setCatalogSaving] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
 
+  const catalogLoadId = useRef(0);
   const openCatalogEditor = async () => {
+    // Every open reads the file again and SAVE stays off until that read
+    // succeeds, so a failed or in-flight load can never arm it.
+    const id = ++catalogLoadId.current;
     setCatalogOpen(true);
     setCatalogError(null);
-    if (catalogLoaded) return;
+    setCatalogLoaded(false);
     try {
       const res = await fetch('/api/catalog');
-      const data = await res.json() as { contents: string };
-      setCatalogDraft(data.contents ?? '');
+      const data = await res.json() as { contents?: unknown; error?: string };
+      if (!res.ok || typeof data.contents !== 'string') throw new Error(data.error ?? `HTTP ${res.status}`);
+      if (id !== catalogLoadId.current) return;
+      setCatalogDraft(data.contents);
       setCatalogLoaded(true);
     } catch (err) {
-      setCatalogError(err instanceof Error ? err.message : String(err));
+      if (id === catalogLoadId.current) setCatalogError(err instanceof Error ? err.message : String(err));
     }
   };
 
   const saveCatalog = async () => {
+    if (!catalogLoaded) return;
     setCatalogSaving(true);
     setCatalogError(null);
     try {
@@ -441,17 +448,13 @@ export function SettingsPanel({ onClose }: Props) {
     }
   };
 
-  const cancelCatalogEdit = async () => {
-    // Re-fetch so any pending edits are discarded in favor of disk truth.
+  const cancelCatalogEdit = () => {
+    // Discard the draft; the next open reads the file again.
+    catalogLoadId.current++;
     setCatalogOpen(false);
     setCatalogError(null);
-    if (catalogLoaded) {
-      try {
-        const res = await fetch('/api/catalog');
-        const data = await res.json() as { contents: string };
-        setCatalogDraft(data.contents ?? '');
-      } catch { /* leave stale draft: edit button will re-read */ }
-    }
+    setCatalogLoaded(false);
+    setCatalogDraft('');
   };
 
   const refresh = async () => {
@@ -1403,7 +1406,7 @@ export function SettingsPanel({ onClose }: Props) {
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
                   onClick={saveCatalog}
-                  disabled={catalogSaving}
+                  disabled={catalogSaving || !catalogLoaded}
                   className="display-font"
                   style={{
                     flex: 1,

@@ -490,20 +490,26 @@ export async function removeMember(
       await deleteClusterUnlocked(clusterId);
       return { clusterDeleted: true, remaining };
     }
-    memberFence.delete(workflowId);
-    if (memberIndex.get(workflowId) === clusterId) memberIndex.delete(workflowId);
-    // Wipe the leaving member's mailbox dir; pending peer messages lose their
-    // recipient context and don't make sense to keep.
-    // Under the mailbox lock (meta → mailbox, same order as replaceMember) so an
-    // in-flight enqueue can't recreate the departed recipient's dir after rm.
-    await withFileLock(clusterMailboxRoot(clusterId), () =>
-      fs.rm(join(clusterMailboxRoot(clusterId), workflowId), { recursive: true, force: true }));
     const web = { ...state.memberWebAccess }; delete web[workflowId];
     const former = Object.fromEntries(Object.entries(state.formerMembers ?? {}).filter(([, to]) => to !== workflowId));
     const next: ClusterState = { ...state, members: remaining, memberWebAccess: Object.keys(web).length ? web : undefined,
       formerMembers: Object.keys(former).length ? former : undefined };
+    // Commit the new membership first. If the write fails nothing else has
+    // changed: routing, the fence and pending mail stay as they were.
     await writeMetaAtomic(next);
+    memberFence.delete(workflowId);
+    if (memberIndex.get(workflowId) === clusterId) memberIndex.delete(workflowId);
     rebuildIndexFor(next);
+    // Wipe the leaving member's mailbox dir; pending peer messages lose their
+    // recipient context and don't make sense to keep.
+    // Under the mailbox lock (meta → mailbox, same order as replaceMember) so an
+    // in-flight enqueue can't recreate the departed recipient's dir after rm.
+    // The removal is already committed, so a cleanup failure is logged and
+    // never fails it: the caller still tears the workflow down and publishes state.
+    try {
+      await withFileLock(clusterMailboxRoot(clusterId), () =>
+        fs.rm(join(clusterMailboxRoot(clusterId), workflowId), { recursive: true, force: true }));
+    } catch { console.warn('[arco] Could not remove a departed member mailbox.'); }
     try { await (await import('./workers/isolatedCliHome.js')).removeIsolatedCliHome(clusterId, workflowId); }
     catch { console.warn('[arco] Could not remove an isolated CLI home.'); }
     return { clusterDeleted: false, remaining };

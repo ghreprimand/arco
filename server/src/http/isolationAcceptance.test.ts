@@ -8,6 +8,7 @@
 //
 // Read-confinement cases are required: they failed against the pre-fix code
 // (authenticated arbitrary read) and now gate the confinement policy.
+import { request as httpRequest } from 'node:http';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -291,6 +292,20 @@ test('writes stay inside the project: absolute escape, symlink escape and unknow
   }
   assert.equal((await main.post('/api/files/write', { cwd: main.project, path: 'new.txt', content: '' })).status, 200);
   assert.equal(await fs.readFile(path.join(main.project, 'new.txt'), 'utf8'), '');
+  // A multibyte character split across request chunks is saved intact.
+  const text = 'caf\u00e9 \u4e16\u754c \u{1F600}\n'.repeat(3);
+  const bytes = Buffer.from(JSON.stringify({ cwd: main.project, path: 'utf8.txt', content: text }));
+  const cut = bytes.indexOf(0xc3) + 1; // between the two bytes of the first accented letter
+  const status = await new Promise<number>((resolve, reject) => {
+    const req = httpRequest(`${main.base}/api/files/write`, { method: 'POST', headers: { Cookie: main.cookie, Origin: main.base, 'Content-Type': 'application/json' } }, (r) => { r.resume(); resolve(r.statusCode ?? 0); });
+    req.on('error', reject);
+    req.write(bytes.subarray(0, cut));
+    setTimeout(() => req.end(bytes.subarray(cut)), 50);
+  });
+  assert.equal(status, 200);
+  assert.equal(await fs.readFile(path.join(main.project, 'utf8.txt'), 'utf8'), text);
+  // A transcript export with a session id that is not a UUID is refused before any file lookup.
+  assert.equal((await main.api(`/api/transcript-export?path=${encodeURIComponent(main.project)}&sessionId=not-a-session`)).status, 400);
   assert.equal((await main.post('/api/mkdir', { parent: main.outside, name: 'nd' })).status, 200);
   assert.equal((await main.post('/api/mkdir', { parent: main.project, name: 'new folder', exclusive: true })).status, 200);
   assert.equal((await main.post('/api/mkdir', { parent: main.project, name: 'new folder', exclusive: true })).status, 409);

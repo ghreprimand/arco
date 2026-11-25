@@ -272,7 +272,7 @@ Tool-use blocks and reasoning-block entries are intentionally **not** materializ
 
 ### `GET /api/transcript-export?path=<cwd>&sessionId=<uuid>`
 
-Returns the full **Claude CLI** session (`~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`) as one markdown download (`Content-Disposition: attachment; filename="arco-<id8>-<date>.md"`; `## Operator` / `## Arco` sections). No pagination. There is no `provider` switch - Codex rollouts are not exportable here. `path` + `sessionId` required (`400`).
+Returns the full **Claude CLI** session (`~/.claude/projects/<encoded-cwd>/<sessionId>.jsonl`) as one markdown download (`Content-Disposition: attachment; filename="arco-<id8>-<date>.md"`; `## Operator` / `## Arco` sections). No pagination. There is no `provider` switch - Codex rollouts are not exportable here. `path` + `sessionId` required (`400`); a `sessionId` that is not a UUID is refused with `400 { error: 'invalid sessionId' }` before any file lookup, as on `/api/transcript`.
 
 ---
 

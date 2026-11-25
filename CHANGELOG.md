@@ -5,6 +5,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Saving a file that contains accented letters, non-Latin text or emoji no longer corrupts characters that straddle a transfer boundary.
+
+- Removing a cluster member that cannot be saved no longer drops the member's routing or pending mail. The raw model notes editor in Settings cannot be saved when its load failed, so a load error cannot overwrite the existing file. A Claude transcript export refuses a session id that is not a UUID.
+
 - Saving a file through the write API without replacement text is refused instead of emptying the file. An explicit empty string still saves an empty file.
 
 - Saving the storage disk budget and the auto-archive rule at nearly the same time no longer loses one of the two values.

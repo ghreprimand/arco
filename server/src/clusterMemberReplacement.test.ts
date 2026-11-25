@@ -97,3 +97,50 @@ test('a replaced member id resolves to the member now in its slot until that mem
     await fs.rm(cwd, { recursive: true, force: true });
   }
 });
+
+test('a member removal that cannot be saved keeps routing and pending mail', async () => {
+  const cwd = await fs.mkdtemp(join(tmpdir(), 'arco-cluster-remove-fail-'));
+  const [directorId, workerId, otherId] = [randomUUID(), randomUUID(), randomUUID()];
+  let clusterId: string | undefined;
+  try {
+    clusterId = (await clusterStore.createCluster({ cwd, memberWorkflowIds: [directorId, workerId, otherId] })).clusterId;
+    await clusterMailbox.enqueue(workerId, {
+      msgId: clusterMailbox.mintMsgId(), fromWorkflowId: directorId, fromDisplayName: 'Director',
+      toWorkflowId: workerId, content: 'Keep me.', createdAt: new Date().toISOString(), delivered: false,
+    });
+    // Make the membership write fail: a directory cannot be renamed over by a file.
+    const meta = clusterStore.clusterMetaPath(clusterId);
+    await fs.rm(meta);
+    await fs.mkdir(join(meta, 'blocker'), { recursive: true });
+    await assert.rejects(clusterStore.removeMember(clusterId, workerId));
+    assert.equal(clusterStore._peekCache().memberIndex[workerId], clusterId);
+    assert.equal((await clusterMailbox.peek(workerId)).length, 1);
+  } finally {
+    if (clusterId) await fs.rm(clusterStore.clusterMetaPath(clusterId), { recursive: true, force: true });
+    if (clusterId) await clusterStore.deleteCluster(clusterId).catch(() => undefined);
+    await fs.rm(cwd, { recursive: true, force: true });
+  }
+});
+
+test('a member removal stays successful when mailbox cleanup fails after the commit', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, async () => {
+  const cwd = await fs.mkdtemp(join(tmpdir(), 'arco-cluster-remove-cleanup-'));
+  const [directorId, workerId, otherId] = [randomUUID(), randomUUID(), randomUUID()];
+  let clusterId: string | undefined;
+  let boxRoot = '';
+  try {
+    clusterId = (await clusterStore.createCluster({ cwd, memberWorkflowIds: [directorId, workerId, otherId] })).clusterId;
+    await clusterMailbox.enqueue(workerId, {
+      msgId: clusterMailbox.mintMsgId(), fromWorkflowId: directorId, fromDisplayName: 'Director',
+      toWorkflowId: workerId, content: 'x', createdAt: new Date().toISOString(), delivered: false,
+    });
+    boxRoot = join(clusterStore.clusterDir(clusterId), 'mailbox');
+    await fs.chmod(boxRoot, 0o500);
+    const result = await clusterStore.removeMember(clusterId, workerId);
+    assert.deepEqual(result.remaining, [directorId, otherId]);
+    assert.equal(clusterStore._peekCache().memberIndex[workerId], undefined);
+  } finally {
+    if (boxRoot) await fs.chmod(boxRoot, 0o700).catch(() => undefined);
+    if (clusterId) await clusterStore.deleteCluster(clusterId).catch(() => undefined);
+    await fs.rm(cwd, { recursive: true, force: true });
+  }
+});

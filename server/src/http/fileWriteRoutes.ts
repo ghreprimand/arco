@@ -107,8 +107,11 @@ export async function tryHandleFileWriteRoutes(
     return true;
   };
   try {
-    let raw = '';
-    for await (const chunk of req) raw += chunk;
+    // Collect bytes and decode once: decoding per chunk splits a multibyte
+    // character that straddles a chunk boundary into replacement characters.
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+    const raw = Buffer.concat(chunks).toString('utf8');
     const parsed = JSON.parse(raw || '{}') as {
       wfid?: string;
       cwd?: string;

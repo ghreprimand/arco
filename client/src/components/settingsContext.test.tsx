@@ -270,3 +270,31 @@ test('new Codex profiles leave the home to the server default in the Arco data f
     assert.equal(profile.codexHome, undefined);
   });
 });
+
+test('the model catalog editor cannot SAVE after a failed load or after a cancelled edit is reopened', async () => {
+  const realFetch = globalThis.fetch;
+  try {
+    await mounted(false, async (container) => {
+      const page = [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Providers and models');
+      assert.ok(page);
+      await act(async () => page.click());
+      const inner = globalThis.fetch;
+      let mode: 'ok' | 'fail' = 'ok';
+      globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+        if (String(url) === '/api/catalog' && !init?.method) {
+          return mode === 'ok' ? { ok: true, json: async () => ({ contents: 'notes' }) } : { ok: false, status: 500, json: async () => ({ error: 'unreadable' }) };
+        }
+        return inner(url as string, init);
+      }) as typeof fetch;
+      const button = (label: string) => [...(container.querySelector('[data-help="settings.catalog"]') ?? container).querySelectorAll('button')].find((b) => b.textContent?.trim() === label) as HTMLButtonElement | undefined;
+      await act(async () => button('EDIT')!.click());
+      await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+      assert.equal(button('SAVE')!.disabled, false, 'a good load arms SAVE');
+      await act(async () => button('CANCEL')!.click());
+      mode = 'fail';
+      await act(async () => button('EDIT')!.click());
+      await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+      assert.equal(button('SAVE')!.disabled, true, 'a failed load on reopen leaves SAVE off');
+    });
+  } finally { globalThis.fetch = realFetch; }
+});

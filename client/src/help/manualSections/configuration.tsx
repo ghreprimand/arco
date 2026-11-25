@@ -470,9 +470,9 @@ export const configuration: Section[] = [
   <>
   <p>A refused or incomplete global settings response leaves the previous settings and appearance active and reports a save error. SAVE AS DEFAULTS reports success only after a valid reply.</p>
   <p>
-  Operator name, catalog, skills and handoff prompts are global operator
-  surfaces edited from Settings. Use them for context that should apply
-  across workflows.
+  Operator name, skills and handoff prompts are global operator surfaces
+  edited from Settings. Use them for context that should apply across
+  workflows. The catalog is a separate notes file for your own reference.
   </p>
   <p>Project skills, handoff prompt overrides and active-folder suggestions follow the selected workflow or cluster. A selected cluster uses its shared project folder without requiring a member tab.</p>
   <Sub>Operator name and catalog</Sub>
@@ -482,10 +482,9 @@ export const configuration: Section[] = [
   codename should appear in the rendered transcript that feeds handoff seeds.
   </p>
   <p>
-  The <strong>catalog</strong> is a free-form markdown file that surfaces in
-  the workflow creator and certain prompts as a place for common context,
-  abbreviations, or commands across workflows. Edit it from Settings (saved
-  to disk; the editor is a plain textarea).
+  The <strong>catalog</strong> is a free-form markdown notes file for your own
+  reference. Arco does not read it into the workflow creator or any prompt.
+  Edit it from Settings (saved to disk; the editor is a plain textarea).
   </p>
   <Sub>Skills</Sub>
   <p>
