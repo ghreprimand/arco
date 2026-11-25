@@ -1,8 +1,12 @@
 // Isolated source-server fixture: no daemon/GPU/cloud calls.
 import os from 'node:os';
+import cp from 'node:child_process';
+import { join } from 'node:path';
 import { appendFileSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 os.homedir = () => process.env.ARCO_COMPUTER_FIXTURE_HOME;
+for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync']) { const original = cp[name]; cp[name] = (command, ...args) => original(join(process.env.ARCO_COMPUTER_FIXTURE_HOME, 'missing-fixture'), ...args); }
+for (const name of ['exec', 'execSync', 'fork']) cp[name] = () => { throw new Error('External command blocked by fixture'); };
 syncBuiltinESMExports();
 globalThis.fetch = async (url, init = {}) => {
   const path = new URL(String(url)).pathname;

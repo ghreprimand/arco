@@ -59,21 +59,22 @@ async function main() {
 os.homedir = () => ${JSON.stringify(home)};
 const originalExec = cp.execFile, realExec = promisify(originalExec), units = ${JSON.stringify(units)}, file = ${JSON.stringify(stateFile)};
 const intercepted = async (command, args, options) => {
- if (command !== 'systemctl' || !args.some(a => units.includes(a))) return realExec(command, args, options);
+ if (command === '/usr/bin/python3' && args[0] === ${JSON.stringify(preflight)}) return realExec(command, args, options);
+ if (command !== 'systemctl' || !args.some(a => units.includes(a))) throw Error('External command blocked by fixture');
  const unit = args.find(a => units.includes(a)), index = units.indexOf(unit), s = JSON.parse(fs.readFileSync(file, 'utf8'));
  if (args.includes('show')) return {stdout: 'LoadState=loaded\\nActiveState=' + (s.index === index ? 'active' : 'inactive') + '\\n', stderr: ''};
  const action = args.includes('start') ? 'start' : 'stop'; s.calls.push(action + ' ' + index); s.index = action === 'start' ? index : -1; fs.writeFileSync(file, JSON.stringify(s)); return {stdout: '', stderr: ''};
 };
-cp.execFile = (...args) => originalExec(...args); cp.execFile[promisify.custom] = intercepted; syncBuiltinESMExports();
+cp.execFile = (cmd,...args) => originalExec(${JSON.stringify(join(dir,'missing-fixture'))},...args); cp.execFile[promisify.custom] = intercepted; for(const n of ['spawn','spawnSync','execFileSync']){const f=cp[n];cp[n]=(cmd,...args)=>f(${JSON.stringify(join(dir,'missing-fixture'))},...args);}for(const n of ['exec','execSync','fork'])cp[n]=()=>{throw Error('External command blocked by fixture');};syncBuiltinESMExports();
 const originalFetch = globalThis.fetch;
 globalThis.fetch = (url, init) => {
  const u = new URL(String(url));
- if (u.hostname !== '127.0.0.1' && u.hostname !== 'localhost') return Promise.resolve(new Response('{}', {status:503}));
+ if (u.origin !== ${JSON.stringify(new URL(base).origin)}) return Promise.resolve(new Response('{}', {status:503}));
  return originalFetch(url, init);
 };\n`);
   const log = openSync(join(dir, 'server.log'), 'w');
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_STRATA_PROFILES: registryFile, ARCO_LOCAL_PROVIDER_SERIAL_QUEUE: '0' }, stdio: ['ignore', log, log],
+    env: { HOME: home, USERPROFILE: home, ARCO_HOME: join(home,'.arco'), TMPDIR: dir, PATH: join(dir,'missing-bin'), ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_STRATA_PROFILES: registryFile, ARCO_LOCAL_PROVIDER_SERIAL_QUEUE: '0' }, stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;
   try {

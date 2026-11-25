@@ -57,21 +57,24 @@ async function main() {
   writeFileSync(preload, `import os from 'node:os'; import cp from 'node:child_process'; import fs from 'node:fs'; import {promisify} from 'node:util'; import {syncBuiltinESMExports} from 'node:module';
 os.homedir = () => ${JSON.stringify(home)};
 const original = cp.execFile, real = promisify(original);
-cp.execFile = (...args) => original(...args);
+cp.execFile = (cmd,...args) => original(${JSON.stringify(join(dir, 'missing-fixture'))},...args);
+for(const name of ['spawn','spawnSync','execFileSync']){const fn=cp[name];cp[name]=(cmd,...args)=>fn(${JSON.stringify(join(dir, 'missing-fixture'))},...args);}
+for(const name of ['exec','execSync','fork'])cp[name]=()=>{throw Error('External command blocked by fixture');};
 cp.execFile[promisify.custom] = async (cmd,args,options) => {
  if (cmd === 'git' && args[1] === ${JSON.stringify(dir)}) return {stdout:'1111111111111111111111111111111111111111',stderr:''};
- if (cmd !== 'systemctl' || !args.some(a => /^deepseek-flash@(exact|light)\\.service$/.test(a))) return real(cmd,args,options);
+ if (cmd === '/usr/bin/python3' && args[0] === ${JSON.stringify(launcher)}) return real(cmd,args,options);
+ if (cmd !== 'systemctl' || !args.some(a => /^deepseek-flash@(exact|light)\\.service$/.test(a))) throw Error('External command blocked by fixture');
  const s=JSON.parse(fs.readFileSync(${JSON.stringify(stateFile)},'utf8')); const unit=args.find(a=>a.startsWith('deepseek-flash@')); const i=unit.includes('@exact')?0:1;
  return {stdout:s.index===i?'active\\n':'inactive\\n',stderr:''};
 }; syncBuiltinESMExports();
 const realFetch=globalThis.fetch;
 globalThis.fetch=(url,init)=>{const u=new URL(String(url));
  if(u.hostname==='api.github.com' && u.pathname.includes('Xolotl/commits/HEAD'))return Promise.resolve(Response.json({sha:'2222222222222222222222222222222222222222'}));
- if(u.hostname!=='127.0.0.1'&&u.hostname!=='localhost')return Promise.resolve(new Response('{}',{status:503}));
+ if(u.origin!==${JSON.stringify(new URL(base).origin)})return Promise.resolve(new Response('{}',{status:503}));
  return realFetch(url,init);};\n`);
   const log = openSync(join(dir, 'server.log'), 'w');
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_DEEPSEEK_PROFILES: registry }, stdio: ['ignore', log, log],
+    env: { HOME: home, USERPROFILE: home, ARCO_HOME: join(home,'.arco'), TMPDIR: dir, PATH: join(dir,'missing-bin'), ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_DEEPSEEK_PROFILES: registry }, stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;
   try {
@@ -100,9 +103,11 @@ globalThis.fetch=(url,init)=>{const u=new URL(String(url));
     await c.waitFor((m) => m.type === 'primary_turn_ended' && m.workflowId === workflowId, 10000);
     assert.equal(requests[0].reasoning_effort, 'medium'); assert.equal(requests[0].max_tokens, 16384); assert.equal(requests[0].tools, undefined);
     const image = join(dir, 'image.png');
-    writeFileSync(image, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aTH8AAAAASUVORK5CYII=', 'base64'));
+    writeFileSync(image, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC', 'base64'));
     c.send({ type: 'user_message', workflowId, content: 'Look at this image.', attachments: [image] });
+    await c.waitFor((m) => m.type === 'primary_turn_started' && m.workflowId === workflowId, 10000);
     await c.waitFor((m) => m.type === 'primary_turn_ended' && m.workflowId === workflowId, 10000);
+    assert(Array.isArray(requests.at(-1)?.messages.at(-1)?.content), `image request content type: ${typeof requests.at(-1)?.messages.at(-1)?.content}; requests: ${requests.length}`);
     assert(requests.at(-1).messages.at(-1).content.some((p: any) => p.type === 'image_url' && p.image_url.url.startsWith('data:image/png;base64,')), 'image bytes reached runtime');
     assert.equal((await control({ action: 'load', profile: 'light' })).status, 200);
     c.send({ type: 'update_primary_config', workflowId, model: models[1] });

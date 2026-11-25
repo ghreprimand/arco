@@ -13,14 +13,14 @@ async function main() {
   const home = join(dir, 'home'), bin = join(dir, 'bin'), codexHome = join(home, '.codex');
   mkdirSync(bin); mkdirSync(codexHome, { recursive: true });
   const executable = join(bin, 'codex');
-  writeFileSync(executable, '#!/usr/bin/env node\n' + readFileSync('scripts/smoke/fixtures/computer-context-codex.mjs', 'utf8')); chmodSync(executable, 0o755);
+  writeFileSync(executable, `#!${process.execPath}\n` + readFileSync('scripts/smoke/fixtures/computer-context-codex.mjs', 'utf8')); chmodSync(executable, 0o755);
   const preload = join(dir, 'isolate.mjs');
-  writeFileSync(preload, `import os from 'node:os';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';os.homedir=()=>${JSON.stringify(home)};const original=cp.spawn;cp.spawn=(command,args,options)=>original(command==='codex'?${JSON.stringify(executable)}:command,args,options);syncBuiltinESMExports();globalThis.fetch=async()=>new Response('{}',{status:503});\n`);
+  writeFileSync(preload, `import os from 'node:os';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';os.homedir=()=>${JSON.stringify(home)};const target=(command)=>command==='codex'||command===${JSON.stringify(executable)}?${JSON.stringify(executable)}:${JSON.stringify(join(bin, 'missing-fixture'))};for(const name of ['spawn','spawnSync','execFile','execFileSync']){const original=cp[name];cp[name]=(command,...args)=>original(target(command),...args);}for(const name of ['exec','execSync','fork']){cp[name]=()=>{throw Error('External command blocked by fixture');};}syncBuiltinESMExports();globalThis.fetch=async()=>new Response('{}',{status:503});\n`);
   const reserve = createServer(); reserve.listen(0, '127.0.0.1'); await once(reserve, 'listening');
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
   const log = openSync(join(dir, 'server.log'), 'w');
   const start = () => spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome, ARCO_COMPUTER_FIXTURE_ACTIVITY_DELAY_MS:'800' }, stdio: ['ignore', log, log],
+    env: { HOME: home, USERPROFILE: home, ARCO_HOME: join(home, '.arco'), TMPDIR: dir, PATH: bin, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome, ARCO_COMPUTER_FIXTURE_ACTIVITY_DELAY_MS:'800' }, stdio: ['ignore', log, log],
   });
   let server = start(), c: SmokeClient | undefined;
   const ready = async () => {
@@ -43,7 +43,7 @@ async function main() {
   const mail=(to:string)=>post(`/api/clusters/${cluster}/peer/send`,{from:to===b1?b2:b1,to,content:'mailbox test'});
   const read=(id:string)=>post(`/api/clusters/${cluster}/peer/read`,{workflowId:id});
   const until=async(predicate:(s:any)=>boolean,id=owner)=>{
-    for(let i=0;i<160;i++){const s=await api(undefined,id);if(predicate(s))return s;await new Promise((r)=>setTimeout(r,40));}throw Error('Activity state did not settle');
+    let last:any;for(let i=0;i<160;i++){last=await api(undefined,id);if(predicate(last))return last;await new Promise((r)=>setTimeout(r,40));}throw Error('Activity state did not settle: '+JSON.stringify({pending:last?.pending,deliveries:last?.deliveries?.map((d:any)=>d.status),ledgerKinds:last?.ledger?.map((e:any)=>e.kind)}));
   };
   const begin=async(id:string,content:string)=>{c!.send({type:'user_message',workflowId:id,content});await c!.waitFor((m)=>m.type==='primary_turn_started'&&m.workflowId===id,15000);};
   const activityFile=join(home,'.arco','computer-activity.json');
@@ -74,7 +74,7 @@ async function main() {
       state=await until((s)=>s.deliveries.filter((d:any)=>d.status==='delivered').length===2);
       assert.equal(state.pending,0);
       const turns=readFileSync(join(codexHome,'fixture-turns.jsonl'),'utf8').trim().split('\n').map((line)=>JSON.parse(line));
-      assert.equal(turns.filter((t)=>t.text.startsWith('[Arco activity update')).length,1);
+      assert.equal(turns.filter((t)=>t.text.includes('[Arco activity update')).length,1);
     });
     await step('master pause and per-condition pause/resume react immediately to events',async()=>{
       await api({action:'configure',agent_updates:'off',enabled:false});await mail(b1);

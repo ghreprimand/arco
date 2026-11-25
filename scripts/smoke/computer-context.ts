@@ -14,16 +14,16 @@ async function main() {
   const home = join(dir, 'home'), bin = join(dir, 'bin'); mkdirSync(bin); mkdirSync(home);
   const codexHome = join(home, '.codex'); mkdirSync(codexHome);
   const executable = join(bin, 'codex');
-  writeFileSync(executable, '#!/usr/bin/env node\n' + readFileSync('scripts/smoke/fixtures/computer-context-codex.mjs', 'utf8')); chmodSync(executable, 0o755);
+  writeFileSync(executable, `#!${process.execPath}\n` + readFileSync('scripts/smoke/fixtures/computer-context-codex.mjs', 'utf8')); chmodSync(executable, 0o755);
   const preload = join(dir, 'isolate.mjs');
   const watchdogUrl=pathToFileURL(join(process.cwd(),'server/src/voice/turnWatchdog.ts')).href;
-  writeFileSync(preload, `import os from 'node:os';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';import {COMPUTER_DEADLINES} from ${JSON.stringify(watchdogUrl)};Object.assign(COMPUTER_DEADLINES,{startup:3000,idle:700,total:6500});os.homedir=()=>${JSON.stringify(home)};const original=cp.spawn;cp.spawn=(command,args,options)=>original(command==='codex'?${JSON.stringify(executable)}:command,args,options);syncBuiltinESMExports();globalThis.fetch=async()=>new Response('{}',{status:503});\n`);
+  writeFileSync(preload, `import os from 'node:os';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';import {COMPUTER_DEADLINES} from ${JSON.stringify(watchdogUrl)};Object.assign(COMPUTER_DEADLINES,{startup:3000,idle:700,total:6500});os.homedir=()=>${JSON.stringify(home)};const target=(command)=>command==='codex'||command===${JSON.stringify(executable)}?${JSON.stringify(executable)}:${JSON.stringify(join(bin, 'missing-fixture'))};for(const name of ['spawn','spawnSync','execFile','execFileSync']){const original=cp[name];cp[name]=(command,...args)=>original(target(command),...args);}for(const name of ['exec','execSync','fork']){cp[name]=()=>{throw Error('External command blocked by fixture');};}syncBuiltinESMExports();globalThis.fetch=async()=>new Response('{}',{status:503});\n`);
   const reserve = createServer(); reserve.listen(0, '127.0.0.1'); await once(reserve, 'listening');
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
   const log = openSync(join(dir, 'server.log'), 'w');
   let durablePrivate = false;
   const start = () => spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome, ARCO_COMPUTER_FIXTURE_DURABLE_PRIVATE: durablePrivate ? '1' : '0' }, stdio: ['ignore', log, log],
+    env: { HOME: home, USERPROFILE: home, ARCO_HOME: join(home, '.arco'), TMPDIR: dir, PATH: bin, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome, ARCO_COMPUTER_FIXTURE_DURABLE_PRIVATE: durablePrivate ? '1' : '0' }, stdio: ['ignore', log, log],
   });
   let server = start(), c: SmokeClient | undefined;
   const ready = async () => {
@@ -52,13 +52,13 @@ async function main() {
       const boundary = await fresh(1); assert.equal((boundary.state as any).resets, 1);
       const turns = readFileSync(join(codexHome, 'fixture-turns.jsonl'), 'utf8').trim().split('\n').map((s) => JSON.parse(s));
       assert.equal(turns.length, 2); assert.equal(turns[0].threadId, turns[1].threadId);
-      assert.equal(turns[1].text, 'queued follow-up');
+      assert(turns[1].text.endsWith('queued follow-up'));
     });
     await step('a new request really uses a different thread and receives no archived transcript', async () => {
       c!.send({ type: 'user_message', workflowId: id, content: 'new thought' });
       await c!.waitFor((m) => m.type === 'primary_text' && String(m.text).includes('Completed new thought'), 15000);
       const turns = readFileSync(join(codexHome, 'fixture-turns.jsonl'), 'utf8').trim().split('\n').map((s) => JSON.parse(s));
-      assert.notEqual(turns[2].threadId, turns[1].threadId); assert.equal(turns[2].text, 'new thought');
+      assert.notEqual(turns[2].threadId, turns[1].threadId); assert(turns[2].text.endsWith('new thought'));
       await c!.waitFor((m) => m.type === 'codex_token_snapshot' && (m.tokens as any)?.input === 1000, 15000);
     });
     await step('KEEP CONTEXT postpones a threshold reset until released', async () => {
@@ -98,7 +98,7 @@ async function main() {
       c.send({ type: 'user_message', workflowId: id, content: 'after restart' });
       await c.waitFor((m) => m.type === 'primary_text' && String(m.text).includes('Completed after restart'), 15000);
       const turns = readFileSync(join(codexHome, 'fixture-turns.jsonl'), 'utf8').trim().split('\n').map((s) => JSON.parse(s));
-      assert.notEqual(turns.at(-1).threadId, turns.at(-2).threadId); assert.equal(turns.at(-1).text, 'after restart');
+      assert.notEqual(turns.at(-1).threadId, turns.at(-2).threadId); assert(turns.at(-1).text.endsWith('after restart'));
     });
     await step('a pending manual fresh request waits for STOP to settle, then clears', async () => {
       c!.send({ type: 'user_message', workflowId: id, content: 'slow stopped request' });
@@ -168,7 +168,7 @@ async function main() {
       assert(!readFileSync(join(dir, 'server.log'), 'utf8').includes('PRIVATE_CODEX_SENTINEL_8217'));
       const turns = readFileSync(join(codexHome, 'fixture-turns.jsonl'), 'utf8').trim().split('\n').map((s) => JSON.parse(s));
       assert.notEqual(turns.at(-1).threadId, turns.at(-2).threadId);
-      assert.equal(turns.at(-1).text, 'after private clear');
+      assert(turns.at(-1).text.endsWith('after private clear'));
     });
     await step('a private page reconnecting after server restart discards its obsolete browser transcript', async () => {
       await c!.close(); server.kill('SIGTERM'); await once(server, 'exit'); server = start(); await ready();

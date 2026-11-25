@@ -39,18 +39,18 @@ async function main() {
     strata: { baseUrl: `${base}/v1` }, ollama: { baseUrl: base }, lmstudio: { baseUrl: `${base}/v1` },
   }));
   const preload = join(dir, 'isolate.mjs');
-  writeFileSync(preload, `import os from 'node:os'; import {syncBuiltinESMExports} from 'node:module';
-os.homedir = () => ${JSON.stringify(home)}; syncBuiltinESMExports();
+  writeFileSync(preload, `import os from 'node:os'; import cp from 'node:child_process'; import {syncBuiltinESMExports} from 'node:module';
+os.homedir = () => ${JSON.stringify(home)}; for(const n of ['spawn','spawnSync','execFile','execFileSync']){const f=cp[n];cp[n]=(cmd,...args)=>f(${JSON.stringify(join(dir,'missing-fixture'))},...args);}for(const n of ['exec','execSync','fork'])cp[n]=()=>{throw Error('External command blocked by fixture');};syncBuiltinESMExports();
 const originalFetch = globalThis.fetch;
 globalThis.fetch = (url, init) => {
  const u = new URL(String(url));
  if (u.hostname === 'api.github.com' && u.pathname.includes('Niko1221/Strata/releases/latest')) return Promise.resolve(Response.json({tag_name:'v0.2.0-beta',body:'Engine package version 0.1.45.3.'}));
- if (u.hostname !== '127.0.0.1' && u.hostname !== 'localhost') return Promise.resolve(new Response('{}', {status:503}));
+ if (u.origin !== ${JSON.stringify(new URL(base).origin)}) return Promise.resolve(new Response('{}', {status:503}));
  return originalFetch(url, init);
 };\n`);
   const log = openSync(join(dir, 'server.log'), 'w');
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' }, stdio: ['ignore', log, log],
+    env: { HOME: home, USERPROFILE: home, ARCO_HOME: join(home,'.arco'), TMPDIR: dir, PATH: join(dir,'missing-bin'), ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' }, stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;
   try {

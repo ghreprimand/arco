@@ -12,14 +12,14 @@ async function main() {
   const dir = mkdtempSync(join(tmpdir(), 'arco-question-smoke-'));
   const bin = join(dir, 'bin'), home = join(dir, 'home'), project = join(dir, 'project'); mkdirSync(bin); mkdirSync(project); mkdirSync(join(home, '.arco'), { recursive: true });
   const executable = join(bin, 'codex'); copyFileSync('scripts/smoke/fixtures/question-codex.mjs', executable);
-  writeFileSync(executable, '#!/usr/bin/env node\n' + readFileSync(executable, 'utf8')); chmodSync(executable, 0o755);
+  writeFileSync(executable, `#!${process.execPath}\n` + readFileSync(executable, 'utf8')); chmodSync(executable, 0o755);
   const preload = join(dir, 'isolate.mjs');
-  writeFileSync(preload, `import os from 'node:os';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';os.homedir=()=>${JSON.stringify(home)};const originalSpawn=cp.spawn;cp.spawn=(command,args,options)=>originalSpawn(command==='codex'?${JSON.stringify(executable)}:command,args,options);syncBuiltinESMExports();globalThis.fetch=async()=>new Response('{}',{status:503});\n`);
+  writeFileSync(preload, `import os from 'node:os';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';os.homedir=()=>${JSON.stringify(home)};const target=(command)=>command==='codex'||command===${JSON.stringify(executable)}?${JSON.stringify(executable)}:${JSON.stringify(join(bin,'missing-fixture'))};for(const name of ['spawn','spawnSync','execFile','execFileSync']){const original=cp[name];cp[name]=(command,...args)=>original(target(command),...args);}for(const name of ['exec','execSync','fork'])cp[name]=()=>{throw Error('External command blocked by fixture');};syncBuiltinESMExports();globalThis.fetch=async()=>new Response('{}',{status:503});\n`);
   const reserve = createServer(); reserve.listen(0, '127.0.0.1'); await once(reserve, 'listening');
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
   const log = openSync(join(dir, 'server.log'), 'w');
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' }, stdio: ['ignore', log, log],
+    env: { HOME:home, USERPROFILE:home, ARCO_HOME:join(home,'.arco'), TMPDIR:dir, PATH:bin, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' }, stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;
   try {

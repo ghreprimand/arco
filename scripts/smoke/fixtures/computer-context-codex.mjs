@@ -18,7 +18,11 @@ if (!process.argv.includes('app-server')) {
   if (process.argv.includes('--version')) console.log('codex-cli 0.167.0');
   else if (process.argv.includes('--help')) console.log('--ignore-user-config --ignore-rules --strict-config');
   else if (process.argv.includes('features') && process.argv.includes('list')) console.log('shell_tool stable false\nview_image stable false\ngoals stable false');
-  else console.log('Logged in using ChatGPT');
+  else if (process.argv.includes('exec')) {
+    console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'Checking the screen.' } }));
+    setInterval(() => {}, 60000);
+    await new Promise(() => {});
+  } else console.log('Logged in using ChatGPT');
   process.exit(0);
 }
 const home = process.env.CODEX_HOME ?? process.env.ARCO_COMPUTER_TEST_CODEX_HOME;
@@ -61,12 +65,12 @@ for await (const line of readline.createInterface({ input: process.stdin })) {
     }
     pendingTimer = setTimeout(() => {
       pendingTurnId = undefined;
-      notify('item/agentMessage/delta', { threadId, turnId, itemId: turnId, delta: `Completed ${text}.` });
+      notify('item/agentMessage/delta', { threadId, turnId, itemId: turnId, delta: `Completed ${text.split('</output-style>\n\n---\n\n').at(-1)}.` });
       if (!ephemeral) appendFileSync(join(sessions, `rollout-fixture-${threadId}.jsonl`), JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', info: {
         last_token_usage: { input_tokens: input, cached_input_tokens: 0, output_tokens: 3, total_tokens: input + 3 }, model_context_window: 100000,
       } } }) + '\n');
       notify('turn/completed', { threadId, turn: { id: turnId, status: 'completed', error: null } });
-    }, text.startsWith('[Arco activity update') ? Number(process.env.ARCO_COMPUTER_FIXTURE_ACTIVITY_DELAY_MS ?? 20) : text.includes('slow') ? 1200 : 20);
+    }, text.includes('[Arco activity update') ? Number(process.env.ARCO_COMPUTER_FIXTURE_ACTIVITY_DELAY_MS ?? 20) : text.includes('slow') ? 1200 : 20);
     continue;
   }
   if (m.method === 'turn/interrupt') {
