@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Show "Arco data folder" as the HOME of a Codex account profile without its own folder in Settings, instead of `~/.codex`, which suggested the profile shared the default Codex sign-in.
+
 - Fix Quick research and emptying scratch on close failing with "conversation storage is unavailable" when the Arco home is reached through a link, such as a symlinked home folder, the macOS /var alias or a Windows short name.
 
 - Lay out a member's settings in the mobile view's members sheet for touch: one full-width control per row, WORK SIZE as one row of chips, the role choices in place, no repeated name, and "tap to edit" for FOCUS.

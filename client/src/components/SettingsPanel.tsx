@@ -1,3 +1,4 @@
+import { codexProfileHomeLabel } from '../utils/codexAccountHome';
 import { NativeSubagentDefaults } from './NativeSubagentControls';
 import { ProvidersPopover } from './ProvidersPopover';
 import { PreviewPortsSection } from './settings/PreviewPortsSection';
@@ -2301,7 +2302,7 @@ function CodexProfilesSection() {
                   </div>
                   <div style={{ display: 'flex', gap: '8px', minWidth: 0, fontSize: '10px', fontFamily: 'var(--font-body)', color: 'var(--color-fg-muted)' }}>
                     <span className="display-font" style={{ minWidth: '58px', color: 'var(--color-accent-primary-dim)', letterSpacing: '1px' }}>HOME</span>
-                    <span style={{ color: 'var(--color-accent-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.codexHome || '~/.codex'}</span>
+                    <span style={{ color: 'var(--color-accent-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{codexProfileHomeLabel(profile)}</span>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', minWidth: 0, fontSize: '10px', fontFamily: 'var(--font-body)', color: 'var(--color-fg-muted)' }}>
                     <span className="display-font" style={{ minWidth: '58px', color: 'var(--color-accent-primary-dim)', letterSpacing: '1px' }}>BROWSER</span>
