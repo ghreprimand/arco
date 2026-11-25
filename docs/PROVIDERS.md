@@ -522,7 +522,7 @@ Beyond the built-in `arco-cluster` + `codebase-memory` entries, CLI Claude also 
 
 `server/src/providers/claude-native/` - long-lived per-workflow worker that talks directly to Anthropic's Messages API via `@anthropic-ai/sdk@^0.91.1` (Pi-pinned). The agent loop runs in Arco's process so the mid-turn steer hook fires between tool-result append and the next API round-trip.
 
-**File layout (post-P0 carve-out).** `worker.ts` holds the `ClaudeNativeWorker` class and the turn/stream/error loop. To keep it under the 2000-line cap, the *stateless* leaf helpers live in siblings and are re-exported from `worker.ts` so existing `from './worker.js'` import paths still resolve:
+**File layout.** `worker.ts` holds the `ClaudeNativeWorker` class and the turn/stream/error loop. It is longer than 2,000 lines. The stateless leaf helpers live in siblings and are re-exported from `worker.ts` so existing `from './worker.js'` import paths still resolve:
 - `modelParams.ts` - token ceilings (`adaptiveMaxTokensForModel`, `chooseMaxTokens`), thinking/effort params (`buildThinkingParams`, `shouldSendInterleavedThinkingBeta`), context-window lookup (`lookupCtx`).
 - `contentBlocks.ts` - content-block types (`AnyContentBlock`, `ToolUseBlock`, `MessageParam`, ...), image/user-message assembly (`buildUserMessageContent`), server-tool defs (`CLAUDE_CODE_SERVER_TOOLS`), context-management edits (`buildContextManagementEditsForRequest`), the tool-loop predicate (`shouldContinueNativeToolLoop`), and the trailing-thinking stripper (`stripTrailingThinkingFromContent`).
 - `workerHelpers.ts` - `replayMessagesFromEvents`, `mergeUsage`, `truncateOutput`, `planParserAdvisories`, `sleepWithSignal`.
