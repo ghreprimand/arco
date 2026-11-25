@@ -1791,6 +1791,18 @@ One streaming `POST ${baseUrl}/chat/completions` per turn (SSE `data:` lines, `[
 
 `getLmstudioBase()` resolves `settings.lmstudio.baseUrl`, then `LMSTUDIO_URL_BASE`, then defaults to `http://localhost:1234/v1`. The configured value supports DD12 config-value interpolation (`!cmd ...` and `${ENV}`) through `resolveConfigValue` before `normalizeBase`. A bare `host:port` gets `/v1` appended; for example, `http://localhost:1234` works.
 
+### Environment overrides
+
+These apply to LM Studio, Strata and DeepSeek, which share the same HTTP loop.
+
+| Var | Default | Purpose |
+|---|---|---|
+| `ARCO_LMSTUDIO_MAX_TOOL_TURNS` | `25` | Tool-loop iterations per operator turn; 1-200 |
+| `ARCO_LMSTUDIO_STALL_TIMEOUT_MS` | `120000` | A stream that sends no event for this long is stopped and the turn fails with a plain error; minimum 1000 |
+| `ARCO_LMSTUDIO_TOOL_HEAD_BYTES` | `4096` | Characters kept from the start of a long tool result for LM Studio (Strata and DeepSeek keep full runtime results) |
+| `ARCO_LMSTUDIO_TOOL_TAIL_BYTES` | `2048` | Characters kept from the end of such a result |
+| `ARCO_LMSTUDIO_THINKING_FLUSH_MS` | `100` | Interval at which reasoning deltas are coalesced; 0-5000 |
+
 ### Capability detection
 
 `probeLmstudio()` hits `/v1/models` to populate the CONFIG-tab model dropdown (this also fixed a latent empty-dropdown gap on the llama.cpp path). The OpenAI `/v1/models` response supplies model IDs. When available, the native `/api/v1/models` response adds vision, trained-for-tool-use and context metadata; unknown metadata remains conservative.
@@ -2053,7 +2065,7 @@ OpenAI fragment-assembly: tool calls arrive across multiple SSE events, partial 
 
 **XML tool-call fallback.** Some Qwen builds emit `<tool_call>{...}</tool_call>` XML markup in `reasoning_content` instead of structured `delta.tool_calls[]`. The provider sniffs for this fallback and parses the XML payload as a synthetic tool call so the loop still progresses. Without this fallback the model would emit a tool-shaped reasoning block and then hang waiting on a tool result that never comes.
 
-**Thinking coalescing.** `reasoning_content` deltas can fire many times per second; we coalesce them on a `~ARCO_LLAMACPP_THINKING_FLUSH_MS` interval before emitting `primary_thinking_chunk` events to avoid saturating the WebSocket send buffer.
+**Thinking coalescing.** `reasoning_content` deltas can fire many times per second; we coalesce them on an `ARCO_LLAMACPP_THINKING_FLUSH_MS` interval (default 100 ms) before emitting `primary_thinking_chunk` events to avoid saturating the WebSocket send buffer.
 
 **Reviewer-mode tool allowlist.** When `runReviewer.ts` dispatches a llama.cpp reviewer, it injects `READ_ONLY_LLAMACPP_TOOLS` (Read, Grep, Glob, WebSearch, WebFetch - same shape as Ollama's READ_ONLY_OLLAMA_TOOLS) instead of the full primary-mode set. Plus a `LOCAL_REVIEWER_ADDENDUM` framing addendum explicitly tells the reviewer to use those tools to verify diff claims against the live tree, not just opine on the diff text. See [Primitives: Review  Local-reviewer addendum](PRIMITIVES.md#local-reviewer-addendum).
 
@@ -2087,7 +2099,7 @@ binary or model is installed or loaded.
 
 ### Auto-recovery
 
-Local thinking models fail in three specific ways that the lifecycle alone can't handle: reasoning runaway (model emits `reasoning_content` for minutes without ever committing), tool-cap exhaustion (25-turn cap fires on legitimately long work), and context fill (96K cap is small compared to Claude). The provider runs an in-place auto-recovery system that keeps the conversation going without operator intervention.
+Local thinking models fail in three specific ways that the lifecycle alone can't handle: reasoning runaway (model emits `reasoning_content` for minutes without ever committing), tool-cap exhaustion (25-turn cap fires on legitimately long work), and context fill (a local window is small compared to Claude's). The provider runs an in-place auto-recovery system that keeps the conversation going without operator intervention.
 
 Distinct from the heavyweight Handoff primitive (which spawns a fresh workflow with a chosen summarizer model - tuned for Claude/Codex flows). Auto-recovery operates inside the same worker on the same workflow, just intelligently resetting the in-memory message stack when something goes sideways.
 
@@ -2113,15 +2125,18 @@ The context-fill path only warns and suggests Handoff. It does not make a compac
 
 | Var | Default | Purpose |
 |---|---|---|
-| `ARCO_LLAMACPP_BIN` | `/usr/local/bin/llama-server` | Binary path (for other installs) |
+| `ARCO_LLAMACPP_BIN` | unset: `llama-server` (`llama-server.exe` and the other `PATHEXT` names on Windows) is looked up on `PATH` | Full path to the binary. It must be an existing file; if it is not, llama.cpp counts as not installed and `PATH` is not searched |
 | `ARCO_LLAMACPP_PORT` | `8923` | Port the manager spawns llama-server on |
 | `ARCO_LLAMACPP_HOST` | `127.0.0.1` | Bind host |
 | `ARCO_LLAMACPP_KEEPALIVE_MS` | `600000` (10 min) | Idle eviction window. `0` = never evict. |
-| `ARCO_LLAMACPP_MAX_TOOL_TURNS` | `25` | Tool-loop iterations per operator turn before recovery (or failure if recovery exhausted) |
-| `ARCO_LLAMACPP_AUTO_RECOVER` | `true` | Enable recovery attempts; `off` still enforces the time limits |
-| `ARCO_LLAMACPP_REASONING_BUDGET` | `4000` | Reasoning tokens before runaway intervention |
-| `ARCO_LLAMACPP_COMPACT_THRESHOLD` | `0.85` | Context fill fraction that raises the suggest-Handoff notice |
-| `ARCO_LLAMACPP_MAX_RECOVERIES` | `1` | Total auto-recovery actions per operator turn |
+| `ARCO_LLAMACPP_MAX_TOOL_TURNS` | `25` | Tool-loop iterations per operator turn before recovery (or failure if recovery exhausted); 1-200 |
+| `ARCO_LLAMACPP_AUTO_RECOVER` | `true` | Enable recovery attempts; `false`, `0`, `no` or `off` disables them and still enforces the time limits |
+| `ARCO_LLAMACPP_REASONING_BUDGET` | `4000` | Reasoning tokens before runaway intervention; 100-100000 |
+| `ARCO_LLAMACPP_COMPACT_THRESHOLD` | `0.85` | Context fill fraction that raises the suggest-Handoff notice; 0.5-0.99 |
+| `ARCO_LLAMACPP_MAX_RECOVERIES` | `1` | Total auto-recovery actions per operator turn; 0-10 |
+| `ARCO_LLAMACPP_TOOL_HEAD_BYTES` | `4096` | Characters kept from the start of a long tool result other than `Read` (a `Read` result over 250 lines keeps its first and last 100 lines) |
+| `ARCO_LLAMACPP_TOOL_TAIL_BYTES` | `2048` | Characters kept from the end of such a result |
+| `ARCO_LLAMACPP_THINKING_FLUSH_MS` | `100` | Interval at which reasoning deltas are coalesced before they are sent; 0-5000, `0` sends every delta |
 | `ARCO_LLAMACPP_STALL_TIMEOUT_MS` | `90000` | No stream data limit, enforced even with recovery off; range 10000-600000 ms |
 | `ARCO_LLAMACPP_TURN_BUDGET_MS` | `120000` | Wall-clock limit per reply, enforced even with recovery off; range 10000-1800000 ms |
 | `ARCO_LOOP_COACH_THRESHOLD` | `2` | Identical (tool, args) calls before loop coach fires (shared with Ollama) |

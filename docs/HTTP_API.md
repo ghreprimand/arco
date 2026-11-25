@@ -356,6 +356,8 @@ What REVERT TO HERE would change, without changing anything (`gitSnapshots.previ
 
 ---
 
+**Errors shared by the `wfid`-scoped Git routes** (`/api/git/diff`, `compare`, `compare/diff`, `fetch`, `worktrees`, `other-work` and `op/<family>`): a missing or invalid `wfid` is `400` (`{ error: 'valid wfid query required' }`; the POST routes answer `{ error: 'invalid wfid' }`, and `op` answers its own `{ ok:false, op, stderr }` shape). A `wfid` that names no open workflow (or whose folder is protected or gone), and a `path` outside that workflow's project or its registered worktrees, is `403 { error }`, and an unexpected failure is `500 { error }`. The "always 200" statements below apply to the cases they describe, after those checks.
+
 ### `GET /api/git/diff?wfid=<wfid>[&path=<cwd>][&file=<repo-rel-path>][&staged=1]`
 
 Workbench Expansion I1. Powers the FILES -> SOURCE "Source Control" view: list the working tree's changed files grouped staged / unstaged / untracked, then fetch one file's unified diff on click. **Distinct from `/api/workflows/diff`** (A3, which produces a single whole-tree or ref-vs-ref patch); both feed the same source-agnostic `DiffView`. Backed by `server/src/gitWorking.ts` (`getWorkingChanges` + `getFileDiff`) + `server/src/http/gitDiffRoutes.ts` (the route). Read-only - runs `git status` / `git diff` via `execFile` with an argv array, always passing `--` so a path can't be re-read as a flag; never touches the index/HEAD.
@@ -395,7 +397,7 @@ Workbench Expansion I2. Powers the FILES -> REMOTE view: how the cwd's current b
 
 - `wfid` - required; validated against `[A-Za-z0-9._-]+`. Resolves the workflow's live cwd when `path` is omitted.
 - `path` - explicit cwd; wins over the resolved wfid cwd.
-- Always answers **200** with `UpstreamComparisonResponse` `{ isRepo, branch?, upstream?, detached?, hasUpstream?, ahead?[], behind?[], aheadDiffstat?, behindDiffstat? }`:
+- Answers **200** with `UpstreamComparisonResponse` `{ isRepo, branch?, upstream?, detached?, hasUpstream?, ahead?[], behind?[], aheadDiffstat?, behindDiffstat? }`:
   - `ahead` = local-only commits (`@{u}..HEAD`, **to push**), `behind` = remote-only commits (`HEAD..@{u}`, **to pull**). Each commit `{ hash, subject, author, ts }` (ts = author date, epoch ms); newest first.
   - `aheadDiffstat` / `behindDiffstat` = `{ files, insertions, deletions }` from `git diff --shortstat` on the symmetric range.
   - Non-fatal cases (all 200): non-git -> `isRepo:false`; detached HEAD -> `detached:true`; no upstream configured -> `hasUpstream:false` (+ `branch`); in sync -> `ahead:[] behind:[]`.
@@ -1484,7 +1486,7 @@ Lists all skills visible to a project + the global pool.
 {
   project: SkillSummary[],   // empty when cwd is missing
   global: SkillSummary[],
-  builtin: Array<{ slug, name, description, scope: 'builtin', operatorOnly: true }>, // shipped with Arco, read-only
+  builtin: Array<{ slug, name, description, scope: 'builtin', operatorOnly: boolean, off?: boolean, replaced?: boolean, path?: string }>, // shipped with Arco, read-only
 }
 
 interface SkillSummary {
@@ -1496,14 +1498,16 @@ interface SkillSummary {
   useCount?: number;         // - read-only usage telemetry from the skill-usage sidecar; absent ⇒ never used
   lastUsed?: number;         // - epoch ms of last use
   operatorOnly?: boolean;    // DD8 - `operator-only: true` frontmatter; withheld from the model manifest, operator-pickable only
+  off?: boolean;             // P8.6 - switched off in the skill's `.arco-skill.json`; left out of the manifest, pins and the SKILLS apply list
+  source?: { kind: 'github'; url: string; commit?: string } | { kind: 'folder'; path: string } | { kind: 'zip'; name: string };  // where an imported skill came from
 }
 ```
 
-`cwd` is optional (omit it to list global only). Skills with malformed frontmatter (no `name:`) are silently skipped, matching the toolbox scanner. `useCount` / `lastUsed` are attached from the `skill-usage.json` sidecar in `listSkills` only - they are never folded into the model-facing manifest. `operatorOnly` marks a skill the model is never told exists: it is omitted from the manifest entirely but still listed here and pickable by the operator (who inlines its full body into a turn via the `SKILLS` composer picker).
+`off` and `source` come from the skill's sidecar file. A built-in entry has `off` (set by `POST /api/skills/state` with `scope: 'builtin'`), `replaced` (a project or global skill with the same slug or name hides it from the manifest) and, unless it is operator-only, the `path` of its materialized `SKILL.md` that agents can read. `cwd` is optional (omit it to list global only); when given it must be a project Arco knows, and any failure, including an unknown project, answers `500 { error }`. Skills with malformed frontmatter (no `name:`) are silently skipped, matching the toolbox scanner. `useCount` / `lastUsed` are attached from the `skill-usage.json` sidecar in `listSkills` only - they are never folded into the model-facing manifest. `operatorOnly` marks a skill the model is never told exists: it is omitted from the manifest entirely but still listed here and pickable by the operator (who inlines its full body into a turn via the `SKILLS` composer picker).
 
 ### `GET /api/skills/body?cwd=<absolute path>&scope=<project|global>&slug=<slug>`
 
-Returns the full skill including `body`. 400 on invalid scope/slug; 404 if missing.
+Returns the full skill including `body`. `400 { error }` for an invalid scope or slug, a project scope without `cwd`, or a `cwd` that is not a known project; `404 { error: 'skill not found' }` if missing.
 
 **Response:**
 ```ts
@@ -1525,23 +1529,23 @@ Create or update a skill. Body:
 }
 ```
 
-`cwd` query is required for `scope: 'project'`. Returns `{ skill: SkillSummary }`. Path-traversal attempts (slug containing `..`, slashes, or non-`[a-z0-9-]` chars) 400 immediately; the resolved file path is also re-validated against the scope root after resolution as a second-line defence against platform path quirks.
+`cwd` query is required for `scope: 'project'`. Returns `{ skill: SkillSummary }`. Every failure is `400 { error }`: a bad scope, a missing `cwd`, a `cwd` that is not a known project, a name, description or body over its limit, or an empty one. Path-traversal attempts (slug containing `..`, slashes, or non-`[a-z0-9-]` chars) 400 immediately; the resolved file path is also re-validated against the scope root after resolution as a second-line defence against platform path quirks.
 
 ### `DELETE /api/skills?cwd=<absolute path>&scope=<project|global>&slug=<slug>`
 
-Removes the skill's directory recursively. 404 if missing. Same validation rules as the GET-body endpoint.
+Removes the skill's directory recursively. `404 { error }` if missing. Same validation rules as the GET-body endpoint.
 
 ### Skill management (P8.6)
 
-All matched before the plain `/api/skills` routes; `cwd` (query) is required for project scope. Errors answer 400 with `{ error }`.
+All matched before the plain `/api/skills` routes; `cwd` (query) is required for project scope and, when given, must be a known project. Every route except `details` takes `POST` with a JSON body of at most 64 KB (12 MB for `import/preview`, which can carry a zip); a wrong method is `405 { error: 'method not allowed' }`, an unreadable body `400 { error: 'invalid_body' }`, and any other refusal `400 { error }`.
 
 - `POST /api/skills/import/preview` - body `{ source }` with `{ kind: 'github', url }` (a `github.com/.../tree/<ref>/<path>` or `.../blob/<ref>/<path>/SKILL.md` link, or a `raw.githubusercontent.com` link), `{ kind: 'folder', path }` (absolute) or `{ kind: 'zip', name, data }` (base64, at most 8 MB). Returns `{ token, name, description, operatorOnly, files: [{ path, bytes, text, findings }], skipped, source, findingCount }`. Limits: 64 files, 512 KB per file, 2 MB in total, depth 6; links, `..`, absolute and backslash paths, encrypted and zip64 archives are refused; hidden files are skipped.
 - `POST /api/skills/import/confirm` - `{ token, scope }`; writes the reviewed files (mode 0644) and a `.arco-skill.json` sidecar with the source. Returns `{ skill: { scope, slug, name } }`. A token is single-use and expires after 15 minutes.
 - `POST /api/skills/update/preview` - `{ scope, slug }` for a skill imported from GitHub or a folder; returns `{ token, name, changed, files: [{ path, status, text, before?, after?, findings }], source, findingCount }`. `POST /api/skills/update/confirm` - `{ token }` replaces the folder and keeps the off state.
-- `POST /api/skills/state` - `{ scope, slug, off }`. An off skill is left out of the model manifest and pins; `GET /api/skills` reports `off: true` and `source` per skill.
+- `POST /api/skills/state` - `{ scope, slug, off }`; `scope` may also be `'builtin'` to switch a built-in skill off or on (no `cwd` needed). An off skill is left out of the model manifest and pins; `GET /api/skills` reports `off: true` and `source` per skill.
 - `POST /api/skills/move` - `{ scope, slug, to }`. `POST /api/skills/duplicate` - `{ scope, slug, name }` (the copy has no source).
 - `GET /api/skills/details` - `{ skills: [{ scope, slug, files: [{ path, bytes }], missing }] }`: extra files and referenced skill names that are not installed.
-- `POST /api/skills/share/preview` and `POST /api/skills/share` (`confirm: true`) - `{ slug }`, project scope, registered projects only (403 otherwise). Returns `{ slug, files, alreadyTrackable, publicRepository, lines }`; sharing appends a `# Shared with the repository: <slug>` comment and the lines to `.arco/.gitignore` and verifies with `git check-ignore`. The project-state check reads those lines and leaves the shared skill's files alone.
+- `POST /api/skills/share/preview` and `POST /api/skills/share` (`confirm: true`, else `400 { error: 'confirmation_required' }`) - `{ slug }`, project scope, registered projects only (`403 { error: 'Project is unavailable' }` otherwise). Returns `{ slug, files, alreadyTrackable, publicRepository, lines }`; sharing appends a `# Shared with the repository: <slug>` comment and the lines to `.arco/.gitignore` and verifies with `git check-ignore`. The project-state check reads those lines and leaves the shared skill's files alone.
 
 ### `POST /api/skills/copy-builtin?cwd=<absolute path>`
 
@@ -1801,9 +1805,11 @@ One pending flow serves the single Native store; a new start supersedes the prev
 }
 ```
 
+A failure, including a `workflowId` that is not a string of at most 128 characters, answers `500 { error }`.
+
 ### `GET /api/auth/claude-native/flow?id=<flowId>`
 
-Returns `{ flow: ClaudeNativeAuthFlow }` or HTTP 404 after restart, eviction or an unknown id.
+Returns `{ flow: ClaudeNativeAuthFlow }` or HTTP 404 `{ error: 'Sign-in flow unavailable. Start again.' }` after restart, eviction or an unknown id.
 The id is independent of the OAuth state/verifier. Metadata contains `startedAt`, `expiresAt`,
 `bindingBefore`, optional `workflowId`, and the resulting `binding` only after successful completion.
 Statuses are `pending`, `exchanging`, `complete`, `cancelled`, `expired`, `superseded` and `failed`.
@@ -1833,7 +1839,7 @@ not a successful workflow execution. The existing Native credential-owner lock a
 
 ### `POST /api/auth/claude-native/logout`
 
-Cancels the pending Native bootstrap and clears the persisted tokens. **Response:** `{ ok: true }`.
+Cancels the pending Native bootstrap and clears the persisted tokens. **Response:** `{ ok: true }`; a failure is `500 { error }`.
 
 ### `POST /api/auth/claude-native/probe`
 
@@ -1876,7 +1882,7 @@ Empirical model probe - sends a minimal `messages.create` request through the li
 
 ### `GET /api/claude-native/catalog[?force=1]`
 
-Anthropic's `/v1/models` response, distilled to the picker shape (camelCase model entry + `supportedEfforts[]` + capability flags) and cached for one hour. Refreshes lazily on the next request after expiry; failures degrade to the last good snapshot. `?force=1` bypasses the cache (CONFIG-tab "REFRESH" button).
+Anthropic's `/v1/models` response, distilled to the picker shape (camelCase model entry + `supportedEfforts[]` + capability flags) and cached for one hour. Refreshes lazily on the next request after expiry; failures degrade to the last good snapshot. `?force=1` bypasses the cache (CONFIG-tab "REFRESH" button). When no snapshot can be fetched and none is cached the answer is `500 { error }`.
 
 **Response:**
 ```ts
@@ -2167,34 +2173,34 @@ Returns the count of currently connected WS sessions. Used by the launcher to de
 
 ## GitHub proxy
 
-`/api/github/*` is a thin proxy over the operator's `gh` CLI auth token. The token is fetched per request via `gh auth token` (no caching - `gh` handles refresh). All routes return whatever the GitHub REST API returns; Arco doesn't transform.
+`/api/github/*` is a thin proxy over the operator's `gh` CLI auth token (`server/src/http/githubRoutes.ts`, `server/src/github.ts`). The token is fetched per request via `gh auth token` (5 second limit, no caching - `gh` handles refresh) and sent to `api.github.com`. Most routes return the GitHub REST body unchanged. The exceptions are `context`, `commit-count`, `rerun`, `tree` (a directory listing reduced to `{ type: 'dir' | 'file', name, path, size?, sha, download_url }`, or with `recursive=1` `{ entries: [{ path, size? }], truncated }` of files only), `issues` (pull requests are removed from the list), `commits/:sha` (only its `files`) and `repos?search=`. Only `GET` and `POST` routes exist; a request whose path matches none answers `404 { error: 'Unknown GitHub endpoint' }`.
 
 | Path | Method | Purpose |
 |---|---|---|
 | `/api/github/user` | GET | Authenticated user |
 | `/api/github/context?path=<cwd>` | GET | Resolve local cwd -> `{ owner, name, branch }` from git remote; 404 when not a GitHub repo |
-| `/api/github/repos` | GET | List repos for the user |
+| `/api/github/repos` | GET | List repos for the user. Query: `search` (repository names matching the text, owned by the user, newest first; 30 results), `type` (`all`, `owner`, `member`, `public` or `private`; default `owner`) and `page` (default 1; 30 per page, sorted by last push) |
 | `/api/github/repos/:owner/:repo` | GET | Repo metadata |
 | `/api/github/repos/:owner/:repo/branches` | GET | Branches |
 | `/api/github/repos/:owner/:repo/tags` | GET | Tags |
 | `/api/github/repos/:owner/:repo/releases` | GET | Releases |
-| `/api/github/repos/:owner/:repo/commits` | GET | Commits (list) |
+| `/api/github/repos/:owner/:repo/commits` | GET | Commits (list). Query: `sha` (branch or commit to start from), `path` (only commits touching it), `page` (default 1; 30 per page) |
 | `/api/github/repos/:owner/:repo/commits/:sha` | GET | A single commit's changed files (with patches) - I4 |
 | `/api/github/repos/:owner/:repo/contributors` | GET | Contributors |
 | `/api/github/repos/:owner/:repo/languages` | GET | Languages |
-| `/api/github/repos/:owner/:repo/commit-count` | GET | Total commit count |
-| `/api/github/repos/:owner/:repo/readme` | GET | Decoded README |
-| `/api/github/repos/:owner/:repo/tree` | GET | File tree |
-| `/api/github/repos/:owner/:repo/contents` | GET | File contents |
-| `/api/github/repos/:owner/:repo/pulls` | GET / POST | List PRs / **create a PR** - I4 |
+| `/api/github/repos/:owner/:repo/commit-count` | GET | Total commit count of `sha` (required, else `400 { error: 'sha query required' }`) as `{ count }`, cached for 60 seconds |
+| `/api/github/repos/:owner/:repo/readme` | GET | README as GitHub returns it (`content` is base64, with `encoding`); optional `ref` |
+| `/api/github/repos/:owner/:repo/tree` | GET | One directory (`ref`, `path`), or with `recursive=1` every file of `ref` (`400 { error }` without `ref`) |
+| `/api/github/repos/:owner/:repo/contents` | GET | One file; `path` is required (`400 { error: 'path query required' }`), `ref` optional |
+| `/api/github/repos/:owner/:repo/pulls` | GET / POST | List PRs (`state` = `open`, `closed` or `all`; default `open`) / **create a PR** - I4 |
 | `/api/github/repos/:owner/:repo/pulls/:n` | GET | PR detail |
 | `/api/github/repos/:owner/:repo/pulls/:n/files` | GET | PR files |
 | `/api/github/repos/:owner/:repo/pulls/:n/comments` | GET | PR review comments |
-| `/api/github/repos/:owner/:repo/pulls/:n/checks` | GET | PR CI checks |
-| `/api/github/repos/:owner/:repo/pulls/:n/merge` | POST | Merge PR |
-| `/api/github/repos/:owner/:repo/issues` | GET | List issues |
+| `/api/github/repos/:owner/:repo/pulls/:n/checks` | GET | CI check runs for the commit named by the required `ref` query (`400 { error: 'ref query required' }`); `:n` is not used |
+| `/api/github/repos/:owner/:repo/pulls/:n/merge` | POST | Merge PR. Body `{ method?: 'merge' \| 'squash' \| 'rebase', title?, message? }` |
+| `/api/github/repos/:owner/:repo/issues` | GET | List issues (`state` = `open`, `closed` or `all`; default `open`) |
 | `/api/github/repos/:owner/:repo/issues/:n` | GET | Issue detail |
-| `/api/github/repos/:owner/:repo/issues/:n/comments` | GET / POST | Issue comments / new comment |
+| `/api/github/repos/:owner/:repo/issues/:n/comments` | GET / POST | Issue comments / new comment (body `{ body }`; `400 { error: 'body required' }` when empty) |
 | `/api/github/repos/:owner/:repo/issues/:n/close` | POST | Close issue |
 | `/api/github/repos/:owner/:repo/issues/:n/reopen` | POST | Reopen issue |
 | `/api/github/repos/:owner/:repo/runs` | GET | Workflow runs |
@@ -2202,7 +2208,9 @@ Returns the count of currently connected WS sessions. Used by the launcher to de
 | `/api/github/repos/:owner/:repo/runs/:id/jobs` | GET | Run jobs |
 | `/api/github/repos/:owner/:repo/runs/:id/rerun` | POST | Rerun; accepted empty upstream success returns `{ ok: true }` |
 
-If `gh auth status` reports unauthenticated, every route returns 401 with `{ error: "GitHub CLI not authenticated" }`. Run `gh auth login` (or use the in-UI flow at `POST /api/auth-login?provider=github`).
+`GET /api/github/context?path=<cwd>` answers `400 { error: 'path query required' }` without `path`, `404 { error }` when the folder is not a Git working tree, has no `origin` remote, or `origin` is not on github.com (that last answer also carries `remote`), and otherwise `{ owner, name, branch }` (`branch` is `null` on a detached HEAD).
+
+Every other failure answers `502 { error }`, including a missing or empty token (`gh token unavailable: ...`) and any non-success answer from GitHub (`GitHub <status> <text>: <first 300 characters of the body>`); there is no separate 401. Run `gh auth login` (or use the in-UI flow at `POST /api/auth-login?provider=github`).
 
 ### `POST /api/github/repos/:owner/:repo/pulls` - create a pull request
 
@@ -2270,7 +2278,7 @@ System-wide enumeration of TCP listeners. Returns `{ entries: Array<{ port: numb
 
 ## Git operations
 
-Powers the `⎇ GIT` composer button (`client/src/components/GitDialog.tsx`). Two endpoints; live status read + branch checkout. Implementation in `server/src/git.ts`.
+Powers the `⎇ GIT` composer button (`client/src/components/GitDialog.tsx`). These two endpoints are the live status read and the branch checkout; the other `/api/git/*` routes (diff, compare, fetch, worktrees, other work, and the mutating `op` family) are documented above under Workflows. Implementation in `server/src/git.ts`.
 
 ### `GET /api/git/status?path=<cwd>`
 
@@ -2323,7 +2331,7 @@ type GitRemoteSummary = {
 
 Discovery uses `git rev-parse`, `git status --porcelain=v2`, `git diff --name-status`, `git for-each-ref refs/heads/`, `git remote -v`, and `git symbolic-ref --short refs/remotes/origin/HEAD`. If the path isn't a git repo, returns `{ isRepo: false,... }` with the rest zeroed; the dialog renders an inert "not a repo" banner.
 
-Errors: `400` on missing/invalid `path`; `200` with `isRepo: false` on non-repo paths (not an error).
+Errors: `400 { error: 'path query required' }` when `path` is missing; `200` with `isRepo: false` on non-repo paths (not an error). `path` must be a project folder Arco knows; any other path, and any unexpected failure, answers `500 { error }` (this route does not map the access refusal to 403).
 
 ### `POST /api/git/checkout`
 
@@ -2347,7 +2355,8 @@ Response:
 
 Behavior:
 
-- **Branch name validation:** `/^[A-Za-z0-9._/-]+$/`. Anything else returns `{ ok: false, error: '...' }` with HTTP 400.
+- **Request check:** a missing `path` or `branch` is `400 { error: 'path and branch required' }`. Every refusal below answers HTTP `400` with `{ ok: false, error }`; success is `200 { ok: true }`. A `path` outside the known projects, or an unexpected failure, is `500 { error }`.
+- **Branch name validation:** `/^[A-Za-z0-9._/-]+$/` for `branch` and for `create.fromBranch`. Anything else returns `{ ok: false, error: 'Invalid branch name...' }` (or `'Invalid base-branch name.'`).
 - **Dirty-tree refusal:** runs `git status --porcelain`; if non-empty, returns `{ ok: false, error: 'Working tree has uncommitted changes....' }`. Operator must commit or stash before switching. The refusal happens server-side before any branch state changes.
 - **Plain switch:** runs `git checkout <branch>`.
 - **Create + switch:** verifies the base branch exists (`git rev-parse --verify refs/heads/<base>`), verifies the target doesn't already exist (otherwise checkout would silently switch to the existing branch - surprising), then runs `git checkout -b <branch> <base>`.
@@ -2391,6 +2400,11 @@ falls back to local Kokoro. Effects use ordinary workflow messages.
 | `POST /api/voice/mail-rules?owner=<ComputerId>` | `{action:'create',cluster_id,worker_ids:string[],final_id}`, `{action:'list'}`, `{action:'cancel'|'pause'|'resume',rule_id}` or `{action:'claim-announcement',rule_id}` | `{rule?,rules,announce?,warning?}`; strict schema, ≤4 KB. Exact distinct IDs in one cluster, 1-16 selected workers, separate final recipient, one active rule per cluster, ≤16 globally. Two-hour expiry/30s cooldown/8 nudges per worker. No AUTO-PICKUP coexistence. Claim deduplicates terminal speech. Saved arming waits for durable persistence; private rules memory-only. Errors refuse arming/stop future nudges |
 | `GET /api/voice/watches?owner=<ComputerId>` | - | `{watches,warning?}`; saved watches plus only this owner's memory-only private watches; normal cookie/origin gates, no voice lease required |
 | `POST /api/voice/watches?owner=<ComputerId>` | `{action:'create',target:<exact worker/cluster id>}` or `{action:'cancel',watch_id}` or `{action:'claim-announcement',watch_id}` | `{watch?,watches,announce?,warning?}`; ≤2 KB; exact active busy generations, whole queue boundary, no model polling; only one claim succeeds per terminal watch. Private targets/Computer itself rejected. Saved metadata atomic/durable; private owner watches memory-only. 400 on missing/idle/ambiguous target, cap or persistence failure |
+| `GET /api/voice/setup` | - | The setup status for the VOICE panel: `{ deployment: 'host' \| 'docker', platform, voiceHome, voiceHomeFromEnv, uv, python, packages, models, ready, notices, install }`; `install` is `{ running, exitCode, startedAt, finishedAt, log }`. No voice lease |
+| `POST /api/voice/setup/install` | `{}` | `202 { ok: true }` after starting `node scripts/voice/run.mjs setup.py` (the same work as `npm run voice:setup`). `400` in a Docker deployment, `409` when setup is already running, `500` when the script is missing |
+| `POST /api/voice/setup/cancel` | `{}` | `{ ok }`; `true` when a running setup was stopped |
+| `GET /api/voice/setup/notices` | - | The `NOTICES.md` of the installed voice models as `text/markdown`; `404` until setup has finished |
+| `POST /api/voice/setup/transcribe` | mono 16 kHz PCM16, at most 10 seconds | `{ text, ms, recognizer }`; the recognizer is `Parakeet v3` or `Moonshine tiny`. The test phrase of the setup panel, with no session. `409` while setup runs or another test phrase is being recognized, `503` when local speech is not installed, `400` for empty or odd-length audio |
 | `GET /api/voice/status` | - | `{localSpeech,fastWake,interpreter:'codex',model:'gpt-6-luna',effort:'low',defaultVoice,voices}`; output voice catalog from `shared/src/voice.ts` |
 | `POST /api/voice/session` | `{enabled:true,voice?}` | `{sessionId}`; requires installed local speech; optional listed output voice |
 | `POST /api/voice/warmup?session=<id>` | `{}` | `{ready:true,fastWake,recognizer,voice}`; prepares local recognition, speech output and optional streaming wake detection before listening; wake failure falls back to full recognition |
@@ -2404,6 +2418,8 @@ falls back to local Kokoro. Effects use ordinary workflow messages.
 | `POST /api/voice/interpret?session=<id>` | `{text,context:{targets,currentId,clusterId}}` | `{command,model,effort,usage}`; bounded fresh Codex subscription turn |
 | `POST /api/voice/tool` | `{workflowId,tool,args}` (loopback only, from the `arco-voice` MCP child) | `{ok,result}` or `{ok:false,error}`; relayed to the browser owning the session as WS `voice_tool_call`, answered by `voice_tool_result`; 404 unless the workflow is a `voiceOperator` chat; logged as `[voice tool] ...` |
 | `POST /api/voice/diag?session=<id>` | `{events:[...]}` (≤64 KB, ≤200 events) | `{ok:true}`; each event is written to the journal as `[voice <sid>] client {...}` |
+
+Status codes. A refused or failed voice request answers `400 { error }`: this includes malformed JSON, a body over its limit, an unknown or expired `session` (`Voice session expired. Enable hands-free mode again.`), a third `POST /api/voice/session` while two are open, a wake utterance that is stale or out of range, and an interpretation request that names an Incognito conversation. `POST /api/voice/session` answers `400` unless `enabled` is `true`, and `503` when local speech is not installed. `POST /api/voice/tool` answers `403` for a caller that is not on the loopback address. A busy recognizer or wake detector answers `409`, and a path under `/api/voice/` that matches nothing is `404 { error: 'Unknown voice operation.' }`. The conditions, activity, mail-rule and watch routes accept `GET` and `POST` only.
 
 The client streams 40 ms wake chunks. The wake endpoint accepts one in-flight chunk per session and scans at most
 three seconds per utterance. Its result only acknowledges a candidate; full

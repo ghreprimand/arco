@@ -392,6 +392,8 @@ Proposes a compacted version of an instruction file (`CLAUDE.md` / `CLAUDE.local
   type: 'md_tuneup_candidates',
   workflowId: string,
   candidates: { path: string, baseName: string, bytes: number, lines?: number, approximateTokens?: number, hints?: string[] }[],  // path is repo-relative to the cwd
+  skippedLinks?: { path: string, reason: string }[],  // links that were not followed (for example a link that leaves the project)
+  partial?: boolean,              // true when the search stopped early or failed, so the list may be incomplete
   defaultPath?: string,           // candidate matching the tab's primary provider, pre-selected in the dialog
 }
 ```
@@ -444,7 +446,7 @@ Proposes a compacted version of an instruction file (`CLAUDE.md` / `CLAUDE.local
 ### `md_tuneup_accept` -> / `md_tuneup_applied` <-
 
 ```ts
-{ type: 'md_tuneup_accept', workflowId: string, tuneupId: string, filePath: string, proposed: string }  // server re-reads, backs up, then writes `proposed` (authoritative - no cached copy trusted)
+{ type: 'md_tuneup_accept', workflowId: string, tuneupId: string, filePath: string, proposed: string, original: string }  // server re-reads the file and refuses (`error`, nothing written) when it no longer equals `original`, the text the diff was reviewed against; otherwise it backs up and writes `proposed`
 {
   type: 'md_tuneup_applied',
   workflowId: string,
@@ -490,7 +492,7 @@ There is no cancel message - the single bounded turn settles on its own (same as
 }
 ```
 
-`'quick'` builds a deterministic seed with no model call (the QUICK choice). `'fresh-agent'` currently rejects with "not implemented yet".
+`'quick'` builds a deterministic seed with no model call (the QUICK choice). `'fresh-agent'` answers with a `handoff_artifact_ready` whose `error` says the mode is not implemented yet and names `original-worker` and `fresh-summarizer` as the working modes.
 
 ### `handoff_cancel` ->
 
@@ -562,6 +564,7 @@ Fires after the new session is pre-warmed and the old session is archived in `me
     sessionId: string,
     turnCount: number,
   },
+  draft?: string,                   // Antigravity CLI only: composer text that points the agent at the saved handoff document
   newSessionId?: string,            // optional for providers without native session ids
   completedAt: number,
 }
@@ -639,10 +642,13 @@ No agent tool exposes them.
 
 ```ts
 { type: 'transcript_worker_preview', requestId: string, workflowId: string,
-  turns: number, includePartial: boolean, preface: string }
+  turns: number, includePartial: boolean, preface: string,
+  replacement?: { clusterId: string, mode: 'recent' | 'full' } }  // set by REPLACE in a cluster; see PROTOCOL_CLUSTER.md
 { type: 'transcript_worker_result', requestId: string,
   preview?: { token: string, seed: string, bytes: number, availableTurns: number,
-    selectedTurns: number, partialIncluded: boolean, cutoffSeq: number },
+    selectedTurns: number, partialIncluded: boolean, cutoffSeq: number,
+    historyMode?: 'recent' | 'full', requestedTurns?: number, truncated?: boolean,
+    historyFallback?: boolean },  // the last four are set for a REPLACE preview
   newWorkflowId?: string, error?: string }
 { type: 'transcript_worker_create', requestId: string, token: string,
   destination: { workingDirectory: string, name: string, provider: ProviderName,

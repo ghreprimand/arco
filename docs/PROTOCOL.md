@@ -3113,6 +3113,9 @@ Messages in the `ClientMessage` / `ServerMessage` unions that the sections above
 | `workflow_rename_result` | <- (to the requesting socket) | `workflowId`, `requestId`, `error?` | Reply to a `rename_workflow` that carried a `requestId`; `error` names a refused rename. |
 | `output_saved` | <- (persisted) | `workflowId`, `path`, `sourcePath?`, `ts` | An editor or image save wrote a file; OUTPUTS records it as an editor export of `sourcePath`. |
 | `app_update_available` | <- (all clients) | `current`, `latest`, `url`, `publishedAt` | Sent once per newer release found by the release check, unless that version was dismissed (`server/src/updateCheck.ts`); the client shows the release toast. |
+| `app_update_status_changed` | <- (all clients) | none | A packaged install that had an update on offer no longer has one (for example the package was withdrawn). The client reads `GET /api/update-check` again and drops the release toast (`server/src/updateCheck.ts`). |
+| `attention_question_closed` | <- (all clients) | `requestId` | A pending question that raised a `waiting` attention event was answered or dismissed. The client clears the matching question alert. Not sent for an incognito tab (`server/src/attention.ts`). |
+| `cluster_creation_finished` | <- (requesting socket) | `requestId` | A `cluster_create_from_scratch` that carried a `requestId` (1 to 128 characters) has finished, whether it created the cluster or was refused. The client stops its creating state (`server/src/ws/clusterHandlers.ts`). |
 
 ## Input delivery and restored snapshots
 
