@@ -41,7 +41,7 @@ same way as a normal tab:
 - **MEMORY** - HISTORY (the member in view), USAGE (every member's conversations in the project folder)
 - **RUNTIME** - PREVIEW, CONFIG, GITHUB
 
-A research project offers RESULTS in place of BOARD; PLAN belongs to the Research Director. See [Research projects](RESEARCH.md).
+A research project shows RESULTS and hides BOARD, REVIEWS, HANDOFFS and GITHUB. MAILBOX stays only when a member is Gemini. PLAN belongs to the Research Director. See [Research projects](RESEARCH.md).
 
 FILES, HISTORY, PREVIEW, CONFIG and GITHUB mirror the single-worker tabs. Diagnostics / model-health / local-services
 live in the header SYSTEM modal, not the right pane.
@@ -77,8 +77,8 @@ turns wait for the operator. Clusters are about peer-comms plumbing, not auto-or
 
 ### Peer messaging and plan
 
-Standard members register three tools: `peer_list` (roster + mailbox depth), `peer_send`
-(deliver to a peer's mailbox), `peer_read` (drain own mailbox). Pre-turn
+Standard members register `peer_list` (roster + mailbox depth), `peer_send`
+(deliver to a peer's mailbox) and `peer_read` (drain own mailbox), plus the task tools under the board. Pre-turn
 Arco delivers pending peer messages at the next turn. Gemini members wait
 for the operator's NUDGE or typed message. An independent message guard (Warn only / Hard limit / No
 limit; new clusters default Warn only at 15) bounds sends per operator turn;

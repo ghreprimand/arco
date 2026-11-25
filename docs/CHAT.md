@@ -50,7 +50,7 @@ For prepared Strata profile switching, CPU vision, memory limits and recovery,
 see [STRATA.md](STRATA.md). Same-provider switches preserve Chat history and load
 on the next message; one Strata profile is resident at a time.
 
-Strata saved Chats use the same SearXNG `WebSearch` / `WebFetch` pair as Ollama.
+Strata and DeepSeek saved Chats use the same SearXNG `WebSearch` / `WebFetch` pair as Ollama.
 The header toggle defaults on; switching it off removes tools. Dispatch also
 rejects all project tools, even if the model invents an unadvertised tool call.
 
@@ -70,7 +70,7 @@ Codex Chat disables sub-agent creation, persisted goals and nested builtin patch
 | Codex exec | `web_search="live"` | `web_search="disabled"` |
 | Cursor | Cursor's web search and fetch, with file, shell and MCP denied | no tools |
 | Ollama | Arco's local SearXNG-backed `WebSearch` / `WebFetch` pair, re-checked at dispatch (`ollamaToolCallAllowed`) | no tools |
-| Strata | Same local web pair, with advertisement and dispatch allowlists | no tools |
+| Strata / DeepSeek | Same local web pair, with advertisement and dispatch allowlists | no tools |
 | Everything else | - (header shows `NO WEB`) | - |
 
 The shared direct URL reader accepts public HTTP(S) sources. Text downloads stop

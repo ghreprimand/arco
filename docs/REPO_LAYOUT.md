@@ -14,11 +14,11 @@ Arco/
     index.ts                     # HTTP + WS server, workflow state machine
     providers/                   # claude / claude-native/ / codex / codex-appserver/ /
                                  #   cursor/ / antigravity/ / ollama / llamacpp
-                                 #   (+ Manager) / lmstudio, plus goalBlock,
+                                 #   (+ Manager) / lmstudio / strata / deepseek, plus goalBlock,
                                  #   outputStyle, codexCodeMode, ragInjection, fallbackChain,
                                  #   errorClassifier
     primitives/                  # seedWorker, exportContext, runReviewer, runCompare,
-                                 #   runResearch, runDocEdit, reviewContent (+ plan review)
+                                 #   runResearch, runDocEdit, runMdTuneup, reviewContent (+ plan review)
     workers/                     # process lifecycle, RSS/output caps, activity probe, PID registry
     http/                        # REST route modules (git, diff, files, github, ...)
     ws/                          # WS message handlers (turnEngine = primary-turn dispatch, clusterHandlers,

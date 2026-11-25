@@ -66,7 +66,7 @@ Arco/
 │   │                                #   runCompare, runResearch, runDocEdit, runMdTuneup
 │   ├── providers/                   # claude, claude-native/, codex, codex-appserver/,
 │   │                                #   ollama, ollamaTools, llamacpp,
-│   │                                #   llamacppManager, llamacppRecovery, lmstudio,
+│   │                                #   llamacppManager, llamacppRecovery, lmstudio, strata, deepseek,
 │   │                                #   cursor/ (acp worker + print.ts one-shot), antigravity/;
 │   │                                #   shared: codexCodeMode, goalBlock, outputStyle
 │   ├── mcp/                         # MCP registry + clusterMcpServer/clusterMcpTools +
@@ -107,8 +107,8 @@ Arco/
 │   ├── previewAutoDetect.ts         # Bash-sniff + /proc-fd auto-detection
 │   └── (workers/pidRegistry.ts)     # worker pid tracking + orphan reaping
 ├── client/src/
-│   ├── main.tsx                     # entry; bootstraps theme before mount
-│   ├── App.tsx                      # top-level layout + routing
+│   ├── main.tsx                     # entry; theme bootstrap and the terminal pop-out query
+│   ├── App.tsx                      # top-level layout
 │   ├── components/                  # all UI components
 │   ├── stores/appStore.ts           # Zustand store (~2000 lines; types in appStore.types.ts)
 │   ├── ws/handleServerMessage.ts    # server-to-client message switch

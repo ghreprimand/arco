@@ -169,7 +169,7 @@ disk reads** (`server/src/genesis/creative.ts`):
   client.
 - `assessCodebase(cwd)` - `git ls-files` count (or a capped walk that skips heavy/generated dirs)
   + an **established** flag (git history OR at least 40 files) + an advisory **warning** string.
-  Fallback discovery also skips nested Git checkouts, visits at most 20,000 entries and stops within a 1,000-millisecond budget. Incomplete discovery keeps a conservative warning and says Results truncated. This is advisory; the scaffold safety boundary is unchanged.
+  Fallback discovery also skips nested Git checkouts, visits at most 20,000 entries, stops within a 1,000-millisecond budget, and stops counting at 400 files. Incomplete discovery keeps a conservative warning and says Results truncated. This is advisory; the scaffold safety boundary is unchanged.
 
 Arming seeds a `creative` seed (preserving prior creative-seed fields on re-arm; a working title
 defaults to the project name). Disarming clears `creative` + `projectContext` but keeps the idea
