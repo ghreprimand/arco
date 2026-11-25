@@ -228,3 +228,13 @@ test('seam: arguments, the batch loop and result trimming', async () => {
   const read = truncateLocalToolResult('Read', lines, 'Fixture', 10, 10);
   assert.ok(read.startsWith('line 0\n') && read.includes('[... 100 lines elided by Arco to keep Fixture context lean — re-read with explicit line range if needed ...]') && read.endsWith('line 299'));
 });
+
+test('configured local tool allowlists are enforced at dispatch', async () => {
+  for (const kind of ['ollama', 'llamacpp'] as Kind[]) {
+    const config = { cwd: dir, interactionMode: 'agent' as const, tools: ['Read'] };
+    const { out } = await run(kind, config, [call(kind, 'Write', { file_path: join(dir, 'forbidden.txt'), content: 'fixture' }), call(kind, 'Read', { file_path: join(dir, 'missing.txt') })]);
+    assert.match(out[0].content, /unavailable|not enabled/, kind);
+    assert.doesNotMatch(out[1].content, /unavailable|not enabled/, kind);
+    assert.equal(existsSync(join(dir, 'forbidden.txt')), false);
+  }
+});

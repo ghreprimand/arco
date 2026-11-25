@@ -380,7 +380,7 @@ export const providers: Section[] = [
   <strong>Native web research.</strong> Claude Native advertises Anthropic
   server tools (<Code>web_search</Code> / <Code>web_fetch</Code> plus the
   required server-side code-execution descriptor). It does not use Arco&apos;s
-  local SearXNG/Camoufox WebSearch/WebFetch implementation; Anthropic runs
+  local SearXNG search and direct WebFetch implementation; Anthropic runs
   those calls inside the Messages API.
   </p>
   <p>
@@ -820,7 +820,7 @@ export const providers: Section[] = [
   [<Code key="w">Write</Code>, 'mkdir -p parents. Refuses to clobber a directory.'],
   [<Code key="b">Bash</Code>, '/bin/sh -c in cwd (Git Bash on Windows; on Windows without Git Bash the PowerShell tool instead). 60s default timeout, 600s ceiling. Combined stdout+stderr capped at 64 KB. STOP ends the active tree; tab close drains active shell cleanup for up to 15s. A fully redirected background job whose command already returned is outside this tracking.'],
   [<Code key="ws">WebSearch</Code>, <>Hits operator&apos;s local SearXNG (<Code>ARCO_SEARXNG_URL</Code>, default <Code>http://127.0.0.1:8888</Code>). Bang syntax (<Code>!g foo</Code>) routes engines.</>],
-  [<Code key="wf">WebFetch</Code>, <>Shared public URL file decoder for images and document ranges; Camoufox fallback for bot-protected text. Private hosts and direct HTTP redirects are checked.</>],
+  [<Code key="wf">WebFetch</Code>, <>Shared public URL file decoder for images and document ranges. All modes use direct HTTP; sites requiring a browser may not load. Each redirect is checked before it is followed. Private destinations are refused.</>],
   ]}
   />
   <Table
@@ -848,7 +848,7 @@ export const providers: Section[] = [
   <li>
   <strong>Current local baseline.</strong> Qwen3.6-27B is the expected
   high-context local coding model: tool use, image attachments, 262K
-  context, and Camoufox-backed WebFetch/WebSearch when configured.
+  context, and SearXNG-backed WebSearch and direct WebFetch when configured.
   </li>
   <li>
   <strong>Mid-turn steer.</strong> Ollama uses Arco&apos;s own tool loop, so

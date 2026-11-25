@@ -1244,7 +1244,7 @@ export function chatHtml(instanceId: string, workflowId: string, title: string):
   const esc = (s: string) =>
     String(s == null ? '' : s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
   // Injected as JSON so the page JS stays free of template-literal interpolation.
-  const cfg = JSON.stringify({ instanceId, workflowId });
+  const cfg = JSON.stringify({ instanceId, workflowId }).replace(/</g, '\\u003c');
   return `<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8">

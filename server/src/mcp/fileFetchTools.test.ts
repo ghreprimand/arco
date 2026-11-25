@@ -64,7 +64,7 @@ test('worker web proxy keeps an established tunnel through silence longer than t
   const upstream = createServer((socket) => { socket.on('error', () => {}); socket.write('first'); setTimeout(() => socket.end('second'), 800); });
   await new Promise<void>((resolve) => upstream.listen(0, '127.0.0.1', () => resolve()));
   const port = (upstream.address() as { port: number }).port;
-  const proxy = await startWorkerWebProxy({ parentDir: home, webAccess: true, providerHosts: [], lookup: async () => [{ address: '8.8.8.8', family: 4 }],
+  const proxy = await startWorkerWebProxy({ parentDir: home, webAccess: true, providerHosts: [], lookup: async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }],
     dial: () => createConnection({ host: '127.0.0.1', port }), timeouts: { handshakeMs: 300, streamIdleMs: 5000 } });
   try {
     const received = await new Promise<string>((resolve, reject) => {
@@ -82,7 +82,7 @@ test('portable file server exposes guarded URL media to every CLI transport', as
   const handlers = new Map<string, (args: any) => Promise<any>>();
   registerFileTools({ registerTool: (name: string, _schema: unknown, callback: any) => handlers.set(name, callback) } as any, home);
   assert.ok(handlers.has('fetch_file'), 'the portable reader needs a URL tool');
-  t.mock.method(dns, 'lookup', async () => [{ address: '203.0.113.1', family: 4 }] as any);
+  t.mock.method(dns, 'lookup', async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }] as any);
   t.mock.method(globalThis, 'fetch', async () => new Response(Uint8Array.from(png), { headers: { 'content-type': 'image/png' } }));
   const result = await handlers.get('fetch_file')!({ url: 'https://example.com/figure.png' });
   assert.equal(result.isError, false);
@@ -92,7 +92,7 @@ test('portable file server exposes guarded URL media to every CLI transport', as
 
 test('WebFetch refuses a redirect into a private service before requesting it', async (t) => {
   const urls: string[] = [];
-  t.mock.method(dns, 'lookup', async () => [{ address: '203.0.113.1', family: 4 }] as any);
+  t.mock.method(dns, 'lookup', async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }] as any);
   t.mock.method(globalThis, 'fetch', async (url: any) => {
     urls.push(String(url));
     return new Response('', { status: 302, headers: { location: 'http://127.0.0.1/private' } });
@@ -121,7 +121,7 @@ function portableTools() {
 }
 test('URL PDFs provide selected document blocks or text and scanned-page images', async (t) => {
   let bytes = await pdf();
-  t.mock.method(dns, 'lookup', async () => [{ address: '203.0.113.1', family: 4 }] as any);
+  t.mock.method(dns, 'lookup', async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }] as any);
   t.mock.method(globalThis, 'fetch', async () => new Response(bytes, { headers: { 'content-type': 'application/pdf' } }));
   const native = await fetchFileContent('https://example.com/paper.pdf', { pages: '2', limits: { documents: true, images: true } });
   assert.equal(native.isError, false, native.text);
@@ -154,14 +154,14 @@ test('URL policy covers literal and resolved private addresses, IPv4-mapped IPv6
     assert.equal(result.isError, true, url); assert.equal(result.refused, true, url);
   }
   assert.equal(calls, 0);
-  t.mock.method(dns, 'lookup', async () => [{ address: '203.0.113.1', family: 4 }] as any);
+  t.mock.method(dns, 'lookup', async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }] as any);
   const loop = await fetchFileContent('https://example.com/again');
   assert.equal(loop.refused, true); assert.match(loop.text, /Redirect limit/); assert.equal(calls, 6);
 });
 
 test('URL decoding cancels streams at the source budget', async (t) => {
   let cancelled = false;
-  t.mock.method(dns, 'lookup', async () => [{ address: '203.0.113.1', family: 4 }] as any);
+  t.mock.method(dns, 'lookup', async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }] as any);
   t.mock.method(globalThis, 'fetch', async () => new Response(new ReadableStream({
     start(controller) { controller.enqueue(Uint8Array.from(png)); }, cancel() { cancelled = true; },
   }), { headers: { 'content-type': 'image/png' } }));
@@ -171,7 +171,7 @@ test('URL decoding cancels streams at the source budget', async (t) => {
 
 test('URL deadline releases a stalled response reader and never makes a later request', async (t) => {
   let cancelled = false, calls = 0;
-  t.mock.method(dns, 'lookup', async () => [{ address: '203.0.113.1', family: 4 }] as any);
+  t.mock.method(dns, 'lookup', async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }] as any);
   t.mock.method(globalThis, 'fetch', async () => { calls++; return new Response(new ReadableStream({ cancel() { cancelled = true; } })); });
   const result = await fetchFileContent('https://example.com/stalled', { timeoutMs: 20 });
   assert.equal(result.isError, true);
@@ -182,7 +182,7 @@ test('URL deadline releases a stalled response reader and never makes a later re
 
 test('all five local adapters carry fetched PDF text and scanned pages into their tool results', async (t) => {
   let bytes = await pdf();
-  t.mock.method(dns, 'lookup', async () => [{ address: '203.0.113.1', family: 4 }] as any);
+  t.mock.method(dns, 'lookup', async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }] as any);
   t.mock.method(globalThis, 'fetch', async () => new Response(bytes, { headers: { 'content-type': 'application/pdf' } }));
   const { OllamaProvider } = await import('../providers/ollama.js');
   const { LlamacppProvider } = await import('../providers/llamacpp.js');
@@ -230,7 +230,7 @@ test('real portable MCP stdio server lists and returns fetched images and PDF pa
 test('URL source buffers are bounded before decoder admission', async (t) => {
   let requests = 0, release!: () => void;
   const ready = new Promise<void>(resolve => { release = resolve; });
-  t.mock.method(dns, 'lookup', async () => [{ address: '203.0.113.1', family: 4 }] as any);
+  t.mock.method(dns, 'lookup', async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }] as any);
   t.mock.method(globalThis, 'fetch', async () => { requests++; await ready; return new Response('fixture'); });
   const pending = Array.from({ length: 8 }, (_, index) => fetchFileContent(`https://example.com/file-${index}`));
   try {
@@ -242,10 +242,40 @@ test('URL source buffers are bounded before decoder admission', async (t) => {
 
 test('a cancelled DNS lookup releases URL admission for the next request', async (t) => {
   let lookups = 0, requests = 0;
-  t.mock.method(dns, 'lookup', async () => ++lookups <= 2 ? new Promise(() => {}) : [{ address: '203.0.113.1', family: 4 }] as any);
+  t.mock.method(dns, 'lookup', async () => ++lookups <= 2 ? new Promise(() => {}) : [{ address: [8, 8, 8, 8].join('.'), family: 4 }] as any);
   t.mock.method(globalThis, 'fetch', async () => { requests++; return new Response(Uint8Array.from(png), { headers: { 'content-type': 'image/png' } }); });
   await Promise.all([1, 2].map(index => fetchFileContent(`https://example.com/stalled-${index}`, { timeoutMs: 20 })));
   const next = await fetchFileContent('https://example.com/next', { timeoutMs: 3000 });
   assert.equal(next.isError, false, next.text);
   assert.equal(requests, 1);
+});
+
+test('WebFetch legacy browser mode uses the guarded direct reader', async (t) => {
+  let requests = 0;
+  t.mock.method(dns, 'lookup', async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }] as any);
+  t.mock.method(globalThis, 'fetch', async () => { requests++; return new Response('fixture', { headers: { 'content-type': 'text/plain' } }); });
+  const result = await executeOllamaTool('WebFetch', { url: 'https://example.com/fixture', mode: 'stealth' }, { cwd: home });
+  assert.match(result, /fixture/);
+  assert.match(result, /\[fast/);
+  assert.equal(requests, 1);
+});
+
+test('the connection lookup uses the previously authorized DNS answers', async (t) => {
+  const net = (await import('node:net')).default;
+  const authorized = [8, 8, 8, 8].join('.');
+  let resolutions = 0;
+  let connectedAddress: string | undefined;
+  t.mock.method(dns, 'lookup', async () => { resolutions++; return [{ address: authorized, family: 4 }] as any; });
+  t.mock.method(net, 'connect', ((options: any) => {
+    const socket = new net.Socket();
+    options.lookup('example.com', { family: 4, all: false }, (error: Error | null, address: string) => {
+      if (!error) connectedAddress = address;
+      queueMicrotask(() => socket.destroy(new Error('fixture transport stopped')));
+    });
+    return socket;
+  }) as typeof net.connect);
+  const result = await fetchFileContent('http://example.com/fixture', { timeoutMs: 1000 });
+  assert.equal(result.isError, true, 'the inert transport stops before any network request');
+  assert.equal(resolutions, 1);
+  assert.equal(connectedAddress, authorized, result.text);
 });

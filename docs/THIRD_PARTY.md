@@ -21,7 +21,7 @@ The vendored Odysseus image editor is MIT-licensed. Preserve its [`LICENSE`](../
 
 ## npm dependencies
 
-The lockfile lists 534 third-party package records, 204 of them development-only. Most declare MIT. The others declare ISC, Apache-2.0, BSD-3-Clause, BSD-2-Clause, BlueOak-1.0.0, MIT-0, 0BSD, CC0-1.0, `(MIT AND Zlib)` and, for one data package, CC-BY-4.0. The `caniuse-lite` 1.0.30001819 development dependency declares CC BY 4.0 for its browser-support data; attribute the data to caniuse.com when redistributing it. See [caniuse-lite](https://github.com/browserslist/caniuse-lite) and the [source dataset license](https://github.com/Fyrd/caniuse).
+The lockfile lists 535 third-party package records, 204 of them development-only. Most declare MIT. The others declare ISC, Apache-2.0, BSD-3-Clause, BSD-2-Clause, BlueOak-1.0.0, MIT-0, 0BSD, CC0-1.0, `(MIT AND Zlib)` and, for one data package, CC-BY-4.0. The `caniuse-lite` 1.0.30001819 development dependency declares CC BY 4.0 for its browser-support data; attribute the data to caniuse.com when redistributing it. See [caniuse-lite](https://github.com/browserslist/caniuse-lite) and the [source dataset license](https://github.com/Fyrd/caniuse).
 
 Two packages declare a copyleft license and are installed with the server:
 

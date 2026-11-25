@@ -275,3 +275,13 @@ test('after the tool: filter, note, hooks; hook text is added next to the result
   const failed = await runPostToolSteps(postToolSteps({ filter: async (t) => t, partialNote: 'note', toolName: 'Bash', postHooks: run({ exitCode: 2, stderr: 'saw it' }) }), { text: '[error] x', isError: true });
   assert.deepEqual(failed, { text: '[error] x\n\nPostToolUseFailure:Bash hook error: [h]: saw it', isError: true });
 });
+
+test('isolated members reject unoffered shell calls before hooks', async () => {
+  const s = setup({ clusterId: 'cluster', clusterAccessMode: 'researcher' }, hook('PreToolUse', 'Bash', 'echo fixture'));
+  try {
+    const result = await s.call('Bash', { command: 'echo fixture' });
+    assert.equal(result.isError, true);
+    assert.match(result.text, /unavailable/);
+    assert.equal(s.events.filter(event => String(event.type).startsWith('hook_')).length, 0);
+  } finally { s.done(); }
+});

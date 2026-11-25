@@ -6,6 +6,7 @@ test('packed runtime uses a bundled archive dependency without an install-time U
   const lock = { packages: { 'node_modules/xlsx': { version: '0.20.3', resolved: source }, 'node_modules/ws': { version: '8.21.0' } } };
   assert.equal(runtimeDependencySpec('xlsx', source, lock), '0.20.3');
   assert.equal(runtimeDependencySpec('ws', '^8.18.0', lock), '8.21.0');
+  assert.equal(runtimeDependencySpec('ws', '^7', { packages: { 'node_modules/ws': { version: '8.0.0' }, 'server/node_modules/ws': { version: '7.0.0' } } }), '7.0.0');
   assert.throws(() => runtimeDependencySpec('missing', '*', lock), /Missing locked/);
 });
 

@@ -151,14 +151,14 @@ export function ollamaToolsAutoExecute(
 }
 
 export function ollamaToolCallAllowed(
-  config: Pick<WorkerConfig, 'interactionMode' | 'chatWebAccess' | 'voiceOperator' | 'clusterWebAccess'>,
+  config: Pick<WorkerConfig, 'interactionMode' | 'chatWebAccess' | 'voiceOperator' | 'clusterWebAccess' | 'tools'>,
   toolName: string,
 ): boolean {
   // Enforce Chat's web-only boundary again at dispatch. A model can hallucinate
   // a known tool that was absent from tools[] (or from the fenced prompt); the
   // advertised allowlist alone is therefore not a security boundary.
   if (config.clusterWebAccess === false && OLLAMA_CHAT_WEB_TOOLS.has(toolName)) return false;
-  if (config.interactionMode !== 'chat') return true;
+  if (config.interactionMode !== 'chat') return !config.tools || config.tools.includes(toolName);
   if (config.voiceOperator) return computerToolDefinitions().some((t) => t.function.name === toolName);
   return config.chatWebAccess === true && OLLAMA_CHAT_WEB_TOOLS.has(toolName);
 }
@@ -166,11 +166,13 @@ export function ollamaToolCallAllowed(
 // Tool-call rules for Ollama (see localToolDispatch.ts). Computer chats run
 // every call through Computer first; the loop coach never ends the turn
 // because Ollama has no final-summary path.
-const OLLAMA_TOOL_RULES = (config: Pick<WorkerConfig, 'interactionMode' | 'chatWebAccess' | 'voiceOperator' | 'clusterWebAccess'>): LocalToolRules => ({
+const OLLAMA_TOOL_RULES = (config: Pick<WorkerConfig, 'interactionMode' | 'chatWebAccess' | 'voiceOperator' | 'clusterWebAccess' | 'tools'>): LocalToolRules => ({
   computer: 'first',
   boundary: (name) => ollamaToolCallAllowed(config, name) ? null : config.clusterWebAccess === false && OLLAMA_CHAT_WEB_TOOLS.has(name)
     ? '[error] Web access is off for this cluster member.'
-    : `[error] tool "${name}" is unavailable in Arco Chat. Only armed WebSearch/WebFetch calls are allowed.`,
+    : config.interactionMode === 'chat'
+      ? `[error] tool "${name}" is unavailable in Arco Chat. Only armed WebSearch/WebFetch calls are allowed.`
+      : `[error] tool "${name}" is not enabled for this turn.`,
   unknownTool: (name) => `[error] unknown tool "${name}". The Ollama tool runtime is on a strict allowlist; see docs/PROVIDERS.md §Ollama for the v1 set.`,
   endTurnOnRepeat: false,
 });

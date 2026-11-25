@@ -1,4 +1,7 @@
+import { Agent } from 'undici';
+import { isWorkerProxyPublicAddress } from './workers/workerWebProxy.js';
 import dns from 'node:dns/promises';
+import type { LookupFunction } from 'node:net';
 import { BlockList, isIP } from 'node:net';
 import { fileContentFromBytes, fileHeaderKind, MAX_FILE_CONTENT_BYTES, type FileContentOptions, type FileContentResult } from './fileContent.js';
 import { requestWithDeadline } from './providers/requestDeadline.js';
@@ -65,12 +68,22 @@ export function isPrivateFetchHost(host: string): boolean {
   const name = host.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
   if (name === 'localhost' || name.endsWith('.localhost')) return true;
   const family = isIP(name);
-  return family !== 0 && blocked.check(name, family === 4 ? 'ipv4' : 'ipv6');
+  return family !== 0 && (blocked.check(name, family === 4 ? 'ipv4' : 'ipv6') || !isWorkerProxyPublicAddress(name));
 }
 class RefusedFetch extends Error {}
 
+/** Bind a connection to the addresses already checked by the URL policy. */
+export function pinnedFetchLookup(addresses: Array<{ address: string; family: number }>): LookupFunction {
+  return (_host, options, callback) => {
+    const matches = addresses.filter(record => !options.family || record.family === options.family);
+    if (!matches.length) return callback(new Error('No authorized address for the requested family.'), '', 0);
+    if (options.all) return callback(null, matches);
+    callback(null, matches[0].address, matches[0].family);
+  };
+}
+
 /** Revalidate each redirect before issuing another request. */
-async function authorize(url: URL, signal: AbortSignal): Promise<void> {
+async function authorize(url: URL, signal: AbortSignal): Promise<Array<{ address: string; family: number }>> {
   signal.throwIfAborted();
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new RefusedFetch(`Only http(s) URLs are supported; got ${url.protocol}`);
   if (isPrivateFetchHost(url.hostname)) throw new RefusedFetch('The URL targets a loopback, private or link-local host.');
@@ -80,11 +93,13 @@ async function authorize(url: URL, signal: AbortSignal): Promise<void> {
     signal.throwIfAborted();
     if (!records.length) throw new RefusedFetch('The URL host has no resolved addresses.');
     if (records.some(record => isPrivateFetchHost(record.address))) throw new RefusedFetch('The URL resolves to a loopback, private or link-local address.');
+    return records;
   }
+  return [{ address: host, family: isIP(host) }];
 }
-/** The browser fallback uses the same initial URL policy and bounded DNS check. */
+/** Validate an initial URL with the same bounded public-address policy. */
 export async function assertPublicFileFetchUrl(url: string, signal?: AbortSignal): Promise<void> {
-  await requestWithDeadline(signal, 10_000, checkSignal => authorize(new URL(url), checkSignal));
+  await requestWithDeadline(signal, 10_000, async checkSignal => { await authorize(new URL(url), checkSignal); });
 }
 
 function failure(url: string, error: unknown, refused = false): FetchFileContentResult {
@@ -136,31 +151,34 @@ export async function fetchFileContent(url: string, options: FetchFileContentOpt
     return await requestWithDeadline(options.signal, timeoutMs, async signal => withFetchSlot(signal, async () => {
       let current = parsed;
       for (let redirects = 0; ; redirects++) {
-        await authorize(current, signal);
-        const response = await fetch(current.toString(), {
-          signal, redirect: 'manual', headers: {
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0',
-            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-          },
-        });
-        if ([301, 302, 303, 307, 308].includes(response.status)) {
-          const location = response.headers.get('location');
-          await response.body?.cancel().catch(() => {});
-          if (!location) throw new RefusedFetch('Redirect has no Location header.');
-          if (redirects >= 5) throw new RefusedFetch('Redirect limit exceeded.');
-          current = new URL(location, current);
-          continue;
-        }
-        const contentType = response.headers.get('content-type') ?? '';
-        const body = await responseBytes(response, maxBytes, signal);
-        if (body.fileLike && body.truncated) return failure(current.toString(), new RefusedFetch('File response exceeds the decoding byte budget; request a smaller file.'), true);
-        const result = await fileContentFromBytes(body.bytes, current.pathname.split('/').pop() || 'response', { ...options, signal });
-        if (body.truncated) {
-          result.text += '\n[truncated response at byte budget]';
-          result.blocks.push({ type: 'text', text: '[truncated response at byte budget]' });
-        }
-        return { ...result, truncated: result.truncated || body.truncated, isError: result.isError || !response.ok, url: current.toString(), status: response.status, contentType };
+        const addresses = await authorize(current, signal);
+        const agent = new Agent({ connect: { lookup: pinnedFetchLookup(addresses) } });
+        try {
+          const response = await fetch(current.toString(), {
+            signal, redirect: 'manual', dispatcher: agent, headers: {
+              'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:127.0) Gecko/20100101 Firefox/127.0',
+              Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.5',
+            },
+          } as RequestInit);
+          if ([301, 302, 303, 307, 308].includes(response.status)) {
+            const location = response.headers.get('location');
+            await response.body?.cancel().catch(() => {});
+            if (!location) throw new RefusedFetch('Redirect has no Location header.');
+            if (redirects >= 5) throw new RefusedFetch('Redirect limit exceeded.');
+            current = new URL(location, current);
+            continue;
+          }
+          const contentType = response.headers.get('content-type') ?? '';
+          const body = await responseBytes(response, maxBytes, signal);
+          if (body.fileLike && body.truncated) return failure(current.toString(), new RefusedFetch('File response exceeds the decoding byte budget; request a smaller file.'), true);
+          const result = await fileContentFromBytes(body.bytes, current.pathname.split('/').pop() || 'response', { ...options, signal });
+          if (body.truncated) {
+            result.text += '\n[truncated response at byte budget]';
+            result.blocks.push({ type: 'text', text: '[truncated response at byte budget]' });
+          }
+          return { ...result, truncated: result.truncated || body.truncated, isError: result.isError || !response.ok, url: current.toString(), status: response.status, contentType };
+        } finally { await agent.destroy(); }
       }
     }));
   } catch (error) { return failure(parsed.toString(), error, error instanceof RefusedFetch); }

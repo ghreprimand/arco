@@ -6,7 +6,7 @@
 // server/src/primitives/runCompare.ts (modeled on runReviewer/runResearch).
 
 import { WebSocket } from 'ws';
-import { COMPARE_MIN_LEGS, COMPARE_MAX_LEGS } from '@arco/shared';
+import { COMPARE_MIN_LEGS, COMPARE_MAX_LEGS, TERMINAL_CODEX_ACCOUNT } from '@arco/shared';
 import { send } from '../server/broadcast.js';
 import { workflows } from '../server/state.js';
 import { resolveProviderAccount } from '../providerAccounts.js';
@@ -23,6 +23,21 @@ import type { Session } from '../workflows/types.js';
 const SECOND_OPINION_CONTEXT_MAX = 24 * 1024;
 
 const activeCompares = new Map<string, CompareRecord>();
+
+export async function resolveCompareLegs<T extends { provider: string; providerAccountRef?: string }>(
+  legs: T[], resolve: (ref?: string) => Promise<{ profile: { id: string }; codexHome?: string } | null>, fallbackRef?: string,
+): Promise<{ resolvedLegs: T[]; codexHomes: Array<string | undefined> }> {
+  const resolutions = await Promise.all(legs.map(async (leg) => {
+    if (leg.provider !== 'codex') return { leg, codexHome: undefined };
+    const effectiveRef = leg.providerAccountRef ?? fallbackRef;
+    const acct = await resolve(effectiveRef);
+    if (effectiveRef && effectiveRef !== TERMINAL_CODEX_ACCOUNT && acct?.profile.id !== effectiveRef) {
+      throw new Error('The selected Codex account is unavailable.');
+    }
+    return { leg: acct ? { ...leg, providerAccountRef: acct.profile.id } : effectiveRef === TERMINAL_CODEX_ACCOUNT ? { ...leg, providerAccountRef: effectiveRef } : leg, codexHome: acct?.codexHome };
+  }));
+  return { resolvedLegs: resolutions.map(result => result.leg), codexHomes: resolutions.map(result => result.codexHome) };
+}
 
 // Fan ONE prompt out to N read-only legs. Resolves each leg's config like the
 // reviewer/research paths (Codex legs get their account routed), clamps the leg
@@ -60,13 +75,15 @@ export async function handleCompareRequest(
 
   // Resolve Codex accounts positionally so each Codex leg routes to the right
   // home (mirrors the reviewer/research single-leg resolution, per leg).
-  const codexHomes: Array<string | undefined> = [];
-  const resolvedLegs = await Promise.all(legs.map(async (leg) => {
-    if (leg.provider !== 'codex') { codexHomes.push(undefined); return leg; }
-    const acct = await resolveProviderAccount('codex', leg.providerAccountRef ?? wf.config.providerAccountRef, cwd).catch(() => null);
-    codexHomes.push(acct?.codexHome);
-    return acct ? { ...leg, providerAccountRef: acct.profile.id } : leg;
-  }));
+  let resolved: Awaited<ReturnType<typeof resolveCompareLegs<(typeof legs)[number]>>>;
+  try {
+    resolved = await resolveCompareLegs(legs, async (ref) =>
+      resolveProviderAccount('codex', ref, cwd), wf.config.providerAccountRef);
+  } catch {
+    send(ws, { type: 'error', message: 'A selected Codex account is unavailable. Check the account and try again.' });
+    return;
+  }
+  const { resolvedLegs, codexHomes } = resolved;
 
   const record: CompareRecord = {
     compareId: '',
@@ -154,9 +171,15 @@ export async function handleCompareSynthesize(
     .join('\n\n');
   const synthPrompt = `You are synthesizing the single best ${rec.task ? 'reply (written to the worker, ready to paste)' : 'response'} to a prompt from several independent answers below. Read them all, keep what each got right, drop what's wrong or redundant, and write ONE improved, self-contained answer. Do not mention that you are merging answers — just produce the best response.\n\n--- ORIGINAL PROMPT ---\n\n${rec.task ?? rec.prompt}\n\n--- CANDIDATE ANSWERS ---\n\n${answersBlock}`;
 
-  const codexHome = synthLeg.provider === 'codex'
-    ? (await resolveProviderAccount('codex', synthLeg.providerAccountRef ?? wf.config.providerAccountRef, cwd).catch(() => null))?.codexHome
-    : undefined;
+  let codexHome: string | undefined;
+  try {
+    const resolved = await resolveCompareLegs([synthLeg], ref =>
+      resolveProviderAccount('codex', ref, cwd), wf.config.providerAccountRef);
+    codexHome = resolved.codexHomes[0];
+  } catch {
+    send(ws, { type: 'error', message: 'The selected Codex account is unavailable. Check the account and try again.' });
+    return;
+  }
 
   // Spawn directly (not via runCompare) so we can stamp the synthesis pane index
   // and reuse the SAME compareId for the events. Mirrors runCompare's leg spawn:

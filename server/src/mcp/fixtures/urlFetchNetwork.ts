@@ -1,6 +1,6 @@
 import dns from 'node:dns/promises';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
-Object.assign(dns, { lookup: async () => [{ address: '203.0.113.1', family: 4 }] });
+Object.assign(dns, { lookup: async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }] });
 globalThis.fetch = async (input) => {
   const url = String(input);
   if (!url.startsWith('https://example.com/')) throw new Error('Fixture URL only.');

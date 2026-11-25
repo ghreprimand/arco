@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Enforce configured tool and public network boundaries, preserve selected Codex accounts in Compare, and keep remote console chat route data inert. Local WebFetch now uses direct HTTP for every mode; browser-only pages may not load.
+
 - STOP cancels messages still entering a turn, including an interrupt that has reached Arco and is waiting for its conversation checks.
 
 - Keep the saved file intact when a text or image replacement fails, and keep unsaved conversation bytes available for the next flush.

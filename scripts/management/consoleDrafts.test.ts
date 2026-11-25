@@ -52,3 +52,12 @@ test('B194: a completed phone chat send does not clear a newer draft', async () 
     assert.equal(input.value, 'New unsent message');
   } finally { win.close(); }
 });
+
+test('chat route values stay inert inside the page script', () => {
+  const value = '</script><div id="fixture-injected">';
+  const dom = new JSDOM(chatHtml(value, 'workflow', 'Fixture'));
+  try {
+    assert.equal(dom.window.document.querySelector('#fixture-injected'), null);
+    assert.match(dom.window.document.querySelector('script')!.textContent!, /\\u003c/);
+  } finally { dom.window.close(); }
+});

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 // Every runtime version is locked. HTTPS-source packages are bundled below
 // so installation never depends on reaching their original download host.
 export function runtimeDependencySpec(name, declared, lock) {
-  const version = lock.packages?.[`node_modules/${name}`]?.version;
+  const version = lock.packages?.[`server/node_modules/${name}`]?.version ?? lock.packages?.[`node_modules/${name}`]?.version;
   if (!version) throw new Error(`Missing locked runtime dependency: ${name}`);
   return version;
 }

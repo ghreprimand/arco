@@ -9,7 +9,7 @@ import { FileScanDeadlineExceeded, regularFileLines } from '../boundedRead.js';
 import { isSearchableTextFile } from '../searchText.js';
 import { writeCheckedFile } from '../checkedFile.js';
 import { readFileContent, type FileContentBlock, type FileContentResult } from '../fileContent.js';
-import { fetchFileContent, assertPublicFileFetchUrl } from '../fileFetch.js';
+import { fetchFileContent } from '../fileFetch.js';
 import { resolveToolPath } from '../toolPath.js';
 import { requestWithDeadline } from './requestDeadline.js';
 
@@ -633,7 +633,7 @@ const WebFetchTool: OllamaToolEntry = {
     function: {
       name: 'WebFetch',
       description:
-        'Fetch a URL. Images are returned visually when supported; PDFs and office files become text, other binaries a note. Default mode is "auto": tries a fast HTTP fetch first, falls back to a real browser (Camoufox) if the page returns 403, looks Cloudflare-blocked, or comes back empty. Use "fast" for sites you know respond to plain HTTP, "stealth" for sites you know are bot-protected. Output is capped at 64 KB. Loopback / private / link-local hosts are refused — those are operator-internal services, not fair game for the model.',
+        'Fetch a URL. Images are returned visually when supported; PDFs and office files become text, other binaries a note. Uses a direct HTTP fetch. Browser-backed fetching is unavailable because it cannot enforce the public-only network policy. Output is capped at 64 KB. Loopback / private / link-local hosts are refused — those are operator-internal services, not fair game for the model.',
       parameters: {
         type: 'object',
         properties: {
@@ -645,7 +645,7 @@ const WebFetchTool: OllamaToolEntry = {
           mode: {
             type: 'string',
             enum: ['auto', 'fast', 'stealth'],
-            description: 'Fetch strategy. Default "auto": try fast, fall back to stealth on bot-protection signals.',
+            description: 'Legacy fetch strategy; all values use guarded direct HTTP.',
           },
         },
         required: ['url'],
@@ -654,7 +654,6 @@ const WebFetchTool: OllamaToolEntry = {
   },
   execute: async (args, ctx) => {
     const url = asString(args.url, 'url');
-    const mode = (asOptionalString(args.mode, 'mode') ?? 'auto') as 'auto' | 'fast' | 'stealth';
     let parsed: URL;
     try {
       parsed = new URL(url);
@@ -669,29 +668,12 @@ const WebFetchTool: OllamaToolEntry = {
       ...(ctx.abortSignal ? [ctx.abortSignal] : []),
     ]);
 
-    let outcome: FetchOutcome | null = null;
-    let usedMode = mode;
+    // Browser requests cannot enforce the public-only policy for every request.
+    // Keep accepting older mode values but use the guarded direct reader.
+    const outcome = await fastFetch(parsed.toString(), fastSignal, typeof args.pages === 'string' ? args.pages : undefined, !!ctx.onImages);
+    const usedMode = 'fast';
+    if (outcome.refused || ctx.abortSignal?.aborted) return outcome.text;
 
-    if (mode === 'fast' || mode === 'auto') {
-      outcome = await fastFetch(parsed.toString(), fastSignal, typeof args.pages === 'string' ? args.pages : undefined, !!ctx.onImages);
-      if (outcome.refused || ctx.abortSignal?.aborted) return outcome.text;
-      usedMode = 'fast';
-      if (mode === 'auto' && looksBlocked(outcome)) {
-        // Fall through to stealth.
-        outcome = null;
-      }
-    }
-
-    if (!outcome && (mode === 'stealth' || mode === 'auto')) {
-      try { await assertPublicFileFetchUrl(parsed.toString(), ctx.abortSignal); }
-      catch (error) { return `[error] WebFetch refused URL: ${error instanceof Error ? error.message : String(error)}`; }
-      outcome = await stealthFetch(parsed.toString(), ctx.abortSignal);
-      usedMode = 'stealth';
-    }
-
-    if (!outcome) {
-      return '[error] WebFetch produced no result (unreachable mode branch)';
-    }
     if (!outcome.ok && !outcome.text) {
       return `[error] WebFetch (${usedMode}) failed: ${outcome.reason ?? `HTTP ${outcome.status ?? '?'}`}`;
     }

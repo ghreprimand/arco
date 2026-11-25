@@ -3722,6 +3722,9 @@ export class ClaudeNativeWorker extends EventEmitter {
   }
 
   private async dispatchTool(block: ToolUseBlock, pendingResults: unknown = []): Promise<NativeToolOutcome> {
+    if (isIsolatedAccessMode(this.config.clusterAccessMode) && !this.buildToolDefs().some(tool => tool.name === block.name)) {
+      return { text: `[error] tool "${block.name}" is unavailable for this isolated member.`, isError: true };
+    }
     if (this.config.interactionMode === 'chat' && this.config.voiceOperator) {
       const text = await executeComputerTool(this.workflowId, block.name, block.input);
       return { text, isError: text.startsWith('[error]') };
