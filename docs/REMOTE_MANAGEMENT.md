@@ -77,7 +77,7 @@ interface ManagedArcoInstance {
     requests: boolean;         // surfaces pending requests
     approvals: boolean;        // accepts approve/deny
     serviceRestart: boolean;   // agent present + can restart local service
-    diagnostics: boolean;      // exposes  diagnostics summary
+    diagnostics: boolean;      // exposes diagnostics summary
     resourceStats: boolean;    // cheap CPU/mem/disk summary available
   };
   lastHeartbeatAt: number;     // ms epoch; hub derives online/stale/offline
@@ -110,7 +110,7 @@ The UI distinguishes a stopped Arco process with a reachable agent or SSH target
   **offline**. Offline never deletes the instance, it shows last-seen so the operator knows *which* machine
   is asleep.
 - Registration is **outbound from Arco to the hub** (no inbound port on the Arco instance for the workflow
-  layer; only the agent's signed-lifecycle listener, 6, accepts inbound, and only signed commands).
+  layer). The agent also connects outbound and accepts only signed lifecycle commands on that connection.
 
 ---
 

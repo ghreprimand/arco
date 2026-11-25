@@ -5,6 +5,7 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Correct the remote-management agent connection description (outbound only; no inbound lifecycle listener) and point Media Studio settings at `MediaAccessSettings.tsx`.
 - Correct the third-party notice (two npm packages declare MPL-2.0 and LGPL-3.0), remove references to browser suites and a page that no longer exist, and add phone, research, scratch and Gemini terms to the glossary.
 
 - Name the real place to sign in to Gemini for research and to turn on small-context tools for Ollama members: Settings, Providers and models, not Connections.

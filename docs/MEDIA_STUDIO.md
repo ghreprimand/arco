@@ -247,7 +247,7 @@ Operator-facing behavior lives in the `media-studio` manual section. HTTP shapes
 - **Shared op helper:** `client/src/components/media/postMediaOp.ts`, resolves the input (on-disk path as-is, or upload the imported `File` to scratch first), then POSTs the op with the chosen output. Used by both ops panels.
 - **Save controls:** `client/src/components/media/MediaSaveControls.tsx`, a collapsed "SAVE TO..." row (destination dir + filename), shared by audio + video panels.
 - **Imported files now enable ops:** `AudioOpsPanel` / `VideoOpsPanel` take an `importedFile` prop; `MediaModalHost` holds the imported `File` and passes it through. `enabled` is true for an on-disk **or** imported source.
-- **Settings controls:** Settings > Files and media > Media folder access (`MediaAccessSettings.tsx`): `● OUTSIDE-FOLDER ACCESS ON` / `○ OUTSIDE-FOLDER ACCESS OFF`, `+ ADD FOLDER` and `REVOKE ALL`, saving `{ mediaUnconfined, mediaAllowedRoots }`. Confined is the default; outside paths need access on and the folder listed.
+- **Settings controls:** Settings > Files and media > Media folder access (`client/src/components/MediaAccessSettings.tsx`): `● OUTSIDE-FOLDER ACCESS ON` / `○ OUTSIDE-FOLDER ACCESS OFF`, `+ ADD FOLDER` and `REVOKE ALL`, saving `{ mediaUnconfined, mediaAllowedRoots }`. Confined is the default; outside paths need access on and the folder listed.
 
 ### Smoke
 
