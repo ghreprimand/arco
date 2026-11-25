@@ -65,9 +65,9 @@ other providers retain their own effort values.
 | llama.cpp | (single) | low / high (`low` = `/no_think`) | None | Operator-managed GGUF catalog at `~/.arco/llamacpp.json`. Singleton `llama-server` process owned by Arco (`llamacppManager`); switching aliases SIGTERMs the old server and warms the new one. OpenAI-compatible chat-completions + SSE streaming. Same tool-loop runtime as Ollama, with in-place auto-recovery (reasoning runaway / stream stall / tool-cap / context fill). Override binary with `ARCO_LLAMACPP_BIN`. |
 | LM Studio | (single) | low / high (`low` = `/no_think`) | None | LM Studio reached via its **OpenAI-compatible** HTTP API (`/v1/chat/completions`, `/v1/models`) - not the native SDK. Joins ollama / llama.cpp on the serial local queue, same tool-loop runtime + recovery. Whatever model is loaded in the LM Studio app is the active model. Override base URL with `LMSTUDIO_URL_BASE` (default `http://localhost:1234`). |
 | DeepSeek / Xolotl | HTTP + guarded user services | none / low / medium / high | Transcript replay | Configured profiles with model-specific context, image, and tool capabilities, guarded loading and unloading, and source-version tracking; see [`docs/DEEPSEEK.md`](DEEPSEEK.md). |
-| Strata | (single HTTP worker + optional registered user services) | none / low / medium / high (`none` disables reasoning; high maps to Qwen xhigh) | Transcript replay | Standalone OpenAI-compatible service at `http://127.0.0.1:8081/v1`. The service reports installed model IDs, context and capabilities; one profile is resident at a time. Streaming reasoning, tools, image input, Chat web-only toggle, native tok/s, FREE VRAM and release notices. [Runbook](STRATA.md). |
+| Strata | (single HTTP worker + optional registered user services) | none / low / medium / high (`none`, `low` and `medium` pass through; any higher effort is sent as `high`) | Transcript replay | Standalone OpenAI-compatible service at `http://127.0.0.1:8081/v1`. The service reports installed model IDs, context and capabilities; one profile is resident at a time. Streaming reasoning, tools, image input, Chat web-only toggle, native tok/s, FREE VRAM and release notices. [Runbook](STRATA.md). |
 
-Antigravity CLI is unavailable for reviewers. Local reviewers (Ollama, llama.cpp, LM Studio, Strata) get a prompt addendum reminding them to use their read-only tools to verify diff claims against the live tree. Cross-family reviewer pairings are the most useful.
+Antigravity CLI is unavailable for reviewers. Local reviewers (Ollama, llama.cpp, LM Studio, Strata and DeepSeek) get a prompt addendum reminding them to use their read-only tools to verify diff claims against the live tree. Cross-family reviewer pairings are the most useful.
 
 The utility agent and the Smart AUTO-PICKUP evaluator are narrower: only Claude
 with Native sign-in, Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata and DeepSeek through Xolotl can serve. Claude CLI alone cannot
@@ -1896,9 +1896,10 @@ configuration and stays outside Git.
 **Transport.** Reuses `OpenAIHttpWorkerProcess` in `lmstudio.ts`: streaming SSE,
 fragmented indexed tool calls, usage, image data URLs, transcript replay and a
 bounded server-side tool loop. `reasoning_content` streams to thinking and is
-preserved inside tool-call round trips. Strata exposes `none`, `low`, `medium`, and `high` directly; `none`
-disables reasoning and Strata maps `high` to Qwen xhigh. Legacy higher effort
-values normalize to `high`. Final usage carries the discovered context and last prompt tokens.
+preserved inside tool-call round trips. Arco sends `none`, `low` and `medium` as
+`reasoning_effort`. Any higher effort, including `high`, is sent as `high`.
+Arco does not send xhigh. `none` disables reasoning. Context and vision come
+from the prepared profile. Final usage carries the discovered context and last prompt tokens.
 One serial Strata slot avoids concurrent Arco requests to the single-request
 engine. Cancel aborts HTTP and settles the worker; Strata remains running.
 The shared loop's `ARCO_LMSTUDIO_*` turn/stall bounds apply to both HTTP
@@ -1960,10 +1961,11 @@ gets only its armed web pair. Strict Incognito, clusters and Computer selection
 are not enabled. Prepared vision configs forward native OpenAI image parts;
 text-only configs reject images before loading. Live modality readiness must
 match the prepared profile. The native reasoning
-channel and assistant reasoning for tool rounds are preserved; request effort
-is none/low/medium/high, with an 8192 thinking budget and 16384 total output cap.
-Context size comes from the configured service model and includes input, history,
-thinking and output. The worker uses runtime timings and the final round's prompt
+channel and assistant reasoning for tool rounds are preserved. Arco sends
+none, low and medium as `reasoning_effort`. Any higher effort, including high,
+is sent as high. Each request sends `reasoning_budget_tokens` 8192 and
+`max_tokens` 16384. Registration requires a 262144-token context, covering
+input, history, thinking and output. The worker uses runtime timings and the final round's prompt
 count for measured context and rates.
 
 The environment overrides in the LM Studio section (`ARCO_LMSTUDIO_*`) also apply to DeepSeek.

@@ -21,8 +21,8 @@ Upstream references, without a pinned checkout:
 - [Xolotl](https://github.com/Indras-Mirror/Xolotl)
 - Engine-specific details should be checked against the installed Xolotl release documentation.
 
-Keep upstream benchmarks distinct from measurements of the installed quantization, routing, memory budget, and GPU power limit. The pinned checkout
-revision is source provenance; rebuild records establish binary provenance.
+Keep upstream benchmarks distinct from measurements of the installed quantization, routing, memory budget, and GPU power limit. The installed revision
+is source provenance; rebuild records establish binary provenance.
 
 The saved provider key remains `deepseek` for compatibility with existing
 workflows, settings and API routes; its user-facing provider name is Xolotl.
