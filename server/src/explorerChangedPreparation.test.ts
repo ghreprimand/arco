@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { installIsolatedTestHome } from './testSupport/isolatedHome.js';
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'arco-preparation-')));
 installIsolatedTestHome(root);
@@ -51,24 +51,58 @@ test('healthy configured locations and their nested checkouts survive a differen
   mkdirSync(join(child, '.git'), { recursive: true }); writeFileSync(join(child, 'child.md'), 'fixture');
   await patchSettings({ projects: [alpha], defaultWorkingDirectory: alpha, projectRoots: [{ name: 'Healthy', path: location }, { name: 'Unavailable', path: beta }] });
   const original = fs.stat;
+  const wallNow = performance.now.bind(performance);
+  const wallTimeout = setTimeout;
+  const clearWallTimeout = clearTimeout;
+  const started = wallNow();
   let release!: () => void;
   const held = new Promise<void>(resolve => { release = resolve; });
+  let prepared!: () => void;
+  const ready = new Promise<void>(resolve => { prepared = resolve; });
+  const waiting = new Set([alpha, location, child, beta]);
+  let scanTime = 0;
+  t.mock.method(performance, 'now', () => scanTime);
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   t.mock.method(fs, 'stat', async (...args: Parameters<typeof fs.stat>) => {
-    if (String(args[0]) === beta) await held;
-    return (original as any)(...args);
+    const path = String(args[0]);
+    if (path === beta) {
+      waiting.delete(path);
+      if (!waiting.size) prepared();
+      await held;
+      return original(...args);
+    }
+    const result = await original(...args);
+    if (waiting.delete(path) && !waiting.size) prepared();
+    return result;
   });
   syncBuiltinESMExports();
   const pending = scanChangedPage();
-  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let watchdog: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<undefined>(resolve => {
+    watchdog = wallTimeout(() => resolve(undefined), 5000);
+  });
+  const elapsed = () => Math.round(wallNow() - started);
   try {
-    const result = await Promise.race([pending, new Promise<undefined>(resolve => { timeout = setTimeout(() => resolve(undefined), 800); })]);
-    assert.ok(result);
-    assert.ok(result.entries.some(e => e.path === join(alpha, 'note.md')));
-    assert.ok(result.entries.some(e => e.path === join(child, 'child.md')));
-    assert.equal(result.partial, true);
+    const rootsReady = await Promise.race([ready.then(() => true), expired]);
+    assert.ok(rootsReady, `preparation stalled: pending=${[...waiting].map(path => basename(path)).join(',')} elapsedMs=${elapsed()}`);
+    // Let the healthy stat results reach root discovery before expiring the
+    // preparation budget. The held stat stays pending through the walk.
+    await new Promise(resolve => setImmediate(resolve));
+    scanTime = 325;
+    t.mock.timers.tick(scanTime);
+    const result = await Promise.race([pending, expired]);
+    assert.ok(result, `request stalled with the root held: elapsedMs=${elapsed()}`);
+    const hasAlpha = result.entries.some(e => e.path === join(alpha, 'note.md'));
+    const hasChild = result.entries.some(e => e.path === join(child, 'child.md'));
+    const detail = `partial=${result.partial} entries=${result.entries.length} alpha=${hasAlpha} child=${hasChild} elapsedMs=${elapsed()}`;
+    assert.ok(hasAlpha && hasChild, detail);
+    assert.equal(result.partial, true, detail);
   } finally {
-    if (timeout) clearTimeout(timeout);
-    release(); await pending;
+    clearWallTimeout(watchdog);
+    release();
+    scanTime = 650;
+    t.mock.timers.tick(650);
+    await pending;
     t.mock.restoreAll(); syncBuiltinESMExports();
   }
 });
