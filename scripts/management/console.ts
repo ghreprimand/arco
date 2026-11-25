@@ -253,11 +253,26 @@ button.cluster-chip.tappable:active { background: var(--color-accent-primary); c
 `;
 }
 
+// One source for the page and the test. An offline card can still ask the hub
+// to run Status, Start and Logs over a configured SSH target. Restart and Stop
+// need the agent, so they stay off. With no target, every lifecycle button stays off.
+const LIFECYCLE_DISABLED_FN = `function lifecycleDisabled(state, cmd, ssh) {
+  if (state !== 'offline') return false;
+  if (ssh !== true) return true;
+  return cmd === 'arco.restart' || cmd === 'arco.stop';
+}`;
+
+export function lifecycleDisabled(state: string, cmd: string, ssh: boolean): boolean {
+  const fn = new Function(`${LIFECYCLE_DISABLED_FN}; return lifecycleDisabled;`) as () => (state: string, cmd: string, ssh: boolean) => boolean;
+  return fn()(state, cmd, ssh);
+}
+
 export function consoleJs(): string {
   // Vanilla JS — no framework. Polls the control API, renders instance cards,
   // wires lifecycle buttons (POST), shows command output. Lifecycle commands
   // are the fixed allowlist; the hub signs + routes them.
   return `
+${LIFECYCLE_DISABLED_FN}
 const LIFECYCLE = [
   { cmd: 'arco.status',  label: 'Status' },
   { cmd: 'arco.start',   label: 'Start' },
@@ -275,8 +290,17 @@ function ago(ms) {
 }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
+function restoreLifecycle(btn) {
+  const card = btn.closest('.card');
+  const ssh = !!(card && card.dataset.ssh === '1');
+  const state = card && card.classList.contains('offline') ? 'offline'
+    : card && card.classList.contains('stale') ? 'stale' : 'online';
+  btn.parentElement.querySelectorAll('button[data-cmd]').forEach(b => {
+    b.disabled = lifecycleDisabled(state, b.dataset.cmd, ssh);
+  });
+}
 async function send(id, cmd, btn, outEl) {
-  const buttons = btn.parentElement.querySelectorAll('button');
+  const buttons = btn.parentElement.querySelectorAll('button[data-cmd]');
   buttons.forEach(b => b.disabled = true);
   outEl.classList.remove('err');
   outEl.textContent = '> ' + cmd + ' …';
@@ -298,7 +322,7 @@ async function send(id, cmd, btn, outEl) {
     outEl.classList.add('err');
     outEl.textContent = '✗ ' + e.message;
   } finally {
-    buttons.forEach(b => b.disabled = false);
+    restoreLifecycle(btn);
   }
 }
 
@@ -389,6 +413,7 @@ function card(entry) {
   const i = entry.instance;
   const el = document.createElement('div');
   el.className = 'card ' + entry.state;
+  el.dataset.ssh = entry.ssh === true ? '1' : '0';
   const head = document.createElement('div');
   head.className = 'card-head';
   head.innerHTML = '<span class="name">' + esc(i.name) + '</span>' +
@@ -419,11 +444,18 @@ function card(entry) {
     const b = document.createElement('button');
     b.className = 'act' + (l.danger ? ' danger' : '');
     b.textContent = l.label;
-    b.disabled = entry.state === 'offline';
+    b.dataset.cmd = l.cmd;
+    b.disabled = lifecycleDisabled(entry.state, l.cmd, entry.ssh === true);
     b.onclick = () => send(i.instanceId, l.cmd, b, out);
     actions.appendChild(b);
   }
   el.appendChild(actions);
+  if (entry.state === 'offline' && entry.ssh !== true) {
+    const note = document.createElement('div');
+    note.className = 'status-line';
+    note.textContent = 'No SSH target is configured. Status, Start, Restart, Stop and Logs stay off.';
+    el.appendChild(note);
+  }
   el.appendChild(out);
 
   // ── workflow layer (only when the live Arco service is reporting) ──
@@ -1048,7 +1080,7 @@ function wfRow(id, w) {
 // rebuild entirely, so a message box you're scrolling is never torn down.
 function sigOf(data) {
   return JSON.stringify((data.instances || []).map(e => ({
-    n: e.instance.name, s: e.state, gr: e.instance.gitRevision, sm: e.instance.serviceMode,
+    n: e.instance.name, s: e.state, ssh: e.ssh === true, gr: e.instance.gitRevision, sm: e.instance.serviceMode,
     aa: ((e.rollup && e.rollup.authAlerts) || []).map(a => a.provider + ':' + a.since),
     // R3 — cluster grouping changes must re-render.
     cl: (e.clusters || []).map(c => ({

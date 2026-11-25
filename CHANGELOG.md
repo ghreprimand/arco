@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- On an offline remote-console card, Status, Start and Logs stay available when an SSH target is configured. Restart and Stop stay off. A card with no SSH target says so and keeps all five off.
+
 - Correct the Recall documentation: summarize-on-close also appears under Utility agent in Settings on the phone view, and the index query sort is pinned-first.
 
 - Correct the cluster, provider, power-feature, Strata and DeepSeek manual pages and cluster help: ISOLATED replacements offer every provider Arco can fence, Gemini can be a cluster member from the creator, SSH access forwards the installed package's port, and Strata and DeepSeek limits are described as set by each profile.

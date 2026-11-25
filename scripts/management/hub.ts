@@ -736,8 +736,12 @@ export function createHub(opts: HubOptions): Hub {
     sendJson(404, { error: 'not found' });
   }
 
-  function snapshot(): RegistrySnapshotEntry[] {
-    return registry.snapshot(now());
+  function snapshot(): Array<RegistrySnapshotEntry & { ssh: boolean }> {
+    return registry.snapshot(now()).map((entry) => ({
+      ...entry,
+      // Presence only. The host, user and key stay in the hub's target file.
+      ssh: sshTargetFor(entry.instance.instanceId) !== undefined,
+    }));
   }
 
   return {
