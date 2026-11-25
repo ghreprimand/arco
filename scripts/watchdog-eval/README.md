@@ -3,11 +3,9 @@
 Offline, read-only falsification harness for the cluster worker-watchdog. Each
 script replays real worker `events.jsonl` logs and reports what a candidate
 loop-detector *would* have flagged - so detectors are validated against ground
-truth before any halt logic ships. Full context: `docs/WATCHDOG_PLAN.md`.
+truth before any halt logic ships.
 
-**A worker is misbehaving and you want to analyze it?** Step-by-step incident
-runbook (find the log, run both detectors, interpret, confirm with raw
-evidence): `docs/WATCHDOG_PLAN.md` § 6.5.
+**A worker is misbehaving and you want to analyze it?** Find its `events.jsonl`, run the detectors below on it, and confirm any flag against the raw events.
 
 ```bash
 # default log dir is .arco/workflows under the current directory; override per project:

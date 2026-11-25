@@ -147,6 +147,8 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Persisting / persisted** - Written to `events.jsonl`. Persisted messages survive server restart and are streamed to clients on reconnect. Non-persisted messages (e.g. `quota_status`, `context_usage`, `session_entry`) are derived state, broadcast transiently.
 
+**Phone view** - The layout Arco serves at `/mobile` for a phone: one conversation at a time, a list of tabs with **NEEDS YOU** first, a member strip in clusters, **PANELS** for the side panels and a text size under Settings > **THIS PHONE**. It is the same server and the same tabs as the desktop layout. See [Use Arco from a phone](GETTING_STARTED.md#use-arco-from-a-phone).
+
 **Plan** - A long-form markdown brief stored at `<cwd>/.arco/plans/<planId>.md`. Operators attach a plan to a workflow in the Plan tab; supported turns receive plan context subject to access restrictions. Plans live in the cwd, not the workflow, so the same plan can be attached to multiple workflows.
 
 **`/prompt` command** - DD10 operator-facing parameterized prompt template (`server/src/prompts.ts`), distinct from the model-facing **Skills**. Typing `/<name> args...` in the composer expands the body of a template file BEFORE the turn is recorded (so events.jsonl carries the real prompt, not the shorthand). Templates live at `<cwd>/.arco/prompts/<name>.md` (project - gated behind **project-trust**) or `~/.arco/prompts/<name>.md` (global - ungated). Bash-positional substitution: `$1`..`$9` / `${1}`.., `$@` / `$*` (all args space-joined), `$$` (literal `$`); args tokenized with shell-style quotes.
@@ -197,6 +199,14 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 
 **Rehydrate** - On reconnect, the client sends `rehydrate_workflows` with each persisted workflow's `lastSeq`. Server replays events `> lastSeq` then sends a `workflow_state_snapshot`. If too much rotated off disk, fallback is snapshot-only.
 
+**Research project** - A cluster of one Research Director and several independent researchers that answer one brief in rounds, with a folder describing the project. See [RESEARCH.md](RESEARCH.md).
+
+**Researcher** - A member with the RESEARCHER access mode: isolated, in a private workspace, reporting only to Arco until a round is released. On Linux, Claude CLI, Codex, Cursor and Gemini researchers run inside the sandbox described in [Sandbox requirements](OPERATIONS.md#sandbox-requirements-isolated-members-and-researchers).
+
+**Research Director** - The member who writes the brief, runs rounds with `research_round`, reads the released reports and writes `synthesis.md`.
+
+**Round** - One pass of a research project: the identical brief goes to every researcher, replies are held until all are in, then Arco releases them to the Research Director together (blind reports hide authors from the Director).
+
 **Replay** - Event stream from `events.jsonl` sent to a reconnecting client to reconstruct state. See `replayEvents()` in `server/src/workflowStore.ts`.
 
 **Resume** - Two senses:
@@ -216,6 +226,10 @@ Also: **inline artifact** - fenced `arco-artifact` blocks the primary emits duri
 **RSS guard** - `RSS_KILL_BYTES = 32 GB` per-process-tree memory cap enforced by `WorkerManager.startActivityPoll`. Per-workflow opt-out is available through `meta.disableRssGuard`; `ARCO_RSS_KILL_BYTES` overrides the cap. The guard bounds runaway worker memory use.
 
 **Sandbox** - `WorkerConfig.sandbox` permissions level: `read-only` / `workspace-write` / `danger-full-access`. Codex-native; also load-bearing for Cursor - read-only work and saved Chat use Cursor's print path; isolated members use a separate sandboxed print path. Reviewers force `read-only`.
+
+**Scratch folder** - `scratch/` inside a conversation folder, for large intermediate files. Arco empties it only at the operator's request (**EMPTY SCRATCH**, or the offer when a tab is closed); items under a KEEP mark are skipped. See [Persistence](PERSISTENCE.md).
+
+**Gemini member** - A cluster member on Antigravity CLI (Gemini). Mail to or from it waits for the operator's **NUDGE** and AUTO-PICKUP skips it. See [Gemini members](PROTOCOL_CLUSTER.md#gemini-members).
 
 **Seed** - The first user message in a fresh CLI session, used by Handoff and Spawn to inject context. See **handoff seed** / **spawn seed**.
 

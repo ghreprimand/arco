@@ -186,7 +186,7 @@ the body in FTS rather than downgrading to the bare ref.
   `recallSummarizerFor` gives the row's Summarize action (`client/src/recall/closeSummary.ts`). A toast reads
   "Summarizing <tab> in Recall" with an OPEN RECALL link; `recall_summary_ready` for that session then raises a
   ready toast (with the link) or an error toast. A socket that is not open also shows an error toast. Unchecked,
-  nothing is sent. Browser fixture: `scripts/smoke/recall-close-browser.py`.
+  nothing is sent.
 
 ### Smoke
 

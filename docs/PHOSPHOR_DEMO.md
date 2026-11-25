@@ -14,7 +14,6 @@ directory separate from the production client bundle.
 npm run dev:phosphor-demo -w client
 npm run build:phosphor-demo -w client
 npm run test:phosphor
-python3 scripts/smoke/phosphor-demo-browser.py
 ```
 
 The development server binds loopback on port 5178, with strict port selection.
@@ -186,9 +185,7 @@ theme integration and controls.
 
 `npm run test:phosphor` checks the palette catalog, resolver, token coverage, and
 settings behavior. `npm run build:phosphor-demo -w client` builds the isolated
-entry. `scripts/smoke/phosphor-demo-browser.py` exercises palette selection,
-fonts, brightness, effects, reduced motion, layout changes, context restoration,
-and unavailable WebGL against synthetic data. The preview harness intercepts
+entry. The preview harness intercepts
 API and WebSocket requests; it does not connect to providers or persist workflows.
 
 The demo is not the complete production workbench. It does not exercise live

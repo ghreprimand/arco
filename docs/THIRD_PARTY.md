@@ -21,7 +21,16 @@ The vendored Odysseus image editor is MIT-licensed. Preserve its [`LICENSE`](../
 
 ## npm dependencies
 
-The lockfile contains 501 third-party package records. Their declared licenses are MIT, ISC, Apache-2.0, BSD-3-Clause, BSD-2-Clause, BlueOak-1.0.0, MIT-0, 0BSD, CC0-1.0 and, for one data package, CC-BY-4.0. The `caniuse-lite` 1.0.30001819 development dependency declares CC BY 4.0 for its browser-support data; attribute the data to caniuse.com when redistributing it. See [caniuse-lite](https://github.com/browserslist/caniuse-lite) and the [source dataset license](https://github.com/Fyrd/caniuse). No GPL, LGPL, AGPL, MPL, EPL, SSPL, or source-available license is declared for a third-party npm package in the current lockfile. Workspace packages use the root project's GPL-3.0-only license. Lockfile metadata is an inventory aid; it does not replace review of the package's distributed files and notices.
+The lockfile lists 534 third-party package records. Most declare MIT. The others declare ISC, Apache-2.0, BSD-3-Clause, BSD-2-Clause, BlueOak-1.0.0, MIT-0, 0BSD, CC0-1.0, `(MIT AND Zlib)` and, for one data package, CC-BY-4.0. The `caniuse-lite` 1.0.30001819 development dependency declares CC BY 4.0 for its browser-support data; attribute the data to caniuse.com when redistributing it. See [caniuse-lite](https://github.com/browserslist/caniuse-lite) and the [source dataset license](https://github.com/Fyrd/caniuse).
+
+Two packages declare a copyleft license and are installed with the server:
+
+| Package | Declared license | Used for |
+|---|---|---|
+| `@resvg/resvg-wasm` 2.6.2 | MPL-2.0 | Direct server dependency. |
+| `libheif-js` 1.23.5 | LGPL-3.0 | Pulled in by the direct server dependency `heic-decode`. |
+
+No other GPL, LGPL, AGPL, MPL, EPL, SSPL or source-available license is declared for a third-party npm package in the lockfile. Workspace packages use the root project's GPL-3.0-only license. Lockfile metadata is an inventory aid; it does not replace review of the package's distributed files and notices.
 
 ## Optional Codex usage browser
 

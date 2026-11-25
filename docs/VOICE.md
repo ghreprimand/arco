@@ -717,7 +717,6 @@ Restart interrupts active scripts without replay; it does not re-arm them.
 | `npm run smoke:computer-context` | Codex full resets, cold reconnect, private storage boundaries and durable-private handshake rejection |
 | `npm run smoke:computer-modes` | Fake Ollama/Strata streams: local 75% boundary, structured tools, clear/replay and private storage/log exclusion |
 | `npm run smoke:computer-panel` | Chromium against an isolated Vite fixture: panel/history, numeric/no-limit settings, agent switches, voice choices, theme fonts and zero mic/provider calls |
-| `npm run smoke:voice-scroll` | Actual virtualized conversation following after voice selection/send/nudge, with isolated APIs |
 
 For the panel browser fixture, first run
 `ARCO_CLIENT_PORT=5193 npm run dev:client`; its APIs and WebSocket are mocked.

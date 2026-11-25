@@ -251,15 +251,11 @@ What it reports without failing:
 - **Unreferenced entries** (an entry no element points at) -> **warning**, not error. Wire the entry or remove it when convenient.
 - **Coverage percentage**: the share of interactive elements carrying `data-help`. This measure is informational only in `docs:check`.
 
-An automated browser suite (`scripts/smoke/help-coverage-browser.py`, also in
-`npm run smoke:browser` / `run-browser-suites.mjs`) opens each major view with
-synthetic fixtures and fails when a reachable interactive control lacks a
-resolving `data-help` key (short allowlist for the help toggle itself). Run that
-suite when adding or rearranging controls.
+No browser suite walks every view for missing `data-help` keys. `npm run smoke:browser -- help-docs` opens the real manual and contextual help against a fixture. When adding or rearranging controls, check the new control in help mode by hand.
 
 Dynamic keys (`data-help={`rightpanel.tab.${id}`}`) and forwarded-prop helpers (`help="..."`, forwarded `help` defaults, `helpKey="..."`, `const helpKey = ... ? 'a' : 'b'`, `{ 'data-help': key }`) are recognized so they don't produce false errors. See the header comment in `scripts/docs-check.ts` for the exact heuristics, and `docs/CLIENT.md` under `Help system`.
 
-**Feature documentation obligation:** every feature change ships its own `data-help` attributes + `HELP_CONTENT` entries + manual section(s) when it adds controls, and **`npm run docs:check` must stay green** (no new hard errors). Run it alongside `npm run typecheck` and the unit suite before landing a documentation change; run the help-coverage browser suite when controls change.
+**Feature documentation obligation:** every feature change ships its own `data-help` attributes + `HELP_CONTENT` entries + manual section(s) when it adds controls, and **`npm run docs:check` must stay green** (no new hard errors). Run it alongside `npm run typecheck` and the unit suite before landing a documentation change; check new controls in help mode when controls change.
 
 ---
 

@@ -328,16 +328,7 @@ Treat these as separate checks; a green link checker does not prove accuracy:
 5. Run `npm run docs:check`, its `-- --self-test`, `npm run test:help-docs`, and
    client type/build checks. Open the actual manual, search new topics/table rows,
    and click contextual help. Record surfaces not exercised.
-6. Run `npm run smoke:browser -- help-coverage`. It opens every main view with
-   synthetic fixtures (Home, welcome steps, the creator in each mode and the
-   template review, workflow and chat with every right-panel tab, the dialogs
-   and menus opened from the composer, header and tab bar, the cluster tab,
-   worker detail, Settings pages, Connections and each provider, Computer and
-   the voice strip) and fails on any visible control without a `data-help` key
-   on itself or an ancestor, and on any key missing from the help registry. A
-   new view belongs in its walk; a deliberate exception belongs in its short
-   allowlist with a reason. `ARCO_HELP_COVERAGE_REPORT=<file>` writes the
-   inventory as JSON.
+6. Run `npm run smoke:browser -- help-docs` when the change touches the manual or contextual help. It opens the real manual and contextual help against a fixture. No suite walks every view for a missing `data-help` key; check the new control by hand in help mode.
 
 The browser smoke runner captures each fixture Vite server output and fails a suite if Vite reports a refused connection to the default backend. Fixture API requests, including session creation, must be handled by the browser fixture.
 
