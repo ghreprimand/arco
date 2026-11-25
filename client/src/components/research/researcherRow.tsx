@@ -18,7 +18,7 @@ type Sandbox = { claudeCli?: boolean; codex?: boolean; cursor?: boolean; gemini?
 /** Why a Gemini researcher cannot run now, or undefined when it can. */
 export function geminiResearchReason(sandbox: Sandbox): string | undefined {
   if (!sandbox.gemini) return 'Gemini researchers need the Linux worker sandbox.';
-  if (sandbox.geminiSignIn !== 'ready') return sandbox.geminiSignIn === 'expired' ? 'Gemini for research needs signing in again in Connections, Antigravity CLI.' : 'Sign in to Gemini for research in Connections, Antigravity CLI.';
+  if (sandbox.geminiSignIn !== 'ready') return sandbox.geminiSignIn === 'expired' ? 'GEMINI FOR RESEARCH needs signing in again in Settings, Providers and models.' : 'Sign in to GEMINI FOR RESEARCH in Settings, Providers and models.';
   return undefined;
 }
 

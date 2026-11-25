@@ -460,8 +460,9 @@ export const clusters: Section[] = [
   so that mail can be reviewed or edited first.
   </p>
   <p>
-  A Gemini researcher needs Linux and Settings, Connections,{' '}
-  <strong>GEMINI FOR RESEARCH</strong> signed in. It takes each round only
+  A Gemini researcher needs Linux and <strong>GEMINI FOR RESEARCH</strong>{' '}
+  signed in, in Settings, Providers and models, Sign-in, accounts and local
+  endpoints. It takes each round only
   when you press NUDGE on it, whichever provider directs the project.
   </p>
   <p>

@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Name the real place to sign in to Gemini for research and to turn on small-context tools for Ollama members: Settings, Providers and models, not Connections.
+
 - Correct the in-app manual and contextual help against the 0.2.0 screens; turn on contextual help in the mobile view from POINT AT THINGS at the top of MANUAL, name the single-tab KNOWLEDGE panel by its page name, and explain tearing down a cluster from its tab.
 
 - Show "Arco data folder" as the HOME of a Codex account profile without its own folder in Settings, instead of `~/.codex`, which suggested the profile shared the default Codex sign-in.
