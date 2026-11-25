@@ -13,7 +13,7 @@ COPY shared/ shared/
 COPY server/ server/
 COPY client/ client/
 COPY scripts/build-fs.mjs scripts/build-fs.mjs
-RUN npm run build && npm prune --omit=dev
+RUN npm run build && npm prune --omit=dev && mkdir -p server/node_modules
 
 FROM node:24-bookworm-slim AS runtime
 ARG ARCO_BUILD_COMMIT
@@ -30,6 +30,8 @@ COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules/ node_modules/
 COPY --from=build /app/shared/package.json shared/package.json
 COPY --from=build /app/shared/dist/ shared/dist/
+# npm can keep production dependencies local to a workspace after pruning.
+COPY --from=build /app/server/node_modules/ server/node_modules/
 COPY --from=build /app/server/package.json server/package.json
 COPY --from=build /app/server/dist/ server/dist/
 COPY --from=build /app/client/dist/ client/dist/

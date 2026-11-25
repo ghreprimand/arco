@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Restore Docker startup when npm leaves server dependencies in the server workspace after pruning.
+
 - Added Smart: Automatic presets and a configurable chain-depth limit.
 
 - Enforce configured tool and public network boundaries, preserve selected Codex accounts in Compare, and keep remote console chat route data inert. Local WebFetch now uses direct HTTP for every mode; browser-only pages may not load.

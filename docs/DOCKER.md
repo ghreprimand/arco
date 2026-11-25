@@ -220,6 +220,11 @@ workers.
 
 ## Operation
 
+The runtime image includes the server workspace's production dependencies
+where npm installs them, including packages that are not hoisted to the
+repository root. The build removes development dependencies before copying
+the runtime files.
+
 ```sh
 docker compose logs -f arco
 docker compose stop

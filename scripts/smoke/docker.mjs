@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -48,6 +48,28 @@ async function waitReady() {
   }
   throw new Error('Isolated container failed readiness');
 }
+function printContainerStartupLog() {
+  // docker logs forwards the container's stderr separately from stdout.
+  const result = spawnSync('docker', ['logs', '--tail', '80', name], {
+    encoding: 'utf8', maxBuffer: 128 * 1024, timeout: 5000,
+  });
+  if (result.status !== 0) return;
+  const diagnostics = new Set();
+  for (const line of `${result.stdout}\n${result.stderr}`.split('\n')) {
+    const missing = /^Error \[ERR_MODULE_NOT_FOUND\]: Cannot find package '((?:@[\w.-]+\/)?[\w.-]+)' imported from /.exec(line);
+    const code = /^(?:Error \[(ERR_[A-Z0-9_]+)\]|\s*code: '(ERR_[A-Z0-9_]+|E[A-Z0-9_]+)'[, ]*$)/.exec(line);
+    const version = /^Node\.js v\d+\.\d+\.\d+$/.test(line);
+    // Keep startup diagnostics on CI without emitting free-form log data,
+    // stack paths, or environment values.
+    if (missing) diagnostics.add(`Error [ERR_MODULE_NOT_FOUND]: Cannot find package '${missing[1]}'`);
+    else if (code) diagnostics.add(`Error code: ${code[1] ?? code[2]}`);
+    else if (version) diagnostics.add(line);
+  }
+  console.error('Isolated container log diagnostics:');
+  for (const diagnostic of diagnostics) console.error(diagnostic);
+  if (diagnostics.size === 0) console.error('No recognized startup error in the last 80 log lines.');
+}
+
 async function boot(fixture = false) {
   const extra = fixture ? ['--mount', `type=bind,src=${fixtureBin},dst=/fixtures,readonly`, '-e', 'PATH=/fixtures:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'] : [];
   // Same host alias Compose adds through extra_hosts.
@@ -228,12 +250,7 @@ try {
   for (const route of ['GET /api/tags', 'POST /api/show', 'POST /api/chat']) assert.ok(hostModel.requests.includes(route), `host model never received ${route}`);
   console.log('PASS: fixture edits reach host files and mixed-provider cluster effects are durably recorded');
 } catch (error) {
-  try {
-    // Synthetic state only. Keep diagnostics out of source and CI artifacts.
-    const log = join(tmpdir(), `${name}.log`);
-    writeFileSync(log, docker('logs', name));
-    console.error(`Container log: ${log}`);
-  } catch { /* Container may not have started. */ }
+  printContainerStartupLog();
   throw error;
 } finally {
   await disconnect();
