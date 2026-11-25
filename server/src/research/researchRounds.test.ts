@@ -19,7 +19,10 @@ import { prepareResearchCreate } from './researchCreate.js';
 
 // When this file's tests have finished but the process stays alive (a hung job on Windows), say what keeps
 // it open. The timer is unreferenced, so it fires only when something else is holding the process.
-after(() => { setTimeout(() => console.error('researchRounds still running after its tests:', process.getActiveResourcesInfo()), 20_000).unref(); });
+after(() => { setTimeout(() => {
+  const handles = (process as unknown as { _getActiveHandles(): Array<{ constructor: { name: string }; spawnfile?: string; spawnargs?: string[]; pid?: number }> })._getActiveHandles();
+  console.error('researchRounds still running after its tests:', process.getActiveResourcesInfo(), handles.map((h) => ({ kind: h.constructor.name, pid: h.pid, file: h.spawnfile, args: h.spawnargs?.slice(0, 6) })));
+}, 20_000).unref(); });
 
 
 async function project() {
