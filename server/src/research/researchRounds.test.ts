@@ -1028,9 +1028,14 @@ test('keeping Quick research waits for idle members and removes its source after
   const { initWorkflowStore, persistAndStampSeq, flushWorkflowBuffer } = await import('../workflowStore.js');
   const { writeProjectFiles } = await import('./researchFolder.js');
   const { requestQuickPromotion, attemptQuickPromotion, readQuickPromotion, recoverQuickPromotion } = await import('./quickPromotion.js');
+  const { patchSettings } = await import('../settings.js');
   const p = await project(), projectId = randomUUID(), source = join(arcoHome(), 'chat-workspaces', projectId), root = join(p.root, 'saved');
   await fs.mkdir(source, { recursive: true }); await fs.mkdir(root);
   for (const sub of ['rounds', 'syntheses', 'sources']) await fs.mkdir(join(source, sub));
+  // requestQuickPromotion prefers settings.researchFolder over the folderRoot
+  // argument, so point settings at this test's root; a stale deleted path from
+  // an earlier run would otherwise make safeDirectory throw ENOENT.
+  await patchSettings({ researchFolder: root });
   try {
     await updateResearch(p.clusterId, state => { state.projectId = projectId; state.folder = source; state.quick = true; });
     assert.ok(await clusterStore.rebindResearchCwd(p.clusterId, p.folder, source));
