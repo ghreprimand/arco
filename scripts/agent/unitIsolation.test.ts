@@ -10,7 +10,7 @@ test('B199: every per-file test process uses the selected namespace wrapper', ()
   const source = readFileSync(new URL('../test-unit.mjs', import.meta.url), 'utf8').replace(/^import .*;\n/gm, '').replaceAll('import.meta.url', JSON.stringify(new URL('../test-unit.mjs', import.meta.url).href));
   runInNewContext(source, {
     snapshotTempFolders: () => new Set(), remainingTempFolders: () => [],
-    dirname, join, resolve, delimiter, fileURLToPath, tmpdir: () => '/fixture',
+    dirname, join, resolve, delimiter, fileURLToPath, tmpdir: () => '/fixture', realpathSync: { native: (path: string) => path },
     mkdirSync() {}, mkdtempSync: () => '/fixture/temp', rmSync() {}, writeFileSync() {},
     readdirSync: () => [{ name: 'fixture.test.ts', isDirectory: () => false, isFile: () => true }],
     process: { platform: 'linux', execPath: '/runtime/node', env: { PATH: '/runtime', ARCO_TEST_PER_FILE: '1', ARCO_TEST_REQUIRE_NETNS: '1' }, getuid: () => 1000, getgid: () => 1000 },
