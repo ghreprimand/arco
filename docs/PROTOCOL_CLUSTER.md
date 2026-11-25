@@ -346,7 +346,7 @@ mailbox, observer entry, and in-memory lifecycle are not inherited.
     fastMode?: boolean,
     efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive',
     outputStyle?: 'normal' | 'plain' | 'terse',
-    accessMode?: 'standard' | 'blind' | 'isolated',  // isolated ⇒ provider must be claude
+    accessMode?: 'standard' | 'blind' | 'isolated',  // isolated ⇒ provider must be claude, codex or cursor
   }>,
 }
 ```
@@ -375,7 +375,7 @@ operator clicked `+ ADD FRESH` inside `ClusterRightPanel`'s Members sub-tab. Ser
   model?: string,
   effort?: 'low' | 'medium' | 'high' | string,
   providerAccountRef?: string,
-  accessMode?: 'standard' | 'blind' | 'isolated',  // isolated ⇒ provider must be claude
+  accessMode?: 'standard' | 'blind' | 'isolated',  // isolated ⇒ provider must be claude, codex or cursor
   name?: string,                   // <= 64 chars (<= 60 when count > 1); generated names must also fit
   role?: string,                   // preset or custom text, <= 120 chars
   tier?: 'light' | 'standard' | 'heavy' | null,

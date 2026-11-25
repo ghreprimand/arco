@@ -335,6 +335,41 @@ missing, or over-budget references that were not pinned.
 }
 ```
 
+### `skill_activity` <-
+
+A skill took part in a turn. `kind: 'applied'` means the turn's prompt carried the skill (pinned or chosen); `'loaded'` means the agent completed a read of the skill's file during the turn. Each skill is reported once per turn. `scope` is `'project' | 'global' | 'builtin'` and `turn` is the 1-based turn number. The server keeps the events of the current conversation and broadcasts each as it happens.
+
+```ts
+{ type: 'skill_activity', workflowId: string, kind: 'applied' | 'loaded', name: string, scope: 'project' | 'global' | 'builtin', turn: number }
+```
+
+### `file_context` <-
+
+Receipt for files an agent was given as context, so the transcript shows what it read. `origin` is `'attachment'` (files the operator attached) or `'tool'` (files a tool read). `receipt` is the plain-text summary, `files` the references, and `tool`, `toolInput` and `toolUseId` identify the tool call for a `'tool'` origin. `sourcePaths` and `inputClientMessageIds` tie the receipt to the attached paths and the messages that carried them. A worker sends the same shape as `worker_file_context`, without `workflowId`.
+
+```ts
+{ type: 'file_context', workflowId: string, origin: 'attachment' | 'tool', receipt: string, files: FileContextReference[],
+  sourcePaths?: string[], inputClientMessageIds?: string[], tool?: string, toolInput?: string, toolUseId?: string }
+```
+
+### `provider_conversation_state` <-
+
+Whether the provider's own conversation continues the earlier one. A new Claude CLI, Codex or Cursor conversation starts when no saved thread id is available; the server then sends `'awaiting-reading'` with a system notice that earlier messages remain in the tab, and `'ready'` once the agent has read them (the first turn after that). `'unavailable'` marks a tab that has earlier messages but no saved thread id, so the next turn will start a new provider conversation. `workflow_state_snapshot` carries the same state as `providerConversation` on reconnect. `'ready'` is transient and not persisted.
+
+```ts
+{ type: 'provider_conversation_state', workflowId: string, state: 'unavailable' | 'awaiting-reading' | 'ready' }
+```
+
+### `director_continue_offer` <- and `director_continue_action` ->
+
+Live only, sent to a Director. `offer` describes an approved task waiting for the Director's handoff, or `null` to clear the prompt; `notice` explains a click that started nothing. The operator answers with `director_continue_action`. See [`PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md#continue-the-director).
+
+```ts
+{ type: 'director_continue_offer', workflowId: string, offer: { id: string, clusterId: string, taskId: string, taskTitle: string, approvalId: string,
+    kind: 'continue' | 'nudge', memberWorkflowId?: string, memberName?: string, createdAt: number } | null, notice?: string }
+{ type: 'director_continue_action', workflowId: string, offerId: string, action: 'continue' | 'dismiss' }
+```
+
 ### `rename_workflow` ->
 
 Operator-set friendly name for a workflow. Server trims + caps at 64 chars; empty / whitespace clears back to default (the wfid 8-char prefix). Persists `wf.config.name` to `meta.json` and emits `workflow_renamed` to every observer. If the workflow is a cluster member, re-emits `cluster_state` to every cluster subscriber so the bottom-row tab + member grid pick up the new label without a reload (`ClusterMember.displayName = wf.config.name?.trim || wfid.slice(0, 8)`). Rejected on validation failure via a generic `error` message (`rename_workflow rejected: name_too_long (<n> > 64)` or `rename_workflow requires a string name`). Shape defined in [`shared/src/protocol/clusters.ts`](../shared/src/protocol/clusters.ts) (`RenameWorkflowMessage`).

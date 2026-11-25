@@ -88,15 +88,20 @@ Liveness. Returns `200 OK` the instant the server is listening - the route only 
 ```ts
 {
   status: 'live',
-  version: '0.1.0',
-  pid: 12345,        // process.pid
-  uptimeSec: 42      // integer seconds since the process booted
+  version: '<running version>',  // APP_BUILD.version
+  commit?: string,               // build commit, when known
+  checkoutFingerprint: string,   // SHA-256 of the install or checkout folder
+  homeFingerprint: string,       // SHA-256 of the Arco home folder
+  pid: 12345,                    // process.pid
+  uptimeSec: 42                  // integer seconds since the process booted
 }
 ```
 
+The two fingerprints let a supervisor tell whether the server answering belongs to the expected install and home without exposing a path. `GET /api/app/version` returns only `{ version, commit? }` (`Cache-Control: no-store`) and, like these routes, needs no session.
+
 ```sh
 curl http://localhost:3001/healthz
-# -> {"status":"live","version":"0.1.0","pid":12345,"uptimeSec":42}
+# -> {"status":"live","version":"<version>","checkoutFingerprint":"...","homeFingerprint":"...","pid":12345,"uptimeSec":42}
 ```
 
 ### `GET /health`
@@ -153,19 +158,27 @@ A write failure answers `500 { error: 'Upload failed' }`. The route itself is no
 
 The client may follow up with an `upload_complete` WS message; the server echoes `file_uploaded` back to **that socket only** (not a workflow broadcast - uploads are unscoped).
 
-### `GET /api/file-content?path=<path>[&cwd=<cwd>][&workflowId=<wfid>]`
+### `GET /api/file-content?path=<path>[&cwd=<cwd>][&workflowId=<wfid>][&artifactOwner=<wfid>]`
 
-JSON-wrapped file read for `FileViewerModal` (uploaded attachments, files clicked from a `ToolCallPill`, chat `[artifact:...]` popups). Always answers **200** with a discriminated body from `readFileForExplorer` (`server/src/http/fileRead.ts`):
+JSON-wrapped file read for `FileViewerModal` (uploaded attachments, files clicked from a `ToolCallPill`, chat `[artifact:...]` popups). The body is discriminated by `type` (`readFileForExplorer` in `server/src/http/fileRead.ts`):
 
 ```ts
-| { type: 'text',  content: string, size: number }          // ≤ 2 MiB (MAX_TEXT_SIZE); NUL in first 8 KiB -> 'binary'
-| { type: 'image', dataUrl: string, size: number }          // png/jpg/gif/webp/svg/bmp/ico, ≤ 10 MiB (MAX_IMAGE_SIZE)
-| { type: 'binary', size: number }
-| { type: 'too-large', size: number, kind: 'text' | 'image' }
-| { type: 'error', error: string }                          // every candidate failed
+| { type: 'text',  content: string, size: number, resolvedPath: string, artifactOwner?: string }  // <= 2 MiB (MAX_TEXT_SIZE); NUL in first 8 KiB -> 'binary'
+| { type: 'image', dataUrl: string, size: number, resolvedPath: string, artifactOwner?: string }  // png/jpg/gif/webp/svg/bmp/ico, <= 10 MiB (MAX_IMAGE_SIZE)
+| { type: 'binary', size: number, resolvedPath: string, artifactOwner?: string }
+| { type: 'too-large', size: number, kind: 'text' | 'image', resolvedPath: string, artifactOwner?: string }
+| { type: 'choices', choices: Array<{ workflowId: string, name: string }> }     // 200: the name matches an artifact of more than one cluster member
+| { type: 'error', error: string }                                               // 403 or 404
 ```
 
-Candidate resolution, first hit wins (why: agents routinely name files they wrote by bare basename, and `resolve(path)` alone resolves against the *server* cwd): (1) a **relative** `path` with `cwd` -> resolved inside the cwd (skipped if it escapes); (2) `resolve(path)`; (3) with `cwd`+`workflowId`, the basename inside that workflow's `artifacts/` dir. Only `ENOENT` advances to the next candidate.
+`resolvedPath` is the file that was read. A success answers `200`. Failures answer `403` (the path is refused or outside every readable folder) or `404` (not found) with `{ type: 'error', error }`; a missing file is reported by the name that was asked for.
+
+Resolution (`resolveBrowserRead` in `server/src/http/readConfinement.ts`):
+1. With `cwd` and `workflowId`, an output the workflow tracked under that path is used first.
+2. A relative `path` resolves inside the workflow's project folder; an absolute `path` is used as given. Either must lie inside a readable root: the bound project folder (or, with no binding, the known project folders and the file-tree root), the uploads folder or the scratch folder. A file in a registered Git worktree of the project is also allowed.
+3. Only when the file does not exist, and `path` is a bare file name without a leading dot or a backslash, the workflow's own `artifacts/` folder is tried.
+
+If that fails with "not found" and `cwd` and `workflowId` name a conversation that is a cluster member, the server looks for the same bare name in the `artifacts/` folder of every member of that cluster. One match is returned with `artifactOwner` set to the member's display name. Several matches return `type: 'choices'`; the client then repeats the request with `artifactOwner=<workflowId of the chosen member>`. When nothing matches, the `404` error names the members that were searched: `File not found: <name>. Searched the project and artifacts of: <names>.`
 
 ### `GET /api/files?path=<dir>`
 
@@ -175,17 +188,17 @@ One-level directory listing for the `FileExplorer` panel (lazy - the explorer re
 { path: string /* resolved */, files: Array<{ name: string, path: string, isDirectory: boolean }> }
 ```
 
-Dot-entries hidden; directories first, then name-sorted. An unreadable dir answers `200 { path: '', files: [] }`.
+Dot-entries hidden; directories first, then name-sorted. A protected, dangling or escaping entry is left out. Any failure (a missing, unsafe or unreadable folder) answers `200 { path: '', files: [] }`.
 
 ### `POST /api/mkdir`
 
 Create a directory. Body:
 
 ```ts
-{ parent: string, name: string }  // parent is an absolute path; name is the new directory name
+{ parent: string, name: string, exclusive?: boolean }  // parent is an absolute path; name is the new directory name
 ```
 
-`name` must be a single non-hidden path segment (`400` otherwise); `parent` must resolve inside `$HOME` (`403`). Returns `200 { path: <created dir> }` (`mkdir -p` - existing dirs succeed). Used by the cwd folder-browser when an operator creates a fresh project directory.
+`parent` and `name` are required (`400 { error: 'parent and name are required' }`). `name` is trimmed and must be a single non-hidden path segment (`400`); with `exclusive` it must also pass the new-folder name rules (`400 { error }` with the reason). `parent` goes through the same safe-folder check as file reads. A parent that is missing, protected, a filesystem root or not a folder fails with `500 { error: <message> }`. Returns `200 { path: <created dir> }`. Without `exclusive` this is `mkdir -p`: an existing folder succeeds. With `exclusive` the folder is created with a plain `mkdir`, and an existing file or folder answers `409 { error: 'A file or folder with that name already exists.' }`. Used by the cwd folder-browser when a user creates a fresh project directory.
 
 ### `GET /api/list-dirs?path=<absolute>`
 
@@ -194,7 +207,7 @@ Lists subdirectories of the given path. Used by the cwd folder-browser in `Workf
 - **No `path`** -> starts at `settings.defaultWorkingDirectory` (operator-set, Settings), else `~/Projects`, else `$HOME`.
 - **Unreadable `path`** (a Linux default opened on a Mac, a deleted folder, ...) -> falls back to listing `$HOME` rather than returning an empty `{parent:'',dirs:[]}`, so the browser always has a non-empty parent with a working `↑ UP` and is never a dead-end. (Returning empty is the last-resort only if `$HOME` itself can't be read.)
 
-**Response:** `{ parent: <resolved absolute path>, dirs: Array<{ name, path }> }` (hidden dirs filtered, name-sorted).
+**Response:** `{ parent: <resolved absolute path>, dirs: Array<{ name, path }>, unavailable?: true }` (hidden dirs filtered, name-sorted). `unavailable: true` marks the `$HOME` fallback for an unreadable requested folder.
 
 ---
 
@@ -425,7 +438,7 @@ Read-only survey for the GIT dialog's Other work section. Same `wfid` / `path` r
 
 Workbench Expansion I3. Direct local git operations - operator-clicked actions that **INTENTIONALLY mutate the real index / working tree / refs** (the opposite of A2 checkpoints, which never touch the real index). Backed by `server/src/gitOps.ts` (argv-only, every user value validated by `server/src/gitSafe.ts`, `--` before every pathspec) + `server/src/http/gitOpRoutes.ts`. One POST per op family; wired AFTER `/api/git/status|checkout|diff|compare|fetch` so the `/api/git/op/` prefix can't shadow them.
 
-Common request fields: `{ wfid?, path?,... }` - `wfid` validated when present (resolves the cwd); `path` is an explicit cwd that wins over the resolved wfid cwd; one must yield a cwd. The cwd is checked to be a git repo first. Every op answers **200** with a structured `GitOpResult` body - expected git failures are `{ ok:false, op, stderr }` (not a 500), and a refused push is `{ ok:false, needsConfirm:true, reason }`. On a workflow-scoped call the op + outcome is broadcast as a `git_op_result` event and persisted to `events.jsonl`.
+Common request fields: `{ wfid?, path?,... }` - `wfid` validated when present (resolves the cwd); `path` is an explicit cwd that wins over the resolved wfid cwd; one must yield a cwd. The cwd is checked to be a git repo first. An invalid `wfid` answers `400 { ok:false, op, stderr:'invalid wfid' }` and an unknown family `404 { ok:false, op, stderr:'unknown git op: <family>' }`. Every op otherwise answers **200** with a structured `GitOpResult` body (a missing working directory or a folder that is not a Git repository is `{ ok:false, op, stderr:'no working directory' | 'not a git repository' }`) - expected git failures are `{ ok:false, op, stderr }` (not a 500), and a refused push is `{ ok:false, needsConfirm:true, reason }`. On a workflow-scoped call the op + outcome is broadcast as a `git_op_result` event and persisted to `events.jsonl`.
 
 | Family | Extra body fields | git argv | Notes |
 |---|---|---|---|
@@ -1030,13 +1043,15 @@ Read current cluster state. Returns the stored record plus a `mailboxDepth` map 
 
 Delete a cluster. Fires the same `handleClusterDelete` path as the WS-side delete (MCP-config cleanup + `cluster_deleted` broadcast). Returns `{ deleted: clusterId }`.
 
+All `peer/<op>` routes answer `404 { error: 'unknown_cluster' }` for an unknown cluster, `405 { error: 'method_not_allowed', op, method }` for a wrong method and `500 { error: 'peer_op_failed', message }` for an unexpected failure. Every `task-*` route answers `400 { error: 'board_detached', message }` when the cluster has no task board (board mode `none`). Two more operations serve a Research Director only: `POST peer/research_round` with `{ from, text }` starts a round, and `POST peer/research_send_to_project` with `{ from, selection }` proposes sending released material (`{ proposed: true, message }`; the operator picks the destination and sends from RESULTS). Both are described in [`RESEARCH.md`](RESEARCH.md).
+
 ### `GET /api/clusters/:id/peer/list?workflowId=<wfid>`
 
-List peer members visible from `workflowId`. Thin wrapper over `clusterPeerOps.peerList`. Used by the CLI MCP child to answer `peer_list` tool calls.
+List the other members as `workflowId` sees them: `[{ workflowId, displayName, pendingForThem, role?, tier?, focus? }]`. `workflowId` must be a cluster member (`400 { error: 'workflowId must be a cluster member' }`). A BLIND, ISOLATED or researcher caller gets `[]`. In a research project a researcher row shows only the letter, the role `Researcher` and, unless the project is blind and not yet revealed, its provider. Thin wrapper over `clusterPeerOps.peerList`. Used by the CLI MCP child to answer `peer_list` tool calls.
 
 ### `POST /api/clusters/:id/peer/send`
 
-Send a peer message. Body: `{ workflowId, to, content }`. Delegates to `clusterPeerOps.peerSend`; enforces the 16 KB content budget (32 KB for operator transcript-sends) and 60-second dedupe window. Returns `{ ok: true, msgId }` or a structured error (`{ error: 'budget_exceeded' | 'duplicate_send' | 'unknown_peer' |... }`).
+Send a peer message. Body: `{ from, to, content, confirm?, taskId?, artifactPaths? }`. `from` is the sending member (`400 { error: 'from must be a cluster member' }` otherwise); `to` and `content` are required (`400 { error: 'to and content are required' }`). `confirm: true` sends a status-only Director message after its confirmation step. `taskId` names a board task and records a handoff comment on it (see [`PROTOCOL_CLUSTER.md`](PROTOCOL_CLUSTER.md#continue-the-director)). `artifactPaths` is at most 8 file paths, each at most 4096 characters, copied from an isolated researcher's workspace (`400 { error: 'invalid artifact paths' }` otherwise). Delegates to `clusterPeerOps.peerSend`, which enforces the 16 KB content budget (32 KB for operator transcript-sends), the per-turn message guard and a 60-second duplicate window (`ARCO_PEER_SEND_DEDUPE_MS` changes it; `0` turns it off). Success is `200 { msgId, to, deliveredImmediately, heldForRound?, note? }`; `heldForRound` and `note` appear only when a research project holds the message until its round. A refusal is `400 { error, message, count?, cap? }` with `error` one of `unknown_peer`, `self_send`, `budget_exhausted` (`count` and `cap` give the guard), `content_too_large`, `enqueue_failed`, `recipient_not_in_cluster`, `duplicate_send`, `status_confirmation` or `unknown_task`.
 
 ### `POST /api/clusters/:id/peer/read`
 
@@ -1044,19 +1059,19 @@ Drain the calling member's mailbox. Body: `{ workflowId, onlyFrom? }`. When `onl
 
 ### `POST /api/clusters/:id/peer/plan-read`
 
-Return the full canonical cluster plan. Body: `{ workflowId }` (must be a member). Read-only - the per-turn injected copy may be a deterministic outline for plans that overflow the string-form fold budget, so members need a pull channel to the full body. Returns `{ title, body, updatedAt, byteLength }`; `400 { error: 'no_plan' }` when no plan is attached.
+Return the full canonical cluster plan. Body: `{ workflowId }` (must be a member). Read-only - the per-turn injected copy may be a deterministic outline for plans that overflow the string-form fold budget, so members need a pull channel to the full body. Returns `{ planId, revision, title, body, updatedAt, byteLength }`; a Director passes `planId` and `revision` back in `completePlan`. `400 { error: 'no_plan', message }` when no plan is attached.
 
 ### `POST /api/clusters/:id/peer/plan-tick`
 
-Toggle a checkbox in the shared cluster plan. Body: `{ workflowId, lineIndex? | taskText? }`. Exactly one of `lineIndex` or `taskText` must be provided (server returns `invalid_matcher` otherwise). Error codes: `task_not_found`, `ambiguous_task`, `not_a_checkbox_line`, `out_of_range`. On success: `{ toggledLine, before, after }`.
+Toggle a checkbox in the shared cluster plan. Body: `{ workflowId, lineIndex? | taskText? }`. Exactly one of `lineIndex` or `taskText` must be provided (`invalid_matcher` otherwise). A refusal is `400 { error, message, matches? }` with `error` one of `task_not_found`, `ambiguous_task` (`matches` lists the candidates), `not_a_checkbox_line` or `out_of_range`. On success: `{ toggledLine, before, after }`.
 
 ### `POST /api/clusters/:id/peer/plan-write`
 
-Replace the entire cluster plan body. Body: `{ workflowId, body }`. Enforces the 32 KB cap (`plan_too_large` on overflow). Broadcasts `cluster_plan_changed`. Returns `{ bodyLength, updatedAt }`.
+Write the shared cluster plan from a member. Body: `{ workflowId, body }`. A member's write is additive: it may add or reword lines but cannot remove an existing numbered item or change a `[ ]`/`[x]` state; replacing or clearing a plan stays operator-only through the PLAN tab. Enforces the 32 KB cap. A refusal is `400 { error, message, limit?, actual?, removed?, statusChanged? }`: `plan_too_large` carries `limit` and `actual`; a refused removal or status change lists `removed` (the dropped lines) and `statusChanged` (`{ text, before, after }`). Broadcasts `cluster_plan_changed`. Returns `{ bodyLength, updatedAt }`.
 
 ### `GET /api/clusters/:id/peer/task-list?workflowId=<wfid>`
 
-List the shared cluster task ledger as seen by `workflowId` (must be a cluster member, else `400`). Thin wrapper over `clusterPeerOps.peerTaskList`. Returns the tasks array directly. On failure returns `{ error: <code>, message }`.
+List the shared cluster task board as seen by `workflowId` (must be a cluster member, else `400`). Thin wrapper over `clusterPeerOps.peerTaskList`. Returns a compact JSON text from `formatBoardForModel` (`server/src/project/taskLedger.ts`), not the raw task array: `{ activeCount, completedCount, omittedActive?, tasks, recentlyCompleted?, hint }`. Done and archived tasks are left out of `tasks` and counted in `completedCount`; the newest few appear in `recentlyCompleted`; the oldest active rows are dropped when the payload exceeds its byte budget. Use `task-show` for full notes. On failure returns `{ error: <code>, message }`.
 
 ### `GET /api/clusters/:id/peer/task-show?workflowId=<wfid>&id=<taskId>`
 
@@ -1064,7 +1079,7 @@ Show one task's detail record: task fields, parent/child tasks, durable comments
 
 ### `POST /api/clusters/:id/peer/task-create`
 
-Create a non-terminal task in the cluster cwd. Body: `{ workflowId, title, body?, notes?, assignee?, priority?, parentIds?, links?, reviewRequired?, goalMode?, goalMaxTurns?, release? }`. Delegates to `clusterPeerOps.peerTaskCreate`, emits `task_ledger_event` op `create`, and broadcasts a fresh snapshot. Returns the created task object, or `{ error: <code>, message }` on failure.
+Create a non-terminal task in the cluster cwd. Body: `{ workflowId, title, body?, notes?, assignee?, priority?, parentIds?, links?, reviewRequired?, goalMode?, goalMaxTurns?, release?, status? }`. Delegates to `clusterPeerOps.peerTaskCreate`, emits `task_ledger_event` op `create`, and broadcasts a fresh snapshot. Returns the created task object, or `{ error: <code>, message }` on failure.
 
 ### `POST /api/clusters/:id/peer/task-claim`
 
@@ -1076,7 +1091,7 @@ Record worker activity for a task. Body: `{ workflowId, id, note? }`. Delegates 
 
 ### `POST /api/clusters/:id/peer/task-update`
 
-Update a ledger task's status/notes/sign-off. Body: `{ workflowId, id, status?, notes?, signoff? }`. `signoff` is `{ state: 'met'|'not_met'|'partial', summary? } | null` - validated and author-stamped by `peerTaskUpdate`. A Director met sign-off closes the task when Board auto-done is on; direct `done` and `archived` status changes remain operator-only. An invalid `signoff.state` -> `400`. Delegates to `clusterPeerOps.peerTaskUpdate` and broadcasts the update. Returns the updated task object, or `{ error: <code>, message }` on failure.
+Update a ledger task's status/notes/release/sign-off. Body: `{ workflowId, id, status?, notes?, release?, signoff?, completePlan? }`. `completePlan` is `{ planId, itemId, revision }`, accepted only with a Director `met` sign-off on a task linked to that whole plan item. `signoff` is `{ state: 'met'|'not_met'|'partial', summary? } | null` - validated and author-stamped by `peerTaskUpdate`. A Director met sign-off closes the task when Board auto-done is on; direct `done` and `archived` status changes remain operator-only. An invalid `signoff.state` -> `400`. Delegates to `clusterPeerOps.peerTaskUpdate` and broadcasts the update. Returns the updated task object, or `{ error: <code>, message }` on failure.
 
 ### `POST /api/clusters/:id/peer/task-link`
 
@@ -1111,6 +1126,13 @@ See [RESEARCH.md](RESEARCH.md).
 - `POST /api/research/library/:projectId/locate`: body `{ folder }`. Accepts only a folder whose `research.json` belongs to the project and updates the library and the closed record. 400 `invalid_folder` or `not_this_project`; 404 `unknown_project`.
 - `POST /api/research/library/:projectId/forget`: removes the project from the library only. 409 `project_open`; 404 when unknown.
 - `POST /api/research/:clusterId/close`: body `{ moveUnsent }`. Writes the researcher logs, moves unsent files when asked and removes the researchers' folders. `{ ok: true, logsWrittenTo, moved, removed }`; 409 `researcher_busy` with `letters`; 404 `unknown_research`.
+- `GET /api/research/:clusterId/keep-as-project` and `POST` the same path; `GET` and `POST /api/research/saved-quick/:chatId/keep-as-project`: promote a Quick research result to a project. `GET` answers the journal phase (`{ phase, message, folder? }`, or `{ phase: 'idle' }`; the saved-quick form answers `404 unknown_chat` for an unknown chat). `POST` takes `{ folderRoot? }` (16 KB cap) and answers `202 { phase, message }`. A failure is `400 { error }`.
+- `POST /api/research/:clusterId/rounds/:n/extend`: the operator's +15 MIN on a round deadline. `{ deadline }`; `404 unknown_round`; `409` with another code when the round cannot be extended.
+- `POST /api/research/:clusterId/rounds/:n/retry/:letter`: RETRY on a failed or timed-out researcher. `{ late, file }`; `404` for `not_research`, `unknown_round` or `unknown_researcher`; `409 { error, message }` otherwise (for example `busy`).
+- `GET /api/research/:clusterId/rerun-preview` and `POST /api/research/:clusterId/rerun-round`: read the settings of an open project for a rerun (`{ name, brief, blind, sourceProject, director, researchers }`), and start another round with the current panel from `{ brief }` (at most 20000 characters, 32 KB body). `rerun-round` answers `{ round, receiptError? }`. Both answer `400 { error }` for a closed project; any other method is `405`.
+- `POST /api/research/:clusterId/preview-export`, `prepare-export` and `confirm-export`: export released research. Body (16 KB cap): `{ selection }` and, for `prepare-export`, `{ kind: 'markdown' | 'file' | 'zip', path? }`; `confirm-export` takes `{ token }` and answers `{ recorded: true }`. `preview-export` answers `{ files }`. Failures are `400 { error }`.
+- `POST /api/research/:clusterId/preview-start`, `prepare-start` and `confirm-start`: start a separate project from released research after the operator picks a folder. `prepare-start` takes `{ selection, parent, name, useExisting? }`; `confirm-start` takes `{ token, workflowId }` and answers `{ recorded: true }`. Failures are `400 { error }`.
+- `POST /api/research/:clusterId/send-to-project`, `confirm-composer` and `dismiss-send-proposal`: send released research to a folder copy, a plan reference, or a conversation composer. `send-to-project` takes `{ selection, destination?, folderCopy?, planId?, composerWorkflowId?, continueChat? }` with at least one destination (`400` otherwise) and answers an object with `folder`, `plan` and `composer` results, each carrying its own `error` on failure. `confirm-composer` takes `{ token }`; `dismiss-send-proposal` clears the Director's pending proposal (`{ dismissed: true }`). `GET .../summaries` also returns `proposal`, the Director's pending send proposal or `null`.
 
 ---
 
@@ -1227,7 +1249,7 @@ Replace the text of one pending message (EDIT in the mailbox modal). Body: `{ "c
 
 ## Plans
 
-Backed by `server/src/planStore.ts`.
+Backed by `server/src/planStore.ts`. Every `/api/plans*` route first checks that `path` names a project Arco knows; an unknown or unavailable project answers `403 { error: 'Project is unavailable' }`. A failure the route does not name below answers `400` (`500` for list, body and delete) with `{ error: <message> }`.
 
 ### `GET /api/plans?path=<cwd>`
 
@@ -1275,7 +1297,7 @@ Create a new plan. Body:
 { title: string, body: string, attach?: boolean, workflowId?: string }
 ```
 
-Server mints `planId`. Returns `{ plan: PlanFull }` with `attachments: []` and `completedAt: null`.
+Server mints `planId`. Returns `{ plan: PlanFull, publicProject, needsGuardrails }` with `attachments: []` and `completedAt: null`. `publicProject` is the project's effective public-project choice (`true`, `false` or unset); `needsGuardrails` is `true` when the project is public and the new body lacks the guardrail section. In a research project only the Research Director may attach: `403 { error: 'Only the Research Director can attach a plan.' }`.
 
 When `attach: true` and `workflowId` names an active workflow in the same cwd, the server immediately runs the normal attach path: persists `meta.planId`, records the attachment span, acquires the plan watcher, and broadcasts `plan_attached` so the open PLAN tab updates. This is the supported shell-agent path; do not hand-edit `.arco/workflows/<workflowId>/meta.json` to attach a plan because the running server will not see the websocket state transition.
 
@@ -1287,11 +1309,11 @@ curl -sS "http://localhost:3001/api/plans?path=$PWD" \
 
 ### `POST /api/plans/attach?path=<cwd>&planId=<id>&workflowId=<workflowId>`
 
-Attach an existing plan to an active workflow in the same cwd. This mirrors the PLAN tab click / `plan_attach` websocket path and returns `{ ok: true, plan: PlanSummary }`.
+Attach an existing plan to an active workflow in the same cwd. This mirrors the PLAN tab click / `plan_attach` websocket path and returns `{ ok: true, plan: PlanSummary }`. `400` when a query value is missing or `workflowId` is not active in that cwd (`workflowId is not active in this cwd`); `404 { error: 'plan not found' }`; `403` for a research member other than the Research Director.
 
 ### `POST /api/plans/move?path=<sourceCwd>&planId=<id>`
 
-Move a plan from `path` (source cwd) to another cwd. Body: `{ targetCwd }` (required, else `400`). Backed by `movePlan`; suppresses the source-cwd reconcile broadcast (the move owns it). Returns `{ plan }` on success, or `{ error }` (`400`). An edit to the source plan or its reference documents saved during the move ends up in the moved plan; if the plan keeps changing, the move stops with an error and the plan stays in the source project.
+Move a plan from `path` (source cwd) to another cwd. Body: `{ targetCwd }` (required, else `400`). Backed by `movePlan`; suppresses the source-cwd reconcile broadcast (the move owns it). Returns `{ plan }` on success, or `{ error }` (`400`). The target must be a project Arco knows. Workflows attached to the plan in the source project are detached. An edit to the source plan or its reference documents saved during the move ends up in the moved plan; if the plan keeps changing, the move stops with an error and the plan stays in the source project.
 
 ### `PATCH /api/plans?path=<cwd>&planId=<id>`
 
@@ -1308,7 +1330,7 @@ Partial update. Body:
 
 Server-side dedup: when `body` is included, the plans-watcher is told to skip its next reconcile so it doesn't double-broadcast `plan_attached` (the PATCH handler already broadcasts directly). Skip flag is no-op when only `completedAt` changes (no `.md` write happens).
 
-Returns `{ plan: PlanFull }`.
+Returns `{ plan: PlanFull }`; `404 { error: 'plan not found' }`; `409 { error, plan }` for a failed `expectedBody` check; `400` for any other failure. Every workflow attached to the plan receives `plan_attached` with the new title and time.
 
 ### `DELETE /api/plans?path=<cwd>&planId=<id>`
 
@@ -1322,7 +1344,7 @@ Long-form docs attached to one plan, stored as `<cwd>/.arco/plans/<planId>.refs/
 
 - `GET /api/plans/refs?path=<cwd>&planId=<id>` -> `{ refs: PlanRefSummary[] }` (`{ slug, title, bytes, updatedAt }`, slug-sorted).
 - `GET /api/plans/refs/body?path=<cwd>&planId=<id>&slug=<slug>` -> `{ ref: PlanRefFull }` or `404`.
-- `PUT /api/plans/refs?path=<cwd>&planId=<id>&slug=<slug>` body `{ body: string, createOnly?: boolean }` -> `{ ref, created }`. `createOnly: true` atomically refuses existing files or links with `409`; omission keeps ordinary replacement behavior. `404` if the plan doesn't exist, `400` for a bad slug / over-cap body / count cap.
+- `PUT /api/plans/refs?path=<cwd>&planId=<id>&slug=<slug>` body `{ body: string, createOnly?: boolean }` -> `{ ref, created }`. `createOnly: true` atomically refuses existing files or links with `409`; omission keeps ordinary replacement behavior. `404 { error: 'plan not found' }` if the plan doesn't exist, `409 { error: 'ref already exists' }` for `createOnly`, `400` for a bad slug / over-cap body / count cap. A missing `slug` or a `body` that is not a string is `400`; any other method is `405 { error: 'method not allowed' }`.
 - `DELETE /api/plans/refs?path=<cwd>&planId=<id>&slug=<slug>` -> `{ deleted: true }` or `404`.
 
 PUT and DELETE bump the plan's `updatedAt` and re-broadcast `plan_attached` to attached workflows and `cluster_state` to bound clusters, so open Plan tabs refetch their refs list. Direct file writes don't (the plans watcher ignores the `.refs` dir); the UI also refetches on window focus.
@@ -1663,7 +1685,8 @@ Returns the per-provider auth snapshot:
   deepseek: AuthStatus,             // prepared Exact/Light availability; live residency from /api/deepseek
   strata: AuthStatus,               // standalone Strata; context + image modalities from /models
   lmstudio: AuthStatus,             // local runtime; loggedIn = LM Studio server reachable
-  cursor: AuthStatus,               // Cursor (ACP) - loggedIn = ~/.config/cursor/auth.json carries a session token
+  cursor: AuthStatus,               // Cursor (ACP) - loggedIn = a readable session token that Cursor has not rejected (see PROVIDERS.md, Cursor > Auth)
+  'antigravity-cli': AuthStatus,    // Gemini through Antigravity CLI; see the note below
   github: AuthStatus,
 }
 
@@ -1701,6 +1724,8 @@ current allowance credential revision when its owner file is readable, with `bin
 separate from the last successful CLI login probe. These bindings identify credential sources, not
 verified allowance accounts or completed OAuth flows.
 
+`antigravity-cli` is not read from a credential file. `loggedIn` is `true` after a successful in-app login or an interactive turn, `false` with `signInRejected` after the CLI asked for sign-in, and otherwise `probeFailed: true` with the error `Sign-in status is unknown until an interactive turn.` (the status is memory-only, so it is unknown again after a server restart). `installedModels` and `installedModelCapabilities[id]` (`tools`, `vision`, `thinking`, `thinkingLevels`) come from `agy models`, re-read at most once a minute; the thinking levels are `low`, `medium`, `high`, `xhigh`.
+
 `strata` has no login. Its base cascade is `settings.strata.baseUrl` ->
 `STRATA_URL_BASE` -> `http://127.0.0.1:8081/v1`; `POST /api/settings` patches
 `{ strata: { baseUrl } }`, and `{ strata: {} }` resets it. Auth status includes
@@ -1712,23 +1737,34 @@ Polled every 2 minutes by the client.
 
 ### `POST /api/auth-login?provider=<name>`
 
-Triggers the appropriate login flow. Optional `account=<profileId>` is passed through to `triggerAuthLogin` (provider-account profiles). The `provider` query is normalized to one of `github` / `ollama` / `codex` / `cursor`, defaulting any other value (including `lmstudio`) to `claude`. Retired provider identifiers return 400 with an explicit unsupported message. Provider-specific behavior (`triggerAuthLogin`):
+Prepares a sign-in. Optional `account=<profileId>` selects a Codex account profile. `provider` is one of `claude`, `codex`, `cursor`, `antigravity-cli`, `gemini-research` (the separate sign-in used only by Gemini researchers), `github` or `ollama`; any other value, including `lmstudio`, is treated as `claude`. Retired provider identifiers return `400 { error }` with an explicit unsupported message. Nothing here opens a terminal or a browser. The route returns the command to run, and with `inApp=1` it can also run that command itself and relay its link:
 
-- **Claude** - spawns `claude auth login --claudeai` detached; returns immediately (`started: true`) and the operator completes browser OAuth.
-- **Codex** - opens a terminal with `codex login`. An optional `account` query selects a Codex account profile.
-- **Cursor** - with `inApp=1`, runs `cursor-agent login` (with `NO_OPEN_BROWSER=1`) in a relayed session that reports the printed link and finishes on its own; otherwise returns the terminal command. An expired long-lived ACP process is retired when its exact sign-in response is observed; the operator resends after completing OAuth and Arco starts a fresh process.
-- **GitHub** - opens a terminal with `gh auth login`.
-- **Ollama** - no auth; returns `started: false` + a `manual` hint ("run `ollama serve` ..."). (Reachability is reported by `/api/auth-status`, not here.)
+| Provider | Command returned in `command` | Notes |
+| --- | --- | --- |
+| `claude` | `claude auth login --claudeai` | The CLI prints a link and a paste prompt. |
+| `codex` | `codex login --device-auth` | A profile with its own folder is prefixed with `env CODEX_HOME=<folder>`. The device flow needs no local callback port and works from any device. An unknown `account` returns `{ started: false, manual: 'Unknown Codex account profile: <id>' }`. |
+| `cursor` | `cursor-agent login` with `NO_OPEN_BROWSER=1` | On Linux the command also unsets `DISPLAY` and `WAYLAND_DISPLAY`, so the sign-in lands in `auth.json` rather than the keyring. The CLI finishes on its own. |
+| `antigravity-cli` | `agy acp --login` | Paste the authorization code or return URL. |
+| `gemini-research` | `agy acp --login` with a private home | Used only by Gemini researchers. |
+| `github` | `gh auth login --hostname github.com --git-protocol https --web` | Device flow. |
+| `ollama` | none | `started: false` plus a `manual` hint ("run `ollama serve` ..."). Reachability is reported by `/api/auth-status`. |
 
-When a terminal can't be found, or the systemd service has no desktop display env, the flow returns `started: false` with a `manual` string telling the operator the exact command to run by hand.
+**Response:** always `200` with `AuthLoginResult` (`shared/src/protocol/providers.ts`): `{ started, command?, manual?, hostCommand?, session? }`. `started` is `false` for the fallback: `manual` tells the user to run `command` in Arco's terminal (TOOLS > TERMINAL) or a shell on the server and open the printed link on their own device. In a Docker deployment (`ARCO_DEPLOYMENT=docker`) `hostCommand` is `docker compose exec arco <command>`, to run on the host from the folder holding `compose.yaml`. A truly unexpected throw is `500 { error }`.
 
-**Response:** always `200` with `{ started: boolean, manual?: string }` - `started: true` = the OAuth flow launched (spawned / a terminal opened); `started: false` carries the `manual` fallback. (A truly unexpected throw is a `500 { error }`.)
+**In-app sign-in (`inApp=1`).** For `claude`, `codex`, `cursor`, `antigravity-cli` and `gemini-research`, the server runs the command itself (`server/src/authLoginSession.ts`), relays the printed link and code, and answers with `started: true` and `session`. One session per provider can be pending at a time; asking again returns the pending one. `session` is `{ provider, status: 'pending' | 'completed' | 'failed' | 'cancelled', needsCode, awaitingCode?, codeSubmitted?, url?, code?, message?, startedAt, finishedAt? }`. `needsCode` is `true` for Claude, Antigravity and Gemini research (the user pastes the browser's code back) and `false` for Codex and Cursor, which finish on their own once the page confirms (Codex shows a one-time `code` to enter). A session ends after 15 minutes. Its other routes: `GET /api/auth-login/session?provider=` returns `{ session }` (`null` when none); `POST /api/auth-login/code` with `{ provider, code }` writes a one-line code of at most 512 characters to the CLI and returns `{ session }` (`400 { error }` for `no login in progress`, `this provider does not take a pasted code` or `code must be one line`); `POST /api/auth-login/cancel` with `{ provider }` returns `{ session }`. An unknown provider is `400 { error: 'unknown provider' }`; a body over 4096 bytes is refused.
 
-### `POST /api/check-updates?provider=<claude|codex>`
+### `POST /api/check-updates?provider=<claude|codex|cursor|antigravity-cli>`
 
-Runs the selected CLI updater, probes capabilities again, and broadcasts the refreshed snapshot as `capabilities_updated`. `provider` defaults to `claude`; unrecognized non-retired values also select Claude. Retired provider identifiers return `400` with an unsupported-provider error. Claude uses its built-in updater; Codex uses npm installation with a platform-installability check and a repair retry when the post-update probe cannot run the CLI.
+Runs the selected CLI's own updater, probes capabilities again, and broadcasts the refreshed snapshot as `capabilities_updated`. `provider` defaults to `claude`; an unrecognized non-retired value also selects Claude. Retired provider identifiers return `400` with an unsupported-provider error. The command depends on the provider:
 
-**Response:** `{ provider, updated, previousVersion, currentVersion, capabilities, output, notice?, error? }`. `notice` explains a selected installable version when the registry's latest release is not ready for the current platform. A CLI that remains unavailable after the update returns `updated: false` and an error.
+- **Claude** - its built-in updater (`claude update`).
+- **Codex** - chosen from how Codex is installed (`server/src/cliUpdateDecision.ts`). A standalone install runs `codex update` when its CLI supports it, and otherwise answers `outcome: 'manual'` with an instruction. An npm install whose global npm folder is the one Codex runs from runs `codex update` when the CLI has it, else `npm install -g @openai/codex@<version>` for the newest version that has a build for this platform; when no installable build exists the answer is `outcome: 'deferred'`, and when the post-update probe cannot run the CLI one `--force` repair retry follows. An npm install that cannot be tied to the npm global folder, or an installation Arco cannot identify, runs nothing and answers `manual` with an instruction. A Codex that already runs the target version is not reinstalled.
+- **Cursor** - `cursor-agent update`; npm and install scripts are never used as a fallback.
+- **Antigravity CLI** - `agy update`.
+
+The update command is limited to 180 seconds.
+
+**Response:** `{ provider, updated, previousVersion, currentVersion, capabilities, output, outcome, message, notice?, error? }`. `outcome` is `updated`, `current`, `unchanged`, `deferred`, `manual` or `failed`; `message` is the one-line result the PROVIDERS panel shows. `notice` explains a selected installable version when the registry's latest release is not ready for the current platform. A CLI that remains unavailable after the update, or an updater that exits non-zero, returns `updated: false` and an error.
 
 ## Claude Native auth
 
@@ -2042,7 +2078,7 @@ Replace the reviewed catalog. Body: `{ models: LlamacppModelDef[], revision: str
 
 ## Per-tab sandbox
 
-Per-tab SQLite FTS5 index for `ctx_execute` / `ctx_search` / `ctx_fetch` tools (Claude Native only). Enabled when `WorkflowConfig.efficiencySandbox === 'on'`. Backed by `server/src/sandboxStore.ts`.
+Per-tab SQLite FTS5 index for `ctx_execute` / `ctx_search` / `ctx_fetch` tools (Claude Native only). Enabled when `WorkflowConfig.efficiencySandbox === 'on'`. Backed by `server/src/providers/claude-native/sandboxStore.ts`.
 
 ### `GET /api/workflows/:wfId/sandbox/stats`
 
@@ -2324,7 +2360,7 @@ Behavior:
 
 The single WebSocket endpoint. All real-time interaction goes through here. See [`PROTOCOL.md`](PROTOCOL.md) for the full message catalog.
 
-The handshake is a standard WebSocket upgrade - no custom subprotocols or auth headers (Arco assumes single-operator local-only usage).
+The handshake is a standard WebSocket upgrade with no custom subprotocols. It needs an approved `Origin` (otherwise `403`) and, for `/ws` and `/terminal`, the `arco_session_<port>` cookie from `POST /api/session` (otherwise `401`). See the session cookie section and Conventions.
 
 ---
 
@@ -2426,6 +2462,14 @@ Routes not covered above. Each is served by the module named in the last column.
 | `GET /api/connections`, `POST /api/connections/check?provider=` | The Connections catalog, and one provider's connection check (a successful check enables that provider). | `http/connectionsRoutes.ts` |
 | `GET /api/auth-login/session?provider=`, `POST /api/auth-login/code`, `POST /api/auth-login/cancel` | The current sign-in session for a provider, the pasted browser code (Claude) and cancel. | `http/authLoginRoutes.ts` |
 | `GET`, `POST`, `PATCH`, `DELETE /api/projects`; `POST /api/projects/relocate`; `POST /api/projects/create` | The registered project list: register, organize (name, pin, archive), forget (files untouched), relocate a missing folder, create a new folder. | `http/projectRoutes.ts` |
+| `GET /api/handoff-sources?workflowId=[&source=][&offset=]` | Earlier conversations a Handoff or Spawn can read, for the picker: `{ sources: [{ key, name, throughSeq, available }], currentSourceKey?, nextOffset }` in pages of 20; with `source` the saved config of one source (`{ workflowId, throughSeq, config }`). `403` when the conversation may not read history, `404` when the source is gone. Needs the session. | `http/workflowDataRoutes.ts` |
+| `POST /api/agent-handoff-history` | The agent-side read of earlier conversations. Needs `Authorization: Bearer <token>`, a random token the server mints for one live conversation (24 hours, bound to that conversation); `403` for a missing or stale token, `405` for another method, `413` over 16 KB, `400` for a bad request. Not a browser route and not session-cookie based. See [Architecture](ARCHITECTURE.md). | `http/handoffHistoryRoutes.ts` |
+| `GET /api/local-runtime-status` | One snapshot of the enabled local runtimes for the header: `{ rows: [{ provider, state, models, detail?, modelExpiries? }], fetchedAt, ollama?, llamacpp? }`. Only enabled providers are probed; the result is cached for 5 seconds. | `http/router.ts`, `localRuntimeStatus.ts` |
+| `GET /api/antigravity-usage` | Gemini usage from `agy -p /usage`: `{ pools: [{ name, percentLeft, reset }] \| null }`; `null` when the CLI is missing or answers something unreadable. `Cache-Control: no-store`. Each call runs the CLI (5 second limit). | `http/router.ts`, `providers/antigravity/usage.ts` |
+| `GET /api/antigravity-chat-folder/:workflowId` | The working folder of a saved Antigravity Chat (`{ path }`); `404` for any other conversation or an Incognito chat. | `http/clusterRoutes.ts` |
+| `GET /api/explorer/plans/target?path=&kind=workflow\|cluster&id=` | Whether a conversation or cluster belongs to the same project as `path` (`{ sameProject }`), for ARTIFACTS plan attach. `400` for a bad target, `404` when the target is gone. | `http/explorerRoutes.ts` |
+| `POST /api/explorer/plans/attach?path=&clusterId=&planId=` | Attach a project plan to a cluster (not to one member). `400` when the cluster belongs to another project, `404` when the plan is missing; success broadcasts `cluster_plan_changed` and `cluster_state`. Operator session only. | `http/explorerRoutes.ts` |
+| `POST /api/phone-upload`; `GET`, `DELETE /api/phone-upload/:linkId`; `GET`, `DELETE /api/phone-upload/draft/:fileId` | The operator side of UPLOAD FROM PHONE (see [Operations](OPERATIONS.md)). Needs the session cookie and an `x-arco-phone-owner` header of 64 hex characters (`401`, `403` otherwise). `POST` takes `{ workflowId, origin?, theme? }` and returns the link; `409` when the conversation takes no attachments, `503` when no phone address can be opened. `GET` the link returns `{ files, closed, verifiedAt }`; `DELETE` closes it. The draft routes read a preview (`{ preview? }`) or discard one uploaded file. The phone itself uses the separate `/phone-upload` page and its listener, which accept only the page and upload requests. | `http/phoneUploadRoutes.ts` |
 | `GET /api/terminal-sessions?path=` | Claude Code and Codex terminal sessions for a folder that are not open in Arco (Continue a session from the terminal). | `http/workflowDataRoutes.ts` |
 | `GET /api/outputs`; `GET /api/outputs/file`, `/api/outputs/content`; `POST /api/outputs/open`, `/api/outputs/transfer`, `/api/outputs/text` | Workspace Outputs: list (`workflowId` or `clusterId`, `cwd`), raw file or download and preview content (`id`), OPEN in the default app, copy or move (Save a copy, Move), and save inline text. See [Outputs](OUTPUTS.md). | `http/outputRoutes.ts` |
 | `GET /api/utility-agent/providers`; `POST /api/utility-agent/test`, `/brief`, `/catch-up`, `/tidy`, `/cancel` | Utility agent: which providers can serve, TEST, BRIEF, CATCH ME UP, TIDY and cancel of a running job (`jobId`). | `http/utilityAgentRoutes.ts`, `http/tidyRoutes.ts` |
