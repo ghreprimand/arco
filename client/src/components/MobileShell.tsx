@@ -699,7 +699,7 @@ export function MobileScreenHost({ onSetPreviewPort }: { onSetPreviewPort: (work
       <MobileNotices onOpen={(workflowId) => { setNoticesOpen(false); fromDirectory.current = false; openConversation(() => focusNoticeWorkflow(workflowId)); }} />
     </PhonePage>}
     {manual && screen === 'conversation' && <PhonePage title="MANUAL" onClose={closeManual} onBack={() => { if (!manualId) return false; setManualId(null); return true; }} testId="mobile-manual-page">
-      <MobileManualContent activeId={manualId} onSelect={setManualId} />
+      <MobileManualContent activeId={manualId} onSelect={setManualId} onPointAtThings={() => { closeManual(); useAppStore.getState().setHelpMode(true); }} />
     </PhonePage>}
     {system && screen === 'conversation' && <SystemModal onClose={() => { usePhoneStore.getState().setSystemOpen(false); leavePage(); }} onSetPreviewPort={onSetPreviewPort} />}
   </>;
@@ -773,20 +773,20 @@ function PanelsSheet({ onClose, onNotices, onSystem }: { onClose: () => void; on
         {/* The row is shared out among the tab's panels, so an odd count leaves no empty cell. */}
         <div style={{ ...grid, display: 'flex', flexWrap: 'wrap' }}>
           {tabPanels.map((p) => (
-            <button key={p.id} type="button" data-testid="phone-panel" className="display-font" style={{ ...tile, flex: '1 1 130px', width: 'auto' }} onClick={() => { usePhoneStore.setState({ panelIndex: false, panelFromIndex: false }); requestPanel(p.id); }}>{p.label}</button>
+            <button key={p.id} type="button" data-testid="phone-panel" data-help="mobile.panels" className="display-font" style={{ ...tile, flex: '1 1 130px', width: 'auto' }} onClick={() => { usePhoneStore.setState({ panelIndex: false, panelFromIndex: false }); requestPanel(p.id); }}>{p.label}</button>
           ))}
-          <button type="button" data-testid="phone-panel-all" className="display-font" style={{ ...tile, flex: '1 1 130px', width: 'auto', color: 'var(--color-accent-primary)' }} onClick={() => { usePhoneStore.setState({ panelIndex: true, panelFromIndex: false }); requestPanel('more'); }}>ALL PANELS {'\u203A'}</button>
+          <button type="button" data-testid="phone-panel-all" data-help="mobile.panels" className="display-font" style={{ ...tile, flex: '1 1 130px', width: 'auto', color: 'var(--color-accent-primary)' }} onClick={() => { usePhoneStore.setState({ panelIndex: true, panelFromIndex: false }); requestPanel('more'); }}>ALL PANELS {'\u203A'}</button>
         </div>
       </>}
       <div className="display-font" style={sectionHeading}>WORKBENCH</div>
       <div style={grid}>
-        {screen === 'conversation' && <button type="button" data-testid="phone-panel-terminal" className="display-font" style={{ ...tile, opacity: canTerminal ? 1 : 0.5 }} disabled={!canTerminal}
+        {screen === 'conversation' && <button type="button" data-testid="phone-panel-terminal" data-help="header.terminal" className="display-font" style={{ ...tile, opacity: canTerminal ? 1 : 0.5 }} disabled={!canTerminal}
           title={canTerminal ? 'Open a terminal in this tab\'s project' : 'Open a tab with a project first'}
           onClick={() => { if (terminalWorkflowId && terminalRoot) { openTerminal({ workflowId: terminalWorkflowId }); onClose(); } }}>TERMINAL</button>}
         {catchUpScope && <div data-testid="mobile-panel-catch-up" style={{ display: 'contents' }}><CatchMeUp scope={catchUpScope} /></div>}
-        <button type="button" data-testid="phone-panel-settings" className="display-font" style={tile} onClick={() => { onClose(); setShowSettings(true); }}>SETTINGS</button>
-        <button type="button" data-testid="mobile-panel-notices" className="display-font" style={tile} onClick={onNotices}>NOTICES{unread ? ` ${unread}` : ''}</button>
-        <button type="button" data-testid="mobile-panel-manual" className="display-font" style={tile} onClick={() => setShowManual(true)}>MANUAL</button>
+        <button type="button" data-testid="phone-panel-settings" data-help="header.settings" className="display-font" style={tile} onClick={() => { onClose(); setShowSettings(true); }}>SETTINGS</button>
+        <button type="button" data-testid="mobile-panel-notices" data-help="header.notifications" className="display-font" style={tile} onClick={onNotices}>NOTICES{unread ? ` ${unread}` : ''}</button>
+        <button type="button" data-testid="mobile-panel-manual" data-help="header.manual" className="display-font" style={tile} onClick={() => setShowManual(true)}>MANUAL</button>
         <button type="button" data-testid="mobile-panel-recall" data-help="header.recall" className="display-font" style={tile} onClick={() => { onClose(); store().setShowRecall(true); }}>RECALL</button>
         <button type="button" data-testid="mobile-panel-media" data-help="header.media" className="display-font" style={tile} onClick={() => { onClose(); openMediaStudio(); }}>MEDIA</button>
         <button type="button" data-testid="mobile-panel-system" data-help="mobile.system" className="display-font" style={tile} onClick={onSystem}>SYSTEM</button>

@@ -125,7 +125,7 @@ const MEDIUM_RIGHT_PX = 360;
 const RIGHT_STRIP = [
   { id: 'files', label: 'FILES' },
   { id: 'plan', label: 'PLAN' },
-  { id: 'knowledge', label: 'MEMORY' },
+  { id: 'knowledge', label: 'KNOWLEDGE' },
   { id: 'more', label: 'MORE' },
 ];
 

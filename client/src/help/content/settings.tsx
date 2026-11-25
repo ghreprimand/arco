@@ -76,7 +76,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   },
   'settings.strata-endpoint': {
     title: 'Strata endpoint', manualSection: 'provider-strata',
-    body: <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported. Standalone Strata's OpenAI-compatible base URL, default
+    body: <p>A refused or incomplete settings reply leaves the previous saved settings active; a save error is reported. Standalone Strata's OpenAI-compatible base URL, default{' '}
       <C>http://127.0.0.1:8081/v1</C>. A missing /v1 is added automatically.
       This setting overrides STRATA_URL_BASE. Prepared local profiles can load
       for the next message; changing the address does not prepare models or
@@ -358,8 +358,8 @@ export const settingsHelp: Record<string, HelpEntry> = {
         <p>
           Claude has two separate sign-ins. <C>CLAUDE NATIVE (OAUTH)</C> is first because Native is the default
           transport for new work; its LOGIN button signs in inside Arco and the status line says whether Native
-          credentials are stored. <C>Credentials present; execution unverified</C>
-          means stored credentials were detected, not that a model request succeeded.
+          credentials are stored. <C>Credentials present; execution unverified</C>{' '}
+          means stored credentials were detected, not that a model request succeeded.{' '}
           <C>CLAUDE CLI (ANTHROPIC)</C> is the sign-in of the installed Claude CLI. Signing in to
           one does not sign in to the other. The transport used for new work is chosen under Transport defaults. If Claude CLI reports a revoked sign-in, use RE-LOGIN in its notice, then review and resend the turn.
         </p>
@@ -518,7 +518,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           low-cost model is suggested but never selected for you.
         </p>
         <p>
-          Claude (with Native sign-in), Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata and DeepSeek through Xolotl can serve. For LM Studio, llama.cpp, Strata and DeepSeek, load the chosen model first; these requests never load or switch models. Codex runs as a one-shot read-only session with no MCP servers or web search, and any tool use ends the request.
+          Claude (with Native sign-in), Cursor, Codex, Ollama, LM Studio, llama.cpp, Strata and DeepSeek through Xolotl can serve. For LM Studio, llama.cpp, Strata and DeepSeek, load the chosen model first; these requests never load or switch models. Codex runs as a one-shot read-only session with no MCP servers or web search, and any tool use ends the request.{' '}
           <strong> TEST</strong> sends one fixed request to confirm the choice answers. The facts of every job are
           sent to the chosen provider, and any cost depends on that provider.
         </p>
@@ -544,7 +544,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
           <strong>Phone</strong> sends a message through an ntfy server and needs no hub. Enter the server, a topic
           (GENERATE makes a private-looking random one) and, for a protected topic, an access token, then press TEST. The
           token is only sent to the server it was saved with; after changing to another server, enter it again. Anyone
-          who knows the topic can read its messages. Message text is left out unless you turn it on. An address from
+          who knows the topic can read its messages. Message text is left out unless you turn it on. An address from{' '}
           <C>ARCO_NTFY_URL</C> is used while none is saved here, except when Arco&apos;s home folder is inside the system
           temporary folder (a test server, for example); an address saved here always works. In a cluster,
           "finished" comes from the director only unless you choose every member. The tab count in the window title,

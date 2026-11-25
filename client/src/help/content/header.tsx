@@ -256,15 +256,15 @@ export const headerHelp: Record<string, HelpEntry> = {
           reads <C>outdated: vX → vY</C>.
         </p>
         <p>
-          Claude uses <C>claude update</C>. A recognised standalone Codex uses
+          Claude uses <C>claude update</C>. A recognised standalone Codex uses{' '}
           <C>codex update</C>; npm Codex must match the current global package
           root before its updater or a pinned npm version can run. Unknown
-          installations receive manual instructions. An update shows
-          <C> → v&lt;new&gt;</C>; a confirmed current result shows
+          installations receive manual instructions. An update shows{' '}
+          <C> → v&lt;new&gt;</C>; a confirmed current result shows{' '}
           <C> v&lt;version&gt; (latest)</C>. Both clear after 6 seconds and the
           row returns to its version. An unchanged version with a newer release,
-          a deferred update or manual instructions shows <C>v&lt;version&gt; (!)</C>
-          in warning colour until the next check. A failure shows <C>FAILED</C>
+          a deferred update or manual instructions shows <C>v&lt;version&gt; (!)</C>{' '}
+          in warning colour until the next check. A failure shows <C>FAILED</C>{' '}
           in danger colour until the next check. Hover for the full message,
           error or command.
           Click on Ollama opens an
@@ -303,7 +303,7 @@ export const headerHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Opens Cursor&apos;s CLI release notes in a new tab. It does not run an
-        update. Click the CURSOR version row to run <C>cursor-agent update</C>
+        update. Click the CURSOR version row to run <C>cursor-agent update</C>{' '}
         and recheck the installed version.
       </p>
     ),
@@ -373,7 +373,7 @@ export const headerHelp: Record<string, HelpEntry> = {
   },
   'header.terminal': {
     title: 'Terminal launcher',
-    body: <p>Opens a real terminal in a floating window, starting in the active tab&apos;s project folder. <strong>Closing the window leaves the shell running</strong>, so a dev server keeps going; reopening shows it again. Reconnecting replaces the display with one bounded scrollback replay. Only <C>KILL</C> ends it. The terminal is yours alone; the agent cannot type into it. Unavailable until a tab is open. See &quot;The integrated terminal&quot;.</p>,
+    body: <p>Opens a real terminal in a floating window (a full page named TERMINAL in the mobile view), starting in the active tab&apos;s project folder. <strong>Closing the window leaves the shell running</strong>, so a dev server keeps going; reopening shows it again. Reconnecting replaces the display with one bounded scrollback replay. Only <C>KILL</C> ends it. The terminal is yours alone; the agent cannot type into it. Unavailable until a tab is open. See &quot;The integrated terminal&quot;.</p>,
     manualSection: 'integrated-terminal',
   },
   'header.settings': {
@@ -393,7 +393,7 @@ export const headerHelp: Record<string, HelpEntry> = {
   },
   'header.manual': {
     title: 'User manual',
-    body: <p>In the HELP menu: opens the full user manual, every feature, every quirk, indexed.</p>,
+    body: <p>In the HELP menu (in PANELS in the mobile view): opens the full user manual, every feature, every quirk, indexed. In the mobile view its list starts with POINT AT THINGS, which turns on contextual help: tap a control to read about it, and EXIT ends it.</p>,
     manualSection: 'help-system',
   },
   'header.question-toast': {
@@ -464,7 +464,7 @@ export const headerHelp: Record<string, HelpEntry> = {
           Otherwise it opens the running and latest known version, the last
           check time, <C>CHECK NOW</C>, a release-notes link and a link to
           Settings &gt; Advanced &gt; CLI and runtime versions. While an update
-          runs it reads <C>UPDATING</C>. A release found with <C>CHECK NOW</C>
+          runs it reads <C>UPDATING</C>. A release found with <C>CHECK NOW</C>{' '}
           appears here; select <C>UPDATE AND RESTART</C> to open confirmation.
           Packaged installs wait until that release is available on npm; if
           npm cannot be checked, use <C>CHECK NOW</C> again later.
@@ -479,7 +479,7 @@ export const headerHelp: Record<string, HelpEntry> = {
     manualSection: 'header',
     body: (
       <>
-        <p>Remote dots use <C>A</C> Claude, <C>C</C> Codex and <C>X</C> Cursor. Hover or focus for usage; remote links open the existing usage pages. Worker cards and terminal sessions retain <C>O</C> Ollama and <C>L</C> llama.cpp.</p>
+        <p>Remote dots use <C>A</C> Claude, <C>C</C> Codex, <C>X</C> Cursor and <C>G</C> Antigravity CLI (Gemini). Hover or focus for usage; remote links open the existing usage pages. Worker cards and terminal sessions retain <C>O</C> Ollama and <C>L</C> llama.cpp.</p>
         <p>One <C>LOCAL</C> dot groups enabled Ollama, llama.cpp, Strata and Xolotl. Hover, focus or tap lists each state. LM Studio is excluded. Strata and Xolotl appear only with an installed-version signal, and llama.cpp requires its binary. Ollama retains unload times and daemon-start guidance. Confirmed faults are red; otherwise a loaded model is green, unknown status is neutral, and idle or deliberately stopped programs use a hollow dot. "stopped - starts on demand" is ready for a later turn.</p>
         <p>Escape or an outside click closes the local card. VERSIONS suppresses it and offers the same LOCAL STATUS list, including in focus mode. These read-only checks never load, unload or control services. Registered models alone are never counted as loaded.</p>
         <p>Remote usage detail includes Claude's 5-hour and weekly burn (polled every 3 minutes), Codex subscription quota from its app-server, and Cursor's included-plan and Other Models bars. Disabled providers show no dot or card.</p>

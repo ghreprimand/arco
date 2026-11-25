@@ -13,6 +13,16 @@ body.help-mode {
   padding-top: 30px;
 }
 
+/* Mobile view: the banner is taller so EXIT is a 44 px target. The phone
+ * layout is a fixed box, so it makes room for the banner itself. */
+body.help-mode:has(.help-banner-phone) {
+  padding-top: 0;
+}
+body.help-mode:has(.help-banner-phone) [data-phone-layout] {
+  padding-top: 48px;
+  box-sizing: border-box;
+}
+
 /* Disable pointer events globally; [data-help] re-enables itself below. */
 body.help-mode #root {
   pointer-events: none;

@@ -709,7 +709,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
           members do not. Attach an existing plan or create one here.
          Checkbox changes compare the displayed plan with the saved version; an intervening edit is preserved and a conflict asks for a fresh review. Member ticks match task text against the version being saved.</p>
         <p>
-          Edits take effect on the next turn; in-flight turns are not stopped.
+          Edits take effect on the next turn; in-flight turns are not stopped.{' '}
           <C>CLEAR PLAN</C> detaches the plan after confirmation and leaves its
           file available in the workspace. Empty saves are rejected.
         </p>
@@ -760,13 +760,9 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'Add task to board',
     body: (
       <p>
-        Create a task directly on the board without leaving the board view.
-        <C>Enter</C> or <C>ADD</C> authors the task; it always lands as{' '}
-        <C>todo</C> (the operator-confirmed-done invariant means a single board
-        composer is the honest surface: not a per-column input). Reuses the
-        same operator <C>task_ledger_create</C> path as the per-member LEDGER
-        tab. Disabled until a cluster member is available to anchor the board
-        read.
+        Type a task and press <C>Enter</C> or <C>ADD</C>. It goes on the board
+        as <C>todo</C>, where any member can claim it. Unavailable until the
+        cluster has a member to read the board through.
       </p>
     ),
     manualSection: 'cluster-board',
@@ -1163,7 +1159,7 @@ export const clusterHelp: Record<string, HelpEntry> = {
     title: 'DUPLICATE PLAN',
     body: (
       <p>
-        Creates a separate copy of the current cluster plan body in
+        Creates a separate copy of the current cluster plan body in{' '}
         <C> .arco/plans/&lt;id&gt;.md</C>. The active plan is already stored
         there. Later edits to the active plan do not change the copy.
       </p>

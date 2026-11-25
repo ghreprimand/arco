@@ -543,7 +543,8 @@ async def run(base):
             await page.get_by_test_id('mobile-panel-manual').tap()
             manual = page.get_by_test_id('mobile-manual-page')
             await expect(manual.get_by_label('Search manual and help')).to_be_visible()
-            await manual.get_by_role('button').first.tap()
+            await expect(manual.get_by_test_id('mobile-manual-point')).to_be_visible()
+            await manual.get_by_role('button').filter(has_not_text='POINT AT THINGS').first.tap()
             await expect(manual.get_by_role('navigation', name='Manual chapters')).to_be_visible()
             await page.get_by_test_id('mobile-page-back').tap()
             await expect(manual.get_by_label('Search manual and help')).to_be_visible()
@@ -589,7 +590,7 @@ async def run(base):
             # A single tab under 1100 px: the right panel is a strip; FILES opens it over the chat.
             context, page, errors = await open_page(browser, base, 1024, single=True)
             strip = page.get_by_test_id('layout-panel-strip')
-            await expect(strip.get_by_role('button')).to_have_text(['FILES', 'PLAN', 'MEMORY', 'MORE'])
+            await expect(strip.get_by_role('button')).to_have_text(['FILES', 'PLAN', 'KNOWLEDGE', 'MORE'])
             await strip.get_by_role('button', name='PLAN').click()
             right = page.get_by_test_id('right-panel-slide-out')
             await expect(right.locator('[data-help="rightpanel.tab.plan"]').first).to_be_visible()

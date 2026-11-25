@@ -153,24 +153,27 @@ export const gettingStarted: Section[] = [
   Optionally enter the name to show for chat messages; leave it blank for
   OPERATOR. Get started saves it, while skipping leaves the existing name
   unchanged. Running setup again pre-fills it, and Settings &gt; Appearance can
-  change it later. The remaining steps add folders and connect a provider. No
-  model prompt is sent until a model-backed action is started.
+  change it later. Skip setup closes Welcome. No model prompt is sent until a
+  model-backed action is started. Each later step has Skip this step.
   </p>
   <ol>
   <li>
-  Choose a provider in Connections and follow its sign-in or API-key
-  instructions. The provider list can be searched and grouped by type.
+  Step 1 of 3, Add project locations: add the folders that hold projects, such
+  as Work or Personal, or bookmark a single project folder, then Continue.
   </li>
   <li>
-  For CLI auth (Claude, Codex, Cursor, GitHub) Arco shows the headless login
-  command with <Code>RUN IN TERMINAL</Code> / <Code>COPY</Code>. It runs on the
-  Arco machine and prints a link or code to complete in a browser or on a device.
-  Then return to Connections.
+  Step 2 of 3, Connections: choose a provider and follow its sign-in or API-key
+  instructions. The provider list can be searched and grouped by type. For CLI
+  sign-in (Claude, Codex, Cursor, GitHub) Arco shows the headless login command
+  with <Code>RUN IN TERMINAL</Code> / <Code>COPY</Code>; it runs on the Arco
+  machine and prints a link or code to complete in a browser or on a device.
+  Select <Code>Continue to chat</Code> once a provider is connected, or{' '}
+  <Code>SKIP FOR NOW</Code>. In the workspace, <Code>CONNECT A PROVIDER</Code>{' '}
+  reopens Connections.
   </li>
   <li>
-  Select <Code>Continue to workspace</Code> when ready, or{' '}
-  <Code>Skip for now</Code> to continue without connecting one. In the workspace,{' '}
-  <Code>CONNECT A PROVIDER</Code> reopens Connections.
+  Setup complete: optionally choose a chat folder and a utility agent, then{' '}
+  <Code>Go to Home</Code> or <Code>Start a chat</Code>.
   </li>
   </ol>
   <Sub>Adding providers later</Sub>
@@ -257,7 +260,7 @@ export const gettingStarted: Section[] = [
   Start from <Code>HOME</Code>, the project landing page. Add an existing folder
   or create one there, then use its project card's <Code>New session</Code> action
   to open the workflow creator with that folder selected. The <Code>HOME</Code>{' '}
-  tab is also available when work is open. The <Code>+</Code> tab or{' '}
+  tab is also available when work is open. The <Code>+ NEW</Code> tab or{' '}
   <Kbd>Ctrl/Cmd+K</Kbd> opens the creator directly.
   </p>
   <p>Choose a mode at the top of the creator:</p>
@@ -266,12 +269,13 @@ export const gettingStarted: Section[] = [
   <li><strong>CHAT</strong> needs no folder and offers saved or Incognito conversation.</li>
   <li><strong>CLUSTER</strong> groups agents.</li>
   <li><strong>GENESIS</strong> starts from an idea.</li>
+  <li><strong>RESEARCH</strong> sends one question to several independent researchers; see Start a research project.</li>
   </ul>
   <Sub>The project form</Sub>
   <ul>
   <li>
   <strong>Project folder</strong> - the root the agent will operate against.
-  Choose <strong>Browse another folder</strong> or paste an absolute path.
+  Choose <strong>Browse another folder</strong> or paste an absolute path.{' '}
   <strong>+ NEW FOLDER</strong> creates and selects a folder in a project
   location. Choose a location and a new name; an existing name is refused.
   Starting from a Home project card pre-fills its folder.
@@ -292,7 +296,7 @@ export const gettingStarted: Section[] = [
   <strong>Effort</strong> - the reasoning budget; see the list below.
   </li>
   <li>
-  <strong>Tuning</strong> - a collapsible band shown for every provider.
+  <strong>Tuning</strong> - a collapsible band (CLAUDE TUNING for Claude, OUTPUT TUNING otherwise) shown for every provider.
   Claude tabs add <strong>FAST MODE</strong> and a{' '}
   <strong>TOOL-RESULT FILTER</strong> beside an <strong>OUTPUT STYLE</strong>{' '}
   picker (NORMAL, PLAIN or TERSE; PLAIN is the default). The filter (off,
@@ -316,9 +320,9 @@ export const gettingStarted: Section[] = [
   conversation inside Arco.
   </p>
   <Note kind="tip">
-  The creator starts with Claude selected, which may be unauthenticated. Choose a
-  provider that is enabled and connected in Settings &gt; Providers and models. If
-  the expected provider is unavailable, check its enable and sign-in state.
+  PRIMARY AGENT lists only providers that are enabled and connected. If the
+  expected provider is missing, enable it and sign in under Settings &gt;
+  Providers and models; Open Connections in the creator goes there.
   </Note>
   </>
   ),
@@ -336,7 +340,7 @@ export const gettingStarted: Section[] = [
   <Code>peer_send</Code>, <Code>peer_read</Code>).
   </p>
   <p>
-  Open the workflow creator (<Kbd>+</Kbd> tab or <Kbd>Ctrl/Cmd+K</Kbd>), then flip
+  Open the workflow creator (<Code>+ NEW</Code> tab or <Kbd>Ctrl/Cmd+K</Kbd>), then flip
   the top-of-form toggle to <strong>CLUSTER</strong>. The creator has these parts:
   </p>
   <ul>

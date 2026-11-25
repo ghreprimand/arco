@@ -44,6 +44,12 @@ export const powerFeatures: Section[] = [
   not build autonomous orchestration trees, and one level is the right ceiling
   for an operator-visible spawn.
   </p>
+  <p>
+  A batch that would pass four starts, or that uses a model with an unknown
+  relative cost, waits for approval in the conversation: <Code>ALLOW</Code>,{' '}
+  <Code>ALLOW ON ANOTHER MODEL</Code> or <Code>DENY</Code>. The limits are in
+  Settings, Agents and clusters, Claude Native sub-agents.
+  </p>
   <Sub>Background sub-agents</Sub>
   <p>
   The agent can start a sub-agent in the background and keep working with you.
@@ -300,7 +306,7 @@ export const powerFeatures: Section[] = [
   counts as sensitive; no model judges it.
   </p>
   <p>
-  The same card appears, with or without review-safe mode, when a Claude Native
+  The same card appears, with or without review-safe mode, when a Claude Native{' '}
   <Code>PreToolUse</Code> hook answers <Code>ask</Code>: it is labelled HOOK
   ASKS TO CONFIRM and shows the hook's reason.
   </p>
@@ -498,6 +504,12 @@ export const powerFeatures: Section[] = [
   <Kbd>Esc</Kbd> or choose <Code>EXIT POINT AT THINGS</Code> in the HELP menu to
   leave it before using a control normally.
   </Note>
+  <p>
+  In the mobile view, open PANELS, then MANUAL; its first row is POINT AT
+  THINGS. Tap a control to read about it. The bar at the top says HELP: TAP A
+  CONTROL, and its <Code>EXIT</Code> ends help mode, as does{' '}
+  <Code>READ MORE IN MANUAL</Code>, which opens the manual page.
+  </p>
   <p>
   File references opened from chat, help or rendered markdown use a stacked file
   viewer. In chat, a link can open an ordinary file in a Git worktree of the tab's
@@ -713,7 +725,7 @@ export const powerFeatures: Section[] = [
   This path lets you check on workflows and answer, stop or continue them from a
   phone without exposing the full UI. When <Code>ARCO_HUB_URL</Code> is set, this
   instance connects outbound (tailnet-only) to an <Code>arco-management</Code>{' '}
-  hub and registers itself. The header shows a <strong>hub-link chip</strong>
+  hub and registers itself. The header shows a <strong>hub-link chip</strong>{' '}
   with connection state and last heartbeat; click it for a one-click local kill
   switch.
   </p>
@@ -721,7 +733,7 @@ export const powerFeatures: Section[] = [
   An instance whose Arco home folder is inside the system temporary folder, such
   as a test server, does not join the hub even when <Code>ARCO_HUB_URL</Code> is
   set, and the chip stays hidden. It also sends no phone messages to an
-  inherited <Code>ARCO_NTFY_URL</Code>. Set <Code>ARCO_ALLOW_TEMP_HOME=1</Code>
+  inherited <Code>ARCO_NTFY_URL</Code>. Set <Code>ARCO_ALLOW_TEMP_HOME=1</Code>{' '}
   to use both anyway.
   </p>
   <p>

@@ -10,7 +10,7 @@ function containsText(body: Parameters<typeof stringifyNode>[0], query: string):
   try { return stringifyNode(body).toLowerCase().includes(query); } catch { return false; }
 }
 
-export function MobileManualContent({ activeId, onSelect }: { activeId: string | null; onSelect: (id: string | null) => void }) {
+export function MobileManualContent({ activeId, onSelect, onPointAtThings }: { activeId: string | null; onSelect: (id: string | null) => void; onPointAtThings?: () => void }) {
   const [query, setQuery] = useState('');
   const content = useRef<HTMLDivElement>(null);
   useEffect(() => { content.current?.closest<HTMLElement>('[data-phone-scroll]')?.scrollTo({ top: 0 }); }, [activeId]);
@@ -37,6 +37,11 @@ export function MobileManualContent({ activeId, onSelect }: { activeId: string |
     </nav>}
   </div>;
   return <div style={{ color: 'var(--color-fg)' }}>
+    {onPointAtThings && <button type="button" data-testid="mobile-manual-point" data-help="help.toggle" className="display-font" onClick={onPointAtThings}
+      style={{ ...row, borderBottom: '1px solid var(--color-border)', color: 'var(--color-accent-primary)' }}>
+      POINT AT THINGS
+      <span style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-fg-muted)', letterSpacing: 0 }}>Tap a control to see what it does</span>
+    </button>}
     <input type="search" aria-label="Search manual and help" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search manual and help" style={{ width: '100%', boxSizing: 'border-box', minHeight: 44, padding: '8px 12px', color: 'var(--color-fg)', background: 'var(--color-bg-input)', border: '1px solid var(--color-border-hairline)' }} />
     {GROUPS.map((group) => {
       const sections = filtered.filter((item) => item.group === group);

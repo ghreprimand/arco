@@ -12,19 +12,6 @@ export const workspace: Section[] = [
           The header is the persistent chrome at the top of every screen. Left
           to right (the controls wrap onto more rows when space runs short):
         </p>
-        <p>
-          Dialogs open at sizes suited to their content. Drag the bottom-right
-          corner grip or focus it and use arrow keys to resize. Maximize fills the window; Restore
-          returns to the previous size. Arco remembers the size for that kind
-          of dialog in this browser. Resizable dialogs reserve a right-side gutter so footer actions stay clear of the grip. Reset size or Home on the grip restores the default.
-        </p>
-        <p>
-          Rendered Markdown and plain text open at their reading width plus
-          padding, with most of the window height. RAW, code, overflowing tables
-          and media keep the larger viewer size. Saved sizes take priority;
-          Reset size returns to the current view's default. File and folder
-          pickers keep their larger share of the window.
-        </p>
         <ul>
           <li>
             <strong>ARCO</strong> - the wordmark. On Home it is hidden in the
@@ -83,8 +70,8 @@ export const workspace: Section[] = [
             numbers, not semantic versions; missing build metadata is not guessed.
           </li>
           <li>
-            <strong>Live-status dots</strong> - remote letters are <Code>A</Code> Claude,
-            <Code>C</Code> Codex and <Code>X</Code> Cursor. One <Code>LOCAL</Code> dot
+            <strong>Live-status dots</strong> - remote letters are <Code>A</Code> Claude,{' '}
+            <Code>C</Code> Codex, <Code>X</Code> Cursor and <Code>G</Code> Antigravity CLI (Gemini). One <Code>LOCAL</Code> dot
             groups enabled Ollama, llama.cpp, Strata and Xolotl; LM Studio is excluded. Strata and Xolotl appear only with an installed-version signal, and llama.cpp requires its binary. Ollama retains unload times and daemon-start guidance.
             Hover, focus or tap lists each state. A confirmed fault is red; otherwise
             any loaded model is green, unknown status is neutral, and idle or stopped
@@ -150,6 +137,19 @@ export const workspace: Section[] = [
             (machine-wide local web/dev service browser).             In the mobile view, System opens on Diagnostics and RESTART and QUIT ask for confirmation at the end of the page.
           </li>
         </ul>
+        <p>
+          Dialogs open at sizes suited to their content. Drag the bottom-right
+          corner grip or focus it and use arrow keys to resize. Maximize fills the window; Restore
+          returns to the previous size. Arco remembers the size for that kind
+          of dialog in this browser. Resizable dialogs reserve a right-side gutter so footer actions stay clear of the grip. Reset size or Home on the grip restores the default.
+        </p>
+        <p>
+          Rendered Markdown and plain text open at their reading width plus
+          padding, with most of the window height. RAW, code, overflowing tables
+          and media keep the larger viewer size. Saved sizes take priority;
+          Reset size returns to the current view's default. File and folder
+          pickers keep their larger share of the window.
+        </p>
       </>
     ),
   },
@@ -195,15 +195,20 @@ export const workspace: Section[] = [
           RESUME (project sessions) or PAST CHATS (saved chats).
         </p>
         <p>
-          The trailing <Code>+</Code> button opens the workflow creator (same as{' '}
+          The trailing <Code>+ NEW</Code> button opens the workflow creator (same as{' '}
           <Kbd>Ctrl/Cmd+K</Kbd>).
         </p>
         <p>
-          A second tab kind, the <strong>cluster parent</strong>, hosts N member
-          workflows pinned to one cwd. Cluster parent tabs are created by
-          right-clicking a regular tab (CREATE WITH EXISTING / CREATE WITH
-          FRESH); they show their members as a row of sub-tabs underneath. See
-          the Clusters group for details.
+          A second tab kind, the <strong>cluster</strong> tab, holds several
+          member workflows pinned to one folder and shows the member count in
+          brackets. Clusters are created from <Code>+ NEW</Code> in CLUSTER mode,
+          or by right-clicking a regular tab (CREATE WITH EXISTING / CREATE WITH
+          FRESH).
+        </p>
+        <p>
+          The cluster tab opens the cluster view, with the members in its
+          left pane; its <Code>×</Code> tears the cluster down (see The cluster
+          tab). See the Clusters group for details.
         </p>
         <h4 className="manual-sub">Tabs follow the server, not the browser</h4>
         <p>
@@ -220,8 +225,8 @@ export const workspace: Section[] = [
           stored on the server).
         </p>
         <p>
-          The first time a browser connects after this
-          shipped, any tabs it had locally are merged in.
+          Tabs that a browser kept locally from an older version are merged in
+          the first time it connects.
         </p>
         <Note kind="warn">
           Within one browser Arco still refuses a second window against the same
@@ -339,7 +344,7 @@ export const workspace: Section[] = [
             <strong>Tool-call pills</strong> - inline rows between assistant
             bubbles for Bash / Read / Grep / WebFetch / etc. Click to expand the
             JSON input. Click a file path inside to open the viewer modal.
-            (Claude CLI only - they come from the Claude session file; on other transports tool calls show in ACTIVITY.)
+            (Claude tabs, Native and CLI; on other providers tool calls show in ACTIVITY.)
           </li>
           <li>
             <strong>Inline artifacts</strong> - fenced{' '}
@@ -453,7 +458,7 @@ export const workspace: Section[] = [
           Arco fits images and sends them visually when the model reports vision support. SVG attachments include source text; image-capable models also receive a fitted preview when rendering succeeds, while text-only models receive an image-omission note.
         </p>
         <p>
-          On the mobile view, open <Code>UPLOAD FROM PHONE</Code> in message options to choose files or photos on this device. On the workbench, open it beside Attach and scan the code on the same private network. The files appear in the original draft, even after switching tabs. Press Send to submit them.
+          On the mobile view, open <Code>+</Code> for the message tools, then <Code>+ FILE</Code> or <Code>UPLOAD FROM PHONE</Code>, to choose files or photos on this device. On the workbench, open <Code>UPLOAD FROM PHONE</Code> beside <Code>+ FILE</Code> and scan the code on the same private network. The files appear in the original draft, even after switching tabs. Press Send to submit them.
         </p>
         <p>
           The window lists private IPv4 origins as <Code>http://&lt;ipv4&gt;:&lt;port&gt;</Code> from the listener (home LAN and Tailscale when present). It never lists MagicDNS names or the desktop page hostname. When several appear, choose one. Scan the full QR; the origin under the code is only the address and port.
@@ -483,8 +488,8 @@ export const workspace: Section[] = [
           PDFs, office documents and notebooks are decoded before sending, including
           Chat tabs without file tools. Other binaries return a file note.
         </p>
-        <p>Use
-          <Code>Read</Code> or the read-only <Code>read_file</Code> tool with
+        <p>Use{' '}
+          <Code>Read</Code> or the read-only <Code>read_file</Code> tool with{' '}
           <Code>pages</Code> to select document pages, sheets, slides or cells.
 
         </p>
@@ -511,8 +516,9 @@ export const workspace: Section[] = [
           <li>
             A <Code>COMPACT</Code> button - summarizes the conversation in place
             and continues with a smaller prompt; same idea as Claude Code&apos;s{' '}
-            <Code>/compact</Code>. (Claude Native, Codex app-server, and
-            Ollama, each via their native compaction path.)
+            <Code>/compact</Code>. (Claude Native, Codex app-server and
+            Ollama, each via their native compaction path; on Antigravity CLI
+            it sends <Code>/compact</Code> to the current Gemini session.)
           </li>
           <li>
             A tool-<Code>POSTURE</Code> button - cycles full / coding / review /
@@ -730,8 +736,8 @@ export const workspace: Section[] = [
           controls.
         </p>
         <p>
-          The message box keeps the draft, the options button and{' '}
-          <strong>SEND</strong> on one row; the <strong>+</strong> button opens the
+          The message box keeps the draft, <strong>+</strong> and{' '}
+          <strong>SEND</strong> on one row; <strong>+</strong> opens the
           message tools: files, model, skills, recipient and NUDGE. While the agent works,{' '}
           <strong>STOP</strong> takes the place of <strong>SEND</strong>;
           with a draft typed, <strong>STEER</strong> sends it and{' '}
@@ -863,7 +869,7 @@ export const workspace: Section[] = [
         <p>
           It shows a{' '}
           <strong>↑N to push / ↓M to pull</strong> summary, an expandable commit
-          list each direction, and the per-direction diff in the same A3
+          list each direction, and the per-direction diff in the same
           renderer the CHANGES / SOURCE tabs use.
         </p>
         <ul>

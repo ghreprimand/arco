@@ -62,7 +62,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           attachments. Arco fits images, decodes documents and notebooks, and
           gives a note for other binaries. SVG includes source text; image-capable
           models receive a fitted preview when available, while text-only models
-          receive an image-omission note. Path labels identify the source alongside its content. Local providers retain named receipts and restore up to two recent images and 8 KiB of file text on later turns and reload; missing files produce a notice.
+          receive an image-omission note. Path labels identify the source alongside its content. Local providers retain named receipts and restore up to two recent images and 8 KiB of file text on later turns and reload; missing files produce a notice.{' '}
           <C>/goal …</C> sets the north star or arms a goal run without
           sending a turn.
         </p>
@@ -238,7 +238,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           <C>COMPACTED: CONTINUE</C> appears in the composer status line after a Claude-native compaction folds the
           conversation into a summary. Click it to resume the work from the
           compacted seed: it sends a short continuance prompt so the model
-          picks the task back up against the smaller context. The <C>×</C>
+          picks the task back up against the smaller context. The <C>×</C>{' '}
           dismisses it without resuming.
         </p>
         <p>
@@ -604,7 +604,7 @@ export const composerHelp: Record<string, HelpEntry> = {
           The model + effort used for the next turn. Live-editable from the
           CONFIG tab on the right pane <em>or</em> by clicking the chip
           itself: both surfaces open the same picker. Claude reads from the
-          live Anthropic <C>/v1/models</C> catalog; Codex reads from the live
+          live Anthropic <C>/v1/models</C> catalog; Codex reads from the live{' '}
           <C>codex app-server model/list</C> catalog. Both refresh hourly,
           with per-model effort gating against the catalog's reported support.
           If the Codex CLI is missing, the picker uses the last available

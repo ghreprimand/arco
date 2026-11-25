@@ -563,7 +563,7 @@ export const configuration: Section[] = [
   badge and can turn each off. A project or
   global skill with the same name replaces the built-in. EDITABLE COPY saves
   the skill and its supporting files for editing. Operator-run skills also
-  accept a slash form of the same name; Architecture review accepts
+  accept a slash form of the same name; Architecture review accepts{' '}
   <Code>/improve-codebase-architecture</Code>.</p>
   <ul>
     <li><Code>Architecture review</Code> - Use when looking for places where the code is harder to change than it needs to be; the agent reports candidates and changes no code.</li>

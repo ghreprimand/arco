@@ -86,7 +86,7 @@ export const maintenance: Section[] = [
   mark on the whole conversation. No file is changed.
   </p>
   <p>
-  Use ALL/DOCS/IMAGES to filter changed files, refresh to update listings, and
+  Use ALL/DOCS/IMAGES to filter changed files, refresh to update listings, and{' '}
   <strong> A− / A+</strong> for the Artifacts window's own saved zoom. A changed
   file is not necessarily an agent write, and an empty scan is not proof that
   a project has no files. Listings can fail softly.
@@ -122,11 +122,11 @@ export const maintenance: Section[] = [
   An update briefly shows <Code>→ v&lt;new&gt;</Code>; a confirmed current result
   shows <Code>v&lt;version&gt; (latest)</Code>. Both clear after 6 seconds and the
   row returns to its version. An unchanged version with a newer release available,
-  a deferred update or manual instructions shows <Code>v&lt;version&gt; (!)</Code>
+  a deferred update or manual instructions shows <Code>v&lt;version&gt; (!)</Code>{' '}
   in warning colour until the next check.
   </p>
   <p>
-  A failure shows <Code>FAILED</Code>
+  A failure shows <Code>FAILED</Code>{' '}
   in danger colour until the next check. Hover over the row for the full
   message, error or command. An unchanged version is not automatically called latest.
   A failed updater remains a failure even when the old executable still works.
@@ -297,7 +297,7 @@ export const maintenance: Section[] = [
   <p>
   When an older copy may be a package, a source checkout, or both, clear it
   with the steps in{' '}
-  <Code>docs/OPERATIONS.md#before-a-fresh-install-remove-older-copies</Code>
+  <Code>docs/OPERATIONS.md#before-a-fresh-install-remove-older-copies</Code>{' '}
   before a fresh install. Do not delete the Arco home as a routine recovery
   step.
   </p>

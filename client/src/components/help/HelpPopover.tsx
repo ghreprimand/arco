@@ -4,6 +4,7 @@ import { useAppStore } from '../../stores/appStore';
 import { HELP_CONTENT } from '../../help/helpContent';
 import { openManualSection } from '../../help/openManualSection';
 import { useKeepInWindow } from '../../layout/keepInWindow';
+import { usePhoneLayout } from '../../layout/layoutRange';
 
 // Popover surfaced when the operator clicks a [data-help] target while help
 // mode is active. Position is computed against the captured anchorRect so the
@@ -12,6 +13,7 @@ import { useKeepInWindow } from '../../layout/keepInWindow';
 export function HelpPopover() {
   const activeHelpPopover = useAppStore((s) => s.activeHelpPopover);
   const setActiveHelpPopover = useAppStore((s) => s.setActiveHelpPopover);
+  const phone = usePhoneLayout();
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const placeRef = useKeepInWindow({ ref: popoverRef, anchor: () => null });
   const [position, setPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -146,6 +148,9 @@ export function HelpPopover() {
           <button
             onClick={() => {
               setActiveHelpPopover(null);
+              // Mobile view: the manual is a page to scroll and tap through,
+              // so help mode ends when it opens.
+              if (phone) useAppStore.getState().setHelpMode(false);
               // §J3 — open+jump lives in openManualSection (shared with the
               // in-modal <ModalHelpButton>); no inline dispatch here anymore.
               openManualSection(entry.manualSection!);

@@ -662,7 +662,7 @@ export const actions: Section[] = [
             <Code>Write</Code> tool).
           </li>
           <li>
-            The proposal returns as an A3 diff (original vs proposed, with the
+            The proposal returns as a diff (original vs proposed, with the
             byte-delta and the agent&apos;s notes).
           </li>
           <li>

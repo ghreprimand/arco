@@ -100,7 +100,7 @@ export const clusters: Section[] = [
   <h4 className="manual-sub">Creating a cluster</h4>
   <p>
     Right-click any compatible tab
-  (Claude, Codex, Ollama or llama.cpp pinned to a cwd that is not already part
+  (Claude, Codex, Antigravity CLI, Ollama or llama.cpp pinned to a cwd that is not already part
   of a cluster). An open Cursor tab cannot join, because its Cursor session
   started without the cluster peer tools; add Cursor members with + ADD FRESH
   in the cluster panel. Other providers cannot receive the peer tools, and the
@@ -151,6 +151,17 @@ export const clusters: Section[] = [
   <Code>CLOSED CLUSTERS → REOPEN</Code>. This reconnects
   the original cluster and member IDs; it does not fork from a snapshot.
   </p>
+  <p>
+  The <Code>×</Code> on a cluster tab tears the cluster down. TEAR DOWN CLUSTER
+  offers <Code>KEEP MEMBERS WORKING</Code>, which leaves each member as an
+  ordinary tab without peer tools, and <Code>CLOSE CLUSTER + N MEMBERS</Code>,
+  which also closes the member tabs and cancels running turns.
+  </p>
+  <p>
+  Either way the
+  cluster is deleted and is not listed under CLOSED CLUSTERS; saved
+  conversations stay on disk. A research project has its own close.
+  </p>
   <ul>
   <li><Code>FILE</Code> exports an integrity-checked <Code>.arcocluster</Code> bundle.</li>
   <li>CLOUD snapshots are AES-256-GCM encrypted before upload to the tailnet management hub. The hub-host vault never receives the key.</li>
@@ -195,7 +206,7 @@ export const clusters: Section[] = [
   </li>
   <li>
   Mixed clusters are supported for providers with peer-tool wiring.
-  Claude and Codex use the native/MCP peer substrate; Ollama and
+  Claude, Codex and Antigravity CLI (Gemini) use the native/MCP peer substrate; Ollama and
   llama.cpp use Arco's local server-side tool registry, so local
   workers can also see <Code>peer_send</Code> / <Code>peer_read</Code>{' '}
   across the cluster.
@@ -203,7 +214,7 @@ export const clusters: Section[] = [
   <li>
   Providers without a peer-tool path remain ineligible. The cluster
   member fence is{' '}
-  <strong>Claude / Codex / Ollama / llama.cpp / Cursor</strong>.
+  <strong>Claude / Codex / Antigravity CLI / Ollama / llama.cpp / Cursor</strong>.
   LM Studio, Strata and DeepSeek are not cluster members. Cursor
   is fresh-spawn membership only, wired via a loopback StreamableHTTP
   MCP server for peer tools.
@@ -246,9 +257,9 @@ export const clusters: Section[] = [
   SMALL / MEDIUM / LARGE under Settings &gt; Appearance.
   </p>
   <Note>
-  Closing the cluster tab keeps its members alive as plain workflows
-  (peer tools stay registered). Tear-down only happens when the{' '}
-  <Code>×</Code> on the cluster tab is clicked and confirmed.
+  Switching to another tab leaves the cluster running. Tear-down only happens
+  when the <Code>×</Code> on the cluster tab is clicked and confirmed (see
+  Reopening an existing live cluster above).
   </Note>
   </>
   ),
@@ -289,7 +300,7 @@ export const clusters: Section[] = [
   busy; outlined while idle. A turn is working from acceptance until it settles, including when its first activity is a tool call.
   </li>
   <li>
-  <strong>Friendly name</strong> in bold (operator-set rename, or
+  <strong>Friendly name</strong> in bold (operator-set rename, or{' '}
   <Code>wfid</Code> prefix as fallback) plus IDLE/WORKING tag. A{' '}
   mail mark with a count shows the messages waiting for the
   member; they are delivered at its next turn. It is muted while the
@@ -409,9 +420,9 @@ export const clusters: Section[] = [
   A research project sends one brief to several researchers who work
   independently, and gives their reports to a Research Director you keep
   talking to. Open <Code>+NEW</Code>, choose <strong>RESEARCH</strong>, give
-  a short <strong>Name</strong> (it names the tab and the folder), write the
+  a short <strong>Name</strong> (it names the tab and the folder), write the{' '}
   <strong>Brief</strong> with everything that matters (question, budget,
-  must-haves, sources to avoid), then choose
+  must-haves, sources to avoid), then choose{' '}
   <Code>START RESEARCH PROJECT</Code>.
   </p>
   <p>
@@ -419,7 +430,7 @@ export const clusters: Section[] = [
   one question if the brief is unclear.
   </p>
   <p>
-  Each researcher row has only Provider, Model and Effort, with
+  Each researcher row has only Provider, Model and Effort, with{' '}
   <Code>DUPLICATE</Code>, <Code>REMOVE</Code> and <Code>ADVANCED</Code>.
   Researchers run on Claude Native, Ollama or llama.cpp. Claude CLI, Codex
   and Cursor are also offered on Linux when signed in and their sandbox checks pass.
@@ -438,7 +449,7 @@ export const clusters: Section[] = [
   </p>
   <p>
   <Code>ONE OF EACH PROVIDER</Code> fills one row per connected researcher
-  provider, <Code>SAME AS LAST TIME</Code> repeats your last panel, and
+  provider, <Code>SAME AS LAST TIME</Code> repeats your last panel, and{' '}
   <Code>+ SAVE PANEL</Code> saves the rows and the Research Director as a
   named panel shown beside them.
   </p>
@@ -449,7 +460,7 @@ export const clusters: Section[] = [
   so that mail can be reviewed or edited first.
   </p>
   <p>
-  A Gemini researcher needs Linux and Settings, Connections,
+  A Gemini researcher needs Linux and Settings, Connections,{' '}
   <strong>GEMINI FOR RESEARCH</strong> signed in. It takes each round only
   when you press NUDGE on it, whichever provider directs the project.
   </p>
@@ -486,7 +497,7 @@ export const clusters: Section[] = [
   <p>
   The <strong>rounds strip</strong> above the cards shows the name, the
   brief behind <Code>BRIEF</Code>, and one row per round; a row opens each outcome and the
-  deadline. In a released round, each replied line opens that report.
+  deadline. In a released round, each replied line opens that report.{' '}
   <strong>RESULTS</strong> opens the brief, the summary, the
   Director log, each released report and, under it, the files that researcher
   returned. Failed outcomes include a provider refusal or last message when
@@ -511,8 +522,11 @@ export const clusters: Section[] = [
   Quick research runs one round in Arco without a research folder. Its brief and researcher rows sit above the Director conversation; select a row to inspect activity. RESULTS opens the released material. KEEP AS PROJECT waits for idle members and creates a research folder without rerunning the round.
   </p>
   <p>
-  Closing Quick research keeps the Director conversation in Past Chats and offers to attach unsent researcher files. On <Code>/mobile</Code>, projects appear under Research projects and Quick research appears with Chats; PANELS includes RESULTS, ACTIVITY and PLAN.
-  Open the saved Chat to use KEEP AS PROJECT after closing. The saved conversation is included in the project; deleting the Chat removes its Quick research sources but leaves a project already kept.
+  Closing Quick research keeps the Director conversation in Past Chats and offers to attach unsent researcher files. Open the saved Chat to use KEEP AS PROJECT after closing. The saved conversation is included in the project; deleting the Chat removes its Quick research sources but leaves a project already kept.
+  </p>
+  <p>
+  On <Code>/mobile</Code>, projects appear under Research projects and Quick
+  research appears with Chats; PANELS includes RESULTS, ACTIVITY, PLAN and FILES.
   </p>
   <p>
   RESULTS shows a project card and one card per round. Project actions sit below the file links once a round exists. In a round card each researcher has one row: <Code>Report</Code> opens the report, <Code>Files (n)</Code> lists its returned files, and <Code>Actions</Code> beside a summary or report holds its choices.
@@ -540,7 +554,7 @@ export const clusters: Section[] = [
   <Code>+ ADD RESEARCHER</Code> in MEMBERS adds the next lettered researcher
   with the start dialog&apos;s row. It is left out of a round in progress and
   joins from the next one. With <strong>Give it the original brief now</strong>,
-  it first answers the round 1 text alone; the strip shows a
+  it first answers the round 1 text alone; the strip shows a{' '}
   <Code>CATCH-UP</Code> row and the report reaches the Research Director on its own.
   </p>
   <p>
@@ -580,7 +594,7 @@ export const clusters: Section[] = [
   <p>
   Home lists research projects under <strong>Research library</strong>:
   name, question, status, dates, researchers and rounds. Projects in the
-  research folder appear even if made before the library. <Code>Open</Code>
+  research folder appear even if made before the library. <Code>Open</Code>{' '}
   brings back an open project&apos;s tab.
   </p>
   <p>
@@ -597,8 +611,8 @@ export const clusters: Section[] = [
   replies that had arrived.
   </p>
   <p>
-  A moved or deleted folder shows <strong>Missing</strong>. <Code>Locate</Code>
-  points Arco at the folder that now holds its research.json;
+  A moved or deleted folder shows <strong>Missing</strong>. <Code>Locate</Code>{' '}
+  points Arco at the folder that now holds its research.json;{' '}
   <Code>Forget</Code> removes it from the library only. Arco never moves or
   deletes a research folder.
   </p>
@@ -866,7 +880,7 @@ export const clusters: Section[] = [
   </p>
   <ul>
   <li>
-  <strong>HISTORY</strong> starts at <strong>NO HISTORY</strong>.
+  <strong>HISTORY</strong> starts at <strong>NO HISTORY</strong>.{' '}
   <strong> RECENT HISTORY</strong> copies the last 10 whole turns by default;
   choose 1 to 50 within 128 KiB. Text stays word for word, with tool calls and
   attached files represented by receipts. <strong>FULL HISTORY</strong> keeps
@@ -990,7 +1004,7 @@ export const clusters: Section[] = [
   </p>
   <p>
   The header pill bar in VIEW mode mirrors the worker tab:{' '}
-  <Code>EDIT</Code>, <Code>CLEAR PLAN</Code>, <Code>REVIEW PLAN</Code>,
+  <Code>EDIT</Code>, <Code>CLEAR PLAN</Code>, <Code>REVIEW PLAN</Code>,{' '}
   <Code>VERIFY WORK</Code>, <Code>CUSTOM REVIEW</Code>. Cluster-specific
   omissions: no DETACH / PROMOTE / MOVE / DONE (the cluster plan is the
   cluster plan - these do not apply).
@@ -1460,7 +1474,7 @@ export const clusters: Section[] = [
   <h4 className="manual-sub">Session expiry and re-arm</h4>
   <p>
     Each Smart arming starts a
-  new session. Set <strong>Armed session length</strong> under
+  new session. Set <strong>Armed session length</strong> under{' '}
   <strong> AUTO-PICKUP &gt; LIMITS</strong> before arming: 5 to 240 minutes,
   default 30. The dialog shows minutes remaining and the end time. When
   the session ends, or after a restart whose budget ledger cannot be read,
@@ -1839,7 +1853,7 @@ export const clusters: Section[] = [
   <Code>DISPATCHER</Code> row.
   </p>
   <p>
-  <strong>DISPATCH ONCE</strong> runs one operator-clicked sweep over
+  <strong>DISPATCH ONCE</strong> runs one operator-clicked sweep over{' '}
   <Code>ready</Code> tasks. It fires only tasks that already have an
   explicit idle assignee in the cluster, records a run before starting
   the member&apos;s turn, and logs skipped ready tasks with reason codes.
@@ -1968,7 +1982,7 @@ export const clusters: Section[] = [
   and use the warning colour; ASKED is muted.
   </li>
   <li>
-  Click the badge to jump to a task or member. In Narrow layout, the compact
+  Click the badge to jump to a task or member. In Narrow layout, the compact{' '}
   <Code> ! count</Code> includes only WAITING and BLOCKED; optional-only items
   show a plain muted number. Opening the member list moves the summary into
   its header. Choosing a task opens BOARD and closes the member list.
@@ -2268,7 +2282,7 @@ export const clusters: Section[] = [
   body: (
   <>
   <p>
-  The MAILBOX sub-tab shows one row per member with a pending count. Context is read once per sender through live and sealed history, retaining only a bounded latest delivered-reply fact from history.
+  The MAILBOX sub-tab shows one row per member with a pending count.
   Click a row to open the <strong>mailbox modal</strong> and inspect or
   cancel undrained peer messages.
   </p>
@@ -2360,7 +2374,7 @@ export const clusters: Section[] = [
   </p>
   <p>
   Server-side this <strong>bypasses the per-turn budget and the
-  60-second dedupe window</strong> that constrain model-issued
+  60-second dedupe window</strong> that constrain model-issued{' '}
   <Code>peer_send</Code> - the operator is in direct control, and
   two clicks on SEND are presumed intentional.{' '}The recipient sees
   no difference between an operator-driven and a model-driven send;

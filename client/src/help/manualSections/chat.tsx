@@ -48,7 +48,7 @@ export const chat: Section[] = [
   message on the same provider. The history carries over.
   </li>
   <li>
-  <strong>WEB</strong> turns on web search and fetch, including Native
+  <strong>WEB</strong> turns on web search and fetch, including Native{' '}
   <Code>read_url</Code> for public image and document links. Antigravity CLI
   uses its own tools and does not have this WEB toggle.
   </li>

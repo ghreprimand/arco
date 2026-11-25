@@ -357,10 +357,10 @@ codex exec resume <thread-id> "next prompt"
   </p>
   <Sub>Save a plan in an existing folder</Sub>
   <p>
-  An existing-folder Genesis draft follows the same stages. <Code>SAVE PLAN</Code>
+  An existing-folder Genesis draft follows the same stages. <Code>SAVE PLAN</Code>{' '}
   saves a checklist and reference documents for the concept, case, build direction,
   first steps and generated spec. <Code>SPEC.md</Code> and <Code>TODO.md</Code> are
-  created only when missing. Existing files stay unchanged; <Code>README.md</Code>
+  created only when missing. Existing files stay unchanged; <Code>README.md</Code>{' '}
   is not written. Generated content remains in the references.
   </p>
   <p>

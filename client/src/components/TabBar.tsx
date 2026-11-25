@@ -512,6 +512,7 @@ function ClusterCloseConfirm({
     >
       <div
         ref={surface}
+        data-help="tabbar.cluster-close"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-bg-elevated)',
@@ -580,7 +581,7 @@ function ClusterCloseConfirm({
           >
             CLOSE CLUSTER + {memberCount} MEMBER{memberCount === 1 ? '' : 'S'}
             <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', letterSpacing: '0.5px', marginTop: '3px', textTransform: 'none' }}>
-              Removes every member workflow tab and cancels running turns. Worker state on disk is preserved per the usual remove_workflow path.
+              Closes every member tab and cancels running turns. Their saved conversations stay on disk.
             </div>
           </button>
           <button
@@ -763,6 +764,7 @@ function SortableClusterTab({ cluster, isActive, onActivate, onClose }: ClusterT
         onPointerDown={(e) => e.stopPropagation()}
         onClick={onClose}
         aria-label={`Delete cluster ${label}`}
+        data-help="tabbar.cluster-close"
         style={{
           background: 'none',
           border: 'none',

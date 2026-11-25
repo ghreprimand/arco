@@ -49,12 +49,16 @@ export const tabbarHelp: Record<string, HelpEntry> = {
     title: 'New workflow',
     body: (
       <p>
-        Opens the creator: SINGLE WORKFLOW, CHAT, CLUSTER or GENESIS. Project
+        Opens the creator: SINGLE WORKFLOW, CHAT, CLUSTER, GENESIS or RESEARCH. Project
         agents need a cwd; Chat does not. Choose provider, model and supported effort.
         Keyboard shortcut: <C>Ctrl/Cmd+K</C> when focus is outside an input or textarea.
       </p>
     ),
     manualSection: 'creating-workflow',
+  },
+  'tabbar.cluster-close': {
+    title: 'Tear down a cluster', manualSection: 'cluster-tab',
+    body: <p>The <C>×</C> on a cluster tab opens TEAR DOWN CLUSTER. <C>KEEP MEMBERS WORKING</C> deletes the cluster and leaves each member as an ordinary tab; peer tools drop on its next turn. <C>CLOSE CLUSTER + N MEMBERS</C> also closes every member tab and cancels running turns. Either way the cluster is deleted and cannot be reopened from CLOSED CLUSTERS; saved conversations stay on disk and reopen from PAST CHATS or RESUME. <C>CANCEL</C> keeps everything. A research project has its own close.</p>,
   },
   'tabbar.cluster': {
     title: 'Cluster tab',

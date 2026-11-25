@@ -31,7 +31,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'layout.right-strip': {
     title: 'Side panel strip',
-    body: <p>In the narrow layout the right panel folds into this strip. Each button opens the panel over the chat at that tab (BOARD, PLAN or FILES in a cluster; FILES, PLAN or MEMORY in a single tab); MORE opens it at the tab used last. Nothing is removed: every tab is still there.</p>,
+    body: <p>In the narrow layout the right panel folds into this strip. Each button opens the panel over the chat at that tab (BOARD, PLAN or FILES in a cluster; FILES, PLAN or KNOWLEDGE in a single tab); MORE opens it at the tab used last. Nothing is removed: every tab is still there.</p>,
     manualSection: 'window-layout',
   },
   'mobile.open': {
@@ -91,7 +91,7 @@ export const miscHelp: Record<string, HelpEntry> = {
   },
   'mobile.panels': {
     title: 'Panels',
-    body: <p>Opens a sheet with this tab's panels (files, plan, board, memory), ALL PANELS, a terminal, CATCH ME UP, Settings, notices, the manual, Recall, Media, System, All plans and Artifacts. Home and New tab are in the list of tabs. A panel opens as a page named in the header and scrolls as one surface; the header's back arrow, the phone's Back or a member name returns to the conversation and draft. ALL PANELS lists every page of the tab's side panel, with rarely used pages under MORE and, for a cluster, its settings. A page's own actions are under the header's ... button, and its main action, such as adding a member, is the header's + button. All plans and Artifacts open in a new browser tab.</p>,
+    body: <p>Opens a sheet with this tab's panels (BOARD, PLAN and FILES in a cluster; FILES, PLAN and KNOWLEDGE in a single tab; RESULTS and ACTIVITY in a research project), ALL PANELS, a terminal, CATCH ME UP, Settings, notices, the manual, Recall, Media, System, All plans and Artifacts. Home and New tab are in the list of tabs. A panel opens as a page named in the header and scrolls as one surface; the header's back arrow, the phone's Back or a member name returns to the conversation and draft. ALL PANELS lists every page of the tab's side panel, with rarely used pages under MORE and, for a cluster, its settings. A page's own actions are under the header's ... button, and its main action, such as adding a member, is the header's + button. All plans and Artifacts open in a new browser tab.</p>,
     manualSection: 'window-layout',
   },
   'plan.phone': {
@@ -345,7 +345,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         to open the viewer. A filtered-output chip can copy the raw output path.
       </p>
       <p>Claude Native Read shows fitted images and document ranges, including in Task helpers. The card names the file, type, dimensions or pages. After reload, Native retains MCP media receipts with the original tool name and input for requesting the result again. Use <C>pages</C> for PDF pages, sheets, slides, notebook cells or Word sections. Notebook SVG outputs include source and a fitted image; unsupported rich outputs leave a cell-numbered receipt. Office files become text, scanned pages become images, and unsupported binaries receive a note. No converter installation is needed. UTF-8 and byte-order-marked UTF-16 text are recognized. Non-UTF-8 text without NUL bytes and with fewer than 1% unexpected control bytes per 16 KiB chunk is decoded as Windows-1252 and marked. Line ranges apply to the decoded text. A selected text range containing NUL bytes receives a binary-file note, including when those bytes occur after the initial header.</p><p>AVIF is fitted like other images. ICO uses its largest image. SVG supplies source text and a fitted preview without scripts, external resources or system fonts. Text requiring a font may be absent from the preview.</p>
-      <p>Native <C>read_url</C>, local <C>WebFetch</C> and the CLI file server&apos;s read-only <C>fetch_file</C>
+      <p>Native <C>read_url</C>, local <C>WebFetch</C> and the CLI file server&apos;s read-only <C>fetch_file</C>{' '}
       read public HTTP(S) images and documents through Arco. Images are fitted;
       PDFs provide selected text or scanned-page images. Use <C>pdf_mode=visual</C> with <C>pages</C> for PDF layout or figures. Use <C>pages</C> for a
       range. Private addresses, unsafe redirects, oversized sources and expired
@@ -678,7 +678,7 @@ export const miscHelp: Record<string, HelpEntry> = {
           <strong>Build my own</strong> keeps the member list as it is.
         </p>
         <p>
-          Choosing a shape opens a review. Each member shows its role, a
+          Choosing a shape opens a review. Each member shows its role, a{' '}
           <strong>Recommended model:</strong> line in words (for example
           &quot;Heavy or Standard model, MEDIUM or HIGH effort&quot;) with a
           short reason. When a role appears more than once, each such member has
@@ -957,7 +957,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         accepts through <C>OLLAMA_MAX_LOADED_MODELS</C> and{' '}
         <C>OLLAMA_NUM_PARALLEL</C>; llama.cpp through how its server was
         started. Ollama and llama.cpp members together are limited by the
-        larger setting. The server enforces this on create, add and replace;
+        larger setting. The server enforces this on create, add and replace;{' '}
         <C>ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1</C> lifts it.
       </p>
     ),
@@ -973,7 +973,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         disables reasoning; high maps to Qwen xhigh), and other local models expose low/high as a thinking toggle.
         Higher effort = more thinking tokens = more cost /
         more time. <b>Cursor</b> has no separate effort here: it's baked into
-        the model id, so set it in the MODEL picker above. New work starts at
+        the model id, so set it in the MODEL picker above. New work starts at{' '}
         <C>high</C> at most: saved defaults, templates, presets, new members and
         replacements are capped there. XHIGH and MAX apply only when clicked
         (or by Ultracode), and reset to HIGH with a note when the model or
@@ -1352,7 +1352,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <p>
         The agent's next reply will be its draft of the plan. A banner
         appears offering <C>SAVE & ATTACH</C> and <C>REFINE</C>: read first,
-        ask for changes, save only if happy. In a cluster, the save action is
+        ask for changes, save only if happy. In a cluster, the save action is{' '}
         <C>ATTACH TO CLUSTER</C>.
       </p>
     ),
@@ -1470,10 +1470,10 @@ export const miscHelp: Record<string, HelpEntry> = {
     title: 'Verify work',
     body: (
       <p>
-        Spawns a reviewer over the plan in <C>VERIFY</C> mode with
+        Spawns a reviewer over the plan in <C>VERIFY</C> mode with{' '}
         <C>INCLUDE GIT DIFF</C> pre-ticked. Only <C>[x]</C> items are
         shown, framed as the worker's claimed-completed work; the reviewer
-        cross-checks each claim against the actual <C>git diff HEAD</C>
+        cross-checks each claim against the actual <C>git diff HEAD</C>{' '}
         and the code in the tree using its tools. Partial-completion
         signals (a <C>[x]</C> parent with <C>[ ]</C> subtasks) get flagged.
       </p>
@@ -1499,7 +1499,7 @@ export const miscHelp: Record<string, HelpEntry> = {
       <><p>
         Long-form docs attached to this plan (<C>.arco/plans/&lt;id&gt;.refs/</C>).
         Keep the plan a checklist and link detail from a task as{' '}
-        <C>[label](ref:slug)</C>: the link renders as a chip that opens the doc.
+        <C>[label](ref:slug)</C>: the link renders as a chip that opens the doc.{' '}
         <C> + REF</C> adds one; the viewer edits or deletes it. Agents write refs
         with <C>plan_ref_write</C>, and are told to read the refs a task links
         before working it. Reference deletion through HTTP requires the operator browser session; agent reference reads and writes remain available.
@@ -1797,7 +1797,7 @@ export const miscHelp: Record<string, HelpEntry> = {
           branch, the tab working there if any, how many commits it is ahead of
           and behind the default branch, the number of uncommitted files in a
           checked-out worktree, and its open pull request when the GitHub CLI is
-          available. Without it, or offline, pull requests are simply not shown.
+          available. Without it, or offline, pull requests are simply not shown.{' '}
           <C>[deleted on remote]</C> marks an upstream missing as of the last
           fetch; this list does not fetch or delete it.
         </p>
@@ -1858,7 +1858,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Opens a <strong>fresh</strong> shell session in a new floating window
-        (§K2: several sessions per workflow: a dev server in one, commands in
+        (several sessions per workflow: a dev server in one, commands in
         another). Unlike the header / Files launchers, this always spawns a new
         session rather than re-attaching the existing one. Each session outlives
         its window; only <em>Kill</em> ends it.
@@ -1873,7 +1873,7 @@ export const miscHelp: Record<string, HelpEntry> = {
         Detaches this shell into its own OS-level browser window (drag it to a
         second monitor / tile it). The pop-out attaches to the{' '}
         <em>same live session</em>: typing in either window drives the same
-        shell (§K2 multi-listener). It never spawns a new session, and closing
+        shell. It never spawns a new session, and closing
         the pop-out just detaches that view; the shell keeps running until you{' '}
         <em>Kill</em> it. This in-app window stays open too. The session is gone
         if the server restarts (PTYs don't survive one).
@@ -2160,8 +2160,8 @@ export const miscHelp: Record<string, HelpEntry> = {
         The llama.cpp lifecycle manager: the <C>llama-server</C> binary path (uses <C>ARCO_LLAMACPP_BIN</C> when configured; otherwise searches PATH),
         registered loadouts (from <C>~/.arco/llamacpp.json</C>), the manager
         state (idle/loading/ready/failed), the currently-loaded alias + port +
-        pid, the <strong>last launch args</strong>, and a tail of the last
-        <C> ~/.arco/llamacpp.log</C> stderr. A dead server clears ready state and can be loaded again on the next request. A failed last launch is the one
+        pid, the <strong>last launch args</strong>, and a tail of the last{' '}
+        <C> ~/.arco/llamacpp.log</C> stderr. A dead server clears ready state and can be loaded again on the next request. A failed last launch is the one{' '}
         <strong> ERROR</strong> case; the stderr tail is where to look.
       </p>
     ),
@@ -2303,7 +2303,10 @@ export const miscHelp: Record<string, HelpEntry> = {
           Manual for deeper coverage.
         </p>
         <p>
-          Press <C>Esc</C> or choose <C>EXIT POINT AT THINGS</C> to exit.
+          Press <C>Esc</C> or choose <C>EXIT POINT AT THINGS</C> to exit. In
+          the mobile view, POINT AT THINGS is the first row of MANUAL (in
+          PANELS); tap a control to read about it, and <C>EXIT</C> in the bar
+          at the top ends it.
         </p>
       </>
     ),

@@ -60,7 +60,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
     title: 'Unload the file',
     body: (
       <p>Unloading cancels active conversion and stem-separation jobs.
-        Drop the current source and return to the <strong>Import</strong>
+        Drop the current source and return to the <strong>Import</strong>{' '}
         affordance: <em>without</em> closing the studio or switching mode. Any
         imported blob is released; an on-disk file is just unbound (the file on
         disk is untouched). Handy for loading a different file in the same mode.
@@ -151,7 +151,7 @@ export const mediaHelp: Record<string, HelpEntry> = {
       <p>
         Opens this <strong>generated image</strong> (produced by a Codex{' '}
         <C>image_generation_call</C> and saved into the workflow cwd) straight in
-        the <strong>raster editor</strong>: the same H2 editor as right-click →
+        the <strong>raster editor</strong>: the same editor as right-click →
         Edit in <strong>FILES</strong>. From there you can edit and re-save through
         the guarded write path. The image is already on disk; no separate API key
         or billing is involved (it rides the Codex subscription).

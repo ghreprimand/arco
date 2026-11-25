@@ -68,9 +68,9 @@ export const providers: Section[] = [
   <p>Native and local Read use bounded chunks and refuse special files. Their text output caps remain 256 KiB and 32 KiB. Native also recognizes byte-order-marked UTF-16 text. Use offset and limit for later lines.</p>
   <p>Non-UTF-8 text without NUL bytes and with fewer than 1% unexpected control bytes per 16 KiB chunk is decoded as Windows-1252 with a short notice. Line ranges apply to the decoded text. Control-heavy data remains a binary-file note.</p>
   <p>A selected range containing NUL bytes receives a binary-file note even after a text-only header. Grep skips binary files, including control-heavy legacy data, searches UTF-8, UTF-16 and Windows-1252 text, and reports shortened long lines. Native ripgrep keeps later text matches when it reports a binary file.</p>
-  <p>Local WebFetch and the CLI file server&apos;s read-only <Code>fetch_file</Code>
+  <p>Local WebFetch and the CLI file server&apos;s read-only <Code>fetch_file</Code>{' '}
   tool share a public HTTP(S) reader. Images are fitted; documents provide
-  decoded text and scanned PDF pages provide images. Use <Code>pages</Code>
+  decoded text and scanned PDF pages provide images. Use <Code>pages</Code>{' '}
   for a selected range. Text downloads stop at 128 KiB; media sources have
   a 512 MiB cap. Private addresses and unsafe redirects are refused.</p>
   <p>MCP tool responses retain up to 20 decoded image blocks; PDF resources are decoded to text and scanned-page images. Encoded text resources do not consume that count. Provider request guards count PDF pages separately.</p>
@@ -338,7 +338,7 @@ export const providers: Section[] = [
   retry is idempotent.
   </li>
   <li>
-  <strong>Rate-limit header parsing (H10, Native).</strong> When the server
+  <strong>Rate-limit header parsing (Native).</strong> When the server
   sends a timing hint (<Code>retry-after</Code> /{' '}
   <Code>anthropic-ratelimit-*-reset</Code>), the parsed header sizes the wait
   instead of the fixed ladder. The wait is capped at 5 minutes
@@ -1105,7 +1105,7 @@ export const providers: Section[] = [
   separate.
   </p>
   <p>
-  See the manual sections <strong>Strata MoE - RAM, VRAM and context</strong>
+  See the manual sections <strong>Strata MoE - RAM, VRAM and context</strong>{' '}
   and <strong>Strata - switching, FREE VRAM and recovery</strong>, or open
   the full runbook: <DocRef>docs/STRATA.md</DocRef>.
   </p>
