@@ -145,6 +145,9 @@ test('process inspection retries a cold failure once and remains fail-closed', a
 test('a stalled process probe returns after the timeout', async () => {
   const result = await runWindowsProbe(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { timeout: 100 });
   assert.match(result.error.message, /timed out/);
+  assert.equal(result.error.code, 'ETIMEDOUT');
+  const oversized = await runWindowsProbe(process.execPath, ['-e', 'process.stdout.write("x".repeat(4097))']);
+  assert.equal(oversized.error.code, 'EOVERFLOW');
 });
 
 test('managed update snapshots the recorded service pid before stopping', async (t) => {

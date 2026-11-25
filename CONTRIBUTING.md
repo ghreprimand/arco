@@ -161,6 +161,12 @@ broadcasts, or persisted store fields should include a descriptive scenario
 under `scripts/smoke/` and a matching `smoke:<feature>` script in `package.json`.
 Keep fixtures synthetic and isolate provider calls.
 
+The Windows package smoke uses a temporary launcher and loopback listener in
+place of a registered scheduled task. On a service-stop failure, its
+`Windows service smoke:` line gives the probe steps, exit codes, known
+failure markers and fixture liveness. It omits command lines, paths and
+environment values.
+
 Metadata writes also open the process-wide Recall index. The existing
 `trackRecallFixture()` helper in
 `server/src/testSupport/recallFixture.test-support.ts` tracks its projections

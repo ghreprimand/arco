@@ -30,7 +30,24 @@ export function windowsScriptHost(env = process.env) {
   return `${(env.SystemRoot || env.SYSTEMROOT || 'C:\\Windows').replace(/[\\/]+$/, '')}\\System32\\wscript.exe`;
 }
 export const WINDOWS_LAUNCHER = "var a = WScript.Arguments, c = [], i;\r\nfor (i = 0; i < a.length; i++) c.push('\"' + a(i) + '\"');\r\nWScript.Quit(new ActiveXObject('WScript.Shell').Run(c.join(' '), 0, true));\r\n";
-export const WINDOWS_END_TREE = String.raw`$ErrorActionPreference='Stop'; $m=$env:ARCO_SERVICE_MARK; if (-not $m) { exit 1 }; $configPattern='(?i)(?:^|\s|")' + [Regex]::Escape($m) + '(?:"|\s|$)'; $candidates=@(Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and ($_.Name -eq 'node.exe' -or $_.Name -eq 'wscript.exe') }); if (@($candidates | Where-Object { [String]::IsNullOrWhiteSpace([string]$_.CommandLine) }).Count -gt 0) { throw 'Cannot inspect process command lines.' }; $candidates | Where-Object { $_.CommandLine -match '(?i)(?:^|[\\/\s"])arco\.mjs"?\s+"?service-run"?(?:\s|$)' -and $_.CommandLine -match $configPattern } | ForEach-Object { $id=$_.ProcessId; $ErrorActionPreference='Continue'; & taskkill.exe /PID $id /T /F 2>$null | Out-Null; $ErrorActionPreference='Stop'; if ($LASTEXITCODE -ne 0) { $alive=@([System.Diagnostics.Process]::GetProcesses() | Where-Object { $_.Id -eq $id }); if ($alive.Count -gt 0) { throw 'Could not stop the service process.' } } }; exit 0`;
+export const WINDOWS_END_TREE = String.raw`
+$ErrorActionPreference='Stop'
+$m=$env:ARCO_SERVICE_MARK
+if (-not $m) { Write-Output 'missing-service-mark'; exit 1 }
+$configPattern='(?i)(?:^|\s|")' + [Regex]::Escape($m) + '(?:"|\s|$)'
+try { $candidates=@(Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and ($_.Name -eq 'node.exe' -or $_.Name -eq 'wscript.exe') }) } catch { Write-Output 'cim-query-failed'; throw }
+if (@($candidates | Where-Object { [String]::IsNullOrWhiteSpace([string]$_.CommandLine) }).Count -gt 0) { Write-Output 'unreadable-command-line'; throw 'Cannot inspect process command lines.' }
+$matching=@($candidates | Where-Object { $_.CommandLine -match '(?i)(?:^|[\\/\s"])arco\.mjs"?\s+"?service-run"?(?:\s|$)' -and $_.CommandLine -match $configPattern })
+if ($matching.Count -eq 0) { Write-Output 'no-service-process-matched' }
+$matching | ForEach-Object {
+  $id=$_.ProcessId
+  $ErrorActionPreference='Continue'
+  & taskkill.exe /PID $id /T /F 2>$null | Out-Null
+  $ErrorActionPreference='Stop'
+  if ($LASTEXITCODE -ne 0) { $alive=@([System.Diagnostics.Process]::GetProcesses() | Where-Object { $_.Id -eq $id }); if ($alive.Count -gt 0) { Write-Output 'service-process-survived'; throw 'Could not stop the service process.' } }
+}
+exit 0
+`;
 export const windowsLauncherPath = (config) => join(dirname(config), 'launch.js');
 export function renderService(platform, { node, entry, config, home, user, env = process.env }) {
   const args = [node, entry, 'service-run', config];
@@ -80,7 +97,7 @@ export function runWindowsProbe(command, args, { timeout = 30_000, env = process
     const finish = (result) => { if (finished) return; finished = true; clearTimeout(timer); resolveResult(result); };
     try { child = spawn(command, args, { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], env }); }
     catch (error) { finish({ error }); return; }
-    child.stdout.on('data', (chunk) => { output += chunk.toString(); if (output.length > 4096) { child.stdout.destroy(); child.kill(); finish({ error: new Error('Process inspection output was too large.') }); } });
+    child.stdout.on('data', (chunk) => { output += chunk.toString(); if (output.length > 4096) { child.stdout.destroy(); child.kill(); finish({ error: Object.assign(new Error('Process inspection output was too large.'), { code: 'EOVERFLOW' }) }); } });
     child.once('error', (error) => finish({ error }));
     child.once('close', (status) => finish({ status, stdout: output }));
     timer = setTimeout(() => { child.stdout.destroy(); try { child.kill(); } catch { /* already gone */ } child.unref(); finish({ error: Object.assign(new Error('Process inspection timed out.'), { code: 'ETIMEDOUT' }) }); }, timeout);

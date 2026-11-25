@@ -152,38 +152,100 @@ try {
     writeFileSync(script, `require('fs').writeFileSync(process.argv[2], 'ok');\n`);
     const launcher = join(dirname(unitPaths.config), 'launch.js');
     if (!existsSync(launcher)) throw new Error('The service launcher was not written at install.');
-    const ran = spawnSync(serviceModule.windowsScriptHost(process.env), ['//B', '//Nologo', launcher, process.execPath, script, marker], { encoding: 'utf8', timeout: 30000, windowsHide: true });
+    const ran = spawnSync(serviceModule.windowsScriptHost(env), ['//B', '//Nologo', launcher, process.execPath, script, marker], { encoding: 'utf8', timeout: 30000, windowsHide: true, env });
     if (!existsSync(marker)) throw new Error(`The service launcher did not run node (status ${ran.status}, signal ${ran.signal}, error ${ran.error?.code ?? 'none'}).`);
     // Ending the task kills only wscript.exe, so the real stop path must also end node and free the port.
     // Run a stand-in service through the launcher with the same command-line shape as service-run, simulate /End
     // by killing only the launcher process, then run the real stop code and require both processes gone.
-    const holder = join(spaced, 'arco.mjs'), pidFile = join(spaced, 'holder.pid');
-    writeFileSync(holder, `import { createServer } from 'node:net'; import { writeFileSync } from 'node:fs'; const s = createServer().listen(0, '127.0.0.1', () => writeFileSync(${JSON.stringify(pidFile)}, process.pid + ' ' + s.address().port));\nsetInterval(() => {}, 1000);\n`);
-    const host = spawn(serviceModule.windowsScriptHost(process.env), ['//B', '//Nologo', launcher, process.execPath, holder, 'service-run', unitPaths.config], { stdio: 'ignore', windowsHide: true });
-    let held = ''; for (let i = 0; i < 100 && !held; i++) { if (existsSync(pidFile)) held = readFileSync(pidFile, 'utf8'); else await new Promise((ok) => setTimeout(ok, 200)); }
-    const [nodePid, heldPort] = held.split(' ').map(Number);
-    if (!nodePid) throw new Error('The stand-in service did not start through the launcher.');
-    const clearRecordedPid = serviceModule.writeWindowsServicePid(env.ARCO_HOME, nodePid);
-    const { waitForRecordedPid } = await import(pathToFileURL(join(packageRoot, 'scripts/packaging/update.mjs')).href);
-    const isAlive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+    const holder = join(spaced, 'arco.mjs');
+    const pidFile = join(spaced, 'holder.pid');
+    const stopFile = join(spaced, 'holder.stop');
+    writeFileSync(holder, `
+import { createServer } from 'node:net';
+import { existsSync, writeFileSync } from 'node:fs';
+const server = createServer().listen(0, '127.0.0.1', () => writeFileSync(${JSON.stringify(pidFile)}, process.pid + ' ' + server.address().port));
+setInterval(() => { if (existsSync(${JSON.stringify(stopFile)})) process.exit(0); }, 100);
+setTimeout(() => process.exit(0), 180_000);
+`);
+    const host = spawn(serviceModule.windowsScriptHost(env), ['//B', '//Nologo', launcher, process.execPath, holder, 'service-run', unitPaths.config], { stdio: 'ignore', windowsHide: true, env });
+    const isAlive = (pid) => { if (!pid) return false; try { process.kill(pid, 0); return true; } catch { return false; } };
+    const outcomes = [];
+    const probeCodes = ['ETIMEDOUT', 'EOVERFLOW', 'ENOENT', 'EACCES', 'EPERM'];
+    const treeMarkers = ['missing-service-mark', 'cim-query-failed', 'unreadable-command-line', 'service-process-survived', 'no-service-process-matched'];
+    const probeCode = (error) => probeCodes.includes(error?.code) ? error.code : error ? 'other' : 'none';
+    let nodePid, heldPort, clearRecordedPid, unrelated, launcherError, unrelatedError;
+    host.on('error', (error) => { launcherError = error; });
     const portFree = () => new Promise((ok) => { const probe = createServer(); probe.once('error', () => ok(false)); probe.listen(heldPort, '127.0.0.1', () => probe.close(() => ok(true))); });
-    if (await portFree()) throw new Error('The stand-in service is not holding its port.');
-    const stopRun = async (cmd, args, options = {}) => cmd === 'schtasks.exe'
-      ? serviceModule.runWindowsProbe('taskkill.exe', ['/PID', String(host.pid), '/F'], { timeout: 30000, env })
-      : serviceModule.runWindowsProbe(cmd, args, options);
-    // An unrelated Node process mentioning the same config path must survive.
-    const unrelated = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)', unitPaths.config], { stdio: 'ignore', windowsHide: true });
+    const launcherAlive = () => host.exitCode === null && host.signalCode === null && isAlive(host.pid);
+    const stopRun = async (cmd, args, options = {}) => {
+      const endTask = cmd === 'schtasks.exe';
+      const endTree = args.at(-1) === serviceModule.WINDOWS_END_TREE;
+      let step, result;
+      if (endTask) {
+        step = 'end-launcher';
+        result = launcherAlive()
+          ? await serviceModule.runWindowsProbe('taskkill.exe', ['/PID', String(host.pid), '/F'], { timeout: 30000, env })
+          : { status: 1 };
+      } else if (endTree) {
+        step = 'stop-process-tree';
+        result = await serviceModule.runWindowsProbe(cmd, args, options);
+      } else {
+        // This smoke never registers a scheduled task. Report only the fixture's state.
+        step = 'fixture-task-state';
+        result = { status: 0, stdout: launcherAlive() ? 'Running' : 'Ready' };
+      }
+      const marker = endTree ? result.stdout?.trim() : '';
+      outcomes.push({
+        step,
+        status: Number.isInteger(result.status) ? result.status : null,
+        code: probeCode(result.error),
+        ...(treeMarkers.includes(marker) ? { marker } : {}),
+        ...(step === 'fixture-task-state' ? { state: result.stdout } : {}),
+      });
+      return result;
+    };
     try {
-      if (!unrelated.pid || !isAlive(unrelated.pid)) throw new Error('The unrelated process fixture did not start.');
+      for (let i = 0; i < 100 && !launcherError; i++) {
+        const ready = existsSync(pidFile) && /^(\d+) (\d+)$/.exec(readFileSync(pidFile, 'utf8'));
+        if (ready) { nodePid = Number(ready[1]); heldPort = Number(ready[2]); break; }
+        if (host.exitCode !== null || host.signalCode !== null) break;
+        await new Promise((ok) => setTimeout(ok, 200));
+      }
+      if (!nodePid || !heldPort) throw new Error('The stand-in service did not start through the launcher.');
+      clearRecordedPid = serviceModule.writeWindowsServicePid(env.ARCO_HOME, nodePid);
+      const { waitForRecordedPid } = await import(pathToFileURL(join(packageRoot, 'scripts/packaging/update.mjs')).href);
+      if (await portFree()) throw new Error('The stand-in service is not holding its port.');
+      // An unrelated Node process mentioning the same config path must survive.
+      unrelated = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)', unitPaths.config], { stdio: 'ignore', windowsHide: true, env });
+      unrelated.on('error', (error) => { unrelatedError = error; });
+      if (!isAlive(unrelated.pid)) throw new Error('The unrelated process fixture did not start.');
       await serviceModule.serviceAction('stop', { platform: 'win32', paths: unitPaths, env: { ...env, USERNAME: 'Fixture', USERDOMAIN: 'LOCAL' }, run: stopRun });
-      for (let i = 0; i < 50 && (isAlive(nodePid) || isAlive(host.pid)); i++) await new Promise((ok) => setTimeout(ok, 200));
-      if (isAlive(nodePid)) { try { process.kill(nodePid); } catch {} throw new Error('Stopping the service left the Node process running.'); }
-      if (isAlive(host.pid)) throw new Error('Stopping the service left the launcher running.');
+      for (let i = 0; i < 50 && (isAlive(nodePid) || launcherAlive()); i++) await new Promise((ok) => setTimeout(ok, 200));
+      if (isAlive(nodePid)) throw new Error('Stopping the service left the Node process running.');
+      if (launcherAlive()) throw new Error('Stopping the service left the launcher running.');
       if (!isAlive(unrelated.pid)) throw new Error('Stopping the service killed an unrelated Node process.');
       if (await waitForRecordedPid(nodePid)) throw new Error('The recorded service process remained live after stop.');
-      clearRecordedPid();
       if (!(await portFree())) throw new Error('Stopping the service did not free the port.');
-    } finally { try { unrelated.kill(); } catch {} }
+    } catch (error) {
+      console.error('Windows service smoke:', JSON.stringify({
+        outcomes,
+        pidFileWritten: existsSync(pidFile),
+        launcherAlive: launcherAlive(),
+        launcherError: probeCode(launcherError),
+        serviceAlive: isAlive(nodePid),
+        unrelatedAlive: isAlive(unrelated?.pid),
+        unrelatedError: probeCode(unrelatedError),
+        portFree: heldPort ? await portFree() : null,
+      }));
+      throw error;
+    } finally {
+      // Only the fixture watches this marker. Its own deadline also covers a failed cleanup.
+      writeFileSync(stopFile, '');
+      for (let i = 0; i < 20 && (isAlive(nodePid) || launcherAlive()); i++) await new Promise((ok) => setTimeout(ok, 100));
+      if (launcherAlive()) host.kill();
+      clearRecordedPid?.();
+      unrelated?.kill();
+    }
     const def = readFileSync(unitPaths.unit).toString('utf16le');
     if (!/wscript\.exe<\/Command><Arguments>\/\/B \/\/Nologo /.test(def)) throw new Error('The service definition does not use the windowless launcher.');
   }
