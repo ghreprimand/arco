@@ -7,7 +7,7 @@ import { snapshot } from './workspace.js';
 import { workflows } from './server/state.js';
 import { scanStorage, type StorageBucketName, type StorageFile } from './storageReport.js';
 import { archiveConversation, listArchives } from './storageArchive.js';
-import { atomicWriteFile } from './atomicFile.js';
+import { atomicWriteFile, withFileLock } from './atomicFile.js';
 import { readKeep, isKept } from './keepStore.js';
 
 // The all-projects STORAGE view, the disk-budget notice and the optional
@@ -41,9 +41,15 @@ export function sanitizePolicy(v: Partial<StoragePolicy>): StoragePolicy {
 }
 
 export async function writePolicy(patch: Partial<StoragePolicy>): Promise<StoragePolicy> {
-  const next = sanitizePolicy({ ...(await readPolicy()), ...patch });
-  await atomicWriteFile(policyPath(), JSON.stringify(next, null, 2) + '\n');
-  return next;
+  // One save at a time: two overlapping partial updates (the budget and the
+  // auto-archive rule) would otherwise both read the old file and the later
+  // write would drop the earlier value.
+  const file = policyPath();
+  return withFileLock(file, async () => {
+    const next = sanitizePolicy({ ...(await readPolicy()), ...patch });
+    await atomicWriteFile(file, JSON.stringify(next, null, 2) + '\n');
+    return next;
+  });
 }
 
 export function openWorkflowIds(): Set<string> {

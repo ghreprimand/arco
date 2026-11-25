@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Saving the storage disk budget and the auto-archive rule at nearly the same time no longer loses one of the two values.
+
 - Restore Docker startup when npm leaves server dependencies in the server workspace after pruning.
 
 - Added Smart: Automatic presets and a configurable chain-depth limit.

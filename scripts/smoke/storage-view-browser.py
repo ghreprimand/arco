@@ -58,7 +58,10 @@ async def main():
             await expect(project).to_be_visible()
             # The sparse 2 GiB image passes a 1 GiB budget.
             await page.get_by_text('STORAGE SETTINGS').click()
-            budget = page.get_by_label('Disk budget in GiB'); await budget.fill('1'); await budget.blur()
+            budget = page.get_by_label('Disk budget in GiB'); await budget.fill('1')
+            async with page.expect_response(lambda r: r.url.endswith('/api/storage/policy') and r.request.method == 'POST') as saved:
+                await budget.blur()
+            assert (await saved.value).ok
             await page.get_by_label('Days closed before archiving').fill('45')
             auto = page.get_by_role('checkbox').first
             await auto.click(); await expect(auto).to_be_checked()
