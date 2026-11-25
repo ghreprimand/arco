@@ -141,7 +141,7 @@ type Msg = Record<string, unknown>;
 interface Socket { ws: WebSocket; messages: Msg[]; seen(): string; waitFor(pred: (m: Msg) => boolean, ms?: number): Promise<Msg | undefined>; close(): Promise<void> }
 
 class Instance {
-  readonly root = realpathSync(mkdtempSync(path.join(tmpdir(), 'arco-isolation-')));
+  readonly root = realpathSync.native(mkdtempSync(path.join(tmpdir(), 'arco-isolation-')));
   readonly home = path.join(this.root, 'home');
   readonly scratch = path.join(this.root, 'tmp');
   readonly uploads = path.join(this.root, 'uploads');

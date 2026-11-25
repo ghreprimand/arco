@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import * as clusterMailbox from '../clusterMailbox.js';
 import * as clusterPeerOps from '../clusterPeerOps.js';
@@ -129,7 +129,7 @@ test('a fenced researcher, Gemini included, cannot see the research folder, anot
     const hidden = workerHiddenDirectories(cluster);
     assert.ok(hidden.includes(p.folder), 'reports are released into the research folder');
     assert.ok(hidden.includes(clusterStore.isolatedWorkspaceFor(p.clusterId, p.b)), 'another researcher\'s workspace');
-    assert.ok(hidden.some((dir) => geminiResearchRoot().startsWith(dir + '/')), 'the stored research sign-in');
+    assert.ok(hidden.some((dir) => geminiResearchRoot().startsWith(dir + sep)), 'the stored research sign-in');
   } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
 });
 

@@ -1,7 +1,7 @@
 // Aggregate fixture-based source unit tests and the standalone onboarding UI unit suite.
 // Credentials and runtime settings from the invoking shell are not inherited.
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,7 +42,9 @@ function balanceWindowsTests(files) {
 }
 
 const files = shard === undefined ? discovered : balanceWindowsTests(discovered)[Number(shard) - 1];
-const sandbox = mkdtempSync(join(tmpdir(), 'arco-unit-'));
+// The canonical temporary folder: a macOS /var link or a Windows short name would make the program's
+// canonical paths differ from the home the tests are given.
+const sandbox = mkdtempSync(join(realpathSync.native(tmpdir()), 'arco-unit-'));
 const temporary = join(sandbox, 'tmp');
 let before;
 try {

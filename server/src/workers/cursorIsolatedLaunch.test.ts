@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import path from 'node:path';
 
-test('a fenced Cursor member gets a session pass, only Cursor hosts with web off, and no approval bypass', async () => {
+test('a fenced Cursor member gets a session pass, only Cursor hosts with web off, and no approval bypass', { skip: process.platform === 'win32' && 'Fenced members run only on Linux; Windows cannot rename over the read-only pass file.' }, async () => {
   const { workerAccessPass } = await import('./workerAccessPass.js');
   const token = `fixture.${Buffer.from(JSON.stringify({ exp: 2000 })).toString('base64url')}.fixture`;
   assert.deepEqual(JSON.parse(workerAccessPass('cursor', { accessToken: token, email: 'private' }, 1000)), { accessToken: token, refreshToken: token });
