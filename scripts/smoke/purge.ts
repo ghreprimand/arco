@@ -18,7 +18,6 @@ import { mkdtemp, mkdir, writeFile, rm, stat } from 'node:fs/promises';
 import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { step, assert, assertEq, summary } from './lib.js';
-import { purgeWorkflow } from '../../server/src/workflows/purgeWorkflow.js';
 import { encodeProjectDir } from '../../server/src/http/fileRead.js';
 
 async function exists(p: string): Promise<boolean> {
@@ -45,6 +44,11 @@ async function seed(wfid: string, sessionId: string): Promise<{ cwd: string; wfD
 }
 
 async function main() {
+  const home = await mkdtemp(join(tmpdir(), 'arco-purge-home-'));
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  process.env.ARCO_HOME = join(home, '.arco');
+  const { purgeWorkflow } = await import('../../server/src/workflows/purgeWorkflow.js');
   await step('arco tier: deletes the workflow dir, KEEPS the provider session file', async () => {
     const wfid = 'purge-arco-1111';
     const { cwd, wfDir, sessionFile } = await seed(wfid, 'sess-arco-aaaa');
@@ -75,6 +79,7 @@ async function main() {
     await rm(cwd, { recursive: true, force: true });
   });
 
+  await rm(home, { recursive: true, force: true });
   summary('Phase D — conversation purge');
 }
 

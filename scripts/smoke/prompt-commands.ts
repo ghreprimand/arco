@@ -13,6 +13,10 @@ import { tmpdir } from 'node:os';
 import { step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
+  const home = await fs.mkdtemp(path.join(tmpdir(), 'arco-prompts-home-'));
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  process.env.ARCO_HOME = path.join(home, '.arco');
   const prompts = await import('../../server/src/prompts.js');
   const {
     parsePromptInvocation,
@@ -76,6 +80,7 @@ async function main(): Promise<void> {
     });
   } finally {
     await fs.rm(cwd, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true });
   }
 
   summary('prompt-commands');

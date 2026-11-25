@@ -52,7 +52,11 @@ async function main(): Promise<void> {
   const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-recovery-home-'));
   const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-recovery-cwd-'));
   const prevHome = process.env.HOME;
+  const prevArcoHome = process.env.ARCO_HOME;
+  const prevUserProfile = process.env.USERPROFILE;
   process.env.HOME = fakeHome;
+  process.env.ARCO_HOME = path.join(fakeHome, '.arco');
+  process.env.USERPROFILE = fakeHome;
 
   try {
     const taskLedger = await import('../../server/src/project/taskLedger.js');
@@ -225,6 +229,10 @@ async function main(): Promise<void> {
   } finally {
     if (prevHome === undefined) delete process.env.HOME;
     else process.env.HOME = prevHome;
+    if (prevArcoHome === undefined) delete process.env.ARCO_HOME;
+    else process.env.ARCO_HOME = prevArcoHome;
+    if (prevUserProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = prevUserProfile;
     await fs.rm(fakeHome, { recursive: true, force: true }).catch(() => undefined);
     await fs.rm(cwd, { recursive: true, force: true }).catch(() => undefined);
   }

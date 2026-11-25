@@ -13,9 +13,13 @@ async function main(): Promise<void> {
   const fakeHome = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-dispatch-daemon-home-'));
   const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'arco-task-dispatch-daemon-cwd-'));
   const prevHome = process.env.HOME;
+  const prevArcoHome = process.env.ARCO_HOME;
+  const prevUserProfile = process.env.USERPROFILE;
   const prevMinInterval = process.env.ARCO_TASK_DISPATCHER_MIN_INTERVAL_MS;
   const prevDefaultInterval = process.env.ARCO_TASK_DISPATCHER_DEFAULT_INTERVAL_MS;
   process.env.HOME = fakeHome;
+  process.env.ARCO_HOME = path.join(fakeHome, '.arco');
+  process.env.USERPROFILE = fakeHome;
   process.env.ARCO_TASK_DISPATCHER_MIN_INTERVAL_MS = '100';
   process.env.ARCO_TASK_DISPATCHER_DEFAULT_INTERVAL_MS = '100';
 
@@ -151,6 +155,10 @@ async function main(): Promise<void> {
   } finally {
     if (prevHome === undefined) delete process.env.HOME;
     else process.env.HOME = prevHome;
+    if (prevArcoHome === undefined) delete process.env.ARCO_HOME;
+    else process.env.ARCO_HOME = prevArcoHome;
+    if (prevUserProfile === undefined) delete process.env.USERPROFILE;
+    else process.env.USERPROFILE = prevUserProfile;
     if (prevMinInterval === undefined) delete process.env.ARCO_TASK_DISPATCHER_MIN_INTERVAL_MS;
     else process.env.ARCO_TASK_DISPATCHER_MIN_INTERVAL_MS = prevMinInterval;
     if (prevDefaultInterval === undefined) delete process.env.ARCO_TASK_DISPATCHER_DEFAULT_INTERVAL_MS;

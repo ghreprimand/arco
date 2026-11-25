@@ -17,6 +17,10 @@ import { tmpdir } from 'node:os';
 import { step, assert, assertEq, summary } from './lib.js';
 
 async function main(): Promise<void> {
+  const home = await fs.mkdtemp(path.join(tmpdir(), 'arco-skills-home-'));
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  process.env.ARCO_HOME = path.join(home, '.arco');
   const skills = await import('../../server/src/skills.js');
   const { writeSkill, listSkills, readSkillBody, buildSkillsManifest, buildPickedSkillsBlock } = skills;
 
@@ -63,6 +67,7 @@ async function main(): Promise<void> {
     });
   } finally {
     await fs.rm(cwd, { recursive: true, force: true });
+    await fs.rm(home, { recursive: true, force: true });
   }
 
   summary('operator-skills');

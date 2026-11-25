@@ -13,8 +13,6 @@
 
 import { step, assert, assertEq, summary } from './lib.js';
 import { detectCommand } from '../../client/src/components/Terminal/detectCommand.js';
-import { PtyManager } from '../../server/src/terminal/ptyManager.js';
-import { stripLineTerminator, wrapPrefillForPty } from '../../server/src/terminal/terminalChannel.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -29,6 +27,13 @@ async function waitUntil(pred: () => boolean, timeoutMs = 4000): Promise<boolean
 }
 
 async function main() {
+  const home = mkdtempSync(join(tmpdir(), 'arco-terminal-home-'));
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  process.env.ARCO_HOME = join(home, '.arco');
+  const { PtyManager } = await import('../../server/src/terminal/ptyManager.js');
+  const { stripLineTerminator, wrapPrefillForPty } = await import('../../server/src/terminal/terminalChannel.js');
+
   await step('detector: shell blocks qualify with extracted command', () => {
     // ReactMarkdown hands `language-xxx`; the detector also accepts bare info-strings.
     const bash = detectCommand('language-bash', 'npm test\n');
@@ -187,6 +192,7 @@ async function main() {
   });
 
   rmSync(root, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
   summary('terminal-prefill');
 }
 

@@ -28,6 +28,7 @@ import type { WorkflowConfig, WorkflowTemplate } from '@arco/shared';
 // sandbox, not the operator's real dotfiles.
 const sandboxHome = mkdtempSync(path.join(tmpdir(), 'arco-tmpl-smoke-'));
 process.env.HOME = sandboxHome;
+process.env.ARCO_HOME = path.join(sandboxHome, '.arco');
 process.env.USERPROFILE = sandboxHome; // Windows parity (homedir() reads it there)
 
 // Imported inside main() (after the HOME swap above) — tsx transpiles to CJS
@@ -44,7 +45,7 @@ const savedConfig = {
   providerAccountRef: 'codex-work',
   fastMode: true,
   efficiencyToolFilter: 'conservative' as const,
-  outputStyle: 'lite' as const,
+  outputStyle: 'plain' as const,
 };
 
 // Reconstruct the WorkflowConfig the creator's applyTemplate + handleCreate
@@ -91,7 +92,7 @@ async function main() {
     assertEq(round!.config.providerAccountRef, 'codex-work', 'providerAccountRef preserved');
     assertEq(round!.config.fastMode, true, 'fastMode preserved');
     assertEq(round!.config.efficiencyToolFilter, 'conservative', 'efficiencyToolFilter preserved');
-    assertEq(round!.config.outputStyle, 'lite', 'outputStyle preserved');
+    assertEq(round!.config.outputStyle, 'plain', 'outputStyle preserved');
     assert(round!.seedPrompt?.startsWith('Start by reading'), 'seedPrompt preserved (trimmed)');
     assert(round!.plan?.includes('Wire OCR'), 'plan preserved');
   });

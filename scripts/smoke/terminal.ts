@@ -20,16 +20,6 @@
 // Run: npm run smoke:terminal  (no dev server needed)
 
 import { step, assert, summary } from './lib.js';
-import { PtyManager, reapOrphanTerminals } from '../../server/src/terminal/ptyManager.js';
-import {
-  registerTerminalPid,
-  unregisterTerminalPid,
-  readRegisteredTerminalPids,
-  readRegisteredTerminalProcs,
-  retainRegisteredTerminalProcs,
-  clearRegisteredTerminalPids,
-  terminalPidRegistry,
-} from '../../server/src/terminal/ptyPidRegistry.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { spawn as spawnProc } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -51,6 +41,13 @@ async function waitUntil(pred: () => boolean, timeoutMs = 4000): Promise<boolean
 }
 
 async function main() {
+  const home = mkdtempSync(join(tmpdir(), 'arco-terminal-home-'));
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  process.env.ARCO_HOME = join(home, '.arco');
+  const { PtyManager, reapOrphanTerminals } = await import('../../server/src/terminal/ptyManager.js');
+  const { registerTerminalPid, unregisterTerminalPid, readRegisteredTerminalPids, readRegisteredTerminalProcs, retainRegisteredTerminalProcs, clearRegisteredTerminalPids, terminalPidRegistry } = await import('../../server/src/terminal/ptyPidRegistry.js');
+
   const root = mkdtempSync(join(tmpdir(), 'arco-term-'));
   const mgr = new PtyManager();
   const wfid = 'wf-smoke';
@@ -208,6 +205,7 @@ async function main() {
   });
 
   rmSync(root, { recursive: true, force: true });
+  rmSync(home, { recursive: true, force: true });
   summary('terminal');
 }
 

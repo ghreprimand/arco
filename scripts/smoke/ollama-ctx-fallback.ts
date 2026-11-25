@@ -36,6 +36,7 @@ import { EventEmitter } from 'events';
 // computes ~/.arco at module-load time. ───────────────────────────────────
 const TMP_HOME = mkdtempSync(path.join(tmpdir(), 'arco-m9-'));
 process.env.HOME = TMP_HOME;
+process.env.ARCO_HOME = path.join(TMP_HOME, '.arco');
 process.env.USERPROFILE = TMP_HOME; // Windows parity
 // Point the single-backend cascade at a fixed fake base.
 const BASE = 'http://m9-test:11434';

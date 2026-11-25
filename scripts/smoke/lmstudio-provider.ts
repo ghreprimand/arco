@@ -26,12 +26,9 @@
 //
 // Run: npm run smoke:lmstudio-provider   (no dev server needed)
 
-import {
-  LmstudioProvider,
-  getLmstudioBase,
-  lmstudioBaseFromEnv,
-  probeLmstudio,
-} from '../../server/src/providers/lmstudio.js';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { WorkerConfig } from '@arco/shared';
 
 let passes = 0;
@@ -48,6 +45,8 @@ function check(name: string, cond: boolean): void {
     console.log(`FAIL  ${name}`);
   }
 }
+
+let LmstudioProvider: typeof import('../../server/src/providers/lmstudio.js').LmstudioProvider;
 
 // ── fetch stub plumbing ───────────────────────────────────────────────────────
 // Record every request so assertions can inspect URL + body. Each test installs
@@ -114,6 +113,13 @@ function runWorker(config: WorkerConfig, prompt: string): Promise<Collected> {
 const CUSTOM_BASE_HOST = 'http://127.0.0.1:9912'; // bare host:port — exercises the /v1 auto-append
 
 async function main(): Promise<void> {
+  const home = mkdtempSync(join(tmpdir(), 'arco-lmstudio-home-'));
+  process.env.HOME = home;
+  process.env.USERPROFILE = home;
+  process.env.ARCO_HOME = join(home, '.arco');
+  const provider = await import('../../server/src/providers/lmstudio.js');
+  LmstudioProvider = provider.LmstudioProvider;
+  const { getLmstudioBase, lmstudioBaseFromEnv, probeLmstudio } = provider;
   // ── 1. base-url cascade ─────────────────────────────────────────────────────
   console.log('\n[1] base URL cascade (env + /v1 auto-append)');
   delete process.env.LMSTUDIO_URL_BASE;
@@ -254,6 +260,7 @@ async function main(): Promise<void> {
     tooled.result?.usage?.output_tokens === 15 && tooled.result?.usage?.input_tokens === 80);
 
   // ── teardown ────────────────────────────────────────────────────────────────
+  rmSync(home, { recursive: true, force: true });
   globalThis.fetch = realFetch;
   delete process.env.LMSTUDIO_URL_BASE;
 

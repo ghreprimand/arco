@@ -65,7 +65,11 @@ async function main() {
   const fakeHome = mkdtempSync(join(tmpdir(), 'arco-recall4-home-'));
   cleanups.push(fakeHome);
   const realHome = homedir();
+  const previousArcoHome = process.env.ARCO_HOME;
+  const previousUserProfile = process.env.USERPROFILE;
   process.env.HOME = fakeHome;
+  process.env.ARCO_HOME = join(fakeHome, '.arco');
+  process.env.USERPROFILE = fakeHome;
   assert(homedir() === fakeHome, `HOME override failed (got ${homedir()})`);
 
   const cwdA = mkdtempSync(join(tmpdir(), 'arco-recall4-projA-'));
@@ -193,6 +197,10 @@ async function main() {
   });
 
   process.env.HOME = realHome;
+  if (previousArcoHome === undefined) delete process.env.ARCO_HOME;
+  else process.env.ARCO_HOME = previousArcoHome;
+  if (previousUserProfile === undefined) delete process.env.USERPROFILE;
+  else process.env.USERPROFILE = previousUserProfile;
   for (const dir of cleanups) {
     try { rmSync(dir, { recursive: true, force: true }); } catch { /* best-effort */ }
   }

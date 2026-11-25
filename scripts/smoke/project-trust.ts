@@ -26,6 +26,8 @@ async function main(): Promise<void> {
   const fakeHome = path.join(base, 'home');
   await fs.mkdir(fakeHome, { recursive: true });
   process.env.HOME = fakeHome;
+  process.env.ARCO_HOME = path.join(fakeHome, '.arco');
+  process.env.USERPROFILE = fakeHome;
 
   const trust = await import('../../server/src/projectTrust.js');
   const {
