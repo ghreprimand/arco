@@ -14,6 +14,8 @@ import { FILE_READ_GUIDANCE } from '../providerFileContent.js';
 
 // Match ensureStorageRoot's path spelling on Windows, including 8.3 names.
 const realpath = promisify(callbackRealpath);
+// Windows can briefly hold a Cursor chat-turn folder after the mock child ends.
+const removeFixture = (path: string) => rm(path, { recursive: true, force: true, maxRetries: 40, retryDelay: 250 });
 
 test('Cursor print attaches the project reader to Agent turns and never Chat', async (t) => {
   const cwd = await mkdtemp(join(tmpdir(), 'arco-cursor-boundary-'));
@@ -63,7 +65,7 @@ test('Cursor print attaches the project reader to Agent turns and never Chat', a
         }
       } finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
     }
-  } finally { if (previousHome === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = previousHome; await rm(cwd, { recursive: true, force: true }); }
+  } finally { if (previousHome === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = previousHome; await removeFixture(cwd); }
 });
 
 test('Cursor Chat enables only web tools with explicit file, shell and MCP denials', async t => {
@@ -86,7 +88,7 @@ test('Cursor Chat enables only web tools with explicit file, shell and MCP denia
     for (const deny of ['Read(**)', 'Read(/**)', 'Write(**)', 'Write(/**)', 'Shell(*)', 'Mcp(*:*)']) assert.ok(config.permissions.deny.includes(deny), deny);
     assert.ok(!config.permissions.deny.includes('WebFetch(*)')); assert.match(input, /Web search and web fetch are available/);
     child.emit('close', 0, null);
-  } finally { t.mock.restoreAll(); syncBuiltinESMExports(); if (previousHome === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = previousHome; await rm(root, { recursive: true, force: true }); }
+  } finally { t.mock.restoreAll(); syncBuiltinESMExports(); if (previousHome === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = previousHome; await removeFixture(root); }
 });
 
 for (const scenario of ['image-refused', 'cancelled-probe'] as const) {
@@ -122,7 +124,7 @@ for (const scenario of ['image-refused', 'cancelled-probe'] as const) {
     } finally {
       t.mock.restoreAll(); syncBuiltinESMExports();
       if (oldHome === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = oldHome;
-      await rm(root, { recursive: true, force: true });
+      await removeFixture(root);
     }
   });
 }
@@ -162,6 +164,6 @@ test('Cursor backend Chat refusals become one plain sentence without changing re
   } finally {
     t.mock.restoreAll(); syncBuiltinESMExports();
     if (oldHome === undefined) delete process.env.ARCO_HOME; else process.env.ARCO_HOME = oldHome;
-    await rm(root, { recursive: true, force: true });
+    await removeFixture(root);
   }
 });
