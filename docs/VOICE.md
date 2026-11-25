@@ -161,7 +161,7 @@ posted to the live worklet; adaptive onset remains max(minimum, noise x 2.2).
 This does not change system mic gain. Compare input peak, floor and onset.
 If Last heard contains "older" or "over it", the segment reached ASR but was
 misrecognized; lower gating is not a correction for wrong text. Pause before
-a standalone "over", or use "End capture". Never promote Vosk's isolated
+a standalone "over", or use END CAPTURE. Never promote Vosk's isolated
 "over" hypothesis over a longer transcript: it could be ordinary dictation.
 
 ### Speech interruption
@@ -611,7 +611,7 @@ conditional scripts, not that legacy section. Historical records cannot run.
 Saved watches (32 active, 100 total records) use durable atomic writes under
 `~/.arco/computer-watches.json`, survive model/context changes and reloads,
 and become interrupted after server restart. Computer shows targets/status and
-Cancel Watch; saved lifecycle notices enter its transcript and the bell's
+CANCEL WATCH; saved lifecycle notices enter its transcript and the bell's
 `computer-watch` category. Transient `computer_activity_changed` WebSocket invalidations refresh state on
 change, initial selection and reconnect. The browser has no refresh interval.
 A server-side announcement claim prevents duplicate speech across windows;
@@ -1161,7 +1161,7 @@ going on with Example Cluster?" reads that cluster's Director and tells you; "wh
 does this button do?" reads the screen. It only types a question to a worker
 when you address the worker.
 
-The Computer chat is one continuous thread (the COMPUTER tab holds the
-transcript, persisted like any chat), so follow-ups ("and the second one?",
+The Computer chat is one continuous thread (the COMPUTER panel in the top bar
+holds the transcript, saved like a chat but never shown as a tab), so follow-ups ("and the second one?",
 "is that different from Ollama?") carry the context, and a new subject is
 picked up as a new subject.

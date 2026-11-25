@@ -83,7 +83,7 @@ Three populate paths, all upsert by `wfid` (idempotent, re-running never duplica
   the meta-write result, an index hiccup must never break a real workflow's meta write.
 - **Rebuild** (`rebuild()`), drops `entries` and re-backfills. The escape hatch that makes the DB a pure
   projection: if `recall.db` is deleted or suspected stale, rebuild reconstructs it from disk. Boot backfill
-  on a missing DB has the same effect.
+  on a missing DB has the same effect. Only the projected columns come back: tags, pins, links and the link to a saved summary live only in `recall.db`, so a rebuild or a deleted DB clears them. The summary files under `~/.arco/recall/<wfid>/` stay on disk but are no longer linked to their conversations. Nothing calls `rebuild()` outside the smoke.
 
 ### HTTP
 
@@ -118,22 +118,22 @@ reconstructs both.
 
 **Goal:** a durable, searchable recap per conversation, "a point in time I can go back to" (what the thread
 was about, key decisions, current state, open threads). Generated **on operator action** (the Recall row's
-**Summarize** button) or **operator-armed on tab close**, **never automatically in the agent loop.**
+**SUMMARIZE** button) or **operator-armed on tab close**, **never automatically in the agent loop.**
 
 ### Fence-clearance (the load-bearing part)
 
 The rejected hard fence is *second-LLM summarization **in the agent loop*** (`distill`, doubles spend, fails
 closed). F2 clears it because all four hold:
 
-1. **Operator-triggered / operator-armed only.** The only callers are the Summarize button
+1. **Operator-triggered / operator-armed only.** The only callers are the SUMMARIZE button
    (`recall_summary_request` over WS) and a default-OFF "summarize on tab close" toggle (checking it is the consent). There is **no caller
    in any per-turn path**, `summarizeWorkflow` is never invoked from the turn engine.
 2. **Deterministic fallback, never fails closed.** If the LLM call errors, returns empty, or no provider is
    authenticated, the summary degrades to the F1 title + the `summarizePriorTurns` structural digest (no LLM).
    A degraded summary is **not an error** (`ok: false`, no `error`); it's a real, useful recap.
 3. **Transcript stays the source of truth.** Summaries only read `events.jsonl`; they are additive artifacts.
-4. **Reversible.** Delete `~/.arco/recall/<wfid>/summary.md` and the `summaryRef` clears on the next
-   regenerate.
+4. **Reversible.** Delete `~/.arco/recall/<wfid>/summary.md`. The row then shows REGENERATE SUMMARY when OPEN SUMMARY
+   finds the file missing; choosing it writes a replacement.
 
 The summary call is a **single bounded read-only turn**, no loops, no multi-pass refinement, no second LLM
 judging the summary.
@@ -174,19 +174,20 @@ the body in FTS rather than downgrading to the bare ref.
 
 ### Client
 
-- `RecallResultRow` action: **Summarize** when no `summaryRef` (fires `recall_summary_request`, shows
-  "Summarizing..."); **Open summary** when one exists (fetches `/api/recall/summary`, renders inline).
+- `RecallResultRow` action: **SUMMARIZE** when no `summaryRef` (fires `recall_summary_request`, shows
+  SUMMARIZING... while it runs); **OPEN SUMMARY** when one exists (fetches `/api/recall/summary`, renders it in a SUMMARY block
+  under the results). If the saved file is missing, the button reads **REGENERATE SUMMARY** and a notice says so; nothing is generated until it is chosen.
 - `recall_summary_ready` is routed (no `workflowId` -> not events.jsonl) to `recallStore.onSummaryReady`, which
   flips the row and pre-fetches the body.
-- **Summarize on tab close** toggle (**default OFF**, localStorage-backed `recallStore.summarizeOnClose`)
+- **summarize on tab close** checkbox (**default OFF**, localStorage-backed `recallStore.summarizeOnClose`)
   mirrors the cluster idle-nudger precedent. On the workbench it sits in the Recall view footer; on the phone
-  view it also appears under **Utility agent** in Settings (`SettingsPanel`, phone-only). When checked, closing
+  view it also appears as "Summarize on tab close" under **Utility agent** in Settings (`SettingsPanel`, phone-only). When checked, closing
   a workflow tab (alone or as part of closing a cluster) whose job is not Incognito and has a saved session
   (an operator message or a resumed session) sends `recall_summary_request` for that session after the tab is
   removed, so the close is never delayed; the summarizer is the tab's own primary provider, model and effort,
   the same choice `recallSummarizerFor` gives the row's Summarize action (`client/src/recall/closeSummary.ts`).
   A toast reads "Summarizing <tab> in Recall" with an OPEN RECALL link; `recall_summary_ready` for that session
-  then raises a ready toast (with the link) or an error toast. A socket that is not open also shows an error
+  then raises a "Summary of <tab> is ready in Recall" toast (with the link) or an error toast. A socket that is not open also shows an error
   toast. Unchecked, nothing is sent.
 
 ### Smoke
@@ -268,17 +269,24 @@ points: the command palette command **"Recall: search conversations"** (`Command
 **RECALL** item in the header KNOWLEDGE menu (`SystemHeader.tsx`). Search is debounced (180ms) on any filter change via
 `recallStore.runSearch`. See `docs/CLIENT.md`.
 
+The search box reads "Search titles, summaries, tags...  (toggle TRANSCRIPTS to full-text the conversations)". Below it, the workbench
+view has an "all projects" select, an "all providers" select, **from** and **to** date fields, a **pinned only** checkbox and a
+**transcripts** checkbox (disabled and marked "(rg unavailable)" when ripgrep is missing). The phone view has a Project select,
+a Time select (Today, Last 7 days, Last 30 days, All time) and PINNED and TRANSCRIPTS buttons. The footer shows the key hints
+(up/down, Enter, Esc; not on the phone), the **summarize on tab close** checkbox (workbench only) and the result count. Each result
+row shows a star (pin), the title, where it matched (TITLE, SUMMARY, TAGS or TRANSCRIPT), project, provider, date and a snippet.
+
 **Result actions** (and their build state):
 
-- **Jump to transcript / Resume**, LIVE. If the hit's workflow is an open tab, switch to it. (Hits are
+- **JUMP TO TRANSCRIPT / RESUME**, LIVE. The button reads JUMP TO TRANSCRIPT when the hit's workflow is an open tab (the row also shows "open tab") and RESUME otherwise. For an open tab it switches to it. (Hits are
   conversation-level today, so there's no per-event anchor to flash; opening the conversation is "enough" per
   the plan.) An archived conversation that isn't open can't be silently resumed from here, that needs the
-  WorkflowCreator resume path, so the button surfaces a non-error hint pointing to the project folder.
-- **Summarize / Open summary**, LIVE (**F2**). When the hit has no `summaryRef`, the button reads
-  **Summarize** and fires a one-off summary; when one exists it reads **Open summary** and renders the saved
+  WorkflowCreator resume path, so the button shows an info notice: "This conversation is not an open tab. Open its project folder to resume it."
+- **SUMMARIZE / OPEN SUMMARY**, LIVE (**F2**). When the hit has no `summaryRef`, the button reads
+  **SUMMARIZE** and fires a one-off summary; when one exists it reads **OPEN SUMMARY** and renders the saved
   `summary.md` inline. See F2 above.
-- **Reference in current tab**, **deferred** to **D1** context references. The button is present but
-  disabled with a TODO tooltip, not a half-build.
+- **REFERENCE IN TAB**, **deferred** to **D1** context references. The button is present but
+  disabled, and its tooltip reads "Reference in current tab is not available yet".
 
 ### Smoke
 
@@ -376,24 +384,24 @@ pin is the
 It's a bookmark the operator sets, not a model the agent builds. The server route
 and the `setPinned()` method both carry this note.
 
-### Distill to KB (reuses B3's draft -> operator-Save path; no auto-save, no LLM call)
+### DISTILL TO KB (reuses B3's draft -> operator-Save path; no auto-save, no LLM call)
 
 The recall entry already carries an **F2 summary** (`summaryRef` ->
-`~/.arco/recall/<wfid>/summary.md`). "Distill to KB" is available only on rows
-that **have** a summary. It does **not** spawn a distiller worker and makes **no
+`~/.arco/recall/<wfid>/summary.md`). DISTILL TO KB is disabled until the row
+has a summary. It does **not** spawn a distiller worker and makes **no
 new LLM call**, the summary is the source:
 
 1. The view fetches the existing `summary.md` body and pre-fills a draft (title
    from the recall title, body from the summary).
-2. The operator edits the draft and clicks **Save to KB**, which POSTs to the
+2. The operator edits the draft and clicks **SAVE TO KB**, which POSTs to the
    **existing** `POST /api/knowledge?path=<cwd>` create flow. Nothing is
    written to the KB store before that operator Save.
 3. On a successful Save the view creates the recall<->kb link
    (`addLink(wfid, { type: 'kb', id })`), the operator's Save is the
    confirmation. The KNOWLEDGE tab then shows the conversation under the
-   article's **Linked conversations** back-links.
+   article's "linked conversations" back-links.
 
-**Save to KB** saves the submitted distillation draft. Edits made while that save is pending remain open and unsaved; completing an earlier save does not close a newer draft.
+**SAVE TO KB** saves the submitted distillation draft. Edits made while that save is pending remain open and unsaved; completing an earlier save does not close a newer draft.
 
 ### Graceful degradation (E-track not built)
 
@@ -419,7 +427,7 @@ columns** (with `load()` safe to call twice).
 - `shared/src/protocol/recall.ts`, `RecallLink`, `pinned`/`links` on `RecallEntry` + `RecallSearchHit`, the F4 request/response types.
 - `server/src/http/recallRoutes.ts`, the five F4 routes.
 - `client/src/stores/recallStore.ts`, `setTags`/`setPinned`/`addLink`/`removeLink` + pinned-first fold.
-- `client/src/components/Recall/RecallResultRow.tsx`, pin toggle, tag chips, links, Distill to KB.
+- `client/src/components/Recall/RecallResultRow.tsx`, pin toggle, tag chips (each with a remove cross and a "+ tag" button), link chips ("kb" and "task"), DISTILL TO KB.
 - `client/src/components/Recall/RecallView.tsx`, pinned-only filter + the Distill-to-KB draft form.
 - `client/src/components/RightPanel/KnowledgeTab.tsx`, `LinkedConversations` back-links.
 - `scripts/smoke/recall-tags.ts`, the F4 mechanism smoke.

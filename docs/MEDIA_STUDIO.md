@@ -54,7 +54,7 @@ The real edits: trim/clip to the region, convert format, normalize, mono/stereo,
 
 - **Types:** `shared/src/protocol/media.ts`, the `MediaOpSpec` discriminated union, the `AUDIO_FORMATS` whitelist (codec/ext), bounded `AUDIO_BITRATES`/`AUDIO_SAMPLE_RATES`, the request/result shapes, and `MediaOpResultMessage`.
 - **On-disk audio now plays:** `MediaModalHost` points the `AudioEditor` `src` at `/api/media/raw?...` for a contextual (on-disk) audio open; imported audio still uses its object URL. The video on-disk note is kept.
-- **Ops UI:** `client/src/components/media/AudioEditor/AudioOpsPanel.tsx`, CLIP (reads the region in/out the H5 editor emits), CONVERT (+ format/bitrate pickers), NORMALIZE, MONO, STEREO. POSTs to `/api/media/op`, shows a running spinner + **CANCEL** (aborts the fetch -> server kills the child), and on success the output path + **REVEAL IN FILES** (a `arco:reveal-in-files` window event the `RightPanel` listens for, flipping to FILES).
+- **Ops UI:** `client/src/components/media/AudioEditor/AudioOpsPanel.tsx`, CLIP (reads the region in/out the H5 editor emits), CONVERT (+ format/bitrate pickers), NORMALIZE, MONO, STEREO. The server also implements fade, resample and extract, but the audio panel has no button for fade or resample. POSTs to `/api/media/op`, shows a running spinner + **CANCEL** (aborts the fetch -> server kills the child), and on success the output path + **REVEAL IN FILES** (a `arco:reveal-in-files` window event the `RightPanel` listens for, flipping to FILES).
 
 **Constraint (load-bearing):** FFmpeg needs an **on-disk** source; it can't read a browser object URL. When H6 shipped, an imported file disabled the ops. Since N2 an imported file is first uploaded to Arco scratch and the op runs on that copy (see N2 below).
 
@@ -303,7 +303,7 @@ True AI source separation (vocals / drums / bass / other, or a two-stems karaoke
 
 ### Client
 
-`MediaStemsControls.tsx` in the **audio panel**, model / target (ALL or a two-stems isolate) / format selects + a **SEPARATE ->** button with its own long-job status (running + CANCEL, done = the stem list + REVEAL, error = the structured code/hint). `postMediaStems` (in `postMediaOp.ts`) resolves the source the same way (import -> scratch) and POSTs the run.
+`MediaStemsControls.tsx` in the **audio panel**, model / target (ALL STEMS or a two-stems isolate) / format selects + a **SEPARATE ->** button with its own long-job status (running + CANCEL, done = the stem list + REVEAL, error = the structured code/hint). `postMediaStems` (in `postMediaOp.ts`) resolves the source the same way (import -> scratch) and POSTs the run.
 
 ### Smoke
 

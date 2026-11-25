@@ -684,7 +684,7 @@ Capture acknowledgement uses the bundled quiet 230 ms Soft double pulse from
 `/api/voice/ready-sound`, with unity gain and no normalization. It plays only
 after verified wake, independently of speech output, without blocking capture.
 
-`VoiceOutputPicker` in the expanded controls offers the five shared
+`VoiceOutputPicker` in the expanded controls offers the 24 shared
 `VOICE_OUTPUT_OPTIONS` plus the configured server default. `voice/store.ts`
 saves only `outputVoice` under `arco.voice.output.v1`; it never persists
 arming or capture state. `runtime.speak` freezes a voice for all sentences of

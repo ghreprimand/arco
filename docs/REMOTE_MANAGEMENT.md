@@ -97,7 +97,7 @@ transcript): health state, active-workflow count, waiting-request count, provide
 | agent offline, SSH reachable | asleep/down agent, host up | **Start over SSH** only |
 | instance + SSH offline | machine asleep/off | no remote start without a separate wake path |
 
-The UI distinguishes a stopped Arco process with a reachable agent or SSH target from an unreachable sleeping host.
+The console does not label these actions separately. Its instance card has the same Status, Start, Restart, Stop and Logs buttons in every state (disabled while the instance is offline), and the hub sends each command through the agent when it is online, otherwise through the configured SSH target. A card whose badge is offline has its buttons disabled, so the console cannot start a host that has been silent that long; the SSH path is used while the card is still online or stale, and by direct calls to the lifecycle route. The instance's badge and the last-seen time tell a stopped Arco process from an unreachable sleeping host.
 
 ---
 
@@ -226,50 +226,27 @@ transcript snippets / logs / diagnostics.
 
 Each project, workflow, and request card identifies the instance that receives an instruction.
 
-Primary screens:
+The console is one page, not a set of screens. The page header shows a status line, which reads "hub unreachable - retrying..." when the hub cannot be reached, and the page refreshes every 5 seconds. The page lists instance cards, and each card holds:
 
-- **Home:** all Arco instances (online/offline, last heartbeat, version, service status) + all active
-  requests.
-- **Project:** workflows grouped by cwd; dirty/clean git state, last activity.
-- **Workflow:** provider/model/effort, running/waiting/idle, context zone, quota window, last turn summary,
-  current question.
-- **Request:** focused approve / deny / reply surface (the one action above all detail).
-- **Activity:** recent high-signal events with aggressive filtering (not full transcript).
-- **Settings:** notification preferences and trusted devices.
+- **Instance header:** the instance name with an online, stale or offline badge. An AUTH REQUIRED banner for each provider that needs sign-in sits above everything else on the card. Its Re-auth button starts the Claude sign-in: open the authorize page, approve it, then paste the failed localhost redirect address from the phone's address bar and choose Complete.
+- **Details:** host (with the Tailscale name or address when known), platform and service mode, Arco version with its short revision, and last-seen time with the health state and active-workflow count.
+- **Lifecycle buttons:** Status, Start, Restart, Stop and Logs, sent to `POST /api/instances/:id/lifecycle`. They are disabled while the instance is offline, and the command output shows below them.
+- **Cluster cards**, when the live Arco service reports clusters: a heading "Cluster - <name> - N members" and chips for the efficiency level (tap to cycle thorough, balanced, lean after a confirmation), the board mode, auto-pickup ON or off and nudges ON or off (tap to toggle after a confirmation), and the pending mail count (tap for the per-member breakdown and "Nudge all with mail"). Buttons: Broadcast (member checkboxes, then Send broadcast), Stop all (two confirmations), and Mailbox, Activity, Plan and Board, which read each cluster page on demand. A Board row shows a tap-to-advance control for each task. Each member card has Nudge and Peer msg.
+- **Workflows - N**, for workflows outside a cluster, and the member cards inside a cluster card. Each shows the title, a running or idle state, provider and model, a context meter, and the whole last assistant message in a block that scrolls inside a 300 px height, with last-activity time and last-turn duration. A parked question shows an Answer box. A review gate shows Approve and Reject, or "resolve at desk - remote gate approval not armed for this workflow". Queued messages show a cross to cancel them. Buttons: Stop (running), Reply and Continue (idle), Compact and Fold (idle, only where the provider supports them), Handoff (idle), Chat and Transcript. Workflow actions go to `POST /api/instances/:id/workflow-action`.
 
-> The console is served as static HTML, CSS, and JavaScript from `scripts/management/console.ts`. It uses theme tokens from `client/src/styles/global.css` and is served at `GET /` (+ `/console.css`, `/console.js`) ahead of the `/api/*` control routes.
-> - **Home / instance + service-lifecycle layer:** per-instance cards (online/stale/offline badge,
->   host/tailscale, platform/service-mode, version+sha, last-seen + rollup) with **Status / Start / Restart /
->   Stop / Logs** buttons wired to `POST /api/instances/:id/lifecycle`; auto-refresh every 5s; command output
->   inline. Mobile-first: >=44px tap targets, no hover-only, sticky header.
-> - **Workflow layer:** when the live
->   Arco *service* is connected, each card grows a **Workflows** section listing each workflow (title,
->   running/idle, provider/model) with **Reply / Continue** (idle) and **Stop** (running) wired to
->   `POST /api/instances/:id/workflow-action`. The away-from-desk approval loop now works end-to-end.
-> - **Workflow context:** each workflow row shows the whole last assistant message, in a scrollable block (<=60vh so a long one doesn't bury the other workflows),
->   plus last-activity time and last-turn duration. Source: the server tails the workflow's `events.jsonl`
->   (bounded **1MB**; walks back collecting `primary_text`, skipping thinking, to the last
->   `primary_turn_started`; message capped at `MAX_MESSAGE_CHARS=200k` only to bound a runaway). A workflow
->   with no chat turns shows "no conversation turns yet". *Limitation:* a pathologically ledger-snapshot-heavy
->   tail can still push a real message past the 1MB window.
-> - **Handoff:** a **Handoff** button per idle workflow rotates the worker **in place
->   (same provider/model, `mode:'quick'`)** to free context, confirm-gated; rejected mid-turn
->   (`busy`). Routes as a `handoff` workflow action -> `initHubLink` -> `handleHandoffRequest`.
-> - **Transcript:** a **Transcript** link per workflow opens the **full conversation in a
->   new tab**, a standalone read-only Arco-styled page (`GET /api/instances/:id/workflows/:wfid/transcript`).
->   The hub asks the owning service (`transcript_request`/`transcript_response`, correlated by requestId); the
->   service reconstructs turns from `events.jsonl` (`user_message_echo` = operator, `primary_text` = assistant,
->   skip thinking; bounded 8MB / 800 turns).
-> - **PWA install:** the hub serves a web-app manifest (`/manifest.webmanifest`,
->   standalone display + dark splash) + an on-brand SVG icon (`/icon.svg`), so Android Chrome's "Add to Home
->   screen" becomes a real standalone install (no URL bar, Arco icon).
-> - Project and workflow detail screens, request identifiers, and notification deep links are not available in the current console.
+Other behavior:
+
+> The console is served as static HTML, CSS, and JavaScript from `scripts/management/console.ts`. It uses theme tokens from `client/src/styles/global.css` and is served at `GET /` (+ `/console.css`, `/console.js`) ahead of the `/api/*` control routes. Tap targets are at least 40 px and nothing depends on hover.
+> - **Context source:** the server tails the workflow's `events.jsonl` (bounded **1MB**; walks back collecting `primary_text`, skipping thinking, to the last `primary_turn_started`; message capped at `MAX_MESSAGE_CHARS=200k` only to bound a runaway). A workflow with no chat turns shows "no conversation turns yet". *Limitation:* a pathologically ledger-snapshot-heavy tail can still push a real message past the 1MB window.
+> - **Handoff:** the button rotates the worker **in place (same provider/model, `mode:'quick'`)** to free context, after a confirmation, and is rejected mid-turn (`busy`). It routes as a `handoff` workflow action -> `initHubLink` -> `handleHandoffRequest`.
+> - **Transcript:** the link opens the **full conversation in a new tab**, a standalone read-only page (`GET /api/instances/:id/workflows/:wfid/transcript`). The hub asks the owning service (`transcript_request`/`transcript_response`, correlated by requestId); the service reconstructs turns from `events.jsonl` (`user_message_echo` = operator, `primary_text` = assistant, skip thinking; bounded 8MB / 800 turns). **Chat** opens the interactive conversation page for the workflow, with a message box and a Send button.
+> - **PWA install:** the hub serves a web-app manifest (`/manifest.webmanifest`, standalone display + dark splash) + an on-brand SVG icon (`/icon.svg`), so Android Chrome's "Add to Home screen" becomes a real standalone install (no URL bar, Arco icon).
+> - There are no separate project, workflow-detail or request screens, no settings screen and no notification deep links in the current console.
 
 **Desktop transparency indicator.** Under the security boundary in section 1, users can see when an
-instance is hub-linked (remotely controllable) and sever it locally. The Arco header shows a **`⬡ HUB ·
-<host>`** chip (`client/src/components/HubLinkChip.tsx`, fed by `hub_link_status`) when linked, clicking it
+instance is hub-linked (remotely controllable) and sever it locally. The Arco header shows a **`HUB`** chip with a filled dot (`client/src/components/HubLinkChip.tsx`, fed by `hub_link_status`) when linked; the hub address, link time and monitored workflow count are in its hover text. Clicking it
 is a confirm-gated **local kill switch** (`hub_link_set_enabled:false` -> `setHubLinkEnabled` stops the link),
-and **`HUB OFF`** when configured-but-severed (click reconnects). Renders nothing when no hub is configured.
+and **`HUB OFF`** with a hollow dot when configured-but-severed (click reconnects). Renders nothing when no hub is configured.
 Status lives in an isolated `hubLinkStore` (not the central appStore).
 
 While the hub is **connected**, the desktop also shows cluster **REMOTE** and remote
@@ -360,7 +337,7 @@ Cursor workflows that advertise COMPACT route it through the same native compres
 
 ## Preview ports and firewalls
 
-Arco controls and preview content use separate addresses. Each open workflow preview uses one listener from **Settings > Advanced > PREVIEW PORTS**, normally `4300-4309`. `ARCO_PREVIEW_PORTS` overrides the setting. The range accepts 1 to 100 ports below the host temporary-port range. Changes affect new previews. The package service saves this override with its installation environment; edit `env` in its `service/config.json` and restart to change it.
+Arco controls and preview content use separate addresses. Each open workflow preview uses one listener from **Settings > Advanced > Preview ports and remote access > PREVIEW PORTS**, normally `4300-4309`. `ARCO_PREVIEW_PORTS` overrides the setting. The range accepts 1 to 100 ports below the host temporary-port range. Changes affect new previews. The package service saves this override with its installation environment; edit `env` in its `service/config.json` and restart to change it.
 
 Ports open only while a preview is in use. Other programs' ports are skipped. Closing the last view, unbinding, removing the workflow or lease expiry releases a port. If none is free, PREVIEW names the range and directs the user to close a preview or change PREVIEW PORTS. The panel shows the address it uses. Keep PREVIEW open while using OPEN in another browser tab.
 
