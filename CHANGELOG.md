@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Saving a file through the write API without replacement text is refused instead of emptying the file. An explicit empty string still saves an empty file.
+
 - Saving the storage disk budget and the auto-archive rule at nearly the same time no longer loses one of the two values.
 
 - Restore Docker startup when npm leaves server dependencies in the server workspace after pruning.

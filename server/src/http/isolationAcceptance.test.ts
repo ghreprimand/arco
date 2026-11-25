@@ -284,6 +284,13 @@ test('writes stay inside the project: absolute escape, symlink escape and unknow
   const write = await main.post('/api/files/write', { cwd: main.project, path: 'new.txt', content: 'fine\n' });
   assert.equal(write.status, 200, await write.text());
   assert.equal(await fs.readFile(path.join(main.project, 'new.txt'), 'utf8'), 'fine\n');
+  // A missing or non-string `content` is refused and leaves the file alone; an explicit empty string is a valid save.
+  for (const body of [{}, { content: null }, { content: 5 }]) {
+    assert.equal((await main.post('/api/files/write', { cwd: main.project, path: 'new.txt', ...body })).status, 400);
+    assert.equal(await fs.readFile(path.join(main.project, 'new.txt'), 'utf8'), 'fine\n');
+  }
+  assert.equal((await main.post('/api/files/write', { cwd: main.project, path: 'new.txt', content: '' })).status, 200);
+  assert.equal(await fs.readFile(path.join(main.project, 'new.txt'), 'utf8'), '');
   assert.equal((await main.post('/api/mkdir', { parent: main.outside, name: 'nd' })).status, 200);
   assert.equal((await main.post('/api/mkdir', { parent: main.project, name: 'new folder', exclusive: true })).status, 200);
   assert.equal((await main.post('/api/mkdir', { parent: main.project, name: 'new folder', exclusive: true })).status, 409);

@@ -113,8 +113,13 @@ export async function tryHandleFileWriteRoutes(
       wfid?: string;
       cwd?: string;
       path?: string;
-      content?: string;
+      content?: unknown;
     };
+    // Whole-file replace: a missing or non-string `content` must never turn into
+    // an empty save. An explicit empty string stays valid.
+    if (typeof parsed.content !== 'string') {
+      return send(400, { ok: false, error: 'content must be a string' });
+    }
     // A wfid binds to the server's registered cwd — the body's cwd is ignored
     // (it used to win, and `cwd: "/"` made every path "inside"). With no wfid
     // the cwd must be a root the server already knows. writeConfinement.ts.
@@ -127,7 +132,7 @@ export async function tryHandleFileWriteRoutes(
       return send(400, { ok: false, error: boundCwdError(bound.reason) });
     }
     const cwd = bound.cwd;
-    const result = await writeFileWithinCwd(cwd, parsed.path ?? '', parsed.content ?? '');
+    const result = await writeFileWithinCwd(cwd, parsed.path ?? '', parsed.content);
     // ARCHIVE (docs/CLIENT.md) - record the manual operator write in
     // the file-write ledger for CHANGED FILES attribution. `result.relPath` is
     // cwd-relative and already path-escape-verified; resolve to absolute.

@@ -662,7 +662,7 @@ Request body (JSON):
 
 - `cwd` - explicit workflow cwd; when omitted, resolved from `wfid` (validated) via `workflowCwds`. One of the two must yield a cwd or the request 400s.
 - `path` - relative-to-cwd or absolute. **Resolved against `cwd` and re-checked with `resolveWithinCwd` - the exact same path-escape guard the Native `Write`/`Edit` tools use.** Any path that escapes the cwd (relative `../`, an absolute path outside, or a traversal like `foo/../../x`) is **rejected with 400 and nothing is written.** This is load-bearing: a fat-fingered or agent-suggested path must never write outside the project.
-- `content` - the full new file contents (whole-file replace, not a patch). Parent dirs inside cwd are created as needed; an existing directory at the target is refused.
+- `content` - the full new file contents (whole-file replace, not a patch). It must be a string: a missing, `null` or non-string `content` is rejected with 400 (`content must be a string`) and the file is left as it was. An explicit empty string is valid and empties the file. Parent dirs inside cwd are created as needed; an existing directory at the target is refused.
 - Response: `200 { ok: true, path: "<cwd-relative>", bytes: N }` on success; `400 { ok: false, error }` on a rejected escape / bad input; `500 { ok: false, error }` on an unexpected fs error.
 
 ---
