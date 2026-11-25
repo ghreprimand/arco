@@ -1,6 +1,6 @@
 # Third-party notices
 
-This file identifies bundled assets and runtime components downloaded by `npm run voice:setup`. Components downloaded by voice setup are installed locally when requested. Arco does not redistribute those downloads. The generated `NOTICES.md` in the voice home lists the actual package versions and model archives installed on that machine.
+This file identifies the bundled assets, the npm dependencies and the native components of the published package, and the runtime components downloaded by `npm run voice:setup`. The package also carries [`THIRD_PARTY_NOTICES`](../THIRD_PARTY_NOTICES) at its root: the notice and license text for the built-in skills and for the file-decoding libraries (including the MPL-2.0 and LGPL-3.0 packages named below). Components downloaded by voice setup are installed locally when requested. Arco does not redistribute those downloads. The generated `NOTICES.md` in the voice home lists the actual package versions and model archives installed on that machine.
 
 ## Fonts and images under `client/public`
 
@@ -12,7 +12,7 @@ Each font file listed below is distributed with its own license text.
 | `phosphor-demo/jetbrains-mono-400.woff2`, `jetbrains-mono-700.woff2`, `jetbrains-mono-800.woff2` | SIL Open Font License 1.1. See [`phosphor-demo/OFL.txt`](../client/public/phosphor-demo/OFL.txt). |
 | `themes/excalifont/Excalifont-Regular.woff2` | SIL Open Font License 1.1. Copyright 2024 Excalidraw; design and modification credits are recorded in [`themes/excalifont/OFL.txt`](../client/public/themes/excalifont/OFL.txt). Excalifont is an Excalidraw trademark. Source metadata: [Excalifont font metadata](https://github.com/excalidraw/excalidraw/blob/master/packages/excalidraw/fonts/Excalifont/index.ts). |
 | `backgrounds/odytty-dark-waves.webp` | GPL-3.0-only. The bundled [`backgrounds/LICENSE`](../client/public/backgrounds/LICENSE) records the original work and its attribution. The repository's root [`LICENSE`](../LICENSE) contains the GPL text. |
-| `favicon.svg` | Arco project artwork, GPL-3.0-only under the root [`LICENSE`](../LICENSE). |
+| `favicon.svg`, `arco-192.png`, `arco-512.png`, `arco.ico`, `arco.icns` | Arco project artwork, GPL-3.0-only under the root [`LICENSE`](../LICENSE). |
 | `themes/deckle.svg` | Arco project artwork, GPL-3.0-only under the root [`LICENSE`](../LICENSE). |
 
 The application also uses the Everforest color palette. Its MIT notice is [`licenses/Everforest-MIT.txt`](../client/public/licenses/Everforest-MIT.txt); the upstream palette is [Everforest](https://github.com/sainnhe/everforest). Font families loaded from Google Fonts are requested at runtime and are not bundled in this repository.
@@ -21,7 +21,7 @@ The vendored Odysseus image editor is MIT-licensed. Preserve its [`LICENSE`](../
 
 ## npm dependencies
 
-The lockfile lists 534 third-party package records. Most declare MIT. The others declare ISC, Apache-2.0, BSD-3-Clause, BSD-2-Clause, BlueOak-1.0.0, MIT-0, 0BSD, CC0-1.0, `(MIT AND Zlib)` and, for one data package, CC-BY-4.0. The `caniuse-lite` 1.0.30001819 development dependency declares CC BY 4.0 for its browser-support data; attribute the data to caniuse.com when redistributing it. See [caniuse-lite](https://github.com/browserslist/caniuse-lite) and the [source dataset license](https://github.com/Fyrd/caniuse).
+The lockfile lists 534 third-party package records, 204 of them development-only. Most declare MIT. The others declare ISC, Apache-2.0, BSD-3-Clause, BSD-2-Clause, BlueOak-1.0.0, MIT-0, 0BSD, CC0-1.0, `(MIT AND Zlib)` and, for one data package, CC-BY-4.0. The `caniuse-lite` 1.0.30001819 development dependency declares CC BY 4.0 for its browser-support data; attribute the data to caniuse.com when redistributing it. See [caniuse-lite](https://github.com/browserslist/caniuse-lite) and the [source dataset license](https://github.com/Fyrd/caniuse).
 
 Two packages declare a copyleft license and are installed with the server:
 
@@ -31,6 +31,14 @@ Two packages declare a copyleft license and are installed with the server:
 | `libheif-js` 1.23.5 | LGPL-3.0 | Pulled in by the direct server dependency `heic-decode`. |
 
 No other GPL, LGPL, AGPL, MPL, EPL, SSPL or source-available license is declared for a third-party npm package in the lockfile. Workspace packages use the root project's GPL-3.0-only license. Lockfile metadata is an inventory aid; it does not replace review of the package's distributed files and notices.
+
+### What the published package carries
+
+The published package is assembled by `scripts/packaging/assemble.mjs`, not packed from the repository tree. It bundles `@arco/shared`, `node-pty` (MIT, its JavaScript and prebuilt bindings) and `xlsx` (SheetJS CE 0.20.3, Apache-2.0, from the vendor's archive so installation does not need that host). Each bundled third-party package keeps its `LICENSE`. The other server dependencies are listed in the package's `dependencies` and are installed by npm from the registry with their own license files; none of the Apache-2.0 packages in the lockfile ships a separate `NOTICE` file.
+
+`native/licenses/` in the package holds the MIT licenses of `node-pty`, WinPTY, `node-addon-api` and `better-sqlite3`, with a `NOTICE.md` that names them and states that SQLite is public domain.
+
+The client libraries are compiled into `client/dist`. They are MIT apart from `wavesurfer.js`, `highlight.js` and `diff` (BSD-3-Clause), `@ungap/structured-clone` (ISC), `diff-match-patch` and `@dimforge/rapier3d-compat` (Apache-2.0) and `tslib` (0BSD). The build keeps some license banners (React's, for example); it does not write a combined notice file for the client bundle. The license text of each is in its package.
 
 ## Optional Codex usage browser
 
@@ -55,6 +63,6 @@ The sherpa-onnx archives use upload-specific GitHub release asset IDs instead of
 
 Vosk remains the official versioned `vosk-model-small-en-us-0.15.zip` archive with its existing SHA-256. Its upstream does not provide a revision-addressed download URL; a third-party mirror is not substituted. A changed response still fails verification before extraction.
 
-Parakeet is skipped on Windows; Moonshine remains the general English recognizer. Piper is not installed by the current setup script. No audio is recorded during setup. The capture-ready sound is a project-generated 230 ms, 48 kHz mono PCM16 double-pulse cue, synthesized from two tapered 470 Hz tones without a speech model or third-party recording. Its generation utility is not included in the public tree. The audio file is covered by GPL-3.0-only as project material.
+Parakeet is skipped on Windows; Moonshine remains the general English recognizer. Piper is not installed by the current setup script. No audio is recorded during setup. The capture-ready sound is a project-generated 230 ms, 48 kHz mono PCM16 double-pulse cue, synthesized from two tapered 470 Hz tones without a speech model or third-party recording. The script that renders it is `scripts/voice/audition-capture-cues.py` (`--export-double-pulse`). The audio file is covered by GPL-3.0-only as project material.
 
 For each voice setup run, consult its generated `NOTICES.md` for the complete installed Python package inventory. Model versions and archive hashes are defined in `scripts/voice/setup.py`.
