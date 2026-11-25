@@ -181,7 +181,7 @@ test('a sweep that dies is tried once more; a timed-out or clean one is not', as
     let calls = 0;
     const sweep: typeof msysTreeSweep = async (_bash, _tag, _platform, observe) => {
       const r = results[Math.min(calls++, results.length - 1)];
-      observe?.({ code: r.code, signal: null, error: r.error, stdout: '', stderr: 'entry 419 readable=yes\n' });
+      observe?.({ code: r.code, signal: null, error: r.error, stdout: '', stderr: 'fake sweep output (retry test)\n' });
       return r.ids;
     };
     const ids = await msysTreeSweepRetrying('bash', 'tag', 'win32', sweep);
