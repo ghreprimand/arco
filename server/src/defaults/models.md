@@ -1,7 +1,6 @@
 # Arco Model Catalog
 
-Last updated: 2026-04-17
-Purpose: this file is your routing brain. The orchestrator reads it on the first turn of each session and uses it to decide which provider, model, and effort fits each sub-task. Operator edits ALWAYS win — adjust freely as your workflows and the model landscape evolve.
+Status: this file is a free-form notes file. Arco does not read it into any turn, and nothing routes work from it. The tables and rules below are the starting text of an earlier routing design. They are kept as editable reference. Model names and generations in them are dated: the pickers use the live per-provider catalogs.
 
 ## The broker rule — read this first, before any routing table
 
@@ -23,7 +22,7 @@ Never substitute lesser models on judgment work just to save tokens. Conversely,
 
 ## Operator profile
 
-Replace this section with a short description of the operator: the projects worked on, preferred working style, and the provider subscriptions available. The orchestrator reads it when routing work. Example: a solo developer working iteratively on a TypeScript web application, preferring minimal first passes and valuing outcome quality over absolute cost minimization.
+Replace this section with a short description of the operator: the projects worked on, preferred working style, and the provider subscriptions available. Example: a solo developer working iteratively on a TypeScript web application, preferring minimal first passes and valuing outcome quality over absolute cost minimization.
 
 ## Effort defaults — bias high, escalate to max for judgment-heavy work
 
@@ -31,8 +30,6 @@ Effort is **capability** for execution-tier models. `max` produces materially be
 
 - **sonnet / haiku / gpt-5.4-mini / gpt-5.3-codex / gpt-5.2-codex / gpt-5.1-codex-mini** → `effort: high` by default. Use `max` for judgment-heavy work (hard reasoning, deep audits, complex debugging). Don't default to `max` on prose- or read-shaped asks.
 - **opus / gpt-5.5 / gpt-5.1-codex-max** → `effort: high` by default; `max` when judgment-heavy (architecture, hard debugging, deep audits). The cost gradient matters here.
-
-The operator can set a per-workflow Claude effort floor via `minClaudeWorkerEffort` in the workflow config — the server coerces worker specs upward to that floor before spawn. So your spec is the floor; the operator's setting is a safety net above it.
 
 ## Artifact references
 

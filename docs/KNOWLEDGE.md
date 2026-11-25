@@ -4,7 +4,7 @@ Repository knowledge articles, links and RAG injection into agent context.
 
 A per-project, user-owned knowledge store under `<cwd>/.arco/knowledge/` that turns can read. It holds curated, editable project notes such as repository layout, gotchas, deployment steps, and conventions. Articles flagged **always include** are added to the next turn's system prompt within a fixed size limit.
 
-Implemented in `server/src/knowledge/` (`store.ts`, `distill.ts`), exposed over REST (`server/src/http/knowledgeRoutes.ts`) and one workflow-scoped WS pair (`server/src/ws/knowledgeHandlers.ts`). Client surfaces: `client/src/components/RightPanel/KnowledgeTab.tsx` + `KnowledgeWizard.tsx`, store `client/src/stores/knowledgeDistillStore.ts`. Protocol types in `shared/src/protocol/knowledge.ts`.
+Implemented in `server/src/knowledge/` (`store.ts`, `distill.ts`), exposed over REST (`server/src/http/knowledgeRoutes.ts`) and three workflow-scoped WebSocket messages for distillation: `knowledge_distill_request`, `knowledge_distill_started` and `knowledge_distill_proposed` (`server/src/ws/knowledgeHandlers.ts`). Client surfaces: `client/src/components/RightPanel/KnowledgeTab.tsx` + `KnowledgeWizard.tsx`, store `client/src/stores/knowledgeDistillStore.ts`. Protocol types in `shared/src/protocol/knowledge.ts`.
 
 ---
 

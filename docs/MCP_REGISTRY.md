@@ -57,6 +57,14 @@ Tokenization (not substring matching) is load-bearing: `readme` tokenizes to
 mis-flag both. Read-side verbs (read / list / get / search / query / describe)
 are not in the set and stay enabled by default.
 
+## Adding a server: malware pre-check
+
+A server added with `mcp_registry_create` starts globally disabled unless the request sets `enabled`. Before the entry is saved, `server/src/mcp/osvCheck.ts` reads the package the command would fetch (only `npx` and `uvx`, including their `.cmd` forms, are recognized; a plain binary or path names no package) and asks `osv.dev` whether it has a known-malware advisory (ids starting `MAL-`; ordinary vulnerabilities never block). On a hit the server answers `mcp_malware_warning` with the packages and advisory ids, and saves nothing. The client re-sends the original request with `overrideMalwareWarning: true` only after the user confirms. The check fails open: a network error, a 10 second timeout or an unreadable answer is logged and the add proceeds.
+
+## Plan mode
+
+While a Native tab is in plan mode, only registry tools that are confidently read-only are advertised (`isMcpToolReadOnly` in `server/src/mcp/client.ts`). A server's `readOnlyHint: true` counts as read-only. `readOnlyHint: false` or `destructiveHint: true` does not. Without hints, a name with a read verb (`read`, `list`, `get`, `search`, `query`, `describe`, `fetch`, `find`, `show`, `view`, `info`, `status`, `check`, `inspect`, `lookup`, `resolve`, `count`, `stat`, `ls`, `cat`, `head`, `tail`, `peek`) and no dangerous token counts as read-only. Any other name is treated as able to change state and is left out. This is separate from the dangerous-tool denylist. A call that names a tool which was not advertised is refused at dispatch by the same test (an unknown tool counts as not read-only).
+
 ## Per-transport enforcement reality
 
 The registry exposes the **same servers** to every wired transport, but the
@@ -167,7 +175,7 @@ Defined in `shared/src/protocol/mcp.ts`:
   enable + dangerous-tool ticks), `mcp_probe` (diagnostics).
 - **Server -> Client:** `mcp_registry_snapshot` (env-stripped; broadcast to all
   clients after every CRUD mutation since the registry is global),
-  `mcp_probe_result` (tools + ok/error), `mcp_allow_snapshot` (a tab's
+  `mcp_probe_result` (tools + ok/error), `mcp_malware_warning` (a create held for confirmation), `mcp_allow_snapshot` (a tab's
   allowlist, pushed after `mcp_workflow_allow` and on list-with-workflowId).
 
 Handlers: `server/src/ws/mcpHandlers.ts`, routed in `server/src/index.ts`.

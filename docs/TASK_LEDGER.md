@@ -32,6 +32,13 @@ and stays visible while that map is non-empty (including BACKGROUND children).
 
   Legacy `{ "tasks": [] }` snapshots still load and are upgraded on the next
   save.
+- **Boards:** a message may carry a `boardKey`. Without one, the snapshot above
+  is the project board. A key (a cluster board uses `cluster:<id>`) selects
+  `<cwd>/.arco/project/boards/<key>/tasks.json`; the key is cut to 160
+  characters, anything outside letters, digits and `_.:-` becomes `_`, and `:`
+  is written as `~` in the folder name so Windows accepts it. A board folder
+  written on Linux or macOS before that mapping keeps its old name. New clusters
+  use their own board (`taskBoardMode` `cluster`).
 - **Atomic writes:** tmp-file + `rename`, identical to `meta.json` /
   `index.json`. A torn write can never leave a half-rewritten snapshot.
 - **Projection over the log:** every mutation appends a `task_ledger_event` to
@@ -77,8 +84,10 @@ asserted by `scripts/smoke/task-ledger.ts`.
 Types live in `shared/src/protocol/tasks.ts`.
 
 ```text
-TaskKernelSnapshot = { version: 1, tasks: LedgerTask[] }
-LedgerTask = { id, title, status, links: TaskLink[], notes, priority, parentIds, blockedReason, reviewRequired, goalMode, createdAt, updatedAt, assignee? }
+TaskKernelSnapshot = { version: 1, tasks: LedgerTask[], proposalReceipts?, comments?: TaskComment[], runs?: TaskRun[] }
+LedgerTask = { id, title, status, links: TaskLink[], notes, priority, parentIds, blockedReason, reviewRequired, goalMode, createdAt, updatedAt,
+              goalMaxTurns?, createdBy?, updatedBy?, assignee?, worktree?, worktreeRequired?, release?, signoff?, directorClosure?, operatorApproval? }
+TaskSignoff = { state: 'met' | 'not_met' | 'partial', summary?, byWorkflowId?, at, planCompletion? }  // byWorkflowId and at are stamped by the server
 LedgerTaskStatus = 'triage' | 'todo' | 'ready' | 'in_progress' | 'blocked' | 'review' | 'done' | 'archived'
 TaskLink = { kind: 'plan' | 'review' | 'workflow' | 'url', ref, label? }
 ```
@@ -91,7 +100,7 @@ starting the task; `cluster_task_claim` sets it and moves the task to
 `in_progress`. `applyUpdate()` sets it from a non-empty string and **clears** it
 on an empty string. See D3 below.
 
-**Client -> server** (all tagged with `workflowId`; the server resolves the cwd
+**Client -> server** (all tagged with `workflowId`, and optionally a `boardKey`; the server resolves the cwd
 from the workflow):
 
 | Message | Effect |
@@ -200,7 +209,7 @@ REST in `http/clusterRoutes.ts`), exactly like `cluster_plan_tick` /
 | `cluster_task_show` | Read one task's details: task, parents, children, comments, runs. Read-only. | `no_cwd`, `not_found` |
 | `cluster_task_create` | Create a new non-terminal `todo` task in the cluster cwd, with optional notes/body, assignee, priority, parentIds, links, reviewRequired, goalMode, goalMaxTurns, and an optional release label. | `no_cwd`, `empty_title`, `invalid_link`, `not_found`, `operator_gated` for terminal status attempts |
 | `cluster_task_claim` | Set `assignee = caller`, `status = in_progress`. | `not_found`, `already_claimed` (a *different* member owns it, no stomp; re-claim by the owner is a no-op) |
-| `cluster_task_update` | Change worker-allowed `status` (`triage`/`todo`/`ready`/`in_progress`/`blocked`/`review`) and/or `notes`, and set or clear the `release` label. | `not_found`, **`operator_gated`** when `status === 'done'` or `status === 'archived'` |
+| `cluster_task_update` | Change worker-allowed `status` (`triage`/`todo`/`ready`/`in_progress`/`blocked`/`review`) and/or `notes`, set or clear the `release` label, and record a `signoff` (`met`, `not_met` or `partial` with a one-line summary; `null` clears it). The server stamps the author and time. Only a Director's `met` sign-off closes the task (when Board auto-done is on). `completePlan` (`planId`, `itemId`, reviewed `revision`) ticks the linked plan item in the same step and is accepted only with a Director `met` sign-off. | `not_found`, `invalid_status`, **`operator_gated`** when `status === 'done'` or `'archived'` or when `completePlan` is used without a Director `met` sign-off, `invalid_link` for a malformed or stale `completePlan` |
 | `cluster_task_heartbeat` | Create/update the caller's visible run heartbeat for a task; optional note is stored as run metadata and a durable heartbeat comment. | `no_cwd`, `not_found` |
 | `cluster_task_link` | Add a dependency: `childId` depends on `parentId`. Rejects self-links and cycles. | `no_cwd`, `not_found`, `invalid_link` |
 | `cluster_task_unlink` | Remove a dependency: `childId` no longer depends on `parentId`. | `no_cwd`, `not_found`, `invalid_link` |

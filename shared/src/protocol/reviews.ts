@@ -29,8 +29,8 @@ export type ReviewContextRef =
   | { kind: 'plan-phase'; planId: string; heading: string; mode: PlanReviewMode }
   | { kind: 'plan-items'; planId: string; itemIds: string[]; mode: PlanReviewMode }
   // Cluster-plan-scoped review kinds. Identical surface to plan-* but the
-  // body comes from `clusterStore.readCluster(clusterId).plan.body` (lives
-  // in meta.json, no .md file backing) instead of `readPlan(cwd, planId)`.
+  // body is the cluster's shared plan, resolved through `clusterPlanBridge`
+  // (a normal plan file whose id the cluster's meta.json stores).
   // The reviewer still runs on a member workflow — `workflowId` on the
   // ReviewRequestMessage names the worker that executes the review; the
   // ref's clusterId names the plan body being reviewed.

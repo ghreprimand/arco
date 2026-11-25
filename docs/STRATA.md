@@ -240,9 +240,9 @@ identity, serial turns, labels, context/vision and retained conversation.
 `smoke:strata-controls` covers versions and unload through the actual routes.
 `npm run test:help-docs` checks manual/help assembly and links.
 
-Opt-in `smoke:strata-live` needs real Strata, SearXNG, `STRATA_SMOKE_IMAGE` and a
-throwaway Arco (`ARCO_SMOKE_WS_URL`, optional `STRATA_SMOKE_MODEL` and
-`STRATA_SMOKE_ARTIFACTS`). Isolate `os.homedir()` for that server, including PID
+Opt-in `smoke:strata-live` needs real Strata, SearXNG, a throwaway Arco
+(`ARCO_SMOKE_WS_URL`), `STRATA_SMOKE_MODEL` (the model name) and
+`STRATA_SMOKE_IMAGE` (an image fixture); `STRATA_SMOKE_ARTIFACTS` is optional. Isolate `os.homedir()` for that server, including PID
 registries, persistence and workspace; changing only the port or `HOME` is
 insufficient. Never point an auth-off smoke server at production state.
 

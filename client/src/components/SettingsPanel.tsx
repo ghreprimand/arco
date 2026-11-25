@@ -1341,10 +1341,8 @@ export function SettingsPanel({ onClose }: Props) {
         </SettingsSection>
 
         {/* Slot 12 — model catalog editor. Inline expandable section instead
-            of a separate modal; operator-edited models.md drives orchestrator
-            first-turn routing injection, so exposing it in-app closes the
-            "operator-configurable catalog overrides surfaced in UI" item
-            without adding another header button. */}
+            of a separate modal; operator-edited models.md is a free-form notes file that no turn reads;
+            the editor is kept inline instead of in a separate modal. */}
         <SettingsSection id="catalog">
         <div data-help="settings.catalog">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -1372,7 +1370,7 @@ export function SettingsPanel({ onClose }: Props) {
           </div>
           {!catalogOpen && (
             <div style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)', lineHeight: '1.6' }}>
-              ~/.arco/models.md: routing brain injected to the orchestrator's first turn. Edits take effect on the next fresh / resumed / auto-compacted session.
+              ~/.arco/models.md: free-form notes file. Arco does not read it into any turn.
             </div>
           )}
           {catalogOpen && (

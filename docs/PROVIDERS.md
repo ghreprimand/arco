@@ -398,12 +398,14 @@ claude
   [--session-id <uuid>]               # first turn (Arco pre-mints)
   [--resume <uuid>]                   # subsequent turns
   [--no-session-persistence]          # neither id set (workers, incognito)
-  [--dangerously-skip-permissions]    # AUTO mode
+  [--dangerously-skip-permissions]    # AUTO mode (not for isolated members, whose launcher adds its own sandbox)
+  [--allowedTools <rules>]            # SAFE mode: the built-in skills read rule; Chat with web access: WebSearch WebFetch
   [--system-prompt <p>]
   [--append-system-prompt <s>]        # small values (inline string)
   [--append-system-prompt-file <fp>]  # large values switch to this separate flag; see GOTCHA
   [--tools <csv>]                     # absent = full CLI toolset; Chat passes "" or WebSearch,WebFetch
   [--strict-mcp-config]               # Chat only
+  [--settings '{"disableAllHooks":true}']  # Chat with provider hooks disabled
   [--fallback-model <m>]
   [--add-dir <paths>]
   [--mcp-config <fp>]                 # cluster / registry MCP
@@ -459,7 +461,7 @@ API-key fallback: if `ANTHROPIC_API_KEY` is set in the spawned process env, the 
 - **Throttle detection** - stderr regexes catch "usage limit reached", "try again at HH:MM", "resets at <ISO>". Translated to `quota.markThrottled('claude', errorText, resetsAt)`.
 - **Output cap** - accumulated text is capped at `MAX_WORKER_OUTPUT_BYTES = 50 MB` (override via `ARCO_MAX_WORKER_OUTPUT_BYTES` env). Beyond that, Arco emits a truncation notice and forces the worker to settle. The 32 GB tree-RSS guard handles actual memory runaways; the text cap is the secondary safety net for "model went berserk printing forever."
 - **Attachments** - fitted images use stream-json `content` blocks. Documents and notebooks provide decoded text, while other binaries provide a note. Agent labels identify the source path alongside its decoded content; Chat labels use the attachment name.
-- **Concurrent-writer guard** - the JSONL watcher inspects new entries' `entrypoint` field. If a foreign (`!= 'sdk-cli'`) entrypoint appears, Arco fires `[WARN] Concurrent writer detected on session <uuid>...` and refuses new turns for 60 seconds. Operator must Handoff to recover.
+- **Concurrent-writer guard** - the JSONL watcher inspects new entries' `entrypoint` field. If a foreign (`!= 'sdk-cli'`) entrypoint appears, Arco shows a `[CONCURRENT NATIVE SESSION]` notice and refuses new turns with `[TURN BLOCKED]` until 60 seconds after the last foreign write (`FOREIGN_WRITE_BLOCK_MS`); closing the terminal clears it on its own. Handoff remains the clean escape.
 
 ### Ultracode (sticky, CLI-only)
 
@@ -477,9 +479,9 @@ When a CLI tab is a cluster member (`clusterStore.getClusterIdForWorkflow(workfl
 1. **`--mcp-config <abs-path>`.** `mcpConfigWriter.writeFor(cwd, workflowId, clusterId, port)` writes a per-workflow `.arco/<wfid>/mcp-config.json` containing one `mcpServers.arco-cluster` entry. The CLI spawns a per-spawn stdio MCP child from that entry - one child per `claude` invocation, NOT per-cluster by design.
 2. **Plan block** appended to `--append-system-prompt`. The cluster's shared plan (up to 32 KB, outlined when the transport budget requires it) rendered as `--- Shared cluster plan ---\n<body>`.
 3. **Role block** appended after the plan. `Your role in this cluster: <role>` when this member's role hint is set in `clusterStore.memberRoles`.
-4. **Peer-mailbox prologue** prepended ahead of plan + role. Drained from the recipient's mailbox at turn start (same path Native uses - `drainPeerMailbox` in `seedWorker.ts`), emitting `peer_message_received` per drained item BEFORE the operator's `user_message_echo` (events.jsonl ordering rule).
+4. **Peer-mailbox notice** prepended ahead of plan + role when mail is pending. It reports only the count and tells the worker to call `peer_read`; the mail is not drained at turn start, and `peer_message_received` is recorded when `peer_read` takes the messages (same path Native uses).
 
-Order is **peer prologue → plan → role → operator's existing appendSystemPrompt content** so the model reads urgent peer context first, reference plan second, framing role third (parity with Native's `buildSystemBlocks`). Combined `finalAppend` is soft-capped at 16 KB for the CLI path; the existing 64 KB tmpfile fallback (`--append-system-prompt-file`) handles overflow either way.
+Order is **peer notice → plan → role → operator's existing appendSystemPrompt content** so the model reads urgent peer context first, reference plan second, framing role third (parity with Native's `buildSystemBlocks`). Combined `finalAppend` is soft-capped at 16 KB for the CLI path; the existing 64 KB tmpfile fallback (`--append-system-prompt-file`) handles overflow either way.
 
 `mcp-config.json` shape (verified against Claude CLI 2.1.138 in the smoke environment):
 
@@ -621,8 +623,8 @@ The new WS messages are minimal: `plan_set`, `plan_exited`, and `ask_user_questi
 When the Native worker is a cluster member (`config.clusterId` set), `getPeerToolDefinitions()` (`server/src/providers/claude-native/peerTools.ts`) registers up to 17 additional tool descriptors directly into the in-process `tools[]` array - no MCP child, no `--mcp-config` - the 11 `cluster_task_*` board tools are filtered out unless a task board is attached (`ctx.taskBoardAttached`):
 
 - `peer_list` - return roster of cluster peers with displayName + role.
-- `peer_send` - `{to, content}` (≤16 KB; the configurable guard defaults to Warn only at 15 sends per sender per turn). Recipient sees the message as a system block prepended to their next operator turn (or, with operator-armed AUTO-PICKUP on, fires a turn on the idle recipient).
-- `peer_read` - drain own mailbox mid-turn (consumes the same messages that would otherwise auto-inject on the next operator turn).
+- `peer_send` - `{to, content}` (≤16 KB; the configurable guard defaults to Warn only at 15 sends per sender per turn). The message waits in the recipient's mailbox; the recipient's next turn starts with a notice of the pending count and the recipient reads it with `peer_read` (or, with operator-armed AUTO-PICKUP on, a turn starts on the idle recipient).
+- `peer_read` - drain own mailbox; this is the only way mail is delivered, and `peer_message_received` is recorded at the call.
 - `cluster_plan_read` - return the full canonical shared-plan body (`{title, body, updatedAt, byteLength}`). Read-only pull channel: the per-turn injected copy may be a truncated outline for oversize plans.
 - `cluster_plan_tick` - flip a single `[ ]` ↔ `[x]` checkbox in the shared cluster plan by `taskText` substring or `lineIndex`. Returns before/after state.
 - `cluster_plan_write` - write the shared cluster plan body (≤32 KB markdown). Convention: only the cluster director calls this. Model-driven writes are additive once a plan exists: the server rejects writes that remove existing checkbox tasks or change their `[ ]` / `[x]` status. Use `cluster_plan_tick` for status changes; destructive replace/clear remains operator-only through the PLAN tab.
@@ -641,7 +643,7 @@ copies them across the boundary on mailbox drain. Because a previously
 informed session cannot be made blind retroactively, entering ISOLATED always
 creates a fresh or replacement workflow and rejects history/task transfer.
 
-CLI Claude and both Codex transports get the same peer surface via a stdio MCP child (`server/src/mcp/clusterMcpServer.ts`); Cursor gets it via an in-process loopback StreamableHTTP MCP server (`server/src/mcp/clusterMcpLoopback.ts`, ACP honors http/sse only) - see [Cluster mode](#cluster-mode) below and the [Cursor](#cursor) section. Wire-name parity: Native sees bare `peer_list`/`peer_send`/`peer_read`/etc.; CLI Claude sees the MCP-namespaced `mcp__arco-cluster__peer_list` shape. Function signatures match so the model treats them identically.
+CLI Claude and both Codex transports get the same peer surface via a stdio MCP child (`server/src/mcp/clusterMcpServer.ts`); Cursor and Antigravity CLI get it via an in-process loopback StreamableHTTP MCP server (`server/src/mcp/clusterMcpLoopback.ts`, ACP honors http/sse only) - see [Cluster mode](#cluster-mode) below and the [Cursor](#cursor) section. Wire-name parity: Native sees bare `peer_list`/`peer_send`/`peer_read`/etc.; CLI Claude sees the MCP-namespaced `mcp__arco-cluster__peer_list` shape. Function signatures match so the model treats them identically.
 
 #### Hooks
 
@@ -936,15 +938,19 @@ codex
   --json
   --color never
   --skip-git-repo-check
+  -c features.view_image=<bool>       # or tools.view_image on older CLIs; false in ordinary Chat
+  [--strict-config -c <chat overrides>]  # ordinary Chat only
+  [--ignore-user-config --ignore-rules]  # Chat (also on resume)
+  -c web_search="live|disabled"       # Agent: live; Chat and cluster web access off: disabled
+  [-c model_context_window=<n>]       # MAX context policy (default)
+  [--ephemeral]                       # Incognito only
   -s <sandbox>                        # 'read-only' | 'workspace-write' | 'danger-full-access'
   -m <model>
-  [-i <image>]...                       # image attachments
-  [-c model_reasoning_effort="<e>"]         # 1:1, catalog-clamped (see Effort mapping)
-  [-c model_context_window=<n>]       # MAX context policy (default)
-  [-c web_search="live|disabled"]     # Chat only
-  [--ephemeral]                       # Incognito only
-  [-c mcp_servers.<key>....]            # cluster / registry MCP
+  [-i <image>]...                     # image attachments
+  [-c model_reasoning_effort="<e>"]   # 1:1, catalog-clamped (see Effort mapping)
+  [--add-dir <dir>]...                # additional directories
   [-C <cwd>]
+  [-c mcp_servers.<key>....]          # cluster / registry MCP
 ```
 
 `<sandbox>` is the Codex permissions level. Reviewers always get `read-only`. Without an explicit sandbox, primary turns use `workspace-write` in SAFE and `danger-full-access` in AUTO. `WorkerConfig.sandbox` can select a mode explicitly.
@@ -959,8 +965,8 @@ codex
   [options]
 ```
 
-**GOTCHA - narrower flag surface on resume.** `codex exec resume` does **not** accept `--color`, `-s <mode>`, `-C <cwd>`, or `--add-dir`. `buildArgs` branches on `isResume` and drops them. Sandbox maps to:
-- `workspace-write` → `-c sandbox_mode="workspace-write"`
+**GOTCHA - narrower flag surface on resume.** `codex exec resume` does **not** accept `--color`, `-s <mode>`, `-C <cwd>`, or `--add-dir`, and Arco omits `--ephemeral` there. `buildArgs` branches on `isResume` and drops them. Sandbox maps to:
+- `read-only` or `workspace-write` → `-c sandbox_mode="<mode>"`
 - `danger-full-access` → `--dangerously-bypass-approvals-and-sandbox`
 
 `cwd` rides on `spawn({ cwd })` since `-C` is rejected.
@@ -2089,7 +2095,7 @@ OpenAI fragment-assembly: tool calls arrive across multiple SSE events, partial 
 
 **XML tool-call fallback.** Some Qwen builds emit `<tool_call>{...}</tool_call>` XML markup in `reasoning_content` instead of structured `delta.tool_calls[]`. The provider sniffs for this fallback and parses the XML payload as a synthetic tool call so the loop still progresses. Without this fallback the model would emit a tool-shaped reasoning block and then hang waiting on a tool result that never comes.
 
-**Thinking coalescing.** `reasoning_content` deltas can fire many times per second; we coalesce them on an `ARCO_LLAMACPP_THINKING_FLUSH_MS` interval (default 100 ms) before emitting `primary_thinking_chunk` events to avoid saturating the WebSocket send buffer.
+**Thinking coalescing.** `reasoning_content` deltas can fire many times per second; we coalesce them on an `ARCO_LLAMACPP_THINKING_FLUSH_MS` interval (default 100 ms) before emitting `primary_thinking` messages to avoid saturating the WebSocket send buffer.
 
 **Reviewer-mode tool allowlist.** When `runReviewer.ts` dispatches a llama.cpp reviewer, it injects `READ_ONLY_LLAMACPP_TOOLS` (Read, Grep, Glob, WebSearch, WebFetch - same shape as Ollama's READ_ONLY_OLLAMA_TOOLS) instead of the full primary-mode set. Plus a `LOCAL_REVIEWER_ADDENDUM` framing addendum explicitly tells the reviewer to use those tools to verify diff claims against the live tree, not just opine on the diff text. See [Primitives: Review  Local-reviewer addendum](PRIMITIVES.md#local-reviewer-addendum).
 

@@ -146,7 +146,7 @@ The operator sent to several members from the composer's TO chooser. Server reso
 
 ### `cluster_state` <-
 
-Server's cluster snapshot. Pushed on subscribe + on every workflow-scoped event whose type is in `CLUSTER_STATE_TRIGGERS` (`primary_turn_started / primary_turn_ended / peer_message_sent / peer_message_received`) for any member. Other event types (streaming `primary_text` deltas, worker_*, etc.) do not churn cluster_state.
+Server's cluster snapshot. Pushed on subscribe + on every workflow-scoped event whose type is in `CLUSTER_STATE_TRIGGERS` (`primary_turn_started / primary_turn_ended / peer_message_sent / peer_message_received / cluster_auto_turn_fired`) for any member. Other event types (streaming `primary_text` deltas, worker_*, etc.) do not churn cluster_state.
 
 ```ts
 {
@@ -162,7 +162,10 @@ Server's cluster snapshot. Pushed on subscribe + on every workflow-scoped event 
       role?: string,                   // optional free-form role hint (≤120 chars). Absent / empty = no role block injected into the worker's system prompt.
       tier?: 'light' | 'standard' | 'heavy',  // work-size hint for the director; does not change model/effort; no dispatcher auto-routing
       focus?: string,                  // 2026-05-11 - sub-specialty string (≤160 chars); surfaced in peer_list to disambiguate same-role peers
-      accessMode?: 'standard' | 'blind' | 'isolated',  // absent ≡ standard; see the access-mode note at the top
+      accessMode?: 'standard' | 'blind' | 'isolated' | 'researcher',  // absent ≡ standard; see the access-mode note at the top
+      webAccess?: boolean,             // absent ≡ web access on; false applies from the member's next turn
+      isolation?: 'checking' | 'sandboxed' | 'tool-fenced' | 'unavailable',  // how an isolated member is fenced right now
+      isolationReason?: string,        // plain reason when isolation is 'unavailable' or 'tool-fenced'
     }>,
     mailboxDepth: Record<string, number>,
     createdAt: string,
@@ -193,6 +196,10 @@ Server's cluster snapshot. Pushed on subscribe + on every workflow-scoped event 
     },
     remoteEnabled?: boolean,         // R3 - cluster-level ◉ REMOTE opt-in (absent ≡ OFF). See cluster_remote_set.
     remoteGatesEnabled?: boolean,    // cluster-level ⛨ GATES arming (absent ≡ OFF). See cluster_gates_set.
+    skillPins?: ClusterSkillPin[],   // skills pinned for the whole cluster (optionally per role). See cluster_skills_set.
+    autoCompaction?: AutoCompactionPolicy, // cluster default auto-compaction policy. See cluster_auto_compaction_set.
+    autoPickup?: ClusterAutoPickupState,   // AUTO-PICKUP mode, limits, Smart session, counters and last decision. See cluster_auto_pickup_set.
+    research?: ClusterResearchSummary,     // present only on research projects: project id, folder, brief, blind flag, researchers and rounds
   },
 }
 ```
@@ -291,6 +298,7 @@ New clients request `transcript_worker_preview` with `replacement: { clusterId, 
   effort?: string,
   providerAccountRef?: string,
   accessMode?: 'standard' | 'blind' | 'isolated',
+  claudeTransport?: 'native' | 'cli',
   name?: string,                   // <= 64 chars; empty keeps the old name
   role?: string,                   // <= 120 chars; empty clears
   tier?: 'light' | 'standard' | 'heavy' | null,
@@ -328,9 +336,15 @@ mailbox, observer entry, and in-memory lifecycle are not inherited.
 ```ts
 {
   type: 'cluster_create_from_scratch',
+  requestId?: string,       // 1-128 characters; answered by cluster_creation_finished
   cwd: string,
   name?: string,
   initialPlanGoal?: string, // optional reviewed draft, at most 4,000 characters; requires a director
+  initialPlanId?: string,   // an existing project plan chosen during creation
+  messageGuard?: { mode: 'warn' | 'hard' | 'none', threshold: number },
+  taskBoardMode?: 'none' | 'project' | 'cluster',  // ClusterCreationSettings, as on cluster_create
+  progressTracking?: 'plan' | 'board' | 'both',
+  research?: ResearchCreateSpec,  // creates a research project instead: the folder is made under the research folder, the director runs there and researcher members are isolated (docs/RESEARCH.md)
   efficiencyLevel?: 'thorough' | 'balanced' | 'lean',  // 2026-06-15 - cluster-wide, operator-picked at create. Omitted at new creation selects 'balanced'; omitted stored metadata still reads as 'thorough'.
   efficiencyAddendum?: string,                          // optional free-text appended to the canned doctrine; clamped to CLUSTER_EFFICIENCY_ADDENDUM_MAX
   members: Array<{
@@ -346,7 +360,12 @@ mailbox, observer entry, and in-memory lifecycle are not inherited.
     fastMode?: boolean,
     efficiencyToolFilter?: 'off' | 'conservative' | 'aggressive',
     outputStyle?: 'normal' | 'plain' | 'terse',
-    accessMode?: 'standard' | 'blind' | 'isolated',  // isolated ⇒ provider must be claude, codex or cursor
+    accessMode?: 'standard' | 'blind' | 'isolated' | 'researcher',  // isolated ⇒ provider must be claude, codex or cursor
+    webAccess?: boolean,
+    claudeTransport?: 'native' | 'cli',
+    webSearchMaxUses?: number,           // research projects: Claude Native web lookups per turn
+    contextSize?: number,                // research projects: an Ollama researcher's context size
+    researchClaudeTransport?: 'native' | 'cli',  // research projects only; CLI needs a passing sandbox check
   }>,
 }
 ```
@@ -376,6 +395,8 @@ operator clicked `+ ADD FRESH` inside `ClusterRightPanel`'s Members sub-tab. Ser
   effort?: 'low' | 'medium' | 'high' | string,
   providerAccountRef?: string,
   accessMode?: 'standard' | 'blind' | 'isolated',  // isolated ⇒ provider must be claude, codex or cursor
+  webAccess?: boolean,
+  claudeTransport?: 'native' | 'cli',
   name?: string,                   // <= 64 chars (<= 60 when count > 1); generated names must also fit
   role?: string,                   // preset or custom text, <= 120 chars
   tier?: 'light' | 'standard' | 'heavy' | null,
@@ -510,6 +531,14 @@ claim that every pin applies to every member. Antigravity CLI (Gemini) members
 do not receive picked or pinned Arco skill bodies; the first NUDGE may list
 available skills as conversation text, and the CLI loads its own installed
 skills. Running turns are unchanged.
+
+### `cluster_auto_compaction_set` ->
+
+Sets the cluster's default auto-compaction policy. `{ type: 'cluster_auto_compaction_set', clusterId: string, policy: AutoCompactionPolicy | null }`; `null` clears the default so each member falls back to its own setting or the provider behavior. An invalid policy or an unknown cluster answers `error`. A change broadcasts `cluster_state` and adds one `[AUTO-COMPACT]` notice to every member's conversation; per-worker overrides stay in effect. A request that changes nothing sends nothing. The policy applies from each member's next turn. See [Auto-compaction policy](SETTINGS.md#auto-compaction-policy).
+
+### `cluster_creation_finished` <-
+
+Sent to the requesting socket when a `cluster_create_from_scratch` that carried a `requestId` (1 to 128 characters) has ended, whether the cluster was created or the request was refused. The client stops its creating state. A refused research request also removes the empty dated folder it prepared.
 
 ### `cluster_progress_set` ->
 
@@ -879,7 +908,7 @@ The Smart session clock freezes at PAUSE. While paused, remaining time is `expir
 
 **Also remind busy members** is available under Rule-based and Smart: Automatic. It is off by default and saved per cluster as `remindBusy`; state echoes include `autoPickup.remindBusy`. When enabled, actionable unread mail sends the existing busy NUDGE through the member's steering path once per unread batch, with at least five minutes between reminders for that member. Acknowledgement-only batches stay pending without a reminder. New mail held by the gap is checked again by the resume sweep. Off, Observe-only and expired Smart sessions send none. A reminder whose busy turn ends or changes during preparation is dropped. Idle pickup keeps its usual rules.
 
-`SmartPickupLimits` (defaults and bounds in `shared/src/protocol/autoPickup.ts`): `maxInFlight` 1 (1-4), `callsPerClusterHour` 12 (1-120), `callsPerMemberHour` 3 (1-60), `wakesPerMemberHour` 3 (1-60), `wakesPerSession` 12 (1-200), `sessionMinutes` 30 (5-480), `timeoutSeconds` 30 (5-120), `maxInputBytes` 12288 (2048-65536), `maxOutputTokens` 64 (16-512). Out-of-range or non-integer values read as the default.
+`SmartPickupLimits` (defaults and bounds in `shared/src/protocol/autoPickup.ts`): `maxInFlight` 1 (1-4), `callsPerClusterHour` 12 (1-120), `callsPerMemberHour` 3 (1-60), `wakesPerMemberHour` 3 (1-60), `wakesPerSession` 12 (1-200), `sessionMinutes` 30 (5-240), `timeoutSeconds` 30 (5-120), `maxInputBytes` 12288 (2048-65536), `maxOutputTokens` 64 (16-512). Out-of-range or non-integer values read as the default.
 
 In the cluster meta (`ClusterState` in `server/src/clusterStore.ts`) the mode is stored as `autoPickupMode` (with `autoTurnOnMailboxEnabled` kept equal to "mode is rule" for older readers), adjusted Rule-based limits as `rulePickupLimits` and the Smart choice, limits and armed session as `smartPickup`. `cluster_state` echoes `autoPickup: { mode, limits, evaluator?, lastEvaluator?, session?, counters?, lastDecision? }`. Counters come from `<cluster dir>/auto-pickup-ledger.json` (`server/src/smartPickupLedger.ts`): evaluator and wake reservations are taken before the work and always count; open reservations become "uncertain" on restart and still count. The supervisor in `server/src/smartPickup.ts` disarms a Smart cluster to Off when its session expires, is missing, or its ledger cannot be read (checked at boot and every `ARCO_SMART_PICKUP_SWEEP_MS`, default 15000), and records the reason as the last decision. Arming, turning off and expiry are logged decisions.
 
@@ -934,7 +963,9 @@ Server-side detector emitted on every fire-path (`fired: true`) AND on every gua
   workflowId: string,        // recipient (the workflow whose turn fires / would have fired)
   sender: string,            // sender workflowId of the triggering peer_message_sent
   chainDepth: number,        // depth this auto-turn lands at (sender's + 1 on fire; reported as-is on skip)
-  reason: 'mailbox_arrival' | 'rate_capped' | 'depth_capped' | 'cooldown' | 'recipient_busy' | 'disabled',
+  reason: 'mailbox_arrival' | 'rate_capped' | 'depth_capped' | 'cooldown' | 'recipient_busy' | 'disabled'
+        | 'ack_only' | 'budget_paused' | 'member_capped' | 'pair_paused' | 'operator_send_only' | 'gemini_mail',
+  notice?: string,           // operator-facing pause notice
   fired: boolean,            // true -> a turn was dispatched; false -> guard refused
 }
 ```

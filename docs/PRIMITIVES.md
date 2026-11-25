@@ -162,7 +162,7 @@ client -> server: review_request {
 6. Collect `worker_text` deltas into a `collected` buffer. Don't broadcast them as primary text - review output is **not** mirrored to chat.
    - **Fallback chain.** The reviewer is a bounded job, so `runReviewer` walks `[reviewer,...reviewerFallbacks]` on a classified provider failure; `collected` resets per leg so a failed leg's partial output never bleeds into the artifact. Unset ⇒ single leg.
    - **Ollama structured output.** Ollama reviewers get `ollamaFormat: REVIEW_FORMAT_SCHEMA` (`reviewSchema.ts`) - Ollama's sampler-level JSON-schema constraint; `parseStructuredReview` + `reconstructStructuredReview` rebuild the canonical markdown body so the artifact, badge and findings are unchanged downstream. Ollama-only because no other provider exposes a sampler-constrained `format`; small models were the main source of verdict-regex misses.
-7. On settlement, parse the verdict via regex (`detectVerdict` - primary pattern is `verdict[^\n]*?\n+\s*\*?\*?(PASS|MINOR|BLOCKING)` case-insensitive, with a bare `\b(PASS|MINOR|BLOCKING)\b` fallback so the badge still resolves when reviewers bold or italicize the line).
+7. On settlement, parse the verdict via regex (`detectVerdict` - primary pattern is `verdict[^\n]*?\n+\s*\*?\*?(PASS|MINOR|BLOCKING)` case-insensitive, with a bare, case-sensitive `\b(PASS|MINOR|BLOCKING)\b` fallback that takes the first match anywhere in the body, so an inline `Verdict: PASS` line resolves through the fallback; a bare capitalized word earlier in the prose can therefore set the badge).
 8. Write the artifact to `<cwd>/.arco/workflows/<wfid>/artifacts/review-<ts>.md` with YAML frontmatter:
 
    ```yaml
@@ -616,7 +616,7 @@ The child keeps its own admission through preparation and pre-warm. Cancelling t
 client -> server: spawn_from_here_request {
   parentWorkflowId,
   newConfig,                // model/effort/name; primaryProvider can differ
-  mode: 'original-worker' | 'fresh-summarizer',
+  mode: 'original-worker' | 'fresh-summarizer',   // the dialog sends these two; the wire type also allows 'quick'
   newDirection?,
   summarizer?: { provider, model, effort },
   includePlan?,             // copy parent's attached plan onto the spawn
@@ -665,7 +665,7 @@ spawn_from_here_complete    (NOT persisted - it's a one-shot signal)
 
 ### Plan-tab spawn surfaces
 
-Three operator-facing surfaces dispatch `spawn_from_here_request` with a prefilled direction (`SpawnDialog`'s `initialDirection` prop -> the wire's `newDirection`, the new worker's seed prompt). All three include the parent's attached plan by default.
+Three operator-facing surfaces dispatch `spawn_from_here_request` with a prefilled direction (`SpawnDialog`'s `initialDirection` prop -> the wire's `newDirection`, the new worker's seed prompt). The two Plan-tab surfaces open the dialog with the plan-copy checkbox ticked; the HISTORY surface and a plain Spawn leave it off (`includePlan` is false unless the operator ticks it).
 
 | Surface | UI | Direction prefilled with |
 |---|---|---|
@@ -809,7 +809,7 @@ Branch-aware replay (`server/src/providers/claude-native/resumeSummary.ts`) walk
 
 ## 7. Cluster-aware behavior
 
-Cluster mode lets N primary agents share a working directory and exchange peer messages. Peer tools (`peer_list` / `peer_send` / `peer_read`, the `cluster_plan_*` plan tools and the `cluster_task_*` board tools) register on Native Claude in-process, on CLI Claude via per-spawn `--mcp-config arco-cluster` children, on Codex via `-c mcp_servers.arco-cluster.*` TOML overrides, on Ollama / llama.cpp via the local server-side tool registry when `WorkerConfig.clusterId` + `workflowId` are present, and on Cursor via an in-process loopback StreamableHTTP MCP server (`server/src/mcp/clusterMcpLoopback.ts`; ACP honors http/sse MCP only). The per-tab primitives surface inside `MemberPane` with these semantics:
+Cluster mode lets N primary agents share a working directory and exchange peer messages. Peer tools (`peer_list` / `peer_send` / `peer_read`, the `cluster_plan_*` plan tools and the `cluster_task_*` board tools) register on Native Claude in-process, on CLI Claude via per-spawn `--mcp-config arco-cluster` children, on Codex via `-c mcp_servers.arco-cluster.*` TOML overrides, on Ollama / llama.cpp via the local server-side tool registry when `WorkerConfig.clusterId` + `workflowId` are present, and on Cursor and Antigravity CLI via an in-process loopback StreamableHTTP MCP server (`server/src/mcp/clusterMcpLoopback.ts`; ACP honors http/sse MCP only). The per-tab primitives surface inside `MemberPane` with these semantics:
 
 ### HANDOFF inside a cluster
 
@@ -917,7 +917,7 @@ The `⌕ RESEARCH` button near the composer (`client/src/components/TerminalInpu
 Both providers enable native web search; the round cap is enforced differently per provider, and the asymmetry is documented honestly (the AGENTS.md fence forbids *silent* caps):
 
 - **Claude Native** - `maxRounds` is threaded through as `WorkerConfig.webSearchMaxUses` -> `buildClaudeServerTools(maxUses)` (`contentBlocks.ts`), which overrides the `web_search_20260209` / `web_fetch_20260309` server-tool `max_uses` budget (default 15 when unset). The same setting separately caps Native `read_url` attempts per turn. This is a **mechanical** hard ceiling, not just a prompt cap.
-- **Codex** - `buildThreadConfigOverrides` returns `{ web_search: 'live' }` and exposes **no** per-turn `max_uses` knob. Codex's hard stop is therefore the single bounded turn + the prompt-stated cap. This is an accepted, documented asymmetry (also noted at the top of `runResearch.ts`).
+- **Codex** - `buildThreadConfigOverrides` sets `web_search` to `'live'` (or `'disabled'` when the member's web access is off, `codexWebSearchMode`) and exposes **no** per-turn `max_uses` knob. Codex's hard stop is therefore the single bounded turn + the prompt-stated cap. This is an accepted, documented asymmetry (also noted at the top of `runResearch.ts`).
 
 ### Dig-deeper follow-up
 
