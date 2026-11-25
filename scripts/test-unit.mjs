@@ -111,10 +111,26 @@ try {
     for (const file of files) {
       const command = namespaced ? 'unshare' : process.execPath;
       const args = namespaced ? ['-rn', ...wrapper, process.execPath, ...baseArgs, file] : [...baseArgs, file];
-      const r = spawnSync(command, args, { cwd: root, env, stdio: 'inherit', timeout: 120_000, killSignal: 'SIGKILL' });
+      // Pipe stdout/stderr so a hung file still yields what it printed before
+      // the wall-clock kill. stdin stays inherited so Windows keeps the same
+      // stdio shape that produced the researchRounds hang on the hosted runner.
+      const r = spawnSync(command, args, {
+        cwd: root, env, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
+        stdio: ['inherit', 'pipe', 'pipe'], timeout: 120_000, killSignal: 'SIGKILL',
+      });
       const name = file.slice(root.length + 1);
-      if (r.error?.code === 'ETIMEDOUT' || (r.status === null && r.signal)) timedOut.push(name);
-      else if (r.status !== 0) failed.push(name);
+      const out = r.stdout ?? '';
+      const err = r.stderr ?? '';
+      if (out) process.stdout.write(out);
+      if (err) process.stderr.write(err);
+      const hung = r.error?.code === 'ETIMEDOUT' || (r.status === null && !!r.signal);
+      if (hung) {
+        timedOut.push(name);
+        console.log(`\n--- TIMEOUT capture for ${name} ---`);
+        console.log(`stdout (${out.length} bytes):\n${out || '(empty)'}`);
+        console.log(`stderr (${err.length} bytes):\n${err || '(empty)'}`);
+        console.log(`--- end TIMEOUT capture ---`);
+      } else if (r.status !== 0) failed.push(name);
     }
     if (shard) console.log(`\nWindows unit shard ${shard}/2: ran ${files.length} of ${discovered.length} discovered files.`);
     console.log(`\nFiles: ${files.length}, failed: ${failed.length}, timed out: ${timedOut.length}`);

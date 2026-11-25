@@ -1,4 +1,4 @@
-import { test, after } from 'node:test';
+import { test, beforeEach, afterEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -17,17 +17,28 @@ import { setBeforeClusterDelete } from '../clusterStore.js';
 import { researchMembersRoot } from './researchCreate.js';
 import { prepareResearchCreate } from './researchCreate.js';
 
-// Windows unit runs inherit stdio as pipes. After this file's tests pass, those
-// pipes (fds 0-2: stdin, stdout, stderr) stay referenced and the process never
-// exits, so the runner kills it at the two-minute limit. The hosted diagnostic
-// showed no child process. Unref the stdio streams so the file can finish.
-// This is a test-runner interaction, not a product leak; a user loses nothing.
-after(() => {
-  if (process.platform !== 'win32') return;
-  for (const stream of [process.stdin, process.stdout, process.stderr]) {
-    try { stream.unref(); } catch { /* already closed */ }
-  }
-});
+// Windows hosted runs time this file out with no per-test lines. Log start/end
+// on stderr so a TIMEOUT capture shows how far the file got, and 10 s after the
+// last test list active resources (unref'd so a clean exit is not delayed).
+if (process.platform === 'win32') {
+  let winTestStartedAt = 0;
+  beforeEach((t) => {
+    winTestStartedAt = Date.now();
+    process.stderr.write(`[researchRounds] start ${t.name}\n`);
+  });
+  afterEach((t) => {
+    process.stderr.write(`[researchRounds] end ${t.name} ${Date.now() - winTestStartedAt}ms\n`);
+  });
+  after(() => {
+    const timer = setTimeout(() => {
+      const info = typeof process.getActiveResourcesInfo === 'function'
+        ? process.getActiveResourcesInfo()
+        : [];
+      process.stderr.write(`[researchRounds] activeResources ${JSON.stringify(info)}\n`);
+    }, 10_000);
+    timer.unref();
+  });
+}
 
 
 async function project() {
