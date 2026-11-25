@@ -7,7 +7,6 @@ import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, openSync, closeSync, w
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { connect, type SmokeClient } from './lib.js';
-import { UPSTREAM_ENV_PREFIX } from '../../server/src/envAliases.js';
 
 async function main() {
   const dir = mkdtempSync(join(tmpdir(), 'arco-interrupt-smoke-'));
@@ -16,7 +15,7 @@ async function main() {
   for (const name of ['claude', 'codex']) {
     const executable = join(bin, name);
     copyFileSync('scripts/smoke/fixtures/interrupt-cli.mjs', executable);
-    writeFileSync(executable, '#!/usr/bin/env node\n' + readFileSync(executable, 'utf8')); chmodSync(executable, 0o755);
+    writeFileSync(executable, `#!${process.execPath}\n` + readFileSync(executable, 'utf8')); chmodSync(executable, 0o755);
   }
   writeFileSync(join(home, '.arco/auth.json'), JSON.stringify({ claude: { native: {
     accessToken: 'fixture-token', refreshToken: 'fixture-refresh', expiresAt: Date.now() + 3_600_000, obtainedAt: Date.now(),
@@ -29,11 +28,9 @@ async function main() {
   const reserve = createServer(); reserve.listen(0, '127.0.0.1'); await once(reserve, 'listening');
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
   const log = openSync(join(dir, 'server.log'), 'w');
-  // A home exported by the caller would win over the fixture home; drop it.
-  const inherited = { ...process.env }; delete inherited.ARCO_HOME; delete inherited[`${UPSTREAM_ENV_PREFIX}HOME`];
   const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', resolve('scripts/smoke/fixtures/interrupt-preload.mjs'), 'server/src/index.ts'], {
-    env: { ...inherited, ARCO_INTERRUPT_HOME: home, ARCO_INTERRUPT_BIN: bin, ARCO_INTERRUPT_JOURNAL: journal,
-      PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' },
+    env: { HOME: home, USERPROFILE: home, ARCO_HOME: join(home, '.arco'), TMPDIR: dir, ARCO_INTERRUPT_HOME: home, ARCO_INTERRUPT_BIN: bin, ARCO_INTERRUPT_JOURNAL: journal,
+      PATH: bin, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' },
     stdio: ['ignore', log, log],
   });
   let c: SmokeClient | undefined;

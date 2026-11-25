@@ -5,9 +5,13 @@ import { syncBuiltinESMExports } from 'node:module';
 import { appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 os.homedir = () => process.env.ARCO_INTERRUPT_HOME;
-const originalSpawn = cp.spawn;
-cp.spawn = (command, args, options) => originalSpawn(
-  command === 'claude' || command === 'codex' ? join(process.env.ARCO_INTERRUPT_BIN, command) : command, args, options);
+const allowed = new Set(['claude', 'codex']);
+const target = (command) => allowed.has(command) ? join(process.env.ARCO_INTERRUPT_BIN, command) : join(process.env.ARCO_INTERRUPT_BIN, 'missing-fixture');
+for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync']) {
+  const original = cp[name];
+  cp[name] = (command, ...args) => original(target(command), ...args);
+}
+for (const name of ['exec', 'execSync', 'fork']) cp[name] = () => { throw new Error('External command blocked by fixture'); };
 syncBuiltinESMExports();
 const record = (event, prompt = '') => appendFileSync(process.env.ARCO_INTERRUPT_JOURNAL, JSON.stringify({ event, prompt, native: true }) + '\n');
 let active = false;

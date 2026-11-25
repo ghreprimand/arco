@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, chmodSync, openSync, closeSync, renameSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, chmodSync, openSync, closeSync, renameSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { connect, step, summary, type SmokeClient } from './lib.js';
@@ -13,14 +13,14 @@ async function main() {
   const home = join(dir, 'home'), bin = join(dir, 'bin'), codexHome = join(home, '.codex');
   mkdirSync(bin); mkdirSync(codexHome, { recursive: true });
   const executable = join(bin, 'codex');
-  writeFileSync(executable, '#!/usr/bin/env node\n' + readFileSync('scripts/smoke/fixtures/computer-context-codex.mjs', 'utf8')); chmodSync(executable, 0o755);
+  writeFileSync(executable, `#!${process.execPath}\n` + readFileSync('scripts/smoke/fixtures/computer-context-codex.mjs', 'utf8')); chmodSync(executable, 0o755);
   const preload = join(dir, 'isolate.mjs');
-  writeFileSync(preload, `import os from 'node:os';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';os.homedir=()=>${JSON.stringify(home)};const original=cp.spawn;cp.spawn=(command,args,options)=>original(command==='codex'?${JSON.stringify(executable)}:command,args,options);syncBuiltinESMExports();globalThis.fetch=async()=>new Response('{}',{status:503});\n`);
+  writeFileSync(preload, `import os from 'node:os';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';os.homedir=()=>${JSON.stringify(home)};const target=(command)=>command==='codex'||command===${JSON.stringify(executable)}?${JSON.stringify(executable)}:${JSON.stringify(join(bin, 'missing-fixture'))};for(const name of ['spawn','spawnSync','execFile','execFileSync']){const original=cp[name];cp[name]=(command,...args)=>original(target(command),...args);}for(const name of ['exec','execSync','fork']){cp[name]=()=>{throw Error('External command blocked by fixture');};}syncBuiltinESMExports();globalThis.fetch=async()=>new Response('{}',{status:503});\n`);
   const reserve = createServer(); reserve.listen(0, '127.0.0.1'); await once(reserve, 'listening');
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
   const log = openSync(join(dir, 'server.log'), 'w');
   const start = () => spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome }, stdio: ['ignore', log, log],
+    env: { HOME: home, USERPROFILE: home, ARCO_HOME: join(home, '.arco'), TMPDIR: dir, PATH: bin, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome }, stdio: ['ignore', log, log],
   });
   let server = start(), c: SmokeClient | undefined;
   const ready = async () => {
@@ -32,6 +32,7 @@ async function main() {
     throw Error('Server not ready');
   };
   const config = { kind: 'chat', name: 'Computer', voiceOperator: true, primaryProvider: 'codex', primaryModel: 'gpt-6-luna', primaryEffort: 'low', codexTransport: 'appserver', workingDirectory: '', chatWebAccess: false, skipPermissions: false };
+  const project = join(dir, 'project'); mkdirSync(project);
   let owner = '', b1 = '', b2 = '', ownerConfig: any;
   const api = async (body?: object, id = owner) => {
     const response = await fetch(`http://127.0.0.1:${port}/api/voice/watches?owner=${id}`, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
@@ -48,7 +49,7 @@ async function main() {
   try {
     await ready(); c = await connect(`ws://127.0.0.1:${port}/ws`);
     for (const name of ['Computer', 'Builder 1', 'Builder 2']) {
-      c.send({ type: 'create_workflow', config: { ...config, name, voiceOperator: name === 'Computer' } });
+      c.send({ type: 'create_workflow', config: name === 'Computer' ? config : { ...config, kind: 'workflow', name, voiceOperator: false, workingDirectory: project, skipPermissions: true } });
       const m = await c.waitFor((m) => m.type === 'workflow_created', 10000);
       if (name === 'Computer') { owner = String(m.workflowId); ownerConfig = m.config; }
       else if (name === 'Builder 1') b1 = String(m.workflowId); else b2 = String(m.workflowId);
@@ -59,9 +60,15 @@ async function main() {
       assert.deepEqual(armed.watch.targets.map((t: any) => t.id), [b1]);
       c!.send({ type: 'user_message', workflowId: b1, content: 'slow queued work', kind: 'follow-up', interjection: true });
       await begin(b2, 'other builder finishes');
-      await c!.waitFor((m) => m.type === 'primary_turn_ended' && m.workflowId === b2, 15000);
+      await c!.waitFor((m) => m.type === 'primary_turn_ended' && m.workflowId === b2, 15000, 'builder 2 ended');
       assert.equal((await api()).watches[0].status, 'watching');
-      await c!.waitFor((m) => m.type === 'primary_text' && m.workflowId === b1 && String(m.text).includes('first work'), 15000);
+      try {
+        await c!.waitFor((m) => m.type === 'primary_text' && m.workflowId === b1 && String(m.text).includes('first work'), 15000, 'builder 1 first text');
+      } catch (error) {
+        const journal = join(codexHome, 'fixture-turns.jsonl');
+        console.error('Watch fixture state:', { journalExists: existsSync(journal), recentEvents: c!.peekMessages().slice(-8).map((m) => m.type) });
+        throw error;
+      }
       assert.equal((await api()).watches[0].status, 'watching');
       await until(armed.watch.id, 'finished');
       const notice = await c!.waitFor((m) => m.type === 'workbench_notice' && (m.notice as any)?.category === 'computer-watch', 5000);

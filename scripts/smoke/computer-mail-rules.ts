@@ -13,14 +13,14 @@ async function main() {
   const home = join(dir, 'home'), bin = join(dir, 'bin'), codexHome = join(home, '.codex');
   mkdirSync(bin); mkdirSync(codexHome, { recursive: true });
   const executable = join(bin, 'codex');
-  writeFileSync(executable, '#!/usr/bin/env node\n' + readFileSync('scripts/smoke/fixtures/computer-context-codex.mjs', 'utf8')); chmodSync(executable, 0o755);
+  writeFileSync(executable, `#!${process.execPath}\n` + readFileSync('scripts/smoke/fixtures/computer-context-codex.mjs', 'utf8')); chmodSync(executable, 0o755);
   const preload = join(dir, 'isolate.mjs');
-  writeFileSync(preload, `import os from 'node:os';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';os.homedir=()=>${JSON.stringify(home)};const original=cp.spawn;cp.spawn=(command,args,options)=>original(command==='codex'?${JSON.stringify(executable)}:command,args,options);syncBuiltinESMExports();globalThis.fetch=async()=>new Response('{}',{status:503});\n`);
+  writeFileSync(preload, `import os from 'node:os';import cp from 'node:child_process';import {syncBuiltinESMExports} from 'node:module';os.homedir=()=>${JSON.stringify(home)};const target=(command)=>command==='codex'||command===${JSON.stringify(executable)}?${JSON.stringify(executable)}:${JSON.stringify(join(bin, 'missing-fixture'))};for(const name of ['spawn','spawnSync','execFile','execFileSync']){const original=cp[name];cp[name]=(command,...args)=>original(target(command),...args);}for(const name of ['exec','execSync','fork']){cp[name]=()=>{throw Error('External command blocked by fixture');};}syncBuiltinESMExports();globalThis.fetch=async()=>new Response('{}',{status:503});\n`);
   const reserve = createServer(); reserve.listen(0, '127.0.0.1'); await once(reserve, 'listening');
   const port = (reserve.address() as { port: number }).port; await new Promise<void>((r) => reserve.close(() => r()));
   const log = openSync(join(dir, 'server.log'), 'w');
   const start = () => spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}`, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome }, stdio: ['ignore', log, log],
+    env: { HOME: home, USERPROFILE: home, ARCO_HOME: join(home, '.arco'), TMPDIR: dir, PATH: bin, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0', ARCO_COMPUTER_TEST_CODEX_HOME: codexHome }, stdio: ['ignore', log, log],
   });
   let server = start(), c: SmokeClient | undefined;
   const ready = async () => {
@@ -117,7 +117,7 @@ async function main() {
       finally { rmSync(ruleFile,{recursive:true}); renameSync(ruleFile+'.saved',ruleFile); }
       const rule=(await arm()).rule;
       const box=join(home,'.arco','clusters',cluster,'mailbox',b2); mkdirSync(box,{recursive:true}); writeFileSync(join(box,'corrupt.json'),'{bad'); await mail(director,'trigger authoritative mailbox change');
-      await until((s)=>s.rules.find((r:any)=>r.id===rule.id)?.status==='failed'); rmSync(join(box,'corrupt.json')); await read(director);
+      await until((s)=>s.rules.find((r:any)=>r.id===rule.id)?.status==='failed'); rmSync(join(box,'corrupt.json'),{force:true}); await read(director);
     });
     await step('AUTO-PICKUP conflict refuses arming; enabling it stops an existing rule',async()=>{
       const r=(await arm()).rule; c!.send({type:'cluster_auto_turn_toggle',clusterId:cluster,enabled:true});

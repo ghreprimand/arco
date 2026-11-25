@@ -3,6 +3,10 @@ import readline from 'node:readline';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
+if (process.argv.includes('--print-startup-config')) {
+  console.log(JSON.stringify({ appServerVersion: 'fixture' }));
+  process.exit(0);
+}
 if (!process.argv.includes('app-server')) {
   if (process.cwd().includes('arco-input-observation-')) {
     let text='';for await(const chunk of process.stdin)text+=chunk;
@@ -11,7 +15,10 @@ if (!process.argv.includes('app-server')) {
     console.log(JSON.stringify({type:'turn.completed',usage:{input_tokens:100,output_tokens:10,cached_input_tokens:0}}));
     process.exit(0);
   }
-  console.log(process.argv.includes('--version') ? 'codex-cli 0.163.0' : 'Logged in using ChatGPT');
+  if (process.argv.includes('--version')) console.log('codex-cli 0.167.0');
+  else if (process.argv.includes('--help')) console.log('--ignore-user-config --ignore-rules --strict-config');
+  else if (process.argv.includes('features') && process.argv.includes('list')) console.log('shell_tool stable false\nview_image stable false\ngoals stable false');
+  else console.log('Logged in using ChatGPT');
   process.exit(0);
 }
 const home = process.env.CODEX_HOME ?? process.env.ARCO_COMPUTER_TEST_CODEX_HOME;
