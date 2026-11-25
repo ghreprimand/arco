@@ -1,7 +1,5 @@
 # Operations
 
-**Status:** Task-oriented settings and menu organization, including the control-preservation map, remains in progress. See [Development status](DEVELOPMENT_STATUS.md).
-
 Running, stopping, restarting, and recovering Arco. Where logs go, what env vars matter, and how to unstick the system when something goes sideways.
 
 For the normal native install and run modes, see [`../README.md`](../README.md) and [`GETTING_STARTED.md`](GETTING_STARTED.md). For architecture see [`ARCHITECTURE.md`](ARCHITECTURE.md). For the persistence layout see [`PERSISTENCE.md`](PERSISTENCE.md). For the dev-side workflow see [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
@@ -20,6 +18,7 @@ For the normal native install and run modes, see [`../README.md`](../README.md) 
 | [Recovering a submitted turn](#recovering-a-submitted-turn) |
 | [Ports](#ports) |
 | [Exposure posture](#exposure-posture) |
+| [Upload from phone](#upload-from-phone) |
 | [Environment variables](#environment-variables) |
 | [The launcher script](#the-launcher-script) |
 | [Production service](#production-service) |
@@ -365,6 +364,8 @@ After the switch:
 | Output style | Plain does not exist in 0.1.4. Plain is saved as no choice, so tabs, members, presets and templates on Plain run as Normal, and a New-tab default of Plain falls back to Lite. Normal and Terse are kept. |
 | Management-hub cloud snapshots | Existing snapshots stored as legacy `<id>.bin` blobs remain readable by 0.1.4. Snapshots saved or replaced by 0.1.5 use checksum-named blobs, which 0.1.4 cannot read. Keep a 0.1.5-compatible hub available to read those snapshots; downgrading does not delete their files. |
 
+Going back from 0.2.0 has not been checked. 0.2.0 adds research projects and their folders, the phone view, the scratch folder and its KEEP marks, Antigravity CLI (Gemini) members and Codex profile folders under `provider-accounts/`; older releases do not know them. Back up the Arco home first (see [Backup](BACKUP.md), which lists what a backup does not contain) and expect those items to be ignored or shown incorrectly after the move.
+
 Coming back to 0.1.5 later: if Settings were changed while on 0.1.4, set the App
 window browser choice and the default auto-handoff compaction count again (the
 count falls back to 5). A Lite choice made in 0.1.4 reads as Plain. Auto-handoff percentages changed on a tab in 0.1.4 are
@@ -538,6 +539,8 @@ Windows PowerShell:
 ```powershell
 Remove-Item -LiteralPath "C:\path\to\project\.arco" -Recurse -Force
 ```
+
+**Research folders.** Research projects keep their files in the research folder chosen in Settings > Projects (one dated subfolder per project), which is outside the Arco home and is never deleted by Arco. Delete those folders yourself if the research is not wanted. Their conversations and researcher workspaces are under `~/.arco/` and go with it.
 
 **Git checkpoint refs** `refs/arco/*` inside project repositories (created for
 workflow checkpoints; see `server/src/workflows/purgeWorkflow.ts`). Run inside
@@ -723,6 +726,8 @@ out earlier provider-side effects. See [Persistence](PERSISTENCE.md) and the
 | 8150 | Xolotl (DeepSeek) service | Standalone OpenAI-compatible `/v1`; `DEEPSEEK_URL_BASE` or `deepseek.baseUrl` in `settings.json` |
 | 8888 | SearXNG | Default search backend for local web tools; `ARCO_SEARXNG_URL` |
 | 11434 | Ollama daemon | Default Ollama port; override the URL via `OLLAMA_URL_BASE` |
+| 4300-4309 | Live PREVIEW | One port per open preview; change in Settings > Advanced > PREVIEW PORTS or with `ARCO_PREVIEW_PORTS`; remote access must forward and allow this range (see [REMOTE_MANAGEMENT.md](REMOTE_MANAGEMENT.md#preview-ports-and-firewalls)) |
+| 53692 | Claude Native sign-in callback | Loopback only; the browser that approves the sign-in must run on the server host, or paste the redirected URL (see [Recovering Native sign-in](#recovering-native-sign-in)) |
 
 `/ws`, `/terminal`, `/api/*`, `/upload` and `/health` on the Vite dev server proxy to the server port, as do per-workflow preview paths.
 
@@ -788,6 +793,8 @@ answers only the phone upload page and its upload endpoint; every other path
 returns 404 and WebSocket upgrades are refused, so the workbench, its API and
 the terminal stay on loopback. It closes about a minute after no code is open
 and no upload is in progress. The main server's bind does not change.
+
+In the phone view (`/mobile`), **UPLOAD FROM PHONE** does not show a code: it opens the phone's own file and photo picker and adds the choice to the draft. The rest of this section is about the workbench on a computer.
 
 Each offered address is marked UNVERIFIED until a file arrives through it.
 After a successful upload the address is marked VERIFIED BY UPLOAD with the
@@ -954,13 +961,15 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `ARCO_LOG_DIR` | `~/.arco/logs` | Override the file-log directory (also enables file logging when set) |
 | `ARCO_OAUTH_CALLBACK_HOST` | `127.0.0.1` | Loopback host for the Claude Native OAuth callback |
 | `ARCO_INSTANCE_NAME` | (hostname-derived) | Friendly instance name reported to the management hub |
+| `ARCO_HUB_HOST`, `ARCO_HUB_PORT`, `ARCO_HUB_KEY`, `ARCO_HUB_PUBKEY` | unset | Read by the `scripts/arco-management.ts` command line only (hub address and keys), not by the server; see [REMOTE_MANAGEMENT.md](REMOTE_MANAGEMENT.md) |
 | `CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` | 8 | Claude Native: how many times in a row Stop hooks may keep the model working (exit 2, `decision: "block"` or `additionalContext`) before the turn ends. The count resets when the model calls a tool. The same variable Claude Code reads |
 | `CLAUDE_CODE_GIT_BASH_PATH` | unset | Windows only: full path of the Git Bash `bash.exe` for agent shell commands and Claude Native hooks, the same variable Claude Code reads. Without it Arco uses the Git install of `git` on `PATH`, then the standard install folders. A path that does not exist, or the WSL `bash.exe` in the Windows system folder, is not used. Without Git Bash, PowerShell runs them, with a notice saying why |
 | `ARCO_HUB_URL` | unset | Management-hub WS URL (`ws://<host>:<port>`). Inert unless set; baked into the service unit at install time if present in the shell. Ignored, with one log line, when the Arco home is inside the system temporary folder (see `ARCO_ALLOW_TEMP_HOME`) |
 | `ARCO_ALLOW_TEMP_HOME` | unset | Set `1` to let a server whose Arco home is inside the system temporary folder join the hub and send phone notices to `ARCO_NTFY_URL`. Without it such a server never contacts the hub and ignores `ARCO_NTFY_URL`. The older name `ARCO_HUB_ALLOW_TEMP_HOME=1` is still accepted |
 | `ARCO_NTFY_URL` | unset | ntfy push endpoint (`http://<host>:<port>/<topic>`). Inert unless set; baked into the service unit at install time if present. Used only while no phone address is saved in Settings. Ignored, with one log line, when the Arco home is inside the system temporary folder (see `ARCO_ALLOW_TEMP_HOME`); an address saved in that home's Settings still works |
 | `ARCO_NTFY_TOKEN` | unset | Optional bearer token for the ntfy topic |
-| `ARCO_TEST_CHROME` | `~/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome` | Chromium executable for the Python browser smokes (`scripts/smoke/*-browser.py`); set it to any local Chromium or Chrome |
+| `ARCO_TEST_CHROME` | unset (the browser suites use one shared Chromium lookup) | Chromium executable for the Python browser smokes (`scripts/smoke/*-browser.py`); set it to any local Chromium or Chrome |
+| `ARCO_PREVIEW_PORTS` | `4300-4309` | Port range for live PREVIEW; overrides the PREVIEW PORTS setting |
 | `ARCO_SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG endpoint behind the local `WebSearch` tool (Ollama / llama.cpp / LM Studio / Strata native, and Ollama/Strata Chat web toggles) |
 | `ARCO_CHROME_BINARY` / `CHROME_PATH` | (auto-detect) | Chrome/Chromium binary for the headless preview screenshot path |
 | `ARCO_CAMOUFOX_PYTHON` | `/opt/camoufox/bin/python` | Python used for the explicitly selected Camoufox Codex usage fallback and the local `WebFetch` stealth fallback |
@@ -1156,11 +1165,12 @@ Per-service. Status is surfaced by the top-bar provider letters (an enabled prov
 |---|---|---|
 | Claude (CLI transport) | `claude auth login` | `claude auth status --json` |
 | Claude (Native transport) | `POST /api/auth/claude-native/login` (browser OAuth, callback at `localhost:53692`; falls back to manual paste if the port can't bind) | `GET /api/auth/claude-native` |
-| Codex | `codex login` | `codex login status` |
+| Codex | LOG IN on CODEX (OPENAI) in Settings > Providers and models runs `codex login --device-auth` in Arco (a profile in MORE ACCOUNTS adds `env CODEX_HOME=<its folder>`); the same command can be run in a terminal | `codex login status` |
 | Codex usage probe | `POST /api/codex-usage-login` (terminal-launched flow) | `GET /api/codex-usage` |
 | GitHub | `gh auth login` | `gh auth status` |
 | Ollama | (no login) | `${OLLAMA_URL_BASE}/api/tags` reachable |
 | Cursor (ACP) | Connections > Cursor, or LOG IN on the Cursor row in Settings, runs `cursor-agent login` in Arco and shows the link (or run it in a terminal) | The session JWT is read fresh each poll: from `auth.json` (`$XDG_CONFIG_HOME/cursor` on Linux, `%APPDATA%\Cursor` on Windows, `~/.cursor` on macOS, then `~/.config/cursor` as before), from the desktop keyring through `secret-tool search` when the file says `storedIn: os-secret-store` (never unlocks; a locked keyring reads as status unknown), or from the macOS keychain. While Cursor has rejected that token the status reads not signed in (Sign in again); the explicit Connections check also runs `cursor-agent status` |
+| Antigravity CLI (Gemini) | LOG IN on the Antigravity row in Settings > Providers and models runs `agy acp --login`; Gemini researchers use a separate sign-in, GEMINI FOR RESEARCH, which runs the same command in its own home | `agy models` probe; sign-in state stays unknown until an interactive turn or login completes |
 | Strata | (no login) | Live `/v1/models`, plus validated prepared local profiles while stopped/unloaded |
 | LM Studio | (no login) | `${LMSTUDIO_URL_BASE}` OpenAI-compat server reachable |
 | llama.cpp | (no login - Arco spawns/manages `llama-server`) | `llama-server` reachable |
@@ -1630,21 +1640,79 @@ Saved Chat tabs live under `~/.arco/chats/<wfid>/`; closing a chat tab does not 
 
 ---
 
+## Sandbox requirements (isolated members and researchers)
+
+Some providers run inside a Linux sandbox that Arco builds with `bwrap` (bubblewrap) and `socat`. The sandbox exists on Linux only.
+
+| Uses the sandbox | Does not |
+| --- | --- |
+| Researchers on Claude CLI, Codex, Cursor and Gemini (Antigravity CLI). Isolated cluster members on Claude CLI, Codex and Cursor. | Claude Native researchers and isolated members: Arco's own tools fence them on every system. Local-model researchers (Ollama, llama.cpp): not sandboxed. |
+
+On macOS and Windows the sandbox does not exist. Researchers there are Claude Native and local models. The only isolated provider is Claude Native. Claude CLI, Codex, Cursor and Gemini researchers show "(unavailable)". A Gemini model can still be a Research Director or an ordinary member on any system.
+
+### What Linux needs
+
+- `bubblewrap` (the `bwrap` command) from the distribution, found under `/usr/bin` or `/bin`.
+- A kernel that allows unprivileged user namespaces.
+- `socat` at `/usr/bin/socat` or `/usr/local/bin/socat`, with its real path under `/usr/`.
+- A Node.js that runs Arco with its real path under `/usr/`, for example `/usr/bin/node`. A Node under the home folder (such as nvm) or under `/opt` cannot run sandboxed members; the check fails with "Worker isolation requires a mounted Node runtime." This is the easiest requirement to miss.
+- The provider program installed and signed in: `claude`, `codex`, `cursor-agent` or `agy`.
+- Codex researchers and isolated Codex members need Codex 0.171.0 exactly, not a later version.
+- Sandboxed Cursor needs Cursor 2026.11.22 or later.
+- Gemini researchers also need the separate GEMINI FOR RESEARCH sign-in, found in Settings > Providers and models > Sign-in, accounts and local endpoints.
+
+### How Arco checks
+
+When the research start dialog, ADD RESEARCHER, REOPEN or RERUN opens, Arco starts a throwaway sandbox for each provider and tests it. The test confirms that only the worker home is visible, other host folders and files cannot be read, host services on loopback cannot be reached, the workspace is writable, web access goes through Arco's proxy, and the mail bridge offers only `peer_send` and `peer_read`. For Cursor it also proves that Cursor's own nested sandbox denies a read. The result is cached for 60 seconds per provider. Any failure shows "(unavailable)"; the test gives no finer reason.
+
+### Messages and what to do
+
+- "<Provider> researcher is unavailable. Check the sign-in and sandbox." or "This researcher is unavailable. Check the sign-in and sandbox.": follow the general steps below.
+- "Codex researchers need Codex 0.171.0; <version> is installed." (isolated members: "Isolated Codex members need..."): install Codex 0.171.0.
+- "Sandboxed Cursor needs the Cursor agent installed.": install `cursor-agent`.
+- "Sandboxed Cursor needs Cursor 2026.11.22 or later; <version> is installed.": update Cursor with its own updater or Versions in Arco.
+- "Gemini researchers need the Linux worker sandbox.": on Linux, install bubblewrap and socat and check the Node location. Not offered on macOS and Windows.
+- "Sign in to GEMINI FOR RESEARCH in Settings, Providers and models." or "GEMINI FOR RESEARCH needs signing in again in Settings, Providers and models." (the server says "Gemini for research needs signing in. Sign in from Settings, Providers and models, GEMINI FOR RESEARCH."): open Settings > Providers and models > Sign-in, accounts and local endpoints and use GEMINI FOR RESEARCH.
+- "The Claude CLI sandbox is unavailable; check the provider, bubblewrap and socat." (same wording for Codex and Cursor), shown when adding an isolated member: follow the general steps.
+- "This provider cannot be isolated.": only Claude, Codex and Cursor can be.
+- Member isolation states are checking, sandboxed or unavailable. Failure texts include "Worker isolation self-check failed.", "Worker isolation check timed out." and "Worker isolation requires socat."
+- REOPEN: "A researcher is unavailable. Check the sign-in and sandbox." RERUN: "A researcher is unavailable. Choose an enabled provider and model before continuing."
+
+General steps on Linux when no specific reason shows:
+
+1. Install `bubblewrap` and `socat` from the distribution.
+2. Allow unprivileged user namespaces.
+3. Run Arco with a Node under `/usr`.
+4. Sign in to the provider.
+5. Reopen the dialog; the result is cached for 60 seconds.
+
 ## Remote access
 
-Arco is designed for local-dev or single-forwarded-port remote access:
+Arco is designed for local use or for one forwarded port. Keep the default
+loopback bind and forward the port over SSH.
+
+For a package install or a foreground `arco start`, the server serves the
+workbench itself on its saved port (3001 unless `arco doctor` shows another):
 
 ```bash
-# On the Arco host:
-npm run dev
+# On the remote machine, via SSH (replace 3001 with the port arco doctor shows):
+ssh -L 3001:localhost:3001 <ssh-target>
 
-# On the remote machine, via SSH:
-ssh -L 5173:localhost:5173 <ssh-target>
-
-# Then open http://localhost:5173 locally
+# Then open http://localhost:3001 locally
 ```
 
-Only port 5173 needs forwarding - Vite proxies WS and API to the server. **Do not forward port 3001 directly** unless you accept that it has no user login, only the session cookie and Host and Origin check.
+For a source checkout running `npm run dev`, forward the Vite port instead:
+`ssh -L 5173:localhost:5173 <ssh-target>`, then open `http://localhost:5173`.
+Vite proxies the WebSocket and API to the server. Live PREVIEW listens on its
+own ports (normally 4300-4309); forward that range too if you use it (see
+[REMOTE_MANAGEMENT.md](REMOTE_MANAGEMENT.md#preview-ports-and-firewalls)). A
+phone that opens the `/mobile` address needs the same kind of route; see
+[Use Arco from a phone](GETTING_STARTED.md#use-arco-from-a-phone).
+
+An SSH tunnel to a loopback-bound port keeps the server unreachable from other
+machines. Do not set `ARCO_HOST` to a non-loopback address unless you accept
+that the server has no user login, only the session cookie and the Host and
+Origin check.
 
 The server binds `127.0.0.1` by default (`ARCO_HOST`, see [environment variables](#environment-variables)). The HTTP surface exposes filesystem read/list endpoints, an `/upload` sink, and a `/api/github/*` proxy that piggybacks on the local `gh` token. There are no user accounts: the browser session check and the Host and Origin check described under [Exposure posture](#exposure-posture) are the only gates. Loopback binding makes accidental LAN exposure impossible. Override to `0.0.0.0` only if you're putting Arco behind your own auth-enforcing reverse proxy.
 

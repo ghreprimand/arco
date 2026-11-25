@@ -1,16 +1,27 @@
 # Backup and restore
 
-`npx tsx scripts/arco-backup.ts` captures Arco's valuable on-disk state into a single,
-dependency-free archive plus a **truthful manifest** that states exactly what was
-captured, what was intentionally skipped, and what was redacted. The manifest is
-the contract: every regular file in the archive is described by it, and nothing
-is silently included or dropped.
+**Read this first.** The backup is a developer script, `scripts/arco-backup.ts`,
+that runs from a source checkout. It is not part of the Arco app, it has no
+button in the workbench, the `arco` command has no `backup` subcommand, and the
+npm package does not contain it. A package install is backed up by running the
+script from a source checkout with `ARCO_HOME` set to that install's home
+(default `~/.arco`).
+
+It is also **not a complete backup**. It copies a small, fixed set of files from
+the Arco home and skips everything else. Saved Chats, open tabs, project
+locations, research project state, per-project `.arco/` folders and research
+folders are **not** in the archive; see
+[What a backup does not contain](#what-a-backup-does-not-contain) and copy those
+by hand before moving or reinstalling.
+
+`npx tsx scripts/arco-backup.ts` writes a single, dependency-free archive plus a
+**truthful manifest** that states exactly what was captured, what was
+intentionally skipped, and what was redacted. The manifest is the contract:
+every regular file in the archive is described by it, and nothing is silently
+included or dropped.
 
 Backup and restore use three operations: **`snapshot`, `verify`, and `restore`**.
 See [Restore](#restore). They run from a source checkout after `npm install`.
-The npm package does not include the script, and the `arco` command has no
-`backup` subcommand. For a package install, set `ARCO_HOME` to that install's
-home (default `~/.arco`) and run the commands from a source checkout.
 
 ```sh
 npx tsx scripts/arco-backup.ts snapshot [--out FILE]
@@ -31,6 +42,41 @@ To migrate data from a compatible earlier installation, copy its home
 folder to `~/.arco` (or the folder `ARCO_HOME` names) and each project state
 folder to `<project>/.arco`, with both installations stopped. Arco does not
 read the earlier installation's home, project state, or backup archives automatically.
+
+---
+
+## What a backup does not contain
+
+The archive holds only the categories listed under
+[What is captured, skipped, and redacted](#what-is-captured-skipped-and-redacted),
+taken from the Arco home. Anything else is skipped and listed in the manifest as `unknown`,
+`secret`, `regenerable`, `large-volatile` or `transient`. Run `verify` and read
+the manifest's `skipped` list to see what a given archive left out. A restored
+home is therefore missing the following. Copy them by hand while Arco is
+stopped if you need them.
+
+| Not in the archive | What you lose on restore | How to keep it |
+| --- | --- | --- |
+| `chats/` and `chat-workspaces/` in the Arco home | Saved Chats and Quick research workspaces | Copy the folders |
+| `workspace.json` (open tabs) and `projects.json` (project locations, bookmarks, pins) | The open-tab set and the Home project list | Copy the files, or add the locations again |
+| `research/` in the Arco home and each project's research folder (chosen in Settings > Projects) | Research member conversations, closed-project records and the research files themselves | Copy `research/` and the research folder |
+| Every project's `<project>/.arco/` folder | That project's conversations, plans, artifacts, scratch and project settings | Back up the project folders |
+| `auth.json` and `provider-accounts/` (`secret`) | Claude Native sign-in and Codex profile logins | Sign in again after restoring |
+| `antigravity-research/` | The Gemini for research sign-in | Sign in again |
+| `mcp/` (MCP server registry), `prompts/`, `handoff.prompt.md`, `handoff.summarizer.prompt.md` | Registered MCP servers and prompt overrides | Copy the files |
+| `trust.json`, `notification-mutes.json`, `notification-channels.json`, `storage-policy.json`, `skill-usage.json`, `public-project-choices.json`, `strata-profiles.json`, `deepseek-profiles.json`, `builtin-skill-state/` | Project trust decisions, notification and storage choices, skill state, local-service profiles | Copy the files |
+| `cluster-snapshots/` and `cluster-vault.key` | Saved full-cluster snapshots and the key that opens cloud-published ones | Copy both together; the key is secret |
+| `computer-*.json`, `voice/` | Computer's saved watches, rules and activity, and downloaded voice components | Copy, or run `arco voice setup` again |
+| `genesis/`, `bakeoffs/`, `worktrees/`, `checkpoints/`, `recent-files.jsonl`, `phone-upload-routes.json` | Genesis scaffolds, bake-off attempts, task worktrees, non-Git checkpoints, the recent-files ledger | Copy the folders you care about |
+| `logs/`, `cli-snapshots/`, `known-cwds.json`, `llamacpp.json`, `models/`, `camoufox-chatgpt-profile/`, `media-scratch/` | Nothing of lasting value; Arco regenerates or reloads them (`known-cwds.json` is rebuilt as workflows run) | None needed |
+
+Two things in the other direction. The archive captures everything under
+`clusters/<clusterId>/` except `mailbox/`, which includes a research or isolated
+member's private workspace and `research.json` and so can be large. It does not
+read per-project state at all, even though that is where most work lives.
+
+Capturing chats, tabs, project locations and research state in the archive
+itself is planned for a later release.
 
 ---
 
@@ -89,7 +135,7 @@ better to under-capture than to silently include something unexamined or leak it
 |---|---|---|
 | `auth.json` | `secret` | Claude Native OAuth tokens (`server/src/providers/claude-native/auth.ts`). |
 | `provider-accounts/` | `secret` | Codex `CODEX_HOME` credential trees (`server/src/providerAccounts.ts`). |
-| `cli-snapshots/`, `llamacpp.json`, `models/`, `camoufox-chatgpt-profile/`, `checkpoints/`, `known-cwds.json` | `regenerable` | Caches / derived state / downloaded blobs, re-derived by the running server; some are large. |
+| `cli-snapshots/`, `llamacpp.json`, `models/`, `camoufox-chatgpt-profile/`, `antigravity-data/`, `checkpoints/`, `known-cwds.json` | `regenerable` | Caches / derived state / downloaded blobs, re-derived by the running server; some are large. |
 | `logs/`, `llamacpp.log` | `large-volatile` | Regenerated by the server; large; never valuable to restore. |
 | `clusters/<id>/mailbox/**` | `transient` | Budgeted file-per-message drop box, drained on delivery (`docs/GOTCHAS.md Cluster mode`); restoring it would replay stale/in-flight peer messages. |
 | symlink / socket / fifo / device node | `special-file` | Non-regular; not representable in the archive format. The walker uses `lstat` and **never follows symlinks**. |

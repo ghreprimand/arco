@@ -208,6 +208,8 @@ Arco does not upload project folders for telemetry. The production server binds
 to loopback by default; review [network exposure](docs/OPERATIONS.md#exposure-posture) before
 making it reachable elsewhere.
 
+Live PREVIEW uses separate ports, normally 4300-4309. Remote access must forward that range and allow it through the firewall as well as Arco's control port. Existing installations need the additional rule. Set PREVIEW PORTS in Settings or `ARCO_PREVIEW_PORTS`; see [preview access and firewall steps](docs/REMOTE_MANAGEMENT.md#preview-ports-and-firewalls).
+
 ## Highlights
 
 - **Home:** the start page for project locations, bookmarks, open work, and saved sessions. Pin or archive projects, recover moved folders, and resume work. [Getting started](docs/GETTING_STARTED.md)
@@ -218,7 +220,7 @@ making it reachable elsewhere.
 - **Upload from phone:** **UPLOAD FROM PHONE** beside Attach puts photos and files from a phone on the same private network or Tailscale tailnet into the draft through a short-lived QR code and an upload-only listener when Arco stays on loopback. [Upload from phone](docs/OPERATIONS.md#upload-from-phone) | [Operations](docs/OPERATIONS.md)
 - **Operator actions:** Review, SECOND OPINION, Research, Handoff, and Spawn keep results visible and actions explicit. [Operator actions](docs/OPERATOR_ACTIONS.md)
 - **Research projects:** Independent researchers answer a brief in rounds; a Research Director synthesizes the released reports. Quick research runs one round and can be kept as a project. [Research projects](docs/RESEARCH.md)
-- **Phone view:** Open `/mobile` on the same server for one conversation at a time, with tab and cluster navigation and panels. [Phone view](docs/CLIENT.md#mobile-view)
+- **Phone view:** Open `/mobile` on the same server for one conversation at a time, with a list that puts what needs you first, cluster member switching, panels and a text size set per phone. The phone needs a route to the server; see the guide. [Phone view](docs/GETTING_STARTED.md#use-arco-from-a-phone)
 - **Clusters and plans:** size-ordered templates, at most one director, eight
   role presets including ADVISOR and DESIGNER, shared task boards, peer
   messages, plans, and optional operator-armed AUTO-PICKUP (Rule-based
@@ -309,5 +311,3 @@ license. See [LICENSE](LICENSE). Bundled assets and downloaded speech components
 have their own notices and applicable terms; see
 [voice component notices](docs/VOICE.md) and the
 [bundled background terms](client/public/backgrounds/LICENSE).
-
-Live PREVIEW uses separate ports, normally 4300-4309. Remote access must forward that range and allow it through the firewall as well as Arco's control port. Existing installations need the additional rule. Set PREVIEW PORTS in Settings or `ARCO_PREVIEW_PORTS`; see [preview access and firewall steps](docs/REMOTE_MANAGEMENT.md#preview-ports-and-firewalls).

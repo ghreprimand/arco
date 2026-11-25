@@ -1,11 +1,7 @@
 # Getting started
 
-On Windows, browser file operations and Media Studio refuse file paths with trailing dots or spaces in a component, or alternate data stream separators. Use ordinary file and folder names. Drive-letter paths and network shares remain supported.
-
 This guide takes a new Arco install from provider setup to a project chat, then
 covers a first cluster, optional voice, and backups.
-
-Changing the folder in the workflow creator clears the selected resume session. RESUME requires a session from the current folder after its list finishes loading. It cannot silently create a new conversation when that selection is missing.
 
 ## Welcome flow
 
@@ -123,6 +119,8 @@ In Docker, folders must be mounted before they can be selected.
   Claude shows a notice with how to get Git Bash. Hooks written for bash need
   Git Bash; a hook can also name its shell with `"shell"` or skip the shell
   with `"args"`.
+
+On Windows, browser file operations and Media Studio refuse file paths with trailing dots or spaces in a component, or alternate data stream separators. Use ordinary file and folder names. Drive-letter paths and network shares remain supported.
 
 Provider requests are sent to the provider selected for a turn. API-key providers
 may bill according to their own terms. Arco does not submit a chat request until
@@ -278,6 +276,8 @@ project trust, open **Settings > Projects**. Home is the place to find and resum
 work or start a session from a project card. The full control map is in
 [`SETTINGS.md`](SETTINGS.md).
 
+Changing the folder in the workflow creator clears the selected resume session. RESUME requires a session from the current folder after its list finishes loading. It cannot silently create a new conversation when that selection is missing.
+
 ### Launch a project chat
 
 1. Select **New session** on a project card, or choose **Start > New session** on
@@ -347,6 +347,65 @@ then save. For LM Studio, llama.cpp, Strata, and DeepSeek, load the selected mod
 **CLEAR** removes it. The utility agent has no tools and only reads facts Arco
 already holds. See [Settings: Utility agent](SETTINGS.md#utility-agent).
 
+## Use Arco from a phone
+
+The phone view is the same workbench at the `/mobile` address of the same
+server, for example `http://<address>:3001/mobile`. It shows one conversation
+at a time and is meant for answering questions, steering work and checking
+progress, not for building.
+
+**Reach the server first.** Arco listens on loopback by default, so a phone
+cannot open it until you give the phone a route to it, for example an SSH
+tunnel or a private network such as Tailscale. Read
+[Exposure posture](OPERATIONS.md#exposure-posture) before opening the server
+beyond this computer. A desktop window narrower than 600 CSS pixels also
+offers an **Open mobile view** link above the chat.
+
+**The list of tabs.** It opens on **NEEDS YOU**: questions, approvals and
+review gates waiting on you, and members that are idle with unread mail. Each
+row says what it needs. Below it are clusters, research projects, agents,
+chats and Home, in your saved tab order. Quick research appears with Chats.
+A cluster row opens the cluster on its Director, or on the member you looked
+at last; **MEMBERS** on the row lists its members. Clusters start folded.
+**+ NEW** at the bottom right starts an agent, a cluster, a research project
+or a chat.
+
+**The conversation.**
+- The header has a back arrow, the state word (**NEEDS YOU**, **WORKING**,
+  **IDLE**), the tab or member name and **PANELS**. In a cluster, a row of
+  member names under it switches the member you read and write to. In a
+  research project the row reads Director, A, B, C and ends with **RESULTS**.
+- The message box is one row: the draft, **+** and **SEND**. **+** opens the
+  message tools: files, model, skills, recipient and **NUDGE**.
+- While the agent works, **STOP** takes the place of **SEND**. With a draft
+  typed, **STEER** sends it and **STOP** sits beside it. **QUEUE FOR AFTER**
+  and **INTERRUPT & SEND** are in the message tools.
+- A waiting question, batch approval or review gate shows as one bar above the
+  draft. **ANSWER** opens it.
+- Messages have no selection boxes. Press and hold a message for half a second
+  to select it, tap others to add them, then use **FORWARD**, **SECOND
+  OPINION**, **QUOTE** or **COPY**.
+- **UPLOAD FROM PHONE** in the message tools opens the phone's own file and
+  photo picker and adds the choice to the draft.
+
+**Panels.** **PANELS** opens a sheet: the tab's own panels, **ALL PANELS**,
+the terminal, **CATCH ME UP**, Settings, notices, the manual, Recall, Media,
+System, all plans and artifacts. A panel opens as a page that the header
+names; its back arrow, the phone's Back button or a member name returns to the
+conversation with the draft kept. **ALL PANELS** lists every page, with rarely
+used ones under **MORE**. A page's own actions are under the header's **...**
+and its main action, such as adding a member, is **+**. The plan is a
+checklist you tick, files show one folder at a time, and the board lists
+blocked and review tasks first. Dialogs fill the screen and have no size
+controls.
+
+**Settings and help.** The text size of the phone view (100%, 110% or 120%) is
+under Settings > **THIS PHONE** and applies to this browser only. Colours
+follow the theme you chose. **MANUAL** in **PANELS** starts
+with a **POINT AT THINGS** row. Select it, then tap a control to see its help;
+the bar at the top reads **HELP: TAP A CONTROL**. **EXIT** ends help mode, and
+**READ MORE IN MANUAL** ends it too.
+
 ## Optional voice setup
 
 Voice input uses the browser microphone and local speech components. It requires
@@ -373,9 +432,10 @@ notice and [VOICE.md](VOICE.md) before enabling hands-free mode.
 
 ## Where state lives
 
-- Global settings, provider connections, clusters, and logs: `~/.arco` on Linux
-  and macOS, `%USERPROFILE%\.arco` on Windows.
-- Per-project workflows, chats, plans, and project settings: `<project>/.arco`.
+- Global settings, provider connections, clusters, saved Chats (projectless
+  Chats are kept in `chats/` there, not in a project), research project state,
+  and logs: `~/.arco` on Linux and macOS, `%USERPROFILE%\.arco` on Windows.
+- Per-project workflows, plans, and project settings: `<project>/.arco`.
   Opening a project creates that folder. It ships its own `.gitignore` so its
   contents stay out of Git by default; adding `.arco/` to the project's root
   `.gitignore` is a sensible extra safeguard. Treat `.arco/` as local state that
@@ -407,8 +467,11 @@ npx tsx scripts/arco-backup.ts verify "$HOME/arco-backup.arcobk"
 npx tsx scripts/arco-backup.ts restore "$HOME/arco-backup.arcobk" --into "$HOME/arco-restored"
 ```
 
-The archive covers global Arco state. Back up project folders separately when
-they contain project-local `.arco` state or work that needs to be retained.
+The archive covers only part of the global Arco state: saved Chats, open tabs,
+project locations and research state are not in it (see
+[What a backup does not contain](BACKUP.md#what-a-backup-does-not-contain)).
+Back up project folders and research folders separately when they contain
+project-local `.arco` state or work that needs to be retained.
 Restore writes to a new target directory and does not merge over the live Arco
 home. After checking the restored files, stop Arco, preserve the current home,
 then copy the restored files into the intended home. For Docker, first copy

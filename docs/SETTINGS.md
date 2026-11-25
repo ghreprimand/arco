@@ -86,6 +86,10 @@ Sections: 29.
 | `app-window-browser` | Advanced | App window browser | Global | Automatic (first found, preserving the existing preference), a detected installation/channel, or another program name or path; used by `arco open`, the Arco shortcut and the explorer window; a missing choice falls back to Automatic |
 | `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release and date, CHECK NOW, update action or copyable command, Check for new releases, Updating Arco link; Claude, Codex CLI and Ollama daemon versions, plus the providers popover for available provider updates |
 
+## Phone view
+
+The phone view at `/mobile` has one setting of its own: **THIS PHONE**, shown after the category list in Settings on a phone. It sets the text size of the phone view (100%, 110% or 120%) for this browser only; the workbench's Interface text size does not apply there. See [Use Arco from a phone](GETTING_STARTED.md#use-arco-from-a-phone).
+
 ## Appearance and browser rendering
 
 If GPU activity changes between views or browsers, compare the same Arco
