@@ -8,7 +8,7 @@ import { FileAccessError } from './fileAccessPolicy.js';
 // Callers first authorize a canonical path. Pin the opened regular file and
 // verify its identity and parent again before exposing or changing bytes.
 // This is a portable race check, not an operating-system filesystem sandbox.
-export async function openCheckedFile(file: string, mode: 'read' | 'replace' | 'create' = 'read', permissions = 0o600) {
+export async function openCheckedFile(file: string, mode: 'read' | 'write' | 'replace' | 'create' = 'read', permissions = 0o600) {
   const target = path.resolve(file), parent = path.dirname(target);
   if (realpathSync(parent) !== parent) throw new FileAccessError();
   let before: Stats | undefined;
@@ -31,12 +31,12 @@ export async function openCheckedFile(file: string, mode: 'read' | 'replace' | '
 }
 
 export async function writeCheckedFile(file: string, contents: string | Buffer, overwrite = true, permissions = 0o666): Promise<void> {
-  const handle = await openCheckedFile(file, overwrite ? 'replace' : 'create', permissions);
-  try {
-    // Opening with O_TRUNC would destroy content before the identity check.
-    if (overwrite) await handle.truncate(0);
-    await handle.writeFile(contents, typeof contents === 'string' ? 'utf8' : undefined);
-  } finally { await handle.close(); }
+  if (overwrite) {
+    await stageCheckedWrite(file, contents, 'write', permissions);
+    return;
+  }
+  const handle = await openCheckedFile(file, 'create', permissions);
+  try { await handle.writeFile(contents); } finally { await handle.close(); }
 }
 
 export async function readCheckedText(file: string): Promise<string> {
@@ -45,37 +45,46 @@ export async function readCheckedText(file: string): Promise<string> {
 }
 
 export async function replaceCheckedFile(file: string, contents: string): Promise<void> {
-  const original = await openCheckedFile(file);
-  let before: Stats;
-  try { before = await original.stat(); } finally { await original.close(); }
-  const parent = path.dirname(file);
-  const temp = `${file}.${randomUUID()}.tmp`;
-  try {
-    const parentBefore = await lstat(parent);
-    await writeCheckedFile(temp, contents, false, before.mode & 0o777);
-    await renameWithRetry(temp, file, async () => {
-      const current = await lstat(file), parentNow = await lstat(parent);
-      if (!current.isFile() || current.dev !== before.dev || current.ino !== before.ino || current.isSymbolicLink()
-        || parentNow.dev !== parentBefore.dev || parentNow.ino !== parentBefore.ino
-        || realpathSync(parent) !== parent) throw new FileAccessError();
-    });
-  } finally {
-    if (realpathSync(path.dirname(file)) === path.dirname(file)) await rm(temp, { force: true });
-  }
+  await stageCheckedWrite(file, contents, 'replace');
 }
 
 export async function atomicCheckedWriteFile(file: string, contents: string | Buffer): Promise<void> {
+  await mkdir(path.dirname(file), { recursive: true });
+  await stageCheckedWrite(file, contents, 'atomic');
+}
+
+async function stageCheckedWrite(
+  file: string, contents: string | Buffer, mode: 'write' | 'replace' | 'atomic', permissions = 0o666,
+): Promise<void> {
   const parent = path.dirname(file);
-  await mkdir(parent, { recursive: true });
   if (realpathSync(parent) !== parent) throw new FileAccessError();
   const parentBefore = await lstat(parent);
   let before: Stats | undefined;
-  try { before = await lstat(file); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-  if (before && (!before.isFile() || before.isSymbolicLink())) throw new FileAccessError();
-  const temp = `${file}.${randomUUID()}.tmp`;
+  if (mode === 'atomic') {
+    try { before = await lstat(file); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    if (before && !before.isFile()) throw new FileAccessError();
+  } else {
+    // Require the same access as the original in-place write. A check also
+    // pins the inode before staging, without creating or truncating the target.
+    const original = await openCheckedFile(file, mode === 'write' ? 'write' : 'read').catch(error => {
+      if (mode === 'write' && (error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+      throw error;
+    });
+    if (!original) {
+      // Keep exclusive creation for new names. A concurrent creator wins.
+      await writeCheckedFile(file, contents, false, permissions);
+      return;
+    }
+    try { before = await original.stat(); } finally { await original.close(); }
+  }
+  const temp = path.join(parent, `.arco-write-${randomUUID()}.tmp`);
   try {
-    const output = await openCheckedFile(temp, 'create', before ? before.mode & 0o777 : 0o666);
-    try { await output.writeFile(contents); await output.sync(); } finally { await output.close(); }
+    const output = await openCheckedFile(temp, 'create', before ? before.mode & 0o777 : permissions);
+    try {
+      await output.writeFile(contents);
+      if (before) await output.chmod(before.mode & 0o777);
+      await output.sync();
+    } finally { await output.close(); }
     await renameWithRetry(temp, file, async () => {
       let current;
       try { current = await lstat(file); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
@@ -85,6 +94,8 @@ export async function atomicCheckedWriteFile(file: string, contents: string | Bu
         || (before && current && (!current.isFile() || before.dev !== current.dev || before.ino !== current.ino || current.isSymbolicLink()))) throw new FileAccessError();
     });
   } finally {
-    if (realpathSync(parent) === parent) await rm(temp, { force: true });
+    try {
+      if (realpathSync(parent) === parent) await rm(temp, { force: true });
+    } catch { /* the parent may have moved */ }
   }
 }

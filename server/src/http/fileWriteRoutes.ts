@@ -1,6 +1,6 @@
 import { writeCheckedFile } from '../checkedFile.js';
 import { IncomingMessage, ServerResponse } from 'http';
-import { writeFile, stat, mkdir } from 'fs/promises';
+import { stat, mkdir } from 'fs/promises';
 import { basename, dirname, relative, resolve } from 'path';
 import { boundCwdError, confineRealPath, resolveBoundCwd } from './writeConfinement.js';
 import { PORT } from '../server/constants.js';

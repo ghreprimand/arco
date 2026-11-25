@@ -516,6 +516,10 @@ export const clusters: Section[] = [
   Director is asked to add it to the summary.
   </p>
   <p>
+  If the conversation could not be saved, resolve the storage problem before
+  using <Code>RETRY</Code>.
+  </p>
+  <p>
   PLAN lets the Research Director attach and edit the plan; researchers cannot
   read or change it. BOARD is not shown in a research project.
   </p>
@@ -524,6 +528,9 @@ export const clusters: Section[] = [
   </p>
   <p>
   Closing Quick research keeps the Director conversation in Past Chats and offers to attach unsent researcher files. Open the saved Chat to use KEEP AS PROJECT after closing. The saved conversation is included in the project; deleting the Chat removes its Quick research sources but leaves a project already kept.
+  </p>
+  <p>
+  If research files cannot be saved on close, the project and the researchers&apos; files stay available. Resolve the save error before closing again.
   </p>
   <p>
   On <Code>/mobile</Code>, projects appear under Research projects and Quick

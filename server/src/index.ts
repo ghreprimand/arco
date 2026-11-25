@@ -1256,7 +1256,7 @@ wss.on('connection', (ws: WebSocket) => {
       case 'cluster_delete':
         handleClusterDelete(msg.clusterId).catch((err) => {
           console.error('[arco] cluster_delete handler failed:', err);
-          if ((err as { code?: string })?.code === 'preserve_quick_research') send(ws, { type: 'error', message: 'Quick research could not be saved; the research tab remains open.' });
+          if ((err as { code?: string })?.code === 'preserve_research') send(ws, { type: 'error', message: (err as Error).message });
         });
         break;
       case 'cluster_broadcast':

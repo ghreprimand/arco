@@ -409,7 +409,15 @@ export async function onMemberSettled(workflowId: string, outcome: 'finished' | 
   const n = round.n;
   const openEntry = (s: ResearchState) => { const r = roundByKey(s, n); return r && !r.releasedAt ? r.entries[researcher.letter] : undefined; };
   const at = iso(d().now());
-  if (outcome === 'finished' && !d().operatorOnly?.(state.directorWorkflowId) && await d().pendingMail(workflowId) > 0 && (round.entries[researcher.letter].wakes ?? 0) < MAX_WAKES) {
+  let saveFailed = false;
+  if (outcome !== 'stopped') {
+    try { await flushWorkflowBuffer(state.membersCwd, workflowId); }
+    catch (error) {
+      console.error('[arco] research reply could not be saved:', error);
+      saveFailed = true;
+    }
+  }
+  if (!saveFailed && outcome === 'finished' && !d().operatorOnly?.(state.directorWorkflowId) && await d().pendingMail(workflowId) > 0 && (round.entries[researcher.letter].wakes ?? 0) < MAX_WAKES) {
     await updateResearch(clusterId, (s) => {
       const entry = openEntry(s);
       if (!entry || entry.state !== 'waiting') return false;
@@ -418,8 +426,7 @@ export async function onMemberSettled(workflowId: string, outcome: 'finished' | 
     wakeMember(workflowId, researcherWakePrompt(round, round.text));
     return;
   }
-  if (outcome !== 'stopped') await flushWorkflowBuffer(state.membersCwd, workflowId);
-  const turn = outcome === 'stopped' ? { text: '', refusal: undefined } : await finalTurn(join(state.membersCwd, '.arco', 'workflows', workflowId));
+  const turn = outcome === 'stopped' || saveFailed ? { text: '', refusal: undefined } : await finalTurn(join(state.membersCwd, '.arco', 'workflows', workflowId));
   const line = turn.text.replace(/^\s*⚠\uFE0F?\s*/, '').replace(/\s+/g, ' ').trim().slice(0, 500);
   const networkNotice = researcher.provider === 'antigravity-cli' && /^there was a network issue connecting to the server\b/i.test(line);
   await updateResearch(clusterId, (s) => {
@@ -427,6 +434,12 @@ export async function onMemberSettled(workflowId: string, outcome: 'finished' | 
     if (!entry || entry.state !== 'waiting') return false;
     entry.at = at;
     if (outcome === 'stopped') { entry.state = 'stopped'; entry.reason = 'Stopped by the operator.'; }
+    else if (saveFailed) {
+      entry.state = 'failed';
+      entry.reason = round.catchUp
+        ? 'Arco could not save the conversation. Fix the storage problem before the next round.'
+        : 'Arco could not save the conversation. Fix the storage problem, then use RETRY.';
+    }
     else if (turn.refusal !== undefined) { entry.state = 'failed'; entry.reason = `The provider declined the request${turn.refusal ? ` (category: ${turn.refusal.replace(/\s+/g, ' ').trim().slice(0, 100)})` : ''}; rephrase the brief for this researcher.`; }
     else if (outcome === 'failed' || networkNotice) { entry.state = 'failed'; entry.reason = line ? `The turn ended without a report. Last message: ${line}` : 'The turn failed.'; }
     else if (turn.text) { entry.state = 'replied'; entry.source = 'final_reply'; entry.report = turn.text; }
@@ -516,7 +529,7 @@ async function finishCatchUp(state: ResearchState, round: ResearchRound, written
     if (d().isBusy(state.directorWorkflowId)) directorWakes.add(state.clusterId);
     else wakeMember(state.directorWorkflowId, `(research) The catch-up report from ${researcherName(letter)} is in your mail. Add it to synthesis.md and say that it arrived later.`);
   } else if (entry && entry.state !== 'removed') {
-    await noteDirector(state, `${researcherName(letter)}'s catch-up on the original brief ended without a report (${(entry.state).replace('_', ' ')}).`);
+    await noteDirector(state, `${researcherName(letter)}'s catch-up on the original brief ended without a report (${entry.state.replace('_', ' ')}${entry.reason ? `: ${entry.reason}` : ''}).`);
   }
   await sendDeferredRound(state, letter);
   d().notify(state.clusterId);
@@ -537,7 +550,7 @@ async function sendDeferredRound(state: ResearchState, letter: string): Promise<
   if (next && waiting && researcher) await sendRoundText(next, waiting, researcher);
 }
 
-export type RetryResult = { ok: true; late: boolean; file: string } | { ok: false; code: 'not_research' | 'unknown_round' | 'unknown_researcher' | 'not_retryable' | 'busy'; message: string };
+export type RetryResult = { ok: true; late: boolean; file: string } | { ok: false; code: 'not_research' | 'unknown_round' | 'unknown_researcher' | 'not_retryable' | 'busy' | 'save_failed'; message: string };
 
 /**
  * docs/RESEARCH.md "Retry": the operator's RETRY on a researcher marked failed
@@ -558,6 +571,11 @@ export async function retryResearcher(clusterId: string, n: number, letterRef: s
   if (entry.state !== 'failed' && entry.state !== 'timed_out') return { ok: false, code: 'not_retryable', message: 'RETRY applies to a researcher marked failed or timed out.' };
   if (openRetry(state, letter) || openCatchUp(state, letter) || d().isBusy(researcher.workflowId)) return { ok: false, code: 'busy', message: `${researcherName(letter)} is still working. Try again when it is idle.` };
   const reason = entry.reason ?? (entry.state === 'timed_out' ? 'No reply before the deadline.' : 'The turn failed.');
+  try { await flushWorkflowBuffer(state.membersCwd, researcher.workflowId); }
+  catch (error) {
+    console.error('[arco] research retry could not save the conversation:', error);
+    return { ok: false, code: 'save_failed', message: 'Arco could not save the conversation. Fix the storage problem before retrying.' };
+  }
   const blocks = await readWorkSoFar(join(state.membersCwd, '.arco', 'workflows', researcher.workflowId), Date.parse(round.startedAt));
   const fileName = `work-so-far-round-${n}.md`;
   const file = workSoFarFile({ title: `Round ${n}`, letter, roundText: round.text, reason, blocks });

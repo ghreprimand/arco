@@ -48,7 +48,7 @@ export interface SkippedEntry {
   // derived state), 'transient' (live runtime mailbox/lock), 'special-file'
   // (symlink/socket/fifo/device — non-regular, rejected by construction),
   // 'large-volatile' (logs / model blobs), or 'unknown' (unrecognized path —
-  // skipped conservatively).
+  // skipped conservatively), or 'malformed-settings' (invalid settings JSON).
   reason: string;
 }
 
@@ -169,14 +169,14 @@ export function classify(relPath: string): Classification {
 // preserved. Returns the scrubbed JSON text + the list of redacted field names.
 const SECRET_KEY_RE = /token|secret|password|api[-_]?key|credential|bearer/i;
 
-export function redactSettingsJson(raw: string): { text: string; fields: string[] } {
+export function redactSettingsJson(raw: string): { text: string; fields: string[] } | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    // Unparseable settings — capture verbatim rather than guess; nothing to redact.
-    return { text: raw, fields: [] };
+    return null;
   }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
   const fields: string[] = [];
   const scrub = (obj: unknown, path: string): unknown => {
     if (Array.isArray(obj)) return obj.map((v, i) => scrub(v, `${path}[${i}]`));
@@ -251,6 +251,10 @@ export async function walkArcoHome(arcoHome: string): Promise<WalkResult> {
     }
 
     if (st.isDirectory()) {
+      if (rel === 'settings.json') {
+        skipped.push({ path: rel, reason: 'malformed-settings' });
+        return;
+      }
       // Decide on the directory itself so we don't even descend into a skipped
       // subtree (avoids reading secret/large trees). A directory classified as
       // capture is descended; a skip is recorded once at the dir level.
@@ -276,7 +280,12 @@ export async function walkArcoHome(arcoHome: string): Promise<WalkResult> {
     }
     if (cls.category === 'globalSettings' && rel === 'settings.json') {
       const raw = await fs.readFile(abs, 'utf8');
-      const { text, fields } = redactSettingsJson(raw);
+      const redacted = redactSettingsJson(raw);
+      if (!redacted) {
+        skipped.push({ path: rel, reason: 'malformed-settings' });
+        return;
+      }
+      const { text, fields } = redacted;
       if (fields.length > 0) redactions.push({ path: rel, fields });
       files.push({ relPath: rel, bytes: Buffer.from(text, 'utf8') });
       return;

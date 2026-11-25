@@ -144,6 +144,9 @@ async function doSnapshot(argv: string[]): Promise<number> {
     `[arco-backup] ${manifest.fileCount} file(s), ${manifest.totalBytes} bytes captured; ` +
       `${manifest.skipped.length} entr(y/ies) skipped; ${manifest.redactions.length} redaction(s).`,
   );
+  if (manifest.skipped.some(entry => entry.reason === 'malformed-settings')) {
+    console.warn('[arco-backup] skipped settings.json because it is not a valid settings JSON object. Fix the file and run snapshot again to include settings.');
+  }
   return 0;
 }
 

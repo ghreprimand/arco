@@ -5,6 +5,10 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Keep the saved file intact when a text or image replacement fails, and keep unsaved conversation bytes available for the next flush.
+- Keep research work available when a close or promotion cannot save its files or conversation. A failed conversation save ends the researcher turn with a retryable error.
+- Skip malformed settings during backup and report how to include the settings in a new snapshot.
+
 - Cursor Chat turn folders that Windows still holds when a turn ends are retried for about a second and otherwise left for the next startup, instead of failing the turn.
 
 - The client build writes `client/dist/THIRD_PARTY_LICENSES.txt`, the license and notice text of every npm package bundled into the client.

@@ -198,13 +198,15 @@ Persisted event kinds introduced with the schema bump (no emitters at the time t
 
 `flushBuffer(buf)`:
 
-1. Snapshot `pending` into `chunk`, reset `buf.pending = []` and `buf.pendingBytes = 0`.
-2. Cancel any pending timer.
-3. `await fs.appendFile(eventsPath, chunk.join(''))`.
-4. If `buf.pending.length > 0` (events arrived during the flush), loop and flush again.
-5. `buf.flushInFlight = null`.
+1. Take pending lines as one UTF-8 buffer. If a previous append failed, resume its saved byte offset first.
+2. Open the log for append and advance the offset by the bytes each write reports.
+3. Clear the completed buffer and loop for events queued during the write.
+4. Release the per-workflow flush when the append finishes or fails.
 
-Per-workflow flushes are serialized - at most one `appendFile` in flight at a time per workflow. The loop in step 4 prevents lost writes from arrivals during a flush.
+A failed append keeps its unwritten bytes and queued events in memory. The next
+flush writes them in order. Readers can still read the saved log, and a move
+that requires an explicit flush stops on failure so the original log stays in
+place.
 
 ### Crash semantics
 

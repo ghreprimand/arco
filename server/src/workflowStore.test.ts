@@ -5,10 +5,11 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { currentSeq, flushWorkflowBuffer, forgetWorkflowBuffer, initWorkflowStore, persistAndStampSeq } from './workflowStore.js';
+import { currentSeq, hasPendingWorkflowWrites, flushWorkflowBuffer, forgetWorkflowBuffer, initWorkflowStore, persistAndStampSeq } from './workflowStore.js';
 import { removeProjectDir } from './testSupport/projectWrites.js';
 
 test('concurrent inits share one prime and never roll seq back', async () => {
@@ -29,6 +30,46 @@ test('concurrent inits share one prime and never roll seq back', async () => {
     await initWorkflowStore(cwd, wfid);
     assert.equal(currentSeq(cwd, wfid), 6);
   } finally {
+    await flushWorkflowBuffer(cwd, wfid);
+    forgetWorkflowBuffer(cwd, wfid);
+    await removeProjectDir(cwd);
+  }
+});
+
+test('failed conversation append retains the remaining bytes, then writes newer events in order', async t => {
+  const cwd = await mkdtemp(join(tmpdir(), 'arco-wfstore-'));
+  const wfid = 'wf-write-retry';
+  const log = join(cwd, '.arco', 'workflows', wfid, 'events.jsonl');
+  try {
+    await initWorkflowStore(cwd, wfid);
+    persistAndStampSeq(cwd, wfid, { type: 'system_notice', workflowId: wfid, content: 'First é' });
+    const open = fs.open.bind(fs);
+    const fixtureError = Object.assign(new Error('fixture disk full'), { code: 'ENOSPC' });
+    t.mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
+      const handle = await open(...args);
+      if (args[0] === log && args[1] === 'a') {
+        const write = handle.write.bind(handle);
+        let first = true;
+        handle.write = ((buffer: Buffer, offset: number) => {
+          if (!first) return Promise.reject(fixtureError);
+          first = false;
+          const middleOfCharacter = buffer.indexOf(Buffer.from('é')) + 1;
+          return write(buffer, offset, middleOfCharacter, null);
+        }) as typeof handle.write;
+      }
+      return handle;
+    });
+    await assert.rejects(flushWorkflowBuffer(cwd, wfid), { code: 'ENOSPC' });
+    assert.equal(hasPendingWorkflowWrites(cwd, wfid), true);
+    t.mock.restoreAll();
+
+    persistAndStampSeq(cwd, wfid, { type: 'system_notice', workflowId: wfid, content: 'Second' });
+    await flushWorkflowBuffer(cwd, wfid);
+    const events = (await readFile(log, 'utf8')).trimEnd().split('\n').map(line => JSON.parse(line));
+    assert.deepEqual(events.map(event => [event.seq, event.content]), [[1, 'First é'], [2, 'Second']]);
+    assert.equal(hasPendingWorkflowWrites(cwd, wfid), false);
+  } finally {
+    t.mock.restoreAll();
     await flushWorkflowBuffer(cwd, wfid);
     forgetWorkflowBuffer(cwd, wfid);
     await removeProjectDir(cwd);

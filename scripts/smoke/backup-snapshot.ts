@@ -85,7 +85,9 @@ async function main(): Promise<void> {
   });
 
   await step('redactSettingsJson: scrubs secret-shaped keys, keeps shape', () => {
-    const { text, fields } = redactSettingsJson('{"githubToken":"ghp_x","ollama":{"baseUrl":"http://y"}}');
+    const redacted = redactSettingsJson('{"githubToken":"ghp_x","ollama":{"baseUrl":"http://y"}}');
+    assert(redacted, 'valid settings were not redacted');
+    const { text, fields } = redacted;
     assert(fields.includes('githubToken'), 'githubToken recorded as redacted');
     assert(!text.includes('ghp_x'), 'secret value gone from text');
     assert(text.includes('http://y'), 'non-secret value preserved');

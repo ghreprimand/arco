@@ -208,7 +208,10 @@ export async function copyWorkspace(source: string, target: string, signal: Abor
           }
           const after = await input.stat();
           if (after.size !== before.size || after.mtimeMs !== before.mtimeMs || after.ctimeMs !== before.ctimeMs) throw new Error('A workspace file changed during copying.');
-        } finally { await output?.close().catch(() => undefined); await input.close().catch(() => undefined); }
+          await output.sync();
+        } finally {
+          try { await output?.close(); } finally { await input.close().catch(() => undefined); }
+        }
       } else throw new Error('The Quick research workspace contains a special file.');
     }
   }
@@ -242,10 +245,12 @@ export async function attemptQuickPromotion(clusterId: string): Promise<void> {
       active = beginQuickPromotion(state.directorWorkflowId);
       const signal = active.controller.signal;
       if (safeDirectory(journal.root) !== journal.root || await fs.realpath(journal.source) !== journal.source || (await fs.lstat(journal.source)).isSymbolicLink()) throw new Error('A research folder changed while waiting.');
+      signal.throwIfAborted();
+      await flushWorkflowBuffer(journal.source, state.directorWorkflowId);
+      signal.throwIfAborted();
       const target = await createResearchFolder(journal.root, state.name, new Date());
       journal = { ...journal, target, phase: 'copying' }; await save(journal);
       signal.throwIfAborted();
-      await flushWorkflowBuffer(journal.source, state.directorWorkflowId);
       await copyWorkspace(journal.source, target, signal);
       signal.throwIfAborted();
       if (!await updateMeta(target, state.directorWorkflowId, meta => { meta.cwd = target; })) throw new Error('The Director conversation is missing.');

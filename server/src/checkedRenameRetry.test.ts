@@ -10,7 +10,7 @@ installIsolatedTestHome(root);
 const platform = Object.getOwnPropertyDescriptor(process, 'platform')!;
 Object.defineProperty(process, 'platform', { ...platform, value: 'win32' });
 try { await import('./atomicFile.js'); } finally { Object.defineProperty(process, 'platform', platform); }
-const { atomicCheckedWriteFile, replaceCheckedFile } = await import('./checkedFile.js');
+const { atomicCheckedWriteFile, replaceCheckedFile, writeCheckedFile } = await import('./checkedFile.js');
 after(() => fs.rm(root, { recursive: true, force: true }));
 let serial = 0;
 for (const writer of [atomicCheckedWriteFile, replaceCheckedFile]) {
@@ -87,4 +87,27 @@ test('checked replacement releases its destination handle before attempting rena
   syncBuiltinESMExports();
   try { await replaceCheckedFile(file, 'after'); assert.equal(await fs.readFile(file, 'utf8'), 'after'); }
   finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
+});
+
+test('a failed replacement write leaves the saved file intact', async t => {
+  const folder = join(root, `case-${++serial}`);
+  await fs.mkdir(folder);
+  const file = join(folder, 'image.png');
+  await fs.writeFile(file, Buffer.from([1, 2, 3]));
+  const open = fs.open.bind(fs);
+  t.mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
+    const handle = await open(...args);
+    const write = handle.writeFile.bind(handle);
+    handle.writeFile = async () => {
+      await write(Buffer.from([4]));
+      throw Object.assign(new Error('fixture disk full'), { code: 'ENOSPC' });
+    };
+    return handle;
+  });
+  syncBuiltinESMExports();
+  try {
+    await assert.rejects(writeCheckedFile(file, Buffer.from([4, 5, 6])), { code: 'ENOSPC' });
+    assert.deepEqual(await fs.readFile(file), Buffer.from([1, 2, 3]));
+    assert.deepEqual(await fs.readdir(folder), ['image.png']);
+  } finally { t.mock.restoreAll(); syncBuiltinESMExports(); }
 });

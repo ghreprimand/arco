@@ -133,6 +133,7 @@ better to under-capture than to silently include something unexamined or leak it
 
 | Skipped | Reason | Why |
 |---|---|---|
+| Invalid `settings.json` | `malformed-settings` | The settings cannot be parsed as a JSON object. |
 | `auth.json` | `secret` | Claude Native OAuth tokens (`server/src/providers/claude-native/auth.ts`). |
 | `provider-accounts/` | `secret` | Codex `CODEX_HOME` credential trees (`server/src/providerAccounts.ts`). |
 | `cli-snapshots/`, `llamacpp.json`, `models/`, `camoufox-chatgpt-profile/`, `antigravity-data/`, `checkpoints/`, `known-cwds.json` | `regenerable` | Caches / derived state / downloaded blobs, re-derived by the running server; some are large. |
@@ -151,6 +152,10 @@ the manifest's `redactions` array, so the redaction is **documented, not hidden*
 This mirrors the A2 support-bundle allowlist philosophy
 (`server/src/diagnostics/supportBundle.ts`): allowlist what is safe, skip-and-
 record the rest, and never serialize raw token material.
+
+If `settings.json` is malformed, `snapshot` warns and writes the other files.
+Fix the settings file and run `snapshot` again to include it. The warning and
+the manifest record the omission without printing any settings contents.
 
 > **Note, per-cwd state.** Workflow transcripts, plans, tasks, and knowledge
 > also live in per-project `<cwd>/.arco/` trees scattered across arbitrary

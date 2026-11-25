@@ -10,11 +10,12 @@ import { createHash } from 'node:crypto';
 import { researchSearchDetails } from '@arco/shared';
 import { saveQuickResearchChat } from './quickResearchChat.js';
 import { promises as fs } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 import { clusterDir, isolatedWorkspaceFor, setBeforeClusterDelete } from '../clusterStore.js';
 import { forgetResearchTripwires, RESEARCH_CANARY_FILE } from './researchTripwires.js';
 import { atomicWriteFile } from '../atomicFile.js';
 import { readLogLines } from '../eventLog.js';
+import { flushWorkflowBuffer } from '../workflowStore.js';
 import { researchMembersRoot } from './researchCreate.js';
 import { roundDir, writeProjectFiles } from './researchFolder.js';
 import { forgetResearch, loadResearch, researcherName, updateResearch, type ResearchResearcher, type ResearchState } from './researchState.js';
@@ -22,7 +23,6 @@ import { forgetResearch, loadResearch, researcherName, updateResearch, type Rese
 export interface UnsentFile { letter: string; path: string; bytes: number }
 
 const MAX_LISTED_FILES = 200;
-const MAX_DEPTH = 6;
 const LOG_LIST_LIMIT = 15;
 const SWEEP_MIN_AGE_MS = 10 * 60_000;
 
@@ -37,37 +37,64 @@ async function hashFile(path: string): Promise<string> {
   return hash.digest('hex').slice(0, 12);
 }
 
-async function walk(root: string, depth = 0, out: string[] = []): Promise<string[]> {
-  if (depth > MAX_DEPTH || out.length >= MAX_LISTED_FILES) return out;
-  const entries = await fs.readdir(root, { withFileTypes: true }).catch(() => []);
+async function* walk(root: string, missingOk = false): AsyncGenerator<string> {
+  const entries = await fs.readdir(root, { withFileTypes: true }).catch(error => {
+    if (missingOk && (error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  });
   for (const entry of entries) {
-    if (out.length >= MAX_LISTED_FILES) break;
     const path = join(root, entry.name);
-    if (entry.isDirectory()) await walk(path, depth + 1, out);
-    else if (entry.isFile()) out.push(path);
+    if (entry.isDirectory()) yield* walk(path);
+    else if (entry.isFile()) yield path;
   }
-  return out;
 }
 
 function workspaceOf(state: ResearchState, r: ResearchResearcher): string {
   return isolatedWorkspaceFor(state.clusterId, r.workflowId);
 }
 
-// Files in a researcher's workspace whose content is not already in sources/.
-export async function unsentFiles(state: ResearchState, letters?: string[]): Promise<UnsentFile[]> {
-  const sent = new Set((await fs.readdir(join(state.folder, 'sources')).catch(() => [] as string[])).map((name) => name.slice(0, 12)));
-  const out: UnsentFile[] = [];
+// Stream the full workspace for close. Only the dialog preview is capped.
+async function* filesToKeep(state: ResearchState, letters?: string[]) {
+  const sources = join(state.folder, 'sources');
+  const entries = await fs.readdir(sources, { withFileTypes: true }).catch(error => {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  });
+  const sent = new Map<string, string[]>();
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    const hash = entry.name.slice(0, 12);
+    const names = sent.get(hash);
+    if (names) names.push(entry.name);
+    else sent.set(hash, [entry.name]);
+  }
   for (const r of state.researchers) {
     if (letters && !letters.includes(r.letter)) continue;
     const root = workspaceOf(state, r);
-    for (const path of await walk(root)) {
-      if (state.isolationCanaries?.[r.workflowId] && path === join(root, RESEARCH_CANARY_FILE)) continue;
-      const stat = await fs.stat(path).catch(() => null);
-      if (!stat) continue;
-      const hash = await hashFile(path).catch(() => '');
-      if (!hash || sent.has(hash)) continue;
-      out.push({ letter: r.letter, path: relative(root, path).split(sep).join('/'), bytes: stat.size });
+    for await (const from of walk(root, true)) {
+      if (state.isolationCanaries?.[r.workflowId] && from === join(root, RESEARCH_CANARY_FILE)) continue;
+      const hash = await hashFile(from);
+      const safe = basename(from).replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^\.+/, '').slice(0, 80) || 'file';
+      const name = `${hash}-kept-${safe}`;
+      let alreadySent = false;
+      for (const candidate of sent.get(hash) ?? []) {
+        // Include copies from an earlier close attempt so a retried Quick
+        // research save still attaches the same files.
+        if (!candidate.startsWith(`${hash}-kept-`) && await hashFile(join(sources, candidate)) === hash) {
+          alreadySent = true;
+          break;
+        }
+      }
+      if (!alreadySent) yield { from, name, hash, letter: r.letter, path: relative(root, from).split(sep).join('/'), bytes: (await fs.stat(from)).size };
     }
+  }
+}
+
+export async function unsentFiles(state: ResearchState, letters?: string[]): Promise<UnsentFile[]> {
+  const out: UnsentFile[] = [];
+  for await (const { letter, path, bytes } of filesToKeep(state, letters)) {
+    out.push({ letter, path, bytes });
+    if (out.length >= MAX_LISTED_FILES) break;
   }
   return out;
 }
@@ -86,24 +113,22 @@ function inputField(input: unknown, key: string): string | undefined {
 async function logFacts(workflowDir: string): Promise<LogFacts> {
   const facts: LogFacts = { turns: 0, searches: [], sources: [], failures: [] };
   const seen = new Set<string>();
-  try {
-    for await (const line of readLogLines(workflowDir)) {
-      let e: Record<string, unknown>;
-      try { e = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
-      if (e.type === 'primary_turn_started') facts.turns++;
-      else if (e.type === 'error' && typeof e.message === 'string') facts.failures.push(e.message.slice(0, 200));
-      else if (e.type === 'primary_tool_use' && typeof e.tool === 'string') {
-        const id = String(e.itemId ?? e.toolUseId ?? `${e.tool}:${e.input}`);
-        if (e.status === 'failed') facts.failures.push(`${e.tool} failed${typeof e.output === 'string' ? `: ${e.output.slice(0, 160)}` : ''}`);
-        if (seen.has(id)) continue;
-        seen.add(id);
-        // Cursor names the search text `searchTerm`.
-        const search = researchSearchDetails(e.tool, e.input);
-        if (search.search) facts.searches.push(search.query ?? '(query not recorded)');
-        else if (/^(web_fetch|WebFetch)$/.test(e.tool)) facts.sources.push(inputField(e.input, 'url') ?? '(address not recorded)');
-      }
+  for await (const line of readLogLines(workflowDir)) {
+    let e: Record<string, unknown>;
+    try { e = JSON.parse(line) as Record<string, unknown>; } catch { continue; }
+    if (e.type === 'primary_turn_started') facts.turns++;
+    else if (e.type === 'error' && typeof e.message === 'string') facts.failures.push(e.message.slice(0, 200));
+    else if (e.type === 'primary_tool_use' && typeof e.tool === 'string') {
+      const id = String(e.itemId ?? e.toolUseId ?? `${e.tool}:${e.input}`);
+      if (e.status === 'failed') facts.failures.push(`${e.tool} failed${typeof e.output === 'string' ? `: ${e.output.slice(0, 160)}` : ''}`);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      // Cursor names the search text `searchTerm`.
+      const search = researchSearchDetails(e.tool, e.input);
+      if (search.search) facts.searches.push(search.query ?? '(query not recorded)');
+      else if (/^(web_fetch|WebFetch)$/.test(e.tool)) facts.sources.push(inputField(e.input, 'url') ?? '(address not recorded)');
     }
-  } catch { /* no conversation on disk: an empty log */ }
+  }
   return facts;
 }
 
@@ -148,20 +173,19 @@ export type CloseResult =
 // Copies files researchers saved but never sent into sources/; returns
 // their project-relative names.
 export async function moveUnsentFiles(state: ResearchState, letters?: string[]): Promise<string[]> {
-  const moved: string[] = [];
+  const moved = new Set<string>();
   await fs.mkdir(join(state.folder, 'sources'), { recursive: true });
-  for (const file of await unsentFiles(state, letters)) {
-    const r = state.researchers.find((x) => x.letter === file.letter)!;
-    const from = join(workspaceOf(state, r), ...file.path.split('/'));
-    const hash = await hashFile(from);
-    const safe = file.path.split('/').at(-1)!.replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^\.+/, '').slice(0, 80) || 'file';
-    const name = `${hash}-${safe}`;
-    await fs.copyFile(from, join(state.folder, 'sources', name), fs.constants.COPYFILE_EXCL).catch((error: NodeJS.ErrnoException) => {
+  for await (const { from, name, hash } of filesToKeep(state, letters)) {
+    const target = join(state.folder, 'sources', name);
+    await fs.copyFile(from, target, fs.constants.COPYFILE_EXCL).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== 'EEXIST') throw error;
     });
-    moved.push(`sources/${name}`);
+    if (!(await fs.lstat(target)).isFile() || await hashFile(target) !== hash || await hashFile(from) !== hash) {
+      throw new Error('A researcher file could not be copied safely. Its workspace was kept.');
+    }
+    moved.add(`sources/${name}`);
   }
-  return moved;
+  return [...moved];
 }
 
 // A removed researcher's private workspace and provider home.
@@ -170,23 +194,28 @@ export async function removeResearcherWorkspace(state: ResearchState, workflowId
   if (r) await fs.rm(dirname(workspaceOf(state, r)), { recursive: true, force: true });
 }
 
-// `force` (a cluster deleted by another path) closes even while a
-// researcher's turn is still settling.
+// `force` is a cluster deletion under the cluster lock. It refuses active
+// work without waiting for a promotion that might need the same lock.
 export async function closeResearch(clusterId: string, opts: { moveUnsent: boolean; isBusy: (workflowId: string) => boolean; now?: () => number; waitMs?: number; force?: boolean }): Promise<CloseResult> {
-  const state = await loadResearch(clusterId).catch(() => null);
-  if (!state) return { ok: false, error: 'unknown_research' };
-  if (state.quick) {
+  let current = await loadResearch(clusterId);
+  if (!current) return { ok: false, error: 'unknown_research' };
+  if (current.quick) {
     const promotion = await import('./quickPromotion.js');
     // A forced close runs under the cluster lock. Do not wait for a copy that
     // might itself be waiting for that lock; leave the cluster intact instead.
     if (opts.force) {
       if (promotion.stopQuickPromotionTimer(clusterId)) return { ok: false, error: 'director_busy' };
-    } else await promotion.cancelQuickPromotion(clusterId);
+    } else {
+      await promotion.cancelQuickPromotion(clusterId);
+      current = await loadResearch(clusterId);
+      if (!current) return { ok: false, error: 'unknown_research' };
+    }
   }
-  if (state.quick && opts.isBusy(state.directorWorkflowId) && !opts.force) return { ok: false, error: 'director_busy' };
+  const state = current;
+  if (state.quick && opts.isBusy(state.directorWorkflowId)) return { ok: false, error: 'director_busy' };
   if (state.closedAt) {
     await keepClosedRecord(state);
-    return { ok: true, logsWrittenTo: '', moved: [], removed: 0 };
+    return { ok: true, logsWrittenTo: '', moved: [], removed: await removeResearchWorkspaces(state) };
   }
   // The client closes the researcher tabs first, which cancels their turns;
   // give a cancelled turn a moment to settle before touching its files.
@@ -196,51 +225,54 @@ export async function closeResearch(clusterId: string, opts: { moveUnsent: boole
     await new Promise((resolve) => setTimeout(resolve, 250));
     busy = busy.filter((r) => opts.isBusy(r.workflowId));
   }
-  if (busy.length && !opts.force) return { ok: false, error: 'researcher_busy', letters: busy.map((r) => r.letter) };
+  if (busy.length) return { ok: false, error: 'researcher_busy', letters: busy.map((r) => r.letter) };
 
-  // Hold every live member idle while the Quick research snapshot and
-  // attachments are copied. A new turn must not change either source while
-  // the saved Chat is being written or while researcher folders are removed.
+  // Hold the sources idle while the logs and attachments are copied.
   const releases: Array<() => void> = [];
-  if (state.quick) {
-    const { workflows } = await import('../server/state.js');
-    const { reserveWorkflowMigration } = await import('../ws/turnEngine.js');
-    for (const id of [state.directorWorkflowId, ...state.researchers.map(r => r.workflowId)]) {
-      const wf = workflows.get(id);
-      if (!wf) continue;
-      try { releases.push(reserveWorkflowMigration(wf)); }
-      catch {
-        for (const release of releases.reverse()) release();
-        return id === state.directorWorkflowId
-          ? { ok: false, error: 'director_busy' }
-          : { ok: false, error: 'researcher_busy', letters: state.researchers.filter(r => r.workflowId === id).map(r => r.letter) };
-      }
+  const ids = state.researchers.map(r => r.workflowId);
+  if (state.quick) ids.push(state.directorWorkflowId);
+  const { workflows } = await import('../server/state.js');
+  const { reserveWorkflowMigration } = await import('../ws/turnEngine.js');
+  for (const id of ids) {
+    const wf = workflows.get(id);
+    if (!wf) continue;
+    try { releases.push(reserveWorkflowMigration(wf)); }
+    catch {
+      for (const release of releases.reverse()) release();
+      return id === state.directorWorkflowId
+        ? { ok: false, error: 'director_busy' }
+        : { ok: false, error: 'researcher_busy', letters: state.researchers.filter(r => r.workflowId === id).map(r => r.letter) };
     }
   }
   try {
-  const moved = opts.moveUnsent ? await moveUnsentFiles(state) : [];
+    await Promise.all(state.researchers.map(r => flushWorkflowBuffer(state.membersCwd, r.workflowId)));
+    const moved = opts.moveUnsent ? await moveUnsentFiles(state) : [];
+    if (state.quick) await saveQuickResearchChat(state, moved);
 
-  const latest = state.rounds.at(-1);
-  const logsPath = latest ? join(roundDir(state.folder, latest.n), 'round.md') : join(state.folder, 'researcher-logs.md');
-  await fs.mkdir(dirname(logsPath), { recursive: true });
-  const moves = moved.length ? `\nFiles the researchers saved but never sent, moved on close:\n${moved.map((m) => `- ${m}`).join('\n')}\n` : '';
-  await fs.appendFile(logsPath, await researcherLogs(state, latest ? '##' : '#') + moves);
+    const latest = state.rounds.at(-1);
+    const logsPath = latest ? join(roundDir(state.folder, latest.n), 'round.md') : join(state.folder, 'researcher-logs.md');
+    const moves = moved.length ? `\nFiles the researchers saved but never sent, moved on close:\n${moved.map((m) => `- ${m}`).join('\n')}\n` : '';
+    const logs = await researcherLogs(state, latest ? '##' : '#') + moves;
+    const previous = await fs.readFile(logsPath, 'utf8').catch(error => {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return '';
+      throw error;
+    });
+    if (!previous.endsWith(logs)) await atomicWriteFile(logsPath, previous + logs);
 
-  if (state.quick) await saveQuickResearchChat(state, moved);
-
-  const closedAt = new Date((opts.now ?? Date.now)()).toISOString();
-  const updated = await updateResearch(clusterId, (s) => { s.closedAt = closedAt; });
-  if (updated) await writeProjectFiles(updated).catch(() => undefined);
-  await keepClosedRecord(updated ?? { ...state, closedAt });
-
-  let removed = 0;
-  for (const r of state.researchers) {
-    await fs.rm(dirname(workspaceOf(state, r)), { recursive: true, force: true });
-    removed++;
-  }
-  await fs.rm(state.membersCwd, { recursive: true, force: true });
-  return { ok: true, logsWrittenTo: relative(state.folder, logsPath).split(sep).join('/'), moved, removed };
+    const closedAt = new Date((opts.now ?? Date.now)()).toISOString();
+    const closing = { ...state, closedAt };
+    await keepClosedRecord(closing);
+    await writeProjectFiles(closing);
+    if (!await updateResearch(clusterId, (s) => { s.closedAt = closedAt; })) throw new Error('The research state could not be closed.');
+    const removed = await removeResearchWorkspaces(state);
+    return { ok: true, logsWrittenTo: relative(state.folder, logsPath).split(sep).join('/'), moved, removed };
   } finally { for (const release of releases.reverse()) release(); }
+}
+
+async function removeResearchWorkspaces(state: ResearchState): Promise<number> {
+  for (const r of state.researchers) await removeResearcherWorkspace(state, r.workflowId);
+  await fs.rm(state.membersCwd, { recursive: true, force: true });
+  return state.researchers.length;
 }
 
 // Startup: researcher conversation folders whose project has no cluster any
@@ -293,23 +325,16 @@ export async function researchProjectIdsOnDisk(): Promise<Set<string> | null> {
 export function installResearchCloseOnDelete(isBusy: (workflowId: string) => boolean): void {
   setBeforeClusterDelete(async (cluster) => {
     if (!cluster.research) return;
-    const state = await loadResearch(cluster.clusterId).catch(() => null);
-    let closed = false;
+    let quick = false;
     try {
+      quick = (await loadResearch(cluster.clusterId))?.quick === true;
       const result = await closeResearch(cluster.clusterId, { moveUnsent: true, isBusy, waitMs: 0, force: true });
-      if (!result.ok && result.error !== 'unknown_research') {
-        if (state?.quick) throw new Error(result.error);
-        console.error(`[arco] research close before delete failed: ${result.error}`);
-      }
-      closed = true;
+      if (!result.ok) throw new Error(result.error);
     } catch (error) {
-      if (state?.quick) throw Object.assign(new Error('Quick research could not be saved; the research tab remains open.'), { code: 'preserve_quick_research', cause: error });
-      throw error;
-    } finally {
-      if (closed || !state?.quick) {
-        forgetResearch(cluster.clusterId);
-        forgetResearchTripwires(cluster.clusterId);
-      }
+      const label = quick ? 'Quick research' : 'Research';
+      throw Object.assign(new Error(`${label} could not be saved; the research tab remains open.`), { code: 'preserve_research', cause: error });
     }
+    forgetResearch(cluster.clusterId);
+    forgetResearchTripwires(cluster.clusterId);
   });
 }

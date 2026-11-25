@@ -429,6 +429,53 @@ test('settling a researcher reads a final reply still queued in the workflow buf
   } finally { await flushWorkflowBuffer(p.membersCwd, p.a); forgetWorkflowBuffer(p.membersCwd, p.a); configureResearch(null); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
 });
 
+test('a researcher save failure releases the round and RETRY recovers the pending work', async t => {
+  const { initWorkflowStore, persistAndStampSeq, hasPendingWorkflowWrites, flushWorkflowBuffer, forgetWorkflowBuffer } = await import('../workflowStore.js');
+  const p = await project();
+  const log = join(p.membersCwd, '.arco', 'workflows', p.a, 'events.jsonl');
+  try {
+    await startRound(p.clusterId, p.director, 'Compare the fixtures.');
+    await clusterMailbox.drain(p.a);
+    await onMemberSettled(p.b, 'stopped');
+    await initWorkflowStore(p.membersCwd, p.a);
+    persistAndStampSeq(p.membersCwd, p.a, { type: 'primary_text', workflowId: p.a, phase: 'passthrough', text: 'An older reply.' });
+    await flushWorkflowBuffer(p.membersCwd, p.a);
+    const open = fs.open.bind(fs);
+    t.mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
+      if (args[0] === log && args[1] === 'a') throw Object.assign(new Error('fixture disk full'), { code: 'ENOSPC' });
+      return open(...args);
+    });
+    persistAndStampSeq(p.membersCwd, p.a, { type: 'primary_turn_started', workflowId: p.a } as never);
+    persistAndStampSeq(p.membersCwd, p.a, { type: 'primary_text', workflowId: p.a, phase: 'passthrough', text: 'Pending research work.' });
+
+    await onMemberSettled(p.a, 'finished');
+
+    const round = (await loadResearch(p.clusterId))!.rounds[0];
+    assert.ok(round.releasedAt);
+    assert.equal(round.entries.A.state, 'failed');
+    assert.match(round.entries.A.reason ?? '', /could not save the conversation/);
+    assert.equal(round.entries.A.report, undefined);
+    assert.equal(hasPendingWorkflowWrites(p.membersCwd, p.a), true);
+    const refused = await retryResearcher(p.clusterId, 1, 'A');
+    assert.equal(refused.ok ? null : refused.code, 'save_failed');
+    assert.equal((await loadResearch(p.clusterId))!.rounds[0].entries.A.state, 'failed');
+
+    t.mock.restoreAll();
+    assert.equal((await retryResearcher(p.clusterId, 1, 'A')).ok, true);
+    const [mail] = await clusterMailbox.drain(p.a);
+    const attachment = Buffer.from(mail.artifacts![0].contentBase64, 'base64').toString('utf8');
+    assert.match(attachment, /Pending research work/);
+    assert.equal(hasPendingWorkflowWrites(p.membersCwd, p.a), false);
+  } finally {
+    t.mock.restoreAll();
+    await flushWorkflowBuffer(p.membersCwd, p.a);
+    forgetWorkflowBuffer(p.membersCwd, p.a);
+    configureResearch(null);
+    await clusterStore.deleteCluster(p.clusterId);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
+});
+
 test('a provider refusal becomes a failed round reason even after partial output', async () => {
   const p = await project();
   try {
@@ -720,6 +767,35 @@ test('research plans are available to the Director and never readable by researc
     const snapshots = await import('../clusterSnapshots.js');
     await assert.rejects(snapshots.saveSnapshot({ clusterId: p.clusterId, name: 'Fixture' }), /Research projects cannot be saved/);
   } finally { await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); }
+});
+
+test('failed research preservation refuses cluster deletion and keeps the workspace for retry', async () => {
+  const p = await project();
+  const workspace = clusterStore.isolatedWorkspaceFor(p.clusterId, p.a);
+  const file = join(workspace, 'notes.md');
+  const sources = join(p.folder, 'sources');
+  installResearchCloseOnDelete(() => false);
+  try {
+    await fs.mkdir(workspace, { recursive: true });
+    await fs.writeFile(file, 'Retain these notes.');
+    await fs.rm(sources, { recursive: true, force: true });
+    await fs.writeFile(sources, 'Fixture obstruction');
+    await assert.rejects(clusterStore.deleteCluster(p.clusterId), /Research could not be saved/);
+    assert.ok(await clusterStore.readCluster(p.clusterId));
+    assert.equal((await loadResearch(p.clusterId))?.closedAt, undefined);
+    assert.equal(await fs.readFile(file, 'utf8'), 'Retain these notes.');
+    await fs.rm(sources);
+
+    await clusterStore.deleteCluster(p.clusterId);
+    assert.equal(await clusterStore.readCluster(p.clusterId), null);
+    const [kept] = await fs.readdir(sources);
+    assert.equal(await fs.readFile(join(sources, kept), 'utf8'), 'Retain these notes.');
+  } finally {
+    setBeforeClusterDelete(null);
+    await clusterStore.deleteCluster(p.clusterId);
+    configureResearch(null);
+    await fs.rm(p.root, { recursive: true, force: true });
+  }
 });
 
 test('result selection excludes unreleased reports and preserves only released source files', async () => {
@@ -1021,6 +1097,31 @@ test('an interrupted Quick research promotion restores the source and leaves bot
 });
 
 
+test('Quick research copy surfaces a destination flush failure before the workspace can be switched', async t => {
+  const { copyWorkspace } = await import('./quickPromotion.js');
+  const root = await fs.mkdtemp(join(tmpdir(), 'arco-quick-copy-'));
+  const source = join(root, 'source');
+  const target = join(root, 'target');
+  try {
+    await fs.mkdir(source);
+    await fs.mkdir(target);
+    await fs.writeFile(join(source, 'notes.md'), 'Retain these notes.');
+    const open = fs.open.bind(fs);
+    t.mock.method(fs, 'open', async (...args: Parameters<typeof fs.open>) => {
+      const handle = await open(...args);
+      if (args[0] === join(target, 'notes.md')) {
+        handle.sync = async () => { throw Object.assign(new Error('fixture flush failure'), { code: 'EIO' }); };
+      }
+      return handle;
+    });
+    await assert.rejects(copyWorkspace(source, target, new AbortController().signal), { code: 'EIO' });
+    assert.equal(await fs.readFile(join(source, 'notes.md'), 'utf8'), 'Retain these notes.');
+  } finally {
+    t.mock.restoreAll();
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test('keeping Quick research waits for idle members and removes its source after the move', async () => {
   const { arcoHome } = await import('../arcoHome.js');
   const { workflows, workflowCwds } = await import('../server/state.js');
@@ -1049,9 +1150,23 @@ test('keeping Quick research waits for idle members and removes its source after
     workflowCwds.set(p.director, source);
     assert.equal((await requestQuickPromotion(p.clusterId, root)).phase, 'waiting');
     await attemptQuickPromotion(p.clusterId); assert.equal((await readQuickPromotion(p.clusterId))?.phase, 'waiting');
-    workflows.get(p.director)!.busy = false; await attemptQuickPromotion(p.clusterId);
+    workflows.get(p.director)!.busy = false;
+    persistAndStampSeq(source, p.director, { type: 'system_notice', workflowId: p.director, content: 'Pending note' });
+    const live = join(source, '.arco', 'workflows', p.director, 'events.jsonl');
+    await fs.rename(live, live + '.saved');
+    await fs.mkdir(live);
+    await attemptQuickPromotion(p.clusterId);
+    assert.equal((await readQuickPromotion(p.clusterId))?.phase, 'error');
+    assert.equal((await loadResearch(p.clusterId))?.folder, source);
+    assert.deepEqual(await fs.readdir(root), []);
+    await fs.rmdir(live);
+    await fs.rename(live + '.saved', live);
+
+    await requestQuickPromotion(p.clusterId, root);
+    await attemptQuickPromotion(p.clusterId);
     const journal = await readQuickPromotion(p.clusterId); assert.equal(journal?.phase, 'done', journal?.message);
     assert.equal(await fs.readFile(join(journal!.target!, 'synthesis.md'), 'utf8'), 'Retained answer');
+    assert.match(await fs.readFile(join(journal!.target!, '.arco', 'workflows', p.director, 'events.jsonl'), 'utf8'), /Pending note/);
     await assert.rejects(fs.stat(source), { code: 'ENOENT' });
     await fs.mkdir(source); await fs.copyFile(join(journal!.target!, 'research.json'), join(source, 'research.json'));
     await recoverQuickPromotion(journal!);

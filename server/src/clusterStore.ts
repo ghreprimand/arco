@@ -405,19 +405,15 @@ export async function deleteCluster(clusterId: string): Promise<void> {
 
 // docs/RESEARCH.md - runs before a cluster directory is removed, whatever
 // path deletes it, so a research project is closed (logs, unsent files, the
-// author record) before its Arco-side state goes. Ordinary hook errors are
-// logged and deletion continues. A Quick research close can explicitly
-// require preservation, so a failed Chat snapshot leaves the cluster intact.
+// author record) before its Arco-side state goes. If preservation fails,
+// leave the cluster and its isolated workspaces available for a retry.
 let beforeDelete: ((state: ClusterState) => Promise<void>) | null = null;
 export function setBeforeClusterDelete(hook: ((state: ClusterState) => Promise<void>) | null): void { beforeDelete = hook; }
 
 async function deleteClusterUnlocked(clusterId: string): Promise<void> {
   const state = await readCluster(clusterId);
   if (!state) return;
-  if (beforeDelete) await beforeDelete(state).catch((err) => {
-    console.error(`[arco] before-delete hook failed for cluster ${clusterId}:`, err);
-    if ((err as { code?: string })?.code === 'preserve_quick_research') throw err;
-  });
+  if (beforeDelete) await beforeDelete(state);
   cache.delete(clusterId);
   dropPlanCache(clusterId);
   for (const m of state.members) {
@@ -485,6 +481,13 @@ export async function removeMember(
       return { clusterDeleted: false, remaining: state.members };
     }
     const remaining = state.members.filter((m) => m !== workflowId);
+    if (remaining.length < 2) {
+      // Sub-2 cluster is invalid — collapse it. The other member(s) get the
+      // same downgrade-to-plain-workflow shape as deleteCluster.
+      // Unlocked twin: we already hold this cluster's meta lock.
+      await deleteClusterUnlocked(clusterId);
+      return { clusterDeleted: true, remaining };
+    }
     memberFence.delete(workflowId);
     if (memberIndex.get(workflowId) === clusterId) memberIndex.delete(workflowId);
     // Wipe the leaving member's mailbox dir; pending peer messages lose their
@@ -493,13 +496,6 @@ export async function removeMember(
     // in-flight enqueue can't recreate the departed recipient's dir after rm.
     await withFileLock(clusterMailboxRoot(clusterId), () =>
       fs.rm(join(clusterMailboxRoot(clusterId), workflowId), { recursive: true, force: true }));
-    if (remaining.length < 2) {
-      // Sub-2 cluster is invalid — collapse it. The other member(s) get the
-      // same downgrade-to-plain-workflow shape as deleteCluster.
-      // Unlocked twin: we already hold this cluster's meta lock.
-      await deleteClusterUnlocked(clusterId);
-      return { clusterDeleted: true, remaining };
-    }
     const web = { ...state.memberWebAccess }; delete web[workflowId];
     const former = Object.fromEntries(Object.entries(state.formerMembers ?? {}).filter(([, to]) => to !== workflowId));
     const next: ClusterState = { ...state, members: remaining, memberWebAccess: Object.keys(web).length ? web : undefined,

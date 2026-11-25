@@ -17,7 +17,7 @@ import { ensureProjectStateIgnore } from './projectStateIgnore.js';
 //   - Writes are coalesced. The buffer flushes on the 100ms debounce timer
 //     OR when pendingBytes crosses 64KB, whichever first. Worst-case crash
 //     loses ~100ms of events; seq gaps make the client notice next time.
-//   - Flush serializes per workflow (one appendFile in flight at a time),
+//   - Flush serializes per workflow (one append in flight at a time),
 //     but loops until the buffer is drained so late arrivals during a flush
 //     don't get stranded.
 //   - wfid must match a UUID-ish shape (path-scope defense).
@@ -48,6 +48,7 @@ interface WorkflowBuffer {
   initialized: boolean;
   pending: string[];             // NDJSON lines awaiting flush
   pendingBytes: number;
+  uncommitted: { bytes: Buffer; offset: number } | null;
   flushTimer: NodeJS.Timeout | null;
   flushInFlight: Promise<void> | null;
   // Memoized init. Two concurrent inits used to both pass the `initialized`
@@ -202,6 +203,7 @@ export async function initWorkflowStore(cwd: string, wfid: string): Promise<void
       initialized: false,
       pending: [],
       pendingBytes: 0,
+      uncommitted: null,
       flushTimer: null,
       flushInFlight: null,
       initPromise: null,
@@ -356,13 +358,13 @@ function scheduleFlush(buf: WorkflowBuffer): void {
       clearTimeout(buf.flushTimer);
       buf.flushTimer = null;
     }
-    void flushBuffer(buf);
+    void flushBestEffort(buf);
     return;
   }
   if (buf.flushTimer) return;
   buf.flushTimer = setTimeout(() => {
     buf.flushTimer = null;
-    void flushBuffer(buf);
+    void flushBestEffort(buf);
   }, FLUSH_DEBOUNCE_MS);
 }
 
@@ -375,20 +377,26 @@ async function flushBuffer(buf: WorkflowBuffer): Promise<void> {
     const filePath = eventsPath(buf.cwd, buf.wfid);
     // Loop so events queued during the write are included in this flush
     // round and don't wait for the next debounce tick.
-    while (buf.pending.length > 0) {
-      const chunk = buf.pending.join('');
-      buf.pending = [];
-      buf.pendingBytes = 0;
-      try {
-        await fs.mkdir(path.dirname(filePath), { recursive: true });
-        await fs.appendFile(filePath, chunk, 'utf8');
-      } catch (err) {
-        console.error(`[arco] workflowStore flush failed for ${buf.wfid.slice(0, 8)}:`, err);
-        // Events are lost from disk for this round. The seq gap the client
-        // sees on next reconnect triggers the snapshot-only fallback.
-        return;
+    while (buf.uncommitted || buf.pending.length > 0) {
+      if (!buf.uncommitted) {
+        buf.uncommitted = { bytes: Buffer.from(buf.pending.join('')), offset: 0 };
+        buf.pending = [];
+        buf.pendingBytes = 0;
       }
-      buf.liveBytes += Buffer.byteLength(chunk);
+      const chunk = buf.uncommitted;
+      await fs.mkdir(path.dirname(filePath), { recursive: true });
+      const handle = await fs.open(filePath, 'a');
+      try {
+        while (chunk.offset < chunk.bytes.length) {
+          const { bytesWritten } = await handle.write(chunk.bytes, chunk.offset, chunk.bytes.length - chunk.offset, null);
+          if (!bytesWritten) throw new Error('The conversation log write made no progress.');
+          // A short write may end partway through a UTF-8 character or record.
+          // Retry its remaining bytes before any newer events.
+          chunk.offset += bytesWritten;
+          buf.liveBytes += bytesWritten;
+        }
+      } finally { await handle.close(); }
+      buf.uncommitted = null;
       // P7.3: seal the live file into compressed segments once it is large.
       // Runs inside this flush chain, so nothing appends meanwhile; new events
       // wait in `pending` and land in the fresh live file.
@@ -415,9 +423,14 @@ async function flushBuffer(buf: WorkflowBuffer): Promise<void> {
   }
 }
 
+async function flushBestEffort(buf: WorkflowBuffer): Promise<void> {
+  try { await flushBuffer(buf); }
+  catch (error) { console.error(`[arco] conversation log flush failed for ${buf.wfid.slice(0, 8)}. Unsaved events are retained:`, error); }
+}
+
 export function hasPendingWorkflowWrites(cwd: string, wfid: string): boolean {
   const buf = buffers.get(bufferKey(cwd, wfid));
-  return !!buf && (buf.pending.length > 0 || !!buf.flushInFlight || !buf.initialized);
+  return !!buf && (buf.pending.length > 0 || !!buf.uncommitted || !!buf.flushInFlight || !buf.initialized);
 }
 
 // COMPRESS OLD LOGS (P7.3/P7.5): seal a conversation's live log now, inside
@@ -448,7 +461,7 @@ export async function sealWorkflowLogNow(cwd: string, wfid: string): Promise<Sea
 // timer). Used by the Genesis rebind (M2) before moving a workflow's on-disk
 // store from the scratch ideation dir to the real project dir — every queued
 // event must land in the scratch events.jsonl before the file moves. No-op if
-// the buffer is absent. Never throws past flushBuffer's own handling.
+// the buffer is absent. A failed append rejects so moves keep their source.
 export async function flushWorkflowBuffer(cwd: string, wfid: string): Promise<void> {
   if (!cwd) return;
   const buf = buffers.get(bufferKey(cwd, wfid));
@@ -481,8 +494,8 @@ export async function flushAll(): Promise<void> {
       clearTimeout(buf.flushTimer);
       buf.flushTimer = null;
     }
-    if (buf.pending.length > 0 || buf.flushInFlight) {
-      tasks.push(flushBuffer(buf));
+    if (buf.pending.length > 0 || buf.uncommitted || buf.flushInFlight) {
+      tasks.push(flushBestEffort(buf));
     }
   }
   await Promise.all(tasks);
@@ -552,7 +565,7 @@ export async function replayEventsWithTs(
       clearTimeout(buf.flushTimer);
       buf.flushTimer = null;
     }
-    await flushBuffer(buf);
+    await flushBestEffort(buf);
   }
   const out: Array<{ ts: number; message: ServerMessage }> = [];
   for await (const { line, step } of effectiveLines(workflowDir(cwd, wfid), fromSeq)) {
@@ -590,7 +603,7 @@ export async function* streamWorkflowEvents(cwd: string, wfid: string): AsyncGen
   const buf = buffers.get(bufferKey(cwd, wfid));
   if (buf) {
     if (buf.flushTimer) { clearTimeout(buf.flushTimer); buf.flushTimer = null; }
-    await flushBuffer(buf);
+    await flushBestEffort(buf);
   }
   for await (const { line, step } of effectiveLines(workflowDir(cwd, wfid))) {
     if (!step) continue;
@@ -618,7 +631,7 @@ export async function replayEvents(
       clearTimeout(buf.flushTimer);
       buf.flushTimer = null;
     }
-    await flushBuffer(buf);
+    await flushBestEffort(buf);
   }
   const out: ServerMessage[] = [];
   for await (const { line, step } of effectiveLines(workflowDir(cwd, wfid), fromSeq)) {
@@ -654,7 +667,7 @@ export async function replayTailEvents(
       clearTimeout(buf.flushTimer);
       buf.flushTimer = null;
     }
-    await flushBuffer(buf);
+    await flushBestEffort(buf);
   }
   // Live tail, plus the newest sealed segments when the live file is short.
   // A log whose effective numbers drift (see scanSeqs) is read whole, so the
@@ -703,7 +716,7 @@ export async function scanEventsOfTypes(
       clearTimeout(buf.flushTimer);
       buf.flushTimer = null;
     }
-    await flushBuffer(buf);
+    await flushBestEffort(buf);
   }
   const needles = types.map((t) => `"${t}"`);
   const out: ServerMessage[] = [];
@@ -742,7 +755,7 @@ export async function readEventsPageBefore(
       clearTimeout(buf.flushTimer);
       buf.flushTimer = null;
     }
-    await flushBuffer(buf);
+    await flushBestEffort(buf);
   }
   const parsed: ServerMessage[] = [];
   for await (const { line, step } of effectiveLines(workflowDir(cwd, wfid))) {
