@@ -77,6 +77,15 @@ test('a settled turn keeps its command completion when a newer turn is listening
 // docs/PROVIDERS.md - a Codex turn that ends while a command it started is
 // still running stays open, and the command's result continues the agent.
 const settle = async () => { for (let i = 0; i < 20; i++) await tick(); };
+// Auth retry re-reads the sign-in fingerprint from disk before beginTurn, so a
+// fixed tick count can finish before the second start lands on a busy runner.
+const waitFor = async (predicate: () => boolean, label: string, timeoutMs = 5_000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) assert.fail(`timed out waiting for ${label}`);
+    await tick();
+  }
+};
 function heldTurn(extra: Partial<WorkerConfig> = {}) {
   const cfg = { ...config, ...extra } as WorkerConfig;
   const worker = new CodexAppServerWorker('fixture', cfg, 'thread');
@@ -109,12 +118,14 @@ function heldTurn(extra: Partial<WorkerConfig> = {}) {
 test('a Codex researcher retries one authentication failure before reporting it', async () => {
   const h = heldTurn({ clusterAccessMode: 'researcher' });
   await settle();
-  h.failAuth('turn-1'); await settle();
+  h.failAuth('turn-1');
+  await waitFor(() => h.starts.length >= 2, 'the authentication retry beginTurn');
   assert.equal(h.starts.length, 2);
   assert.match(h.starts[1], /Continue the task without repeating completed tool actions/);
   assert.deepEqual(h.errors, []);
   assert.equal(h.notices.some(notice => notice.startsWith('[AUTH:codex]')), false);
-  h.failAuth('turn-2'); await settle();
+  h.failAuth('turn-2');
+  await waitFor(() => h.errors.length >= 1, 'the second authentication failure');
   assert.equal(h.starts.length, 2);
   assert.equal(h.errors.length, 1);
 });
