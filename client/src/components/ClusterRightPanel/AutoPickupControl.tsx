@@ -12,6 +12,9 @@ import {
   SMART_PICKUP_EVALUATOR_PROVIDERS,
   SMART_PICKUP_LIMIT_KEYS,
   SMART_PICKUP_LIMIT_SPECS,
+  SMART_PICKUP_PRESETS,
+  smartPickupPresetFor,
+  type SmartPickupPreset,
   isSmartPickupMode,
   resolveAutoPickupMode,
   type AutoPickupMode,
@@ -39,10 +42,14 @@ export function autoPickupStateOf(cluster: ClusterStatePayload): ClusterAutoPick
   return cluster.autoPickup ?? { mode: resolveAutoPickupMode(undefined, cluster.autoTurnOnMailboxEnabled), limits: DEFAULT_SMART_PICKUP_LIMITS };
 }
 
-function describeDecision(state: ClusterAutoPickupState): string | null {
+function describeDecision(state: ClusterAutoPickupState, cluster: ClusterStatePayload): string | null {
   const d = state.lastDecision;
   if (!d) return null;
   const when = new Date(d.at).toLocaleTimeString();
+  if (d.reason.includes('depth_capped') || d.outcome.includes('depth_capped')) {
+    const member = cluster.members.find((m) => m.workflowId === d.recipientWorkflowId)?.displayName ?? d.recipientWorkflowId?.slice(0, 8) ?? 'Member';
+    return `${when}: ${member} was held because the chain reached its limit. Mail remains waiting.`;
+  }
   // docs/PROTOCOL_CLUSTER.md "Gemini members": AUTO-PICKUP never wakes them.
   if (d.reason === 'operator_send_only') return `${when}: Skipped a Gemini member. Its mail waits for your NUDGE.`;
   if (d.reason === 'gemini_mail') return `${when}: Mail from a Gemini member waits for your NUDGE on the recipient.`;
@@ -80,13 +87,13 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
   const wsSendRaw = useAppStore((s) => s.wsSendRaw);
   const connected = useAppStore((s) => s.connected);
   const [open, setOpen] = useState(false);
-  const send = (mode: AutoPickupMode, evaluator?: SmartPickupEvaluator, limits?: Partial<SmartPickupLimits>, ruleLimits?: Partial<RulePickupLimits>, remindBusy?: boolean) => {
-    wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode, ...(evaluator ? { evaluator } : {}), ...(limits ? { limits } : {}), ...(ruleLimits ? { ruleLimits } : {}), ...(remindBusy !== undefined ? { remindBusy } : {}) });
+  const send = (mode: AutoPickupMode, evaluator?: SmartPickupEvaluator, limits?: Partial<SmartPickupLimits>, ruleLimits?: Partial<RulePickupLimits>, remindBusy?: boolean, customLimits?: SmartPickupLimits) => {
+    wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode, ...(evaluator ? { evaluator } : {}), ...(limits ? { limits } : {}), ...(customLimits ? { customLimits } : {}), ...(ruleLimits ? { ruleLimits } : {}), ...(remindBusy !== undefined ? { remindBusy } : {}) });
   };
   const on = state.mode !== 'off';
   const pause = () => wsSendRaw?.({ type: 'cluster_auto_pickup_set', clusterId: cluster.clusterId, mode: state.mode, paused: !state.paused });
   const remaining = useSessionRemaining(state.session?.expiresAt, state.pausedAt);
-  const decision = describeDecision(state);
+  const decision = describeDecision(state, cluster);
   const modeTitle = on
     ? `${AUTO_PICKUP_MODE_LABELS[state.mode].label}${state.paused ? ', paused; automatic pickup and busy reminders are stopped' : ''}${remaining !== null ? `, about ${remaining} min left in this session${state.paused ? ' (clock paused)' : ''}` : ''}. Click to review or change.`
     : 'AUTO-PICKUP is off. Click to choose a mode.';
@@ -135,16 +142,17 @@ export function AutoPickupControl({ cluster }: { cluster: ClusterStatePayload })
           TURN OFF
         </button>
       )}
-      {open && <AutoPickupDialog state={state} onPause={pause} onClose={() => setOpen(false)} onApply={(mode, evaluator, limits, ruleLimits, remindBusy) => { send(mode, evaluator, limits, ruleLimits, remindBusy); setOpen(false); }} />}
+      {open && <AutoPickupDialog cluster={cluster} state={state} onPause={pause} onClose={() => setOpen(false)} onApply={(mode, evaluator, limits, ruleLimits, remindBusy, customLimits) => { send(mode, evaluator, limits, ruleLimits, remindBusy, customLimits); setOpen(false); }} />}
     </>
   );
 }
 
-function AutoPickupDialog({ state, onPause, onClose, onApply }: {
+function AutoPickupDialog({ cluster, state, onPause, onClose, onApply }: {
+  cluster: ClusterStatePayload;
   state: ClusterAutoPickupState;
   onPause: () => void;
   onClose: () => void;
-  onApply: (mode: AutoPickupMode, evaluator?: SmartPickupEvaluator, limits?: Partial<SmartPickupLimits>, ruleLimits?: Partial<RulePickupLimits>, remindBusy?: boolean) => void;
+  onApply: (mode: AutoPickupMode, evaluator?: SmartPickupEvaluator, limits?: Partial<SmartPickupLimits>, ruleLimits?: Partial<RulePickupLimits>, remindBusy?: boolean, customLimits?: SmartPickupLimits) => void;
 }) {
   const surface = useRef<HTMLDivElement>(null);
   const authStatus = useAppStore((s) => s.authStatus);
@@ -180,12 +188,13 @@ function AutoPickupDialog({ state, onPause, onClose, onApply }: {
   const [remindBusy, setRemindBusy] = useState(state.remindBusy === true);
   const [ruleLimits, setRuleLimits] = useState<RulePickupLimits>(state.ruleLimits ?? DEFAULT_RULE_PICKUP_LIMITS);
   const [limits, setLimits] = useState<SmartPickupLimits>(state.limits);
+  const [preset, setPreset] = useState<SmartPickupPreset>(() => smartPickupPresetFor(state.limits));
+  const [customLimits, setCustomLimits] = useState<SmartPickupLimits>(() => state.customLimits ?? (smartPickupPresetFor(state.limits) === 'custom' ? state.limits : SMART_PICKUP_PRESETS.standard));
   const first = useRef<HTMLInputElement>(null);
   useEffect(() => { first.current?.focus(); }, []);
   const models = provider ? modelsForProvider(provider, catalogs).map(String) : [];
   const smart = isSmartPickupMode(mode);
   const evaluator = provider && model ? { provider, model } : undefined;
-  const changedLimits = Object.fromEntries(SMART_PICKUP_LIMIT_KEYS.filter((k) => limits[k] !== state.limits[k]).map((k) => [k, limits[k]])) as Partial<SmartPickupLimits>;
   const limitsValid = SMART_PICKUP_LIMIT_KEYS.every((k) => Number.isInteger(limits[k]) && limits[k] >= SMART_PICKUP_LIMIT_SPECS[k].min && limits[k] <= SMART_PICKUP_LIMIT_SPECS[k].max);
   const ruleValid = RULE_PICKUP_LIMIT_KEYS.every((k) => Number.isInteger(ruleLimits[k]) && ruleLimits[k] >= RULE_PICKUP_LIMIT_SPECS[k].min && ruleLimits[k] <= RULE_PICKUP_LIMIT_SPECS[k].max);
   const problem = mode === 'rule' && !ruleValid ? 'Each rule limit must be a whole number within its range.' : !connected ? 'Not connected to the server.'
@@ -195,7 +204,7 @@ function AutoPickupDialog({ state, onPause, onClose, onApply }: {
     : !limitsValid ? 'Each limit must be a whole number within its range.'
     : null;
   const field: React.CSSProperties = { display: 'block', margin: '4px 0 10px' };
-  const decision = describeDecision(state);
+  const decision = describeDecision(state, cluster);
   const remaining = useSessionRemaining(state.session?.expiresAt, state.pausedAt);
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -241,6 +250,18 @@ function AutoPickupDialog({ state, onPause, onClose, onApply }: {
           </label>; })}
           <button type="button" data-help="cluster.auto-pickup-rule-reset" onClick={() => setRuleLimits({ ...DEFAULT_RULE_PICKUP_LIMITS })}>RESET LIMITS</button>
           {state.ruleStatus && <p>Automatic wakes: {state.ruleStatus.wakes} of {ruleLimits.wakesPerArming} this arming.{state.ruleStatus.ledgerUnavailable ? ' Paused: the Rule-based ledger is unavailable.' : state.ruleStatus.budgetPaused ? ' Wake budget reached. Select RESET BUDGET beside AUTO-PICKUP after resuming any operator pause.' : ''}{state.ruleStatus.pausedPair ? ' Alternating pair paused.' : ''}</p>}
+        </section>}
+        {mode === 'smart-auto' && <section data-help="cluster.auto-pickup-limits" style={{ margin: '12px 0' }}>
+          <label className="arco-field-label">Smart: Automatic preset
+            <select className="arco-field" value={preset} onChange={(e) => {
+              const next = e.target.value as SmartPickupPreset;
+              setPreset(next);
+              setLimits(next === 'custom' ? customLimits : { ...SMART_PICKUP_PRESETS[next] });
+            }}>
+              <option value="short">Short</option><option value="standard">Standard</option><option value="long">Long</option><option value="custom">Custom</option>
+            </select>
+          </label>
+          <p>Up to {limits.wakesPerSession} automatic turns per armed session, for {limits.sessionMinutes} minutes.</p>
         </section>}
         {smart && (
           <section data-help="cluster.auto-pickup-evaluator" style={{ borderTop: '1px solid var(--color-border-hairline)', marginTop: '10px', paddingTop: '10px' }}>
@@ -290,11 +311,11 @@ function AutoPickupDialog({ state, onPause, onClose, onApply }: {
                 return (
                   <label key={k} className="arco-field-label" style={field}>{spec.label} ({spec.min} to {spec.max} {spec.unit})
                     <input className="arco-field" type="number" min={spec.min} max={spec.max} step={1} value={Number.isFinite(limits[k]) ? limits[k] : ''}
-                      onChange={(e) => setLimits((prior) => ({ ...prior, [k]: e.target.value === '' ? Number.NaN : Number(e.target.value) }))} />
+                      onChange={(e) => { const next = { ...limits, [k]: e.target.value === '' ? Number.NaN : Number(e.target.value) }; setLimits(next); if (SMART_PICKUP_LIMIT_KEYS.every((key) => Number.isInteger(next[key]) && next[key] >= SMART_PICKUP_LIMIT_SPECS[key].min && next[key] <= SMART_PICKUP_LIMIT_SPECS[key].max)) setCustomLimits(next); setPreset('custom'); }} />
                   </label>
                 );
               })}
-              <p style={{ color: 'var(--color-fg-muted)' }}>The existing cooldown, per-minute ceiling and chain limit also apply.</p>
+              <p style={{ color: 'var(--color-fg-muted)' }}>The existing cooldown and per-minute ceiling also apply.{state.effectiveMaxChainDepth !== undefined ? ` The server overrides chain depth to ${state.effectiveMaxChainDepth}.` : ''}</p>
             </details>
           </section>
         )}
@@ -310,7 +331,7 @@ function AutoPickupDialog({ state, onPause, onClose, onApply }: {
         {problem && <p role="alert" style={{ color: 'var(--color-accent-secondary-dim)' }}>{problem}</p>}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '12px' }}>
           <button type="button" onClick={onClose} className="display-font">CANCEL</button>
-          <button type="button" disabled={problem !== null} onClick={() => onApply(mode, smart ? evaluator : undefined, Object.keys(changedLimits).length ? changedLimits : undefined, mode === 'rule' ? ruleLimits : undefined, (mode === 'rule' || mode === 'smart-auto') && remindBusy !== (state.remindBusy === true) ? remindBusy : undefined)} className="display-font">
+          <button type="button" disabled={problem !== null} onClick={() => onApply(mode, smart ? evaluator : undefined, smart ? limits : undefined, mode === 'rule' ? ruleLimits : undefined, (mode === 'rule' || mode === 'smart-auto') && remindBusy !== (state.remindBusy === true) ? remindBusy : undefined, smart ? customLimits : undefined)} className="display-font">
             {smart ? (mode === 'smart-auto' ? 'ARM AUTOMATIC' : 'ARM OBSERVE-ONLY') : 'APPLY'}
           </button>
         </div>

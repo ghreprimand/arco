@@ -493,8 +493,12 @@ function fireRulePickup(opts: { clusterId: string; senderWfid: string; recipient
 // Smart AUTO-PICKUP wakes share the Rule-based guards: chain depth,
 // per-recipient cooldown and the per-cluster per-minute ceiling. Check first,
 // stamp only when the wake is actually admitted.
-export function sharedGuardProblem(clusterId: string, recipientWfid: string, incomingChainDepth: number, now = Date.now()): 'depth_capped' | 'cooldown' | 'rate_capped' | null {
-  if (incomingChainDepth >= AUTO_TURN_MAX_CHAIN_DEPTH) return 'depth_capped';
+export function smartChainDepthLimit(configured: number): number {
+  return process.env.ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH ? AUTO_TURN_MAX_CHAIN_DEPTH : configured;
+}
+
+export function sharedGuardProblem(clusterId: string, recipientWfid: string, incomingChainDepth: number, now = Date.now(), depthLimit = AUTO_TURN_MAX_CHAIN_DEPTH): 'depth_capped' | 'cooldown' | 'rate_capped' | null {
+  if (incomingChainDepth >= depthLimit) return 'depth_capped';
   const ms = getMemberState(recipientWfid);
   if (ms.lastFiredAt !== undefined && now - ms.lastFiredAt < AUTO_TURN_COOLDOWN_MS) return 'cooldown';
   const cs = getClusterState(clusterId);

@@ -2813,13 +2813,13 @@ export async function handleClusterAutoTurnToggle(
 // A pause-only request keeps the current mode, session and budgets.
 export async function handleClusterAutoPickupSet(
   ws: WebSocket,
-  msg: { clusterId: string; mode: unknown; paused?: unknown; evaluator?: unknown; limits?: unknown; ruleLimits?: unknown; resumeRule?: boolean; remindBusy?: boolean },
+  msg: { clusterId: string; mode: unknown; paused?: unknown; evaluator?: unknown; limits?: unknown; customLimits?: unknown; ruleLimits?: unknown; resumeRule?: boolean; remindBusy?: boolean },
 ): Promise<void> {
   if (await refuseResearchSetting(ws, msg.clusterId)) return;
   const settings = await readSettings().catch(() => null);
   const result = await applyAutoPickup(
     msg.clusterId,
-    { mode: msg.mode, paused: msg.paused, evaluator: msg.evaluator, limits: msg.limits, ruleLimits: msg.ruleLimits, resumeRule: msg.resumeRule },
+    { mode: msg.mode, paused: msg.paused, evaluator: msg.evaluator, limits: msg.limits, customLimits: msg.customLimits, ruleLimits: msg.ruleLimits, resumeRule: msg.resumeRule },
     (provider) => settings?.enabledProviders?.[provider] !== false,
   );
   if (!result.ok) {

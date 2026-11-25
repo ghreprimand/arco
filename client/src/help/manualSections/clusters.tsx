@@ -1462,31 +1462,35 @@ export const clusters: Section[] = [
   adapter sends are in <Code>SECURITY.md</Code>.
   </p>
   <p>
-  <strong>Adjustable Smart limits</strong> (defaults; range in
+  <strong>Smart: Automatic presets</strong> select Short, Standard, Long or Custom before arming. The selector shows the maximum automatic turns and session length. LIMITS edits select Custom; the cluster remembers the last valid Custom when another preset is selected. Standard is the default for fresh settings. Existing default-armed Smart sessions retain the previous Short limits until rearmed.
+  </p>
+  <p>
+  <strong>Adjustable Smart limits</strong> (Standard defaults; range in
   parentheses):
   </p>
   <ul>
-  <li>Evaluator requests at once in this cluster - 1 (1 to 4)</li>
-  <li>Evaluator requests per hour, whole cluster - 12 (1 to 120)</li>
-  <li>Evaluator requests per hour, each member - 3 (1 to 60)</li>
-  <li>Automatic wakes per hour, each member - 3 (1 to 60)</li>
-  <li>Automatic wakes per armed session - 12 (1 to 200)</li>
-  <li>Armed session length - 30 minutes (5 to 240)</li>
-  <li>Evaluator time limit - 30 seconds (5 to 120)</li>
-  <li>Most mail and context sent per request - 12288 bytes (2048 to 65536)</li>
-  <li>Longest evaluator answer - 64 tokens (16 to 512), with the existing visible-character bound. Capped provider requests add 8192 tokens for reasoning without enlarging the visible answer.</li>
+  <li>Evaluator requests at once in this cluster - 2 (1 to 4)</li>
+  <li>Evaluator requests per hour, whole cluster - 48 (1 to 120)</li>
+  <li>Evaluator requests per hour, each member - 12 (1 to 60)</li>
+  <li>Automatic wakes per hour, each member - 10 (1 to 60)</li>
+  <li>Automatic wakes per armed session - 40 (1 to 200)</li>
+  <li>Armed session length - 60 minutes (5 to 240)</li>
+  <li>Evaluator time limit - 45 seconds (5 to 120)</li>
+  <li>Most mail and context sent per request - 16384 bytes (2048 to 65536)</li>
+  <li>Longest evaluator answer - 96 tokens (16 to 512), with the existing visible-character bound. Capped provider requests add 8192 tokens for reasoning without enlarging the visible answer.</li>
+  <li>Maximum chain depth - 24 (1 to 64 turns). A server override takes precedence and is shown in LIMITS.</li>
   </ul>
   <p>
   Limits are counted durably, so a restart never resets them. The
-  Rule-based cooldown, per-minute ceiling and chain limit still apply in
-  Automatic mode.
+  Rule-based cooldown and per-minute ceiling still apply in
+  Automatic mode. A chain held at its limit leaves mail waiting.
   </p>
   <h4 className="manual-sub">Session expiry and re-arm</h4>
   <p>
     Each Smart arming starts a
   new session. Set <strong>Armed session length</strong> under{' '}
   <strong> AUTO-PICKUP &gt; LIMITS</strong> before arming: 5 to 240 minutes,
-  default 30. The dialog shows minutes remaining and the end time. When
+  default 60. The dialog shows minutes remaining and the end time. When
   the session ends, or after a restart whose budget ledger cannot be read,
   Smart turns itself Off. Mail waits for rearming, Rule-based or NUDGE;
   expiry never grants another wake.

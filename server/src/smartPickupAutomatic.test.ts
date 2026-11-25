@@ -139,7 +139,7 @@ test('a thinking-only capped evaluator reply falls back once without re-evaluati
   await send(member, director, 'Review the completed change.');
   const decision = await observer.evaluateOnce(c.clusterId, member);
   assert.deepEqual([decision?.action, decision?.reason, decision?.outcome], [null, 'evaluator_error:output_too_long', 'fallback_woke']);
-  assert.equal(bodies[0].max_tokens, 8256, 'reasoning has headroom above the visible 64-token answer limit');
+  assert.equal(bodies[0].max_tokens, 8288, 'reasoning has headroom above the visible 96-token answer limit');
   assert.equal(bodies[0].thinking, undefined, 'no model-specific thinking switch is required');
   assert.equal(woke.length, 1);
   assert.equal(woke[0].wfid, member);
@@ -257,10 +257,10 @@ test('exhausted caps deny before dispatch; passing conditions keep the wake owed
   assert.equal((await observer.evaluateOnce(c2.clusterId, x))?.outcome, 'woke');
   assert.equal(woke.length, 3);
 
-  const c3 = await automatic();
+  const c3 = await automatic({ maxChainDepth: 2 });
   const [d3, y] = c3.members;
   await send(y, d3, 'Deep chain.');
-  await observer.onSmartPickupMail(c3.clusterId, y, 8);
+  await observer.onSmartPickupMail(c3.clusterId, y, 2);
   assert.equal(woke.filter((w) => w.wfid === y).length, 0, 'the chain-depth guard also applies');
 });
 
@@ -295,4 +295,29 @@ test('the sweep visits every idle member with mail in a stable order', async () 
   await observer.sweepSmartPickupMail();
   for (let i = 0; i < 50 && woke.length < 2; i++) await new Promise((r) => setTimeout(r, 10));
   assert.deepEqual(woke.map((w) => w.wfid).sort(), [a, b].sort());
+});
+
+
+test('the configured chain limit also holds evaluator fallback', async () => {
+  const c = await automatic({ maxChainDepth: 2 });
+  const [director, member] = c.members;
+  answer = async () => { throw new Error('offline'); };
+  await send(member, director, 'Please handle this task.');
+  await observer.onSmartPickupMail(c.clusterId, member, 2);
+  const last = (await ledger.smartPickupSnapshot(c.clusterId, await sessionOf(c.clusterId), clock)).lastDecision;
+  assert.equal(woke.length, 0);
+  assert.equal(last?.outcome, 'fallback_skipped:depth_capped');
+  assert.equal(last?.recipientWorkflowId, member);
+});
+
+
+test('a legacy default-armed session uses its original depth cap for dispatch', async () => {
+  const c = await automatic();
+  const [director, member] = c.members;
+  const state = store.getClusterCached(c.clusterId)!;
+  delete state.smartPickup!.limits;
+  await send(member, director, 'Please review the assignment.');
+  await observer.onSmartPickupMail(c.clusterId, member, 8);
+  assert.equal(woke.length, 0);
+  assert.equal((await ledger.smartPickupSnapshot(c.clusterId, await sessionOf(c.clusterId), clock)).lastDecision?.reason, 'assignment:depth_capped');
 });

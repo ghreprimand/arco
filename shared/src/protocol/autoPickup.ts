@@ -65,20 +65,22 @@ export interface SmartPickupLimits {
   timeoutSeconds: number;
   maxInputBytes: number;
   maxOutputTokens: number;
+  maxChainDepth: number;
 }
 
 export interface SmartPickupLimitSpec { default: number; min: number; max: number; label: string; unit: string }
 
 export const SMART_PICKUP_LIMIT_SPECS: Record<keyof SmartPickupLimits, SmartPickupLimitSpec> = {
-  maxInFlight: { default: 1, min: 1, max: 4, label: 'Evaluator requests at once in this cluster', unit: 'requests' },
-  callsPerClusterHour: { default: 12, min: 1, max: 120, label: 'Evaluator requests per hour, whole cluster', unit: 'per hour' },
-  callsPerMemberHour: { default: 3, min: 1, max: 60, label: 'Evaluator requests per hour, each member', unit: 'per hour' },
-  wakesPerMemberHour: { default: 3, min: 1, max: 60, label: 'Automatic wakes per hour, each member', unit: 'per hour' },
-  wakesPerSession: { default: 12, min: 1, max: 200, label: 'Automatic wakes per armed session', unit: 'wakes' },
-  sessionMinutes: { default: 30, min: 5, max: 240, label: 'Armed session length', unit: 'minutes' },
-  timeoutSeconds: { default: 30, min: 5, max: 120, label: 'Evaluator time limit', unit: 'seconds' },
-  maxInputBytes: { default: 12288, min: 2048, max: 65536, label: 'Most mail and context sent per request', unit: 'bytes' },
-  maxOutputTokens: { default: 64, min: 16, max: 512, label: 'Longest evaluator answer', unit: 'tokens' },
+  maxInFlight: { default: 2, min: 1, max: 4, label: 'Evaluator requests at once in this cluster', unit: 'requests' },
+  callsPerClusterHour: { default: 48, min: 1, max: 120, label: 'Evaluator requests per hour, whole cluster', unit: 'per hour' },
+  callsPerMemberHour: { default: 12, min: 1, max: 60, label: 'Evaluator requests per hour, each member', unit: 'per hour' },
+  wakesPerMemberHour: { default: 10, min: 1, max: 60, label: 'Automatic wakes per hour, each member', unit: 'per hour' },
+  wakesPerSession: { default: 40, min: 1, max: 200, label: 'Automatic wakes per armed session', unit: 'wakes' },
+  sessionMinutes: { default: 60, min: 5, max: 240, label: 'Armed session length', unit: 'minutes' },
+  timeoutSeconds: { default: 45, min: 5, max: 120, label: 'Evaluator time limit', unit: 'seconds' },
+  maxInputBytes: { default: 16384, min: 2048, max: 65536, label: 'Most mail and context sent per request', unit: 'bytes' },
+  maxOutputTokens: { default: 96, min: 16, max: 512, label: 'Longest evaluator answer', unit: 'tokens' },
+  maxChainDepth: { default: 24, min: 1, max: 64, label: 'Maximum chain depth', unit: 'turns' },
 };
 
 export const SMART_PICKUP_LIMIT_KEYS = Object.keys(SMART_PICKUP_LIMIT_SPECS) as (keyof SmartPickupLimits)[];
@@ -87,18 +89,30 @@ export const DEFAULT_SMART_PICKUP_LIMITS: SmartPickupLimits = Object.fromEntries
   SMART_PICKUP_LIMIT_KEYS.map((k) => [k, SMART_PICKUP_LIMIT_SPECS[k].default]),
 ) as unknown as SmartPickupLimits;
 
+export const SMART_PICKUP_PRESETS: Record<'short' | 'standard' | 'long', SmartPickupLimits> = {
+  short: { maxInFlight: 1, callsPerClusterHour: 12, callsPerMemberHour: 3, wakesPerMemberHour: 3, wakesPerSession: 12, sessionMinutes: 30, timeoutSeconds: 30, maxInputBytes: 12288, maxOutputTokens: 64, maxChainDepth: 8 },
+  standard: { ...DEFAULT_SMART_PICKUP_LIMITS },
+  long: { maxInFlight: 4, callsPerClusterHour: 100, callsPerMemberHour: 30, wakesPerMemberHour: 25, wakesPerSession: 120, sessionMinutes: 120, timeoutSeconds: 60, maxInputBytes: 24576, maxOutputTokens: 128, maxChainDepth: 64 },
+};
+export type SmartPickupPreset = keyof typeof SMART_PICKUP_PRESETS | 'custom';
+export function smartPickupPresetFor(limits: SmartPickupLimits): SmartPickupPreset {
+  return (Object.keys(SMART_PICKUP_PRESETS) as Array<keyof typeof SMART_PICKUP_PRESETS>).find((name) => SMART_PICKUP_LIMIT_KEYS.every((key) => limits[key] === SMART_PICKUP_PRESETS[name][key])) ?? 'custom';
+}
+
 // Whole numbers within each limit's bounds; anything missing or invalid reads
 // as the default, so a hand-edited file can never raise a limit past its max.
+// Saved limits without a depth use the former defaults for missing values.
 // Previously valid longer session lengths instead clamp to the new ceiling.
 export function sanitizeSmartPickupLimits(raw: unknown): SmartPickupLimits {
   const r = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
-  const out = { ...DEFAULT_SMART_PICKUP_LIMITS };
+  const legacy = raw && typeof raw === 'object' && Object.keys(r).length > 0 && !('maxChainDepth' in r);
+  const out = { ...(legacy ? SMART_PICKUP_PRESETS.short : DEFAULT_SMART_PICKUP_LIMITS) };
   for (const key of SMART_PICKUP_LIMIT_KEYS) {
     const spec = SMART_PICKUP_LIMIT_SPECS[key];
     const value = r[key];
     // Older saved sessions allowed up to eight hours. Preserve the chosen
     // longer duration at the new four-hour ceiling instead of resetting it
-    // to the thirty-minute default when the saved limits are read again.
+    // to the default when the saved limits are read again.
     if (key === 'sessionMinutes' && typeof value === 'number' && Number.isInteger(value) && value > spec.max) {
       out[key] = spec.max;
       continue;
@@ -161,6 +175,8 @@ export interface ClusterAutoPickupState {
   mode: AutoPickupMode;
   limits: SmartPickupLimits;
   evaluator?: SmartPickupEvaluator;
+  customLimits?: SmartPickupLimits;
+  effectiveMaxChainDepth?: number;
   // The last explicitly chosen evaluator, offered again only while its
   // provider is still enabled and connected.
   lastEvaluator?: SmartPickupEvaluator;
@@ -180,6 +196,7 @@ export interface ClusterAutoPickupSetMessage {
   mode: AutoPickupMode;
   evaluator?: SmartPickupEvaluator;
   limits?: Partial<SmartPickupLimits>;
+  customLimits?: SmartPickupLimits;
   ruleLimits?: Partial<RulePickupLimits>;
   resumeRule?: boolean;
   // Pause/resume the current mode without rearming or resetting its budgets.

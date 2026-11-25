@@ -52,6 +52,7 @@ import {
   resolveAutoPickupMode,
   sanitizeSmartPickupEvaluator,
   sanitizeSmartPickupLimits,
+  SMART_PICKUP_PRESETS,
   sanitizeRulePickupLimits,
   type RulePickupLimits,
   type AutoPickupMode,
@@ -141,6 +142,7 @@ export interface ClusterState {
     evaluator?: SmartPickupEvaluator;
     lastEvaluator?: SmartPickupEvaluator;
     limits?: Partial<SmartPickupLimits>;
+    customLimits?: SmartPickupLimits;
     session?: SmartPickupSession;
   };
   // docs/TASK_LEDGER.md Stage G - operator-armed task
@@ -1189,6 +1191,15 @@ export async function setAutoTurnOnMailbox(
   return setAutoPickup(clusterId, { mode: enabled ? 'rule' : 'off' });
 }
 
+// Before presets, default-armed Smart clusters stored an evaluator and
+// session but no limits. Keep those sessions at the old defaults until the
+// operator explicitly arms a new selection.
+export function smartPickupLimitsOf(state: ClusterState | null | undefined): SmartPickupLimits {
+  const smart = state?.smartPickup;
+  if (smart && smart.limits === undefined && (smart.evaluator || smart.lastEvaluator || smart.session)) return { ...SMART_PICKUP_PRESETS.short };
+  return sanitizeSmartPickupLimits(smart?.limits);
+}
+
 // Set the AUTO-PICKUP mode. Smart modes require an evaluator (validated by
 // the caller against enabled providers) and always start a new session with
 // its own id and expiry; any other mode clears the session, which makes any
@@ -1198,7 +1209,7 @@ export async function setAutoTurnOnMailbox(
 // resume moves its expiry forward by the saved pause duration.
 export async function setAutoPickup(
   clusterId: string,
-  opts: { mode: AutoPickupMode; paused?: boolean; evaluator?: SmartPickupEvaluator; limits?: Partial<SmartPickupLimits>; ruleLimits?: Partial<RulePickupLimits>; remindBusy?: boolean; now?: number },
+  opts: { mode: AutoPickupMode; paused?: boolean; evaluator?: SmartPickupEvaluator; limits?: Partial<SmartPickupLimits>; customLimits?: SmartPickupLimits; ruleLimits?: Partial<RulePickupLimits>; remindBusy?: boolean; now?: number },
 ): Promise<ClusterState | null> {
   return withClusterMetaLock(clusterId, async () => {
     const state = await readCluster(clusterId);
@@ -1218,7 +1229,9 @@ export async function setAutoPickup(
     }
     const now = opts.now ?? Date.now();
     const prior = state.smartPickup ?? {};
-    const limits = opts.limits ? sanitizeSmartPickupLimits({ ...sanitizeSmartPickupLimits(prior.limits), ...opts.limits }) : prior.limits;
+    const limits = isSmartPickupMode(opts.mode) || opts.limits
+      ? sanitizeSmartPickupLimits({ ...smartPickupLimitsOf(state), ...opts.limits })
+      : prior.limits;
     let smartPickup: ClusterState['smartPickup'];
     if (isSmartPickupMode(opts.mode)) {
       const evaluator = sanitizeSmartPickupEvaluator(opts.evaluator);
@@ -1226,6 +1239,7 @@ export async function setAutoPickup(
       const resolved = sanitizeSmartPickupLimits(limits);
       smartPickup = {
         ...prior,
+        ...(opts.customLimits ? { customLimits: sanitizeSmartPickupLimits(opts.customLimits) } : {}),
         evaluator,
         lastEvaluator: evaluator,
         ...(limits ? { limits } : {}),

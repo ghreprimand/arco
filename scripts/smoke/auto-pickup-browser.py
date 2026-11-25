@@ -30,7 +30,7 @@ CAPABILITIES = [
     {'provider': 'ollama', 'available': True},
 ]
 LIMITS = {'maxInFlight': 1, 'callsPerClusterHour': 12, 'callsPerMemberHour': 3, 'wakesPerMemberHour': 3, 'wakesPerSession': 12,
-          'sessionMinutes': 30, 'timeoutSeconds': 30, 'maxInputBytes': 12288, 'maxOutputTokens': 64}
+          'sessionMinutes': 30, 'timeoutSeconds': 30, 'maxInputBytes': 12288, 'maxOutputTokens': 64, 'maxChainDepth': 8}
 
 
 async def main():
@@ -203,7 +203,7 @@ async def main():
         model = dialog.get_by_label('Evaluator model')
         await expect(model).to_have_value('')
         await model.select_option('auto')
-        # Limits: an out-of-range value blocks arming; only changed limits are sent.
+        # Limits: an out-of-range value blocks arming; the chosen limits are sent.
         await dialog.get_by_text('LIMITS', exact=True).click()
         session = dialog.get_by_label('Armed session length (5 to 240 minutes)')
         await session.fill('1000')
@@ -216,7 +216,7 @@ async def main():
         await expect(dialog).to_have_count(0)
         assert await page.evaluate('sent.length') == sends_before + 1
         assert await page.evaluate('sent.at(-1)') == {'type': 'cluster_auto_pickup_set', 'clusterId': 'cluster-a', 'mode': 'smart-observe',
-                                                      'evaluator': {'provider': 'cursor', 'model': 'auto'}, 'limits': {'sessionMinutes': 45}}
+                                                      'evaluator': {'provider': 'cursor', 'model': 'auto'}, 'limits': {**LIMITS, 'sessionMinutes': 45}, 'customLimits': {**LIMITS, 'sessionMinutes': 45}}
 
         # Armed state: chip, counters, last decision; the last choice is offered again.
         await page.evaluate('''() => snapshot({autoPickup:{mode:'smart-observe',limits:{...limits,sessionMinutes:45},evaluator:{provider:'cursor',model:'auto'},lastEvaluator:{provider:'cursor',model:'auto'},
@@ -246,9 +246,26 @@ async def main():
         # Automatic is its own explicit choice with its own button.
         await dialog.get_by_role('radio', name='Smart: Automatic').check()
         await expect(dialog.get_by_role('button', name='ARM AUTOMATIC', exact=True)).to_be_enabled()
+        preset = dialog.get_by_label('Smart: Automatic preset')
+        await preset.select_option('long')
+        await expect(dialog.get_by_text('Up to 120 automatic turns per armed session, for 120 minutes.')).to_be_visible()
+        await preset.select_option('custom')
+        await expect(dialog.get_by_text('Up to 12 automatic turns per armed session, for 45 minutes.')).to_be_visible()
         await dialog.get_by_role('button', name='CANCEL', exact=True).click()
         await expect(dialog).to_have_count(0)
         assert await page.evaluate('sent.length') == sends_before + 1, 'CANCEL sends nothing'
+
+        # Invalid hidden Custom values must not replace the last valid Custom on arming Long.
+        await chip.click()
+        await dialog.get_by_role('radio', name='Smart: Automatic').check()
+        await dialog.get_by_text('LIMITS', exact=True).click()
+        await session.fill('')
+        await expect(dialog.get_by_role('button', name='ARM AUTOMATIC', exact=True)).to_be_disabled()
+        await preset.select_option('long')
+        await dialog.get_by_role('button', name='ARM AUTOMATIC', exact=True).click()
+        chosen = await page.evaluate('sent.at(-1)')
+        assert chosen['limits']['wakesPerSession'] == 120
+        assert chosen['customLimits'] == {**LIMITS, 'sessionMinutes': 45}, chosen
 
         # A last choice whose provider is no longer connected is not offered.
         await page.evaluate("s.setState(st=>({authStatus:{...st.authStatus,cursor:{loggedIn:false}}}))")
@@ -299,6 +316,6 @@ async def main():
         assert not blocked, blocked
         assert not errors, errors
         await browser.close()
-        print('PASS auto-pickup: legacy Rule-based chip, one-click off, Smart arming with no preselection and connected supported providers only, bounded limits, changed limits only, counters and last decision, last choice re-offered only while connected, Connections when none')
+        print('PASS auto-pickup: legacy Rule-based chip, one-click off, Smart arming with no preselection and connected supported providers only, bounded limits, saved Custom and preset selection, counters and last decision, last choice re-offered only while connected, Connections when none')
 
 asyncio.run(main())

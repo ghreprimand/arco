@@ -7,6 +7,8 @@ import {
   sanitizeSmartPickupLimits,
   sanitizeRulePickupLimits,
   RULE_PICKUP_LIMIT_KEYS,
+  SMART_PICKUP_LIMIT_KEYS,
+  SMART_PICKUP_LIMIT_SPECS,
   type AutoPickupMode,
   type ClusterAutoPickupState,
   type SmartPickupEvaluator,
@@ -39,7 +41,7 @@ export type ArmProblem = 'unknown_cluster' | 'invalid_mode' | 'invalid_pause' | 
 // always starts a fresh session. Every change is logged in the ledger.
 export async function applyAutoPickup(
   clusterId: string,
-  request: { mode: unknown; paused?: unknown; evaluator?: unknown; limits?: unknown; ruleLimits?: unknown; resumeRule?: boolean; remindBusy?: boolean },
+  request: { mode: unknown; paused?: unknown; evaluator?: unknown; limits?: unknown; customLimits?: unknown; ruleLimits?: unknown; resumeRule?: boolean; remindBusy?: boolean },
   isProviderEnabled: (provider: SmartPickupEvaluator['provider']) => boolean,
   now = Date.now(),
 ): Promise<{ ok: true; mode: AutoPickupMode } | { ok: false; problem: ArmProblem }> {
@@ -49,7 +51,7 @@ export async function applyAutoPickup(
   if (!state) return { ok: false, problem: 'unknown_cluster' };
   if (request.paused !== undefined) {
     if (typeof request.paused !== 'boolean' || mode === 'off' || mode !== clusterStore.autoPickupModeOf(state)
-      || request.resumeRule || request.evaluator !== undefined || request.limits !== undefined || request.ruleLimits !== undefined || request.remindBusy !== undefined) return { ok: false, problem: 'invalid_pause' };
+      || request.resumeRule || request.evaluator !== undefined || request.limits !== undefined || request.customLimits !== undefined || request.ruleLimits !== undefined || request.remindBusy !== undefined) return { ok: false, problem: 'invalid_pause' };
     const session = state.smartPickup?.session;
     if (isSmartPickupMode(mode) && (!session || (state.autoPickupPausedAt ?? now) >= session.expiresAt)) {
       await disarm(clusterId, session ? 'session_expired' : 'session_missing', now);
@@ -85,7 +87,13 @@ export async function applyAutoPickup(
     ? pickLimits(request.limits as Record<string, unknown>)
     : undefined;
   const ruleLimits = request.ruleLimits && typeof request.ruleLimits === 'object' ? pickRuleLimits(request.ruleLimits as Record<string, unknown>) : undefined;
-  const updated = await clusterStore.setAutoPickup(clusterId, { mode, evaluator, limits, ruleLimits, remindBusy: request.remindBusy, now });
+  const rawCustom = request.customLimits && typeof request.customLimits === 'object' ? request.customLimits as Record<string, unknown> : undefined;
+  const customLimits = rawCustom && SMART_PICKUP_LIMIT_KEYS.every((key) => {
+    const value = rawCustom[key];
+    const spec = SMART_PICKUP_LIMIT_SPECS[key];
+    return typeof value === 'number' && Number.isInteger(value) && value >= spec.min && value <= spec.max;
+  }) ? sanitizeSmartPickupLimits(rawCustom) : undefined;
+  const updated = await clusterStore.setAutoPickup(clusterId, { mode, evaluator, limits, customLimits, ruleLimits, remindBusy: request.remindBusy, now });
   if (!updated) return { ok: false, problem: 'unknown_cluster' };
   try {
     if (mode === 'rule' && (request.resumeRule === true || clusterStore.autoPickupModeOf(state) !== 'rule')) ruleAutoTurn.resumeRulePickup(clusterId);
@@ -124,7 +132,9 @@ export async function autoPickupStateFor(state: clusterStore.ClusterState, now =
     paused: state.autoPickupPausedAt !== undefined,
     ...(state.autoPickupPausedAt !== undefined ? { pausedAt: state.autoPickupPausedAt } : {}),
     remindBusy: state.remindBusy === true,
-    limits: sanitizeSmartPickupLimits(smart.limits),
+    limits: clusterStore.smartPickupLimitsOf(state),
+    ...(smart.customLimits ? { customLimits: sanitizeSmartPickupLimits(smart.customLimits) } : {}),
+    ...(process.env.ARCO_CLUSTER_AUTO_TURN_MAX_CHAIN_DEPTH ? { effectiveMaxChainDepth: ruleAutoTurn.smartChainDepthLimit(clusterStore.smartPickupLimitsOf(state).maxChainDepth) } : {}),
     ruleLimits: sanitizeRulePickupLimits(state.rulePickupLimits),
     ruleStatus: ruleAutoTurn.rulePickupStatus(state.clusterId),
     ...(smart.lastEvaluator ? { lastEvaluator: smart.lastEvaluator } : {}),

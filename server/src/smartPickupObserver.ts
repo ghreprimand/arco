@@ -13,7 +13,6 @@ import {
   isSmartPickupMode,
   isAutoPickupAcknowledgement,
   presetForText,
-  sanitizeSmartPickupLimits,
   type SmartPickupAction,
 } from '@arco/shared';
 import * as clusterStore from './clusterStore.js';
@@ -21,7 +20,7 @@ import * as clusterMailbox from './clusterMailbox.js';
 import * as taskLedger from './project/taskLedger.js';
 import { recordSmartPickupDecision, reserveSmartPickup, settleSmartPickup, setSmartPickupHold, smartPickupHoldActive } from './smartPickupLedger.js';
 import { buildSnapshot, EVALUATOR_INSTRUCTIONS, isOpenTaskStatus, evaluatorUserPrompt, mailFingerprint, parseEvaluatorAnswer, type SnapshotInput } from './smartPickupEvaluator.js';
-import { sharedGuardProblem, stampSharedGuards } from './clusterAutoTurn.js';
+import { sharedGuardProblem, stampSharedGuards, smartChainDepthLimit } from './clusterAutoTurn.js';
 import { withFileLock } from './atomicFile.js';
 import { buildClusterAutoPickup } from '@arco/shared';
 import { evaluatorAdapter, isStartupFailure } from './smartPickupAdapters.js';
@@ -177,7 +176,7 @@ export async function evaluateOnce(clusterId: string, workflowId: string): Promi
   if (!state || !state.members.includes(workflowId)) return null;
   // Busy members are not evaluated; the turn in progress reads its mail.
   if (deps.isBusy(workflowId)) return null;
-  const limits = sanitizeSmartPickupLimits(state.smartPickup?.limits);
+  const limits = clusterStore.smartPickupLimitsOf(state);
   const input = await deps.readSnapshot(clusterId, workflowId, false);
   const snapshot = buildSnapshot(input, limits.maxInputBytes);
   const k = key(clusterId, workflowId);
@@ -326,10 +325,10 @@ async function gateWake(p: ObservedDecision, arm: { sessionId: string }): Promis
   if (deps.isBusy(wfid)) return { outcome: 'skipped', reason: 'busy' };
   const k = key(clusterId, wfid);
   const depth = depthSeen.get(k) ?? 0;
-  const shared = sharedGuardProblem(clusterId, wfid, depth, deps.now());
-  if (shared) return { outcome: 'skipped', reason: shared };
   const state = clusterStore.getClusterCached(clusterId);
-  const limits = sanitizeSmartPickupLimits(state?.smartPickup?.limits);
+  const limits = clusterStore.smartPickupLimitsOf(state);
+  const shared = sharedGuardProblem(clusterId, wfid, depth, deps.now(), smartChainDepthLimit(limits.maxChainDepth));
+  if (shared) return { outcome: 'skipped', reason: shared };
   const slot = await reserveSmartPickup(clusterId, { kind: 'wake', memberId: wfid, sessionId: arm.sessionId, limits, now: deps.now() }).catch(() => ({ ok: false as const, reason: 'ledger_unreadable' }));
   if (!slot.ok) return { outcome: 'skipped', reason: slot.reason };
   let refusal = 'refused';
@@ -358,7 +357,9 @@ async function gateWake(p: ObservedDecision, arm: { sessionId: string }): Promis
         if (pending.every((m) => !m.artifacts?.length && isAutoPickupAcknowledgement(m.content))) { refusal = 'ack_only'; return false; }
       }
       if (await smartPickupHoldActive(clusterId, wfid, ids, deps.now()).catch(() => true)) { refusal = 'stop_hold'; return false; }
-      if (sharedGuardProblem(clusterId, wfid, depth, deps.now())) { refusal = 'rate_capped'; return false; }
+      const currentLimits = clusterStore.smartPickupLimitsOf(clusterStore.getClusterCached(clusterId));
+      const guardProblem = sharedGuardProblem(clusterId, wfid, depth, deps.now(), smartChainDepthLimit(currentLimits.maxChainDepth));
+      if (guardProblem) { refusal = guardProblem; return false; }
       if (!claim()) { refusal = 'busy'; return false; }
       stampSharedGuards(clusterId, wfid, depth, deps.now());
       depthSeen.delete(k);

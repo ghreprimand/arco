@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { DEFAULT_SMART_PICKUP_LIMITS, resolveAutoPickupMode, sanitizeSmartPickupLimits, sanitizeSmartPickupEvaluator, SMART_PICKUP_LIMIT_SPECS } from '@arco/shared';
+import { DEFAULT_SMART_PICKUP_LIMITS, resolveAutoPickupMode, sanitizeSmartPickupLimits, sanitizeSmartPickupEvaluator, SMART_PICKUP_LIMIT_SPECS, SMART_PICKUP_PRESETS, smartPickupPresetFor } from '@arco/shared';
 
 const sandbox = await fs.mkdtemp(join(tmpdir(), 'arco-smart-pickup-'));
 process.env.ARCO_HOME = join(sandbox, 'home');
@@ -22,10 +22,14 @@ const T0 = 1_800_000_000_000;
 
 test('limits and evaluator are sanitized; legacy boolean maps to Rule-based', () => {
   assert.deepEqual(sanitizeSmartPickupLimits(undefined), DEFAULT_SMART_PICKUP_LIMITS);
+  const { maxChainDepth: _depth, ...oldShort } = SMART_PICKUP_PRESETS.short;
+  assert.equal(smartPickupPresetFor(sanitizeSmartPickupLimits(oldShort)), 'short');
+  assert.equal(smartPickupPresetFor(sanitizeSmartPickupLimits({ ...oldShort, sessionMinutes: 35 })), 'custom');
+  assert.equal(smartPickupPresetFor(sanitizeSmartPickupLimits(undefined)), 'standard');
   const raw = { callsPerClusterHour: 30, wakesPerSession: 0, sessionMinutes: 1000, timeoutSeconds: 12.5, maxOutputTokens: '64' };
   const s = sanitizeSmartPickupLimits(raw);
   assert.equal(s.callsPerClusterHour, 30);
-  assert.equal(s.wakesPerSession, SMART_PICKUP_LIMIT_SPECS.wakesPerSession.default, 'below min reads as default');
+  assert.equal(s.wakesPerSession, SMART_PICKUP_PRESETS.short.wakesPerSession, 'legacy values retain their former defaults');
   assert.equal(s.sessionMinutes, 240, 'older above-max session lengths read as the four-hour ceiling');
   assert.equal(s.timeoutSeconds, 30, 'fractions rejected');
   assert.equal(s.maxOutputTokens, 64);
@@ -238,4 +242,37 @@ test('Smart keeps three minutes through a long pause and restart, while hourly l
   assert.equal(store.getAutoPickupMode(c.clusterId), 'off');
   assert.equal(store.isAutoPickupPaused(c.clusterId), false);
   assert.equal((await store.readCluster(c.clusterId))!.smartPickup?.session, undefined);
+});
+
+
+test('custom limits survive selecting and arming a preset', async () => {
+  const c = await make();
+  const custom = { ...DEFAULT_SMART_PICKUP_LIMITS, sessionMinutes: 75, maxChainDepth: 9 };
+  await smart.applyAutoPickup(c.clusterId, { mode: 'smart-auto', evaluator, limits: custom, customLimits: custom }, enabled, T0);
+  await smart.applyAutoPickup(c.clusterId, { mode: 'smart-auto', evaluator, limits: DEFAULT_SMART_PICKUP_LIMITS, customLimits: custom }, enabled, T0 + 1);
+  const echo = await smart.autoPickupStateFor((await store.readCluster(c.clusterId))!, T0 + 1);
+  assert.equal(echo.limits.sessionMinutes, 60);
+  assert.deepEqual(echo.customLimits, custom);
+  await smart.applyAutoPickup(c.clusterId, { mode: 'smart-auto', evaluator, limits: DEFAULT_SMART_PICKUP_LIMITS, customLimits: { ...custom, sessionMinutes: 1000 } }, enabled, T0 + 2);
+  assert.deepEqual((await store.readCluster(c.clusterId))?.smartPickup?.customLimits, custom, 'an invalid hidden Custom cannot overwrite the saved one');
+});
+
+
+test('legacy default-armed settings stay Short and new Standard arms persist their limits', async () => {
+  const c = await make();
+  c.autoPickupMode = 'smart-auto';
+  c.smartPickup = { evaluator, lastEvaluator: evaluator, session: { id: 'legacy-session', armedAt: T0, expiresAt: T0 + 30 * 60_000 } };
+  const legacy = await smart.autoPickupStateFor(c, T0);
+  assert.deepEqual(legacy.limits, SMART_PICKUP_PRESETS.short);
+  assert.deepEqual(store.smartPickupLimitsOf(c), SMART_PICKUP_PRESETS.short);
+  const restore = adapters.setEvaluatorAdaptersForTest({ cursor: { provider: 'cursor', capability: async () => ({ provider: 'cursor', available: true }), evaluate: async () => '' } });
+  try {
+    await smart.applyAutoPickup(c.clusterId, { mode: 'smart-auto', evaluator, limits: SMART_PICKUP_PRESETS.standard }, enabled, T0 + 1);
+    const modern = (await store.readCluster(c.clusterId))!;
+    assert.deepEqual(modern.smartPickup?.limits, SMART_PICKUP_PRESETS.standard);
+    assert.deepEqual((await smart.autoPickupStateFor(modern, T0 + 1)).limits, SMART_PICKUP_PRESETS.standard);
+    const fresh = await make();
+    await smart.applyAutoPickup(fresh.clusterId, { mode: 'smart-auto', evaluator }, enabled, T0);
+    assert.deepEqual((await store.readCluster(fresh.clusterId))?.smartPickup?.limits, SMART_PICKUP_PRESETS.standard);
+  } finally { restore(); }
 });
