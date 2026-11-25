@@ -1,4 +1,4 @@
-import { test, after } from 'node:test';
+import { test, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -17,11 +17,61 @@ import { setBeforeClusterDelete } from '../clusterStore.js';
 import { researchMembersRoot } from './researchCreate.js';
 import { prepareResearchCreate } from './researchCreate.js';
 
+// Windows hosted runs leave two PipeWrap handles after every test in this file
+// passes, so the process never exits. PipeWrap itself has no pid or program
+// name; dump what we can and name the first test that introduces a pipe.
+type ActiveHandle = {
+  constructor: { name: string };
+  pid?: number;
+  spawnfile?: string;
+  spawnargs?: string[];
+  fd?: number;
+  destroyed?: boolean;
+  readable?: boolean;
+  writable?: boolean;
+  connecting?: boolean;
+  pending?: boolean;
+  stdin?: unknown;
+  stdout?: unknown;
+  stderr?: unknown;
+};
+function describeHandles() {
+  const handles = ((process as unknown as { _getActiveHandles?: () => ActiveHandle[] })._getActiveHandles?.() ?? []);
+  const requests = ((process as unknown as { _getActiveRequests?: () => Array<{ constructor: { name: string } }> })._getActiveRequests?.() ?? [])
+    .map((r) => r.constructor.name);
+  return {
+    resources: process.getActiveResourcesInfo(),
+    requests,
+    handles: handles.map((h) => ({
+      kind: h.constructor.name,
+      pid: h.pid,
+      file: h.spawnfile,
+      args: h.spawnargs?.slice(0, 6),
+      fd: h.fd,
+      destroyed: h.destroyed,
+      readable: h.readable,
+      writable: h.writable,
+      connecting: h.connecting,
+      pending: h.pending,
+      child: !!(h.stdin || h.stdout || h.stderr),
+      isStdin: h === (process.stdin as unknown),
+      isStdout: h === (process.stdout as unknown),
+      isStderr: h === (process.stderr as unknown),
+    })),
+  };
+}
+let sawPipe = false;
+afterEach((t) => {
+  const info = process.getActiveResourcesInfo();
+  if (!sawPipe && info.includes('PipeWrap')) {
+    sawPipe = true;
+    console.error('researchRounds first PipeWrap after:', t.name, describeHandles());
+  }
+});
 // When this file's tests have finished but the process stays alive (a hung job on Windows), say what keeps
 // it open. The timer is unreferenced, so it fires only when something else is holding the process.
 after(() => { setTimeout(() => {
-  const handles = (process as unknown as { _getActiveHandles(): Array<{ constructor: { name: string }; spawnfile?: string; spawnargs?: string[]; pid?: number }> })._getActiveHandles();
-  console.error('researchRounds still running after its tests:', process.getActiveResourcesInfo(), handles.map((h) => ({ kind: h.constructor.name, pid: h.pid, file: h.spawnfile, args: h.spawnargs?.slice(0, 6) })));
+  console.error('researchRounds still running after its tests:', describeHandles());
 }, 20_000).unref(); });
 
 
