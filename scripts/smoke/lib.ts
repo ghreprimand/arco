@@ -14,9 +14,66 @@
 //   summary();  // exits with code 0 or 1
 
 import WebSocket from 'ws';
+import type { ChildProcess } from 'node:child_process';
+import { once } from 'node:events';
+import { mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { isolatedTestHomeEnvironment } from '../../server/src/testSupport/isolatedHome.js';
 
 const DEFAULT_URL = process.env.ARCO_SMOKE_WS_URL || 'ws://localhost:3001/ws';
 const DEFAULT_TIMEOUT_MS = 5000;
+
+// Voice source smokes create a new child server without inherited Arco or
+// provider settings. Keep only the shell search path and Windows system keys.
+export function voiceSmokeEnvironment(root: string, port = 0) {
+  const home = isolatedTestHomeEnvironment(root);
+  const temporary = join(root, 'tmp');
+  const voice = join(home.ARCO_HOME, 'voice');
+  const env = {
+    ...home,
+    PATH: process.env.PATH ?? dirname(process.execPath),
+    TMPDIR: temporary, TMP: temporary, TEMP: temporary,
+    ARCO_HOST: '127.0.0.1',
+    ARCO_PORT: String(port),
+    ARCO_UPLOADS_DIR: join(root, 'uploads'),
+    ARCO_VOICE_HOME: voice,
+    ARCO_WS_AUTH: 'off',
+    ARCO_SERVE_CLIENT: '0',
+  };
+  mkdirSync(temporary);
+  mkdirSync(voice, { recursive: true });
+  if (process.platform !== 'win32') return env;
+  const appData = join(home.HOME, 'AppData');
+  const windows: NodeJS.ProcessEnv = { APPDATA: join(appData, 'Roaming'), LOCALAPPDATA: join(appData, 'Local') };
+  for (const name of ['SystemRoot', 'windir', 'ComSpec', 'PATHEXT', 'SystemDrive']) windows[name] = process.env[name];
+  return { ...windows, ...env };
+}
+
+export async function waitForVoiceSmokeServer(child: ChildProcess, base: string, log: string): Promise<void> {
+  for (let attempt = 0; attempt < 120; attempt++) {
+    if (child.exitCode !== null || child.signalCode !== null) break;
+    try {
+      const response = await fetch(base + '/healthz', { signal: AbortSignal.timeout(250) });
+      if (response.ok && (await response.json()).pid === child.pid) return;
+    } catch { /* child still starting */ }
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  throw new Error('The isolated voice smoke server did not start. See ' + log);
+}
+
+export async function stopVoiceSmokeServer(child: ChildProcess): Promise<void> {
+  if (!child.pid || child.exitCode !== null || child.signalCode !== null) return;
+  const stopped = once(child, 'exit', { signal: AbortSignal.timeout(7000) });
+  const timer = setTimeout(() => {
+    try { child.kill('SIGKILL'); } catch { /* the exit deadline reports a stop failure */ }
+  }, 5000);
+  try {
+    try { child.kill('SIGTERM'); } catch { /* try the forced stop next */ }
+    await stopped;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export interface AnyMessage {
   type: string;

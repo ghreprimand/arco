@@ -1512,12 +1512,12 @@ Smoke: `npm run smoke:bakeoff`.
 - **Resolve conversational scope before testing ambiguity.** The roster line
   describes the UI, not a replacement for the retained conversation. Explicit
   current targets win, then clear references in recent questions/answers/tool
-  results, then the selected cluster when no topic exists. A Relay mail
-  answer naming its unique builder establishes "the builder" for a nudge even
-  if Comet is selected. Two builders inside the relevant cluster still require
-  a scoped question; never choose by mail count/activity/list order. Do not
-  restore the old global-roster-count rule or require a previous send before
-  conversational references count. Keep this in the shared model prompt, not
+  results, then the selected cluster when no topic exists. A mail summary
+  naming a cluster's only builder establishes "the builder" for a nudge even
+  if another cluster is selected. Two builders in the relevant cluster still
+  require a scoped question. Mail count, activity and list order cannot decide.
+  Keep the scope local to the referenced cluster. A previous send is optional.
+  Keep this in the shared model prompt, not
   client phrase/name heuristics. `smoke:voice-luna` exercises the real Luna LOW
   over multiple turns with actual target resolution and canned worker actions.
 
@@ -1636,8 +1636,9 @@ Smoke: `npm run smoke:bakeoff`.
   'never', read-only profile) with "MCP tool call requires approval, but
   approval policy is never"; the model then reports it "can't see" the
   project. Agent-tab MCP children (arco-cluster) are not affected.
-  `npm run smoke:voice-luna` (opt-in, spends Codex quota) boots an isolated
-  server against the real Luna and pins tool selection for four utterances.
+  `ARCO_VOICE_LUNA_LOGIN=1 npm run smoke:voice-luna` starts device sign-in in
+  a temporary Codex profile and tests Luna's tool choices against canned
+  workspace responses. It uses Codex quota.
 - **The generic Chat preamble is skipped for the Computer chat** (`turnEngine.ts`,
   `wf.config.voiceOperator`). Folded, its "do not use backend tools… continue
   in an Agent tab" made Luna refuse the arco-voice tools even with the

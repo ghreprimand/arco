@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Voice development smokes launch with disposable state. The Codex quality smoke signs in to its own temporary profile.
+
 - Saving a file that contains accented letters, non-Latin text or emoji no longer corrupts characters that straddle a transfer boundary.
 
 - Removing a cluster member that cannot be saved no longer drops the member's routing or pending mail. The raw model notes editor in Settings cannot be saved when its load failed, so a load error cannot overwrite the existing file. A Claude transcript export refuses a session id that is not a UUID.

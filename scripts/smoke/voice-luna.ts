@@ -1,12 +1,6 @@
-// Opt-in, uses the selected existing provider (Codex subscription by default): boots an isolated source server (temp
-// ~/.arco, real ~/.codex auth), creates a Computer chat on the real
-// gpt-6-luna, and plays the browser side of the arco-voice relay with
-// canned workspace state. Reports which tools Luna called and what it said,
-// so tool-use quality can be judged without a microphone. Never touches prod.
-//   npm run smoke:voice-luna            (default effort: low)
-//   ARCO_VOICE_PROVIDER=ollama ARCO_VOICE_MODEL=qwen3.8:27b-instruct npm run smoke:voice-luna
-//   ARCO_VOICE_PROVIDER=claude ARCO_VOICE_MODEL=haiku npm run smoke:voice-luna
-//   ARCO_VOICE_INCOGNITO=1 npm run smoke:voice-luna
+// Opt-in Codex quality smoke with a fresh login inside a disposable home.
+// Canned workspace state stands in for the browser side of the voice relay.
+// Run with ARCO_VOICE_LUNA_LOGIN=1 npm run smoke:voice-luna.
 import assert from 'node:assert/strict';
 import { conditionCapabilities } from '../../server/src/voice/conditions.js';
 import { parseConditionDefinition } from '../../server/src/voice/conditionSchema.js';
@@ -14,50 +8,52 @@ import { ComputerConditions } from '../../server/src/voice/conditionStore.js';
 import type { ConditionWorkerFacts } from '@arco/shared';
 import { resolveVoiceTarget } from '../../client/src/voice/commands.js';
 import type { VoiceContext } from '@arco/shared';
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
+import { ensureCodexAccountHome } from '../../server/src/providerAccounts.js';
+import { resolveCommand } from '../../server/src/windowsCommand.js';
+import { signalChildTree } from '../../server/src/workers/processKill.js';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
-import { mkdirSync, mkdtempSync, openSync, closeSync, writeFileSync, readFileSync, unlinkSync } from 'node:fs';
+import { mkdtempSync, openSync, closeSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { connect, step as smokeStep, summary, type SmokeClient, type AnyMessage } from './lib.js';
+import { constants, tmpdir } from 'node:os';
+import { connect, step as smokeStep, summary, voiceSmokeEnvironment, waitForVoiceSmokeServer, stopVoiceSmokeServer, type SmokeClient, type AnyMessage } from './lib.js';
 
-const CONTEXT = '[Arco context] selected: Northwind [workflow]. Also open: COMET [cluster], Director (Director role. Delegate via peer_send, never Task), Builder 4 (Implementer role. Focus on your assigned scope), Builder 5 (Implementer role), Ledger [workflow], ATLAS [workflow], HARBOR-MAINT [cluster], Relay [cluster]: Builder 1, Builder 2; Quill [workflow].';
+const CONTEXT = '[Arco context] selected: Sample Workflow [workflow]. Also open: Parser Team [cluster], Director (Director role. Delegate via peer_send, never Task), Builder 4 (Implementer role. Focus on your assigned scope), Builder 5 (Implementer role), Notes Workflow [workflow], Spare Workflow [workflow], COLOR-TOOLS [cluster], Test Queue [cluster]: Builder 1, Builder 2; Draft Workflow [workflow].';
 const DIGEST = [
-  'Northwind, agent workflow on codex gpt-6-luna.',
+  'Sample Workflow, agent workflow on codex gpt-6-luna.',
   'State: working, turn started 7 minutes ago, last activity 1 minutes ago.',
   'Current or latest tool: Bash (in_progress).',
-  'Plan: Parcel import pipeline.',
+  'Plan: Sample inventory import.',
   'Last 3 messages, oldest first:',
-  'Operator: Import the county parcel shapefiles into Postgres and build the owner lookup.',
-  'Northwind: Imported 48,212 parcels. Building the owner index now; two counties have malformed geometry I am repairing with ST_MakeValid.',
-  'Northwind (still writing): Owner lookup endpoint is up; running the integration tests before I report.',
+  'Operator: Load the sample stock records and add an item search.',
+  'Sample Workflow: Read 12 sample records. Two rows need validation before indexing.',
+  'Sample Workflow (still writing): Item search is ready. I am checking how it handles an empty query.',
 ].join('\n');
 let selected = 'li';
-// Keep selection separate from the conversational topic, as in the operator's live
-// Relay mail → nudge exchange. No real worker receives these actions.
+// Keep selection separate from the conversational topic. Worker actions are canned.
 let mailFixture: 'one' | 'two' | null = null;
 let mailSelection = { currentId: 'sqd', clusterId: 'sq' };
 const mailActions: string[] = [];
 function mailContext(): VoiceContext {
   return { ...mailSelection, targets: [
-    {id:'sq',name:'Relay',kind:'cluster'},
+    {id:'sq',name:'Test Queue',kind:'cluster'},
     {id:'sqd',name:'Director',kind:'member',clusterId:'sq',role:'Director'},
     ...(mailFixture === 'two' ? [
       {id:'sqb1',name:'Builder 1',kind:'member' as const,clusterId:'sq',role:'Builder'},
       {id:'sqb2',name:'Builder 2',kind:'member' as const,clusterId:'sq',role:'Builder'},
     ] : [{id:'sqbuilder',name:'Builder',kind:'member' as const,clusterId:'sq',role:'Builder'}]),
-    {id:'ta',name:'COMET',kind:'cluster'},
+    {id:'ta',name:'Parser Team',kind:'cluster'},
     {id:'d1',name:'Director',kind:'member',clusterId:'ta',role:'Director'},
     {id:'ob',name:'Builder 4',kind:'member',clusterId:'ta',role:'Builder'},
     {id:'sb',name:'Builder 5',kind:'member',clusterId:'ta',role:'Builder'},
-    {id:'ls',name:'EmberDEV',kind:'cluster'},
+    {id:'ls',name:'Extra Team',kind:'cluster'},
     {id:'lsb',name:'Builder',kind:'member',clusterId:'ls',role:'Builder'},
   ] };
 }
 function mailContextLine() {
   const ctx = mailContext();
-  return `[Arco context] selected: Director (DIRECTOR) in cluster ${ctx.clusterId === 'sq' ? 'Relay' : 'COMET'}. Open: cluster Relay: Director (DIRECTOR), ${mailFixture === 'two' ? 'Builder 1 (BUILDER), Builder 2 (BUILDER)' : 'Builder (BUILDER)'}; cluster COMET: Director (DIRECTOR), Builder 4 (BUILDER), Builder 5 (BUILDER); cluster EmberDEV: Builder (BUILDER).`;
+  return `[Arco context] selected: Director (DIRECTOR) in cluster ${ctx.clusterId === 'sq' ? 'Test Queue' : 'Parser Team'}. Open: cluster Test Queue: Director (DIRECTOR), ${mailFixture === 'two' ? 'Builder 1 (BUILDER), Builder 2 (BUILDER)' : 'Builder (BUILDER)'}; cluster Parser Team: Director (DIRECTOR), Builder 4 (BUILDER), Builder 5 (BUILDER); cluster Extra Team: Builder (BUILDER).`;
 }
 function mailSelect(target: string) {
   const matches = resolveVoiceTarget(target, mailContext());
@@ -95,28 +91,28 @@ const CANNED: Record<string, (a: Record<string, string>) => string> = {
   arco_compact: (a)=>`Compaction requested for ${a.target}.`,
   arco_usage: () => JSON.stringify({codex:{available:true,fetchedAt:Date.now(),windows:[{label:'5 hour',percentageUsed:20,observed:'80% remaining'},{label:'Weekly',percentageUsed:32,observed:'32% used'}]}}),
   arco_activity: (a) => JSON.stringify({policy:{enabled:a.enabled!=='false',agentUpdates:a.agent_updates??'off'},pending:0,updatesPerHour:12,ledger:[],deliveries:[]}),
-  arco_mail_rule: (a) => JSON.stringify({rule:{id:'mail-rule-1',status:a.action === 'cancel' ? 'cancelled' : 'watching',cluster_id:a.cluster_id,worker_ids:a.worker_ids,final_id:a.final_id,expiresIn:'2 hours',maxNudgesPerWorker:8,cooldownMs:30000},rules:[{id:'mail-rule-1',label:'Relay',status:'watching'}]}),
+  arco_mail_rule: (a) => JSON.stringify({rule:{id:'mail-rule-1',status:a.action === 'cancel' ? 'cancelled' : 'watching',cluster_id:a.cluster_id,worker_ids:a.worker_ids,final_id:a.final_id,expiresIn:'2 hours',maxNudgesPerWorker:8,cooldownMs:30000},rules:[{id:'mail-rule-1',label:'Test Queue',status:'watching'}]}),
   arco_watch: (a) => JSON.stringify({id:'watch-1',status:'watching',target:a.target}),
-  arco_read_recent: (a) => /comet|director|builder [45]/i.test(a.target ?? '') || (/^(?:this|it|the current|the selected)/i.test(a.target ?? '') && selected === 'ta') ? CLUSTER_DIGEST : DIGEST,
-  arco_status: (a) => mailFixture ? (mailFixture === 'two' ? 'Director: idle, 15 pending mail. Builder 1: busy, 2 pending mail. Builder 2: idle, 0 pending mail.' : 'Director: idle, 15 pending mail. Builder: idle, 2 pending mail.') : `${a.target && !/^this/i.test(a.target) ? a.target : 'Northwind'} is active.`,
-  arco_read_latest: () => 'Northwind. Imported 48,212 parcels. Building the owner index now.',
+  arco_read_recent: (a) => /parser team|director|builder [45]/i.test(a.target ?? '') || (/^(?:this|it|the current|the selected)/i.test(a.target ?? '') && selected === 'ta') ? CLUSTER_DIGEST : DIGEST,
+  arco_status: (a) => mailFixture ? (mailFixture === 'two' ? 'Director: idle, 15 pending mail. Builder 1: busy, 2 pending mail. Builder 2: idle, 0 pending mail.' : 'Director: idle, 15 pending mail. Builder: idle, 2 pending mail.') : `${a.target && !/^this/i.test(a.target) ? a.target : 'Sample Workflow'} is active.`,
+  arco_read_latest: () => 'Sample Workflow. Read 12 sample records. Item search is ready.',
   arco_targets: () => mailFixture ? JSON.stringify({selected:mailSelection.currentId,cluster:mailSelection.clusterId,targets:mailContext().targets.map((t)=>({...t,cluster:t.clusterId}))}) : JSON.stringify({ selected: 'li', cluster: null, targets: [
-    { id: 'li', name: 'Northwind', kind: 'workflow', busy: true }, { id: 'ta', name: 'COMET', kind: 'cluster' },
+    { id: 'li', name: 'Sample Workflow', kind: 'workflow', busy: true }, { id: 'ta', name: 'Parser Team', kind: 'cluster' },
     { id: 'd1', name: 'Director', kind: 'member', cluster: 'ta', role: 'Director', busy: false, mail: 0 },
     { id: 'ob', name: 'Builder 4', kind: 'member', cluster: 'ta', role: 'Implementer', busy: true, mail: 1 },
     { id: 'sb', name: 'Builder 5', kind: 'member', cluster: 'ta', role: 'Implementer', busy: false, mail: 0 },
-    { id: 'ty', name: 'Ledger', kind: 'workflow', busy: false },
-    {id:'sq',name:'Relay',kind:'cluster'},
+    { id: 'ty', name: 'Notes Workflow', kind: 'workflow', busy: false },
+    {id:'sq',name:'Test Queue',kind:'cluster'},
     {id:'sqb1',name:'Builder 1',kind:'member',cluster:'sq',busy:true},
     {id:'sqb2',name:'Builder 2',kind:'member',cluster:'sq',busy:true}] }),
-  arco_select: (a) => { if (mailFixture) return mailSelect(a.target ?? ''); selected = /comet|director|builder [45]/i.test(a.target ?? '') ? 'ta' : 'li'; return `${a.target} selected.`; },
+  arco_select: (a) => { if (mailFixture) return mailSelect(a.target ?? ''); selected = /parser team|director|builder [45]/i.test(a.target ?? '') ? 'ta' : 'li'; return `${a.target} selected.`; },
   arco_send_message: (a) => `${a.mode === 'follow-up' ? 'Follow-up queued' : 'Message sent'} to ${a.target}.`,
   arco_open_panel: (a) => `${a.panel} panel opened.`,
   arco_nudge: (a) => mailFixture ? mailNudge(a.target ?? '') : `Mailbox reminder sent to ${a.target}.`,
   arco_open_dialog: (a) => `${a.name} dialog opened. The operator will use it; do nothing further for it.`,
   arco_screen: () => process.env.ARCO_VOICE_SCREEN_FIXTURE
     ? JSON.parse(readFileSync(process.env.ARCO_VOICE_SCREEN_FIXTURE, 'utf8')).content[0].text
-    : manualOpen ? 'Open dialogs: "ARCO · USER MANUAL".\ndialog "ARCO · USER MANUAL": [1] button CLOSE ✕; [2] button Getting started; [3] button Strata MoE; [4] button Voice; [5] field Search manual (= "")\nControls marked ! are destructive and need confirm.' : 'Open dialogs: "Settings".\ndialog "Settings": [1] button CLOSE ✕; [2] select Font pack override (= Default); [3] checkbox Spoken feedback (on); [4] button Save\ntab bar: [5] tab Northwind (selected); [6] tab Ledger; [7] button + NEW\ncomposer: [8] field Message (= ""); [9] button SEND; [10] button FOLD\nright panel: [11] tab Files; [12] tab Config; [13] button Purge conversation !\nControls marked ! are destructive and need confirm.',
+    : manualOpen ? 'Open dialogs: "ARCO · USER MANUAL".\ndialog "ARCO · USER MANUAL": [1] button CLOSE ✕; [2] button Getting started; [3] button Strata MoE; [4] button Voice; [5] field Search manual (= "")\nControls marked ! are destructive and need confirm.' : 'Open dialogs: "Settings".\ndialog "Settings": [1] button CLOSE ✕; [2] select Font pack override (= Default); [3] checkbox Spoken feedback (on); [4] button Save\ntab bar: [5] tab Sample Workflow (selected); [6] tab Notes Workflow; [7] button + NEW\ncomposer: [8] field Message (= ""); [9] button SEND; [10] button FOLD\nright panel: [11] tab Files; [12] tab Config; [13] button Purge conversation !\nControls marked ! are destructive and need confirm.',
   arco_act: (a) => a.action === 'options' ? JSON.stringify([{label:'Default',value:'default'},{label:'Mono',value:'mono'}]) : a.action === 'press' ? `Pressed ${a.text}. Dialog Settings closed.` : /1|close/i.test(a.control ?? '') ? 'Clicked button CLOSE ✕ in dialog "Settings". Dialog Settings closed.' : `${a.action} on ${a.control} done.`,
   arco_read_text: (a) => `Text of dialog "ARCO · USER MANUAL", the section matching "${a.filter ?? ''}":\nSTRATA MOE\nStrata is a mixture-of-experts model pack served by llama.cpp. Prepare it from the Strata tab, pick a prepared model in CONFIG, and switch models from the composer. Preparing downloads the experts once; switching is instant afterwards.`,
   arco_cancel_turn: (a) => `Cancelled the turn of ${a.target}.`,
@@ -159,35 +155,80 @@ async function step(name: string, fn: () => Promise<void>): Promise<void> {
 }
 
 async function main() {
+  if (process.env.ARCO_VOICE_LUNA_LOGIN !== '1' || (process.env.ARCO_VOICE_PROVIDER && process.env.ARCO_VOICE_PROVIDER !== 'codex')) {
+    throw new Error('Run with ARCO_VOICE_LUNA_LOGIN=1 and Codex to sign in to a disposable profile.');
+  }
   const effort = process.env.ARCO_VOICE_EFFORT || 'low';
-  const provider = process.env.ARCO_VOICE_PROVIDER || 'codex';
+  const provider = 'codex';
   const model = process.env.ARCO_VOICE_MODEL || 'gpt-6-luna';
   const dir = mkdtempSync(join(tmpdir(), 'arco-voice-luna-'));
-  const home = join(dir, 'home'); mkdirSync(join(home, '.arco'), { recursive: true });
-  const authPath = join(home, '.arco', 'auth.json');
-  if (provider === 'claude') {
-    const { homedir } = await import('node:os');
-    const auth = JSON.parse(readFileSync(join(homedir(), '.arco', 'auth.json'), 'utf8'));
-    const tokens = auth.claude?.native;
-    if (!tokens?.accessToken || tokens.expiresAt < Date.now() + 5 * 60_000) throw Error('A valid existing Native Claude login is required for this smoke.');
-    // Reuse only the access token; the smoke must never rotate production auth.
-    writeFileSync(authPath, JSON.stringify({claude:{native:{...tokens,refreshToken:''}}}), {mode:0o600});
-  }
-  // Isolate ~/.arco (workflow registry, chats) but keep the real PATH and
-  // HOME env so the spawned codex finds its own ~/.codex auth.
-  const preload = join(dir, 'preload.mjs');
-  writeFileSync(preload, `import os from 'node:os';import {syncBuiltinESMExports} from 'node:module';os.homedir=()=>${JSON.stringify(home)};syncBuiltinESMExports();\n`);
-  const reserve=createServer();reserve.listen(0,'127.0.0.1');await once(reserve,'listening');
-  const port=Number(process.env.ARCO_VOICE_PORT||(reserve.address() as {port:number}).port);
-  await new Promise<void>((resolve)=>reserve.close(()=>resolve()));
-  const log = openSync(join(dir, 'server.log'), 'w');
-  const child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', '--import', preload, 'server/src/index.ts'], {
-    env: { ...process.env, ARCO_PORT: String(port), ARCO_UPDATE_CHECK: '0', ARCO_WS_AUTH: 'off', ARCO_SERVE_CLIENT: '0' }, stdio: ['ignore', log, log],
-  });
+  const env = voiceSmokeEnvironment(dir);
+  const logPath = join(dir, 'server.log');
+  let log: number | undefined;
+  let loginChild: ChildProcess | undefined;
+  let child: ChildProcess | undefined;
   let c: SmokeClient | undefined;
+  let profileSetup: Promise<void> | undefined;
+  let cleanup: Promise<void> | undefined;
+  const interrupted = new AbortController();
+  const cleanUp = () => cleanup ??= (async () => {
+    const results = await Promise.allSettled([
+      (async () => {
+        try {
+          if (loginChild?.pid && loginChild.exitCode === null && loginChild.signalCode === null) {
+            const exited = once(loginChild, 'exit', { signal: AbortSignal.timeout(7000) });
+            await Promise.all([signalChildTree(loginChild, 'SIGKILL'), exited]);
+          }
+          if (child) await stopVoiceSmokeServer(child);
+        } finally {
+          // Let the profile initializer finish before removing anything it writes.
+          await profileSetup?.catch(() => {});
+          rmSync(env.CODEX_HOME, { recursive: true, force: true, maxRetries: 5 });
+        }
+      })(),
+      (async () => { if (c) await c.close(); })(),
+      (async () => { if (log !== undefined) closeSync(log); })(),
+    ]);
+    console.log('Isolated artifacts:', dir);
+    const errors = results.flatMap(result => result.status === 'rejected' ? [result.reason] : []);
+    if (errors.length) throw new AggregateError(errors, 'Voice smoke cleanup failed.');
+  })();
+
+  const signals = ['SIGINT', 'SIGTERM'] as const;
+  const onSignal = (signal: typeof signals[number]) => {
+    if (interrupted.signal.aborted) return;
+    interrupted.abort();
+    const exitCode = 128 + constants.signals[signal];
+    void cleanUp().then(
+      () => process.exit(exitCode),
+      error => { console.error(error); process.exit(exitCode); },
+    );
+  };
+  for (const signal of signals) process.on(signal, onSignal);
   try {
-    for (let i = 0; i < 100; i++) { if(child.exitCode!==null)throw Error('Smoke server exited; see '+join(dir,'server.log'));try { c = await connect(`ws://127.0.0.1:${port}/ws`); break; } catch { await new Promise((r) => setTimeout(r, 300)); } }
-    if (!c) throw new Error('server did not come up; see ' + join(dir, 'server.log'));
+    profileSetup = ensureCodexAccountHome(env.CODEX_HOME);
+    await profileSetup;
+    interrupted.signal.throwIfAborted();
+    const login = resolveCommand('codex', ['login', '--device-auth'], { env });
+    loginChild = spawn(login.command, login.args, {
+      cwd: env.HOME, env, stdio: 'inherit', detached: process.platform !== 'win32',
+    });
+    const [status] = await once(loginChild, 'exit');
+    interrupted.signal.throwIfAborted();
+    if (status !== 0) throw new Error('Could not sign in to the disposable Codex profile.');
+    const reserve = createServer(); reserve.listen(0, '127.0.0.1'); await once(reserve, 'listening');
+    const port = (reserve.address() as { port: number }).port;
+    await new Promise<void>((resolve) => reserve.close(() => resolve()));
+    interrupted.signal.throwIfAborted();
+    env.ARCO_PORT = String(port);
+    log = openSync(logPath, 'w');
+    child = spawn(process.execPath, ['--conditions', 'development', '--import', 'tsx', 'server/src/index.ts'], {
+      env, stdio: ['ignore', log, log],
+    });
+    await waitForVoiceSmokeServer(child, `http://127.0.0.1:${port}`, logPath);
+    interrupted.signal.throwIfAborted();
+    c = await connect(`ws://127.0.0.1:${port}/ws`);
+    interrupted.signal.throwIfAborted();
     c.send({ type: 'create_workflow', config: { kind: 'chat', name: 'Computer', workingDirectory: '', primaryProvider: provider, primaryModel: model, primaryEffort: effort, codexTransport: 'appserver', claudeTransport: 'native', incognito: process.env.ARCO_VOICE_INCOGNITO === '1', chatWebAccess: false, voiceOperator: true, skipPermissions: false } });
     const chatId = String((await c.waitFor((m) => m.type === 'workflow_created', 15000)).workflowId);
     console.log(`Computer chat ${chatId} on ${provider}/${model} @ ${effort}`);
@@ -195,22 +236,22 @@ async function main() {
     const SILENT = /^\s*(?:done|ok|okay)[.!]?\s*$/i;
     await step('"what is going on with this project" is answered by Computer from the project view, not typed to the worker', async () => {
       const o = await ask(c!, chatId, "Can you tell me what's going on with this project right now?"); outcomes.push(o); show('status question', o);
-      assert(o.tools.some((t) => (t.tool === 'arco_read_recent' || t.tool === 'arco_status') && /northwind|^this|^it$|current|selected/i.test(t.args.target ?? '')), 'must look at Northwind');
+      assert(o.tools.some((t) => (t.tool === 'arco_read_recent' || t.tool === 'arco_status') && /sample workflow|^this|^it$|current|selected/i.test(t.args.target ?? '')), 'must look at Sample Workflow');
       assert(!o.tools.some((t) => t.tool === 'arco_send_message'), 'a question about a project is answered, not typed to its worker');
-      assert.match(o.reply, /working|busy|7 minutes|seven minutes|Northwind|parser|tokeniz|parcel|integration tests|owner lookup/i, 'answers from the digest');
+      assert.match(o.reply, /working|busy|7 minutes|seven minutes|Sample Workflow|sample records|item search|validation|empty query/i, 'answers from the digest');
       assert.doesNotMatch(o.reply, SILENT);
     });
     await step('switch to a cluster and ask what is going on → select, look at its Director, answer by voice', async () => {
-      const o = await ask(c!, chatId, "Switch to COMET and tell me what's going on over there right now."); outcomes.push(o); show('cluster status', o);
-      assert(o.tools.some((t) => t.tool === 'arco_select' && /comet/i.test(t.args.target ?? '')), 'must select COMET');
-      assert(o.tools.some((t) => (t.tool === 'arco_read_recent' || t.tool === 'arco_status') && /comet|director/i.test(t.args.target ?? '')), 'must look at COMET / its Director');
+      const o = await ask(c!, chatId, "Switch to Parser Team and tell me what's going on over there right now."); outcomes.push(o); show('cluster status', o);
+      assert(o.tools.some((t) => t.tool === 'arco_select' && /parser team/i.test(t.args.target ?? '')), 'must select Parser Team');
+      assert(o.tools.some((t) => (t.tool === 'arco_read_recent' || t.tool === 'arco_status') && /parser team|director/i.test(t.args.target ?? '')), 'must look at Parser Team / its Director');
       assert(!o.tools.some((t) => t.tool === 'arco_send_message'), 'not typed to the Director');
       assert.match(o.reply, /tokenizer|grammar|parser|idle|builder|director|waiting/i, 'answers from the cluster digest');
     });
     await step('a question addressed to a worker is typed to it, silent', async () => {
-      const o = await ask(c!, chatId, "Ask the COMET director what's blocking it right now."); outcomes.push(o); show('ask the director', o);
+      const o = await ask(c!, chatId, "Ask the Parser Team director what's blocking it right now."); outcomes.push(o); show('ask the director', o);
       const sent = o.tools.find((t) => t.tool === 'arco_send_message');
-      assert(sent && /director|comet/i.test(sent.args.target ?? ''), 'must message the Director (or the cluster, which routes to it)');
+      assert(sent && /director|parser team/i.test(sent.args.target ?? ''), 'must message the Director (or the cluster, which routes to it)');
       assert.match(sent!.args.text ?? '', /block/i, 'carries the question');
       assert.match(o.reply, SILENT, 'nothing spoken after acting');
     });
@@ -223,20 +264,20 @@ async function main() {
       assert.match(o.reply, /builder [45]|which/i, 'asks which builder');
     });
     await step('a compound instruction becomes select + send_message in the operator\'s words, silent', async () => {
-      const o = await ask(c!, chatId, 'Switch over to the COMET cluster and tell Builder 4 to focus on the parser tests before anything else.'); outcomes.push(o); show('compound instruction', o);
+      const o = await ask(c!, chatId, 'Switch over to the Parser Team cluster and tell Builder 4 to focus on the parser tests before anything else.'); outcomes.push(o); show('compound instruction', o);
       const sent = o.tools.find((t) => t.tool === 'arco_send_message');
       assert(sent && /builder 4/i.test(sent.args.target ?? ''), 'must message Builder 4');
       assert.match(sent!.args.text ?? '', /parser tests/i, 'message must carry the operator\'s intent');
       assert.match(o.reply, SILENT, 'nothing spoken after acting');
     });
     await step('a phonetically misheard name with spoken punctuation is matched against the roster', async () => {
-      const o = await ask(c!, chatId, 'switch to harbour hyphen maint'); outcomes.push(o); show('misheard name', o);
+      const o = await ask(c!, chatId, 'switch to colour hyphen tools'); outcomes.push(o); show('misheard name', o);
       const sel = o.tools.find((t) => t.tool === 'arco_select');
-      assert(sel && /^harbor-maint$/i.test(sel.args.target ?? ''), 'must select HARBOR-MAINT by its exact name');
+      assert(sel && /^color-tools$/i.test(sel.args.target ?? ''), 'must select COLOR-TOOLS by its exact name');
       assert.match(o.reply, SILENT, 'nothing spoken after acting');
-      const o2 = await ask(c!, chatId, 'open re lay'); outcomes.push(o2); show('homophone name', o2);
+      const o2 = await ask(c!, chatId, 'open test cue'); outcomes.push(o2); show('homophone name', o2);
       const sel2 = o2.tools.find((t) => t.tool === 'arco_select');
-      assert(sel2 && /^relay$/i.test(sel2.args.target ?? ''), 'must select Relay');
+      assert(sel2 && /^test queue$/i.test(sel2.args.target ?? ''), 'must select Test Queue');
     });
     await step('a plain question is answered without tools', async () => {
       const o = await ask(c!, chatId, 'What is the boiling point of water at sea level in Fahrenheit?'); outcomes.push(o); show('plain question', o);
@@ -244,10 +285,10 @@ async function main() {
       assert(o.reply.length > 0 && o.reply.length < 600 && !SILENT.test(o.reply), 'short spoken answer');
     });
     await step('a glance question ("is it busy?") is answered from the workspace view', async () => {
-      const o = await ask(c!, chatId, 'Is Northwind busy right now, and how long has it been going?'); outcomes.push(o); show('glance question', o);
+      const o = await ask(c!, chatId, 'Is Sample Workflow busy right now, and how long has it been going?'); outcomes.push(o); show('glance question', o);
       assert(o.tools.some((t) => t.tool === 'arco_read_recent' || t.tool === 'arco_status'), 'must look');
       assert(!o.tools.some((t) => t.tool === 'arco_send_message'), 'does not type to the worker for a glance');
-      assert.match(o.reply, /working|busy|active/i, 'answers the activity state from the Northwind digest');
+      assert.match(o.reply, /working|busy|active/i, 'answers the activity state from the Sample Workflow digest');
       assert.match(o.reply, /\b(?:7|seven)\s+minutes\b/i, 'answers the elapsed time, including spoken numbers');
     });
     await step('"bring up the nudge dialog" opens the picker and sends no nudge', async () => {
@@ -310,15 +351,15 @@ async function main() {
       assert(o.tools.some((t) => t.tool === 'arco_usage' && ['codex','all'].includes(t.args.provider ?? 'all')));
       assert.match(o.reply, /20|twenty/i); assert.doesNotMatch(o.reply, /cannot|can't see|billing page/i);
     });
-    await step('a watch for Builder 1 in Relay excludes Builder 2', async () => {
-      const o = await ask(c!, chatId, 'Let me know when Builder 1 in the Relay cluster is done with the current work. Only Builder 1.'); outcomes.push(o); show('exact watch', o);
+    await step('a watch for Builder 1 in Test Queue excludes Builder 2', async () => {
+      const o = await ask(c!, chatId, 'Let me know when Builder 1 in the Test Queue cluster is done with the current work. Only Builder 1.'); outcomes.push(o); show('exact watch', o);
       assert(o.tools.some((t) => t.tool === 'arco_targets'));
       assert(o.tools.some((t) => t.tool === 'arco_watch' && t.args.action === 'create' && t.args.target === 'sqb1'));
       assert(!o.tools.some((t) => t.tool === 'arco_watch' && t.args.action === 'create' && t.args.target !== 'sqb1'));
       assert(!o.tools.some((t) => t.tool === 'arco_send_message')); assert.match(o.reply, SILENT);
     });
     await step('a cluster completion watch binds the cluster instead of one arbitrary builder', async () => {
-      const o = await ask(c!, chatId, 'Also let me know when all the workers in the Relay cluster finish their current work.'); outcomes.push(o); show('cluster watch', o);
+      const o = await ask(c!, chatId, 'Also let me know when all the workers in the Test Queue cluster finish their current work.'); outcomes.push(o); show('cluster watch', o);
       assert(o.tools.some((t) => t.tool === 'arco_watch' && t.args.action === 'create' && t.args.target === 'sq'));
       assert(!o.tools.some((t) => t.tool === 'arco_send_message'));
     });
@@ -346,13 +387,13 @@ async function main() {
         assert(o.tools.some((t) => t.tool === 'arco_computer' && t.args.action === 'switch' && t.args.provider === provider && t.args.model === model));
       }
     });
-    await step('conversation scope: Relay mail followed by nudge the builder uses the mentioned worker', async () => {
+    await step('conversation scope: Test Queue mail followed by nudge the builder uses the mentioned worker', async () => {
       mailFixture = 'one'; mailSelection = {currentId:'sqd',clusterId:'sq'}; mailActions.length = 0;
       try {
-        const mail = await ask(c!, chatId, 'Do I have any pending mail in the Relay mailboxes for any of the workers?'); outcomes.push(mail); show('mail scope', mail);
+        const mail = await ask(c!, chatId, 'Which workers on Test Queue have unread messages?'); outcomes.push(mail); show('mail scope', mail);
         assert(mail.tools.some((t) => t.tool === 'arco_status')); assert.match(mail.reply, /15|fifteen/i); assert.match(mail.reply, /2|two/i);
-        const nudge = await ask(c!, chatId, 'Can you uh nudge the uh builder?'); outcomes.push(nudge); show('mail follow-up nudge', nudge);
-        assert.deepEqual(mailActions, ['sqbuilder'], 'the follow-up must actually nudge only the Relay builder');
+        const nudge = await ask(c!, chatId, 'Please give the builder a nudge.'); outcomes.push(nudge); show('mail follow-up nudge', nudge);
+        assert.deepEqual(mailActions, ['sqbuilder'], 'the follow-up must actually nudge only the Test Queue builder');
         assert.match(nudge.reply, SILENT);
         assert(!nudge.tools.some((t) => ['arco_send_message','arco_cancel_turn'].includes(t.tool)));
       } finally { mailFixture = null; }
@@ -360,23 +401,23 @@ async function main() {
     await step('conversation scope: mail topic overrides another selected cluster, explicit new targets override the topic', async () => {
       mailFixture = 'one'; mailSelection = {currentId:'d1',clusterId:'ta'}; mailActions.length = 0;
       try {
-        const mail = await ask(c!, chatId, 'Check pending mail for the workers in Relay.'); outcomes.push(mail); show('mail in another cluster', mail);
+        const mail = await ask(c!, chatId, 'Read the unread counts for Test Queue.'); outcomes.push(mail); show('mail in another cluster', mail);
         assert(mail.tools.some((t) => t.tool === 'arco_status'));
-        const nudge = await ask(c!, chatId, 'Can you nudge the builder?'); outcomes.push(nudge); show('topic over selection', nudge);
+        const nudge = await ask(c!, chatId, 'Nudge the builder you just described.'); outcomes.push(nudge); show('topic over selection', nudge);
         assert.deepEqual(mailActions, ['sqbuilder']); assert.match(nudge.reply, SILENT);
-        const other = await ask(c!, chatId, 'Now nudge Builder 4 in COMET instead.'); outcomes.push(other); show('explicit new recipient', other);
+        const other = await ask(c!, chatId, 'Now nudge Builder 4 in Parser Team instead.'); outcomes.push(other); show('explicit new recipient', other);
         assert.deepEqual(mailActions, ['sqbuilder','ob']); assert.match(other.reply, SILENT);
       } finally { mailFixture = null; }
     });
     await step('conversation scope: two builders in the discussed cluster still require a scoped question', async () => {
       mailFixture = 'two'; mailSelection = {currentId:'sqd',clusterId:'sq'}; mailActions.length = 0;
       try {
-        const mail = await ask(c!, chatId, 'Check pending mail for all the workers in Relay.'); outcomes.push(mail); show('two-builder mail', mail);
-        const nudge = await ask(c!, chatId, 'Can you nudge the builder?'); outcomes.push(nudge); show('scoped ambiguity', nudge);
+        const mail = await ask(c!, chatId, 'Which Test Queue workers have messages waiting?'); outcomes.push(mail); show('two-builder mail', mail);
+        const nudge = await ask(c!, chatId, 'Nudge the builder you just described.'); outcomes.push(nudge); show('scoped ambiguity', nudge);
         assert.deepEqual(mailActions, [], 'mail counts and busy state must not select a recipient');
         assert(!nudge.tools.some((t) => ['arco_nudge','arco_send_message','arco_cancel_turn'].includes(t.tool)), 'ask before invoking any worker action');
         assert.match(nudge.reply, /which|builder 1|builder 2/i);
-        assert.doesNotMatch(nudge.reply, /builder [45]|ember/i, 'ask only about builders in Relay');
+        assert.doesNotMatch(nudge.reply, /builder [45]|extra team/i, 'ask only about builders in Test Queue');
       } finally { mailFixture = null; }
     });
     await step('activity controls opt into worker updates, select matches only, pause and clear the inbox', async () => {
@@ -399,7 +440,7 @@ async function main() {
     await step('mailbox rule: detailed conditional directive arms exact workers and final recipient once', async () => {
       mailFixture = 'two'; mailSelection = {currentId:'d1',clusterId:'ta'}; mailActions.length = 0;
       try {
-        const o = await ask(c!, chatId, 'Nudge Builder 1 in Relay if it has pending mail, and keep nudging it when more mail arrives. Once only the Relay Director has mail, while Builder 1 and Builder 2 are both idle with empty queues and empty mailboxes, nudge the Director and notify me that you have done so.'); outcomes.push(o); show('conditional mailbox rule', o);
+        const o = await ask(c!, chatId, 'Nudge Builder 1 in Test Queue if it has pending mail, and keep nudging it when more mail arrives. Once only the Test Queue Director has mail, while Builder 1 and Builder 2 are both idle with empty queues and empty mailboxes, nudge the Director and notify me that you have done so.'); outcomes.push(o); show('conditional mailbox rule', o);
         const def=scriptDefinition(o);
         const targets=scriptActionTargets(def);assert(targets.includes(safeId('sqb1')));assert(targets.includes(safeId('sqd')));assert(!targets.includes(safeId('sqb2')));
         const f=scriptFacts();for(const w of f.slice(0,2)){w.pending_mail=0;w.pendingIds=[];}const engine=new ComputerConditions(),r=engine.create('fixture-owner',def,f);assert.equal(engine.next(r.id,f)?.targetId,safeId('sqd'),'Director nudge must be possible when only Director has mail');
@@ -412,7 +453,7 @@ async function main() {
     await step('mailbox rule: plural workers use one exact array in their own cluster', async () => {
       mailFixture = 'two';
       try {
-        const o = await ask(c!, chatId, 'For COMET, keep nudging Builder 4 and Builder 5 when new mail arrives, then nudge the COMET Director and notify me once all other COMET mailboxes are empty and the members idle.'); outcomes.push(o); show('multiple mailbox workers',o);
+        const o = await ask(c!, chatId, 'For Parser Team, keep nudging Builder 4 and Builder 5 when new mail arrives, then nudge the Parser Team Director and notify me once all other Parser Team mailboxes are empty and the members idle.'); outcomes.push(o); show('multiple mailbox workers',o);
         const def=scriptDefinition(o);assert.deepEqual(def.cluster_ids,[safeId('ta')]);
         const targets=scriptActionTargets(def);for(const id of ['ob','sb','d1'])assert(targets.includes(safeId(id)));
         const f=scriptFacts(['ob','sb','d1']);for(const w of f.slice(0,2)){w.pending_mail=0;w.pendingIds=[];}const engine=new ComputerConditions(),r=engine.create('fixture-owner',def,f);assert.equal(engine.next(r.id,f)?.targetId,safeId('d1'));
@@ -423,7 +464,7 @@ async function main() {
     await step('mailbox rule: ambiguous builder asks before arming or sending any nudge', async () => {
       mailFixture = 'two'; mailSelection = {currentId:'sqd',clusterId:'sq'};
       try {
-        const o = await ask(c!, chatId, 'Start a new mailbox rule for Relay. I have not chosen which builder yet: keep nudging the builder when it receives mail, then nudge its Director when only the Director has mail.'); outcomes.push(o); show('ambiguous rule target',o);
+        const o = await ask(c!, chatId, 'Start a new mailbox rule for Test Queue. I have not chosen which builder yet: keep nudging the builder when it receives mail, then nudge its Director when only the Director has mail.'); outcomes.push(o); show('ambiguous rule target',o);
         assert(!o.tools.some((t) => ['arco_nudge','arco_send_message'].includes(t.tool) || (['arco_mail_rule','arco_condition'].includes(t.tool) && t.args.action === 'create')));
         assert.match(o.reply,/which|builder 1|builder 2/i);
       } finally { mailFixture = null; }
@@ -431,7 +472,7 @@ async function main() {
     await step('script: exclude Director, hold for human questions, notify only when worker exchange settles',async()=>{
       mailFixture='two';
       try{
-        const o=await ask(c!,chatId,'For Relay: keep nudging Builder 1 and Builder 2 when new mail comes in. Leave Director alone. Once those two workers are idle, their queues empty and they have no mail for each other, notify me and stop. If either worker asks me a question or needs input, hold until I answer; never answer it yourself.');outcomes.push(o);show('exact script with human hold',o);
+        const o=await ask(c!,chatId,'For Test Queue: keep nudging Builder 1 and Builder 2 when new mail comes in. Leave Director alone. Once those two workers are idle, their queues empty and they have no mail for each other, notify me and stop. If either worker asks me a question or needs input, hold until I answer; never answer it yourself.');outcomes.push(o);show('exact script with human hold',o);
         const def=scriptDefinition(o);assert.equal(def.hold_on_input,true);assert(!scriptActionTargets(def).includes(safeId('sqd')));
         assert.equal(def.ttl_minutes,null);assert.equal(def.max_actions,null);assert.equal(def.max_worker_turns,null,'do not invent a turn cap for keep-nudging directives');
         const facts=scriptFacts(),engine=new ComputerConditions(),r=engine.create('fixture-owner',def,facts);
@@ -445,7 +486,7 @@ async function main() {
     await step('script: compact at 40 percent and wait for compaction before continuing',async()=>{
       mailFixture='two';
       try{
-        const o=await ask(c!,chatId,'For Relay Builder 1 only: if its context reaches 40 percent, wait until it is idle, compact its context, then only after compaction finishes send exactly "Continue your assigned work." Notify me after sending it, then stop. Hold for any question needing my input. Do not nudge or direct anyone else.');outcomes.push(o);show('compaction sequence',o);
+        const o=await ask(c!,chatId,'For Test Queue Builder 1 only: if its context reaches 40 percent, wait until it is idle, compact its context, then only after compaction finishes send exactly "Continue your assigned work." Notify me after sending it, then stop. Hold for any question needing my input. Do not nudge or direct anyone else.');outcomes.push(o);show('compaction sequence',o);
         const def=scriptDefinition(o);assert(def.clauses.some((c)=>c.actions.some((a)=>a.kind==='compact'&&a.worker_id===safeId('sqb1'))));
         assert(scriptActionTargets(def).every((id)=>id===safeId('sqb1')));
         const facts=scriptFacts(),engine=new ComputerConditions(),r=engine.create('fixture-owner',def,facts);
@@ -459,7 +500,7 @@ async function main() {
     await step('script update: add compaction to the existing policy without replacing its identity or scope',async()=>{
       mailFixture='two';
       try{
-        const first=await ask(c!,chatId,'Create a script for Relay: nudge Builder 1 and Builder 2 independently whenever they receive new mail, never nudge Director, and keep it armed until I cancel it. Hold for human input.');outcomes.push(first);show('initial editable script',first);scriptDefinition(first);
+        const first=await ask(c!,chatId,'Create a script for Test Queue: nudge Builder 1 and Builder 2 independently whenever they receive new mail, never nudge Director, and keep it armed until I cancel it. Hold for human input.');outcomes.push(first);show('initial editable script',first);scriptDefinition(first);
         const change=await ask(c!,chatId,'Update that same script: also compact Builder 1 whenever its context reaches 40 percent, waiting for idle and for compaction to finish before further nudges. Keep all the existing mail nudges, input holds and Director exclusion. Do not create a second script.');outcomes.push(change);show('update script',change);
         const update=change.tools.find((t)=>t.tool==='arco_condition'&&t.args.action==='update');assert(update&&update.args.rule_id==='script-rule-1');assert(!change.tools.some((t)=>t.tool==='arco_condition'&&['create','cancel'].includes(t.args.action)));
         const def=scriptDefinition(change);assert(def.clauses.some((c)=>c.actions.some((a)=>a.kind==='compact'&&a.worker_id===safeId('sqb1'))));assert(!scriptActionTargets(def).includes(safeId('sqd')));for(const id of ['sqb1','sqb2'])assert(def.clauses.some((c)=>c.actions.some((a)=>a.kind==='nudge_mail'&&a.worker_ids.includes(safeId(id)))));
@@ -468,7 +509,7 @@ async function main() {
     await step('script budgets: operator can request larger limits and remove them without replacing the script',async()=>{
       mailFixture='two';
       try{
-        const first=await ask(c!,chatId,'Create a separate Relay script for Builder 1 only: nudge it whenever new mail arrives, holding for human input. Allow up to 100 worker turns, expire after six hours, and impose no total action limit. Use a five-second cooldown. Never nudge Director.');outcomes.push(first);show('operator-selected larger budgets',first);
+        const first=await ask(c!,chatId,'Create a separate Test Queue script for Builder 1 only: nudge it whenever new mail arrives, holding for human input. Allow up to 100 worker turns, expire after six hours, and impose no total action limit. Use a five-second cooldown. Never nudge Director.');outcomes.push(first);show('operator-selected larger budgets',first);
         const limited=scriptDefinition(first);assert.equal(limited.max_worker_turns,100);assert.equal(limited.ttl_minutes,360);assert.equal(limited.max_actions,null);assert.equal(limited.cooldown_seconds,5);
         const change=await ask(c!,chatId,'Remove the time and turn limits from that same script; keep everything else including the five-second cooldown. Run until I cancel it. Do not create another script.');outcomes.push(change);show('remove script limits in place',change);
         const update=change.tools.find((t)=>t.tool==='arco_condition'&&t.args.action==='update');assert(update&&update.args.rule_id==='script-rule-1');assert(!change.tools.some((t)=>t.tool==='arco_condition'&&['create','cancel'].includes(t.args.action)));
@@ -484,20 +525,17 @@ async function main() {
         const vague=await ask(c!,chatId,'Oh cancel.');outcomes.push(vague);show('ambiguous cancel',vague);
         readonly(vague);assert.match(vague.reply,/\?/,'ask before cancelling a script based only on the prior conversation');
         const discard=await ask(c!,chatId,'I meant discard that voice request. Keep the conditional script running.');outcomes.push(discard);show('discard request only',discard);readonly(discard);
-        const explicit=await ask(c!,chatId,'Now cancel that Relay conditional script.');outcomes.push(explicit);show('explicit script cancel',explicit);
+        const explicit=await ask(c!,chatId,'Now cancel that Test Queue conditional script.');outcomes.push(explicit);show('explicit script cancel',explicit);
         assert(explicit.tools.some((t)=>t.tool==='arco_condition'&&t.args.action==='cancel'&&t.args.rule_id==='script-rule-1'));
         assert(!explicit.tools.some((t)=>['arco_cancel_turn','arco_nudge','arco_send_message'].includes(t.tool)), 'cancelling automation must not stop its already-started workers');
       }finally{mailFixture=null;}
     });
     console.log(`\nTotal: ${outcomes.reduce((n, o) => n + o.tools.length, 0)} tool calls over ${outcomes.length} turns, ${(outcomes.reduce((n, o) => n + o.ms, 0) / 1000).toFixed(1)} s.`);
+  } catch (error) {
+    if (!interrupted.signal.aborted) throw error;
   } finally {
-    if (c) await c.close();
-    if (child.exitCode === null && child.signalCode === null) {
-      const stopped = once(child, 'exit'); child.kill('SIGTERM'); const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
-      await stopped; clearTimeout(timer);
-    }
-    if (provider === 'claude') { try { unlinkSync(authPath); } catch {} }
-    closeSync(log); console.log('Isolated artifacts:', dir);
+    try { await cleanUp(); }
+    finally { for (const signal of signals) process.off(signal, onSignal); }
   }
   summary('voice-luna');
 }

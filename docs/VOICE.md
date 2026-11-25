@@ -709,7 +709,7 @@ Restart interrupts active scripts without replay; it does not re-arm them.
 | Check | Coverage |
 |---|---|
 | `npm run test:voice` | Client/server units, capture, screen tools, relay, scripts, restoration and privacy |
-| `npm run smoke:voice-luna` | Real Luna LOW on an isolated server with canned tools: intent, routing, conversation, dictation, scripts and budget edits; normal subscription usage |
+| `ARCO_VOICE_LUNA_LOGIN=1 npm run smoke:voice-luna` | Codex Luna LOW with a fresh sign-in and canned tools for intent, routing, dictation, scripts and budget edits. Uses subscription quota. |
 | `npm run smoke:computer-conditions` | Isolated canned workers with real turn/mailbox flow: execution, optional limits, human-input holds, compaction, updates, persistence and restart |
 | `npm run smoke:condition-input` | Isolated semantic input observation |
 | `npm run smoke:computer-activity` | Live facts, full queue boundaries, optional agent updates, batching, tool denial, pause/resume, private clear and restart |
@@ -724,11 +724,12 @@ For the panel browser fixture, first run
 regressions. Microphone echo and real-room barge-in still need live testing;
 the canned model suite does not exercise audio capture.
 
-The real-agent suite accepts `ARCO_VOICE_PROVIDER=ollama|claude|codex`,
-`ARCO_VOICE_MODEL`, optional `ARCO_VOICE_PORT`, and
-`ARCO_VOICE_INCOGNITO=1`; default remains Luna LOW. Existing Native Claude
-auth is used only as a temporary access-token copy (never refresh production
-auth). Real-agent scenarios use canned tools, never real worker/UI actions.
+The Codex quality smoke starts device sign-in for a fresh temporary profile.
+It binds a disposable Arco home, voice home and loopback port. It removes the
+temporary Codex profile during cleanup, including when Ctrl+C interrupts
+device sign-in or a turn. Use `ARCO_VOICE_MODEL`,
+`ARCO_VOICE_EFFORT`, or `ARCO_VOICE_INCOGNITO=1` to change the Computer turn.
+The browser tool responses and worker actions come from the fixture.
 
 ### Source map
 
@@ -1030,9 +1031,10 @@ passed on 2026-10-16; microphone accuracy remains to be assessed.
 
 - `npm run test:voice`: parsing, targeting, draft/recipient invariants, late
   responses, playback restrictions, leases, limits and interpreter isolation.
-- `npm run smoke:voice`: isolated source server, Native workflow, deterministic
-  Codex fixture, real local sample recognition/output, history/log absence and
-  expired-session refusal. Requires `npm run voice:setup`.
+- `npm run smoke:voice`: isolated source server, voice home and loopback port.
+  Codex, wake detection, transcript and WAV responses come from deterministic
+  fixtures. The smoke checks request limits, relay routing, history and log
+  privacy, and refusal after the voice session ends. No voice setup is needed.
 - `python3 scripts/smoke/voice-browser.py`: isolated Vite (`:5193` by default),
   actual fake-device browser microphone/worklet lifecycle and stubbed API/WS;
   navigation, pinned dictation, normal follow-up send, live usage, late
