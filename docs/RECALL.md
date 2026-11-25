@@ -43,8 +43,8 @@ interface is the contract; see the Part E storage rationale).
 - **Backend: SQLite** via `better-sqlite3` (already a server dependency; F1 establishes the usage pattern).
 - **One row per workflow:** `{ wfid, cwd, project, provider, title, createdAt, lastActiveAt, turnCount,
   summaryRef?, tags[] }`.
-- `query()` lists all entries, optionally filtered by `project` / `provider`, sorted by `lastActiveAt` desc.
-  (Rich full-text search is F3.)
+- `query()` lists all entries, optionally filtered by `project` / `provider` / `pinned`, sorted
+  `pinned DESC, lastActiveAt DESC` (pinned-first arrived with F4). Rich full-text search is F3.
 - **F3-ready schema:** the `entries` table holds no FTS-specific columns, so F3 can add a `CREATE VIRTUAL
   TABLE... USING fts5(...)` alongside it **without migrating `entries`**. The `summaryRef` and `tags`
   columns exist now so later schema changes do not migrate the table either. FTS5 / full-text search is **NOT**
@@ -178,15 +178,16 @@ the body in FTS rather than downgrading to the bare ref.
   "Summarizing..."); **Open summary** when one exists (fetches `/api/recall/summary`, renders inline).
 - `recall_summary_ready` is routed (no `workflowId` -> not events.jsonl) to `recallStore.onSummaryReady`, which
   flips the row and pre-fetches the body.
-- **Summarize on tab close** toggle (footer, **default OFF**, localStorage-backed `recallStore.summarizeOnClose`)
-  mirrors the cluster idle-nudger precedent. When checked, closing a workflow tab (alone or as part of
-  closing a cluster) whose job is not Incognito and has a saved session (an operator message or a resumed
-  session) sends `recall_summary_request` for that session after the tab is removed, so the close is never
-  delayed; the summarizer is the tab's own primary provider, model and effort, the same choice
-  `recallSummarizerFor` gives the row's Summarize action (`client/src/recall/closeSummary.ts`). A toast reads
-  "Summarizing <tab> in Recall" with an OPEN RECALL link; `recall_summary_ready` for that session then raises a
-  ready toast (with the link) or an error toast. A socket that is not open also shows an error toast. Unchecked,
-  nothing is sent.
+- **Summarize on tab close** toggle (**default OFF**, localStorage-backed `recallStore.summarizeOnClose`)
+  mirrors the cluster idle-nudger precedent. On the workbench it sits in the Recall view footer; on the phone
+  view it also appears under **Utility agent** in Settings (`SettingsPanel`, phone-only). When checked, closing
+  a workflow tab (alone or as part of closing a cluster) whose job is not Incognito and has a saved session
+  (an operator message or a resumed session) sends `recall_summary_request` for that session after the tab is
+  removed, so the close is never delayed; the summarizer is the tab's own primary provider, model and effort,
+  the same choice `recallSummarizerFor` gives the row's Summarize action (`client/src/recall/closeSummary.ts`).
+  A toast reads "Summarizing <tab> in Recall" with an OPEN RECALL link; `recall_summary_ready` for that session
+  then raises a ready toast (with the link) or an error toast. A socket that is not open also shows an error
+  toast. Unchecked, nothing is sent.
 
 ### Smoke
 
