@@ -947,6 +947,7 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | `NODE_ENV` | unset | The service unit sets `production`; this rejects test-only HTTP routes (e.g. the cluster `_test_insert` smoke hook) and switches identity to `systemd` service mode |
 | `OLLAMA_URL_BASE` | `http://localhost:11434` | Ollama daemon endpoint |
 | `STRATA_URL_BASE` | `http://127.0.0.1:8081/v1` | Standalone Strata endpoint; `settings.strata.baseUrl` takes precedence |
+| `DEEPSEEK_URL_BASE` | `http://127.0.0.1:8150/v1` | Standalone Xolotl endpoint; `settings.deepseek.baseUrl` takes precedence |
 | `ARCO_STRATA_PROFILES` | `~/.arco/strata-profiles.json` | Optional prepared-profile registry; exact matching loopback endpoint only; see [STRATA.md](STRATA.md) |
 | `LMSTUDIO_URL_BASE` | `http://localhost:1234/v1` | LM Studio OpenAI-compat endpoint |
 | `ARCO_CURSOR_AUTH` | the Cursor CLI's own `auth.json` | Path to the Cursor session-JWT file; read fresh each poll by the auth-status check and the `/api/cursor-usage` poller; disables the keyring and keychain reads (test/override seam) |
@@ -1172,6 +1173,7 @@ Per-service. Status is surfaced by the top-bar provider letters (an enabled prov
 | Cursor (ACP) | Connections > Cursor, or LOG IN on the Cursor row in Settings, runs `cursor-agent login` in Arco and shows the link (or run it in a terminal) | The session JWT is read fresh each poll: from `auth.json` (`$XDG_CONFIG_HOME/cursor` on Linux, `%APPDATA%\Cursor` on Windows, `~/.cursor` on macOS, then `~/.config/cursor` as before), from the desktop keyring through `secret-tool search` when the file says `storedIn: os-secret-store` (never unlocks; a locked keyring reads as status unknown), or from the macOS keychain. While Cursor has rejected that token the status reads not signed in (Sign in again); the explicit Connections check also runs `cursor-agent status` |
 | Antigravity CLI (Gemini) | LOG IN on the Antigravity row in Settings > Providers and models runs `agy acp --login`; Gemini researchers use a separate sign-in, GEMINI FOR RESEARCH, which runs the same command in its own home | `agy models` probe; sign-in state stays unknown until an interactive turn or login completes |
 | Strata | (no login) | Live `/v1/models`, plus validated prepared local profiles while stopped/unloaded |
+| DeepSeek through Xolotl | (no login) Load a prepared profile from Settings. Endpoint defaults to `http://127.0.0.1:8150/v1` (`DEEPSEEK_URL_BASE` or `deepseek.baseUrl`) | Registered profiles for that endpoint |
 | LM Studio | (no login) | `${LMSTUDIO_URL_BASE}` OpenAI-compat server reachable |
 | llama.cpp | (no login - Arco spawns/manages `llama-server`) | `llama-server` reachable |
 
@@ -1229,7 +1231,7 @@ API-key fallbacks (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) work but Arco is desig
 
 ### FFmpeg (required for Media studio audio/video ops)
 
-The Media studio's audio ops (H6: clip / convert / normalize / mono / stereo / fade / resample / extract) and the upcoming video ops shell out to **`ffmpeg`** and **`ffprobe`** - system binaries on `PATH`, **not** npm deps. The waveform viewer + region select work without ffmpeg (browser-side decode); only the server-side ops + on-disk playback (the `/api/media/raw` serve route works without ffmpeg, but the ops don't) need it.
+The Media studio's audio and video ops shell out to **`ffmpeg`** and **`ffprobe`** - system binaries on `PATH`, **not** npm deps. The waveform viewer + region select work without ffmpeg (browser-side decode); only the server-side ops + on-disk playback (the `/api/media/raw` serve route works without ffmpeg, but the ops don't) need it.
 
 - **Detection:** `server/src/media/ffmpeg.ts::ffmpegAvailable()` caches a `ffmpeg -version` probe. If ffmpeg is absent, `POST /api/media/op` returns `200 { ok: false, code: 'ffmpeg-missing', error }` (with this pointer) - never a crash. The op buttons surface the error inline.
 - **Install (generic):** any recent ffmpeg (8.x verified) - `apt install ffmpeg` / `brew install ffmpeg` / your distro's package. Confirm with `ffmpeg -version` and `ffprobe -version`.
@@ -1314,7 +1316,7 @@ If Brave/Chromium climbs steadily after `__ARCO_TRIM_MEMORY__()` and the hot row
 
 Settings are read in three layers, lowest precedence first:
 
-1. **Defaults** - hard-coded in `server/src/settings.ts` `defaults()` (all providers enabled).
+1. **Defaults** - hard-coded in `server/src/settings.ts` `defaults()`. Antigravity CLI is off; the other providers are on. A new home replaces this list with what was detected: signed-in Claude, Codex and Cursor, and a reachable Ollama, LM Studio or llama.cpp endpoint or binary. Antigravity CLI, Strata and DeepSeek stay off until enabled.
 2. **Global** - `~/.arco/settings.json`. Hand-edited or written by `POST /api/settings` (the operator-facing patch path used by SystemHeader / SettingsPanel).
 3. **Project** - `<cwd>/.arco/settings.json`. Hand-edited only; pins theme, default model, transport, etc., independent of the machine-wide global. Ignored by Git by default; add `!settings.json` to `.arco/.gitignore` to opt in, provided no parent rule excludes the directory. Already tracked files stay tracked.
 
@@ -1333,13 +1335,14 @@ Example:
 { "themeId": "sentinel",
   "workflowDefaults": { "primaryProvider": "claude", "primaryModel": "claude-opus-4-7" } }
 
-// ~/Projects/sample-app/.arco/settings.json
+// <project>/.arco/settings.json
 { "themeId": "amber-crt",
   "workflowDefaults": { "primaryProvider": "codex" } }
 
-// effective for cwd=~/Projects/sample-app:
+// effective for that project. The model stays the global value;
+// the cascade does not substitute one for the new provider:
 { "themeId": "amber-crt",
-  "workflowDefaults": { "primaryProvider": "codex", "primaryModel": "gpt-6-astra" } }
+  "workflowDefaults": { "primaryProvider": "codex", "primaryModel": "claude-opus-4-7" } }
 ```
 
 ### Reading effective settings
