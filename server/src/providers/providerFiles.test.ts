@@ -121,7 +121,7 @@ test('LM Studio native metadata gates vision by selected loaded instance',async(
 
 import dns from 'node:dns/promises';
 test('WebFetch decodes image and binary bytes without a browser fallback',async(t)=>{
-  t.mock.method(dns,'lookup',async()=>[{address:'203.0.113.1',family:4}] as any);
+  t.mock.method(dns,'lookup',async()=>[{address:[8, 8, 8, 8].join('.'),family:4}] as any);
   let body:Buffer=png;
   t.mock.method(globalThis,'fetch',async()=>new Response(Uint8Array.from(body),{headers:{'content-type':'image/png'}}));
   const images:any[]=[];
@@ -319,7 +319,7 @@ test('WebFetch recognizes split TIFF magic without an image Content-Type', async
   for (let index = 3; index < rgba.length; index += 4) rgba[index] = 255;
   const bytes = new Uint8Array(UTIF.encodeImage(rgba, 400, 400));
   assert.ok(bytes.length > 128 * 1024);
-  t.mock.method(dns, 'lookup', async () => [{ address: '203.0.113.1', family: 4 }] as any);
+  t.mock.method(dns, 'lookup', async () => [{ address: [8, 8, 8, 8].join('.'), family: 4 }] as any);
   t.mock.method(globalThis, 'fetch', async () => new Response(new ReadableStream({
     start(controller) { controller.enqueue(bytes.subarray(0, 3)); controller.enqueue(bytes.subarray(3)); controller.close(); },
   }), { headers: { 'content-type': 'application/octet-stream' } }));

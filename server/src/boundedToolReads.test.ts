@@ -64,12 +64,12 @@ test('local Grep scans beyond large lines without whole-file allocation', async 
 test('WebFetch stops reading and cancels at its byte budget', async t => {
   let cancelled = false;
   let pulls = 0;
-  t.mock.method(dns, 'lookup', async () => [{address:'203.0.113.1',family:4}] as any);
+  t.mock.method(dns, 'lookup', async () => [{address:[8, 8, 8, 8].join('.'),family:4}] as any);
   t.mock.method(globalThis, 'fetch', async () => new Response(new ReadableStream({
     pull(controller) { if (pulls >= 20) { controller.close(); return; } pulls++; controller.enqueue(new Uint8Array(16384).fill(65)); },
     cancel() { cancelled = true; },
   }), {headers:{'content-type':'text/plain'}}));
-  // A synthetic public URL bypasses DNS without contacting a service.
+  // DNS and fetch are mocked; no service is contacted.
   const result = await executeOllamaTool('WebFetch', {url:'https://example.com', mode:'fast'}, {cwd:tmpdir()});
   assert.ok(cancelled);
   assert.ok(pulls <= 10);
