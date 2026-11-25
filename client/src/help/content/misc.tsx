@@ -535,7 +535,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <>
         <p>
-          Top-of-form toggle. <strong>SINGLE WORKFLOW</strong> creates one tab
+          Top-of-form toggle. <strong>AGENT</strong> creates one tab
           with one project agent. <strong>CHAT</strong> is a conversation with no
           project; <strong>GENESIS</strong> starts from an idea before scaffolding
           a project; <strong>RESEARCH</strong> starts a research project. <strong>CLUSTER</strong>{' '}
@@ -551,7 +551,7 @@ export const miscHelp: Record<string, HelpEntry> = {
           cluster restore come last. Ultracode, Resume and Advanced options are
           single-workflow only and are not shown here. Clusters need at least 2
           members; members can use enabled, connected Claude, Codex, Cursor,
-          Ollama or llama.cpp. A cluster may have at most one director.
+          Gemini, Ollama or llama.cpp. A cluster may have at most one director.
         </p>
         <p>
           Members can exchange notes between turns via the peer tool
@@ -586,8 +586,8 @@ export const miscHelp: Record<string, HelpEntry> = {
   'research.extend': { title: '+15 MIN', body: <p>Shown when an open round or catch-up has 5 minutes or less left and a researcher is still waiting. Each press moves the deadline 15 minutes later, up to 240 minutes for the whole round. The Research Director is told on its next turn.</p>, manualSection: 'research-project' },
   'research.retry': { title: 'RETRY', body: <p>Asks a failed or timed-out researcher to finish this round. Arco sends it a file with its work so far from Arco's own record and one message. If the round is still open, its report joins the round. If the round was released, the report is added to it as a late report and the Research Director is asked to add it to the summary.</p>, manualSection: 'research-project' },
   'research.reveal': { title: 'Reveal', body: <p>Writes which provider and model wrote each report into the research folder and shows it to the Research Director from now on. It cannot be undone.</p>, manualSection: 'research-project' },
-  'research.start.copy': { title: 'What will be copied', body: <p>START PROJECT and START FROM SUMMARY copy the whole released project: the brief, the chosen summary as summary.md, the Director log, and every round's record, summary, reports and returned files, with a README.md index. START FROM REPORT copies one report, its returned files and the brief. The counts and folder tree show the copy before anything is written. Unreleased rounds are never copied.</p>, manualSection: 'research-project' },
-  'research.results': { title: 'Results', body: <p>The project card opens the brief, summary, Director log and exports, and holds the project actions once a round exists. Each round is a card with one row per researcher: Report opens the report, Files (n) lists its returned files, and Actions beside a report or summary works with that result. Use SEND REPORT, SEND SUMMARY or SEND PROJECT to copy research, including released catch-up reports, add a plan reference or stage attachments in a draft; the dialog opens on the project folder used last. START PROJECT, START FROM REPORT and START FROM SUMMARY copy a released result to a new project and open its creator; the first message stays in the draft. RERUN starts another round or opens an editable copy of the panel for a new project. Chat in the project row or Continue in Chat beside a summary opens a saved Chat with the summary attached. EXPORT copies Markdown or downloads a file or ZIP. REVIEW SEND, REVIEW START, REVIEW CHAT, REVIEW EXPORT or REVIEW RERUN opens a Research Director's proposal. Treat a contaminated round as unreliable; review activity after a sandbox access warning.</p>, manualSection: 'research-project' },
+  'research.start.copy': { title: 'What will be copied', body: <p>Start project and Start from summary copy the whole released project: the brief, the chosen summary as summary.md, the Director log, and every round's record, summary, reports and returned files, with a README.md index. Start from report copies one report, its returned files and the brief. The counts and folder tree show the copy before anything is written. Unreleased rounds are never copied.</p>, manualSection: 'research-project' },
+  'research.results': { title: 'Results', body: <p>The project card opens the brief, summary, Director log and exports, and holds the project actions once a round exists. Each round is a card with one row per researcher: Report opens the report, Files (n) lists its returned files, and Actions beside a report or summary works with that result. Use Send report, Send summary or Send project to copy research, including released catch-up reports, add a plan reference or stage attachments in a draft; the dialog opens on the project folder used last. Start project, Start from report and Start from summary copy a released result to a new project and open its creator; the first message stays in the draft. Rerun starts another round or opens an editable copy of the panel for a new project. Chat in the project row or Continue in Chat beside a summary opens a saved Chat with the summary attached. Export copies Markdown or downloads a file or ZIP. REVIEW SEND, REVIEW START, REVIEW CHAT, REVIEW EXPORT or REVIEW RERUN opens a Research Director's proposal. Treat a contaminated round as unreliable; review activity after a sandbox access warning.</p>, manualSection: 'research-project' },
   'research.close': { title: 'Close research project', body: <p>Writes a one-page log per researcher into the latest round record, moves unsent files into sources/ if you keep the box ticked, then removes the researchers' workspaces and conversations. The research folder and the Research Director's conversation are kept.</p>, manualSection: 'research-project' },
   'research.member-line': { title: 'Researcher line', body: <p>Letter, provider and model, isolation, web searches made in the loaded conversation, and the state in the latest round. Blind reports hide authors from the Research Director, not from you. Returned file attachments must be regular workspace files; links and outside paths are refused.</p>, manualSection: 'research-project' },
   'creator.cluster-presets': {
@@ -889,14 +889,15 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <p>
         Pick which AI back-end runs this tab. Providers (Claude / Codex /
-        Cursor / Ollama / llama.cpp / LM Studio / Strata / DeepSeek); the picker
+        Antigravity CLI / Cursor / Ollama / llama.cpp / LM Studio / Strata /
+        DeepSeek); the picker
         lists only providers enabled in Settings and connected. Without a saved
         default the creator starts on the first of those. A saved default that is
         not connected stays selected, marked not connected, and launch waits until
         you pick a connected provider. Local providers (Ollama, llama.cpp) require
         installed models - empty catalogs hide the option. In cluster creation,
         only providers with peer-tool wiring are eligible. Incognito additionally
-        excludes Cursor, llama.cpp, Strata and DeepSeek.
+        excludes Antigravity CLI, Cursor, llama.cpp, Strata and DeepSeek.
       </p>
     ),
     manualSection: 'providers-overview',
@@ -1700,7 +1701,7 @@ export const miscHelp: Record<string, HelpEntry> = {
     body: (
       <><p>
         Permanently deletes the plan file from disk. Confirmation required. HTTP deletion also requires the operator browser session; cookie-free plan tools cannot delete it.
-        Use <C>MARK COMPLETE</C> instead if you want to keep the history.
+        Use <C>✓ DONE</C> (MARK DONE in the mobile view) instead if you want to keep the history.
       </p><p>Plan files and reference documents must be ordinary files inside their storage folders. Linked files or folders are refused; replace the link before retrying.</p></>
     ),
   },

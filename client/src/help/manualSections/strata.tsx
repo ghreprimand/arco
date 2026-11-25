@@ -19,9 +19,9 @@ export const strataGuide: Section[] = [
   <Table headers={['Component', 'Strata MoE setup']} rows={[
   ['Dense work / hot experts', 'GPU plus hybrid CPU/GPU expert execution'],
   ['Host experts', 'A budget in host RAM set in the Strata service configuration; uncached experts read from files'],
-  ['PLE / n-gram table', 'Second GGUF shard on NVMe; distinct from conversation KV'],
-  ['Conversation KV', 'INT8 in host memory, with 32768 cells resident on GPU'],
-  ['Image encoder', 'CPU, 8 threads, up to 1024 image tokens'],
+  ['PLE / n-gram table', 'Model asset storage; distinct from conversation KV'],
+  ['Conversation KV', 'Host-backed or GPU-resident, depending on the engine configuration'],
+  ['Image encoder', 'CPU or GPU, depending on the profile'],
   ]} />
   <Sub>Memory limits</Sub>
   <p>
@@ -36,8 +36,8 @@ export const strataGuide: Section[] = [
   </ul>
   <Sub>Context and tool caps</Sub>
   <Table headers={['Value', 'Meaning']} rows={[
-  [<strong key="w">262144 tokens</strong>, 'The model window. The 262K label and a 256k capability badge refer to the same count.'],
-  [<strong key="k">32768 resident KV cells</strong>, 'The GPU working set, not a 32K conversation cutoff.'],
+  [<strong key="w">Model window</strong>, 'Set per profile and read from the service; the CTX meter uses it.'],
+  [<strong key="k">Resident KV cells</strong>, 'The GPU working set, not a conversation cutoff.'],
   [<strong key="c">Read 32K / other tool results 64K</strong>, 'Arco text caps on tool output, separate from both of the above.'],
   ]} />
   <p>
@@ -46,9 +46,9 @@ export const strataGuide: Section[] = [
   </p>
   <Sub>Vision</Sub>
   <p>
-  Both registered profiles support images. The encoder runs on the CPU
-  because GPU headroom is usually scarce beside the desktop. OCR and small
-  details can still be wrong.
+  Image support and image-token limits depend on the profile; the service
+  reports them. A CPU encoder saves GPU memory but adds latency. OCR and
+  small details can still be wrong.
   </p>
   <p>
   Moving the encoder to GPU or raising RAM or cache budgets needs fresh

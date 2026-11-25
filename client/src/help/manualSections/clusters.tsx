@@ -68,7 +68,7 @@ export const clusters: Section[] = [
   </p>
   <ul>
   <li>
-  <strong>WORKSPACE</strong> - MEMBERS / FILES.
+  <strong>WORKSPACE</strong> - MEMBERS / FILES (a research project adds RESULTS first).
   </li>
   <li>
   <strong>AGENT</strong> - ACTIVITY / REVIEWS / HANDOFFS / PLAN / BOARD /
@@ -284,7 +284,7 @@ export const clusters: Section[] = [
   <p>
   A 4 px splitter separates the grid from the focused-member detail
   pane on the right; drag to resize. The split position persists to
-  localStorage as <Code>clusterGridSplit</Code>.
+  localStorage as <Code>arco.clusterGridSplit</Code>.
   </p>
   <p>
   Click any card to focus that member. The focused card gets an accent
@@ -533,16 +533,16 @@ export const clusters: Section[] = [
   RESULTS shows a project card and one card per round. Project actions sit below the file links once a round exists. In a round card each researcher has one row: <Code>Report</Code> opens the report, <Code>Files (n)</Code> lists its returned files, and <Code>Actions</Code> beside a summary or report holds its choices.
   </p>
   <p>
-  Use <Code>SEND REPORT</Code>, <Code>SEND SUMMARY</Code> or <Code>SEND PROJECT</Code> in RESULTS to copy released research, including catch-up reports, into a project folder, add a reference to an existing plan, or attach it to an open conversation draft. Choose the destinations independently; the draft is not sent. A Research Director can propose a selection for <Code>REVIEW SEND</Code>. RESULTS reports partial copies and a failed export log separately.
+  Use <Code>Send report</Code> or <Code>Send summary</Code> under a card's <Code>Actions</Code>, or <Code>Send project</Code> on the project card, in RESULTS to copy released research, including catch-up reports, into a project folder, an existing plan&apos;s references or an open conversation draft. Choose the destinations independently; the draft is not sent. A Research Director can propose a selection for <Code>REVIEW SEND</Code>. RESULTS reports partial copies and a failed export log separately.
   </p>
   <p>
   The send dialog opens on the project folder this research last went to, or the project it was started from; <Code>CHANGE FOLDER</Code> picks another. Tick <Code>Attach to conversation draft</Code> to choose an open conversation.
   </p>
-  <p><Code>START PROJECT</Code> and <Code>START FROM SUMMARY</Code> copy the whole released project into <Code>research/&lt;name&gt;/</Code> in a new project folder: a <Code>README.md</Code> index, the brief, the chosen summary as <Code>summary.md</Code>, the Director log, and one folder per round under <Code>rounds/</Code> with its round record, summary, reports and each researcher's returned files under their original names.</p>
-  <p>The dialog shows what will be copied and the folder tree before you choose the folder. <Code>START FROM REPORT</Code> copies that report, its returned files and the brief.</p>
-  <p>Then the usual Agent or cluster creator opens. Choose explicitly to use an existing folder; no existing file is overwritten. The first message names <Code>README.md</Code> and the starting summary, and stays in the new conversation draft. <Code>SEND PROJECT</Code> uses the same layout.</p>
-  <p>The project row's <Code>Chat</Code> and a summary's <Code>Continue in Chat</Code> open a saved Chat with the summary and returned files attached; the operator sends the first message. <Code>EXPORT</Code> copies Markdown, downloads a selected file or downloads a ZIP of the research folder. ZIP waits for rounds and catch-ups to finish and excludes Arco and provider state. The export log records a started download, not confirmation that a file was saved.</p>
-  <p><Code>RERUN</Code> loads the original round text and current panel. Start another round or edit a copy of the panel for a new research project. To change the current panel before another round, use MEMBERS first. From an Agent project, <Code>RESEARCH THIS</Code> copies the draft into a new research brief and remembers the project as the default destination for results.</p>
+  <p><Code>Start project</Code> and <Code>Start from summary</Code> copy the whole released project into <Code>research/&lt;name&gt;/</Code> in a new project folder: a <Code>README.md</Code> index, the brief, the chosen summary as <Code>summary.md</Code>, the Director log, and one folder per round under <Code>rounds/</Code> with its round record, summary, reports and each researcher's returned files under their original names.</p>
+  <p>The dialog shows what will be copied and the folder tree before you choose the folder. <Code>Start from report</Code> copies that report, its returned files and the brief.</p>
+  <p>Then the usual Agent or cluster creator opens. Choose explicitly to use an existing folder; no existing file is overwritten. The first message names <Code>README.md</Code> and the starting summary, and stays in the new conversation draft. <Code>Send project</Code> uses the same layout.</p>
+  <p>The project row's <Code>Chat</Code> and a summary's <Code>Continue in Chat</Code> open a saved Chat with the summary and returned files attached; the operator sends the first message. <Code>Export</Code> copies Markdown, downloads a selected file or downloads a ZIP of the research folder. ZIP waits for rounds and catch-ups to finish and excludes Arco and provider state. The export log records a started download, not confirmation that a file was saved.</p>
+  <p><Code>Rerun</Code> loads the original round text and current panel. Start another round or edit a copy of the panel for a new research project. To change the current panel before another round, use MEMBERS first. From an Agent project, <Code>RESEARCH THIS</Code> copies the draft into a new research brief and remembers the project as the default destination for results.</p>
   <p>
   The strip shows where the project is
   saved; <Code>OPEN FOLDER</Code> opens FILES. The default location is in
@@ -786,7 +786,8 @@ export const clusters: Section[] = [
   <p>
     Each <Code>peer_list</Code>{' '}
   row carries <Code>workflowId</Code>, <Code>displayName</Code>,{' '}
-  <Code>pendingForThem</Code>, and (optionally) <Code>tier</Code>.
+  <Code>pendingForThem</Code>, and, when set, <Code>role</Code>,{' '}
+  <Code>tier</Code> and <Code>focus</Code>.
   The <Code>peer_list</Code> tool description tells the model what
   each value means. Work size guides task choice; it does not change
   model or effort. The dispatcher does not auto-assign from work size,
@@ -1004,11 +1005,12 @@ export const clusters: Section[] = [
   kanban board.
   </p>
   <p>
-  The header pill bar in VIEW mode mirrors the worker tab:{' '}
-  <Code>EDIT</Code>, <Code>CLEAR PLAN</Code>, <Code>REVIEW PLAN</Code>,{' '}
-  <Code>VERIFY WORK</Code>, <Code>CUSTOM REVIEW</Code>. Cluster-specific
-  omissions: no DETACH / PROMOTE / MOVE / DONE (the cluster plan is the
-  cluster plan - these do not apply).
+  The header in VIEW mode holds <Code>CHOOSE PLAN</Code>,{' '}
+  <Code>ALL PLANS</Code>, <Code>EDIT</Code>, <Code>INSERT GUARDRAILS</Code>,{' '}
+  <Code>CLEAR PLAN</Code>, <Code>DUPLICATE PLAN</Code>,{' '}
+  <Code>REVIEW PLAN</Code>, <Code>VERIFY WORK</Code> and{' '}
+  <Code>CUSTOM REVIEW</Code>. The worker tab&apos;s PROMOTE TO CLUSTER,
+  MOVE and MARK DONE do not apply to the cluster plan.
   </p>
   <p>
   <strong>REVIEW and VERIFY open the review dialog directly</strong> on
@@ -1134,8 +1136,8 @@ export const clusters: Section[] = [
   </p>
   <ul>
   <li>
-  <Code>peer_list</Code> - list other members by wfid prefix +
-  display name + role.
+  <Code>peer_list</Code> - list other members with workflow ID, display
+  name, pending mail and, when set, role, work size and focus.
   </li>
   <li>
   <Code>peer_send</Code> - drop a message in another member's
@@ -2203,10 +2205,9 @@ export const clusters: Section[] = [
   A cluster has exactly one shared <Code>cwd</Code> by construction, so
   the four cwd-anchored tabs from the per-workflow RightPanel
   (<Code>GITHUB</Code>, <Code>FILES</Code>, <Code>HISTORY</Code>,{' '}
-  <Code>PREVIEW</Code>) are mirrored onto the cluster panel.{' '}They sit to the right of the cluster-scoped tabs (<Code>MEMBERS</Code>,{' '}
-  <Code>MAILBOX</Code>, <Code>PLAN</Code>, <Code>ACTIVITY</Code>,{' '}
-  <Code>REVIEWS</Code>); the strip wraps onto a second row when the
-  panel is narrow.
+  <Code>PREVIEW</Code>) are mirrored onto the cluster panel.{' '}FILES sits in the
+  WORKSPACE group, HISTORY in MEMORY, and PREVIEW and GITHUB in RUNTIME; on a
+  narrow panel the tab row collapses to a grouped dropdown.
   </p>
   <p>
   <strong><Code>GITHUB</Code></strong> and{' '}
@@ -2561,8 +2562,8 @@ export const clusters: Section[] = [
   </li>
   </ul>
   <p>
-  The lookup is reactive - rename a member via the MEMBERS sub-tab
-  pencil affordance, or change their role via SET / EDIT, and every
+  The lookup is reactive - rename a member with RENAME on its MEMBERS
+  row, or change their role via SET / EDIT, and every
   existing peer row across all open tabs updates immediately.
   Members without a role set show just the display name.
   </p>

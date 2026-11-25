@@ -453,6 +453,7 @@ export const providers: Section[] = [
   [<Code key="s62">gpt-6.2-sol</Code>, 'Cold default', 'low / medium / high / xhigh / max / ultra'],
   [<Code key="a62">gpt-6.2-astra</Code>, 'Complex coding', 'low / medium / high / xhigh / max / ultra'],
   [<Code key="a">gpt-6-astra</Code>, 'Earlier Astra', 'low / medium / high / xhigh / max / ultra'],
+  [<Code key="s61">gpt-6.1-sol</Code>, 'Near-Astra at lower cost', 'low / medium / high / xhigh / max / ultra'],
   [<Code key="s">gpt-6-sol</Code>, 'Everyday coding workhorse', 'low / medium / high / xhigh / max / ultra'],
   [<Code key="l">gpt-6-luna</Code>, 'Fast and affordable', 'Stops at max'],
   ['Older models', '-', 'Can expose fewer levels'],
@@ -1028,7 +1029,7 @@ export const providers: Section[] = [
   {
   id: 'provider-strata',
   group: 'Providers',
-  title: 'Strata - Qwen3.8 Flash Next and model switching',
+  title: 'Strata - local MoE service and model switching',
   body: <>
   <p>
   Choose <strong>STRATA</strong> in the provider picker for a standalone
@@ -1091,7 +1092,7 @@ export const providers: Section[] = [
   Strata is excluded from Incognito because its standalone service keeps
   logs/image caches.
   </li>
-  <li>It is not a cluster member.</li>
+  <li>It is not offered as a new cluster member.</li>
   </ul>
   <Sub>FREE VRAM and updates</Sub>
   <p>

@@ -50,8 +50,8 @@ export const deepseekGuide: Section[] = [{
   <Sub>Limits</Sub>
   <Table headers={['Limit', 'Prepared setting']} rows={[
   ['Context', '262,144 tokens shared by input, history, thinking and output.'],
-  ['Thinking', 'None, low, medium or high. Medium defaults to an 8K thinking budget.'],
-  ['Output', '16K total allowance, including thinking; it consumes context too.'],
+  ['Thinking', 'None, low, medium or high.'],
+  ['Output', 'Set by the profile; thinking and visible output share it, and it consumes context too.'],
   ['Host expert arena', 'Set in the DeepSeek service configuration; it is not the entire service memory footprint.'],
   ['Service limits', 'MemoryHigh, MemoryMax and swap are set in the service\'s own configuration. Size them to the host.'],
   ['Modalities', 'Text, images and tools when the matching vision encoder is prepared. Text-only profiles reject images before loading.'],
@@ -63,8 +63,7 @@ export const deepseekGuide: Section[] = [{
   prepared profiles.
   </p>
   <ul>
-  <li>Both installed profiles share the same DeepSeek image encoder.</li>
-  <li>The encoder starts on the CPU with the first image and stops after 60 seconds without one, leaving GPU memory for language-model experts.</li>
+  <li>The profile&apos;s vision section names its encoder. A CPU encoder leaves GPU memory for language-model experts but adds latency.</li>
   <li>Image tokens also consume the shared context window.</li>
   <li>Crop screenshots when small text is unreadable in a whole-desktop capture.</li>
   </ul>
@@ -85,7 +84,7 @@ export const deepseekGuide: Section[] = [{
   <ul>
   <li>UNLOAD stops the managed service, including its engine children, and verifies that it is inactive and the endpoint has gone away.</li>
   <li>Header FREE VRAM does the same for DeepSeek alongside the other local runtimes.</li>
-  <li>Five-minute idle unloading can leave the service running with its engine unloaded; this is shown separately.</li>
+  <li>Idle unloading, when configured, can leave the service running with its engine unloaded; this is shown separately.</li>
   <li>Stop the service before resuming other GPU workloads.</li>
   </ul>
   <Sub>Tools</Sub>

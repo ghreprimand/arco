@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Correct the cluster, provider, power-feature, Strata and DeepSeek manual pages and cluster help: ISOLATED replacements offer every provider Arco can fence, Gemini can be a cluster member from the creator, SSH access forwards the installed package's port, and Strata and DeepSeek limits are described as set by each profile.
+
 - Correct the remote-management agent connection description (outbound only; no inbound lifecycle listener) and point Media Studio settings at `MediaAccessSettings.tsx`.
 - Correct the third-party notice (two npm packages declare MPL-2.0 and LGPL-3.0), remove references to browser suites and a page that no longer exist, and add phone, research, scratch and Gemini terms to the glossary.
 

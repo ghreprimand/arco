@@ -45,10 +45,11 @@ export const powerFeatures: Section[] = [
   for an operator-visible spawn.
   </p>
   <p>
-  A batch that would pass four starts, or that uses a model with an unknown
-  relative cost, waits for approval in the conversation: <Code>ALLOW</Code>,{' '}
-  <Code>ALLOW ON ANOTHER MODEL</Code> or <Code>DENY</Code>. The limits are in
-  Settings, Agents and clusters, Claude Native sub-agents.
+  A batch that would pass four starts in the turn, or that uses a model other
+  than the parent&apos;s, waits for approval in the conversation: <Code>ALLOW</Code>,{' '}
+  <Code>ALLOW ON ANOTHER MODEL</Code> or <Code>DENY</Code>. The running and
+  per-turn start limits (default 4 and 8) are in Settings, Agents and clusters,
+  Claude Native sub-agents.
   </p>
   <Sub>Background sub-agents</Sub>
   <p>
@@ -194,7 +195,7 @@ export const powerFeatures: Section[] = [
   matters. Inside a cluster, ticking "Spawn into cluster" adds the ROLE, TIER,
   FOCUS and ACCESS fields from ADD WORKER so the new tab joins as a described
   member. Spawning into a cluster is available when the new tab uses Claude or
-  Codex; Ollama and llama.cpp tabs join from the tab right-click menu, and Cursor
+  Codex; Ollama, llama.cpp and Gemini tabs join from the tab right-click menu, and Cursor
   members are added with + ADD FRESH in the cluster panel.
   </li>
   <li>
@@ -240,7 +241,7 @@ export const powerFeatures: Section[] = [
   <Sub>Rules</Sub>
   <ul>
   <li><strong>One turn only.</strong> The next send uses and clears it. A reload, tab swap or cancelled send also clears it without firing.</li>
-  <li><strong>Visibility.</strong> The button appears only on Claude tabs using Native transport. It is hidden for director, coordinator, reviewer, researcher and documenter cluster members, and members whose roles prohibit code changes.</li>
+  <li><strong>Visibility.</strong> The button appears only on Claude tabs using Native transport. It is hidden for director, coordinator, reviewer, researcher, documenter and advisor cluster members, and members whose roles prohibit code changes.</li>
   <li><strong>What is gated.</strong> Only <Code>Write</Code> and <Code>Edit</Code>. <Code>Bash</Code> is deliberately not gated, because recognizing write intent in arbitrary shell commands (<Code>sed -i</Code>, redirection, <Code>rm</Code> pipelines, in-place git) would be unreliable.</li>
   </ul>
   <p>
@@ -708,16 +709,18 @@ export const powerFeatures: Section[] = [
   <Sub>Using Arco over SSH</Sub>
   <ol>
   <li>
-  Forward only the client port (5173):
-  <Pre>{`ssh -L 5173:localhost:5173 you@dev-box`}</Pre>
+  Forward Arco&apos;s port. An installed package uses 3001, or the port it
+  saved when 3001 was taken:
+  <Pre>{`ssh -L 3001:localhost:3001 you@dev-box`}</Pre>
   </li>
   <li>
-  Open <Code>http://localhost:5173</Code> locally.
+  Open <Code>http://localhost:3001</Code> locally.
   </li>
   </ol>
   <p>
-  The client server proxies <Code>/ws</Code> and <Code>/api/*</Code> to the Arco
-  server on 3001, so port 3001 needs no separate forward. Uploads use the same
+  With <Code>npm run dev</Code>, forward and open the client port 5173 instead.
+  The development client proxies <Code>/ws</Code> and <Code>/api/*</Code> to
+  the server on 3001, so 3001 needs no separate forward. Uploads use the same
   proxy.
   </p>
   <Sub>Remote management (hub link and REMOTE opt-in)</Sub>
