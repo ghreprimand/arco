@@ -334,7 +334,7 @@ export const rightPanelHelp: Record<string, HelpEntry> = {
           with the settings saved for it in the Cursor CLI; when the chosen variant
           differs, a notice names both models and the model chip shows the one in
           use. Choosing a Cursor model also makes it the Cursor CLI's default. Because
-          Cursor bakes reasoning effort into the model id, the picker splits into
+          Cursor bakes reasoning effort into the model id, the picker splits into{' '}
           <b>family</b> + <b>effort</b> (plus optional FAST / THINK) and resolves to
           the exact catalog id: the EFFORT row below stays a note. The status chip's
           effort is read back out of that id, so it's always the real one.
