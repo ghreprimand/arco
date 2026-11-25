@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- The client build writes `client/dist/THIRD_PARTY_LICENSES.txt`, the license and notice text of every npm package bundled into the client.
+
 - On an offline remote-console card, Status, Start and Logs stay available when an SSH target is configured. Restart and Stop stay off. A card with no SSH target says so and keeps all five off.
 
 - Correct the Recall documentation: summarize-on-close also appears under Utility agent in Settings on the phone view, and the index query sort is pinned-first.

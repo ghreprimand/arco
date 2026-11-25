@@ -38,7 +38,7 @@ The published package is assembled by `scripts/packaging/assemble.mjs`, not pack
 
 `native/licenses/` in the package holds the MIT licenses of `node-pty`, WinPTY, `node-addon-api` and `better-sqlite3`, with a `NOTICE.md` that names them and states that SQLite is public domain.
 
-The client libraries are compiled into `client/dist`. They are MIT apart from `wavesurfer.js`, `highlight.js` and `diff` (BSD-3-Clause), `@ungap/structured-clone` (ISC), `diff-match-patch` and `@dimforge/rapier3d-compat` (Apache-2.0) and `tslib` (0BSD). The build keeps some license banners (React's, for example); it does not write a combined notice file for the client bundle. The license text of each is in its package.
+The client libraries are compiled into `client/dist`: 127 packages in the current build. They are MIT apart from `wavesurfer.js`, `highlight.js` and `diff` (BSD-3-Clause), `@ungap/structured-clone` (ISC) and `diff-match-patch` (Apache-2.0). `react-diff-view` ships one pre-built file with `classnames`, `diff-match-patch`, `gitdiff-parser`, `lodash`, `shallow-equal` and `warning` compiled in, so the build lists those as well. `@dimforge/rapier3d-compat` and `tslib` are not imported by the client and are not in the built files. `npm run build` writes `client/dist/THIRD_PARTY_LICENSES.txt` (a plugin in `client/vite.config.ts`): every npm package that has a module in the built client, sorted by name, with its version, declared license and the text of its own LICENSE and NOTICE files. Author e-mail addresses in those texts are replaced. The file ships with `client/dist` in the package.
 
 ## Optional Codex usage browser
 
