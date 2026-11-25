@@ -7,8 +7,8 @@ import { usePhoneLayout } from '../../layout/layoutRange';
 export function HelpBanner() {
   const helpMode = useAppStore((s) => s.helpMode);
   const setHelpMode = useAppStore((s) => s.setHelpMode);
-  // Mobile view: a taller bar with a 44 px EXIT (body.help-mode.help-phone
-  // pads for it via .help-banner-phone), and touch wording.
+  // Mobile view: a taller bar with a 44 px EXIT (body.help-mode:has(.help-banner-phone)
+  // pads for it in contextual-help.css), and touch wording.
   const phone = usePhoneLayout();
 
   if (!helpMode) return null;

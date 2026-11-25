@@ -278,8 +278,8 @@ export const plans: Section[] = [
         <Sub>Completing and deleting</Sub>
         <p>From the detail view (or per row in the list):</p>
         <ul>
-          <li><strong>Mark complete</strong> - archives the plan and detaches it from any attached workflows.</li>
-          <li><strong>Delete</strong> - permanent, with a confirm. It removes the file from disk.</li>
+          <li><strong>MARK DONE</strong> - archives the plan and detaches it from any attached workflows.</li>
+          <li><strong>DELETE PLAN</strong> (<strong>DELETE</strong> on a list row) - permanent, with a confirm. It removes the file from disk.</li>
         </ul>
       </>
     ),

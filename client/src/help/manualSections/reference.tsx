@@ -181,7 +181,7 @@ scripts/arco logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
   [<strong key="w">Worker</strong>, 'A short-lived subprocess started by a primitive, such as a reviewer or summarizer. Distinct from the primary.'],
   [<strong key="pr">Primitive</strong>, 'One of three operator-triggered server flows: Review, Handoff, Spawn. The primary turn is sometimes called a primitive too.'],
   [<strong key="t">Turn</strong>, 'One operator prompt and the round of agent work it starts. Bracketed by primary_turn_started and primary_turn_ended.'],
-  [<strong key="i">Interjection</strong>, "A message sent while a turn is running. It is queued and merged into the next turn's prompt."],
+  [<strong key="i">Interjection</strong>, "A message sent while a turn is running. A steer reaches the agent at its next safe point on providers that support it, otherwise after the turn; a follow-up waits for the turn to end."],
   [<strong key="g">Ghost worker</strong>, 'A primary worker that exited without emitting primary_turn_ended. Cancel unsticks the UI.'],
   ]}
   />
@@ -214,7 +214,7 @@ scripts/arco logs [N]  # tail -f -n N of the log (default 100)`}</Pre>
   [<strong key="cl5">Role hint</strong>, "A free-form tag of up to 120 characters added to a member's instructions each turn. Presets: DIRECTOR, BUILDER, REVIEWER, RESEARCHER, TESTER, DOCUMENTER, ADVISOR, DESIGNER, plus CUSTOM. A cluster may have at most one director (a role beginning with Director or Coordinator)."],
   [<strong key="dir">Director</strong>, 'A member whose role hint is DIRECTOR or begins with Director or Coordinator. By convention it creates tasks, assigns workers and watches progress. At most one per cluster for new work. A met sign-off closes a task when Board auto-done is on; direct done and archived changes remain operator-only.'],
   [<strong key="cl6">Cluster plan</strong>, "Shared text of up to 32 KB included in every member's instructions each turn. It is cached for about 5 minutes."],
-  [<strong key="cl7">Idle nudger</strong>, 'An optional per-cluster toast (off by default) shown when a member has been idle for 10 seconds or more with unread mail. It never prompts workers.'],
+  [<strong key="cl7">MAIL ALERTS</strong>, 'An optional per-cluster notice (off by default) shown when a member has been idle for 10 seconds or more with unread mail. It never prompts workers.'],
   [<strong key="ws">Work size</strong>, 'Optional light / standard / heavy hint on a non-director member. Guides which tasks the director assigns; does not change model or effort. Template review offers it only for repeated roles.'],
   [<strong key="lcap">Local capacity</strong>, 'Connections setting per Ollama or llama.cpp runtime: how many cluster members may use it at once (1-16, default 1). Creating, adding or replacing a member over capacity is refused unless ARCO_CLUSTER_ALLOW_MULTIPLE_LOCAL=1.'],
   ]}
