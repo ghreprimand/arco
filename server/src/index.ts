@@ -217,6 +217,7 @@ releaseBusy,
 persistInitialMeta,
 writeCalibrationToMeta,
 broadcastQueueUpdate,
+captureWorkflowMessageGuard,
 drainQueueIfIdle
 } from './ws/turnEngine.js';
 import {
@@ -807,9 +808,7 @@ wss.on('connection', (ws: WebSocket) => {
         setNotificationMutes(msg.muted);
         break;
       case 'user_message':
-        { const previous = genericMessageChecks.get(msg.workflowId) ?? Promise.resolve();
-        const current = previous.then(async () => {
-        if (await rejectGenericTaskChildMessage(ws, msg)) return;
+        void admitWorkflowMessage(ws, msg, async (stillAdmitted) => {
         { const clusterId = clusterStore.getClusterIdForWorkflow(msg.workflowId); if (clusterId) clusterAutoTurn.interruptRulePickup(clusterId, msg.workflowId); }
         if (scopedIncognito && ((msg.attachments?.length ?? 0) > 0 || msg.primitive !== undefined || (msg.pickedSkills?.length ?? 0) > 0)) {
           send(ws, { type: 'error', workflowId: msg.workflowId, message: 'Attachments, skills, and workbench primitives are unavailable in strict Incognito Chat.' });
@@ -825,7 +824,10 @@ wss.on('connection', (ws: WebSocket) => {
             send(ws, { type: 'error', workflowId: msg.workflowId, message: GEMINI_OPERATOR_ONLY_REFUSAL });
             return;
           }
-          if (msg.automaticKind === 'nudge') content = await geminiNudgeText(msg.workflowId, msg.content);
+          if (msg.automaticKind === 'nudge') {
+            content = await geminiNudgeText(msg.workflowId, msg.content);
+            if (!stillAdmitted()) return;
+          }
           geminiSend = issueGeminiSend(msg.workflowId, content);
         }
         (workflows.get(msg.workflowId)?.config.incognito ? withoutOperationalLogging : <T>(fn: () => T) => fn())(() =>
@@ -853,9 +855,7 @@ wss.on('connection', (ws: WebSocket) => {
             void notifyClusterStateForWorkflow(msg.workflowId);
           }),
         );
-        });
-        genericMessageChecks.set(msg.workflowId, current);
-        void current.finally(() => { if (genericMessageChecks.get(msg.workflowId) === current) genericMessageChecks.delete(msg.workflowId); }).catch(() => {}); }
+        }).catch((err) => console.error('[arco] user_message admission failed:', err));
         break;
       case 'cancel':
         if (msg.taskId) {
@@ -2221,6 +2221,34 @@ type NativeChildInput = { parentId: string; taskId: string; parentIsCurrent: () 
 const nativeChildInputs = new Map<string, NativeChildInput>();
 const nativeTaskChildIds = new Set<string>();
 const genericMessageChecks = new Map<string, Promise<void>>();
+
+export function admitWorkflowMessage(
+  ws: WebSocket,
+  msg: Extract<ClientMessage, { type: 'user_message' }>,
+  deliver: (stillAdmitted: () => boolean) => Promise<void>,
+): Promise<void> {
+  const { workflowId, clientMessageId } = msg;
+  const isCurrent = captureWorkflowMessageGuard(workflowId);
+  const stillAdmitted = () => {
+    if (isCurrent()) return true;
+    if (clientMessageId) send(ws, { type: 'queued_message_cancelled', workflowId, clientMessageId });
+    return false;
+  };
+  // Preserve receipt order through the Task-child check without waiting for
+  // provider turns. STOP revokes the receipt immediately, outside this chain.
+  const previous = genericMessageChecks.get(workflowId) ?? Promise.resolve();
+  const current = previous.then(async () => {
+    if (!stillAdmitted()) return;
+    if (await rejectGenericTaskChildMessage(ws, msg) || !stillAdmitted()) return;
+    await deliver(stillAdmitted);
+  });
+  genericMessageChecks.set(workflowId, current);
+  void current.finally(() => {
+    if (genericMessageChecks.get(workflowId) === current) genericMessageChecks.delete(workflowId);
+  }).catch(() => {});
+  return current;
+}
+
 // Child IDs are generated once per run, so the parent, task and child tuple
 // identifies the live run even if a task ID is reused later.
 export function handleNativeChildMessage(ws: WebSocket, msg: Extract<ClientMessage, { type: 'task_child_message' }>): void {

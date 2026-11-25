@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- STOP cancels messages still entering a turn, including an interrupt that has reached Arco and is waiting for its conversation checks.
+
 - Keep the saved file intact when a text or image replacement fails, and keep unsaved conversation bytes available for the next flush.
 - Keep research work available when a close or promotion cannot save its files or conversation. A failed conversation save ends the researcher turn with a retryable error.
 - Skip malformed settings during backup and report how to include the settings in a new snapshot.

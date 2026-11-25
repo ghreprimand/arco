@@ -5,11 +5,23 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
+const url=(relative:string)=>new URL(relative,import.meta.url).href;
+
+function runServerFixture(code: string): unknown {
+ const root=mkdtempSync(join(tmpdir(),'arco-task-model-'));const home=join(root,'home'),cwd=join(root,'project'),report=join(root,'report.json');mkdirSync(home);mkdirSync(cwd);
+ const env:NodeJS.ProcessEnv={HOME:home,USERPROFILE:home,ARCO_HOME:join(home,'.arco'),CODEX_HOME:join(home,'.codex'),CLAUDE_CONFIG_DIR:join(home,'.claude'),XDG_CONFIG_HOME:join(home,'.config'),XDG_DATA_HOME:join(home,'.local','share'),XDG_CACHE_HOME:join(home,'.cache'),PATH:root,ARCO_PORT:'0',ARCO_HOST:'localhost',ARCO_UPDATE_CHECK:'0',ARCO_TEST:'1',ARCO_TEST_NO_AUTO_TURN_DISPATCH:'1',ARCO_TASK_FIXTURE_CWD:cwd,ARCO_TASK_FIXTURE_REPORT:report};
+ for(const key of ['SystemRoot','SYSTEMROOT','windir','WINDIR','ComSpec','COMSPEC','PATHEXT'])if(process.env[key]!==undefined)env[key]=process.env[key];
+ try {
+  const result=spawnSync(process.execPath,['--conditions','development','--import','tsx','--input-type=module','-e',code],{cwd:process.cwd(),env,encoding:'utf8',timeout:30000,maxBuffer:128*1024});
+  const value=JSON.parse(readFileSync(report,'utf8'));
+  assert.equal(result.status,0,JSON.stringify(value));
+  return value;
+ } finally {rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100});}
+}
+
 // Exercise the callback registered by the real server entry point, with only
 // fixture workers and an ephemeral loopback listener in the child process.
 test('registered Native Task callback enforces queue, turn budget, fixed model and context guards',()=>{
- const root=mkdtempSync(join(tmpdir(),'arco-task-model-'));const home=join(root,'home'),cwd=join(root,'project'),report=join(root,'report.json');mkdirSync(home);mkdirSync(cwd);
- const url=(relative:string)=>new URL(relative,import.meta.url).href;
  const code=`
  const fs=await import('node:fs');const path=await import('node:path');
  const {randomUUID}=await import('node:crypto');const assert=(await import('node:assert/strict')).default;const children=[];
@@ -98,9 +110,63 @@ test('registered Native Task callback enforces queue, turn budget, fixed model a
   fs.writeFileSync(process.env.ARCO_TASK_FIXTURE_REPORT,JSON.stringify({started:children.length,model:'haiku',queue:true,budget:true,guards:true}));process.exit(0);
  }catch(error){fs.writeFileSync(process.env.ARCO_TASK_FIXTURE_REPORT,JSON.stringify({error:String(error),stack:error?.stack}));process.exit(2);}
  `;
- const env:NodeJS.ProcessEnv={HOME:home,USERPROFILE:home,ARCO_HOME:join(home,'.arco'),CODEX_HOME:join(home,'.codex'),CLAUDE_CONFIG_DIR:join(home,'.claude'),XDG_CONFIG_HOME:join(home,'.config'),XDG_DATA_HOME:join(home,'.local','share'),XDG_CACHE_HOME:join(home,'.cache'),PATH:root,ARCO_PORT:'0',ARCO_HOST:'localhost',ARCO_UPDATE_CHECK:'0',ARCO_TEST:'1',ARCO_TEST_NO_AUTO_TURN_DISPATCH:'1',ARCO_TASK_FIXTURE_CWD:cwd,ARCO_TASK_FIXTURE_REPORT:report};
- for(const key of ['SystemRoot','SYSTEMROOT','windir','WINDIR','ComSpec','COMSPEC','PATHEXT'])if(process.env[key]!==undefined)env[key]=process.env[key];
- try{const result=spawnSync(process.execPath,['--conditions','development','--import','tsx','--input-type=module','-e',code],{cwd:process.cwd(),env,encoding:'utf8',timeout:30000,maxBuffer:128*1024});
- const value=JSON.parse(readFileSync(report,'utf8'));assert.equal(result.status,0,JSON.stringify(value));assert.deepEqual(value,{started:2,model:'haiku',queue:true,budget:true,guards:true});
- }finally{rmSync(root,{recursive:true,force:true,maxRetries:5,retryDelay:100});}
+ assert.deepEqual(runServerFixture(code),{started:2,model:'haiku',queue:true,budget:true,guards:true});
+});
+
+test('STOP discards messages received before async WebSocket admission completes', () => {
+ const code = `
+ const { promises: fs, writeFileSync } = await import('node:fs');
+ const { join } = await import('node:path');
+ const assert = (await import('node:assert/strict')).default;
+ const report = process.env.ARCO_TASK_FIXTURE_REPORT;
+ process.chdir(process.env.ARCO_TASK_FIXTURE_CWD);
+ globalThis.fetch = async () => { throw Error('fixture network disabled'); };
+ try {
+   const { admitWorkflowMessage } = await import(${JSON.stringify(url('../index.ts'))});
+   const { handleCancel } = await import(${JSON.stringify(url('./workflowHandlers.ts'))});
+   const { workflows } = await import(${JSON.stringify(url('../server/state.ts'))});
+   const cwd = process.cwd();
+   const workflowId = 'admission-stop-fixture';
+   const meta = join(cwd, '.arco', 'workflows', workflowId, 'meta.json');
+   const messages = [], delivered = [];
+   const ws = { readyState: 1, bufferedAmount: 0, send: raw => messages.push(JSON.parse(raw)) };
+   workflows.set(workflowId, {
+     config: { workingDirectory: cwd }, primary: { provider: 'codex' }, busy: true,
+     manager: { killAll() {} }, queue: { steering: [], followUp: [] },
+   });
+   let entered, release;
+   const reading = new Promise(resolve => { entered = resolve; });
+   const held = new Promise(resolve => { release = resolve; });
+   const readFile = fs.readFile;
+   fs.readFile = async (...args) => {
+     if (args[0] === meta) { entered(); await held; }
+     return readFile(...args);
+   };
+   const admit = clientMessageId => admitWorkflowMessage(ws, {
+     type: 'user_message', workflowId, clientMessageId, content: 'Fixture correction',
+     interjection: true, kind: 'interrupt',
+   }, async () => { delivered.push(clientMessageId); });
+
+   const beforeStop = admit('before-stop');
+   await reading;
+   const waitingForAdmission = admit('also-before-stop');
+   handleCancel(ws, workflowId);
+   assert.ok(messages.some(message => message.type === 'turn_cancelled'));
+   const afterStop = admit('after-stop');
+   release();
+   await Promise.all([beforeStop, waitingForAdmission, afterStop]);
+
+   assert.deepEqual(delivered, ['after-stop']);
+   const cancelled = messages.filter(message => message.type === 'queued_message_cancelled').map(message => message.clientMessageId);
+   assert.deepEqual(cancelled, ['before-stop', 'also-before-stop']);
+   writeFileSync(report, JSON.stringify({ cancelled, delivered }));
+   process.exit(0);
+ } catch (error) {
+   writeFileSync(report, JSON.stringify({ error: String(error), stack: error?.stack }));
+   process.exit(2);
+ }
+ `;
+ assert.deepEqual(runServerFixture(code), {
+  cancelled: ['before-stop', 'also-before-stop'], delivered: ['after-stop'],
+ });
 });

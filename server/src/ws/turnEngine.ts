@@ -664,6 +664,15 @@ function notifyResearchSettled(wf: WorkflowState, outcome: 'finished' | 'failed'
   void researchRounds.onMemberSettled(id, outcome).catch((error) => console.error('[arco] research round update failed:', error));
 }
 
+// Capture before WebSocket admission awaits so STOP also fences messages
+// that have not entered the turn engine yet.
+export function captureWorkflowMessageGuard(workflowId: string): () => boolean {
+  const workflow = workflows.get(workflowId);
+  const revocation = workflow && busyRevocations.get(workflow);
+  return () => workflows.get(workflowId) === workflow
+    && (!workflow || busyRevocations.get(workflow) === revocation);
+}
+
 export function revokeBusy(wf: WorkflowState): void {
   lastBusyClaim.set(wf, ++busyClaimSeq);
   busyRevocations.set(wf, (busyRevocations.get(wf) ?? 0) + 1);
