@@ -902,7 +902,7 @@ Cross-reference. Pre-tool-use guards (`server/src/providers/claude-native/pretoo
 
 ## 9. Deep Research (Workbench Expansion)
 
-A general, agent-agnostic research primitive: one operator-initiated, bounded turn of plan -> web-search -> read -> synthesize, producing a cited markdown report artifact. Works on Claude + Codex (and Ollama / llama.cpp / LM Studio via their server-side web tools). It mirrors the Review primitive's dispatch shape exactly - `server/src/primitives/runResearch.ts` is modeled on `runReviewer.ts`.
+A general, agent-agnostic research primitive: one operator-initiated, bounded turn of plan -> web-search -> read -> synthesize, producing a cited markdown report artifact. Works on Claude and Codex, and on Ollama, llama.cpp, LM Studio, Strata and DeepSeek through their server-side web tools. It mirrors the Review primitive's dispatch shape exactly - `server/src/primitives/runResearch.ts` is modeled on `runReviewer.ts`.
 
 ### Trigger
 
@@ -910,7 +910,7 @@ The `⌕ RESEARCH` button near the composer (`client/src/components/TerminalInpu
 
 ### Server-side flow
 
-`handleResearchRequest` (`server/src/ws/workflowHandlers.ts`) clamps `maxRounds`, resolves the researcher account (Codex CODEX_HOME like the reviewer path), reads the seed artifact body for a dig-deeper follow-up, and calls `runResearch`. `runResearch` spawns one short-lived worker via `WorkerManager.spawn` with: read-only local tools (Claude: `Read/Grep/Glob/LSP`; Ollama/llama.cpp/LM Studio: `Read/Grep/Glob` + `WebSearch/WebFetch`; Codex: none, gated by `sandbox: 'read-only'`), `outputStyle: 'normal'` (hard exclusion - reports are read carefully; matches the reviewer rule), `skipPermissions` for Ollama only, and a research-structured framing prompt that states the round cap as the non-negotiable stop and the "sufficient" signal as advisory. `worker_text` is collected; `worker_tool_use` for a web tool emits a coarse `research_progress`; `worker_system_notice` surfaces as a `system_notice`. On settle the report is written to `artifactsDir(cwd, wfid)/research-<ts>.md` with YAML frontmatter (researchId, createdAt, completedAt, durationMs, researcher, topic, maxRounds, roundsUsed, sourceCount, isFollowUp); `sourceCount` is a best-effort unique-URL count over the report body.
+`handleResearchRequest` (`server/src/ws/workflowHandlers.ts`) clamps `maxRounds`, resolves the researcher account (Codex CODEX_HOME like the reviewer path), reads the seed artifact body for a dig-deeper follow-up, and calls `runResearch`. `runResearch` spawns one short-lived worker via `WorkerManager.spawn` with: read-only local tools (Claude: `Read/Grep/Glob/LSP`; Ollama, llama.cpp, LM Studio, Strata and DeepSeek: `Read/Grep/Glob` plus `WebSearch/WebFetch`; Codex: none, gated by `sandbox: 'read-only'`), `outputStyle: 'normal'` (hard exclusion - reports are read carefully; matches the reviewer rule), `skipPermissions` for Ollama only, and a research-structured framing prompt that states the round cap as the non-negotiable stop and the "sufficient" signal as advisory. `worker_text` is collected; `worker_tool_use` for a web tool emits a coarse `research_progress`; `worker_system_notice` surfaces as a `system_notice`. On settle the report is written to `artifactsDir(cwd, wfid)/research-<ts>.md` with YAML frontmatter (researchId, createdAt, completedAt, durationMs, researcher, topic, maxRounds, roundsUsed, sourceCount, isFollowUp); `sourceCount` is a best-effort unique-URL count over the report body.
 
 ### Web-search enablement + provider asymmetry (load-bearing)
 
