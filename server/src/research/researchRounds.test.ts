@@ -1,4 +1,4 @@
-import { test, beforeEach, afterEach, after } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,30 +16,6 @@ import { closeResearch, closedResearchRecordPath, installResearchCloseOnDelete, 
 import { setBeforeClusterDelete } from '../clusterStore.js';
 import { researchMembersRoot } from './researchCreate.js';
 import { prepareResearchCreate } from './researchCreate.js';
-
-// Windows hosted runs time this file out with no per-test lines. Log start/end
-// on stderr so a TIMEOUT capture shows how far the file got, and 10 s after the
-// last test list active resources (unref'd so a clean exit is not delayed).
-if (process.platform === 'win32') {
-  let winTestStartedAt = 0;
-  beforeEach((t) => {
-    winTestStartedAt = Date.now();
-    process.stderr.write(`[researchRounds] start ${t.name}\n`);
-  });
-  afterEach((t) => {
-    process.stderr.write(`[researchRounds] end ${t.name} ${Date.now() - winTestStartedAt}ms\n`);
-  });
-  after(() => {
-    const timer = setTimeout(() => {
-      const info = typeof process.getActiveResourcesInfo === 'function'
-        ? process.getActiveResourcesInfo()
-        : [];
-      process.stderr.write(`[researchRounds] activeResources ${JSON.stringify(info)}\n`);
-    }, 10_000);
-    timer.unref();
-  });
-}
-
 
 async function project() {
   const root = await fs.mkdtemp(join(await fs.realpath(tmpdir()), 'arco-research-'));

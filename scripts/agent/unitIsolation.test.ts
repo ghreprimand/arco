@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
-import { dirname, join, resolve, delimiter } from 'node:path';
+import { dirname, join, resolve, relative, delimiter, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 test('B199: every per-file test process uses the selected namespace wrapper', () => {
@@ -10,7 +10,7 @@ test('B199: every per-file test process uses the selected namespace wrapper', ()
   const source = readFileSync(new URL('../test-unit.mjs', import.meta.url), 'utf8').replace(/^import .*;\n/gm, '').replaceAll('import.meta.url', JSON.stringify(new URL('../test-unit.mjs', import.meta.url).href));
   runInNewContext(source, {
     snapshotTempFolders: () => new Set(), remainingTempFolders: () => [],
-    dirname, join, resolve, delimiter, fileURLToPath, tmpdir: () => '/fixture', realpathSync: { native: (path: string) => path },
+    dirname, join, resolve, relative, delimiter, sep, fileURLToPath, tmpdir: () => '/fixture', realpathSync: { native: (path: string) => path },
     mkdirSync() {}, mkdtempSync: () => '/fixture/temp', rmSync() {}, writeFileSync() {},
     readdirSync: () => [{ name: 'fixture.test.ts', isDirectory: () => false, isFile: () => true }],
     process: { platform: 'linux', execPath: '/runtime/node', env: { PATH: '/runtime', ARCO_TEST_PER_FILE: '1', ARCO_TEST_REQUIRE_NETNS: '1' }, getuid: () => 1000, getgid: () => 1000 },

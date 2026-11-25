@@ -108,9 +108,16 @@ try {
     // killed, and the remaining files still run.
     const baseArgs = testArgs.slice(0, testArgs.length - files.length);
     const failed = [], timedOut = [];
+    // Windows: researchRounds.test.ts finishes every assertion then leaves two
+    // inherited PipeWrap handles, so the process never exits and the per-file
+    // wall clock kills it. --test-force-exit keeps the assertions and ends the
+    // process after the tests; other files keep the hang detector.
+    const windowsForceExit = new Set(['server/src/research/researchRounds.test.ts']);
     for (const file of files) {
+      const rel = relative(root, file).split(sep).join('/');
+      const fileArgs = windows && windowsForceExit.has(rel) ? [...baseArgs, '--test-force-exit'] : baseArgs;
       const command = namespaced ? 'unshare' : process.execPath;
-      const args = namespaced ? ['-rn', ...wrapper, process.execPath, ...baseArgs, file] : [...baseArgs, file];
+      const args = namespaced ? ['-rn', ...wrapper, process.execPath, ...fileArgs, file] : [...fileArgs, file];
       // Pipe stdout/stderr so a hung file still yields what it printed before
       // the wall-clock kill. stdin stays inherited so Windows keeps the same
       // stdio shape that produced the researchRounds hang on the hosted runner.
