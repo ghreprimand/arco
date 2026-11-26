@@ -24,6 +24,16 @@ export function isMobilePath(pathname: string): boolean {
   return pathname === MOBILE_PATH || pathname.startsWith(`${MOBILE_PATH}/`);
 }
 
+// A shortcut installed from the phone view must open the phone view. The page
+// at /mobile points at a manifest whose start_url is /mobile; every other
+// address keeps the manifest that starts at /.
+export const MANIFEST_HREF = '/manifest.webmanifest';
+export const MOBILE_MANIFEST_HREF = '/manifest-mobile.webmanifest';
+
+export function manifestHrefFor(pathname: string): string {
+  return isMobilePath(pathname) ? MOBILE_MANIFEST_HREF : MANIFEST_HREF;
+}
+
 function mobileRoute(): boolean {
   return typeof window !== 'undefined' && isMobilePath(window.location.pathname);
 }

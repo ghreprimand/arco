@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isMobilePath, isPhoneWidth, layoutRange, rangeWidthKey, readLayoutMode, readRangeFraction, writeRangeFraction } from './layoutRange';
+import { isMobilePath, manifestHrefFor, isPhoneWidth, layoutRange, rangeWidthKey, readLayoutMode, readRangeFraction, writeRangeFraction } from './layoutRange';
 
 test('Automatic uses the agreed interface pixel boundaries', () => {
   assert.equal(layoutRange(1499, 1, 'auto'), 'narrow');
@@ -60,4 +60,11 @@ test('only the /mobile address opens the mobile view', () => {
   assert.equal(isMobilePath('/mobile/'), true);
   assert.equal(isMobilePath('/'), false);
   assert.equal(isMobilePath('/mobiles'), false);
+});
+
+test('the phone view installs from a manifest that starts at /mobile', () => {
+  assert.equal(manifestHrefFor('/mobile'), '/manifest-mobile.webmanifest');
+  assert.equal(manifestHrefFor('/mobile/'), '/manifest-mobile.webmanifest');
+  assert.equal(manifestHrefFor('/'), '/manifest.webmanifest');
+  assert.equal(manifestHrefFor('/mobiles'), '/manifest.webmanifest');
 });

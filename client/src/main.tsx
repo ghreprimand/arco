@@ -10,12 +10,14 @@ import { TerminalPopout } from './components/Terminal/TerminalPopout';
 import { ExplorerApp } from './explorer/ExplorerApp';
 import { installSessionFetch, startSessionRefresh } from './utils/wsSession';
 import { startRecoveryGuard } from './buildCheck';
+import { manifestHrefFor } from './layout/layoutRange';
 
 // Apply cached theme synchronously before React mounts so the first paint
 // matches the operator's saved theme. Without this the :root defaults
 // (matrix green) render for ~100–500ms while /api/settings fetches. The pop-out
 // route (below) inherits this for free — it is same-origin / same-localStorage.
 bootstrapCachedTheme();
+document.querySelector('link[rel="manifest"]')?.setAttribute('href', manifestHrefFor(window.location.pathname));
 
 // WORKBENCH_EXPANSION §K4 — terminal pop-out route. There is NO router in this
 // app; main.tsx mounts a single <App/>. The pop-out is a `window.open` to
