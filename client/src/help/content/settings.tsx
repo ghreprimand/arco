@@ -297,7 +297,7 @@ export const settingsHelp: Record<string, HelpEntry> = {
   'settings.gemini-research': {
     manualSection: 'settings-providers',
     title: 'Gemini for research',
-    body: <p>A separate Google sign-in used only by Gemini researchers in the Linux worker sandbox. LOG IN shows a link; open it, then paste the code or return URL. The sign-in is kept as a file in Arco's own folder, not in the system keyring, and your Antigravity CLI sign-in is not changed. Expired means a researcher turn was refused; sign in again.</p>,
+    body: <p>A separate Google sign-in used only by Gemini researchers in the Linux worker sandbox. LOG IN shows a link; open it, then paste the code or return URL. The sign-in is kept as a file in Arco's own folder, not in the system keyring, and your Antigravity CLI sign-in is not changed. Expired means a researcher turn was refused; sign in again. On Windows and macOS Gemini for Research is not available, and Settings says so.</p>,
   },
   'settings.authentication': {
     manualSection: 'settings-providers',

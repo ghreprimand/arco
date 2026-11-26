@@ -7,6 +7,7 @@
 import { noteAntigravityLoginCompleted } from './providers/antigravity/status.js';
 import { noteGeminiResearchSignInExpired } from './providers/antigravity/researchSignIn.js';
 import { spawn, type ChildProcess } from 'child_process';
+import { resolveLoginCommand, withSinglePath } from './windowsCommand.js';
 import type { AuthLoginSession, LoginSessionTarget as AuthLoginTarget } from '@arco/shared';
 import { killProcessTree } from './workers/processKill.js';
 
@@ -83,11 +84,18 @@ export function startLoginSession(provider: AuthLoginTarget, command: string): A
   };
   live.set(provider, entry);
   let child: ChildProcess;
+  // Windows: find the program the way provider turns do (running PATH, then the
+  // PATH a new terminal reads), so sign-in does not depend on cmd.exe alone.
+  const resolved = resolveLoginCommand(spec.command ?? command, { fresh: provider === 'antigravity-cli' });
+  if ('missing' in resolved) {
+    finish(entry, 'failed', `${resolved.missing} was not found on the PATH Arco is running with. Restart Arco from a new terminal after installing it, or run the sign-in command in your terminal.`);
+    return snapshot(entry);
+  }
   try {
     // No browser exists where the server runs; the CLIs print the link anyway.
     // detached on POSIX makes the shell a process-group leader, so a cancel or
     // timeout reaches the provider CLI it started, not only the shell.
-    child = spawn(spec.command ?? command, { shell: true, detached: process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: Object.fromEntries(Object.entries({ ...process.env, BROWSER: 'true', NO_BROWSER: 'true', ...(spec.env ?? {}) }).filter(([name]) => !spec.unsetEnv?.includes(name))) });
+    child = spawn(resolved.line, { shell: true, detached: process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: Object.fromEntries(Object.entries({ ...(resolved.path ? withSinglePath(process.env, resolved.path) : process.env), BROWSER: 'true', NO_BROWSER: 'true', ...(spec.env ?? {}) }).filter(([name]) => !spec.unsetEnv?.includes(name))) });
   } catch (err) {
     finish(entry, 'failed', err instanceof Error ? err.message : String(err));
     return snapshot(entry);

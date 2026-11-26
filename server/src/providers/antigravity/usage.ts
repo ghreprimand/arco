@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { commandArgs } from '../../windowsCommand.js';
+import { resolveCommand } from '../../windowsCommand.js';
 
 const exec = promisify(execFile);
 export interface AntigravityUsagePool { name: string; percentLeft: number; reset: string }
@@ -23,7 +23,8 @@ export function parseAntigravityUsage(text: string): AntigravityUsagePool[] | nu
 
 export async function getAntigravityUsage(): Promise<AntigravityUsagePool[] | null> {
   try {
-    const { stdout } = await exec(...commandArgs('agy', ['-p', '/usage', '--output-format', 'json']), { timeout: 5000, killSignal: 'SIGKILL', maxBuffer: 256 * 1024, windowsHide: true });
+    const agy = resolveCommand('agy', ['-p', '/usage', '--output-format', 'json'], { fresh: true });
+    const { stdout } = await exec(agy.command, agy.args, { timeout: 5000, killSignal: 'SIGKILL', maxBuffer: 256 * 1024, windowsHide: true, ...(agy.env ? { env: agy.env } : {}) });
     return parseAntigravityUsage(stdout);
   } catch { return null; }
 }

@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { commandArgs } from '../../windowsCommand.js';
+import { resolveCommand } from '../../windowsCommand.js';
 
 let authState: 'unknown' | 'ready' | 'rejected' = 'unknown';
 let models: string[] = [];
@@ -14,7 +14,8 @@ export async function antigravityStatus(): Promise<{ loggedIn: boolean; probeFai
   if (Date.now() - lastProbe > 60_000) {
     lastProbe = Date.now();
     try {
-      const { stdout } = await exec(...commandArgs('agy', ['models']), { timeout: 10_000, maxBuffer: 256 * 1024 });
+      const agy = resolveCommand('agy', ['models'], { fresh: true });
+      const { stdout } = await exec(agy.command, agy.args, { timeout: 10_000, maxBuffer: 256 * 1024, ...(agy.env ? { env: agy.env } : {}) });
       const ids = stdout.split(/\r?\n/).map(line => line.split(/\s+/)[0]).filter(id => /^gemini-[a-z0-9.-]+$/.test(id));
       models = [...new Set(ids.map(id => id.replace(/-(low|medium|high|xhigh)$/, '')))];
       capabilities = Object.fromEntries(models.map(model => { const levels = ['low', 'medium', 'high', 'xhigh'].filter(level => ids.includes(`${model}-${level}`)); return [model, { tools: true, vision: true, thinking: levels.length > 0, thinkingLevels: levels }]; }));

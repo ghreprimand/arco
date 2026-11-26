@@ -20,7 +20,7 @@ import type { WorkerConfig, WorkerStatus } from '@arco/shared';
 import type { Provider, ProviderProcess } from '../types.js';
 import { AcpJsonRpcClient, AcpReplyError, type IncomingRequest, type JsonRpcNotification } from '../acp/acpJsonRpc.js';
 import { cancelAcpPermissions, requestAcpPermission } from '../acp/permissionGate.js';
-import { commandArgs } from '../../windowsCommand.js';
+import { resolveCommand } from '../../windowsCommand.js';
 import { killProcessTree } from '../../workers/processKill.js';
 import { probeVersion } from '../../capabilities.js';
 import { compareVersions } from '../../updateCheck.js';
@@ -118,7 +118,7 @@ class AntigravityTurn extends EventEmitter implements ProviderProcess {
     }
     const proc = fenced
       ? spawn(fenced.command.file, fenced.command.args, { cwd: '/', env: { PATH: '/usr/bin:/bin' }, stdio: ['pipe', 'pipe', 'pipe'], detached: true })
-      : spawn(...commandArgs('agy', ['acp']), { cwd, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, detached: process.platform !== 'win32' });
+      : (() => { const agy = resolveCommand('agy', ['acp'], { fresh: true }); return spawn(agy.command, agy.args, { cwd, ...(agy.env ? { env: agy.env } : {}), stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, detached: process.platform !== 'win32' }); })();
     if (fenced) { const launch = fenced; proc.once('close', () => { void launch.close().catch(() => this.emit('system_notice', 'Worker isolation cleanup failed.')); }); }
     this.proc = proc;
     proc.once('error', error => this.fail(error));

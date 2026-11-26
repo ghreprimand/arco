@@ -117,13 +117,13 @@ export function SettingsPanel({ onClose }: Props) {
   const llamacppLive = useAppStore((s) => s.llamacppLive);
   const [loginPending, setLoginPending] = useState<LoginSessionTarget | null>(null);
   // docs/RESEARCH.md "Gemini researchers": the separate research sign-in, shown when the sandbox can run Gemini.
-  const [geminiResearch, setGeminiResearch] = useState<{ available: boolean; signIn?: 'missing' | 'ready' | 'expired' } | null>(null);
+  const [geminiResearch, setGeminiResearch] = useState<{ available: boolean; linux: boolean; signIn?: 'missing' | 'ready' | 'expired' } | null>(null);
   const refreshGeminiResearch = useCallback(async () => {
     try {
       const response = await fetch('/api/diagnostics/research-sandbox');
       if (!response.ok) return;
-      const result = await response.json() as { gemini?: boolean; geminiSignIn?: 'missing' | 'ready' | 'expired' };
-      setGeminiResearch({ available: result.gemini === true, signIn: result.geminiSignIn });
+      const result = await response.json() as { gemini?: boolean; platform?: string; geminiSignIn?: 'missing' | 'ready' | 'expired' };
+      setGeminiResearch({ available: result.gemini === true, linux: result.platform === undefined || result.platform === 'linux', signIn: result.geminiSignIn });
     } catch { /* the row stays hidden */ }
   }, []);
   useEffect(() => { void refreshGeminiResearch(); }, [refreshGeminiResearch]);
@@ -950,6 +950,11 @@ export function SettingsPanel({ onClose }: Props) {
                   onLogin={() => startLogin('gemini-research')}
                 />
               </div>
+            )}
+            {geminiResearch && !geminiResearch.linux && (
+              <p data-help="settings.gemini-research" data-testid="settings-gemini-research-linux-only" style={{ margin: 0, padding: '0 14px', fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)' }}>
+                Gemini for Research is available only on Linux with the research sandbox. Gemini chat and agent tabs are not affected.
+              </p>
             )}
             {inAppLogin?.session?.provider === 'gemini-research' && (
               <div data-testid="settings-gemini-research-login" style={{ padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>

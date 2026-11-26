@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { npmShimTarget, resolveCommand } from './windowsCommand.js';
+import { npmShimTarget, resolveCommand, resolveLoginCommand } from './windowsCommand.js';
 
 // A fake Windows file system: npm's global folder holds codex.cmd (a shim for
 // a script) and a native tool, both found through PATH and PATHEXT.
@@ -12,6 +12,8 @@ const files: Record<string, string> = {
   [`${NPM}\\node_modules\\legacy\\cli.mjs`]: '',
   [`${NPM}\\opaque.cmd`]: '@echo off\r\nsomething-else.exe %*\r\n',
   'C:\\Tools\\rg.exe': '',
+  'C:\\Late\\agy.exe': '',
+  'C:\\Script\\agy.ps1': '',
 };
 const opts = {
   platform: 'win32' as const,
@@ -44,4 +46,28 @@ test('unknown commands and shims without a script pass through unchanged', () =>
 test('other platforms pass through without touching the file system', () => {
   const r = resolveCommand('codex', ['exec'], { ...opts, platform: 'linux', isFile: () => { throw new Error('no fs on linux'); } });
   assert.deepEqual(r, { command: 'codex', args: ['exec'] });
+});
+
+// A service started before agy was installed keeps its old PATH; a new terminal
+// reads the current one. Antigravity sign-in and turns find it there, opt-in only.
+test('with fresh set, a program missing from the running PATH is found on the new-terminal PATH for sign-in and turns', () => {
+  const registryPath = () => 'C:\\Late;C:\\Script';
+  const merged = `C:\\Late;C:\\Script;C:\\Tools;"${NPM}"`;
+  assert.deepEqual(resolveLoginCommand('agy acp --login', { ...opts, fresh: true, registryPath }), { line: '"C:\\Late\\agy.exe" acp --login', path: merged });
+  const turn = resolveCommand('agy', ['acp'], { ...opts, fresh: true, registryPath });
+  assert.equal(turn.command, 'C:\\Late\\agy.exe');
+  assert.deepEqual(turn.args, ['acp']);
+  assert.deepEqual(turn.env, { PATHEXT: '.COM;.EXE;.BAT;.CMD', Path: merged });
+});
+
+test('without fresh, or with a caller-supplied environment, the host PATH is never consulted', () => {
+  const registryPath = () => { throw new Error('registry must not be read'); };
+  assert.deepEqual(resolveCommand('agy', ['acp'], { ...opts, registryPath }), { command: 'agy', args: ['acp'] });
+  assert.deepEqual(resolveLoginCommand('agy acp --login', { ...opts, registryPath }), { missing: 'agy' });
+  assert.deepEqual(resolveCommand('agy', ['acp'], { ...opts, fresh: true }), { command: 'agy', args: ['acp'] });
+});
+
+test('sign-in names the program when no PATH has it, and does not accept a .ps1 script', () => {
+  assert.deepEqual(resolveLoginCommand('agy acp --login', { ...opts, fresh: true, registryPath: () => 'C:\\Script' }), { missing: 'agy' });
+  assert.deepEqual(resolveLoginCommand('agy acp --login', { ...opts, platform: 'linux' }), { line: 'agy acp --login' });
 });

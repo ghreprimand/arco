@@ -5,6 +5,9 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Windows: signing in to Antigravity CLI (and Cursor, Codex, Claude) now finds the program the way provider turns do. For Antigravity CLI, if Arco was started before agy was installed, the PATH a new terminal reads is also checked. When the program is still missing, the message names it.
+- Settings: with Antigravity CLI enabled on Windows or macOS, a note says Gemini for Research is available only on Linux with the research sandbox.
+
 ## v0.2.0 - 2026-11-26
 
 - Voice development smokes launch with disposable state. The Codex quality smoke signs in to its own temporary profile.

@@ -46,7 +46,7 @@ export async function tryHandleDiagnosticsRoutes(
 
   if (path === '/api/diagnostics/research-sandbox') {
     const [claudeCli, codex, cursor, gemini, geminiSignIn] = await Promise.all([researchSandboxAvailable('claude'), researchSandboxAvailable('codex'), researchSandboxAvailable('cursor'), researchSandboxAvailable('antigravity'), geminiResearchSignInState()]);
-    return send(200, { claudeCli, codex, cursor, gemini, geminiSignIn, codexVersionReason: codexResearchVersionReason(installedCodexVersion()), cursorVersionReason: cursorIsolationReason() });
+    return send(200, { claudeCli, codex, cursor, gemini, geminiSignIn, platform: process.platform, codexVersionReason: codexResearchVersionReason(installedCodexVersion()), cursorVersionReason: cursorIsolationReason() });
   }
 
   if (path === '/api/diagnostics/support-bundle') {

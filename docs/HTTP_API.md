@@ -573,7 +573,7 @@ See `docs/DIAGNOSTICS.md`.
 
 ### `GET /api/diagnostics/research-sandbox`
 
-Returns `{ claudeCli: boolean, codex: boolean, cursor: boolean, gemini: boolean, geminiSignIn: 'missing' | 'ready' | 'expired', codexVersionReason?: string, cursorVersionReason?: string }` after short Linux sandbox availability checks. `geminiSignIn` reports the separate Gemini research sign-in state. The optional reasons name an unsupported or unknown installed Codex or Cursor version, or a missing Cursor agent. The checks use temporary files and a scoped mailbox fixture, do not open a sign-in or start a model, and cache their results briefly. A researcher still runs its own preflight before starting. The research start dialog offers each CLI provider only when its check succeeds and it is signed in; Codex requires the supported CLI version.
+Returns `{ claudeCli: boolean, codex: boolean, cursor: boolean, gemini: boolean, geminiSignIn: 'missing' | 'ready' | 'expired', platform: string, codexVersionReason?: string, cursorVersionReason?: string }` after short Linux sandbox availability checks. `platform` reports the server's `process.platform` so Settings can show the Linux-only Gemini for Research note on Windows and macOS. `geminiSignIn` reports the separate Gemini research sign-in state. The optional reasons name an unsupported or unknown installed Codex or Cursor version, or a missing Cursor agent. The checks use temporary files and a scoped mailbox fixture, do not open a sign-in or start a model, and cache their results briefly. A researcher still runs its own preflight before starting. The research start dialog offers each CLI provider only when its check succeeds and it is signed in; Codex requires the supported CLI version.
 
 ---
 
