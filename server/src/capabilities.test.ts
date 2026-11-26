@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { probeLatestVersions, probeVersion } from './capabilities.js';
+import { probeCommandFor, probeLatestVersions, probeVersion } from './capabilities.js';
 import { installAgyFixture } from './providers/fixtures/agyFixture.js';
 
 test('version probes terminate a stalled CLI and report it as broken', async () => {
@@ -67,4 +67,12 @@ test('old Antigravity warns once when a named sub-agent call starts', async () =
   assert.match(old.observe({ sessionUpdate: 'tool_call', name: 'invoke_subagent' })!, /Versions menu/);
   assert.equal(old.observe({ sessionUpdate: 'tool_call', name: 'invoke_subagent' }), undefined);
   assert.equal(new AntigravitySubagentNotice('1.5.15').observe({ sessionUpdate: 'tool_call', name: 'invoke_subagent' }), undefined);
+});
+
+test('the Antigravity version probe finds agy on the new-terminal PATH, like its status, usage and turns do', () => {
+  const opts = { platform: 'win32' as const, env: { PATH: 'C:\\Old' }, isFile: (p: string) => p === 'C:\\Late\\agy.exe', registryPath: () => 'C:\\Late' };
+  const agy = probeCommandFor('agy', ['--version'], opts);
+  assert.equal(agy.command, 'C:\\Late\\agy.exe');
+  assert.match(agy.env?.PATH ?? '', /C:\\Late/);
+  assert.deepEqual(probeCommandFor('codex', ['--version'], { ...opts, isFile: (p: string) => p === 'C:\\Late\\codex.exe' }), { command: 'codex', args: ['--version'] });
 });

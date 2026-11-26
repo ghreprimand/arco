@@ -13,7 +13,7 @@ import { atomicWriteFile } from './atomicFile.js';
 import { probeCodexUpdate, describeCliUpdate, type CliUpdateDecision, type UpdateCommandResult } from './cliUpdateDecision.js';
 import { compareVersions } from './updateCheck.js';
 import { arcoHome } from './arcoHome.js';
-import { commandArgs } from './windowsCommand.js';
+import { commandArgs, resolveCommand, type ResolveOptions } from './windowsCommand.js';
 
 const execFileAsync = promisify(execFile);
 const CLI_PROBE_OPTIONS = {
@@ -38,9 +38,17 @@ const cliBinary = (provider: CliProvider): string => provider === 'cursor' ? 'cu
 // optional dep, so npm exited 0 — and every `codex --version` threw. Collapsing
 // that into 'unknown' made the whole CODEX row disappear from the popover, which
 // reads as "not installed" and gives the operator nothing to click or diagnose.
+// Antigravity is found the way its status, usage, sign-in and turns find it: a
+// program installed after Arco started, or on the new-terminal PATH only, still
+// counts. Every other program keeps the plain lookup.
+export function probeCommandFor(bin: string, args: string[], opts: ResolveOptions = {}): { command: string; args: string[]; env?: NodeJS.ProcessEnv } {
+  return resolveCommand(bin, args, bin === 'agy' ? { fresh: true, ...opts } : opts);
+}
+
 export async function probeVersion(bin: string, flags: string[] = ['--version'], timeoutMs = 5_000): Promise<string> {
   try {
-    const { stdout } = await execFileAsync(...commandArgs(bin, flags), { ...CLI_PROBE_OPTIONS, timeout: timeoutMs });
+    const cmd = probeCommandFor(bin, flags);
+    const { stdout } = await execFileAsync(cmd.command, cmd.args, { ...CLI_PROBE_OPTIONS, timeout: timeoutMs, ...(cmd.env ? { env: cmd.env } : {}) });
     const match = stdout.match(/(\d+\.\d+\.\d+(?:[-.][A-Za-z0-9.-]+)?)/);
     return match ? match[1] : 'unknown';
   } catch (err) {
@@ -53,7 +61,8 @@ export async function probeVersion(bin: string, flags: string[] = ['--version'],
 // fits the popover's one-line result slot.
 async function probeFailureReason(bin: string): Promise<string | null> {
   try {
-    await execFileAsync(...commandArgs(bin, ['--version']), CLI_PROBE_OPTIONS);
+    const cmd = probeCommandFor(bin, ['--version']);
+    await execFileAsync(cmd.command, cmd.args, { ...CLI_PROBE_OPTIONS, ...(cmd.env ? { env: cmd.env } : {}) });
     return null;
   } catch (err) {
     const e = err as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
@@ -303,7 +312,8 @@ async function runUpdateCommand(cmd: string, args: string[], provider: CliProvid
     for (const name of ['CODEX_MANAGED_BY_NPM', 'CODEX_MANAGED_BY_BUN', 'CODEX_MANAGED_BY_PNPM', 'CODEX_MANAGED_BY_VITE_PLUS', 'CODEX_MANAGED_PACKAGE_ROOT', 'npm_config_user_agent', 'npm_execpath']) delete env[name];
   }
   try {
-    const { stdout, stderr } = await execFileAsync(...commandArgs(cmd, args), { env, maxBuffer: 4 * 1024 * 1024, timeout: 180_000 });
+    const run = probeCommandFor(cmd, args);
+    const { stdout, stderr } = await execFileAsync(run.command, run.args, { env: run.env ? { ...env, ...run.env } : env, maxBuffer: 4 * 1024 * 1024, timeout: 180_000 });
     return { output: (stdout + stderr).trim(), exitCode: 0 };
   } catch (err) {
     const error = err as { code?: number | string; stdout?: string; stderr?: string; message?: string };

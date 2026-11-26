@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Windows: the red G for Antigravity CLI no longer says the CLI is not installed while Antigravity Chat works, and its quota popover opens again. The version check now finds `agy` the way chat, status, usage and sign-in do, including on the new-terminal PATH. A program that is really absent still shows as not installed, and a failed probe still shows as broken.
+
 ## v0.2.1 - 2026-11-26
 
 - Windows: signing in to Antigravity CLI (and Cursor, Codex, Claude) now finds the program the way provider turns do. For Antigravity CLI, if Arco was started before agy was installed, the PATH a new terminal reads is also checked. When the program is still missing, the message names it.
