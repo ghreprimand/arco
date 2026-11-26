@@ -103,6 +103,21 @@ test('a file entry previews and releases without an editor; length and setup dia
   } finally { f.close(); }
 });
 
+test('the combined release can suppress push CI and prints the dispatch for its tag', () => {
+  const f = fixture();
+  try {
+    const preview = f.run('patch', '--skip-ci', '--dry-run');
+    assert.equal(preview.status, 0, preview.stderr);
+    assert.match(preview.stdout, /Release commit: Release v0\.1\.1 \[skip ci\]/);
+    assert.match(preview.stdout, /gh workflow run release\.yml --ref v0\.1\.1/);
+    assert.equal(f.git('log', '-1', '--format=%s'), 'Fixture base');
+    const result = f.run('patch', '--skip-ci');
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(f.git('log', '-1', '--format=%s'), 'Release v0.1.1 [skip ci]');
+    assert.equal(f.git('rev-parse', 'v0.1.1^{}'), f.git('rev-parse', 'HEAD'));
+  } finally { f.close(); }
+});
+
 test('release refuses dirty trees, other branches, divergence, empty notes and existing tags', () => {
   const f = fixture();
   try {

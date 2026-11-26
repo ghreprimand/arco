@@ -16,7 +16,7 @@ function git(args, options = {}) {
   return result.stdout?.trim() ?? '';
 }
 const read = path => readFileSync(join(root, path), 'utf8');
-const usage = 'Usage: node scripts/release.mjs <patch|minor|major|X.Y.Z> (--entry-file <file> | --edit-entry) [--dry-run]';
+const usage = 'Usage: node scripts/release.mjs <patch|minor|major|X.Y.Z> (--entry-file <file> | --edit-entry) [--dry-run] [--skip-ci]';
 function entryCount(body) {
   const words = body.trim().split(/\s+/).filter(Boolean).length;
   console.log(`Release entry: ${words} words; expected 150-300.`);
@@ -29,10 +29,11 @@ let completed = 'No tracked release files were changed.';
 
 try {
   const args = process.argv.slice(2);
-  let dryRun = false, editEntry = false, entryFile, requested;
+  let dryRun = false, editEntry = false, skipCi = false, entryFile, requested;
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--dry-run' && !dryRun) dryRun = true;
+    else if (arg === '--skip-ci' && !skipCi) skipCi = true;
     else if (arg === '--edit-entry' && !editEntry) editEntry = true;
     else if (arg === '--entry-file' && entryFile === undefined && args[i + 1] && !args[i + 1].startsWith('--')) entryFile = args[++i];
     else if (!arg.startsWith('-') && requested === undefined) requested = arg;
@@ -53,12 +54,12 @@ try {
   if (hooks !== '.githooks' || !existsSync(join(root, '.githooks/pre-commit'))) console.warn('WARNING: Project hooks are not active. Run npm run setup:hooks before releasing.');
   const status = git(['status', '--porcelain', '--untracked-files=all']);
   if (status) throw new Error(`Release requires a clean working tree, including untracked files.\n${status}\nCommit the reviewed work or remove the unwanted files, then retry.`);
-  if (git(['branch', '--show-current']) !== 'main') throw new Error('Release requires branch main. After release approval, switch to clean main, fast-forward it to the green release branch and push main first.');
+  if (git(['branch', '--show-current']) !== 'main') throw new Error('Release requires branch main. After release approval, switch to clean main, fast-forward it to the reviewed release branch and push main first.');
   let upstream;
   try { upstream = git(['rev-parse', '--verify', 'refs/remotes/origin/main']); }
   catch { throw new Error('Release requires origin/main. Run git fetch origin main, review the approved release commit, synchronize main and push main first.'); }
   if (git(['rev-parse', 'HEAD']) !== upstream) throw new Error('Release requires main to equal origin/main; fetch and synchronize first. Run git fetch origin main, review the difference, fast-forward main to the approved commit and push main before retrying.');
-  console.log('main matches the locally fetched origin/main. Confirm the final hosted run and operator approval before release; this command does not fetch or query hosted checks.');
+  console.log('main matches the locally fetched origin/main. Confirm operator approval before creating the release commit and tag. Hosted checks run in Release on the pushed tag.');
 
   const current = JSON.parse(read('package.json')).version;
   const manifests = ['package.json', 'shared/package.json', 'server/package.json', 'client/package.json'];
@@ -71,6 +72,7 @@ try {
   try { version = initial ? current : bumpVersion(current, requested); }
   catch (error) { throw new Error(`${error.message}\nChoose patch, minor, major or an explicit newer X.Y.Z.`); }
   const tag = `v${version}`;
+  const commitMessage = `Release ${tag}${skipCi ? ' [skip ci]' : ''}`;
   if (spawnSync('git', ['show-ref', '--verify', '--quiet', `refs/tags/${tag}`], { cwd: root }).status === 0) throw new Error(`Tag ${tag} already exists. Inspect it with git show ${tag}; select a newer version rather than replacing a published tag.`);
   const date = new Date().toISOString().slice(0, 10);
   const edits = new Map(manifests.map(path => [path, rewriteManifest(read(path), version)]));
@@ -95,6 +97,8 @@ try {
   const scratch = mkdtempSync(join(tmpdir(), 'arco-release-'));
   try {
     console.log(`Release ${current} -> ${version}; annotated tag ${tag}.`);
+    console.log(`Release commit: ${commitMessage}`);
+    if (skipCi) console.log('The skip marker applies to push CI. Dispatch Release on the tag after pushing.');
     for (const [path, content] of edits) {
       const before = join(scratch, 'before'), after = join(scratch, 'after');
       writeFileSync(before, existsSync(join(root, path)) ? read(path) : '');
@@ -105,7 +109,7 @@ try {
     }
     console.log(`\nTag message and GitHub release body:\n${section}`);
     console.log(entryFile === undefined ? 'Interactive entry mode: complete the devlog in the editor before committing.' : 'File entry mode: the entry above is used; no editor is opened.');
-    console.log(`After the local release commit and tag exist (run only with release approval):\n1. Read the full release commit: git show HEAD\n2. Read the tag: git show ${tag}\n3. Push explicitly after review: git push origin main ${tag}\n4. Inspect the release workflow; approve the staged npm package separately.\n5. Check the installed update, then delete release/${version} after confirming it is an ancestor of main.\n6. Replace NEXT_VERSION with the next agreed version, then create its branch: git switch -c release/NEXT_VERSION main\n7. Push that branch explicitly: git push --set-upstream origin release/NEXT_VERSION`);
+    console.log(`After the local release commit and tag exist (run only with release approval):\n1. Read the full release commit: git show HEAD\n2. Read the tag: git show ${tag}\n3. Push explicitly after review: git push origin main ${tag}\n4. Start the combined workflow: gh workflow run release.yml --ref ${tag}\n5. Check the Release run; approve the staged npm package separately.\n6. Check the installed update, then delete release/${version} after confirming it is an ancestor of main.\n7. Replace NEXT_VERSION with the next agreed version, then create its branch: git switch -c release/NEXT_VERSION main\n8. Push that branch explicitly: git push --set-upstream origin release/NEXT_VERSION`);
     if (!dryRun) {
       completed = 'Release files may be partly written. Review the tree and index; no release commit or tag was created.';
       for (const [path, content] of edits) {
@@ -122,7 +126,7 @@ try {
       }
       if (read(archive).includes('RELEASE_ENTRY_REQUIRED')) throw new Error('Complete the release devlog entry before committing; planned edits remain available for review.');
       git(['add', '--', ...edits.keys()]);
-      git(['-c', `user.name=${identity.name}`, '-c', `user.email=${identity.email}`, '-c', 'commit.gpgsign=false', 'commit', '-m', `Release ${tag}`], { stdio: 'inherit' });
+      git(['-c', `user.name=${identity.name}`, '-c', `user.email=${identity.email}`, '-c', 'commit.gpgsign=false', 'commit', '-m', commitMessage], { stdio: 'inherit' });
       completed = 'The release commit was created locally. The annotated tag was not created; nothing was pushed.';
       const message = join(scratch, 'tag-message');
       writeFileSync(message, section);

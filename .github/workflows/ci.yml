@@ -2,9 +2,8 @@ name: CI
 
 # Verify on Linux, macOS and Windows for every push to main (documentation-only
 # pushes skip it), weekly, and when started by hand. The project does not use pull
-# requests: a release branch is checked by a manual run (workflow_dispatch, os "all")
-# before main moves to it. A push to main also audits the full history of every
-# branch and tag.
+# requests. Release calls these same jobs on the final tag. A push to main
+# and a release both audit the full history of every branch and tag.
 on:
   push:
     branches: [main]
@@ -21,9 +20,22 @@ on:
         type: choice
         default: ubuntu
         options: [ubuntu, macos, windows, all]
+  workflow_call:
+    inputs:
+      os:
+        description: 'Select all three runner systems for Release'
+        type: string
+        default: all
+      release:
+        description: 'Use release audit and cache settings'
+        type: boolean
+        default: false
+    secrets:
+      ARCO_PRIVATE_PATTERNS:
+        required: false
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -57,6 +69,7 @@ jobs:
       - uses: ./.github/actions/setup-arco
         with:
           node-version: ${{ matrix.node }}
+          npm-cache: ${{ !inputs.release }}
           ripgrep: 'true'
       - name: Build
         run: npm run build
@@ -92,14 +105,14 @@ jobs:
       # contain the upstream name and fixture addresses. An empty value makes the script fall
       # back to its (absent) repository-local pattern file.
       - name: Public-safety audit (history, identity and trailers)
-        if: matrix.os == 'ubuntu-latest' && matrix.node == 24 && github.event_name != 'push'
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24 && github.event_name != 'push' && !inputs.release
         env:
           ARCO_PRIVATE_PATTERNS_FILE: ''
         run: node scripts/public-audit.mjs --history-head
-      # A push to main audits the full history of every branch and tag on the remote, so a
+      # A push to main or Release audits every branch and tag on the remote, so a
       # problem on any branch is found while it can still be removed.
       - name: Public-safety audit (full history, all branches and tags)
-        if: matrix.os == 'ubuntu-latest' && matrix.node == 24 && github.event_name == 'push'
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 24 && (github.event_name == 'push' || inputs.release)
         env:
           ARCO_PRIVATE_PATTERNS_FILE: ''
         run: node scripts/public-audit.mjs --history
@@ -122,6 +135,7 @@ jobs:
       - uses: ./.github/actions/setup-arco
         with:
           install-dependencies: 'false'
+          npm-cache: ${{ !inputs.release }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -151,6 +165,7 @@ jobs:
       - uses: ./.github/actions/setup-arco
         with:
           install-dependencies: 'false'
+          npm-cache: ${{ !inputs.release }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -179,6 +194,7 @@ jobs:
       - uses: ./.github/actions/setup-arco
         with:
           install-dependencies: 'false'
+          npm-cache: ${{ !inputs.release }}
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -210,6 +226,8 @@ jobs:
       - name: Install smoke dependencies
         uses: ./.github/actions/setup-arco
         if: steps.detect.outputs.present == 'true'
+        with:
+          npm-cache: ${{ !inputs.release }}
       # smoke:docker builds arco:development itself and drives it with temporary projects, volumes and fixture providers.
       - name: Docker smoke
         if: steps.detect.outputs.present == 'true'
@@ -217,6 +235,8 @@ jobs:
 
   package-native:
     uses: ./.github/workflows/native-packages.yml
+    with:
+      npm-cache: ${{ !inputs.release }}
 
   package-smoke:
     name: package install (${{ matrix.os }}, Node ${{ matrix.node }})
@@ -234,6 +254,7 @@ jobs:
       - uses: ./.github/actions/setup-arco
         with:
           node-version: ${{ matrix.node }}
+          npm-cache: ${{ !inputs.release }}
       - run: npm run build
       - name: Install npm 11 for the plain-install test
         run: |

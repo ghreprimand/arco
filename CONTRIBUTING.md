@@ -180,11 +180,11 @@ terminal broadcast because action acknowledgment means dispatch, not completion.
 
 ## Type checks + builds
 
-Hosted CI runs the build, typecheck, unit suite, privacy audit, and configured smoke checks. Type checks and tests are required before landing changes.
+Hosted CI runs the build, typecheck, unit suite, privacy audit, and configured smoke checks. Run the per-change checks before landing changes.
 
-Hosted CI (the **CI** workflow) runs on three occasions. A push to `main` runs the verify job on Ubuntu, macOS and Windows, the Ubuntu and Windows browser smokes and the Docker smoke; pushes that touch only `docs/**`, `devlog/**` or root-level `*.md` files skip it. The verify job on a push to `main` also audits the full history of every branch and tag (`node scripts/public-audit.mjs --history`); other runs audit the checked-out commit's history and the tags (`--history-head`). A weekly run adds the best-effort macOS browser job. A run started by hand from the `workflow_dispatch` form, whose `os` input selects `ubuntu`, `macos`, `windows` or `all`, checks any branch, such as a release branch before `main` moves to it. Pull requests do not start CI; the project's own changes reach `main` from a release branch that passed a hand-started run with `os` set to `all`. Every run also builds and smoke-tests the native packages. The suites that need the Linux isolated-server harness report as skipped on Windows. Every job has a timeout, and a newer run on the same ref cancels the older one. Hosted minutes are metered, and macOS and Windows runners bill at a multiple of Linux. The local gate (`npm run build`, `npm run typecheck`, `npm run test:unit`, `npm run audit:public -- --tree`) stays the first line of defense.
+Hosted CI (the **CI** workflow) runs on three occasions. A push to `main` runs the verify job on Ubuntu, macOS and Windows, the Ubuntu and Windows browser smokes and the Docker smoke; pushes that touch only `docs/**`, `devlog/**` or root-level `*.md` files skip it. The verify job on a push to `main` also audits the full history of every branch and tag (`node scripts/public-audit.mjs --history`); other runs audit the checked-out commit's history and the tags (`--history-head`). A weekly run adds the best-effort macOS browser job. The CI `workflow_dispatch` form checks a selected ref, with an `os` input of `ubuntu`, `macos`, `windows` or `all`. Pull requests do not start CI. Release calls the same checks on the final tag with `os` set to `all`. Every run also builds and smoke-tests the native packages. The suites that need the Linux isolated-server harness report as skipped on Windows. Every job has a timeout, and a newer run on the same ref cancels the older one. Hosted minutes are metered, and macOS and Windows runners bill at a multiple of Linux. Per-change checks include focused tests, build, typecheck, the public tree audit and the help registry check.
 
-CI and Release use `.github/actions/setup-arco/action.yml` for Node, development dependencies and the existing optional ripgrep prerequisite. Calls can separate Node setup from installation to preserve intervening Python setup or the release tag check. Release calls explicitly disable npm caching. Both workflows call `.github/workflows/native-packages.yml` for the same six native targets, collection, audit, Node 26 probe and artifact upload. The calling workflows retain their existing checks and publication permissions; npm staging and GitHub Release creation remain release-only. A dropped hosted job still requires a targeted manual rerun, not an automatic retry.
+CI and Release use `.github/actions/setup-arco/action.yml` for Node, development dependencies and the existing optional ripgrep prerequisite. Release disables npm caching and calls CI to check all three systems, audit the full repository history and build the six native packages once. Both the package install smokes and release assembly use those native artifacts. GitHub Release creation and npm staging run only after the required checks pass and the package audit succeeds. A dropped hosted job still requires a targeted manual rerun.
 
 
 ```bash
@@ -411,18 +411,17 @@ sync; the unit suite checks them.
 
 The maintainer cuts a release after the operator confirms the version. Before 1.0,
 a minor version identifies a feature or behavior change; a patch identifies a fix
-or documentation update. Start with a clean `main` equal to `origin/main` after
-fetching and completing the local gate:
+or documentation update. Complete the per-change checks and review the release
+branch. With operator
+approval, put `[skip ci]` in the final landing commit message for a release
+using one hosted run. Fast-forward clean `main` to that reviewed branch, push
+`main` and confirm it matches the fetched `origin/main`. The marker suppresses
+ordinary push CI for that landing commit. Leave it off ordinary changes.
 
 ```sh
-git fetch origin
-npm run build
-npm run typecheck
-npm run test:unit
-npm run docs:check
-npm run audit:public
-node scripts/release.mjs patch --entry-file ../release-entry.md --dry-run
-node scripts/release.mjs patch --entry-file ../release-entry.md
+git fetch origin main
+node scripts/release.mjs patch --entry-file ../release-entry.md --skip-ci --dry-run
+node scripts/release.mjs patch --entry-file ../release-entry.md --skip-ci
 ```
 
 The inaugural release is the one exception to the bump and empty-Unreleased rules:
@@ -446,9 +445,9 @@ release identities, hooks status and lockfile workspace consistency. Entry
 length, hooks status, identity and lock-version differences are diagnostics,
 not new refusals. Existing clean-tree, main/origin-main, version, changelog,
 complete-entry and unique-tag requirements remain, with repair instructions.
-The origin/main comparison uses the locally fetched ref; the command does not
-fetch or inspect hosted runs. Confirm their results and operator approval
-before running it. On approval, push the reviewed green commit to main first.
+The origin/main comparison uses the locally fetched ref. The command uses
+that ref without fetching or inspecting hosted runs. The combined Release run
+checks the tag after it is pushed.
 
 The real invocation rolls the changelog, updates all four manifests and their
 lockfile entries, and prepends the supplied entry. For interactive editing use
@@ -460,22 +459,25 @@ already exists. The script never resets files, deletes a tag or retries a
 failed release automatically.
 
 The script commits `Release vX.Y.Z` with the project identity and creates the
-annotated `vX.Y.Z` tag from the changelog section. It never pushes. The maintainer
-reviews the release diff and tag, then explicitly pushes both:
+annotated `vX.Y.Z` tag from the changelog section. `--skip-ci` adds `[skip ci]`
+to the release commit to suppress the second push CI run. The maintainer reviews
+the release diff and tag, then pushes both and starts Release on the tag:
 
 ```sh
 git show --stat HEAD
 git show HEAD
 git tag -n99 vX.Y.Z
 git push origin main vX.Y.Z
+gh workflow run release.yml --ref vX.Y.Z
 ```
 
-Replace `vX.Y.Z` with the reviewed tag. The tag workflow
-(`.github/workflows/release.yml`) checks that the tag matches the package
-version, runs the Ubuntu verification gate, builds the native modules for each
-platform, assembles and audits the package, and publishes the changelog section
-as a GitHub Release with `arco-release.tgz` attached, using the built-in token.
-When `arco-workbench` already exists on npm, it then stages the package with
+Replace `vX.Y.Z` with the reviewed tag. Release checks that the tag matches
+the package version. It calls CI for builds, unit tests and package installs on
+Linux, macOS and Windows. Browser tests on Linux and Windows are required.
+The macOS browser job is best effort. Once the required jobs pass, Release
+assembles and audits the npm archive, then publishes the GitHub Release with
+`arco-release.tgz` attached using the built-in token.
+When `arco-workbench` already exists on npm, Release stages the same package with
 `npm stage publish` through npm trusted publishing in the GitHub environment
 `npm`, and the maintainer approves the staged package on npmjs.com. Failed
 publishing is recovered through the workflow; the release script does not
