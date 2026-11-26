@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Docs: `POST /api/files/write` and `POST /api/image/write` now state that a workflow id binds to the server's registered project root (body `cwd` ignored), and that a bare `cwd` must be a root the server already knows.
+
 - KEEP AS PROJECT lets you choose a new research folder if the saved folder was removed. The Quick research or saved Chat stays available.
 
 - A shortcut added to a phone's home screen from `/mobile` now opens `/mobile` instead of the desktop workbench. Shortcuts added from the workbench address still open the workbench. Add the shortcut again from `/mobile` if one made earlier opens the wrong view.

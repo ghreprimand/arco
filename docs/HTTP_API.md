@@ -652,7 +652,7 @@ See `docs/LOCAL_SERVICES.md`.
 
 ### `POST /api/files/write`
 
-Workbench Expansion A6. The only operator-driven write path that bypasses an agent turn - backs the `FileViewerModal` Edit/Lock toggle's **Save**. Route: `server/src/http/fileWriteRoutes.ts`; the path-guarded core is `writeFileWithinCwd` (exported so the smoke calls it directly).
+Workbench Expansion A6. The only operator-driven write path that bypasses an agent turn - backs the `FileViewerModal` Edit/Lock toggle's **Save**. Route: `server/src/http/fileWriteRoutes.ts`; cwd binding is `resolveBoundCwd` in `writeConfinement.ts`; the path-guarded core is `writeFileWithinCwd` (exported so the smoke calls it directly).
 
 Request body (JSON):
 
@@ -660,10 +660,11 @@ Request body (JSON):
 { "cwd": "<absolute cwd>", "wfid": "<workflowId>", "path": "<file path>", "content": "<new contents>" }
 ```
 
-- `cwd` - explicit workflow cwd; when omitted, resolved from `wfid` (validated) via `workflowCwds`. One of the two must yield a cwd or the request 400s.
-- `path` - relative-to-cwd or absolute. **Resolved against `cwd` and re-checked with `resolveWithinCwd` - the exact same path-escape guard the Native `Write`/`Edit` tools use.** Any path that escapes the cwd (relative `../`, an absolute path outside, or a traversal like `foo/../../x`) is **rejected with 400 and nothing is written.** This is load-bearing: a fat-fingered or agent-suggested path must never write outside the project.
+- `wfid` - optional workflow id. When present and valid, the write uses only that workflow's registered working directory on this server (`workflowCwds` or the live workflow config). The body's `cwd` is ignored. An invalid id answers 400 (`invalid wfid`). An id with no bound cwd answers 400 (`workflow id has no bound cwd on this server`). Nothing is written in either case.
+- `cwd` - absolute project root. Used only when `wfid` is omitted. It must exactly match a root the server already knows (a live workflow or cluster cwd, an entry in the known-cwds registry, or the explorer default root). An unknown directory answers 400 (`cwd is not a known workflow or project directory`). When both `wfid` and `cwd` are omitted, the request answers 400 (`cwd or a workflow id with a bound cwd is required`).
+- `path` - relative-to-cwd or absolute. **Resolved against the bound cwd and re-checked with `confineRealPath` (lexical `resolveWithinCwd` plus a realpath check).** Symlink escapes are refused. Any path that escapes the bound cwd (relative `../`, an absolute path outside, or a traversal like `foo/../../x`) is **rejected with 400 and nothing is written.** This is load-bearing: a fat-fingered or agent-suggested path must never write outside the project.
 - `content` - the full new file contents (whole-file replace, not a patch). It must be a string: a missing, `null` or non-string `content` is rejected with 400 (`content must be a string`) and the file is left as it was. An explicit empty string is valid and empties the file. Parent dirs inside cwd are created as needed; an existing directory at the target is refused.
-- Response: `200 { ok: true, path: "<cwd-relative>", bytes: N }` on success; `400 { ok: false, error }` on a rejected escape / bad input; `500 { ok: false, error }` on an unexpected fs error.
+- Response: `200 { ok: true, path: "<cwd-relative>", bytes: N }` on success; `400 { ok: false, error }` on a rejected binding, escape or bad input; `500 { ok: false, error }` on an unexpected fs error.
 
 ---
 
@@ -985,8 +986,9 @@ Request body (JSON):
 { "cwd": "<absolute cwd>", "workflowId": "<wfid>", "path": "edited.png", "dataUrl": "data:image/png;base64,<payload>", "overwrite": false }
 ```
 
-- `cwd` - explicit workflow cwd; when omitted, resolved from `workflowId` via `workflowCwds`. One must yield a cwd (else `code: 'no-cwd'`).
-- `path` - the relative (or absolute-within-cwd) **target** filename. **Resolved + re-checked with `resolveWithinCwd`** - a `../`/absolute-outside/traversal path is rejected (`code: 'path-escape'`, nothing written). Must carry an image extension (`.png`/`.jpg`/`.jpeg`/`.webp`, else `code: 'bad-ext'`). A new subfolder's parent dirs are created (confined).
+- `workflowId` - optional workflow id. When present and valid, the write uses only that workflow's registered working directory on this server. The body's `cwd` is ignored. An id with no bound cwd answers `code: 'no-cwd'` (`workflow id has no bound cwd on this server`) and nothing is written.
+- `cwd` - absolute project root. Used only when `workflowId` is omitted. It must exactly match a root the server already knows (a live workflow or cluster cwd, an entry in the known-cwds registry, or the explorer default root). An unknown directory, or neither field, answers `code: 'no-cwd'` with the matching `boundCwdError` text.
+- `path` - the relative (or absolute-within-cwd) **target** filename. **Resolved against the bound cwd and re-checked with `confineRealPath`** - a `../`/absolute-outside/traversal path or an in-cwd symlink that escapes is rejected (`code: 'path-escape'`, nothing written). Must carry an image extension (`.png`/`.jpg`/`.jpeg`/`.webp`, else `code: 'bad-ext'`). A new subfolder's parent dirs are created (confined).
 - `dataUrl` - `data:image/<png|jpeg|webp>;base64,<payload>`. Parsed defensively: a non-image mime / malformed URL / empty decode -> `code: 'bad-image'`. A decoded payload over **64 MiB** is rejected (`code: 'too-large'`) via a cheap base64-length pre-check - no oversize Buffer is allocated.
 - `overwrite` - when the resolved target **already exists**, the write only proceeds if this is explicitly `true`; otherwise `code: 'exists'` and **nothing is written** (original bytes unchanged). A brand-new filename writes unconditionally.
 - **Response:** always `200` with `ImageWriteResult` for an operator-visible condition - `{ ok: true, relPath, bytes }` on success, or `{ ok: false, error, code }` where `code` ∈ `no-cwd | bad-path | path-escape | bad-image | bad-ext | too-large | exists | write-failed`. Only a truly unexpected server bug is a 500. (An on-disk checkpoint of the change is covered by the A2 checkpoint path once the editor wires it.)
