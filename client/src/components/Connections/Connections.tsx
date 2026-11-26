@@ -171,16 +171,16 @@ export function Connections({ mode='gate', onContinue, onSkip, canContinue = fal
           <p>{provider.access}</p><h3>1. Check the prerequisites</h3><p>{provider.prerequisite}</p>
           {unavailable && <p role="alert">Unavailable in the stock Docker runtime. Use a supported connection or an explicitly configured host integration.</p>}
           {!enabled && <p>This provider is disabled for new work. Connect it or enable it below.</p>}
-          {selected!=='github' && <button type="button" onClick={()=>void toggleEnabled()} disabled={enabling || !settings}>{enabled?'Disable provider':'Enable provider'}</button>}
+          {selected!=='github' && <button type="button" onClick={()=>void toggleEnabled()} disabled={enabling || usingCli || !settings}>{enabled?'Disable provider':'Enable provider'}</button>}
           <h3>2. Connect</h3><p>{credentialSource(provider,status,catalog)}</p>
           {status?.email && <p>{selected === 'claude' ? 'Reported CLI account' : 'Reported account'}: {status.email}{status.orgName ? ` - ${status.orgName}`:''}</p>}
           {claude && <div data-testid="claude-native-panel">
             <p>Native and CLI are separate sign-ins. Native is the default transport and needs its own sign-in here; the CLI sign-in does not carry over.</p>
             {transport==='native' && !claude.connected && <>
               <button type="button" data-testid="claude-native-signin" disabled={nativeLogin.session?.busy} onClick={()=>void nativeLogin.start()}>{nativeLogin.session?.busy?'Starting sign-in...':'SIGN IN FOR NATIVE'}</button>
-              {claude.cliSignedIn && <button type="button" data-testid="claude-use-cli" disabled={usingCli} onClick={()=>void useCliInstead()}>Use Claude CLI instead</button>}
+              {claude.cliSignedIn && <button type="button" data-testid="claude-use-cli" disabled={usingCli || enabling} onClick={()=>void useCliInstead()}>Use Claude CLI instead</button>}
             </>}
-            {transport==='cli' && <button type="button" data-testid="claude-use-native" disabled={usingCli} onClick={()=>void setTransport('native')}>Use Native (default) instead</button>}
+            {transport==='cli' && <button type="button" data-testid="claude-use-native" disabled={usingCli || enabling} onClick={()=>void setTransport('native')}>Use Native (default) instead</button>}
             {catalog.commandShellProblem && <p role="note" data-testid="claude-native-shell" data-help="connections.command-shell">Shell commands and hooks: {catalog.commandShellProblem} Until then the Bash tool reports this error and configured hooks are skipped with a notice.</p>}
             {!catalog.commandShellProblem && catalog.commandShellNotice && <p role="note" data-testid="claude-native-shell-powershell" data-help="connections.command-shell">Shell commands and hooks: {catalog.commandShellNotice}</p>}
             <NativeLoginControls key={nativeLogin.session?.flow?.id} login={nativeLogin} />

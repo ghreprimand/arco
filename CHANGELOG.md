@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- In Connections, Disable provider and the Claude transport switch can no longer be used at the same time, so a quick click on Use Claude CLI instead cannot leave Claude disabled.
+
 ## v0.2.2 - 2026-11-26
 
 - Windows: the red G for Antigravity CLI no longer says the CLI is not installed while Antigravity Chat works, and its quota popover opens again. The version check now finds `agy` the way chat, status, usage and sign-in do, including on the new-terminal PATH. A program that is really absent still shows as not installed, and a failed probe still shows as broken.
