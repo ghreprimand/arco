@@ -14,6 +14,7 @@ export const configuration: Section[] = [
   use its provider list to enable providers and sign in. Per-workflow config
   lives in the CONFIG tab on the right pane.
   </p>
+  <p>Sign-in, status and endpoint controls for a provider appear under Authentication only while that provider is switched on in Enabled providers. Switching it off hides them and keeps its saved settings and sign-in. GitHub and the Ollama compaction utility model always stay visible, and the Ollama endpoint stays visible while an enabled Ollama utility model is configured.</p>
   <p>On Windows and macOS, with Antigravity CLI on, a note says Gemini for Research is available only on Linux with the research sandbox.</p>
   <p>In Connections, clear <strong>Model server address</strong> and choose <strong>Save endpoint</strong> to restore the runtime default. Other Ollama options stay saved. Use <strong>Test connection</strong> to check the resulting address.</p>
   <p>Antigravity CLI 1.5.15 or later keeps a turn open for its sub-agents. Update from the Versions menu if an older version is installed. A sub-agent's own tool calls are not shown over ACP and are not gated by SAFE permission requests.</p>

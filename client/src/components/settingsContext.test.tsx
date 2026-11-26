@@ -29,11 +29,12 @@ after(async () => {
 });
 
 let researchSignIn: 'missing' | 'ready' = 'missing';
+let researchPlatform = 'linux';
 async function mounted(pin: boolean, check: (container: HTMLElement, requests: Array<{ url: string; patch?: any }>) => Promise<void>, research = false) {
   const requests: Array<{ url: string; patch?: any }> = [];
   useAppStore.setState({
     setSettings: (settings) => useAppStore.setState({ settings }),
-    settings: { enabledProviders: research ? { 'antigravity-cli': true } : {}, autoHandoffDefaults: { enabled: true, mode: 'fresh-summarizer', afterCompactions: 5 }, ...(pin ? { handoffSummarizer: { provider: 'claude', model: 'sonnet', effort: 'medium' } } : {}) } as never,
+    settings: { enabledProviders: { 'antigravity-cli': true }, autoHandoffDefaults: { enabled: true, mode: 'fresh-summarizer', afterCompactions: 5 }, ...(pin ? { handoffSummarizer: { provider: 'claude', model: 'sonnet', effort: 'medium' } } : {}) } as never,
     activeJobId: null, activeClusterId: 'settings-fixture', jobs: {},
     clusters: { 'settings-fixture': { clusterId: 'settings-fixture', cwd: '/fixture/project', members: [] } } as never,
     authStatus: { claude: { loggedIn: true } } as never,
@@ -41,7 +42,7 @@ async function mounted(pin: boolean, check: (container: HTMLElement, requests: A
   globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
     const patch = init?.method === 'POST' ? JSON.parse(String(init.body)) : undefined;
     requests.push({ url: String(url), patch });
-    if (research && String(url) === '/api/diagnostics/research-sandbox') return { ok: true, json: async () => ({ gemini: true, geminiSignIn: researchSignIn }) };
+    if (research && String(url) === '/api/diagnostics/research-sandbox') return { ok: true, json: async () => ({ gemini: researchPlatform === 'linux', platform: researchPlatform, geminiSignIn: researchSignIn }) };
     if (String(url) === '/api/auth-status') return { ok: true, json: async () => useAppStore.getState().authStatus };
     if (!patch && String(url) === '/api/settings') return { ok: true, json: async () => useAppStore.getState().settings };
     if (patch) {
@@ -297,4 +298,33 @@ test('the model catalog editor cannot SAVE after a failed load or after a cancel
       assert.equal(button('SAVE')!.disabled, true, 'a failed load on reopen leaves SAVE off');
     });
   } finally { globalThis.fetch = realFetch; }
+});
+
+test('provider details show only for enabled providers, and Windows or macOS says Gemini for Research is Linux-only', async () => {
+  researchPlatform = 'win32';
+  try {
+    await mounted(false, async (container) => {
+      const page = [...container.querySelectorAll('button')].find(b => b.textContent?.trim() === 'Providers and models');
+      assert.ok(page); await act(async () => page.click());
+      const text = () => container.querySelector('[data-help="settings.authentication"]')?.textContent ?? '';
+      assert.match(text(), /CODEX \(OPENAI\)/);
+      assert.match(text(), /Gemini for Research is available only on Linux/);
+      useAppStore.setState({ settings: { ...useAppStore.getState().settings, enabledProviders: { codex: false, 'antigravity-cli': false, ollama: false } } as never });
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 5)); });
+      assert.doesNotMatch(text(), /CODEX \(OPENAI\)/);
+      assert.doesNotMatch(text(), /OLLAMA \(LOCAL\)/);
+      assert.doesNotMatch(text(), /Gemini for Research is available only on Linux/);
+      assert.doesNotMatch(text(), /OLLAMA ENDPOINT/);
+      useAppStore.setState({ settings: { ...useAppStore.getState().settings, enabledProviders: { ollama: false }, ollama: { utility: { model: 'tiny', enabled: true } } } as never });
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 5)); });
+      assert.match(text(), /OLLAMA ENDPOINT/);
+      useAppStore.setState({ settings: { ...useAppStore.getState().settings, enabledProviders: {} } as never });
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 5)); });
+      const switches = () => [...container.querySelectorAll('[data-help="settings.enabled-providers"] > div > div')].find(r => r.textContent?.startsWith('ANTIGRAVITY CLI'))?.querySelector('button')?.textContent;
+      assert.equal(switches(), 'OFF');
+      assert.doesNotMatch(text(), /ANTIGRAVITY CLI/);
+      assert.match(container.textContent ?? '', /ENABLED PROVIDERS/);
+      assert.match(text(), /OLLAMA COMPACTION UTILITY MODEL/);
+    }, true);
+  } finally { researchPlatform = 'linux'; }
 });

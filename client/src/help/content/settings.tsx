@@ -290,7 +290,12 @@ export const settingsHelp: Record<string, HelpEntry> = {
         prefer to keep a provider out of the picker. New homes enable detected
         sign-ins and local runtimes; Strata and DeepSeek through Xolotl start
         off. Existing saved choices are kept. A successful explicit check in
-        Connections enables that provider.
+        Connections enables that provider. Sign-in, status and endpoint
+        controls under Authentication appear only for enabled providers;
+        turning one off hides them and keeps what was saved. GitHub and the
+        Ollama compaction utility model always stay visible, and the Ollama
+        endpoint stays visible while an enabled Ollama utility model is
+        configured.
       </p>
     ),
   },

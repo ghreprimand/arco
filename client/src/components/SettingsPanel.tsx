@@ -116,6 +116,10 @@ export function SettingsPanel({ onClose }: Props) {
   const ollamaLive = useAppStore((s) => s.ollamaLive);
   const llamacppLive = useAppStore((s) => s.llamacppLive);
   const [loginPending, setLoginPending] = useState<LoginSessionTarget | null>(null);
+  // Provider details (sign-in, status, endpoint) show only while the provider is enabled.
+  const on = (p: ProviderName): boolean => isProviderOn(settings?.enabledProviders, p);
+  // The Ollama endpoint stays reachable while its utility model (compaction, titles) is in use with Ollama off.
+  const ollamaEndpointShown = on('ollama') || (!!settings?.ollama?.utility?.model && settings.ollama.utility.enabled !== false);
   // docs/RESEARCH.md "Gemini researchers": the separate research sign-in, shown when the sandbox can run Gemini.
   const [geminiResearch, setGeminiResearch] = useState<{ available: boolean; linux: boolean; signIn?: 'missing' | 'ready' | 'expired' } | null>(null);
   const refreshGeminiResearch = useCallback(async () => {
@@ -198,7 +202,7 @@ export function SettingsPanel({ onClose }: Props) {
 
   const toggleProviderEnabled = async (provider: ProviderName) => {
     if (savingProvider) return;
-    const current = settings?.enabledProviders[provider] !== false;
+    const current = isProviderOn(settings?.enabledProviders, provider);
     const next: ArcoSettings = {
       enabledProviders: {
         claude: settings?.enabledProviders.claude !== false,
@@ -816,7 +820,7 @@ export function SettingsPanel({ onClose }: Props) {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '14px' }}>
             {(['claude',  'codex', 'cursor', 'antigravity-cli', 'ollama', 'llamacpp', 'lmstudio', 'strata', 'deepseek'] as ProviderName[]).map((p) => {
-              const enabled = settings?.enabledProviders[p] !== false;
+              const enabled = on(p);
               const label = p === 'claude' ? 'CLAUDE'
                 : p === 'codex' ? 'CODEX'
                 : p === 'cursor' ? 'CURSOR'
@@ -889,6 +893,7 @@ export function SettingsPanel({ onClose }: Props) {
             AUTHENTICATION
           </div>
           <div data-help="settings.authentication" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {on('claude') && (<>
             <div data-help="settings.claude-signin" id="claude-signin-group" className="claude-signin-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>CLAUDE</div>
               <span style={{ fontSize: '10px', color: 'var(--color-fg-muted)', fontFamily: 'var(--font-body)' }}>
@@ -904,6 +909,8 @@ export function SettingsPanel({ onClose }: Props) {
             />
 
             </div>
+            </>)}
+            {on('codex') && (<>
             <ProviderRow label="CODEX (OPENAI)" provider="codex" status={loginStatus('codex', authStatus?.codex) ?? undefined} loginPending={loginPending === 'codex'} onLogin={() => startLogin('codex')} />
             {inAppLogin?.session?.provider === 'codex' && (
               <div data-testid="settings-codex-login" style={{ padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px' }}>
@@ -911,8 +918,10 @@ export function SettingsPanel({ onClose }: Props) {
               </div>
             )}
             <CodexProfilesSection />
+            </>)}
 
 
+            {on('cursor') && (<>
             <ProviderRow
               label="CURSOR (ACP)"
               provider="cursor"
@@ -929,6 +938,8 @@ export function SettingsPanel({ onClose }: Props) {
                 />
               </div>
             )}
+            </>)}
+            {on('antigravity-cli') && (<>
             <ProviderRow
               label="ANTIGRAVITY CLI"
               provider="antigravity-cli"
@@ -941,7 +952,7 @@ export function SettingsPanel({ onClose }: Props) {
                 <LoginFlow result={inAppLogin} onRestart={() => void startLogin('antigravity-cli')} onComplete={() => { void finishInAppLogin('antigravity-cli'); }} />
               </div>
             )}
-            {geminiResearch?.available && settings?.enabledProviders['antigravity-cli'] === true && (
+            {geminiResearch?.available && on('antigravity-cli') && (
               <div data-help="settings.gemini-research" data-testid="settings-gemini-research">
                 <ProviderRow
                   label="GEMINI FOR RESEARCH"
@@ -961,11 +972,13 @@ export function SettingsPanel({ onClose }: Props) {
                 <LoginFlow result={inAppLogin} onRestart={() => void startLogin('gemini-research')} onComplete={() => { void finishInAppLogin('gemini-research'); }} />
               </div>
             )}
+            </>)}
             {inAppNote && (
               <div role="alert" data-testid="settings-cursor-login-note" style={{ fontSize: '11px', color: 'var(--color-warning)', fontFamily: 'var(--font-body)', padding: '0 14px' }}>
                 {inAppNote}
               </div>
             )}
+            {ollamaEndpointShown && (<>
             <div id="connection-advanced-ollama" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
               <label data-help="settings.ollama-small-context" style={{ display: 'flex', alignItems: 'center', gap: 8, minHeight: 44 }}>
                 <input type="checkbox" disabled={ollamaSmallSaving} checked={settings?.ollama?.smallContextTools === true} onChange={e => void setOllamaSmallContext(e.target.checked)} />
@@ -1064,6 +1077,7 @@ export function SettingsPanel({ onClose }: Props) {
                 )}
               </div>
             </div>
+            </>)}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
               <label className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
                 OLLAMA COMPACTION UTILITY MODEL
@@ -1156,6 +1170,7 @@ export function SettingsPanel({ onClose }: Props) {
                 ENABLED off pauses every utility job (compaction falls back to the deterministic digest, titles stop) while keeping the model + host saved. SESSION TITLES (opt-in) names RESUME-picker sessions with a short generated title. The small model that writes Ollama auto-compaction summaries (and any utility jobs). Type a model name: local models are offered as suggestions, but you can enter one that only exists on the remote host below. Blank ⇒ a deterministic text digest is used instead. Ollama-specific: Claude/Codex use their vendors' native compaction. Leave the host blank to use your default Ollama endpoint; set it to run the summarizer on a separate machine or GPU so it never competes with your primary model for VRAM.
               </span>
             </div>
+            {on('lmstudio') && (<>
             <div id="connection-advanced-lmstudio" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
               <label htmlFor="lmstudio-endpoint" className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
                 LM STUDIO ENDPOINT
@@ -1191,7 +1206,11 @@ export function SettingsPanel({ onClose }: Props) {
                 OpenAI-compatible REST endpoint (LM Studio app → Developer → Start Server). The /v1 suffix is added automatically if omitted.
               </span>
             </div>
+            </>)}
+            {on('deepseek') && (<>
             <DeepSeekControls />
+            </>)}
+            {on('strata') && (<>
             <div data-help="settings.strata-endpoint" style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 14px', border: '1px solid var(--color-border-hairline)', borderRadius: '4px', background: 'var(--color-bg-sunken)' }}>
               <label htmlFor="strata-endpoint" className="display-font" style={{ fontSize: '10px', letterSpacing: '2px', color: 'var(--color-accent-primary-dim)' }}>
                 STRATA ENDPOINT
@@ -1227,6 +1246,8 @@ export function SettingsPanel({ onClose }: Props) {
                 Standalone Strata inference service. Prepared local profiles load on the next message; live context and image capabilities follow the service. The /v1 suffix is added automatically if omitted.
               </span>
             </div>
+            </>)}
+            {on('ollama') && (<>
             <ProviderRow
               label="OLLAMA (LOCAL)"
               status={authStatus?.ollama}
@@ -1234,6 +1255,8 @@ export function SettingsPanel({ onClose }: Props) {
               onLogin={() => startLogin('ollama')}
               variant="ollama"
             />
+            </>)}
+            {on('llamacpp') && (<>
             <ProviderRow
               label="LLAMA.CPP (LOCAL)"
               status={authStatus?.llamacpp}
@@ -1242,6 +1265,8 @@ export function SettingsPanel({ onClose }: Props) {
               variant="llamacpp"
               loadedModel={llamacppLive?.loadedModel ?? null}
             />
+            </>)}
+            {on('lmstudio') && (<>
             <ProviderRow
               label="LM STUDIO (LOCAL)"
               status={authStatus?.lmstudio}
@@ -1249,6 +1274,8 @@ export function SettingsPanel({ onClose }: Props) {
               onLogin={() => { /* no-op: LM Studio has no login flow */ }}
               variant="lmstudio"
             />
+            </>)}
+            {on('strata') && (<>
             <ProviderRow
               label="STRATA (LOCAL)"
               status={authStatus?.strata}
@@ -1256,6 +1283,7 @@ export function SettingsPanel({ onClose }: Props) {
               onLogin={() => { /* no-op: Strata has no login flow */ }}
               variant="strata"
             />
+            </>)}
             <ProviderRow
               label="GITHUB (gh CLI)"
               status={authStatus?.github}
@@ -2398,6 +2426,11 @@ function CodexProfilesSection() {
       </>}
     </div>
   );
+}
+
+// One rule for the switches, the saved toggle and the detail blocks: Antigravity CLI is off until enabled, every other provider is on until disabled.
+export function isProviderOn(enabled: Record<string, boolean | undefined> | undefined, p: ProviderName): boolean {
+  return p === 'antigravity-cli' ? enabled?.[p] === true : enabled?.[p] !== false;
 }
 
 function ProviderRow({ label, provider, status, loginPending, onLogin, variant, loadedModel }: ProviderRowProps) {
