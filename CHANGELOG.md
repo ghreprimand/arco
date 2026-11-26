@@ -8,6 +8,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 - Windows: signing in to Antigravity CLI (and Cursor, Codex, Claude) now finds the program the way provider turns do. For Antigravity CLI, if Arco was started before agy was installed, the PATH a new terminal reads is also checked. When the program is still missing, the message names it.
 - Settings: with Antigravity CLI enabled on Windows or macOS, a note says Gemini for Research is available only on Linux with the research sandbox.
 - Settings: sign-in, status and endpoint controls under Authentication appear only for enabled providers. Turning a provider off keeps its saved settings and sign-in.
+- Packaged installs discover stable updates directly from npm. CHECK NOW identifies failed lookups and marks previous results as stale.
+- Packaged updates download the exact npm archive before stopping Arco. If installation fails, the updater restores the previous package and restarts the service.
 
 ## v0.2.0 - 2026-11-26
 

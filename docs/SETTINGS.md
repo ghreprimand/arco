@@ -84,7 +84,7 @@ Sections: 29.
 | `preview-ports` | Advanced | Preview ports and remote access | Global, for new previews | PREVIEW PORTS, normally 4300-4309; ARCO_PREVIEW_PORTS override, lazy port use, firewall and forwarding guidance; the field waits for SAVE to finish before further editing |
 | `transport-defaults` | Advanced | Transport defaults | Global, for new workflows | Codex (default app-server) and Claude (default native) transport defaults for new workflows |
 | `app-window-browser` | Advanced | App window browser | Global | Automatic (first found, preserving the existing preference), a detected installation/channel, or another program name or path; used by `arco open`, the Arco shortcut and the explorer window; a missing choice falls back to Automatic |
-| `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release and date, CHECK NOW, update action or copyable command, Check for new releases, Updating Arco link; Claude, Codex CLI and Ollama daemon versions, plus the providers popover for available provider updates |
+| `cli-versions` | Advanced | CLI and runtime versions | Global | Arco running version, latest release, CHECK NOW, update action or copyable command, Check for new releases, Updating Arco link; Claude, Codex CLI and Ollama daemon versions, plus the providers popover for available provider updates |
 
 ## Phone view
 
@@ -125,8 +125,10 @@ up arrow and the new version, stays that way after the toast is dismissed, opens
 the update dialog on click, and shows UPDATING while an update runs.
 
 In Advanced > CLI and runtime versions, **Arco** also shows the running version and
-the latest known release with its publication date. **CHECK NOW** asks the
-server to refresh the release metadata. **Check for new releases** defaults to
+the latest known release. Source and Docker installs also show the publication date.
+**CHECK NOW** checks npm on a packaged install or GitHub on a source or Docker
+install. If a check fails, the row names the source and marks any previous
+release as stale. Use **CHECK NOW** to retry. **Check for new releases** defaults to
 on; disabling it prevents automatic and manual requests. `ARCO_UPDATE_CHECK=0`
 in the server environment overrides the checkbox. The **Updating Arco** link
 opens the [service, foreground and Docker update procedure](OPERATIONS.md#updating-arco).
@@ -137,9 +139,11 @@ reloads; a newer version can notify again. The checkbox saves `updateCheck`.
 The server first checks 30 seconds after boot, then every six hours. It never
 downloads or installs updates automatically. Packaged services on Linux, macOS,
 and Windows offer **UPDATE AND RESTART** from the version box, toast, or Settings
-when the target version is available on npm. Availability is checked again before
-the service stops. It confirms the release and stops running turns at restart. Linux source user
-services offer the same action. Other run modes show a copyable command.
+when npm reports a newer stable version. The updater rechecks the target and
+downloads the exact package before stopping the service. If the download fails, Arco stays running.
+If installation fails, the result reports whether the old package and service
+were restored. Linux source user services offer the same action. Other run
+modes show a copyable command.
 
 ### Project location migration
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
-import { isUpdateStatus, useAppUpdateStore } from './appUpdateStore.js';
+import { isUpdateStatus, releaseCheckError, useAppUpdateStore } from './appUpdateStore.js';
 import { JSDOM } from 'jsdom';
 import { act, createElement, Fragment } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -34,6 +34,19 @@ test('cached GET and explicit POST use only the local API; opt-out clears a noti
   enabled = false; await useAppUpdateStore.getState().refresh(true);
   assert.deepEqual(methods, ['GET', 'POST']); assert.equal(useAppUpdateStore.getState().notice, null);
 });
+test('a failed npm check keeps the old tag as stale and withdraws its update notice', async (t) => {
+  const known = { ...notice, publishedAt: null, checkedAt: null, enabled: true, updateAvailable: true };
+  t.mock.method(globalThis, 'fetch', async () => Response.json(known));
+  await useAppUpdateStore.getState().refresh();
+  assert.equal(useAppUpdateStore.getState().notice?.latest, known.latest);
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ ...known, updateAvailable: false, checkFailure: 'npm' }));
+  await useAppUpdateStore.getState().refresh(true);
+  const { status, notice: updateNotice } = useAppUpdateStore.getState();
+  assert.equal(status?.latest, known.latest);
+  assert.equal(releaseCheckError(status), 'Could not check npm for updates.');
+  assert.equal(updateNotice, null);
+});
+
 test('failed refresh preserves known release information', async (t) => {
   useAppUpdateStore.getState().receive(notice);
   t.mock.method(globalThis, 'fetch', async () => new Response('', { status: 503 }));

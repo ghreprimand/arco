@@ -466,8 +466,9 @@ export const headerHelp: Record<string, HelpEntry> = {
           Settings &gt; Advanced &gt; CLI and runtime versions. While an update
           runs it reads <C>UPDATING</C>. A release found with <C>CHECK NOW</C>{' '}
           appears here; select <C>UPDATE AND RESTART</C> to open confirmation.
-          Packaged installs wait until that release is available on npm; if
-          npm cannot be checked, use <C>CHECK NOW</C> again later.
+          Packaged installs check npm. Source and Docker installs check GitHub.
+          A failed check marks any previous release as stale. Use <C>CHECK NOW</C>{' '}
+          to retry. A package download failure leaves Arco running.
           With release checks off it shows the
           running version only.
         </p>

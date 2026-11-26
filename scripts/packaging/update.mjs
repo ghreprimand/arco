@@ -37,7 +37,45 @@ export function writeUpdateResult(resultFile, attemptId, result, now = Date.now)
   writeFileSync(resultFile, JSON.stringify({ ...attempt, outcome: result.outcome, ...(typeof result.message === 'string' ? { message: result.message } : {}), finishedAt: now() }), { mode: 0o600 });
   return true;
 }
-export async function updatePackage(manifest, root, deps = {}) {
+// npm diagnostics can contain registry credentials, URLs and local paths.
+const safeErrorCodes = new Set([
+  'E401', 'E403', 'E404', 'E405', 'E429', 'E500', 'E502', 'E503', 'E504',
+  'EACCES', 'EAUTH', 'EAI_AGAIN', 'ECONNREFUSED', 'ECONNRESET', 'EEXIST',
+  'EINTEGRITY', 'EINVAL', 'EIO', 'ENOENT', 'ENOMSG', 'ENOSPC', 'ENOTCACHED',
+  'ENOTEMPTY', 'ENOTFOUND', 'EOVERFLOW', 'EPERM', 'ERESOLVE', 'ETARGET',
+  'ETIMEDOUT', 'ERR_TLS_CERT_ALTNAME_INVALID', 'SELF_SIGNED_CERT_IN_CHAIN',
+]);
+
+function npmFailure(result) {
+  const diagnostic = /^npm (?:error|ERR!) code ([A-Z0-9_]+)\r?$/mi;
+  const code = result.error?.code ?? diagnostic.exec(result.stderr ?? '')?.[1] ?? diagnostic.exec(result.stdout ?? '')?.[1];
+  if (safeErrorCodes.has(code)) return ' (' + code + ')';
+  return Number.isInteger(result.status) ? ' (npm exit ' + result.status + ')' : '';
+}
+
+const publicRegistry = '--registry=https://registry.npmjs.org/';
+
+function stagePackage(call, name, version, scratch) {
+  const expectedName = `${name.replace(/^@/, '').replace('/', '-')}-${version}.tgz`;
+  const archive = join(scratch, expectedName);
+  const result = call('Package download failed', [
+    'pack', `${name}@${version}`, '--json', '--ignore-scripts', '--pack-destination', scratch,
+    publicRegistry, '--prefer-online', '--fetch-retries=0', '--fetch-timeout=30000',
+  ], { timeout: 90_000 });
+  let packed, stat;
+  try {
+    stat = lstatSync(archive, { throwIfNoEntry: false });
+    packed = JSON.parse(result.stdout);
+  } catch { /* invalid npm output or archive */ }
+  if (!Array.isArray(packed) || packed.length !== 1 || packed[0]?.name !== name
+    || packed[0]?.version !== version || packed[0]?.filename !== expectedName || !stat?.isFile() || stat.size === 0) {
+    throw new Error('Package download failed: npm did not stage the requested archive');
+  }
+  return archive;
+}
+
+export async function updatePackage(manifest, packageRoot, deps = {}) {
+  const root = resolve(packageRoot);
   const env = deps.env ?? process.env, platform = deps.platform ?? process.platform;
   const home = deps.home ?? servicePaths(platform, env).home;
   const prefix = deps.prefix ?? globalPrefix(root, platform);
@@ -56,36 +94,37 @@ export async function updatePackage(manifest, root, deps = {}) {
   mkdirSync(home, { recursive: true, mode: 0o700 });
   const lock = join(home, 'package-update.lock'); let lockFd;
   try { lockFd = openSync(lock, 'wx', 0o600); } catch { throw new Error('Another update may be running. Verify that no update is active before removing package-update.lock from the Arco home.'); }
-  const scratch = mkdtempSync(join(home, '.update-')); let preserve = false;
-  let stopped = false, installed = false; const backup = join(scratch, 'previous-package');
-  const call = (args, options = {}) => {
+  let scratch, backup, preserve = false;
+  let stopped = false, installAttempted = false;
+  const call = (stage, args, options = {}) => {
     const result = run(process.execPath, [npm, ...args], options);
-    if (result.error || result.status !== 0) throw new Error(`npm ${args[0]} failed${result.error ? `: ${result.error.message}` : ''}`);
+    if (result.error || result.status !== 0) throw new Error(stage + npmFailure(result));
     return result;
   };
   try {
-    let version = deps.expected?.slice(1);
-    if (!deps.target && !version) {
-      const result = call(['view', `${manifest.name}@latest`, 'version', '--json']);
-      const parsed = JSON.parse(result.stdout || 'null');
-      version = Array.isArray(parsed) && parsed.length === 1 ? parsed[0] : parsed;
-      if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/.test(version)) throw new Error('The registry did not return a stable release version.');
-    }
+    scratch = mkdtempSync(join(home, '.update-'));
+    backup = join(scratch, 'previous-package');
+    let version;
     if (!deps.target) {
+      const result = call('Could not check npm for updates', [
+        'view', `${manifest.name}@latest`, 'version', '--json', publicRegistry,
+        '--prefer-online', '--fetch-retries=0', '--fetch-timeout=5000',
+      ], { timeout: 10_000 });
+      let parsed;
+      try { parsed = JSON.parse(result.stdout); } catch { /* invalid npm output */ }
+      version = Array.isArray(parsed) && parsed.length === 1 ? parsed[0] : parsed;
+      if (typeof version !== 'string' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version)) {
+        throw new Error('npm did not return a stable release version');
+      }
+      if (deps.expected && deps.expected !== `v${version}`) {
+        throw new Error('The latest npm version changed. Use CHECK NOW to review it before updating');
+      }
       const order = compareVersions(version, manifest.version);
       if (order === null) throw new Error('The installed or target package version is invalid.');
       if (order < 0) throw new Error('The latest package is older than this installation. A downgrade is not performed.');
       if (order === 0) return { outcome: 'unchanged', message: 'Already on the newest release.' };
-      if (deps.expected) {
-        let published;
-        try {
-          const result = call(['view', `${manifest.name}@${version}`, 'version', '--json', '--cache', join(scratch, 'registry-cache'), '--prefer-online', '--fetch-retries=0', '--fetch-timeout=5000'], { timeout: 15000 });
-          published = JSON.parse(result.stdout || 'null');
-          if (Array.isArray(published) && published.length === 1) published = published[0];
-        } catch { throw new Error('The confirmed release is not available from the npm registry, or the registry could not be reached. Try again later.'); }
-        if (published !== version) throw new Error('The confirmed release is not available from the npm registry, or the registry could not be reached. Try again later.');
-      }
     }
+    const archive = deps.target ?? stagePackage(call, manifest.name, version, scratch);
     // Dependencies are not all bundled in the tarball. A full local snapshot
     // permits rollback even when the registry or the network is unavailable.
     cpSync(root, backup, { recursive: true, dereference: false, verbatimSymlinks: true, errorOnExist: true, force: false });
@@ -98,9 +137,8 @@ export async function updatePackage(manifest, root, deps = {}) {
       const running = servicePid ? await waitForRecordedPid(servicePid, deps) : await windowsRunning();
       if (running) throw new Error(servicePid ? `The Arco service process ${servicePid} is still running. Stop it before updating on Windows.` : 'Stop all Arco processes before updating on Windows.');
     }
-    const target = deps.target ?? `${manifest.name}@${version}`;
-    installed = true;
-    call(['install', '--global', '--ignore-scripts', '--no-audit', '--no-fund', '--prefix', prefix, target], { stdio: 'inherit' });
+    installAttempted = true;
+    call('Package installation failed', ['install', '--global', '--ignore-scripts', '--no-audit', '--no-fund', '--prefix', prefix, archive]);
     // The new package may define the service differently. A fresh process loads
     // the new code to
     // rewrite an unmodified Arco-owned definition; a failure keeps the old one.
@@ -114,23 +152,42 @@ export async function updatePackage(manifest, root, deps = {}) {
     return { outcome: 'updated', message: `Updated${version ? ` to v${version}` : ` ${manifest.name}`}; ${managed ? 'service restarted' : 'restart Arco to use the update'}.${refreshNote}` };
   } catch (error) {
     const detail = String(error.message).replace(/[.\s]+$/, '');
-    if (installed) {
+    let damaged;
+    if (installAttempted) {
       // Keep both copies until a complete restoration is available. If the
       // copy fails, retain the snapshot and report its location for recovery.
-      const damaged = `${root}.arco-update-failed-${process.pid}`;
+      damaged = `${root}.arco-update-failed-${process.pid}`;
       try {
-        if (existsSync(damaged)) throw new Error('A previous failed update needs manual recovery.');
-        if (existsSync(root)) renameSync(root, damaged);
+        if (lstatSync(damaged, { throwIfNoEntry: false })) throw new Error('A previous failed update needs manual recovery.');
+        if (lstatSync(root, { throwIfNoEntry: false })) renameSync(root, damaged);
         try { cpSync(backup, root, { recursive: true, dereference: false, verbatimSymlinks: true, errorOnExist: true, force: false }); }
-        catch (copyError) { if (existsSync(root)) rmSync(root, { recursive: true, force: true }); if (existsSync(damaged)) renameSync(damaged, root); throw copyError; }
-        rmSync(damaged, { recursive: true, force: true });
-      } catch (rollback) { preserve = true; throw new Error(`Update failed: ${detail}. Rollback failed: ${String(rollback.message).replace(/[.\s]+$/, '')}. Previous package snapshot: ${backup}`); }
+        catch (copyError) { rmSync(root, { recursive: true, force: true }); if (lstatSync(damaged, { throwIfNoEntry: false })) renameSync(damaged, root); throw copyError; }
+      } catch (rollback) {
+        preserve = true;
+        const code = safeErrorCodes.has(rollback.code) ? ' (' + rollback.code + ')' : '';
+        throw new Error(`Update failed: ${detail}. Could not restore the previous package${code}. Keep Arco stopped and copy the snapshot back to the original package folder. Previous package snapshot: ${backup}`);
+      }
     }
-    if (stopped) { try { await service('start'); stopped = false; } catch (restart) { throw new Error(`Update failed: ${detail}. The previous package was restored, but the service could not restart: ${restart.message}`); } }
-    throw new Error(`Update failed: ${detail}.${installed ? ' The previous package was restored.' : ''}`);
+    if (stopped) {
+      try { await service('start'); }
+      catch {
+        preserve = true;
+        const recovery = installAttempted
+          ? `The previous package was restored. Previous package snapshot: ${backup}`
+          : 'The installed package was left unchanged.';
+        throw new Error(`Update failed: ${detail}. The service could not restart. Check the service and run arco service start after resolving the error. ${recovery}`);
+      }
+    }
+    const recovery = installAttempted ? ' The previous package was restored.' + (stopped ? ' The service was restarted.' : '') : '';
+    let cleanupNote = '';
+    if (damaged) {
+      try { rmSync(damaged, { recursive: true, force: true }); }
+      catch { cleanupNote = ' The failed package remains in quarantine beside the installation.'; }
+    }
+    throw new Error(`Update failed: ${detail}.${recovery}${cleanupNote}`);
   } finally {
-    if (!preserve) rmSync(scratch, { recursive: true, force: true });
-    closeSync(lockFd); try { unlinkSync(lock); } catch { /* stale lock fails closed */ }
+    try { if (scratch && !preserve) rmSync(scratch, { recursive: true, force: true }); }
+    finally { closeSync(lockFd); try { unlinkSync(lock); } catch { /* stale lock fails closed */ } }
   }
 }
 

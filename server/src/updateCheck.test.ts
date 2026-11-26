@@ -5,22 +5,31 @@ import type { AppUpdateAvailableMessage, AppUpdateStatusChangedMessage } from '@
 
 const release = (tag = 'v0.2.0') => ({ tag_name: tag, html_url: `https://github.com/ghreprimand/arco/releases/tag/${tag}`, published_at: '2026-10-27T12:00:00Z', name: `Arco ${tag}` });
 
-test('packaged updates are offered only while the exact GitHub release is available on npm', async () => {
-  let state: 'missing' | 'ready' | 'offline' = 'missing';
+test('packaged discovery uses npm latest independently of GitHub and refuses a prerelease or downgrade', async () => {
+  let version = '0.2.0';
+  let githubCalls = 0;
   const notices: Array<AppUpdateAvailableMessage | AppUpdateStatusChangedMessage> = [];
   const checker = createUpdateChecker({ current: '0.1.0', packaged: true, settings: async () => ({}), environment: () => undefined, broadcast: m => notices.push(m),
     fetch: async (url) => {
-      if (String(url).includes('api.github.com')) return Response.json(release());
-      assert.equal(url, 'https://registry.npmjs.org/arco-workbench/0.2.0');
-      if (state === 'missing') return new Response('', { status: 404 });
-      if (state === 'offline') throw new Error('offline');
-      return Response.json({ name: 'arco-workbench', version: '0.2.0', dist: { tarball: 'https://registry.npmjs.org/arco-workbench/-/arco-workbench-0.2.0.tgz' } });
+      if (String(url).includes('api.github.com')) {
+        githubCalls++;
+        return new Response('', { status: 403 });
+      }
+      assert.equal(url, 'https://registry.npmjs.org/arco-workbench/latest');
+      return Response.json({ name: 'arco-workbench', version, dist: { tarball: `https://registry.npmjs.org/arco-workbench/-/arco-workbench-${version}.tgz` } });
     },
   });
-  const missing = await checker.check();
-  assert.equal(missing.latest, 'v0.2.0'); assert.equal(missing.packageStatus, 'unpublished'); assert.equal(missing.updateAvailable, false); assert.equal(notices.length, 0);
-  state = 'ready'; assert.equal((await checker.check()).updateAvailable, true); assert.equal(notices.length, 1);
-  state = 'offline'; const unavailable = await checker.check(); assert.equal(unavailable.packageStatus, 'unknown'); assert.equal(unavailable.updateAvailable, false); assert.equal(notices.at(-1)?.type, 'app_update_status_changed');
+  const offered = await checker.check();
+  assert.equal(offered.latest, 'v0.2.0');
+  assert.equal(offered.updateAvailable, true);
+  assert.equal(offered.url, release().html_url);
+  assert.equal(offered.publishedAt, null);
+  assert.equal(notices.at(-1)?.type, 'app_update_available');
+  version = '0.3.0-rc.1';
+  assert.equal((await checker.check()).updateAvailable, false);
+  version = '0.0.9';
+  assert.equal((await checker.check()).updateAvailable, false);
+  assert.equal(githubCalls, 0);
 });
 function fixture(response: () => Promise<Response> = async () => Response.json(release())) {
   const settings = { updateCheck: true, updateCheckDismissed: '' };
@@ -67,7 +76,7 @@ test('0.1.5 is offered to an install at 0.1.5-rc.1, which is newer than 0.1.4', 
     current: '0.1.5-rc.1',
     settings: async () => ({ updateCheck: true }),
     environment: () => undefined,
-    broadcast: () => { throw new Error('an older stable release must not be announced'); },
+    broadcast: (message) => { assert.equal(message.type, 'app_update_status_changed'); },
     fetch: async () => Response.json(release('v0.1.4')),
     now: () => new Date('2026-11-05T12:00:00Z'),
   });
@@ -107,10 +116,11 @@ test('dismissal suppresses that version while a newer one still announces', asyn
   assert.equal((await f.checker.check()).updateAvailable, true); assert.equal(f.messages.length, 0);
   tag = 'v0.3.0'; await f.checker.check(); assert.equal(f.messages.length, 1);
 });
-test('404, rate limit, network, timeout and malformed payload failures remain silent after one debug log', async () => {
+test('lookup failures identify GitHub and log once', async () => {
   for (const reply of [async () => new Response('', { status: 404 }), async () => new Response('', { status: 403 }), async () => new Response('', { status: 429 }), async () => { throw new Error('network'); }, async () => { throw new DOMException('timeout', 'TimeoutError'); }, async () => Response.json(release('invalid')), async () => Response.json({ ...release(), html_url: 'javascript:alert(1)' }), async () => Response.json({ ...release(), published_at: 'bad' })]) {
     const f = fixture(reply); await f.checker.check(); await f.checker.check();
     assert.equal(f.calls(), 2); assert.equal(f.debug.length, 1); assert.equal(f.messages.length, 0); assert.equal((await f.checker.status()).latest, null);
+    assert.equal((await f.checker.status()).checkFailure, 'github');
   }
 });
 test('concurrent forced requests share one fetch and an in-flight opt-out suppresses delivery', async () => {
@@ -133,7 +143,7 @@ test('scheduler waits 30 seconds, repeats in six hours, and stops', async (t) =>
 test('request receives a five-second abort signal without a live network call', async (t) => {
   let deadline = 0;
   t.mock.method(AbortSignal, 'timeout', (ms: number) => { deadline = ms; return AbortSignal.abort(new DOMException('timeout', 'TimeoutError')); });
-  const checker = createUpdateChecker({ current: '0.1.0', settings: async () => ({}), environment: () => undefined, broadcast: () => assert.fail('no broadcast on timeout'),
+  const checker = createUpdateChecker({ current: '0.1.0', settings: async () => ({}), environment: () => undefined, broadcast: (message) => assert.equal(message.type, 'app_update_status_changed'),
     fetch: async (_url, init) => { init?.signal?.throwIfAborted(); return Response.json(release()); },
   });
   assert.equal((await checker.check()).latest, null); assert.equal(deadline, 5000);
@@ -142,7 +152,10 @@ test('a failed refresh preserves the last release and a later successful cycle r
   let fail = false;
   const f = fixture(async () => { if (fail) throw new Error('offline'); return Response.json(release()); });
   await f.checker.check(); fail = true;
-  assert.equal((await f.checker.check()).latest, 'v0.2.0');
+  const stale = await f.checker.check();
+  assert.equal(stale.latest, 'v0.2.0');
+  assert.equal(stale.checkFailure, 'github');
+  assert.equal(stale.updateAvailable, false);
   fail = false; await f.checker.check(); assert.equal(f.calls(), 3); assert.equal(f.messages.length, 1);
 });
 test('a dismissal saved during the request prevents a late toast', async () => {

@@ -595,17 +595,17 @@ export const settingsHelp: Record<string, HelpEntry> = {
   'settings.update-action': {
     title: 'Update Arco',
     manualSection: 'arco-updates',
-    body: <p>In a packaged user service on Linux, macOS or Windows, or a Linux source user service, confirm UPDATE AND RESTART to install the newest release and stop running turns. After restart, a page without unsaved work reloads automatically when needed; otherwise RELOAD stays available. On Windows, an update stops only the matching service command and home configuration, and refuses to proceed if the stop cannot be verified. Other run modes show a command to copy and run in a terminal.</p>,
+    body: <p>In a packaged user service on Linux, macOS or Windows, or a Linux source user service, confirm UPDATE AND RESTART to install the newest release. Packaged services download the archive before stopping running turns. After restart, a page without unsaved work reloads automatically when needed; otherwise RELOAD stays available. On Windows, an update stops only the matching service command and home configuration, and refuses to proceed if the stop cannot be verified. Other run modes show a command to copy and run in a terminal.</p>,
   },
   'settings.update-result': {
     title: 'Update result',
     manualSection: 'arco-updates',
-    body: <p>Reports the completed update or failure after the server reconnects. The result appears beside an open update control, or in this separate notice when no update control is open. DISMISS hides this notice. If npm cannot be found, stop Arco and run npm install -g arco-workbench from a terminal where npm works, then start Arco again.</p>,
+    body: <p>Reports the update result. A package download failure leaves Arco running. If installation fails, the result reports whether the previous package and service were restored. If recovery fails, keep the snapshot identified in the result. The result appears beside an open update control, or in this separate notice when no update control is open. DISMISS hides this notice. If npm cannot be found, stop Arco and run npm install -g arco-workbench from a terminal where npm works, then start Arco again.</p>,
   },
   'settings.app-updates': {
     title: 'Arco releases',
     manualSection: 'arco-updates',
-    body: <p>Shows the running version and latest release. CHECK NOW refreshes release information. For packaged installs, Arco waits until the exact release is available on npm before offering the update. If npm cannot be checked, try again later. Check for new releases controls the automatic check; ARCO_UPDATE_CHECK=0 overrides it. UPDATE AND RESTART is available in packaged user services on Linux, macOS and Windows and in Linux source user services after confirmation; other run modes show a copyable command. No update runs automatically.</p>,
+    body: <p>Shows the running version and latest release. CHECK NOW refreshes release information. Packaged installs check npm. Source and Docker installs check GitHub. A failed check identifies the source and marks any previous release as stale. Use CHECK NOW to retry. Check for new releases controls the automatic check; ARCO_UPDATE_CHECK=0 overrides it. UPDATE AND RESTART is available in packaged user services on Linux, macOS and Windows and in Linux source user services after confirmation; other run modes show a copyable command. No update runs automatically.</p>,
   },
   'settings.app-window-browser': {
     title: 'App window browser',

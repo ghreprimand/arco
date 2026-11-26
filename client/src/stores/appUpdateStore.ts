@@ -5,7 +5,13 @@ export function isUpdateStatus(value: unknown): value is UpdateCheckStatus {
   if (!value || typeof value !== 'object') return false;
   const s = value as UpdateCheckStatus;
   return typeof s.current === 'string' && typeof s.enabled === 'boolean' && typeof s.updateAvailable === 'boolean'
+    && (s.checkFailure === undefined || s.checkFailure === 'npm' || s.checkFailure === 'github')
     && [s.latest, s.url, s.publishedAt, s.checkedAt].every((v) => v === null || typeof v === 'string');
+}
+
+export function releaseCheckError(status: UpdateCheckStatus | null): string | null {
+  if (!status?.checkFailure) return null;
+  return status.checkFailure === 'npm' ? 'Could not check npm for updates.' : 'Could not check GitHub for releases.';
 }
 
 let manualCheck = false;
@@ -51,7 +57,7 @@ export const useAppUpdateStore = create<{
       if (!isUpdateStatus(status)) throw new Error('Release check unavailable');
       if (force) manualRelease = status.enabled && status.updateAvailable ? status.latest : null;
       set({ status, ...(force ? { notice: null } : {}) });
-      if (status.enabled && status.updateAvailable && status.latest && status.url && status.publishedAt) {
+      if (status.enabled && status.updateAvailable && status.latest && status.url) {
         get().receive({ type: 'app_update_available', current: status.current, latest: status.latest, url: status.url, publishedAt: status.publishedAt });
       } else set({ notice: null });
     } finally { if (force) manualCheck = false; }

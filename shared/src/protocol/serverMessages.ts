@@ -1507,7 +1507,7 @@ export interface UpdateCheckStatus {
   checkedAt: string | null;
   updateAvailable: boolean;
   enabled: boolean;
-  packageStatus?: 'available' | 'unpublished' | 'unknown';
+  checkFailure?: 'npm' | 'github';
 }
 
 export interface AppUpdateAvailableMessage {
@@ -1515,7 +1515,7 @@ export interface AppUpdateAvailableMessage {
   current: string;
   latest: string;
   url: string;
-  publishedAt: string;
+  publishedAt: string | null;
 }
 
 export interface AppUpdateStatusChangedMessage {

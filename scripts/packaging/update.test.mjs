@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { runWindowsProbe } from './services.mjs';
 import { compareVersions, globalPrefix, updatePackage, waitForRecordedPid, windowsArcoRunning, writeUpdateResult } from './update.mjs';
@@ -11,30 +11,37 @@ function fixture(t) {
   const home = mkdtempSync(join(tmpdir(), 'arco-update-package-test-'));
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const calls = [], actions = []; const root = join(home, 'package'); mkdirSync(root); writeFileSync(join(root, 'package.json'), '{}');
-  let fail = false;
   const run = (_command, args) => {
     const action = args[1]; calls.push(args.slice(1));
     if (action === 'view') return { status: 0, stdout: JSON.stringify(['1.1.0']) };
-    if (action === 'pack') { const dir = args[args.indexOf('--pack-destination') + 1]; writeFileSync(join(dir, 'backup.tgz'), 'fixture'); return { status: 0, stdout: '[{"filename":"backup.tgz"}]' }; }
-    if (action === 'install' && fail) { fail = false; return { status: 1 }; }
+    if (action === 'pack') {
+      const at = args[2].lastIndexOf('@');
+      const name = args[2].slice(0, at), version = args[2].slice(at + 1);
+      const filename = `${name.replace(/^@/, '').replace('/', '-')}-${version}.tgz`;
+      const dir = args[args.indexOf('--pack-destination') + 1];
+      writeFileSync(join(dir, filename), 'fixture');
+      return { status: 0, stdout: JSON.stringify([{ name, version, filename }]) };
+    }
     return { status: 0, stdout: '' };
   };
-  return { home, root, calls, actions, deps: { home, npm: 'npm-cli.js', prefix: home, managed: true, windowsRunning: async () => false, run, service: async (action) => actions.push(action) }, failInstall: () => { fail = true; } };
+  return { home, root, calls, actions, deps: { home, npm: 'npm-cli.js', prefix: home, managed: true, windowsRunning: async () => false, run, service: async (action) => actions.push(action) } };
 }
 
-test('an unavailable confirmed release never stops the managed service', async (t) => {
+test('a tarball download failure leaves the installed package and service running', async (t) => {
   const f = fixture(t);
-  f.deps.run = (_command, args) => { f.calls.push(args.slice(1)); return { status: 1, stdout: '' }; };
-  await assert.rejects(updatePackage(manifest, f.root, { ...f.deps, expected: 'v1.1.0' }), /not available from the npm registry/);
+  const run = f.deps.run;
+  f.deps.run = (command, args) => {
+    if (args[1] !== 'pack') return run(command, args);
+    f.calls.push(args.slice(1));
+    return { status: 1, stderr: 'npm error code E404\nnpm error 404 - GET https://registry.example.test/private-location' };
+  };
+  await assert.rejects(updatePackage(manifest, f.root, { ...f.deps, expected: 'v1.1.0' }), {
+    message: 'Update failed: Package download failed (E404).',
+  });
   assert.deepEqual(f.actions, []);
-  assert.equal(f.calls.length, 1);
-  assert.equal(f.calls[0][1], '@scope/arco@1.1.0');
+  assert.deepEqual(f.calls.map((args) => args[0]), ['view', 'pack']);
+  assert.equal(f.calls[1][1], '@scope/arco@1.1.0');
   assert.equal(readFileSync(join(f.root, 'package.json'), 'utf8'), '{}');
-  f.deps.run = (_command, args) => { f.calls.push(args.slice(1)); return { status: 0, stdout: JSON.stringify('1.1.0') }; };
-  const result = await updatePackage(manifest, f.root, { ...f.deps, expected: 'v1.1.0', refresh: async () => ({ status: 0 }) });
-  assert.equal(result.outcome, 'updated');
-  assert.deepEqual(f.actions, ['stop', 'start']);
-  assert.deepEqual(f.calls.slice(1).map((args) => args[0]), ['view', 'install']);
 });
 
 test('global prefix resolves both unscoped and legacy scoped installs', () => {
@@ -52,16 +59,14 @@ test('a packaged 0.1.5-rc.1 install updates to 0.1.5 and refuses 0.1.4', async (
   assert.equal(compareVersions('0.1.5', '0.1.5-rc.1'), 1);
   assert.equal(compareVersions('0.1.4', '0.1.5-rc.1'), -1);
   const f = fixture(t);
-  const calls = [];
-  const run = (version) => (_command, args) => {
-    calls.push(args.slice(1));
-    if (args[1] === 'view') return { status: 0, stdout: JSON.stringify(version) };
-    return { status: 0, stdout: '' };
-  };
+  const run = (version) => (command, args) => args[1] === 'view'
+    ? { status: 0, stdout: JSON.stringify(version) }
+    : f.deps.run(command, args);
   const offered = await updatePackage({ name: 'arco-workbench', version: '0.1.5-rc.1' }, f.root, { ...f.deps, managed: false, run: run('0.1.5') });
   assert.equal(offered.outcome, 'updated');
   assert.match(offered.message, /v0\.1\.5/);
-  assert.equal(calls.at(-1).at(-1), 'arco-workbench@0.1.5');
+  assert.equal(f.calls[0][1], 'arco-workbench@0.1.5');
+  assert.equal(f.calls[1].at(-1), join(f.calls[0][f.calls[0].indexOf('--pack-destination') + 1], 'arco-workbench-0.1.5.tgz'));
   await assert.rejects(updatePackage({ name: 'arco-workbench', version: '0.1.5-rc.1' }, f.root, { ...f.deps, managed: false, run: run('0.1.4') }), /older than this installation/);
 });
 
@@ -70,7 +75,8 @@ test('unscoped updates use the installed package name', async (t) => {
   const result = await updatePackage({ name: 'arco-workbench', version: '1.0.0' }, f.root, f.deps);
   assert.equal(result.outcome, 'updated');
   assert.equal(f.calls[0][1], 'arco-workbench@latest');
-  assert.equal(f.calls[1].at(-1), 'arco-workbench@1.1.0');
+  assert.equal(f.calls[1][1], 'arco-workbench@1.1.0');
+  assert.equal(f.calls[2].at(-1), join(f.calls[1][f.calls[1].indexOf('--pack-destination') + 1], 'arco-workbench-1.1.0.tgz'));
 });
 
 test('unsafe unscoped names are refused before npm runs', async (t) => {
@@ -89,18 +95,32 @@ test('package update snapshots first and restarts the service after install', as
   // On Windows the update also rewrites the service task in a fresh process
   // (`arco service refresh`), which the fixture records as a third call.
   const refreshes = process.platform === 'win32' || process.platform === 'linux';
-  assert.deepEqual(f.calls.map((args) => args[0]), refreshes ? ['view', 'install', 'service'] : ['view', 'install']);
-  if (refreshes) assert.deepEqual(f.calls[2].slice(0, 2), ['service', 'refresh']);
-  assert.equal(f.calls[1].at(-1), '@scope/arco@1.1.0');
+  assert.deepEqual(f.calls.map((args) => args[0]), refreshes ? ['view', 'pack', 'install', 'service'] : ['view', 'pack', 'install']);
+  if (refreshes) assert.deepEqual(f.calls[3].slice(0, 2), ['service', 'refresh']);
+  assert.equal(f.calls[2].at(-1), join(f.calls[1][f.calls[1].indexOf('--pack-destination') + 1], 'scope-arco-1.1.0.tgz'));
   assert.equal(existsSync(join(f.home, 'package-update.lock')), false);
 });
 
-test('failed package installation restores the archive and restarts the service', async (t) => {
-  const f = fixture(t); f.failInstall();
+test('a failed install restores the launcher package path and restarts the service', async (t) => {
+  const f = fixture(t);
+  const file = join(f.root, 'package.json');
   if (process.platform !== 'win32') symlinkSync('package.json', join(f.root, 'link'));
-  await assert.rejects(updatePackage(manifest, f.root, f.deps), /previous package was restored/);
-  assert.deepEqual(f.calls.map((args) => args[0]), ['view', 'install']);
-  assert.equal(readFileSync(join(f.root, 'package.json'), 'utf8'), '{}');
+  const run = f.deps.run;
+  f.deps.run = (command, args) => {
+    if (args[1] !== 'install') return run(command, args);
+    f.calls.push(args.slice(1));
+    assert.deepEqual(f.actions, ['stop']);
+    assert.equal(readFileSync(args.at(-1), 'utf8'), 'fixture');
+    writeFileSync(file, '{"partial":true}');
+    writeFileSync(join(f.root, 'partial'), 'partial installation');
+    return { status: 1, stderr: 'npm error code EACCES' };
+  };
+  await assert.rejects(updatePackage(manifest, f.root + sep, f.deps), {
+    message: 'Update failed: Package installation failed (EACCES). The previous package was restored. The service was restarted.',
+  });
+  assert.deepEqual(f.calls.map((args) => args[0]), ['view', 'pack', 'install']);
+  assert.equal(readFileSync(file, 'utf8'), '{}');
+  assert.equal(existsSync(join(f.root, 'partial')), false);
   if (process.platform !== 'win32') assert.equal(readlinkSync(join(f.root, 'link')), 'package.json');
   assert.deepEqual(f.actions, ['stop', 'start']);
 });
@@ -108,7 +128,7 @@ test('failed package installation restores the archive and restarts the service'
 test('Windows refuses live processes and fails closed when inspection fails', async (t) => {
   const f = fixture(t); f.deps.platform = 'win32'; f.deps.windowsRunning = async () => true;
   await assert.rejects(updatePackage(manifest, f.root, f.deps), (error) => /Stop all Arco processes/.test(error.message) && !error.message.includes('..'));
-  assert.deepEqual(f.calls.map((args) => args[0]), ['view']);
+  assert.deepEqual(f.calls.map((args) => args[0]), ['view', 'pack']);
   assert.deepEqual(f.actions, ['stop', 'start']);
   await assert.rejects(windowsArcoRunning(() => ({ status: 1, stdout: '' })), /Cannot verify/);
   let expression = '';
@@ -166,7 +186,7 @@ test('a service pid that remains live blocks the update with a clear message', a
   let clock = 0;
   await assert.rejects(updatePackage(manifest, f.root, { ...f.deps, platform: 'win32', kill: () => {}, now: () => clock, sleep: async (ms) => { clock += ms; } }), /service process 123 is still running/);
   assert.deepEqual(f.actions, ['stop', 'start']);
-  assert.deepEqual(f.calls.map((args) => args[0]), ['view']);
+  assert.deepEqual(f.calls.map((args) => args[0]), ['view', 'pack']);
 });
 
 test('an unchanged or older registry version never stops the service', async (t) => {
@@ -176,6 +196,14 @@ test('an unchanged or older registry version never stops the service', async (t)
     else await assert.rejects(updatePackage(manifest, f.root, f.deps), /downgrade/);
     assert.deepEqual(f.actions, []);
   }
+});
+
+test('a changed npm latest version requires a fresh confirmation before download or stop', async (t) => {
+  const f = fixture(t);
+  await assert.rejects(updatePackage(manifest, f.root, { ...f.deps, expected: 'v1.2.0' }),
+    /The latest npm version changed/);
+  assert.deepEqual(f.actions, []);
+  assert.deepEqual(f.calls.map(([action]) => action), ['view']);
 });
 
 test('linked checkouts are refused before any registry or service action', async (t) => {

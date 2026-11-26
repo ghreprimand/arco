@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { arcoHome } from './arcoHome.js';
 import { updateChecker } from './server/updateCheck.js';
 import { APP_VERSION } from './appVersion.js';
+import type { UpdateCheckStatus } from '@arco/shared';
 
 export type UpdateMode = 'service' | 'foreground' | 'docker';
 export function updateMode(platform = process.platform, env: NodeJS.ProcessEnv = process.env): UpdateMode {
@@ -17,7 +18,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 type Status = { outcome: string; message?: string; startedAt?: number; finishedAt?: number; attemptId?: string; fromVersion?: string; target?: string; reportedAt?: number };
 export function createUpdateManager(deps: {
   mode?: () => UpdateMode; home?: () => string; root?: string; env?: NodeJS.ProcessEnv; platform?: NodeJS.Platform;
-  check?: () => Promise<{ latest: string | null; updateAvailable: boolean }>;
+  check?: () => Promise<Pick<UpdateCheckStatus, 'latest' | 'updateAvailable' | 'checkFailure'>>;
   launch?: (command: string, args: string[]) => { status: number | null; error?: Error; stderr?: string | null };
   now?: () => number; version?: string;
 } = {}) {
@@ -59,7 +60,9 @@ export function createUpdateManager(deps: {
     const previous = read();
     if (previous?.outcome === 'running' && now() - (previous.startedAt ?? 0) < 30 * 60_000) return { ok: false, status: 409, error: 'An update is already running.' };
     let latest;
-    try { latest = await check(); } catch { return { ok: false, status: 503, error: 'Release check unavailable. Try again or use npm run arco:update.' }; }
+    const lookupError = packaged ? 'Could not check npm for updates.' : 'Could not check GitHub for releases.';
+    try { latest = await check(); } catch { return { ok: false, status: 503, error: lookupError }; }
+    if (latest.checkFailure) return { ok: false, status: 503, error: lookupError };
     if (!latest.updateAvailable || !latest.latest || !/^v\d+\.\d+\.\d+$/.test(latest.latest)) return { ok: false, status: 409, error: 'No newer stable release is available.' };
     if ((body as { expectedLatest: string }).expectedLatest !== latest.latest) return { ok: false, status: 409, error: 'The latest release changed. Review the new release before updating.' };
     const attempt = { attemptId: randomUUID(), startedAt: now(), fromVersion: version, target: latest.latest };

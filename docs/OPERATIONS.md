@@ -262,11 +262,20 @@ modules cannot be replaced safely. A packaged service can instead use
 Linux, macOS, and Windows. The action interrupts running turns and reports
 completion or rollback after reconnect.
 
-For packaged installs, Arco offers the GitHub release only after its exact
-version is publicly available on npm. If the package is not published or npm
-cannot be reached, the version box says so; use **CHECK NOW** again later. The
-updater checks the confirmed version again before stopping a managed service.
-Source and Docker installs continue to follow GitHub releases.
+Packaged installs check npm's public latest version. The release notes link
+opens the matching GitHub tag. If a check fails, the version box and Settings
+identify the source that could not be checked and mark any previous release as
+stale. Use **CHECK NOW** to retry. The updater checks npm again before
+downloading. If the latest version has changed, confirm the new version first.
+The updater downloads the exact package archive before it stops the service.
+A download failure leaves Arco running and can be retried. Installation uses the
+downloaded archive. npm can still fetch missing dependencies during installation.
+
+If installation fails, the updater restores the previous package and restarts
+the service. If recovery fails, follow the result message and keep the previous
+package snapshot it identifies. This snapshot covers the installed program.
+Arco's saved data stays in its existing home. Source and Docker installs
+continue to follow GitHub releases.
 
 The result appears beside the open update control. When that control is closed,
 a separate result notice remains available with **DISMISS**. The same result is
@@ -436,13 +445,12 @@ interrupts running turns. See [Docker](DOCKER.md) for configuration and backup.
 
 ### Release-check privacy and opt-out
 
-The server makes one request to GitHub 30 seconds after boot and every six
-hours thereafter. CHECK NOW can request an additional check. The request has
-no token, prompt, project path or workflow content. It sends the Arco version
-in `User-Agent: arco/<version>`; GitHub also sees the server's public IP address
-as it does for any HTTP request. Metadata is cached in memory. Unavailable,
-missing or rate-limited releases are quiet after one debug message and retry
-on the next cycle.
+The server makes one request to npm for a packaged install or GitHub for a
+source or Docker install 30 seconds after boot and every six hours thereafter.
+CHECK NOW can request an additional check. The request sends the Arco version
+in `User-Agent: arco/<version>` with no token, prompt, project path or workflow
+content. Metadata is cached in memory. The version box and Settings show a
+failed lookup, and the next check retries.
 
 Turn off **Check for new releases** in Settings to prevent scheduled and manual
 checks. Alternatively, set `ARCO_UPDATE_CHECK=0` in the server process's
@@ -936,7 +944,7 @@ Use the `ARCO_` prefix for Arco-specific environment variables. `ARCO_HOME` relo
 | Var | Default | Purpose |
 |---|---|---|
 | `ARCO_PORT` | `3001` | Server HTTP/WS port |
-| `ARCO_UPDATE_CHECK` | enabled | Set `0` to prevent automatic and manual GitHub release checks; overrides Settings |
+| `ARCO_UPDATE_CHECK` | enabled | Set `0` to prevent automatic and manual release checks; overrides Settings |
 | `ARCO_HOST` | `127.0.0.1` | Server bind address. Loopback by default - the HTTP/WS surface has **no user login**, only the session cookie and Host/Origin check (see Exposure posture). Set `0.0.0.0` only to deliberately expose to the LAN |
 | `ARCO_ALLOWED_HOSTS` | unset | Extra Host names (comma-separated, `*.suffix` wildcards). Exact names also approve the standard server/development HTTP and HTTPS origins; wildcards do not approve browser origins. Kept by the package service |
 | `ARCO_ALLOWED_ORIGINS` | unset | Extra exact HTTP(S) browser origins, including scheme and port, for reverse proxies or custom remote access. Kept by the package service |

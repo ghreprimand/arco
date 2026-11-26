@@ -43,6 +43,15 @@ test('non-service and missing release refuse; failed launcher offers terminal fa
   assert.equal((await broken.start({ expectedLatest: 'v1.1.0' })).status, 503); assert.match(broken.status().result!.message!, /npm run arco:update/);
 });
 
+test('a failed npm lookup at confirmation reports the failure and cannot launch an update', async () => {
+  const manager = createUpdateManager({ mode: () => 'service', env: { ARCO_PACKAGED: '1' },
+    check: async () => ({ latest: 'v1.1.0', updateAvailable: false, checkFailure: 'npm' }),
+    launch: () => assert.fail('a stale release cannot launch the updater'),
+  });
+  assert.deepEqual(await manager.start({ expectedLatest: 'v1.1.0' }),
+    { ok: false, status: 503, error: 'Could not check npm for updates.' });
+});
+
 test('concurrent requests cannot launch two updaters', async (t) => {
   const home = mkdtempSync(join(tmpdir(), 'arco-update-manager-')); t.after(() => rmSync(home, { recursive: true, force: true }));
   let unblock!: () => void;

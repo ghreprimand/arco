@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { useAppUpdateStore } from '../stores/appUpdateStore';
+import { releaseCheckError, useAppUpdateStore } from '../stores/appUpdateStore';
 import { useStartupStore } from '../stores/startupStore';
 import { UpdateAction } from './UpdateAction';
 import { headerActionStyle } from './headerActionStyle';
@@ -38,14 +38,13 @@ export function HeaderVersionBox() {
   const url = notice?.url ?? status?.url ?? null;
   const available = Boolean(latest);
   const checked = status?.checkedAt ? new Date(status.checkedAt).toLocaleString() : 'not yet';
-  const waiting = status?.packageStatus === 'unpublished' ? 'The release is not yet published on npm.'
-    : status?.packageStatus === 'unknown' ? 'Could not confirm npm availability.' : null;
+  const lookupError = releaseCheckError(status);
   const label = updating ? 'UPDATING' : available ? `\u2191 ${plain(latest as string)}` : current || 'version';
   const tip = updating ? 'Updating Arco. It will reconnect after the restart.'
     : available ? `Update available: ${plain(latest as string)}. Click to update.`
     : !checks ? 'Release checks are off. Showing the running version only.'
-    : waiting ? `${waiting} Last checked: ${checked}.` : `Up to date (${current || 'version unknown'}). Last checked: ${checked}.`;
-  const aria = updating ? 'Arco is updating' : available ? `Arco update available: ${plain(latest as string)}. Open update.` : `Arco version ${current || 'unknown'}. ${!checks ? 'Release checks are off.' : waiting || 'Up to date.'} Open version details.`;
+    : lookupError ? `${lookupError} Last checked: ${checked}.` : `Up to date (${current || 'version unknown'}). Last checked: ${checked}.`;
+  const aria = updating ? 'Arco is updating' : available ? `Arco update available: ${plain(latest as string)}. Open update.` : `Arco version ${current || 'unknown'}. ${!checks ? 'Release checks are off.' : lookupError || 'Up to date.'} Open version details.`;
   const check = async () => {
     setAutoConfirm(false); setBusy(true); setError('');
     try { await refresh(true); } catch { setError('Release check unavailable'); } finally { setBusy(false); }
@@ -93,9 +92,8 @@ export function HeaderVersionBox() {
         {url && <div><a href={url} target="_blank" rel="noopener noreferrer">Release notes</a></div>}
       </> : <>
         <div>Running: {current || 'unknown'}</div>
-        <div>{checks ? `Latest known release: ${status?.latest ? plain(status.latest) : 'none yet'}` : 'Release checks are off.'}</div>
-        {checks && status?.packageStatus === 'unpublished' && <div>Not yet published on npm. Check again later.</div>}
-        {checks && status?.packageStatus === 'unknown' && <div>Could not confirm npm availability. Check again later.</div>}
+        <div>{checks ? `${lookupError && status?.latest ? 'Previous release (stale)' : 'Latest known release'}: ${status?.latest ? plain(status.latest) : 'none yet'}` : 'Release checks are off.'}</div>
+        {checks && lookupError && <div role="status">{lookupError} Use CHECK NOW to retry.</div>}
         {checks && <div>Last checked: {checked}</div>}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 6 }}>
           <button type="button" disabled={busy || !checks} onClick={() => void check()}>CHECK NOW</button>

@@ -202,8 +202,9 @@ export const maintenance: Section[] = [
   <p>
   A release found with CHECK NOW appears
   in the version box; select UPDATE AND RESTART to open its confirmation.
-  Packaged installs offer the update only after the exact release is available
-  on npm. If npm cannot be checked, use CHECK NOW again later.
+  Packaged installs check npm. Source and Docker installs check GitHub. If a
+  lookup fails, Arco names the source and marks any previous result as stale.
+  Use CHECK NOW to retry.
   </p>
   <Sub>Settings row and automatic checks</Sub>
   <p>
@@ -232,11 +233,14 @@ export const maintenance: Section[] = [
   />
   <p>
   For a packaged service, the action runs the packaged{' '}
-  <Code>arco update</Code> path, stops running turns, and reports
-  completion or rollback after reconnect. Arco checks the confirmed package
-  again before stopping the service. On Windows, the service stop
-  targets the matching service command and home configuration; the update
-  refuses to proceed if the stop cannot be verified.
+  <Code>arco update</Code> path. Arco downloads the exact package before stopping
+  the service. A download failure leaves Arco running. If installation fails,
+  Arco restores the previous package and restarts the service. If recovery fails,
+  keep the snapshot identified in the result and follow its instructions.
+  </p>
+  <p>
+  On Windows, the service stop targets the matching service command and home
+  configuration. The update refuses to proceed if the stop cannot be verified.
   </p>
   <p>
   The result stays beside the open update control. Closing that control shows

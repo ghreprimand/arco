@@ -146,18 +146,18 @@ IMPORT in Settings > SKILLS and the composer SKILLS menu fetches nothing until R
 
 ## Outbound release checks
 
-The server requests the latest Arco release from
-`https://api.github.com/repos/ghreprimand/arco/releases/latest` 30 seconds after
-boot and every six hours, or when CHECK NOW is selected in Settings. It sends
-`Accept: application/vnd.github+json` and `User-Agent: arco/<version>` with no
-authentication token. GitHub sees the requesting server's public IP address;
-no project paths, prompts, credentials or conversation content are sent.
+Thirty seconds after boot, every six hours, or when **CHECK NOW** is selected,
+the server looks up the latest Arco release. Packaged installs request
+`https://registry.npmjs.org/arco-workbench/latest`. Source and Docker installs
+request `https://api.github.com/repos/ghreprimand/arco/releases/latest`. The
+requests send the installed version in `User-Agent: arco/<version>` with no
+authentication token, project path, prompt or conversation content.
 
 Release metadata is cached in memory. The response can produce a release-note
-link and a notice, but never an automatic download, installation or command.
+link and a notice. Downloads and installations require a separate action.
 Redirects are refused and release links are restricted to this repository on
-GitHub. Requests time out after five seconds. An unavailable, missing or
-rate-limited release is silent after one debug log; a later cycle retries.
+GitHub. Requests time out after five seconds. The version box and Settings
+identify failures and mark any earlier result as stale.
 
 Turn off **Check for new releases** in Settings > Advanced > CLI and runtime
 versions, or supply `ARCO_UPDATE_CHECK=0` to the server process. The environment
@@ -165,10 +165,11 @@ setting wins, including for manual checks. DISMISS saves only the dismissed
 release version in global settings; later versions can notify again. Release
 announcements use the server log, not workflow transcripts. A confirmed
 **UPDATE AND RESTART** starts a separate local updater. For a package install
-running as a user service (Linux, macOS or Windows) it copies the installed
-package aside, stops the service, installs the new version of `arco-workbench`
-globally with npm (install scripts off), starts the service again and restores
-the copy on failure. For a source checkout running as a Linux user service it
+running as a user service (Linux, macOS or Windows), it rechecks the latest
+version and downloads the archive from the public npm registry. Then it copies
+the installed package aside, stops the service, installs from the archive
+with npm (install scripts off) and starts the service. An install failure
+restores the previous package and restarts the service. For a source checkout running as a Linux user service it
 fetches the release tags from the checkout's `origin`, uses npm to install the
 selected release's dependencies and restarts the service; it refuses tracked
 edits and unpushed local commits and attempts rollback on failure. Those

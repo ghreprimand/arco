@@ -2473,7 +2473,7 @@ Routes not covered above. Each is served by the module named in the last column.
 | Route | Purpose | Module |
 | --- | --- | --- |
 | `GET /api/app/version` | Running Arco version and build identity (`/healthz` adds liveness fields). | `http/appVersionRoutes.ts` |
-| `GET`, `POST /api/update-check` | Release-check status; `POST` runs a check now (CHECK NOW). | `http/router.ts`, `updateCheck.ts` |
+| `GET`, `POST /api/update-check` | Release-check status. `POST` runs **CHECK NOW**. A lookup failure sets `checkFailure` to `npm` or `github`, preserves the previous release as stale and clears `updateAvailable`. | `http/router.ts`, `updateCheck.ts` |
 | `GET /api/installation-history` | Whether this Arco home has completed setup or holds saved work, for the Welcome flow. | `http/router.ts` |
 | `GET /api/connections`, `POST /api/connections/check?provider=` | The Connections catalog, and one provider's connection check (a successful check enables that provider). | `http/connectionsRoutes.ts` |
 | `GET /api/auth-login/session?provider=`, `POST /api/auth-login/code`, `POST /api/auth-login/cancel` | The current sign-in session for a provider, the pasted browser code (Claude) and cancel. | `http/authLoginRoutes.ts` |
