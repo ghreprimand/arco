@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- KEEP AS PROJECT lets you choose a new research folder if the saved folder was removed. The Quick research or saved Chat stays available.
+
 - A shortcut added to a phone's home screen from `/mobile` now opens `/mobile` instead of the desktop workbench. Shortcuts added from the workbench address still open the workbench. Add the shortcut again from `/mobile` if one made earlier opens the wrong view.
 
 - In Connections, Disable provider and the Claude transport switch can no longer be used at the same time, so a quick click on Use Claude CLI instead cannot leave Claude disabled.

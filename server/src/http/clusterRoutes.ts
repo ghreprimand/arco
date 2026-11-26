@@ -1,4 +1,4 @@
-import { readQuickPromotion, requestQuickPromotion } from '../research/quickPromotion.js';
+import { QuickPromotionFolderMissingError, readQuickPromotion, requestQuickPromotion } from '../research/quickPromotion.js';
 import { previewResearchExport, prepareResearchExport, confirmResearchExport } from '../research/exportResults.js';
 import { antigravityChatWorkspace } from '../chatMode.js';
 import { sendResearchToFolder, sendResearchToPlan, stageResearchForComposer, confirmResearchComposer, recordResearchExport, previewResearchStart, prepareResearchStart, confirmResearchStart } from '../research/sendToProject.js';
@@ -35,6 +35,13 @@ import { formatBoardForModel } from '../project/taskLedger.js';
 import type { HttpDeps } from './router.js';
 import type { LedgerTaskStatus, TaskLink } from '@arco/shared';
 
+function quickPromotionError(error: unknown) {
+  return {
+    error: error instanceof Error ? error.message : 'Could not keep the project.',
+    ...(error instanceof QuickPromotionFolderMissingError ? { code: 'research_folder_missing' } : {}),
+  };
+}
+
 // Cluster / sandbox / codebase-memory route group — peeled verbatim from
 // router.ts (see docs/ARCHITECTURE.md). Returns true when a route
 // in this group matched (request answered), false otherwise so the caller
@@ -57,7 +64,7 @@ export async function tryHandleClusterRoutes(
         const journal = await saved.requestSavedQuickPromotion(savedPromotion[1], body.folderRoot);
         reply(202, { phase: journal.phase, message: journal.message });
       }
-    } catch (error) { reply(400, { error: error instanceof Error ? error.message : 'Could not keep the project.' }); }
+    } catch (error) { reply(400, quickPromotionError(error)); }
     return true;
   }
   const promotion = req.url ? /^\/api\/research\/([0-9a-f-]{36})\/keep-as-project$/.exec(req.url.split('?')[0]) : null;
@@ -74,7 +81,7 @@ export async function tryHandleClusterRoutes(
         const journal = await requestQuickPromotion(promotion[1], body.folderRoot);
         reply(202, { phase: journal.phase, message: journal.message });
       }
-    } catch (error) { reply(400, { error: error instanceof Error ? error.message : 'Could not keep the project.' }); }
+    } catch (error) { reply(400, quickPromotionError(error)); }
     return true;
   }
   const chatFolder = req.method === 'GET' && req.url ? /^\/api\/antigravity-chat-folder\/([0-9a-f-]{36})$/.exec(req.url) : null;

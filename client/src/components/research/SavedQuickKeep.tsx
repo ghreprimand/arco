@@ -38,8 +38,11 @@ export function SavedQuickKeep({ chatId }: { chatId: string }) {
   const keep = async (folderRoot?: string) => {
     try {
       const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(folderRoot ? { folderRoot } : {}) });
-      const body = await response.json() as { phase?: string; message?: string; error?: string };
-      if (!response.ok) throw new Error(body.error || 'Could not keep the project.');
+      const body = await response.json() as { phase?: string; message?: string; error?: string; code?: string };
+      if (!response.ok) {
+        if (body.code === 'research_folder_missing') setChoosing(true);
+        throw new Error(body.error || 'Could not keep the project.');
+      }
       setStatus({ phase: body.phase ?? 'waiting', message: body.message }); setChoosing(false);
     } catch (error) { setStatus({ phase: 'error', message: error instanceof Error ? error.message : 'Could not keep the project.' }); }
   };
@@ -48,9 +51,10 @@ export function SavedQuickKeep({ chatId }: { chatId: string }) {
     {status.phase !== 'done' && <button type="button" disabled={['waiting', 'copying', 'switching'].includes(status.phase)} onClick={() => folder ? void keep() : setChoosing(true)} style={{ minHeight: 44 }}>KEEP AS PROJECT</button>}
     {status.phase === 'waiting' && <div role="status">WAITING — the Chat stays usable until the copy starts.</div>}
     {['copying', 'switching'].includes(status.phase) && <div role="status">COPYING — the project is being kept.</div>}
-    {status.message && <div role="status">{status.message}</div>}
+    {status.message && (!choosing || status.phase !== 'error') && <div role="status">{status.message}</div>}
     {status.message === 'Could not refresh the project status.' && <button type="button" onClick={() => void refresh()} style={{ minHeight: 44 }}>RETRY STATUS</button>}
     {choosing && <DialogShell title="Choose the research folder" onClose={() => setChoosing(false)}>
+      {status.phase === 'error' && status.message && <p role="alert">{status.message}</p>}
       <p>A project folder will be created here and this location saved for future research projects.</p>
       <DirectoryBrowser inline withFilename={false} roots={roots} title="Choose research folder" confirmLabel="KEEP HERE" onDone={choice => { if (choice) void keep(choice.dir); else setChoosing(false); }} />
     </DialogShell>}

@@ -48,8 +48,11 @@ export function QuickResearchOverview({ clusterId, research, onResults }: { clus
   const keep = async (folderRoot?: string) => {
     try {
       const response = await fetch(`/api/research/${clusterId}/keep-as-project`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(folderRoot ? { folderRoot } : {}) });
-      const body = await response.json() as { phase?: string; message?: string; error?: string };
-      if (!response.ok) throw new Error(body.error || 'Could not keep the project.');
+      const body = await response.json() as { phase?: string; message?: string; error?: string; code?: string };
+      if (!response.ok) {
+        if (body.code === 'research_folder_missing') setChoosing(true);
+        throw new Error(body.error || 'Could not keep the project.');
+      }
       setPromotion({ phase: body.phase ?? 'waiting', message: body.message }); setChoosing(false);
     } catch (error) { setPromotion({ phase: 'error', message: error instanceof Error ? error.message : 'The copy did not complete. Quick research is still available.' }); }
   };
@@ -80,8 +83,9 @@ export function QuickResearchOverview({ clusterId, research, onResults }: { clus
     </div>
     {promotion.phase === 'waiting' && <div role="status">WAITING — research stays usable until the copy starts.</div>}
     {['copying', 'switching'].includes(promotion.phase) && <div role="status">COPYING — the project is being kept.</div>}
-    {promotion.message && <div role="status">{promotion.message}</div>}
+    {promotion.message && (!choosing || promotion.phase !== 'error') && <div role="status">{promotion.message}</div>}
     {choosing && <DialogShell title="Choose the research folder" onClose={() => setChoosing(false)}>
+      {promotion.phase === 'error' && promotion.message && <p role="alert">{promotion.message}</p>}
       <p>A project folder will be created here and this location saved for future research projects.</p>
       <DirectoryBrowser inline withFilename={false} roots={roots} title="Choose research folder" confirmLabel="KEEP HERE" onDone={choice => { if (choice) void keep(choice.dir); else setChoosing(false); }} />
     </DialogShell>}

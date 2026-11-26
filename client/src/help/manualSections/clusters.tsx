@@ -524,7 +524,7 @@ export const clusters: Section[] = [
   read or change it. BOARD is not shown in a research project.
   </p>
   <p>
-  Quick research runs one round in Arco without a research folder. Its brief and researcher rows sit above the Director conversation; select a row to inspect activity. RESULTS opens the released material. KEEP AS PROJECT waits for idle members and creates a research folder without rerunning the round.
+  Quick research runs one round in Arco without a research folder. Its brief and researcher rows sit above the Director conversation; select a row to inspect activity. RESULTS opens the released material. KEEP AS PROJECT waits for idle members and creates a research folder without rerunning the round. If the saved research folder is gone, choose another folder and select KEEP HERE. The Quick research stays open while you choose.
   </p>
   <p>
   Closing Quick research keeps the Director conversation in Past Chats and offers to attach unsent researcher files. Open the saved Chat to use KEEP AS PROJECT after closing. The saved conversation is included in the project; deleting the Chat removes its Quick research sources but leaves a project already kept.

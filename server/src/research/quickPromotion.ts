@@ -77,6 +77,29 @@ function schedule(clusterId: string): void {
   timer.unref(); timers.set(clusterId, timer);
 }
 
+export class QuickPromotionFolderMissingError extends Error {}
+
+export async function resolveQuickPromotionRoot(source: string, folderRoot?: string): Promise<string> {
+  const settings = await readSettings();
+  const selected = folderRoot?.trim();
+  const requested = selected || settings.researchFolder;
+  if (!requested || !isAbsolute(requested)) throw new Error('Choose a research folder.');
+
+  let root: string;
+  try {
+    root = safeDirectory(requested);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    throw new QuickPromotionFolderMissingError(selected
+      ? 'The folder you chose is gone. Choose another folder.'
+      : 'The saved research folder is gone. Choose a new folder to keep this research.');
+  }
+
+  if (isPathWithin(source, root) || isPathWithin(root, source)) throw new Error('Choose a research folder outside the Quick research workspace.');
+  if (selected && root !== settings.researchFolder) await patchSettings({ researchFolder: root });
+  return root;
+}
+
 export async function requestQuickPromotion(clusterId: string, folderRoot?: string): Promise<QuickPromotionJournal> {
   return withFileLock(journalPath(clusterId), async () => {
     const current = await readQuickPromotion(clusterId);
@@ -84,12 +107,7 @@ export async function requestQuickPromotion(clusterId: string, folderRoot?: stri
     const state = await loadResearch(clusterId);
     if (!state?.quick || state.closedAt) throw new Error('This is not an open Quick research.');
     if (!/^[0-9a-f-]{36}$/i.test(state.projectId) || resolve(state.folder) !== resolve(join(await fs.realpath(arcoHome()), 'chat-workspaces', state.projectId)) || (await fs.lstat(state.folder)).isSymbolicLink()) throw new Error('The Quick research workspace is unavailable.');
-    const settings = await readSettings();
-    const requested = settings.researchFolder || folderRoot?.trim();
-    if (!requested || !isAbsolute(requested)) throw new Error('Choose a research folder.');
-    const root = safeDirectory(requested);
-    if (isPathWithin(state.folder, root) || isPathWithin(root, state.folder)) throw new Error('Choose a research folder outside the Quick research workspace.');
-    if (!settings.researchFolder) await patchSettings({ researchFolder: root });
+    const root = await resolveQuickPromotionRoot(state.folder, folderRoot);
     const journal: QuickPromotionJournal = { clusterId, projectId: state.projectId, directorWorkflowId: state.directorWorkflowId, source: state.folder, root, phase: 'waiting' };
     await save(journal); schedule(clusterId); return journal;
   });

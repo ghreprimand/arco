@@ -1128,15 +1128,17 @@ test('keeping Quick research waits for idle members and removes its source after
   const { persistInitialMeta } = await import('../workflowMeta.js');
   const { initWorkflowStore, persistAndStampSeq, flushWorkflowBuffer } = await import('../workflowStore.js');
   const { writeProjectFiles } = await import('./researchFolder.js');
-  const { requestQuickPromotion, attemptQuickPromotion, readQuickPromotion, recoverQuickPromotion } = await import('./quickPromotion.js');
-  const { patchSettings } = await import('../settings.js');
+  const { QuickPromotionFolderMissingError, requestQuickPromotion, attemptQuickPromotion, readQuickPromotion, recoverQuickPromotion } = await import('./quickPromotion.js');
+  const { patchSettings, readSettings } = await import('../settings.js');
   const p = await project(), projectId = randomUUID(), source = join(arcoHome(), 'chat-workspaces', projectId), root = join(p.root, 'saved');
   await fs.mkdir(source, { recursive: true }); await fs.mkdir(root);
   for (const sub of ['rounds', 'syntheses', 'sources']) await fs.mkdir(join(source, sub));
-  // requestQuickPromotion prefers settings.researchFolder over the folderRoot
-  // argument, so point settings at this test's root; a stale deleted path from
-  // an earlier run would otherwise make safeDirectory throw ENOENT.
-  await patchSettings({ researchFolder: root });
+  // Give the exercise its own saved folder, then remove it before the first Keep.
+  const previousRoot = (await readSettings()).researchFolder ?? '';
+  const removedRoot = join(p.root, 'removed');
+  await fs.mkdir(removedRoot);
+  await patchSettings({ researchFolder: removedRoot });
+  await fs.rmdir(removedRoot);
   try {
     await updateResearch(p.clusterId, state => { state.projectId = projectId; state.folder = source; state.quick = true; });
     assert.ok(await clusterStore.rebindResearchCwd(p.clusterId, p.folder, source));
@@ -1148,7 +1150,15 @@ test('keeping Quick research waits for idle members and removes its source after
     await writeProjectFiles((await loadResearch(p.clusterId))!);
     for (const id of [p.director, p.a, p.b]) workflows.set(id, { busy: id === p.director, config: { ...config, workingDirectory: id === p.director ? source : p.membersCwd }, primary: { provider: id === p.director ? 'claude' : 'ollama', model: 'fixture', effort: 'low' }, manager: {}, observers: new Set(), queue: { steering: [], followUp: [] } } as any);
     workflowCwds.set(p.director, source);
-    assert.equal((await requestQuickPromotion(p.clusterId, root)).phase, 'waiting');
+    await assert.rejects(requestQuickPromotion(p.clusterId), QuickPromotionFolderMissingError);
+    assert.equal((await readSettings()).researchFolder, removedRoot);
+    assert.equal(await readQuickPromotion(p.clusterId), null);
+    assert.equal((await loadResearch(p.clusterId))?.folder, source);
+    assert.equal(await fs.readFile(join(source, 'synthesis.md'), 'utf8'), 'Retained answer');
+    const queued = await requestQuickPromotion(p.clusterId, root);
+    assert.equal(queued.phase, 'waiting');
+    assert.equal(queued.root, root);
+    assert.equal((await readSettings()).researchFolder, root);
     await attemptQuickPromotion(p.clusterId); assert.equal((await readQuickPromotion(p.clusterId))?.phase, 'waiting');
     workflows.get(p.director)!.busy = false;
     persistAndStampSeq(source, p.director, { type: 'system_notice', workflowId: p.director, content: 'Pending note' });
@@ -1175,6 +1185,7 @@ test('keeping Quick research waits for idle members and removes its source after
     assert.equal((await clusterStore.readCluster(p.clusterId))?.cwd, journal!.target);
     assert.equal(workflows.get(p.director)?.config.workingDirectory, journal!.target);
   } finally {
+    await patchSettings({ researchFolder: previousRoot });
     for (const id of [p.director, p.a, p.b]) { workflows.delete(id); workflowCwds.delete(id); }
     setBeforeClusterDelete(null); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true }); await fs.rm(source, { recursive: true, force: true });
   }
@@ -1242,10 +1253,14 @@ test('a saved Quick Chat can become a project and its deletion removes only Chat
   const { requestSavedQuickPromotion, attemptSavedQuickPromotion, readSavedQuickPromotion } = await import('./savedQuickPromotion.js');
   const { deleteQuickResearchForChat } = await import('./quickResearchChat.js');
   const { readClosedRecord } = await import('./researchLibrary.js');
-  const { patchSettings } = await import('../settings.js');
+  const { patchSettings, readSettings } = await import('../settings.js');
   const p = await project(), id = randomUUID(), source = join(arcoHome(), 'chat-workspaces', id), root = join(p.root, 'kept');
   await fs.mkdir(source, { recursive: true }); await fs.cp(p.folder, source, { recursive: true }); await fs.mkdir(root);
-  await patchSettings({ researchFolder: root });
+  const previousRoot = (await readSettings()).researchFolder ?? '';
+  const removedRoot = join(p.root, 'removed');
+  await fs.mkdir(removedRoot);
+  await patchSettings({ researchFolder: removedRoot });
+  await fs.rmdir(removedRoot);
   try {
     await updateResearch(p.clusterId, state => { state.projectId = id; state.folder = source; state.quick = true; });
     assert.ok(await clusterStore.rebindResearchCwd(p.clusterId, p.folder, source));
@@ -1259,7 +1274,14 @@ test('a saved Quick Chat can become a project and its deletion removes only Chat
     await initWorkflowStore(chatStorageDir(id), id);
     persistAndStampSeq(chatStorageDir(id), id, { type: 'user_message_echo', workflowId: id, content: 'Later follow-up', timestamp: Date.now() });
     await flushWorkflowBuffer(chatStorageDir(id), id);
-    assert.equal((await requestSavedQuickPromotion(id, root)).phase, 'waiting');
+    const { QuickPromotionFolderMissingError } = await import('./quickPromotion.js');
+    await assert.rejects(requestSavedQuickPromotion(id), QuickPromotionFolderMissingError);
+    assert.equal(await readSavedQuickPromotion(id), null);
+    assert.equal((await readClosedRecord(id))?.folder, source);
+    const queued = await requestSavedQuickPromotion(id, root);
+    assert.equal(queued.phase, 'waiting');
+    assert.equal(queued.root, root);
+    assert.equal((await readSettings()).researchFolder, root);
     await attemptSavedQuickPromotion(id);
     const journal = await readSavedQuickPromotion(id);
     assert.equal(journal?.phase, 'done', journal?.message);
@@ -1270,6 +1292,7 @@ test('a saved Quick Chat can become a project and its deletion removes only Chat
     assert.equal((await readClosedRecord(id))?.folder, journal!.target);
     assert.ok((await fs.stat(join(journal!.target!, 'research.json'))).isFile());
   } finally {
+    await patchSettings({ researchFolder: previousRoot });
     setBeforeClusterDelete(null); await clusterStore.deleteCluster(p.clusterId); await fs.rm(p.root, { recursive: true, force: true });
     await fs.rm(source, { recursive: true, force: true }); await fs.rm(chatStorageDir(id), { recursive: true, force: true });
   }

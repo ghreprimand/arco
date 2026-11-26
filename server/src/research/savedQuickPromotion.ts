@@ -6,13 +6,12 @@ import { arcoHome } from '../arcoHome.js';
 import { antigravityChatWorkspace, chatStorageDir } from '../chatMode.js';
 import { readLogLines } from '../eventLog.js';
 import { isPathWithin, safeDirectory } from '../fileAccessPolicy.js';
-import { readSettings, patchSettings } from '../settings.js';
 import { workflows } from '../server/state.js';
 import { flushWorkflowBuffer } from '../workflowStore.js';
 import { createResearchFolder, writeProjectFiles } from './researchFolder.js';
 import { closedResearchRecordPath } from './researchClose.js';
 import { addToLibrary, readClosedRecord } from './researchLibrary.js';
-import { beginQuickPromotion, copyWorkspace, finishQuickPromotion, yieldQuickPromotionToMessage, type ActivePromotion } from './quickPromotion.js';
+import { beginQuickPromotion, copyWorkspace, finishQuickPromotion, resolveQuickPromotionRoot, yieldQuickPromotionToMessage, type ActivePromotion } from './quickPromotion.js';
 
 interface Journal { projectId: string; source: string; root: string; target?: string; phase: 'waiting' | 'copying' | 'switching' | 'done' | 'error'; message?: string }
 const validId = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -57,12 +56,7 @@ export async function requestSavedQuickPromotion(id: string, folderRoot?: string
     const state = await savedRecord(id);
     const source = antigravityChatWorkspace(id);
     if (!state?.quick || !state.closedAt || resolve(state.folder) !== resolve(source) || (await fs.lstat(source)).isSymbolicLink()) throw new Error('This saved Chat has no Quick research to keep.');
-    const settings = await readSettings();
-    const chosen = settings.researchFolder || folderRoot?.trim();
-    if (!chosen || !isAbsolute(chosen)) throw new Error('Choose a research folder.');
-    const root = safeDirectory(chosen);
-    if (isPathWithin(source, root) || isPathWithin(root, source)) throw new Error('Choose a research folder outside the Quick research workspace.');
-    if (!settings.researchFolder) await patchSettings({ researchFolder: root });
+    const root = await resolveQuickPromotionRoot(source, folderRoot);
     const journal: Journal = { projectId: id, source, root, phase: 'waiting' };
     await save(journal); schedule(id); return journal;
   });
