@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+## v0.2.0 - 2026-11-26
+
 - Voice development smokes launch with disposable state. The Codex quality smoke signs in to its own temporary profile.
 
 - Saving a file that contains accented letters, non-Latin text or emoji no longer corrupts characters that straddle a transfer boundary.
