@@ -26,8 +26,9 @@ test('B173 malformed settings never reach appearance or live state',async()=>{
 test('B173 refused provider toggle keeps the complete settings when reload also fails',async()=>{
   const source=await readFile(new URL('../components/SettingsPanel.tsx',import.meta.url),'utf8');
   const code=source.slice(source.indexOf('  const toggleProviderEnabled ='),source.indexOf('  const commitOllamaBaseUrl ='));
+  const helper=source.slice(source.indexOf('export function isProviderOn('),source.indexOf('\nfunction ProviderRow(')).replace('export function','function');
   const original={enabledProviders:{claude:true},themeId:'fixture',uiScale:1.5,operatorName:'fixture'};let live:any=original;
-  const transformed=await transform(code+'\nreturn toggleProviderEnabled;',{loader:'ts'});
+  const transformed=await transform(helper+'\n'+code+'\nreturn toggleProviderEnabled;',{loader:'ts'});
   const run=new Function('savingProvider','settings','setSavingProvider','setSettings','fetch','readSavedSettings',transformed.code)(null,original,()=>{},(s:any)=>{live=s;},async()=>new Response('{"error":"unavailable"}',{status:500}),async()=>{throw Error('refused');});
   await run('claude');assert.equal(live,original);
 });

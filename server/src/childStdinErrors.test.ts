@@ -46,14 +46,26 @@ for (const [name, provider] of [['Claude CLI', ClaudeProvider], ['Codex CLI', Co
     } finally { child.emit('exit', 1, null); child.emit('close', 1, null); t.mock.restoreAll(); syncBuiltinESMExports(); }
   });
 }
-test('login code submission handles asynchronous stdin errors', t => {
+test('login code submission handles asynchronous stdin errors', async t => {
   const child = fakeChild();
+  const pathKey = Object.keys(process.env).find(key => key.toUpperCase() === 'PATH') ?? 'PATH';
+  const extKey = Object.keys(process.env).find(key => key.toUpperCase() === 'PATHEXT') ?? 'PATHEXT';
+  const previousPath = process.env[pathKey];
+  const previousExt = process.env[extKey];
+  await writeFile(join(home, 'fixture.cmd'), '');
+  process.env[pathKey] = home;
+  process.env[extKey] = '.CMD';
   t.mock.method(childProcess, 'spawn', (() => child) as any); syncBuiltinESMExports();
   try {
-    startLoginSession('claude', 'fixture');
+    const session = startLoginSession('claude', 'fixture');
+    assert.equal(session.status, 'pending', `fixture login failed to start: ${session.status}`);
     assert.equal(submitLoginCode('claude', 'fixture-code').ok, true);
     closedInput(child); child.emit('exit', 1);
-  } finally { cancelLoginSession('claude'); t.mock.restoreAll(); syncBuiltinESMExports(); }
+  } finally {
+    cancelLoginSession('claude'); t.mock.restoreAll(); syncBuiltinESMExports();
+    if (previousPath === undefined) delete process.env[pathKey]; else process.env[pathKey] = previousPath;
+    if (previousExt === undefined) delete process.env[extKey]; else process.env[extKey] = previousExt;
+  }
 });
 for (const [name, connect] of [['probe', probeServer], ['session', connectServer]] as const) {
   test(`MCP ${name} handles stdin errors while initializing and settles on exit`, async t => {

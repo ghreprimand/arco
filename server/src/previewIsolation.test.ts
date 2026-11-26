@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { createConnection } from 'node:net';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { PreviewGateways, parsePreviewPorts } from './previewProxy.js';
@@ -8,19 +9,39 @@ import { checkRequestOrigin } from './http/originGuard.js';
 import { WebSocket, WebSocketServer } from 'ws';
 
 async function listen(server: http.Server) { server.listen(0, '127.0.0.1'); await once(server, 'listening'); return (server.address() as { port: number }).port; }
-async function fixture(run: (context: { gateway: PreviewGateways; backend: number; seen: http.IncomingHttpHeaders[]; range: number; workflows: Map<string, number> }) => Promise<void>) {
+interface Fixture {
+  gateway: PreviewGateways;
+  backend: number;
+  seen: http.IncomingHttpHeaders[];
+  range: string;
+  occupiedPort: number;
+  selection: { range: string; excluded: number[] };
+  workflows: Map<string, number>;
+}
+async function fixture(run: (context: Fixture) => Promise<void>) {
   const seen: http.IncomingHttpHeaders[] = [];
   const backendServer = http.createServer((req, res) => { seen.push(req.headers); for (const name of ['Alt-Svc', 'Report-To', 'Reporting-Endpoints', 'NEL', 'Public-Key-Pins', 'Public-Key-Pins-Report-Only']) res.setHeader(name, 'fixture'); res.setHeader('Clear-Site-Data', '"cookies", "storage"'); res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains'); res.setHeader('Set-Cookie', ['arco_session_3001=poison; Path=/', 'app_cookie=ok; Path=/', 'domain_cookie=bad; Domain=localhost; Path=/']); res.end(req.url); });
   const backend = await listen(backendServer);
   const socketServer = new WebSocketServer({ server: backendServer });
   socketServer.on('headers', headers => headers.push(...['Alt-Svc', 'Report-To', 'Reporting-Endpoints', 'NEL', 'Public-Key-Pins', 'Public-Key-Pins-Report-Only'].map(name => `${name}: fixture`), 'Clear-Site-Data: "cookies"', 'Strict-Transport-Security: max-age=31536000', 'Set-Cookie: domain_cookie=bad; Domain=localhost', 'Set-Cookie: app_cookie=ok; Path=/'));
   socketServer.on('connection', (socket, req) => { seen.push(req.headers); socket.send('hmr-fixture'); socket.on('message', data => socket.send(data)); });
-  // Temporary free ports avoid competing with other local test suites.
-  const probe = http.createServer(); const range = await listen(probe); await new Promise<void>(resolve => probe.close(() => resolve()));
+  // Keep the known occupied port bound. The other ports are candidates only:
+  // the OS can assign them to a different listener or to a client connection.
+  const occupied = http.createServer();
+  const occupiedPort = await listen(occupied);
+  const start = Math.min(occupiedPort, 65535 - 99);
+  const range = `${start}-${start + 99}`;
+  const selection = { range, excluded: [] as number[] };
   const workflows = new Map([['first', backend], ['second', backend], ['third', backend]]);
-  const gateway = new PreviewGateways({ host: '127.0.0.1', range: async () => `${range}-${range + 2}`, lookup: id => workflows.get(id), excludedPorts: () => [] });
-  try { await run({ gateway, backend, seen, range, workflows }); }
-  finally { gateway.close(); for (const socket of socketServer.clients) socket.terminate(); socketServer.close(); backendServer.closeAllConnections(); await new Promise<void>(resolve => backendServer.close(() => resolve())); }
+  const gateway = new PreviewGateways({ host: '127.0.0.1', range: async () => selection.range, lookup: id => workflows.get(id), excludedPorts: () => selection.excluded });
+  try { await run({ gateway, backend, seen, range, occupiedPort, selection, workflows }); }
+  finally {
+    gateway.close();
+    for (const socket of socketServer.clients) socket.terminate();
+    socketServer.close();
+    backendServer.closeAllConnections();
+    await Promise.all([occupied, backendServer].map(server => new Promise<void>(resolve => server.close(() => resolve()))));
+  }
 }
 const control = 'http://127.0.0.1:3001';
 const address = (port: number) => `http://127.0.0.1:${port}`;
@@ -62,19 +83,51 @@ test('L02: same-site previews cannot read another preview or the operator API, e
   for (const method of ['GET', 'POST', 'OPTIONS']) assert.equal(checkRequestOrigin({ method, url: '/api/settings', headers: { host: '127.0.0.1:3001', origin: address(first.port) }, socket: { localPort: 3001 } } as http.IncomingMessage).ok, false);
 }));
 
-test('L02: lazy allocation skips occupied and excluded ports, shares a workflow and releases the last observer', async () => fixture(async ({ gateway, range, backend }) => {
-  const occupied = http.createServer(); occupied.listen(range, '127.0.0.1'); await once(occupied, 'listening');
+test('L02: lazy allocation skips occupied and excluded ports, shares a workflow and releases the last observer', async (t) => fixture(async ({ gateway, range, backend, occupiedPort, selection }) => {
+  selection.range = `${occupiedPort}-${occupiedPort}`;
+  await assert.rejects(gateway.acquire('first', control), /No preview port is free.*PREVIEW PORTS/);
+
+  selection.range = range;
+  const first = await gateway.acquire('first', control);
+  const other = await gateway.acquire('first', control);
+  const second = await gateway.acquire('second', control);
+  assert.notEqual(first.port, occupiedPort);
+  assert.equal(other.port, first.port);
+  assert.notEqual(second.port, first.port);
+
+  const lower = Math.min(first.port, second.port), upper = Math.max(first.port, second.port);
+  selection.range = `${lower}-${upper}`;
+  for (let port = lower + 1; port < upper; port++) {
+    if (port !== backend) selection.excluded.push(port);
+  }
+  await assert.rejects(gateway.acquire('third', control), /No preview port is free.*PREVIEW PORTS/);
+
+  const connection = createConnection({ host: '127.0.0.1', port: first.port });
   try {
-    const first = await gateway.acquire('first', control), other = await gateway.acquire('first', control);
-    assert.equal(first.port, range + 1); assert.equal(other.port, first.port);
-    const second = await gateway.acquire('second', control); assert.equal(second.port, range + 2);
-    await assert.rejects(gateway.acquire('third', control), /No preview port is free.*PREVIEW PORTS/);
-    gateway.release('first', first.id); assert.equal(gateway.renew('first', other.id), true);
-    gateway.release('first', other.id); assert.equal(gateway.renew('first', other.id), false);
-    const third = await gateway.acquire('third', control); assert.equal(third.port, range + 1);
-    const excluded = new PreviewGateways({ host: '127.0.0.1', range: async () => `${range}-${range}`, lookup: () => backend, excludedPorts: () => [range] });
-    try { await assert.rejects(excluded.acquire('fixture', control), /No preview port is free/); } finally { excluded.close(); }
-  } finally { await new Promise<void>(resolve => occupied.close(() => resolve())); }
+    await once(connection, 'connect');
+    gateway.release('first', first.id);
+    assert.equal(gateway.renew('first', other.id), true);
+    const response = await fetch(address(other.port), { headers: { cookie: cookie(other) } });
+    assert.equal(response.status, 200);
+    await response.text();
+    const closed = once(connection, 'close', { signal: AbortSignal.timeout(5000) });
+    gateway.release('first', other.id);
+    await closed;
+    assert.equal(gateway.renew('first', other.id), false);
+  } finally {
+    connection.destroy();
+  }
+
+  selection.range = `${first.port}-${first.port}`;
+  selection.excluded = [first.port];
+  const listenMock = t.mock.method(http.Server.prototype, 'listen', () => assert.fail('An excluded preview port must not be bound'));
+  await assert.rejects(gateway.acquire('first', control), /No preview port is free/);
+  listenMock.mock.restore();
+
+  selection.range = range;
+  selection.excluded = [];
+  const third = await gateway.acquire('third', control);
+  assert.notEqual(third.port, second.port);
 }));
 
 test('L02: the newest observer cookie stays usable after that observer closes', async () => fixture(async ({ gateway }) => {
@@ -87,7 +140,7 @@ test('L02: the newest observer cookie stays usable after that observer closes', 
 test('L02: removed workflows, changed backends and expired leases cannot serve stale content', async () => fixture(async ({ gateway, workflows, backend, range }) => {
   const lease = await gateway.acquire('first', control); workflows.delete('first');
   assert.equal(gateway.renew('first', lease.id), false);
-  const expiring = new PreviewGateways({ host: '127.0.0.1', range: async () => `${range}-${range + 2}`, lookup: () => backend, excludedPorts: () => [], ttlMs: 1 });
+  const expiring = new PreviewGateways({ host: '127.0.0.1', range: async () => range, lookup: () => backend, excludedPorts: () => [], ttlMs: 1 });
   try { const lease = await expiring.acquire('fixture', control); await new Promise(resolve => setTimeout(resolve, 5)); assert.equal(expiring.renew('fixture', lease.id), false); }
   finally { expiring.close(); }
 }));
