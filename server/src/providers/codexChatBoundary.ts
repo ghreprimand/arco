@@ -24,7 +24,12 @@ export function supportsCodexChat(probe: ChatCapabilityProbe, web = false): bool
   let validated = false;
   try { const startup = JSON.parse(probe.startupConfig ?? ''); validated = typeof startup.appServerVersion === 'string' && !startup.error; } catch { /* Unsupported or failed strict configuration probe. */ }
   return supportedVersion && validated && (!web || listed(probe.listedFeatures ?? '', 'code_mode_host')) && requiredFeatures.every(name => listed(probe.listedFeatures ?? '', name))
-    && disabledFeatures.filter(name => requiredFeatures.includes(name) || listed(probe.listedFeatures ?? '', name)).every(name => new RegExp(`^${name}\\s+(?:${requiredFeatures.includes(name) || (web && name === 'code_mode_host') ? 'stable|experimental|under development' : 'stable|experimental|under development|removed'})\\s+${web && name === 'code_mode_host'}\\s*$`, 'm').test(probe.features ?? ''))
+    && disabledFeatures.filter(name => requiredFeatures.includes(name) || listed(probe.listedFeatures ?? '', name)).every(name => {
+      const enabled = web && name === 'code_mode_host';
+      const activeStages = 'stable|experimental|under development';
+      const stages = requiredFeatures.includes(name) || enabled ? activeStages : `${activeStages}|deprecated|removed`;
+      return new RegExp(`^${name}\\s+(?:${stages})\\s+${enabled}\\s*$`, 'm').test(probe.features ?? '');
+    })
     && [probe.execHelp, probe.resumeHelp].every(help => help?.includes('--ignore-user-config') && help.includes('--ignore-rules') && help.includes('--strict-config'));
 }
 const cache = new Map<string, { expires: number; supported: boolean; overrides: readonly string[] }>();

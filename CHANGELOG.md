@@ -5,6 +5,8 @@ and semantic versioning. New entries go under Unreleased; releases appear newest
 
 ## Unreleased
 
+- Codex Chat and original-worker handoffs accept an installed Codex that reports an optional feature as deprecated and disabled. Required tool restrictions still apply.
+
 - Docs: `POST /api/files/write` and `POST /api/image/write` now state that a workflow id binds to the server's registered project root (body `cwd` ignored), and that a bare `cwd` must be a root the server already knows.
 
 - KEEP AS PROJECT lets you choose a new research folder if the saved folder was removed. The Quick research or saved Chat stays available.

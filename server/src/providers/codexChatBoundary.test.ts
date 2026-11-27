@@ -56,6 +56,7 @@ test('capability gate refuses missing, removed, ignored and re-enabled readers',
   assert.equal(supportsCodexChat({...validProbe,resumeHelp:'--ignore-user-config'}),false);
   assert.equal(supportsCodexChat({...validProbe,features:validProbe.features.replace('shell_tool stable false','shell_tool stable true')}),false);
   assert.equal(supportsCodexChat({...validProbe,features:validProbe.features.replace('view_image stable false','view_image removed false')}),false);
+  assert.equal(supportsCodexChat({...validProbe,features:validProbe.features.replace('view_image stable false','view_image deprecated false')}),false);
 });
 test('unsupported installation emits a plain error without spawning a model or decoding attachments',async t=>{
   const childProcess=(await import('node:child_process')).default;
@@ -81,6 +82,14 @@ test('an absent optional feature is omitted; a listed optional reader must turn 
   assert.equal(supportsCodexChat({...validProbe,listedFeatures:listing.replace(/view_image[^\n]*\n/, '')}),false);
   assert.equal(supportsCodexChat({...validProbe,listedFeatures:validProbe.features,features:validProbe.features.replace('apps stable false','apps stable true')}),false);
   assert.equal(supportsCodexChat({...validProbe,features:validProbe.features.replace('apps stable false','apps removed false')}),true);
+  const deprecatedProbe={
+    ...validProbe,version:'codex-cli 0.172.0',
+    listedFeatures:validProbe.listedFeatures.replace('multi_agent stable true','multi_agent deprecated true'),
+    features:validProbe.features.replace('multi_agent stable false','multi_agent deprecated false'),
+  };
+  assert.ok(codexChatOverrides(deprecatedProbe.listedFeatures).includes('features.multi_agent=false'));
+  assert.equal(supportsCodexChat(deprecatedProbe),true);
+  assert.equal(supportsCodexChat({...deprecatedProbe,features:deprecatedProbe.features.replace('multi_agent deprecated false','multi_agent deprecated true')}),false);
 });
 test('saved app-server Chat keeps its provider session when the next message runs on exec',()=>{
   const session='aaaaaaaa-1234-1234-1234-123456789abc';
@@ -109,6 +118,7 @@ test('WEB capability checks require an enabled host and keep every other listed 
   assert.equal(supportsCodexChat(webProbe,true),true);
   assert.equal(supportsCodexChat(validProbe,true),false);
   assert.equal(supportsCodexChat({...webProbe,features:webProbe.features.replace('code_mode_host stable true','code_mode_host removed true')},true),false);
+  assert.equal(supportsCodexChat({...webProbe,features:webProbe.features.replace('code_mode_host stable true','code_mode_host deprecated true')},true),false);
   assert.equal(supportsCodexChat(webProbe,false),false);
   assert.equal(supportsCodexChat({...webProbe,features:webProbe.features.replace('shell_tool stable false','shell_tool stable true')},true),false);
   assert.equal(supportsCodexChat({...webProbe,listedFeatures:'shell_tool stable true\nview_image stable true'},true),false);
